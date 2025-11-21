@@ -1,0 +1,37 @@
+{
+  "name": "api",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "api",
+  "projectType": "application",
+  "tags": ["type:api", "framework:effect"],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd api && bun run dev",
+        "cwd": "."
+      }
+    },
+    "analyze": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd api && bun run analyze",
+        "cwd": "."
+      }
+    },
+    "monitor": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd api && bun run monitor",
+        "cwd": "."
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd api && bun run lint",
+        "cwd": "."
+      }
+    }
+  }
+}

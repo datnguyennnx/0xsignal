@@ -1,0 +1,16 @@
+{
+  "name": "shared",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "shared",
+  "projectType": "library",
+  "tags": ["type:shared", "scope:shared"],
+  "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "cd shared && bun run lint",
+        "cwd": "."
+      }
+    }
+  }
+}

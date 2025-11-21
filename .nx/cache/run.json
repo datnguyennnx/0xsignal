@@ -1,0 +1,9 @@
+{
+  "run": {
+    "command": "nx run-many -t serve --projects=app,api --parallel=2",
+    "startTime": "2025-11-21T07:25:29.233Z",
+    "endTime": "2025-11-21T07:26:42.426Z",
+    "inner": false
+  },
+  "tasks": []
+}

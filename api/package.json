@@ -1,0 +1,23 @@
+{
+  "name": "@0xsignal/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "main-crypto.ts",
+  "scripts": {
+    "dev": "bun --watch main-crypto.ts monitor",
+    "start": "bun main-crypto.ts monitor",
+    "analyze": "bun main-crypto.ts analyze",
+    "monitor": "bun main-crypto.ts monitor",
+    "lint": "eslint . --ext .ts"
+  },
+  "dependencies": {
+    "effect": "^3.19.5",
+    "@0xsignal/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.56.0",
+    "@types/node": "^24.10.1",
+    "tsx": "^4.20.6"
+  }
+}

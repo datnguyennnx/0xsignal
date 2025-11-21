@@ -1,0 +1,241 @@
+{
+  "version": "6.0",
+  "nxVersion": "22.1.0",
+  "pathMappings": {
+    "@/*": [
+      "app/src/*"
+    ],
+    "@shared/*": [
+      "shared/*"
+    ]
+  },
+  "nxJsonPlugins": [],
+  "fileMap": {
+    "nonProjectFiles": [
+      {
+        "file": ".gitignore",
+        "hash": "13046175384202504187"
+      },
+      {
+        "file": "ARCHITECTURE.md",
+        "hash": "12969286430121990052"
+      },
+      {
+        "file": "QUICK_START.md",
+        "hash": "3423138188630000744"
+      },
+      {
+        "file": "README.md",
+        "hash": "10413438841871238419"
+      },
+      {
+        "file": "bun.lock",
+        "hash": "9068807365341517490"
+      },
+      {
+        "file": "eslint.config.js",
+        "hash": "16942999842498204"
+      },
+      {
+        "file": "llm-full.txt",
+        "hash": "344649991964055928"
+      },
+      {
+        "file": "llm.txt",
+        "hash": "9045086457764035091"
+      },
+      {
+        "file": "nx.json",
+        "hash": "3572205228129416429"
+      },
+      {
+        "file": "package.json",
+        "hash": "3465921682969329436"
+      },
+      {
+        "file": "tsconfig.json",
+        "hash": "4261977809136403063"
+      }
+    ],
+    "projectFileMap": {
+      "app": [
+        {
+          "file": "app/components.json",
+          "hash": "16707793286969466864"
+        },
+        {
+          "file": "app/index.html",
+          "hash": "3924138086505979827"
+        },
+        {
+          "file": "app/package.json",
+          "hash": "8721229121217163977",
+          "deps": [
+            "npm:@effect/language-service@0.56.0",
+            "npm:@eslint/js@9.39.1",
+            "npm:@types/node@24.10.1",
+            "npm:@types/react@19.2.6",
+            "npm:@types/react-dom@19.2.3",
+            "npm:@vitejs/plugin-react@5.1.1",
+            "npm:babel-plugin-react-compiler@1.0.0",
+            "npm:eslint@9.39.1",
+            "npm:eslint-plugin-react-hooks@7.0.1",
+            "npm:eslint-plugin-react-refresh@0.4.24",
+            "npm:globals@16.5.0",
+            "npm:tw-animate-css",
+            "npm:typescript@5.9.3",
+            "npm:typescript-eslint@8.47.0",
+            "npm:rolldown-vite@7.2.5",
+            "npm:@radix-ui/react-alert-dialog@1.1.15",
+            "npm:@radix-ui/react-label@2.1.8",
+            "npm:@radix-ui/react-progress@1.1.8",
+            "npm:@radix-ui/react-slot@1.2.4",
+            "npm:@tailwindcss/vite@4.1.17",
+            "npm:class-variance-authority@0.7.1",
+            "npm:clsx@2.1.1",
+            "npm:effect@3.19.6",
+            "npm:lucide-react@0.554.0",
+            "npm:react@19.2.0",
+            "npm:react-dom@19.2.0",
+            "npm:tailwind-merge@3.4.0",
+            "npm:tailwindcss@4.1.17",
+            "shared"
+          ]
+        },
+        {
+          "file": "app/project.json",
+          "hash": "1487186316065416872"
+        },
+        {
+          "file": "app/public/vite.svg",
+          "hash": "16046085400642193116"
+        },
+        {
+          "file": "app/src/App.css",
+          "hash": "3739391659270974612"
+        },
+        {
+          "file": "app/src/App.tsx",
+          "hash": "1048176054191984199"
+        },
+        {
+          "file": "app/src/assets/react.svg",
+          "hash": "16069471864800376455"
+        },
+        {
+          "file": "app/src/components/ui/alert.tsx",
+          "hash": "7480384198647105618"
+        },
+        {
+          "file": "app/src/components/ui/badge.tsx",
+          "hash": "14557294719969173491"
+        },
+        {
+          "file": "app/src/components/ui/button.tsx",
+          "hash": "15207377044339002342"
+        },
+        {
+          "file": "app/src/components/ui/card.tsx",
+          "hash": "165657870150061051"
+        },
+        {
+          "file": "app/src/components/ui/input.tsx",
+          "hash": "2607547172702202989"
+        },
+        {
+          "file": "app/src/components/ui/label.tsx",
+          "hash": "4362919960382970735"
+        },
+        {
+          "file": "app/src/components/ui/progress.tsx",
+          "hash": "8046326627792569033"
+        },
+        {
+          "file": "app/src/components/ui/skeleton.tsx",
+          "hash": "16279548040846261523"
+        },
+        {
+          "file": "app/src/components/ui/table.tsx",
+          "hash": "9236219364163009886"
+        },
+        {
+          "file": "app/src/index.css",
+          "hash": "11659769798151082698"
+        },
+        {
+          "file": "app/src/lib/utils.ts",
+          "hash": "6483145186850064023"
+        },
+        {
+          "file": "app/src/main.tsx",
+          "hash": "11038211546439381838"
+        },
+        {
+          "file": "app/tsconfig.app.json",
+          "hash": "18304725597514175637"
+        },
+        {
+          "file": "app/tsconfig.node.json",
+          "hash": "16469834156532096979"
+        },
+        {
+          "file": "app/vite.config.ts",
+          "hash": "4470384621411448949"
+        }
+      ],
+      "api": [
+        {
+          "file": "api/main-crypto.ts",
+          "hash": "852444370273244554"
+        },
+        {
+          "file": "api/package.json",
+          "hash": "2932342699800905130",
+          "deps": [
+            "npm:@effect/language-service@0.56.0",
+            "npm:@types/node@24.10.1",
+            "npm:tsx@4.20.6",
+            "npm:effect@3.19.6",
+            "shared"
+          ]
+        },
+        {
+          "file": "api/project.json",
+          "hash": "8034640527435853322"
+        }
+      ],
+      "shared": [
+        {
+          "file": "shared/index.ts",
+          "hash": "11199209861602536619"
+        },
+        {
+          "file": "shared/package.json",
+          "hash": "14647382361695444724",
+          "deps": [
+            "npm:@types/node@24.10.1",
+            "npm:typescript@5.9.3",
+            "npm:effect@3.19.6"
+          ]
+        },
+        {
+          "file": "shared/project.json",
+          "hash": "12497938219208909219"
+        },
+        {
+          "file": "shared/services/bubble-detection.ts",
+          "hash": "13838136731132595528"
+        },
+        {
+          "file": "shared/services/http.ts",
+          "hash": "11742478395782538951"
+        },
+        {
+          "file": "shared/types/crypto.ts",
+          "hash": "11054749949081378038"
+        }
+      ]
+    }
+  },
+  "externalNodesHash": "7465789933374944375"
+}
