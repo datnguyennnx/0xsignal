@@ -20,18 +20,6 @@
       "api/package.json",
       "nx/core/package-json"
     ],
-    "metadata.targetGroups.NPM Scripts": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "metadata.targetGroups.NPM Scripts.0": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "metadata.targetGroups.NPM Scripts.1": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
     "metadata.js": [
       "api/package.json",
       "nx/core/package-json"
@@ -56,62 +44,6 @@
       "api/package.json",
       "nx/core/package-json"
     ],
-    "targets.dev": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.dev.executor": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.dev.options": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.dev.metadata": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.dev.options.script": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.dev.metadata.scriptContent": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.dev.metadata.runCommand": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.start": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.start.executor": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.start.options": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.start.metadata": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.start.options.script": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.start.metadata.scriptContent": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
-    "targets.start.metadata.runCommand": [
-      "api/package.json",
-      "nx/core/package-json"
-    ],
     "$schema": [
       "api/project.json",
       "nx/core/project-json"
@@ -132,23 +64,63 @@
       "api/project.json",
       "nx/core/project-json"
     ],
-    "targets.serve": [
+    "targets.dev": [
       "api/project.json",
       "nx/core/project-json"
     ],
-    "targets.serve.executor": [
+    "targets.dev.executor": [
       "api/project.json",
       "nx/core/project-json"
     ],
-    "targets.serve.options": [
+    "targets.dev.options": [
       "api/project.json",
       "nx/core/project-json"
     ],
-    "targets.serve.options.command": [
+    "targets.dev.options.command": [
       "api/project.json",
       "nx/core/project-json"
     ],
-    "targets.serve.options.cwd": [
+    "targets.dev.options.cwd": [
+      "api/project.json",
+      "nx/core/project-json"
+    ],
+    "targets.start": [
+      "api/project.json",
+      "nx/core/project-json"
+    ],
+    "targets.start.executor": [
+      "api/project.json",
+      "nx/core/project-json"
+    ],
+    "targets.start.options": [
+      "api/project.json",
+      "nx/core/project-json"
+    ],
+    "targets.start.options.command": [
+      "api/project.json",
+      "nx/core/project-json"
+    ],
+    "targets.start.options.cwd": [
+      "api/project.json",
+      "nx/core/project-json"
+    ],
+    "targets.build": [
+      "api/project.json",
+      "nx/core/project-json"
+    ],
+    "targets.build.executor": [
+      "api/project.json",
+      "nx/core/project-json"
+    ],
+    "targets.build.options": [
+      "api/project.json",
+      "nx/core/project-json"
+    ],
+    "targets.build.options.command": [
+      "api/project.json",
+      "nx/core/project-json"
+    ],
+    "targets.build.options.cwd": [
       "api/project.json",
       "nx/core/project-json"
     ],
@@ -211,6 +183,22 @@
     "targets.lint.options.cwd": [
       "api/project.json",
       "nx/core/project-json"
+    ],
+    "targets.build.dependsOn": [
+      "nx.json",
+      "nx/target-defaults"
+    ],
+    "targets.build.inputs": [
+      "nx.json",
+      "nx/target-defaults"
+    ],
+    "targets.build.cache": [
+      "nx.json",
+      "nx/target-defaults"
+    ],
+    "targets.build.parallelism": [
+      "nx.json",
+      "nx/target-defaults"
     ],
     "targets.lint.inputs": [
       "nx.json",

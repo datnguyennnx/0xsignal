@@ -13,24 +13,16 @@
   "fileMap": {
     "nonProjectFiles": [
       {
+        "file": ".env.example",
+        "hash": "15053381558569244236"
+      },
+      {
         "file": ".gitignore",
-        "hash": "13046175384202504187"
-      },
-      {
-        "file": "ARCHITECTURE.md",
-        "hash": "12969286430121990052"
-      },
-      {
-        "file": "QUICK_START.md",
-        "hash": "3423138188630000744"
-      },
-      {
-        "file": "README.md",
-        "hash": "10413438841871238419"
+        "hash": "8402325140502493106"
       },
       {
         "file": "bun.lock",
-        "hash": "9068807365341517490"
+        "hash": "95809967871643428"
       },
       {
         "file": "eslint.config.js",
@@ -50,7 +42,7 @@
       },
       {
         "file": "package.json",
-        "hash": "3465921682969329436"
+        "hash": "8013853611483407774"
       },
       {
         "file": "tsconfig.json",
@@ -58,7 +50,359 @@
       }
     ],
     "projectFileMap": {
+      "shared": [
+        {
+          "file": "shared/index.ts",
+          "hash": "11199209861602536619"
+        },
+        {
+          "file": "shared/package.json",
+          "hash": "14647382361695444724",
+          "deps": [
+            "npm:@types/node@24.10.1",
+            "npm:typescript@5.9.3",
+            "npm:effect@3.19.6"
+          ]
+        },
+        {
+          "file": "shared/project.json",
+          "hash": "12497938219208909219"
+        },
+        {
+          "file": "shared/services/bubble-detection.ts",
+          "hash": "13838136731132595528"
+        },
+        {
+          "file": "shared/services/http.ts",
+          "hash": "12548987619860706295"
+        },
+        {
+          "file": "shared/types/crypto.ts",
+          "hash": "13457410126571663859"
+        }
+      ],
+      "api": [
+        {
+          "file": "api/.env.example",
+          "hash": "1141104420744129024"
+        },
+        {
+          "file": "api/application/use-cases/analyze-market.ts",
+          "hash": "17054611213677318045"
+        },
+        {
+          "file": "api/application/use-cases/monitor-market.ts",
+          "hash": "9971692787317100700"
+        },
+        {
+          "file": "api/domain/formulas/README.md",
+          "hash": "490202902592674530"
+        },
+        {
+          "file": "api/domain/formulas/analyzer.ts",
+          "hash": "8141173536885772603"
+        },
+        {
+          "file": "api/domain/formulas/core/errors.ts",
+          "hash": "12428516047813715073"
+        },
+        {
+          "file": "api/domain/formulas/core/index.ts",
+          "hash": "1543651886486114185"
+        },
+        {
+          "file": "api/domain/formulas/core/math.ts",
+          "hash": "12821574910037872757"
+        },
+        {
+          "file": "api/domain/formulas/core/types.ts",
+          "hash": "1004870810011022059"
+        },
+        {
+          "file": "api/domain/formulas/core/validation.ts",
+          "hash": "2933375032467066840"
+        },
+        {
+          "file": "api/domain/formulas/index.ts",
+          "hash": "10773697607020937580"
+        },
+        {
+          "file": "api/domain/formulas/mean-reversion/bollinger-width.ts",
+          "hash": "8712048050922289042"
+        },
+        {
+          "file": "api/domain/formulas/mean-reversion/distance-from-ma.ts",
+          "hash": "1514631686924637117"
+        },
+        {
+          "file": "api/domain/formulas/mean-reversion/index.ts",
+          "hash": "12984915166628192848"
+        },
+        {
+          "file": "api/domain/formulas/mean-reversion/keltner-width.ts",
+          "hash": "15266382044562585957"
+        },
+        {
+          "file": "api/domain/formulas/mean-reversion/mean-reversion-score.ts",
+          "hash": "12288562537167476508"
+        },
+        {
+          "file": "api/domain/formulas/mean-reversion/percent-b.ts",
+          "hash": "10956858484898978747"
+        },
+        {
+          "file": "api/domain/formulas/metrics.ts",
+          "hash": "9624513764585072149"
+        },
+        {
+          "file": "api/domain/formulas/momentum/index.ts",
+          "hash": "7256246984685041114"
+        },
+        {
+          "file": "api/domain/formulas/momentum/macd.ts",
+          "hash": "1658992061482629727"
+        },
+        {
+          "file": "api/domain/formulas/momentum/momentum.ts",
+          "hash": "10703986303230649111"
+        },
+        {
+          "file": "api/domain/formulas/momentum/roc.ts",
+          "hash": "12034877472693943619"
+        },
+        {
+          "file": "api/domain/formulas/momentum/rsi.ts",
+          "hash": "8997771447109632891"
+        },
+        {
+          "file": "api/domain/formulas/momentum/stochastic.ts",
+          "hash": "2577376091494082549"
+        },
+        {
+          "file": "api/domain/formulas/momentum/williams-r.ts",
+          "hash": "14876435282169397510"
+        },
+        {
+          "file": "api/domain/formulas/oscillators/awesome.ts",
+          "hash": "9286073777683683900"
+        },
+        {
+          "file": "api/domain/formulas/oscillators/cci.ts",
+          "hash": "2302202451409958863"
+        },
+        {
+          "file": "api/domain/formulas/oscillators/dpo.ts",
+          "hash": "880554535663966506"
+        },
+        {
+          "file": "api/domain/formulas/oscillators/index.ts",
+          "hash": "3940014839916019234"
+        },
+        {
+          "file": "api/domain/formulas/oscillators/rvi.ts",
+          "hash": "1385622334068475998"
+        },
+        {
+          "file": "api/domain/formulas/oscillators/ultimate.ts",
+          "hash": "7140854363905060117"
+        },
+        {
+          "file": "api/domain/formulas/risk/beta.ts",
+          "hash": "2046877384567100441"
+        },
+        {
+          "file": "api/domain/formulas/risk/calmar-ratio.ts",
+          "hash": "12057319509464373951"
+        },
+        {
+          "file": "api/domain/formulas/risk/cvar.ts",
+          "hash": "12716950102311605361"
+        },
+        {
+          "file": "api/domain/formulas/risk/index.ts",
+          "hash": "7442459974816850319"
+        },
+        {
+          "file": "api/domain/formulas/risk/maximum-drawdown.ts",
+          "hash": "16079688547539298819"
+        },
+        {
+          "file": "api/domain/formulas/risk/sharpe-ratio.ts",
+          "hash": "2061532918328231093"
+        },
+        {
+          "file": "api/domain/formulas/risk/sortino-ratio.ts",
+          "hash": "9441540383597740688"
+        },
+        {
+          "file": "api/domain/formulas/risk/var.ts",
+          "hash": "1677051761001132503"
+        },
+        {
+          "file": "api/domain/formulas/statistical/correlation.ts",
+          "hash": "9300923299471205450"
+        },
+        {
+          "file": "api/domain/formulas/statistical/covariance.ts",
+          "hash": "13826797229772757500"
+        },
+        {
+          "file": "api/domain/formulas/statistical/index.ts",
+          "hash": "1225512326505482728"
+        },
+        {
+          "file": "api/domain/formulas/statistical/linear-regression.ts",
+          "hash": "12466389463468174384"
+        },
+        {
+          "file": "api/domain/formulas/statistical/standard-deviation.ts",
+          "hash": "5728389923443638038"
+        },
+        {
+          "file": "api/domain/formulas/statistical/z-score.ts",
+          "hash": "17900826108572860747"
+        },
+        {
+          "file": "api/domain/formulas/trend/adx.ts",
+          "hash": "16556985014280572231"
+        },
+        {
+          "file": "api/domain/formulas/trend/index.ts",
+          "hash": "5032536634875984511"
+        },
+        {
+          "file": "api/domain/formulas/trend/moving-averages.ts",
+          "hash": "5320749943824938465"
+        },
+        {
+          "file": "api/domain/formulas/trend/parabolic-sar.ts",
+          "hash": "10163602723206298660"
+        },
+        {
+          "file": "api/domain/formulas/trend/supertrend.ts",
+          "hash": "9505045379639760839"
+        },
+        {
+          "file": "api/domain/formulas/volatility/atr.ts",
+          "hash": "6680338097449863915"
+        },
+        {
+          "file": "api/domain/formulas/volatility/bollinger-bands.ts",
+          "hash": "9552774371266302935"
+        },
+        {
+          "file": "api/domain/formulas/volatility/donchian-channels.ts",
+          "hash": "11985754669982432618"
+        },
+        {
+          "file": "api/domain/formulas/volatility/garman-klass.ts",
+          "hash": "2368719521393972070"
+        },
+        {
+          "file": "api/domain/formulas/volatility/historical-volatility.ts",
+          "hash": "13086391292261179172"
+        },
+        {
+          "file": "api/domain/formulas/volatility/index.ts",
+          "hash": "7391164119670368034"
+        },
+        {
+          "file": "api/domain/formulas/volatility/keltner-channels.ts",
+          "hash": "6403256013824048824"
+        },
+        {
+          "file": "api/domain/formulas/volatility/parkinson.ts",
+          "hash": "10448581893513390358"
+        },
+        {
+          "file": "api/domain/formulas/volume/ad-line.ts",
+          "hash": "16188144692797948629"
+        },
+        {
+          "file": "api/domain/formulas/volume/chaikin-mf.ts",
+          "hash": "15146866398054345184"
+        },
+        {
+          "file": "api/domain/formulas/volume/index.ts",
+          "hash": "11843289668389438579"
+        },
+        {
+          "file": "api/domain/formulas/volume/mfi.ts",
+          "hash": "1828133828780890640"
+        },
+        {
+          "file": "api/domain/formulas/volume/obv.ts",
+          "hash": "1240274993948591859"
+        },
+        {
+          "file": "api/domain/formulas/volume/volume-roc.ts",
+          "hash": "10272665928508784282"
+        },
+        {
+          "file": "api/domain/formulas/volume/vwap.ts",
+          "hash": "1361083795061238941"
+        },
+        {
+          "file": "api/domain/models/errors.ts",
+          "hash": "6772254831247227495"
+        },
+        {
+          "file": "api/domain/services/market-analysis.ts",
+          "hash": "13433107531464900319"
+        },
+        {
+          "file": "api/index.ts",
+          "hash": "2175818602082865522"
+        },
+        {
+          "file": "api/infrastructure/cache/cache.service.ts",
+          "hash": "1927463675918145548"
+        },
+        {
+          "file": "api/infrastructure/config/app.config.ts",
+          "hash": "2711737331557621250"
+        },
+        {
+          "file": "api/infrastructure/layers/app.layer.ts",
+          "hash": "1157979811386113646"
+        },
+        {
+          "file": "api/infrastructure/logging/logger.service.ts",
+          "hash": "2370753113958736250"
+        },
+        {
+          "file": "api/main.ts",
+          "hash": "1728255132528549816"
+        },
+        {
+          "file": "api/package.json",
+          "hash": "10497303301737131848",
+          "deps": [
+            "npm:@effect/language-service@0.56.0",
+            "npm:@types/node@24.10.1",
+            "npm:tsx@4.20.6",
+            "shared",
+            "npm:effect@3.19.6"
+          ]
+        },
+        {
+          "file": "api/presentation/http/server.ts",
+          "hash": "2875048866346915285"
+        },
+        {
+          "file": "api/project.json",
+          "hash": "11828544141683148623"
+        },
+        {
+          "file": "api/tsconfig.json",
+          "hash": "16215745396412147540"
+        }
+      ],
       "app": [
+        {
+          "file": "app/.env.example",
+          "hash": "10408473531817956042"
+        },
         {
           "file": "app/components.json",
           "hash": "16707793286969466864"
@@ -69,13 +413,14 @@
         },
         {
           "file": "app/package.json",
-          "hash": "8721229121217163977",
+          "hash": "4121031634282787615",
           "deps": [
             "npm:@effect/language-service@0.56.0",
             "npm:@eslint/js@9.39.1",
             "npm:@types/node@24.10.1",
             "npm:@types/react@19.2.6",
             "npm:@types/react-dom@19.2.3",
+            "npm:@types/react-router-dom@5.3.3",
             "npm:@vitejs/plugin-react@5.1.1",
             "npm:babel-plugin-react-compiler@1.0.0",
             "npm:eslint@9.39.1",
@@ -86,7 +431,9 @@
             "npm:typescript@5.9.3",
             "npm:typescript-eslint@8.47.0",
             "npm:rolldown-vite@7.2.5",
-            "npm:@radix-ui/react-alert-dialog@1.1.15",
+            "shared",
+            "npm:@effect/platform@0.93.3",
+            "npm:@effect/schema@0.75.5",
             "npm:@radix-ui/react-label@2.1.8",
             "npm:@radix-ui/react-progress@1.1.8",
             "npm:@radix-ui/react-slot@1.2.4",
@@ -97,9 +444,9 @@
             "npm:lucide-react@0.554.0",
             "npm:react@19.2.0",
             "npm:react-dom@19.2.0",
+            "npm:react-router-dom@7.9.6",
             "npm:tailwind-merge@3.4.0",
-            "npm:tailwindcss@4.1.17",
-            "shared"
+            "npm:tailwindcss@4.1.17"
           ]
         },
         {
@@ -116,11 +463,27 @@
         },
         {
           "file": "app/src/App.tsx",
-          "hash": "1048176054191984199"
+          "hash": "14818189732111828997"
         },
         {
           "file": "app/src/assets/react.svg",
           "hash": "16069471864800376455"
+        },
+        {
+          "file": "app/src/components/BubbleChart.tsx",
+          "hash": "13972998003474810084"
+        },
+        {
+          "file": "app/src/components/CryptoCard.tsx",
+          "hash": "12469235082628303178"
+        },
+        {
+          "file": "app/src/components/Layout.tsx",
+          "hash": "16698362528281770871"
+        },
+        {
+          "file": "app/src/components/SignalCard.tsx",
+          "hash": "6512236357275039616"
         },
         {
           "file": "app/src/components/ui/alert.tsx",
@@ -160,7 +523,15 @@
         },
         {
           "file": "app/src/index.css",
-          "hash": "11659769798151082698"
+          "hash": "18140183658483701690"
+        },
+        {
+          "file": "app/src/lib/api.ts",
+          "hash": "9166339826580650678"
+        },
+        {
+          "file": "app/src/lib/runtime.ts",
+          "hash": "17750187130223041758"
         },
         {
           "file": "app/src/lib/utils.ts",
@@ -169,6 +540,14 @@
         {
           "file": "app/src/main.tsx",
           "hash": "11038211546439381838"
+        },
+        {
+          "file": "app/src/pages/MarketDashboard.tsx",
+          "hash": "12551262368596957780"
+        },
+        {
+          "file": "app/src/pages/TradingSignals.tsx",
+          "hash": "14826762928027224233"
         },
         {
           "file": "app/tsconfig.app.json",
@@ -180,62 +559,10 @@
         },
         {
           "file": "app/vite.config.ts",
-          "hash": "4470384621411448949"
-        }
-      ],
-      "api": [
-        {
-          "file": "api/main-crypto.ts",
-          "hash": "852444370273244554"
-        },
-        {
-          "file": "api/package.json",
-          "hash": "2932342699800905130",
-          "deps": [
-            "npm:@effect/language-service@0.56.0",
-            "npm:@types/node@24.10.1",
-            "npm:tsx@4.20.6",
-            "npm:effect@3.19.6",
-            "shared"
-          ]
-        },
-        {
-          "file": "api/project.json",
-          "hash": "8034640527435853322"
-        }
-      ],
-      "shared": [
-        {
-          "file": "shared/index.ts",
-          "hash": "11199209861602536619"
-        },
-        {
-          "file": "shared/package.json",
-          "hash": "14647382361695444724",
-          "deps": [
-            "npm:@types/node@24.10.1",
-            "npm:typescript@5.9.3",
-            "npm:effect@3.19.6"
-          ]
-        },
-        {
-          "file": "shared/project.json",
-          "hash": "12497938219208909219"
-        },
-        {
-          "file": "shared/services/bubble-detection.ts",
-          "hash": "13838136731132595528"
-        },
-        {
-          "file": "shared/services/http.ts",
-          "hash": "11742478395782538951"
-        },
-        {
-          "file": "shared/types/crypto.ts",
-          "hash": "11054749949081378038"
+          "hash": "997324217502623961"
         }
       ]
     }
   },
-  "externalNodesHash": "7465789933374944375"
+  "externalNodesHash": "10870054215260234536"
 }
