@@ -1,0 +1,41 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: 0xsignal-api
+    ports:
+      - "9006:9006"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9006/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    container_name: 0xsignal-app
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  app-network:
+    driver: bridge

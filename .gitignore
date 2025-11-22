@@ -25,3 +25,9 @@ dist-ssr
 
 .nx/*
 .kiro/*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
