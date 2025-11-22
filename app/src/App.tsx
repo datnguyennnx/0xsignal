@@ -1,7 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { MarketDashboard } from './pages/MarketDashboard';
-import { TradingSignals } from './pages/TradingSignals';
+import { AllBuySignals } from './pages/AllBuySignals';
+import { AllSellSignals } from './pages/AllSellSignals';
+import { AssetDetail } from './pages/AssetDetail';
 
 function App() {
   return (
@@ -9,8 +11,9 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<MarketDashboard />} />
-          <Route path="/signals" element={<TradingSignals />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/buy" element={<AllBuySignals />} />
+          <Route path="/sell" element={<AllSellSignals />} />
+          <Route path="/asset/:symbol" element={<AssetDetail />} />
         </Routes>
       </Layout>
     </BrowserRouter>

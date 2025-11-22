@@ -23,6 +23,7 @@ import {
 
 export interface EnhancedAnalysis {
   readonly symbol: string;
+  readonly price: CryptoPrice;  // Add price data
   readonly bubbleAnalysis: CryptoBubbleAnalysis;
   readonly quantAnalysis: QuantitativeAnalysis;
   readonly combinedRiskScore: number;
@@ -191,6 +192,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
 
         const result: EnhancedAnalysis = {
           symbol: price.symbol,
+          price,  // Include price data
           bubbleAnalysis,
           quantAnalysis,
           combinedRiskScore,
@@ -263,6 +265,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
 
               return {
                 symbol: price.symbol,
+                price,  // Include price data
                 bubbleAnalysis,
                 quantAnalysis,
                 combinedRiskScore,
@@ -273,6 +276,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
               Effect.catchAll(() =>
                 Effect.succeed({
                   symbol: price.symbol,
+                  price,  // Include price data in fallback
                   bubbleAnalysis: {
                     symbol: price.symbol,
                     isBubble: false,
@@ -301,7 +305,40 @@ export const MarketAnalysisServiceLive = Layer.effect(
                       rsi: 50,
                       priceAction: "NEUTRAL" as const,
                     },
-                    overallSignal: "NEUTRAL" as const,
+                    percentB: 0.5,
+                    bollingerWidth: 0,
+                    distanceFromMA: 0,
+                    volumeROC: 0,
+                    volumeToMarketCapRatio: 0,
+                    dailyRange: 0,
+                    athDistance: 0,
+                    compositeScores: {
+                      momentum: {
+                        rsi: 50,
+                        volumeROC: 0,
+                        priceChange24h: 0,
+                        score: 0,
+                        signal: "NEUTRAL" as const,
+                        insight: "No data available"
+                      },
+                      volatility: {
+                        bollingerWidth: 0,
+                        dailyRange: 0,
+                        athDistance: 0,
+                        score: 0,
+                        regime: "NORMAL" as const,
+                        insight: "No data available"
+                      },
+                      meanReversion: {
+                        percentB: 0.5,
+                        distanceFromMA: 0,
+                        score: 0,
+                        signal: "NEUTRAL" as const,
+                        insight: "No data available"
+                      },
+                      overallQuality: 0
+                    },
+                    overallSignal: "HOLD" as const,
                     confidence: 0,
                     riskScore: 0,
                   },

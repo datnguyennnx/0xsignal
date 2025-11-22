@@ -1,5 +1,5 @@
 import { Effect, Data, Context, Layer, pipe } from 'effect';
-import type { CryptoBubbleAnalysis } from '@0xsignal/shared';
+import type { CryptoBubbleAnalysis, EnhancedAnalysis } from '@0xsignal/shared';
 
 const API_BASE = import.meta.env.DEV ? '/api' : 'http://localhost:9006/api';
 
@@ -25,12 +25,12 @@ export class ApiService extends Context.Tag('ApiService')<
     readonly health: () => Effect.Effect<unknown, ApiError | NetworkError>;
     readonly getTopAnalysis: (
       limit?: number
-    ) => Effect.Effect<CryptoBubbleAnalysis[], ApiError | NetworkError>;
+    ) => Effect.Effect<EnhancedAnalysis[], ApiError | NetworkError>;
     readonly getAnalysis: (
       symbol: string
-    ) => Effect.Effect<CryptoBubbleAnalysis, ApiError | NetworkError>;
+    ) => Effect.Effect<EnhancedAnalysis, ApiError | NetworkError>;
     readonly getOverview: () => Effect.Effect<any, ApiError | NetworkError>;
-    readonly getSignals: () => Effect.Effect<CryptoBubbleAnalysis[], ApiError | NetworkError>;
+    readonly getSignals: () => Effect.Effect<EnhancedAnalysis[], ApiError | NetworkError>;
   }
 >() {}
 
@@ -66,14 +66,14 @@ export const ApiServiceLive = Layer.succeed(ApiService, {
   health: () => fetchJson(`${API_BASE}/health`),
 
   getTopAnalysis: (limit = 20) =>
-    fetchJson<CryptoBubbleAnalysis[]>(`${API_BASE}/analysis/top?limit=${limit}`),
+    fetchJson<EnhancedAnalysis[]>(`${API_BASE}/analysis/top?limit=${limit}`),
 
   getAnalysis: (symbol: string) =>
-    fetchJson<CryptoBubbleAnalysis>(`${API_BASE}/analysis/${symbol}`),
+    fetchJson<EnhancedAnalysis>(`${API_BASE}/analysis/${symbol}`),
 
   getOverview: () => fetchJson(`${API_BASE}/overview`),
 
-  getSignals: () => fetchJson<CryptoBubbleAnalysis[]>(`${API_BASE}/signals`),
+  getSignals: () => fetchJson<EnhancedAnalysis[]>(`${API_BASE}/signals`),
 });
 
 // ------------------------------ 

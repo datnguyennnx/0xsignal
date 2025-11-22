@@ -1,8 +1,12 @@
 import { Effect } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
-import { computeBollingerBands, detectSqueeze, type BollingerSqueezeSignal } from "./volatility";
-import { computeRSI, detectDivergence, type RSIDivergenceSignal, type RSIResult } from "./momentum";
+import { detectSqueeze, type BollingerSqueezeSignal } from "./volatility";
+import { detectDivergence, type RSIDivergenceSignal } from "./momentum";
+import { computePercentB } from "./mean-reversion/percent-b";
+import { computeBBWidth } from "./mean-reversion/bollinger-width";
+import { computeDistanceFromMA } from "./mean-reversion/distance-from-ma";
 import { calculateEnhancedMetrics } from "./metrics";
+import { computeCompositeScores, type CompositeScores } from "./composite-scores";
 
 // ============================================================================
 // MULTI-INDICATOR ANALYZER
@@ -14,9 +18,29 @@ import { calculateEnhancedMetrics } from "./metrics";
 export interface QuantitativeAnalysis {
   readonly symbol: string;
   readonly timestamp: Date;
+  
+  // Core indicators
   readonly bollingerSqueeze: BollingerSqueezeSignal;
   readonly rsiDivergence: RSIDivergenceSignal;
-  readonly overallSignal: 'STRONG_BUY' | 'BUY' | 'NEUTRAL' | 'SELL' | 'STRONG_SELL';
+  
+  // Mean reversion indicators
+  readonly percentB: number;                    // 0-1 (position in Bollinger Bands)
+  readonly bollingerWidth: number;              // % (band width)
+  readonly distanceFromMA: number;              // % (distance from moving average)
+  
+  // Volume indicators
+  readonly volumeROC: number;                   // % (volume rate of change)
+  readonly volumeToMarketCapRatio: number;      // ratio (liquidity measure)
+  
+  // Volatility indicators
+  readonly dailyRange: number;                  // % (24h high-low range)
+  readonly athDistance: number;                 // % (distance from all-time high)
+  
+  // Composite scores
+  readonly compositeScores: CompositeScores;
+  
+  // Overall assessment
+  readonly overallSignal: 'STRONG_BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG_SELL';
   readonly confidence: number;
   readonly riskScore: number;
 }
@@ -30,17 +54,47 @@ export const analyzeWithFormulas = (
 ): Effect.Effect<QuantitativeAnalysis> =>
   Effect.gen(function* () {
     // Run all formulas in parallel
-    const [squeeze, divergence] = yield* Effect.all([
+    const [squeeze, divergence, percentBResult, bollingerWidthResult, distanceFromMAResult] = yield* Effect.all([
       detectSqueeze(price),
       detectDivergence(price),
+      computePercentB(price),
+      computeBBWidth(price),
+      computeDistanceFromMA(price),
     ], { concurrency: "unbounded" });
     
-    // Calculate enhanced metrics for risk score
+    // Extract values from results
+    const percentB = percentBResult.value;
+    const bollingerWidth = bollingerWidthResult.widthPercent;
+    const distanceFromMA = distanceFromMAResult.distance;
+    
+    // Calculate enhanced metrics
     const enhanced = yield* Effect.sync(() => calculateEnhancedMetrics(price));
     
-    // Determine overall signal
+    // Calculate derived metrics
+    const volumeToMarketCapRatio = price.volume24h / price.marketCap;
+    const dailyRange = price.high24h && price.low24h 
+      ? ((price.high24h - price.low24h) / price.price) * 100 
+      : 0;
+    const athDistance = price.ath ? ((price.ath - price.price) / price.ath) * 100 : 0;
+    
+    // Calculate volume ROC (simplified - using 24h change as proxy)
+    const volumeROC = price.change24h; // Simplified for single price point
+    
+    // Compute composite scores
+    const compositeScores = yield* computeCompositeScores(
+      divergence.rsi,
+      volumeROC,
+      price.change24h,
+      bollingerWidth,
+      dailyRange,
+      athDistance,
+      percentB,
+      distanceFromMA
+    );
+    
+    // Determine overall signal from composite scores
     const { overallSignal, confidence } = yield* Effect.sync(() => 
-      calculateOverallSignal(squeeze, divergence)
+      calculateOverallSignal(compositeScores, squeeze, divergence)
     );
     
     return {
@@ -48,6 +102,14 @@ export const analyzeWithFormulas = (
       timestamp: new Date(),
       bollingerSqueeze: squeeze,
       rsiDivergence: divergence,
+      percentB,
+      bollingerWidth,
+      distanceFromMA,
+      volumeROC,
+      volumeToMarketCapRatio,
+      dailyRange,
+      athDistance,
+      compositeScores,
       overallSignal,
       confidence,
       riskScore: enhanced.quantRiskScore,
@@ -56,48 +118,54 @@ export const analyzeWithFormulas = (
 
 /**
  * Pure function to calculate overall trading signal
- * Combines multiple formula signals with weighted scoring
+ * Combines composite scores with specific indicators
  */
 const calculateOverallSignal = (
+  compositeScores: CompositeScores,
   squeeze: BollingerSqueezeSignal,
   divergence: RSIDivergenceSignal
 ): { overallSignal: QuantitativeAnalysis['overallSignal']; confidence: number } => {
-  let score = 0; // -100 to +100 (negative = sell, positive = buy)
-  let totalWeight = 0;
+  // Primary signal from momentum score
+  const momentumScore = compositeScores.momentum.score; // -100 to +100
   
-  // Bollinger Squeeze signal (weight: 40%)
+  // Mean reversion adjustment
+  const mrScore = compositeScores.meanReversion.score; // -100 to +100
+  
+  // Combine: Momentum 70%, Mean Reversion 30%
+  let combinedScore = (momentumScore * 0.7) + (mrScore * 0.3);
+  
+  // Boost signal if Bollinger Squeeze confirms
   if (squeeze.isSqueezing) {
-    const squeezeWeight = 40;
-    const squeezeScore = squeeze.breakoutDirection === 'BULLISH' ? 1 :
-                         squeeze.breakoutDirection === 'BEARISH' ? -1 : 0;
-    score += squeezeScore * squeezeWeight * (squeeze.confidence / 100);
-    totalWeight += squeezeWeight;
+    const squeezeBoost = squeeze.breakoutDirection === 'BULLISH' ? 20 :
+                         squeeze.breakoutDirection === 'BEARISH' ? -20 : 0;
+    combinedScore += squeezeBoost * (squeeze.confidence / 100);
   }
   
-  // RSI Divergence signal (weight: 60%)
+  // Boost signal if RSI Divergence confirms
   if (divergence.hasDivergence) {
-    const divergenceWeight = 60;
-    const divergenceScore = divergence.divergenceType === 'BULLISH' ? 1 :
-                            divergence.divergenceType === 'BEARISH' ? -1 : 0;
-    score += divergenceScore * divergenceWeight * (divergence.strength / 100);
-    totalWeight += divergenceWeight;
+    const divergenceBoost = divergence.divergenceType === 'BULLISH' ? 15 :
+                            divergence.divergenceType === 'BEARISH' ? -15 : 0;
+    combinedScore += divergenceBoost * (divergence.strength / 100);
   }
   
-  // Normalize score
-  const normalizedScore = totalWeight > 0 ? score / totalWeight : 0;
+  // Cap at -100 to +100
+  combinedScore = Math.max(-100, Math.min(100, combinedScore));
   
   // Determine signal
   const overallSignal: QuantitativeAnalysis['overallSignal'] =
-    normalizedScore > 0.6 ? 'STRONG_BUY' :
-    normalizedScore > 0.2 ? 'BUY' :
-    normalizedScore < -0.6 ? 'STRONG_SELL' :
-    normalizedScore < -0.2 ? 'SELL' :
-    'NEUTRAL';
+    combinedScore > 60 ? 'STRONG_BUY' :
+    combinedScore > 20 ? 'BUY' :
+    combinedScore < -60 ? 'STRONG_SELL' :
+    combinedScore < -20 ? 'SELL' :
+    'HOLD';
   
-  // Calculate confidence (0-100)
-  const confidence = Math.round(Math.abs(normalizedScore) * 100);
+  // Confidence based on quality score and signal strength
+  const signalStrength = Math.abs(combinedScore);
+  const confidence = Math.round(
+    (signalStrength * 0.6) + (compositeScores.overallQuality * 0.4)
+  );
   
-  return { overallSignal, confidence };
+  return { overallSignal, confidence: Math.min(100, confidence) };
 };
 
 /**

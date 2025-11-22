@@ -1,198 +1,242 @@
 import { Effect, Exit, pipe } from 'effect';
 import { Button } from '@/components/ui/button';
-import { BubbleChart } from '../components/BubbleChart';
-import { RefreshCw, TrendingUp, TrendingDown, Activity, Target } from 'lucide-react';
-import { getTopAnalysis, getOverview } from '../lib/api';
+import { RefreshCw, ArrowRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { getTopAnalysis } from '../lib/api';
 import { useEffect_ } from '../lib/runtime';
+import { cn } from '@/lib/utils';
 
-const fetchDashboardData = () =>
-  Effect.gen(function* () {
-    const [analyses, overview] = yield* Effect.all([getTopAnalysis(20), getOverview()]);
-    return { analyses, overview };
-  });
+const fetchDashboardData = () => Effect.gen(function* () {
+  return yield* getTopAnalysis(50);
+});
 
 export function MarketDashboard() {
   const exit = useEffect_(fetchDashboardData, []);
+  const navigate = useNavigate();
 
   if (!exit) {
-    return <div className="text-center py-20 text-white/40">Loading market data...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center space-y-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto"></div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   return pipe(
     exit,
     Exit.match({
       onFailure: () => (
-        <div className="space-y-6">
-          <h1 className="text-3xl font-bold">Market Dashboard</h1>
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
-            Failed to load market data. Please try again.
+        <div className="max-w-6xl mx-auto space-y-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Trading Signals</h1>
+            <Button onClick={() => window.location.reload()} size="sm" variant="outline">
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-6 text-center">
+            <p className="text-sm text-destructive">Unable to load data. Please refresh.</p>
           </div>
         </div>
       ),
-      onSuccess: (data) => {
-        const stats = {
-          total: data.overview?.totalAnalyzed || 0,
-          bubbles: data.overview?.bubblesDetected || 0,
-          highRisk: data.overview?.highRiskAssets?.length || 0,
-        };
+      onSuccess: (analyses) => {
+        const buySignals = analyses.filter((a: any) => 
+          a.quantAnalysis?.overallSignal === 'STRONG_BUY' || a.quantAnalysis?.overallSignal === 'BUY'
+        );
+        const sellSignals = analyses.filter((a: any) => 
+          a.quantAnalysis?.overallSignal === 'STRONG_SELL' || a.quantAnalysis?.overallSignal === 'SELL'
+        );
 
-        // Calculate market sentiment from analyses
-        const bullishCount = data.analyses?.filter((a: any) => 
-          a.quantAnalysis?.overallSignal === 'BUY' || a.quantAnalysis?.overallSignal === 'STRONG_BUY'
-        ).length || 0;
-        
-        const bearishCount = data.analyses?.filter((a: any) => 
-          a.quantAnalysis?.overallSignal === 'SELL' || a.quantAnalysis?.overallSignal === 'STRONG_SELL'
-        ).length || 0;
-
-        const marketSentiment = bullishCount > bearishCount ? 'BULLISH' : 
-                               bearishCount > bullishCount ? 'BEARISH' : 'NEUTRAL';
+        // Show top 5 each
+        const topBuy = buySignals.slice(0, 10);
+        const topSell = sellSignals.slice(0, 10);
 
         return (
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold">Market Dashboard</h1>
-                <p className="text-white/40 text-sm mt-1">
-                  Quantitative analysis with Bollinger Bands & RSI
-                </p>
-              </div>
-              <Button
-                onClick={() => window.location.reload()}
-                className="bg-white text-black hover:bg-white/90 h-10 px-5"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh
-              </Button>
-            </div>
-
-            {/* Key Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-                <div className="text-white/40 text-xs mb-2">Assets Tracked</div>
-                <div className="text-3xl font-bold">{stats.total}</div>
-              </div>
-              
-              <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-                <div className="text-white/40 text-xs mb-2">Market Sentiment</div>
-                <div className={`text-2xl font-bold ${
-                  marketSentiment === 'BULLISH' ? 'text-green-400' :
-                  marketSentiment === 'BEARISH' ? 'text-red-400' : 'text-white/60'
-                }`}>
-                  {marketSentiment}
+          <div className="max-w-6xl mx-auto space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold">Trading Signals</h1>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {buySignals.length} buy • {sellSignals.length} sell
+                  </p>
                 </div>
+                <Button onClick={() => window.location.reload()} size="sm" variant="outline">
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
               </div>
 
-              <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-                <div className="text-white/40 text-xs mb-2">High Risk Assets</div>
-                <div className="text-3xl font-bold text-red-400">{stats.highRisk}</div>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-                <div className="text-white/40 text-xs mb-2">Bubbles Detected</div>
-                <div className="text-3xl font-bold text-orange-400">{stats.bubbles}</div>
-              </div>
-            </div>
-
-            {/* Market Sentiment Breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-5">
-                <div className="flex items-center gap-3 mb-2">
-                  <TrendingUp className="w-5 h-5 text-green-400" />
-                  <div className="text-white/60 text-sm">Bullish Signals</div>
-                </div>
-                <div className="text-3xl font-bold text-green-400">{bullishCount}</div>
-              </div>
-
-              <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-                <div className="flex items-center gap-3 mb-2">
-                  <Activity className="w-5 h-5 text-white/60" />
-                  <div className="text-white/60 text-sm">Neutral</div>
-                </div>
-                <div className="text-3xl font-bold">
-                  {stats.total - bullishCount - bearishCount}
-                </div>
-              </div>
-
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
-                <div className="flex items-center gap-3 mb-2">
-                  <TrendingDown className="w-5 h-5 text-red-400" />
-                  <div className="text-white/60 text-sm">Bearish Signals</div>
-                </div>
-                <div className="text-3xl font-bold text-red-400">{bearishCount}</div>
-              </div>
-            </div>
-
-            {/* Bubble Chart */}
-            {data.analyses && data.analyses.length > 0 && (
-              <div className="bg-black border border-white/10 rounded-xl p-6">
-                <h2 className="text-xl font-bold mb-4">Risk vs Volatility Map</h2>
-                <BubbleChart analyses={data.analyses} />
-              </div>
-            )}
-
-            {/* Top Movers */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold">Top Market Movers (24h)</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {data.analyses?.slice(0, 6).map((analysis: any) => (
-                  <div
-                    key={analysis.symbol}
-                    className="bg-white/5 border border-white/10 rounded-xl p-5 hover:bg-white/[0.07] transition-all"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="text-xl font-bold uppercase">{analysis.symbol}</h3>
-                        <p className="text-sm text-white/40 mt-1">
-                          Risk: {analysis.combinedRiskScore || analysis.bubbleScore}/100
-                        </p>
-                      </div>
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
-                        analysis.recommendation === 'STRONG_BUY' ? 'bg-green-500/20 text-green-400' :
-                        analysis.recommendation === 'BUY' ? 'bg-green-500/10 text-green-400' :
-                        analysis.recommendation === 'SELL' ? 'bg-red-500/10 text-red-400' :
-                        analysis.recommendation === 'STRONG_SELL' ? 'bg-red-500/20 text-red-400' :
-                        'bg-white/5 text-white/60'
-                      }`}>
-                        {analysis.recommendation || 'HOLD'}
-                      </span>
+              {/* Two Column Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* BUY COLUMN */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b-2 border-success">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-success"></div>
+                      <h2 className="font-bold">Buy Signals</h2>
+                      <span className="text-sm text-muted-foreground">({buySignals.length})</span>
                     </div>
-
-                    {/* Quant Indicators */}
-                    {analysis.quantAnalysis && (
-                      <div className="space-y-2 pt-3 border-t border-white/10">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-white/40">RSI</span>
-                          <span className={`font-mono ${
-                            analysis.quantAnalysis.rsiDivergence?.rsi > 70 ? 'text-red-400' :
-                            analysis.quantAnalysis.rsiDivergence?.rsi < 30 ? 'text-green-400' :
-                            'text-white/70'
-                          }`}>
-                            {analysis.quantAnalysis.rsiDivergence?.rsi?.toFixed(1) || 'N/A'}
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-between text-sm">
-                          <span className="text-white/40">BB Squeeze</span>
-                          <span className="text-white/70">
-                            {analysis.quantAnalysis.bollingerSqueeze?.isSqueezing ? 'Yes' : 'No'}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between text-sm">
-                          <span className="text-white/40">Signal</span>
-                          <span className="text-white/70">
-                            {analysis.quantAnalysis.overallSignal || 'NEUTRAL'}
-                          </span>
-                        </div>
-                      </div>
+                    {buySignals.length > 5 && (
+                      <Link to="/buy">
+                        <Button size="sm" variant="ghost" className="text-xs">
+                          View All <ArrowRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      </Link>
                     )}
                   </div>
-                ))}
+
+                  {topBuy.length === 0 ? (
+                    <div className="rounded-lg border bg-card p-8 text-center">
+                      <p className="text-sm text-muted-foreground">No buy signals</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {topBuy.map((signal: any) => {
+                        const isStrong = signal.quantAnalysis?.overallSignal === 'STRONG_BUY';
+                        const confidence = signal.quantAnalysis?.confidence || 0;
+                        const price = signal.price?.price || 0;
+                        const change24h = signal.price?.change24h || 0;
+                        const volume24h = signal.price?.volume24h || 0;
+
+                        return (
+                          <button
+                            key={signal.symbol}
+                            onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
+                            className={cn(
+                              'w-full rounded-lg border p-3 transition-all text-left hover:shadow-md',
+                              isStrong 
+                                ? 'bg-success/5 border-success/50' 
+                                : 'bg-card hover:bg-accent/50'
+                            )}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold uppercase">{signal.symbol}</span>
+                                {isStrong && (
+                                  <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-success text-white">
+                                    STRONG
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-sm font-bold text-success">
+                                {confidence}%
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <div>
+                                <div className="text-muted-foreground">Price</div>
+                                <div className="font-medium">${price.toLocaleString()}</div>
+                              </div>
+                              <div>
+                                <div className="text-muted-foreground">24h</div>
+                                <div className={cn(
+                                  'font-medium',
+                                  change24h > 0 ? 'text-success' : 'text-destructive'
+                                )}>
+                                  {change24h > 0 ? '+' : ''}{change24h.toFixed(2)}%
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-muted-foreground">Volume</div>
+                                <div className="font-medium">
+                                  ${volume24h >= 1000000 ? (volume24h / 1000000).toFixed(0) + 'M' : (volume24h / 1000).toFixed(0) + 'K'}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* SELL COLUMN */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b-2 border-destructive">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-destructive"></div>
+                      <h2 className="font-bold">Sell Signals</h2>
+                      <span className="text-sm text-muted-foreground">({sellSignals.length})</span>
+                    </div>
+                    {sellSignals.length > 5 && (
+                      <Link to="/sell">
+                        <Button size="sm" variant="ghost" className="text-xs">
+                          View All <ArrowRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+
+                  {topSell.length === 0 ? (
+                    <div className="rounded-lg border bg-card p-8 text-center">
+                      <p className="text-sm text-muted-foreground">No sell signals</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {topSell.map((signal: any) => {
+                        const isStrong = signal.quantAnalysis?.overallSignal === 'STRONG_SELL';
+                        const confidence = signal.quantAnalysis?.confidence || 0;
+                        const price = signal.price?.price || 0;
+                        const change24h = signal.price?.change24h || 0;
+                        const volume24h = signal.price?.volume24h || 0;
+
+                        return (
+                          <button
+                            key={signal.symbol}
+                            onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
+                            className={cn(
+                              'w-full rounded-lg border p-3 transition-all text-left hover:shadow-md',
+                              isStrong 
+                                ? 'bg-destructive/5 border-destructive/50' 
+                                : 'bg-card hover:bg-accent/50'
+                            )}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold uppercase">{signal.symbol}</span>
+                                {isStrong && (
+                                  <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-destructive text-white">
+                                    STRONG
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-sm font-bold text-destructive">
+                                {confidence}%
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <div>
+                                <div className="text-muted-foreground">Price</div>
+                                <div className="font-medium">${price.toLocaleString()}</div>
+                              </div>
+                              <div>
+                                <div className="text-muted-foreground">24h</div>
+                                <div className={cn(
+                                  'font-medium',
+                                  change24h > 0 ? 'text-success' : 'text-destructive'
+                                )}>
+                                  {change24h > 0 ? '+' : ''}{change24h.toFixed(2)}%
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-muted-foreground">Volume</div>
+                                <div className="font-medium">
+                                  ${volume24h >= 1000000 ? (volume24h / 1000000).toFixed(0) + 'M' : (volume24h / 1000).toFixed(0) + 'K'}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
         );
       },
     })
