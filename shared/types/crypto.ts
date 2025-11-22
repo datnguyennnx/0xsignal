@@ -59,6 +59,7 @@ export interface CryptoBubbleAnalysis {
 }
 
 // API response types - CoinGecko focused
+// CoinGecko API response for markets endpoint
 export interface CoinGeckoCoinResponse {
   id: string;
   symbol: string;
@@ -84,41 +85,4 @@ export interface CoinGeckoCoinResponse {
   atl_change_percentage: number;
   atl_date: string;
   last_updated: string;
-  sparkline_in_7d?: {
-    price: number[];
-  };
-  price_change_percentage_7d_in_currency?: number;
-  price_change_percentage_14d_in_currency?: number;
-  price_change_percentage_30d_in_currency?: number;
-}
-
-export interface CoinGeckoGlobalResponse {
-  active_cryptocurrencies: number;
-  upcoming_icos: number;
-  ongoing_icos: number;
-  ended_icos: number;
-  markets: number;
-  total_market_cap: Record<string, number>;
-  total_volume: Record<string, number>;
-  market_cap_percentage: Record<string, number>;
-  market_cap_change_percentage_24h_usd: number;
-  updated_at: number;
-}
-
-export interface CoinGeckoTrendingResponse {
-  coins: Array<{
-    item: {
-      id: string;
-      coin_id: number;
-      name: string;
-      symbol: string;
-      market_cap_rank: number;
-      thumb: string;
-      small: string;
-      large: string;
-      slug: string;
-      price_btc: number;
-      score: number;
-    };
-  }>;
 }

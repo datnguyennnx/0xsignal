@@ -3,17 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "main-crypto.ts",
+  "main": "main.ts",
   "scripts": {
-    "dev": "bun --watch main-crypto.ts monitor",
-    "start": "bun main-crypto.ts monitor",
-    "analyze": "bun main-crypto.ts analyze",
-    "monitor": "bun main-crypto.ts monitor",
+    "dev": "bun --watch presentation/http/server.ts",
+    "start": "bun presentation/http/server.ts",
+    "analyze": "bun main.ts analyze",
+    "monitor": "bun main.ts monitor",
     "lint": "eslint . --ext .ts"
   },
   "dependencies": {
-    "effect": "^3.19.5",
-    "@0xsignal/shared": "workspace:*"
+    "@0xsignal/shared": "workspace:*",
+    "effect": "^3.19.5"
   },
   "devDependencies": {
     "@effect/language-service": "^0.56.0",

@@ -5,32 +5,46 @@
   "projectType": "application",
   "tags": ["type:api", "framework:effect"],
   "targets": {
-    "serve": {
+    "dev": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "cd api && bun run dev",
-        "cwd": "."
+        "command": "bun run dev",
+        "cwd": "api"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run start",
+        "cwd": "api"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "echo 'API does not require build step'",
+        "cwd": "api"
       }
     },
     "analyze": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "cd api && bun run analyze",
-        "cwd": "."
+        "command": "bun run analyze",
+        "cwd": "api"
       }
     },
     "monitor": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "cd api && bun run monitor",
-        "cwd": "."
+        "command": "bun run monitor",
+        "cwd": "api"
       }
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "cd api && bun run lint",
-        "cwd": "."
+        "command": "bun run lint",
+        "cwd": "api"
       }
     }
   }
