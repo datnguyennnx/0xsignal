@@ -30,10 +30,7 @@ export interface EMAResult {
  * @param prices - Array of prices (must have at least 'period' elements)
  * @param period - Number of periods for the average
  */
-export const calculateSMA = (
-  prices: ReadonlyArray<number>,
-  period: number = 20
-): SMAResult => {
+export const calculateSMA = (prices: ReadonlyArray<number>, period: number = 20): SMAResult => {
   // Take the last 'period' prices
   const relevantPrices = prices.slice(-period);
   const value = mean([...relevantPrices]);
@@ -68,8 +65,7 @@ export const calculateSMASeries = (
 export const computeSMA = (
   prices: ReadonlyArray<number>,
   period: number = 20
-): Effect.Effect<SMAResult> =>
-  Effect.sync(() => calculateSMA(prices, period));
+): Effect.Effect<SMAResult> => Effect.sync(() => calculateSMA(prices, period));
 
 /**
  * Effect-based wrapper for SMA from CryptoPrice
@@ -79,9 +75,8 @@ export const computeSMAFromPrice = (
   period: number = 20
 ): Effect.Effect<SMAResult> => {
   // For single price point, we approximate using 24h data
-  const prices = price.high24h && price.low24h
-    ? [price.low24h, price.price, price.high24h]
-    : [price.price];
+  const prices =
+    price.high24h && price.low24h ? [price.low24h, price.price, price.high24h] : [price.price];
 
   return computeSMA(prices, Math.min(period, prices.length));
 };
@@ -103,7 +98,7 @@ export const calculateEMA = (
   let ema = previousEMA ?? mean([...prices.slice(0, period)]);
 
   // Calculate EMA for all prices
-  for (let i = (previousEMA ? 0 : period); i < prices.length; i++) {
+  for (let i = previousEMA ? 0 : period; i < prices.length; i++) {
     ema = prices[i] * alpha + ema * (1 - alpha);
   }
 
@@ -145,8 +140,7 @@ export const computeEMA = (
   prices: ReadonlyArray<number>,
   period: number = 20,
   previousEMA?: number
-): Effect.Effect<EMAResult> =>
-  Effect.sync(() => calculateEMA(prices, period, previousEMA));
+): Effect.Effect<EMAResult> => Effect.sync(() => calculateEMA(prices, period, previousEMA));
 
 /**
  * Effect-based wrapper for EMA from CryptoPrice
@@ -156,9 +150,8 @@ export const computeEMAFromPrice = (
   period: number = 20
 ): Effect.Effect<EMAResult> => {
   // For single price point, we approximate using 24h data
-  const prices = price.high24h && price.low24h
-    ? [price.low24h, price.price, price.high24h]
-    : [price.price];
+  const prices =
+    price.high24h && price.low24h ? [price.low24h, price.price, price.high24h] : [price.price];
 
   return computeEMA(prices, Math.min(period, prices.length));
 };
@@ -185,8 +178,7 @@ export const EMAMetadata: FormulaMetadata = {
   name: "EMA",
   category: "trend",
   difficulty: "beginner",
-  description:
-    "Exponential Moving Average - weighted average giving more weight to recent prices",
+  description: "Exponential Moving Average - weighted average giving more weight to recent prices",
   requiredInputs: ["prices"],
   optionalInputs: ["period", "previousEMA"],
   minimumDataPoints: 1,

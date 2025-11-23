@@ -200,9 +200,7 @@ export const computeParabolicSAR = (
   afIncrement: number = 0.02,
   afMax: number = 0.2
 ): Effect.Effect<ParabolicSARResult> =>
-  Effect.sync(() =>
-    calculateParabolicSAR(highs, lows, closes, afStart, afIncrement, afMax)
-  );
+  Effect.sync(() => calculateParabolicSAR(highs, lows, closes, afStart, afIncrement, afMax));
 
 // ============================================================================
 // FORMULA METADATA
@@ -217,12 +215,7 @@ export const ParabolicSARMetadata: FormulaMetadata = {
   optionalInputs: ["afStart", "afIncrement", "afMax"],
   minimumDataPoints: 3,
   outputType: "ParabolicSARResult",
-  useCases: [
-    "trend following",
-    "stop-loss placement",
-    "reversal detection",
-    "entry/exit signals",
-  ],
+  useCases: ["trend following", "stop-loss placement", "reversal detection", "entry/exit signals"],
   timeComplexity: "O(n)",
   dependencies: [],
 };

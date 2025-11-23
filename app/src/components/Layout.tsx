@@ -1,12 +1,11 @@
-import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {
-
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Sticky Header */}
@@ -26,7 +25,7 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Main Content - flex-1 to push footer down */}
       <main className="flex-1 container mx-auto px-6 py-8">{children}</main>
-      
+
       {/* Footer - always at bottom */}
       <footer className="border-t bg-background">
         <div className="container mx-auto px-6 py-4">

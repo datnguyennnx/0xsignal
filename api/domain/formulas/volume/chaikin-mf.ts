@@ -29,14 +29,10 @@ export interface ChaikinMFResult {
 /**
  * Pure function to calculate Money Flow Multiplier
  */
-const calculateMoneyFlowMultiplier = (
-  high: number,
-  low: number,
-  close: number
-): number => {
+const calculateMoneyFlowMultiplier = (high: number, low: number, close: number): number => {
   const range = high - low;
   if (range === 0) return 0;
-  return ((close - low) - (high - close)) / range;
+  return (close - low - (high - close)) / range;
 };
 
 /**
@@ -66,11 +62,7 @@ export const calculateChaikinMF = (
   let sumVolume = 0;
 
   for (let i = 0; i < recentCloses.length; i++) {
-    const mfm = calculateMoneyFlowMultiplier(
-      recentHighs[i],
-      recentLows[i],
-      recentCloses[i]
-    );
+    const mfm = calculateMoneyFlowMultiplier(recentHighs[i], recentLows[i], recentCloses[i]);
     const mfv = mfm * recentVolumes[i];
     sumMFV += mfv;
     sumVolume += recentVolumes[i];
@@ -132,11 +124,7 @@ export const calculateChaikinMFSeries = (
     let sumVolume = 0;
 
     for (let j = 0; j < period; j++) {
-      const mfm = calculateMoneyFlowMultiplier(
-        windowHighs[j],
-        windowLows[j],
-        windowCloses[j]
-      );
+      const mfm = calculateMoneyFlowMultiplier(windowHighs[j], windowLows[j], windowCloses[j]);
       const mfv = mfm * windowVolumes[j];
       sumMFV += mfv;
       sumVolume += windowVolumes[j];
@@ -169,8 +157,7 @@ export const ChaikinMFMetadata: FormulaMetadata = {
   name: "ChaikinMF",
   category: "volume",
   difficulty: "intermediate",
-  description:
-    "Chaikin Money Flow - volume-weighted accumulation/distribution oscillator",
+  description: "Chaikin Money Flow - volume-weighted accumulation/distribution oscillator",
   requiredInputs: ["highs", "lows", "closes", "volumes"],
   optionalInputs: ["period"],
   minimumDataPoints: 21,

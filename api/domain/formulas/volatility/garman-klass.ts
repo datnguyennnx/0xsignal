@@ -139,14 +139,7 @@ export const computeGarmanKlassVolatility = (
   annualizationFactor: number = 252
 ): Effect.Effect<GarmanKlassVolatilityResult> =>
   Effect.sync(() =>
-    calculateGarmanKlassVolatility(
-      opens,
-      highs,
-      lows,
-      closes,
-      period,
-      annualizationFactor
-    )
+    calculateGarmanKlassVolatility(opens, highs, lows, closes, period, annualizationFactor)
   );
 
 // ============================================================================
@@ -157,8 +150,7 @@ export const GarmanKlassVolatilityMetadata: FormulaMetadata = {
   name: "GarmanKlassVolatility",
   category: "volatility",
   difficulty: "intermediate",
-  description:
-    "Garman-Klass Volatility - most efficient OHLC-based estimator",
+  description: "Garman-Klass Volatility - most efficient OHLC-based estimator",
   requiredInputs: ["opens", "highs", "lows", "closes"],
   optionalInputs: ["period", "annualizationFactor"],
   minimumDataPoints: 30,

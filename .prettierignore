@@ -1,0 +1,44 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+dist
+build
+.next
+.nx
+out
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+*.pem
+
+# Environment
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# IDE
+.vscode
+.idea
+
+# Misc
+coverage
+.turbo
+*.tsbuildinfo
+
+# Lock files
+package-lock.json
+yarn.lock
+bun.lockb
+
+# Generated files
+*.d.ts.map

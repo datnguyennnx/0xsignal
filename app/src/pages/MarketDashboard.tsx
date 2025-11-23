@@ -1,14 +1,15 @@
-import { Effect, Exit, pipe } from 'effect';
-import { Button } from '@/components/ui/button';
-import { RefreshCw, ArrowRight } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { getTopAnalysis } from '../lib/api';
-import { useEffect_ } from '../lib/runtime';
-import { cn } from '@/lib/utils';
+import { Effect, Exit, pipe } from "effect";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, ArrowRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { getTopAnalysis } from "../lib/api";
+import { useEffect_ } from "../lib/runtime";
+import { cn } from "@/lib/utils";
 
-const fetchDashboardData = () => Effect.gen(function* () {
-  return yield* getTopAnalysis(50);
-});
+const fetchDashboardData = () =>
+  Effect.gen(function* () {
+    return yield* getTopAnalysis(50);
+  });
 
 export function MarketDashboard() {
   const exit = useEffect_(fetchDashboardData, []);
@@ -42,11 +43,15 @@ export function MarketDashboard() {
         </div>
       ),
       onSuccess: (analyses) => {
-        const buySignals = analyses.filter((a: any) => 
-          a.quantAnalysis?.overallSignal === 'STRONG_BUY' || a.quantAnalysis?.overallSignal === 'BUY'
+        const buySignals = analyses.filter(
+          (a: any) =>
+            a.quantAnalysis?.overallSignal === "STRONG_BUY" ||
+            a.quantAnalysis?.overallSignal === "BUY"
         );
-        const sellSignals = analyses.filter((a: any) => 
-          a.quantAnalysis?.overallSignal === 'STRONG_SELL' || a.quantAnalysis?.overallSignal === 'SELL'
+        const sellSignals = analyses.filter(
+          (a: any) =>
+            a.quantAnalysis?.overallSignal === "STRONG_SELL" ||
+            a.quantAnalysis?.overallSignal === "SELL"
         );
 
         // Show top 5 each
@@ -55,188 +60,198 @@ export function MarketDashboard() {
 
         return (
           <div className="max-w-6xl mx-auto space-y-6">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold">Trading Signals</h1>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {buySignals.length} buy • {sellSignals.length} sell
-                  </p>
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold">Trading Signals</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {buySignals.length} buy • {sellSignals.length} sell
+                </p>
+              </div>
+              <Button onClick={() => window.location.reload()} size="sm" variant="outline">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Two Column Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* BUY COLUMN */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b-2 border-success">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success"></div>
+                    <h2 className="font-bold">Buy Signals</h2>
+                    <span className="text-sm text-muted-foreground">({buySignals.length})</span>
+                  </div>
+                  {buySignals.length > 5 && (
+                    <Link to="/buy">
+                      <Button size="sm" variant="ghost" className="text-xs">
+                        View All <ArrowRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    </Link>
+                  )}
                 </div>
-                <Button onClick={() => window.location.reload()} size="sm" variant="outline">
-                  <RefreshCw className="w-4 h-4" />
-                </Button>
+
+                {topBuy.length === 0 ? (
+                  <div className="rounded-lg border bg-card p-8 text-center">
+                    <p className="text-sm text-muted-foreground">No buy signals</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {topBuy.map((signal: any) => {
+                      const isStrong = signal.quantAnalysis?.overallSignal === "STRONG_BUY";
+                      const confidence = signal.quantAnalysis?.confidence || 0;
+                      const price = signal.price?.price || 0;
+                      const change24h = signal.price?.change24h || 0;
+                      const volume24h = signal.price?.volume24h || 0;
+
+                      return (
+                        <button
+                          key={signal.symbol}
+                          onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
+                          className={cn(
+                            "w-full rounded-lg border p-3 transition-all text-left hover:shadow-md",
+                            isStrong
+                              ? "bg-success/5 border-success/50"
+                              : "bg-card hover:bg-accent/50"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold uppercase">{signal.symbol}</span>
+                              {isStrong && (
+                                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-success text-white">
+                                  STRONG
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-sm font-bold text-success">{confidence}%</span>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div>
+                              <div className="text-muted-foreground">Price</div>
+                              <div className="font-medium">${price.toLocaleString()}</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">24h</div>
+                              <div
+                                className={cn(
+                                  "font-medium",
+                                  change24h > 0 ? "text-success" : "text-destructive"
+                                )}
+                              >
+                                {change24h > 0 ? "+" : ""}
+                                {change24h.toFixed(2)}%
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Volume</div>
+                              <div className="font-medium">
+                                $
+                                {volume24h >= 1000000
+                                  ? (volume24h / 1000000).toFixed(0) + "M"
+                                  : (volume24h / 1000).toFixed(0) + "K"}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {/* Two Column Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* BUY COLUMN */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b-2 border-success">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-success"></div>
-                      <h2 className="font-bold">Buy Signals</h2>
-                      <span className="text-sm text-muted-foreground">({buySignals.length})</span>
-                    </div>
-                    {buySignals.length > 5 && (
-                      <Link to="/buy">
-                        <Button size="sm" variant="ghost" className="text-xs">
-                          View All <ArrowRight className="w-3 h-3 ml-1" />
-                        </Button>
-                      </Link>
-                    )}
+              {/* SELL COLUMN */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b-2 border-destructive">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-destructive"></div>
+                    <h2 className="font-bold">Sell Signals</h2>
+                    <span className="text-sm text-muted-foreground">({sellSignals.length})</span>
                   </div>
-
-                  {topBuy.length === 0 ? (
-                    <div className="rounded-lg border bg-card p-8 text-center">
-                      <p className="text-sm text-muted-foreground">No buy signals</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {topBuy.map((signal: any) => {
-                        const isStrong = signal.quantAnalysis?.overallSignal === 'STRONG_BUY';
-                        const confidence = signal.quantAnalysis?.confidence || 0;
-                        const price = signal.price?.price || 0;
-                        const change24h = signal.price?.change24h || 0;
-                        const volume24h = signal.price?.volume24h || 0;
-
-                        return (
-                          <button
-                            key={signal.symbol}
-                            onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
-                            className={cn(
-                              'w-full rounded-lg border p-3 transition-all text-left hover:shadow-md',
-                              isStrong 
-                                ? 'bg-success/5 border-success/50' 
-                                : 'bg-card hover:bg-accent/50'
-                            )}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold uppercase">{signal.symbol}</span>
-                                {isStrong && (
-                                  <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-success text-white">
-                                    STRONG
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-sm font-bold text-success">
-                                {confidence}%
-                              </span>
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-2 text-xs">
-                              <div>
-                                <div className="text-muted-foreground">Price</div>
-                                <div className="font-medium">${price.toLocaleString()}</div>
-                              </div>
-                              <div>
-                                <div className="text-muted-foreground">24h</div>
-                                <div className={cn(
-                                  'font-medium',
-                                  change24h > 0 ? 'text-success' : 'text-destructive'
-                                )}>
-                                  {change24h > 0 ? '+' : ''}{change24h.toFixed(2)}%
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-muted-foreground">Volume</div>
-                                <div className="font-medium">
-                                  ${volume24h >= 1000000 ? (volume24h / 1000000).toFixed(0) + 'M' : (volume24h / 1000).toFixed(0) + 'K'}
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                  {sellSignals.length > 5 && (
+                    <Link to="/sell">
+                      <Button size="sm" variant="ghost" className="text-xs">
+                        View All <ArrowRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    </Link>
                   )}
                 </div>
 
-                {/* SELL COLUMN */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b-2 border-destructive">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-destructive"></div>
-                      <h2 className="font-bold">Sell Signals</h2>
-                      <span className="text-sm text-muted-foreground">({sellSignals.length})</span>
-                    </div>
-                    {sellSignals.length > 5 && (
-                      <Link to="/sell">
-                        <Button size="sm" variant="ghost" className="text-xs">
-                          View All <ArrowRight className="w-3 h-3 ml-1" />
-                        </Button>
-                      </Link>
-                    )}
+                {topSell.length === 0 ? (
+                  <div className="rounded-lg border bg-card p-8 text-center">
+                    <p className="text-sm text-muted-foreground">No sell signals</p>
                   </div>
+                ) : (
+                  <div className="space-y-2">
+                    {topSell.map((signal: any) => {
+                      const isStrong = signal.quantAnalysis?.overallSignal === "STRONG_SELL";
+                      const confidence = signal.quantAnalysis?.confidence || 0;
+                      const price = signal.price?.price || 0;
+                      const change24h = signal.price?.change24h || 0;
+                      const volume24h = signal.price?.volume24h || 0;
 
-                  {topSell.length === 0 ? (
-                    <div className="rounded-lg border bg-card p-8 text-center">
-                      <p className="text-sm text-muted-foreground">No sell signals</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {topSell.map((signal: any) => {
-                        const isStrong = signal.quantAnalysis?.overallSignal === 'STRONG_SELL';
-                        const confidence = signal.quantAnalysis?.confidence || 0;
-                        const price = signal.price?.price || 0;
-                        const change24h = signal.price?.change24h || 0;
-                        const volume24h = signal.price?.volume24h || 0;
+                      return (
+                        <button
+                          key={signal.symbol}
+                          onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
+                          className={cn(
+                            "w-full rounded-lg border p-3 transition-all text-left hover:shadow-md",
+                            isStrong
+                              ? "bg-destructive/5 border-destructive/50"
+                              : "bg-card hover:bg-accent/50"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold uppercase">{signal.symbol}</span>
+                              {isStrong && (
+                                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-destructive text-white">
+                                  STRONG
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-sm font-bold text-destructive">
+                              {confidence}%
+                            </span>
+                          </div>
 
-                        return (
-                          <button
-                            key={signal.symbol}
-                            onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
-                            className={cn(
-                              'w-full rounded-lg border p-3 transition-all text-left hover:shadow-md',
-                              isStrong 
-                                ? 'bg-destructive/5 border-destructive/50' 
-                                : 'bg-card hover:bg-accent/50'
-                            )}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold uppercase">{signal.symbol}</span>
-                                {isStrong && (
-                                  <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-destructive text-white">
-                                    STRONG
-                                  </span>
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div>
+                              <div className="text-muted-foreground">Price</div>
+                              <div className="font-medium">${price.toLocaleString()}</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">24h</div>
+                              <div
+                                className={cn(
+                                  "font-medium",
+                                  change24h > 0 ? "text-success" : "text-destructive"
                                 )}
-                              </div>
-                              <span className="text-sm font-bold text-destructive">
-                                {confidence}%
-                              </span>
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-2 text-xs">
-                              <div>
-                                <div className="text-muted-foreground">Price</div>
-                                <div className="font-medium">${price.toLocaleString()}</div>
-                              </div>
-                              <div>
-                                <div className="text-muted-foreground">24h</div>
-                                <div className={cn(
-                                  'font-medium',
-                                  change24h > 0 ? 'text-success' : 'text-destructive'
-                                )}>
-                                  {change24h > 0 ? '+' : ''}{change24h.toFixed(2)}%
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-muted-foreground">Volume</div>
-                                <div className="font-medium">
-                                  ${volume24h >= 1000000 ? (volume24h / 1000000).toFixed(0) + 'M' : (volume24h / 1000).toFixed(0) + 'K'}
-                                </div>
+                              >
+                                {change24h > 0 ? "+" : ""}
+                                {change24h.toFixed(2)}%
                               </div>
                             </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                            <div>
+                              <div className="text-muted-foreground">Volume</div>
+                              <div className="font-medium">
+                                $
+                                {volume24h >= 1000000
+                                  ? (volume24h / 1000000).toFixed(0) + "M"
+                                  : (volume24h / 1000).toFixed(0) + "K"}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
+          </div>
         );
       },
     })

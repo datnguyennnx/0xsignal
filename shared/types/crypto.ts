@@ -32,8 +32,13 @@ export interface MarketMetrics {
 
 export interface BubbleSignal {
   symbol: string;
-  signalType: 'PRICE_SPIKE' | 'VOLUME_SURGE' | 'VOLATILITY_SPIKE' | 'ATH_APPROACH' | 'EXTREME_DOMINANCE';
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  signalType:
+    | "PRICE_SPIKE"
+    | "VOLUME_SURGE"
+    | "VOLATILITY_SPIKE"
+    | "ATH_APPROACH"
+    | "EXTREME_DOMINANCE";
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   confidence: number;
   indicators: BubbleIndicator[];
   timestamp: Date;
@@ -53,7 +58,7 @@ export interface CryptoBubbleAnalysis {
   isBubble: boolean;
   bubbleScore: number; // 0-100, higher = more likely bubble
   signals: BubbleSignal[];
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME';
+  riskLevel: "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
   analysisTimestamp: Date;
   nextCheckTime: Date;
 }

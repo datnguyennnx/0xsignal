@@ -27,10 +27,7 @@ export interface ROCResult {
  * @param prices - Array of prices
  * @param period - Number of periods to look back (default: 12)
  */
-export const calculateROC = (
-  prices: ReadonlyArray<number>,
-  period: number = 12
-): ROCResult => {
+export const calculateROC = (prices: ReadonlyArray<number>, period: number = 12): ROCResult => {
   const currentPrice = prices[prices.length - 1];
   const pastPrice = prices[prices.length - 1 - period];
 
@@ -93,8 +90,7 @@ export const calculateROCSeries = (
 export const computeROC = (
   prices: ReadonlyArray<number>,
   period: number = 12
-): Effect.Effect<ROCResult> =>
-  Effect.sync(() => calculateROC(prices, period));
+): Effect.Effect<ROCResult> => Effect.sync(() => calculateROC(prices, period));
 
 // ============================================================================
 // FORMULA METADATA

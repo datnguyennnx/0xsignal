@@ -64,14 +64,8 @@ export const calculateAwesomeOscillator = (
   let momentum: "INCREASING" | "DECREASING" | "STABLE" = "STABLE";
   if (midpoints.length > slowPeriod) {
     const prevMidpoints = midpoints.slice(0, -1);
-    const prevFastSMA = calculateSMA(
-      prevMidpoints.slice(-fastPeriod),
-      fastPeriod
-    ).value;
-    const prevSlowSMA = calculateSMA(
-      prevMidpoints.slice(-slowPeriod),
-      slowPeriod
-    ).value;
+    const prevFastSMA = calculateSMA(prevMidpoints.slice(-fastPeriod), fastPeriod).value;
+    const prevSlowSMA = calculateSMA(prevMidpoints.slice(-slowPeriod), slowPeriod).value;
     const prevAO = prevFastSMA - prevSlowSMA;
 
     if (ao > prevAO) {
@@ -126,9 +120,7 @@ export const computeAwesomeOscillator = (
   fastPeriod: number = 5,
   slowPeriod: number = 34
 ): Effect.Effect<AwesomeOscillatorResult> =>
-  Effect.sync(() =>
-    calculateAwesomeOscillator(highs, lows, fastPeriod, slowPeriod)
-  );
+  Effect.sync(() => calculateAwesomeOscillator(highs, lows, fastPeriod, slowPeriod));
 
 // ============================================================================
 // FORMULA METADATA
@@ -138,8 +130,7 @@ export const AwesomeOscillatorMetadata: FormulaMetadata = {
   name: "AwesomeOscillator",
   category: "oscillators",
   difficulty: "intermediate",
-  description:
-    "Awesome Oscillator - momentum indicator using midpoint SMAs",
+  description: "Awesome Oscillator - momentum indicator using midpoint SMAs",
   requiredInputs: ["highs", "lows"],
   optionalInputs: ["fastPeriod", "slowPeriod"],
   minimumDataPoints: 34,

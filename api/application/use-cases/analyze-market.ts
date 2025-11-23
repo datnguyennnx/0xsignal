@@ -7,7 +7,7 @@ import type { AppConfig } from "../../infrastructure/config/app.config";
 export const runAnalysis = (config: AppConfig) =>
   Effect.gen(function* () {
     const logger = yield* Logger;
-    
+
     yield* logger.info("Starting 0xSignal - Quantitative Crypto Analysis");
 
     // Run enhanced analysis

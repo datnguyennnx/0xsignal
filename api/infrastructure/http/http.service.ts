@@ -1,12 +1,19 @@
 import { Effect, Context, Layer, Data } from "effect";
-import type { CryptoPrice } from "../types/crypto";
+import type { CryptoPrice } from "@0xsignal/shared";
 
 // HTTP Service for API calls
 export class HttpService extends Context.Tag("HttpService")<
   HttpService,
   {
-    readonly get: (url: string, headers?: Record<string, string>) => Effect.Effect<unknown, HttpError>;
-    readonly post: (url: string, body: unknown, headers?: Record<string, string>) => Effect.Effect<unknown, HttpError>;
+    readonly get: (
+      url: string,
+      headers?: Record<string, string>
+    ) => Effect.Effect<unknown, HttpError>;
+    readonly post: (
+      url: string,
+      body: unknown,
+      headers?: Record<string, string>
+    ) => Effect.Effect<unknown, HttpError>;
   }
 >() {}
 
@@ -55,19 +62,23 @@ export const HttpServiceLive = Layer.succeed(HttpService, {
       const urlObj = new URL(url);
       const host = urlObj.hostname;
       const path = urlObj.pathname;
-      
+
       const result = yield* Effect.tryPromise({
         try: async () => {
           const response = await fetch(url, { headers });
           const duration = Date.now() - startTime;
-          
+
           if (!response.ok) {
             console.error(
               `${colors.red}↗ External API${colors.reset} ${colors.gray}GET${colors.reset} ${host}${path} ${colors.red}${response.status}${colors.reset} ${colors.gray}(${duration}ms)${colors.reset}`
             );
-            throw new HttpError(`HTTP ${response.status}: ${response.statusText}`, response.status, url);
+            throw new HttpError(
+              `HTTP ${response.status}: ${response.statusText}`,
+              response.status,
+              url
+            );
           }
-          
+
           console.log(
             `${colors.blue}↗ External API${colors.reset} ${colors.gray}GET${colors.reset} ${host}${path} ${colors.green}${response.status}${colors.reset} ${colors.gray}(${duration}ms)${colors.reset}`
           );
@@ -76,9 +87,13 @@ export const HttpServiceLive = Layer.succeed(HttpService, {
         catch: (error) =>
           error instanceof HttpError
             ? error
-            : new HttpError(error instanceof Error ? error.message : "Unknown HTTP error", undefined, url)
+            : new HttpError(
+                error instanceof Error ? error.message : "Unknown HTTP error",
+                undefined,
+                url
+              ),
       });
-      
+
       return result;
     }),
 
@@ -88,7 +103,7 @@ export const HttpServiceLive = Layer.succeed(HttpService, {
       const urlObj = new URL(url);
       const host = urlObj.hostname;
       const path = urlObj.pathname;
-      
+
       const result = yield* Effect.tryPromise({
         try: async () => {
           const response = await fetch(url, {
@@ -100,14 +115,18 @@ export const HttpServiceLive = Layer.succeed(HttpService, {
             body: JSON.stringify(body),
           });
           const duration = Date.now() - startTime;
-          
+
           if (!response.ok) {
             console.error(
               `${colors.red}↗ External API${colors.reset} ${colors.gray}POST${colors.reset} ${host}${path} ${colors.red}${response.status}${colors.reset} ${colors.gray}(${duration}ms)${colors.reset}`
             );
-            throw new HttpError(`HTTP ${response.status}: ${response.statusText}`, response.status, url);
+            throw new HttpError(
+              `HTTP ${response.status}: ${response.statusText}`,
+              response.status,
+              url
+            );
           }
-          
+
           console.log(
             `${colors.blue}↗ External API${colors.reset} ${colors.gray}POST${colors.reset} ${host}${path} ${colors.green}${response.status}${colors.reset} ${colors.gray}(${duration}ms)${colors.reset}`
           );
@@ -116,9 +135,13 @@ export const HttpServiceLive = Layer.succeed(HttpService, {
         catch: (error) =>
           error instanceof HttpError
             ? error
-            : new HttpError(error instanceof Error ? error.message : "Unknown HTTP error", undefined, url)
+            : new HttpError(
+                error instanceof Error ? error.message : "Unknown HTTP error",
+                undefined,
+                url
+              ),
       });
-      
+
       return result;
     }),
 });
@@ -133,12 +156,15 @@ export const CoinGeckoServiceLive = Layer.effect(
         const url = `https://api.coingecko.com/api/v3/simple/price?ids=${symbol}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`;
         const response = yield* http.get(url);
 
-        const data = response as Record<string, {
-          usd: number;
-          usd_market_cap?: number;
-          usd_24h_vol?: number;
-          usd_24h_change?: number;
-        }>;
+        const data = response as Record<
+          string,
+          {
+            usd: number;
+            usd_market_cap?: number;
+            usd_24h_vol?: number;
+            usd_24h_change?: number;
+          }
+        >;
 
         if (!data[symbol]) {
           return yield* Effect.fail(new CoinGeckoError(`Symbol ${symbol} not found`, symbol));
@@ -152,9 +178,7 @@ export const CoinGeckoServiceLive = Layer.effect(
           change24h: data[symbol].usd_24h_change || 0,
           timestamp: new Date(),
         } as CryptoPrice;
-      }).pipe(
-        Effect.mapError((error) => new CoinGeckoError(error.message, undefined))
-      );
+      }).pipe(Effect.mapError((error) => new CoinGeckoError(error.message, undefined)));
 
     const getTopCryptos = (limit = 100) =>
       Effect.gen(function* () {
@@ -178,26 +202,26 @@ export const CoinGeckoServiceLive = Layer.effect(
           atl: number;
           atl_change_percentage: number;
         }>;
-        return data.map((coin): CryptoPrice => ({
-          symbol: coin.symbol,
-          price: coin.current_price,
-          marketCap: coin.market_cap,
-          volume24h: coin.total_volume,
-          change24h: coin.price_change_percentage_24h || 0,
-          timestamp: new Date(coin.last_updated),
-          high24h: coin.high_24h,
-          low24h: coin.low_24h,
-          circulatingSupply: coin.circulating_supply,
-          totalSupply: coin.total_supply ?? undefined,
-          maxSupply: coin.max_supply ?? undefined,
-          ath: coin.ath,
-          athChangePercentage: coin.ath_change_percentage,
-          atl: coin.atl,
-          atlChangePercentage: coin.atl_change_percentage,
-        }));
-      }).pipe(
-        Effect.mapError((error) => new CoinGeckoError(error.message, undefined))
-      );
+        return data.map(
+          (coin): CryptoPrice => ({
+            symbol: coin.symbol,
+            price: coin.current_price,
+            marketCap: coin.market_cap,
+            volume24h: coin.total_volume,
+            change24h: coin.price_change_percentage_24h || 0,
+            timestamp: new Date(coin.last_updated),
+            high24h: coin.high_24h,
+            low24h: coin.low_24h,
+            circulatingSupply: coin.circulating_supply,
+            totalSupply: coin.total_supply ?? undefined,
+            maxSupply: coin.max_supply ?? undefined,
+            ath: coin.ath,
+            athChangePercentage: coin.ath_change_percentage,
+            atl: coin.atl,
+            atlChangePercentage: coin.atl_change_percentage,
+          })
+        );
+      }).pipe(Effect.mapError((error) => new CoinGeckoError(error.message, undefined)));
 
     return {
       getPrice,
@@ -205,6 +229,3 @@ export const CoinGeckoServiceLive = Layer.effect(
     };
   })
 );
-
-
-

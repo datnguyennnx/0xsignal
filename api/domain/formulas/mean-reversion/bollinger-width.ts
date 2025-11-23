@@ -57,9 +57,9 @@ export const calculateBBWidth = (price: CryptoPrice): BollingerWidthResult => {
   let squeeze: "TIGHT" | "MODERATE" | "NORMAL" | "WIDE";
   if (width < 0.05) {
     squeeze = "TIGHT";
-  } else if (width < 0.10) {
+  } else if (width < 0.1) {
     squeeze = "MODERATE";
-  } else if (width < 0.20) {
+  } else if (width < 0.2) {
     squeeze = "NORMAL";
   } else {
     squeeze = "WIDE";
@@ -81,9 +81,7 @@ export const calculateBBWidth = (price: CryptoPrice): BollingerWidthResult => {
 /**
  * Effect-based wrapper for Bollinger Band Width calculation
  */
-export const computeBBWidth = (
-  price: CryptoPrice
-): Effect.Effect<BollingerWidthResult> =>
+export const computeBBWidth = (price: CryptoPrice): Effect.Effect<BollingerWidthResult> =>
   Effect.sync(() => calculateBBWidth(price));
 
 // ============================================================================

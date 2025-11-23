@@ -41,12 +41,9 @@ export const calculateSortinoRatio = (
   const avgReturn = mean([...returns]);
 
   // Calculate downside deviation (only negative deviations from target)
-  const downsideReturns = returns
-    .map((r) => Math.min(0, r - targetReturn))
-    .map((r) => r * r);
+  const downsideReturns = returns.map((r) => Math.min(0, r - targetReturn)).map((r) => r * r);
 
-  const downsideVariance =
-    downsideReturns.reduce((a, b) => a + b, 0) / returns.length;
+  const downsideVariance = downsideReturns.reduce((a, b) => a + b, 0) / returns.length;
   const downsideDeviation = Math.sqrt(downsideVariance);
 
   // Annualize
@@ -58,8 +55,7 @@ export const calculateSortinoRatio = (
   const excessReturn = annualizedReturn - annualizedTarget;
 
   // Calculate Sortino ratio
-  const sortino =
-    annualizedDownsideDev === 0 ? 0 : excessReturn / annualizedDownsideDev;
+  const sortino = annualizedDownsideDev === 0 ? 0 : excessReturn / annualizedDownsideDev;
 
   // Determine rating
   let rating: "EXCELLENT" | "GOOD" | "ACCEPTABLE" | "POOR";
@@ -89,9 +85,7 @@ export const computeSortinoRatio = (
   targetReturn: number = 0,
   annualizationFactor: number = 252
 ): Effect.Effect<SortinoRatioResult> =>
-  Effect.sync(() =>
-    calculateSortinoRatio(returns, targetReturn, annualizationFactor)
-  );
+  Effect.sync(() => calculateSortinoRatio(returns, targetReturn, annualizationFactor));
 
 // ============================================================================
 // FORMULA METADATA

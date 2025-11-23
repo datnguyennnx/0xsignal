@@ -75,8 +75,7 @@ export const calculateBeta = (
   // Calculate correlation
   const assetStd = Math.sqrt(assetVariance);
   const marketStd = Math.sqrt(marketVariance);
-  const correlation =
-    assetStd * marketStd === 0 ? 0 : covariance / (assetStd * marketStd);
+  const correlation = assetStd * marketStd === 0 ? 0 : covariance / (assetStd * marketStd);
 
   // Calculate volatility ratio
   const volatilityRatio = marketStd === 0 ? 0 : assetStd / marketStd;
@@ -95,8 +94,7 @@ export const calculateBeta = (
 export const computeBeta = (
   assetReturns: ReadonlyArray<number>,
   marketReturns: ReadonlyArray<number>
-): Effect.Effect<BetaResult> =>
-  Effect.sync(() => calculateBeta(assetReturns, marketReturns));
+): Effect.Effect<BetaResult> => Effect.sync(() => calculateBeta(assetReturns, marketReturns));
 
 // ============================================================================
 // FORMULA METADATA

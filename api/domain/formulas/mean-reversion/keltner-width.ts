@@ -30,7 +30,8 @@ export interface KeltnerWidthResult {
  */
 export const calculateKeltnerWidth = (price: CryptoPrice): KeltnerWidthResult => {
   // Approximate ATR using 24h range
-  const atr = price.high24h && price.low24h ? (price.high24h - price.low24h) / 2 : price.price * 0.02;
+  const atr =
+    price.high24h && price.low24h ? (price.high24h - price.low24h) / 2 : price.price * 0.02;
 
   // Approximate EMA using current price
   const middle = price.price;
@@ -68,9 +69,7 @@ export const calculateKeltnerWidth = (price: CryptoPrice): KeltnerWidthResult =>
 /**
  * Effect-based wrapper for Keltner Channel Width calculation
  */
-export const computeKeltnerWidth = (
-  price: CryptoPrice
-): Effect.Effect<KeltnerWidthResult> =>
+export const computeKeltnerWidth = (price: CryptoPrice): Effect.Effect<KeltnerWidthResult> =>
   Effect.sync(() => calculateKeltnerWidth(price));
 
 // ============================================================================

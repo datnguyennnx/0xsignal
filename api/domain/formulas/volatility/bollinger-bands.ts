@@ -43,24 +43,24 @@ export const calculateBollingerBands = (
 
   // Approximate SMA using 24h data
   const middleBand = (high24h + low24h + currentPrice) / 3;
-  
+
   // Calculate standard deviation approximation
-  const variance = 
+  const variance =
     Math.pow(high24h - middleBand, 2) +
     Math.pow(low24h - middleBand, 2) +
     Math.pow(currentPrice - middleBand, 2);
   const stdDev = Math.sqrt(variance / 3);
-  
+
   // Bollinger Bands with k=2
-  const upperBand = middleBand + (2 * stdDev);
-  const lowerBand = middleBand - (2 * stdDev);
-  
+  const upperBand = middleBand + 2 * stdDev;
+  const lowerBand = middleBand - 2 * stdDev;
+
   // Bandwidth: measures volatility (higher = more volatile)
   const bandwidth = (upperBand - lowerBand) / middleBand;
-  
+
   // %B: position within bands (>1 = above upper, <0 = below lower)
   const percentB = (currentPrice - lowerBand) / (upperBand - lowerBand);
-  
+
   return {
     upperBand,
     middleBand,
@@ -73,12 +73,8 @@ export const calculateBollingerBands = (
 /**
  * Effect-based wrapper for Bollinger Bands calculation
  */
-export const computeBollingerBands = (
-  price: CryptoPrice
-): Effect.Effect<BollingerBandsResult> =>
-  Effect.sync(() => 
-    calculateBollingerBands(price.price, price.high24h, price.low24h)
-  );
+export const computeBollingerBands = (price: CryptoPrice): Effect.Effect<BollingerBandsResult> =>
+  Effect.sync(() => calculateBollingerBands(price.price, price.high24h, price.low24h));
 
 // ============================================================================
 // BOLLINGER BAND SQUEEZE DETECTION
@@ -90,7 +86,7 @@ export interface BollingerSqueezeSignal {
   readonly isSqueezing: boolean;
   readonly bandwidth: number;
   readonly squeezeIntensity: number; // 0-100
-  readonly breakoutDirection: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  readonly breakoutDirection: "BULLISH" | "BEARISH" | "NEUTRAL";
   readonly confidence: number;
 }
 
@@ -104,26 +100,26 @@ export const detectBollingerSqueeze = (
 ): BollingerSqueezeSignal => {
   const squeezeThreshold = 0.1;
   const isSqueezing = bb.bandwidth < squeezeThreshold;
-  
+
   // Squeeze intensity: how tight the bands are (0-100)
   const squeezeIntensity = isSqueezing
     ? Math.round((1 - bb.bandwidth / squeezeThreshold) * 100)
     : 0;
-  
+
   // Determine breakout direction using %B position
-  let breakoutDirection: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
+  let breakoutDirection: "BULLISH" | "BEARISH" | "NEUTRAL" = "NEUTRAL";
   let confidence = 50;
-  
+
   if (isSqueezing) {
     if (bb.percentB > 0.6) {
-      breakoutDirection = 'BULLISH';
+      breakoutDirection = "BULLISH";
       confidence = 60 + Math.round((bb.percentB - 0.6) * 100);
     } else if (bb.percentB < 0.4) {
-      breakoutDirection = 'BEARISH';
+      breakoutDirection = "BEARISH";
       confidence = 60 + Math.round((0.4 - bb.percentB) * 100);
     }
   }
-  
+
   return {
     symbol: price.symbol,
     isSqueezing,
@@ -137,9 +133,7 @@ export const detectBollingerSqueeze = (
 /**
  * Effect-based squeeze detection
  */
-export const detectSqueeze = (
-  price: CryptoPrice
-): Effect.Effect<BollingerSqueezeSignal> =>
+export const detectSqueeze = (price: CryptoPrice): Effect.Effect<BollingerSqueezeSignal> =>
   Effect.gen(function* () {
     const bb = yield* computeBollingerBands(price);
     return yield* Effect.sync(() => detectBollingerSqueeze(price, bb));

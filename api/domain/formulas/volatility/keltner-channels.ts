@@ -135,9 +135,7 @@ export const computeKeltnerChannels = (
   period: number = 20,
   multiplier: number = 2
 ): Effect.Effect<KeltnerChannelsResult> =>
-  Effect.sync(() =>
-    calculateKeltnerChannels(closes, highs, lows, period, multiplier)
-  );
+  Effect.sync(() => calculateKeltnerChannels(closes, highs, lows, period, multiplier));
 
 // ============================================================================
 // FORMULA METADATA
@@ -147,8 +145,7 @@ export const KeltnerChannelsMetadata: FormulaMetadata = {
   name: "KeltnerChannels",
   category: "volatility",
   difficulty: "beginner",
-  description:
-    "Keltner Channels - volatility-based channels using EMA and ATR",
+  description: "Keltner Channels - volatility-based channels using EMA and ATR",
   requiredInputs: ["closes", "highs", "lows"],
   optionalInputs: ["period", "multiplier"],
   minimumDataPoints: 21,

@@ -40,9 +40,7 @@ export interface MeanReversionScoreResult {
 /**
  * Pure function to calculate Mean Reversion Score
  */
-export const calculateMeanReversionScore = (
-  price: CryptoPrice
-): MeanReversionScoreResult => {
+export const calculateMeanReversionScore = (price: CryptoPrice): MeanReversionScoreResult => {
   // Calculate all components
   const pctB = calculatePctB(price);
   const bbWidth = calculateBBWidth(price);
@@ -64,8 +62,7 @@ export const calculateMeanReversionScore = (
     kcWidth.volatility === "VERY_LOW" ? 100 : kcWidth.volatility === "LOW" ? 70 : 40;
 
   // Weighted composite score
-  const score =
-    pctBScore * 0.3 + bbWidthScore * 0.25 + distMAScore * 0.25 + kcWidthScore * 0.2;
+  const score = pctBScore * 0.3 + bbWidthScore * 0.25 + distMAScore * 0.25 + kcWidthScore * 0.2;
 
   // Determine direction
   let direction: "BUY" | "SELL" | "NEUTRAL";
@@ -109,8 +106,7 @@ export const calculateMeanReversionScore = (
  */
 export const computeMeanReversionScore = (
   price: CryptoPrice
-): Effect.Effect<MeanReversionScoreResult> =>
-  Effect.sync(() => calculateMeanReversionScore(price));
+): Effect.Effect<MeanReversionScoreResult> => Effect.sync(() => calculateMeanReversionScore(price));
 
 // ============================================================================
 // FORMULA METADATA

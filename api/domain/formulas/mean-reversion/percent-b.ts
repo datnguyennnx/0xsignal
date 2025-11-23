@@ -21,7 +21,12 @@ import type { CryptoPrice } from "@0xsignal/shared";
 
 export interface PercentBResult {
   readonly value: number; // %B value (can be <0 or >1)
-  readonly signal: "EXTREME_OVERBOUGHT" | "OVERBOUGHT" | "NEUTRAL" | "OVERSOLD" | "EXTREME_OVERSOLD";
+  readonly signal:
+    | "EXTREME_OVERBOUGHT"
+    | "OVERBOUGHT"
+    | "NEUTRAL"
+    | "OVERSOLD"
+    | "EXTREME_OVERSOLD";
   readonly position: "ABOVE_BANDS" | "UPPER_HALF" | "MIDDLE" | "LOWER_HALF" | "BELOW_BANDS";
   readonly meanReversionSetup: boolean; // True if good mean reversion opportunity
 }
@@ -32,11 +37,7 @@ export interface PercentBResult {
  * @param upperBand - Upper Bollinger Band
  * @param lowerBand - Lower Bollinger Band
  */
-export const calculatePercentB = (
-  price: number,
-  upperBand: number,
-  lowerBand: number
-): number => {
+export const calculatePercentB = (price: number, upperBand: number, lowerBand: number): number => {
   const bandWidth = upperBand - lowerBand;
   return bandWidth === 0 ? 0.5 : (price - lowerBand) / bandWidth;
 };
@@ -94,9 +95,8 @@ export const calculatePctB = (price: CryptoPrice): PercentBResult => {
 /**
  * Effect-based wrapper for Percent B calculation
  */
-export const computePercentB = (
-  price: CryptoPrice
-): Effect.Effect<PercentBResult> => Effect.sync(() => calculatePctB(price));
+export const computePercentB = (price: CryptoPrice): Effect.Effect<PercentBResult> =>
+  Effect.sync(() => calculatePctB(price));
 
 // ============================================================================
 // FORMULA METADATA

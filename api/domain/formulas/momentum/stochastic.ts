@@ -155,9 +155,7 @@ export const computeStochastic = (
   kPeriod: number = 14,
   dPeriod: number = 3
 ): Effect.Effect<StochasticResult> =>
-  Effect.sync(() =>
-    calculateStochastic(closes, highs, lows, kPeriod, dPeriod)
-  );
+  Effect.sync(() => calculateStochastic(closes, highs, lows, kPeriod, dPeriod));
 
 // ============================================================================
 // FORMULA METADATA
@@ -167,8 +165,7 @@ export const StochasticMetadata: FormulaMetadata = {
   name: "Stochastic",
   category: "momentum",
   difficulty: "beginner",
-  description:
-    "Stochastic Oscillator - measures position relative to high-low range",
+  description: "Stochastic Oscillator - measures position relative to high-low range",
   requiredInputs: ["closes", "highs", "lows"],
   optionalInputs: ["kPeriod", "dPeriod"],
   minimumDataPoints: 17,

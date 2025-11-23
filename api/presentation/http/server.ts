@@ -22,10 +22,7 @@ const handleRequest = (url: URL, method: string) => {
 
   // Top analysis (with enhanced quant data)
   if (path === "/api/analysis/top") {
-    const limit = Math.min(
-      parseInt(url.searchParams.get("limit") || "20"),
-      100
-    );
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "20"), 100);
     return Effect.gen(function* () {
       const service = yield* MarketAnalysisServiceTag;
       return yield* service.analyzeTopCryptos(limit);
@@ -46,9 +43,8 @@ const handleRequest = (url: URL, method: string) => {
       const service = yield* MarketAnalysisServiceTag;
       const analyses = yield* service.analyzeTopCryptos(50);
       // Return signals with bubble signals OR high confidence quant signals
-      return analyses.filter((a: any) => 
-        a.bubbleAnalysis?.signals?.length > 0 || 
-        (a.quantAnalysis?.confidence >= 60)
+      return analyses.filter(
+        (a: any) => a.bubbleAnalysis?.signals?.length > 0 || a.quantAnalysis?.confidence >= 60
       );
     });
   }
@@ -81,7 +77,7 @@ const handleRequest = (url: URL, method: string) => {
 const server = createServer((req, res) => {
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substring(7);
-  
+
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -97,17 +93,16 @@ const server = createServer((req, res) => {
   const url = new URL(req.url || "/", `http://localhost:${PORT}`);
   const method = req.method || "GET";
   const path = url.pathname;
-  
+
   res.setHeader("Content-Type", "application/json");
 
   // Log incoming request
   const logRequest = Effect.gen(function* () {
     const logger = yield* Logger;
     const queryParams = Object.fromEntries(url.searchParams);
-    const queryStr = Object.keys(queryParams).length > 0 
-      ? `?${new URLSearchParams(queryParams).toString()}` 
-      : "";
-    
+    const queryStr =
+      Object.keys(queryParams).length > 0 ? `?${new URLSearchParams(queryParams).toString()}` : "";
+
     yield* logger.info(`→ ${method} ${path}${queryStr}`, { requestId });
   });
 
@@ -121,31 +116,31 @@ const server = createServer((req, res) => {
   Effect.runPromise(program)
     .then((result) => {
       const duration = Date.now() - startTime;
-      
+
       // Log successful response
       const logResponse = Effect.gen(function* () {
         const logger = yield* Logger;
         yield* logger.info(`← 200 ${path} (${duration}ms)`, { requestId });
       });
-      
+
       Effect.runPromise(Effect.provide(logResponse, AppLayer));
-      
+
       res.writeHead(200);
       res.end(JSON.stringify(result));
     })
     .catch((error: any) => {
       const duration = Date.now() - startTime;
       const status = error.status || 500;
-      
+
       // Log error response
       const logError = Effect.gen(function* () {
         const logger = yield* Logger;
         const errorMsg = error.message || "Internal server error";
         yield* logger.error(`← ${status} ${path} (${duration}ms) - ${errorMsg}`, { requestId });
       });
-      
+
       Effect.runPromise(Effect.provide(logError, AppLayer));
-      
+
       res.writeHead(status);
       res.end(
         JSON.stringify({

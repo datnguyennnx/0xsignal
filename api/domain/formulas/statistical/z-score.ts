@@ -30,10 +30,7 @@ export interface ZScoreResult {
  * @param value - The value to standardize
  * @param dataset - The dataset for context
  */
-export const calculateZScore = (
-  value: number,
-  dataset: ReadonlyArray<number>
-): ZScoreResult => {
+export const calculateZScore = (value: number, dataset: ReadonlyArray<number>): ZScoreResult => {
   const stats = calculateStandardDeviation(dataset);
   const zScore = stats.population === 0 ? 0 : (value - stats.mean) / stats.population;
 
@@ -62,13 +59,9 @@ export const calculateZScore = (
 /**
  * Pure function to calculate Z-Scores for entire series
  */
-export const calculateZScoreSeries = (
-  values: ReadonlyArray<number>
-): ReadonlyArray<number> => {
+export const calculateZScoreSeries = (values: ReadonlyArray<number>): ReadonlyArray<number> => {
   const stats = calculateStandardDeviation(values);
-  return values.map((v) =>
-    stats.population === 0 ? 0 : (v - stats.mean) / stats.population
-  );
+  return values.map((v) => (stats.population === 0 ? 0 : (v - stats.mean) / stats.population));
 };
 
 /**
@@ -77,8 +70,7 @@ export const calculateZScoreSeries = (
 export const computeZScore = (
   value: number,
   dataset: ReadonlyArray<number>
-): Effect.Effect<ZScoreResult> =>
-  Effect.sync(() => calculateZScore(value, dataset));
+): Effect.Effect<ZScoreResult> => Effect.sync(() => calculateZScore(value, dataset));
 
 // ============================================================================
 // FORMULA METADATA
@@ -93,12 +85,7 @@ export const ZScoreMetadata: FormulaMetadata = {
   optionalInputs: [],
   minimumDataPoints: 2,
   outputType: "ZScoreResult",
-  useCases: [
-    "outlier detection",
-    "standardization",
-    "statistical comparison",
-    "anomaly detection",
-  ],
+  useCases: ["outlier detection", "standardization", "statistical comparison", "anomaly detection"],
   timeComplexity: "O(n)",
   dependencies: ["StandardDeviation"],
 };

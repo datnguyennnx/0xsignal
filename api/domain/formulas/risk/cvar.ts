@@ -29,9 +29,7 @@ export interface CVaRResult {
  * Pure function to calculate CVaR
  * @param returns - Array of returns
  */
-export const calculateCVaR = (
-  returns: ReadonlyArray<number>
-): CVaRResult => {
+export const calculateCVaR = (returns: ReadonlyArray<number>): CVaRResult => {
   // Calculate VaR first
   const varResult = calculateVaR(returns);
 
@@ -79,9 +77,8 @@ export const calculateCVaR = (
 /**
  * Effect-based wrapper for CVaR calculation
  */
-export const computeCVaR = (
-  returns: ReadonlyArray<number>
-): Effect.Effect<CVaRResult> => Effect.sync(() => calculateCVaR(returns));
+export const computeCVaR = (returns: ReadonlyArray<number>): Effect.Effect<CVaRResult> =>
+  Effect.sync(() => calculateCVaR(returns));
 
 // ============================================================================
 // FORMULA METADATA

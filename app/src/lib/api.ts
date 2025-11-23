@@ -1,25 +1,25 @@
-import { Effect, Data, Context, Layer, pipe } from 'effect';
-import type { CryptoBubbleAnalysis, EnhancedAnalysis } from '@0xsignal/shared';
+import { Effect, Data, Context, Layer, pipe } from "effect";
+import type { CryptoBubbleAnalysis, EnhancedAnalysis } from "@0xsignal/shared";
 
-const API_BASE = import.meta.env.DEV ? '/api' : 'http://localhost:9006/api';
+const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost:9006/api";
 
-// ------------------------------ 
+// ------------------------------
 // Errors
 // ------------------------------
-export class ApiError extends Data.TaggedError('ApiError')<{
+export class ApiError extends Data.TaggedError("ApiError")<{
   readonly message: string;
   readonly status?: number;
   readonly statusText?: string;
 }> {}
 
-export class NetworkError extends Data.TaggedError('NetworkError')<{
+export class NetworkError extends Data.TaggedError("NetworkError")<{
   readonly message: string;
 }> {}
 
-// ------------------------------ 
+// ------------------------------
 // API Service
 // ------------------------------
-export class ApiService extends Context.Tag('ApiService')<
+export class ApiService extends Context.Tag("ApiService")<
   ApiService,
   {
     readonly health: () => Effect.Effect<unknown, ApiError | NetworkError>;
@@ -34,10 +34,13 @@ export class ApiService extends Context.Tag('ApiService')<
   }
 >() {}
 
-// ------------------------------ 
+// ------------------------------
 // Implementation
 // ------------------------------
-const fetchJson = <T>(url: string, options?: RequestInit): Effect.Effect<T, ApiError | NetworkError> =>
+const fetchJson = <T>(
+  url: string,
+  options?: RequestInit
+): Effect.Effect<T, ApiError | NetworkError> =>
   Effect.tryPromise({
     try: async () => {
       const response = await fetch(url, options);
@@ -57,7 +60,7 @@ const fetchJson = <T>(url: string, options?: RequestInit): Effect.Effect<T, ApiE
         return error;
       }
       return new NetworkError({
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        message: error instanceof Error ? error.message : "Unknown error occurred",
       });
     },
   });
@@ -68,15 +71,14 @@ export const ApiServiceLive = Layer.succeed(ApiService, {
   getTopAnalysis: (limit = 20) =>
     fetchJson<EnhancedAnalysis[]>(`${API_BASE}/analysis/top?limit=${limit}`),
 
-  getAnalysis: (symbol: string) =>
-    fetchJson<EnhancedAnalysis>(`${API_BASE}/analysis/${symbol}`),
+  getAnalysis: (symbol: string) => fetchJson<EnhancedAnalysis>(`${API_BASE}/analysis/${symbol}`),
 
   getOverview: () => fetchJson(`${API_BASE}/overview`),
 
   getSignals: () => fetchJson<EnhancedAnalysis[]>(`${API_BASE}/signals`),
 });
 
-// ------------------------------ 
+// ------------------------------
 // Queries
 // ------------------------------
 export const getTopAnalysis = (limit = 20) =>

@@ -1,8 +1,8 @@
-import { Effect, Exit, pipe } from 'effect';
-import { useNavigate } from 'react-router-dom';
-import { getTopAnalysis } from '../lib/api';
-import { useEffect_ } from '../lib/runtime';
-import { cn } from '@/lib/utils';
+import { Effect, Exit, pipe } from "effect";
+import { useNavigate } from "react-router-dom";
+import { getTopAnalysis } from "../lib/api";
+import { useEffect_ } from "../lib/runtime";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -10,11 +10,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 
-const fetchData = () => Effect.gen(function* () {
-  return yield* getTopAnalysis(50);
-});
+const fetchData = () =>
+  Effect.gen(function* () {
+    return yield* getTopAnalysis(50);
+  });
 
 export function AllSellSignals() {
   const exit = useEffect_(fetchData, []);
@@ -45,8 +46,10 @@ export function AllSellSignals() {
         </div>
       ),
       onSuccess: (analyses) => {
-        const sellSignals = analyses.filter((a: any) => 
-          a.quantAnalysis?.overallSignal === 'STRONG_SELL' || a.quantAnalysis?.overallSignal === 'SELL'
+        const sellSignals = analyses.filter(
+          (a: any) =>
+            a.quantAnalysis?.overallSignal === "STRONG_SELL" ||
+            a.quantAnalysis?.overallSignal === "SELL"
         );
 
         return (
@@ -69,7 +72,7 @@ export function AllSellSignals() {
                 </TableHeader>
                 <TableBody>
                   {sellSignals.map((signal: any) => {
-                    const isStrong = signal.quantAnalysis?.overallSignal === 'STRONG_SELL';
+                    const isStrong = signal.quantAnalysis?.overallSignal === "STRONG_SELL";
                     const confidence = signal.quantAnalysis?.confidence || 0;
                     const price = signal.price?.price || 0;
                     const change24h = signal.price?.change24h || 0;
@@ -92,23 +95,30 @@ export function AllSellSignals() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right font-medium tabular-nums">
-                          ${price >= 1 ? price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : price.toFixed(6)}
+                          $
+                          {price >= 1
+                            ? price.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })
+                            : price.toFixed(6)}
                         </TableCell>
-                        <TableCell className={cn(
-                          'text-right font-semibold tabular-nums',
-                          change24h > 0 ? 'text-success' : 'text-destructive'
-                        )}>
-                          {change24h > 0 ? '+' : ''}{change24h.toFixed(2)}%
+                        <TableCell
+                          className={cn(
+                            "text-right font-semibold tabular-nums",
+                            change24h > 0 ? "text-success" : "text-destructive"
+                          )}
+                        >
+                          {change24h > 0 ? "+" : ""}
+                          {change24h.toFixed(2)}%
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground tabular-nums">
-                          {volume24h >= 1_000_000_000 
+                          {volume24h >= 1_000_000_000
                             ? `$${(volume24h / 1_000_000_000).toFixed(2)}B`
                             : `$${(volume24h / 1_000_000).toFixed(0)}M`}
                         </TableCell>
                         <TableCell className="text-right">
-                          <span className="font-semibold tabular-nums">
-                            {confidence}%
-                          </span>
+                          <span className="font-semibold tabular-nums">{confidence}%</span>
                         </TableCell>
                       </TableRow>
                     );

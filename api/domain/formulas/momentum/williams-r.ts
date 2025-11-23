@@ -122,8 +122,7 @@ export const WilliamsRMetadata: FormulaMetadata = {
   name: "WilliamsR",
   category: "momentum",
   difficulty: "beginner",
-  description:
-    "Williams %R - momentum oscillator measuring overbought/oversold levels",
+  description: "Williams %R - momentum oscillator measuring overbought/oversold levels",
   requiredInputs: ["closes", "highs", "lows"],
   optionalInputs: ["period"],
   minimumDataPoints: 14,

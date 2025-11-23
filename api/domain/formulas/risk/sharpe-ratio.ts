@@ -84,9 +84,7 @@ export const computeSharpeRatio = (
   riskFreeRate: number = 0.02,
   annualizationFactor: number = 252
 ): Effect.Effect<SharpeRatioResult> =>
-  Effect.sync(() =>
-    calculateSharpeRatio(returns, riskFreeRate, annualizationFactor)
-  );
+  Effect.sync(() => calculateSharpeRatio(returns, riskFreeRate, annualizationFactor));
 
 // ============================================================================
 // FORMULA METADATA

@@ -172,8 +172,7 @@ export const computeADX = (
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   period: number = 14
-): Effect.Effect<ADXResult> =>
-  Effect.sync(() => calculateADX(highs, lows, closes, period));
+): Effect.Effect<ADXResult> => Effect.sync(() => calculateADX(highs, lows, closes, period));
 
 // ============================================================================
 // FORMULA METADATA

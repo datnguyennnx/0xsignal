@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Effect, Exit, pipe } from 'effect';
-import { ApiServiceLive } from './api';
+import { useEffect, useState } from "react";
+import { Effect, Exit, pipe } from "effect";
+import { ApiServiceLive } from "./api";
 
 // Simple bridge between Effect and React
 // Uses Effect's built-in Exit type for proper error handling

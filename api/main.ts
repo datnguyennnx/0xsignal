@@ -28,13 +28,12 @@ const parseCommand = (args: string[]): Command => {
 // Main application entry point
 const main = Effect.gen(function* () {
   const logger = yield* Logger;
-  
+
   // Load configuration
   const config = yield* AppConfig;
 
   // Parse command from CLI args
-  const args =
-    (globalThis as { process?: { argv: string[] } }).process?.argv || [];
+  const args = (globalThis as { process?: { argv: string[] } }).process?.argv || [];
   const command = parseCommand(args);
 
   yield* logger.info(`Starting in ${command} mode`);
@@ -46,7 +45,6 @@ const main = Effect.gen(function* () {
     return yield* runAnalysis(config);
   }
 });
-
 
 // Run the application with all layers
 const program = main.pipe(Effect.provide(AppLayer)) as Effect.Effect<any, any, never>;

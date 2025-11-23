@@ -134,8 +134,7 @@ export const DonchianChannelsMetadata: FormulaMetadata = {
   name: "DonchianChannels",
   category: "volatility",
   difficulty: "beginner",
-  description:
-    "Donchian Channels - highest high and lowest low over a period",
+  description: "Donchian Channels - highest high and lowest low over a period",
   requiredInputs: ["highs", "lows", "closes"],
   optionalInputs: ["period"],
   minimumDataPoints: 20,

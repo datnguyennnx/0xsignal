@@ -31,11 +31,7 @@ export interface ATRResult {
 /**
  * Pure function to calculate True Range
  */
-export const calculateTrueRange = (
-  high: number,
-  low: number,
-  previousClose: number
-): number => {
+export const calculateTrueRange = (high: number, low: number, previousClose: number): number => {
   const range1 = high - low;
   const range2 = Math.abs(high - previousClose);
   const range3 = Math.abs(low - previousClose);
@@ -134,8 +130,7 @@ export const computeATR = (
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   period: number = 14
-): Effect.Effect<ATRResult> =>
-  Effect.sync(() => calculateATR(highs, lows, closes, period));
+): Effect.Effect<ATRResult> => Effect.sync(() => calculateATR(highs, lows, closes, period));
 
 // ============================================================================
 // FORMULA METADATA

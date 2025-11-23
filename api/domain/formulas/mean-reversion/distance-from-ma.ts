@@ -29,14 +29,10 @@ export interface DistanceFromMAResult {
  * Pure function to calculate Distance from Moving Average
  * Uses 24h average as proxy for MA
  */
-export const calculateDistanceFromMA = (
-  price: CryptoPrice
-): DistanceFromMAResult => {
+export const calculateDistanceFromMA = (price: CryptoPrice): DistanceFromMAResult => {
   // Approximate MA using 24h average
   const ma =
-    price.high24h && price.low24h
-      ? (price.high24h + price.low24h + price.price) / 3
-      : price.price;
+    price.high24h && price.low24h ? (price.high24h + price.low24h + price.price) / 3 : price.price;
 
   // Calculate percentage distance
   const distance = ma === 0 ? 0 : ((price.price - ma) / ma) * 100;
@@ -72,9 +68,7 @@ export const calculateDistanceFromMA = (
 /**
  * Effect-based wrapper for Distance from MA calculation
  */
-export const computeDistanceFromMA = (
-  price: CryptoPrice
-): Effect.Effect<DistanceFromMAResult> =>
+export const computeDistanceFromMA = (price: CryptoPrice): Effect.Effect<DistanceFromMAResult> =>
   Effect.sync(() => calculateDistanceFromMA(price));
 
 // ============================================================================

@@ -29,9 +29,7 @@ export interface MaximumDrawdownResult {
  * Pure function to calculate Maximum Drawdown
  * @param values - Array of portfolio values or prices
  */
-export const calculateMaximumDrawdown = (
-  values: ReadonlyArray<number>
-): MaximumDrawdownResult => {
+export const calculateMaximumDrawdown = (values: ReadonlyArray<number>): MaximumDrawdownResult => {
   let maxDrawdown = 0;
   let peakIndex = 0;
   let troughIndex = 0;
@@ -84,8 +82,7 @@ export const calculateMaximumDrawdown = (
  */
 export const computeMaximumDrawdown = (
   values: ReadonlyArray<number>
-): Effect.Effect<MaximumDrawdownResult> =>
-  Effect.sync(() => calculateMaximumDrawdown(values));
+): Effect.Effect<MaximumDrawdownResult> => Effect.sync(() => calculateMaximumDrawdown(values));
 
 // ============================================================================
 // FORMULA METADATA

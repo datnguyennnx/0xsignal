@@ -47,15 +47,15 @@ export const standardDeviation = (values: number[], sample: boolean = false): nu
  */
 export const covariance = (x: number[], y: number[]): number => {
   if (x.length !== y.length || x.length === 0) return 0;
-  
+
   const meanX = mean(x);
   const meanY = mean(y);
-  
+
   let cov = 0;
   for (let i = 0; i < x.length; i++) {
     cov += (x[i] - meanX) * (y[i] - meanY);
   }
-  
+
   return cov / x.length;
 };
 
@@ -64,13 +64,13 @@ export const covariance = (x: number[], y: number[]): number => {
  */
 export const correlation = (x: number[], y: number[]): number => {
   if (x.length !== y.length || x.length === 0) return 0;
-  
+
   const cov = covariance(x, y);
   const stdX = standardDeviation(x);
   const stdY = standardDeviation(y);
-  
+
   if (stdX === 0 || stdY === 0) return 0;
-  
+
   return cov / (stdX * stdY);
 };
 
@@ -95,10 +95,10 @@ export const max = (values: number[]): number => {
  */
 export const median = (values: number[]): number => {
   if (values.length === 0) return 0;
-  
+
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  
+
   if (sorted.length % 2 === 0) {
     return (sorted[mid - 1] + sorted[mid]) / 2;
   }
@@ -113,17 +113,17 @@ export const median = (values: number[]): number => {
 export const percentile = (values: number[], percentile: number): number => {
   if (values.length === 0) return 0;
   if (percentile < 0 || percentile > 100) return 0;
-  
+
   const sorted = [...values].sort((a, b) => a - b);
   const index = (percentile / 100) * (sorted.length - 1);
   const lower = Math.floor(index);
   const upper = Math.ceil(index);
   const weight = index - lower;
-  
+
   if (lower === upper) {
     return sorted[lower];
   }
-  
+
   return sorted[lower] * (1 - weight) + sorted[upper] * weight;
 };
 
@@ -169,12 +169,12 @@ export const rollingWindow = <T>(
   fn: (window: number[]) => T
 ): T[] => {
   const results: T[] = [];
-  
+
   for (let i = windowSize - 1; i < values.length; i++) {
     const window = values.slice(i - windowSize + 1, i + 1);
     results.push(fn(window));
   }
-  
+
   return results;
 };
 

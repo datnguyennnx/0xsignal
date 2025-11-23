@@ -45,14 +45,12 @@ export const calculateHistoricalVolatility = (
   const recentReturns = logReturns.slice(-period);
 
   // Calculate mean return
-  const meanReturn =
-    recentReturns.reduce((a, b) => a + b, 0) / recentReturns.length;
+  const meanReturn = recentReturns.reduce((a, b) => a + b, 0) / recentReturns.length;
 
   // Calculate variance
   const variance =
-    recentReturns
-      .map((r) => Math.pow(r - meanReturn, 2))
-      .reduce((a, b) => a + b, 0) / recentReturns.length;
+    recentReturns.map((r) => Math.pow(r - meanReturn, 2)).reduce((a, b) => a + b, 0) /
+    recentReturns.length;
 
   // Calculate standard deviation (daily volatility)
   const dailyVol = Math.sqrt(variance);
@@ -101,9 +99,7 @@ export const calculateHistoricalVolatilitySeries = (
   for (let i = period - 1; i < logReturns.length; i++) {
     const window = logReturns.slice(i - period + 1, i + 1);
     const mean = window.reduce((a, b) => a + b, 0) / period;
-    const variance =
-      window.map((r) => Math.pow(r - mean, 2)).reduce((a, b) => a + b, 0) /
-      period;
+    const variance = window.map((r) => Math.pow(r - mean, 2)).reduce((a, b) => a + b, 0) / period;
     const vol = Math.sqrt(variance) * Math.sqrt(annualizationFactor) * 100;
     volSeries.push(vol);
   }
@@ -119,9 +115,7 @@ export const computeHistoricalVolatility = (
   period: number = 30,
   annualizationFactor: number = 252
 ): Effect.Effect<HistoricalVolatilityResult> =>
-  Effect.sync(() =>
-    calculateHistoricalVolatility(closes, period, annualizationFactor)
-  );
+  Effect.sync(() => calculateHistoricalVolatility(closes, period, annualizationFactor));
 
 // ============================================================================
 // FORMULA METADATA
@@ -131,18 +125,12 @@ export const HistoricalVolatilityMetadata: FormulaMetadata = {
   name: "HistoricalVolatility",
   category: "volatility",
   difficulty: "intermediate",
-  description:
-    "Historical Volatility - annualized standard deviation of log returns",
+  description: "Historical Volatility - annualized standard deviation of log returns",
   requiredInputs: ["closes"],
   optionalInputs: ["period", "annualizationFactor"],
   minimumDataPoints: 31,
   outputType: "HistoricalVolatilityResult",
-  useCases: [
-    "risk measurement",
-    "option pricing",
-    "position sizing",
-    "volatility trading",
-  ],
+  useCases: ["risk measurement", "option pricing", "position sizing", "volatility trading"],
   timeComplexity: "O(n * k)",
   dependencies: [],
 };

@@ -24,24 +24,24 @@ const MAX_CACHE_SIZE = 1000;
 setInterval(() => {
   const now = Date.now();
   let cleaned = 0;
-  
+
   for (const [key, entry] of cache.entries()) {
     if (now > entry.expires) {
       cache.delete(key);
       cleaned++;
     }
   }
-  
+
   if (cleaned > 0) {
     console.log(`Cache cleanup: removed ${cleaned} expired entries`);
   }
-  
+
   // If cache is too large, remove least used entries
   if (cache.size > MAX_CACHE_SIZE) {
     const entries = Array.from(cache.entries())
       .sort((a, b) => a[1].hits - b[1].hits)
       .slice(0, Math.floor(MAX_CACHE_SIZE * 0.2));
-    
+
     entries.forEach(([key]) => cache.delete(key));
     console.log(`Cache size limit: removed ${entries.length} least used entries`);
   }
@@ -52,15 +52,15 @@ export const CacheServiceLive = Layer.succeed(CacheService, {
     Effect.sync(() => {
       const item = cache.get(key);
       if (!item) return null;
-      
+
       if (Date.now() > item.expires) {
         cache.delete(key);
         return null;
       }
-      
+
       // Track cache hits
       item.hits++;
-      
+
       return item.value as T;
     }),
 
@@ -78,6 +78,5 @@ export const CacheServiceLive = Layer.succeed(CacheService, {
       cache.clear();
     }),
 
-  size: () =>
-    Effect.sync(() => cache.size),
+  size: () => Effect.sync(() => cache.size),
 });

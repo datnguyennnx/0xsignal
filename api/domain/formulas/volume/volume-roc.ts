@@ -94,8 +94,7 @@ export const calculateVolumeROCSeries = (
 export const computeVolumeROC = (
   volumes: ReadonlyArray<number>,
   period: number = 14
-): Effect.Effect<VolumeROCResult> =>
-  Effect.sync(() => calculateVolumeROC(volumes, period));
+): Effect.Effect<VolumeROCResult> => Effect.sync(() => calculateVolumeROC(volumes, period));
 
 // ============================================================================
 // FORMULA METADATA

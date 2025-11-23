@@ -1,18 +1,11 @@
 import { Effect, Context, Layer } from "effect";
-import {
-  CoinGeckoService,
-  BubbleDetectionService,
-  type CryptoBubbleAnalysis,
-  type CryptoPrice,
-} from "@0xsignal/shared";
+import type { CryptoBubbleAnalysis, CryptoPrice } from "@0xsignal/shared";
+import { CoinGeckoService } from "../../infrastructure/http/http.service";
+import { BubbleDetectionService } from "./bubble-detection";
 import { CacheService } from "../../infrastructure/cache/cache.service";
 import { Logger } from "../../infrastructure/logging/logger.service";
 import { AnalysisError } from "../models/errors";
-import { 
-  calculateMetrics, 
-  analyzeWithFormulas, 
-  type QuantitativeAnalysis 
-} from "../formulas";
+import { calculateMetrics, analyzeWithFormulas, type QuantitativeAnalysis } from "../formulas";
 
 // ============================================================================
 // MARKET ANALYSIS SERVICE
@@ -23,11 +16,11 @@ import {
 
 export interface EnhancedAnalysis {
   readonly symbol: string;
-  readonly price: CryptoPrice;  // Add price data
+  readonly price: CryptoPrice; // Add price data
   readonly bubbleAnalysis: CryptoBubbleAnalysis;
   readonly quantAnalysis: QuantitativeAnalysis;
   readonly combinedRiskScore: number;
-  readonly recommendation: 'STRONG_BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG_SELL';
+  readonly recommendation: "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
   readonly timestamp: Date;
 }
 
@@ -43,16 +36,14 @@ export interface MarketOverview {
  * Market Analysis Service Interface
  */
 export interface MarketAnalysisService {
-  readonly analyzeSymbol: (
-    symbol: string
-  ) => Effect.Effect<EnhancedAnalysis, AnalysisError>;
-  
+  readonly analyzeSymbol: (symbol: string) => Effect.Effect<EnhancedAnalysis, AnalysisError>;
+
   readonly analyzeTopCryptos: (
     limit: number
   ) => Effect.Effect<ReadonlyArray<EnhancedAnalysis>, AnalysisError>;
-  
+
   readonly getMarketOverview: () => Effect.Effect<MarketOverview, AnalysisError>;
-  
+
   readonly getHighConfidenceSignals: (
     minConfidence?: number
   ) => Effect.Effect<ReadonlyArray<EnhancedAnalysis>, AnalysisError>;
@@ -74,11 +65,8 @@ export class MarketAnalysisServiceTag extends Context.Tag("MarketAnalysisService
  * Pure function to calculate combined risk score
  * Weights: 60% bubble score, 40% quant risk
  */
-const calculateCombinedRisk = (
-  bubbleScore: number,
-  quantRisk: number
-): number => {
-  return Math.round((bubbleScore * 0.6) + (quantRisk * 0.4));
+const calculateCombinedRisk = (bubbleScore: number, quantRisk: number): number => {
+  return Math.round(bubbleScore * 0.6 + quantRisk * 0.4);
 };
 
 /**
@@ -88,44 +76,37 @@ const generateRecommendation = (
   riskLevel: string,
   quantSignal: string,
   combinedRisk: number
-): EnhancedAnalysis['recommendation'] => {
+): EnhancedAnalysis["recommendation"] => {
   // High risk = avoid buying
-  if (combinedRisk > 80 || riskLevel === 'EXTREME') {
-    return 'STRONG_SELL';
+  if (combinedRisk > 80 || riskLevel === "EXTREME") {
+    return "STRONG_SELL";
   }
-  
-  if (combinedRisk > 60 || riskLevel === 'HIGH') {
-    return 'SELL';
+
+  if (combinedRisk > 60 || riskLevel === "HIGH") {
+    return "SELL";
   }
-  
+
   // Low risk + bullish signal = buy
-  if (combinedRisk < 30 && (quantSignal === 'STRONG_BUY' || quantSignal === 'BUY')) {
-    return quantSignal === 'STRONG_BUY' ? 'STRONG_BUY' : 'BUY';
+  if (combinedRisk < 30 && (quantSignal === "STRONG_BUY" || quantSignal === "BUY")) {
+    return quantSignal === "STRONG_BUY" ? "STRONG_BUY" : "BUY";
   }
-  
-  return 'HOLD';
+
+  return "HOLD";
 };
 
 /**
  * Pure function to create market overview from analyses
  */
-const createMarketOverview = (
-  analyses: ReadonlyArray<EnhancedAnalysis>
-): MarketOverview => {
-  const bubblesDetected = analyses.filter(
-    (a) => a.bubbleAnalysis.isBubble
-  ).length;
-  
-  const highRiskAssets = analyses
-    .filter((a) => a.combinedRiskScore > 70)
-    .map((a) => a.symbol);
-  
-  const averageRiskScore = analyses.length > 0
-    ? Math.round(
-        analyses.reduce((sum, a) => sum + a.combinedRiskScore, 0) / analyses.length
-      )
-    : 0;
-  
+const createMarketOverview = (analyses: ReadonlyArray<EnhancedAnalysis>): MarketOverview => {
+  const bubblesDetected = analyses.filter((a) => a.bubbleAnalysis.isBubble).length;
+
+  const highRiskAssets = analyses.filter((a) => a.combinedRiskScore > 70).map((a) => a.symbol);
+
+  const averageRiskScore =
+    analyses.length > 0
+      ? Math.round(analyses.reduce((sum, a) => sum + a.combinedRiskScore, 0) / analyses.length)
+      : 0;
+
   return {
     totalAnalyzed: analyses.length,
     bubblesDetected,
@@ -158,7 +139,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
         // Check cache
         const cacheKey = `market-analysis-${symbol}`;
         const cached = yield* cache.get<EnhancedAnalysis>(cacheKey);
-        
+
         if (cached) {
           yield* logger.debug(`Cache hit: ${symbol}`);
           return cached;
@@ -170,13 +151,16 @@ export const MarketAnalysisServiceLive = Layer.effect(
         const price = yield* coinGecko.getPrice(symbol);
 
         // Run both analyses in parallel
-        const [bubbleAnalysis, quantAnalysis] = yield* Effect.all([
-          Effect.gen(function* () {
-            const metrics = calculateMetrics(price);
-            return yield* bubbleDetection.analyzeBubble(price, metrics);
-          }),
-          analyzeWithFormulas(price),
-        ], { concurrency: "unbounded" });
+        const [bubbleAnalysis, quantAnalysis] = yield* Effect.all(
+          [
+            Effect.gen(function* () {
+              const metrics = calculateMetrics(price);
+              return yield* bubbleDetection.analyzeBubble(price, metrics);
+            }),
+            analyzeWithFormulas(price),
+          ],
+          { concurrency: "unbounded" }
+        );
 
         // Calculate combined metrics
         const combinedRiskScore = calculateCombinedRisk(
@@ -192,7 +176,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
 
         const result: EnhancedAnalysis = {
           symbol: price.symbol,
-          price,  // Include price data
+          price, // Include price data
           bubbleAnalysis,
           quantAnalysis,
           combinedRiskScore,
@@ -228,7 +212,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
         // Check cache
         const cacheKey = `top-analysis-${limit}`;
         const cached = yield* cache.get<ReadonlyArray<EnhancedAnalysis>>(cacheKey);
-        
+
         if (cached) {
           yield* logger.debug(`Cache hit: top ${limit}`);
           return cached;
@@ -244,13 +228,16 @@ export const MarketAnalysisServiceLive = Layer.effect(
           topCryptos,
           (price) =>
             Effect.gen(function* () {
-              const [bubbleAnalysis, quantAnalysis] = yield* Effect.all([
-                Effect.gen(function* () {
-                  const metrics = calculateMetrics(price);
-                  return yield* bubbleDetection.analyzeBubble(price, metrics);
-                }),
-                analyzeWithFormulas(price),
-              ], { concurrency: "unbounded" });
+              const [bubbleAnalysis, quantAnalysis] = yield* Effect.all(
+                [
+                  Effect.gen(function* () {
+                    const metrics = calculateMetrics(price);
+                    return yield* bubbleDetection.analyzeBubble(price, metrics);
+                  }),
+                  analyzeWithFormulas(price),
+                ],
+                { concurrency: "unbounded" }
+              );
 
               const combinedRiskScore = calculateCombinedRisk(
                 bubbleAnalysis.bubbleScore,
@@ -265,7 +252,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
 
               return {
                 symbol: price.symbol,
-                price,  // Include price data
+                price, // Include price data
                 bubbleAnalysis,
                 quantAnalysis,
                 combinedRiskScore,
@@ -276,7 +263,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
               Effect.catchAll(() =>
                 Effect.succeed({
                   symbol: price.symbol,
-                  price,  // Include price data in fallback
+                  price, // Include price data in fallback
                   bubbleAnalysis: {
                     symbol: price.symbol,
                     isBubble: false,
@@ -319,7 +306,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
                         priceChange24h: 0,
                         score: 0,
                         signal: "NEUTRAL" as const,
-                        insight: "No data available"
+                        insight: "No data available",
                       },
                       volatility: {
                         bollingerWidth: 0,
@@ -327,16 +314,16 @@ export const MarketAnalysisServiceLive = Layer.effect(
                         athDistance: 0,
                         score: 0,
                         regime: "NORMAL" as const,
-                        insight: "No data available"
+                        insight: "No data available",
                       },
                       meanReversion: {
                         percentB: 0.5,
                         distanceFromMA: 0,
                         score: 0,
                         signal: "NEUTRAL" as const,
-                        insight: "No data available"
+                        insight: "No data available",
                       },
-                      overallQuality: 0
+                      overallQuality: 0,
                     },
                     overallSignal: "HOLD" as const,
                     confidence: 0,
@@ -374,7 +361,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
         // Check cache
         const cacheKey = "market-overview";
         const cached = yield* cache.get<MarketOverview>(cacheKey);
-        
+
         if (cached) {
           yield* logger.debug("Cache hit: market overview");
           return cached;
@@ -397,10 +384,8 @@ export const MarketAnalysisServiceLive = Layer.effect(
     ): Effect.Effect<ReadonlyArray<EnhancedAnalysis>, AnalysisError> =>
       Effect.gen(function* () {
         const analyses = yield* analyzeTopCryptos(50);
-        
-        return analyses.filter(
-          (a) => a.quantAnalysis.confidence >= minConfidence
-        );
+
+        return analyses.filter((a) => a.quantAnalysis.confidence >= minConfidence);
       });
 
     return {

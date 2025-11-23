@@ -31,17 +31,9 @@ export interface RVIResult {
 /**
  * Pure function to calculate weighted value
  */
-const calculateWeightedValue = (
-  values: ReadonlyArray<number>,
-  index: number
-): number => {
+const calculateWeightedValue = (values: ReadonlyArray<number>, index: number): number => {
   if (index < 3) return 0;
-  return (
-    values[index] +
-    2 * values[index - 1] +
-    2 * values[index - 2] +
-    values[index - 3]
-  ) / 6;
+  return (values[index] + 2 * values[index - 1] + 2 * values[index - 2] + values[index - 3]) / 6;
 };
 
 /**
@@ -91,19 +83,14 @@ export const calculateRVI = (
   }
 
   // Calculate signal line (4-period SMA of RVI)
-  const signal =
-    rviSeries.length >= 4
-      ? calculateSMA(rviSeries.slice(-4), 4).value
-      : rvi;
+  const signal = rviSeries.length >= 4 ? calculateSMA(rviSeries.slice(-4), 4).value : rvi;
 
   // Determine crossover
   let crossover: "BULLISH" | "BEARISH" | "NONE" = "NONE";
   if (rviSeries.length >= 2) {
     const prevRVI = rviSeries[rviSeries.length - 2];
     const prevSignal =
-      rviSeries.length >= 5
-        ? calculateSMA(rviSeries.slice(-5, -1), 4).value
-        : prevRVI;
+      rviSeries.length >= 5 ? calculateSMA(rviSeries.slice(-5, -1), 4).value : prevRVI;
 
     if (prevRVI <= prevSignal && rvi > signal) {
       crossover = "BULLISH";
@@ -139,8 +126,7 @@ export const computeRVI = (
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   period: number = 10
-): Effect.Effect<RVIResult> =>
-  Effect.sync(() => calculateRVI(opens, highs, lows, closes, period));
+): Effect.Effect<RVIResult> => Effect.sync(() => calculateRVI(opens, highs, lows, closes, period));
 
 // ============================================================================
 // FORMULA METADATA
@@ -150,8 +136,7 @@ export const RVIMetadata: FormulaMetadata = {
   name: "RVI",
   category: "oscillators",
   difficulty: "intermediate",
-  description:
-    "Relative Vigor Index - measures trend conviction using OHLC data",
+  description: "Relative Vigor Index - measures trend conviction using OHLC data",
   requiredInputs: ["opens", "highs", "lows", "closes"],
   optionalInputs: ["period"],
   minimumDataPoints: 13,

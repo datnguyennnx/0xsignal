@@ -41,7 +41,7 @@ export const calculateStandardDeviation = (
   const populationStdDev = Math.sqrt(variance);
 
   // Sample standard deviation (Bessel's correction)
-  const sampleVariance = n > 1 ? (squaredDiffs.reduce((a, b) => a + b, 0) / (n - 1)) : variance;
+  const sampleVariance = n > 1 ? squaredDiffs.reduce((a, b) => a + b, 0) / (n - 1) : variance;
   const sampleStdDev = Math.sqrt(sampleVariance);
 
   return {
@@ -57,8 +57,7 @@ export const calculateStandardDeviation = (
  */
 export const computeStandardDeviation = (
   values: ReadonlyArray<number>
-): Effect.Effect<StandardDeviationResult> =>
-  Effect.sync(() => calculateStandardDeviation(values));
+): Effect.Effect<StandardDeviationResult> => Effect.sync(() => calculateStandardDeviation(values));
 
 // ============================================================================
 // FORMULA METADATA

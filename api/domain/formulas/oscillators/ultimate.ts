@@ -41,8 +41,7 @@ const calculateBPandTR = (
 
   for (let i = 1; i < closes.length; i++) {
     const buyingPressure = closes[i] - Math.min(lows[i], closes[i - 1]);
-    const trueRange =
-      Math.max(highs[i], closes[i - 1]) - Math.min(lows[i], closes[i - 1]);
+    const trueRange = Math.max(highs[i], closes[i - 1]) - Math.min(lows[i], closes[i - 1]);
 
     bp.push(buyingPressure);
     tr.push(trueRange);
@@ -159,9 +158,7 @@ export const computeUltimateOscillator = (
   period2: number = 14,
   period3: number = 28
 ): Effect.Effect<UltimateOscillatorResult> =>
-  Effect.sync(() =>
-    calculateUltimateOscillator(highs, lows, closes, period1, period2, period3)
-  );
+  Effect.sync(() => calculateUltimateOscillator(highs, lows, closes, period1, period2, period3));
 
 // ============================================================================
 // FORMULA METADATA
@@ -171,8 +168,7 @@ export const UltimateOscillatorMetadata: FormulaMetadata = {
   name: "UltimateOscillator",
   category: "oscillators",
   difficulty: "intermediate",
-  description:
-    "Ultimate Oscillator - multi-timeframe momentum indicator",
+  description: "Ultimate Oscillator - multi-timeframe momentum indicator",
   requiredInputs: ["highs", "lows", "closes"],
   optionalInputs: ["period1", "period2", "period3"],
   minimumDataPoints: 29,

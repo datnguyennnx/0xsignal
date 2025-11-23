@@ -82,8 +82,7 @@ export const calculateCovariance = (
 export const computeCovariance = (
   series1: ReadonlyArray<number>,
   series2: ReadonlyArray<number>
-): Effect.Effect<CovarianceResult> =>
-  Effect.sync(() => calculateCovariance(series1, series2));
+): Effect.Effect<CovarianceResult> => Effect.sync(() => calculateCovariance(series1, series2));
 
 // ============================================================================
 // FORMULA METADATA

@@ -6,15 +6,12 @@
   "main": "index.ts",
   "exports": {
     ".": "./index.ts",
-    "./types/*": "./types/*",
-    "./services/*": "./services/*"
+    "./types/*": "./types/*"
   },
   "scripts": {
     "lint": "eslint . --ext .ts"
   },
-  "dependencies": {
-    "effect": "^3.19.5"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "^24.10.1",
     "typescript": "~5.9.3"

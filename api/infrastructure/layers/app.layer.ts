@@ -1,9 +1,6 @@
 import { Layer } from "effect";
-import {
-  HttpServiceLive,
-  CoinGeckoServiceLive,
-  BubbleDetectionServiceLive,
-} from "@0xsignal/shared";
+import { HttpServiceLive, CoinGeckoServiceLive } from "../http/http.service";
+import { BubbleDetectionServiceLive } from "../../domain/services/bubble-detection";
 import { MarketAnalysisServiceLive } from "../../domain/services/market-analysis";
 import { CacheServiceLive } from "../cache/cache.service";
 import { LoggerLiveDefault } from "../logging/logger.service";
@@ -26,8 +23,4 @@ const MarketAnalysisLayer = MarketAnalysisServiceLive.pipe(
 );
 
 // Final composed layer - merge all layers so all services are available
-export const AppLayer = Layer.mergeAll(
-  BaseLayer,
-  DataLayer,
-  MarketAnalysisLayer
-);
+export const AppLayer = Layer.mergeAll(BaseLayer, DataLayer, MarketAnalysisLayer);

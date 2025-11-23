@@ -43,7 +43,7 @@ const createLogger = (context?: string, minLevel: AppLogLevel = "INFO"): LoggerS
       if (!shouldLog(level)) return;
 
       const timestamp = new Date().toISOString();
-      
+
       const entry: LogEntry = {
         level,
         message,
@@ -56,19 +56,24 @@ const createLogger = (context?: string, minLevel: AppLogLevel = "INFO"): LoggerS
       const colors = {
         reset: "\x1b[0m",
         timestamp: "\x1b[90m", // Gray
-        debug: "\x1b[36m",     // Cyan
-        info: "\x1b[32m",      // Green
-        warn: "\x1b[33m",      // Yellow
-        error: "\x1b[31m",     // Red
-        context: "\x1b[35m",   // Magenta
-        data: "\x1b[90m",      // Gray
+        debug: "\x1b[36m", // Cyan
+        info: "\x1b[32m", // Green
+        warn: "\x1b[33m", // Yellow
+        error: "\x1b[31m", // Red
+        context: "\x1b[35m", // Magenta
+        data: "\x1b[90m", // Gray
       };
 
       // Format log message with colors
       const timestampStr = `${colors.timestamp}[${timestamp}]${colors.reset}`;
-      const levelColor = level === "DEBUG" ? colors.debug :
-                        level === "INFO" ? colors.info :
-                        level === "WARN" ? colors.warn : colors.error;
+      const levelColor =
+        level === "DEBUG"
+          ? colors.debug
+          : level === "INFO"
+            ? colors.info
+            : level === "WARN"
+              ? colors.warn
+              : colors.error;
       const levelStr = `${levelColor}[${level}]${colors.reset}`;
       const contextStr = context ? `${colors.context}[${context}]${colors.reset}` : "";
       const dataStr = data ? ` ${colors.data}${JSON.stringify(data)}${colors.reset}` : "";

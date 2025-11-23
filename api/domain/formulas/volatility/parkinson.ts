@@ -116,9 +116,7 @@ export const computeParkinsonVolatility = (
   period: number = 30,
   annualizationFactor: number = 252
 ): Effect.Effect<ParkinsonVolatilityResult> =>
-  Effect.sync(() =>
-    calculateParkinsonVolatility(highs, lows, period, annualizationFactor)
-  );
+  Effect.sync(() => calculateParkinsonVolatility(highs, lows, period, annualizationFactor));
 
 // ============================================================================
 // FORMULA METADATA
@@ -128,8 +126,7 @@ export const ParkinsonVolatilityMetadata: FormulaMetadata = {
   name: "ParkinsonVolatility",
   category: "volatility",
   difficulty: "intermediate",
-  description:
-    "Parkinson Volatility - efficient estimator using high-low range",
+  description: "Parkinson Volatility - efficient estimator using high-low range",
   requiredInputs: ["highs", "lows"],
   optionalInputs: ["period", "annualizationFactor"],
   minimumDataPoints: 30,

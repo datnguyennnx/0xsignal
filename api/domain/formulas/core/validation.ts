@@ -6,7 +6,7 @@
 // ============================================================================
 
 import { Effect, Either } from "effect";
-import { ValidationError, InsufficientDataError, InvalidDataError } from './errors';
+import { ValidationError, InsufficientDataError, InvalidDataError } from "./errors";
 
 /**
  * Validates that an array of numbers is valid
@@ -28,9 +28,7 @@ export const validateNumberArray = (
       .map(({ idx }) => idx);
 
     if (invalidIndices.length > 0) {
-      errors.push(
-        `${fieldName} contains invalid numbers at indices: ${invalidIndices.join(', ')}`
-      );
+      errors.push(`${fieldName} contains invalid numbers at indices: ${invalidIndices.join(", ")}`);
     }
   }
 
@@ -55,7 +53,7 @@ export const validatePositivePrices = (
     ? Either.left(
         new InvalidDataError({
           formula: formulaName,
-          issues: [`Prices must be positive at indices: ${invalidIndices.join(', ')}`]
+          issues: [`Prices must be positive at indices: ${invalidIndices.join(", ")}`],
         })
       )
     : Either.right(prices);
@@ -77,7 +75,7 @@ export const validateNonNegativeVolumes = (
     ? Either.left(
         new InvalidDataError({
           formula: formulaName,
-          issues: [`Volumes must be non-negative at indices: ${invalidIndices.join(', ')}`]
+          issues: [`Volumes must be non-negative at indices: ${invalidIndices.join(", ")}`],
         })
       )
     : Either.right(volumes);
@@ -96,7 +94,7 @@ export const validateDataLength = (
         new InsufficientDataError({
           formula: formulaName,
           required,
-          actual: data.length
+          actual: data.length,
         })
       )
     : Either.right(data);
@@ -120,8 +118,8 @@ export const validateArrayLengthMatch = (
         new ValidationError({
           formula: formulaName,
           errors: [
-            `${name1} and ${name2} must have the same length (${array1.length} vs ${array2.length})`
-          ]
+            `${name1} and ${name2} must have the same length (${array1.length} vs ${array2.length})`,
+          ],
         })
       )
     : Either.right({ array1, array2 });
@@ -149,7 +147,7 @@ export const validateOHLC = (
   const length = opens.length;
 
   if (highs.length !== length || lows.length !== length || closes.length !== length) {
-    errors.push('OHLC arrays must all have the same length');
+    errors.push("OHLC arrays must all have the same length");
   }
 
   for (let i = 0; i < length; i++) {
@@ -186,7 +184,7 @@ export const validatePeriod = (
     ? Either.left(
         new ValidationError({
           formula: formulaName,
-          errors: [`Period must be an integer >= ${minPeriod}, got ${period}`]
+          errors: [`Period must be an integer >= ${minPeriod}, got ${period}`],
         })
       )
     : Either.right(period);

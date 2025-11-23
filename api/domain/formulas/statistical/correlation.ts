@@ -100,8 +100,7 @@ export const calculateCorrelation = (
 export const computeCorrelation = (
   series1: ReadonlyArray<number>,
   series2: ReadonlyArray<number>
-): Effect.Effect<CorrelationResult> =>
-  Effect.sync(() => calculateCorrelation(series1, series2));
+): Effect.Effect<CorrelationResult> => Effect.sync(() => calculateCorrelation(series1, series2));
 
 // ============================================================================
 // FORMULA METADATA

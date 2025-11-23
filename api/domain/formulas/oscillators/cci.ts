@@ -23,7 +23,12 @@ import { mean } from "../core/math";
 
 export interface CCIResult {
   readonly value: number; // CCI value
-  readonly signal: "EXTREME_OVERBOUGHT" | "OVERBOUGHT" | "NEUTRAL" | "OVERSOLD" | "EXTREME_OVERSOLD";
+  readonly signal:
+    | "EXTREME_OVERBOUGHT"
+    | "OVERBOUGHT"
+    | "NEUTRAL"
+    | "OVERSOLD"
+    | "EXTREME_OVERSOLD";
   readonly trend: "STRONG_BULLISH" | "BULLISH" | "NEUTRAL" | "BEARISH" | "STRONG_BEARISH";
 }
 
@@ -134,8 +139,7 @@ export const computeCCI = (
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   period: number = 20
-): Effect.Effect<CCIResult> =>
-  Effect.sync(() => calculateCCI(highs, lows, closes, period));
+): Effect.Effect<CCIResult> => Effect.sync(() => calculateCCI(highs, lows, closes, period));
 
 // ============================================================================
 // FORMULA METADATA
@@ -145,8 +149,7 @@ export const CCIMetadata: FormulaMetadata = {
   name: "CCI",
   category: "oscillators",
   difficulty: "intermediate",
-  description:
-    "Commodity Channel Index - measures deviation from statistical mean",
+  description: "Commodity Channel Index - measures deviation from statistical mean",
   requiredInputs: ["highs", "lows", "closes"],
   optionalInputs: ["period"],
   minimumDataPoints: 20,

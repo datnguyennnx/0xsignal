@@ -8,29 +8,29 @@
 /**
  * Formula difficulty levels
  */
-export type FormulaDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'expert';
+export type FormulaDifficulty = "beginner" | "intermediate" | "advanced" | "expert";
 
 /**
  * Formula categories
  */
 export type FormulaCategory =
-  | 'momentum'
-  | 'volatility'
-  | 'trend'
-  | 'volume'
-  | 'oscillators'
-  | 'statistical'
-  | 'microstructure'
-  | 'mean-reversion'
-  | 'factors'
-  | 'risk'
-  | 'regime'
-  | 'ml-features'
-  | 'orderbook'
-  | 'cross-asset'
-  | 'composite'
-  | 'attribution'
-  | 'timeseries';
+  | "momentum"
+  | "volatility"
+  | "trend"
+  | "volume"
+  | "oscillators"
+  | "statistical"
+  | "microstructure"
+  | "mean-reversion"
+  | "factors"
+  | "risk"
+  | "regime"
+  | "ml-features"
+  | "orderbook"
+  | "cross-asset"
+  | "composite"
+  | "attribution"
+  | "timeseries";
 
 /**
  * Formula metadata for AI agent discovery
@@ -158,8 +158,6 @@ export const searchFormulas = (query: string): ReadonlyArray<FormulaRegistryEntr
     (entry) =>
       entry.metadata.name.toLowerCase().includes(lowerQuery) ||
       entry.metadata.description.toLowerCase().includes(lowerQuery) ||
-      entry.metadata.useCases.some((useCase) =>
-        useCase.toLowerCase().includes(lowerQuery)
-      )
+      entry.metadata.useCases.some((useCase) => useCase.toLowerCase().includes(lowerQuery))
   );
 };

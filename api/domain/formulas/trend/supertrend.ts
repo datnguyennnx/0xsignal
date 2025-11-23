@@ -107,13 +107,7 @@ export const calculateSupertrendSeries = (
     const windowLows = lows.slice(0, i + 1);
     const windowCloses = closes.slice(0, i + 1);
 
-    const st = calculateSupertrend(
-      windowHighs,
-      windowLows,
-      windowCloses,
-      period,
-      multiplier
-    );
+    const st = calculateSupertrend(windowHighs, windowLows, windowCloses, period, multiplier);
 
     result.push({ value: st.value, trend: st.trend });
   }
@@ -131,9 +125,7 @@ export const computeSupertrend = (
   period: number = 10,
   multiplier: number = 3
 ): Effect.Effect<SupertrendResult> =>
-  Effect.sync(() =>
-    calculateSupertrend(highs, lows, closes, period, multiplier)
-  );
+  Effect.sync(() => calculateSupertrend(highs, lows, closes, period, multiplier));
 
 // ============================================================================
 // FORMULA METADATA

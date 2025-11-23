@@ -45,17 +45,14 @@ import { Effect } from "effect";
 import { computeBollingerBands, computeRSI } from "./formulas";
 
 // Single formula
-const bbAnalysis = Effect.runSync(
-  computeBollingerBands(cryptoPrice)
-);
+const bbAnalysis = Effect.runSync(computeBollingerBands(cryptoPrice));
 
 // Multiple formulas in parallel
 const analysis = Effect.gen(function* () {
-  const [bb, rsi] = yield* Effect.all([
-    computeBollingerBands(price),
-    computeRSI(price),
-  ], { concurrency: "unbounded" });
-  
+  const [bb, rsi] = yield* Effect.all([computeBollingerBands(price), computeRSI(price)], {
+    concurrency: "unbounded",
+  });
+
   return { bb, rsi };
 });
 ```
@@ -66,14 +63,10 @@ const analysis = Effect.gen(function* () {
 import { analyzeWithFormulas, analyzeBatch } from "./formulas/analyzer";
 
 // Single asset
-const result = Effect.runSync(
-  analyzeWithFormulas(cryptoPrice)
-);
+const result = Effect.runSync(analyzeWithFormulas(cryptoPrice));
 
 // Multiple assets
-const results = Effect.runSync(
-  analyzeBatch([price1, price2, price3])
-);
+const results = Effect.runSync(analyzeBatch([price1, price2, price3]));
 ```
 
 ## Principles

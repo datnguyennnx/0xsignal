@@ -85,8 +85,7 @@ export const calculateMomentumSeries = (
 export const computeMomentum = (
   prices: ReadonlyArray<number>,
   period: number = 10
-): Effect.Effect<MomentumResult> =>
-  Effect.sync(() => calculateMomentum(prices, period));
+): Effect.Effect<MomentumResult> => Effect.sync(() => calculateMomentum(prices, period));
 
 // ============================================================================
 // FORMULA METADATA

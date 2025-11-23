@@ -107,12 +107,7 @@ export const LinearRegressionMetadata: FormulaMetadata = {
   optionalInputs: [],
   minimumDataPoints: 2,
   outputType: "LinearRegressionResult",
-  useCases: [
-    "trend analysis",
-    "forecasting",
-    "relationship modeling",
-    "price prediction",
-  ],
+  useCases: ["trend analysis", "forecasting", "relationship modeling", "price prediction"],
   timeComplexity: "O(n)",
   dependencies: [],
 };

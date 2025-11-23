@@ -27,14 +27,10 @@ export interface ADLineResult {
 /**
  * Pure function to calculate Money Flow Multiplier
  */
-const calculateMoneyFlowMultiplier = (
-  high: number,
-  low: number,
-  close: number
-): number => {
+const calculateMoneyFlowMultiplier = (high: number, low: number, close: number): number => {
   const range = high - low;
   if (range === 0) return 0;
-  return ((close - low) - (high - close)) / range;
+  return (close - low - (high - close)) / range;
 };
 
 /**
@@ -119,8 +115,7 @@ export const computeADLine = (
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   volumes: ReadonlyArray<number>
-): Effect.Effect<ADLineResult> =>
-  Effect.sync(() => calculateADLine(highs, lows, closes, volumes));
+): Effect.Effect<ADLineResult> => Effect.sync(() => calculateADLine(highs, lows, closes, volumes));
 
 // ============================================================================
 // FORMULA METADATA
@@ -130,8 +125,7 @@ export const ADLineMetadata: FormulaMetadata = {
   name: "ADLine",
   category: "volume",
   difficulty: "intermediate",
-  description:
-    "Accumulation/Distribution Line - volume flow indicator for buying/selling pressure",
+  description: "Accumulation/Distribution Line - volume flow indicator for buying/selling pressure",
   requiredInputs: ["highs", "lows", "closes", "volumes"],
   optionalInputs: [],
   minimumDataPoints: 1,

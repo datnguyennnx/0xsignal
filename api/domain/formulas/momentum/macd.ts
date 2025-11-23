@@ -138,9 +138,8 @@ export const computeMACDFromPrice = (
   signalPeriod: number = 9
 ): Effect.Effect<MACDResult> => {
   // For single price point, approximate using 24h data
-  const prices = price.high24h && price.low24h
-    ? [price.low24h, price.price, price.high24h]
-    : [price.price];
+  const prices =
+    price.high24h && price.low24h ? [price.low24h, price.price, price.high24h] : [price.price];
 
   return computeMACD(
     prices,
@@ -169,10 +168,7 @@ export interface MACDCrossover {
  * Bullish: MACD crosses above Signal
  * Bearish: MACD crosses below Signal
  */
-export const detectMACDCrossover = (
-  price: CryptoPrice,
-  macd: MACDResult
-): MACDCrossover => {
+export const detectMACDCrossover = (price: CryptoPrice, macd: MACDResult): MACDCrossover => {
   const hasCrossover = Math.abs(macd.histogram) < Math.abs(macd.macd) * 0.1;
 
   let crossoverType: "BULLISH" | "BEARISH" | "NONE" = "NONE";
@@ -216,8 +212,7 @@ export const MACDMetadata: FormulaMetadata = {
   name: "MACD",
   category: "momentum",
   difficulty: "beginner",
-  description:
-    "Moving Average Convergence Divergence - momentum indicator using two EMAs",
+  description: "Moving Average Convergence Divergence - momentum indicator using two EMAs",
   requiredInputs: ["prices"],
   optionalInputs: ["fastPeriod", "slowPeriod", "signalPeriod"],
   minimumDataPoints: 26,

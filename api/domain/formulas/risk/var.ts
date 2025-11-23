@@ -24,10 +24,7 @@ export interface VaRResult {
 /**
  * Pure function to calculate quantile
  */
-const calculateQuantile = (
-  sortedValues: ReadonlyArray<number>,
-  quantile: number
-): number => {
+const calculateQuantile = (sortedValues: ReadonlyArray<number>, quantile: number): number => {
   const index = quantile * (sortedValues.length - 1);
   const lower = Math.floor(index);
   const upper = Math.ceil(index);
@@ -44,9 +41,7 @@ const calculateQuantile = (
  * Pure function to calculate Value at Risk
  * @param returns - Array of returns
  */
-export const calculateVaR = (
-  returns: ReadonlyArray<number>
-): VaRResult => {
+export const calculateVaR = (returns: ReadonlyArray<number>): VaRResult => {
   // Sort returns in ascending order
   const sortedReturns = [...returns].sort((a, b) => a - b);
 
@@ -77,9 +72,8 @@ export const calculateVaR = (
 /**
  * Effect-based wrapper for VaR calculation
  */
-export const computeVaR = (
-  returns: ReadonlyArray<number>
-): Effect.Effect<VaRResult> => Effect.sync(() => calculateVaR(returns));
+export const computeVaR = (returns: ReadonlyArray<number>): Effect.Effect<VaRResult> =>
+  Effect.sync(() => calculateVaR(returns));
 
 // ============================================================================
 // FORMULA METADATA

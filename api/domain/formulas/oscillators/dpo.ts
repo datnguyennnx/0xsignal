@@ -30,10 +30,7 @@ export interface DPOResult {
  * @param closes - Array of closing prices
  * @param period - DPO period (default: 20)
  */
-export const calculateDPO = (
-  closes: ReadonlyArray<number>,
-  period: number = 20
-): DPOResult => {
+export const calculateDPO = (closes: ReadonlyArray<number>, period: number = 20): DPOResult => {
   // Calculate displacement
   const displacement = Math.floor(period / 2) + 1;
 
@@ -48,10 +45,7 @@ export const calculateDPO = (
 
   // Calculate SMA at the displaced position
   const displacedIndex = closes.length - displacement;
-  const smaWindow = closes.slice(
-    displacedIndex - period + 1,
-    displacedIndex + 1
-  );
+  const smaWindow = closes.slice(displacedIndex - period + 1, displacedIndex + 1);
   const sma = smaWindow.reduce((a, b) => a + b, 0) / period;
 
   // Calculate DPO
@@ -74,10 +68,7 @@ export const calculateDPO = (
   if (closes.length > displacement + 2) {
     const prevDPO =
       closes[closes.length - 2] -
-      closes
-        .slice(displacedIndex - period, displacedIndex)
-        .reduce((a, b) => a + b, 0) /
-        period;
+      closes.slice(displacedIndex - period, displacedIndex).reduce((a, b) => a + b, 0) / period;
 
     if (dpo > 0 && dpo < prevDPO) {
       cycle = "PEAK";
@@ -105,10 +96,7 @@ export const calculateDPOSeries = (
 
   for (let i = period + displacement - 1; i < closes.length; i++) {
     const displacedIndex = i - displacement;
-    const smaWindow = closes.slice(
-      displacedIndex - period + 1,
-      displacedIndex + 1
-    );
+    const smaWindow = closes.slice(displacedIndex - period + 1, displacedIndex + 1);
     const sma = smaWindow.reduce((a, b) => a + b, 0) / period;
     const dpo = closes[i] - sma;
     dpoSeries.push(dpo);
@@ -123,8 +111,7 @@ export const calculateDPOSeries = (
 export const computeDPO = (
   closes: ReadonlyArray<number>,
   period: number = 20
-): Effect.Effect<DPOResult> =>
-  Effect.sync(() => calculateDPO(closes, period));
+): Effect.Effect<DPOResult> => Effect.sync(() => calculateDPO(closes, period));
 
 // ============================================================================
 // FORMULA METADATA
@@ -134,8 +121,7 @@ export const DPOMetadata: FormulaMetadata = {
   name: "DPO",
   category: "oscillators",
   difficulty: "intermediate",
-  description:
-    "Detrended Price Oscillator - removes trend to identify cycles",
+  description: "Detrended Price Oscillator - removes trend to identify cycles",
   requiredInputs: ["closes"],
   optionalInputs: ["period"],
   minimumDataPoints: 31,

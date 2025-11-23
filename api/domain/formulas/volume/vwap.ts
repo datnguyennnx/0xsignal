@@ -103,8 +103,7 @@ export const computeVWAP = (
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   volumes: ReadonlyArray<number>
-): Effect.Effect<VWAPResult> =>
-  Effect.sync(() => calculateVWAP(highs, lows, closes, volumes));
+): Effect.Effect<VWAPResult> => Effect.sync(() => calculateVWAP(highs, lows, closes, volumes));
 
 // ============================================================================
 // FORMULA METADATA
