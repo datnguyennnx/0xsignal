@@ -237,28 +237,41 @@ export const createBinanceConnection = (
       })
     );
 
-    // Initial connection
-    yield* connectWithRetry;
-
     // Create PubSub for broadcasting to multiple subscribers
     const pubSub = yield* PubSub.unbounded<BinanceKline>();
 
-    // Start consuming queue and publishing to PubSub
-    const broadcasterFiber = yield* Effect.forkDaemon(
-      Stream.fromQueue(messageQueue).pipe(
-        Stream.tap((kline) => logger.debug(`[STEP 2] Queue → Main PubSub: ${kline.symbol}`)),
-        Stream.runForEach((kline) => PubSub.publish(pubSub, kline)),
-        Effect.catchAll((error) => {
-          Effect.runFork(logger.error("[ERROR] Broadcaster", { error: String(error) }));
-          return Effect.void;
-        })
-      )
-    );
+    // Track if connection has been initialized
+    const isInitialized = yield* Ref.make(false);
+
+    // Lazy connection - only connect on first subscription
+    const ensureConnected = Effect.gen(function* () {
+      const initialized = yield* Ref.get(isInitialized);
+      if (!initialized) {
+        yield* logger.info("First subscription detected, connecting to Binance...");
+        yield* connectWithRetry;
+        yield* Ref.set(isInitialized, true);
+
+        // Start consuming queue and publishing to PubSub
+        yield* Effect.forkDaemon(
+          Stream.fromQueue(messageQueue).pipe(
+            Stream.tap((kline) => logger.debug(`[STEP 2] Queue → Main PubSub: ${kline.symbol}`)),
+            Stream.runForEach((kline) => PubSub.publish(pubSub, kline)),
+            Effect.catchAll((error) => {
+              Effect.runFork(logger.error("[ERROR] Broadcaster", { error: String(error) }));
+              return Effect.void;
+            })
+          )
+        );
+      }
+    });
 
     return {
       subscribeToPubSub: () => Effect.succeed(pubSub),
       subscribe: (symbol: string, interval: string = "1m") =>
         Effect.gen(function* () {
+          // Ensure connection is established before subscribing
+          yield* ensureConnected;
+
           const state = yield* Ref.get(stateRef);
           if (state.ws && state.isConnected) {
             yield* subscribeSymbol(state.ws, symbol, interval).pipe(
