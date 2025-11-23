@@ -1,22 +1,17 @@
-import { Effect, Exit, pipe } from "effect";
+import { Exit, pipe } from "effect";
 import { Button } from "@/ui/button";
 import { RefreshCw, ArrowRight } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { getTopAnalysis } from "@/core/api/queries";
+import { Link } from "react-router-dom";
+import { getCachedTopAnalysis } from "@/core/api/cached-queries";
 import { useEffect_ } from "@/core/runtime/use-effect";
-import { cn } from "@/core/utils/cn";
-import { formatVolume } from "@/core/utils/formatters";
-import { RegimeBadge } from "@/features/dashboard/components/regime-badge";
 import { CrashAlert } from "@/features/asset-detail/components/crash-alert";
+import { SignalCard } from "@/features/dashboard/components/signal-card";
+import { useMemoizedSignals } from "@/features/dashboard/hooks/use-memoized-calc";
 
-const fetchDashboardData = () =>
-  Effect.gen(function* () {
-    return yield* getTopAnalysis(50);
-  });
+const fetchDashboardData = () => getCachedTopAnalysis(50);
 
 export function MarketDashboard() {
   const exit = useEffect_(fetchDashboardData, []);
-  const navigate = useNavigate();
 
   if (!exit) {
     return (
@@ -46,27 +41,8 @@ export function MarketDashboard() {
         </div>
       ),
       onSuccess: (analyses) => {
-        const buySignals = analyses.filter(
-          (a: any) =>
-            a.strategyAnalysis?.overallSignal === "STRONG_BUY" ||
-            a.strategyAnalysis?.overallSignal === "BUY" ||
-            a.quantAnalysis?.overallSignal === "STRONG_BUY" ||
-            a.quantAnalysis?.overallSignal === "BUY"
-        );
-        const sellSignals = analyses.filter(
-          (a: any) =>
-            a.strategyAnalysis?.overallSignal === "STRONG_SELL" ||
-            a.strategyAnalysis?.overallSignal === "SELL" ||
-            a.quantAnalysis?.overallSignal === "STRONG_SELL" ||
-            a.quantAnalysis?.overallSignal === "SELL"
-        );
-
-        const crashAlerts = analyses.filter(
-          (a: any) => a.strategyAnalysis?.crashSignal?.isCrashing
-        );
-
-        const topBuy = buySignals.slice(0, 10);
-        const topSell = sellSignals.slice(0, 10);
+        const { buySignals, sellSignals, crashAlerts, topBuy, topSell } =
+          useMemoizedSignals(analyses);
 
         return (
           <div className="max-w-6xl mx-auto space-y-6">
@@ -119,69 +95,9 @@ export function MarketDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {topBuy.map((signal: any) => {
-                      const overallSignal =
-                        signal.strategyAnalysis?.overallSignal ||
-                        signal.quantAnalysis?.overallSignal;
-                      const isStrong = overallSignal === "STRONG_BUY";
-                      const confidence =
-                        signal.strategyAnalysis?.confidence ||
-                        signal.quantAnalysis?.confidence ||
-                        0;
-                      const regime = signal.strategyAnalysis?.strategyResult?.regime;
-                      const price = signal.price?.price || 0;
-                      const change24h = signal.price?.change24h || 0;
-                      const volume24h = signal.price?.volume24h || 0;
-
-                      return (
-                        <button
-                          key={signal.symbol}
-                          onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
-                          className={cn(
-                            "w-full rounded-lg border p-3 transition-all text-left hover:shadow-md",
-                            isStrong
-                              ? "bg-green-500/5 border-green-500/50"
-                              : "bg-card hover:bg-accent/50"
-                          )}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold uppercase">{signal.symbol}</span>
-                              {isStrong && (
-                                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-green-500 text-white">
-                                  STRONG
-                                </span>
-                              )}
-                              {regime && <RegimeBadge regime={regime} />}
-                            </div>
-                            <span className="text-sm font-bold text-green-500">{confidence}%</span>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            <div>
-                              <div className="text-muted-foreground">Price</div>
-                              <div className="font-medium">${price.toLocaleString()}</div>
-                            </div>
-                            <div>
-                              <div className="text-muted-foreground">24h</div>
-                              <div
-                                className={cn(
-                                  "font-medium",
-                                  change24h > 0 ? "text-green-500" : "text-red-500"
-                                )}
-                              >
-                                {change24h > 0 ? "+" : ""}
-                                {change24h.toFixed(2)}%
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-muted-foreground">Volume</div>
-                              <div className="font-medium">{formatVolume(volume24h)}</div>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                    {topBuy.map((signal) => (
+                      <SignalCard key={signal.symbol} signal={signal} type="buy" />
+                    ))}
                   </div>
                 )}
               </div>
@@ -208,69 +124,9 @@ export function MarketDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {topSell.map((signal: any) => {
-                      const overallSignal =
-                        signal.strategyAnalysis?.overallSignal ||
-                        signal.quantAnalysis?.overallSignal;
-                      const isStrong = overallSignal === "STRONG_SELL";
-                      const confidence =
-                        signal.strategyAnalysis?.confidence ||
-                        signal.quantAnalysis?.confidence ||
-                        0;
-                      const regime = signal.strategyAnalysis?.strategyResult?.regime;
-                      const price = signal.price?.price || 0;
-                      const change24h = signal.price?.change24h || 0;
-                      const volume24h = signal.price?.volume24h || 0;
-
-                      return (
-                        <button
-                          key={signal.symbol}
-                          onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
-                          className={cn(
-                            "w-full rounded-lg border p-3 transition-all text-left hover:shadow-md",
-                            isStrong
-                              ? "bg-red-500/5 border-red-500/50"
-                              : "bg-card hover:bg-accent/50"
-                          )}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold uppercase">{signal.symbol}</span>
-                              {isStrong && (
-                                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-red-500 text-white">
-                                  STRONG
-                                </span>
-                              )}
-                              {regime && <RegimeBadge regime={regime} />}
-                            </div>
-                            <span className="text-sm font-bold text-red-500">{confidence}%</span>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            <div>
-                              <div className="text-muted-foreground">Price</div>
-                              <div className="font-medium">${price.toLocaleString()}</div>
-                            </div>
-                            <div>
-                              <div className="text-muted-foreground">24h</div>
-                              <div
-                                className={cn(
-                                  "font-medium",
-                                  change24h > 0 ? "text-green-500" : "text-red-500"
-                                )}
-                              >
-                                {change24h > 0 ? "+" : ""}
-                                {change24h.toFixed(2)}%
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-muted-foreground">Volume</div>
-                              <div className="font-medium">{formatVolume(volume24h)}</div>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                    {topSell.map((signal) => (
+                      <SignalCard key={signal.symbol} signal={signal} type="sell" />
+                    ))}
                   </div>
                 )}
               </div>

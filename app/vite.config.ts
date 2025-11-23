@@ -26,4 +26,33 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    target: "esnext",
+    minify: "esbuild",
+    cssMinify: "lightningcss",
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes("node_modules")) {
+            if (id.includes("react") || id.includes("react-dom") || id.includes("react-router")) {
+              return "vendor";
+            }
+            if (id.includes("effect") || id.includes("@effect")) {
+              return "effect";
+            }
+            if (
+              id.includes("lucide") ||
+              id.includes("recharts") ||
+              id.includes("lightweight-charts")
+            ) {
+              return "ui";
+            }
+          }
+        },
+      },
+    },
+  },
+  optimizeDeps: {
+    include: ["effect", "@effect/platform", "@effect/schema"],
+  },
 });
