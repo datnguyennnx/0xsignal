@@ -9,6 +9,7 @@ import { Effect, Stream, Schedule, Duration, Ref, Queue, PubSub } from "effect";
 import WebSocket from "ws";
 import type { BinanceKline } from "./types";
 import { BinanceConnectionError } from "./types";
+import { Logger } from "../logging/logger.service";
 
 /**
  * Binance WebSocket configuration
@@ -55,8 +56,9 @@ export interface BinanceConnection {
  */
 export const createBinanceConnection = (
   config: BinanceConfig = defaultConfig
-): Effect.Effect<BinanceConnection, never, never> =>
+): Effect.Effect<BinanceConnection, never, Logger> =>
   Effect.gen(function* () {
+    const logger = yield* Logger;
     // Mutable state managed by Effect.Ref
     const stateRef = yield* Ref.make<ConnectionState>({
       ws: null,
@@ -110,11 +112,12 @@ export const createBinanceConnection = (
       }
 
       return yield* Effect.async<WebSocket, BinanceConnectionError>((resume) => {
-        console.log("Connecting to Binance:", config.url);
+        Effect.runFork(logger.info("Connecting to Binance", { url: config.url }));
+
         const ws = new WebSocket(config.url);
 
         ws.on("open", () => {
-          console.log("Binance WebSocket connected!");
+          Effect.runFork(logger.info("Binance WebSocket connected!"));
           resume(Effect.succeed(ws));
         });
 
@@ -150,7 +153,7 @@ export const createBinanceConnection = (
           const message = data.toString();
           const kline = parseKlineMessage(message);
           if (kline) {
-            console.log(`[STEP 1] Binance → Queue: ${kline.symbol}`);
+            Effect.runFork(logger.debug(`[STEP 1] Binance → Queue: ${kline.symbol}`));
             Effect.runFork(Queue.offer(messageQueue, kline));
           }
         });
@@ -162,7 +165,7 @@ export const createBinanceConnection = (
 
         // Error handler
         ws.on("error", (error) => {
-          console.error("Binance WebSocket error:", error);
+          Effect.runFork(logger.error("Binance WebSocket error", { error: error.message }));
         });
 
         // Close handler
@@ -225,7 +228,11 @@ export const createBinanceConnection = (
       Effect.tap(setupHandlers),
       Effect.tap(() => Effect.fork(heartbeat)),
       Effect.catchAll((error) => {
-        console.error("Failed to connect to Binance after retries:", error);
+        Effect.runFork(
+          logger.error("Failed to connect to Binance after retries", {
+            error: String(error),
+          })
+        );
         return Effect.void;
       })
     );
@@ -239,12 +246,10 @@ export const createBinanceConnection = (
     // Start consuming queue and publishing to PubSub
     const broadcasterFiber = yield* Effect.forkDaemon(
       Stream.fromQueue(messageQueue).pipe(
-        Stream.tap((kline) =>
-          Effect.sync(() => console.log(`[STEP 2] Queue → Main PubSub: ${kline.symbol}`))
-        ),
+        Stream.tap((kline) => logger.debug(`[STEP 2] Queue → Main PubSub: ${kline.symbol}`)),
         Stream.runForEach((kline) => PubSub.publish(pubSub, kline)),
         Effect.catchAll((error) => {
-          console.error("[ERROR] Broadcaster:", error);
+          Effect.runFork(logger.error("[ERROR] Broadcaster", { error: String(error) }));
           return Effect.void;
         })
       )
@@ -258,13 +263,17 @@ export const createBinanceConnection = (
           if (state.ws && state.isConnected) {
             yield* subscribeSymbol(state.ws, symbol, interval).pipe(
               Effect.catchAll((error) => {
-                console.error(`[ERROR] Failed to subscribe to ${symbol}:`, error);
+                Effect.runFork(
+                  logger.error(`[ERROR] Failed to subscribe to ${symbol}`, {
+                    error: String(error),
+                  })
+                );
                 return Effect.void;
               })
             );
-            console.log(`[STEP 0] Subscribed to Binance: ${symbol}@kline_${interval}`);
+            yield* logger.info(`[STEP 0] Subscribed to Binance: ${symbol}@kline_${interval}`);
           } else {
-            console.error("[ERROR] Cannot subscribe - WebSocket not connected!");
+            yield* logger.error("[ERROR] Cannot subscribe - WebSocket not connected!");
           }
         }),
       unsubscribe: (symbol: string, interval: string = "1m") =>
@@ -273,11 +282,15 @@ export const createBinanceConnection = (
           if (state.ws && state.isConnected) {
             yield* unsubscribeSymbol(state.ws, symbol, interval).pipe(
               Effect.catchAll((error) => {
-                console.error(`Failed to unsubscribe from ${symbol}:`, error);
+                Effect.runFork(
+                  logger.error(`Failed to unsubscribe from ${symbol}`, {
+                    error: String(error),
+                  })
+                );
                 return Effect.void;
               })
             );
-            console.log(`Unsubscribed from Binance: ${symbol}@kline_${interval}`);
+            yield* logger.info(`Unsubscribed from Binance: ${symbol}@kline_${interval}`);
           }
         }),
       getWebSocket: () => Ref.get(stateRef).pipe(Effect.map((s) => s.ws)),

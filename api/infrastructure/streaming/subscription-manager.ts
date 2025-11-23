@@ -7,6 +7,7 @@
 import { Effect, Stream, Ref, HashMap, Context, Layer } from "effect";
 import type { BinanceKline, Subscription } from "./types";
 import { createBinanceConnection } from "./binance-connection";
+import { Logger } from "../logging/logger.service";
 
 type KlineCallback = (kline: BinanceKline) => void;
 
@@ -36,6 +37,7 @@ export const SubscriptionManagerLive = Layer.effect(
   SubscriptionManagerTag,
   Effect.gen(function* () {
     const binanceConnection = yield* createBinanceConnection();
+    const logger = yield* Logger;
     const pubSub = yield* binanceConnection.subscribeToPubSub();
     const subscriptionsRef = yield* Ref.make<HashMap.HashMap<string, SymbolSubscription>>(
       HashMap.empty()
@@ -121,10 +123,12 @@ export const SubscriptionManagerLive = Layer.effect(
 
         // Immediate cleanup when last client disconnects
         if (subscription.value.callbacks.size === 0) {
-          console.log(`[CLEANUP] Last client disconnected, unsubscribing from Binance: ${symbol}`);
+          yield* logger.info(
+            `[CLEANUP] Last client disconnected, unsubscribing from Binance: ${symbol}`
+          );
           yield* binanceConnection.unsubscribe(symbol, "1m");
           yield* Ref.update(subscriptionsRef, (subs) => HashMap.remove(subs, symbol));
-          console.log(`[CLEANUP] Cleaned up ${symbol} subscription`);
+          yield* logger.info(`[CLEANUP] Cleaned up ${symbol} subscription`);
         }
       });
 

@@ -131,7 +131,7 @@ const generateActionableInsight = (
 
   // Crash warning (highest priority)
   if (crashSignal.isCrashing) {
-    parts.push(`⚠️ ${crashSignal.recommendation}`);
+    parts.push(`${crashSignal.recommendation}`);
     return parts.join(". ");
   }
 

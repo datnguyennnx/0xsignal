@@ -110,7 +110,6 @@ export function useChartWebSocket({ symbol, enabled = true }: UseChartWebSocketO
     connect();
 
     return () => {
-      console.log(`[CLEANUP] Cleaning up WebSocket for ${symbol}`);
       isCleanedUpRef.current = true;
 
       if (reconnectTimeoutRef.current) {
@@ -123,30 +122,21 @@ export function useChartWebSocket({ symbol, enabled = true }: UseChartWebSocketO
         const readyState = ws.readyState;
         wsRef.current = null;
 
-        console.log(
-          `[CLEANUP] WebSocket state: ${readyState} (0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED)`
-        );
-
         if (readyState === WebSocket.OPEN) {
-          console.log(`[CLEANUP] Sending unsubscribe message`);
           try {
             ws.send(JSON.stringify({ type: "unsubscribe" }));
-          } catch (e) {
-            console.log(`[CLEANUP] Failed to send unsubscribe:`, e);
+          } catch {
+            // Ignore send errors during cleanup
           }
           setTimeout(() => {
-            console.log(`[CLEANUP] Closing WebSocket`);
             try {
               ws.close();
-            } catch (e) {
-              console.log(`[CLEANUP] Failed to close:`, e);
+            } catch {
+              // Ignore close errors during cleanup
             }
-          }, 250); // Increased delay to ensure message is sent
+          }, 250);
         } else if (readyState === WebSocket.CONNECTING) {
-          console.log(`[CLEANUP] WebSocket still connecting, closing immediately`);
           ws.close();
-        } else {
-          console.log(`[CLEANUP] WebSocket already closed or closing`);
         }
       }
 

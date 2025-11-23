@@ -145,12 +145,15 @@ const server = createServer((req, res) => {
       const duration = Date.now() - startTime;
 
       // Log successful response
-      const logResponse = Effect.gen(function* () {
-        const logger = yield* Logger;
-        yield* logger.info(`← 200 ${path} (${duration}ms)`, { requestId });
-      });
-
-      Effect.runPromise(Effect.provide(logResponse, AppLayer));
+      Effect.runFork(
+        Effect.provide(
+          Effect.gen(function* () {
+            const logger = yield* Logger;
+            yield* logger.info(`← 200 ${path} (${duration}ms)`, { requestId });
+          }),
+          AppLayer
+        ) as Effect.Effect<void, never, never>
+      );
 
       res.writeHead(200);
       res.end(JSON.stringify(result));
@@ -160,13 +163,16 @@ const server = createServer((req, res) => {
       const status = error.status || 500;
 
       // Log error response
-      const logError = Effect.gen(function* () {
-        const logger = yield* Logger;
-        const errorMsg = error.message || "Internal server error";
-        yield* logger.error(`← ${status} ${path} (${duration}ms) - ${errorMsg}`, { requestId });
-      });
-
-      Effect.runPromise(Effect.provide(logError, AppLayer));
+      Effect.runFork(
+        Effect.provide(
+          Effect.gen(function* () {
+            const logger = yield* Logger;
+            const errorMsg = error.message || "Internal server error";
+            yield* logger.error(`← ${status} ${path} (${duration}ms) - ${errorMsg}`, { requestId });
+          }),
+          AppLayer
+        ) as Effect.Effect<void, never, never>
+      );
 
       res.writeHead(status);
       res.end(
@@ -179,20 +185,19 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n0xSignal API Server`);
-  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  console.log(`Server:   http://localhost:${PORT}`);
-  console.log(`Health:   http://localhost:${PORT}/api/health`);
-  console.log(`WebSocket: ws://localhost:${PORT}/ws/chart`);
-  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
-
-  // Initialize WebSocket server
-  const wsProgram = Effect.gen(function* () {
+  const startupProgram = Effect.gen(function* () {
     const logger = yield* Logger;
+
+    yield* logger.info("\n0xSignal API Server");
+    yield* logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    yield* logger.info(`Server:   http://localhost:${PORT}`);
+    yield* logger.info(`Health:   http://localhost:${PORT}/api/health`);
+    yield* logger.info(`WebSocket: ws://localhost:${PORT}/ws/chart`);
+    yield* logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+
+    // Initialize WebSocket server
     yield* logger.info("Initializing WebSocket server...");
-
     const wsServer = yield* createWebSocketServer(server);
-
     yield* logger.info("WebSocket server ready");
 
     // Graceful shutdown
@@ -203,13 +208,29 @@ server.listen(PORT, () => {
     });
 
     process.on("SIGTERM", () => {
-      Effect.runPromise(Effect.provide(handleShutdown, wsLayerWithSubscriptions));
+      Effect.runPromise(
+        Effect.provide(handleShutdown, wsLayerWithSubscriptions) as Effect.Effect<
+          void,
+          never,
+          never
+        >
+      );
     });
   });
 
   const wsLayerWithSubscriptions = Layer.merge(AppLayer, SubscriptionManagerLive);
 
-  Effect.runPromise(Effect.provide(wsProgram, wsLayerWithSubscriptions)).catch((error) => {
-    console.error("WebSocket initialization error:", error);
+  Effect.runPromise(
+    Effect.provide(startupProgram, wsLayerWithSubscriptions) as Effect.Effect<void, never, never>
+  ).catch((error) => {
+    Effect.runFork(
+      Effect.provide(
+        Effect.gen(function* () {
+          const logger = yield* Logger;
+          yield* logger.error("WebSocket initialization error", { error: error.message });
+        }),
+        AppLayer
+      ) as Effect.Effect<void, never, never>
+    );
   });
 });

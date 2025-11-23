@@ -1,5 +1,6 @@
 import { Effect, Context, Layer, Data } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
+import { Logger } from "../logging/logger.service";
 
 // HTTP Service for API calls
 export class HttpService extends Context.Tag("HttpService")<
@@ -45,106 +46,102 @@ export class CoinGeckoError extends Data.TaggedError("CoinGeckoError")<{
   }
 }
 
-// ANSI color codes for external API logging
-const colors = {
-  reset: "\x1b[0m",
-  blue: "\x1b[34m",
-  green: "\x1b[32m",
-  red: "\x1b[31m",
-  gray: "\x1b[90m",
-};
-
 // HttpService implementation with logging
-export const HttpServiceLive = Layer.succeed(HttpService, {
-  get: (url, headers = {}) =>
-    Effect.gen(function* () {
-      const startTime = Date.now();
-      const urlObj = new URL(url);
-      const host = urlObj.hostname;
-      const path = urlObj.pathname;
+export const HttpServiceLive = Layer.effect(
+  HttpService,
+  Effect.gen(function* () {
+    const logger = yield* Logger;
 
-      const result = yield* Effect.tryPromise({
-        try: async () => {
-          const response = await fetch(url, { headers });
-          const duration = Date.now() - startTime;
+    return {
+      get: (url, headers = {}) =>
+        Effect.gen(function* () {
+          const startTime = Date.now();
+          const urlObj = new URL(url);
+          const host = urlObj.hostname;
+          const path = urlObj.pathname;
 
-          if (!response.ok) {
-            console.error(
-              `${colors.red}↗ External API${colors.reset} ${colors.gray}GET${colors.reset} ${host}${path} ${colors.red}${response.status}${colors.reset} ${colors.gray}(${duration}ms)${colors.reset}`
-            );
-            throw new HttpError(
-              `HTTP ${response.status}: ${response.statusText}`,
-              response.status,
-              url
-            );
-          }
+          const result = yield* Effect.tryPromise({
+            try: async () => {
+              const response = await fetch(url, { headers });
+              const duration = Date.now() - startTime;
 
-          console.log(
-            `${colors.blue}↗ External API${colors.reset} ${colors.gray}GET${colors.reset} ${host}${path} ${colors.green}${response.status}${colors.reset} ${colors.gray}(${duration}ms)${colors.reset}`
-          );
-          return await response.json();
-        },
-        catch: (error) =>
-          error instanceof HttpError
-            ? error
-            : new HttpError(
-                error instanceof Error ? error.message : "Unknown HTTP error",
-                undefined,
-                url
-              ),
-      });
+              if (!response.ok) {
+                throw new HttpError(
+                  `HTTP ${response.status}: ${response.statusText}`,
+                  response.status,
+                  url
+                );
+              }
 
-      return result;
-    }),
-
-  post: (url, body, headers = {}) =>
-    Effect.gen(function* () {
-      const startTime = Date.now();
-      const urlObj = new URL(url);
-      const host = urlObj.hostname;
-      const path = urlObj.pathname;
-
-      const result = yield* Effect.tryPromise({
-        try: async () => {
-          const response = await fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...headers,
+              return { data: await response.json(), status: response.status, duration };
             },
-            body: JSON.stringify(body),
+            catch: (error) =>
+              error instanceof HttpError
+                ? error
+                : new HttpError(
+                    error instanceof Error ? error.message : "Unknown HTTP error",
+                    undefined,
+                    url
+                  ),
           });
-          const duration = Date.now() - startTime;
 
-          if (!response.ok) {
-            console.error(
-              `${colors.red}↗ External API${colors.reset} ${colors.gray}POST${colors.reset} ${host}${path} ${colors.red}${response.status}${colors.reset} ${colors.gray}(${duration}ms)${colors.reset}`
-            );
-            throw new HttpError(
-              `HTTP ${response.status}: ${response.statusText}`,
-              response.status,
-              url
-            );
-          }
-
-          console.log(
-            `${colors.blue}↗ External API${colors.reset} ${colors.gray}POST${colors.reset} ${host}${path} ${colors.green}${response.status}${colors.reset} ${colors.gray}(${duration}ms)${colors.reset}`
+          // Log after the request completes
+          yield* logger.info(
+            `↗ External API GET ${host}${path} ${result.status} (${result.duration}ms)`
           );
-          return await response.json();
-        },
-        catch: (error) =>
-          error instanceof HttpError
-            ? error
-            : new HttpError(
-                error instanceof Error ? error.message : "Unknown HTTP error",
-                undefined,
-                url
-              ),
-      });
 
-      return result;
-    }),
-});
+          return result.data;
+        }),
+
+      post: (url, body, headers = {}) =>
+        Effect.gen(function* () {
+          const startTime = Date.now();
+          const urlObj = new URL(url);
+          const host = urlObj.hostname;
+          const path = urlObj.pathname;
+
+          const result = yield* Effect.tryPromise({
+            try: async () => {
+              const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...headers,
+                },
+                body: JSON.stringify(body),
+              });
+              const duration = Date.now() - startTime;
+
+              if (!response.ok) {
+                throw new HttpError(
+                  `HTTP ${response.status}: ${response.statusText}`,
+                  response.status,
+                  url
+                );
+              }
+
+              return { data: await response.json(), status: response.status, duration };
+            },
+            catch: (error) =>
+              error instanceof HttpError
+                ? error
+                : new HttpError(
+                    error instanceof Error ? error.message : "Unknown HTTP error",
+                    undefined,
+                    url
+                  ),
+          });
+
+          // Log after the request completes
+          yield* logger.info(
+            `↗ External API POST ${host}${path} ${result.status} (${result.duration}ms)`
+          );
+
+          return result.data;
+        }),
+    };
+  })
+);
 
 export const CoinGeckoServiceLive = Layer.effect(
   CoinGeckoService,

@@ -6,21 +6,21 @@ import { CacheServiceLive } from "../cache/cache.service";
 import { LoggerLiveDefault } from "../logging/logger.service";
 
 // Compose all application layers with proper dependency order
-// Layer 1: Base services (no dependencies)
-const BaseLayer = Layer.mergeAll(
-  HttpServiceLive,
-  CacheServiceLive,
-  LoggerLiveDefault,
-  ChartDataServiceLive
+// Layer 1: Core services (no dependencies)
+const CoreLayer = Layer.mergeAll(LoggerLiveDefault);
+
+// Layer 2: Services that depend on Logger
+const InfraLayer = Layer.mergeAll(HttpServiceLive, CacheServiceLive, ChartDataServiceLive).pipe(
+  Layer.provide(CoreLayer)
 );
 
-// Layer 2: Services that depend on HttpService
-const DataLayer = CoinGeckoServiceLive.pipe(Layer.provide(BaseLayer));
+// Layer 3: Services that depend on HttpService
+const DataLayer = CoinGeckoServiceLive.pipe(Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer)));
 
-// Layer 3: Market Analysis Service (depends on CoinGecko, Cache, and Logger)
+// Layer 4: Market Analysis Service (depends on CoinGecko, Cache, and Logger)
 const MarketAnalysisLayer = MarketAnalysisServiceLive.pipe(
-  Layer.provide(Layer.mergeAll(BaseLayer, DataLayer))
+  Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, DataLayer))
 );
 
 // Final composed layer - merge all layers so all services are available
-export const AppLayer = Layer.mergeAll(BaseLayer, DataLayer, MarketAnalysisLayer);
+export const AppLayer = Layer.mergeAll(CoreLayer, InfraLayer, DataLayer, MarketAnalysisLayer);
