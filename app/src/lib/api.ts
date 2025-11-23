@@ -19,6 +19,15 @@ export class NetworkError extends Data.TaggedError("NetworkError")<{
 // ------------------------------
 // API Service
 // ------------------------------
+export interface ChartDataPoint {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
 export class ApiService extends Context.Tag("ApiService")<
   ApiService,
   {
@@ -31,6 +40,11 @@ export class ApiService extends Context.Tag("ApiService")<
     ) => Effect.Effect<EnhancedAnalysis, ApiError | NetworkError>;
     readonly getOverview: () => Effect.Effect<any, ApiError | NetworkError>;
     readonly getSignals: () => Effect.Effect<EnhancedAnalysis[], ApiError | NetworkError>;
+    readonly getChartData: (
+      symbol: string,
+      interval: string,
+      timeframe: string
+    ) => Effect.Effect<ChartDataPoint[], ApiError | NetworkError>;
   }
 >() {}
 
@@ -76,6 +90,11 @@ export const ApiServiceLive = Layer.succeed(ApiService, {
   getOverview: () => fetchJson(`${API_BASE}/overview`),
 
   getSignals: () => fetchJson<EnhancedAnalysis[]>(`${API_BASE}/signals`),
+
+  getChartData: (symbol: string, interval: string, timeframe: string) =>
+    fetchJson<ChartDataPoint[]>(
+      `${API_BASE}/chart?symbol=${symbol}&interval=${interval}&timeframe=${timeframe}`
+    ),
 });
 
 // ------------------------------
@@ -103,4 +122,10 @@ export const getAnalysis = (symbol: string) =>
   pipe(
     ApiService,
     Effect.flatMap((api) => api.getAnalysis(symbol))
+  );
+
+export const getChartData = (symbol: string, interval: string, timeframe: string) =>
+  pipe(
+    ApiService,
+    Effect.flatMap((api) => api.getChartData(symbol, interval, timeframe))
   );

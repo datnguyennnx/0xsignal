@@ -48,6 +48,7 @@ export interface EnhancedAnalysis {
   readonly price: CryptoPrice;
   readonly bubbleAnalysis: CryptoBubbleAnalysis;
   readonly quantAnalysis: QuantitativeAnalysis;
+  readonly strategyAnalysis?: any;
   readonly combinedRiskScore: number;
   readonly recommendation: "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
   readonly timestamp: Date;

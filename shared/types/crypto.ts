@@ -91,3 +91,61 @@ export interface CoinGeckoCoinResponse {
   atl_date: string;
   last_updated: string;
 }
+
+// Strategy-based analysis types
+export interface StrategyResult {
+  readonly regime: string;
+  readonly signals: ReadonlyArray<StrategySignal>;
+  readonly primarySignal: StrategySignal;
+  readonly overallConfidence: number;
+  readonly riskScore: number;
+}
+
+export interface StrategySignal {
+  readonly strategy: string;
+  readonly signal: "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
+  readonly confidence: number;
+  readonly reasoning: string;
+  readonly metrics: Record<string, number>;
+}
+
+export interface CrashSignal {
+  readonly isCrashing: boolean;
+  readonly severity: "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
+  readonly confidence: number;
+  readonly indicators: {
+    readonly rapidDrop: boolean;
+    readonly volumeSpike: boolean;
+    readonly oversoldExtreme: boolean;
+    readonly highVolatility: boolean;
+  };
+  readonly recommendation: string;
+}
+
+export interface BullEntrySignal {
+  readonly isOptimalEntry: boolean;
+  readonly strength: "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG";
+  readonly confidence: number;
+  readonly indicators: {
+    readonly trendReversal: boolean;
+    readonly volumeIncrease: boolean;
+    readonly momentumBuilding: boolean;
+    readonly bullishDivergence: boolean;
+  };
+  readonly entryPrice: number;
+  readonly targetPrice: number;
+  readonly stopLoss: number;
+  readonly recommendation: string;
+}
+
+export interface StrategyBasedAnalysis {
+  readonly symbol: string;
+  readonly timestamp: Date;
+  readonly strategyResult: StrategyResult;
+  readonly crashSignal: CrashSignal;
+  readonly bullEntrySignal: BullEntrySignal;
+  readonly overallSignal: "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
+  readonly confidence: number;
+  readonly riskScore: number;
+  readonly actionableInsight: string;
+}

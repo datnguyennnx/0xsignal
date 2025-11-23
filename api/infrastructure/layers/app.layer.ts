@@ -2,6 +2,7 @@ import { Layer } from "effect";
 import { HttpServiceLive, CoinGeckoServiceLive } from "../http/http.service";
 import { BubbleDetectionServiceLive } from "../../domain/services/bubble-detection";
 import { MarketAnalysisServiceLive } from "../../domain/services/market-analysis";
+import { ChartDataServiceLive } from "../../domain/services/chart-data.service";
 import { CacheServiceLive } from "../cache/cache.service";
 import { LoggerLiveDefault } from "../logging/logger.service";
 
@@ -11,7 +12,8 @@ const BaseLayer = Layer.mergeAll(
   HttpServiceLive,
   BubbleDetectionServiceLive,
   CacheServiceLive,
-  LoggerLiveDefault
+  LoggerLiveDefault,
+  ChartDataServiceLive
 );
 
 // Layer 2: Services that depend on HttpService

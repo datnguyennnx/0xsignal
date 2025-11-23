@@ -7,15 +7,15 @@
   "scripts": {
     "dev": "bun --watch presentation/http/server.ts",
     "start": "bun presentation/http/server.ts",
-    "analyze": "bun main.ts analyze",
-    "monitor": "bun main.ts monitor",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write \"**/*.{ts,js,json}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json}\""
   },
   "dependencies": {
     "@0xsignal/shared": "workspace:*",
-    "effect": "^3.19.5"
+    "@types/ws": "^8.18.1",
+    "effect": "^3.19.5",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@effect/language-service": "^0.56.0",

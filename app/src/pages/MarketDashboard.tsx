@@ -5,6 +5,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { getTopAnalysis } from "../lib/api";
 import { useEffect_ } from "../lib/runtime";
 import { cn } from "@/lib/utils";
+import { RegimeBadge } from "@/components/RegimeBadge";
+import { CrashAlert } from "@/components/CrashAlert";
 
 const fetchDashboardData = () =>
   Effect.gen(function* () {
@@ -37,35 +39,42 @@ export function MarketDashboard() {
               <RefreshCw className="w-4 h-4" />
             </Button>
           </div>
-          <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-6 text-center">
-            <p className="text-sm text-destructive">Unable to load data. Please refresh.</p>
+          <div className="rounded-lg border border-red-500/50 bg-red-500/5 p-6 text-center">
+            <p className="text-sm text-red-500">Unable to load data. Please refresh.</p>
           </div>
         </div>
       ),
       onSuccess: (analyses) => {
         const buySignals = analyses.filter(
           (a: any) =>
+            a.strategyAnalysis?.overallSignal === "STRONG_BUY" ||
+            a.strategyAnalysis?.overallSignal === "BUY" ||
             a.quantAnalysis?.overallSignal === "STRONG_BUY" ||
             a.quantAnalysis?.overallSignal === "BUY"
         );
         const sellSignals = analyses.filter(
           (a: any) =>
+            a.strategyAnalysis?.overallSignal === "STRONG_SELL" ||
+            a.strategyAnalysis?.overallSignal === "SELL" ||
             a.quantAnalysis?.overallSignal === "STRONG_SELL" ||
             a.quantAnalysis?.overallSignal === "SELL"
         );
 
-        // Show top 5 each
+        const crashAlerts = analyses.filter(
+          (a: any) => a.strategyAnalysis?.crashSignal?.isCrashing
+        );
+
         const topBuy = buySignals.slice(0, 10);
         const topSell = sellSignals.slice(0, 10);
 
         return (
           <div className="max-w-6xl mx-auto space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold">Trading Signals</h1>
                 <p className="text-sm text-muted-foreground mt-1">
                   {buySignals.length} buy • {sellSignals.length} sell
+                  {crashAlerts.length > 0 && ` • ${crashAlerts.length} crash alert`}
                 </p>
               </div>
               <Button onClick={() => window.location.reload()} size="sm" variant="outline">
@@ -73,13 +82,24 @@ export function MarketDashboard() {
               </Button>
             </div>
 
-            {/* Two Column Grid */}
+            {crashAlerts.length > 0 && (
+              <div className="space-y-2">
+                {crashAlerts.slice(0, 3).map((alert: any) => (
+                  <CrashAlert
+                    key={alert.symbol}
+                    isCrashing={alert.strategyAnalysis.crashSignal.isCrashing}
+                    severity={alert.strategyAnalysis.crashSignal.severity}
+                    recommendation={`${alert.symbol.toUpperCase()}: ${alert.strategyAnalysis.crashSignal.recommendation}`}
+                  />
+                ))}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* BUY COLUMN */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b-2 border-success">
+                <div className="flex items-center justify-between pb-2 border-b-2 border-green-500">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-success"></div>
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
                     <h2 className="font-bold">Buy Signals</h2>
                     <span className="text-sm text-muted-foreground">({buySignals.length})</span>
                   </div>
@@ -99,8 +119,15 @@ export function MarketDashboard() {
                 ) : (
                   <div className="space-y-2">
                     {topBuy.map((signal: any) => {
-                      const isStrong = signal.quantAnalysis?.overallSignal === "STRONG_BUY";
-                      const confidence = signal.quantAnalysis?.confidence || 0;
+                      const overallSignal =
+                        signal.strategyAnalysis?.overallSignal ||
+                        signal.quantAnalysis?.overallSignal;
+                      const isStrong = overallSignal === "STRONG_BUY";
+                      const confidence =
+                        signal.strategyAnalysis?.confidence ||
+                        signal.quantAnalysis?.confidence ||
+                        0;
+                      const regime = signal.strategyAnalysis?.strategyResult?.regime;
                       const price = signal.price?.price || 0;
                       const change24h = signal.price?.change24h || 0;
                       const volume24h = signal.price?.volume24h || 0;
@@ -112,7 +139,7 @@ export function MarketDashboard() {
                           className={cn(
                             "w-full rounded-lg border p-3 transition-all text-left hover:shadow-md",
                             isStrong
-                              ? "bg-success/5 border-success/50"
+                              ? "bg-green-500/5 border-green-500/50"
                               : "bg-card hover:bg-accent/50"
                           )}
                         >
@@ -120,12 +147,13 @@ export function MarketDashboard() {
                             <div className="flex items-center gap-2">
                               <span className="font-bold uppercase">{signal.symbol}</span>
                               {isStrong && (
-                                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-success text-white">
+                                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-green-500 text-white">
                                   STRONG
                                 </span>
                               )}
+                              {regime && <RegimeBadge regime={regime} />}
                             </div>
-                            <span className="text-sm font-bold text-success">{confidence}%</span>
+                            <span className="text-sm font-bold text-green-500">{confidence}%</span>
                           </div>
 
                           <div className="grid grid-cols-3 gap-2 text-xs">
@@ -138,7 +166,7 @@ export function MarketDashboard() {
                               <div
                                 className={cn(
                                   "font-medium",
-                                  change24h > 0 ? "text-success" : "text-destructive"
+                                  change24h > 0 ? "text-green-500" : "text-red-500"
                                 )}
                               >
                                 {change24h > 0 ? "+" : ""}
@@ -162,11 +190,10 @@ export function MarketDashboard() {
                 )}
               </div>
 
-              {/* SELL COLUMN */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b-2 border-destructive">
+                <div className="flex items-center justify-between pb-2 border-b-2 border-red-500">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-destructive"></div>
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
                     <h2 className="font-bold">Sell Signals</h2>
                     <span className="text-sm text-muted-foreground">({sellSignals.length})</span>
                   </div>
@@ -186,8 +213,15 @@ export function MarketDashboard() {
                 ) : (
                   <div className="space-y-2">
                     {topSell.map((signal: any) => {
-                      const isStrong = signal.quantAnalysis?.overallSignal === "STRONG_SELL";
-                      const confidence = signal.quantAnalysis?.confidence || 0;
+                      const overallSignal =
+                        signal.strategyAnalysis?.overallSignal ||
+                        signal.quantAnalysis?.overallSignal;
+                      const isStrong = overallSignal === "STRONG_SELL";
+                      const confidence =
+                        signal.strategyAnalysis?.confidence ||
+                        signal.quantAnalysis?.confidence ||
+                        0;
+                      const regime = signal.strategyAnalysis?.strategyResult?.regime;
                       const price = signal.price?.price || 0;
                       const change24h = signal.price?.change24h || 0;
                       const volume24h = signal.price?.volume24h || 0;
@@ -199,7 +233,7 @@ export function MarketDashboard() {
                           className={cn(
                             "w-full rounded-lg border p-3 transition-all text-left hover:shadow-md",
                             isStrong
-                              ? "bg-destructive/5 border-destructive/50"
+                              ? "bg-red-500/5 border-red-500/50"
                               : "bg-card hover:bg-accent/50"
                           )}
                         >
@@ -207,14 +241,13 @@ export function MarketDashboard() {
                             <div className="flex items-center gap-2">
                               <span className="font-bold uppercase">{signal.symbol}</span>
                               {isStrong && (
-                                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-destructive text-white">
+                                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-red-500 text-white">
                                   STRONG
                                 </span>
                               )}
+                              {regime && <RegimeBadge regime={regime} />}
                             </div>
-                            <span className="text-sm font-bold text-destructive">
-                              {confidence}%
-                            </span>
+                            <span className="text-sm font-bold text-red-500">{confidence}%</span>
                           </div>
 
                           <div className="grid grid-cols-3 gap-2 text-xs">
@@ -227,7 +260,7 @@ export function MarketDashboard() {
                               <div
                                 className={cn(
                                   "font-medium",
-                                  change24h > 0 ? "text-success" : "text-destructive"
+                                  change24h > 0 ? "text-green-500" : "text-red-500"
                                 )}
                               >
                                 {change24h > 0 ? "+" : ""}

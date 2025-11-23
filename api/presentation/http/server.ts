@@ -1,9 +1,12 @@
 #!/usr/bin/env tsx
 import { createServer } from "node:http";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { AppLayer } from "../../infrastructure/layers/app.layer";
 import { Logger } from "../../infrastructure/logging/logger.service";
 import { MarketAnalysisServiceTag } from "../../domain/services/market-analysis";
+import { ChartDataServiceTag } from "../../domain/services/chart-data.service";
+import { createWebSocketServer } from "../../infrastructure/streaming/websocket-server";
+import { SubscriptionManagerLive } from "../../infrastructure/streaming/subscription-manager";
 
 const PORT = 9006;
 
@@ -55,6 +58,32 @@ const handleRequest = (url: URL, method: string) => {
     return Effect.gen(function* () {
       const service = yield* MarketAnalysisServiceTag;
       return yield* service.getHighConfidenceSignals(minConfidence);
+    });
+  }
+
+  // Chart data endpoint
+  if (path === "/api/chart") {
+    const symbol = url.searchParams.get("symbol");
+    const interval = url.searchParams.get("interval") || "1h";
+    const timeframe = url.searchParams.get("timeframe") || "24h";
+
+    if (!symbol) {
+      return Effect.fail({ status: 400, message: "Symbol parameter is required" });
+    }
+
+    // Calculate limit based on timeframe and interval
+    const limitMap: Record<string, Record<string, number>> = {
+      "24h": { "1m": 1440, "5m": 288, "15m": 96, "30m": 48, "1h": 24 },
+      "7d": { "15m": 672, "30m": 336, "1h": 168, "4h": 42 },
+      "1M": { "1h": 720, "4h": 180, "1d": 30 },
+      "1y": { "1d": 365, "1w": 52 },
+    };
+
+    const limit = limitMap[timeframe]?.[interval] || 100;
+
+    return Effect.gen(function* () {
+      const service = yield* ChartDataServiceTag;
+      return yield* service.getHistoricalData(symbol.toUpperCase(), interval, limit);
     });
   }
 
@@ -156,5 +185,33 @@ server.listen(PORT, () => {
   console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`Server:   http://localhost:${PORT}`);
   console.log(`Health:   http://localhost:${PORT}/api/health`);
+  console.log(`WebSocket: ws://localhost:${PORT}/ws/chart`);
   console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+
+  // Initialize WebSocket server
+  const wsProgram = Effect.gen(function* () {
+    const logger = yield* Logger;
+    yield* logger.info("Initializing WebSocket server...");
+
+    const wsServer = yield* createWebSocketServer(server);
+
+    yield* logger.info("WebSocket server ready");
+
+    // Graceful shutdown
+    const handleShutdown = Effect.gen(function* () {
+      yield* logger.info("Received SIGTERM, shutting down gracefully...");
+      yield* wsServer.shutdown;
+      yield* Effect.sync(() => server.close());
+    });
+
+    process.on("SIGTERM", () => {
+      Effect.runPromise(Effect.provide(handleShutdown, wsLayerWithSubscriptions));
+    });
+  });
+
+  const wsLayerWithSubscriptions = Layer.merge(AppLayer, SubscriptionManagerLive);
+
+  Effect.runPromise(Effect.provide(wsProgram, wsLayerWithSubscriptions)).catch((error) => {
+    console.error("WebSocket initialization error:", error);
+  });
 });
