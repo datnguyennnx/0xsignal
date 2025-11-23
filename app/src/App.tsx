@@ -1,9 +1,9 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Layout } from "./components/Layout";
-import { MarketDashboard } from "./pages/MarketDashboard";
-import { AllBuySignals } from "./pages/AllBuySignals";
-import { AllSellSignals } from "./pages/AllSellSignals";
-import { AssetDetail } from "./pages/AssetDetail";
+import { Layout } from "@/layouts/main-layout";
+import { MarketDashboard } from "@/features/dashboard/pages/market-dashboard";
+import { AllBuySignals } from "@/features/signals/pages/buy-signals";
+import { AllSellSignals } from "@/features/signals/pages/sell-signals";
+import { AssetDetail } from "@/features/asset-detail/pages/asset-detail";
 
 function App() {
   return (
