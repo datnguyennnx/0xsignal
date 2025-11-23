@@ -410,18 +410,18 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
 
   return (
     <div className="rounded-lg border border-border/50 bg-card overflow-hidden">
-      <div className="relative h-[600px] flex flex-col">
+      <div className="relative h-[400px] md:h-[600px] lg:h-[800px] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 bg-card z-20">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 sm:px-6 py-4 border-b border-border/50">
+          <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
             <h3 className="text-sm font-semibold">{symbol}</h3>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-wrap">
               {INTERVALS.map((int) => (
                 <button
                   key={int.value}
                   onClick={() => onIntervalChange(int.value)}
                   className={cn(
-                    "px-2.5 py-1 text-xs font-medium rounded transition-colors",
+                    "px-2 sm:px-3 py-1 text-xs font-medium rounded transition-colors",
                     interval === int.value
                       ? "bg-primary text-primary-foreground"
                       : "hover:bg-muted text-muted-foreground"
@@ -436,14 +436,14 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className={cn(
-              "flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded transition-colors",
+              "flex items-center gap-2 px-4 py-2 text-xs font-medium rounded transition-colors w-full sm:w-auto justify-center",
               sidebarOpen ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
             )}
           >
-            <Settings2 className="w-3.5 h-3.5" />
+            <Settings2 className="w-4 h-4" />
             Indicators
             {activeIndicators.length > 0 && (
-              <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-background/20">
+              <span className="px-2 py-0.5 text-[10px] rounded-full bg-background/20">
                 {activeIndicators.length}
               </span>
             )}
@@ -451,13 +451,13 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
         </div>
 
         {/* Chart Container */}
-        <div className="flex-1 relative bg-background">
+        <div className="flex-1 relative">
           <div ref={chartContainerRef} className="absolute inset-0" />
 
           {/* Sidebar Overlay */}
           <div
             className={cn(
-              "absolute top-0 right-0 bottom-0 w-72 bg-card border-l border-border shadow-2xl transition-transform duration-300 ease-in-out z-30",
+              "absolute top-0 right-0 bottom-0 w-full sm:w-80 md:w-72 bg-card border-l border-border transition-transform duration-300 ease-in-out z-30",
               sidebarOpen ? "translate-x-0" : "translate-x-full"
             )}
           >
@@ -474,7 +474,7 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
           {/* Backdrop */}
           {sidebarOpen && (
             <div
-              className="absolute inset-0 bg-black/10 z-20 backdrop-blur-[1px]"
+              className="absolute inset-0 bg-black/20 sm:bg-black/10 z-20 backdrop-blur-[1px]"
               onClick={() => setSidebarOpen(false)}
             />
           )}

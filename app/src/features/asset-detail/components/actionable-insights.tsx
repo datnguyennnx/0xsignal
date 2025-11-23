@@ -43,12 +43,14 @@ export function ActionableInsights({
 
   return (
     <Card className={cn(signalStyles[signal], className)}>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium mb-3">Trading Action</CardTitle>
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="text-sm font-medium mb-4">Trading Action</CardTitle>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className={cn("text-lg font-semibold", signalColor[signal])}>{signal}</span>
+            <span className={cn("text-lg sm:text-xl font-semibold", signalColor[signal])}>
+              {signal}
+            </span>
             <div className="text-right">
               <div className="text-xs text-muted-foreground">Confidence</div>
               <div className="text-sm font-medium tabular-nums">{confidence}%</div>
@@ -77,7 +79,7 @@ export function ActionableInsights({
             </div>
           </div>
 
-          <div className="pt-3 border-t border-border/50">
+          <div className="pt-4 border-t border-border/50">
             <CardDescription className="text-xs leading-relaxed">
               {actionableInsight}
             </CardDescription>

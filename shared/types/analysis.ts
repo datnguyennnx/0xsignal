@@ -1,4 +1,4 @@
-import type { CryptoBubbleAnalysis, CryptoPrice } from "./crypto";
+import type { CryptoPrice } from "./crypto";
 
 export interface QuantitativeAnalysis {
   readonly symbol: string;
@@ -46,17 +46,15 @@ export interface QuantitativeAnalysis {
 export interface EnhancedAnalysis {
   readonly symbol: string;
   readonly price: CryptoPrice;
-  readonly bubbleAnalysis: CryptoBubbleAnalysis;
   readonly quantAnalysis: QuantitativeAnalysis;
   readonly strategyAnalysis?: any;
-  readonly combinedRiskScore: number;
+  readonly riskScore: number;
   readonly recommendation: "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
   readonly timestamp: Date;
 }
 
 export interface MarketOverview {
   readonly totalAnalyzed: number;
-  readonly bubblesDetected: number;
   readonly highRiskAssets: string[];
   readonly averageRiskScore: number;
   readonly timestamp: Date;

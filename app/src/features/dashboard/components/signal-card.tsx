@@ -4,6 +4,7 @@ import type { EnhancedAnalysis } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { formatVolume } from "@/core/utils/formatters";
 import { RegimeBadge } from "./regime-badge";
+import { CryptoIcon } from "@/components/crypto-icon";
 
 interface SignalCardProps {
   signal: EnhancedAnalysis;
@@ -28,18 +29,19 @@ const SignalCardComponent = ({ signal, type }: SignalCardProps) => {
     <button
       onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
       className={cn(
-        "w-full rounded-lg border p-3 transition-all text-left hover:shadow-md",
+        "w-full rounded-lg border p-4 transition-all text-left hover:shadow-md",
         isStrong
           ? `bg-${colorClass}-500/5 border-${colorClass}-500/50`
           : "bg-card hover:bg-accent/50"
       )}
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="font-bold uppercase">{signal.symbol}</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <CryptoIcon symbol={signal.symbol} size={24} />
+          <span className="font-bold uppercase text-base">{signal.symbol}</span>
           {isStrong && (
             <span
-              className={`text-xs font-medium px-1.5 py-0.5 rounded bg-${colorClass}-500 text-white`}
+              className={`text-xs font-medium px-2 py-0.5 rounded bg-${colorClass}-500 text-white`}
             >
               STRONG
             </span>
@@ -49,7 +51,7 @@ const SignalCardComponent = ({ signal, type }: SignalCardProps) => {
         <span className={`text-sm font-bold text-${colorClass}-500`}>{confidence}%</span>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-xs">
+      <div className="grid grid-cols-3 gap-4 text-xs">
         <div>
           <div className="text-muted-foreground">Price</div>
           <div className="font-medium">${price.toLocaleString()}</div>

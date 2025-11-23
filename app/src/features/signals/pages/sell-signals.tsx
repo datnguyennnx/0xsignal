@@ -4,10 +4,11 @@ import { getTopAnalysis } from "@/core/api/queries";
 import { useEffect_ } from "@/core/runtime/use-effect";
 import { cn } from "@/core/utils/cn";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ui/table";
+import { CryptoIcon } from "@/components/crypto-icon";
 
 const fetchData = () =>
   Effect.gen(function* () {
-    return yield* getTopAnalysis(50);
+    return yield* getTopAnalysis(100);
   });
 
 export function AllSellSignals() {
@@ -46,13 +47,13 @@ export function AllSellSignals() {
         );
 
         return (
-          <div className="max-w-7xl mx-auto space-y-4">
+          <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
             <div>
-              <h1 className="text-2xl font-bold">Sell Signals</h1>
-              <p className="text-sm text-muted-foreground">{sellSignals.length} signals</p>
+              <h1 className="text-2xl sm:text-3xl font-bold">Sell Signals</h1>
+              <p className="text-sm text-muted-foreground mt-1">{sellSignals.length} signals</p>
             </div>
 
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-b-0 hover:bg-transparent">
@@ -78,7 +79,8 @@ export function AllSellSignals() {
                         className="cursor-pointer"
                       >
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
+                            <CryptoIcon symbol={signal.symbol} size={20} />
                             <span className="font-semibold">{signal.symbol.toUpperCase()}</span>
                             {isStrong && (
                               <span className="text-xs font-medium px-2 py-0.5 rounded bg-muted">

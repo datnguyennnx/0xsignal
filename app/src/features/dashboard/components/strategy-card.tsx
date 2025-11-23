@@ -28,13 +28,13 @@ export function StrategyCard({
 
   return (
     <Card className={cn("border-border/50", className)}>
-      <CardHeader>
-        <div className="flex items-center justify-between mb-2">
+      <CardHeader className="p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <CardTitle className="text-sm font-medium">Active Strategy</CardTitle>
           <RegimeBadge regime={regime} />
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex items-baseline justify-between">
             <span className="text-lg font-semibold">{strategy}</span>
             <span className={cn("text-sm font-medium", signalColor)}>{signal}</span>

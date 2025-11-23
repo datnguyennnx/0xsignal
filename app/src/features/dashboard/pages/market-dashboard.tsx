@@ -8,7 +8,7 @@ import { CrashAlert } from "@/features/asset-detail/components/crash-alert";
 import { SignalCard } from "@/features/dashboard/components/signal-card";
 import { useMemoizedSignals } from "@/features/dashboard/hooks/use-memoized-calc";
 
-const fetchDashboardData = () => getCachedTopAnalysis(50);
+const fetchDashboardData = () => getCachedTopAnalysis(100);
 
 export function MarketDashboard() {
   const exit = useEffect_(fetchDashboardData, []);
@@ -45,10 +45,10 @@ export function MarketDashboard() {
           useMemoizedSignals(analyses);
 
         return (
-          <div className="max-w-6xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+          <div className="max-w-6xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold">Trading Signals</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold">Trading Signals</h1>
                 <p className="text-sm text-muted-foreground mt-1">
                   {buySignals.length} buy • {sellSignals.length} sell
                   {crashAlerts.length > 0 && ` • ${crashAlerts.length} crash alert`}
@@ -60,7 +60,7 @@ export function MarketDashboard() {
             </div>
 
             {crashAlerts.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {crashAlerts.slice(0, 3).map((alert: any) => (
                   <CrashAlert
                     key={alert.symbol}
@@ -73,11 +73,11 @@ export function MarketDashboard() {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b-2 border-green-500">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b-2 border-green-500">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    <h2 className="font-bold">Buy Signals</h2>
+                    <h2 className="font-bold text-base sm:text-lg">Buy Signals</h2>
                     <span className="text-sm text-muted-foreground">({buySignals.length})</span>
                   </div>
                   {buySignals.length > 5 && (
@@ -94,7 +94,7 @@ export function MarketDashboard() {
                     <p className="text-sm text-muted-foreground">No buy signals</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {topBuy.map((signal) => (
                       <SignalCard key={signal.symbol} signal={signal} type="buy" />
                     ))}
@@ -102,11 +102,11 @@ export function MarketDashboard() {
                 )}
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b-2 border-red-500">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b-2 border-red-500">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <h2 className="font-bold">Sell Signals</h2>
+                    <h2 className="font-bold text-base sm:text-lg">Sell Signals</h2>
                     <span className="text-sm text-muted-foreground">({sellSignals.length})</span>
                   </div>
                   {sellSignals.length > 5 && (
@@ -123,7 +123,7 @@ export function MarketDashboard() {
                     <p className="text-sm text-muted-foreground">No sell signals</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {topSell.map((signal) => (
                       <SignalCard key={signal.symbol} signal={signal} type="sell" />
                     ))}

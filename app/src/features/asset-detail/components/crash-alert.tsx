@@ -26,10 +26,10 @@ export function CrashAlert({ isCrashing, severity, recommendation, className }: 
   };
 
   return (
-    <Alert className={cn(severityStyles[severity], className)}>
-      <div className="flex items-start gap-3">
-        <div className="flex-1 space-y-1">
-          <div className="flex items-center gap-2">
+    <Alert className={cn(severityStyles[severity], "p-4 sm:p-6", className)}>
+      <div className="flex items-start gap-4">
+        <div className="flex-1 space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wide">Crash Detected</span>
             <span className="text-xs text-muted-foreground">{severityText[severity]}</span>
           </div>

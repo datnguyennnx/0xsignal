@@ -1,4 +1,4 @@
-// Crypto market data types for bubble signal detection using CoinGecko API
+// Crypto market data types using CoinGecko API
 
 export interface CryptoPrice {
   symbol: string;
@@ -28,39 +28,6 @@ export interface MarketMetrics {
   priceToATL?: number; // Current price / All-time low
   volumeToMarketCapRatio: number; // Volume / Market Cap
   timestamp: Date;
-}
-
-export interface BubbleSignal {
-  symbol: string;
-  signalType:
-    | "PRICE_SPIKE"
-    | "VOLUME_SURGE"
-    | "VOLATILITY_SPIKE"
-    | "ATH_APPROACH"
-    | "EXTREME_DOMINANCE";
-  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-  confidence: number;
-  indicators: BubbleIndicator[];
-  timestamp: Date;
-  metadata: Record<string, unknown>;
-}
-
-export interface BubbleIndicator {
-  name: string;
-  value: number;
-  threshold: number;
-  triggered: boolean;
-  description: string;
-}
-
-export interface CryptoBubbleAnalysis {
-  symbol: string;
-  isBubble: boolean;
-  bubbleScore: number; // 0-100, higher = more likely bubble
-  signals: BubbleSignal[];
-  riskLevel: "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
-  analysisTimestamp: Date;
-  nextCheckTime: Date;
 }
 
 // API response types - CoinGecko focused

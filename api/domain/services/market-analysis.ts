@@ -1,11 +1,10 @@
 import { Effect, Context, Layer } from "effect";
-import type { CryptoBubbleAnalysis, CryptoPrice } from "@0xsignal/shared";
+import type { CryptoPrice } from "@0xsignal/shared";
 import { CoinGeckoService } from "../../infrastructure/http/http.service";
-import { BubbleDetectionService } from "./bubble-detection";
 import { CacheService } from "../../infrastructure/cache/cache.service";
 import { Logger } from "../../infrastructure/logging/logger.service";
 import { AnalysisError } from "../models/errors";
-import { calculateMetrics, analyzeWithFormulas, type QuantitativeAnalysis } from "../formulas";
+import { analyzeWithFormulas, type QuantitativeAnalysis } from "../formulas";
 
 // ============================================================================
 // MARKET ANALYSIS SERVICE
@@ -16,17 +15,15 @@ import { calculateMetrics, analyzeWithFormulas, type QuantitativeAnalysis } from
 
 export interface EnhancedAnalysis {
   readonly symbol: string;
-  readonly price: CryptoPrice; // Add price data
-  readonly bubbleAnalysis: CryptoBubbleAnalysis;
+  readonly price: CryptoPrice;
   readonly quantAnalysis: QuantitativeAnalysis;
-  readonly combinedRiskScore: number;
+  readonly riskScore: number;
   readonly recommendation: "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
   readonly timestamp: Date;
 }
 
 export interface MarketOverview {
   readonly totalAnalyzed: number;
-  readonly bubblesDetected: number;
   readonly highRiskAssets: string[];
   readonly averageRiskScore: number;
   readonly timestamp: Date;
@@ -62,33 +59,28 @@ export class MarketAnalysisServiceTag extends Context.Tag("MarketAnalysisService
 // ============================================================================
 
 /**
- * Pure function to calculate combined risk score
- * Weights: 60% bubble score, 40% quant risk
- */
-const calculateCombinedRisk = (bubbleScore: number, quantRisk: number): number => {
-  return Math.round(bubbleScore * 0.6 + quantRisk * 0.4);
-};
-
-/**
- * Pure function to generate trading recommendation
+ * Pure function to generate trading recommendation based on quant analysis
  */
 const generateRecommendation = (
-  riskLevel: string,
   quantSignal: string,
-  combinedRisk: number
+  riskScore: number
 ): EnhancedAnalysis["recommendation"] => {
   // High risk = avoid buying
-  if (combinedRisk > 80 || riskLevel === "EXTREME") {
+  if (riskScore > 80) {
     return "STRONG_SELL";
   }
 
-  if (combinedRisk > 60 || riskLevel === "HIGH") {
+  if (riskScore > 60) {
     return "SELL";
   }
 
   // Low risk + bullish signal = buy
-  if (combinedRisk < 30 && (quantSignal === "STRONG_BUY" || quantSignal === "BUY")) {
+  if (riskScore < 30 && (quantSignal === "STRONG_BUY" || quantSignal === "BUY")) {
     return quantSignal === "STRONG_BUY" ? "STRONG_BUY" : "BUY";
+  }
+
+  if (riskScore < 40 && quantSignal === "BUY") {
+    return "BUY";
   }
 
   return "HOLD";
@@ -98,18 +90,15 @@ const generateRecommendation = (
  * Pure function to create market overview from analyses
  */
 const createMarketOverview = (analyses: ReadonlyArray<EnhancedAnalysis>): MarketOverview => {
-  const bubblesDetected = analyses.filter((a) => a.bubbleAnalysis.isBubble).length;
-
-  const highRiskAssets = analyses.filter((a) => a.combinedRiskScore > 70).map((a) => a.symbol);
+  const highRiskAssets = analyses.filter((a) => a.riskScore > 70).map((a) => a.symbol);
 
   const averageRiskScore =
     analyses.length > 0
-      ? Math.round(analyses.reduce((sum, a) => sum + a.combinedRiskScore, 0) / analyses.length)
+      ? Math.round(analyses.reduce((sum, a) => sum + a.riskScore, 0) / analyses.length)
       : 0;
 
   return {
     totalAnalyzed: analyses.length,
-    bubblesDetected,
     highRiskAssets,
     averageRiskScore,
     timestamp: new Date(),
@@ -127,12 +116,11 @@ export const MarketAnalysisServiceLive = Layer.effect(
   MarketAnalysisServiceTag,
   Effect.gen(function* () {
     const coinGecko = yield* CoinGeckoService;
-    const bubbleDetection = yield* BubbleDetectionService;
     const cache = yield* CacheService;
     const logger = yield* Logger;
 
     /**
-     * Analyze single cryptocurrency with both bubble detection and quant formulas
+     * Analyze single cryptocurrency using quant formulas
      */
     const analyzeSymbol = (symbol: string): Effect.Effect<EnhancedAnalysis, AnalysisError> =>
       Effect.gen(function* () {
@@ -150,43 +138,24 @@ export const MarketAnalysisServiceLive = Layer.effect(
         // Fetch price data
         const price = yield* coinGecko.getPrice(symbol);
 
-        // Run both analyses in parallel
-        const [bubbleAnalysis, quantAnalysis] = yield* Effect.all(
-          [
-            Effect.gen(function* () {
-              const metrics = calculateMetrics(price);
-              return yield* bubbleDetection.analyzeBubble(price, metrics);
-            }),
-            analyzeWithFormulas(price),
-          ],
-          { concurrency: "unbounded" }
-        );
+        // Run quant analysis
+        const quantAnalysis = yield* analyzeWithFormulas(price);
 
-        // Calculate combined metrics
-        const combinedRiskScore = calculateCombinedRisk(
-          bubbleAnalysis.bubbleScore,
-          quantAnalysis.riskScore
-        );
+        // Use quant risk score directly
+        const riskScore = quantAnalysis.riskScore;
 
-        const recommendation = generateRecommendation(
-          bubbleAnalysis.riskLevel,
-          quantAnalysis.overallSignal,
-          combinedRiskScore
-        );
+        const recommendation = generateRecommendation(quantAnalysis.overallSignal, riskScore);
 
         const result: EnhancedAnalysis = {
           symbol: price.symbol,
-          price, // Include price data
-          bubbleAnalysis,
+          price,
           quantAnalysis,
-          combinedRiskScore,
+          riskScore,
           recommendation,
           timestamp: new Date(),
         };
 
-        yield* logger.info(
-          `${symbol.toUpperCase()}: risk=${combinedRiskScore} rec=${recommendation}`
-        );
+        yield* logger.info(`${symbol.toUpperCase()}: risk=${riskScore} rec=${recommendation}`);
 
         // Cache for 2 minutes
         yield* cache.set(cacheKey, result, 120000);
@@ -228,34 +197,17 @@ export const MarketAnalysisServiceLive = Layer.effect(
           topCryptos,
           (price) =>
             Effect.gen(function* () {
-              const [bubbleAnalysis, quantAnalysis] = yield* Effect.all(
-                [
-                  Effect.gen(function* () {
-                    const metrics = calculateMetrics(price);
-                    return yield* bubbleDetection.analyzeBubble(price, metrics);
-                  }),
-                  analyzeWithFormulas(price),
-                ],
-                { concurrency: "unbounded" }
-              );
+              const quantAnalysis = yield* analyzeWithFormulas(price);
 
-              const combinedRiskScore = calculateCombinedRisk(
-                bubbleAnalysis.bubbleScore,
-                quantAnalysis.riskScore
-              );
+              const riskScore = quantAnalysis.riskScore;
 
-              const recommendation = generateRecommendation(
-                bubbleAnalysis.riskLevel,
-                quantAnalysis.overallSignal,
-                combinedRiskScore
-              );
+              const recommendation = generateRecommendation(quantAnalysis.overallSignal, riskScore);
 
               return {
                 symbol: price.symbol,
-                price, // Include price data
-                bubbleAnalysis,
+                price,
                 quantAnalysis,
-                combinedRiskScore,
+                riskScore,
                 recommendation,
                 timestamp: new Date(),
               };
@@ -263,16 +215,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
               Effect.catchAll(() =>
                 Effect.succeed({
                   symbol: price.symbol,
-                  price, // Include price data in fallback
-                  bubbleAnalysis: {
-                    symbol: price.symbol,
-                    isBubble: false,
-                    bubbleScore: 0,
-                    signals: [],
-                    riskLevel: "LOW" as const,
-                    analysisTimestamp: new Date(),
-                    nextCheckTime: new Date(Date.now() + 5 * 60 * 1000),
-                  },
+                  price,
                   quantAnalysis: {
                     symbol: price.symbol,
                     timestamp: new Date(),
@@ -329,7 +272,7 @@ export const MarketAnalysisServiceLive = Layer.effect(
                     confidence: 0,
                     riskScore: 0,
                   },
-                  combinedRiskScore: 0,
+                  riskScore: 0,
                   recommendation: "HOLD" as const,
                   timestamp: new Date(),
                 })

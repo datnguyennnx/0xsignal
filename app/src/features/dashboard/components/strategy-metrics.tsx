@@ -29,10 +29,10 @@ export function StrategyMetrics({ metrics, className }: StrategyMetricsProps) {
 
   return (
     <Card className={cn("border-border/50", className)}>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium mb-3">Strategy Metrics</CardTitle>
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="text-sm font-medium mb-4">Strategy Metrics</CardTitle>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           {entries.map(([key, value]) => (
             <div key={key} className="space-y-1">
               <div className="text-xs text-muted-foreground">{formatMetricName(key)}</div>

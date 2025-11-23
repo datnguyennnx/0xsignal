@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { ModeToggle } from "@/components/mode-toggle";
 
 interface LayoutProps {
   children: ReactNode;
@@ -8,30 +9,36 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      {/* Sticky Header */}
-      <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-foreground rounded-md flex items-center justify-center">
-                <span className="text-background font-bold text-sm">0x</span>
-              </div>
-              <span className="font-bold text-lg">Signal</span>
+      {/* Minimalist Header */}
+      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Brand */}
+            <Link
+              to="/"
+              className="text-xl font-semibold tracking-tight hover:opacity-80 transition-opacity"
+            >
+              0xSignal
             </Link>
+
+            {/* Theme Toggle */}
+            <ModeToggle />
           </div>
         </div>
-      </nav>
+      </header>
 
-      {/* Main Content - flex-1 to push footer down */}
-      <main className="flex-1 container mx-auto px-6 py-8">{children}</main>
+      {/* Main Content */}
+      <main className="flex-1 container mx-auto py-6 sm:py-8">{children}</main>
 
-      {/* Footer - always at bottom */}
-      <footer className="border-t bg-background">
-        <div className="container mx-auto px-6 py-4">
-          <p className="text-xs text-center text-muted-foreground">
-            Powered by quantitative analysis • Data from CoinGecko
-          </p>
+      {/* Minimalist Footer */}
+      <footer className="border-t">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} 0xSignal. Quantitative crypto analysis.
+            </p>
+            <p className="text-xs text-muted-foreground">Data provided by CoinGecko</p>
+          </div>
         </div>
       </footer>
     </div>

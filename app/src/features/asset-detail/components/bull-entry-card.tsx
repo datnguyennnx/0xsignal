@@ -35,13 +35,13 @@ export function BullEntryCard({
 
   return (
     <Card className={cn("border-green-500/20 bg-green-500/5", strengthStyles[strength], className)}>
-      <CardHeader>
-        <div className="flex items-center justify-between mb-2">
+      <CardHeader className="p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <CardTitle className="text-sm font-medium">Bull Entry Setup</CardTitle>
           <span className="text-xs text-muted-foreground">{strength.replace(/_/g, " ")}</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
           <div className="space-y-1">
             <div className="text-xs text-muted-foreground">Entry</div>
             <div className="font-medium tabular-nums">${entryPrice.toLocaleString()}</div>
@@ -64,7 +64,7 @@ export function BullEntryCard({
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-3 border-t border-border/50">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-border/50">
           <CardDescription className="text-xs">Risk/Reward: {riskReward}:1</CardDescription>
           <div className="flex items-center gap-2">
             <div className="h-1 w-16 bg-muted rounded-full overflow-hidden">

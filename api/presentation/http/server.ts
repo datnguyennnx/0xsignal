@@ -45,10 +45,8 @@ const handleRequest = (url: URL, method: string) => {
     return Effect.gen(function* () {
       const service = yield* MarketAnalysisServiceTag;
       const analyses = yield* service.analyzeTopCryptos(50);
-      // Return signals with bubble signals OR high confidence quant signals
-      return analyses.filter(
-        (a: any) => a.bubbleAnalysis?.signals?.length > 0 || a.quantAnalysis?.confidence >= 60
-      );
+      // Return high confidence quant signals
+      return analyses.filter((a: any) => a.quantAnalysis?.confidence >= 60);
     });
   }
 
