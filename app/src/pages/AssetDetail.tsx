@@ -8,7 +8,7 @@ import { CrashAlert } from "@/components/CrashAlert";
 import { BullEntryCard } from "@/components/BullEntryCard";
 import { ActionableInsights } from "@/components/ActionableInsights";
 import { StrategyMetrics } from "@/components/StrategyMetrics";
-import { TradingChart } from "@/components/TradingChart";
+import { TradingChart } from "@/features/chart";
 import { useState, useEffect } from "react";
 import type { ChartDataPoint } from "../types/chart";
 
@@ -21,14 +21,14 @@ const fetchAssetData = (symbol: string) =>
 const fetchChartData = (symbol: string, interval: string, timeframe: string) =>
   getChartData(symbol, interval, timeframe);
 
-// Interval configuration (like Binance)
-const INTERVALS = [
-  { value: "15m", label: "15m", timeframe: "24h" },
-  { value: "1h", label: "1h", timeframe: "7d" },
-  { value: "4h", label: "4h", timeframe: "1M" },
-  { value: "1d", label: "1D", timeframe: "1M" },
-  { value: "1w", label: "1W", timeframe: "1y" },
-] as const;
+// Timeframe mapping for intervals
+const INTERVAL_TIMEFRAMES: Record<string, string> = {
+  "15m": "24h",
+  "1h": "7d",
+  "4h": "1M",
+  "1d": "1M",
+  "1w": "1y",
+};
 
 export function AssetDetail() {
   const { symbol } = useParams<{ symbol: string }>();
@@ -41,10 +41,13 @@ export function AssetDetail() {
 
   // Fetch chart data from backend
   const chartExit = useEffect_(() => {
-    const config = INTERVALS.find((i) => i.value === interval);
-    const timeframe = config?.timeframe || "7d";
+    const timeframe = INTERVAL_TIMEFRAMES[interval] || "7d";
     return fetchChartData(binanceSymbol, interval, timeframe);
   }, [binanceSymbol, interval]);
+
+  const handleIntervalChange = (newInterval: string) => {
+    setInterval(newInterval);
+  };
 
   useEffect(() => {
     if (chartExit && Exit.isSuccess(chartExit)) {
@@ -99,26 +102,13 @@ export function AssetDetail() {
               />
             )}
 
-            {/* Chart with Interval Selector */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                {INTERVALS.map((int) => (
-                  <button
-                    key={int.value}
-                    onClick={() => setInterval(int.value)}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-medium rounded transition-colors",
-                      interval === int.value
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                    )}
-                  >
-                    {int.label}
-                  </button>
-                ))}
-              </div>
-              <TradingChart data={chartData} symbol={binanceSymbol} />
-            </div>
+            {/* Chart with integrated controls */}
+            <TradingChart
+              data={chartData}
+              symbol={binanceSymbol}
+              interval={interval}
+              onIntervalChange={handleIntervalChange}
+            />
 
             {/* Overview Grid */}
             <div className="grid grid-cols-4 gap-4">
