@@ -2,7 +2,7 @@
 import { createServer } from "node:http";
 import { Effect, Layer } from "effect";
 import { AppLayer } from "../../infrastructure/layers/app.layer";
-import { Logger } from "../../infrastructure/logging/logger.service";
+import { Logger } from "../../infrastructure/logging/console.logger";
 import { createWebSocketServer } from "../../infrastructure/streaming/websocket-server";
 import { SubscriptionManagerLive } from "../../infrastructure/streaming/subscription-manager";
 import { handleRequest } from "./router";

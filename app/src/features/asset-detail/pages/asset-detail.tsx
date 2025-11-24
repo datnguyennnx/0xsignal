@@ -3,15 +3,8 @@ import { Effect, Exit, pipe } from "effect";
 import { getTopAnalysis, getChartData } from "@/core/api/queries";
 import { useEffect_ } from "@/core/runtime/use-effect";
 import { cn } from "@/core/utils/cn";
-import { StrategyCard } from "@/features/dashboard/components/strategy-card";
-import { CrashAlert } from "../components/crash-alert";
-import { BullEntryCard } from "../components/bull-entry-card";
-import { ActionableInsights } from "../components/actionable-insights";
-import { StrategyMetrics } from "@/features/dashboard/components/strategy-metrics";
 import { TradingChart } from "@/features/chart/components/trading-chart";
 import { CryptoIcon } from "@/components/crypto-icon";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
-import { Info } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { ChartDataPoint } from "@/domain/chart/types";
 
@@ -85,59 +78,37 @@ export function AssetDetail() {
           );
         }
 
-        const quant = asset.quantAnalysis;
-        const strategy = asset.strategyAnalysis;
+        const strategy = asset.strategyResult;
+        const entry = asset.entrySignal;
         const price = asset.price;
 
         return (
           <div className="max-w-6xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
-            {/* Alerts */}
-            {strategy?.crashSignal && (
-              <CrashAlert
-                isCrashing={strategy.crashSignal.isCrashing}
-                severity={strategy.crashSignal.severity}
-                recommendation={strategy.crashSignal.recommendation}
-              />
-            )}
+            {/* Overview */}
+            <div className="flex items-center gap-6 pb-4 border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <CryptoIcon symbol={asset.symbol} size={32} />
+                <h1 className="text-xl font-medium">{asset.symbol.toUpperCase()}</h1>
+              </div>
 
-            {/* Header with Metrics - All in one line */}
-            <div className="space-y-4">
-              {/* Title and Metrics Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
-                {/* Asset Title */}
-                <div className="col-span-2 sm:col-span-3 lg:col-span-1 space-y-1">
-                  <div className="flex items-center gap-3">
-                    <CryptoIcon symbol={asset.symbol} size={40} />
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                      {asset.symbol.toUpperCase()}
-                    </h1>
-                  </div>
-                </div>
-                {/* Price */}
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">Price</div>
-                  <div className="text-lg sm:text-xl font-semibold tabular-nums">
-                    $
-                    {price?.price >= 1
-                      ? price?.price.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                      : price?.price.toFixed(6)}
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Price</div>
+                  <div className="text-sm font-medium tabular-nums">
+                    ${price?.price >= 1 ? price?.price.toFixed(2) : price?.price.toFixed(6)}
                   </div>
                 </div>
 
-                {/* 24h Change */}
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">24h Change</div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">24h</div>
                   <div
                     className={cn(
-                      "text-lg sm:text-xl font-semibold tabular-nums",
+                      "text-sm font-medium tabular-nums",
                       (price?.change24h || 0) > 0
                         ? "text-green-500"
                         : (price?.change24h || 0) < 0
                           ? "text-red-500"
-                          : "text-foreground"
+                          : ""
                     )}
                   >
                     {(price?.change24h || 0) > 0 ? "+" : ""}
@@ -145,67 +116,37 @@ export function AssetDetail() {
                   </div>
                 </div>
 
-                {/* Volume */}
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">Volume 24h</div>
-                  <div className="text-lg sm:text-xl font-semibold tabular-nums">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Volume</div>
+                  <div className="text-sm font-medium tabular-nums">
                     {(price?.volume24h || 0) >= 1_000_000_000
-                      ? `${((price?.volume24h || 0) / 1_000_000_000).toFixed(2)}B`
-                      : `${((price?.volume24h || 0) / 1_000_000).toFixed(0)}M`}
+                      ? `$${((price?.volume24h || 0) / 1_000_000_000).toFixed(2)}B`
+                      : `$${((price?.volume24h || 0) / 1_000_000).toFixed(0)}M`}
                   </div>
                 </div>
 
-                {/* Signal */}
-                <div className="space-y-1">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-help">
-                        Signal
-                        <Info className="w-3 h-3" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium">
-                          {strategy?.confidence || quant?.confidence || 0}% confidence
-                        </p>
-                        <p className="max-w-xs text-xs text-muted-foreground">
-                          Trading signal based on quantitative analysis and strategy indicators.
-                        </p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                  <div className="text-lg sm:text-xl font-semibold">
-                    {strategy?.overallSignal || quant?.overallSignal || "HOLD"}
-                  </div>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Signal</div>
+                  <div className="text-sm font-medium">{asset.overallSignal || "HOLD"}</div>
                 </div>
 
-                {/* Risk Score */}
-                <div className="space-y-1">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-help">
-                        Risk Score
-                        <Info className="w-3 h-3" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium">
-                          {asset.riskScore > 70
-                            ? "High risk"
-                            : asset.riskScore < 30
-                              ? "Low risk"
-                              : "Moderate risk"}
-                        </p>
-                        <p className="max-w-xs text-xs text-muted-foreground">
-                          Quantitative risk assessment based on volatility, market conditions, and
-                          technical indicators.
-                        </p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                  <div className="text-lg sm:text-xl font-semibold tabular-nums">
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Confidence</div>
+                  <div className="text-sm font-medium tabular-nums">{asset.confidence || 0}%</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Risk</div>
+                  <div
+                    className={cn(
+                      "text-sm font-medium tabular-nums",
+                      asset.riskScore > 70
+                        ? "text-red-500"
+                        : asset.riskScore > 40
+                          ? "text-orange-500"
+                          : "text-green-500"
+                    )}
+                  >
                     {asset.riskScore}/100
                   </div>
                 </div>
@@ -231,128 +172,118 @@ export function AssetDetail() {
               </div>
             )}
 
-            {/* Strategy Section */}
+            {/* Strategy Analysis */}
             {strategy && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <StrategyCard
-                  strategy={strategy.strategyResult.primarySignal.strategy}
-                  regime={strategy.strategyResult.regime}
-                  signal={strategy.strategyResult.primarySignal.signal}
-                  confidence={strategy.strategyResult.primarySignal.confidence}
-                  reasoning={strategy.strategyResult.primarySignal.reasoning}
-                />
-
-                <ActionableInsights
-                  signal={strategy.overallSignal}
-                  confidence={strategy.confidence}
-                  riskScore={strategy.riskScore}
-                  strategy={strategy.strategyResult.primarySignal.strategy}
-                  regime={strategy.strategyResult.regime}
-                  actionableInsight={strategy.actionableInsight}
-                />
-              </div>
-            )}
-
-            {/* Bull Entry */}
-            {strategy?.bullEntrySignal && (
-              <BullEntryCard
-                isOptimalEntry={strategy.bullEntrySignal.isOptimalEntry}
-                strength={strategy.bullEntrySignal.strength}
-                entryPrice={strategy.bullEntrySignal.entryPrice}
-                targetPrice={strategy.bullEntrySignal.targetPrice}
-                stopLoss={strategy.bullEntrySignal.stopLoss}
-                confidence={strategy.bullEntrySignal.confidence}
-              />
-            )}
-
-            {/* Strategy Metrics */}
-            {strategy?.strategyResult.primarySignal.metrics && (
-              <StrategyMetrics metrics={strategy.strategyResult.primarySignal.metrics} />
-            )}
-
-            {/* Composite Scores */}
-            {quant?.compositeScores && (
-              <div className="space-y-4">
-                <h2 className="text-sm font-medium text-muted-foreground">Technical Analysis</h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-                  {/* Momentum */}
-                  {quant.compositeScores.momentum && (
-                    <div className="space-y-4 p-4 sm:p-6 rounded-lg border border-border/50">
-                      <div className="text-xs font-medium text-muted-foreground">Momentum</div>
-                      <div className="space-y-2">
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-xs text-muted-foreground">RSI</span>
-                          <span className="text-sm font-medium tabular-nums">
-                            {quant.compositeScores.momentum.rsi.toFixed(1)}
-                          </span>
-                        </div>
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-xs text-muted-foreground">Score</span>
-                          <span className="text-sm font-medium tabular-nums">
-                            {quant.compositeScores.momentum.score > 0 ? "+" : ""}
-                            {quant.compositeScores.momentum.score}
-                          </span>
-                        </div>
-                        <div className="text-xs text-muted-foreground pt-2 border-t border-border/50">
-                          {quant.compositeScores.momentum.insight}
-                        </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Strategy Info */}
+                <div className="rounded border border-border/50 p-4">
+                  <div className="text-xs text-muted-foreground mb-3">Active Strategy</div>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground">Type</div>
+                      <div className="text-sm font-medium">{strategy.primarySignal.strategy}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Regime</div>
+                      <div className="text-sm font-medium">
+                        {strategy.regime.replace(/_/g, " ")}
                       </div>
                     </div>
-                  )}
-
-                  {/* Volatility */}
-                  {quant.compositeScores.volatility && (
-                    <div className="space-y-4 p-4 sm:p-6 rounded-lg border border-border/50">
-                      <div className="text-xs font-medium text-muted-foreground">Volatility</div>
-                      <div className="space-y-2">
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-xs text-muted-foreground">Regime</span>
-                          <span className="text-sm font-medium">
-                            {quant.compositeScores.volatility.regime}
-                          </span>
-                        </div>
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-xs text-muted-foreground">Score</span>
-                          <span className="text-sm font-medium tabular-nums">
-                            {quant.compositeScores.volatility.score}
-                          </span>
-                        </div>
-                        <div className="text-xs text-muted-foreground pt-2 border-t border-border/50">
-                          {quant.compositeScores.volatility.insight}
-                        </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Signal</div>
+                      <div
+                        className={cn(
+                          "text-sm font-medium",
+                          strategy.primarySignal.signal.includes("BUY")
+                            ? "text-green-500"
+                            : strategy.primarySignal.signal.includes("SELL")
+                              ? "text-red-500"
+                              : ""
+                        )}
+                      >
+                        {strategy.primarySignal.signal}
                       </div>
                     </div>
-                  )}
+                  </div>
+                </div>
 
-                  {/* Mean Reversion */}
-                  {quant.compositeScores.meanReversion && (
-                    <div className="space-y-4 p-4 sm:p-6 rounded-lg border border-border/50">
-                      <div className="text-xs font-medium text-muted-foreground">
-                        Mean Reversion
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-xs text-muted-foreground">Percent B</span>
-                          <span className="text-sm font-medium tabular-nums">
-                            {(quant.compositeScores.meanReversion.percentB * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-xs text-muted-foreground">Signal</span>
-                          <span className="text-sm font-medium">
-                            {quant.compositeScores.meanReversion.signal}
-                          </span>
-                        </div>
-                        <div className="text-xs text-muted-foreground pt-2 border-t border-border/50">
-                          {quant.compositeScores.meanReversion.insight}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                {/* Trading Action */}
+                <div className="lg:col-span-2 rounded border border-border/50 p-4">
+                  <div className="text-xs text-muted-foreground mb-3">Analysis</div>
+                  <div className="text-sm leading-relaxed">{asset.recommendation}</div>
                 </div>
               </div>
             )}
+
+            {/* Entry Setup */}
+            {entry?.isOptimalEntry && (
+              <div className="rounded border border-green-500/30 bg-green-500/5 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-xs text-muted-foreground">Entry Setup</div>
+                  <div className="text-xs text-green-500">{entry.strength}</div>
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Entry</div>
+                    <div className="font-medium tabular-nums">${entry.entryPrice.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Target</div>
+                    <div className="font-medium tabular-nums text-green-500">
+                      ${entry.targetPrice.toFixed(2)}
+                    </div>
+                    <div className="text-xs text-green-500">
+                      +
+                      {(((entry.targetPrice - entry.entryPrice) / entry.entryPrice) * 100).toFixed(
+                        1
+                      )}
+                      %
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Stop</div>
+                    <div className="font-medium tabular-nums text-red-500">
+                      ${entry.stopLoss.toFixed(2)}
+                    </div>
+                    <div className="text-xs text-red-500">
+                      -{(((entry.entryPrice - entry.stopLoss) / entry.entryPrice) * 100).toFixed(1)}
+                      %
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    R:R{" "}
+                    {(
+                      (entry.targetPrice - entry.entryPrice) /
+                      (entry.entryPrice - entry.stopLoss)
+                    ).toFixed(2)}
+                    :1
+                  </span>
+                  <span className="text-muted-foreground">Confidence {entry.confidence}%</span>
+                </div>
+              </div>
+            )}
+
+            {/* Strategy Metrics */}
+            {strategy?.primarySignal.metrics &&
+              Object.keys(strategy.primarySignal.metrics).length > 0 && (
+                <div className="rounded border border-border/50 p-4">
+                  <div className="text-xs text-muted-foreground mb-3">Strategy Metrics</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {Object.entries(strategy.primarySignal.metrics).map(([key, value]) => (
+                      <div key={key}>
+                        <div className="text-xs text-muted-foreground mb-1">
+                          {key.replace(/_/g, " ")}
+                        </div>
+                        <div className="text-sm font-medium tabular-nums">
+                          {typeof value === "number" ? value.toFixed(2) : value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
           </div>
         );
       },

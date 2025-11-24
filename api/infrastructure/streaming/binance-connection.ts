@@ -9,7 +9,7 @@ import { Effect, Stream, Schedule, Duration, Ref, Queue, PubSub } from "effect";
 import WebSocket from "ws";
 import type { BinanceKline } from "./types";
 import { BinanceConnectionError } from "./types";
-import { Logger } from "../logging/logger.service";
+import { Logger } from "../logging/console.logger";
 
 /**
  * Binance WebSocket configuration

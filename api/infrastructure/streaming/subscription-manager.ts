@@ -7,7 +7,7 @@
 import { Effect, Stream, Ref, HashMap, Context, Layer } from "effect";
 import type { BinanceKline, Subscription } from "./types";
 import { createBinanceConnection } from "./binance-connection";
-import { Logger } from "../logging/logger.service";
+import { Logger } from "../logging/console.logger";
 
 type KlineCallback = (kline: BinanceKline) => void;
 

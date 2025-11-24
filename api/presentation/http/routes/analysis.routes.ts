@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { MarketAnalysisServiceTag } from "../../../domain/services/market-analysis";
+import { AnalysisServiceTag } from "../../../services/analysis";
 
 /**
  * @openapi
@@ -30,8 +30,8 @@ import { MarketAnalysisServiceTag } from "../../../domain/services/market-analys
  */
 export const topAnalysisRoute = (limit: number) =>
   Effect.gen(function* () {
-    const service = yield* MarketAnalysisServiceTag;
-    return yield* service.analyzeTopCryptos(limit);
+    const service = yield* AnalysisServiceTag;
+    return yield* service.analyzeTopAssets(limit);
   });
 
 /**
@@ -65,7 +65,7 @@ export const topAnalysisRoute = (limit: number) =>
  */
 export const symbolAnalysisRoute = (symbol: string) =>
   Effect.gen(function* () {
-    const service = yield* MarketAnalysisServiceTag;
+    const service = yield* AnalysisServiceTag;
     return yield* service.analyzeSymbol(symbol);
   });
 
@@ -87,6 +87,6 @@ export const symbolAnalysisRoute = (symbol: string) =>
  */
 export const marketOverviewRoute = () =>
   Effect.gen(function* () {
-    const service = yield* MarketAnalysisServiceTag;
+    const service = yield* AnalysisServiceTag;
     return yield* service.getMarketOverview();
   });

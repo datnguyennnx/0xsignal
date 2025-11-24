@@ -1,19 +1,10 @@
-// ============================================================================
-// API MODULE EXPORTS
-// ============================================================================
-// Main exports for the API module
-// Only exports what's needed for the HTTP API server
-// ============================================================================
+export * from "./domain/types";
+export * from "./domain/analysis";
+export * from "./domain/strategies";
+export * from "./application";
+export * from "./services";
 
-// Domain Services
-export * from "./domain/services/market-analysis";
-
-// Infrastructure
-export * from "./infrastructure/cache/cache.service";
-export * from "./infrastructure/logging/logger.service";
-
-// Infrastructure Layers
+export * from "./infrastructure/cache/memory.cache";
+export * from "./infrastructure/logging/console.logger";
 export * from "./infrastructure/layers/app.layer";
-
-// Configuration
 export * from "./infrastructure/config/app.config";

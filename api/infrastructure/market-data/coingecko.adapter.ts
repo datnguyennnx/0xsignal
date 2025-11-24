@@ -1,6 +1,6 @@
 import { Effect, Context, Layer, Data } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
-import { Logger } from "../logging/logger.service";
+import { Logger } from "../logging/console.logger";
 
 // HTTP Service for API calls
 export class HttpService extends Context.Tag("HttpService")<

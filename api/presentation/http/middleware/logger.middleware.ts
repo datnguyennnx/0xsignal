@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { Logger } from "../../../infrastructure/logging/logger.service";
+import { Logger } from "../../../infrastructure/logging/console.logger";
 import { AppLayer } from "../../../infrastructure/layers/app.layer";
 
 export const logRequest = (

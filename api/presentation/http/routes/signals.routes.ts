@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { MarketAnalysisServiceTag } from "../../../domain/services/market-analysis";
+import { AnalysisServiceTag } from "../../../services/analysis";
 
 /**
  * @openapi
@@ -17,14 +17,12 @@ import { MarketAnalysisServiceTag } from "../../../domain/services/market-analys
  *             schema:
  *               type: array
  *               items:
- *                 $ref: '#/components/schemas/EnhancedAnalysis'
+ *                 $ref: '#/components/schemas/AssetAnalysis'
  */
 export const tradingSignalsRoute = () =>
   Effect.gen(function* () {
-    const service = yield* MarketAnalysisServiceTag;
-    const analyses = yield* service.analyzeTopCryptos(50);
-    // Return high confidence quant signals
-    return analyses.filter((a: any) => a.quantAnalysis?.confidence >= 60);
+    const service = yield* AnalysisServiceTag;
+    return yield* service.getHighConfidenceSignals(60);
   });
 
 /**
@@ -52,10 +50,10 @@ export const tradingSignalsRoute = () =>
  *             schema:
  *               type: array
  *               items:
- *                 $ref: '#/components/schemas/EnhancedAnalysis'
+ *                 $ref: '#/components/schemas/AssetAnalysis'
  */
 export const highConfidenceSignalsRoute = (minConfidence: number) =>
   Effect.gen(function* () {
-    const service = yield* MarketAnalysisServiceTag;
+    const service = yield* AnalysisServiceTag;
     return yield* service.getHighConfidenceSignals(minConfidence);
   });

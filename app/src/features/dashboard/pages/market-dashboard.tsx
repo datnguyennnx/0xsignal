@@ -1,10 +1,9 @@
 import { Exit, pipe } from "effect";
 import { Button } from "@/ui/button";
-import { RefreshCw, ArrowRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getCachedTopAnalysis } from "@/core/api/cached-queries";
 import { useEffect_ } from "@/core/runtime/use-effect";
-import { CrashAlert } from "@/features/asset-detail/components/crash-alert";
 import { SignalCard } from "@/features/dashboard/components/signal-card";
 import { useMemoizedSignals } from "@/features/dashboard/hooks/use-memoized-calc";
 
@@ -16,10 +15,7 @@ export function MarketDashboard() {
   if (!exit) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-3">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto"></div>
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
+        <div className="text-sm text-muted-foreground">Loading...</div>
       </div>
     );
   }
@@ -28,103 +24,80 @@ export function MarketDashboard() {
     exit,
     Exit.match({
       onFailure: () => (
-        <div className="max-w-6xl mx-auto space-y-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Trading Signals</h1>
-            <Button onClick={() => window.location.reload()} size="sm" variant="outline">
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          </div>
-          <div className="rounded-lg border border-red-500/50 bg-red-500/5 p-6 text-center">
-            <p className="text-sm text-red-500">Unable to load data. Please refresh.</p>
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <h1 className="text-lg font-medium mb-6">Market Signals</h1>
+          <div className="text-sm text-red-500">Unable to load data</div>
         </div>
       ),
       onSuccess: (analyses) => {
-        const { buySignals, sellSignals, crashAlerts, topBuy, topSell } =
-          useMemoizedSignals(analyses);
+        const { buySignals, sellSignals } = useMemoizedSignals(analyses);
 
         return (
-          <div className="max-w-6xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold">Trading Signals</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {buySignals.length} buy • {sellSignals.length} sell
-                  {crashAlerts.length > 0 && ` • ${crashAlerts.length} crash alert`}
-                </p>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {/* Header */}
+            <div className="flex items-baseline gap-4 mb-6">
+              <h1 className="text-lg font-medium">Market Signals</h1>
+              <div className="text-xs text-muted-foreground tabular-nums">
+                {buySignals.length} long · {sellSignals.length} short
               </div>
-              <Button onClick={() => window.location.reload()} size="sm" variant="outline">
-                <RefreshCw className="w-4 h-4" />
-              </Button>
             </div>
 
-            {crashAlerts.length > 0 && (
-              <div className="space-y-4">
-                {crashAlerts.slice(0, 3).map((alert: any) => (
-                  <CrashAlert
-                    key={alert.symbol}
-                    isCrashing={alert.strategyAnalysis.crashSignal.isCrashing}
-                    severity={alert.strategyAnalysis.crashSignal.severity}
-                    recommendation={`${alert.symbol.toUpperCase()}: ${alert.strategyAnalysis.crashSignal.recommendation}`}
-                  />
-                ))}
-              </div>
-            )}
-
+            {/* Signals Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b-2 border-green-500">
+              {/* Long Signals */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-border/50">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    <h2 className="font-bold text-base sm:text-lg">Buy Signals</h2>
-                    <span className="text-sm text-muted-foreground">({buySignals.length})</span>
+                    <h2 className="text-sm font-medium">Long</h2>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {buySignals.length}
+                    </span>
                   </div>
-                  {buySignals.length > 5 && (
+                  {buySignals.length > 10 && (
                     <Link to="/buy">
-                      <Button size="sm" variant="ghost" className="text-xs">
-                        View All <ArrowRight className="w-3 h-3 ml-1" />
+                      <Button size="sm" variant="ghost" className="h-7 text-xs">
+                        See All
+                        <ChevronRight className="w-3 h-3 ml-1" />
                       </Button>
                     </Link>
                   )}
                 </div>
 
-                {topBuy.length === 0 ? (
-                  <div className="rounded-lg border bg-card p-8 text-center">
-                    <p className="text-sm text-muted-foreground">No buy signals</p>
-                  </div>
+                {buySignals.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground">No signals</div>
                 ) : (
-                  <div className="space-y-3">
-                    {topBuy.map((signal) => (
+                  <div className="space-y-2">
+                    {buySignals.slice(0, 10).map((signal) => (
                       <SignalCard key={signal.symbol} signal={signal} type="buy" />
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b-2 border-red-500">
+              {/* Short Signals */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-border/50">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <h2 className="font-bold text-base sm:text-lg">Sell Signals</h2>
-                    <span className="text-sm text-muted-foreground">({sellSignals.length})</span>
+                    <h2 className="text-sm font-medium">Short</h2>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {sellSignals.length}
+                    </span>
                   </div>
-                  {sellSignals.length > 5 && (
+                  {sellSignals.length > 10 && (
                     <Link to="/sell">
-                      <Button size="sm" variant="ghost" className="text-xs">
-                        View All <ArrowRight className="w-3 h-3 ml-1" />
+                      <Button size="sm" variant="ghost" className="h-7 text-xs">
+                        See All
+                        <ChevronRight className="w-3 h-3 ml-1" />
                       </Button>
                     </Link>
                   )}
                 </div>
 
-                {topSell.length === 0 ? (
-                  <div className="rounded-lg border bg-card p-8 text-center">
-                    <p className="text-sm text-muted-foreground">No sell signals</p>
-                  </div>
+                {sellSignals.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground">No signals</div>
                 ) : (
-                  <div className="space-y-3">
-                    {topSell.map((signal) => (
+                  <div className="space-y-2">
+                    {sellSignals.slice(0, 10).map((signal) => (
                       <SignalCard key={signal.symbol} signal={signal} type="sell" />
                     ))}
                   </div>

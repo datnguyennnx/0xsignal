@@ -10,7 +10,7 @@ import type { Server } from "http";
 import type { ChartDataPoint, BinanceKline } from "./types";
 import { SubscriptionManagerTag } from "./subscription-manager";
 import { randomUUID } from "crypto";
-import { Logger } from "../logging/logger.service";
+import { Logger } from "../logging/console.logger";
 
 interface ClientConnection {
   readonly id: string;

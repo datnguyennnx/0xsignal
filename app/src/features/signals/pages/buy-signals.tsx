@@ -41,9 +41,7 @@ export function AllBuySignals() {
       ),
       onSuccess: (analyses) => {
         const buySignals = analyses.filter(
-          (a: any) =>
-            a.quantAnalysis?.overallSignal === "STRONG_BUY" ||
-            a.quantAnalysis?.overallSignal === "BUY"
+          (a: any) => a.overallSignal === "STRONG_BUY" || a.overallSignal === "BUY"
         );
 
         return (
@@ -66,8 +64,8 @@ export function AllBuySignals() {
                 </TableHeader>
                 <TableBody>
                   {buySignals.map((signal: any) => {
-                    const isStrong = signal.quantAnalysis?.overallSignal === "STRONG_BUY";
-                    const confidence = signal.quantAnalysis?.confidence || 0;
+                    const isStrong = signal.overallSignal === "STRONG_BUY";
+                    const confidence = signal.confidence || 0;
                     const price = signal.price?.price || 0;
                     const change24h = signal.price?.change24h || 0;
                     const volume24h = signal.price?.volume24h || 0;

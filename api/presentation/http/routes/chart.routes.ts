@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { ChartDataServiceTag } from "../../../domain/services/chart-data.service";
+import { ChartDataServiceTag } from "../../../application/stream-chart-data";
 
 /**
  * @openapi

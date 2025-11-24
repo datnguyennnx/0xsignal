@@ -1,5 +1,5 @@
 import { Effect, Context, Layer } from "effect";
-import { Logger } from "../logging/logger.service";
+import { Logger } from "../logging/console.logger";
 
 export class CacheService extends Context.Tag("CacheService")<
   CacheService,

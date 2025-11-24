@@ -1,4 +1,4 @@
-import type { CryptoPrice } from "./crypto";
+import type { CryptoPrice } from "@0xsignal/shared";
 
 export type Signal = "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
 
@@ -10,6 +10,12 @@ export type MarketRegime =
   | "MEAN_REVERSION"
   | "LOW_VOLATILITY"
   | "HIGH_VOLATILITY";
+
+export interface IndicatorResult {
+  readonly value: number;
+  readonly signal: Signal;
+  readonly confidence: number;
+}
 
 export interface StrategySignal {
   readonly strategy: string;
@@ -60,7 +66,7 @@ export interface EntrySignal {
   readonly recommendation: string;
 }
 
-export interface EnhancedAnalysis {
+export interface AssetAnalysis {
   readonly symbol: string;
   readonly timestamp: Date;
   readonly price: CryptoPrice;
