@@ -1,7 +1,13 @@
 import type { CryptoPrice } from "./crypto";
 
+/**
+ * Trading signal types
+ */
 export type Signal = "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
 
+/**
+ * Market regime classification
+ */
 export type MarketRegime =
   | "BULL_MARKET"
   | "BEAR_MARKET"
@@ -11,6 +17,9 @@ export type MarketRegime =
   | "LOW_VOLATILITY"
   | "HIGH_VOLATILITY";
 
+/**
+ * Strategy signal output
+ */
 export interface StrategySignal {
   readonly strategy: string;
   readonly signal: Signal;
@@ -19,14 +28,20 @@ export interface StrategySignal {
   readonly metrics: Record<string, number>;
 }
 
+/**
+ * Strategy execution result
+ */
 export interface StrategyResult {
   readonly regime: MarketRegime;
-  readonly signals: ReadonlyArray<StrategySignal>;
+  readonly signals: readonly StrategySignal[];
   readonly primarySignal: StrategySignal;
   readonly overallConfidence: number;
   readonly riskScore: number;
 }
 
+/**
+ * Crash detection indicators
+ */
 export interface CrashIndicators {
   readonly rapidDrop: boolean;
   readonly volumeSpike: boolean;
@@ -34,6 +49,9 @@ export interface CrashIndicators {
   readonly highVolatility: boolean;
 }
 
+/**
+ * Crash signal output
+ */
 export interface CrashSignal {
   readonly isCrashing: boolean;
   readonly severity: "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
@@ -42,6 +60,9 @@ export interface CrashSignal {
   readonly recommendation: string;
 }
 
+/**
+ * Entry detection indicators
+ */
 export interface EntryIndicators {
   readonly trendReversal: boolean;
   readonly volumeIncrease: boolean;
@@ -49,6 +70,9 @@ export interface EntryIndicators {
   readonly bullishDivergence: boolean;
 }
 
+/**
+ * Entry signal output
+ */
 export interface EntrySignal {
   readonly isOptimalEntry: boolean;
   readonly strength: "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG";
@@ -60,7 +84,10 @@ export interface EntrySignal {
   readonly recommendation: string;
 }
 
-export interface EnhancedAnalysis {
+/**
+ * Complete asset analysis result
+ */
+export interface AssetAnalysis {
   readonly symbol: string;
   readonly timestamp: Date;
   readonly price: CryptoPrice;
@@ -73,9 +100,21 @@ export interface EnhancedAnalysis {
   readonly recommendation: string;
 }
 
+/**
+ * Market overview summary
+ */
 export interface MarketOverview {
   readonly totalAnalyzed: number;
-  readonly highRiskAssets: string[];
+  readonly highRiskAssets: readonly string[];
   readonly averageRiskScore: number;
   readonly timestamp: Date;
+}
+
+/**
+ * Indicator result base interface
+ */
+export interface IndicatorResult {
+  readonly value: number;
+  readonly signal: Signal;
+  readonly confidence: number;
 }

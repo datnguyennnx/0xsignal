@@ -1,27 +1,22 @@
 import { useMemo } from "react";
-import type { EnhancedAnalysis } from "@0xsignal/shared";
+import type { AssetAnalysis } from "@0xsignal/shared";
 
 interface SignalStats {
-  buySignals: EnhancedAnalysis[];
-  sellSignals: EnhancedAnalysis[];
+  readonly buySignals: AssetAnalysis[];
+  readonly sellSignals: AssetAnalysis[];
 }
 
-const isBuySignal = (analysis: EnhancedAnalysis): boolean => {
-  return analysis.overallSignal === "STRONG_BUY" || analysis.overallSignal === "BUY";
-};
+const isBuySignal = (analysis: AssetAnalysis): boolean =>
+  analysis.overallSignal === "STRONG_BUY" || analysis.overallSignal === "BUY";
 
-const isSellSignal = (analysis: EnhancedAnalysis): boolean => {
-  return analysis.overallSignal === "STRONG_SELL" || analysis.overallSignal === "SELL";
-};
+const isSellSignal = (analysis: AssetAnalysis): boolean =>
+  analysis.overallSignal === "STRONG_SELL" || analysis.overallSignal === "SELL";
 
-export const useMemoizedSignals = (analyses: EnhancedAnalysis[]): SignalStats => {
-  return useMemo(() => {
-    const buySignals = analyses.filter(isBuySignal);
-    const sellSignals = analyses.filter(isSellSignal);
-
-    return {
-      buySignals,
-      sellSignals,
-    };
-  }, [analyses]);
-};
+export const useMemoizedSignals = (analyses: AssetAnalysis[]): SignalStats =>
+  useMemo(
+    () => ({
+      buySignals: analyses.filter(isBuySignal),
+      sellSignals: analyses.filter(isSellSignal),
+    }),
+    [analyses]
+  );

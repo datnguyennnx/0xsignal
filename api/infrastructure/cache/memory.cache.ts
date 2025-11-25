@@ -1,4 +1,4 @@
-import { Effect, Context, Layer } from "effect";
+import { Effect, Context, Layer, Schedule, Duration } from "effect";
 import { Logger } from "../logging/console.logger";
 
 export class CacheService extends Context.Tag("CacheService")<
@@ -17,7 +17,7 @@ interface CacheEntry<T> {
   hits: number;
 }
 
-const cache = new Map<string, CacheEntry<any>>();
+const cache = new Map<string, CacheEntry<unknown>>();
 const DEFAULT_TTL = 120000; // 2 minutes
 const MAX_CACHE_SIZE = 1000;
 
@@ -26,8 +26,8 @@ export const CacheServiceLive = Layer.effect(
   Effect.gen(function* () {
     const logger = yield* Logger;
 
-    // Cleanup expired entries every minute
-    setInterval(() => {
+    // Cleanup expired entries using Effect.repeat
+    const cleanupExpiredEntries = Effect.gen(function* () {
       const now = Date.now();
       let cleaned = 0;
 
@@ -39,7 +39,7 @@ export const CacheServiceLive = Layer.effect(
       }
 
       if (cleaned > 0) {
-        Effect.runFork(logger.debug(`Cache cleanup: removed ${cleaned} expired entries`));
+        yield* logger.debug(`Cache cleanup: removed ${cleaned} expired entries`);
       }
 
       // If cache is too large, remove least used entries
@@ -49,11 +49,17 @@ export const CacheServiceLive = Layer.effect(
           .slice(0, Math.floor(MAX_CACHE_SIZE * 0.2));
 
         entries.forEach(([key]) => cache.delete(key));
-        Effect.runFork(
-          logger.debug(`Cache size limit: removed ${entries.length} least used entries`)
-        );
+        yield* logger.debug(`Cache size limit: removed ${entries.length} least used entries`);
       }
-    }, 60000);
+    });
+
+    // Fork cleanup as daemon with scheduled repeat
+    yield* Effect.forkDaemon(
+      cleanupExpiredEntries.pipe(
+        Effect.repeat(Schedule.fixed(Duration.minutes(1))),
+        Effect.catchAll(() => Effect.void)
+      )
+    );
 
     return {
       get: <T>(key: string) =>

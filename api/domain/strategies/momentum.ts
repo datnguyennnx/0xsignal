@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
-import type { StrategySignal } from "../types";
+import type { StrategySignal } from "./types";
 import { computeIndicators } from "../analysis/indicators";
 import { scoreToSignal } from "../analysis/scoring";
 
@@ -16,6 +16,7 @@ export const executeMomentumStrategy = (price: CryptoPrice): Effect.Effect<Strat
       adxValue: indicators.adx.adx,
     };
 
+    // RSI contribution (40%)
     if (indicators.rsi.signal === "OVERSOLD") {
       score += 40;
     } else if (indicators.rsi.signal === "OVERBOUGHT") {
@@ -24,12 +25,14 @@ export const executeMomentumStrategy = (price: CryptoPrice): Effect.Effect<Strat
       score += (indicators.rsi.rsi - 50) * 0.8;
     }
 
+    // MACD contribution (35%)
     if (indicators.macd.trend === "BULLISH") {
       score += 35;
     } else if (indicators.macd.trend === "BEARISH") {
       score -= 35;
     }
 
+    // ADX trend strength contribution (25%)
     const trendBonus = (indicators.adx.adx / 100) * 25;
     if (price.change24h > 0) {
       score += trendBonus;

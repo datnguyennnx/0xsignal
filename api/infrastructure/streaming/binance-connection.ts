@@ -93,7 +93,7 @@ export const createBinanceConnection = (
           close: parseFloat(k.c),
           volume: parseFloat(k.v),
           trades: k.n,
-          isClosed: k.x,
+          isFinal: k.x,
         };
       } catch {
         return null;

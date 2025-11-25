@@ -1,16 +1,9 @@
-// ============================================================================
-// INDICATOR CALCULATION LIBRARY
-// ============================================================================
-// Consolidated indicator calculations for chart visualization
-// All formulas are pure functions that work with ChartDataPoint arrays
-// ============================================================================
+// Indicator calculations for chart visualization
+// Pure functions using shared math utilities
 
-import type { ChartDataPoint } from "@/domain/chart/types";
+import type { ChartDataPoint } from "@0xsignal/shared";
+import { mean } from "@0xsignal/shared";
 import type { Time } from "lightweight-charts";
-
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
 
 export interface IndicatorDataPoint {
   time: Time;
@@ -30,26 +23,12 @@ export interface MACDDataPoint {
   histogram: IndicatorDataPoint[];
 }
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Calculate mean of an array
- */
-function mean(values: number[]): number {
-  return values.reduce((a, b) => a + b, 0) / values.length;
-}
-
-/**
- * Calculate True Range
- */
-function calculateTrueRange(high: number, low: number, previousClose: number): number {
+const calculateTrueRange = (high: number, low: number, previousClose: number): number => {
   const range1 = high - low;
   const range2 = Math.abs(high - previousClose);
   const range3 = Math.abs(low - previousClose);
   return Math.max(range1, range2, range3);
-}
+};
 
 // ============================================================================
 // TREND INDICATORS

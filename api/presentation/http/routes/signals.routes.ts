@@ -8,22 +8,36 @@ import { AnalysisServiceTag } from "../../../services/analysis";
  *     tags:
  *       - Signals
  *     summary: Get trading signals
- *     description: Returns high confidence trading signals (confidence >= 60%)
+ *     description: Returns trading signals for top cryptocurrencies
  *     responses:
  *       200:
- *         description: List of trading signals
+ *         description: Trading signals
  *         content:
  *           application/json:
  *             schema:
  *               type: array
  *               items:
- *                 $ref: '#/components/schemas/AssetAnalysis'
+ *                 $ref: '#/components/schemas/TradingSignal'
  */
 export const tradingSignalsRoute = () =>
   Effect.gen(function* () {
     const service = yield* AnalysisServiceTag;
-    return yield* service.getHighConfidenceSignals(60);
-  });
+    const analyses = yield* service.analyzeTopAssets(20);
+
+    return analyses.map((analysis) => ({
+      symbol: analysis.symbol,
+      signal: analysis.overallSignal,
+      confidence: analysis.confidence,
+      riskScore: analysis.riskScore,
+      regime: analysis.strategyResult.regime,
+      recommendation: analysis.recommendation,
+      timestamp: analysis.timestamp,
+    }));
+  }).pipe(
+    Effect.catchTag("AnalysisError", (error) =>
+      Effect.fail({ status: 500, message: error.message })
+    )
+  );
 
 /**
  * @openapi
@@ -31,8 +45,8 @@ export const tradingSignalsRoute = () =>
  *   get:
  *     tags:
  *       - Signals
- *     summary: Get high confidence signals
- *     description: Returns trading signals filtered by minimum confidence level
+ *     summary: Get high confidence trading signals
+ *     description: Returns only signals with confidence above threshold
  *     parameters:
  *       - in: query
  *         name: confidence
@@ -50,10 +64,24 @@ export const tradingSignalsRoute = () =>
  *             schema:
  *               type: array
  *               items:
- *                 $ref: '#/components/schemas/AssetAnalysis'
+ *                 $ref: '#/components/schemas/TradingSignal'
  */
 export const highConfidenceSignalsRoute = (minConfidence: number) =>
   Effect.gen(function* () {
     const service = yield* AnalysisServiceTag;
-    return yield* service.getHighConfidenceSignals(minConfidence);
-  });
+    const analyses = yield* service.getHighConfidenceSignals(minConfidence);
+
+    return analyses.map((analysis) => ({
+      symbol: analysis.symbol,
+      signal: analysis.overallSignal,
+      confidence: analysis.confidence,
+      riskScore: analysis.riskScore,
+      regime: analysis.strategyResult.regime,
+      recommendation: analysis.recommendation,
+      timestamp: analysis.timestamp,
+    }));
+  }).pipe(
+    Effect.catchTag("AnalysisError", (error) =>
+      Effect.fail({ status: 500, message: error.message })
+    )
+  );

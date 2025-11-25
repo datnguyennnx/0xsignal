@@ -1,37 +1,31 @@
 import { Effect, Context, Layer } from "effect";
-import type { EnhancedAnalysis } from "@0xsignal/shared";
+import type { AssetAnalysis, MarketOverview, ChartDataPoint } from "@0xsignal/shared";
 import { ApiError, NetworkError } from "./errors";
 
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost:9006/api";
 
-export interface ChartDataPoint {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
+// Re-export for convenience
+export type { ChartDataPoint };
+
+export interface ApiService {
+  readonly health: () => Effect.Effect<unknown, ApiError | NetworkError>;
+  readonly getTopAnalysis: (
+    limit?: number
+  ) => Effect.Effect<AssetAnalysis[], ApiError | NetworkError>;
+  readonly getAnalysis: (symbol: string) => Effect.Effect<AssetAnalysis, ApiError | NetworkError>;
+  readonly getOverview: () => Effect.Effect<MarketOverview, ApiError | NetworkError>;
+  readonly getSignals: () => Effect.Effect<AssetAnalysis[], ApiError | NetworkError>;
+  readonly getChartData: (
+    symbol: string,
+    interval: string,
+    timeframe: string
+  ) => Effect.Effect<ChartDataPoint[], ApiError | NetworkError>;
 }
 
-export class ApiService extends Context.Tag("ApiService")<
-  ApiService,
-  {
-    readonly health: () => Effect.Effect<unknown, ApiError | NetworkError>;
-    readonly getTopAnalysis: (
-      limit?: number
-    ) => Effect.Effect<EnhancedAnalysis[], ApiError | NetworkError>;
-    readonly getAnalysis: (
-      symbol: string
-    ) => Effect.Effect<EnhancedAnalysis, ApiError | NetworkError>;
-    readonly getOverview: () => Effect.Effect<any, ApiError | NetworkError>;
-    readonly getSignals: () => Effect.Effect<EnhancedAnalysis[], ApiError | NetworkError>;
-    readonly getChartData: (
-      symbol: string,
-      interval: string,
-      timeframe: string
-    ) => Effect.Effect<ChartDataPoint[], ApiError | NetworkError>;
-  }
->() {}
+export class ApiServiceTag extends Context.Tag("ApiService")<ApiServiceTag, ApiService>() {}
+
+// Keep backward compatibility
+export const ApiService = ApiServiceTag;
 
 const fetchJson = <T>(
   url: string,
@@ -61,17 +55,17 @@ const fetchJson = <T>(
     },
   });
 
-export const ApiServiceLive = Layer.succeed(ApiService, {
+export const ApiServiceLive = Layer.succeed(ApiServiceTag, {
   health: () => fetchJson(`${API_BASE}/health`),
 
   getTopAnalysis: (limit = 20) =>
-    fetchJson<EnhancedAnalysis[]>(`${API_BASE}/analysis/top?limit=${limit}`),
+    fetchJson<AssetAnalysis[]>(`${API_BASE}/analysis/top?limit=${limit}`),
 
-  getAnalysis: (symbol: string) => fetchJson<EnhancedAnalysis>(`${API_BASE}/analysis/${symbol}`),
+  getAnalysis: (symbol: string) => fetchJson<AssetAnalysis>(`${API_BASE}/analysis/${symbol}`),
 
-  getOverview: () => fetchJson(`${API_BASE}/overview`),
+  getOverview: () => fetchJson<MarketOverview>(`${API_BASE}/overview`),
 
-  getSignals: () => fetchJson<EnhancedAnalysis[]>(`${API_BASE}/signals`),
+  getSignals: () => fetchJson<AssetAnalysis[]>(`${API_BASE}/signals`),
 
   getChartData: (symbol: string, interval: string, timeframe: string) =>
     fetchJson<ChartDataPoint[]>(

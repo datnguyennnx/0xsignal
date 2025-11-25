@@ -1,15 +1,15 @@
 import { memo } from "react";
 import { useNavigate } from "react-router-dom";
-import type { EnhancedAnalysis } from "@0xsignal/shared";
+import type { AssetAnalysis } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { CryptoIcon } from "@/components/crypto-icon";
 
 interface SignalCardProps {
-  signal: EnhancedAnalysis;
-  type: "buy" | "sell";
+  readonly signal: AssetAnalysis;
+  readonly type: "buy" | "sell";
 }
 
-const SignalCardComponent = ({ signal, type }: SignalCardProps) => {
+function SignalCardComponent({ signal, type }: SignalCardProps) {
   const navigate = useNavigate();
 
   const overallSignal = signal.overallSignal;
@@ -21,7 +21,6 @@ const SignalCardComponent = ({ signal, type }: SignalCardProps) => {
   const change24h = signal.price?.change24h || 0;
   const riskScore = signal.riskScore || 0;
 
-  // Show regime if available
   const displayRegime = regime ? regime.replace(/_/g, " ") : null;
 
   return (
@@ -110,6 +109,6 @@ const SignalCardComponent = ({ signal, type }: SignalCardProps) => {
       </div>
     </button>
   );
-};
+}
 
 export const SignalCard = memo(SignalCardComponent);

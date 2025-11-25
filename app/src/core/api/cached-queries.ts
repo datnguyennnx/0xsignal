@@ -1,6 +1,6 @@
 import { Effect, pipe, Cache, Duration } from "effect";
-import { ApiService, type ChartDataPoint } from "./client";
-import type { EnhancedAnalysis } from "@0xsignal/shared";
+import type { AssetAnalysis, ChartDataPoint } from "@0xsignal/shared";
+import { ApiServiceTag } from "./client";
 import type { ApiError, NetworkError } from "./errors";
 
 const CACHE_TTL = Duration.minutes(2);
@@ -11,7 +11,7 @@ const topAnalysisCache = Cache.make({
   timeToLive: CACHE_TTL,
   lookup: (limit: number) =>
     pipe(
-      ApiService,
+      ApiServiceTag,
       Effect.flatMap((api) => api.getTopAnalysis(limit))
     ),
 });
@@ -21,7 +21,7 @@ const analysisCache = Cache.make({
   timeToLive: CACHE_TTL,
   lookup: (symbol: string) =>
     pipe(
-      ApiService,
+      ApiServiceTag,
       Effect.flatMap((api) => api.getAnalysis(symbol))
     ),
 });
@@ -32,7 +32,7 @@ const chartDataCache = Cache.make({
   lookup: (key: string) => {
     const [symbol, interval, timeframe] = key.split("|");
     return pipe(
-      ApiService,
+      ApiServiceTag,
       Effect.flatMap((api) => api.getChartData(symbol, interval, timeframe))
     );
   },
@@ -40,7 +40,7 @@ const chartDataCache = Cache.make({
 
 export const getCachedTopAnalysis = (
   limit = 20
-): Effect.Effect<EnhancedAnalysis[], ApiError | NetworkError, ApiService> =>
+): Effect.Effect<AssetAnalysis[], ApiError | NetworkError, ApiServiceTag> =>
   Effect.gen(function* () {
     const cache = yield* topAnalysisCache;
     return yield* cache.get(limit);
@@ -48,7 +48,7 @@ export const getCachedTopAnalysis = (
 
 export const getCachedAnalysis = (
   symbol: string
-): Effect.Effect<EnhancedAnalysis, ApiError | NetworkError, ApiService> =>
+): Effect.Effect<AssetAnalysis, ApiError | NetworkError, ApiServiceTag> =>
   Effect.gen(function* () {
     const cache = yield* analysisCache;
     return yield* cache.get(symbol);
@@ -58,7 +58,7 @@ export const getCachedChartData = (
   symbol: string,
   interval: string,
   timeframe: string
-): Effect.Effect<ChartDataPoint[], ApiError | NetworkError, ApiService> =>
+): Effect.Effect<ChartDataPoint[], ApiError | NetworkError, ApiServiceTag> =>
   Effect.gen(function* () {
     const cache = yield* chartDataCache;
     const key = `${symbol}|${interval}|${timeframe}`;

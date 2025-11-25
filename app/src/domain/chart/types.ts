@@ -1,11 +1,2 @@
-/**
- * Chart data point matching backend format
- */
-export interface ChartDataPoint {
-  readonly time: number; // Unix timestamp in seconds
-  readonly open: number;
-  readonly high: number;
-  readonly low: number;
-  readonly close: number;
-  readonly volume: number;
-}
+// Re-export chart types from shared package
+export type { ChartDataPoint, BinanceKline, Subscription } from "@0xsignal/shared";
