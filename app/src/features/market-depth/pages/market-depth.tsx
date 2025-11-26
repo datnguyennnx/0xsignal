@@ -4,7 +4,7 @@ import { ApiServiceTag, ApiServiceLive } from "@/core/api/client";
 import { MarketHeatmapComponent } from "../components/market-heatmap";
 import { LiquidationHeatmapComponent } from "../components/liquidation-heatmap";
 import type { MarketHeatmap, LiquidationHeatmap } from "@0xsignal/shared";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const DISPLAY_LIMIT = 20;
 

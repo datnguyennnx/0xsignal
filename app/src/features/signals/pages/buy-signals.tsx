@@ -3,7 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { getTopAnalysis } from "@/core/api/queries";
 import { useEffect_ } from "@/core/runtime/use-effect";
 import { cn } from "@/core/utils/cn";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { CryptoIcon } from "@/components/crypto-icon";
 
 const fetchData = () =>

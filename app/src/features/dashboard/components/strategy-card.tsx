@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardTitle, CardDescription } from "@/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RegimeBadge } from "./regime-badge";
 import { cn } from "@/core/utils/cn";
 

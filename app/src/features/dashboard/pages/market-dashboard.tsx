@@ -1,6 +1,6 @@
 import { Exit, pipe } from "effect";
 import type { AssetAnalysis } from "@0xsignal/shared";
-import { Button } from "@/ui/button";
+import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getCachedTopAnalysis } from "@/core/api/cached-queries";

@@ -1,7 +1,7 @@
 import { memo } from "react";
-import { Card } from "@/ui/card";
-import { Badge } from "@/ui/badge";
-import { Skeleton } from "@/ui/skeleton";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface IndicatorPanelProps {
   macd?: {
