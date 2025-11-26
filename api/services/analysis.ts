@@ -1,6 +1,6 @@
 /**
  * Analysis Service
- * Orchestrates analysis operations with caching
+ * Orchestrates analysis operations with optimized caching
  */
 
 import { Effect, Context, Layer } from "effect";
@@ -33,6 +33,22 @@ export class AnalysisServiceTag extends Context.Tag("AnalysisService")<
   AnalysisService
 >() {}
 
+// ============================================================================
+// Cache Keys & TTLs
+// ============================================================================
+
+const CACHE_KEYS = {
+  topCryptos: (limit: number) => `analysis-top-cryptos-${limit}`,
+  analysis: (symbol: string) => `analysis-${symbol}`,
+  topAnalysis: (limit: number) => `top-analysis-${limit}`,
+  overview: "market-overview",
+} as const;
+
+const CACHE_TTL = {
+  prices: 60_000, // 1 minute for price data
+  analysis: 120_000, // 2 minutes for analysis
+} as const;
+
 export const AnalysisServiceLive = Layer.effect(
   AnalysisServiceTag,
   Effect.gen(function* () {
@@ -40,51 +56,11 @@ export const AnalysisServiceLive = Layer.effect(
     const cache = yield* CacheService;
     const logger = yield* Logger;
 
-    const analyzeSymbol = (symbol: string): Effect.Effect<AssetAnalysis, AnalysisError> =>
-      Effect.gen(function* () {
-        const cacheKey = `analysis-${symbol}`;
-        const cached = yield* cache.get<AssetAnalysis>(cacheKey);
-
-        if (cached) {
-          yield* logger.debug(`Cache hit: ${symbol}`);
-          return cached;
-        }
-
-        yield* logger.info(`Analyzing ${symbol.toUpperCase()}`);
-
-        const price = yield* coinGecko.getPrice(symbol).pipe(
-          Effect.mapError(
-            (error) =>
-              new AnalysisError({
-                message: `Failed to fetch price data: ${error.message}`,
-                symbol,
-                cause: error,
-              })
-          )
-        );
-
-        const analysis = yield* analyzeAsset(price);
-
-        yield* cache.set(cacheKey, analysis, 120000);
-
-        return analysis;
-      });
-
-    const analyzeTopAssets = (
-      limit: number
-    ): Effect.Effect<ReadonlyArray<AssetAnalysis>, AnalysisError> =>
-      Effect.gen(function* () {
-        const cacheKey = `top-analysis-${limit}`;
-        const cached = yield* cache.get<ReadonlyArray<AssetAnalysis>>(cacheKey);
-
-        if (cached) {
-          yield* logger.debug(`Cache hit: top ${limit}`);
-          return cached;
-        }
-
-        yield* logger.info(`Analyzing top ${limit} assets`);
-
-        const prices = yield* coinGecko.getTopCryptos(limit).pipe(
+    // Shared price fetcher with deduplication
+    const fetchTopCryptos = (limit: number): Effect.Effect<CryptoPrice[], AnalysisError> =>
+      cache.getOrFetch(
+        CACHE_KEYS.topCryptos(limit),
+        coinGecko.getTopCryptos(limit).pipe(
           Effect.mapError(
             (error) =>
               new AnalysisError({
@@ -92,32 +68,57 @@ export const AnalysisServiceLive = Layer.effect(
                 cause: error,
               })
           )
-        );
+        ),
+        CACHE_TTL.prices
+      );
 
-        const analyses = yield* analyzeMarket(prices);
+    const analyzeSymbol = (symbol: string): Effect.Effect<AssetAnalysis, AnalysisError> =>
+      cache.getOrFetch(
+        CACHE_KEYS.analysis(symbol),
+        Effect.gen(function* () {
+          yield* logger.info(`Analyzing ${symbol.toUpperCase()}`);
 
-        yield* cache.set(cacheKey, analyses, 120000);
+          const price = yield* coinGecko.getPrice(symbol).pipe(
+            Effect.mapError(
+              (error) =>
+                new AnalysisError({
+                  message: `Failed to fetch price data: ${error.message}`,
+                  symbol,
+                  cause: error,
+                })
+            )
+          );
 
-        return analyses;
-      });
+          return yield* analyzeAsset(price);
+        }),
+        CACHE_TTL.analysis
+      );
+
+    const analyzeTopAssets = (
+      limit: number
+    ): Effect.Effect<ReadonlyArray<AssetAnalysis>, AnalysisError> =>
+      cache.getOrFetch(
+        CACHE_KEYS.topAnalysis(limit),
+        Effect.gen(function* () {
+          yield* logger.info(`Analyzing top ${limit} assets`);
+
+          const prices = yield* fetchTopCryptos(limit);
+          return yield* analyzeMarket(prices);
+        }),
+        CACHE_TTL.analysis
+      );
 
     const getMarketOverview = (): Effect.Effect<MarketOverview, AnalysisError> =>
-      Effect.gen(function* () {
-        const cacheKey = "market-overview";
-        const cached = yield* cache.get<MarketOverview>(cacheKey);
+      cache.getOrFetch(
+        CACHE_KEYS.overview,
+        Effect.gen(function* () {
+          yield* logger.debug("Computing market overview");
 
-        if (cached) {
-          yield* logger.debug("Cache hit: market overview");
-          return cached;
-        }
-
-        const analyses = yield* analyzeTopAssets(20);
-        const overview = createMarketOverview(analyses);
-
-        yield* cache.set(cacheKey, overview, 120000);
-
-        return overview;
-      });
+          const analyses = yield* analyzeTopAssets(20);
+          return createMarketOverview(analyses);
+        }),
+        CACHE_TTL.analysis
+      );
 
     const getHighConfidenceSignals = (
       minConfidence: number = 70
@@ -126,6 +127,21 @@ export const AnalysisServiceLive = Layer.effect(
         const analyses = yield* analyzeTopAssets(50);
         return filterHighConfidence(analyses, minConfidence);
       });
+
+    // Warmup cache on service initialization
+    yield* Effect.forkDaemon(
+      Effect.gen(function* () {
+        yield* Effect.sleep("500 millis");
+        yield* logger.info("Warming up analysis cache...");
+        yield* cache.warmup(
+          CACHE_KEYS.topCryptos(20),
+          coinGecko
+            .getTopCryptos(20)
+            .pipe(Effect.mapError(() => new AnalysisError({ message: "warmup" }))),
+          CACHE_TTL.prices
+        );
+      }).pipe(Effect.catchAll(() => Effect.void))
+    );
 
     return {
       analyzeSymbol,

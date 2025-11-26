@@ -1,6 +1,6 @@
 /**
  * Data Sources Aggregator
- * Combines multiple data sources with caching
+ * Combines multiple data sources with optimized caching and request deduplication
  */
 
 import { Effect, Context, Layer } from "effect";
@@ -104,66 +104,60 @@ export const AggregatedDataServiceLive = Layer.effect(
     const cache = yield* CacheService;
     const logger = yield* Logger;
 
-    const withCache = <T>(
-      key: string,
-      ttl: number,
-      operation: Effect.Effect<T, DataSourceError>
-    ): Effect.Effect<T, DataSourceError> =>
-      cache.get<T>(key).pipe(
-        Effect.tap((cached) => (cached ? logger.debug(`Cache hit: ${key}`) : Effect.void)),
-        Effect.flatMap((cached) =>
-          cached
-            ? Effect.succeed(cached)
-            : operation.pipe(Effect.tap((result) => cache.set(key, result, ttl)))
-        )
-      );
-
-    // Spot prices (CoinGecko)
+    // Spot prices (CoinGecko) - using getOrFetch for deduplication
     const getPrice = (symbol: string) =>
-      withCache(cacheKeys.price(symbol), TTL.price, coinGecko.getPrice(symbol));
+      cache.getOrFetch(cacheKeys.price(symbol), coinGecko.getPrice(symbol), TTL.price);
 
     const getTopCryptos = (limit = 100) =>
-      withCache(cacheKeys.topCryptos(limit), TTL.topCryptos, coinGecko.getTopCryptos(limit));
+      cache.getOrFetch(cacheKeys.topCryptos(limit), coinGecko.getTopCryptos(limit), TTL.topCryptos);
 
     // Liquidations (Binance)
     const getLiquidations = (symbol: string, timeframe: LiquidationTimeframe) =>
-      withCache(
+      cache.getOrFetch(
         cacheKeys.liquidations(symbol, timeframe),
-        TTL.liquidations,
-        binance.getLiquidations(symbol, timeframe)
+        binance.getLiquidations(symbol, timeframe),
+        TTL.liquidations
       );
 
     const getLiquidationHeatmap = (symbol: string) =>
-      withCache(
+      cache.getOrFetch(
         cacheKeys.liquidationHeatmap(symbol),
-        TTL.liquidations,
-        binance.getLiquidationHeatmap(symbol)
+        binance.getLiquidationHeatmap(symbol),
+        TTL.liquidations
       );
 
     const getMarketLiquidationSummary = () =>
-      withCache(
+      cache.getOrFetch(
         cacheKeys.marketLiquidations(),
-        TTL.liquidations,
-        binance.getMarketLiquidationSummary()
+        binance.getMarketLiquidationSummary(),
+        TTL.liquidations
       );
 
     // Derivatives (Binance)
     const getOpenInterest = (symbol: string) =>
-      withCache(cacheKeys.openInterest(symbol), TTL.openInterest, binance.getOpenInterest(symbol));
+      cache.getOrFetch(
+        cacheKeys.openInterest(symbol),
+        binance.getOpenInterest(symbol),
+        TTL.openInterest
+      );
 
     const getFundingRate = (symbol: string) =>
-      withCache(cacheKeys.fundingRate(symbol), TTL.fundingRate, binance.getFundingRate(symbol));
+      cache.getOrFetch(
+        cacheKeys.fundingRate(symbol),
+        binance.getFundingRate(symbol),
+        TTL.fundingRate
+      );
 
     const getTopOpenInterest = (limit = 20) =>
-      withCache(
+      cache.getOrFetch(
         cacheKeys.topOpenInterest(limit),
-        TTL.openInterest,
-        binance.getTopOpenInterest(limit)
+        binance.getTopOpenInterest(limit),
+        TTL.openInterest
       );
 
     // Heatmap
     const getMarketHeatmap = (config: HeatmapConfig) =>
-      withCache(cacheKeys.heatmap(config), TTL.heatmap, heatmap.getMarketHeatmap(config));
+      cache.getOrFetch(cacheKeys.heatmap(config), heatmap.getMarketHeatmap(config), TTL.heatmap);
 
     // Metadata
     const getSources = (): readonly AdapterInfo[] => [coinGecko.info, binance.info, heatmap.info];

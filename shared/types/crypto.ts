@@ -3,6 +3,7 @@
  */
 
 export interface CryptoPrice {
+  readonly id?: string;
   readonly symbol: string;
   readonly price: number;
   readonly marketCap: number;

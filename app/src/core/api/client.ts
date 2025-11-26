@@ -10,6 +10,9 @@ import type {
   OpenInterestData,
   FundingRateData,
   LiquidationTimeframe,
+  BuybackSignal,
+  BuybackOverview,
+  ProtocolBuybackDetail,
 } from "@0xsignal/shared";
 import { ApiError, NetworkError } from "./errors";
 
@@ -63,6 +66,18 @@ export interface ApiService {
   readonly getFundingRate: (
     symbol: string
   ) => Effect.Effect<FundingRateData, ApiError | NetworkError>;
+
+  // Buyback
+  readonly getBuybackSignals: (
+    limit?: number
+  ) => Effect.Effect<BuybackSignal[], ApiError | NetworkError>;
+  readonly getBuybackOverview: () => Effect.Effect<BuybackOverview, ApiError | NetworkError>;
+  readonly getProtocolBuyback: (
+    protocol: string
+  ) => Effect.Effect<BuybackSignal, ApiError | NetworkError>;
+  readonly getProtocolBuybackDetail: (
+    protocol: string
+  ) => Effect.Effect<ProtocolBuybackDetail, ApiError | NetworkError>;
 }
 
 export class ApiServiceTag extends Context.Tag("ApiService")<ApiServiceTag, ApiService>() {}
@@ -141,4 +156,16 @@ export const ApiServiceLive = Layer.succeed(ApiServiceTag, {
 
   getFundingRate: (symbol: string) =>
     fetchJson<FundingRateData>(`${API_BASE}/derivatives/${symbol}/funding-rate`),
+
+  // Buyback
+  getBuybackSignals: (limit = 50) =>
+    fetchJson<BuybackSignal[]>(`${API_BASE}/buyback/signals?limit=${limit}`),
+
+  getBuybackOverview: () => fetchJson<BuybackOverview>(`${API_BASE}/buyback/overview`),
+
+  getProtocolBuyback: (protocol: string) =>
+    fetchJson<BuybackSignal>(`${API_BASE}/buyback/${protocol}`),
+
+  getProtocolBuybackDetail: (protocol: string) =>
+    fetchJson<ProtocolBuybackDetail>(`${API_BASE}/buyback/${protocol}/detail`),
 });

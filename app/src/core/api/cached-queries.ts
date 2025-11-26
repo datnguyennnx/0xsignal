@@ -1,5 +1,10 @@
 import { Effect, pipe, Cache, Duration } from "effect";
-import type { AssetAnalysis, ChartDataPoint } from "@0xsignal/shared";
+import type {
+  AssetAnalysis,
+  ChartDataPoint,
+  BuybackOverview,
+  ProtocolBuybackDetail,
+} from "@0xsignal/shared";
 import { ApiServiceTag } from "./client";
 import type { ApiError, NetworkError } from "./errors";
 
@@ -75,4 +80,37 @@ export const invalidateAnalysisCache = (symbol: string) =>
   Effect.gen(function* () {
     const cache = yield* analysisCache;
     yield* cache.invalidate(symbol);
+  });
+
+// Buyback caches
+const buybackOverviewCache = Cache.make({
+  capacity: 1,
+  timeToLive: CACHE_TTL,
+  lookup: (_: "overview") =>
+    pipe(
+      ApiServiceTag,
+      Effect.flatMap((api) => api.getBuybackOverview())
+    ),
+});
+
+const buybackDetailCache = Cache.make({
+  capacity: 50,
+  timeToLive: CACHE_TTL,
+  lookup: (protocol: string) =>
+    pipe(
+      ApiServiceTag,
+      Effect.flatMap((api) => api.getProtocolBuybackDetail(protocol))
+    ),
+});
+
+export const getCachedBuybackOverview = () =>
+  Effect.gen(function* () {
+    const cache = yield* buybackOverviewCache;
+    return yield* cache.get("overview");
+  });
+
+export const getCachedBuybackDetail = (protocol: string) =>
+  Effect.gen(function* () {
+    const cache = yield* buybackDetailCache;
+    return yield* cache.get(protocol);
   });

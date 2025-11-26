@@ -8,8 +8,10 @@ import { HttpServiceLive } from "../data-sources/http.service";
 import { CoinGeckoServiceLive } from "../data-sources/coingecko";
 import { BinanceServiceLive } from "../data-sources/binance";
 import { HeatmapServiceLive } from "../data-sources/heatmap";
+import { DefiLlamaServiceLive } from "../data-sources/defillama";
 import { AggregatedDataServiceLive } from "../data-sources/aggregator";
 import { AnalysisServiceLive } from "../../services/analysis";
+import { BuybackServiceLive } from "../../services/buyback";
 import { ChartDataServiceLive } from "../../application/stream-chart-data";
 import { CacheServiceLive } from "../cache/memory.cache";
 import { LoggerLiveDefault } from "../logging/console.logger";
@@ -29,6 +31,10 @@ const CoinGeckoLayer = CoinGeckoServiceLive.pipe(
 
 const BinanceLayer = BinanceServiceLive.pipe(Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer)));
 
+const DefiLlamaLayer = DefiLlamaServiceLive.pipe(
+  Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
+);
+
 // Heatmap layer (depends on CoinGecko)
 const HeatmapLayer = HeatmapServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer))
@@ -44,13 +50,20 @@ const AnalysisLayer = AnalysisServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer))
 );
 
+// Buyback layer (depends on DefiLlama and CoinGecko)
+const BuybackLayer = BuybackServiceLive.pipe(
+  Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer, DefiLlamaLayer))
+);
+
 // Combined app layer
 export const AppLayer = Layer.mergeAll(
   CoreLayer,
   InfraLayer,
   CoinGeckoLayer,
   BinanceLayer,
+  DefiLlamaLayer,
   HeatmapLayer,
   AggregatedDataLayer,
-  AnalysisLayer
+  AnalysisLayer,
+  BuybackLayer
 );

@@ -26,6 +26,12 @@ import {
   symbolLiquidationRoute,
   liquidationHeatmapRoute,
 } from "./routes/liquidation.routes";
+import {
+  buybackSignalsRoute,
+  buybackOverviewRoute,
+  protocolBuybackRoute,
+  protocolBuybackDetailRoute,
+} from "./routes/buyback.routes";
 
 export const handleRequest = (url: URL, _method: string) => {
   const path = url.pathname;
@@ -125,6 +131,33 @@ export const handleRequest = (url: URL, _method: string) => {
   // Data sources
   if (path === "/api/sources") {
     return dataSourcesRoute();
+  }
+
+  // Buyback signals
+  if (path === "/api/buyback/signals") {
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
+    return buybackSignalsRoute(limit);
+  }
+
+  // Buyback overview
+  if (path === "/api/buyback/overview") {
+    return buybackOverviewRoute();
+  }
+
+  // Protocol buyback detail (with chart data)
+  if (path.match(/^\/api\/buyback\/[^/]+\/detail$/)) {
+    const protocol = path.split("/")[3];
+    return protocolBuybackDetailRoute(protocol);
+  }
+
+  // Protocol buyback (must be after other buyback routes)
+  if (
+    path.match(/^\/api\/buyback\/[^/]+$/) &&
+    !path.includes("signals") &&
+    !path.includes("overview")
+  ) {
+    const protocol = path.split("/").pop()!;
+    return protocolBuybackRoute(protocol);
   }
 
   // Single symbol analysis (must be last to avoid matching other routes)

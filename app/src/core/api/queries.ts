@@ -1,5 +1,12 @@
 import { Effect } from "effect";
-import type { AssetAnalysis, MarketOverview, ChartDataPoint } from "@0xsignal/shared";
+import type {
+  AssetAnalysis,
+  MarketOverview,
+  ChartDataPoint,
+  BuybackSignal,
+  BuybackOverview,
+  ProtocolBuybackDetail,
+} from "@0xsignal/shared";
 import { ApiServiceTag } from "./client";
 import type { ApiError, NetworkError } from "./errors";
 
@@ -23,3 +30,16 @@ export const getChartData = (
   timeframe: string
 ): ApiEffect<ChartDataPoint[]> =>
   Effect.flatMap(ApiServiceTag, (api) => api.getChartData(symbol, interval, timeframe));
+
+// Buyback queries
+export const getBuybackSignals = (limit = 50): ApiEffect<BuybackSignal[]> =>
+  Effect.flatMap(ApiServiceTag, (api) => api.getBuybackSignals(limit));
+
+export const getBuybackOverview = (): ApiEffect<BuybackOverview> =>
+  Effect.flatMap(ApiServiceTag, (api) => api.getBuybackOverview());
+
+export const getProtocolBuyback = (protocol: string): ApiEffect<BuybackSignal> =>
+  Effect.flatMap(ApiServiceTag, (api) => api.getProtocolBuyback(protocol));
+
+export const getProtocolBuybackDetail = (protocol: string): ApiEffect<ProtocolBuybackDetail> =>
+  Effect.flatMap(ApiServiceTag, (api) => api.getProtocolBuybackDetail(protocol));

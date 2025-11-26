@@ -10,6 +10,7 @@ interface LayoutProps {
 const NAV_ITEMS = [
   { path: "/", label: "Dashboard" },
   { path: "/market-depth", label: "Market Depth" },
+  { path: "/buyback", label: "Buyback" },
 ] as const;
 
 export function Layout({ children }: LayoutProps) {
@@ -66,7 +67,7 @@ export function Layout({ children }: LayoutProps) {
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} 0xSignal. Quantitative crypto analysis.
             </p>
-            <p className="text-xs text-muted-foreground">Data provided by CoinGecko</p>
+            <p className="text-xs text-muted-foreground">Data provided by CoinGecko, DefiLlama</p>
           </div>
         </div>
       </footer>

@@ -17,5 +17,8 @@ export * from "./types/heatmap";
 // Liquidation & derivatives types
 export * from "./types/liquidation";
 
+// Buyback types
+export * from "./types/buyback";
+
 // Utilities
 export * from "./utils/math";

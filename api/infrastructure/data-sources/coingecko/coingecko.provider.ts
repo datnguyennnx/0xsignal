@@ -113,6 +113,7 @@ export const CoinGeckoServiceLive = Layer.effect(
         const response = yield* http.get(url).pipe(Effect.mapError((e) => mapError(e)));
 
         const data = response as Array<{
+          id: string;
           symbol: string;
           current_price: number;
           market_cap: number;
@@ -132,6 +133,7 @@ export const CoinGeckoServiceLive = Layer.effect(
 
         return data.map(
           (coin): CryptoPrice => ({
+            id: coin.id,
             symbol: coin.symbol,
             price: coin.current_price,
             marketCap: coin.market_cap,

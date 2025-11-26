@@ -13,6 +13,7 @@ export * from "./http.service";
 export * from "./coingecko";
 export * from "./binance";
 export * from "./heatmap";
+export * from "./defillama";
 
 // Aggregator
 export * from "./aggregator";
