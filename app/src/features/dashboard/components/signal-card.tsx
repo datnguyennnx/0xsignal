@@ -31,8 +31,8 @@ function SignalCardComponent({ signal, type }: SignalCardProps) {
         "hover:border-foreground/20 hover:shadow-sm",
         isStrong
           ? type === "buy"
-            ? "border-green-500/30 bg-green-500/5 hover:bg-green-500/10"
-            : "border-red-500/30 bg-red-500/5 hover:bg-red-500/10"
+            ? "border-gain/30 bg-gain/5 hover:bg-gain/10"
+            : "border-loss/30 bg-loss/5 hover:bg-loss/10"
           : "border-border/50 hover:bg-accent/50"
       )}
     >
@@ -73,7 +73,7 @@ function SignalCardComponent({ signal, type }: SignalCardProps) {
             <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
               24h
             </div>
-            <div className={cn("font-medium", change24h > 0 ? "text-green-500" : "text-red-500")}>
+            <div className={cn("font-medium", change24h > 0 ? "text-gain" : "text-loss")}>
               {change24h > 0 ? "+" : ""}
               {change24h.toFixed(1)}%
             </div>
@@ -83,7 +83,7 @@ function SignalCardComponent({ signal, type }: SignalCardProps) {
             <div className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">
               Conf
             </div>
-            <div className={cn("font-medium", type === "buy" ? "text-green-500" : "text-red-500")}>
+            <div className={cn("font-medium", type === "buy" ? "text-gain" : "text-loss")}>
               {confidence}%
             </div>
           </div>
@@ -95,11 +95,7 @@ function SignalCardComponent({ signal, type }: SignalCardProps) {
             <div
               className={cn(
                 "font-medium",
-                riskScore > 70
-                  ? "text-red-500"
-                  : riskScore > 40
-                    ? "text-orange-500"
-                    : "text-green-500"
+                riskScore > 70 ? "text-loss" : riskScore > 40 ? "text-warn" : "text-gain"
               )}
             >
               {riskScore}

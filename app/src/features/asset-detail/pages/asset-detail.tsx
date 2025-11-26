@@ -6,6 +6,9 @@ import { useEffect_ } from "@/core/runtime/use-effect";
 import { cn } from "@/core/utils/cn";
 import { TradingChart } from "@/features/chart/components/trading-chart";
 import { CryptoIcon } from "@/components/crypto-icon";
+import { ActionableInsights } from "../components/actionable-insights";
+import { BullEntryCard } from "../components/bull-entry-card";
+import { StrategyMetrics } from "../components/strategy-metrics";
 import { useState, useEffect } from "react";
 
 const fetchAssetData = (symbol: string) =>
@@ -25,7 +28,6 @@ const INTERVAL_TIMEFRAMES: Record<string, string> = {
   "1w": "1y",
 };
 
-// Extracted component for asset content
 function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string }) {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [interval, setInterval] = useState("1h");
@@ -54,72 +56,66 @@ function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string 
   const price = asset.price;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
-      {/* Overview */}
-      <div className="flex items-center gap-6 pb-4 border-b border-border/50">
-        <div className="flex items-center gap-3">
-          <CryptoIcon symbol={asset.symbol} size={32} />
-          <h1 className="text-xl font-medium">{asset.symbol.toUpperCase()}</h1>
+    <div className="max-w-6xl mx-auto space-y-4 px-4 sm:px-6 lg:px-8 py-6">
+      {/* Overview Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
+        <div className="flex items-center gap-3 pb-4 border-b border-border/50">
+          <CryptoIcon symbol={asset.symbol} size={28} />
+          <h1 className="text-lg font-medium">{asset.symbol.toUpperCase()}</h1>
         </div>
 
-        <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Price</div>
-            <div className="text-sm font-medium tabular-nums">
-              ${price?.price >= 1 ? price?.price.toFixed(2) : price?.price.toFixed(6)}
-            </div>
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">Price</div>
+          <div className="text-sm font-medium tabular-nums">
+            ${price?.price >= 1 ? price?.price.toFixed(2) : price?.price.toFixed(6)}
           </div>
+        </div>
 
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">24h</div>
-            <div
-              className={cn(
-                "text-sm font-medium tabular-nums",
-                (price?.change24h || 0) > 0
-                  ? "text-green-500"
-                  : (price?.change24h || 0) < 0
-                    ? "text-red-500"
-                    : ""
-              )}
-            >
-              {(price?.change24h || 0) > 0 ? "+" : ""}
-              {(price?.change24h || 0).toFixed(2)}%
-            </div>
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">24h</div>
+          <div
+            className={cn(
+              "text-sm font-medium tabular-nums",
+              (price?.change24h || 0) > 0
+                ? "text-gain"
+                : (price?.change24h || 0) < 0
+                  ? "text-loss"
+                  : ""
+            )}
+          >
+            {(price?.change24h || 0) > 0 ? "+" : ""}
+            {(price?.change24h || 0).toFixed(2)}%
           </div>
+        </div>
 
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Volume</div>
-            <div className="text-sm font-medium tabular-nums">
-              {(price?.volume24h || 0) >= 1_000_000_000
-                ? `${((price?.volume24h || 0) / 1_000_000_000).toFixed(2)}B`
-                : `${((price?.volume24h || 0) / 1_000_000).toFixed(0)}M`}
-            </div>
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">Volume</div>
+          <div className="text-sm font-medium tabular-nums">
+            {(price?.volume24h || 0) >= 1_000_000_000
+              ? `${((price?.volume24h || 0) / 1_000_000_000).toFixed(2)}B`
+              : `${((price?.volume24h || 0) / 1_000_000).toFixed(0)}M`}
           </div>
+        </div>
 
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Signal</div>
-            <div className="text-sm font-medium">{asset.overallSignal || "HOLD"}</div>
-          </div>
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">Signal</div>
+          <div className="text-sm font-medium">{asset.overallSignal || "HOLD"}</div>
+        </div>
 
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Confidence</div>
-            <div className="text-sm font-medium tabular-nums">{asset.confidence || 0}%</div>
-          </div>
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">Confidence</div>
+          <div className="text-sm font-medium tabular-nums">{asset.confidence || 0}%</div>
+        </div>
 
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Risk</div>
-            <div
-              className={cn(
-                "text-sm font-medium tabular-nums",
-                asset.riskScore > 70
-                  ? "text-red-500"
-                  : asset.riskScore > 40
-                    ? "text-orange-500"
-                    : "text-green-500"
-              )}
-            >
-              {asset.riskScore}/100
-            </div>
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">Risk</div>
+          <div
+            className={cn(
+              "text-sm font-medium tabular-nums",
+              asset.riskScore > 70 ? "text-loss" : asset.riskScore > 40 ? "text-warn" : "text-gain"
+            )}
+          >
+            {asset.riskScore}/100
           </div>
         </div>
       </div>
@@ -135,114 +131,39 @@ function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string 
       )}
 
       {chartData.length === 0 && chartExit && (
-        <div className="rounded-lg border border-border/50 bg-card p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            Chart data not available for this asset. Showing analysis data only.
-          </p>
+        <div className="rounded border border-border/50 bg-card p-8 text-center">
+          <p className="text-sm text-muted-foreground">Chart data not available for this asset.</p>
         </div>
       )}
 
-      {/* Strategy Analysis */}
+      {/* Analysis Section */}
       {strategy && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="rounded border border-border/50 p-4">
-            <div className="text-xs text-muted-foreground mb-3">Active Strategy</div>
-            <div className="space-y-3">
-              <div>
-                <div className="text-xs text-muted-foreground">Type</div>
-                <div className="text-sm font-medium">{strategy.primarySignal.strategy}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Regime</div>
-                <div className="text-sm font-medium">{strategy.regime.replace(/_/g, " ")}</div>
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Signal</div>
-                <div
-                  className={cn(
-                    "text-sm font-medium",
-                    strategy.primarySignal.signal.includes("BUY")
-                      ? "text-green-500"
-                      : strategy.primarySignal.signal.includes("SELL")
-                        ? "text-red-500"
-                        : ""
-                  )}
-                >
-                  {strategy.primarySignal.signal}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 rounded border border-border/50 p-4">
-            <div className="text-xs text-muted-foreground mb-3">Analysis</div>
-            <div className="text-sm leading-relaxed">{asset.recommendation}</div>
-          </div>
-        </div>
+        <ActionableInsights
+          signal={asset.overallSignal}
+          confidence={asset.confidence}
+          riskScore={asset.riskScore}
+          strategy={strategy.primarySignal.strategy}
+          regime={strategy.regime}
+          actionableInsight={asset.recommendation}
+        />
       )}
 
       {/* Entry Setup */}
-      {entry?.isOptimalEntry && (
-        <div className="rounded border border-green-500/30 bg-green-500/5 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-xs text-muted-foreground">Entry Setup</div>
-            <div className="text-xs text-green-500">{entry.strength}</div>
-          </div>
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">Entry</div>
-              <div className="font-medium tabular-nums">${entry.entryPrice.toFixed(2)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">Target</div>
-              <div className="font-medium tabular-nums text-green-500">
-                ${entry.targetPrice.toFixed(2)}
-              </div>
-              <div className="text-xs text-green-500">
-                +{(((entry.targetPrice - entry.entryPrice) / entry.entryPrice) * 100).toFixed(1)}%
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">Stop</div>
-              <div className="font-medium tabular-nums text-red-500">
-                ${entry.stopLoss.toFixed(2)}
-              </div>
-              <div className="text-xs text-red-500">
-                -{(((entry.entryPrice - entry.stopLoss) / entry.entryPrice) * 100).toFixed(1)}%
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">
-              R:R{" "}
-              {(
-                (entry.targetPrice - entry.entryPrice) /
-                (entry.entryPrice - entry.stopLoss)
-              ).toFixed(2)}
-              :1
-            </span>
-            <span className="text-muted-foreground">Confidence {entry.confidence}%</span>
-          </div>
-        </div>
+      {entry && (
+        <BullEntryCard
+          isOptimalEntry={entry.isOptimalEntry}
+          strength={entry.strength}
+          entryPrice={entry.entryPrice}
+          targetPrice={entry.targetPrice}
+          stopLoss={entry.stopLoss}
+          confidence={entry.confidence}
+        />
       )}
 
       {/* Strategy Metrics */}
-      {strategy?.primarySignal.metrics &&
-        Object.keys(strategy.primarySignal.metrics).length > 0 && (
-          <div className="rounded border border-border/50 p-4">
-            <div className="text-xs text-muted-foreground mb-3">Strategy Metrics</div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {Object.entries(strategy.primarySignal.metrics).map(([key, value]) => (
-                <div key={key}>
-                  <div className="text-xs text-muted-foreground mb-1">{key.replace(/_/g, " ")}</div>
-                  <div className="text-sm font-medium tabular-nums">
-                    {typeof value === "number" ? value.toFixed(2) : value}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      {strategy?.primarySignal.metrics && (
+        <StrategyMetrics metrics={strategy.primarySignal.metrics} />
+      )}
     </div>
   );
 }
@@ -263,14 +184,14 @@ export function AssetDetail() {
     exit,
     Exit.match({
       onFailure: () => (
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-sm text-muted-foreground">Unable to load data</div>
         </div>
       ),
       onSuccess: (asset) => {
         if (!asset) {
           return (
-            <div className="max-w-6xl mx-auto">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
               <div className="text-sm text-muted-foreground">Asset not found</div>
             </div>
           );

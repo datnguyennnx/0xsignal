@@ -6,13 +6,13 @@ interface RegimeBadgeProps {
 }
 
 const regimeStyles = {
-  BULL_MARKET: "bg-green-500/10 text-green-500 border-green-500/20",
-  BEAR_MARKET: "bg-red-500/10 text-red-500 border-red-500/20",
-  SIDEWAYS: "bg-gray-500/10 text-gray-400 border-gray-500/20",
-  HIGH_VOLATILITY: "bg-orange-500/10 text-orange-500 border-orange-500/20",
-  LOW_VOLATILITY: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  TRENDING: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-  MEAN_REVERSION: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
+  BULL_MARKET: "bg-gain/10 text-gain border-gain/20",
+  BEAR_MARKET: "bg-loss/10 text-loss border-loss/20",
+  SIDEWAYS: "bg-muted text-muted-foreground border-border",
+  HIGH_VOLATILITY: "bg-warn/10 text-warn border-warn/20",
+  LOW_VOLATILITY: "bg-muted text-muted-foreground border-border",
+  TRENDING: "bg-primary/10 text-foreground border-primary/20",
+  MEAN_REVERSION: "bg-muted/10 text-muted-foreground border-muted/20",
 };
 
 export function RegimeBadge({ regime, className }: RegimeBadgeProps) {

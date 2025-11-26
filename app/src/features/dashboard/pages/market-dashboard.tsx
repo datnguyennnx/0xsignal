@@ -107,7 +107,7 @@ export function MarketDashboard() {
       onFailure: () => (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <h1 className="text-lg font-medium mb-6">Market Signals</h1>
-          <div className="text-sm text-red-500">Unable to load data</div>
+          <div className="text-sm text-loss">Unable to load data</div>
         </div>
       ),
       onSuccess: (analyses) => <DashboardContent analyses={analyses} />,

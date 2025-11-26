@@ -1,8 +1,13 @@
+/**
+ * Analysis Service
+ * Orchestrates analysis operations with caching
+ */
+
 import { Effect, Context, Layer } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
 import type { AssetAnalysis, MarketOverview } from "../domain/types";
-import { AnalysisError, MarketDataError } from "../domain/types/errors";
-import { CoinGeckoService } from "../infrastructure/market-data/coingecko.adapter";
+import { AnalysisError } from "../domain/types/errors";
+import { CoinGeckoService } from "../infrastructure/data-sources/coingecko";
 import { CacheService } from "../infrastructure/cache/memory.cache";
 import { Logger } from "../infrastructure/logging/console.logger";
 import { analyzeAsset } from "../application/analyze-asset";
@@ -48,14 +53,13 @@ export const AnalysisServiceLive = Layer.effect(
         yield* logger.info(`Analyzing ${symbol.toUpperCase()}`);
 
         const price = yield* coinGecko.getPrice(symbol).pipe(
-          Effect.catchTag("CoinGeckoError", (error) =>
-            Effect.fail(
+          Effect.mapError(
+            (error) =>
               new AnalysisError({
                 message: `Failed to fetch price data: ${error.message}`,
                 symbol,
                 cause: error,
               })
-            )
           )
         );
 
@@ -81,13 +85,12 @@ export const AnalysisServiceLive = Layer.effect(
         yield* logger.info(`Analyzing top ${limit} assets`);
 
         const prices = yield* coinGecko.getTopCryptos(limit).pipe(
-          Effect.catchTag("CoinGeckoError", (error) =>
-            Effect.fail(
+          Effect.mapError(
+            (error) =>
               new AnalysisError({
                 message: `Failed to fetch top cryptos: ${error.message}`,
                 cause: error,
               })
-            )
           )
         );
 

@@ -21,10 +21,10 @@ export function StrategyCard({
 }: StrategyCardProps) {
   const signalColor =
     signal === "STRONG_BUY" || signal === "BUY"
-      ? "text-green-500"
+      ? "text-gain"
       : signal === "STRONG_SELL" || signal === "SELL"
-        ? "text-red-500"
-        : "text-gray-400";
+        ? "text-loss"
+        : "text-muted-foreground";
 
   return (
     <Card className={cn("border-border/50", className)}>

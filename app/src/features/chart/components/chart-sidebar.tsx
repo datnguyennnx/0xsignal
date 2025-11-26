@@ -41,11 +41,11 @@ export function ChartSidebar({
   const [selectedIndicator, setSelectedIndicator] = useState<IndicatorConfig | null>(null);
 
   const categories = [
-    { id: "trend", label: "Trend", Icon: TrendingUp, color: "text-blue-500" },
-    { id: "momentum", label: "Momentum", Icon: Zap, color: "text-orange-500" },
-    { id: "volatility", label: "Volatility", Icon: Activity, color: "text-purple-500" },
-    { id: "volume", label: "Volume", Icon: Package, color: "text-amber-500" },
-    { id: "oscillators", label: "Oscillators", Icon: Waves, color: "text-green-500" },
+    { id: "trend", label: "Trend", Icon: TrendingUp, color: "text-foreground" },
+    { id: "momentum", label: "Momentum", Icon: Zap, color: "text-warn" },
+    { id: "volatility", label: "Volatility", Icon: Activity, color: "text-foreground" },
+    { id: "volume", label: "Volume", Icon: Package, color: "text-foreground" },
+    { id: "oscillators", label: "Oscillators", Icon: Waves, color: "text-gain" },
   ];
 
   const toggleCategory = (categoryId: string) => {

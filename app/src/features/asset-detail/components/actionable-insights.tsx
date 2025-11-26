@@ -1,4 +1,3 @@
-import { Card, CardHeader, CardTitle, CardDescription } from "@/ui/card";
 import { cn } from "@/core/utils/cn";
 
 interface ActionableInsightsProps {
@@ -20,72 +19,41 @@ export function ActionableInsights({
   actionableInsight,
   className,
 }: ActionableInsightsProps) {
-  const signalStyles = {
-    STRONG_BUY: "border-green-500/30 bg-green-500/5",
-    BUY: "border-green-500/20 bg-green-500/5",
-    HOLD: "border-gray-500/20 bg-gray-500/5",
-    SELL: "border-red-500/20 bg-red-500/5",
-    STRONG_SELL: "border-red-500/30 bg-red-500/5",
-  };
+  const signalColor = signal.includes("BUY")
+    ? "text-gain"
+    : signal.includes("SELL")
+      ? "text-loss"
+      : "text-muted-foreground";
 
-  const signalColor = {
-    STRONG_BUY: "text-green-500",
-    BUY: "text-green-500",
-    HOLD: "text-gray-400",
-    SELL: "text-red-500",
-    STRONG_SELL: "text-red-500",
-  };
-
-  const riskLevel = riskScore > 70 ? "High Risk" : riskScore > 40 ? "Moderate Risk" : "Low Risk";
-
-  const riskColor =
-    riskScore > 70 ? "text-red-500" : riskScore > 40 ? "text-orange-500" : "text-green-500";
+  const riskColor = riskScore > 70 ? "text-loss" : riskScore > 40 ? "text-warn" : "text-gain";
 
   return (
-    <Card className={cn(signalStyles[signal], className)}>
-      <CardHeader className="p-4 sm:p-6">
-        <CardTitle className="text-sm font-medium mb-4">Trading Action</CardTitle>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className={cn("text-lg sm:text-xl font-semibold", signalColor[signal])}>
-              {signal}
-            </span>
-            <div className="text-right">
-              <div className="text-xs text-muted-foreground">Confidence</div>
-              <div className="text-sm font-medium tabular-nums">{confidence}%</div>
-            </div>
+    <div className={cn("rounded border border-border/50 p-4", className)}>
+      <div className="flex items-center justify-between mb-4 pb-3 border-b border-border/50">
+        <div className="flex items-center gap-3">
+          <span className={cn("text-sm font-medium", signalColor)}>{signal}</span>
+          <span className="text-xs text-muted-foreground">{regime.replace(/_/g, " ")}</span>
+        </div>
+        <div className="flex items-center gap-4 text-xs">
+          <div>
+            <span className="text-muted-foreground">Conf </span>
+            <span className="font-medium tabular-nums">{confidence}%</span>
           </div>
-
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Strategy</div>
-              <div className="font-medium">{strategy}</div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Regime</div>
-              <div className="font-medium">{regime.replace(/_/g, " ")}</div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Risk Level</div>
-              <div className={cn("font-medium", riskColor)}>{riskLevel}</div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">Risk Score</div>
-              <div className="font-medium tabular-nums">{riskScore}/100</div>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-border/50">
-            <CardDescription className="text-xs leading-relaxed">
-              {actionableInsight}
-            </CardDescription>
+          <div>
+            <span className="text-muted-foreground">Risk </span>
+            <span className={cn("font-medium tabular-nums", riskColor)}>{riskScore}</span>
           </div>
         </div>
-      </CardHeader>
-    </Card>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground">Strategy:</span>
+          <span className="font-medium">{strategy}</span>
+        </div>
+
+        <p className="text-sm text-foreground leading-relaxed">{actionableInsight}</p>
+      </div>
+    </div>
   );
 }

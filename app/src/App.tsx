@@ -6,6 +6,7 @@ import { MarketDashboard } from "@/features/dashboard/pages/market-dashboard";
 import { AllBuySignals } from "@/features/signals/pages/buy-signals";
 import { AllSellSignals } from "@/features/signals/pages/sell-signals";
 import { AssetDetail } from "@/features/asset-detail/pages/asset-detail";
+import { MarketDepthPage } from "@/features/market-depth/pages/market-depth";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
               <Route path="/buy" element={<AllBuySignals />} />
               <Route path="/sell" element={<AllSellSignals />} />
               <Route path="/asset/:symbol" element={<AssetDetail />} />
+              <Route path="/market-depth" element={<MarketDepthPage />} />
             </Routes>
           </Layout>
         </BrowserRouter>
