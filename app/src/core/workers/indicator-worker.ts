@@ -1,14 +1,26 @@
-import { mean, standardDeviation } from "./math-utils";
+/**
+ * Web Worker for indicator calculations
+ * Offloads heavy computations from main thread for 60fps UI
+ */
+
+import {
+  calculateSMA,
+  calculateEMA,
+  calculateRSI,
+  calculateMACD,
+  calculateStochastic,
+  calculateBollingerBands,
+} from "@0xsignal/shared";
 
 export interface WorkerRequest {
   id: string;
   type: "MACD" | "STOCHASTIC" | "BOLLINGER" | "RSI" | "EMA" | "SMA";
-  data: any;
+  data: unknown;
 }
 
 export interface WorkerResponse {
   id: string;
-  result: any;
+  result: unknown;
   error?: string;
 }
 
@@ -48,119 +60,64 @@ interface SMAParams {
   period: number;
 }
 
-const calculateEMA = (prices: number[], period: number): number[] => {
-  const k = 2 / (period + 1);
-  const emaArray: number[] = [];
-  let ema = prices[0];
+// Convert price array to ChartDataPoint format for shared calculations
+const toChartData = (prices: number[], highs?: number[], lows?: number[]) =>
+  prices.map((close, i) => ({
+    time: i,
+    open: close,
+    high: highs?.[i] ?? close,
+    low: lows?.[i] ?? close,
+    close,
+    volume: 0,
+  }));
 
-  for (let i = 0; i < prices.length; i++) {
-    if (i === 0) {
-      emaArray.push(prices[0]);
-    } else {
-      ema = prices[i] * k + ema * (1 - k);
-      emaArray.push(ema);
-    }
-  }
-
-  return emaArray;
-};
-
-const calculateSMA = (prices: number[], period: number): number[] => {
-  const smaArray: number[] = [];
-
-  for (let i = 0; i < prices.length; i++) {
-    if (i < period - 1) {
-      smaArray.push(NaN);
-    } else {
-      const slice = prices.slice(i - period + 1, i + 1);
-      smaArray.push(mean(slice));
-    }
-  }
-
-  return smaArray;
-};
-
-const calculateMACD = (params: MACDParams) => {
+// Worker-specific MACD with trend analysis
+const workerCalculateMACD = (params: MACDParams) => {
   const { prices, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9 } = params;
+  const data = toChartData(prices);
+  const result = calculateMACD(data, fastPeriod, slowPeriod, signalPeriod);
 
-  const fastEMA = calculateEMA(prices, fastPeriod);
-  const slowEMA = calculateEMA(prices, slowPeriod);
+  const macdLine = result.macd.map((d) => d.value);
+  const signalLine = result.signal.map((d) => d.value);
+  const histogram = result.histogram.map((d) => d.value);
 
-  const macdLine = fastEMA.map((fast, i) => fast - slowEMA[i]);
-  const signalLine = calculateEMA(macdLine, signalPeriod);
-  const histogram = macdLine.map((macd, i) => macd - signalLine[i]);
+  const current = macdLine[macdLine.length - 1] ?? 0;
+  const signal = signalLine[signalLine.length - 1] ?? 0;
+  const hist = histogram[histogram.length - 1] ?? 0;
 
-  const current = macdLine[macdLine.length - 1];
-  const signal = signalLine[signalLine.length - 1];
-  const hist = histogram[histogram.length - 1];
-
-  let trend: "BULLISH" | "BEARISH" | "NEUTRAL";
-  if (current > 0 && hist > 0) {
-    trend = "BULLISH";
-  } else if (current < 0 && hist < 0) {
-    trend = "BEARISH";
-  } else {
-    trend = "NEUTRAL";
-  }
+  const trend: "BULLISH" | "BEARISH" | "NEUTRAL" =
+    current > 0 && hist > 0 ? "BULLISH" : current < 0 && hist < 0 ? "BEARISH" : "NEUTRAL";
 
   return {
     macd: current,
     signal,
     histogram: hist,
     trend,
-    series: {
-      macd: macdLine,
-      signal: signalLine,
-      histogram,
-    },
+    series: { macd: macdLine, signal: signalLine, histogram },
   };
 };
 
-const calculateStochastic = (params: StochasticParams) => {
+// Worker-specific Stochastic with signals
+const workerCalculateStochastic = (params: StochasticParams) => {
   const { closes, highs, lows, kPeriod = 14, dPeriod = 3 } = params;
+  const data = toChartData(closes, highs, lows);
+  const result = calculateStochastic(data, kPeriod, dPeriod);
 
-  const kSeries: number[] = [];
+  const kSeries = result.k.map((d) => d.value);
+  const dSeries = result.d.map((d) => d.value);
 
-  for (let i = kPeriod - 1; i < closes.length; i++) {
-    const windowHighs = highs.slice(i - kPeriod + 1, i + 1);
-    const windowLows = lows.slice(i - kPeriod + 1, i + 1);
-    const windowClose = closes[i];
+  const k = kSeries[kSeries.length - 1] ?? 50;
+  const d = dSeries[dSeries.length - 1] ?? 50;
 
-    const hh = Math.max(...windowHighs);
-    const ll = Math.min(...windowLows);
-    const range = hh - ll;
-    const kVal = range === 0 ? 50 : ((windowClose - ll) / range) * 100;
-    kSeries.push(kVal);
-  }
-
-  const dSeries: number[] = [];
-  for (let i = dPeriod - 1; i < kSeries.length; i++) {
-    const window = kSeries.slice(i - dPeriod + 1, i + 1);
-    dSeries.push(mean(window));
-  }
-
-  const k = kSeries[kSeries.length - 1];
-  const d = dSeries[dSeries.length - 1];
-
-  let signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL";
-  if (k > 80) {
-    signal = "OVERBOUGHT";
-  } else if (k < 20) {
-    signal = "OVERSOLD";
-  } else {
-    signal = "NEUTRAL";
-  }
+  const signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL" =
+    k > 80 ? "OVERBOUGHT" : k < 20 ? "OVERSOLD" : "NEUTRAL";
 
   let crossover: "BULLISH" | "BEARISH" | "NONE" = "NONE";
   if (kSeries.length >= 2 && dSeries.length >= 2) {
     const prevK = kSeries[kSeries.length - 2];
     const prevD = dSeries[dSeries.length - 2];
-
-    if (prevK <= prevD && k > d) {
-      crossover = "BULLISH";
-    } else if (prevK >= prevD && k < d) {
-      crossover = "BEARISH";
-    }
+    if (prevK <= prevD && k > d) crossover = "BULLISH";
+    else if (prevK >= prevD && k < d) crossover = "BEARISH";
   }
 
   return {
@@ -168,39 +125,27 @@ const calculateStochastic = (params: StochasticParams) => {
     d: Math.round(d * 100) / 100,
     signal,
     crossover,
-    series: {
-      k: kSeries,
-      d: dSeries,
-    },
+    series: { k: kSeries, d: dSeries },
   };
 };
 
-const calculateBollinger = (params: BollingerParams) => {
+// Worker-specific Bollinger with bandwidth/percentB
+const workerCalculateBollinger = (params: BollingerParams) => {
   const { prices, period = 20, stdDev = 2 } = params;
+  const data = toChartData(prices);
+  const result = calculateBollingerBands(data, period, stdDev);
 
-  const sma = calculateSMA(prices, period);
-  const upperBand: number[] = [];
-  const lowerBand: number[] = [];
-
-  for (let i = 0; i < prices.length; i++) {
-    if (i < period - 1) {
-      upperBand.push(NaN);
-      lowerBand.push(NaN);
-    } else {
-      const slice = prices.slice(i - period + 1, i + 1);
-      const std = standardDeviation(slice);
-      upperBand.push(sma[i] + stdDev * std);
-      lowerBand.push(sma[i] - stdDev * std);
-    }
-  }
+  const upperBand = result.map((d) => d.upper);
+  const middleBand = result.map((d) => d.middle);
+  const lowerBand = result.map((d) => d.lower);
 
   const currentPrice = prices[prices.length - 1];
-  const middle = sma[sma.length - 1];
-  const upper = upperBand[upperBand.length - 1];
-  const lower = lowerBand[lowerBand.length - 1];
+  const upper = upperBand[upperBand.length - 1] ?? currentPrice;
+  const middle = middleBand[middleBand.length - 1] ?? currentPrice;
+  const lower = lowerBand[lowerBand.length - 1] ?? currentPrice;
 
-  const bandwidth = (upper - lower) / middle;
-  const percentB = (currentPrice - lower) / (upper - lower);
+  const bandwidth = middle !== 0 ? (upper - lower) / middle : 0;
+  const percentB = upper !== lower ? (currentPrice - lower) / (upper - lower) : 0.5;
 
   return {
     upperBand: upper,
@@ -208,97 +153,74 @@ const calculateBollinger = (params: BollingerParams) => {
     lowerBand: lower,
     bandwidth,
     percentB,
-    series: {
-      upper: upperBand,
-      middle: sma,
-      lower: lowerBand,
-    },
+    series: { upper: upperBand, middle: middleBand, lower: lowerBand },
   };
 };
 
-const calculateRSI = (params: RSIParams) => {
+// Worker-specific RSI with signals
+const workerCalculateRSI = (params: RSIParams) => {
   const { prices, period = 14 } = params;
+  const data = toChartData(prices);
+  const result = calculateRSI(data, period);
 
-  const changes: number[] = [];
-  for (let i = 1; i < prices.length; i++) {
-    changes.push(prices[i] - prices[i - 1]);
-  }
+  const rsiSeries = result.map((d) => d.value);
+  const currentRSI = rsiSeries[rsiSeries.length - 1] ?? 50;
 
-  const gains = changes.map((c) => (c > 0 ? c : 0));
-  const losses = changes.map((c) => (c < 0 ? Math.abs(c) : 0));
+  const signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL" =
+    currentRSI > 70 ? "OVERBOUGHT" : currentRSI < 30 ? "OVERSOLD" : "NEUTRAL";
 
-  const avgGain = mean(gains.slice(0, period));
-  const avgLoss = mean(losses.slice(0, period));
+  return { rsi: currentRSI, signal, series: rsiSeries };
+};
 
-  let currentAvgGain = avgGain;
-  let currentAvgLoss = avgLoss;
+// Worker-specific EMA (returns array)
+const workerCalculateEMA = (params: EMAParams) => {
+  const { prices, period } = params;
+  const data = toChartData(prices);
+  return calculateEMA(data, period).map((d) => d.value);
+};
 
-  const rsiSeries: number[] = [];
-
-  for (let i = period; i < changes.length; i++) {
-    currentAvgGain = (currentAvgGain * (period - 1) + gains[i]) / period;
-    currentAvgLoss = (currentAvgLoss * (period - 1) + losses[i]) / period;
-
-    const rs = currentAvgLoss === 0 ? 100 : currentAvgGain / currentAvgLoss;
-    const rsi = 100 - 100 / (1 + rs);
-    rsiSeries.push(rsi);
-  }
-
-  const currentRSI = rsiSeries[rsiSeries.length - 1];
-
-  let signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL";
-  if (currentRSI > 70) {
-    signal = "OVERBOUGHT";
-  } else if (currentRSI < 30) {
-    signal = "OVERSOLD";
-  } else {
-    signal = "NEUTRAL";
-  }
-
-  return {
-    rsi: currentRSI,
-    signal,
-    series: rsiSeries,
-  };
+// Worker-specific SMA (returns array)
+const workerCalculateSMA = (params: SMAParams) => {
+  const { prices, period } = params;
+  const data = toChartData(prices);
+  return calculateSMA(data, period).map((d) => d.value);
 };
 
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   const { id, type, data } = event.data;
 
   try {
-    let result: any;
+    let result: unknown;
 
     switch (type) {
       case "MACD":
-        result = calculateMACD(data as MACDParams);
+        result = workerCalculateMACD(data as MACDParams);
         break;
       case "STOCHASTIC":
-        result = calculateStochastic(data as StochasticParams);
+        result = workerCalculateStochastic(data as StochasticParams);
         break;
       case "BOLLINGER":
-        result = calculateBollinger(data as BollingerParams);
+        result = workerCalculateBollinger(data as BollingerParams);
         break;
       case "RSI":
-        result = calculateRSI(data as RSIParams);
+        result = workerCalculateRSI(data as RSIParams);
         break;
       case "EMA":
-        result = calculateEMA((data as EMAParams).prices, (data as EMAParams).period);
+        result = workerCalculateEMA(data as EMAParams);
         break;
       case "SMA":
-        result = calculateSMA((data as SMAParams).prices, (data as SMAParams).period);
+        result = workerCalculateSMA(data as SMAParams);
         break;
       default:
         throw new Error(`Unknown calculation type: ${type}`);
     }
 
-    const response: WorkerResponse = { id, result };
-    self.postMessage(response);
+    self.postMessage({ id, result } as WorkerResponse);
   } catch (error) {
-    const response: WorkerResponse = {
+    self.postMessage({
       id,
       result: null,
       error: error instanceof Error ? error.message : "Unknown error",
-    };
-    self.postMessage(response);
+    } as WorkerResponse);
   }
 };
