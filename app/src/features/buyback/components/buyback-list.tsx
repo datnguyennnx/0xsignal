@@ -1,6 +1,9 @@
-import { memo, useState, useMemo } from "react";
+// Buyback List - useMemo kept for sorting large lists
+
+import { useState, useMemo } from "react";
 import type { BuybackSignal, BuybackStrength } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
+import { formatCurrency } from "@/core/utils/formatters";
 import { CryptoIcon } from "@/components/crypto-icon";
 
 interface BuybackListProps {
@@ -18,14 +21,7 @@ const strengthStyles: Record<BuybackStrength, string> = {
   VERY_HIGH: "text-gain font-semibold",
 };
 
-const formatCurrency = (value: number): string => {
-  if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
-  return `$${value.toFixed(0)}`;
-};
-
-const SortHeader = memo(function SortHeader({
+function SortHeader({
   label,
   sortKey,
   active,
@@ -56,9 +52,9 @@ const SortHeader = memo(function SortHeader({
       {active && <span className="ml-0.5">{desc ? "↓" : "↑"}</span>}
     </div>
   );
-});
+}
 
-const ListRow = memo(function ListRow({
+function ListRow({
   signal,
   onSelect,
 }: {
@@ -75,7 +71,6 @@ const ListRow = memo(function ListRow({
       onKeyDown={(e) => e.key === "Enter" && onSelect?.(signal)}
       className="flex items-center justify-between py-3 px-2 border-b border-border/30 cursor-pointer hover:bg-muted/30 transition-colors sm:grid sm:grid-cols-[1fr_5rem_5.5rem_4rem_4.5rem] sm:gap-3"
     >
-      {/* Protocol Info */}
       <div className="flex items-center gap-2.5 min-w-0">
         <CryptoIcon symbol={signal.symbol} size={24} />
         <div className="min-w-0">
@@ -84,7 +79,6 @@ const ListRow = memo(function ListRow({
         </div>
       </div>
 
-      {/* Mobile: Compact stats */}
       <div className="flex items-center gap-3 sm:hidden">
         {growth !== 0 && (
           <span className={cn("text-xs tabular-nums", growth > 0 ? "text-gain" : "text-loss")}>
@@ -97,7 +91,6 @@ const ListRow = memo(function ListRow({
         </span>
       </div>
 
-      {/* Desktop Stats */}
       <div className="hidden sm:block text-right tabular-nums text-sm">
         {formatCurrency(signal.revenue24h)}
       </div>
@@ -122,9 +115,9 @@ const ListRow = memo(function ListRow({
       </div>
     </div>
   );
-});
+}
 
-export const BuybackList = memo(function BuybackList({ signals, onSelect }: BuybackListProps) {
+export function BuybackList({ signals, onSelect }: BuybackListProps) {
   const [sortKey, setSortKey] = useState<SortKey>("annualizedBuybackRate");
   const [sortDesc, setSortDesc] = useState(true);
 
@@ -137,6 +130,7 @@ export const BuybackList = memo(function BuybackList({ signals, onSelect }: Buyb
     }
   };
 
+  // useMemo kept - sorting large arrays is expensive
   const sorted = useMemo(() => {
     return [...signals].sort((a, b) => {
       const aVal = a[sortKey] ?? 0;
@@ -147,11 +141,8 @@ export const BuybackList = memo(function BuybackList({ signals, onSelect }: Buyb
 
   return (
     <div className="border rounded-lg overflow-hidden">
-      {/* Header */}
       <div className="flex items-center justify-between px-2 py-2 bg-muted/30 border-b border-border/50 sm:grid sm:grid-cols-[1fr_5rem_5.5rem_4rem_4.5rem] sm:gap-3">
         <span className="text-xs text-muted-foreground">Protocol</span>
-
-        {/* Mobile sort */}
         <div className="flex items-center gap-2 sm:hidden">
           <SortHeader
             label="Yield"
@@ -161,8 +152,6 @@ export const BuybackList = memo(function BuybackList({ signals, onSelect }: Buyb
             onSort={handleSort}
           />
         </div>
-
-        {/* Desktop headers */}
         <SortHeader
           label="Rev 24h"
           sortKey="revenue24h"
@@ -197,7 +186,6 @@ export const BuybackList = memo(function BuybackList({ signals, onSelect }: Buyb
         />
       </div>
 
-      {/* Rows */}
       <div className="max-h-[60vh] overflow-y-auto">
         {sorted.map((signal) => (
           <ListRow key={signal.protocol} signal={signal} onSelect={onSelect} />
@@ -205,4 +193,4 @@ export const BuybackList = memo(function BuybackList({ signals, onSelect }: Buyb
       </div>
     </div>
   );
-});
+}

@@ -1,3 +1,5 @@
+// Regime Badge - pure component
+
 import { cn } from "@/core/utils/cn";
 
 interface RegimeBadgeProps {
@@ -5,7 +7,7 @@ interface RegimeBadgeProps {
   className?: string;
 }
 
-const regimeStyles = {
+const regimeStyles: Record<string, string> = {
   BULL_MARKET: "bg-gain/10 text-gain border-gain/20",
   BEAR_MARKET: "bg-loss/10 text-loss border-loss/20",
   SIDEWAYS: "bg-muted text-muted-foreground border-border",
@@ -16,7 +18,7 @@ const regimeStyles = {
 };
 
 export function RegimeBadge({ regime, className }: RegimeBadgeProps) {
-  const style = regimeStyles[regime as keyof typeof regimeStyles] || regimeStyles.SIDEWAYS;
+  const style = regimeStyles[regime] || regimeStyles.SIDEWAYS;
 
   return (
     <span

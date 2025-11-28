@@ -1,3 +1,5 @@
+// Strategy Card - pure component
+
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RegimeBadge } from "./regime-badge";
 import { cn } from "@/core/utils/cn";

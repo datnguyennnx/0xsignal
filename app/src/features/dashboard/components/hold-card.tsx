@@ -1,14 +1,16 @@
-import { memo } from "react";
+// Hold Card - React Compiler handles memoization
+
 import { useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
+import { formatPercent } from "@/core/utils/formatters";
 import { CryptoIcon } from "@/components/crypto-icon";
 
 interface HoldCardProps {
   readonly signal: AssetAnalysis;
 }
 
-function HoldCardComponent({ signal }: HoldCardProps) {
+export function HoldCard({ signal }: HoldCardProps) {
   const navigate = useNavigate();
   const change24h = signal.price?.change24h || 0;
 
@@ -22,11 +24,8 @@ function HoldCardComponent({ signal }: HoldCardProps) {
       <span
         className={cn("text-[10px] tabular-nums", change24h > 0 ? "text-gain/70" : "text-loss/70")}
       >
-        {change24h > 0 ? "+" : ""}
-        {change24h.toFixed(1)}%
+        {formatPercent(change24h)}
       </span>
     </button>
   );
 }
-
-export const HoldCard = memo(HoldCardComponent);

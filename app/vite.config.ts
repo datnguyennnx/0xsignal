@@ -5,18 +5,13 @@ import { defineConfig } from "vite";
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react({
-      babel: {
-        plugins: [["babel-plugin-react-compiler"]],
-      },
-    }),
-    tailwindcss(),
-  ],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    // Dedupe to prevent multiple instances
+    dedupe: ["react", "react-dom", "effect"],
   },
   server: {
     proxy: {
@@ -25,34 +20,57 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    warmup: {
+      clientFiles: [
+        "./src/main.tsx",
+        "./src/App.tsx",
+        "./src/core/runtime/effect-runtime.ts",
+        "./src/core/cache/effect-cache.ts",
+      ],
+    },
   },
   build: {
     target: "esnext",
     minify: "esbuild",
     cssMinify: "lightningcss",
+    sourcemap: false,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          if (id.includes("node_modules")) {
-            if (id.includes("react") || id.includes("react-dom") || id.includes("react-router")) {
-              return "vendor";
-            }
-            if (id.includes("effect") || id.includes("@effect")) {
-              return "effect";
-            }
-            if (
-              id.includes("lucide") ||
-              id.includes("recharts") ||
-              id.includes("lightweight-charts")
-            ) {
-              return "ui";
-            }
-          }
-        },
+        chunkFileNames: "assets/[name]-[hash].js",
+        entryFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash].[ext]",
       },
     },
   },
   optimizeDeps: {
-    include: ["effect", "@effect/platform", "@effect/schema"],
+    include: [
+      "react",
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+      "react-dom",
+      "react-router-dom",
+      // Pre-bundle Effect-TS core for faster dev startup
+      "effect",
+      "effect/Effect",
+      "effect/Layer",
+      "effect/Cache",
+      "effect/Duration",
+      "@effect/platform",
+      "@effect/schema",
+    ],
+    exclude: [
+      // Exclude large icon library from pre-bundling
+      "@web3icons/react",
+    ],
+  },
+  esbuild: {
+    drop: process.env.NODE_ENV === "production" ? ["console", "debugger"] : [],
+    target: "esnext",
+    minifyIdentifiers: true,
+    minifySyntax: true,
+    minifyWhitespace: true,
+    // Preserve Effect-TS generator functions
+    keepNames: true,
   },
 });

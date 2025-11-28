@@ -1,26 +1,15 @@
-import { useMemo } from "react";
-import type { AssetAnalysis } from "@0xsignal/shared";
+// Signal Categorization - pure function wrapper
+// React 19.2 Compiler handles memoization automatically
 
-interface SignalStats {
+import type { AssetAnalysis } from "@0xsignal/shared";
+import { categorizeSignals } from "@/core/utils/effect-memoization";
+
+export interface SignalStats {
   readonly buySignals: AssetAnalysis[];
   readonly sellSignals: AssetAnalysis[];
   readonly holdSignals: AssetAnalysis[];
 }
 
-const isBuySignal = (analysis: AssetAnalysis): boolean =>
-  analysis.overallSignal === "STRONG_BUY" || analysis.overallSignal === "BUY";
-
-const isSellSignal = (analysis: AssetAnalysis): boolean =>
-  analysis.overallSignal === "STRONG_SELL" || analysis.overallSignal === "SELL";
-
-const isHoldSignal = (analysis: AssetAnalysis): boolean => analysis.overallSignal === "HOLD";
-
+// Pure function - React Compiler optimizes automatically
 export const useMemoizedSignals = (analyses: AssetAnalysis[]): SignalStats =>
-  useMemo(
-    () => ({
-      buySignals: analyses.filter(isBuySignal),
-      sellSignals: analyses.filter(isSellSignal),
-      holdSignals: analyses.filter(isHoldSignal),
-    }),
-    [analyses]
-  );
+  categorizeSignals(analyses);

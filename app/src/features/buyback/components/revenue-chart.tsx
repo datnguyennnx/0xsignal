@@ -1,41 +1,32 @@
+// Revenue Chart - memo kept for chart library integration
+
 import { memo, useMemo } from "react";
 import { Area, AreaChart, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { DailyRevenuePoint } from "@0xsignal/shared";
+import { formatCompact } from "@/core/utils/formatters";
 
 interface RevenueChartProps {
   readonly data: readonly DailyRevenuePoint[];
 }
 
-const formatCurrency = (value: number): string => {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-  return `$${value.toFixed(0)}`;
-};
-
-const formatYAxis = (value: number): string => {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
-  return `${value}`;
-};
-
-const CustomTooltip = ({
+function CustomTooltip({
   active,
   payload,
 }: {
   active?: boolean;
   payload?: Array<{ value: number; payload: { dateLabel: string } }>;
-}) => {
+}) {
   if (!active || !payload?.[0]) return null;
-
   return (
     <div className="bg-background border border-border rounded px-2 py-1.5 text-xs shadow-sm">
       <div className="text-muted-foreground">{payload[0].payload.dateLabel}</div>
-      <div className="font-medium tabular-nums">{formatCurrency(payload[0].value)}</div>
+      <div className="font-medium tabular-nums">${formatCompact(payload[0].value)}</div>
     </div>
   );
-};
+}
 
 export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartProps) {
+  // useMemo kept - data transformation
   const chartData = useMemo(() => {
     return data.map((d) => {
       const date = new Date(d.date * 1000);
@@ -47,6 +38,7 @@ export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartPro
     });
   }, [data]);
 
+  // useMemo kept - stats calculation
   const stats = useMemo(() => {
     if (data.length === 0) return { max: 0, avg: 0 };
     const values = data.map((d) => d.revenue);
@@ -57,28 +49,40 @@ export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartPro
 
   if (data.length < 2) {
     return (
-      <div className="h-48 flex items-center justify-center text-xs text-muted-foreground">
-        Insufficient data
+      <div className="h-48 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">Insufficient revenue history</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Need at least 2 data points to display chart
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      {/* Header */}
       <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">Daily Revenue (90d)</span>
+        <div>
+          <span className="text-muted-foreground">Daily Revenue</span>
+          <span className="text-muted-foreground/60 ml-1">({data.length}d)</span>
+        </div>
         <div className="flex items-center gap-3 text-muted-foreground">
           <span>
-            Avg <span className="text-foreground tabular-nums">{formatCurrency(stats.avg)}</span>
+            Avg{" "}
+            <span className="text-foreground tabular-nums font-medium">
+              ${formatCompact(stats.avg)}
+            </span>
           </span>
           <span>
-            Max <span className="text-foreground tabular-nums">{formatCurrency(stats.max)}</span>
+            Peak{" "}
+            <span className="text-foreground tabular-nums font-medium">
+              ${formatCompact(stats.max)}
+            </span>
           </span>
         </div>
       </div>
 
-      {/* Chart */}
       <div className="h-56 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -101,7 +105,7 @@ export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartPro
               tickLine={false}
               axisLine={false}
               tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-              tickFormatter={formatYAxis}
+              tickFormatter={(v) => formatCompact(v)}
               tickMargin={4}
               width={40}
             />

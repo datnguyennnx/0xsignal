@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
+// Trading Chart - useMemo/useCallback kept for chart library integration
+
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   createChart,
   ColorType,
@@ -19,6 +21,8 @@ import {
 } from "@0xsignal/shared";
 import { IndicatorButton } from "./indicator-button";
 import { cn } from "@/core/utils/cn";
+import { useTheme } from "@/core/providers/theme-provider";
+import { getChartColors, getCandlestickColors, getVolumeColor } from "@/core/utils/colors";
 
 interface TradingChartProps {
   data: ChartDataPoint[];
@@ -35,34 +39,10 @@ const INTERVALS = [
   { value: "1w", label: "1W" },
 ] as const;
 
-// Memoized interval button to prevent re-renders
-const IntervalButton = memo(function IntervalButton({
-  label,
-  isActive,
-  onClick,
-}: {
-  label: string;
-  isActive: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "px-2 sm:px-3 py-1 text-xs font-medium rounded transition-colors",
-        isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"
-      )}
-    >
-      {label}
-    </button>
-  );
-});
-
-// Calculate price format once per data change
+// useMemo kept - expensive price format calculation
 const usePriceFormat = (data: ChartDataPoint[]) => {
   return useMemo(() => {
     if (data.length === 0) return { precision: 2, minMove: 0.01 };
-
     const prices = data.flatMap((d) => [d.open, d.high, d.low, d.close]);
     const minPrice = Math.min(...prices.filter((p) => p > 0));
     if (minPrice === 0) return { precision: 2, minMove: 0.01 };
@@ -79,15 +59,14 @@ const usePriceFormat = (data: ChartDataPoint[]) => {
         break;
       }
     }
-
     const precision = Math.min(significantIndex + 3, 10);
     return { precision, minMove: Math.pow(10, -precision) };
   }, [data]);
 };
 
-// Memoize candlestick data transformation
-const useCandlestickData = (data: ChartDataPoint[]) => {
-  return useMemo(
+// useMemo kept - data transformation for chart library
+const useCandlestickData = (data: ChartDataPoint[]) =>
+  useMemo(
     () =>
       data.map((d) => ({
         time: d.time as Time,
@@ -98,49 +77,42 @@ const useCandlestickData = (data: ChartDataPoint[]) => {
       })),
     [data]
   );
-};
 
-// Memoize volume data transformation
-const useVolumeData = (data: ChartDataPoint[]) => {
-  return useMemo(
+// useMemo kept - volume data with theme-aware colors
+const useVolumeData = (data: ChartDataPoint[], isDark: boolean) =>
+  useMemo(
     () =>
       data.map((d) => ({
         time: d.time as Time,
         value: d.volume,
-        color: d.close >= d.open ? "#26a69a" : "#ef5350",
+        color: getVolumeColor(d.close >= d.open, isDark),
       })),
-    [data]
+    [data, isDark]
   );
-};
 
-// Memoize indicator calculations - key optimization
+// useMemo kept - expensive indicator calculations
 const useIndicatorData = (activeIndicators: ActiveIndicator[], data: ChartDataPoint[]) => {
   return useMemo(() => {
     if (data.length === 0) return new Map();
-
     const results = new Map<string, { type: "line" | "band"; data: unknown }>();
 
     for (const indicator of activeIndicators) {
       if (!indicator.visible) continue;
-
       if (isBandIndicator(indicator.config.id)) {
         const bandData = calculateBandIndicator(indicator, data);
-        if (bandData && bandData.length > 0) {
-          results.set(indicator.config.id, { type: "band", data: bandData });
-        }
+        if (bandData?.length) results.set(indicator.config.id, { type: "band", data: bandData });
       } else {
         const lineData = calculateLineIndicator(indicator, data);
-        if (lineData && lineData.length > 0) {
-          results.set(indicator.config.id, { type: "line", data: lineData });
-        }
+        if (lineData?.length) results.set(indicator.config.id, { type: "line", data: lineData });
       }
     }
-
     return results;
   }, [activeIndicators, data]);
 };
 
 export function TradingChart({ data, symbol, interval, onIntervalChange }: TradingChartProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -152,64 +124,65 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
 
   const [activeIndicators, setActiveIndicators] = useState<ActiveIndicator[]>([]);
 
-  // Memoized data transformations
   const priceFormat = usePriceFormat(data);
   const candlestickData = useCandlestickData(data);
-  const volumeData = useVolumeData(data);
+  const volumeData = useVolumeData(data, isDark);
   const indicatorData = useIndicatorData(activeIndicators, data);
 
-  // Initialize chart (only once)
+  // Initialize chart once
   useEffect(() => {
     if (!chartContainerRef.current) return;
+
+    const c = getChartColors(isDark);
+    const candle = getCandlestickColors(isDark);
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "#9ca3af",
+        textColor: c.text,
         panes: {
-          separatorColor: "#374151",
-          separatorHoverColor: "rgba(55, 65, 81, 0.5)",
+          separatorColor: c.border,
+          separatorHoverColor: c.grid,
           enableResize: true,
         },
       },
-      grid: { vertLines: { color: "#1f2937" }, horzLines: { color: "#1f2937" } },
+      grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
-        borderColor: "#374151",
+        borderColor: c.border,
         rightOffset: 12,
         barSpacing: 6,
       },
-      rightPriceScale: { borderColor: "#374151" },
+      rightPriceScale: { borderColor: c.border },
       crosshair: {
         mode: 1,
-        vertLine: { width: 1, color: "#758696", style: 3 },
-        horzLine: { width: 1, color: "#758696", style: 3 },
+        vertLine: { width: 1, color: c.crosshair, style: 3 },
+        horzLine: { width: 1, color: c.crosshair, style: 3 },
       },
     });
 
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: "#10b981",
-      downColor: "#ef4444",
+      upColor: candle.upColor,
+      downColor: candle.downColor,
       borderVisible: false,
-      wickUpColor: "#10b981",
-      wickDownColor: "#ef4444",
+      wickUpColor: candle.wickUpColor,
+      wickDownColor: candle.wickDownColor,
       priceFormat: { type: "price", precision: 8, minMove: 0.00000001 },
     });
 
     const volumeSeries = chart.addSeries(
       HistogramSeries,
       {
-        color: "#6366f1",
+        color: c.volume,
         priceFormat: { type: "volume" },
         lastValueVisible: false,
         priceLineVisible: false,
       },
       1
     );
-
     const panes = chart.panes();
     if (panes[1]) panes[1].setHeight(100);
 
@@ -217,50 +190,31 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
     candlestickSeriesRef.current = candlestickSeries;
     volumeSeriesRef.current = volumeSeries;
 
-    // Debounced resize handler
-    let resizeTimeout: ReturnType<typeof setTimeout>;
-    const handleResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        if (chartContainerRef.current && chartRef.current) {
-          chartRef.current.applyOptions({
-            width: chartContainerRef.current.clientWidth,
-            height: chartContainerRef.current.clientHeight,
-          });
-        }
-      }, 100);
-    };
+    // Use ResizeObserver for more efficient resize handling
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (!chartRef.current || !entries[0]) return;
+      const { width, height } = entries[0].contentRect;
+      chartRef.current.applyOptions({ width, height });
+    });
 
-    window.addEventListener("resize", handleResize);
+    resizeObserver.observe(chartContainerRef.current);
+
     return () => {
-      clearTimeout(resizeTimeout);
-      window.removeEventListener("resize", handleResize);
+      resizeObserver.disconnect();
       chart.remove();
     };
-  }, []);
+  }, [isDark]);
 
-  // Update candlestick and volume data
+  // Update data
   useEffect(() => {
     if (!candlestickSeriesRef.current || !volumeSeriesRef.current || data.length === 0) return;
-
     candlestickSeriesRef.current.applyOptions({ priceFormat: { type: "price", ...priceFormat } });
     candlestickSeriesRef.current.setData(candlestickData);
     volumeSeriesRef.current.setData(volumeData);
     chartRef.current?.timeScale().fitContent();
   }, [candlestickData, volumeData, priceFormat, data.length]);
 
-  // Update indicators with RAF batching
-  useEffect(() => {
-    if (!chartRef.current || data.length === 0) return;
-    if (updateScheduledRef.current) return;
-
-    updateScheduledRef.current = true;
-    requestAnimationFrame(() => {
-      updateScheduledRef.current = false;
-      updateIndicatorSeries();
-    });
-  }, [indicatorData, activeIndicators]);
-
+  // useCallback kept - passed to child components and used in RAF
   const getNextPaneIndex = useCallback((): number => {
     const usedPanes = new Set<number>([0, 1]);
     indicatorSeriesRef.current.forEach((v) => {
@@ -273,12 +227,11 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
 
   const updateIndicatorSeries = useCallback(() => {
     if (!chartRef.current) return;
-
     const activeIds = new Set(
       activeIndicators.filter((ind) => ind.visible).map((ind) => ind.config.id)
     );
 
-    // Remove inactive series
+    // Remove inactive
     const toRemove: string[] = [];
     indicatorSeriesRef.current.forEach((value, id) => {
       if (!activeIds.has(id)) {
@@ -288,10 +241,9 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
     });
     toRemove.forEach((id) => indicatorSeriesRef.current.delete(id));
 
-    // Add/update active indicators
+    // Add/update active
     for (const indicator of activeIndicators) {
       if (!indicator.visible) continue;
-
       const calcResult = indicatorData.get(indicator.config.id);
       if (!calcResult) continue;
 
@@ -304,7 +256,6 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
           middle: number;
           lower: number;
         }[];
-
         if (!existing) {
           const paneIndex = indicator.config.overlayOnPrice ? 0 : getNextPaneIndex();
           const baseColor =
@@ -350,7 +301,6 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
         }
       } else {
         const lineData = calcResult.data as { time: number; value: number }[];
-
         if (!existing) {
           const paneIndex = indicator.config.overlayOnPrice ? 0 : getNextPaneIndex();
           const series = chartRef.current!.addSeries(
@@ -383,7 +333,17 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
     }
   }, [activeIndicators, indicatorData, getNextPaneIndex, priceFormat]);
 
-  // Stable callbacks for indicator management
+  // Update indicators with RAF batching
+  useEffect(() => {
+    if (!chartRef.current || data.length === 0 || updateScheduledRef.current) return;
+    updateScheduledRef.current = true;
+    requestAnimationFrame(() => {
+      updateScheduledRef.current = false;
+      updateIndicatorSeries();
+    });
+  }, [indicatorData, activeIndicators, updateIndicatorSeries]);
+
+  // useCallback kept - passed to child component
   const handleAddIndicator = useCallback(
     (config: IndicatorConfig, customParams?: Record<string, number>) => {
       const params = customParams || config.defaultParams || {};
@@ -424,36 +384,43 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
     );
   }, []);
 
-  // Memoized interval change handlers
-  const intervalHandlers = useMemo(
-    () => INTERVALS.map((int) => () => onIntervalChange(int.value)),
-    [onIntervalChange]
-  );
-
   return (
     <div className="rounded-lg border border-border/50 bg-card overflow-hidden">
-      <div className="relative h-[400px] md:h-[600px] lg:h-[800px] flex flex-col">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-4 sm:px-6 py-4 border-b border-border/50">
-          <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
-            <h3 className="text-sm font-semibold">{symbol}</h3>
-            <div className="flex items-center gap-1 flex-wrap">
-              {INTERVALS.map((int, idx) => (
-                <IntervalButton
+      {/* Mobile: 280px, Tablet: 450px, Desktop: 600px */}
+      <div className="relative h-[280px] sm:h-[450px] lg:h-[600px] flex flex-col">
+        {/* Header - Compact on mobile */}
+        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3 border-b border-border/50">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <h3 className="text-xs sm:text-sm font-semibold truncate max-w-[80px] sm:max-w-none">
+              {symbol}
+            </h3>
+            <div className="flex items-center gap-0.5 sm:gap-1">
+              {INTERVALS.map((int) => (
+                <button
                   key={int.value}
-                  label={int.label}
-                  isActive={interval === int.value}
-                  onClick={intervalHandlers[idx]}
-                />
+                  onClick={() => onIntervalChange(int.value)}
+                  className={cn(
+                    "px-1.5 sm:px-2.5 py-1 text-[10px] sm:text-xs font-medium rounded transition-colors",
+                    interval === int.value
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted text-muted-foreground"
+                  )}
+                >
+                  {int.label}
+                </button>
               ))}
             </div>
           </div>
 
-          <IndicatorButton
-            activeIndicators={activeIndicators}
-            onAddIndicator={handleAddIndicator}
-            onRemoveIndicator={handleRemoveIndicator}
-            onToggleIndicator={handleToggleIndicator}
-          />
+          {/* Indicator Button - Hidden on mobile for cleaner UX */}
+          <div className="hidden sm:block">
+            <IndicatorButton
+              activeIndicators={activeIndicators}
+              onAddIndicator={handleAddIndicator}
+              onRemoveIndicator={handleRemoveIndicator}
+              onToggleIndicator={handleToggleIndicator}
+            />
+          </div>
         </div>
 
         <div className="flex-1 relative">

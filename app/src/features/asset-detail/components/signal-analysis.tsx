@@ -1,3 +1,5 @@
+// Signal Analysis - pure component
+
 import { cn } from "@/core/utils/cn";
 import type { MarketRegime, NoiseScore, StrategyResult } from "@0xsignal/shared";
 
@@ -20,6 +22,40 @@ const REGIME_LABEL: Record<MarketRegime, string> = {
   HIGH_VOLATILITY: "High Vol",
 };
 
+function IndicatorCell({
+  label,
+  value,
+  context,
+  highlight,
+  bullish,
+}: {
+  label: string;
+  value?: string | number;
+  context?: string;
+  highlight?: boolean;
+  bullish?: boolean;
+}) {
+  return (
+    <div className="bg-background p-2 sm:p-3">
+      <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5 sm:mb-1">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "text-xs sm:text-sm font-medium tabular-nums",
+          highlight && bullish && "text-gain",
+          highlight && !bullish && "text-loss"
+        )}
+      >
+        {value ?? "-"}
+      </div>
+      {context && (
+        <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{context}</div>
+      )}
+    </div>
+  );
+}
+
 export function SignalAnalysis({
   signal,
   confidence,
@@ -31,7 +67,6 @@ export function SignalAnalysis({
   const primarySignal = strategyResult.primarySignal;
   const metrics = primarySignal.metrics;
 
-  // Extract metrics
   const indicatorAgreement = metrics.indicatorAgreement ?? 0;
   const rsi = metrics.rsi ?? metrics.MEAN_REVERSION_rsi ?? metrics.MOMENTUM_rsi;
   const adx = metrics.adxValue ?? metrics.adx ?? metrics.MEAN_REVERSION_adxValue ?? 0;
@@ -49,9 +84,7 @@ export function SignalAnalysis({
 
   return (
     <div className={cn("rounded border border-border/50", className)}>
-      {/* Primary Metrics - Mobile: 2 cols, Tablet: 3 cols, Desktop: 6 cols */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-border/30">
-        {/* Signal */}
         <div className="bg-background p-3 sm:p-4">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
             Signal
@@ -64,7 +97,6 @@ export function SignalAnalysis({
           </div>
         </div>
 
-        {/* Regime */}
         <div className="bg-background p-3 sm:p-4">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
             Regime
@@ -77,7 +109,6 @@ export function SignalAnalysis({
           </div>
         </div>
 
-        {/* Confidence */}
         <div className="bg-background p-3 sm:p-4">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
             Confidence
@@ -88,7 +119,6 @@ export function SignalAnalysis({
           </div>
         </div>
 
-        {/* Risk */}
         <div className="bg-background p-3 sm:p-4">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
             Risk
@@ -104,7 +134,6 @@ export function SignalAnalysis({
           <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">/ 100</div>
         </div>
 
-        {/* Noise */}
         <div className="bg-background p-3 sm:p-4">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
             Noise
@@ -122,7 +151,6 @@ export function SignalAnalysis({
           </div>
         </div>
 
-        {/* Volatility */}
         <div className="bg-background p-3 sm:p-4">
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
             Volatility
@@ -134,7 +162,6 @@ export function SignalAnalysis({
         </div>
       </div>
 
-      {/* Indicator Grid - Mobile: 3 cols, Tablet: 3 cols, Desktop: 6 cols */}
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-px bg-border/30 border-t border-border/30">
         <IndicatorCell
           label="RSI"
@@ -219,40 +246,6 @@ export function SignalAnalysis({
           bullish={indicatorAgreement >= 70}
         />
       </div>
-    </div>
-  );
-}
-
-function IndicatorCell({
-  label,
-  value,
-  context,
-  highlight,
-  bullish,
-}: {
-  label: string;
-  value?: string | number;
-  context?: string;
-  highlight?: boolean;
-  bullish?: boolean;
-}) {
-  return (
-    <div className="bg-background p-2 sm:p-3">
-      <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5 sm:mb-1">
-        {label}
-      </div>
-      <div
-        className={cn(
-          "text-xs sm:text-sm font-medium tabular-nums",
-          highlight && bullish && "text-gain",
-          highlight && !bullish && "text-loss"
-        )}
-      >
-        {value ?? "-"}
-      </div>
-      {context && (
-        <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{context}</div>
-      )}
     </div>
   );
 }

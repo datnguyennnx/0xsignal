@@ -1,32 +1,34 @@
-import { useState, useCallback } from "react";
-import { Exit, pipe } from "effect";
+// Buyback Signals Page - Mobile-first responsive design
+
+import { useState } from "react";
 import type { BuybackOverview, BuybackSignal } from "@0xsignal/shared";
-import { getCachedBuybackOverview } from "@/core/api/cached-queries";
-import { useEffect_ } from "@/core/runtime/use-effect";
+import { cachedBuybackOverview } from "@/core/cache/effect-cache";
+import { useEffectQuery } from "@/core/runtime/use-effect-query";
 import { BuybackStats } from "@/features/buyback/components/buyback-stats";
 import { BuybackList } from "@/features/buyback/components/buyback-list";
 import { CategoryBreakdown } from "@/features/buyback/components/category-breakdown";
 import { ProtocolDetailDialog } from "@/features/buyback/components/protocol-detail-dialog";
 
-const fetchBuybackData = () => getCachedBuybackOverview();
+const fetchBuybackData = () => cachedBuybackOverview();
 
 function BuybackContent({ overview }: { overview: BuybackOverview }) {
   const signals = overview.topBuybackProtocols;
   const [selectedSignal, setSelectedSignal] = useState<BuybackSignal | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const handleSelectProtocol = useCallback((signal: BuybackSignal) => {
+  const handleSelectProtocol = (signal: BuybackSignal) => {
     setSelectedSignal(signal);
     setDialogOpen(true);
-  }, []);
+  };
 
   return (
-    <div className="space-y-6 px-4 py-4 sm:px-6 sm:py-6">
+    <div className="max-w-6xl mx-auto px-4 py-4 sm:px-6 sm:py-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <header>
-        <h1 className="text-xl font-semibold sm:text-2xl">Buyback Signals</h1>
-        <p className="text-xs text-muted-foreground mt-1 sm:text-sm">
-          Protocol revenue yield relative to market cap
+        <h1 className="text-lg sm:text-xl font-semibold">Protocol Buybacks</h1>
+        <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+          Annualized revenue yield relative to market cap · Higher yield = stronger buyback
+          potential
         </p>
       </header>
 
@@ -34,30 +36,35 @@ function BuybackContent({ overview }: { overview: BuybackOverview }) {
       <BuybackStats overview={overview} />
 
       {/* Main Content */}
-      <div className="space-y-6 lg:grid lg:grid-cols-3 lg:gap-6 lg:space-y-0">
-        {/* Protocol List */}
-        <section className="lg:col-span-2">
-          <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-sm font-medium">Top Protocols</h2>
-            <span className="text-xs text-muted-foreground tabular-nums">{signals.length}</span>
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+        {/* Protocol List - Takes more space */}
+        <section className="flex-1 min-w-0 lg:max-w-3xl">
+          <div className="flex items-baseline justify-between mb-2 sm:mb-3">
+            <h2 className="text-sm font-medium">Protocols</h2>
+            <span className="text-[10px] sm:text-xs text-muted-foreground tabular-nums">
+              {signals.length}
+            </span>
           </div>
           {signals.length === 0 ? (
-            <div className="py-12 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
-              No signals available
+            <div className="py-12 text-center border border-dashed rounded-lg">
+              <p className="text-sm text-muted-foreground">No protocols with buyback data</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Revenue data may be temporarily unavailable
+              </p>
             </div>
           ) : (
             <BuybackList signals={signals} onSelect={handleSelectProtocol} />
           )}
         </section>
 
-        {/* Sidebar */}
-        <aside className="space-y-6">
+        {/* Sidebar - Fixed width on desktop */}
+        <aside className="w-full lg:w-64 shrink-0 space-y-4">
           <CategoryBreakdown categories={overview.byCategory} />
 
           {/* Metrics Legend */}
-          <div className="p-4 rounded-lg border border-border/40 space-y-3">
+          <div className="hidden sm:block p-3 rounded-lg border border-border/40 space-y-2">
             <h3 className="text-xs font-medium">Metrics</h3>
-            <dl className="text-xs text-muted-foreground space-y-1.5">
+            <dl className="text-[10px] text-muted-foreground space-y-1">
               <div>
                 <dt className="inline font-medium text-foreground">Yield</dt>
                 <dd className="inline"> = (30d Rev × 12) / MCap</dd>
@@ -81,26 +88,37 @@ function BuybackContent({ overview }: { overview: BuybackOverview }) {
 }
 
 export function BuybackSignalsPage() {
-  const exit = useEffect_(fetchBuybackData, []);
+  const { data, isLoading, isError } = useEffectQuery(fetchBuybackData, []);
 
-  if (!exit) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="h-5 w-5 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center space-y-2">
+          <div className="h-6 w-6 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading protocol revenue data</p>
+        </div>
       </div>
     );
   }
 
-  return pipe(
-    exit,
-    Exit.match({
-      onFailure: () => (
-        <div className="px-4 py-6 sm:px-6">
-          <h1 className="text-xl font-semibold mb-4">Buyback Signals</h1>
-          <p className="text-sm text-muted-foreground">Unable to load data</p>
+  if (isError || !data) {
+    return (
+      <div className="px-4 py-6 max-w-6xl mx-auto">
+        <h1 className="text-lg font-semibold mb-4">Protocol Buybacks</h1>
+        <div className="rounded-lg border border-border bg-muted/30 p-6">
+          <p className="text-sm text-muted-foreground mb-4">
+            Unable to fetch protocol revenue data. Check your connection and try again.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 text-sm font-medium bg-foreground text-background rounded hover:bg-foreground/90 transition-colors"
+          >
+            Retry
+          </button>
         </div>
-      ),
-      onSuccess: (overview) => <BuybackContent overview={overview} />,
-    })
-  );
+      </div>
+    );
+  }
+
+  return <BuybackContent overview={data} />;
 }

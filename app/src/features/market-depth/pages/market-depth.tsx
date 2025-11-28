@@ -1,117 +1,141 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Effect, Exit, pipe } from "effect";
-import { ApiServiceTag, ApiServiceLive } from "@/core/api/client";
+// Market Depth Page - Mobile-first responsive design
+
+import { useState } from "react";
+import { cachedHeatmap, cachedLiquidationHeatmap } from "@/core/cache/effect-cache";
+import { useEffectQuery } from "@/core/runtime/use-effect-query";
 import { MarketHeatmapComponent } from "../components/market-heatmap";
 import { LiquidationHeatmapComponent } from "../components/liquidation-heatmap";
-import type { MarketHeatmap, LiquidationHeatmap } from "@0xsignal/shared";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/core/utils/cn";
 
 const DISPLAY_LIMIT = 20;
 
-export const MarketDepthPage: React.FC = () => {
-  const [heatmapData, setHeatmapData] = useState<MarketHeatmap | null>(null);
-  const [liquidationData, setLiquidationData] = useState<LiquidationHeatmap | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLiquidationLoading, setIsLiquidationLoading] = useState(false);
+export function MarketDepthPage() {
+  const [activeTab, setActiveTab] = useState<"heatmap" | "liquidation">("heatmap");
   const [selectedSymbol, setSelectedSymbol] = useState<string>("btc");
+  const [showSymbolList, setShowSymbolList] = useState(false);
 
-  // Derive available symbols from heatmap data (top by market cap)
-  const availableSymbols = useMemo(() => {
-    if (!heatmapData?.cells) return [];
-    return heatmapData.cells.slice(0, DISPLAY_LIMIT).map((cell) => cell.symbol.toLowerCase());
-  }, [heatmapData]);
+  // Always fetch heatmap (needed for symbol list in liquidation tab)
+  const { data: heatmapData, isLoading } = useEffectQuery(() => cachedHeatmap(100), []);
 
-  // Initial load - fetch heatmap only
-  useEffect(() => {
-    setIsLoading(true);
+  // Only fetch liquidation data when tab is active (lazy loading)
+  const { data: liquidationData, isLoading: isLiquidationLoading } = useEffectQuery(
+    () => cachedLiquidationHeatmap(selectedSymbol),
+    [selectedSymbol, activeTab === "liquidation"] // Re-fetch when tab becomes active
+  );
 
-    const program = pipe(
-      Effect.flatMap(ApiServiceTag, (api) => api.getHeatmap(100)),
-      Effect.provide(ApiServiceLive),
-      Effect.exit
-    );
-
-    Effect.runPromise(program).then((exit) => {
-      if (Exit.isSuccess(exit)) {
-        setHeatmapData(exit.value);
-      } else {
-        console.error("Failed to fetch heatmap:", exit.cause);
-      }
-      setIsLoading(false);
-    });
-  }, []);
-
-  // Fetch liquidation data when symbol changes
-  useEffect(() => {
-    if (!selectedSymbol) return;
-    setIsLiquidationLoading(true);
-
-    const program = pipe(
-      Effect.flatMap(ApiServiceTag, (api) => api.getLiquidationHeatmap(selectedSymbol)),
-      Effect.provide(ApiServiceLive),
-      Effect.exit
-    );
-
-    Effect.runPromise(program).then((exit) => {
-      if (Exit.isSuccess(exit)) {
-        setLiquidationData(exit.value);
-      } else {
-        console.error("Failed to fetch liquidation data:", exit.cause);
-      }
-      setIsLiquidationLoading(false);
-    });
-  }, [selectedSymbol]);
-
-  const handleSymbolSelect = useCallback((symbol: string) => {
-    setSelectedSymbol(symbol);
-  }, []);
+  const availableSymbols = heatmapData?.cells
+    ? heatmapData.cells.slice(0, DISPLAY_LIMIT).map((cell) => cell.symbol.toLowerCase())
+    : [];
 
   return (
-    <div className="h-[calc(100vh-13rem)] w-full bg-background text-foreground flex flex-col overflow-hidden">
-      <Tabs defaultValue="heatmap" className="w-full h-full flex flex-col">
-        <div className="w-full border-b border-border px-6 py-4 shrink-0 flex items-center justify-between">
-          <TabsList className="bg-transparent p-0 h-auto space-x-8">
-            <TabsTrigger
-              value="heatmap"
-              className="bg-transparent p-0 text-base font-medium text-muted-foreground data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:bg-transparent transition-colors hover:text-foreground/80 rounded-none"
+    <div className="max-w-5xl mx-auto px-4 sm:px-6">
+      {/* Header */}
+      <header className="py-3 border-b border-border/40">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg sm:text-xl font-semibold">Market Depth</h1>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+              {activeTab === "heatmap"
+                ? "Market cap weighted performance by 24h change"
+                : `Liquidation levels for ${selectedSymbol.toUpperCase()} · Long (red) vs Short (green)`}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setActiveTab("heatmap")}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                activeTab === "heatmap"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
-              Market Heatmap
-            </TabsTrigger>
-            <TabsTrigger
-              value="liquidation"
-              className="bg-transparent p-0 text-base font-medium text-muted-foreground data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:bg-transparent transition-colors hover:text-foreground/80 rounded-none"
+              Heatmap
+            </button>
+            <button
+              onClick={() => setActiveTab("liquidation")}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                activeTab === "liquidation"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
             >
-              Liquidation Levels
-            </TabsTrigger>
-          </TabsList>
+              Liquidations
+            </button>
+          </div>
         </div>
+      </header>
 
-        <TabsContent
-          value="heatmap"
-          className="flex-1 animate-in fade-in-50 duration-500 p-0 m-0 h-full"
-        >
-          <MarketHeatmapComponent data={heatmapData!} isLoading={isLoading} />
-        </TabsContent>
+      {/* Symbol selector for liquidation tab - Mobile only */}
+      <div className="sm:hidden py-2">
+        {activeTab === "liquidation" && (
+          <div className="relative">
+            <button
+              onClick={() => setShowSymbolList(!showSymbolList)}
+              className="px-3 py-1.5 text-sm font-medium bg-muted rounded flex items-center gap-1"
+            >
+              {selectedSymbol.toUpperCase()}
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
 
-        <TabsContent value="liquidation" className="flex-1 animate-in fade-in-50 duration-500">
-          <div className="flex h-full">
-            <div className="w-64 shrink-0 border-r border-border h-full overflow-y-auto p-4 bg-background">
-              <div className="text-xs font-semibold text-muted-foreground mb-4 uppercase tracking-wider">
+            {showSymbolList && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowSymbolList(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 bg-background border border-border rounded-lg shadow-lg overflow-hidden w-32 max-h-60 overflow-y-auto">
+                  {availableSymbols.map((symbol) => (
+                    <button
+                      key={symbol}
+                      onClick={() => {
+                        setSelectedSymbol(symbol);
+                        setShowSymbolList(false);
+                      }}
+                      className={cn(
+                        "w-full px-3 py-2 text-left text-sm transition-colors",
+                        selectedSymbol === symbol ? "bg-muted font-medium" : "hover:bg-muted/50"
+                      )}
+                    >
+                      {symbol.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Content - Fixed height with max-w-3xl */}
+      <div className="h-[calc(100vh-16rem)] sm:h-[calc(100vh-13rem)] mt-4">
+        {activeTab === "heatmap" ? (
+          <div className="h-full w-full rounded-lg border border-border/40 overflow-hidden">
+            <MarketHeatmapComponent data={heatmapData!} isLoading={isLoading} />
+          </div>
+        ) : (
+          <div className="flex h-full gap-4">
+            {/* Desktop sidebar */}
+            <div className="hidden sm:block w-40 shrink-0 border border-border/40 rounded-lg overflow-y-auto p-3">
+              <div className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">
                 Assets ({availableSymbols.length})
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {availableSymbols.map((symbol) => (
                   <button
                     key={symbol}
-                    onClick={() => handleSymbolSelect(symbol)}
-                    className={`
-                      w-full px-3 py-2 text-left text-sm font-medium rounded-md transition-all duration-200
-                      ${
-                        selectedSymbol === symbol
-                          ? "bg-foreground text-background"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                      }
-                    `}
+                    onClick={() => setSelectedSymbol(symbol)}
+                    className={cn(
+                      "w-full px-2.5 py-1.5 text-left text-sm rounded transition-colors",
+                      selectedSymbol === symbol
+                        ? "bg-foreground text-background font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
                   >
                     {symbol.toUpperCase()}
                   </button>
@@ -119,15 +143,16 @@ export const MarketDepthPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex-1 h-full min-w-0 bg-background">
+            {/* Chart */}
+            <div className="flex-1 h-full min-w-0 rounded-lg border border-border/40 overflow-hidden">
               <LiquidationHeatmapComponent
                 data={liquidationData!}
                 isLoading={isLiquidationLoading}
               />
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
     </div>
   );
-};
+}
