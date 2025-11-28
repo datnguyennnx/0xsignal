@@ -1,8 +1,9 @@
 import { Effect } from "effect";
-import type { CryptoPrice } from "@0xsignal/shared";
+import type { CryptoPrice, NoiseScore } from "@0xsignal/shared";
 import type { AssetAnalysis, Signal } from "../domain/types";
 import { executeStrategies } from "../domain/strategies/executor";
 import { findEntry } from "./find-entries";
+import { calculateNoiseScore } from "../domain/formulas/statistical/noise";
 
 export const analyzeAsset = (price: CryptoPrice): Effect.Effect<AssetAnalysis, never> =>
   Effect.gen(function* () {
@@ -16,6 +17,13 @@ export const analyzeAsset = (price: CryptoPrice): Effect.Effect<AssetAnalysis, n
       strategyResult,
       entrySignal
     );
+
+    // Extract metrics from strategy for noise calculation
+    const adx = extractMetric(strategyResult, "adxValue", "adx") ?? 25;
+    const normalizedATR = extractMetric(strategyResult, "normalizedATR", "atr") ?? 3;
+    const indicatorAgreement = extractMetric(strategyResult, "indicatorAgreement");
+    const agreementRatio = indicatorAgreement !== undefined ? indicatorAgreement / 100 : undefined;
+    const noise = calculateNoiseScore(adx, normalizedATR, agreementRatio);
 
     return {
       symbol: price.symbol,
@@ -38,9 +46,31 @@ export const analyzeAsset = (price: CryptoPrice): Effect.Effect<AssetAnalysis, n
       overallSignal,
       confidence,
       riskScore,
+      noise,
       recommendation,
     };
   });
+
+const extractMetric = (
+  strategyResult: AssetAnalysis["strategyResult"],
+  ...keys: string[]
+): number | undefined => {
+  for (const signal of strategyResult.signals) {
+    for (const key of keys) {
+      const value = signal.metrics[key];
+      if (value !== undefined) return value;
+      // Check prefixed keys
+      const prefixedKey = Object.keys(signal.metrics).find((k) => k.endsWith(`_${key}`));
+      if (prefixedKey) return signal.metrics[prefixedKey];
+    }
+  }
+  // Check primary signal
+  for (const key of keys) {
+    const value = strategyResult.primarySignal.metrics[key];
+    if (value !== undefined) return value;
+  }
+  return undefined;
+};
 
 const combineResults = (
   price: CryptoPrice,

@@ -12,4 +12,5 @@ export type {
   AssetAnalysis,
   MarketOverview,
   IndicatorResult,
+  NoiseScore,
 } from "@0xsignal/shared";

@@ -64,13 +64,19 @@ const combineSignals = (
     };
   }
 
+  // Extract volatility and indicator agreement from metrics
+  const volatility = signals[0].metrics.normalizedATR ?? 3;
+  const indicatorAgreement = signals[0].metrics.indicatorAgreement
+    ? signals[0].metrics.indicatorAgreement / 100
+    : undefined;
+
   if (signals.length === 1) {
     return {
       regime,
       signals,
       primarySignal: signals[0],
       overallConfidence: signals[0].confidence,
-      riskScore: calculateRiskScore(regime, signals[0].confidence, 0),
+      riskScore: calculateRiskScore(regime, signals[0].confidence, volatility, indicatorAgreement),
     };
   }
 
@@ -81,7 +87,7 @@ const combineSignals = (
     signals,
     primarySignal,
     overallConfidence: primarySignal.confidence,
-    riskScore: calculateRiskScore(regime, primarySignal.confidence, 0),
+    riskScore: calculateRiskScore(regime, primarySignal.confidence, volatility, indicatorAgreement),
   };
 };
 

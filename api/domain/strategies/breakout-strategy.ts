@@ -12,6 +12,7 @@ import { detectSqueeze } from "../formulas/volatility/bollinger-bands";
 import { computeATR } from "../formulas/volatility/atr";
 import { computeVolumeROC } from "../formulas/volume/volume-roc";
 import { computeDonchianChannels } from "../formulas/volatility/donchian-channels";
+import { computeADX } from "../formulas/trend/adx";
 
 /**
  * Breakout strategy for low volatility compression
@@ -27,12 +28,13 @@ export const breakoutStrategy = (price: CryptoPrice): Effect.Effect<StrategySign
     const volumes = price.volume24h ? [price.volume24h, price.volume24h] : [price.volume24h];
 
     // Calculate breakout indicators
-    const [squeeze, atr, volumeROC, donchian] = yield* Effect.all(
+    const [squeeze, atr, volumeROC, donchian, adx] = yield* Effect.all(
       [
         detectSqueeze(price),
         computeATR(highs, lows, closes),
         computeVolumeROC(volumes),
         computeDonchianChannels(highs, lows, closes),
+        computeADX(highs, lows, closes),
       ],
       { concurrency: "unbounded" }
     );
@@ -41,8 +43,10 @@ export const breakoutStrategy = (price: CryptoPrice): Effect.Effect<StrategySign
     const metrics: Record<string, number> = {
       squeezeIntensity: squeeze.squeezeIntensity,
       atr: atr.value,
+      normalizedATR: atr.normalizedATR,
       volumeROC: volumeROC.value,
       donchianPosition: donchian.position,
+      adxValue: adx.adx,
     };
 
     // Squeeze intensity contribution (40%)

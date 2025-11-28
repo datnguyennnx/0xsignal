@@ -85,6 +85,15 @@ export interface EntrySignal {
 }
 
 /**
+ * Noise score - measures signal clarity vs market randomness
+ * Lower noise = cleaner signal, higher noise = more random/choppy
+ */
+export interface NoiseScore {
+  readonly value: number; // 0-100, higher = more noise
+  readonly level: "LOW" | "MODERATE" | "HIGH" | "EXTREME";
+}
+
+/**
  * Complete asset analysis result
  */
 export interface AssetAnalysis {
@@ -97,6 +106,7 @@ export interface AssetAnalysis {
   readonly overallSignal: Signal;
   readonly confidence: number;
   readonly riskScore: number;
+  readonly noise: NoiseScore;
   readonly recommendation: string;
 }
 

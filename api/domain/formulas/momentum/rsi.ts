@@ -21,7 +21,7 @@ export interface RSIResult {
 
 /**
  * Pure function to calculate RSI approximation from 24h price data
- * Combines 24h change with ATH/ATL position for context
+ * Uses a more balanced approach for single-period data
  */
 export const calculateRSI = (
   currentPrice: number,
@@ -29,42 +29,37 @@ export const calculateRSI = (
   ath: number | undefined,
   atl: number | undefined
 ): RSIResult => {
-  // Method 1: Use 24h change as momentum indicator
-  const priceChangeRatio = change24h / 100; // Convert percentage to ratio
+  // For 24h data, we use a linear mapping approach
+  // This gives more balanced results than traditional RS calculation
+  // -10% change = RSI 20, 0% = RSI 50, +10% = RSI 80
 
-  // Method 2: Use ATH/ATL position for context
-  let athAtlFactor = 0.5; // Default neutral
+  // Base RSI from price change (scaled to be more moderate)
+  // ±5% change maps to ±15 RSI points from 50
+  let rsi = 50 + change24h * 3;
+
+  // ATH/ATL context adjustment (if available)
   if (ath && atl && ath > atl) {
     const priceRange = ath - atl;
     const pricePosition = currentPrice - atl;
-    athAtlFactor = pricePosition / priceRange;
+    const athAtlFactor = pricePosition / priceRange; // 0-1
+
+    // Blend with ATH/ATL position (20% weight)
+    const athAtlRsi = athAtlFactor * 100;
+    rsi = rsi * 0.8 + athAtlRsi * 0.2;
   }
 
-  // Combine both methods for RSI approximation
-  const gainComponent = Math.max(0, priceChangeRatio);
-  const lossComponent = Math.abs(Math.min(0, priceChangeRatio));
+  // Clamp between 10-90 to avoid extreme values with limited data
+  rsi = Math.max(10, Math.min(90, rsi));
 
-  // Calculate RS (Relative Strength)
-  const rs = lossComponent === 0 ? 100 : gainComponent / lossComponent;
-
-  // RSI formula
-  let rsi = 100 - 100 / (1 + rs);
-
-  // Adjust with ATH/ATL context (weight 30%)
-  rsi = rsi * 0.7 + athAtlFactor * 100 * 0.3;
-
-  // Clamp between 0-100
-  rsi = Math.max(0, Math.min(100, rsi));
-
-  // Determine signal
+  // Determine signal with moderate thresholds
   const signal: "OVERSOLD" | "NEUTRAL" | "OVERBOUGHT" =
-    rsi > 70 ? "OVERBOUGHT" : rsi < 30 ? "OVERSOLD" : "NEUTRAL";
+    rsi > 65 ? "OVERBOUGHT" : rsi < 35 ? "OVERSOLD" : "NEUTRAL";
 
   // Momentum: normalized -1 to 1
   const momentum = (rsi - 50) / 50;
 
   return {
-    rsi,
+    rsi: Math.round(rsi * 10) / 10,
     signal,
     momentum,
   };

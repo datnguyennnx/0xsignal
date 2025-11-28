@@ -13,6 +13,7 @@ import { computeATR } from "../formulas/volatility/atr";
 import { computeHistoricalVolatility } from "../formulas/volatility/historical-volatility";
 import { computeBollingerBands } from "../formulas/volatility/bollinger-bands";
 import { computeRSI } from "../formulas/momentum/rsi";
+import { computeADX } from "../formulas/trend/adx";
 
 /**
  * Volatility strategy for extreme market conditions
@@ -27,12 +28,13 @@ export const volatilityStrategy = (price: CryptoPrice): Effect.Effect<StrategySi
     const lows = price.low24h ? [price.low24h, price.low24h, price.low24h] : [price.price];
 
     // Calculate volatility indicators
-    const [atr, historicalVol, bb, rsi] = yield* Effect.all(
+    const [atr, historicalVol, bb, rsi, adx] = yield* Effect.all(
       [
         computeATR(highs, lows, closes),
         computeHistoricalVolatility(closes),
         computeBollingerBands(price),
         computeRSI(price),
+        computeADX(highs, lows, closes),
       ],
       { concurrency: "unbounded" }
     );
@@ -40,9 +42,11 @@ export const volatilityStrategy = (price: CryptoPrice): Effect.Effect<StrategySi
     let score = 0;
     const metrics: Record<string, number> = {
       atr: atr.value,
+      normalizedATR: atr.normalizedATR,
       historicalVol: historicalVol.value,
       bbWidth: bb.bandwidth,
       rsi: rsi.rsi,
+      adxValue: adx.adx,
     };
 
     // In high volatility, we're more conservative
