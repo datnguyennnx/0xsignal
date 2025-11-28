@@ -1,13 +1,11 @@
-// ============================================================================
-// SUBSCRIPTION MANAGER
-// ============================================================================
-// Callback-based subscription management with lazy loading
-// ============================================================================
+/**
+ * Subscription Manager
+ * Callback-based subscription management with lazy loading
+ */
 
 import { Effect, Stream, Ref, HashMap, Context, Layer } from "effect";
 import type { BinanceKline, Subscription } from "./types";
 import { createBinanceConnection } from "./binance-connection";
-import { Logger } from "../logging/console.logger";
 
 type KlineCallback = (kline: BinanceKline) => void;
 
@@ -37,13 +35,12 @@ export const SubscriptionManagerLive = Layer.effect(
   SubscriptionManagerTag,
   Effect.gen(function* () {
     const binanceConnection = yield* createBinanceConnection();
-    const logger = yield* Logger;
     const pubSub = yield* binanceConnection.subscribeToPubSub();
     const subscriptionsRef = yield* Ref.make<HashMap.HashMap<string, SymbolSubscription>>(
       HashMap.empty()
     );
 
-    // Dispatcher: PubSub → Callbacks
+    // Dispatcher: PubSub -> Callbacks
     yield* Effect.forkDaemon(
       Stream.fromPubSub(pubSub).pipe(
         Stream.runForEach((kline) =>
@@ -66,6 +63,7 @@ export const SubscriptionManagerLive = Layer.effect(
       )
     );
 
+    // Get or create subscription for symbol
     const getOrCreateSubscription = (
       symbol: string,
       interval: string
@@ -86,10 +84,10 @@ export const SubscriptionManagerLive = Layer.effect(
         };
 
         yield* Ref.update(subscriptionsRef, (subs) => HashMap.set(subs, symbol, subscription));
-
         return subscription;
       });
 
+    // Subscribe client to symbol
     const subscribe = (
       symbol: string,
       clientId: string,
@@ -98,7 +96,6 @@ export const SubscriptionManagerLive = Layer.effect(
     ): Effect.Effect<void> =>
       Effect.gen(function* () {
         const subscription = yield* getOrCreateSubscription(symbol, interval);
-
         subscription.callbacks.set(clientId, callback);
 
         yield* Ref.update(subscriptionsRef, (subs) =>
@@ -110,32 +107,28 @@ export const SubscriptionManagerLive = Layer.effect(
         );
       });
 
+    // Unsubscribe client from symbol
     const unsubscribe = (symbol: string, clientId: string): Effect.Effect<void> =>
       Effect.gen(function* () {
         const subscriptions = yield* Ref.get(subscriptionsRef);
         const subscription = HashMap.get(subscriptions, symbol);
 
-        if (subscription._tag === "None") {
-          return;
-        }
+        if (subscription._tag === "None") return;
 
         subscription.value.callbacks.delete(clientId);
 
-        // Immediate cleanup when last client disconnects
+        // Cleanup when last client disconnects
         if (subscription.value.callbacks.size === 0) {
-          yield* logger.info(
-            `[CLEANUP] Last client disconnected, unsubscribing from Binance: ${symbol}`
-          );
+          yield* Effect.logDebug(`[SUB] Cleaning up ${symbol} - no clients`);
           yield* binanceConnection.unsubscribe(symbol, "1m");
           yield* Ref.update(subscriptionsRef, (subs) => HashMap.remove(subs, symbol));
-          yield* logger.info(`[CLEANUP] Cleaned up ${symbol} subscription`);
         }
       });
 
+    // Get active subscriptions
     const getActiveSubscriptions = (): Effect.Effect<ReadonlyArray<Subscription>> =>
       Effect.gen(function* () {
         const subscriptions = yield* Ref.get(subscriptionsRef);
-
         return Array.from(HashMap.entries(subscriptions)).map(([symbol, sub]) => ({
           symbol,
           interval: "1m",
@@ -144,22 +137,16 @@ export const SubscriptionManagerLive = Layer.effect(
         }));
       });
 
+    // Cleanup all subscriptions
     const cleanup = (): Effect.Effect<void> =>
       Effect.gen(function* () {
         const subscriptions = yield* Ref.get(subscriptionsRef);
-
         for (const [symbol] of HashMap.entries(subscriptions)) {
           yield* binanceConnection.unsubscribe(symbol, "1m");
         }
-
         yield* Ref.set(subscriptionsRef, HashMap.empty());
       });
 
-    return {
-      subscribe,
-      unsubscribe,
-      getActiveSubscriptions,
-      cleanup,
-    };
+    return { subscribe, unsubscribe, getActiveSubscriptions, cleanup };
   })
 );

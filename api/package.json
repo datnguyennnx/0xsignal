@@ -13,19 +13,13 @@
   },
   "dependencies": {
     "@0xsignal/shared": "workspace:*",
-    "@asteasolutions/zod-to-openapi": "^8.1.0",
     "@types/ws": "^8.18.1",
     "effect": "^3.19.5",
-    "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1",
-    "ws": "^8.18.3",
-    "zod": "^4.1.12"
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@effect/language-service": "^0.56.0",
     "@types/node": "^24.10.1",
-    "@types/swagger-jsdoc": "^6.0.4",
-    "@types/swagger-ui-express": "^4.1.8",
     "tsx": "^4.20.6"
   }
 }

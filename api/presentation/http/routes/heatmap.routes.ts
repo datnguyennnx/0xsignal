@@ -1,52 +1,14 @@
-/**
- * Heatmap Routes
- * API endpoints for market heatmap and derivatives data
- */
-
 import { Effect } from "effect";
 import type { HeatmapConfig } from "@0xsignal/shared";
 import { AggregatedDataServiceTag } from "../../../infrastructure/data-sources/aggregator";
+import { DEFAULT_LIMITS } from "../../../infrastructure/config/app.config";
 
-/**
- * @openapi
- * /heatmap:
- *   get:
- *     tags:
- *       - Heatmap
- *     summary: Get market heatmap
- *     description: Returns market heatmap data for visualization
- *     parameters:
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 200
- *           default: 100
- *         description: Number of assets to include
- *       - in: query
- *         name: category
- *         schema:
- *           type: string
- *           enum: [Layer 1, Layer 2, DeFi, Meme, Oracle, Exchange, Payment, Storage, AI, Other]
- *         description: Filter by category
- *       - in: query
- *         name: sortBy
- *         schema:
- *           type: string
- *           enum: [marketCap, volume, change]
- *           default: marketCap
- *         description: Sort order
- *     responses:
- *       200:
- *         description: Market heatmap data
- */
 export const marketHeatmapRoute = (config: Partial<HeatmapConfig> = {}) =>
   Effect.gen(function* () {
     const dataService = yield* AggregatedDataServiceTag;
     const fullConfig: HeatmapConfig = {
       metric: config.metric || "change24h",
-      limit: Math.min(config.limit || 100, 200),
+      limit: Math.min(config.limit || DEFAULT_LIMITS.HEATMAP, DEFAULT_LIMITS.MAX_HEATMAP),
       category: config.category,
       sortBy: config.sortBy || "marketCap",
     };
@@ -57,21 +19,12 @@ export const marketHeatmapRoute = (config: Partial<HeatmapConfig> = {}) =>
     )
   );
 
-/**
- * @openapi
- * /heatmap/movers:
- *   get:
- *     tags:
- *       - Heatmap
- *     summary: Get top movers heatmap
- *     description: Returns heatmap sorted by absolute price change
- */
 export const topMoversHeatmapRoute = (limit: number = 50) =>
   Effect.gen(function* () {
     const dataService = yield* AggregatedDataServiceTag;
     return yield* dataService.getMarketHeatmap({
       metric: "change24h",
-      limit: Math.min(limit, 100),
+      limit: Math.min(limit, DEFAULT_LIMITS.HEATMAP),
       sortBy: "change",
     });
   }).pipe(
@@ -80,15 +33,7 @@ export const topMoversHeatmapRoute = (limit: number = 50) =>
     )
   );
 
-/**
- * @openapi
- * /derivatives/open-interest:
- *   get:
- *     tags:
- *       - Derivatives
- *     summary: Get top open interest
- */
-export const topOpenInterestRoute = (limit: number = 20) =>
+export const topOpenInterestRoute = (limit: number = DEFAULT_LIMITS.OPEN_INTEREST) =>
   Effect.gen(function* () {
     const dataService = yield* AggregatedDataServiceTag;
     return yield* dataService.getTopOpenInterest(Math.min(limit, 50));
@@ -98,14 +43,6 @@ export const topOpenInterestRoute = (limit: number = 20) =>
     )
   );
 
-/**
- * @openapi
- * /derivatives/{symbol}/open-interest:
- *   get:
- *     tags:
- *       - Derivatives
- *     summary: Get open interest for a specific symbol
- */
 export const symbolOpenInterestRoute = (symbol: string) =>
   Effect.gen(function* () {
     const dataService = yield* AggregatedDataServiceTag;
@@ -119,14 +56,6 @@ export const symbolOpenInterestRoute = (symbol: string) =>
     )
   );
 
-/**
- * @openapi
- * /derivatives/{symbol}/funding-rate:
- *   get:
- *     tags:
- *       - Derivatives
- *     summary: Get funding rate for a specific symbol
- */
 export const symbolFundingRateRoute = (symbol: string) =>
   Effect.gen(function* () {
     const dataService = yield* AggregatedDataServiceTag;
@@ -140,14 +69,6 @@ export const symbolFundingRateRoute = (symbol: string) =>
     )
   );
 
-/**
- * @openapi
- * /sources:
- *   get:
- *     tags:
- *       - System
- *     summary: Get data sources information
- */
 export const dataSourcesRoute = () =>
   Effect.gen(function* () {
     const dataService = yield* AggregatedDataServiceTag;

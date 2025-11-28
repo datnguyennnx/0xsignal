@@ -1,8 +1,7 @@
-// ============================================================================
-// WEBSOCKET SERVER
-// ============================================================================
-// Handles client WebSocket connections with callback-based subscriptions
-// ============================================================================
+/**
+ * WebSocket Server
+ * Handles client connections with Effect-native logging
+ */
 
 import { Effect, Schedule, Duration } from "effect";
 import { WebSocketServer, WebSocket } from "ws";
@@ -10,7 +9,6 @@ import type { Server } from "http";
 import type { ChartDataPoint, BinanceKline } from "./types";
 import { SubscriptionManagerTag } from "./subscription-manager";
 import { randomUUID } from "crypto";
-import { Logger } from "../logging/console.logger";
 
 interface ClientConnection {
   readonly id: string;
@@ -20,6 +18,7 @@ interface ClientConnection {
   readonly lastActivity: number;
 }
 
+// Transform Binance kline to chart data point
 const toChartDataPoint = (kline: BinanceKline): ChartDataPoint => ({
   time: Math.floor(kline.closeTime / 1000),
   open: kline.open,
@@ -32,7 +31,6 @@ const toChartDataPoint = (kline: BinanceKline): ChartDataPoint => ({
 export const createWebSocketServer = (httpServer: Server) =>
   Effect.gen(function* () {
     const subscriptionManager = yield* SubscriptionManagerTag;
-    const logger = yield* Logger;
     const wss = new WebSocketServer({ server: httpServer, path: "/ws/chart" });
     const clients = new Map<string, ClientConnection>();
     const CLIENT_TIMEOUT = 5 * 60 * 1000;
@@ -40,6 +38,7 @@ export const createWebSocketServer = (httpServer: Server) =>
     const handleConnection = (ws: WebSocket) =>
       Effect.gen(function* () {
         const clientId = randomUUID();
+        const shortId = clientId.substring(0, 8);
         let currentSymbol: string | null = null;
 
         const client: ClientConnection = {
@@ -54,11 +53,7 @@ export const createWebSocketServer = (httpServer: Server) =>
 
         const sendToClient = (data: any): void => {
           if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(data), (error) => {
-              if (error) {
-                // Silently ignore send errors
-              }
-            });
+            ws.send(JSON.stringify(data), () => {});
           }
         };
 
@@ -77,53 +72,30 @@ export const createWebSocketServer = (httpServer: Server) =>
                   }
 
                   const callback = (kline: BinanceKline) => {
-                    const dataPoint = toChartDataPoint(kline);
-                    sendToClient({
-                      type: "data",
-                      symbol,
-                      data: dataPoint,
-                    });
+                    sendToClient({ type: "data", symbol, data: toChartDataPoint(kline) });
                   };
 
                   yield* subscriptionManager.subscribe(symbol, clientId, callback);
-
                   currentSymbol = symbol;
                   (client as any).symbol = symbol;
 
-                  yield* logger.info(
-                    `[SUBSCRIBE] Client ${clientId.substring(0, 8)}... subscribed to ${symbol}`
-                  );
-
-                  sendToClient({
-                    type: "subscribed",
-                    symbol,
-                    timestamp: Date.now(),
-                  });
+                  yield* Effect.logDebug(`[WS] Client ${shortId} subscribed to ${symbol}`);
+                  sendToClient({ type: "subscribed", symbol, timestamp: Date.now() });
                 } else if (message.type === "unsubscribe") {
-                  yield* logger.info(
-                    `[UNSUBSCRIBE] Client ${clientId.substring(0, 8)}... requested unsubscribe`
-                  );
                   if (currentSymbol) {
                     yield* subscriptionManager.unsubscribe(currentSymbol, clientId);
-                    yield* logger.info(
-                      `[UNSUBSCRIBE] Client ${clientId.substring(0, 8)}... unsubscribed from ${currentSymbol}`
+                    yield* Effect.logDebug(
+                      `[WS] Client ${shortId} unsubscribed from ${currentSymbol}`
                     );
                     currentSymbol = null;
                     (client as any).symbol = null;
-
-                    sendToClient({
-                      type: "unsubscribed",
-                      timestamp: Date.now(),
-                    });
+                    sendToClient({ type: "unsubscribed", timestamp: Date.now() });
                   }
                 } else if (message.type === "ping") {
-                  sendToClient({
-                    type: "pong",
-                    timestamp: Date.now(),
-                  });
+                  sendToClient({ type: "pong", timestamp: Date.now() });
                 }
               } catch {
-                // Ignore message errors
+                // Ignore parse errors
               }
             })
           );
@@ -132,56 +104,27 @@ export const createWebSocketServer = (httpServer: Server) =>
         const handleDisconnect = Effect.gen(function* () {
           if (currentSymbol) {
             yield* subscriptionManager.unsubscribe(currentSymbol, clientId);
-            yield* logger.info(
-              `[CLEANUP] Client ${clientId.substring(0, 8)}... unsubscribed from ${currentSymbol}`
-            );
           }
           clients.delete(clientId);
-          yield* logger.info(`[CLEANUP] Client ${clientId.substring(0, 8)}... disconnected`);
+          yield* Effect.logDebug(`[WS] Client ${shortId} disconnected`);
         });
 
-        ws.on("close", (code, reason) => {
-          Effect.runFork(
-            Effect.gen(function* () {
-              yield* logger.info(
-                `[CLOSE] Client ${clientId.substring(0, 8)}... close event (code: ${code}, reason: ${reason})`
-              );
-            })
-          );
-          Effect.runFork(handleDisconnect);
-        });
+        ws.on("close", () => Effect.runFork(handleDisconnect));
+        ws.on("error", () => Effect.runFork(handleDisconnect));
 
-        ws.on("error", (error) => {
-          Effect.runFork(
-            Effect.gen(function* () {
-              yield* logger.error(`[ERROR] Client ${clientId.substring(0, 8)}... error event`, {
-                error: error.message,
-              });
-            })
-          );
-          Effect.runFork(handleDisconnect);
-        });
-
-        sendToClient({
-          type: "connected",
-          clientId,
-          timestamp: Date.now(),
-        });
-
-        yield* logger.info(`[CONNECT] Client ${clientId.substring(0, 8)}... connected`);
+        sendToClient({ type: "connected", clientId, timestamp: Date.now() });
+        yield* Effect.logDebug(`[WS] Client ${shortId} connected`);
       });
 
+    // Cleanup inactive clients periodically
     const cleanupInactiveClients = Effect.gen(function* () {
       const now = Date.now();
-
       for (const [clientId, client] of clients.entries()) {
         if (now - client.lastActivity > CLIENT_TIMEOUT) {
           client.ws.close();
-
           if (client.symbol) {
             yield* subscriptionManager.unsubscribe(client.symbol, clientId);
           }
-
           clients.delete(clientId);
         }
       }
@@ -203,14 +146,10 @@ export const createWebSocketServer = (httpServer: Server) =>
           yield* subscriptionManager.unsubscribe(client.symbol, clientId);
         }
       }
-
       clients.clear();
       yield* subscriptionManager.cleanup();
-
       yield* Effect.async<void>((resume) => {
-        wss.close(() => {
-          resume(Effect.void);
-        });
+        wss.close(() => resume(Effect.void));
       });
     });
 

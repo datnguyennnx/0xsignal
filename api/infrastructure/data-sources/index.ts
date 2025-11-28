@@ -1,13 +1,10 @@
 /**
  * Data Sources Infrastructure
- * Exports all providers and the aggregated service
+ * Exports all providers and aggregated service
  */
 
 // Types
 export * from "./types";
-
-// HTTP Service
-export * from "./http.service";
 
 // Providers
 export * from "./coingecko";

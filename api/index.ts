@@ -4,7 +4,13 @@ export * from "./domain/types";
 // Domain analysis
 export * from "./domain/analysis";
 
-// Domain strategies (excluding types that are already exported from domain/types)
+// Domain heatmap
+export * from "./domain/heatmap";
+
+// Domain buyback
+export * from "./domain/buyback";
+
+// Domain strategies
 export {
   detectRegime,
   executeMomentumStrategy,
@@ -21,7 +27,7 @@ export * from "./application";
 export * from "./services";
 
 // Infrastructure
-export * from "./infrastructure/cache/memory.cache";
-export * from "./infrastructure/logging/console.logger";
+export * from "./infrastructure/http/client";
+export * from "./infrastructure/logging/logger";
 export * from "./infrastructure/layers/app.layer";
 export * from "./infrastructure/config/app.config";

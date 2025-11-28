@@ -1,3 +1,8 @@
+/**
+ * Technical Indicators
+ * Concurrent computation of all indicators for a price
+ */
+
 import { Effect } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
 import { computeRSI } from "../formulas/momentum/rsi";
@@ -8,6 +13,7 @@ import { computeVolumeROC } from "../formulas/volume/volume-roc";
 import { computeMaximumDrawdown } from "../formulas/risk/maximum-drawdown";
 import { detectDivergence } from "../formulas/momentum/rsi";
 
+// Indicator set type
 export interface IndicatorSet {
   readonly rsi: Effect.Effect.Success<ReturnType<typeof computeRSI>>;
   readonly macd: Effect.Effect.Success<ReturnType<typeof computeMACDFromPrice>>;
@@ -18,6 +24,7 @@ export interface IndicatorSet {
   readonly divergence: Effect.Effect.Success<ReturnType<typeof detectDivergence>>;
 }
 
+// Prepare price arrays from single price point
 const preparePriceArrays = (price: CryptoPrice) => {
   const closes =
     price.high24h && price.low24h ? [price.low24h, price.price, price.high24h] : [price.price];
@@ -28,30 +35,39 @@ const preparePriceArrays = (price: CryptoPrice) => {
   return { closes, highs, lows, volumes };
 };
 
+// Compute all indicators concurrently using struct syntax
 export const computeIndicators = (price: CryptoPrice): Effect.Effect<IndicatorSet, never> =>
   Effect.gen(function* () {
     const { closes, highs, lows, volumes } = preparePriceArrays(price);
 
-    const [rsi, macd, adx, atr, volumeROC, drawdown, divergence] = yield* Effect.all(
-      [
-        computeRSI(price),
-        computeMACDFromPrice(price),
-        computeADX(highs, lows, closes),
-        computeATR(highs, lows, closes),
-        computeVolumeROC(volumes),
-        computeMaximumDrawdown(closes),
-        detectDivergence(price),
-      ],
+    // Use struct-based Effect.all for named results
+    const indicators = yield* Effect.all(
+      {
+        rsi: computeRSI(price),
+        macd: computeMACDFromPrice(price),
+        adx: computeADX(highs, lows, closes),
+        atr: computeATR(highs, lows, closes),
+        volumeROC: computeVolumeROC(volumes),
+        drawdown: computeMaximumDrawdown(closes),
+        divergence: detectDivergence(price),
+      },
       { concurrency: "unbounded" }
     );
 
-    return {
-      rsi,
-      macd,
-      adx,
-      atr,
-      volumeROC,
-      drawdown,
-      divergence,
-    };
+    return indicators;
+  });
+
+// Compute subset of indicators for quick analysis
+export const computeQuickIndicators = (price: CryptoPrice) =>
+  Effect.gen(function* () {
+    const { closes, highs, lows } = preparePriceArrays(price);
+
+    return yield* Effect.all(
+      {
+        rsi: computeRSI(price),
+        atr: computeATR(highs, lows, closes),
+        adx: computeADX(highs, lows, closes),
+      },
+      { concurrency: "unbounded" }
+    );
   });

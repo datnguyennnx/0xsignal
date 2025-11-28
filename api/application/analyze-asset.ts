@@ -1,15 +1,25 @@
-import { Effect } from "effect";
+/**
+ * Asset Analysis
+ * Single asset analysis with concurrent strategy and entry detection
+ */
+
+import { Effect, Match } from "effect";
 import type { CryptoPrice, NoiseScore } from "@0xsignal/shared";
 import type { AssetAnalysis, Signal } from "../domain/types";
 import { executeStrategies } from "../domain/strategies/executor";
 import { findEntry } from "./find-entries";
 import { calculateNoiseScore } from "../domain/formulas/statistical/noise";
 
+// Analyze single asset with concurrent computations
 export const analyzeAsset = (price: CryptoPrice): Effect.Effect<AssetAnalysis, never> =>
   Effect.gen(function* () {
-    const [strategyResult, entrySignal] = yield* Effect.all(
-      [executeStrategies(price), findEntry(price)],
-      { concurrency: "unbounded" }
+    // Execute strategy and entry detection concurrently
+    const { strategyResult, entrySignal } = yield* Effect.all(
+      {
+        strategyResult: executeStrategies(price),
+        entrySignal: findEntry(price),
+      },
+      { concurrency: 2 }
     );
 
     const { overallSignal, confidence, riskScore, recommendation } = combineResults(
@@ -18,7 +28,7 @@ export const analyzeAsset = (price: CryptoPrice): Effect.Effect<AssetAnalysis, n
       entrySignal
     );
 
-    // Extract metrics from strategy for noise calculation
+    // Extract metrics for noise calculation
     const adx = extractMetric(strategyResult, "adxValue", "adx") ?? 25;
     const normalizedATR = extractMetric(strategyResult, "normalizedATR", "atr") ?? 3;
     const indicatorAgreement = extractMetric(strategyResult, "indicatorAgreement");
@@ -30,18 +40,7 @@ export const analyzeAsset = (price: CryptoPrice): Effect.Effect<AssetAnalysis, n
       timestamp: new Date(),
       price,
       strategyResult,
-      crashSignal: {
-        isCrashing: false,
-        severity: "LOW",
-        confidence: 0,
-        indicators: {
-          rapidDrop: false,
-          volumeSpike: false,
-          oversoldExtreme: false,
-          highVolatility: false,
-        },
-        recommendation: "",
-      },
+      crashSignal: createDefaultCrashSignal(),
       entrySignal,
       overallSignal,
       confidence,
@@ -51,10 +50,26 @@ export const analyzeAsset = (price: CryptoPrice): Effect.Effect<AssetAnalysis, n
     };
   });
 
+// Default crash signal (no crash detected)
+const createDefaultCrashSignal = () => ({
+  isCrashing: false,
+  severity: "LOW" as const,
+  confidence: 0,
+  indicators: {
+    rapidDrop: false,
+    volumeSpike: false,
+    oversoldExtreme: false,
+    highVolatility: false,
+  },
+  recommendation: "",
+});
+
+// Extract metric from strategy result
 const extractMetric = (
   strategyResult: AssetAnalysis["strategyResult"],
   ...keys: string[]
 ): number | undefined => {
+  // Check all signals
   for (const signal of strategyResult.signals) {
     for (const key of keys) {
       const value = signal.metrics[key];
@@ -72,6 +87,7 @@ const extractMetric = (
   return undefined;
 };
 
+// Combine strategy and entry results
 const combineResults = (
   price: CryptoPrice,
   strategyResult: AssetAnalysis["strategyResult"],
@@ -79,8 +95,9 @@ const combineResults = (
 ) => {
   let overallSignal = strategyResult.primarySignal.signal;
   let confidence = strategyResult.overallConfidence;
-  let riskScore = strategyResult.riskScore;
+  const riskScore = strategyResult.riskScore;
 
+  // Upgrade signal if optimal entry detected
   if (entrySignal.isOptimalEntry) {
     if (entrySignal.strength === "VERY_STRONG" || entrySignal.strength === "STRONG") {
       if (overallSignal === "BUY") {
@@ -94,6 +111,16 @@ const combineResults = (
 
   return { overallSignal, confidence, riskScore, recommendation };
 };
+
+// Build recommendation using pattern matching
+const signalToAction = Match.type<Signal>().pipe(
+  Match.when("STRONG_BUY", () => "ACTION: Strong buy opportunity. Consider entering position."),
+  Match.when("BUY", () => "ACTION: Buy signal. Consider smaller position or DCA."),
+  Match.when("HOLD", () => "ACTION: Hold current positions. Wait for clearer signals."),
+  Match.when("SELL", () => "ACTION: Consider taking profits or reducing exposure."),
+  Match.when("STRONG_SELL", () => "ACTION: Exit positions. Protect capital."),
+  Match.exhaustive
+);
 
 const buildRecommendation = (
   signal: Signal,
@@ -109,24 +136,7 @@ const buildRecommendation = (
   }
 
   parts.push(strategyResult.primarySignal.reasoning);
-
-  switch (signal) {
-    case "STRONG_BUY":
-      parts.push("ACTION: Strong buy opportunity. Consider entering position.");
-      break;
-    case "BUY":
-      parts.push("ACTION: Buy signal. Consider smaller position or DCA.");
-      break;
-    case "HOLD":
-      parts.push("ACTION: Hold current positions. Wait for clearer signals.");
-      break;
-    case "SELL":
-      parts.push("ACTION: Consider taking profits or reducing exposure.");
-      break;
-    case "STRONG_SELL":
-      parts.push("ACTION: Exit positions. Protect capital.");
-      break;
-  }
+  parts.push(signalToAction(signal));
 
   return parts.join(". ");
 };

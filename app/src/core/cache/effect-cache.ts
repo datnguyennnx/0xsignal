@@ -15,14 +15,14 @@ import type {
 import { ApiServiceTag } from "../api/client";
 import type { ApiError, NetworkError } from "../api/errors";
 
-// Cache TTL Configuration
+// Cache TTL Configuration - longer TTLs to reduce API calls
 const CACHE_CONFIG = {
-  SHORT_TTL: Duration.seconds(30),
-  MEDIUM_TTL: Duration.minutes(2),
-  LONG_TTL: Duration.minutes(10),
-  SMALL_CAPACITY: 10,
-  MEDIUM_CAPACITY: 50,
-  LARGE_CAPACITY: 200,
+  SHORT_TTL: Duration.minutes(2), // 2 min for frequently changing data
+  MEDIUM_TTL: Duration.minutes(5), // 5 min for most data
+  LONG_TTL: Duration.minutes(15), // 15 min for stable data
+  SMALL_CAPACITY: 20,
+  MEDIUM_CAPACITY: 100,
+  LARGE_CAPACITY: 500,
 } as const;
 
 // Cache Service Interface
@@ -266,18 +266,21 @@ export const invalidateChartData = (symbol: string, interval: string, timeframe:
 export const invalidateAll = () =>
   Effect.gen(function* () {
     const cache = yield* CacheServiceTag;
-    yield* Effect.all([
-      cache.topAnalysis.invalidateAll,
-      cache.analysis.invalidateAll,
-      cache.chartData.invalidateAll,
-      cache.overview.invalidateAll,
-      cache.heatmap.invalidateAll,
-      cache.buybackOverview.invalidateAll,
-      cache.buybackDetail.invalidateAll,
-      cache.liquidationHeatmap.invalidateAll,
-      cache.openInterest.invalidateAll,
-      cache.fundingRate.invalidateAll,
-    ]);
+    yield* Effect.all(
+      [
+        cache.topAnalysis.invalidateAll,
+        cache.analysis.invalidateAll,
+        cache.chartData.invalidateAll,
+        cache.overview.invalidateAll,
+        cache.heatmap.invalidateAll,
+        cache.buybackOverview.invalidateAll,
+        cache.buybackDetail.invalidateAll,
+        cache.liquidationHeatmap.invalidateAll,
+        cache.openInterest.invalidateAll,
+        cache.fundingRate.invalidateAll,
+      ],
+      { concurrency: "unbounded" }
+    );
   });
 
 // Cache Statistics
@@ -285,13 +288,16 @@ export const getCacheStats = () =>
   Effect.gen(function* () {
     const cache = yield* CacheServiceTag;
     const [topAnalysisSize, analysisSize, chartDataSize, overviewSize, heatmapSize] =
-      yield* Effect.all([
-        cache.topAnalysis.size,
-        cache.analysis.size,
-        cache.chartData.size,
-        cache.overview.size,
-        cache.heatmap.size,
-      ]);
+      yield* Effect.all(
+        [
+          cache.topAnalysis.size,
+          cache.analysis.size,
+          cache.chartData.size,
+          cache.overview.size,
+          cache.heatmap.size,
+        ],
+        { concurrency: "unbounded" }
+      );
     return {
       topAnalysis: topAnalysisSize,
       analysis: analysisSize,

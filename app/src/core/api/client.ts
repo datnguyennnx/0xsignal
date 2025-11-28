@@ -85,6 +85,91 @@ export class ApiServiceTag extends Context.Tag("ApiService")<ApiServiceTag, ApiS
 // Keep backward compatibility
 export const ApiService = ApiServiceTag;
 
+// URL-based request deduplication Set for in-flight requests
+// This prevents duplicate concurrent requests to the same endpoint
+type InFlightEntry = {
+  promise: Promise<unknown>;
+  timestamp: number;
+};
+
+const inFlightRequests = new Map<string, InFlightEntry>();
+const urlSet = new Set<string>();
+
+// Clean up stale entries (older than 30 seconds)
+const cleanupStaleEntries = () => {
+  const now = Date.now();
+  for (const [key, entry] of inFlightRequests.entries()) {
+    if (now - entry.timestamp > 30000) {
+      inFlightRequests.delete(key);
+      urlSet.delete(key);
+    }
+  }
+};
+
+// Run cleanup every 10 seconds
+if (typeof window !== "undefined") {
+  setInterval(cleanupStaleEntries, 10000);
+}
+
+// Core fetch function with deduplication
+const fetchWithDedup = async <T>(url: string, options?: RequestInit): Promise<T> => {
+  const cacheKey = `${options?.method || "GET"}:${url}`;
+
+  // Check if request is already in-flight using urlSet
+  if (urlSet.has(cacheKey)) {
+    const existing = inFlightRequests.get(cacheKey);
+    if (existing) {
+      return existing.promise as Promise<T>;
+    }
+  }
+
+  // Mark URL as in-flight
+  urlSet.add(cacheKey);
+
+  const fetchPromise = (async () => {
+    try {
+      const response = await fetch(url, options);
+
+      if (!response.ok) {
+        throw new ApiError({
+          message: `API request failed: ${response.statusText}`,
+          status: response.status,
+          statusText: response.statusText,
+        });
+      }
+
+      return (await response.json()) as T;
+    } finally {
+      // Clean up after request completes
+      urlSet.delete(cacheKey);
+      inFlightRequests.delete(cacheKey);
+    }
+  })();
+
+  inFlightRequests.set(cacheKey, {
+    promise: fetchPromise,
+    timestamp: Date.now(),
+  });
+
+  return fetchPromise;
+};
+
+// Deduplicated fetch wrapped in Effect
+const fetchJsonDeduped = <T>(
+  url: string,
+  options?: RequestInit
+): Effect.Effect<T, ApiError | NetworkError> =>
+  Effect.tryPromise({
+    try: () => fetchWithDedup<T>(url, options),
+    catch: (error) => {
+      if (error instanceof ApiError) return error;
+      return new NetworkError({
+        message: error instanceof Error ? error.message : "Network request failed",
+      });
+    },
+  });
+
+// Simple fetch without deduplication (for mutations)
 const fetchJson = <T>(
   url: string,
   options?: RequestInit
@@ -115,57 +200,59 @@ const fetchJson = <T>(
   });
 
 export const ApiServiceLive = Layer.succeed(ApiServiceTag, {
-  // Health
+  // Health - no dedup needed
   health: () => fetchJson(`${API_BASE}/health`),
 
-  // Analysis
+  // Analysis - use deduped fetch for read operations
   getTopAnalysis: (limit = 20) =>
-    fetchJson<AssetAnalysis[]>(`${API_BASE}/analysis/top?limit=${limit}`),
+    fetchJsonDeduped<AssetAnalysis[]>(`${API_BASE}/analysis/top?limit=${limit}`),
 
-  getAnalysis: (symbol: string) => fetchJson<AssetAnalysis>(`${API_BASE}/analysis/${symbol}`),
+  getAnalysis: (symbol: string) =>
+    fetchJsonDeduped<AssetAnalysis>(`${API_BASE}/analysis/${symbol}`),
 
-  getOverview: () => fetchJson<MarketOverview>(`${API_BASE}/overview`),
+  getOverview: () => fetchJsonDeduped<MarketOverview>(`${API_BASE}/overview`),
 
-  getSignals: () => fetchJson<AssetAnalysis[]>(`${API_BASE}/signals`),
+  getSignals: () => fetchJsonDeduped<AssetAnalysis[]>(`${API_BASE}/signals`),
 
   // Chart
   getChartData: (symbol: string, interval: string, timeframe: string) =>
-    fetchJson<ChartDataPoint[]>(
+    fetchJsonDeduped<ChartDataPoint[]>(
       `${API_BASE}/chart?symbol=${symbol}&interval=${interval}&timeframe=${timeframe}`
     ),
 
   // Heatmap
-  getHeatmap: (limit = 100) => fetchJson<MarketHeatmap>(`${API_BASE}/heatmap?limit=${limit}`),
+  getHeatmap: (limit = 100) =>
+    fetchJsonDeduped<MarketHeatmap>(`${API_BASE}/heatmap?limit=${limit}`),
 
   // Liquidations
   getLiquidationSummary: () =>
-    fetchJson<MarketLiquidationSummary>(`${API_BASE}/liquidations/summary`),
+    fetchJsonDeduped<MarketLiquidationSummary>(`${API_BASE}/liquidations/summary`),
 
   getLiquidations: (symbol: string, timeframe: LiquidationTimeframe = "24h") =>
-    fetchJson<LiquidationData>(`${API_BASE}/liquidations/${symbol}?timeframe=${timeframe}`),
+    fetchJsonDeduped<LiquidationData>(`${API_BASE}/liquidations/${symbol}?timeframe=${timeframe}`),
 
   getLiquidationHeatmap: (symbol: string) =>
-    fetchJson<LiquidationHeatmap>(`${API_BASE}/liquidations/${symbol}/heatmap`),
+    fetchJsonDeduped<LiquidationHeatmap>(`${API_BASE}/liquidations/${symbol}/heatmap`),
 
   // Derivatives
   getTopOpenInterest: (limit = 20) =>
-    fetchJson<OpenInterestData[]>(`${API_BASE}/derivatives/open-interest?limit=${limit}`),
+    fetchJsonDeduped<OpenInterestData[]>(`${API_BASE}/derivatives/open-interest?limit=${limit}`),
 
   getOpenInterest: (symbol: string) =>
-    fetchJson<OpenInterestData>(`${API_BASE}/derivatives/${symbol}/open-interest`),
+    fetchJsonDeduped<OpenInterestData>(`${API_BASE}/derivatives/${symbol}/open-interest`),
 
   getFundingRate: (symbol: string) =>
-    fetchJson<FundingRateData>(`${API_BASE}/derivatives/${symbol}/funding-rate`),
+    fetchJsonDeduped<FundingRateData>(`${API_BASE}/derivatives/${symbol}/funding-rate`),
 
   // Buyback
   getBuybackSignals: (limit = 50) =>
-    fetchJson<BuybackSignal[]>(`${API_BASE}/buyback/signals?limit=${limit}`),
+    fetchJsonDeduped<BuybackSignal[]>(`${API_BASE}/buyback/signals?limit=${limit}`),
 
-  getBuybackOverview: () => fetchJson<BuybackOverview>(`${API_BASE}/buyback/overview`),
+  getBuybackOverview: () => fetchJsonDeduped<BuybackOverview>(`${API_BASE}/buyback/overview`),
 
   getProtocolBuyback: (protocol: string) =>
-    fetchJson<BuybackSignal>(`${API_BASE}/buyback/${protocol}`),
+    fetchJsonDeduped<BuybackSignal>(`${API_BASE}/buyback/${protocol}`),
 
   getProtocolBuybackDetail: (protocol: string) =>
-    fetchJson<ProtocolBuybackDetail>(`${API_BASE}/buyback/${protocol}/detail`),
+    fetchJsonDeduped<ProtocolBuybackDetail>(`${API_BASE}/buyback/${protocol}/detail`),
 });

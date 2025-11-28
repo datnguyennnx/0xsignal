@@ -1,73 +1,109 @@
 // Effect Runtime - Layer composition and execution utilities for React
+// CRITICAL: Uses a singleton layer to ensure cache is shared across all requests
 
-import { Effect, Layer, Runtime, Exit, Fiber } from "effect";
+import { Effect, Layer, Runtime, Exit, Fiber, Scope } from "effect";
 import { ApiServiceLive, ApiServiceTag } from "../api/client";
 import { CacheServiceLive, CacheServiceTag } from "../cache/effect-cache";
 
 // Application Layer - all services composed
-export const AppLayer = Layer.mergeAll(
+const BaseAppLayer = Layer.mergeAll(
   ApiServiceLive,
   CacheServiceLive.pipe(Layer.provide(ApiServiceLive))
 );
 
 export type AppContext = ApiServiceTag | CacheServiceTag;
 
-// Runtime singleton
-let runtimePromise: Promise<Runtime.Runtime<AppContext>> | null = null;
+// SINGLETON: Build the layer ONCE and reuse the runtime
+// This ensures the Effect Cache instances are shared across all requests
+let singletonScope: Scope.CloseableScope | null = null;
+let singletonRuntime: Runtime.Runtime<AppContext> | null = null;
 
-export const getAppRuntime = (): Promise<Runtime.Runtime<AppContext>> => {
-  if (!runtimePromise) {
-    runtimePromise = Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* Effect.runtime<AppContext>();
-      }).pipe(Effect.provide(AppLayer))
-    );
-  }
-  return runtimePromise;
+const getSingletonRuntime = async (): Promise<Runtime.Runtime<AppContext>> => {
+  if (singletonRuntime) return singletonRuntime;
+
+  // Create a scope that lives for the lifetime of the app
+  singletonScope = Effect.runSync(Scope.make());
+
+  // Build the layer once and get the runtime
+  const runtimeEffect = Layer.toRuntime(BaseAppLayer).pipe(
+    Effect.scoped,
+    Effect.map((rt) => rt)
+  );
+
+  singletonRuntime = await Effect.runPromise(
+    Effect.provide(runtimeEffect, Layer.succeed(Scope.Scope, singletonScope))
+  );
+
+  return singletonRuntime;
 };
 
-// Effect Execution
-export const runEffect = <A, E>(effect: Effect.Effect<A, E, AppContext>): Promise<A> =>
-  Effect.runPromise(effect.pipe(Effect.provide(AppLayer)));
+// Initialize runtime eagerly
+const runtimePromise = getSingletonRuntime();
 
-export const runEffectExit = <A, E>(
+// For synchronous access after initialization
+export const AppLayer = BaseAppLayer;
+
+export const getAppRuntime = (): Promise<Runtime.Runtime<AppContext>> => runtimePromise;
+
+// Effect Execution - uses singleton runtime
+export const runEffect = async <A, E>(effect: Effect.Effect<A, E, AppContext>): Promise<A> => {
+  const runtime = await runtimePromise;
+  return Runtime.runPromise(runtime)(effect);
+};
+
+export const runEffectExit = async <A, E>(
   effect: Effect.Effect<A, E, AppContext>
-): Promise<Exit.Exit<A, E>> =>
-  Effect.runPromise(effect.pipe(Effect.provide(AppLayer), Effect.exit));
+): Promise<Exit.Exit<A, E>> => {
+  const runtime = await runtimePromise;
+  return Runtime.runPromise(runtime)(Effect.exit(effect));
+};
 
 export const forkEffect = <A, E>(
   effect: Effect.Effect<A, E, AppContext>
-): Fiber.RuntimeFiber<A, E> => Effect.runFork(effect.pipe(Effect.provide(AppLayer)));
+): Fiber.RuntimeFiber<A, E> => Effect.runFork(effect.pipe(Effect.provide(BaseAppLayer)));
 
-export const runEffectWithTimeout = <A, E>(
+export const runEffectWithTimeout = async <A, E>(
   effect: Effect.Effect<A, E, AppContext>,
   timeoutMs: number
-): Promise<A | null> =>
-  Effect.runPromise(
+): Promise<A | null> => {
+  const runtime = await runtimePromise;
+  return Runtime.runPromise(runtime)(
     effect.pipe(
       Effect.timeoutTo({
         duration: `${timeoutMs} millis`,
         onSuccess: (a) => a as A | null,
         onTimeout: () => null as A | null,
-      }),
-      Effect.provide(AppLayer)
+      })
     )
   );
+};
 
-// Concurrent Execution
-export const runConcurrent = <A, E>(
+// Concurrent Execution - unbounded concurrency for maximum performance
+export const runConcurrent = async <A, E>(
   effects: readonly Effect.Effect<A, E, AppContext>[]
-): Promise<A[]> =>
-  Effect.runPromise(
-    Effect.all(effects, { concurrency: "unbounded" }).pipe(Effect.provide(AppLayer))
-  );
+): Promise<A[]> => {
+  const runtime = await runtimePromise;
+  return Runtime.runPromise(runtime)(Effect.all(effects, { concurrency: "unbounded" }));
+};
 
-export const runBatched = <A, E>(effects: Effect.Effect<A, E, AppContext>[]): Promise<A[]> =>
-  Effect.runPromise(
-    Effect.forEach(effects, (e) => e, { concurrency: "unbounded", batching: true }).pipe(
-      Effect.provide(AppLayer)
-    )
+export const runBatched = async <A, E>(
+  effects: Effect.Effect<A, E, AppContext>[]
+): Promise<A[]> => {
+  const runtime = await runtimePromise;
+  return Runtime.runPromise(runtime)(
+    Effect.forEach(effects, (e) => e, { concurrency: "unbounded", batching: true })
   );
+};
+
+// Run all effects with unbounded concurrency and request deduplication
+export const runAllUnbounded = async <A, E>(
+  effects: readonly Effect.Effect<A, E, AppContext>[]
+): Promise<A[]> => {
+  const runtime = await runtimePromise;
+  return Runtime.runPromise(runtime)(
+    Effect.all(effects, { concurrency: "unbounded", batching: true })
+  );
+};
 
 // Fiber Controller for React lifecycle
 export interface FiberController<A, E> {
@@ -91,7 +127,7 @@ export const createFiberController = <A, E>(
 export const createDeferred = <A, E>(effect: Effect.Effect<A, E, AppContext>) => {
   let result: Promise<A> | null = null;
   return {
-    run: (): Promise<A> => {
+    run: async (): Promise<A> => {
       if (!result) result = runEffect(effect);
       return result;
     },

@@ -1,10 +1,15 @@
 /**
  * Application Layer
- * Composes all infrastructure layers
+ * Composes all infrastructure layers with Effect-native logging
+ *
+ * Each service uses Effect's Cache.make internally for proper concurrent handling:
+ * - Concurrent lookups for same key only compute once
+ * - TTL-based expiration
+ * - Automatic request deduplication
  */
 
 import { Layer } from "effect";
-import { HttpServiceLive } from "../data-sources/http.service";
+import { HttpClientLive } from "../http/client";
 import { CoinGeckoServiceLive } from "../data-sources/coingecko";
 import { BinanceServiceLive } from "../data-sources/binance";
 import { HeatmapServiceLive } from "../data-sources/heatmap";
@@ -12,19 +17,18 @@ import { DefiLlamaServiceLive } from "../data-sources/defillama";
 import { AggregatedDataServiceLive } from "../data-sources/aggregator";
 import { AnalysisServiceLive } from "../../services/analysis";
 import { BuybackServiceLive } from "../../services/buyback";
-import { ChartDataServiceLive } from "../../application/stream-chart-data";
-import { CacheServiceLive } from "../cache/memory.cache";
-import { LoggerLiveDefault } from "../logging/console.logger";
+import { ChartDataServiceLive } from "../data-sources/binance/chart.provider";
+import { DevLoggerLive } from "../logging/logger";
 
-// Core layer: logging
-const CoreLayer = Layer.mergeAll(LoggerLiveDefault);
+// Core: Effect-native pretty logging
+const CoreLayer = DevLoggerLive;
 
-// Infrastructure layer: HTTP, cache, chart data
-const InfraLayer = Layer.mergeAll(HttpServiceLive, CacheServiceLive, ChartDataServiceLive).pipe(
+// Infrastructure: HTTP client with request deduplication
+const InfraLayer = Layer.mergeAll(HttpClientLive, ChartDataServiceLive).pipe(
   Layer.provide(CoreLayer)
 );
 
-// Data providers layer
+// Data providers - each has internal caching with Effect's Cache.make
 const CoinGeckoLayer = CoinGeckoServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
 );
@@ -35,27 +39,27 @@ const DefiLlamaLayer = DefiLlamaServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
 );
 
-// Heatmap layer (depends on CoinGecko)
+// Heatmap depends on CoinGecko (uses CoinGecko's cache)
 const HeatmapLayer = HeatmapServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer))
 );
 
-// Aggregated data layer (combines all providers)
+// Aggregated data combines all providers (delegates to their caches)
 const AggregatedDataLayer = AggregatedDataServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer, BinanceLayer, HeatmapLayer))
 );
 
-// Analysis layer
+// Analysis depends on CoinGecko (has own cache + uses CoinGecko's cache)
 const AnalysisLayer = AnalysisServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer))
 );
 
-// Buyback layer (depends on DefiLlama and CoinGecko)
+// Buyback depends on DefiLlama and CoinGecko (has own cache + uses their caches)
 const BuybackLayer = BuybackServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer, DefiLlamaLayer))
 );
 
-// Combined app layer
+// Combined app layer - all services with proper caching
 export const AppLayer = Layer.mergeAll(
   CoreLayer,
   InfraLayer,
