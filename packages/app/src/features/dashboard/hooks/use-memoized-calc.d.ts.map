@@ -1,1 +1,0 @@
-{"version":3,"file":"use-memoized-calc.d.ts","sourceRoot":"","sources":["use-memoized-calc.ts"],"names":[],"mappings":"AAGA,OAAO,KAAK,EAAE,aAAa,EAAE,MAAM,kBAAkB,CAAC;AAGtD,MAAM,WAAW,WAAW;IAC1B,QAAQ,CAAC,UAAU,EAAE,aAAa,EAAE,CAAC;IACrC,QAAQ,CAAC,WAAW,EAAE,aAAa,EAAE,CAAC;IACtC,QAAQ,CAAC,WAAW,EAAE,aAAa,EAAE,CAAC;CACvC;AAGD,eAAO,MAAM,kBAAkB,GAAI,UAAU,aAAa,EAAE,KAAG,WAClC,CAAC"}

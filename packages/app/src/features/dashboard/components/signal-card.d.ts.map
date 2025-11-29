@@ -1,1 +1,0 @@
-{"version":3,"file":"signal-card.d.ts","sourceRoot":"","sources":["signal-card.tsx"],"names":[],"mappings":"AAGA,OAAO,KAAK,EAAE,aAAa,EAAE,MAAM,kBAAkB,CAAC;AAKtD,UAAU,eAAe;IACvB,QAAQ,CAAC,MAAM,EAAE,aAAa,CAAC;IAC/B,QAAQ,CAAC,IAAI,EAAE,KAAK,GAAG,MAAM,GAAG,MAAM,CAAC;CACxC;AAED,wBAAgB,UAAU,CAAC,EAAE,MAAM,EAAE,IAAI,EAAE,EAAE,eAAe,2CA4F3D"}

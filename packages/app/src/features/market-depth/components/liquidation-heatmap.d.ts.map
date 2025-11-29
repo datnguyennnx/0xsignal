@@ -1,1 +1,0 @@
-{"version":3,"file":"liquidation-heatmap.d.ts","sourceRoot":"","sources":["liquidation-heatmap.tsx"],"names":[],"mappings":"AAGA,OAAO,KAAK,EAAE,kBAAkB,EAAE,MAAM,kBAAkB,CAAC;AAQ3D,UAAU,uBAAuB;IAC/B,IAAI,EAAE,kBAAkB,CAAC;IACzB,SAAS,CAAC,EAAE,OAAO,CAAC;CACrB;AAED,wBAAgB,2BAA2B,CAAC,EAAE,IAAI,EAAE,SAAS,EAAE,EAAE,uBAAuB,2CA8IvF"}
