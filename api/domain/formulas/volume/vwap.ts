@@ -1,113 +1,92 @@
-import { Effect } from "effect";
+/** VWAP (Volume Weighted Average Price) - Intraday Benchmark */
+// VWAP = Σ(Typical Price × Volume) / Σ(Volume)
+
+import { Effect, Match } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// VWAP (Volume Weighted Average Price) - Intraday Benchmark
-// ============================================================================
-// Average price weighted by volume, used as a benchmark for execution quality
-// Resets daily in traditional markets
-//
-// Formula:
-// VWAP = Σ(Typical Price × Volume) / Σ(Volume)
-// Typical Price = (High + Low + Close) / 3
-//
-// Interpretation:
-// - Price above VWAP: Bullish, buying above average
-// - Price below VWAP: Bearish, selling below average
-// - VWAP acts as support/resistance
-// ============================================================================
-
 export interface VWAPResult {
-  readonly value: number; // VWAP value
+  readonly value: number;
   readonly position: "ABOVE" | "BELOW" | "AT";
-  readonly deviation: number; // Percentage deviation from VWAP
+  readonly deviation: number;
 }
 
-/**
- * Pure function to calculate VWAP
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param closes - Array of closing prices
- * @param volumes - Array of volumes
- */
+// Position classification
+const classifyPosition = (price: number, vwap: number): "ABOVE" | "BELOW" | "AT" =>
+  Match.value(price / vwap).pipe(
+    Match.when(
+      (r) => r > 1.001,
+      () => "ABOVE" as const
+    ),
+    Match.when(
+      (r) => r < 0.999,
+      () => "BELOW" as const
+    ),
+    Match.orElse(() => "AT" as const)
+  );
+
+// Typical price
+const typicalPrice = (high: number, low: number, close: number): number => (high + low + close) / 3;
+
+// Safe division
+const safeDivide = (num: number, denom: number): number => (denom === 0 ? 0 : num / denom);
+
+// Calculate VWAP
 export const calculateVWAP = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   volumes: ReadonlyArray<number>
 ): VWAPResult => {
-  let cumulativePV = 0;
-  let cumulativeVolume = 0;
+  const { cumulativePV, cumulativeVolume } = closes.reduce(
+    (acc, close, i) => {
+      const tp = typicalPrice(highs[i], lows[i], close);
+      return {
+        cumulativePV: acc.cumulativePV + tp * volumes[i],
+        cumulativeVolume: acc.cumulativeVolume + volumes[i],
+      };
+    },
+    { cumulativePV: 0, cumulativeVolume: 0 }
+  );
 
-  // Calculate cumulative price × volume and cumulative volume
-  for (let i = 0; i < closes.length; i++) {
-    const typicalPrice = (highs[i] + lows[i] + closes[i]) / 3;
-    cumulativePV += typicalPrice * volumes[i];
-    cumulativeVolume += volumes[i];
-  }
-
-  // Calculate VWAP
-  const vwap = cumulativeVolume === 0 ? 0 : cumulativePV / cumulativeVolume;
-
-  // Determine position relative to VWAP
+  const vwap = safeDivide(cumulativePV, cumulativeVolume);
   const currentPrice = closes[closes.length - 1];
-  let position: "ABOVE" | "BELOW" | "AT";
-  if (currentPrice > vwap * 1.001) {
-    position = "ABOVE";
-  } else if (currentPrice < vwap * 0.999) {
-    position = "BELOW";
-  } else {
-    position = "AT";
-  }
-
-  // Calculate deviation
-  const deviation = vwap === 0 ? 0 : ((currentPrice - vwap) / vwap) * 100;
+  const deviation = safeDivide(currentPrice - vwap, vwap) * 100;
 
   return {
     value: Math.round(vwap * 100) / 100,
-    position,
+    position: classifyPosition(currentPrice, vwap),
     deviation: Math.round(deviation * 100) / 100,
   };
 };
 
-/**
- * Pure function to calculate VWAP series
- */
+// Calculate VWAP series
 export const calculateVWAPSeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   volumes: ReadonlyArray<number>
-): ReadonlyArray<number> => {
-  const vwapSeries: number[] = [];
-  let cumulativePV = 0;
-  let cumulativeVolume = 0;
+): ReadonlyArray<number> =>
+  closes.reduce<{ series: number[]; cumPV: number; cumVol: number }>(
+    (acc, close, i) => {
+      const tp = typicalPrice(highs[i], lows[i], close);
+      const cumPV = acc.cumPV + tp * volumes[i];
+      const cumVol = acc.cumVol + volumes[i];
+      return {
+        series: [...acc.series, safeDivide(cumPV, cumVol)],
+        cumPV,
+        cumVol,
+      };
+    },
+    { series: [], cumPV: 0, cumVol: 0 }
+  ).series;
 
-  for (let i = 0; i < closes.length; i++) {
-    const typicalPrice = (highs[i] + lows[i] + closes[i]) / 3;
-    cumulativePV += typicalPrice * volumes[i];
-    cumulativeVolume += volumes[i];
-
-    const vwap = cumulativeVolume === 0 ? 0 : cumulativePV / cumulativeVolume;
-    vwapSeries.push(vwap);
-  }
-
-  return vwapSeries;
-};
-
-/**
- * Effect-based wrapper for VWAP calculation
- */
+// Effect-based wrapper
 export const computeVWAP = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   volumes: ReadonlyArray<number>
 ): Effect.Effect<VWAPResult> => Effect.sync(() => calculateVWAP(highs, lows, closes, volumes));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const VWAPMetadata: FormulaMetadata = {
   name: "VWAP",

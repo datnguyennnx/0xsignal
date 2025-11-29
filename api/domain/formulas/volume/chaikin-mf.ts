@@ -1,48 +1,59 @@
-import { Effect } from "effect";
-import type { FormulaMetadata } from "../core/types";
-import { mean } from "../core/math";
+/** Chaikin Money Flow (CMF) - Volume-Weighted Accumulation/Distribution */
+// CMF = Σ(MFM × Volume) / Σ(Volume), oscillates -1 to +1
 
-// ============================================================================
-// CHAIKIN MONEY FLOW (CMF) - Volume-Weighted Accumulation/Distribution
-// ============================================================================
-// Measures the amount of money flow over a specific period
-// Oscillates between -1 and +1
-//
-// Formula:
-// Money Flow Multiplier = ((Close - Low) - (High - Close)) / (High - Low)
-// Money Flow Volume = Money Flow Multiplier × Volume
-// CMF = Sum(Money Flow Volume, period) / Sum(Volume, period)
-//
-// Interpretation:
-// - CMF > 0: Buying pressure (accumulation)
-// - CMF < 0: Selling pressure (distribution)
-// - CMF > 0.25: Strong buying pressure
-// - CMF < -0.25: Strong selling pressure
-// ============================================================================
+import { Effect, Match } from "effect";
+import type { FormulaMetadata } from "../core/types";
 
 export interface ChaikinMFResult {
-  readonly value: number; // CMF value (-1 to +1)
+  readonly value: number;
   readonly signal: "STRONG_BUYING" | "BUYING" | "NEUTRAL" | "SELLING" | "STRONG_SELLING";
   readonly pressure: "ACCUMULATION" | "DISTRIBUTION" | "NEUTRAL";
 }
 
-/**
- * Pure function to calculate Money Flow Multiplier
- */
-const calculateMoneyFlowMultiplier = (high: number, low: number, close: number): number => {
+// Signal classification
+const classifySignal = Match.type<number>().pipe(
+  Match.when(
+    (c) => c > 0.25,
+    () => "STRONG_BUYING" as const
+  ),
+  Match.when(
+    (c) => c > 0,
+    () => "BUYING" as const
+  ),
+  Match.when(
+    (c) => c < -0.25,
+    () => "STRONG_SELLING" as const
+  ),
+  Match.when(
+    (c) => c < 0,
+    () => "SELLING" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Pressure classification
+const classifyPressure = Match.type<number>().pipe(
+  Match.when(
+    (c) => c > 0.05,
+    () => "ACCUMULATION" as const
+  ),
+  Match.when(
+    (c) => c < -0.05,
+    () => "DISTRIBUTION" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Money Flow Multiplier
+const calcMFM = (high: number, low: number, close: number): number => {
   const range = high - low;
-  if (range === 0) return 0;
-  return (close - low - (high - close)) / range;
+  return range === 0 ? 0 : (close - low - (high - close)) / range;
 };
 
-/**
- * Pure function to calculate Chaikin Money Flow
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param closes - Array of closing prices
- * @param volumes - Array of volumes
- * @param period - CMF period (default: 21)
- */
+// Safe division
+const safeDivide = (num: number, denom: number): number => (denom === 0 ? 0 : num / denom);
+
+// Calculate Chaikin Money Flow
 export const calculateChaikinMF = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -50,96 +61,46 @@ export const calculateChaikinMF = (
   volumes: ReadonlyArray<number>,
   period: number = 21
 ): ChaikinMFResult => {
-  // Get the last period values
   const startIdx = Math.max(0, closes.length - period);
-  const recentHighs = highs.slice(startIdx);
-  const recentLows = lows.slice(startIdx);
-  const recentCloses = closes.slice(startIdx);
-  const recentVolumes = volumes.slice(startIdx);
+  const { sumMFV, sumVolume } = closes.slice(startIdx).reduce(
+    (acc, close, i) => {
+      const idx = startIdx + i;
+      const mfv = calcMFM(highs[idx], lows[idx], close) * volumes[idx];
+      return { sumMFV: acc.sumMFV + mfv, sumVolume: acc.sumVolume + volumes[idx] };
+    },
+    { sumMFV: 0, sumVolume: 0 }
+  );
 
-  // Calculate money flow volume and total volume
-  let sumMFV = 0;
-  let sumVolume = 0;
-
-  for (let i = 0; i < recentCloses.length; i++) {
-    const mfm = calculateMoneyFlowMultiplier(recentHighs[i], recentLows[i], recentCloses[i]);
-    const mfv = mfm * recentVolumes[i];
-    sumMFV += mfv;
-    sumVolume += recentVolumes[i];
-  }
-
-  // Calculate CMF
-  const cmf = sumVolume === 0 ? 0 : sumMFV / sumVolume;
-
-  // Determine signal
-  let signal: "STRONG_BUYING" | "BUYING" | "NEUTRAL" | "SELLING" | "STRONG_SELLING";
-  if (cmf > 0.25) {
-    signal = "STRONG_BUYING";
-  } else if (cmf > 0) {
-    signal = "BUYING";
-  } else if (cmf < -0.25) {
-    signal = "STRONG_SELLING";
-  } else if (cmf < 0) {
-    signal = "SELLING";
-  } else {
-    signal = "NEUTRAL";
-  }
-
-  // Determine pressure
-  let pressure: "ACCUMULATION" | "DISTRIBUTION" | "NEUTRAL";
-  if (cmf > 0.05) {
-    pressure = "ACCUMULATION";
-  } else if (cmf < -0.05) {
-    pressure = "DISTRIBUTION";
-  } else {
-    pressure = "NEUTRAL";
-  }
+  const cmf = safeDivide(sumMFV, sumVolume);
 
   return {
     value: Math.round(cmf * 1000) / 1000,
-    signal,
-    pressure,
+    signal: classifySignal(cmf),
+    pressure: classifyPressure(cmf),
   };
 };
 
-/**
- * Pure function to calculate Chaikin Money Flow series
- */
+// Calculate CMF series
 export const calculateChaikinMFSeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   volumes: ReadonlyArray<number>,
   period: number = 21
-): ReadonlyArray<number> => {
-  const cmfSeries: number[] = [];
+): ReadonlyArray<number> =>
+  Array.from({ length: closes.length - period + 1 }, (_, idx) => {
+    const i = idx + period - 1;
+    const { sumMFV, sumVolume } = Array.from({ length: period }, (_, j) => {
+      const k = i - period + 1 + j;
+      return { mfv: calcMFM(highs[k], lows[k], closes[k]) * volumes[k], vol: volumes[k] };
+    }).reduce(
+      (acc, { mfv, vol }) => ({ sumMFV: acc.sumMFV + mfv, sumVolume: acc.sumVolume + vol }),
+      { sumMFV: 0, sumVolume: 0 }
+    );
+    return safeDivide(sumMFV, sumVolume);
+  });
 
-  for (let i = period - 1; i < closes.length; i++) {
-    const windowHighs = highs.slice(i - period + 1, i + 1);
-    const windowLows = lows.slice(i - period + 1, i + 1);
-    const windowCloses = closes.slice(i - period + 1, i + 1);
-    const windowVolumes = volumes.slice(i - period + 1, i + 1);
-
-    let sumMFV = 0;
-    let sumVolume = 0;
-
-    for (let j = 0; j < period; j++) {
-      const mfm = calculateMoneyFlowMultiplier(windowHighs[j], windowLows[j], windowCloses[j]);
-      const mfv = mfm * windowVolumes[j];
-      sumMFV += mfv;
-      sumVolume += windowVolumes[j];
-    }
-
-    const cmf = sumVolume === 0 ? 0 : sumMFV / sumVolume;
-    cmfSeries.push(cmf);
-  }
-
-  return cmfSeries;
-};
-
-/**
- * Effect-based wrapper for Chaikin Money Flow calculation
- */
+// Effect-based wrapper
 export const computeChaikinMF = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -148,10 +109,6 @@ export const computeChaikinMF = (
   period: number = 21
 ): Effect.Effect<ChaikinMFResult> =>
   Effect.sync(() => calculateChaikinMF(highs, lows, closes, volumes, period));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const ChaikinMFMetadata: FormulaMetadata = {
   name: "ChaikinMF",

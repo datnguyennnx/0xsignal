@@ -1,39 +1,70 @@
-import { Effect } from "effect";
+/** Stochastic Oscillator - Momentum Analysis */
+// %K = 100 * (Close - LowestLow) / (HighestHigh - LowestLow), %D = SMA(%K)
+
+import { Effect, Match, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 import { mean } from "../core/math";
 
-// ============================================================================
-// STOCHASTIC OSCILLATOR - Momentum Analysis
-// ============================================================================
-// Measures the position of the current close relative to the high-low range
-// over a given period. Identifies overbought/oversold conditions.
-//
-// Formula:
-// %K = 100 * (Close - Lowest Low) / (Highest High - Lowest Low)
-// %D = SMA(%K, smoothing period)
-//
-// Interpretation:
-// - %K > 80: Overbought
-// - %K < 20: Oversold
-// - %K crosses above %D: Buy signal
-// - %K crosses below %D: Sell signal
-// ============================================================================
-
 export interface StochasticResult {
-  readonly k: number; // %K value (0-100)
-  readonly d: number; // %D value (0-100)
+  readonly k: number;
+  readonly d: number;
   readonly signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL";
   readonly crossover: "BULLISH" | "BEARISH" | "NONE";
 }
 
-/**
- * Pure function to calculate Stochastic Oscillator
- * @param closes - Array of closing prices
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param kPeriod - Period for %K calculation (default: 14)
- * @param dPeriod - Period for %D smoothing (default: 3)
- */
+// Signal classification
+const classifySignal = Match.type<number>().pipe(
+  Match.when(
+    (k) => k > 80,
+    () => "OVERBOUGHT" as const
+  ),
+  Match.when(
+    (k) => k < 20,
+    () => "OVERSOLD" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Crossover detection
+const detectCrossover = (
+  prevK: number,
+  prevD: number,
+  k: number,
+  d: number
+): "BULLISH" | "BEARISH" | "NONE" =>
+  pipe(
+    Match.value({ prevK, prevD, k, d }),
+    Match.when(
+      ({ prevK, prevD, k, d }) => prevK <= prevD && k > d,
+      () => "BULLISH" as const
+    ),
+    Match.when(
+      ({ prevK, prevD, k, d }) => prevK >= prevD && k < d,
+      () => "BEARISH" as const
+    ),
+    Match.orElse(() => "NONE" as const)
+  );
+
+// Safe %K calculation
+const calcK = (close: number, lowestLow: number, highestHigh: number): number => {
+  const range = highestHigh - lowestLow;
+  return range === 0 ? 50 : ((close - lowestLow) / range) * 100;
+};
+
+// Calculate %K for a window
+const calcKForWindow = (
+  closes: ReadonlyArray<number>,
+  highs: ReadonlyArray<number>,
+  lows: ReadonlyArray<number>,
+  index: number,
+  kPeriod: number
+): number => {
+  const windowHighs = highs.slice(index - kPeriod + 1, index + 1);
+  const windowLows = lows.slice(index - kPeriod + 1, index + 1);
+  return calcK(closes[index], Math.min(...windowLows), Math.max(...windowHighs));
+};
+
+// Calculate Stochastic Oscillator
 export const calculateStochastic = (
   closes: ReadonlyArray<number>,
   highs: ReadonlyArray<number>,
@@ -41,113 +72,53 @@ export const calculateStochastic = (
   kPeriod: number = 14,
   dPeriod: number = 3
 ): StochasticResult => {
-  // Get the last kPeriod values
-  const recentCloses = closes.slice(-kPeriod);
   const recentHighs = highs.slice(-kPeriod);
   const recentLows = lows.slice(-kPeriod);
+  const currentClose = closes[closes.length - 1];
 
-  // Find highest high and lowest low
-  const highestHigh = Math.max(...recentHighs);
-  const lowestLow = Math.min(...recentLows);
-  const currentClose = recentCloses[recentCloses.length - 1];
-
-  // Calculate %K
-  const range = highestHigh - lowestLow;
-  const k = range === 0 ? 50 : ((currentClose - lowestLow) / range) * 100;
+  const k = calcK(currentClose, Math.min(...recentLows), Math.max(...recentHighs));
 
   // Calculate %K series for %D
-  const kSeries: number[] = [];
-  for (let i = kPeriod - 1; i < closes.length; i++) {
-    const windowHighs = highs.slice(i - kPeriod + 1, i + 1);
-    const windowLows = lows.slice(i - kPeriod + 1, i + 1);
-    const windowClose = closes[i];
+  const kSeries = Array.from({ length: closes.length - kPeriod + 1 }, (_, i) =>
+    calcKForWindow(closes, highs, lows, i + kPeriod - 1, kPeriod)
+  );
 
-    const hh = Math.max(...windowHighs);
-    const ll = Math.min(...windowLows);
-    const r = hh - ll;
-    const kVal = r === 0 ? 50 : ((windowClose - ll) / r) * 100;
-    kSeries.push(kVal);
-  }
-
-  // Calculate %D (SMA of %K)
-  const recentK = kSeries.slice(-dPeriod);
-  const d = mean(recentK);
-
-  // Determine signal
-  let signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL";
-  if (k > 80) {
-    signal = "OVERBOUGHT";
-  } else if (k < 20) {
-    signal = "OVERSOLD";
-  } else {
-    signal = "NEUTRAL";
-  }
+  const d = mean(kSeries.slice(-dPeriod));
 
   // Determine crossover
-  let crossover: "BULLISH" | "BEARISH" | "NONE" = "NONE";
-  if (kSeries.length >= 2) {
-    const prevK = kSeries[kSeries.length - 2];
-    const prevD = mean(kSeries.slice(-dPeriod - 1, -1));
-
-    if (prevK <= prevD && k > d) {
-      crossover = "BULLISH";
-    } else if (prevK >= prevD && k < d) {
-      crossover = "BEARISH";
-    }
-  }
+  const crossover =
+    kSeries.length >= 2
+      ? detectCrossover(kSeries[kSeries.length - 2], mean(kSeries.slice(-dPeriod - 1, -1)), k, d)
+      : ("NONE" as const);
 
   return {
     k: Math.round(k * 100) / 100,
     d: Math.round(d * 100) / 100,
-    signal,
+    signal: classifySignal(k),
     crossover,
   };
 };
 
-/**
- * Pure function to calculate Stochastic series
- */
+// Calculate Stochastic series
 export const calculateStochasticSeries = (
   closes: ReadonlyArray<number>,
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   kPeriod: number = 14,
   dPeriod: number = 3
-): {
-  readonly k: ReadonlyArray<number>;
-  readonly d: ReadonlyArray<number>;
-} => {
-  const kSeries: number[] = [];
+): { readonly k: ReadonlyArray<number>; readonly d: ReadonlyArray<number> } => {
+  const kSeries = Array.from({ length: closes.length - kPeriod + 1 }, (_, i) =>
+    calcKForWindow(closes, highs, lows, i + kPeriod - 1, kPeriod)
+  );
 
-  // Calculate %K series
-  for (let i = kPeriod - 1; i < closes.length; i++) {
-    const windowHighs = highs.slice(i - kPeriod + 1, i + 1);
-    const windowLows = lows.slice(i - kPeriod + 1, i + 1);
-    const windowClose = closes[i];
+  const dSeries = Array.from({ length: kSeries.length - dPeriod + 1 }, (_, i) =>
+    mean(kSeries.slice(i, i + dPeriod))
+  );
 
-    const hh = Math.max(...windowHighs);
-    const ll = Math.min(...windowLows);
-    const r = hh - ll;
-    const kVal = r === 0 ? 50 : ((windowClose - ll) / r) * 100;
-    kSeries.push(kVal);
-  }
-
-  // Calculate %D series (SMA of %K)
-  const dSeries: number[] = [];
-  for (let i = dPeriod - 1; i < kSeries.length; i++) {
-    const window = kSeries.slice(i - dPeriod + 1, i + 1);
-    dSeries.push(mean(window));
-  }
-
-  return {
-    k: kSeries,
-    d: dSeries,
-  };
+  return { k: kSeries, d: dSeries };
 };
 
-/**
- * Effect-based wrapper with validation
- */
+// Effect-based wrapper
 export const computeStochastic = (
   closes: ReadonlyArray<number>,
   highs: ReadonlyArray<number>,
@@ -156,10 +127,6 @@ export const computeStochastic = (
   dPeriod: number = 3
 ): Effect.Effect<StochasticResult> =>
   Effect.sync(() => calculateStochastic(closes, highs, lows, kPeriod, dPeriod));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const StochasticMetadata: FormulaMetadata = {
   name: "Stochastic",

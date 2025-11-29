@@ -1,7 +1,4 @@
-/**
- * Data Sources Aggregator
- * Combines multiple data sources - caching is handled by underlying services
- */
+/** Data Sources Aggregator - Combines multiple providers */
 
 import { Effect, Context, Layer } from "effect";
 import type {
@@ -20,7 +17,6 @@ import { BinanceService } from "./binance";
 import { HeatmapService } from "./heatmap";
 import { DataSourceError, type AdapterInfo } from "./types";
 
-// Service interface
 export interface AggregatedDataService {
   readonly getPrice: (symbol: string) => Effect.Effect<CryptoPrice, DataSourceError>;
   readonly getTopCryptos: (limit?: number) => Effect.Effect<CryptoPrice[], DataSourceError>;
@@ -51,7 +47,6 @@ export class AggregatedDataServiceTag extends Context.Tag("AggregatedDataService
   AggregatedDataService
 >() {}
 
-// Service implementation - delegates to underlying services which have their own caching
 export const AggregatedDataServiceLive = Layer.effect(
   AggregatedDataServiceTag,
   Effect.gen(function* () {
@@ -60,23 +55,22 @@ export const AggregatedDataServiceLive = Layer.effect(
     const heatmap = yield* HeatmapService;
 
     return {
-      // Spot prices via CoinGecko (cached internally)
-      getPrice: (symbol: string) => coinGecko.getPrice(symbol),
+      // Spot (CoinGecko)
+      getPrice: (symbol) => coinGecko.getPrice(symbol),
       getTopCryptos: (limit = 100) => coinGecko.getTopCryptos(limit),
 
-      // Liquidations via Binance (cached internally)
-      getLiquidations: (symbol: string, timeframe: LiquidationTimeframe) =>
-        binance.getLiquidations(symbol, timeframe),
-      getLiquidationHeatmap: (symbol: string) => binance.getLiquidationHeatmap(symbol),
+      // Liquidations (Binance)
+      getLiquidations: (symbol, timeframe) => binance.getLiquidations(symbol, timeframe),
+      getLiquidationHeatmap: (symbol) => binance.getLiquidationHeatmap(symbol),
       getMarketLiquidationSummary: () => binance.getMarketLiquidationSummary(),
 
-      // Derivatives via Binance (cached internally)
-      getOpenInterest: (symbol: string) => binance.getOpenInterest(symbol),
-      getFundingRate: (symbol: string) => binance.getFundingRate(symbol),
+      // Derivatives (Binance)
+      getOpenInterest: (symbol) => binance.getOpenInterest(symbol),
+      getFundingRate: (symbol) => binance.getFundingRate(symbol),
       getTopOpenInterest: (limit = 20) => binance.getTopOpenInterest(limit),
 
-      // Heatmap (cached internally)
-      getMarketHeatmap: (config: HeatmapConfig) => heatmap.getMarketHeatmap(config),
+      // Heatmap
+      getMarketHeatmap: (config) => heatmap.getMarketHeatmap(config),
 
       // Metadata
       getSources: () => [coinGecko.info, binance.info, heatmap.info] as const,

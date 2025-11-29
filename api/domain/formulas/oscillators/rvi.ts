@@ -1,49 +1,106 @@
-import { Effect } from "effect";
+/** RVI (Relative Vigor Index) - Trend conviction using OHLC with functional patterns */
+// RVI = SMA(Numerator) / SMA(Denominator), Signal = SMA(RVI, 4)
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 import { calculateSMA } from "../trend/moving-averages";
 
-// ============================================================================
-// RVI (Relative Vigor Index) - Momentum Oscillator
-// ============================================================================
-// Measures the conviction of a price trend by comparing closing price
-// to opening price relative to the high-low range
-//
-// Formula:
-// Numerator = (Close - Open) + 2×(Close[1] - Open[1]) + 2×(Close[2] - Open[2]) + (Close[3] - Open[3])
-// Denominator = (High - Low) + 2×(High[1] - Low[1]) + 2×(High[2] - Low[2]) + (High[3] - Low[3])
-// RVI = SMA(Numerator, period) / SMA(Denominator, period)
-// Signal = SMA(RVI, 4)
-//
-// Interpretation:
-// - RVI > 0: Bullish momentum
-// - RVI < 0: Bearish momentum
-// - RVI crosses above Signal: Buy signal
-// - RVI crosses below Signal: Sell signal
-// ============================================================================
-
 export interface RVIResult {
-  readonly rvi: number; // RVI value
-  readonly signal: number; // Signal line
+  readonly rvi: number;
+  readonly signal: number;
   readonly crossover: "BULLISH" | "BEARISH" | "NONE";
   readonly momentum: "POSITIVE" | "NEGATIVE" | "NEUTRAL";
 }
 
-/**
- * Pure function to calculate weighted value
- */
-const calculateWeightedValue = (values: ReadonlyArray<number>, index: number): number => {
-  if (index < 3) return 0;
-  return (values[index] + 2 * values[index - 1] + 2 * values[index - 2] + values[index - 3]) / 6;
+// Momentum classification
+const classifyMomentum = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 0.05,
+    () => "POSITIVE" as const
+  ),
+  Match.when(
+    (v) => v < -0.05,
+    () => "NEGATIVE" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Crossover classification
+const classifyCrossover = Match.type<{
+  prev: number;
+  curr: number;
+  prevSig: number;
+  currSig: number;
+}>().pipe(
+  Match.when(
+    ({ prev, curr, prevSig, currSig }) => prev <= prevSig && curr > currSig,
+    () => "BULLISH" as const
+  ),
+  Match.when(
+    ({ prev, curr, prevSig, currSig }) => prev >= prevSig && curr < currSig,
+    () => "BEARISH" as const
+  ),
+  Match.orElse(() => "NONE" as const)
+);
+
+// Round to 3 decimal places
+const round3 = (n: number): number => Math.round(n * 1000) / 1000;
+
+// Calculate weighted value for RVI
+const calculateWeightedValue = (values: ReadonlyArray<number>, index: number): number =>
+  index < 3
+    ? 0
+    : (values[index] + 2 * values[index - 1] + 2 * values[index - 2] + values[index - 3]) / 6;
+
+// Numerator/Denominator data
+interface NumDenData {
+  readonly numerators: ReadonlyArray<number>;
+  readonly denominators: ReadonlyArray<number>;
+}
+
+// Calculate numerators and denominators using Arr.makeBy
+const calculateNumDen = (
+  opens: ReadonlyArray<number>,
+  highs: ReadonlyArray<number>,
+  lows: ReadonlyArray<number>,
+  closes: ReadonlyArray<number>
+): NumDenData => {
+  const closeOpen = Arr.zipWith(closes, opens, (c, o) => c - o);
+  const highLow = Arr.zipWith(highs, lows, (h, l) => h - l);
+
+  const indices = Arr.makeBy(closes.length - 3, (i) => i + 3);
+
+  return {
+    numerators: Arr.map(indices, (i) => calculateWeightedValue(closeOpen, i)),
+    denominators: Arr.map(indices, (i) => calculateWeightedValue(highLow, i)),
+  };
 };
 
-/**
- * Pure function to calculate RVI
- * @param opens - Array of opening prices
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param closes - Array of closing prices
- * @param period - RVI period (default: 10)
- */
+// Calculate RVI series from numerators and denominators
+const calculateRVISeries = (
+  numerators: ReadonlyArray<number>,
+  denominators: ReadonlyArray<number>,
+  period: number
+): ReadonlyArray<number> =>
+  pipe(
+    Arr.makeBy(numerators.length - period + 1, (i) => {
+      const numWindow = Arr.take(Arr.drop(numerators, i), period);
+      const denWindow = Arr.take(Arr.drop(denominators, i), period);
+      const nAvg =
+        pipe(
+          numWindow,
+          Arr.reduce(0, (a, b) => a + b)
+        ) / period;
+      const dAvg =
+        pipe(
+          denWindow,
+          Arr.reduce(0, (a, b) => a + b)
+        ) / period;
+      return dAvg === 0 ? 0 : nAvg / dAvg;
+    })
+  );
+
+// Calculate RVI
 export const calculateRVI = (
   opens: ReadonlyArray<number>,
   highs: ReadonlyArray<number>,
@@ -51,75 +108,44 @@ export const calculateRVI = (
   closes: ReadonlyArray<number>,
   period: number = 10
 ): RVIResult => {
-  // Calculate numerator and denominator series
-  const numerators: number[] = [];
-  const denominators: number[] = [];
-
-  for (let i = 3; i < closes.length; i++) {
-    const closeOpen = closes.map((c, idx) => c - opens[idx]);
-    const highLow = highs.map((h, idx) => h - lows[idx]);
-
-    const num = calculateWeightedValue(closeOpen, i);
-    const den = calculateWeightedValue(highLow, i);
-
-    numerators.push(num);
-    denominators.push(den);
-  }
-
-  // Calculate RVI using SMA
-  const numSMA = calculateSMA(numerators.slice(-period), period).value;
-  const denSMA = calculateSMA(denominators.slice(-period), period).value;
-
+  const { numerators, denominators } = calculateNumDen(opens, highs, lows, closes);
+  const numSMA = calculateSMA(Arr.takeRight(numerators, period), period).value;
+  const denSMA = calculateSMA(Arr.takeRight(denominators, period), period).value;
   const rvi = denSMA === 0 ? 0 : numSMA / denSMA;
 
-  // Calculate RVI series for signal line
-  const rviSeries: number[] = [];
-  for (let i = period - 1; i < numerators.length; i++) {
-    const numWindow = numerators.slice(i - period + 1, i + 1);
-    const denWindow = denominators.slice(i - period + 1, i + 1);
-    const nAvg = numWindow.reduce((a, b) => a + b, 0) / period;
-    const dAvg = denWindow.reduce((a, b) => a + b, 0) / period;
-    rviSeries.push(dAvg === 0 ? 0 : nAvg / dAvg);
-  }
-
-  // Calculate signal line (4-period SMA of RVI)
-  const signal = rviSeries.length >= 4 ? calculateSMA(rviSeries.slice(-4), 4).value : rvi;
+  const rviSeries = calculateRVISeries(numerators, denominators, period);
+  const signal = rviSeries.length >= 4 ? calculateSMA(Arr.takeRight(rviSeries, 4), 4).value : rvi;
 
   // Determine crossover
-  let crossover: "BULLISH" | "BEARISH" | "NONE" = "NONE";
-  if (rviSeries.length >= 2) {
-    const prevRVI = rviSeries[rviSeries.length - 2];
-    const prevSignal =
-      rviSeries.length >= 5 ? calculateSMA(rviSeries.slice(-5, -1), 4).value : prevRVI;
-
-    if (prevRVI <= prevSignal && rvi > signal) {
-      crossover = "BULLISH";
-    } else if (prevRVI >= prevSignal && rvi < signal) {
-      crossover = "BEARISH";
-    }
-  }
-
-  // Determine momentum
-  let momentum: "POSITIVE" | "NEGATIVE" | "NEUTRAL";
-  if (rvi > 0.05) {
-    momentum = "POSITIVE";
-  } else if (rvi < -0.05) {
-    momentum = "NEGATIVE";
-  } else {
-    momentum = "NEUTRAL";
-  }
+  const crossover: "BULLISH" | "BEARISH" | "NONE" =
+    rviSeries.length >= 2
+      ? pipe(
+          {
+            prevRVI: rviSeries[rviSeries.length - 2],
+            prevSignal:
+              rviSeries.length >= 5
+                ? calculateSMA(Arr.take(Arr.takeRight(rviSeries, 5), 4), 4).value
+                : rviSeries[rviSeries.length - 2],
+          },
+          ({ prevRVI, prevSignal }) =>
+            classifyCrossover({
+              prev: prevRVI,
+              curr: rvi,
+              prevSig: prevSignal,
+              currSig: signal,
+            })
+        )
+      : "NONE";
 
   return {
-    rvi: Math.round(rvi * 1000) / 1000,
-    signal: Math.round(signal * 1000) / 1000,
+    rvi: round3(rvi),
+    signal: round3(signal),
     crossover,
-    momentum,
+    momentum: classifyMomentum(rvi),
   };
 };
 
-/**
- * Effect-based wrapper for RVI calculation
- */
+// Effect-based wrapper
 export const computeRVI = (
   opens: ReadonlyArray<number>,
   highs: ReadonlyArray<number>,
@@ -127,10 +153,6 @@ export const computeRVI = (
   closes: ReadonlyArray<number>,
   period: number = 10
 ): Effect.Effect<RVIResult> => Effect.sync(() => calculateRVI(opens, highs, lows, closes, period));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const RVIMetadata: FormulaMetadata = {
   name: "RVI",

@@ -1,92 +1,71 @@
-import { Effect } from "effect";
+/** Bollinger Band Width - Volatility squeeze indicator */
+// BBW = (Upper Band - Lower Band) / Middle Band
+
+import { Effect, Match } from "effect";
 import type { FormulaMetadata } from "../core/types";
 import { calculateBollingerBands } from "../volatility/bollinger-bands";
 import type { CryptoPrice } from "@0xsignal/shared";
 
-// ============================================================================
-// BOLLINGER BAND WIDTH - Volatility Squeeze Indicator
-// ============================================================================
-// Measures the width of Bollinger Bands relative to the middle band
-// Narrow bands indicate low volatility (squeeze) - often precedes big moves
-//
-// Formula:
-// BBW = (Upper Band - Lower Band) / Middle Band
-//
-// Interpretation:
-// - BBW < 0.05: Tight squeeze (very low volatility)
-// - BBW < 0.10: Squeeze (low volatility)
-// - BBW > 0.20: Wide bands (high volatility)
-// - Narrowing bands: Volatility decreasing
-// - Widening bands: Volatility increasing
-// ============================================================================
-
 export interface BollingerWidthResult {
-  readonly width: number; // Normalized width (0-1+)
-  readonly widthPercent: number; // Width as percentage
+  readonly width: number;
+  readonly widthPercent: number;
   readonly squeeze: "TIGHT" | "MODERATE" | "NORMAL" | "WIDE";
   readonly trend: "NARROWING" | "STABLE" | "WIDENING";
 }
 
-/**
- * Pure function to calculate Bollinger Band Width
- * @param upperBand - Upper Bollinger Band
- * @param lowerBand - Lower Bollinger Band
- * @param middleBand - Middle Bollinger Band (SMA)
- */
+// Squeeze classification
+const classifySqueeze = Match.type<number>().pipe(
+  Match.when(
+    (v) => v < 0.05,
+    () => "TIGHT" as const
+  ),
+  Match.when(
+    (v) => v < 0.1,
+    () => "MODERATE" as const
+  ),
+  Match.when(
+    (v) => v < 0.2,
+    () => "NORMAL" as const
+  ),
+  Match.orElse(() => "WIDE" as const)
+);
+
+// Trend classification
+const classifyTrend = Match.type<number>().pipe(
+  Match.when(
+    (v) => v < 0.08,
+    () => "NARROWING" as const
+  ),
+  Match.when(
+    (v) => v > 0.18,
+    () => "WIDENING" as const
+  ),
+  Match.orElse(() => "STABLE" as const)
+);
+
+// Calculate Bollinger Band Width
 export const calculateBollingerWidth = (
   upperBand: number,
   lowerBand: number,
   middleBand: number
-): number => {
-  return middleBand === 0 ? 0 : (upperBand - lowerBand) / middleBand;
-};
+): number => (middleBand === 0 ? 0 : (upperBand - lowerBand) / middleBand);
 
-/**
- * Pure function to calculate Bollinger Band Width with interpretation
- * Works with CryptoPrice (single price point)
- */
+// Calculate BBWidth with interpretation
 export const calculateBBWidth = (price: CryptoPrice): BollingerWidthResult => {
-  // Calculate Bollinger Bands
   const bb = calculateBollingerBands(price.price, price.high24h, price.low24h);
-
-  // Calculate width
   const width = calculateBollingerWidth(bb.upperBand, bb.lowerBand, bb.middleBand);
-  const widthPercent = width * 100;
-
-  // Determine squeeze level
-  let squeeze: "TIGHT" | "MODERATE" | "NORMAL" | "WIDE";
-  if (width < 0.05) {
-    squeeze = "TIGHT";
-  } else if (width < 0.1) {
-    squeeze = "MODERATE";
-  } else if (width < 0.2) {
-    squeeze = "NORMAL";
-  } else {
-    squeeze = "WIDE";
-  }
-
-  // Determine trend (simplified - would need historical data for accurate trend)
-  // For now, use bandwidth to infer
-  const trend: "NARROWING" | "STABLE" | "WIDENING" =
-    width < 0.08 ? "NARROWING" : width > 0.18 ? "WIDENING" : "STABLE";
 
   return {
     width: Math.round(width * 10000) / 10000,
-    widthPercent: Math.round(widthPercent * 100) / 100,
-    squeeze,
-    trend,
+    widthPercent: Math.round(width * 10000) / 100,
+    squeeze: classifySqueeze(width),
+    trend: classifyTrend(width),
   };
 };
 
-/**
- * Effect-based wrapper for Bollinger Band Width calculation
- */
+// Effect-based wrapper
 export const computeBBWidth = (price: CryptoPrice): Effect.Effect<BollingerWidthResult> =>
   Effect.sync(() => calculateBBWidth(price));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const BollingerWidthMetadata: FormulaMetadata = {
   name: "BollingerWidth",

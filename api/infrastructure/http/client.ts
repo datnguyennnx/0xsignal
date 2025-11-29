@@ -1,23 +1,8 @@
-/**
- * HTTP Client Service
- * Effect-native HTTP client with schema validation, retry, rate limit handling,
- * and request deduplication for maximum performance
- */
+/** HTTP Client Service - Schema validation, retry, and tracing */
 
-import {
-  Effect,
-  Context,
-  Layer,
-  Data,
-  Duration,
-  Schedule,
-  Schema,
-  Deferred,
-  Ref,
-  HashMap,
-} from "effect";
+import { Effect, Context, Layer, Data, Duration, Schedule, Schema, pipe } from "effect";
 
-// HTTP errors
+// Errors
 export class HttpError extends Data.TaggedError("HttpError")<{
   readonly message: string;
   readonly status?: number;
@@ -29,21 +14,15 @@ export class HttpParseError extends Data.TaggedError("HttpParseError")<{
   readonly url: string;
 }> {}
 
-export type HttpClientError = HttpError | HttpParseError;
+export type AppHttpClientError = HttpError | HttpParseError;
 
-// In-flight request tracking for deduplication
-type InFlightRequest = {
-  promise: Promise<{ data: unknown; status: number }>;
-  timestamp: number;
-};
-
-// HTTP client interface
-export interface HttpClient {
+// Service interface
+export interface AppHttpClient {
   readonly get: <A, I>(
     url: string,
     schema: Schema.Schema<A, I>,
     options?: { headers?: Record<string, string> }
-  ) => Effect.Effect<A, HttpClientError>;
+  ) => Effect.Effect<A, AppHttpClientError>;
 
   readonly getJson: (
     url: string,
@@ -55,90 +34,63 @@ export interface HttpClient {
     body: unknown,
     schema: Schema.Schema<A, I>,
     options?: { headers?: Record<string, string> }
-  ) => Effect.Effect<A, HttpClientError>;
+  ) => Effect.Effect<A, AppHttpClientError>;
 }
 
-export class HttpClientTag extends Context.Tag("HttpClient")<HttpClientTag, HttpClient>() {}
+export class HttpClientTag extends Context.Tag("HttpClient")<HttpClientTag, AppHttpClient>() {}
 
-// Retry policy for transient failures (includes 429 rate limits)
-// Exponential backoff: 500ms -> 1s -> 2s with jitter
-const retrySchedule = Schedule.exponential(Duration.millis(500)).pipe(
+// Retry: exponential backoff with jitter, 3 attempts
+const retrySchedule = pipe(
+  Schedule.exponential(Duration.millis(500)),
   Schedule.jittered,
   Schedule.intersect(Schedule.recurs(3))
 );
 
-// Check if error is retryable (500+ or 429)
-const isRetryable = (e: HttpError): boolean => {
-  if (!e.status) return false;
-  return e.status >= 500 || e.status === 429;
-};
+// Retryable status codes: 5xx and 429
+const isRetryable = (e: AppHttpClientError): boolean =>
+  e._tag === "HttpError" && !!e.status && (e.status >= 500 || e.status === 429);
 
-// Extract host and path from URL
-const parseUrl = (url: string) => {
+// Extract domain from URL for tracing
+const extractDomain = (url: string): string => {
   try {
-    const u = new URL(url);
-    return { host: u.hostname, path: u.pathname };
+    return new URL(url).hostname;
   } catch {
-    return { host: "unknown", path: url };
+    return "unknown";
   }
 };
 
-// URL-based request deduplication
-const inFlightRequests = new Map<string, InFlightRequest>();
-
-// Cleanup stale requests (older than 30 seconds)
-const cleanupStaleRequests = () => {
-  const now = Date.now();
-  for (const [key, entry] of inFlightRequests.entries()) {
-    if (now - entry.timestamp > 30000) {
-      inFlightRequests.delete(key);
-    }
-  }
-};
-
-// Run cleanup every 10 seconds
-setInterval(cleanupStaleRequests, 10000);
-
-// Core fetch with deduplication
-const fetchWithDedup = async (
-  url: string,
-  options?: RequestInit
-): Promise<{ data: unknown; status: number }> => {
-  const cacheKey = `${options?.method || "GET"}:${url}`;
-
-  // Check for in-flight request
-  const existing = inFlightRequests.get(cacheKey);
-  if (existing) {
-    return existing.promise;
-  }
-
-  // Create new request
-  const fetchPromise = (async () => {
-    try {
-      const res = await fetch(url, options);
-      if (!res.ok) {
-        throw new HttpError({
-          message: `HTTP ${res.status}: ${res.statusText}`,
-          status: res.status,
-          url,
-        });
-      }
-      return { data: await res.json(), status: res.status };
-    } finally {
-      // Clean up after completion
-      inFlightRequests.delete(cacheKey);
-    }
-  })();
-
-  inFlightRequests.set(cacheKey, {
-    promise: fetchPromise,
-    timestamp: Date.now(),
+// Fetch helpers
+const fetchResponse = (url: string, init?: RequestInit) =>
+  Effect.tryPromise({
+    try: () => fetch(url, init),
+    catch: (e) => new HttpError({ message: e instanceof Error ? e.message : "Network error", url }),
   });
 
-  return fetchPromise;
-};
+const checkStatus = (response: Response, url: string) =>
+  response.ok
+    ? Effect.succeed(response)
+    : Effect.fail(
+        new HttpError({
+          message: `HTTP ${response.status}: ${response.statusText}`,
+          status: response.status,
+          url,
+        })
+      );
 
-// HTTP client implementation
+const parseJson = (response: Response, url: string) =>
+  Effect.tryPromise({
+    try: () => response.json(),
+    catch: () => new HttpParseError({ message: "Failed to parse JSON", url }),
+  });
+
+const decodeSchema = <A, I>(schema: Schema.Schema<A, I>, data: unknown, url: string) =>
+  Schema.decodeUnknown(schema)(data).pipe(
+    Effect.mapError(
+      (e) => new HttpParseError({ message: `Schema validation failed: ${e.message}`, url })
+    )
+  );
+
+// Implementation
 export const HttpClientLive = Layer.succeed(HttpClientTag, {
   get: <A, I>(
     url: string,
@@ -146,67 +98,27 @@ export const HttpClientLive = Layer.succeed(HttpClientTag, {
     options?: { headers?: Record<string, string> }
   ) =>
     Effect.gen(function* () {
-      const startTime = Date.now();
-      const { host, path } = parseUrl(url);
-
-      const response = yield* Effect.tryPromise({
-        try: () => fetchWithDedup(url, { headers: options?.headers }),
-        catch: (error) =>
-          error instanceof HttpError
-            ? error
-            : new HttpError({
-                message: error instanceof Error ? error.message : "Network error",
-                url,
-              }),
-      }).pipe(
-        Effect.retry({
-          schedule: retrySchedule,
-          while: isRetryable,
-        })
-      );
-
-      // Log external API call
-      const duration = Date.now() - startTime;
-      yield* Effect.logDebug(`↗ GET ${host}${path} ${response.status} (${duration}ms)`);
-
-      return yield* Schema.decodeUnknown(schema)(response.data).pipe(
-        Effect.mapError(
-          (e) =>
-            new HttpParseError({
-              message: `Schema validation failed: ${e.message}`,
-              url,
-            })
-        )
-      );
-    }),
+      const response = yield* fetchResponse(url, { headers: options?.headers });
+      yield* checkStatus(response, url);
+      const data = yield* parseJson(response, url);
+      return yield* decodeSchema(schema, data, url);
+    }).pipe(
+      Effect.retry({ schedule: retrySchedule, while: isRetryable }),
+      Effect.withSpan("http.get", { attributes: { url, domain: extractDomain(url) } })
+    ),
 
   getJson: (url: string, options?: { headers?: Record<string, string> }) =>
     Effect.gen(function* () {
-      const startTime = Date.now();
-      const { host, path } = parseUrl(url);
-
-      const response = yield* Effect.tryPromise({
-        try: () => fetchWithDedup(url, { headers: options?.headers }),
-        catch: (error) =>
-          error instanceof HttpError
-            ? error
-            : new HttpError({
-                message: error instanceof Error ? error.message : "Network error",
-                url,
-              }),
-      }).pipe(
-        Effect.retry({
-          schedule: retrySchedule,
-          while: isRetryable,
-        })
-      );
-
-      // Log external API call
-      const duration = Date.now() - startTime;
-      yield* Effect.logDebug(`↗ GET ${host}${path} ${response.status} (${duration}ms)`);
-
-      return response.data;
-    }),
+      const response = yield* fetchResponse(url, { headers: options?.headers });
+      yield* checkStatus(response, url);
+      return yield* Effect.tryPromise({
+        try: () => response.json(),
+        catch: () => new HttpError({ message: "Failed to parse JSON", url }),
+      });
+    }).pipe(
+      Effect.retry({ schedule: retrySchedule, while: isRetryable }),
+      Effect.withSpan("http.getJson", { attributes: { url, domain: extractDomain(url) } })
+    ),
 
   post: <A, I>(
     url: string,
@@ -215,52 +127,16 @@ export const HttpClientLive = Layer.succeed(HttpClientTag, {
     options?: { headers?: Record<string, string> }
   ) =>
     Effect.gen(function* () {
-      const startTime = Date.now();
-      const { host, path } = parseUrl(url);
-
-      // POST requests are not deduplicated (mutations)
-      const response = yield* Effect.tryPromise({
-        try: async () => {
-          const res = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...options?.headers },
-            body: JSON.stringify(body),
-          });
-          if (!res.ok) {
-            throw new HttpError({
-              message: `HTTP ${res.status}: ${res.statusText}`,
-              status: res.status,
-              url,
-            });
-          }
-          return { data: await res.json(), status: res.status };
-        },
-        catch: (error) =>
-          error instanceof HttpError
-            ? error
-            : new HttpError({
-                message: error instanceof Error ? error.message : "Network error",
-                url,
-              }),
-      }).pipe(
-        Effect.retry({
-          schedule: retrySchedule,
-          while: isRetryable,
-        })
-      );
-
-      // Log external API call
-      const duration = Date.now() - startTime;
-      yield* Effect.logDebug(`↗ POST ${host}${path} ${response.status} (${duration}ms)`);
-
-      return yield* Schema.decodeUnknown(schema)(response.data).pipe(
-        Effect.mapError(
-          (e) =>
-            new HttpParseError({
-              message: `Schema validation failed: ${e.message}`,
-              url,
-            })
-        )
-      );
-    }),
+      const response = yield* fetchResponse(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...options?.headers },
+        body: JSON.stringify(body),
+      });
+      yield* checkStatus(response, url);
+      const data = yield* parseJson(response, url);
+      return yield* decodeSchema(schema, data, url);
+    }).pipe(
+      Effect.retry({ schedule: retrySchedule, while: isRetryable }),
+      Effect.withSpan("http.post", { attributes: { url, domain: extractDomain(url) } })
+    ),
 });

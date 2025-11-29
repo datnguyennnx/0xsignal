@@ -1,95 +1,74 @@
-import { Effect } from "effect";
+/** Sortino Ratio - Downside Risk-Adjusted Return */
+// Sortino = (R_p - R_f) / σ_d, only penalizes downside volatility
+
+import { Effect, Match } from "effect";
 import type { FormulaMetadata } from "../core/types";
 import { mean } from "../core/math";
 
-// ============================================================================
-// SORTINO RATIO - Downside Risk-Adjusted Return
-// ============================================================================
-// Similar to Sharpe but only penalizes downside volatility
-//
-// Formula:
-// Sortino = (R_p - R_f) / σ_d
-// where σ_d = downside deviation (only negative returns)
-//
-// Interpretation:
-// - Sortino > 2: Excellent
-// - Sortino > 1: Good
-// - Sortino > 0: Acceptable
-// - Sortino < 0: Poor
-// - Higher is better
-// ============================================================================
-
 export interface SortinoRatioResult {
-  readonly value: number; // Sortino ratio
+  readonly value: number;
   readonly rating: "EXCELLENT" | "GOOD" | "ACCEPTABLE" | "POOR";
-  readonly downsideDeviation: number; // Downside volatility
-  readonly excessReturn: number; // Return above target
+  readonly downsideDeviation: number;
+  readonly excessReturn: number;
 }
 
-/**
- * Pure function to calculate Sortino Ratio
- * @param returns - Array of returns
- * @param targetReturn - Target/minimum acceptable return (default: 0)
- * @param annualizationFactor - Factor to annualize (default: 252)
- */
+// Rating classification
+const classifyRating = Match.type<number>().pipe(
+  Match.when(
+    (s) => s > 2,
+    () => "EXCELLENT" as const
+  ),
+  Match.when(
+    (s) => s > 1,
+    () => "GOOD" as const
+  ),
+  Match.when(
+    (s) => s > 0,
+    () => "ACCEPTABLE" as const
+  ),
+  Match.orElse(() => "POOR" as const)
+);
+
+// Safe division
+const safeDivide = (num: number, denom: number): number => (denom === 0 ? 0 : num / denom);
+
+// Calculate Sortino Ratio
 export const calculateSortinoRatio = (
   returns: ReadonlyArray<number>,
   targetReturn: number = 0,
   annualizationFactor: number = 252
 ): SortinoRatioResult => {
-  // Calculate average return
   const avgReturn = mean([...returns]);
 
-  // Calculate downside deviation (only negative deviations from target)
-  const downsideReturns = returns.map((r) => Math.min(0, r - targetReturn)).map((r) => r * r);
-
-  const downsideVariance = downsideReturns.reduce((a, b) => a + b, 0) / returns.length;
+  // Downside deviation: only negative deviations from target
+  const downsideVariance =
+    returns
+      .map((r) => Math.min(0, r - targetReturn))
+      .map((r) => r * r)
+      .reduce((a, b) => a + b, 0) / returns.length;
   const downsideDeviation = Math.sqrt(downsideVariance);
 
-  // Annualize
   const annualizedReturn = avgReturn * annualizationFactor;
   const annualizedDownsideDev = downsideDeviation * Math.sqrt(annualizationFactor);
   const annualizedTarget = targetReturn * annualizationFactor;
-
-  // Calculate excess return
   const excessReturn = annualizedReturn - annualizedTarget;
-
-  // Calculate Sortino ratio
-  const sortino = annualizedDownsideDev === 0 ? 0 : excessReturn / annualizedDownsideDev;
-
-  // Determine rating
-  let rating: "EXCELLENT" | "GOOD" | "ACCEPTABLE" | "POOR";
-  if (sortino > 2) {
-    rating = "EXCELLENT";
-  } else if (sortino > 1) {
-    rating = "GOOD";
-  } else if (sortino > 0) {
-    rating = "ACCEPTABLE";
-  } else {
-    rating = "POOR";
-  }
+  const sortino = safeDivide(excessReturn, annualizedDownsideDev);
 
   return {
     value: Math.round(sortino * 10000) / 10000,
-    rating,
+    rating: classifyRating(sortino),
     downsideDeviation: Math.round(annualizedDownsideDev * 10000) / 10000,
     excessReturn: Math.round(excessReturn * 10000) / 10000,
   };
 };
 
-/**
- * Effect-based wrapper for Sortino Ratio calculation
- */
+// Effect-based wrapper
 export const computeSortinoRatio = (
   returns: ReadonlyArray<number>,
   targetReturn: number = 0,
   annualizationFactor: number = 252
 ): Effect.Effect<SortinoRatioResult> =>
   Effect.sync(() => calculateSortinoRatio(returns, targetReturn, annualizationFactor));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const SortinoRatioMetadata: FormulaMetadata = {
   name: "SortinoRatio",

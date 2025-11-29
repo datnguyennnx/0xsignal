@@ -1,115 +1,97 @@
-import { Effect } from "effect";
+/** Parkinson Volatility - High-low range estimator with functional patterns */
+// PV = sqrt[(1/(4*ln(2))) * (1/N) * Sum(ln(H/L)^2)] * sqrt(252)
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// PARKINSON VOLATILITY - High-Low Range Estimator
-// ============================================================================
-// More efficient volatility estimator using high-low range
-// Less sensitive to opening gaps than close-to-close volatility
-//
-// Formula:
-// Parkinson = √[(1/(4×ln(2))) × (1/N) × Σ(ln(High/Low))²]
-// Annualized = Parkinson × √(252)
-//
-// Interpretation:
-// - More efficient than historical volatility (uses intraday range)
-// - Assumes no overnight gaps
-// - Better for continuous trading markets
-// ============================================================================
-
 export interface ParkinsonVolatilityResult {
-  readonly value: number; // Annualized volatility (%)
-  readonly dailyVol: number; // Daily volatility
+  readonly value: number;
+  readonly dailyVol: number;
   readonly level: "VERY_LOW" | "LOW" | "MODERATE" | "HIGH" | "VERY_HIGH";
 }
 
-/**
- * Pure function to calculate Parkinson Volatility
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param period - Lookback period (default: 30)
- * @param annualizationFactor - Factor to annualize (default: 252)
- */
+// Volatility level classification
+const classifyLevel = Match.type<number>().pipe(
+  Match.when(
+    (v) => v < 10,
+    () => "VERY_LOW" as const
+  ),
+  Match.when(
+    (v) => v < 20,
+    () => "LOW" as const
+  ),
+  Match.when(
+    (v) => v < 40,
+    () => "MODERATE" as const
+  ),
+  Match.when(
+    (v) => v < 60,
+    () => "HIGH" as const
+  ),
+  Match.orElse(() => "VERY_HIGH" as const)
+);
+
+// Round helpers
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+const round4 = (n: number): number => Math.round(n * 10000) / 10000;
+
+// Parkinson constant
+const PARKINSON_CONSTANT = 1 / (4 * Math.log(2));
+
+// Calculate sum of squared log H/L using Arr.zipWith and Arr.reduce
+const calculateSumSquaredLogHL = (
+  highs: ReadonlyArray<number>,
+  lows: ReadonlyArray<number>
+): number =>
+  pipe(
+    Arr.zipWith(highs, lows, (h, l) => {
+      const logHL = Math.log(h / l);
+      return logHL * logHL;
+    }),
+    Arr.reduce(0, (a, b) => a + b)
+  );
+
+// Calculate Parkinson Volatility
 export const calculateParkinsonVolatility = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   period: number = 30,
   annualizationFactor: number = 252
 ): ParkinsonVolatilityResult => {
-  // Get recent data
-  const recentHighs = highs.slice(-period);
-  const recentLows = lows.slice(-period);
-
-  // Calculate sum of squared log(high/low)
-  let sumSquaredLogHL = 0;
-  for (let i = 0; i < period; i++) {
-    const logHL = Math.log(recentHighs[i] / recentLows[i]);
-    sumSquaredLogHL += logHL * logHL;
-  }
-
-  // Parkinson constant: 1 / (4 * ln(2))
-  const parkinsonConstant = 1 / (4 * Math.log(2));
-
-  // Calculate daily Parkinson volatility
-  const dailyVol = Math.sqrt(parkinsonConstant * (sumSquaredLogHL / period));
-
-  // Annualize volatility
+  const recentHighs = Arr.takeRight(highs, period);
+  const recentLows = Arr.takeRight(lows, period);
+  const sumSquaredLogHL = calculateSumSquaredLogHL(recentHighs, recentLows);
+  const dailyVol = Math.sqrt(PARKINSON_CONSTANT * (sumSquaredLogHL / period));
   const annualizedVol = dailyVol * Math.sqrt(annualizationFactor) * 100;
 
-  // Determine volatility level
-  let level: "VERY_LOW" | "LOW" | "MODERATE" | "HIGH" | "VERY_HIGH";
-  if (annualizedVol < 10) {
-    level = "VERY_LOW";
-  } else if (annualizedVol < 20) {
-    level = "LOW";
-  } else if (annualizedVol < 40) {
-    level = "MODERATE";
-  } else if (annualizedVol < 60) {
-    level = "HIGH";
-  } else {
-    level = "VERY_HIGH";
-  }
-
   return {
-    value: Math.round(annualizedVol * 100) / 100,
-    dailyVol: Math.round(dailyVol * 10000) / 10000,
-    level,
+    value: round2(annualizedVol),
+    dailyVol: round4(dailyVol),
+    level: classifyLevel(annualizedVol),
   };
 };
 
-/**
- * Pure function to calculate Parkinson Volatility series
- */
+// Calculate Parkinson series using Arr.makeBy
 export const calculateParkinsonVolatilitySeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   period: number = 30,
   annualizationFactor: number = 252
 ): ReadonlyArray<number> => {
-  const volSeries: number[] = [];
-  const parkinsonConstant = 1 / (4 * Math.log(2));
+  const sqrtFactor = Math.sqrt(annualizationFactor) * 100;
 
-  for (let i = period - 1; i < highs.length; i++) {
-    const windowHighs = highs.slice(i - period + 1, i + 1);
-    const windowLows = lows.slice(i - period + 1, i + 1);
-
-    let sumSquaredLogHL = 0;
-    for (let j = 0; j < period; j++) {
-      const logHL = Math.log(windowHighs[j] / windowLows[j]);
-      sumSquaredLogHL += logHL * logHL;
-    }
-
-    const dailyVol = Math.sqrt(parkinsonConstant * (sumSquaredLogHL / period));
-    const annualizedVol = dailyVol * Math.sqrt(annualizationFactor) * 100;
-    volSeries.push(annualizedVol);
-  }
-
-  return volSeries;
+  return pipe(
+    Arr.makeBy(highs.length - period + 1, (i) => {
+      const windowHighs = Arr.take(Arr.drop(highs, i), period);
+      const windowLows = Arr.take(Arr.drop(lows, i), period);
+      const sumSquaredLogHL = calculateSumSquaredLogHL(windowHighs, windowLows);
+      const dailyVol = Math.sqrt(PARKINSON_CONSTANT * (sumSquaredLogHL / period));
+      return dailyVol * sqrtFactor;
+    })
+  );
 };
 
-/**
- * Effect-based wrapper for Parkinson Volatility calculation
- */
+// Effect-based wrapper
 export const computeParkinsonVolatility = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -117,10 +99,6 @@ export const computeParkinsonVolatility = (
   annualizationFactor: number = 252
 ): Effect.Effect<ParkinsonVolatilityResult> =>
   Effect.sync(() => calculateParkinsonVolatility(highs, lows, period, annualizationFactor));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const ParkinsonVolatilityMetadata: FormulaMetadata = {
   name: "ParkinsonVolatility",

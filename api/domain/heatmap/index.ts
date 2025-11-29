@@ -1,11 +1,9 @@
-/**
- * Heatmap Domain Logic
- * Pure functions for heatmap transformations and calculations
- */
+/** Heatmap Domain Logic - Pure functions for heatmap transformations */
 
+import { Option } from "effect";
 import type { CryptoPrice, HeatmapCell, HeatmapConfig, MarketHeatmap } from "@0xsignal/shared";
 
-// Category mapping for crypto assets (domain knowledge)
+// Category mapping for crypto assets
 const CATEGORIES: Record<string, string> = {
   btc: "Layer 1",
   eth: "Layer 1",
@@ -48,13 +46,14 @@ const CATEGORIES: Record<string, string> = {
   ocean: "AI",
 };
 
-// Pure: get category for symbol
-export const getCategory = (symbol: string): string => CATEGORIES[symbol.toLowerCase()] ?? "Other";
+// Get category for symbol
+export const getCategory = (symbol: string): string =>
+  Option.fromNullable(CATEGORIES[symbol.toLowerCase()]).pipe(Option.getOrElse(() => "Other"));
 
-// Pure: clamp value to range
+// Clamp value to range
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
-// Pure: transform price to heatmap cell
+// Transform price to heatmap cell
 export const toHeatmapCell = (price: CryptoPrice): HeatmapCell => ({
   symbol: price.symbol,
   name: price.symbol.toUpperCase(),
@@ -74,42 +73,48 @@ const SORT_FNS: Record<HeatmapConfig["sortBy"], (a: HeatmapCell, b: HeatmapCell)
   change: (a, b) => Math.abs(b.change24h) - Math.abs(a.change24h),
 };
 
-// Pure: create market heatmap from prices
+// Filter cells by category
+const filterByCategory = (cells: HeatmapCell[], category: string | undefined): HeatmapCell[] =>
+  Option.fromNullable(category).pipe(
+    Option.map((cat) => cells.filter((c) => c.category === cat)),
+    Option.getOrElse(() => cells)
+  );
+
+// Calculate dominance safely
+const calcDominance = (cell: HeatmapCell | undefined, total: number): number =>
+  Option.fromNullable(cell).pipe(
+    Option.filter(() => total > 0),
+    Option.map((c) => (c.marketCap / total) * 100),
+    Option.getOrElse(() => 0)
+  );
+
+// Calculate average change safely
+const calcAvgChange = (cells: HeatmapCell[]): number =>
+  cells.length > 0 ? cells.reduce((s, c) => s + c.change24h, 0) / cells.length : 0;
+
+// Create market heatmap from prices
 export const createMarketHeatmap = (
   prices: readonly CryptoPrice[],
   config: HeatmapConfig
 ): MarketHeatmap => {
-  let cells = prices.map(toHeatmapCell);
-
-  // Filter by category if specified
-  if (config.category) {
-    cells = cells.filter((c) => c.category === config.category);
-  }
-
-  // Sort cells
+  const allCells = prices.map(toHeatmapCell);
+  const filteredCells = filterByCategory(allCells, config.category);
   const sortFn = SORT_FNS[config.sortBy] ?? SORT_FNS.marketCap;
-  cells = [...cells].sort(sortFn);
+  const cells = [...filteredCells].sort(sortFn);
 
-  // Calculate aggregates
   const totalMarketCap = cells.reduce((s, c) => s + c.marketCap, 0);
   const totalVolume24h = cells.reduce((s, c) => s + c.volume24h, 0);
 
   const btc = cells.find((c) => c.symbol.toLowerCase() === "btc");
   const eth = cells.find((c) => c.symbol.toLowerCase() === "eth");
-  const btcDominance = btc && totalMarketCap > 0 ? (btc.marketCap / totalMarketCap) * 100 : 0;
-  const ethDominance = eth && totalMarketCap > 0 ? (eth.marketCap / totalMarketCap) * 100 : 0;
-
-  const avgChange =
-    cells.length > 0 ? cells.reduce((s, c) => s + c.change24h, 0) / cells.length : 0;
-  const fearGreedIndex = Math.max(0, Math.min(100, 50 + avgChange * 2));
 
   return {
     cells,
     totalMarketCap,
     totalVolume24h,
-    btcDominance,
-    ethDominance,
-    fearGreedIndex,
+    btcDominance: calcDominance(btc, totalMarketCap),
+    ethDominance: calcDominance(eth, totalMarketCap),
+    fearGreedIndex: clamp(50 + calcAvgChange(cells) * 2, 0, 100),
     timestamp: new Date(),
   };
 };

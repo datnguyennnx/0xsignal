@@ -1,95 +1,61 @@
-import { Effect } from "effect";
+/** Momentum - Absolute price change with functional patterns */
+// Momentum = Current Price - Price N periods ago
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// MOMENTUM - Price Momentum Indicator
-// ============================================================================
-// Measures the absolute change in price over a specified period
-// Unlike ROC which measures percentage change, Momentum measures absolute change
-//
-// Formula:
-// Momentum = Current Price - Price n periods ago
-//
-// Interpretation:
-// - Momentum > 0: Upward momentum
-// - Momentum < 0: Downward momentum
-// - Increasing Momentum: Strengthening trend
-// - Decreasing Momentum: Weakening trend
-// ============================================================================
-
 export interface MomentumResult {
-  readonly value: number; // Absolute price change
+  readonly value: number;
   readonly direction: "UP" | "DOWN" | "FLAT";
-  readonly strength: number; // 0-100 scale
+  readonly strength: number;
 }
 
-/**
- * Pure function to calculate Momentum
- * @param prices - Array of prices
- * @param period - Number of periods to look back (default: 10)
- */
+// Direction classification using Match
+const classifyDirection = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 0,
+    () => "UP" as const
+  ),
+  Match.when(
+    (v) => v < 0,
+    () => "DOWN" as const
+  ),
+  Match.orElse(() => "FLAT" as const)
+);
+
+// Round to 2 decimal places
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+// Calculate Momentum
 export const calculateMomentum = (
   prices: ReadonlyArray<number>,
   period: number = 10
 ): MomentumResult => {
   const currentPrice = prices[prices.length - 1];
   const pastPrice = prices[prices.length - 1 - period];
-
-  // Calculate absolute change
   const value = currentPrice - pastPrice;
-
-  // Determine direction
-  let direction: "UP" | "DOWN" | "FLAT";
-  if (value > 0) {
-    direction = "UP";
-  } else if (value < 0) {
-    direction = "DOWN";
-  } else {
-    direction = "FLAT";
-  }
-
-  // Calculate strength (normalized to 0-100)
-  // Use percentage of current price as a proxy for strength
   const percentChange = Math.abs((value / pastPrice) * 100);
   const strength = Math.min(percentChange * 10, 100);
 
   return {
-    value: Math.round(value * 100) / 100,
-    direction,
-    strength: Math.round(strength * 100) / 100,
+    value: round2(value),
+    direction: classifyDirection(value),
+    strength: round2(strength),
   };
 };
 
-/**
- * Pure function to calculate Momentum series
- */
+// Calculate Momentum series using Arr.makeBy
 export const calculateMomentumSeries = (
   prices: ReadonlyArray<number>,
   period: number = 10
-): ReadonlyArray<number> => {
-  const result: number[] = [];
+): ReadonlyArray<number> =>
+  pipe(Arr.makeBy(prices.length - period, (i) => prices[i + period] - prices[i]));
 
-  for (let i = period; i < prices.length; i++) {
-    const currentPrice = prices[i];
-    const pastPrice = prices[i - period];
-    const momentum = currentPrice - pastPrice;
-    result.push(momentum);
-  }
-
-  return result;
-};
-
-/**
- * Effect-based wrapper with validation
- */
+// Effect-based wrapper
 export const computeMomentum = (
   prices: ReadonlyArray<number>,
   period: number = 10
 ): Effect.Effect<MomentumResult> => Effect.sync(() => calculateMomentum(prices, period));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const MomentumMetadata: FormulaMetadata = {
   name: "Momentum",

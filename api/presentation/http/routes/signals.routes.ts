@@ -1,42 +1,28 @@
+/** Signals Routes */
+
 import { Effect } from "effect";
 import { AnalysisServiceTag } from "../../../services/analysis";
 
-export const tradingSignalsRoute = () =>
-  Effect.gen(function* () {
-    const service = yield* AnalysisServiceTag;
-    const analyses = yield* service.analyzeTopAssets(20);
+const toSignal = (a: any) => ({
+  symbol: a.symbol,
+  signal: a.overallSignal,
+  confidence: a.confidence,
+  riskScore: a.riskScore,
+  regime: a.strategyResult.regime,
+  recommendation: a.recommendation,
+  timestamp: a.timestamp,
+});
 
-    return analyses.map((analysis) => ({
-      symbol: analysis.symbol,
-      signal: analysis.overallSignal,
-      confidence: analysis.confidence,
-      riskScore: analysis.riskScore,
-      regime: analysis.strategyResult.regime,
-      recommendation: analysis.recommendation,
-      timestamp: analysis.timestamp,
-    }));
-  }).pipe(
-    Effect.catchTag("AnalysisError", (error) =>
-      Effect.fail({ status: 500, message: error.message })
-    )
+const handleError = (e: { message: string }) => Effect.fail({ status: 500, message: e.message });
+
+export const tradingSignalsRoute = () =>
+  Effect.flatMap(AnalysisServiceTag, (s) => s.analyzeTopAssets(20)).pipe(
+    Effect.map((analyses) => analyses.map(toSignal)),
+    Effect.catchTag("AnalysisError", handleError)
   );
 
 export const highConfidenceSignalsRoute = (minConfidence: number) =>
-  Effect.gen(function* () {
-    const service = yield* AnalysisServiceTag;
-    const analyses = yield* service.getHighConfidenceSignals(minConfidence);
-
-    return analyses.map((analysis) => ({
-      symbol: analysis.symbol,
-      signal: analysis.overallSignal,
-      confidence: analysis.confidence,
-      riskScore: analysis.riskScore,
-      regime: analysis.strategyResult.regime,
-      recommendation: analysis.recommendation,
-      timestamp: analysis.timestamp,
-    }));
-  }).pipe(
-    Effect.catchTag("AnalysisError", (error) =>
-      Effect.fail({ status: 500, message: error.message })
-    )
+  Effect.flatMap(AnalysisServiceTag, (s) => s.getHighConfidenceSignals(minConfidence)).pipe(
+    Effect.map((analyses) => analyses.map(toSignal)),
+    Effect.catchTag("AnalysisError", handleError)
   );

@@ -1,24 +1,10 @@
-import { Effect } from "effect";
+/** MACD (Moving Average Convergence Divergence) - Momentum analysis */
+// MACD = EMA(12) - EMA(26), Signal = EMA(9) of MACD, Histogram = MACD - Signal
+
+import { Effect, Match } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
 import { calculateEMA, calculateEMASeries } from "../trend/moving-averages";
 import type { FormulaMetadata } from "../core/types";
-
-// ============================================================================
-// MACD (Moving Average Convergence Divergence) - Momentum Analysis
-// ============================================================================
-// Measures momentum by comparing two exponential moving averages
-//
-// Formula:
-// MACD Line = EMA(12) - EMA(26)
-// Signal Line = EMA(9) of MACD Line
-// Histogram = MACD Line - Signal Line
-//
-// Interpretation:
-// - MACD > 0: Bullish momentum
-// - MACD < 0: Bearish momentum
-// - MACD crosses above Signal: Buy signal
-// - MACD crosses below Signal: Sell signal
-// ============================================================================
 
 export interface MACDResult {
   readonly macd: number;
@@ -27,63 +13,64 @@ export interface MACDResult {
   readonly trend: "BULLISH" | "BEARISH" | "NEUTRAL";
 }
 
-/**
- * Pure function to calculate MACD
- * @param prices - Array of prices (minimum 26 for standard MACD)
- * @param fastPeriod - Fast EMA period (default: 12)
- * @param slowPeriod - Slow EMA period (default: 26)
- * @param signalPeriod - Signal line EMA period (default: 9)
- */
+export interface MACDCrossover {
+  readonly symbol: string;
+  readonly hasCrossover: boolean;
+  readonly crossoverType: "BULLISH" | "BEARISH" | "NONE";
+  readonly strength: number;
+  readonly macd: number;
+  readonly signal: number;
+  readonly histogram: number;
+}
+
+// Trend classification
+const classifyTrend = Match.type<{ macd: number; histogram: number }>().pipe(
+  Match.when(
+    ({ macd, histogram }) => macd > 0 && histogram > 0,
+    () => "BULLISH" as const
+  ),
+  Match.when(
+    ({ macd, histogram }) => macd < 0 && histogram < 0,
+    () => "BEARISH" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Crossover type classification
+const classifyCrossoverType = Match.type<{ hasCrossover: boolean; histogram: number }>().pipe(
+  Match.when(
+    ({ hasCrossover, histogram }) => hasCrossover && histogram > 0,
+    () => "BULLISH" as const
+  ),
+  Match.when(
+    ({ hasCrossover, histogram }) => hasCrossover && histogram < 0,
+    () => "BEARISH" as const
+  ),
+  Match.orElse(() => "NONE" as const)
+);
+
+// Calculate MACD
 export const calculateMACD = (
   prices: ReadonlyArray<number>,
   fastPeriod: number = 12,
   slowPeriod: number = 26,
   signalPeriod: number = 9
 ): MACDResult => {
-  // Calculate fast and slow EMAs
   const fastEMA = calculateEMA(prices, fastPeriod);
   const slowEMA = calculateEMA(prices, slowPeriod);
-
-  // MACD line = Fast EMA - Slow EMA
   const macd = fastEMA.value - slowEMA.value;
 
-  // For signal line, we need MACD series
-  // Approximate by calculating EMA series and deriving MACD series
   const fastSeries = calculateEMASeries(prices, fastPeriod);
   const slowSeries = calculateEMASeries(prices, slowPeriod);
-
-  // Calculate MACD series (only where both EMAs exist)
   const macdSeries = fastSeries.map((fast, i) => fast - slowSeries[i]);
-
-  // Signal line = EMA of MACD line
   const signalEMA = calculateEMA(macdSeries, signalPeriod);
   const signal = signalEMA.value;
-
-  // Histogram = MACD - Signal
   const histogram = macd - signal;
 
-  // Determine trend
-  let trend: "BULLISH" | "BEARISH" | "NEUTRAL";
-  if (macd > 0 && histogram > 0) {
-    trend = "BULLISH";
-  } else if (macd < 0 && histogram < 0) {
-    trend = "BEARISH";
-  } else {
-    trend = "NEUTRAL";
-  }
-
-  return {
-    macd,
-    signal,
-    histogram,
-    trend,
-  };
+  return { macd, signal, histogram, trend: classifyTrend({ macd, histogram }) };
 };
 
-/**
- * Pure function to calculate MACD series for all points
- * Returns arrays of MACD, Signal, and Histogram values
- */
+// Calculate MACD series
 export const calculateMACDSeries = (
   prices: ReadonlyArray<number>,
   fastPeriod: number = 12,
@@ -94,31 +81,18 @@ export const calculateMACDSeries = (
   readonly signal: ReadonlyArray<number>;
   readonly histogram: ReadonlyArray<number>;
 } => {
-  // Calculate EMA series
   const fastSeries = calculateEMASeries(prices, fastPeriod);
   const slowSeries = calculateEMASeries(prices, slowPeriod);
-
-  // MACD series
   const macdSeries = fastSeries.map((fast, i) => fast - slowSeries[i]);
-
-  // Signal series (EMA of MACD)
   const signalSeries = calculateEMASeries(macdSeries, signalPeriod);
-
-  // Histogram series
   const histogramSeries = macdSeries
     .slice(signalPeriod - 1)
     .map((macd, i) => macd - signalSeries[i]);
 
-  return {
-    macd: macdSeries,
-    signal: signalSeries,
-    histogram: histogramSeries,
-  };
+  return { macd: macdSeries, signal: signalSeries, histogram: histogramSeries };
 };
 
-/**
- * Effect-based wrapper for MACD calculation
- */
+// Effect-based wrapper
 export const computeMACD = (
   prices: ReadonlyArray<number>,
   fastPeriod: number = 12,
@@ -127,20 +101,15 @@ export const computeMACD = (
 ): Effect.Effect<MACDResult> =>
   Effect.sync(() => calculateMACD(prices, fastPeriod, slowPeriod, signalPeriod));
 
-/**
- * Effect-based wrapper for MACD from CryptoPrice
- * Approximates using 24h data
- */
+// Effect-based MACD from CryptoPrice
 export const computeMACDFromPrice = (
   price: CryptoPrice,
   fastPeriod: number = 12,
   slowPeriod: number = 26,
   signalPeriod: number = 9
 ): Effect.Effect<MACDResult> => {
-  // For single price point, approximate using 24h data
   const prices =
     price.high24h && price.low24h ? [price.low24h, price.price, price.high24h] : [price.price];
-
   return computeMACD(
     prices,
     Math.min(fastPeriod, prices.length),
@@ -149,40 +118,11 @@ export const computeMACDFromPrice = (
   );
 };
 
-// ============================================================================
-// MACD CROSSOVER DETECTION
-// ============================================================================
-
-export interface MACDCrossover {
-  readonly symbol: string;
-  readonly hasCrossover: boolean;
-  readonly crossoverType: "BULLISH" | "BEARISH" | "NONE";
-  readonly strength: number; // 0-100
-  readonly macd: number;
-  readonly signal: number;
-  readonly histogram: number;
-}
-
-/**
- * Pure function to detect MACD crossovers
- * Bullish: MACD crosses above Signal
- * Bearish: MACD crosses below Signal
- */
+// Detect MACD crossover
 export const detectMACDCrossover = (price: CryptoPrice, macd: MACDResult): MACDCrossover => {
   const hasCrossover = Math.abs(macd.histogram) < Math.abs(macd.macd) * 0.1;
-
-  let crossoverType: "BULLISH" | "BEARISH" | "NONE" = "NONE";
-  let strength = 0;
-
-  if (hasCrossover) {
-    if (macd.histogram > 0) {
-      crossoverType = "BULLISH";
-      strength = Math.min(Math.abs(macd.histogram) * 10, 100);
-    } else {
-      crossoverType = "BEARISH";
-      strength = Math.min(Math.abs(macd.histogram) * 10, 100);
-    }
-  }
+  const crossoverType = classifyCrossoverType({ hasCrossover, histogram: macd.histogram });
+  const strength = hasCrossover ? Math.min(Math.abs(macd.histogram) * 10, 100) : 0;
 
   return {
     symbol: price.symbol,
@@ -195,18 +135,12 @@ export const detectMACDCrossover = (price: CryptoPrice, macd: MACDResult): MACDC
   };
 };
 
-/**
- * Effect-based crossover detection
- */
+// Effect-based crossover detection
 export const detectCrossover = (price: CryptoPrice): Effect.Effect<MACDCrossover> =>
   Effect.gen(function* () {
     const macd = yield* computeMACDFromPrice(price);
     return yield* Effect.sync(() => detectMACDCrossover(price, macd));
   });
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const MACDMetadata: FormulaMetadata = {
   name: "MACD",

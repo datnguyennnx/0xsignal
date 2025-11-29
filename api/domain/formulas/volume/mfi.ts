@@ -1,38 +1,51 @@
-import { Effect } from "effect";
+/** MFI (Money Flow Index) - Volume-Weighted RSI */
+// MFI = 100 - (100 / (1 + Money Flow Ratio)), uses typical price × volume
+
+import { Effect, Match, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// MFI (Money Flow Index) - Volume-Weighted RSI
-// ============================================================================
-// Oscillator that uses price and volume to identify overbought/oversold conditions
-// Similar to RSI but incorporates volume
-//
-// Formula:
-// Typical Price = (High + Low + Close) / 3
-// Raw Money Flow = Typical Price × Volume
-// Money Flow Ratio = (14-period Positive Money Flow) / (14-period Negative Money Flow)
-// MFI = 100 - (100 / (1 + Money Flow Ratio))
-//
-// Interpretation:
-// - MFI > 80: Overbought
-// - MFI < 20: Oversold
-// - MFI divergence: Potential reversal
-// ============================================================================
-
 export interface MFIResult {
-  readonly value: number; // MFI value (0-100)
+  readonly value: number;
   readonly signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL";
   readonly moneyFlowRatio: number;
 }
 
-/**
- * Pure function to calculate MFI
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param closes - Array of closing prices
- * @param volumes - Array of volumes
- * @param period - MFI period (default: 14)
- */
+// Signal classification
+const classifySignal = Match.type<number>().pipe(
+  Match.when(
+    (m) => m > 80,
+    () => "OVERBOUGHT" as const
+  ),
+  Match.when(
+    (m) => m < 20,
+    () => "OVERSOLD" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Typical price
+const typicalPrice = (high: number, low: number, close: number): number => (high + low + close) / 3;
+
+// Money flow contribution based on price direction
+const flowContribution = (
+  currTP: number,
+  prevTP: number,
+  rawMF: number
+): { positive: number; negative: number } =>
+  pipe(
+    Match.value(currTP - prevTP),
+    Match.when(
+      (d) => d > 0,
+      () => ({ positive: rawMF, negative: 0 })
+    ),
+    Match.when(
+      (d) => d < 0,
+      () => ({ positive: 0, negative: rawMF })
+    ),
+    Match.orElse(() => ({ positive: 0, negative: 0 }))
+  );
+
+// Calculate MFI
 export const calculateMFI = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -40,52 +53,35 @@ export const calculateMFI = (
   volumes: ReadonlyArray<number>,
   period: number = 14
 ): MFIResult => {
-  // Calculate typical prices and raw money flow
-  const typicalPrices: number[] = [];
-  const rawMoneyFlow: number[] = [];
+  const tpSeries = closes.map((c, i) => typicalPrice(highs[i], lows[i], c));
+  const rawMF = tpSeries.map((tp, i) => tp * volumes[i]);
 
-  for (let i = 0; i < closes.length; i++) {
-    const tp = (highs[i] + lows[i] + closes[i]) / 3;
-    typicalPrices.push(tp);
-    rawMoneyFlow.push(tp * volumes[i]);
-  }
+  const startIdx = Math.max(1, closes.length - period);
+  const { positiveFlow, negativeFlow } = Array.from(
+    { length: closes.length - startIdx },
+    (_, i) => i + startIdx
+  ).reduce(
+    (acc, i) => {
+      const { positive, negative } = flowContribution(tpSeries[i], tpSeries[i - 1], rawMF[i]);
+      return {
+        positiveFlow: acc.positiveFlow + positive,
+        negativeFlow: acc.negativeFlow + negative,
+      };
+    },
+    { positiveFlow: 0, negativeFlow: 0 }
+  );
 
-  // Separate positive and negative money flow
-  let positiveFlow = 0;
-  let negativeFlow = 0;
-
-  for (let i = Math.max(1, closes.length - period); i < closes.length; i++) {
-    if (typicalPrices[i] > typicalPrices[i - 1]) {
-      positiveFlow += rawMoneyFlow[i];
-    } else if (typicalPrices[i] < typicalPrices[i - 1]) {
-      negativeFlow += rawMoneyFlow[i];
-    }
-  }
-
-  // Calculate money flow ratio and MFI
   const moneyFlowRatio = negativeFlow === 0 ? 100 : positiveFlow / negativeFlow;
   const mfi = 100 - 100 / (1 + moneyFlowRatio);
 
-  // Determine signal
-  let signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL";
-  if (mfi > 80) {
-    signal = "OVERBOUGHT";
-  } else if (mfi < 20) {
-    signal = "OVERSOLD";
-  } else {
-    signal = "NEUTRAL";
-  }
-
   return {
     value: Math.round(mfi * 100) / 100,
-    signal,
+    signal: classifySignal(mfi),
     moneyFlowRatio: Math.round(moneyFlowRatio * 100) / 100,
   };
 };
 
-/**
- * Pure function to calculate MFI series
- */
+// Calculate MFI series
 export const calculateMFISeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -93,42 +89,30 @@ export const calculateMFISeries = (
   volumes: ReadonlyArray<number>,
   period: number = 14
 ): ReadonlyArray<number> => {
-  const mfiSeries: number[] = [];
+  const tpSeries = closes.map((c, i) => typicalPrice(highs[i], lows[i], c));
+  const rawMF = tpSeries.map((tp, i) => tp * volumes[i]);
 
-  // Calculate typical prices and raw money flow
-  const typicalPrices: number[] = [];
-  const rawMoneyFlow: number[] = [];
-
-  for (let i = 0; i < closes.length; i++) {
-    const tp = (highs[i] + lows[i] + closes[i]) / 3;
-    typicalPrices.push(tp);
-    rawMoneyFlow.push(tp * volumes[i]);
-  }
-
-  // Calculate MFI for each point
-  for (let i = period; i < closes.length; i++) {
-    let positiveFlow = 0;
-    let negativeFlow = 0;
-
-    for (let j = i - period + 1; j <= i; j++) {
-      if (typicalPrices[j] > typicalPrices[j - 1]) {
-        positiveFlow += rawMoneyFlow[j];
-      } else if (typicalPrices[j] < typicalPrices[j - 1]) {
-        negativeFlow += rawMoneyFlow[j];
-      }
-    }
-
+  return Array.from({ length: closes.length - period }, (_, idx) => {
+    const i = idx + period;
+    const { positiveFlow, negativeFlow } = Array.from(
+      { length: period },
+      (_, j) => i - period + 1 + j
+    ).reduce(
+      (acc, k) => {
+        const { positive, negative } = flowContribution(tpSeries[k], tpSeries[k - 1], rawMF[k]);
+        return {
+          positiveFlow: acc.positiveFlow + positive,
+          negativeFlow: acc.negativeFlow + negative,
+        };
+      },
+      { positiveFlow: 0, negativeFlow: 0 }
+    );
     const ratio = negativeFlow === 0 ? 100 : positiveFlow / negativeFlow;
-    const mfi = 100 - 100 / (1 + ratio);
-    mfiSeries.push(mfi);
-  }
-
-  return mfiSeries;
+    return 100 - 100 / (1 + ratio);
+  });
 };
 
-/**
- * Effect-based wrapper for MFI calculation
- */
+// Effect-based wrapper
 export const computeMFI = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -137,10 +121,6 @@ export const computeMFI = (
   period: number = 14
 ): Effect.Effect<MFIResult> =>
   Effect.sync(() => calculateMFI(highs, lows, closes, volumes, period));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const MFIMetadata: FormulaMetadata = {
   name: "MFI",

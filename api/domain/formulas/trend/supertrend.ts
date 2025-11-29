@@ -1,43 +1,29 @@
-import { Effect } from "effect";
+/** Supertrend - ATR-based trend indicator with functional patterns */
+// Upper = HL2 + (multiplier * ATR), Lower = HL2 - (multiplier * ATR)
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 import { calculateATR } from "../volatility/atr";
 
-// ============================================================================
-// SUPERTREND - Trend Following Indicator
-// ============================================================================
-// Uses ATR to create dynamic support/resistance levels
-// Simple and effective trend indicator
-//
-// Formula:
-// Basic Upper Band = (High + Low) / 2 + (Multiplier × ATR)
-// Basic Lower Band = (High + Low) / 2 - (Multiplier × ATR)
-//
-// Final Bands:
-// - If close > previous final upper band: trend is UP
-// - If close < previous final lower band: trend is DOWN
-//
-// Interpretation:
-// - Price above Supertrend: Bullish (buy signal)
-// - Price below Supertrend: Bearish (sell signal)
-// - Supertrend flip: Trend reversal
-// ============================================================================
-
 export interface SupertrendResult {
-  readonly value: number; // Supertrend line value
+  readonly value: number;
   readonly trend: "BULLISH" | "BEARISH";
-  readonly isReversal: boolean; // True if trend just changed
+  readonly isReversal: boolean;
   readonly upperBand: number;
   readonly lowerBand: number;
 }
 
-/**
- * Pure function to calculate Supertrend
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param closes - Array of closing prices
- * @param period - ATR period (default: 10)
- * @param multiplier - ATR multiplier (default: 3)
- */
+// Round to 2 decimal places
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+// Determine trend from close and HL2
+const determineTrend = (close: number, hl2: number): "BULLISH" | "BEARISH" =>
+  Match.value(close > hl2).pipe(
+    Match.when(true, () => "BULLISH" as const),
+    Match.orElse(() => "BEARISH" as const)
+  );
+
+// Calculate Supertrend
 export const calculateSupertrend = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -45,79 +31,66 @@ export const calculateSupertrend = (
   period: number = 10,
   multiplier: number = 3
 ): SupertrendResult => {
-  // Calculate ATR
   const atr = calculateATR(highs, lows, closes, period);
-
-  // Calculate basic bands
   const hl2 = (highs[highs.length - 1] + lows[lows.length - 1]) / 2;
   const basicUpperBand = hl2 + multiplier * atr.value;
   const basicLowerBand = hl2 - multiplier * atr.value;
-
-  // For simplicity, determine trend based on current price position
   const currentClose = closes[closes.length - 1];
-  let trend: "BULLISH" | "BEARISH";
-  let value: number;
+  const trend = determineTrend(currentClose, hl2);
+  const value = Match.value(trend).pipe(
+    Match.when("BULLISH", () => basicLowerBand),
+    Match.orElse(() => basicUpperBand)
+  );
 
-  // Simple trend determination
-  if (currentClose > hl2) {
-    trend = "BULLISH";
-    value = basicLowerBand;
-  } else {
-    trend = "BEARISH";
-    value = basicUpperBand;
-  }
-
-  // Check for reversal (simplified - compare with previous period)
-  let isReversal = false;
-  if (closes.length > period + 1) {
-    const prevClose = closes[closes.length - 2];
-    const prevHL2 = (highs[highs.length - 2] + lows[lows.length - 2]) / 2;
-    const prevTrend = prevClose > prevHL2 ? "BULLISH" : "BEARISH";
-    isReversal = trend !== prevTrend;
-  }
+  // Check for reversal
+  const isReversal =
+    closes.length > period + 1
+      ? pipe(
+          {
+            prevClose: closes[closes.length - 2],
+            prevHL2: (highs[highs.length - 2] + lows[lows.length - 2]) / 2,
+          },
+          ({ prevClose, prevHL2 }) => {
+            const prevTrend = determineTrend(prevClose, prevHL2);
+            return trend !== prevTrend;
+          }
+        )
+      : false;
 
   return {
-    value: Math.round(value * 100) / 100,
+    value: round2(value),
     trend,
     isReversal,
-    upperBand: Math.round(basicUpperBand * 100) / 100,
-    lowerBand: Math.round(basicLowerBand * 100) / 100,
+    upperBand: round2(basicUpperBand),
+    lowerBand: round2(basicLowerBand),
   };
 };
 
-/**
- * Pure function to calculate Supertrend series
- */
+// Calculate Supertrend series using Arr.makeBy
 export const calculateSupertrendSeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   period: number = 10,
   multiplier: number = 3
-): ReadonlyArray<{ value: number; trend: "BULLISH" | "BEARISH" }> => {
-  const result: { value: number; trend: "BULLISH" | "BEARISH" }[] = [];
+): ReadonlyArray<{ value: number; trend: "BULLISH" | "BEARISH" }> =>
+  Match.value(closes.length < period + 1).pipe(
+    Match.when(true, () => [] as { value: number; trend: "BULLISH" | "BEARISH" }[]),
+    Match.orElse(() =>
+      pipe(
+        Arr.makeBy(closes.length - period, (i) => {
+          const idx = i + period;
+          const windowHighs = Arr.take(highs, idx + 1);
+          const windowLows = Arr.take(lows, idx + 1);
+          const windowCloses = Arr.take(closes, idx + 1);
+          const st = calculateSupertrend(windowHighs, windowLows, windowCloses, period, multiplier);
+          return { value: st.value, trend: st.trend };
+        })
+      )
+    )
+  );
 
-  // Need at least period + 1 data points for ATR
-  if (closes.length < period + 1) {
-    return result;
-  }
-
-  for (let i = period; i < closes.length; i++) {
-    const windowHighs = highs.slice(0, i + 1);
-    const windowLows = lows.slice(0, i + 1);
-    const windowCloses = closes.slice(0, i + 1);
-
-    const st = calculateSupertrend(windowHighs, windowLows, windowCloses, period, multiplier);
-
-    result.push({ value: st.value, trend: st.trend });
-  }
-
-  return result;
-};
-
-/**
- * Effect-based wrapper for Supertrend calculation
- */
+// Effect-based wrapper
 export const computeSupertrend = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -126,10 +99,6 @@ export const computeSupertrend = (
   multiplier: number = 3
 ): Effect.Effect<SupertrendResult> =>
   Effect.sync(() => calculateSupertrend(highs, lows, closes, period, multiplier));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const SupertrendMetadata: FormulaMetadata = {
   name: "Supertrend",

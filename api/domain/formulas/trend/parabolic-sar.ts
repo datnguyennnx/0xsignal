@@ -1,41 +1,142 @@
-import { Effect } from "effect";
+/** Parabolic SAR - Stop and reverse trend indicator with functional patterns */
+// SAR(n) = SAR(n-1) + AF * (EP - SAR(n-1))
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// PARABOLIC SAR (Stop and Reverse) - Trend Following Indicator
-// ============================================================================
-// Provides entry and exit points by placing dots above or below price
-// SAR flips when price crosses the SAR value
-//
-// Formula:
-// SAR(n) = SAR(n-1) + AF × (EP - SAR(n-1))
-// where:
-// - AF = Acceleration Factor (starts at 0.02, increases by 0.02 each period, max 0.20)
-// - EP = Extreme Point (highest high in uptrend, lowest low in downtrend)
-//
-// Interpretation:
-// - SAR below price: Uptrend (bullish)
-// - SAR above price: Downtrend (bearish)
-// - SAR flip: Potential reversal signal
-// ============================================================================
-
 export interface ParabolicSARResult {
-  readonly sar: number; // Current SAR value
+  readonly sar: number;
   readonly trend: "BULLISH" | "BEARISH";
-  readonly isReversal: boolean; // True if SAR just flipped
-  readonly af: number; // Current acceleration factor
-  readonly ep: number; // Current extreme point
+  readonly isReversal: boolean;
+  readonly af: number;
+  readonly ep: number;
 }
 
-/**
- * Pure function to calculate Parabolic SAR
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param closes - Array of closing prices
- * @param afStart - Starting acceleration factor (default: 0.02)
- * @param afIncrement - AF increment per period (default: 0.02)
- * @param afMax - Maximum AF (default: 0.20)
- */
+// Immutable SAR state
+interface SARState {
+  readonly sar: number;
+  readonly trend: "BULLISH" | "BEARISH";
+  readonly ep: number;
+  readonly af: number;
+  readonly isReversal: boolean;
+}
+
+// Round helpers
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+const round3 = (n: number): number => Math.round(n * 1000) / 1000;
+
+// Initial trend detection
+const detectInitialTrend = (closes: ReadonlyArray<number>): "BULLISH" | "BEARISH" =>
+  closes[1] > closes[0] ? "BULLISH" : "BEARISH";
+
+// Create initial SAR state
+const createInitialState = (
+  highs: ReadonlyArray<number>,
+  lows: ReadonlyArray<number>,
+  closes: ReadonlyArray<number>,
+  afStart: number
+): SARState => {
+  const trend = detectInitialTrend(closes);
+  return {
+    sar: Match.value(trend).pipe(
+      Match.when("BULLISH", () => lows[0]),
+      Match.orElse(() => highs[0])
+    ),
+    trend,
+    ep: Match.value(trend).pipe(
+      Match.when("BULLISH", () => highs[1]),
+      Match.orElse(() => lows[1])
+    ),
+    af: afStart,
+    isReversal: false,
+  };
+};
+
+// Update bullish SAR state
+const updateBullishState = (
+  state: SARState,
+  high: number,
+  low: number,
+  prevLow: number,
+  prevPrevLow: number,
+  afStart: number,
+  afIncrement: number,
+  afMax: number
+): SARState => {
+  const newSar = Math.min(state.sar + state.af * (state.ep - state.sar), prevLow, prevPrevLow);
+
+  return Match.value(low < newSar).pipe(
+    Match.when(true, () => ({
+      sar: state.ep,
+      trend: "BEARISH" as const,
+      ep: low,
+      af: afStart,
+      isReversal: true,
+    })),
+    Match.orElse(() => ({
+      sar: newSar,
+      trend: "BULLISH" as const,
+      ep: high > state.ep ? high : state.ep,
+      af: high > state.ep ? Math.min(state.af + afIncrement, afMax) : state.af,
+      isReversal: false,
+    }))
+  );
+};
+
+// Update bearish SAR state
+const updateBearishState = (
+  state: SARState,
+  high: number,
+  low: number,
+  prevHigh: number,
+  prevPrevHigh: number,
+  afStart: number,
+  afIncrement: number,
+  afMax: number
+): SARState => {
+  const newSar = Math.max(state.sar + state.af * (state.ep - state.sar), prevHigh, prevPrevHigh);
+
+  return Match.value(high > newSar).pipe(
+    Match.when(true, () => ({
+      sar: state.ep,
+      trend: "BULLISH" as const,
+      ep: high,
+      af: afStart,
+      isReversal: true,
+    })),
+    Match.orElse(() => ({
+      sar: newSar,
+      trend: "BEARISH" as const,
+      ep: low < state.ep ? low : state.ep,
+      af: low < state.ep ? Math.min(state.af + afIncrement, afMax) : state.af,
+      isReversal: false,
+    }))
+  );
+};
+
+// Update SAR state for one period using Match
+const updateSARState = (
+  state: SARState,
+  high: number,
+  low: number,
+  prevLow: number,
+  prevHigh: number,
+  prevPrevLow: number,
+  prevPrevHigh: number,
+  afStart: number,
+  afIncrement: number,
+  afMax: number
+): SARState =>
+  Match.value(state.trend).pipe(
+    Match.when("BULLISH", () =>
+      updateBullishState(state, high, low, prevLow, prevPrevLow, afStart, afIncrement, afMax)
+    ),
+    Match.orElse(() =>
+      updateBearishState(state, high, low, prevHigh, prevPrevHigh, afStart, afIncrement, afMax)
+    )
+  );
+
+// Calculate Parabolic SAR using Arr.reduce
 export const calculateParabolicSAR = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -43,86 +144,48 @@ export const calculateParabolicSAR = (
   afStart: number = 0.02,
   afIncrement: number = 0.02,
   afMax: number = 0.2
-): ParabolicSARResult => {
-  if (highs.length < 2) {
-    return {
+): ParabolicSARResult =>
+  Match.value(highs.length < 2).pipe(
+    Match.when(true, () => ({
       sar: closes[0],
-      trend: "BULLISH",
+      trend: "BULLISH" as const,
       isReversal: false,
       af: afStart,
       ep: highs[0],
-    };
-  }
+    })),
+    Match.orElse(() => {
+      const initial = createInitialState(highs, lows, closes, afStart);
+      const indices = Arr.makeBy(closes.length - 2, (i) => i + 2);
 
-  // Initialize
-  let trend: "BULLISH" | "BEARISH" = closes[1] > closes[0] ? "BULLISH" : "BEARISH";
-  let sar = trend === "BULLISH" ? lows[0] : highs[0];
-  let ep = trend === "BULLISH" ? highs[1] : lows[1];
-  let af = afStart;
-  let isReversal = false;
+      const finalState = pipe(
+        indices,
+        Arr.reduce(initial, (state, i) =>
+          updateSARState(
+            state,
+            highs[i],
+            lows[i],
+            lows[i - 1],
+            highs[i - 1],
+            lows[i - 2],
+            highs[i - 2],
+            afStart,
+            afIncrement,
+            afMax
+          )
+        )
+      );
 
-  // Calculate SAR for each period
-  for (let i = 2; i < closes.length; i++) {
-    const prevSAR = sar;
-    const prevTrend = trend;
+      return {
+        sar: round2(finalState.sar),
+        trend: finalState.trend,
+        isReversal: finalState.isReversal,
+        af: round3(finalState.af),
+        ep: round2(finalState.ep),
+      };
+    })
+  );
 
-    // Calculate new SAR
-    sar = prevSAR + af * (ep - prevSAR);
-
-    // Check for reversal
-    if (trend === "BULLISH") {
-      // In uptrend, SAR should not be above the last two lows
-      sar = Math.min(sar, lows[i - 1], lows[i - 2]);
-
-      // Check if price crossed below SAR (reversal to downtrend)
-      if (lows[i] < sar) {
-        trend = "BEARISH";
-        sar = ep; // SAR becomes the previous EP
-        ep = lows[i]; // New EP is current low
-        af = afStart; // Reset AF
-        isReversal = true;
-      } else {
-        // Update EP if new high
-        if (highs[i] > ep) {
-          ep = highs[i];
-          af = Math.min(af + afIncrement, afMax);
-        }
-        isReversal = false;
-      }
-    } else {
-      // In downtrend, SAR should not be below the last two highs
-      sar = Math.max(sar, highs[i - 1], highs[i - 2]);
-
-      // Check if price crossed above SAR (reversal to uptrend)
-      if (highs[i] > sar) {
-        trend = "BULLISH";
-        sar = ep; // SAR becomes the previous EP
-        ep = highs[i]; // New EP is current high
-        af = afStart; // Reset AF
-        isReversal = true;
-      } else {
-        // Update EP if new low
-        if (lows[i] < ep) {
-          ep = lows[i];
-          af = Math.min(af + afIncrement, afMax);
-        }
-        isReversal = false;
-      }
-    }
-  }
-
-  return {
-    sar: Math.round(sar * 100) / 100,
-    trend,
-    isReversal,
-    af: Math.round(af * 1000) / 1000,
-    ep: Math.round(ep * 100) / 100,
-  };
-};
-
-/**
- * Pure function to calculate Parabolic SAR series
- */
+// Calculate SAR series using Arr.scan
 export const calculateParabolicSARSeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -130,68 +193,36 @@ export const calculateParabolicSARSeries = (
   afStart: number = 0.02,
   afIncrement: number = 0.02,
   afMax: number = 0.2
-): ReadonlyArray<{ sar: number; trend: "BULLISH" | "BEARISH" }> => {
-  const result: { sar: number; trend: "BULLISH" | "BEARISH" }[] = [];
+): ReadonlyArray<{ sar: number; trend: "BULLISH" | "BEARISH" }> =>
+  Match.value(highs.length < 2).pipe(
+    Match.when(true, () => [] as { sar: number; trend: "BULLISH" | "BEARISH" }[]),
+    Match.orElse(() => {
+      const initial = createInitialState(highs, lows, closes, afStart);
+      const indices = Arr.makeBy(closes.length - 2, (i) => i + 2);
 
-  if (highs.length < 2) {
-    return result;
-  }
+      const states = pipe(
+        indices,
+        Arr.scan(initial, (state, i) =>
+          updateSARState(
+            state,
+            highs[i],
+            lows[i],
+            lows[i - 1],
+            highs[i - 1],
+            lows[i - 2],
+            highs[i - 2],
+            afStart,
+            afIncrement,
+            afMax
+          )
+        )
+      );
 
-  // Initialize
-  let trend: "BULLISH" | "BEARISH" = closes[1] > closes[0] ? "BULLISH" : "BEARISH";
-  let sar = trend === "BULLISH" ? lows[0] : highs[0];
-  let ep = trend === "BULLISH" ? highs[1] : lows[1];
-  let af = afStart;
+      return Arr.map(states, (s) => ({ sar: s.sar, trend: s.trend }));
+    })
+  );
 
-  result.push({ sar, trend });
-
-  // Calculate SAR for each period
-  for (let i = 2; i < closes.length; i++) {
-    const prevSAR = sar;
-
-    // Calculate new SAR
-    sar = prevSAR + af * (ep - prevSAR);
-
-    // Check for reversal and update
-    if (trend === "BULLISH") {
-      sar = Math.min(sar, lows[i - 1], lows[i - 2]);
-
-      if (lows[i] < sar) {
-        trend = "BEARISH";
-        sar = ep;
-        ep = lows[i];
-        af = afStart;
-      } else {
-        if (highs[i] > ep) {
-          ep = highs[i];
-          af = Math.min(af + afIncrement, afMax);
-        }
-      }
-    } else {
-      sar = Math.max(sar, highs[i - 1], highs[i - 2]);
-
-      if (highs[i] > sar) {
-        trend = "BULLISH";
-        sar = ep;
-        ep = highs[i];
-        af = afStart;
-      } else {
-        if (lows[i] < ep) {
-          ep = lows[i];
-          af = Math.min(af + afIncrement, afMax);
-        }
-      }
-    }
-
-    result.push({ sar, trend });
-  }
-
-  return result;
-};
-
-/**
- * Effect-based wrapper for Parabolic SAR calculation
- */
+// Effect-based wrapper
 export const computeParabolicSAR = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -201,10 +232,6 @@ export const computeParabolicSAR = (
   afMax: number = 0.2
 ): Effect.Effect<ParabolicSARResult> =>
   Effect.sync(() => calculateParabolicSAR(highs, lows, closes, afStart, afIncrement, afMax));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const ParabolicSARMetadata: FormulaMetadata = {
   name: "ParabolicSAR",

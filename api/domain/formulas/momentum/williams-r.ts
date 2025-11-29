@@ -1,111 +1,90 @@
-import { Effect } from "effect";
+/** Williams %R - Momentum oscillator with functional patterns */
+// %R = -100 * (Highest High - Close) / (Highest High - Lowest Low)
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// WILLIAMS %R - Momentum Oscillator
-// ============================================================================
-// Measures the position of the current close relative to the high-low range
-// Similar to Stochastic but inverted (ranges from -100 to 0)
-//
-// Formula:
-// Williams %R = -100 * (Highest High - Close) / (Highest High - Lowest Low)
-//
-// Interpretation:
-// - %R > -20: Overbought
-// - %R < -80: Oversold
-// - %R crosses above -80: Buy signal
-// - %R crosses below -20: Sell signal
-// ============================================================================
-
 export interface WilliamsRResult {
-  readonly value: number; // -100 to 0
+  readonly value: number;
   readonly signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL";
   readonly momentum: "BULLISH" | "BEARISH" | "NEUTRAL";
 }
 
-/**
- * Pure function to calculate Williams %R
- * @param closes - Array of closing prices
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param period - Lookback period (default: 14)
- */
+// Signal classification
+const classifySignal = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > -20,
+    () => "OVERBOUGHT" as const
+  ),
+  Match.when(
+    (v) => v < -80,
+    () => "OVERSOLD" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Momentum classification
+const classifyMomentum = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > -50,
+    () => "BULLISH" as const
+  ),
+  Match.when(
+    (v) => v < -50,
+    () => "BEARISH" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Round to 2 decimal places
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+// Calculate Williams %R value
+const calculateWilliamsRValue = (close: number, highestHigh: number, lowestLow: number): number => {
+  const range = highestHigh - lowestLow;
+  return range === 0 ? -50 : -100 * ((highestHigh - close) / range);
+};
+
+// Calculate Williams %R
 export const calculateWilliamsR = (
   closes: ReadonlyArray<number>,
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   period: number = 14
 ): WilliamsRResult => {
-  // Get the last period values
-  const recentCloses = closes.slice(-period);
-  const recentHighs = highs.slice(-period);
-  const recentLows = lows.slice(-period);
-
-  // Find highest high and lowest low
+  const recentHighs = Arr.takeRight(highs, period);
+  const recentLows = Arr.takeRight(lows, period);
   const highestHigh = Math.max(...recentHighs);
   const lowestLow = Math.min(...recentLows);
-  const currentClose = recentCloses[recentCloses.length - 1];
-
-  // Calculate Williams %R
-  const range = highestHigh - lowestLow;
-  const value = range === 0 ? -50 : -100 * ((highestHigh - currentClose) / range);
-
-  // Determine signal
-  let signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL";
-  if (value > -20) {
-    signal = "OVERBOUGHT";
-  } else if (value < -80) {
-    signal = "OVERSOLD";
-  } else {
-    signal = "NEUTRAL";
-  }
-
-  // Determine momentum
-  let momentum: "BULLISH" | "BEARISH" | "NEUTRAL";
-  if (value > -50) {
-    momentum = "BULLISH";
-  } else if (value < -50) {
-    momentum = "BEARISH";
-  } else {
-    momentum = "NEUTRAL";
-  }
+  const currentClose = closes[closes.length - 1];
+  const value = calculateWilliamsRValue(currentClose, highestHigh, lowestLow);
 
   return {
-    value: Math.round(value * 100) / 100,
-    signal,
-    momentum,
+    value: round2(value),
+    signal: classifySignal(value),
+    momentum: classifyMomentum(value),
   };
 };
 
-/**
- * Pure function to calculate Williams %R series
- */
+// Calculate Williams %R series using Arr.makeBy
 export const calculateWilliamsRSeries = (
   closes: ReadonlyArray<number>,
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   period: number = 14
-): ReadonlyArray<number> => {
-  const result: number[] = [];
+): ReadonlyArray<number> =>
+  pipe(
+    Arr.makeBy(closes.length - period + 1, (i) => {
+      const idx = i + period - 1;
+      const windowHighs = Arr.take(Arr.drop(highs, i), period);
+      const windowLows = Arr.take(Arr.drop(lows, i), period);
+      const hh = Math.max(...windowHighs);
+      const ll = Math.min(...windowLows);
+      return calculateWilliamsRValue(closes[idx], hh, ll);
+    })
+  );
 
-  for (let i = period - 1; i < closes.length; i++) {
-    const windowHighs = highs.slice(i - period + 1, i + 1);
-    const windowLows = lows.slice(i - period + 1, i + 1);
-    const windowClose = closes[i];
-
-    const hh = Math.max(...windowHighs);
-    const ll = Math.min(...windowLows);
-    const r = hh - ll;
-    const value = r === 0 ? -50 : -100 * ((hh - windowClose) / r);
-    result.push(value);
-  }
-
-  return result;
-};
-
-/**
- * Effect-based wrapper with validation
- */
+// Effect-based wrapper
 export const computeWilliamsR = (
   closes: ReadonlyArray<number>,
   highs: ReadonlyArray<number>,
@@ -113,10 +92,6 @@ export const computeWilliamsR = (
   period: number = 14
 ): Effect.Effect<WilliamsRResult> =>
   Effect.sync(() => calculateWilliamsR(closes, highs, lows, period));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const WilliamsRMetadata: FormulaMetadata = {
   name: "WilliamsR",

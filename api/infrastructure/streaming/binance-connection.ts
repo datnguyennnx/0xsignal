@@ -1,287 +1,201 @@
-/**
- * Binance Connection Manager
- * WebSocket connection with auto-reconnection using Effect-native logging
- */
+/** Binance WebSocket Connection - Auto-reconnection with Effect and functional patterns */
 
-import { Effect, Stream, Schedule, Duration, Ref, Queue, PubSub } from "effect";
+import {
+  Effect,
+  Schedule,
+  Duration,
+  Ref,
+  Queue,
+  PubSub,
+  Context,
+  Layer,
+  Scope,
+  Option,
+  Match,
+  pipe,
+} from "effect";
 import WebSocket from "ws";
 import type { BinanceKline } from "./types";
 import { BinanceConnectionError } from "./types";
+import { WS_CONFIG } from "../config/app.config";
 
-// Binance WebSocket configuration
-interface BinanceConfig {
-  readonly url: string;
-  readonly reconnectDelay: number;
-  readonly maxReconnectAttempts: number;
-  readonly pingInterval: number;
-  readonly pongTimeout: number;
-}
-
-const defaultConfig: BinanceConfig = {
-  url: "wss://stream.binance.com:9443/ws",
-  reconnectDelay: 1000,
-  maxReconnectAttempts: 10,
-  pingInterval: 30000,
-  pongTimeout: 10000,
-};
-
-// Connection state
-interface ConnectionState {
-  readonly ws: WebSocket | null;
-  readonly isConnected: boolean;
-  readonly reconnectAttempts: number;
-  readonly subscribedSymbols: Set<string>;
-}
-
-// Binance Connection Service interface
+// Service interface
 export interface BinanceConnection {
-  readonly subscribeToPubSub: () => Effect.Effect<PubSub.PubSub<BinanceKline>>;
+  readonly pubSub: PubSub.PubSub<BinanceKline>;
   readonly subscribe: (symbol: string, interval?: string) => Effect.Effect<void>;
   readonly unsubscribe: (symbol: string, interval?: string) => Effect.Effect<void>;
-  readonly getWebSocket: () => Effect.Effect<WebSocket | null>;
 }
 
-// Parse Binance kline message
-const parseKlineMessage = (data: string): BinanceKline | null => {
-  try {
-    const parsed = JSON.parse(data);
-    if (!parsed.e || parsed.e !== "kline") return null;
+export class BinanceConnectionTag extends Context.Tag("BinanceConnection")<
+  BinanceConnectionTag,
+  BinanceConnection
+>() {}
 
-    const k = parsed.k;
-    return {
-      symbol: parsed.s,
-      interval: k.i,
-      openTime: k.t,
-      closeTime: k.T,
-      open: parseFloat(k.o),
-      high: parseFloat(k.h),
-      low: parseFloat(k.l),
-      close: parseFloat(k.c),
-      volume: parseFloat(k.v),
-      trades: k.n,
-      isFinal: k.x,
-    };
-  } catch {
-    return null;
-  }
-};
+// Parse kline message using Option
+const parseKline = (data: string): Option.Option<BinanceKline> =>
+  pipe(
+    Effect.try(() => JSON.parse(data)),
+    Effect.option,
+    Effect.runSync,
+    Option.flatMap((parsed) =>
+      parsed.e === "kline"
+        ? Option.some({
+            symbol: parsed.s,
+            interval: parsed.k.i,
+            openTime: parsed.k.t,
+            closeTime: parsed.k.T,
+            open: parseFloat(parsed.k.o),
+            high: parseFloat(parsed.k.h),
+            low: parseFloat(parsed.k.l),
+            close: parseFloat(parsed.k.c),
+            volume: parseFloat(parsed.k.v),
+            trades: parsed.k.n,
+            isFinal: parsed.k.x,
+          })
+        : Option.none()
+    )
+  );
 
-// Create Binance WebSocket connection
-export const createBinanceConnection = (
-  config: BinanceConfig = defaultConfig
-): Effect.Effect<BinanceConnection> =>
+// WebSocket send helper
+const wsSend = (ws: WebSocket, method: string, params: string[], symbol?: string) =>
+  Effect.async<void, BinanceConnectionError>((resume) => {
+    ws.send(JSON.stringify({ method, params, id: Date.now() }), (err: any) =>
+      resume(
+        err
+          ? Effect.fail(new BinanceConnectionError({ message: err.message, symbol }))
+          : Effect.void
+      )
+    );
+  });
+
+// Check if connection needs reconnect
+const needsReconnect = (lastPong: number): boolean =>
+  Date.now() - lastPong > WS_CONFIG.PONG_TIMEOUT_MS;
+
+// Heartbeat action based on connection state
+const heartbeatAction = Match.type<{
+  ws: WebSocket | null;
+  connected: boolean;
+  lastPong: number;
+}>().pipe(
+  Match.when(
+    ({ ws, connected }) => ws === null || !connected,
+    () => Effect.void
+  ),
+  Match.when(
+    ({ lastPong }) => needsReconnect(lastPong),
+    ({ ws }) => Effect.sync(() => ws!.close())
+  ),
+  Match.orElse(({ ws }) => Effect.sync(() => ws!.ping()))
+);
+
+// Service implementation
+export const BinanceConnectionLive = Layer.scoped(
+  BinanceConnectionTag,
   Effect.gen(function* () {
-    const stateRef = yield* Ref.make<ConnectionState>({
-      ws: null,
-      isConnected: false,
-      reconnectAttempts: 0,
-      subscribedSymbols: new Set(),
-    });
-
+    const scope = yield* Scope.Scope;
+    const pubSub = yield* PubSub.unbounded<BinanceKline>();
     const messageQueue = yield* Queue.unbounded<BinanceKline>();
-    const lastPongRef = yield* Ref.make<number>(Date.now());
+    const wsRef = yield* Ref.make<WebSocket | null>(null);
+    const connectedRef = yield* Ref.make(false);
+    const lastPongRef = yield* Ref.make(Date.now());
 
-    // Create WebSocket connection
-    const connect = Effect.gen(function* () {
-      const state = yield* Ref.get(stateRef);
-      if (state.ws) state.ws.close();
-
-      return yield* Effect.async<WebSocket, BinanceConnectionError>((resume) => {
-        Effect.runFork(Effect.logInfo(`Connecting to Binance: ${config.url}`));
-
-        const ws = new WebSocket(config.url);
-
-        ws.on("open", () => {
-          Effect.runFork(Effect.logInfo("Binance WebSocket connected"));
-          resume(Effect.succeed(ws));
-        });
-
-        ws.on("error", (error: any) => {
-          resume(
-            Effect.fail(
-              new BinanceConnectionError({ message: `WebSocket error: ${error.message}` })
-            )
-          );
-        });
-
-        ws.on("close", () => {
-          resume(
-            Effect.fail(new BinanceConnectionError({ message: "WebSocket closed unexpectedly" }))
-          );
-        });
-      });
+    // Connect to Binance
+    const connect = Effect.async<WebSocket, BinanceConnectionError>((resume) => {
+      const ws = new WebSocket(WS_CONFIG.BINANCE_URL);
+      ws.on("open", () => resume(Effect.succeed(ws)));
+      ws.on("error", (e: any) =>
+        resume(Effect.fail(new BinanceConnectionError({ message: e.message })))
+      );
     });
 
-    // Setup WebSocket event handlers
+    // Setup handlers using functional approach
     const setupHandlers = (ws: WebSocket) =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         ws.on("message", (data: Buffer) => {
-          const kline = parseKlineMessage(data.toString());
-          if (kline) {
-            Effect.runFork(Queue.offer(messageQueue, kline));
-          }
+          pipe(
+            parseKline(data.toString()),
+            Option.map((kline) => Effect.runFork(Queue.offer(messageQueue, kline)))
+          );
         });
-
-        ws.on("pong", () => {
-          Effect.runFork(Ref.set(lastPongRef, Date.now()));
-        });
-
-        ws.on("error", (error) => {
-          Effect.runFork(Effect.logError(`Binance WS error: ${error.message}`));
-        });
-
-        ws.on("close", () => {
-          Effect.runFork(Ref.update(stateRef, (s) => ({ ...s, ws: null, isConnected: false })));
-        });
-
-        yield* Ref.update(stateRef, (s) => ({
-          ...s,
-          ws,
-          isConnected: true,
-          reconnectAttempts: 0,
-        }));
+        ws.on("pong", () => Effect.runFork(Ref.set(lastPongRef, Date.now())));
+        ws.on("close", () => Effect.runFork(Ref.set(connectedRef, false)));
+        ws.on("error", (e) => Effect.runFork(Effect.logError(`WS error: ${e.message}`)));
       });
 
-    // Heartbeat mechanism
+    // Heartbeat using functional pattern
     const heartbeat = Effect.gen(function* () {
-      const state = yield* Ref.get(stateRef);
+      const ws = yield* Ref.get(wsRef);
+      const connected = yield* Ref.get(connectedRef);
       const lastPong = yield* Ref.get(lastPongRef);
-      const now = Date.now();
-
-      if (state.ws && state.isConnected) {
-        if (now - lastPong > config.pongTimeout) {
-          state.ws.close();
-          return yield* Effect.fail(new BinanceConnectionError({ message: "Heartbeat timeout" }));
-        }
-        state.ws.ping();
-      }
+      yield* heartbeatAction({ ws, connected, lastPong });
     }).pipe(
-      Effect.repeat(Schedule.fixed(Duration.millis(config.pingInterval))),
+      Effect.repeat(Schedule.fixed(Duration.millis(WS_CONFIG.PING_INTERVAL_MS))),
       Effect.catchAll(() => Effect.void)
     );
 
     // Connect with retry
     const connectWithRetry = connect.pipe(
       Effect.retry(
-        Schedule.exponential(Duration.millis(config.reconnectDelay)).pipe(
-          Schedule.compose(Schedule.recurs(config.maxReconnectAttempts))
+        Schedule.exponential(Duration.millis(WS_CONFIG.RECONNECT_DELAY_MS)).pipe(
+          Schedule.compose(Schedule.recurs(WS_CONFIG.MAX_RECONNECT_ATTEMPTS))
         )
       ),
-      Effect.tap(setupHandlers),
+      Effect.tap((ws) => Ref.set(wsRef, ws)),
+      Effect.tap((ws) => setupHandlers(ws)),
+      Effect.tap(() => Ref.set(connectedRef, true)),
       Effect.tap(() => Effect.fork(heartbeat)),
-      Effect.catchAll((error) => {
-        Effect.runFork(Effect.logError(`Failed to connect to Binance: ${String(error)}`));
-        return Effect.void;
+      Effect.tap(() => Effect.logInfo("Binance WebSocket connected")),
+      Effect.catchAll((e) => Effect.logError(`Failed to connect: ${e}`))
+    );
+
+    // Message dispatcher
+    yield* Effect.forkIn(
+      Stream.fromQueue(messageQueue).pipe(
+        Stream.runForEach((kline) => PubSub.publish(pubSub, kline)),
+        Effect.catchAll(() => Effect.void)
+      ),
+      scope
+    );
+
+    // Initial connection
+    yield* connectWithRetry;
+
+    // Cleanup on scope close
+    yield* Scope.addFinalizer(
+      scope,
+      Effect.gen(function* () {
+        const ws = yield* Ref.get(wsRef);
+        pipe(
+          Option.fromNullable(ws),
+          Option.map((w) => w.close())
+        );
+        yield* Effect.logInfo("Binance connection closed");
       })
     );
 
-    const pubSub = yield* PubSub.unbounded<BinanceKline>();
-    const isInitialized = yield* Ref.make(false);
-
-    // Lazy connection on first subscription
-    const ensureConnected = Effect.gen(function* () {
-      const initialized = yield* Ref.get(isInitialized);
-      if (!initialized) {
-        yield* Effect.logInfo("First subscription, connecting to Binance...");
-        yield* connectWithRetry;
-        yield* Ref.set(isInitialized, true);
-
-        // Start broadcasting from queue to PubSub
-        yield* Effect.forkDaemon(
-          Stream.fromQueue(messageQueue).pipe(
-            Stream.runForEach((kline) => PubSub.publish(pubSub, kline)),
-            Effect.catchAll(() => Effect.void)
-          )
+    // Subscribe/unsubscribe using functional pattern
+    const wsAction = (method: string, symbol: string, interval: string) =>
+      Effect.gen(function* () {
+        const ws = yield* Ref.get(wsRef);
+        const connected = yield* Ref.get(connectedRef);
+        yield* pipe(
+          Option.fromNullable(ws),
+          Option.filter(() => connected),
+          Option.map((w) =>
+            wsSend(w, method, [`${symbol.toLowerCase()}@kline_${interval}`], symbol)
+          ),
+          Option.getOrElse(() => Effect.void)
         );
-      }
-    });
+      }).pipe(Effect.catchAll(() => Effect.void));
 
     return {
-      subscribeToPubSub: () => Effect.succeed(pubSub),
-
-      subscribe: (symbol: string, interval: string = "1m") =>
-        Effect.gen(function* () {
-          yield* ensureConnected;
-          const state = yield* Ref.get(stateRef);
-
-          if (state.ws && state.isConnected) {
-            yield* subscribeSymbol(state.ws, symbol, interval).pipe(
-              Effect.catchAll(() => Effect.void)
-            );
-            yield* Effect.logDebug(`Subscribed to Binance: ${symbol}@kline_${interval}`);
-          } else {
-            yield* Effect.logError("Cannot subscribe - WebSocket not connected");
-          }
-        }),
-
-      unsubscribe: (symbol: string, interval: string = "1m") =>
-        Effect.gen(function* () {
-          const state = yield* Ref.get(stateRef);
-          if (state.ws && state.isConnected) {
-            yield* unsubscribeSymbol(state.ws, symbol, interval).pipe(
-              Effect.catchAll(() => Effect.void)
-            );
-            yield* Effect.logDebug(`Unsubscribed from Binance: ${symbol}@kline_${interval}`);
-          }
-        }),
-
-      getWebSocket: () => Ref.get(stateRef).pipe(Effect.map((s) => s.ws)),
+      pubSub,
+      subscribe: (symbol: string, interval = "1m") => wsAction("SUBSCRIBE", symbol, interval),
+      unsubscribe: (symbol: string, interval = "1m") => wsAction("UNSUBSCRIBE", symbol, interval),
     };
-  });
+  })
+);
 
-// Subscribe to symbol stream
-export const subscribeSymbol = (
-  ws: WebSocket,
-  symbol: string,
-  interval: string = "1m"
-): Effect.Effect<void, BinanceConnectionError> =>
-  Effect.async<void, BinanceConnectionError>((resume) => {
-    ws.send(
-      JSON.stringify({
-        method: "SUBSCRIBE",
-        params: [`${symbol.toLowerCase()}@kline_${interval}`],
-        id: Date.now(),
-      }),
-      (error: any) => {
-        if (error) {
-          resume(
-            Effect.fail(
-              new BinanceConnectionError({ message: `Subscribe failed: ${error.message}`, symbol })
-            )
-          );
-        } else {
-          resume(Effect.void);
-        }
-      }
-    );
-  });
-
-// Unsubscribe from symbol stream
-export const unsubscribeSymbol = (
-  ws: WebSocket,
-  symbol: string,
-  interval: string = "1m"
-): Effect.Effect<void, BinanceConnectionError> =>
-  Effect.async<void, BinanceConnectionError>((resume) => {
-    ws.send(
-      JSON.stringify({
-        method: "UNSUBSCRIBE",
-        params: [`${symbol.toLowerCase()}@kline_${interval}`],
-        id: Date.now(),
-      }),
-      (error: any) => {
-        if (error) {
-          resume(
-            Effect.fail(
-              new BinanceConnectionError({
-                message: `Unsubscribe failed: ${error.message}`,
-                symbol,
-              })
-            )
-          );
-        } else {
-          resume(Effect.void);
-        }
-      }
-    );
-  });
+// Import Stream for message dispatcher
+import { Stream } from "effect";

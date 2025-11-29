@@ -1,54 +1,30 @@
+/** Buyback Routes */
+
 import { Effect } from "effect";
 import { BuybackServiceTag } from "../../../services/buyback";
 
-export const buybackSignalsRoute = (limit: number = 50) =>
-  Effect.gen(function* () {
-    const service = yield* BuybackServiceTag;
-    return yield* service.getBuybackSignals(limit);
-  }).pipe(
-    Effect.catchTag("DataSourceError", (error) =>
-      Effect.fail({ status: 500, message: error.message })
-    )
+const handleError = (e: { message: string }) => Effect.fail({ status: 500, message: e.message });
+const notFound = (protocol: string) =>
+  Effect.fail({ status: 404, message: `No buyback data for ${protocol}` });
+
+export const buybackSignalsRoute = (limit = 50) =>
+  Effect.flatMap(BuybackServiceTag, (s) => s.getBuybackSignals(limit)).pipe(
+    Effect.catchTag("DataSourceError", handleError)
   );
 
 export const buybackOverviewRoute = () =>
-  Effect.gen(function* () {
-    const service = yield* BuybackServiceTag;
-    return yield* service.getBuybackOverview();
-  }).pipe(
-    Effect.catchTag("DataSourceError", (error) =>
-      Effect.fail({ status: 500, message: error.message })
-    )
+  Effect.flatMap(BuybackServiceTag, (s) => s.getBuybackOverview()).pipe(
+    Effect.catchTag("DataSourceError", handleError)
   );
 
 export const protocolBuybackRoute = (protocol: string) =>
-  Effect.gen(function* () {
-    const service = yield* BuybackServiceTag;
-    const signal = yield* service.getProtocolBuyback(protocol);
-
-    if (!signal) {
-      return yield* Effect.fail({ status: 404, message: `No buyback data for ${protocol}` });
-    }
-
-    return signal;
-  }).pipe(
-    Effect.catchTag("DataSourceError", (error) =>
-      Effect.fail({ status: 500, message: error.message })
-    )
+  Effect.flatMap(BuybackServiceTag, (s) => s.getProtocolBuyback(protocol)).pipe(
+    Effect.flatMap((signal) => (signal ? Effect.succeed(signal) : notFound(protocol))),
+    Effect.catchTag("DataSourceError", handleError)
   );
 
 export const protocolBuybackDetailRoute = (protocol: string) =>
-  Effect.gen(function* () {
-    const service = yield* BuybackServiceTag;
-    const detail = yield* service.getProtocolBuybackDetail(protocol);
-
-    if (!detail) {
-      return yield* Effect.fail({ status: 404, message: `No buyback data for ${protocol}` });
-    }
-
-    return detail;
-  }).pipe(
-    Effect.catchTag("DataSourceError", (error) =>
-      Effect.fail({ status: 500, message: error.message })
-    )
+  Effect.flatMap(BuybackServiceTag, (s) => s.getProtocolBuybackDetail(protocol)).pipe(
+    Effect.flatMap((detail) => (detail ? Effect.succeed(detail) : notFound(protocol))),
+    Effect.catchTag("DataSourceError", handleError)
   );

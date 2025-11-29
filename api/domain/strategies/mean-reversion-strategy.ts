@@ -1,12 +1,6 @@
-// ============================================================================
-// MEAN REVERSION STRATEGY
-// ============================================================================
-// Strategy for range-bound markets with price extremes
-// Best for: MEAN_REVERSION, SIDEWAYS regimes
-// Uses multiple indicators with proper weighting for balanced signals
-// ============================================================================
+/** Mean Reversion Strategy - Range-bound markets with price extremes */
 
-import { Effect } from "effect";
+import { Effect, Match, pipe } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
 import type { StrategySignal } from "./types";
 import { computePercentB } from "../formulas/mean-reversion/percent-b";
@@ -16,25 +10,201 @@ import { computeStochastic } from "../formulas/momentum/stochastic";
 import { computeADX } from "../formulas/trend/adx";
 import { computeATR } from "../formulas/volatility/atr";
 import { computeMACDFromPrice } from "../formulas/momentum/macd";
-import {
-  calculateIndicatorAgreement,
-  calculateConfidence,
-  calculateRiskScore,
-} from "../analysis/scoring";
+import { calculateIndicatorAgreement, calculateConfidence } from "../analysis/scoring";
 
-/**
- * Mean reversion strategy for range-bound markets
- * Uses multi-indicator consensus for balanced buy/sell signals
- */
+type IndicatorSignal = { signal: "BUY" | "SELL" | "NEUTRAL"; weight: number };
+
+// Price array preparation
+const preparePrices = (price: CryptoPrice) => ({
+  closes:
+    price.high24h && price.low24h ? [price.low24h, price.price, price.high24h] : [price.price],
+  highs: price.high24h ? [price.high24h, price.high24h, price.high24h] : [price.price],
+  lows: price.low24h ? [price.low24h, price.low24h, price.low24h] : [price.price],
+});
+
+// RSI to signal using Match
+const rsiToSignal = Match.type<number>().pipe(
+  Match.when(
+    (r) => r < 45,
+    () => "BUY" as const
+  ),
+  Match.when(
+    (r) => r > 55,
+    () => "SELL" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Stochastic to signal using Match
+const stochToSignal = Match.type<number>().pipe(
+  Match.when(
+    (s) => s < 40,
+    () => "BUY" as const
+  ),
+  Match.when(
+    (s) => s > 60,
+    () => "SELL" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Percent B to signal using Match
+const percentBToSignal = Match.type<number>().pipe(
+  Match.when(
+    (p) => p < 0.4,
+    () => "BUY" as const
+  ),
+  Match.when(
+    (p) => p > 0.6,
+    () => "SELL" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// MACD trend to signal using Match
+const macdToSignal = Match.type<string>().pipe(
+  Match.when("BULLISH", () => "BUY" as const),
+  Match.when("BEARISH", () => "SELL" as const),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Distance from MA to signal using Match
+const distanceToSignal = Match.type<number>().pipe(
+  Match.when(
+    (d) => d < -1,
+    () => "BUY" as const
+  ),
+  Match.when(
+    (d) => d > 1,
+    () => "SELL" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Price change to signal using Match
+const priceChangeToSignal = Match.type<number>().pipe(
+  Match.when(
+    (c) => c > 1,
+    () => "BUY" as const
+  ),
+  Match.when(
+    (c) => c < -1,
+    () => "SELL" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Score to signal using Match
+const scoreToSignal = Match.type<number>().pipe(
+  Match.when(
+    (s) => s > 50,
+    () => "STRONG_BUY" as const
+  ),
+  Match.when(
+    (s) => s > 15,
+    () => "BUY" as const
+  ),
+  Match.when(
+    (s) => s < -50,
+    () => "STRONG_SELL" as const
+  ),
+  Match.when(
+    (s) => s < -15,
+    () => "SELL" as const
+  ),
+  Match.orElse(() => "HOLD" as const)
+);
+
+// Signal to score contribution
+const signalToScore = Match.type<"BUY" | "SELL" | "NEUTRAL">().pipe(
+  Match.when("BUY", () => 1),
+  Match.when("SELL", () => -1),
+  Match.orElse(() => 0)
+);
+
+// Calculate weighted score from signals
+const calculateWeightedScore = (signals: IndicatorSignal[]): number =>
+  signals.reduce((score, { signal, weight }) => score + signalToScore(signal) * weight, 0);
+
+// Effective stochastic value (use RSI as proxy at extremes)
+const getEffectiveStoch = (stochK: number, rsiValue: number): number =>
+  pipe(
+    Match.value(stochK),
+    Match.when(
+      (k) => k === 100 || k === 0,
+      () => rsiValue
+    ),
+    Match.orElse(() => stochK)
+  );
+
+// Agreement level description
+const agreementDescription = Match.type<number>().pipe(
+  Match.when(
+    (a) => a >= 70,
+    (a) => `strong indicator consensus (${a}%)`
+  ),
+  Match.when(
+    (a) => a >= 50,
+    (a) => `moderate indicator agreement (${a}%)`
+  ),
+  Match.orElse((a) => `mixed signals (${a}% agreement)`)
+);
+
+// RSI insight
+const rsiInsight = Match.type<number>().pipe(
+  Match.when(
+    (r) => r < 35,
+    (r) => `RSI oversold (${Math.round(r)})`
+  ),
+  Match.when(
+    (r) => r > 65,
+    (r) => `RSI overbought (${Math.round(r)})`
+  ),
+  Match.orElse(() => null)
+);
+
+// MACD insight
+const macdInsight = Match.type<string>().pipe(
+  Match.when("BULLISH", () => "MACD bullish"),
+  Match.when("BEARISH", () => "MACD bearish"),
+  Match.orElse(() => null)
+);
+
+// Percent B insight
+const percentBInsight = Match.type<number>().pipe(
+  Match.when(
+    (p) => p < 0.25,
+    () => "near lower BB"
+  ),
+  Match.when(
+    (p) => p > 0.75,
+    () => "near upper BB"
+  ),
+  Match.orElse(() => null)
+);
+
+// Build reasoning from insights
+const buildReasoning = (
+  agreement: number,
+  rsi: number,
+  macdTrend: string,
+  percentBValue: number
+): string => {
+  const agreementPct = Math.round(agreement * 100);
+  const parts = [
+    agreementDescription(agreementPct),
+    rsiInsight(rsi),
+    macdInsight(macdTrend),
+    percentBInsight(percentBValue),
+  ].filter((p): p is string => p !== null);
+  return parts.join(", ");
+};
+
+// Multi-indicator consensus for balanced buy/sell signals
 export const meanReversionStrategy = (price: CryptoPrice): Effect.Effect<StrategySignal, never> =>
   Effect.gen(function* () {
-    // Prepare price arrays for formulas
-    const closes =
-      price.high24h && price.low24h ? [price.low24h, price.price, price.high24h] : [price.price];
-    const highs = price.high24h ? [price.high24h, price.high24h, price.high24h] : [price.price];
-    const lows = price.low24h ? [price.low24h, price.low24h, price.low24h] : [price.price];
+    const { closes, highs, lows } = preparePrices(price);
 
-    // Calculate all indicators
     const [percentB, distanceFromMA, rsi, stochastic, adx, atr, macd] = yield* Effect.all(
       [
         computePercentB(price),
@@ -48,149 +218,36 @@ export const meanReversionStrategy = (price: CryptoPrice): Effect.Effect<Strateg
       { concurrency: "unbounded" }
     );
 
-    // Collect indicator signals with weights
-    const indicatorSignals: Array<{ signal: "BUY" | "SELL" | "NEUTRAL"; weight: number }> = [];
+    const effectiveStoch = getEffectiveStoch(stochastic.k, rsi.rsi);
 
-    // RSI signal (weight: 25) - primary oscillator
-    // More sensitive thresholds for 24h data to generate balanced signals
-    const rsiSignal = rsi.rsi < 45 ? "BUY" : rsi.rsi > 55 ? "SELL" : ("NEUTRAL" as const);
-    indicatorSignals.push({ signal: rsiSignal, weight: 25 });
+    const signals: IndicatorSignal[] = [
+      { signal: rsiToSignal(rsi.rsi), weight: 25 },
+      { signal: stochToSignal(effectiveStoch), weight: 20 },
+      { signal: percentBToSignal(percentB.value), weight: 20 },
+      { signal: macdToSignal(macd.trend), weight: 20 },
+      { signal: distanceToSignal(distanceFromMA.distance), weight: 10 },
+      { signal: priceChangeToSignal(price.change24h), weight: 15 },
+    ];
 
-    // Stochastic signal (weight: 20)
-    // With limited data, stochastic is unreliable - use RSI as proxy if stochastic is at extremes
-    const effectiveStoch =
-      stochastic.k === 100 || stochastic.k === 0
-        ? rsi.rsi // Use RSI as proxy when stochastic is at data limits
-        : stochastic.k;
-    const stochSignal =
-      effectiveStoch < 40 ? "BUY" : effectiveStoch > 60 ? "SELL" : ("NEUTRAL" as const);
-    indicatorSignals.push({ signal: stochSignal, weight: 20 });
-
-    // Percent B signal (weight: 20) - Bollinger position
-    const percentBSignal =
-      percentB.value < 0.4 ? "BUY" : percentB.value > 0.6 ? "SELL" : ("NEUTRAL" as const);
-    indicatorSignals.push({ signal: percentBSignal, weight: 20 });
-
-    // MACD signal (weight: 20) - momentum confirmation
-    const macdSignal =
-      macd.trend === "BULLISH" ? "BUY" : macd.trend === "BEARISH" ? "SELL" : ("NEUTRAL" as const);
-    indicatorSignals.push({ signal: macdSignal, weight: 20 });
-
-    // Distance from MA (weight: 10) - mean reversion core
-    // Very sensitive for 24h data
-    const distSignal =
-      distanceFromMA.distance < -1
-        ? "BUY"
-        : distanceFromMA.distance > 1
-          ? "SELL"
-          : ("NEUTRAL" as const);
-    indicatorSignals.push({ signal: distSignal, weight: 10 });
-
-    // 24h price momentum (weight: 15) - direct price action
-    // Positive change = bullish momentum, negative = bearish
-    const priceSignal =
-      price.change24h > 1 ? "BUY" : price.change24h < -1 ? "SELL" : ("NEUTRAL" as const);
-    indicatorSignals.push({ signal: priceSignal, weight: 15 });
-
-    // Calculate indicator agreement
-    const { agreement, direction } = calculateIndicatorAgreement(indicatorSignals);
-
-    // Calculate score based on weighted signals
-    let score = 0;
-    for (const ind of indicatorSignals) {
-      if (ind.signal === "BUY") score += ind.weight;
-      else if (ind.signal === "SELL") score -= ind.weight;
-    }
-
-    // Normalize to -100 to 100
-    score = Math.round((score / 100) * 100);
-
-    const metrics: Record<string, number> = {
-      percentB: Math.round(percentB.value * 100) / 100,
-      distanceFromMA: Math.round(distanceFromMA.distance * 100) / 100,
-      rsi: Math.round(rsi.rsi),
-      stochastic: Math.round(stochastic.k),
-      adxValue: Math.round(adx.adx),
-      normalizedATR: Math.round(atr.normalizedATR * 100) / 100,
-      macdTrend: macd.trend === "BULLISH" ? 1 : macd.trend === "BEARISH" ? -1 : 0,
-      indicatorAgreement: Math.round(agreement * 100),
-    };
-
-    // Determine signal with adjusted thresholds for better balance
-    const signal: StrategySignal["signal"] =
-      score > 50
-        ? "STRONG_BUY"
-        : score > 15
-          ? "BUY"
-          : score < -50
-            ? "STRONG_SELL"
-            : score < -15
-              ? "SELL"
-              : "HOLD";
-
-    // Calculate confidence using new formula
-    const confidence = calculateConfidence(score, agreement, adx.adx, atr.normalizedATR);
-
-    // Generate reasoning
-    const reasoning = generateReasoning(
-      indicatorSignals,
-      direction,
-      agreement,
-      rsi,
-      stochastic,
-      percentB,
-      macd
-    );
+    const { agreement } = calculateIndicatorAgreement(signals);
+    const rawScore = calculateWeightedScore(signals);
+    const score = Math.round(rawScore);
 
     return {
       strategy: "MEAN_REVERSION",
-      signal,
-      confidence,
-      reasoning,
-      metrics,
+      signal: scoreToSignal(score),
+      confidence: calculateConfidence(score, agreement, adx.adx, atr.normalizedATR),
+      reasoning: buildReasoning(agreement, rsi.rsi, macd.trend, percentB.value),
+      metrics: {
+        percentB: Math.round(percentB.value * 100) / 100,
+        distanceFromMA: Math.round(distanceFromMA.distance * 100) / 100,
+        rsi: Math.round(rsi.rsi),
+        stochastic: Math.round(stochastic.k),
+        adxValue: Math.round(adx.adx),
+        normalizedATR: Math.round(atr.normalizedATR * 100) / 100,
+        macdTrend:
+          macdToSignal(macd.trend) === "BUY" ? 1 : macdToSignal(macd.trend) === "SELL" ? -1 : 0,
+        indicatorAgreement: Math.round(agreement * 100),
+      },
     };
   });
-
-/**
- * Pure function to generate human-readable reasoning
- */
-const generateReasoning = (
-  indicators: Array<{ signal: "BUY" | "SELL" | "NEUTRAL"; weight: number }>,
-  direction: "BUY" | "SELL" | "NEUTRAL",
-  agreement: number,
-  rsi: Effect.Effect.Success<ReturnType<typeof computeRSI>>,
-  stochastic: Effect.Effect.Success<ReturnType<typeof computeStochastic>>,
-  percentB: Effect.Effect.Success<ReturnType<typeof computePercentB>>,
-  macd: Effect.Effect.Success<ReturnType<typeof computeMACDFromPrice>>
-): string => {
-  const parts: string[] = [];
-
-  // Agreement level
-  const agreementPct = Math.round(agreement * 100);
-  if (agreementPct >= 70) {
-    parts.push(`strong indicator consensus (${agreementPct}%)`);
-  } else if (agreementPct >= 50) {
-    parts.push(`moderate indicator agreement (${agreementPct}%)`);
-  } else {
-    parts.push(`mixed signals (${agreementPct}% agreement)`);
-  }
-
-  // Key indicator insights
-  if (rsi.rsi < 35) {
-    parts.push(`RSI oversold (${Math.round(rsi.rsi)})`);
-  } else if (rsi.rsi > 65) {
-    parts.push(`RSI overbought (${Math.round(rsi.rsi)})`);
-  }
-
-  if (macd.trend !== "NEUTRAL") {
-    parts.push(`MACD ${macd.trend.toLowerCase()}`);
-  }
-
-  if (percentB.value < 0.25) {
-    parts.push("near lower BB");
-  } else if (percentB.value > 0.75) {
-    parts.push("near upper BB");
-  }
-
-  return parts.join(", ");
-};

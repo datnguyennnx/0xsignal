@@ -1,19 +1,14 @@
-/**
- * Technical Indicators
- * Concurrent computation of all indicators for a price
- */
+/** Technical Indicators - Concurrent computation */
 
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
-import { computeRSI } from "../formulas/momentum/rsi";
+import { computeRSI, detectDivergence } from "../formulas/momentum/rsi";
 import { computeMACDFromPrice } from "../formulas/momentum/macd";
 import { computeADX } from "../formulas/trend/adx";
 import { computeATR } from "../formulas/volatility/atr";
 import { computeVolumeROC } from "../formulas/volume/volume-roc";
 import { computeMaximumDrawdown } from "../formulas/risk/maximum-drawdown";
-import { detectDivergence } from "../formulas/momentum/rsi";
 
-// Indicator set type
 export interface IndicatorSet {
   readonly rsi: Effect.Effect.Success<ReturnType<typeof computeRSI>>;
   readonly macd: Effect.Effect.Success<ReturnType<typeof computeMACDFromPrice>>;
@@ -26,48 +21,52 @@ export interface IndicatorSet {
 
 // Prepare price arrays from single price point
 const preparePriceArrays = (price: CryptoPrice) => {
-  const closes =
-    price.high24h && price.low24h ? [price.low24h, price.price, price.high24h] : [price.price];
-  const highs = price.high24h ? [price.high24h, price.high24h, price.high24h] : [price.price];
-  const lows = price.low24h ? [price.low24h, price.low24h, price.low24h] : [price.price];
-  const volumes = price.volume24h ? [price.volume24h, price.volume24h] : [price.volume24h];
-
-  return { closes, highs, lows, volumes };
+  const hasRange = price.high24h !== undefined && price.low24h !== undefined;
+  return {
+    closes: hasRange ? [price.low24h!, price.price, price.high24h!] : [price.price],
+    highs: Option.fromNullable(price.high24h).pipe(
+      Option.map((h) => [h, h, h]),
+      Option.getOrElse(() => [price.price])
+    ),
+    lows: Option.fromNullable(price.low24h).pipe(
+      Option.map((l) => [l, l, l]),
+      Option.getOrElse(() => [price.price])
+    ),
+    volumes: Option.fromNullable(price.volume24h).pipe(
+      Option.map((v) => [v, v]),
+      Option.getOrElse(() => [price.volume24h])
+    ),
+  };
 };
 
-// Compute all indicators concurrently using struct syntax
-export const computeIndicators = (price: CryptoPrice): Effect.Effect<IndicatorSet, never> =>
-  Effect.gen(function* () {
-    const { closes, highs, lows, volumes } = preparePriceArrays(price);
+// Compute all indicators concurrently
+export const computeIndicators = (price: CryptoPrice): Effect.Effect<IndicatorSet, never> => {
+  const { closes, highs, lows, volumes } = preparePriceArrays(price);
 
-    // Use struct-based Effect.all for named results
-    const indicators = yield* Effect.all(
-      {
-        rsi: computeRSI(price),
-        macd: computeMACDFromPrice(price),
-        adx: computeADX(highs, lows, closes),
-        atr: computeATR(highs, lows, closes),
-        volumeROC: computeVolumeROC(volumes),
-        drawdown: computeMaximumDrawdown(closes),
-        divergence: detectDivergence(price),
-      },
-      { concurrency: "unbounded" }
-    );
+  return Effect.all(
+    {
+      rsi: computeRSI(price),
+      macd: computeMACDFromPrice(price),
+      adx: computeADX(highs, lows, closes),
+      atr: computeATR(highs, lows, closes),
+      volumeROC: computeVolumeROC(volumes),
+      drawdown: computeMaximumDrawdown(closes),
+      divergence: detectDivergence(price),
+    },
+    { concurrency: "unbounded" }
+  );
+};
 
-    return indicators;
-  });
+// Quick indicators for fast analysis
+export const computeQuickIndicators = (price: CryptoPrice) => {
+  const { closes, highs, lows } = preparePriceArrays(price);
 
-// Compute subset of indicators for quick analysis
-export const computeQuickIndicators = (price: CryptoPrice) =>
-  Effect.gen(function* () {
-    const { closes, highs, lows } = preparePriceArrays(price);
-
-    return yield* Effect.all(
-      {
-        rsi: computeRSI(price),
-        atr: computeATR(highs, lows, closes),
-        adx: computeADX(highs, lows, closes),
-      },
-      { concurrency: "unbounded" }
-    );
-  });
+  return Effect.all(
+    {
+      rsi: computeRSI(price),
+      atr: computeATR(highs, lows, closes),
+      adx: computeADX(highs, lows, closes),
+    },
+    { concurrency: "unbounded" }
+  );
+};

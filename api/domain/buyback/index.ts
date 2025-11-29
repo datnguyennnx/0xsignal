@@ -1,8 +1,6 @@
-/**
- * Buyback Domain Logic
- * Pure functions for buyback calculations and transformations
- */
+/** Buyback Domain Logic - Pure functions for buyback calculations */
 
+import { Match, Option, Array as Arr, pipe, Record, Order } from "effect";
 import type {
   BuybackSignal,
   BuybackOverview,
@@ -11,20 +9,36 @@ import type {
   ProtocolBuyback,
 } from "@0xsignal/shared";
 
-// Pure: classify buyback strength
-export const classifyStrength = (rate: number): BuybackStrength => {
-  if (rate <= 0) return "NONE";
-  if (rate < 1) return "LOW";
-  if (rate < 5) return "MODERATE";
-  if (rate < 15) return "HIGH";
-  return "VERY_HIGH";
-};
+// Classify buyback strength using Match
+export const classifyStrength = Match.type<number>().pipe(
+  Match.when(
+    (r) => r <= 0,
+    () => "NONE" as BuybackStrength
+  ),
+  Match.when(
+    (r) => r < 1,
+    () => "LOW" as BuybackStrength
+  ),
+  Match.when(
+    (r) => r < 5,
+    () => "MODERATE" as BuybackStrength
+  ),
+  Match.when(
+    (r) => r < 15,
+    () => "HIGH" as BuybackStrength
+  ),
+  Match.orElse(() => "VERY_HIGH" as BuybackStrength)
+);
 
-// Pure: calculate buyback rate
+// Safe division helper
+const safeDivide = (numerator: number, denominator: number, fallback = 0): number =>
+  denominator > 0 ? numerator / denominator : fallback;
+
+// Calculate buyback rate
 export const calcBuybackRate = (revenue: number, mcap: number): number =>
-  mcap > 0 ? (revenue / mcap) * 100 : 0;
+  safeDivide(revenue, mcap) * 100;
 
-// Pure: create buyback signal from protocol and market data
+// Create buyback signal from protocol and market data
 export const createBuybackSignal = (
   protocol: ProtocolBuyback,
   marketCap: number,
@@ -56,73 +70,88 @@ export const createBuybackSignal = (
     url: protocol.url,
     signal: classifyStrength(annualized),
     timestamp: new Date(),
-    revenueToMcap: marketCap > 0 ? annualizedRev / marketCap : 0,
+    revenueToMcap: safeDivide(annualizedRev, marketCap),
     annualizedRevenue: annualizedRev,
-    impliedPE: annualizedRev > 0 ? marketCap / annualizedRev : 0,
-    revenueGrowth7d: avgDaily7d > 0 ? ((protocol.revenue24h - avgDaily7d) / avgDaily7d) * 100 : 0,
+    impliedPE: safeDivide(marketCap, annualizedRev),
+    revenueGrowth7d: safeDivide(protocol.revenue24h - avgDaily7d, avgDaily7d) * 100,
   };
 };
 
-// Pure: create category stats from signals
+// Create single category stats
+const createSingleCategoryStats = (
+  category: string,
+  signals: readonly BuybackSignal[]
+): CategoryBuybackStats => ({
+  category,
+  protocolCount: signals.length,
+  totalRevenue24h: Arr.reduce(signals, 0, (sum, s) => sum + s.revenue24h),
+  averageBuybackRate: safeDivide(
+    Arr.reduce(signals, 0, (sum, s) => sum + s.annualizedBuybackRate),
+    signals.length
+  ),
+});
+
+// Create category stats from signals using functional approach
 export const createCategoryStats = (
   signals: readonly BuybackSignal[]
-): Record<string, CategoryBuybackStats> => {
-  const map = new Map<string, BuybackSignal[]>();
-  for (const s of signals) {
-    const arr = map.get(s.category) ?? [];
-    arr.push(s);
-    map.set(s.category, arr);
-  }
+): Record<string, CategoryBuybackStats> =>
+  pipe(
+    signals,
+    Arr.groupBy((s) => s.category),
+    Record.map((sigs, cat) => createSingleCategoryStats(cat, sigs))
+  );
 
-  const result: Record<string, CategoryBuybackStats> = {};
-  for (const [cat, sigs] of map) {
-    result[cat] = {
-      category: cat,
-      protocolCount: sigs.length,
-      totalRevenue24h: sigs.reduce((s, x) => s + x.revenue24h, 0),
-      averageBuybackRate: sigs.reduce((s, x) => s + x.annualizedBuybackRate, 0) / sigs.length,
-    };
-  }
-  return result;
-};
-
-// Pure: create buyback overview from signals
+// Create buyback overview from signals
 export const createBuybackOverview = (signals: readonly BuybackSignal[]): BuybackOverview => ({
   totalProtocols: signals.length,
-  totalRevenue24h: signals.reduce((s, x) => s + x.revenue24h, 0),
-  totalRevenue7d: signals.reduce((s, x) => s + x.revenue7d, 0),
-  averageBuybackRate:
-    signals.length > 0
-      ? signals.reduce((s, x) => s + x.annualizedBuybackRate, 0) / signals.length
-      : 0,
-  topBuybackProtocols: signals.slice(0, 10),
+  totalRevenue24h: Arr.reduce(signals, 0, (sum, s) => sum + s.revenue24h),
+  totalRevenue7d: Arr.reduce(signals, 0, (sum, s) => sum + s.revenue7d),
+  averageBuybackRate: safeDivide(
+    Arr.reduce(signals, 0, (sum, s) => sum + s.annualizedBuybackRate),
+    signals.length
+  ),
+  topBuybackProtocols: Arr.take(signals, 10),
   byCategory: createCategoryStats(signals),
   timestamp: new Date(),
 });
 
-// Pure: build price map from cryptos
+// Build price map from cryptos
 export const buildPriceMap = (
   cryptos: readonly { id?: string; marketCap: number; price: number }[]
-): Map<string, { marketCap: number; price: number }> =>
-  new Map(
-    cryptos
-      .filter((c) => c.id && c.marketCap > 0)
-      .map((c) => [c.id!, { marketCap: c.marketCap, price: c.price }])
+): Map<string, { marketCap: number; price: number }> => {
+  const entries = pipe(
+    cryptos,
+    Arr.filterMap((c) =>
+      c.id && c.marketCap > 0
+        ? Option.some([c.id, { marketCap: c.marketCap, price: c.price }] as const)
+        : Option.none()
+    )
   );
+  return new Map(entries);
+};
 
-// Pure: compute signals from protocols and prices
+// Order for sorting by annualized buyback rate descending
+const byBuybackRateDesc = Order.mapInput(
+  Order.reverse(Order.number),
+  (s: BuybackSignal) => s.annualizedBuybackRate
+);
+
+// Compute signals from protocols and prices using functional approach
 export const computeBuybackSignals = (
   protocols: readonly ProtocolBuyback[],
   priceMap: Map<string, { marketCap: number; price: number }>,
   limit: number
-): BuybackSignal[] => {
-  const signals: BuybackSignal[] = [];
-  for (const p of protocols) {
-    if (!p.geckoId) continue;
-    const data = priceMap.get(p.geckoId);
-    if (!data) continue;
-    const signal = createBuybackSignal(p, data.marketCap, data.price);
-    if (signal.annualizedBuybackRate > 0) signals.push(signal);
-  }
-  return signals.sort((a, b) => b.annualizedBuybackRate - a.annualizedBuybackRate).slice(0, limit);
-};
+): BuybackSignal[] =>
+  pipe(
+    protocols,
+    Arr.filterMap((p) =>
+      pipe(
+        Option.fromNullable(p.geckoId),
+        Option.flatMap((geckoId) => Option.fromNullable(priceMap.get(geckoId))),
+        Option.map((data) => createBuybackSignal(p, data.marketCap, data.price)),
+        Option.filter((signal) => signal.annualizedBuybackRate > 0)
+      )
+    ),
+    Arr.sortBy(byBuybackRateDesc),
+    Arr.take(limit)
+  );

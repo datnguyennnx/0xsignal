@@ -1,43 +1,27 @@
-/**
- * Effect-native Logging
- * Uses Effect's built-in logging with pretty output
- */
+/** Effect-native Logging */
 
-import { Effect, Logger, LogLevel, Layer } from "effect";
+import { Effect, Logger, LogLevel, Layer, Match } from "effect";
 
-// Log levels for configuration
 export type AppLogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR";
 
-// Map app log level to Effect LogLevel
-const toEffectLogLevel = (level: AppLogLevel): LogLevel.LogLevel => {
-  switch (level) {
-    case "DEBUG":
-      return LogLevel.Debug;
-    case "INFO":
-      return LogLevel.Info;
-    case "WARN":
-      return LogLevel.Warning;
-    case "ERROR":
-      return LogLevel.Error;
-  }
-};
+// Log level mapping using pattern matching
+const toEffectLogLevel = Match.type<AppLogLevel>().pipe(
+  Match.when("DEBUG", () => LogLevel.Debug),
+  Match.when("INFO", () => LogLevel.Info),
+  Match.when("WARN", () => LogLevel.Warning),
+  Match.when("ERROR", () => LogLevel.Error),
+  Match.exhaustive
+);
 
-// Pretty logger layer for development
-export const PrettyLoggerLive = Logger.pretty;
-
-// Structured logger layer for production (JSON)
-export const StructuredLoggerLive = Logger.json;
-
-// Configure minimum log level
 export const withLogLevel = (level: AppLogLevel) => Logger.minimumLogLevel(toEffectLogLevel(level));
 
-// Development logging layer (pretty + INFO level)
-export const DevLoggerLive = Layer.mergeAll(PrettyLoggerLive, withLogLevel("INFO"));
+// Development: pretty + INFO
+export const DevLoggerLive = Layer.mergeAll(Logger.pretty, withLogLevel("INFO"));
 
-// Production logging layer (JSON + WARN level)
-export const ProdLoggerLive = Layer.mergeAll(StructuredLoggerLive, withLogLevel("WARN"));
+// Production: JSON + WARN
+export const ProdLoggerLive = Layer.mergeAll(Logger.json, withLogLevel("WARN"));
 
-// Log helpers using Effect's built-in logging
+// Log helpers
 export const logDebug = (message: string, data?: Record<string, unknown>) =>
   data ? Effect.logDebug(message).pipe(Effect.annotateLogs(data)) : Effect.logDebug(message);
 
@@ -49,30 +33,3 @@ export const logWarn = (message: string, data?: Record<string, unknown>) =>
 
 export const logError = (message: string, data?: Record<string, unknown>) =>
   data ? Effect.logError(message).pipe(Effect.annotateLogs(data)) : Effect.logError(message);
-
-// Annotate logs for a scope
-export const withLogContext = <A, E, R>(
-  context: string,
-  effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> => effect.pipe(Effect.annotateLogs({ context }));
-
-// HTTP request logging helper
-export const logHttpRequest = (method: string, path: string) =>
-  Effect.logInfo(`→ ${method} ${path}`);
-
-// HTTP response logging helper
-export const logHttpResponse = (path: string, status: number, durationMs: number) =>
-  Effect.logInfo(`← ${status} ${path} (${durationMs}ms)`);
-
-// HTTP error logging helper
-export const logHttpError = (path: string, status: number, error: string) =>
-  Effect.logError(`✗ ${status} ${path}: ${error}`);
-
-// External API call logging
-export const logExternalApi = (
-  method: string,
-  host: string,
-  path: string,
-  status: number,
-  durationMs: number
-) => Effect.logDebug(`↗ ${method} ${host}${path} ${status} (${durationMs}ms)`);

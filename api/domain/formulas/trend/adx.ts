@@ -1,118 +1,128 @@
-import { Effect } from "effect";
+/** ADX (Average Directional Index) - Trend Strength Indicator */
+// ADX measures trend strength (not direction), +DI/-DI indicate direction
+
+import { Effect, Match, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 import { calculateEMA } from "./moving-averages";
 
-// ============================================================================
-// ADX (Average Directional Index) - Trend Strength Indicator
-// ============================================================================
-// Measures the strength of a trend (not direction)
-// Uses +DI and -DI to calculate directional movement
-//
-// Formula:
-// +DM = High - Previous High (if positive, else 0)
-// -DM = Previous Low - Low (if positive, else 0)
-// TR = True Range
-// +DI = 100 * EMA(+DM) / EMA(TR)
-// -DI = 100 * EMA(-DM) / EMA(TR)
-// DX = 100 * |+DI - -DI| / (+DI + -DI)
-// ADX = EMA(DX)
-//
-// Interpretation:
-// - ADX > 25: Strong trend
-// - ADX < 20: Weak trend or ranging
-// - ADX > 50: Very strong trend
-// - +DI > -DI: Uptrend
-// - -DI > +DI: Downtrend
-// ============================================================================
-
 export interface ADXResult {
-  readonly adx: number; // ADX value (0-100)
-  readonly plusDI: number; // +DI value
-  readonly minusDI: number; // -DI value
+  readonly adx: number;
+  readonly plusDI: number;
+  readonly minusDI: number;
   readonly trendStrength: "VERY_WEAK" | "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG";
   readonly trendDirection: "BULLISH" | "BEARISH" | "NEUTRAL";
 }
 
-/**
- * Pure function to calculate directional movement
- */
+// Trend strength classification
+const classifyTrendStrength = Match.type<number>().pipe(
+  Match.when(
+    (a) => a < 20,
+    () => "VERY_WEAK" as const
+  ),
+  Match.when(
+    (a) => a < 25,
+    () => "WEAK" as const
+  ),
+  Match.when(
+    (a) => a < 40,
+    () => "MODERATE" as const
+  ),
+  Match.when(
+    (a) => a < 50,
+    () => "STRONG" as const
+  ),
+  Match.orElse(() => "VERY_STRONG" as const)
+);
+
+// Trend direction classification
+const classifyTrendDirection = (
+  plusDI: number,
+  minusDI: number
+): "BULLISH" | "BEARISH" | "NEUTRAL" =>
+  pipe(
+    Match.value({ diff: plusDI - minusDI }),
+    Match.when(
+      ({ diff }) => diff > 5,
+      () => "BULLISH" as const
+    ),
+    Match.when(
+      ({ diff }) => diff < -5,
+      () => "BEARISH" as const
+    ),
+    Match.orElse(() => "NEUTRAL" as const)
+  );
+
+// Safe division
+const safeDivide = (num: number, denom: number, fallback = 0): number =>
+  denom === 0 ? fallback : num / denom;
+
+// Calculate directional movement for a single bar
+const calcDM = (upMove: number, downMove: number): { plusDM: number; minusDM: number } =>
+  pipe(
+    Match.value({ upMove, downMove }),
+    Match.when(
+      ({ upMove, downMove }) => upMove > downMove && upMove > 0,
+      ({ upMove }) => ({ plusDM: upMove, minusDM: 0 })
+    ),
+    Match.when(
+      ({ upMove, downMove }) => downMove > upMove && downMove > 0,
+      ({ downMove }) => ({ plusDM: 0, minusDM: downMove })
+    ),
+    Match.orElse(() => ({ plusDM: 0, minusDM: 0 }))
+  );
+
+// Calculate directional movement series
 const calculateDirectionalMovement = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>
 ): { plusDM: number[]; minusDM: number[] } => {
-  const plusDM: number[] = [];
-  const minusDM: number[] = [];
-
-  for (let i = 1; i < highs.length; i++) {
-    const upMove = highs[i] - highs[i - 1];
-    const downMove = lows[i - 1] - lows[i];
-
-    if (upMove > downMove && upMove > 0) {
-      plusDM.push(upMove);
-      minusDM.push(0);
-    } else if (downMove > upMove && downMove > 0) {
-      plusDM.push(0);
-      minusDM.push(downMove);
-    } else {
-      plusDM.push(0);
-      minusDM.push(0);
-    }
-  }
-
-  return { plusDM, minusDM };
+  const result = highs.slice(1).map((high, i) => {
+    const upMove = high - highs[i];
+    const downMove = lows[i] - lows[i + 1];
+    return calcDM(upMove, downMove);
+  });
+  return {
+    plusDM: result.map((r) => r.plusDM),
+    minusDM: result.map((r) => r.minusDM),
+  };
 };
 
-/**
- * Pure function to calculate True Range series
- */
+// Calculate True Range series
 const calculateTRSeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>
-): number[] => {
-  const trSeries: number[] = [];
+): number[] =>
+  closes
+    .slice(1)
+    .map((_, i) =>
+      Math.max(
+        highs[i + 1] - lows[i + 1],
+        Math.abs(highs[i + 1] - closes[i]),
+        Math.abs(lows[i + 1] - closes[i])
+      )
+    );
 
-  for (let i = 1; i < closes.length; i++) {
-    const range1 = highs[i] - lows[i];
-    const range2 = Math.abs(highs[i] - closes[i - 1]);
-    const range3 = Math.abs(lows[i] - closes[i - 1]);
-    trSeries.push(Math.max(range1, range2, range3));
-  }
-
-  return trSeries;
-};
-
-/**
- * Pure function to calculate ADX
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param closes - Array of closing prices
- * @param period - ADX period (default: 14)
- */
+// Calculate ADX
 export const calculateADX = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   period: number = 14
 ): ADXResult => {
-  // Calculate directional movement
   const { plusDM, minusDM } = calculateDirectionalMovement(highs, lows);
-
-  // Calculate True Range
   const trSeries = calculateTRSeries(highs, lows, closes);
 
-  // Calculate smoothed +DM, -DM, and TR using EMA
   const smoothedPlusDM = calculateEMA(plusDM, period).value;
   const smoothedMinusDM = calculateEMA(minusDM, period).value;
   const smoothedTR = calculateEMA(trSeries, period).value;
 
-  // Calculate +DI and -DI
-  const plusDI = smoothedTR === 0 ? 0 : (100 * smoothedPlusDM) / smoothedTR;
-  const minusDI = smoothedTR === 0 ? 0 : (100 * smoothedMinusDM) / smoothedTR;
+  const plusDI = safeDivide(100 * smoothedPlusDM, smoothedTR);
+  const minusDI = safeDivide(100 * smoothedMinusDM, smoothedTR);
 
   // Calculate DX series
-  const dxSeries: number[] = [];
-  for (let i = period - 1; i < plusDM.length; i++) {
+  const dxSeries = Array.from({ length: plusDM.length - period + 1 }, (_, idx) => {
+    const i = idx + period - 1;
     const windowPlusDM = plusDM.slice(Math.max(0, i - period + 1), i + 1);
     const windowMinusDM = minusDM.slice(Math.max(0, i - period + 1), i + 1);
     const windowTR = trSeries.slice(Math.max(0, i - period + 1), i + 1);
@@ -121,62 +131,29 @@ export const calculateADX = (
     const avgMinusDM = windowMinusDM.reduce((a, b) => a + b, 0) / windowMinusDM.length;
     const avgTR = windowTR.reduce((a, b) => a + b, 0) / windowTR.length;
 
-    const pdi = avgTR === 0 ? 0 : (100 * avgPlusDM) / avgTR;
-    const mdi = avgTR === 0 ? 0 : (100 * avgMinusDM) / avgTR;
+    const pdi = safeDivide(100 * avgPlusDM, avgTR);
+    const mdi = safeDivide(100 * avgMinusDM, avgTR);
+    return safeDivide(100 * Math.abs(pdi - mdi), pdi + mdi);
+  });
 
-    const dx = pdi + mdi === 0 ? 0 : (100 * Math.abs(pdi - mdi)) / (pdi + mdi);
-    dxSeries.push(dx);
-  }
-
-  // Calculate ADX (EMA of DX)
   const adx = dxSeries.length > 0 ? calculateEMA(dxSeries, period).value : 0;
-
-  // Determine trend strength
-  let trendStrength: "VERY_WEAK" | "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG";
-  if (adx < 20) {
-    trendStrength = "VERY_WEAK";
-  } else if (adx < 25) {
-    trendStrength = "WEAK";
-  } else if (adx < 40) {
-    trendStrength = "MODERATE";
-  } else if (adx < 50) {
-    trendStrength = "STRONG";
-  } else {
-    trendStrength = "VERY_STRONG";
-  }
-
-  // Determine trend direction
-  let trendDirection: "BULLISH" | "BEARISH" | "NEUTRAL";
-  if (plusDI > minusDI + 5) {
-    trendDirection = "BULLISH";
-  } else if (minusDI > plusDI + 5) {
-    trendDirection = "BEARISH";
-  } else {
-    trendDirection = "NEUTRAL";
-  }
 
   return {
     adx: Math.round(adx * 100) / 100,
     plusDI: Math.round(plusDI * 100) / 100,
     minusDI: Math.round(minusDI * 100) / 100,
-    trendStrength,
-    trendDirection,
+    trendStrength: classifyTrendStrength(adx),
+    trendDirection: classifyTrendDirection(plusDI, minusDI),
   };
 };
 
-/**
- * Effect-based wrapper for ADX calculation
- */
+// Effect-based wrapper
 export const computeADX = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   period: number = 14
 ): Effect.Effect<ADXResult> => Effect.sync(() => calculateADX(highs, lows, closes, period));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const ADXMetadata: FormulaMetadata = {
   name: "ADX",

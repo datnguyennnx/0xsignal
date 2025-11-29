@@ -1,28 +1,12 @@
-import { Effect } from "effect";
+/** CCI (Commodity Channel Index) - Deviation from statistical mean */
+// CCI = (Typical Price - SMA) / (0.015 * Mean Deviation)
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 import { mean } from "../core/math";
 
-// ============================================================================
-// CCI (Commodity Channel Index) - Momentum Oscillator
-// ============================================================================
-// Measures the deviation of price from its statistical mean
-// Identifies cyclical trends and overbought/oversold conditions
-//
-// Formula:
-// Typical Price = (High + Low + Close) / 3
-// SMA = Simple Moving Average of Typical Price
-// Mean Deviation = Average of |Typical Price - SMA|
-// CCI = (Typical Price - SMA) / (0.015 × Mean Deviation)
-//
-// Interpretation:
-// - CCI > +100: Overbought
-// - CCI < -100: Oversold
-// - CCI > +200: Very strong uptrend
-// - CCI < -200: Very strong downtrend
-// ============================================================================
-
 export interface CCIResult {
-  readonly value: number; // CCI value
+  readonly value: number;
   readonly signal:
     | "EXTREME_OVERBOUGHT"
     | "OVERBOUGHT"
@@ -32,118 +16,114 @@ export interface CCIResult {
   readonly trend: "STRONG_BULLISH" | "BULLISH" | "NEUTRAL" | "BEARISH" | "STRONG_BEARISH";
 }
 
-/**
- * Pure function to calculate CCI
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param closes - Array of closing prices
- * @param period - CCI period (default: 20)
- */
+// Signal classification
+const classifySignal = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 200,
+    () => "EXTREME_OVERBOUGHT" as const
+  ),
+  Match.when(
+    (v) => v > 100,
+    () => "OVERBOUGHT" as const
+  ),
+  Match.when(
+    (v) => v < -200,
+    () => "EXTREME_OVERSOLD" as const
+  ),
+  Match.when(
+    (v) => v < -100,
+    () => "OVERSOLD" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Trend classification
+const classifyTrend = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 200,
+    () => "STRONG_BULLISH" as const
+  ),
+  Match.when(
+    (v) => v > 100,
+    () => "BULLISH" as const
+  ),
+  Match.when(
+    (v) => v < -200,
+    () => "STRONG_BEARISH" as const
+  ),
+  Match.when(
+    (v) => v < -100,
+    () => "BEARISH" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Round to 2 decimal places
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+// Calculate typical prices using Arr.zipWith
+const calculateTypicalPrices = (
+  highs: ReadonlyArray<number>,
+  lows: ReadonlyArray<number>,
+  closes: ReadonlyArray<number>
+): ReadonlyArray<number> =>
+  pipe(
+    Arr.zipWith(highs, lows, (h, l) => ({ h, l })),
+    Arr.zipWith(closes, ({ h, l }, c) => (h + l + c) / 3)
+  );
+
+// Calculate CCI for a window
+const calculateCCIValue = (window: ReadonlyArray<number>, currentTP: number): number => {
+  const sma = mean([...window]);
+  const deviations = Arr.map(window, (tp) => Math.abs(tp - sma));
+  const meanDeviation = mean([...deviations]);
+  return meanDeviation === 0 ? 0 : (currentTP - sma) / (0.015 * meanDeviation);
+};
+
+// Calculate CCI
 export const calculateCCI = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   period: number = 20
 ): CCIResult => {
-  // Calculate typical prices
-  const typicalPrices: number[] = [];
-  for (let i = 0; i < closes.length; i++) {
-    typicalPrices.push((highs[i] + lows[i] + closes[i]) / 3);
-  }
-
-  // Get recent typical prices
-  const recentTP = typicalPrices.slice(-period);
-
-  // Calculate SMA of typical price
-  const sma = mean(recentTP);
-
-  // Calculate mean deviation
-  const deviations = recentTP.map((tp) => Math.abs(tp - sma));
-  const meanDeviation = mean(deviations);
-
-  // Calculate CCI
+  const typicalPrices = calculateTypicalPrices(highs, lows, closes);
+  const recentTP = Arr.takeRight(typicalPrices, period);
   const currentTP = typicalPrices[typicalPrices.length - 1];
-  const cci = meanDeviation === 0 ? 0 : (currentTP - sma) / (0.015 * meanDeviation);
-
-  // Determine signal
-  let signal: "EXTREME_OVERBOUGHT" | "OVERBOUGHT" | "NEUTRAL" | "OVERSOLD" | "EXTREME_OVERSOLD";
-  if (cci > 200) {
-    signal = "EXTREME_OVERBOUGHT";
-  } else if (cci > 100) {
-    signal = "OVERBOUGHT";
-  } else if (cci < -200) {
-    signal = "EXTREME_OVERSOLD";
-  } else if (cci < -100) {
-    signal = "OVERSOLD";
-  } else {
-    signal = "NEUTRAL";
-  }
-
-  // Determine trend
-  let trend: "STRONG_BULLISH" | "BULLISH" | "NEUTRAL" | "BEARISH" | "STRONG_BEARISH";
-  if (cci > 200) {
-    trend = "STRONG_BULLISH";
-  } else if (cci > 100) {
-    trend = "BULLISH";
-  } else if (cci < -200) {
-    trend = "STRONG_BEARISH";
-  } else if (cci < -100) {
-    trend = "BEARISH";
-  } else {
-    trend = "NEUTRAL";
-  }
+  const cci = calculateCCIValue(recentTP, currentTP);
 
   return {
-    value: Math.round(cci * 100) / 100,
-    signal,
-    trend,
+    value: round2(cci),
+    signal: classifySignal(cci),
+    trend: classifyTrend(cci),
   };
 };
 
-/**
- * Pure function to calculate CCI series
- */
+// Calculate CCI series using Arr.makeBy
 export const calculateCCISeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   period: number = 20
 ): ReadonlyArray<number> => {
-  const cciSeries: number[] = [];
+  const typicalPrices = calculateTypicalPrices(highs, lows, closes);
 
-  // Calculate typical prices
-  const typicalPrices: number[] = [];
-  for (let i = 0; i < closes.length; i++) {
-    typicalPrices.push((highs[i] + lows[i] + closes[i]) / 3);
-  }
-
-  // Calculate CCI for each point
-  for (let i = period - 1; i < typicalPrices.length; i++) {
-    const window = typicalPrices.slice(i - period + 1, i + 1);
-    const sma = mean(window);
-    const deviations = window.map((tp) => Math.abs(tp - sma));
-    const meanDeviation = mean(deviations);
-    const currentTP = typicalPrices[i];
-    const cci = meanDeviation === 0 ? 0 : (currentTP - sma) / (0.015 * meanDeviation);
-    cciSeries.push(cci);
-  }
-
-  return cciSeries;
+  return pipe(
+    Arr.makeBy(typicalPrices.length - period + 1, (i) => {
+      const idx = i + period - 1;
+      const window = Arr.take(Arr.drop(typicalPrices, i), period);
+      return calculateCCIValue(window, typicalPrices[idx]);
+    })
+  );
 };
 
-/**
- * Effect-based wrapper for CCI calculation
- */
+// Effect-based wrapper
 export const computeCCI = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   period: number = 20
 ): Effect.Effect<CCIResult> => Effect.sync(() => calculateCCI(highs, lows, closes, period));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const CCIMetadata: FormulaMetadata = {
   name: "CCI",

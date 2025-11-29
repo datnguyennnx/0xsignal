@@ -1,110 +1,106 @@
-import { Effect } from "effect";
+/** Pearson Correlation Coefficient - Linear relationship measure */
+// r = Cov(X,Y) / (StdDev(X) * StdDev(Y))
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 import { mean } from "../core/math";
 
-// ============================================================================
-// CORRELATION COEFFICIENT - Pearson's r
-// ============================================================================
-// Measures the linear relationship between two variables
-//
-// Formula:
-// r = Σ[(x - x̄)(y - ȳ)] / √[Σ(x - x̄)² × Σ(y - ȳ)²]
-//
-// Interpretation:
-// - r = 1: Perfect positive correlation
-// - r = 0: No linear correlation
-// - r = -1: Perfect negative correlation
-// - |r| > 0.7: Strong correlation
-// - |r| < 0.3: Weak correlation
-// ============================================================================
-
 export interface CorrelationResult {
-  readonly coefficient: number; // Pearson's r (-1 to 1)
+  readonly coefficient: number;
   readonly strength: "VERY_STRONG" | "STRONG" | "MODERATE" | "WEAK" | "VERY_WEAK";
   readonly direction: "POSITIVE" | "NEGATIVE" | "NONE";
-  readonly rSquared: number; // Coefficient of determination
+  readonly rSquared: number;
 }
 
-/**
- * Pure function to calculate Pearson Correlation Coefficient
- * @param series1 - First data series
- * @param series2 - Second data series
- */
+// Strength classification
+const classifyStrength = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 0.9,
+    () => "VERY_STRONG" as const
+  ),
+  Match.when(
+    (v) => v > 0.7,
+    () => "STRONG" as const
+  ),
+  Match.when(
+    (v) => v > 0.5,
+    () => "MODERATE" as const
+  ),
+  Match.when(
+    (v) => v > 0.3,
+    () => "WEAK" as const
+  ),
+  Match.orElse(() => "VERY_WEAK" as const)
+);
+
+// Direction classification
+const classifyDirection = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 0.1,
+    () => "POSITIVE" as const
+  ),
+  Match.when(
+    (v) => v < -0.1,
+    () => "NEGATIVE" as const
+  ),
+  Match.orElse(() => "NONE" as const)
+);
+
+// Round to 4 decimal places
+const round4 = (n: number): number => Math.round(n * 10000) / 10000;
+
+// Statistics accumulator
+interface StatsAccum {
+  readonly covariance: number;
+  readonly varX: number;
+  readonly varY: number;
+}
+
+// Calculate statistics using Arr.reduce
+const calculateStats = (
+  x: ReadonlyArray<number>,
+  y: ReadonlyArray<number>,
+  meanX: number,
+  meanY: number
+): StatsAccum =>
+  pipe(
+    Arr.zipWith(x, y, (xi, yi) => ({ dx: xi - meanX, dy: yi - meanY })),
+    Arr.reduce({ covariance: 0, varX: 0, varY: 0 }, (acc, { dx, dy }) => ({
+      covariance: acc.covariance + dx * dy,
+      varX: acc.varX + dx * dx,
+      varY: acc.varY + dy * dy,
+    }))
+  );
+
+// Calculate Pearson Correlation
 export const calculateCorrelation = (
   series1: ReadonlyArray<number>,
   series2: ReadonlyArray<number>
 ): CorrelationResult => {
   const n = Math.min(series1.length, series2.length);
-  const x = series1.slice(0, n);
-  const y = series2.slice(0, n);
-
+  const x = Arr.take(series1, n);
+  const y = Arr.take(series2, n);
   const meanX = mean([...x]);
   const meanY = mean([...y]);
 
-  // Calculate covariance and standard deviations
-  let covariance = 0;
-  let varX = 0;
-  let varY = 0;
-
-  for (let i = 0; i < n; i++) {
-    const dx = x[i] - meanX;
-    const dy = y[i] - meanY;
-    covariance += dx * dy;
-    varX += dx * dx;
-    varY += dy * dy;
-  }
-
-  // Calculate correlation coefficient
-  const denominator = Math.sqrt(varX * varY);
-  const coefficient = denominator === 0 ? 0 : covariance / denominator;
-
-  // Determine strength
-  const absR = Math.abs(coefficient);
-  let strength: "VERY_STRONG" | "STRONG" | "MODERATE" | "WEAK" | "VERY_WEAK";
-  if (absR > 0.9) {
-    strength = "VERY_STRONG";
-  } else if (absR > 0.7) {
-    strength = "STRONG";
-  } else if (absR > 0.5) {
-    strength = "MODERATE";
-  } else if (absR > 0.3) {
-    strength = "WEAK";
-  } else {
-    strength = "VERY_WEAK";
-  }
-
-  // Determine direction
-  let direction: "POSITIVE" | "NEGATIVE" | "NONE";
-  if (coefficient > 0.1) {
-    direction = "POSITIVE";
-  } else if (coefficient < -0.1) {
-    direction = "NEGATIVE";
-  } else {
-    direction = "NONE";
-  }
-
-  // R-squared (coefficient of determination)
+  const stats = calculateStats(x, y, meanX, meanY);
+  const denominator = Math.sqrt(stats.varX * stats.varY);
+  const coefficient = denominator === 0 ? 0 : stats.covariance / denominator;
   const rSquared = coefficient * coefficient;
 
   return {
-    coefficient: Math.round(coefficient * 10000) / 10000,
-    strength,
-    direction,
-    rSquared: Math.round(rSquared * 10000) / 10000,
+    coefficient: round4(coefficient),
+    strength: classifyStrength(Math.abs(coefficient)),
+    direction: classifyDirection(coefficient),
+    rSquared: round4(rSquared),
   };
 };
 
-/**
- * Effect-based wrapper for Correlation calculation
- */
+// Effect-based wrapper
 export const computeCorrelation = (
   series1: ReadonlyArray<number>,
   series2: ReadonlyArray<number>
 ): Effect.Effect<CorrelationResult> => Effect.sync(() => calculateCorrelation(series1, series2));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const CorrelationMetadata: FormulaMetadata = {
   name: "Correlation",

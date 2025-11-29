@@ -1,115 +1,77 @@
-import { Effect } from "effect";
+/** A/D Line (Accumulation/Distribution) - Volume Flow Indicator */
+// MFM = ((Close - Low) - (High - Close)) / (High - Low), A/D = Σ(MFM × Volume)
+
+import { Effect, Match } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// A/D LINE (Accumulation/Distribution Line) - Volume Flow Indicator
-// ============================================================================
-// Cumulative indicator that uses volume flow to assess buying/selling pressure
-// Combines price and volume to show money flow
-//
-// Formula:
-// Money Flow Multiplier = ((Close - Low) - (High - Close)) / (High - Low)
-// Money Flow Volume = Money Flow Multiplier × Volume
-// A/D Line = Previous A/D + Money Flow Volume
-//
-// Interpretation:
-// - Rising A/D: Accumulation (buying pressure)
-// - Falling A/D: Distribution (selling pressure)
-// - A/D divergence from price: Potential reversal
-// ============================================================================
-
 export interface ADLineResult {
-  readonly value: number; // Current A/D Line value
+  readonly value: number;
   readonly trend: "ACCUMULATION" | "DISTRIBUTION" | "NEUTRAL";
-  readonly momentum: number; // Rate of change
+  readonly momentum: number;
 }
 
-/**
- * Pure function to calculate Money Flow Multiplier
- */
-const calculateMoneyFlowMultiplier = (high: number, low: number, close: number): number => {
+// Trend classification
+const classifyTrend = Match.type<number>().pipe(
+  Match.when(
+    (c) => c > 0,
+    () => "ACCUMULATION" as const
+  ),
+  Match.when(
+    (c) => c < 0,
+    () => "DISTRIBUTION" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Money Flow Multiplier
+const calcMFM = (high: number, low: number, close: number): number => {
   const range = high - low;
-  if (range === 0) return 0;
-  return (close - low - (high - close)) / range;
+  return range === 0 ? 0 : (close - low - (high - close)) / range;
 };
 
-/**
- * Pure function to calculate A/D Line
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param closes - Array of closing prices
- * @param volumes - Array of volumes
- */
+// Safe division
+const safeDivide = (num: number, denom: number): number => (denom === 0 ? 0 : num / denom);
+
+// Calculate A/D Line
 export const calculateADLine = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   volumes: ReadonlyArray<number>
 ): ADLineResult => {
-  let adLine = 0;
-  const adSeries: number[] = [0];
+  const adSeries = closes.reduce<number[]>((acc, close, i) => {
+    const prev = acc[acc.length - 1] ?? 0;
+    const mfv = calcMFM(highs[i], lows[i], close) * volumes[i];
+    return [...acc, prev + mfv];
+  }, []);
 
-  // Calculate A/D Line series
-  for (let i = 0; i < closes.length; i++) {
-    const mfm = calculateMoneyFlowMultiplier(highs[i], lows[i], closes[i]);
-    const mfv = mfm * volumes[i];
-    adLine += mfv;
-    adSeries.push(adLine);
-  }
-
-  // Determine trend based on recent A/D movement
   const recentAD = adSeries.slice(-10);
-  const adChange = recentAD[recentAD.length - 1] - recentAD[0];
-
-  let trend: "ACCUMULATION" | "DISTRIBUTION" | "NEUTRAL";
-  if (adChange > 0) {
-    trend = "ACCUMULATION";
-  } else if (adChange < 0) {
-    trend = "DISTRIBUTION";
-  } else {
-    trend = "NEUTRAL";
-  }
-
-  // Calculate momentum
+  const adChange = (recentAD[recentAD.length - 1] ?? 0) - (recentAD[0] ?? 0);
+  const lastTwo = adSeries.slice(-2);
   const momentum =
-    adSeries.length > 1
-      ? ((adSeries[adSeries.length - 1] - adSeries[adSeries.length - 2]) /
-          Math.abs(adSeries[adSeries.length - 2] || 1)) *
-        100
-      : 0;
+    safeDivide((lastTwo[1] ?? 0) - (lastTwo[0] ?? 0), Math.abs(lastTwo[0] ?? 1)) * 100;
 
   return {
-    value: Math.round(adLine),
-    trend,
+    value: Math.round(adSeries[adSeries.length - 1] ?? 0),
+    trend: classifyTrend(adChange),
     momentum: Math.round(momentum * 100) / 100,
   };
 };
 
-/**
- * Pure function to calculate A/D Line series
- */
+// Calculate A/D Line series
 export const calculateADLineSeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   volumes: ReadonlyArray<number>
-): ReadonlyArray<number> => {
-  let adLine = 0;
-  const adSeries: number[] = [0];
+): ReadonlyArray<number> =>
+  closes.reduce<number[]>((acc, close, i) => {
+    const prev = acc[acc.length - 1] ?? 0;
+    const mfv = calcMFM(highs[i], lows[i], close) * volumes[i];
+    return [...acc, prev + mfv];
+  }, []);
 
-  for (let i = 0; i < closes.length; i++) {
-    const mfm = calculateMoneyFlowMultiplier(highs[i], lows[i], closes[i]);
-    const mfv = mfm * volumes[i];
-    adLine += mfv;
-    adSeries.push(adLine);
-  }
-
-  return adSeries;
-};
-
-/**
- * Effect-based wrapper for A/D Line calculation
- */
+// Effect-based wrapper
 export const computeADLine = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -117,15 +79,11 @@ export const computeADLine = (
   volumes: ReadonlyArray<number>
 ): Effect.Effect<ADLineResult> => Effect.sync(() => calculateADLine(highs, lows, closes, volumes));
 
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
-
 export const ADLineMetadata: FormulaMetadata = {
   name: "ADLine",
   category: "volume",
   difficulty: "intermediate",
-  description: "Accumulation/Distribution Line - volume flow indicator for buying/selling pressure",
+  description: "Accumulation/Distribution Line - volume flow indicator",
   requiredInputs: ["highs", "lows", "closes", "volumes"],
   optionalInputs: [],
   minimumDataPoints: 1,

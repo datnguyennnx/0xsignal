@@ -1,113 +1,86 @@
-import { Effect } from "effect";
+/** OBV (On-Balance Volume) - Volume Momentum Indicator */
+// Cumulative volume: adds on up days, subtracts on down days
+
+import { Effect, Match, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// OBV (On-Balance Volume) - Volume Momentum Indicator
-// ============================================================================
-// Cumulative volume indicator that adds/subtracts volume based on price direction
-// Used to confirm price trends and predict reversals
-//
-// Formula:
-// If Close > Previous Close: OBV = Previous OBV + Volume
-// If Close < Previous Close: OBV = Previous OBV - Volume
-// If Close = Previous Close: OBV = Previous OBV
-//
-// Interpretation:
-// - Rising OBV: Buying pressure, confirms uptrend
-// - Falling OBV: Selling pressure, confirms downtrend
-// - OBV divergence from price: Potential reversal signal
-// ============================================================================
-
 export interface OBVResult {
-  readonly value: number; // Current OBV value
+  readonly value: number;
   readonly trend: "ACCUMULATION" | "DISTRIBUTION" | "NEUTRAL";
-  readonly momentum: number; // Rate of change in OBV
+  readonly momentum: number;
 }
 
-/**
- * Pure function to calculate OBV
- * @param closes - Array of closing prices
- * @param volumes - Array of volumes
- */
+// Trend classification
+const classifyTrend = Match.type<number>().pipe(
+  Match.when(
+    (c) => c > 0,
+    () => "ACCUMULATION" as const
+  ),
+  Match.when(
+    (c) => c < 0,
+    () => "DISTRIBUTION" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Volume contribution based on price direction
+const volumeContribution = (priceDiff: number, volume: number): number =>
+  pipe(
+    Match.value(priceDiff),
+    Match.when(
+      (d) => d > 0,
+      () => volume
+    ),
+    Match.when(
+      (d) => d < 0,
+      () => -volume
+    ),
+    Match.orElse(() => 0)
+  );
+
+// Safe division
+const safeDivide = (num: number, denom: number): number => (denom === 0 ? 0 : num / denom);
+
+// Calculate OBV
 export const calculateOBV = (
   closes: ReadonlyArray<number>,
   volumes: ReadonlyArray<number>
 ): OBVResult => {
-  let obv = 0;
-  const obvSeries: number[] = [0];
+  const obvSeries = closes.reduce<number[]>((acc, close, i) => {
+    const prev = acc[acc.length - 1] ?? 0;
+    const contribution = i === 0 ? 0 : volumeContribution(close - closes[i - 1], volumes[i]);
+    return [...acc, prev + contribution];
+  }, []);
 
-  // Calculate OBV series
-  for (let i = 1; i < closes.length; i++) {
-    if (closes[i] > closes[i - 1]) {
-      obv += volumes[i];
-    } else if (closes[i] < closes[i - 1]) {
-      obv -= volumes[i];
-    }
-    // If equal, OBV stays the same
-    obvSeries.push(obv);
-  }
-
-  // Determine trend based on recent OBV movement
   const recentOBV = obvSeries.slice(-10);
-  const obvChange = recentOBV[recentOBV.length - 1] - recentOBV[0];
-
-  let trend: "ACCUMULATION" | "DISTRIBUTION" | "NEUTRAL";
-  if (obvChange > 0) {
-    trend = "ACCUMULATION";
-  } else if (obvChange < 0) {
-    trend = "DISTRIBUTION";
-  } else {
-    trend = "NEUTRAL";
-  }
-
-  // Calculate momentum (rate of change)
+  const obvChange = (recentOBV[recentOBV.length - 1] ?? 0) - (recentOBV[0] ?? 0);
+  const lastTwo = obvSeries.slice(-2);
   const momentum =
-    obvSeries.length > 1
-      ? ((obvSeries[obvSeries.length - 1] - obvSeries[obvSeries.length - 2]) /
-          Math.abs(obvSeries[obvSeries.length - 2] || 1)) *
-        100
-      : 0;
+    safeDivide((lastTwo[1] ?? 0) - (lastTwo[0] ?? 0), Math.abs(lastTwo[0] ?? 1)) * 100;
 
   return {
-    value: Math.round(obv),
-    trend,
+    value: Math.round(obvSeries[obvSeries.length - 1] ?? 0),
+    trend: classifyTrend(obvChange),
     momentum: Math.round(momentum * 100) / 100,
   };
 };
 
-/**
- * Pure function to calculate OBV series
- */
+// Calculate OBV series
 export const calculateOBVSeries = (
   closes: ReadonlyArray<number>,
   volumes: ReadonlyArray<number>
-): ReadonlyArray<number> => {
-  let obv = 0;
-  const obvSeries: number[] = [0];
+): ReadonlyArray<number> =>
+  closes.reduce<number[]>((acc, close, i) => {
+    const prev = acc[acc.length - 1] ?? 0;
+    const contribution = i === 0 ? 0 : volumeContribution(close - closes[i - 1], volumes[i]);
+    return [...acc, prev + contribution];
+  }, []);
 
-  for (let i = 1; i < closes.length; i++) {
-    if (closes[i] > closes[i - 1]) {
-      obv += volumes[i];
-    } else if (closes[i] < closes[i - 1]) {
-      obv -= volumes[i];
-    }
-    obvSeries.push(obv);
-  }
-
-  return obvSeries;
-};
-
-/**
- * Effect-based wrapper for OBV calculation
- */
+// Effect-based wrapper
 export const computeOBV = (
   closes: ReadonlyArray<number>,
   volumes: ReadonlyArray<number>
 ): Effect.Effect<OBVResult> => Effect.sync(() => calculateOBV(closes, volumes));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const OBVMetadata: FormulaMetadata = {
   name: "OBV",

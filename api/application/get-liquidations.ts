@@ -1,7 +1,4 @@
-/**
- * Get Liquidations Use Case
- * Fetches and processes liquidation data from aggregated sources
- */
+/** Liquidations Use Case - Fetch liquidation data */
 
 import { Effect } from "effect";
 import type {
@@ -13,48 +10,24 @@ import type {
 import { AggregatedDataServiceTag } from "../infrastructure/data-sources/aggregator";
 import { DataSourceError } from "../infrastructure/data-sources/types";
 
-export const getLiquidations = (
-  symbol: string,
-  timeframe: LiquidationTimeframe = "24h"
-): Effect.Effect<LiquidationData, DataSourceError, AggregatedDataServiceTag> =>
-  Effect.gen(function* () {
-    const dataService = yield* AggregatedDataServiceTag;
-    return yield* dataService.getLiquidations(symbol, timeframe);
-  });
+export const getLiquidations = (symbol: string, timeframe: LiquidationTimeframe = "24h") =>
+  Effect.flatMap(AggregatedDataServiceTag, (s) => s.getLiquidations(symbol, timeframe));
 
-export const getLiquidationHeatmap = (
-  symbol: string
-): Effect.Effect<LiquidationHeatmap, DataSourceError, AggregatedDataServiceTag> =>
-  Effect.gen(function* () {
-    const dataService = yield* AggregatedDataServiceTag;
-    return yield* dataService.getLiquidationHeatmap(symbol);
-  });
+export const getLiquidationHeatmap = (symbol: string) =>
+  Effect.flatMap(AggregatedDataServiceTag, (s) => s.getLiquidationHeatmap(symbol));
 
-export const getMarketLiquidationSummary = (): Effect.Effect<
-  MarketLiquidationSummary,
-  DataSourceError,
-  AggregatedDataServiceTag
-> =>
-  Effect.gen(function* () {
-    const dataService = yield* AggregatedDataServiceTag;
-    return yield* dataService.getMarketLiquidationSummary();
-  });
+export const getMarketLiquidationSummary = () =>
+  Effect.flatMap(AggregatedDataServiceTag, (s) => s.getMarketLiquidationSummary());
 
 export const getMultipleLiquidations = (
   symbols: readonly string[],
   timeframe: LiquidationTimeframe = "24h"
 ): Effect.Effect<LiquidationData[], DataSourceError, AggregatedDataServiceTag> =>
-  Effect.gen(function* () {
-    const dataService = yield* AggregatedDataServiceTag;
-
-    const results = yield* Effect.forEach(
+  Effect.flatMap(AggregatedDataServiceTag, (s) =>
+    Effect.forEach(
       symbols,
       (symbol) =>
-        dataService
-          .getLiquidations(symbol, timeframe)
-          .pipe(Effect.catchAll(() => Effect.succeed(null))),
+        s.getLiquidations(symbol, timeframe).pipe(Effect.catchAll(() => Effect.succeed(null))),
       { concurrency: 5 }
-    );
-
-    return results.filter((r): r is LiquidationData => r !== null);
-  });
+    ).pipe(Effect.map((results) => results.filter((r): r is LiquidationData => r !== null)))
+  );

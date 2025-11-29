@@ -1,104 +1,84 @@
-import { Effect } from "effect";
+/** Volume ROC (Volume Rate of Change) - Volume Momentum */
+// Volume ROC = ((Current - Past) / Past) × 100
+
+import { Effect, Match } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// VOLUME ROC (Volume Rate of Change) - Volume Momentum
-// ============================================================================
-// Measures the percentage change in volume over a period
-// Identifies unusual volume activity
-//
-// Formula:
-// Volume ROC = ((Current Volume - Volume n periods ago) / Volume n periods ago) × 100
-//
-// Interpretation:
-// - High positive ROC: Unusual buying/selling activity
-// - ROC > 100%: Volume doubled (significant activity)
-// - ROC near 0: Normal volume activity
-// - Spikes often precede price moves
-// ============================================================================
-
 export interface VolumeROCResult {
-  readonly value: number; // Percentage change
+  readonly value: number;
   readonly signal: "SURGE" | "HIGH" | "NORMAL" | "LOW";
   readonly activity: "UNUSUAL" | "ELEVATED" | "NORMAL" | "QUIET";
 }
 
-/**
- * Pure function to calculate Volume ROC
- * @param volumes - Array of volumes
- * @param period - Lookback period (default: 14)
- */
+// Signal classification
+const classifySignal = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 100,
+    () => "SURGE" as const
+  ),
+  Match.when(
+    (v) => v > 50,
+    () => "HIGH" as const
+  ),
+  Match.when(
+    (v) => v > 20,
+    () => "NORMAL" as const
+  ),
+  Match.orElse(() => "LOW" as const)
+);
+
+// Activity classification
+const classifyActivity = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 100,
+    () => "UNUSUAL" as const
+  ),
+  Match.when(
+    (v) => v > 50,
+    () => "ELEVATED" as const
+  ),
+  Match.when(
+    (v) => v > 10,
+    () => "NORMAL" as const
+  ),
+  Match.orElse(() => "QUIET" as const)
+);
+
+// Safe division
+const safeDivide = (num: number, denom: number): number => (denom === 0 ? 0 : num / denom);
+
+// Calculate Volume ROC
 export const calculateVolumeROC = (
   volumes: ReadonlyArray<number>,
   period: number = 14
 ): VolumeROCResult => {
   const currentVolume = volumes[volumes.length - 1];
-  const pastVolume = volumes[volumes.length - 1 - period];
-
-  // Calculate percentage change
-  const value = pastVolume === 0 ? 0 : ((currentVolume - pastVolume) / pastVolume) * 100;
-
-  // Determine signal
-  let signal: "SURGE" | "HIGH" | "NORMAL" | "LOW";
-  if (Math.abs(value) > 100) {
-    signal = "SURGE";
-  } else if (Math.abs(value) > 50) {
-    signal = "HIGH";
-  } else if (Math.abs(value) > 20) {
-    signal = "NORMAL";
-  } else {
-    signal = "LOW";
-  }
-
-  // Determine activity level
-  let activity: "UNUSUAL" | "ELEVATED" | "NORMAL" | "QUIET";
-  if (Math.abs(value) > 100) {
-    activity = "UNUSUAL";
-  } else if (Math.abs(value) > 50) {
-    activity = "ELEVATED";
-  } else if (Math.abs(value) > 10) {
-    activity = "NORMAL";
-  } else {
-    activity = "QUIET";
-  }
+  const pastVolume = volumes[volumes.length - 1 - period] ?? volumes[0];
+  const value = safeDivide(currentVolume - pastVolume, pastVolume) * 100;
+  const absValue = Math.abs(value);
 
   return {
     value: Math.round(value * 100) / 100,
-    signal,
-    activity,
+    signal: classifySignal(absValue),
+    activity: classifyActivity(absValue),
   };
 };
 
-/**
- * Pure function to calculate Volume ROC series
- */
+// Calculate Volume ROC series
 export const calculateVolumeROCSeries = (
   volumes: ReadonlyArray<number>,
   period: number = 14
-): ReadonlyArray<number> => {
-  const rocSeries: number[] = [];
+): ReadonlyArray<number> =>
+  volumes.slice(period).map((vol, i) => {
+    const pastVolume = volumes[i];
+    return safeDivide(vol - pastVolume, pastVolume) * 100;
+  });
 
-  for (let i = period; i < volumes.length; i++) {
-    const currentVolume = volumes[i];
-    const pastVolume = volumes[i - period];
-    const roc = pastVolume === 0 ? 0 : ((currentVolume - pastVolume) / pastVolume) * 100;
-    rocSeries.push(roc);
-  }
-
-  return rocSeries;
-};
-
-/**
- * Effect-based wrapper for Volume ROC calculation
- */
+// Effect-based wrapper
 export const computeVolumeROC = (
   volumes: ReadonlyArray<number>,
   period: number = 14
 ): Effect.Effect<VolumeROCResult> => Effect.sync(() => calculateVolumeROC(volumes, period));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const VolumeROCMetadata: FormulaMetadata = {
   name: "VolumeROC",

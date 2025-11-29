@@ -1,7 +1,4 @@
-/**
- * Data Sources Types
- * Abstraction layer for multiple data providers
- */
+/** Data Source Types - Provider abstractions */
 
 import { Data, Effect } from "effect";
 import type {
@@ -16,10 +13,7 @@ import type {
   HeatmapConfig,
 } from "@0xsignal/shared";
 
-// ============================================================================
-// Error Types
-// ============================================================================
-
+// Errors
 export class DataSourceError extends Data.TaggedError("DataSourceError")<{
   readonly source: string;
   readonly message: string;
@@ -38,10 +32,7 @@ export class DataNotAvailableError extends Data.TaggedError("DataNotAvailableErr
   readonly symbol?: string;
 }> {}
 
-// ============================================================================
-// Adapter Capabilities
-// ============================================================================
-
+// Adapter metadata
 export interface AdapterCapabilities {
   readonly spotPrices: boolean;
   readonly futuresPrices: boolean;
@@ -57,28 +48,16 @@ export interface AdapterInfo {
   readonly name: string;
   readonly version: string;
   readonly capabilities: AdapterCapabilities;
-  readonly rateLimit: {
-    readonly requestsPerMinute: number;
-    readonly requestsPerSecond?: number;
-  };
+  readonly rateLimit: { readonly requestsPerMinute: number; readonly requestsPerSecond?: number };
 }
 
-// ============================================================================
-// Provider Interfaces
-// ============================================================================
-
-/**
- * Spot price provider interface
- */
+// Provider interfaces
 export interface SpotPriceProvider {
   readonly info: AdapterInfo;
   readonly getPrice: (symbol: string) => Effect.Effect<CryptoPrice, DataSourceError>;
   readonly getTopCryptos: (limit?: number) => Effect.Effect<CryptoPrice[], DataSourceError>;
 }
 
-/**
- * Liquidation data provider interface
- */
 export interface LiquidationProvider {
   readonly info: AdapterInfo;
   readonly getLiquidations: (
@@ -94,9 +73,6 @@ export interface LiquidationProvider {
   >;
 }
 
-/**
- * Derivatives data provider interface
- */
 export interface DerivativesProvider {
   readonly info: AdapterInfo;
   readonly getOpenInterest: (symbol: string) => Effect.Effect<OpenInterestData, DataSourceError>;
@@ -106,9 +82,6 @@ export interface DerivativesProvider {
   ) => Effect.Effect<OpenInterestData[], DataSourceError>;
 }
 
-/**
- * Heatmap data provider interface
- */
 export interface HeatmapProvider {
   readonly info: AdapterInfo;
   readonly getMarketHeatmap: (

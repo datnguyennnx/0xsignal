@@ -1,92 +1,78 @@
-import { Effect } from "effect";
+/** Maximum Drawdown - Peak-to-Trough Decline */
+// MDD = (Trough - Peak) / Peak
+
+import { Effect, Match } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// MAXIMUM DRAWDOWN - Peak-to-Trough Decline
-// ============================================================================
-// Measures the largest peak-to-trough decline in portfolio value
-//
-// Formula:
-// MDD = (Trough Value - Peak Value) / Peak Value
-//
-// Interpretation:
-// - MDD = 0: No drawdown
-// - MDD < -10%: Moderate drawdown
-// - MDD < -20%: Significant drawdown
-// - MDD < -50%: Severe drawdown
-// - Lower is worse (more negative)
-// ============================================================================
-
 export interface MaximumDrawdownResult {
-  readonly value: number; // Maximum drawdown (%)
-  readonly peakIndex: number; // Index of peak
-  readonly troughIndex: number; // Index of trough
-  readonly duration: number; // Periods from peak to trough
+  readonly value: number;
+  readonly peakIndex: number;
+  readonly troughIndex: number;
+  readonly duration: number;
   readonly severity: "NONE" | "MILD" | "MODERATE" | "SIGNIFICANT" | "SEVERE";
 }
 
-/**
- * Pure function to calculate Maximum Drawdown
- * @param values - Array of portfolio values or prices
- */
+// Severity classification
+const classifySeverity = Match.type<number>().pipe(
+  Match.when(
+    (d) => d < 0.05,
+    () => "NONE" as const
+  ),
+  Match.when(
+    (d) => d < 0.1,
+    () => "MILD" as const
+  ),
+  Match.when(
+    (d) => d < 0.2,
+    () => "MODERATE" as const
+  ),
+  Match.when(
+    (d) => d < 0.5,
+    () => "SIGNIFICANT" as const
+  ),
+  Match.orElse(() => "SEVERE" as const)
+);
+
+// Calculate Maximum Drawdown
 export const calculateMaximumDrawdown = (values: ReadonlyArray<number>): MaximumDrawdownResult => {
-  let maxDrawdown = 0;
-  let peakIndex = 0;
-  let troughIndex = 0;
-  let peak = values[0];
-  let peakIdx = 0;
+  const result = values.reduce(
+    (acc, value, i) => {
+      const newPeak = value > acc.peak;
+      const peak = newPeak ? value : acc.peak;
+      const peakIdx = newPeak ? i : acc.peakIdx;
+      const drawdown = (value - peak) / peak;
+      const isNewMax = drawdown < acc.maxDrawdown;
 
-  // Find maximum drawdown
-  for (let i = 1; i < values.length; i++) {
-    if (values[i] > peak) {
-      peak = values[i];
-      peakIdx = i;
+      return {
+        peak,
+        peakIdx,
+        maxDrawdown: isNewMax ? drawdown : acc.maxDrawdown,
+        peakIndex: isNewMax ? peakIdx : acc.peakIndex,
+        troughIndex: isNewMax ? i : acc.troughIndex,
+      };
+    },
+    {
+      peak: values[0],
+      peakIdx: 0,
+      maxDrawdown: 0,
+      peakIndex: 0,
+      troughIndex: 0,
     }
-
-    const drawdown = (values[i] - peak) / peak;
-    if (drawdown < maxDrawdown) {
-      maxDrawdown = drawdown;
-      peakIndex = peakIdx;
-      troughIndex = i;
-    }
-  }
-
-  const duration = troughIndex - peakIndex;
-
-  // Determine severity
-  let severity: "NONE" | "MILD" | "MODERATE" | "SIGNIFICANT" | "SEVERE";
-  const absDD = Math.abs(maxDrawdown);
-  if (absDD < 0.05) {
-    severity = "NONE";
-  } else if (absDD < 0.1) {
-    severity = "MILD";
-  } else if (absDD < 0.2) {
-    severity = "MODERATE";
-  } else if (absDD < 0.5) {
-    severity = "SIGNIFICANT";
-  } else {
-    severity = "SEVERE";
-  }
+  );
 
   return {
-    value: Math.round(maxDrawdown * 10000) / 100, // Convert to percentage
-    peakIndex,
-    troughIndex,
-    duration,
-    severity,
+    value: Math.round(result.maxDrawdown * 10000) / 100,
+    peakIndex: result.peakIndex,
+    troughIndex: result.troughIndex,
+    duration: result.troughIndex - result.peakIndex,
+    severity: classifySeverity(Math.abs(result.maxDrawdown)),
   };
 };
 
-/**
- * Effect-based wrapper for Maximum Drawdown calculation
- */
+// Effect-based wrapper
 export const computeMaximumDrawdown = (
   values: ReadonlyArray<number>
 ): Effect.Effect<MaximumDrawdownResult> => Effect.sync(() => calculateMaximumDrawdown(values));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const MaximumDrawdownMetadata: FormulaMetadata = {
   name: "MaximumDrawdown",

@@ -1,16 +1,10 @@
-// Domain types (primary source)
+/** API Module Exports */
+
+// Domain
 export * from "./domain/types";
-
-// Domain analysis
 export * from "./domain/analysis";
-
-// Domain heatmap
 export * from "./domain/heatmap";
-
-// Domain buyback
 export * from "./domain/buyback";
-
-// Domain strategies
 export {
   detectRegime,
   executeMomentumStrategy,
@@ -20,7 +14,7 @@ export {
   executeStrategies,
 } from "./domain/strategies";
 
-// Application use cases
+// Application
 export * from "./application";
 
 // Services
@@ -31,3 +25,4 @@ export * from "./infrastructure/http/client";
 export * from "./infrastructure/logging/logger";
 export * from "./infrastructure/layers/app.layer";
 export * from "./infrastructure/config/app.config";
+export * from "./infrastructure/data-sources/types";

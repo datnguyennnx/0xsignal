@@ -1,9 +1,6 @@
-/**
- * Buyback Service
- * Orchestrates data fetching and delegates business logic to domain layer
- */
+/** Buyback Service - Protocol buyback analysis with tracing */
 
-import { Effect, Context, Layer, Cache } from "effect";
+import { Effect, Context, Layer, Cache, Option, pipe, Array as Arr } from "effect";
 import type {
   BuybackSignal,
   BuybackOverview,
@@ -21,7 +18,6 @@ import {
 } from "../domain/buyback";
 import { CACHE_TTL, CACHE_CAPACITY, DEFAULT_LIMITS } from "../infrastructure/config/app.config";
 
-// Service interface
 export interface BuybackService {
   readonly getBuybackSignals: (
     limit?: number
@@ -40,119 +36,121 @@ export class BuybackServiceTag extends Context.Tag("BuybackService")<
   BuybackService
 >() {}
 
-// Service implementation - orchestrates fetching, delegates logic to domain
+// Create signal from protocol data using Option
+const createSignalFromProtocol = (
+  protocolData: { geckoId: string | null },
+  priceMap: Map<string, { marketCap: number; price: number }>,
+  createFn: (mcap: number, price: number) => BuybackSignal
+): BuybackSignal | null =>
+  pipe(
+    Option.fromNullable(protocolData.geckoId),
+    Option.flatMap((geckoId) => Option.fromNullable(priceMap.get(geckoId))),
+    Option.filter((data) => data.marketCap > 0),
+    Option.map((data) => createFn(data.marketCap, data.price)),
+    Option.getOrNull
+  );
+
+// Transform daily fees to revenue points
+const toDailyRevenue = (
+  dailyFees: readonly { date: number; fees: number }[]
+): DailyRevenuePoint[] => Arr.map(dailyFees, (d) => ({ date: d.date, revenue: d.fees }));
+
 export const BuybackServiceLive = Layer.effect(
   BuybackServiceTag,
   Effect.gen(function* () {
     const defiLlama = yield* DefiLlamaService;
     const coinGecko = yield* CoinGeckoService;
 
-    // Cache for buyback signals
     const signalsCache = yield* Cache.make({
       capacity: CACHE_CAPACITY.SINGLE,
       timeToLive: CACHE_TTL.BUYBACK_SIGNALS,
       lookup: (limit: number) =>
         Effect.gen(function* () {
-          yield* Effect.logInfo(`[Buyback] Computing signals (limit: ${limit})`);
-
-          // Fetch data concurrently
-          const [protocols, cryptos] = yield* Effect.all(
-            [
-              defiLlama.getProtocolsWithRevenue(),
-              coinGecko.getTopCryptos(DEFAULT_LIMITS.TOP_CRYPTOS_EXTENDED),
-            ],
+          const { protocols, cryptos } = yield* Effect.all(
+            {
+              protocols: defiLlama.getProtocolsWithRevenue(),
+              cryptos: coinGecko.getTopCryptos(DEFAULT_LIMITS.TOP_CRYPTOS_EXTENDED),
+            },
             { concurrency: 2 }
           );
-
-          // Delegate to domain logic
-          const priceMap = buildPriceMap(cryptos);
-          const signals = computeBuybackSignals(protocols, priceMap, limit);
-
-          yield* Effect.logDebug(`[Buyback] Found ${signals.length} protocols with signals`);
-          return signals;
+          return computeBuybackSignals(protocols, buildPriceMap(cryptos), limit);
         }),
     });
 
-    // Cache for buyback overview
     const overviewCache = yield* Cache.make({
       capacity: 1,
       timeToLive: CACHE_TTL.BUYBACK_OVERVIEW,
       lookup: (_: "overview") =>
-        Effect.gen(function* () {
-          yield* Effect.logInfo("[Buyback] Computing overview");
-          const signals = yield* signalsCache.get(DEFAULT_LIMITS.TOP_CRYPTOS);
-          return createBuybackOverview(signals);
-        }),
+        signalsCache.get(DEFAULT_LIMITS.TOP_CRYPTOS).pipe(Effect.map(createBuybackOverview)),
     });
 
-    // Cache for single protocol buyback
     const protocolCache = yield* Cache.make({
       capacity: CACHE_CAPACITY.DEFAULT,
       timeToLive: CACHE_TTL.BUYBACK_PROTOCOL,
       lookup: (protocol: string) =>
         Effect.gen(function* () {
-          yield* Effect.logDebug(`[Buyback] Fetching protocol: ${protocol}`);
-
-          const [protocolData, cryptos] = yield* Effect.all(
-            [
-              defiLlama.getProtocolFees(protocol),
-              coinGecko.getTopCryptos(DEFAULT_LIMITS.TOP_CRYPTOS_EXTENDED),
-            ],
+          const { protocolData, cryptos } = yield* Effect.all(
+            {
+              protocolData: defiLlama.getProtocolFees(protocol),
+              cryptos: coinGecko.getTopCryptos(DEFAULT_LIMITS.TOP_CRYPTOS_EXTENDED),
+            },
             { concurrency: 2 }
           );
-
-          if (!protocolData.geckoId) return null;
-
-          const priceMap = buildPriceMap(cryptos);
-          const data = priceMap.get(protocolData.geckoId);
-          if (!data || data.marketCap <= 0) return null;
-
-          return createBuybackSignal(protocolData, data.marketCap, data.price);
+          return createSignalFromProtocol(protocolData, buildPriceMap(cryptos), (mcap, price) =>
+            createBuybackSignal(protocolData, mcap, price)
+          );
         }),
     });
 
-    // Cache for protocol detail
     const detailCache = yield* Cache.make({
       capacity: CACHE_CAPACITY.DEFAULT,
       timeToLive: CACHE_TTL.BUYBACK_PROTOCOL,
       lookup: (protocol: string) =>
         Effect.gen(function* () {
-          yield* Effect.logDebug(`[Buyback] Fetching detail: ${protocol}`);
-
-          const [detail, cryptos] = yield* Effect.all(
-            [
-              defiLlama.getProtocolFeesDetail(protocol),
-              coinGecko.getTopCryptos(DEFAULT_LIMITS.TOP_CRYPTOS_EXTENDED),
-            ],
+          const { detail, cryptos } = yield* Effect.all(
+            {
+              detail: defiLlama.getProtocolFeesDetail(protocol),
+              cryptos: coinGecko.getTopCryptos(DEFAULT_LIMITS.TOP_CRYPTOS_EXTENDED),
+            },
             { concurrency: 2 }
           );
-
-          if (!detail.protocol.geckoId) return null;
-
-          const priceMap = buildPriceMap(cryptos);
-          const data = priceMap.get(detail.protocol.geckoId);
-          if (!data || data.marketCap <= 0) return null;
-
-          const signal = createBuybackSignal(detail.protocol, data.marketCap, data.price);
-          const dailyRevenue: DailyRevenuePoint[] = detail.dailyFees.map((d) => ({
-            date: d.date,
-            revenue: d.fees,
-          }));
-
-          return {
-            signal,
-            dailyRevenue,
-            revenueSource: detail.revenueSource,
-            methodology: detail.methodology,
-          } as ProtocolBuybackDetail;
+          return pipe(
+            createSignalFromProtocol(detail.protocol, buildPriceMap(cryptos), (mcap, price) =>
+              createBuybackSignal(detail.protocol, mcap, price)
+            ),
+            Option.fromNullable,
+            Option.map(
+              (signal) =>
+                ({
+                  signal,
+                  dailyRevenue: toDailyRevenue(detail.dailyFees),
+                  revenueSource: detail.revenueSource,
+                  methodology: detail.methodology,
+                }) as ProtocolBuybackDetail
+            ),
+            Option.getOrNull
+          );
         }),
     });
 
     return {
-      getBuybackSignals: (limit = DEFAULT_LIMITS.BUYBACK_SIGNALS) => signalsCache.get(limit),
-      getBuybackOverview: () => overviewCache.get("overview"),
-      getProtocolBuyback: (protocol: string) => protocolCache.get(protocol),
-      getProtocolBuybackDetail: (protocol: string) => detailCache.get(protocol),
+      getBuybackSignals: (limit = DEFAULT_LIMITS.BUYBACK_SIGNALS) =>
+        pipe(
+          signalsCache.get(limit),
+          Effect.withSpan("buyback.signals", { attributes: { limit } })
+        ),
+      getBuybackOverview: () =>
+        pipe(overviewCache.get("overview"), Effect.withSpan("buyback.overview")),
+      getProtocolBuyback: (protocol) =>
+        pipe(
+          protocolCache.get(protocol),
+          Effect.withSpan("buyback.protocol", { attributes: { protocol } })
+        ),
+      getProtocolBuybackDetail: (protocol) =>
+        pipe(
+          detailCache.get(protocol),
+          Effect.withSpan("buyback.protocolDetail", { attributes: { protocol } })
+        ),
     };
   })
 );

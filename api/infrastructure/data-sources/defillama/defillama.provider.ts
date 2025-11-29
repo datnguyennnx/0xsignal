@@ -1,21 +1,16 @@
-/**
- * DefiLlama Provider
- * Protocol fees and revenue data with Effect's Cache for proper concurrent handling
- */
+/** DefiLlama Provider - Protocol fees and revenue */
 
-import { Effect, Context, Layer, Data, Cache } from "effect";
+import { Effect, Context, Layer, Data, Cache, Array as Arr, Option, pipe } from "effect";
 import type { ProtocolBuyback } from "@0xsignal/shared";
 import { HttpClientTag } from "../../http/client";
 import { DataSourceError, type AdapterInfo } from "../types";
 import { API_URLS, CACHE_TTL, CACHE_CAPACITY, RATE_LIMITS } from "../../config/app.config";
 
-// DefiLlama-specific error
 export class DefiLlamaError extends Data.TaggedError("DefiLlamaError")<{
   readonly message: string;
   readonly protocol?: string;
 }> {}
 
-// Adapter metadata
 export const DEFILLAMA_INFO: AdapterInfo = {
   name: "DefiLlama",
   version: "1.0.0",
@@ -32,7 +27,6 @@ export const DEFILLAMA_INFO: AdapterInfo = {
   rateLimit: { requestsPerMinute: RATE_LIMITS.DEFILLAMA },
 };
 
-// Protocol fees detail type
 export interface ProtocolFeesDetail {
   readonly protocol: ProtocolBuyback;
   readonly dailyFees: readonly { date: number; fees: number }[];
@@ -40,7 +34,6 @@ export interface ProtocolFeesDetail {
   readonly revenueSource: string | null;
 }
 
-// Map errors
 const mapError = (e: unknown, protocol?: string): DataSourceError =>
   new DataSourceError({
     source: "DefiLlama",
@@ -48,7 +41,53 @@ const mapError = (e: unknown, protocol?: string): DataSourceError =>
     symbol: protocol,
   });
 
-// Service interface
+const toProtocol = (p: any, geckoInfo?: { geckoId: string; symbol: string }): ProtocolBuyback => ({
+  protocol: p.displayName || p.name,
+  symbol: geckoInfo?.symbol || p.symbol || p.name.toLowerCase(),
+  geckoId: geckoInfo?.geckoId ?? p.gecko_id ?? null,
+  revenue24h: p.total24h ?? p.holdersRevenue24h ?? p.revenue24h ?? 0,
+  revenue7d: p.total7d ?? p.holdersRevenue7d ?? p.revenue7d ?? 0,
+  revenue30d: p.total30d ?? p.holdersRevenue30d ?? p.revenue30d ?? 0,
+  fees24h: p.total24h ?? 0,
+  fees7d: p.total7d ?? 0,
+  fees30d: p.total30d ?? 0,
+  chains: p.chains ?? [],
+  category: p.category ?? "Unknown",
+  logo: p.logo ?? null,
+  url: p.url ?? null,
+});
+
+// Build gecko mapping from protocols using functional approach
+const buildGeckoMap = (
+  protocols: readonly any[]
+): Map<string, { geckoId: string; symbol: string }> => {
+  const entries: [string, { geckoId: string; symbol: string }][] = pipe(
+    protocols,
+    Arr.filter((p) => Boolean(p.gecko_id)),
+    Arr.flatMap((p): [string, { geckoId: string; symbol: string }][] => {
+      const info = { geckoId: p.gecko_id, symbol: p.symbol ?? "" };
+      const base: [string, { geckoId: string; symbol: string }][] = [[p.name.toLowerCase(), info]];
+      return p.slug ? [...base, [p.slug.toLowerCase(), info]] : base;
+    })
+  );
+  return new Map(entries);
+};
+
+// Transform fees protocols to buyback protocols
+const transformProtocols = (
+  feesProtocols: readonly any[],
+  geckoMap: Map<string, { geckoId: string; symbol: string }>
+): ProtocolBuyback[] =>
+  pipe(
+    feesProtocols,
+    Arr.filterMap((p) => {
+      const hasFees = p.total24h > 0 || p.total30d > 0;
+      const geckoInfo =
+        geckoMap.get(p.name.toLowerCase()) ?? geckoMap.get((p.displayName ?? "").toLowerCase());
+      return hasFees && geckoInfo ? Option.some(toProtocol(p, geckoInfo)) : Option.none();
+    })
+  );
+
 export class DefiLlamaService extends Context.Tag("DefiLlamaService")<
   DefiLlamaService,
   {
@@ -61,147 +100,74 @@ export class DefiLlamaService extends Context.Tag("DefiLlamaService")<
   }
 >() {}
 
-// Service implementation with Effect's Cache
 export const DefiLlamaServiceLive = Layer.effect(
   DefiLlamaService,
   Effect.gen(function* () {
     const http = yield* HttpClientTag;
 
-    // Cache for all protocols with revenue - single key cache
     const protocolsCache = yield* Cache.make({
       capacity: 1,
       timeToLive: CACHE_TTL.DEFILLAMA_PROTOCOLS,
       lookup: (_: "all") =>
         Effect.gen(function* () {
-          yield* Effect.logInfo("[DefiLlama] Fetching all protocols with revenue");
-
-          // Fetch fees and protocols concurrently
-          const [feesData, protocolsData] = yield* Effect.all(
-            [
-              http.getJson(
+          const { fees, protocols } = yield* Effect.all(
+            {
+              fees: http.getJson(
                 `${API_URLS.DEFILLAMA}/overview/fees?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`
               ),
-              http.getJson(`${API_URLS.DEFILLAMA}/protocols`),
-            ],
+              protocols: http.getJson(`${API_URLS.DEFILLAMA}/protocols`),
+            },
             { concurrency: 2 }
-          ).pipe(Effect.mapError((e) => mapError(e)));
+          ).pipe(Effect.mapError(mapError));
 
-          const fees = feesData as { protocols?: any[] };
-          const protocols = protocolsData as Array<{
-            name: string;
-            symbol?: string;
-            gecko_id?: string;
-            slug: string;
-          }>;
+          const geckoMap = buildGeckoMap(protocols as any[]);
+          const feesData = fees as { protocols?: any[] };
 
-          // Build gecko_id lookup
-          const geckoMap = new Map<string, { geckoId: string; symbol: string }>();
-          for (const p of protocols) {
-            if (p.gecko_id) {
-              geckoMap.set(p.name.toLowerCase(), { geckoId: p.gecko_id, symbol: p.symbol ?? "" });
-              if (p.slug)
-                geckoMap.set(p.slug.toLowerCase(), { geckoId: p.gecko_id, symbol: p.symbol ?? "" });
-            }
-          }
-
-          if (!fees.protocols) return [];
-
-          const result = fees.protocols
-            .filter((p: any) => {
-              const hasFees = (p.total24h && p.total24h > 0) || (p.total30d && p.total30d > 0);
-              const geckoInfo =
-                geckoMap.get(p.name.toLowerCase()) ||
-                geckoMap.get((p.displayName ?? "").toLowerCase());
-              return hasFees && geckoInfo;
-            })
-            .map((p: any): ProtocolBuyback => {
-              const geckoInfo =
-                geckoMap.get(p.name.toLowerCase()) ||
-                geckoMap.get((p.displayName ?? "").toLowerCase());
-              return {
-                protocol: p.displayName || p.name,
-                symbol: geckoInfo?.symbol || p.symbol || p.name.toLowerCase(),
-                geckoId: geckoInfo?.geckoId ?? null,
-                revenue24h: p.total24h ?? 0,
-                revenue7d: p.total7d ?? 0,
-                revenue30d: p.total30d ?? 0,
-                fees24h: p.total24h ?? 0,
-                fees7d: p.total7d ?? 0,
-                fees30d: p.total30d ?? 0,
-                chains: p.chains ?? [],
-                category: p.category ?? "Unknown",
-                logo: p.logo ?? null,
-                url: p.url ?? null,
-              };
-            });
-
-          yield* Effect.logDebug(`[DefiLlama] Found ${result.length} protocols with fees`);
-          return result;
+          return pipe(
+            Option.fromNullable(feesData.protocols),
+            Option.map((p) => transformProtocols(p, geckoMap)),
+            Option.getOrElse(() => [] as ProtocolBuyback[])
+          );
         }),
     });
 
-    // Cache for single protocol fees
-    const protocolFeesCache = yield* Cache.make({
+    const protocolCache = yield* Cache.make({
       capacity: CACHE_CAPACITY.LARGE,
       timeToLive: CACHE_TTL.DEFILLAMA_PROTOCOL,
       lookup: (protocol: string) =>
         http.getJson(`${API_URLS.DEFILLAMA}/summary/fees/${protocol}`).pipe(
-          Effect.map((data: any) => ({
-            protocol: data.name ?? protocol,
-            symbol: data.symbol ?? protocol.toLowerCase(),
-            geckoId: data.gecko_id ?? null,
-            revenue24h: data.holdersRevenue24h ?? data.revenue24h ?? 0,
-            revenue7d: data.holdersRevenue7d ?? data.revenue7d ?? 0,
-            revenue30d: data.holdersRevenue30d ?? data.revenue30d ?? 0,
-            fees24h: data.total24h ?? 0,
-            fees7d: data.total7d ?? 0,
-            fees30d: data.total30d ?? 0,
-            chains: data.chains ?? [],
-            category: data.category ?? "Unknown",
-            logo: data.logo ?? null,
-            url: data.url ?? null,
-          })),
+          Effect.map((d: any) => toProtocol(d)),
           Effect.mapError((e) => mapError(e, protocol))
         ),
     });
 
-    // Cache for protocol fees detail
-    const protocolDetailCache = yield* Cache.make({
+    const detailCache = yield* Cache.make({
       capacity: CACHE_CAPACITY.LARGE,
       timeToLive: CACHE_TTL.DEFILLAMA_PROTOCOL,
       lookup: (protocol: string) =>
         http.getJson(`${API_URLS.DEFILLAMA}/summary/fees/${protocol}`).pipe(
-          Effect.map((data: any) => {
-            const dailyFees = (data.totalDataChart ?? [])
-              .map(([ts, fees]: [number, number]) => ({ date: ts, fees }))
-              .filter((d: any) => d.fees > 0)
-              .slice(-90);
-
-            const methodology = data.methodology
-              ? Object.entries(data.methodology)
+          Effect.map((d: any) => {
+            const chartData = (d.totalDataChart ?? []) as [number, number][];
+            const dailyFees = pipe(
+              chartData,
+              Arr.map(([ts, fees]) => ({ date: ts, fees })),
+              Arr.filter((x) => x.fees > 0),
+              Arr.takeRight(90)
+            );
+            const methodology = pipe(
+              Option.fromNullable(d.methodology as Record<string, string> | undefined),
+              Option.map((m) =>
+                Object.entries(m)
                   .map(([k, v]) => `${k}: ${v}`)
                   .join(". ")
-              : null;
-
+              ),
+              Option.getOrNull
+            );
             return {
-              protocol: {
-                protocol: data.displayName ?? data.name ?? protocol,
-                symbol: data.symbol ?? protocol.toLowerCase(),
-                geckoId: data.gecko_id ?? null,
-                revenue24h: data.total24h ?? 0,
-                revenue7d: data.total7d ?? 0,
-                revenue30d: data.total30d ?? 0,
-                fees24h: data.total24h ?? 0,
-                fees7d: data.total7d ?? 0,
-                fees30d: data.total30d ?? 0,
-                chains: data.chains ?? [],
-                category: data.category ?? "Unknown",
-                logo: data.logo ?? null,
-                url: data.url ?? null,
-              },
+              protocol: toProtocol(d),
               dailyFees,
               methodology,
-              revenueSource: data.methodology?.Revenue ?? null,
+              revenueSource: d.methodology?.Revenue ?? null,
             } as ProtocolFeesDetail;
           }),
           Effect.mapError((e) => mapError(e, protocol))
@@ -211,8 +177,8 @@ export const DefiLlamaServiceLive = Layer.effect(
     return {
       info: DEFILLAMA_INFO,
       getProtocolsWithRevenue: () => protocolsCache.get("all"),
-      getProtocolFees: (protocol: string) => protocolFeesCache.get(protocol),
-      getProtocolFeesDetail: (protocol: string) => protocolDetailCache.get(protocol),
+      getProtocolFees: (protocol) => protocolCache.get(protocol),
+      getProtocolFeesDetail: (protocol) => detailCache.get(protocol),
     };
   })
 );

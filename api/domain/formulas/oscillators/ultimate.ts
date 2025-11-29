@@ -1,64 +1,86 @@
-import { Effect } from "effect";
+/** Ultimate Oscillator - Multi-timeframe momentum with functional patterns */
+// UO = 100 * [(4 * Avg7) + (2 * Avg14) + Avg28] / 7
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// ULTIMATE OSCILLATOR - Multi-Timeframe Momentum Indicator
-// ============================================================================
-// Combines three different timeframes to reduce false signals
-// Uses buying pressure relative to true range
-//
-// Formula:
-// Buying Pressure = Close - min(Low, Previous Close)
-// True Range = max(High, Previous Close) - min(Low, Previous Close)
-// Average7 = Sum(BP, 7) / Sum(TR, 7)
-// Average14 = Sum(BP, 14) / Sum(TR, 14)
-// Average28 = Sum(BP, 28) / Sum(TR, 28)
-// UO = 100 × [(4 × Average7) + (2 × Average14) + Average28] / (4 + 2 + 1)
-//
-// Interpretation:
-// - UO > 70: Overbought
-// - UO < 30: Oversold
-// - Bullish divergence: Buy signal
-// - Bearish divergence: Sell signal
-// ============================================================================
-
 export interface UltimateOscillatorResult {
-  readonly value: number; // UO value (0-100)
+  readonly value: number;
   readonly signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL";
   readonly trend: "BULLISH" | "BEARISH" | "NEUTRAL";
 }
 
-/**
- * Pure function to calculate buying pressure and true range
- */
+// Signal classification
+const classifySignal = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 70,
+    () => "OVERBOUGHT" as const
+  ),
+  Match.when(
+    (v) => v < 30,
+    () => "OVERSOLD" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Trend classification
+const classifyTrend = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 50,
+    () => "BULLISH" as const
+  ),
+  Match.when(
+    (v) => v < 50,
+    () => "BEARISH" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Round to 2 decimal places
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+// BP and TR data point
+interface BPTRPoint {
+  readonly bp: number;
+  readonly tr: number;
+}
+
+// Calculate buying pressure and true range using Arr.zipWith
 const calculateBPandTR = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>
-): { bp: number[]; tr: number[] } => {
-  const bp: number[] = [];
-  const tr: number[] = [];
+): ReadonlyArray<BPTRPoint> =>
+  pipe(
+    Arr.zipWith(
+      Arr.zip(Arr.drop(highs, 1), Arr.drop(lows, 1)),
+      Arr.zip(Arr.drop(closes, 1), Arr.dropRight(closes, 1)),
+      ([high, low], [close, prevClose]) => ({
+        bp: close - Math.min(low, prevClose),
+        tr: Math.max(high, prevClose) - Math.min(low, prevClose),
+      })
+    )
+  );
 
-  for (let i = 1; i < closes.length; i++) {
-    const buyingPressure = closes[i] - Math.min(lows[i], closes[i - 1]);
-    const trueRange = Math.max(highs[i], closes[i - 1]) - Math.min(lows[i], closes[i - 1]);
-
-    bp.push(buyingPressure);
-    tr.push(trueRange);
-  }
-
-  return { bp, tr };
+// Calculate average for a period
+const calculateAverage = (data: ReadonlyArray<BPTRPoint>, period: number): number => {
+  const recent = Arr.takeRight(data, period);
+  const sumBP = pipe(
+    recent,
+    Arr.reduce(0, (acc, d) => acc + d.bp)
+  );
+  const sumTR = pipe(
+    recent,
+    Arr.reduce(0, (acc, d) => acc + d.tr)
+  );
+  return sumTR === 0 ? 0 : sumBP / sumTR;
 };
 
-/**
- * Pure function to calculate Ultimate Oscillator
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param closes - Array of closing prices
- * @param period1 - Short period (default: 7)
- * @param period2 - Medium period (default: 14)
- * @param period3 - Long period (default: 28)
- */
+// Calculate UO value
+const calculateUOValue = (avg1: number, avg2: number, avg3: number): number =>
+  (100 * (4 * avg1 + 2 * avg2 + avg3)) / 7;
+
+// Calculate Ultimate Oscillator
 export const calculateUltimateOscillator = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -67,55 +89,20 @@ export const calculateUltimateOscillator = (
   period2: number = 14,
   period3: number = 28
 ): UltimateOscillatorResult => {
-  // Calculate buying pressure and true range
-  const { bp, tr } = calculateBPandTR(highs, lows, closes);
-
-  // Calculate averages for each period
-  const sumBP1 = bp.slice(-period1).reduce((a, b) => a + b, 0);
-  const sumTR1 = tr.slice(-period1).reduce((a, b) => a + b, 0);
-  const avg1 = sumTR1 === 0 ? 0 : sumBP1 / sumTR1;
-
-  const sumBP2 = bp.slice(-period2).reduce((a, b) => a + b, 0);
-  const sumTR2 = tr.slice(-period2).reduce((a, b) => a + b, 0);
-  const avg2 = sumTR2 === 0 ? 0 : sumBP2 / sumTR2;
-
-  const sumBP3 = bp.slice(-period3).reduce((a, b) => a + b, 0);
-  const sumTR3 = tr.slice(-period3).reduce((a, b) => a + b, 0);
-  const avg3 = sumTR3 === 0 ? 0 : sumBP3 / sumTR3;
-
-  // Calculate Ultimate Oscillator with 4:2:1 weighting
-  const uo = (100 * (4 * avg1 + 2 * avg2 + avg3)) / 7;
-
-  // Determine signal
-  let signal: "OVERBOUGHT" | "OVERSOLD" | "NEUTRAL";
-  if (uo > 70) {
-    signal = "OVERBOUGHT";
-  } else if (uo < 30) {
-    signal = "OVERSOLD";
-  } else {
-    signal = "NEUTRAL";
-  }
-
-  // Determine trend
-  let trend: "BULLISH" | "BEARISH" | "NEUTRAL";
-  if (uo > 50) {
-    trend = "BULLISH";
-  } else if (uo < 50) {
-    trend = "BEARISH";
-  } else {
-    trend = "NEUTRAL";
-  }
+  const bptrData = calculateBPandTR(highs, lows, closes);
+  const avg1 = calculateAverage(bptrData, period1);
+  const avg2 = calculateAverage(bptrData, period2);
+  const avg3 = calculateAverage(bptrData, period3);
+  const uo = calculateUOValue(avg1, avg2, avg3);
 
   return {
-    value: Math.round(uo * 100) / 100,
-    signal,
-    trend,
+    value: round2(uo),
+    signal: classifySignal(uo),
+    trend: classifyTrend(uo),
   };
 };
 
-/**
- * Pure function to calculate Ultimate Oscillator series
- */
+// Calculate UO series using Arr.makeBy
 export const calculateUltimateOscillatorSeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -124,32 +111,34 @@ export const calculateUltimateOscillatorSeries = (
   period2: number = 14,
   period3: number = 28
 ): ReadonlyArray<number> => {
-  const uoSeries: number[] = [];
-  const { bp, tr } = calculateBPandTR(highs, lows, closes);
+  const bptrData = calculateBPandTR(highs, lows, closes);
 
-  for (let i = period3 - 1; i < bp.length; i++) {
-    const sumBP1 = bp.slice(i - period1 + 1, i + 1).reduce((a, b) => a + b, 0);
-    const sumTR1 = tr.slice(i - period1 + 1, i + 1).reduce((a, b) => a + b, 0);
-    const avg1 = sumTR1 === 0 ? 0 : sumBP1 / sumTR1;
+  // Calculate window average
+  const windowAverage = (data: ReadonlyArray<BPTRPoint>, start: number, period: number): number => {
+    const window = Arr.take(Arr.drop(data, start), period);
+    const sumBP = pipe(
+      window,
+      Arr.reduce(0, (acc, d) => acc + d.bp)
+    );
+    const sumTR = pipe(
+      window,
+      Arr.reduce(0, (acc, d) => acc + d.tr)
+    );
+    return sumTR === 0 ? 0 : sumBP / sumTR;
+  };
 
-    const sumBP2 = bp.slice(i - period2 + 1, i + 1).reduce((a, b) => a + b, 0);
-    const sumTR2 = tr.slice(i - period2 + 1, i + 1).reduce((a, b) => a + b, 0);
-    const avg2 = sumTR2 === 0 ? 0 : sumBP2 / sumTR2;
-
-    const sumBP3 = bp.slice(i - period3 + 1, i + 1).reduce((a, b) => a + b, 0);
-    const sumTR3 = tr.slice(i - period3 + 1, i + 1).reduce((a, b) => a + b, 0);
-    const avg3 = sumTR3 === 0 ? 0 : sumBP3 / sumTR3;
-
-    const uo = (100 * (4 * avg1 + 2 * avg2 + avg3)) / 7;
-    uoSeries.push(uo);
-  }
-
-  return uoSeries;
+  return pipe(
+    Arr.makeBy(bptrData.length - period3 + 1, (i) => {
+      const idx = i + period3 - 1;
+      const avg1 = windowAverage(bptrData, idx - period1 + 1, period1);
+      const avg2 = windowAverage(bptrData, idx - period2 + 1, period2);
+      const avg3 = windowAverage(bptrData, idx - period3 + 1, period3);
+      return calculateUOValue(avg1, avg2, avg3);
+    })
+  );
 };
 
-/**
- * Effect-based wrapper for Ultimate Oscillator calculation
- */
+// Effect-based wrapper
 export const computeUltimateOscillator = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -159,10 +148,6 @@ export const computeUltimateOscillator = (
   period3: number = 28
 ): Effect.Effect<UltimateOscillatorResult> =>
   Effect.sync(() => calculateUltimateOscillator(highs, lows, closes, period1, period2, period3));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const UltimateOscillatorMetadata: FormulaMetadata = {
   name: "UltimateOscillator",

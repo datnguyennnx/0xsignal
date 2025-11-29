@@ -1,9 +1,6 @@
-/**
- * Strategy Executor
- * Orchestrates strategy execution with type-safe pattern matching
- */
+/** Strategy Executor - Orchestrates strategy execution with pattern matching */
 
-import { Effect, Match } from "effect";
+import { Effect, Match, pipe } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
 import type { StrategyResult, StrategySignal, MarketRegime } from "./types";
 import { detectRegime } from "./regime";
@@ -25,57 +22,7 @@ const selectStrategies = Match.type<MarketRegime>().pipe(
   Match.exhaustive
 );
 
-// Execute all strategies for a price
-export const executeStrategies = (price: CryptoPrice): Effect.Effect<StrategyResult, never> =>
-  Effect.gen(function* () {
-    const regime = yield* detectRegime(price);
-    const strategies = selectStrategies(regime);
-
-    // Execute strategies concurrently
-    const signals = yield* Effect.all(
-      strategies.map((strategy) => strategy(price)),
-      { concurrency: "unbounded" }
-    );
-
-    return combineSignals(regime, signals);
-  });
-
-// Combine multiple signals into a single result
-const combineSignals = (
-  regime: MarketRegime,
-  signals: ReadonlyArray<StrategySignal>
-): StrategyResult => {
-  if (signals.length === 0) {
-    return createEmptyResult(regime);
-  }
-
-  const volatility = signals[0].metrics.normalizedATR ?? 3;
-  const indicatorAgreement = signals[0].metrics.indicatorAgreement
-    ? signals[0].metrics.indicatorAgreement / 100
-    : undefined;
-
-  if (signals.length === 1) {
-    return {
-      regime,
-      signals,
-      primarySignal: signals[0],
-      overallConfidence: signals[0].confidence,
-      riskScore: calculateRiskScore(regime, signals[0].confidence, volatility, indicatorAgreement),
-    };
-  }
-
-  const primarySignal = combineMultipleSignals(signals);
-
-  return {
-    regime,
-    signals,
-    primarySignal,
-    overallConfidence: primarySignal.confidence,
-    riskScore: calculateRiskScore(regime, primarySignal.confidence, volatility, indicatorAgreement),
-  };
-};
-
-// Create empty result when no strategies executed
+// Empty result for no strategies
 const createEmptyResult = (regime: MarketRegime): StrategyResult => ({
   regime,
   signals: [],
@@ -94,17 +41,11 @@ const createEmptyResult = (regime: MarketRegime): StrategyResult => ({
 const combineMultipleSignals = (signals: ReadonlyArray<StrategySignal>): StrategySignal => {
   const totalWeight = signals.reduce((sum, s) => sum + s.confidence, 0);
   const weightedScore = signals.reduce((sum, s) => sum + signalToScore(s.signal) * s.confidence, 0);
-
   const averageScore = totalWeight > 0 ? weightedScore / totalWeight : 0;
-  const combinedSignal = scoreToSignal(averageScore);
-
   const averageConfidence = Math.round(
     signals.reduce((sum, s) => sum + s.confidence, 0) / signals.length
   );
 
-  const reasoning = signals.map((s) => `${s.strategy}: ${s.reasoning}`).join("; ");
-
-  // Merge all metrics with strategy prefix
   const metrics = signals.reduce<Record<string, number>>(
     (acc, s) => ({
       ...acc,
@@ -115,9 +56,68 @@ const combineMultipleSignals = (signals: ReadonlyArray<StrategySignal>): Strateg
 
   return {
     strategy: "COMBINED",
-    signal: combinedSignal,
+    signal: scoreToSignal(averageScore),
     confidence: averageConfidence,
-    reasoning,
+    reasoning: signals.map((s) => `${s.strategy}: ${s.reasoning}`).join("; "),
     metrics,
   };
 };
+
+// Combine signals using pattern matching on signal count
+const combineSignals = (
+  regime: MarketRegime,
+  signals: ReadonlyArray<StrategySignal>
+): StrategyResult =>
+  pipe(
+    Match.value(signals.length),
+    Match.when(0, () => createEmptyResult(regime)),
+    Match.when(1, () => {
+      const volatility = signals[0].metrics.normalizedATR ?? 3;
+      const indicatorAgreement = signals[0].metrics.indicatorAgreement
+        ? signals[0].metrics.indicatorAgreement / 100
+        : undefined;
+      return {
+        regime,
+        signals,
+        primarySignal: signals[0],
+        overallConfidence: signals[0].confidence,
+        riskScore: calculateRiskScore(
+          regime,
+          signals[0].confidence,
+          volatility,
+          indicatorAgreement
+        ),
+      };
+    }),
+    Match.orElse(() => {
+      const primarySignal = combineMultipleSignals(signals);
+      const volatility = signals[0].metrics.normalizedATR ?? 3;
+      const indicatorAgreement = signals[0].metrics.indicatorAgreement
+        ? signals[0].metrics.indicatorAgreement / 100
+        : undefined;
+      return {
+        regime,
+        signals,
+        primarySignal,
+        overallConfidence: primarySignal.confidence,
+        riskScore: calculateRiskScore(
+          regime,
+          primarySignal.confidence,
+          volatility,
+          indicatorAgreement
+        ),
+      };
+    })
+  );
+
+// Execute all strategies for a price
+export const executeStrategies = (price: CryptoPrice): Effect.Effect<StrategyResult, never> =>
+  Effect.gen(function* () {
+    const regime = yield* detectRegime(price);
+    const strategies = selectStrategies(regime);
+    const signals = yield* Effect.all(
+      strategies.map((strategy) => strategy(price)),
+      { concurrency: "unbounded" }
+    );
+    return combineSignals(regime, signals);
+  });

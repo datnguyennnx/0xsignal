@@ -1,119 +1,127 @@
-import { Effect } from "effect";
+/** Awesome Oscillator (AO) - Momentum using midpoint SMAs with functional patterns */
+// AO = SMA(Midpoint, 5) - SMA(Midpoint, 34), Midpoint = (High + Low) / 2
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 import { calculateSMA } from "../trend/moving-averages";
 
-// ============================================================================
-// AWESOME OSCILLATOR (AO) - Momentum Indicator
-// ============================================================================
-// Measures market momentum by comparing recent market momentum to general momentum
-// Uses the difference between 5-period and 34-period SMAs of midpoint prices
-//
-// Formula:
-// Midpoint = (High + Low) / 2
-// AO = SMA(Midpoint, 5) - SMA(Midpoint, 34)
-//
-// Interpretation:
-// - AO > 0: Bullish momentum
-// - AO < 0: Bearish momentum
-// - AO crosses above 0: Buy signal
-// - AO crosses below 0: Sell signal
-// - Twin Peaks: Divergence pattern
-// ============================================================================
-
 export interface AwesomeOscillatorResult {
-  readonly value: number; // AO value
+  readonly value: number;
   readonly signal: "BULLISH" | "BEARISH" | "NEUTRAL";
   readonly momentum: "INCREASING" | "DECREASING" | "STABLE";
   readonly histogram: "GREEN" | "RED";
 }
 
-/**
- * Pure function to calculate Awesome Oscillator
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param fastPeriod - Fast SMA period (default: 5)
- * @param slowPeriod - Slow SMA period (default: 34)
- */
+// Signal classification
+const classifySignal = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 0,
+    () => "BULLISH" as const
+  ),
+  Match.when(
+    (v) => v < 0,
+    () => "BEARISH" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Momentum classification
+const classifyMomentum = Match.type<number>().pipe(
+  Match.when(
+    (v) => v > 0,
+    () => "INCREASING" as const
+  ),
+  Match.when(
+    (v) => v < 0,
+    () => "DECREASING" as const
+  ),
+  Match.orElse(() => "STABLE" as const)
+);
+
+// Round to 2 decimal places
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+// Calculate midpoints using Arr.zipWith
+const calculateMidpoints = (
+  highs: ReadonlyArray<number>,
+  lows: ReadonlyArray<number>
+): ReadonlyArray<number> => Arr.zipWith(highs, lows, (h, l) => (h + l) / 2);
+
+// Calculate window average
+const windowAverage = (arr: ReadonlyArray<number>, period: number): number =>
+  pipe(
+    Arr.takeRight(arr, period),
+    Arr.reduce(0, (a, b) => a + b)
+  ) / period;
+
+// Calculate Awesome Oscillator
 export const calculateAwesomeOscillator = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   fastPeriod: number = 5,
   slowPeriod: number = 34
 ): AwesomeOscillatorResult => {
-  // Calculate midpoint prices
-  const midpoints = highs.map((high, i) => (high + lows[i]) / 2);
-
-  // Calculate fast and slow SMAs
-  const fastSMA = calculateSMA(midpoints.slice(-fastPeriod), fastPeriod).value;
-  const slowSMA = calculateSMA(midpoints.slice(-slowPeriod), slowPeriod).value;
-
-  // Calculate AO
+  const midpoints = calculateMidpoints(highs, lows);
+  const fastSMA = calculateSMA(Arr.takeRight(midpoints, fastPeriod), fastPeriod).value;
+  const slowSMA = calculateSMA(Arr.takeRight(midpoints, slowPeriod), slowPeriod).value;
   const ao = fastSMA - slowSMA;
 
-  // Determine signal
-  let signal: "BULLISH" | "BEARISH" | "NEUTRAL";
-  if (ao > 0) {
-    signal = "BULLISH";
-  } else if (ao < 0) {
-    signal = "BEARISH";
-  } else {
-    signal = "NEUTRAL";
-  }
+  // Calculate momentum change
+  const momentumDelta =
+    midpoints.length > slowPeriod
+      ? pipe(Arr.dropRight(midpoints, 1), (prevMidpoints) => {
+          const prevFastSMA = calculateSMA(
+            Arr.takeRight(prevMidpoints, fastPeriod),
+            fastPeriod
+          ).value;
+          const prevSlowSMA = calculateSMA(
+            Arr.takeRight(prevMidpoints, slowPeriod),
+            slowPeriod
+          ).value;
+          return ao - (prevFastSMA - prevSlowSMA);
+        })
+      : 0;
 
-  // Determine momentum (compare with previous AO)
-  let momentum: "INCREASING" | "DECREASING" | "STABLE" = "STABLE";
-  if (midpoints.length > slowPeriod) {
-    const prevMidpoints = midpoints.slice(0, -1);
-    const prevFastSMA = calculateSMA(prevMidpoints.slice(-fastPeriod), fastPeriod).value;
-    const prevSlowSMA = calculateSMA(prevMidpoints.slice(-slowPeriod), slowPeriod).value;
-    const prevAO = prevFastSMA - prevSlowSMA;
-
-    if (ao > prevAO) {
-      momentum = "INCREASING";
-    } else if (ao < prevAO) {
-      momentum = "DECREASING";
-    }
-  }
-
-  // Determine histogram color
-  const histogram: "GREEN" | "RED" = momentum === "INCREASING" ? "GREEN" : "RED";
+  const momentum = classifyMomentum(momentumDelta);
 
   return {
-    value: Math.round(ao * 100) / 100,
-    signal,
+    value: round2(ao),
+    signal: classifySignal(ao),
     momentum,
-    histogram,
+    histogram: momentum === "INCREASING" ? "GREEN" : "RED",
   };
 };
 
-/**
- * Pure function to calculate Awesome Oscillator series
- */
+// Calculate AO series using Arr.makeBy
 export const calculateAwesomeOscillatorSeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   fastPeriod: number = 5,
   slowPeriod: number = 34
 ): ReadonlyArray<number> => {
-  const aoSeries: number[] = [];
-  const midpoints = highs.map((high, i) => (high + lows[i]) / 2);
+  const midpoints = calculateMidpoints(highs, lows);
 
-  for (let i = slowPeriod - 1; i < midpoints.length; i++) {
-    const fastWindow = midpoints.slice(i - fastPeriod + 1, i + 1);
-    const slowWindow = midpoints.slice(i - slowPeriod + 1, i + 1);
-
-    const fastAvg = fastWindow.reduce((a, b) => a + b, 0) / fastPeriod;
-    const slowAvg = slowWindow.reduce((a, b) => a + b, 0) / slowPeriod;
-
-    aoSeries.push(fastAvg - slowAvg);
-  }
-
-  return aoSeries;
+  return pipe(
+    Arr.makeBy(midpoints.length - slowPeriod + 1, (i) => {
+      const idx = i + slowPeriod - 1;
+      const fastWindow = Arr.take(Arr.drop(midpoints, idx - fastPeriod + 1), fastPeriod);
+      const slowWindow = Arr.take(Arr.drop(midpoints, idx - slowPeriod + 1), slowPeriod);
+      const fastAvg =
+        pipe(
+          fastWindow,
+          Arr.reduce(0, (a, b) => a + b)
+        ) / fastPeriod;
+      const slowAvg =
+        pipe(
+          slowWindow,
+          Arr.reduce(0, (a, b) => a + b)
+        ) / slowPeriod;
+      return fastAvg - slowAvg;
+    })
+  );
 };
 
-/**
- * Effect-based wrapper for Awesome Oscillator calculation
- */
+// Effect-based wrapper
 export const computeAwesomeOscillator = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -121,10 +129,6 @@ export const computeAwesomeOscillator = (
   slowPeriod: number = 34
 ): Effect.Effect<AwesomeOscillatorResult> =>
   Effect.sync(() => calculateAwesomeOscillator(highs, lows, fastPeriod, slowPeriod));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const AwesomeOscillatorMetadata: FormulaMetadata = {
   name: "AwesomeOscillator",

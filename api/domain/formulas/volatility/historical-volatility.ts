@@ -1,125 +1,108 @@
-import { Effect } from "effect";
+/** Historical Volatility - Annualized standard deviation of log returns */
+// HV = StdDev(Log Returns) * sqrt(252)
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// HISTORICAL VOLATILITY - Standard Deviation of Returns
-// ============================================================================
-// Measures the dispersion of returns over a period
-// Annualized to provide a standardized volatility measure
-//
-// Formula:
-// Log Return = ln(Price[i] / Price[i-1])
-// Volatility = StdDev(Log Returns) × √(252) for daily data
-//
-// Interpretation:
-// - High volatility: Large price swings, higher risk
-// - Low volatility: Stable prices, lower risk
-// - Used for option pricing and risk management
-// ============================================================================
-
 export interface HistoricalVolatilityResult {
-  readonly value: number; // Annualized volatility (%)
-  readonly dailyVol: number; // Daily volatility
+  readonly value: number;
+  readonly dailyVol: number;
   readonly level: "VERY_LOW" | "LOW" | "MODERATE" | "HIGH" | "VERY_HIGH";
 }
 
-/**
- * Pure function to calculate Historical Volatility
- * @param closes - Array of closing prices
- * @param period - Lookback period (default: 30)
- * @param annualizationFactor - Factor to annualize (default: 252 for daily data)
- */
+// Volatility level classification
+const classifyLevel = Match.type<number>().pipe(
+  Match.when(
+    (v) => v < 10,
+    () => "VERY_LOW" as const
+  ),
+  Match.when(
+    (v) => v < 20,
+    () => "LOW" as const
+  ),
+  Match.when(
+    (v) => v < 40,
+    () => "MODERATE" as const
+  ),
+  Match.when(
+    (v) => v < 60,
+    () => "HIGH" as const
+  ),
+  Match.orElse(() => "VERY_HIGH" as const)
+);
+
+// Round helpers
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+const round4 = (n: number): number => Math.round(n * 10000) / 10000;
+
+// Calculate log returns using Arr.zipWith
+const calculateLogReturns = (closes: ReadonlyArray<number>): ReadonlyArray<number> =>
+  pipe(
+    Arr.zipWith(Arr.drop(closes, 1), Arr.dropRight(closes, 1), (curr, prev) =>
+      Math.log(curr / prev)
+    )
+  );
+
+// Calculate variance from returns
+const calculateVariance = (returns: ReadonlyArray<number>): number => {
+  const meanReturn =
+    pipe(
+      returns,
+      Arr.reduce(0, (a, b) => a + b)
+    ) / returns.length;
+  return (
+    pipe(
+      returns,
+      Arr.map((r) => Math.pow(r - meanReturn, 2)),
+      Arr.reduce(0, (a, b) => a + b)
+    ) / returns.length
+  );
+};
+
+// Calculate Historical Volatility
 export const calculateHistoricalVolatility = (
   closes: ReadonlyArray<number>,
   period: number = 30,
   annualizationFactor: number = 252
 ): HistoricalVolatilityResult => {
-  // Calculate log returns
-  const logReturns: number[] = [];
-  for (let i = 1; i < closes.length; i++) {
-    const logReturn = Math.log(closes[i] / closes[i - 1]);
-    logReturns.push(logReturn);
-  }
-
-  // Get recent returns
-  const recentReturns = logReturns.slice(-period);
-
-  // Calculate mean return
-  const meanReturn = recentReturns.reduce((a, b) => a + b, 0) / recentReturns.length;
-
-  // Calculate variance
-  const variance =
-    recentReturns.map((r) => Math.pow(r - meanReturn, 2)).reduce((a, b) => a + b, 0) /
-    recentReturns.length;
-
-  // Calculate standard deviation (daily volatility)
+  const logReturns = calculateLogReturns(closes);
+  const recentReturns = Arr.takeRight(logReturns, period);
+  const variance = calculateVariance(recentReturns);
   const dailyVol = Math.sqrt(variance);
-
-  // Annualize volatility
   const annualizedVol = dailyVol * Math.sqrt(annualizationFactor) * 100;
 
-  // Determine volatility level
-  let level: "VERY_LOW" | "LOW" | "MODERATE" | "HIGH" | "VERY_HIGH";
-  if (annualizedVol < 10) {
-    level = "VERY_LOW";
-  } else if (annualizedVol < 20) {
-    level = "LOW";
-  } else if (annualizedVol < 40) {
-    level = "MODERATE";
-  } else if (annualizedVol < 60) {
-    level = "HIGH";
-  } else {
-    level = "VERY_HIGH";
-  }
-
   return {
-    value: Math.round(annualizedVol * 100) / 100,
-    dailyVol: Math.round(dailyVol * 10000) / 10000,
-    level,
+    value: round2(annualizedVol),
+    dailyVol: round4(dailyVol),
+    level: classifyLevel(annualizedVol),
   };
 };
 
-/**
- * Pure function to calculate Historical Volatility series
- */
+// Calculate HV series using Arr.makeBy
 export const calculateHistoricalVolatilitySeries = (
   closes: ReadonlyArray<number>,
   period: number = 30,
   annualizationFactor: number = 252
 ): ReadonlyArray<number> => {
-  const volSeries: number[] = [];
+  const logReturns = calculateLogReturns(closes);
+  const sqrtFactor = Math.sqrt(annualizationFactor) * 100;
 
-  // Calculate log returns
-  const logReturns: number[] = [];
-  for (let i = 1; i < closes.length; i++) {
-    logReturns.push(Math.log(closes[i] / closes[i - 1]));
-  }
-
-  // Calculate volatility for each window
-  for (let i = period - 1; i < logReturns.length; i++) {
-    const window = logReturns.slice(i - period + 1, i + 1);
-    const mean = window.reduce((a, b) => a + b, 0) / period;
-    const variance = window.map((r) => Math.pow(r - mean, 2)).reduce((a, b) => a + b, 0) / period;
-    const vol = Math.sqrt(variance) * Math.sqrt(annualizationFactor) * 100;
-    volSeries.push(vol);
-  }
-
-  return volSeries;
+  return pipe(
+    Arr.makeBy(logReturns.length - period + 1, (i) => {
+      const window = Arr.take(Arr.drop(logReturns, i), period);
+      const variance = calculateVariance(window);
+      return Math.sqrt(variance) * sqrtFactor;
+    })
+  );
 };
 
-/**
- * Effect-based wrapper for Historical Volatility calculation
- */
+// Effect-based wrapper
 export const computeHistoricalVolatility = (
   closes: ReadonlyArray<number>,
   period: number = 30,
   annualizationFactor: number = 252
 ): Effect.Effect<HistoricalVolatilityResult> =>
   Effect.sync(() => calculateHistoricalVolatility(closes, period, annualizationFactor));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const HistoricalVolatilityMetadata: FormulaMetadata = {
   name: "HistoricalVolatility",

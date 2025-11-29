@@ -1,87 +1,62 @@
-import { Effect } from "effect";
+/** Donchian Channels - Breakout indicator with functional patterns */
+// Upper = Highest High(N), Lower = Lowest Low(N), Middle = (Upper + Lower) / 2
+
+import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { FormulaMetadata } from "../core/types";
 
-// ============================================================================
-// DONCHIAN CHANNELS - Breakout Indicator
-// ============================================================================
-// Identifies the highest high and lowest low over a given period
-// Used for breakout trading and trend following
-//
-// Formula:
-// Upper Channel = Highest High over N periods
-// Lower Channel = Lowest Low over N periods
-// Middle Channel = (Upper + Lower) / 2
-//
-// Interpretation:
-// - Price breaks above upper: Bullish breakout
-// - Price breaks below lower: Bearish breakout
-// - Price at middle: Neutral/consolidation
-// - Channel width indicates volatility
-// ============================================================================
-
 export interface DonchianChannelsResult {
-  readonly upper: number; // Highest high
-  readonly middle: number; // Midpoint
-  readonly lower: number; // Lowest low
-  readonly width: number; // Normalized channel width
-  readonly position: number; // Price position within channels (0-1)
+  readonly upper: number;
+  readonly middle: number;
+  readonly lower: number;
+  readonly width: number;
+  readonly position: number;
   readonly signal: "BULLISH_BREAKOUT" | "BEARISH_BREAKOUT" | "NEUTRAL";
 }
 
-/**
- * Pure function to calculate Donchian Channels
- * @param highs - Array of high prices
- * @param lows - Array of low prices
- * @param closes - Array of closing prices
- * @param period - Lookback period (default: 20)
- */
+// Signal classification
+const classifySignal = Match.type<{ price: number; upper: number; lower: number }>().pipe(
+  Match.when(
+    ({ price, upper }) => price >= upper,
+    () => "BULLISH_BREAKOUT" as const
+  ),
+  Match.when(
+    ({ price, lower }) => price <= lower,
+    () => "BEARISH_BREAKOUT" as const
+  ),
+  Match.orElse(() => "NEUTRAL" as const)
+);
+
+// Round helpers
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+const round3 = (n: number): number => Math.round(n * 1000) / 1000;
+
+// Calculate Donchian Channels
 export const calculateDonchianChannels = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
   closes: ReadonlyArray<number>,
   period: number = 20
 ): DonchianChannelsResult => {
-  // Get the last period values
-  const recentHighs = highs.slice(-period);
-  const recentLows = lows.slice(-period);
-
-  // Calculate upper and lower channels
+  const recentHighs = Arr.takeRight(highs, period);
+  const recentLows = Arr.takeRight(lows, period);
   const upper = Math.max(...recentHighs);
   const lower = Math.min(...recentLows);
-
-  // Calculate middle channel
   const middle = (upper + lower) / 2;
-
-  // Calculate normalized width
   const width = ((upper - lower) / middle) * 100;
-
-  // Calculate price position within channels (0 = lower, 1 = upper)
   const currentPrice = closes[closes.length - 1];
   const position = (currentPrice - lower) / (upper - lower);
 
-  // Determine signal
-  let signal: "BULLISH_BREAKOUT" | "BEARISH_BREAKOUT" | "NEUTRAL";
-  if (currentPrice >= upper) {
-    signal = "BULLISH_BREAKOUT";
-  } else if (currentPrice <= lower) {
-    signal = "BEARISH_BREAKOUT";
-  } else {
-    signal = "NEUTRAL";
-  }
-
   return {
-    upper: Math.round(upper * 100) / 100,
-    middle: Math.round(middle * 100) / 100,
-    lower: Math.round(lower * 100) / 100,
-    width: Math.round(width * 100) / 100,
-    position: Math.round(position * 1000) / 1000,
-    signal,
+    upper: round2(upper),
+    middle: round2(middle),
+    lower: round2(lower),
+    width: round2(width),
+    position: round3(position),
+    signal: classifySignal({ price: currentPrice, upper, lower }),
   };
 };
 
-/**
- * Pure function to calculate Donchian Channels series
- */
+// Calculate Donchian series using Arr.makeBy
 export const calculateDonchianChannelsSeries = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -91,33 +66,24 @@ export const calculateDonchianChannelsSeries = (
   readonly middle: ReadonlyArray<number>;
   readonly lower: ReadonlyArray<number>;
 } => {
-  const upperSeries: number[] = [];
-  const middleSeries: number[] = [];
-  const lowerSeries: number[] = [];
-
-  for (let i = period - 1; i < highs.length; i++) {
-    const windowHighs = highs.slice(i - period + 1, i + 1);
-    const windowLows = lows.slice(i - period + 1, i + 1);
-
-    const upper = Math.max(...windowHighs);
-    const lower = Math.min(...windowLows);
-    const middle = (upper + lower) / 2;
-
-    upperSeries.push(upper);
-    middleSeries.push(middle);
-    lowerSeries.push(lower);
-  }
+  const results = pipe(
+    Arr.makeBy(highs.length - period + 1, (i) => {
+      const windowHighs = Arr.take(Arr.drop(highs, i), period);
+      const windowLows = Arr.take(Arr.drop(lows, i), period);
+      const upper = Math.max(...windowHighs);
+      const lower = Math.min(...windowLows);
+      return { upper, middle: (upper + lower) / 2, lower };
+    })
+  );
 
   return {
-    upper: upperSeries,
-    middle: middleSeries,
-    lower: lowerSeries,
+    upper: Arr.map(results, (r) => r.upper),
+    middle: Arr.map(results, (r) => r.middle),
+    lower: Arr.map(results, (r) => r.lower),
   };
 };
 
-/**
- * Effect-based wrapper for Donchian Channels calculation
- */
+// Effect-based wrapper
 export const computeDonchianChannels = (
   highs: ReadonlyArray<number>,
   lows: ReadonlyArray<number>,
@@ -125,10 +91,6 @@ export const computeDonchianChannels = (
   period: number = 20
 ): Effect.Effect<DonchianChannelsResult> =>
   Effect.sync(() => calculateDonchianChannels(highs, lows, closes, period));
-
-// ============================================================================
-// FORMULA METADATA
-// ============================================================================
 
 export const DonchianChannelsMetadata: FormulaMetadata = {
   name: "DonchianChannels",

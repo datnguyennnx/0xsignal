@@ -1,18 +1,10 @@
-import { Effect } from "effect";
-import type { CryptoPrice } from "@0xsignal/shared";
-import { sum, mean, emaAlpha } from "../core/math";
-import type { FormulaMetadata } from "../core/types";
+/** Moving Averages - SMA and EMA with functional patterns */
+// SMA = Sum(prices) / N, EMA = Price * alpha + EMA_prev * (1 - alpha)
 
-// ============================================================================
-// MOVING AVERAGES - Trend Analysis Foundation
-// ============================================================================
-// Simple Moving Average (SMA) and Exponential Moving Average (EMA)
-// These are foundational indicators used by many other formulas
-//
-// SMA Formula: Average of last N prices
-// EMA Formula: EMA_t = Price_t * α + EMA_t-1 * (1 - α)
-//              where α = 2 / (period + 1)
-// ============================================================================
+import { Effect, Array as Arr, pipe } from "effect";
+import type { CryptoPrice } from "@0xsignal/shared";
+import { mean, emaAlpha } from "../core/math";
+import type { FormulaMetadata } from "../core/types";
 
 export interface SMAResult {
   readonly value: number;
@@ -25,140 +17,90 @@ export interface EMAResult {
   readonly alpha: number;
 }
 
-/**
- * Pure function to calculate Simple Moving Average
- * @param prices - Array of prices (must have at least 'period' elements)
- * @param period - Number of periods for the average
- */
+// Calculate Simple Moving Average
 export const calculateSMA = (prices: ReadonlyArray<number>, period: number = 20): SMAResult => {
-  // Take the last 'period' prices
-  const relevantPrices = prices.slice(-period);
-  const value = mean([...relevantPrices]);
-
-  return {
-    value,
-    period,
-  };
+  const relevantPrices = Arr.takeRight(prices, period);
+  return { value: mean([...relevantPrices]), period };
 };
 
-/**
- * Pure function to calculate SMA for each point in a series
- * Returns an array of SMA values
- */
+// Calculate SMA series using Arr.makeBy
 export const calculateSMASeries = (
   prices: ReadonlyArray<number>,
   period: number = 20
-): ReadonlyArray<number> => {
-  const result: number[] = [];
+): ReadonlyArray<number> =>
+  pipe(
+    Arr.makeBy(prices.length - period + 1, (i) => {
+      const window = Arr.take(Arr.drop(prices, i), period);
+      return mean([...window]);
+    })
+  );
 
-  for (let i = period - 1; i < prices.length; i++) {
-    const window = prices.slice(i - period + 1, i + 1);
-    result.push(mean([...window]));
-  }
-
-  return result;
-};
-
-/**
- * Effect-based wrapper for SMA calculation
- */
+// Effect-based SMA wrapper
 export const computeSMA = (
   prices: ReadonlyArray<number>,
   period: number = 20
 ): Effect.Effect<SMAResult> => Effect.sync(() => calculateSMA(prices, period));
 
-/**
- * Effect-based wrapper for SMA from CryptoPrice
- */
+// Effect-based SMA from CryptoPrice
 export const computeSMAFromPrice = (
   price: CryptoPrice,
   period: number = 20
 ): Effect.Effect<SMAResult> => {
-  // For single price point, we approximate using 24h data
   const prices =
     price.high24h && price.low24h ? [price.low24h, price.price, price.high24h] : [price.price];
-
   return computeSMA(prices, Math.min(period, prices.length));
 };
 
-/**
- * Pure function to calculate Exponential Moving Average
- * @param prices - Array of prices
- * @param period - Number of periods for the average
- * @param previousEMA - Previous EMA value (optional, uses SMA as seed)
- */
+// Calculate Exponential Moving Average using Arr.reduce
 export const calculateEMA = (
   prices: ReadonlyArray<number>,
   period: number = 20,
   previousEMA?: number
 ): EMAResult => {
   const alpha = emaAlpha(period);
+  const initialEMA = previousEMA ?? mean([...Arr.take(prices, period)]);
+  const startIndex = previousEMA ? 0 : period;
+  const pricesToProcess = Arr.drop(prices, startIndex);
 
-  // If no previous EMA, use SMA as the seed
-  let ema = previousEMA ?? mean([...prices.slice(0, period)]);
+  const ema = pipe(
+    pricesToProcess,
+    Arr.reduce(initialEMA, (acc, price) => price * alpha + acc * (1 - alpha))
+  );
 
-  // Calculate EMA for all prices
-  for (let i = previousEMA ? 0 : period; i < prices.length; i++) {
-    ema = prices[i] * alpha + ema * (1 - alpha);
-  }
-
-  return {
-    value: ema,
-    period,
-    alpha,
-  };
+  return { value: ema, period, alpha };
 };
 
-/**
- * Pure function to calculate EMA for each point in a series
- * Returns an array of EMA values
- */
+// Calculate EMA series using Arr.scan
 export const calculateEMASeries = (
   prices: ReadonlyArray<number>,
   period: number = 20
 ): ReadonlyArray<number> => {
   const alpha = emaAlpha(period);
-  const result: number[] = [];
+  const initialEMA = mean([...Arr.take(prices, period)]);
+  const pricesToProcess = Arr.drop(prices, period);
 
-  // Use SMA as the seed for the first EMA value
-  let ema = mean([...prices.slice(0, period)]);
-  result.push(ema);
-
-  // Calculate EMA for remaining prices
-  for (let i = period; i < prices.length; i++) {
-    ema = prices[i] * alpha + ema * (1 - alpha);
-    result.push(ema);
-  }
-
-  return result;
+  return pipe(
+    pricesToProcess,
+    Arr.scan(initialEMA, (acc, price) => price * alpha + acc * (1 - alpha))
+  );
 };
 
-/**
- * Effect-based wrapper for EMA calculation
- */
+// Effect-based EMA wrapper
 export const computeEMA = (
   prices: ReadonlyArray<number>,
   period: number = 20,
   previousEMA?: number
 ): Effect.Effect<EMAResult> => Effect.sync(() => calculateEMA(prices, period, previousEMA));
 
-/**
- * Effect-based wrapper for EMA from CryptoPrice
- */
+// Effect-based EMA from CryptoPrice
 export const computeEMAFromPrice = (
   price: CryptoPrice,
   period: number = 20
 ): Effect.Effect<EMAResult> => {
-  // For single price point, we approximate using 24h data
   const prices =
     price.high24h && price.low24h ? [price.low24h, price.price, price.high24h] : [price.price];
-
   return computeEMA(prices, Math.min(period, prices.length));
 };
-
-// ============================================================================
-// FORMULA METADATA FOR AI DISCOVERY
-// ============================================================================
 
 export const SMAMetadata: FormulaMetadata = {
   name: "SMA",

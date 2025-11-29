@@ -1,9 +1,6 @@
-/**
- * HTTP Router
- * Routes all API requests to appropriate handlers
- */
+/** HTTP Router - Route matching with functional patterns */
 
-import { Effect } from "effect";
+import { Effect, Option, pipe } from "effect";
 import type { LiquidationTimeframe, HeatmapConfig } from "@0xsignal/shared";
 import { healthRoute } from "./routes/health.routes";
 import {
@@ -33,141 +30,112 @@ import {
   protocolBuybackDetailRoute,
 } from "./routes/buyback.routes";
 
+// Helpers
+const getParam = (url: URL, key: string, def: string) => url.searchParams.get(key) || def;
+const getInt = (url: URL, key: string, def: number, max?: number) => {
+  const v = parseInt(getParam(url, key, String(def)));
+  return max ? Math.min(v, max) : v;
+};
+const notFound = Effect.fail({ status: 404, message: "Not found" });
+const badRequest = (msg: string) => Effect.fail({ status: 400, message: msg });
+
+// Route patterns
+const patterns = {
+  liquidationHeatmap: /^\/api\/liquidations\/([^/]+)\/heatmap$/,
+  liquidation: /^\/api\/liquidations\/([^/]+)$/,
+  derivativesOI: /^\/api\/derivatives\/([^/]+)\/open-interest$/,
+  derivativesFR: /^\/api\/derivatives\/([^/]+)\/funding-rate$/,
+  buybackDetail: /^\/api\/buyback\/([^/]+)\/detail$/,
+  buyback: /^\/api\/buyback\/([^/]+)$/,
+  analysis: /^\/api\/analysis\/([^/]+)$/,
+};
+
+// Match pattern and extract param
+const matchPattern = (path: string, pattern: RegExp): Option.Option<string> =>
+  pipe(
+    Option.fromNullable(path.match(pattern)),
+    Option.filter((m) => m.length > 1),
+    Option.map((m) => m[1])
+  );
+
+// Main router - returns Effect with any requirements
 export const handleRequest = (url: URL, _method: string) => {
   const path = url.pathname;
 
-  // Health check
-  if (path === "/api/health") {
-    return healthRoute();
-  }
-
-  // Top analysis
-  if (path === "/api/analysis/top") {
-    const limit = Math.min(parseInt(url.searchParams.get("limit") || "20"), 100);
-    return topAnalysisRoute(limit);
-  }
-
-  // Market overview
-  if (path === "/api/overview") {
-    return marketOverviewRoute();
-  }
-
-  // Trading signals
-  if (path === "/api/signals") {
-    return tradingSignalsRoute();
-  }
-
-  // High confidence signals
-  if (path === "/api/signals/high-confidence") {
-    const minConfidence = parseInt(url.searchParams.get("confidence") || "70");
-    return highConfidenceSignalsRoute(minConfidence);
-  }
-
-  // Chart data
-  if (path === "/api/chart") {
-    const symbol = url.searchParams.get("symbol");
-    const interval = url.searchParams.get("interval") || "1h";
-    const timeframe = url.searchParams.get("timeframe") || "24h";
-
-    if (!symbol) {
-      return Effect.fail({ status: 400, message: "Symbol parameter is required" });
+  // Static routes
+  switch (path) {
+    case "/api/health":
+      return healthRoute();
+    case "/api/analysis/top":
+      return topAnalysisRoute(getInt(url, "limit", 20, 100));
+    case "/api/overview":
+      return marketOverviewRoute();
+    case "/api/signals":
+      return tradingSignalsRoute();
+    case "/api/signals/high-confidence":
+      return highConfidenceSignalsRoute(getInt(url, "confidence", 70));
+    case "/api/heatmap/movers":
+      return topMoversHeatmapRoute(getInt(url, "limit", 50));
+    case "/api/liquidations/summary":
+      return marketLiquidationSummaryRoute();
+    case "/api/derivatives/open-interest":
+      return topOpenInterestRoute(getInt(url, "limit", 20));
+    case "/api/sources":
+      return dataSourcesRoute();
+    case "/api/buyback/signals":
+      return buybackSignalsRoute(getInt(url, "limit", 50, 100));
+    case "/api/buyback/overview":
+      return buybackOverviewRoute();
+    case "/api/chart": {
+      const symbol = url.searchParams.get("symbol");
+      return symbol
+        ? chartDataRoute(symbol, getParam(url, "interval", "1h"), getParam(url, "timeframe", "24h"))
+        : badRequest("Symbol required");
     }
-
-    return chartDataRoute(symbol, interval, timeframe);
+    case "/api/heatmap":
+      return marketHeatmapRoute({
+        limit: getInt(url, "limit", 100),
+        category: getParam(url, "category", "") || undefined,
+        sortBy: getParam(url, "sortBy", "marketCap") as HeatmapConfig["sortBy"],
+      });
   }
 
-  // Market heatmap
-  if (path === "/api/heatmap") {
-    const config: Partial<HeatmapConfig> = {
-      limit: parseInt(url.searchParams.get("limit") || "100"),
-      category: url.searchParams.get("category") || undefined,
-      sortBy: (url.searchParams.get("sortBy") as HeatmapConfig["sortBy"]) || "marketCap",
-    };
-    return marketHeatmapRoute(config);
+  // Dynamic routes - liquidation heatmap
+  const liqHeatmapMatch = path.match(patterns.liquidationHeatmap);
+  if (liqHeatmapMatch) return liquidationHeatmapRoute(liqHeatmapMatch[1]);
+
+  // Dynamic routes - liquidation
+  const liqMatch = path.match(patterns.liquidation);
+  if (liqMatch && !path.includes("summary")) {
+    return symbolLiquidationRoute(
+      liqMatch[1],
+      getParam(url, "timeframe", "24h") as LiquidationTimeframe
+    );
   }
 
-  // Top movers heatmap
-  if (path === "/api/heatmap/movers") {
-    const limit = parseInt(url.searchParams.get("limit") || "50");
-    return topMoversHeatmapRoute(limit);
+  // Dynamic routes - derivatives OI
+  const oiMatch = path.match(patterns.derivativesOI);
+  if (oiMatch) return symbolOpenInterestRoute(oiMatch[1]);
+
+  // Dynamic routes - derivatives FR
+  const frMatch = path.match(patterns.derivativesFR);
+  if (frMatch) return symbolFundingRateRoute(frMatch[1]);
+
+  // Dynamic routes - buyback detail
+  const buybackDetailMatch = path.match(patterns.buybackDetail);
+  if (buybackDetailMatch) return protocolBuybackDetailRoute(buybackDetailMatch[1]);
+
+  // Dynamic routes - buyback
+  const buybackMatch = path.match(patterns.buyback);
+  if (buybackMatch && !["signals", "overview"].some((s) => path.includes(s))) {
+    return protocolBuybackRoute(buybackMatch[1]);
   }
 
-  // Liquidation summary
-  if (path === "/api/liquidations/summary") {
-    return marketLiquidationSummaryRoute();
+  // Dynamic routes - analysis
+  const analysisMatch = path.match(patterns.analysis);
+  if (analysisMatch && analysisMatch[1] !== "top") {
+    return symbolAnalysisRoute(analysisMatch[1]);
   }
 
-  // Liquidation heatmap for symbol
-  if (path.match(/^\/api\/liquidations\/[^/]+\/heatmap$/)) {
-    const symbol = path.split("/")[3];
-    return liquidationHeatmapRoute(symbol);
-  }
-
-  // Symbol liquidation
-  if (path.match(/^\/api\/liquidations\/[^/]+$/) && !path.includes("summary")) {
-    const symbol = path.split("/").pop()!;
-    const timeframe = (url.searchParams.get("timeframe") || "24h") as LiquidationTimeframe;
-    return symbolLiquidationRoute(symbol, timeframe);
-  }
-
-  // Top open interest
-  if (path === "/api/derivatives/open-interest") {
-    const limit = parseInt(url.searchParams.get("limit") || "20");
-    return topOpenInterestRoute(limit);
-  }
-
-  // Symbol open interest
-  if (path.match(/^\/api\/derivatives\/[^/]+\/open-interest$/)) {
-    const symbol = path.split("/")[3];
-    return symbolOpenInterestRoute(symbol);
-  }
-
-  // Symbol funding rate
-  if (path.match(/^\/api\/derivatives\/[^/]+\/funding-rate$/)) {
-    const symbol = path.split("/")[3];
-    return symbolFundingRateRoute(symbol);
-  }
-
-  // Data sources
-  if (path === "/api/sources") {
-    return dataSourcesRoute();
-  }
-
-  // Buyback signals
-  if (path === "/api/buyback/signals") {
-    const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
-    return buybackSignalsRoute(limit);
-  }
-
-  // Buyback overview
-  if (path === "/api/buyback/overview") {
-    return buybackOverviewRoute();
-  }
-
-  // Protocol buyback detail (with chart data)
-  if (path.match(/^\/api\/buyback\/[^/]+\/detail$/)) {
-    const protocol = path.split("/")[3];
-    return protocolBuybackDetailRoute(protocol);
-  }
-
-  // Protocol buyback (must be after other buyback routes)
-  if (
-    path.match(/^\/api\/buyback\/[^/]+$/) &&
-    !path.includes("signals") &&
-    !path.includes("overview")
-  ) {
-    const protocol = path.split("/").pop()!;
-    return protocolBuybackRoute(protocol);
-  }
-
-  // Single symbol analysis (must be last to avoid matching other routes)
-  if (path.startsWith("/api/analysis/")) {
-    const symbol = path.split("/").pop();
-    if (symbol && symbol !== "top") {
-      return symbolAnalysisRoute(symbol);
-    }
-  }
-
-  // 404
-  return Effect.fail({ status: 404, message: "Not found" });
+  return notFound;
 };
