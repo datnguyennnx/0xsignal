@@ -5,7 +5,7 @@
     "noEmit": false,
     "outDir": "./dist",
     "rootDir": ".",
-    "types": ["bun-types", "node"]
+    "types": ["bun-types", "node", "vitest/globals"]
   },
   "include": ["./**/*.ts"],
   "exclude": ["node_modules", "dist"],

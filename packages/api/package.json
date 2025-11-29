@@ -9,7 +9,11 @@
     "start": "bun presentation/http/server.ts",
     "build": "tsc -b tsconfig.json",
     "lint": "eslint . --ext .ts",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "@0xsignal/shared": "workspace:*",
@@ -21,8 +25,10 @@
   },
   "devDependencies": {
     "@effect/language-service": "^0.56.0",
+    "@effect/vitest": "^0.27.0",
     "@types/node": "^24.10.1",
     "bun-types": "^1.3.3",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.14"
   }
 }
