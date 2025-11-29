@@ -14,6 +14,9 @@ import { TradingChart } from "@/features/chart/components/trading-chart";
 import { CryptoIcon } from "@/components/crypto-icon";
 import { UnifiedSignalCard } from "../components/unified-signal-card";
 import { ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const fetchAssetData = (symbol: string) => cachedAnalysis(symbol);
 
@@ -40,50 +43,48 @@ function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string 
   const change24h = price?.change24h || 0;
 
   return (
-    <div className="px-3 sm:px-6 py-3 sm:py-6 max-w-6xl mx-auto space-y-4 sm:space-y-6">
-      {/* Header - Compact */}
+    <div className="px-3 sm:px-6 py-3 sm:py-6 max-w-6xl mx-auto space-y-4">
+      {/* Header */}
       <header className="flex items-center gap-3">
-        <button
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => navigate(-1)}
-          className="sm:hidden p-1 -ml-1 text-muted-foreground hover:text-foreground"
+          className="sm:hidden -ml-2"
           aria-label="Go back"
         >
           <ChevronLeft className="w-5 h-5" />
-        </button>
+        </Button>
 
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <CryptoIcon symbol={asset.symbol} size={24} className="shrink-0" />
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-base sm:text-lg font-medium">{asset.symbol.toUpperCase()}</span>
-              <span className="text-base sm:text-lg tabular-nums">
-                ${formatPrice(price?.price || 0)}
-              </span>
-              <span
-                className={cn(
-                  "text-xs sm:text-sm tabular-nums",
-                  change24h > 0
-                    ? "text-gain"
-                    : change24h < 0
-                      ? "text-loss"
-                      : "text-muted-foreground"
-                )}
-              >
-                {formatPercentChange(change24h)}
-              </span>
-            </div>
-            <div className="text-[10px] sm:text-xs text-muted-foreground">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <CryptoIcon symbol={asset.symbol} size={28} className="shrink-0" />
+          <div className="flex items-baseline gap-2 flex-wrap min-w-0">
+            <span className="text-lg sm:text-xl font-semibold tracking-tight">
+              {asset.symbol.toUpperCase()}
+            </span>
+            <span className="text-lg sm:text-xl tabular-nums">
+              ${formatPrice(price?.price || 0)}
+            </span>
+            <span
+              className={cn(
+                "text-sm tabular-nums font-medium",
+                change24h > 0 ? "text-gain" : change24h < 0 ? "text-loss" : "text-muted-foreground"
+              )}
+            >
+              {formatPercentChange(change24h)}
+            </span>
+            <span className="text-xs text-muted-foreground">
               Vol ${formatCurrency(price?.volume24h || 0)}
               <span className="hidden sm:inline">
                 {" · "}H ${formatPrice(price?.high24h || 0)}
                 {" · "}L ${formatPrice(price?.low24h || 0)}
               </span>
-            </div>
+            </span>
           </div>
         </div>
       </header>
 
-      {/* Unified Signal Card - Single component for all signal data */}
+      {/* Unified Signal Card */}
       <UnifiedSignalCard analysis={asset} />
 
       {/* Chart */}
@@ -95,10 +96,29 @@ function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string 
           onIntervalChange={setInterval}
         />
       ) : !chartLoading ? (
-        <div className="rounded border border-border/50 p-6 sm:p-8 text-center">
-          <p className="text-sm text-muted-foreground">Chart data unavailable</p>
-        </div>
+        <Card className="py-0 shadow-none">
+          <CardContent className="p-8 text-center">
+            <p className="text-sm text-muted-foreground">Chart data unavailable</p>
+          </CardContent>
+        </Card>
       ) : null}
+    </div>
+  );
+}
+
+// Loading skeleton
+function AssetDetailSkeleton({ symbol }: { symbol?: string }) {
+  return (
+    <div className="px-3 sm:px-6 py-3 sm:py-6 max-w-6xl mx-auto space-y-5 sm:space-y-6">
+      <header className="flex items-center gap-3">
+        <Skeleton className="w-7 h-7 rounded-full" />
+        <div>
+          <Skeleton className="h-6 w-32 mb-1" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+      </header>
+      <Skeleton className="h-48 rounded-xl" />
+      <Skeleton className="h-80 rounded-xl" />
     </div>
   );
 }
@@ -112,30 +132,20 @@ export function AssetDetail() {
   } = useEffectQuery(() => fetchAssetData(symbol || ""), [symbol]);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-center space-y-2">
-          <div className="h-5 w-5 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-muted-foreground">Loading {symbol?.toUpperCase()}</p>
-        </div>
-      </div>
-    );
+    return <AssetDetailSkeleton symbol={symbol} />;
   }
 
   if (isError || !asset) {
     return (
       <div className="px-4 py-6 max-w-6xl mx-auto">
-        <div className="rounded border border-border/50 p-6">
-          <p className="text-sm text-muted-foreground mb-4">
-            {isError ? "Unable to load data." : `No data for ${symbol?.toUpperCase()}.`}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 text-sm font-medium bg-foreground text-background rounded hover:bg-foreground/90"
-          >
-            Retry
-          </button>
-        </div>
+        <Card className="py-0">
+          <CardContent className="p-6 text-center">
+            <p className="text-sm text-muted-foreground mb-4">
+              {isError ? "Unable to load data." : `No data for ${symbol?.toUpperCase()}.`}
+            </p>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

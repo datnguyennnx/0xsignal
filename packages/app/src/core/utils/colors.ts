@@ -89,27 +89,33 @@ export const getVolumeColor = (isUp: boolean, isDark: boolean): string => {
 };
 
 // ===== HEATMAP COLOR SCALE =====
-// More balanced intensity - not too bright
+// Higher contrast colors for better visibility
 export const getHeatmapColor = (change: number, isDark: boolean): string => {
-  // Use muted versions for better visual balance
+  // Stronger, more saturated colors for better contrast
   if (isDark) {
-    if (change >= 8) return "#15803d"; // Strong gain
-    if (change >= 4) return "#16a34a"; // Gain
-    if (change >= 1) return "#22c55e"; // Light gain
-    if (change >= 0) return "#4ade80"; // Very light gain
-    if (change >= -1) return "#f87171"; // Very light loss
-    if (change >= -4) return "#ef4444"; // Light loss
-    if (change >= -8) return "#dc2626"; // Loss
-    return "#b91c1c"; // Strong loss
+    // Dark mode - brighter colors
+    if (change >= 10) return "#059669"; // Very strong gain (emerald-600)
+    if (change >= 5) return "#10b981"; // Strong gain (emerald-500)
+    if (change >= 2) return "#22c55e"; // Gain (green-500)
+    if (change >= 0.5) return "#4ade80"; // Light gain (green-400)
+    if (change >= 0) return "#6ee7b7"; // Very light gain
+    if (change >= -0.5) return "#fca5a5"; // Very light loss
+    if (change >= -2) return "#f87171"; // Light loss (red-400)
+    if (change >= -5) return "#ef4444"; // Loss (red-500)
+    if (change >= -10) return "#dc2626"; // Strong loss (red-600)
+    return "#b91c1c"; // Very strong loss (red-700)
   } else {
-    if (change >= 8) return "#15803d";
-    if (change >= 4) return "#16a34a";
-    if (change >= 1) return "#22c55e";
-    if (change >= 0) return "#86efac"; // Lighter for light mode
-    if (change >= -1) return "#fca5a5";
-    if (change >= -4) return "#f87171";
-    if (change >= -8) return "#ef4444";
-    return "#dc2626";
+    // Light mode - darker, more saturated colors
+    if (change >= 10) return "#047857"; // Very strong gain (emerald-700)
+    if (change >= 5) return "#059669"; // Strong gain (emerald-600)
+    if (change >= 2) return "#10b981"; // Gain (emerald-500)
+    if (change >= 0.5) return "#34d399"; // Light gain (emerald-400)
+    if (change >= 0) return "#6ee7b7"; // Very light gain (emerald-300)
+    if (change >= -0.5) return "#fca5a5"; // Very light loss (red-300)
+    if (change >= -2) return "#f87171"; // Light loss (red-400)
+    if (change >= -5) return "#ef4444"; // Loss (red-500)
+    if (change >= -10) return "#dc2626"; // Strong loss (red-600)
+    return "#b91c1c"; // Very strong loss (red-700)
   }
 };
 

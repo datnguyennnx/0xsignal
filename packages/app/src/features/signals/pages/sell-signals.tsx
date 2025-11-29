@@ -1,4 +1,6 @@
-// Sell Signals Page - Effect-TS cached queries + pure filtering
+/**
+ * Sell Signals Page - Card-based layout
+ */
 
 import { cachedTopAnalysis } from "@/core/cache/effect-cache";
 import { useEffectQuery } from "@/core/runtime/use-effect-query";
@@ -17,11 +19,11 @@ export function AllSellSignals() {
   const strongCount = sellSignals.filter((s) => s.overallSignal === "STRONG_SELL").length;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 px-4 py-4 sm:px-6 sm:py-6">
+    <div className="max-w-7xl mx-auto space-y-5 px-4 py-4 sm:px-6 sm:py-6">
       <header>
-        <h1 className="text-lg sm:text-xl font-semibold">Short Positions</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-          {sellSignals.length} sell signals · {strongCount} strong conviction
+        <h1 className="text-lg sm:text-xl font-semibold tracking-tight">Short Positions</h1>
+        <p className="text-xs text-muted-foreground mt-1">
+          {sellSignals.length} signals · {strongCount} strong
         </p>
       </header>
       {sellSignals.length === 0 ? (

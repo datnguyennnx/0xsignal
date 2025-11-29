@@ -1,12 +1,6 @@
-/**
- * Unified Signal Card - Minimalist quant-focused design
- * Combines signal analysis + trade setup into single high-density component
- * Mobile: 2 cols, Desktop: 4 cols
- * Follows minimalism philosophy: eliminate noise, prioritize signal density
- */
-
-import { cn } from "@/core/utils/cn";
-import { formatPrice } from "@/core/utils/formatters";
+import { cn } from "@/core";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import type { AssetAnalysis } from "@0xsignal/shared";
 
 interface UnifiedSignalCardProps {
@@ -16,164 +10,211 @@ interface UnifiedSignalCardProps {
 
 export function UnifiedSignalCard({ analysis, className }: UnifiedSignalCardProps) {
   const { overallSignal, confidence, riskScore, entrySignal, strategyResult } = analysis;
-  const entry = entrySignal;
-  const regime = strategyResult.regime;
+  const { entryPrice, targetPrice, stopLoss, direction, strength, indicatorSummary } = entrySignal;
 
-  // Direction and colors
-  const direction = entry.direction;
+  // Derived State
   const isLong = direction === "LONG";
   const isShort = direction === "SHORT";
   const hasDirection = direction !== "NEUTRAL";
 
+  // Semantic Coloring
   const signalColor = overallSignal.includes("BUY")
     ? "text-gain"
     : overallSignal.includes("SELL")
       ? "text-loss"
-      : "";
+      : "text-muted-foreground";
 
-  const directionColor = isLong ? "text-gain" : isShort ? "text-loss" : "";
+  const directionColor = isLong ? "text-gain" : isShort ? "text-loss" : "text-muted-foreground";
 
-  // Calculate percentages
-  const targetPct = hasDirection
-    ? isLong
-      ? ((entry.targetPrice - entry.entryPrice) / entry.entryPrice) * 100
-      : ((entry.entryPrice - entry.targetPrice) / entry.entryPrice) * 100
-    : 0;
+  // Percentage Calculations
+  const calculatePct = (start: number, end: number) => {
+    if (!start || start === 0) return 0;
+    return ((end - start) / start) * 100;
+  };
 
-  const stopPct = hasDirection
-    ? isLong
-      ? ((entry.entryPrice - entry.stopLoss) / entry.entryPrice) * 100
-      : ((entry.stopLoss - entry.entryPrice) / entry.entryPrice) * 100
-    : 0;
+  const targetPct = hasDirection ? Math.abs(calculatePct(entryPrice, targetPrice)) : 0;
 
-  // Indicators
-  const { rsi, macd, adx, atr } = entry.indicatorSummary;
+  const stopPct = hasDirection ? Math.abs(calculatePct(entryPrice, stopLoss)) : 0;
 
   return (
-    <div className={cn("rounded border border-border/50", className)}>
-      {/* Primary Row: Signal + Direction + Confidence + Risk */}
-      <div className="grid grid-cols-2 sm:grid-cols-4">
-        <Cell
-          label="SIGNAL"
-          value={overallSignal.replace("_", " ")}
-          context={regime.replace("_", " ").toLowerCase()}
-          valueClass={cn("text-base sm:text-lg", signalColor)}
-        />
-        <Cell
-          label="DIRECTION"
-          value={direction}
-          context={entry.strength.replace("_", " ").toLowerCase()}
-          valueClass={cn("text-base sm:text-lg", directionColor)}
-        />
-        <Cell label="CONFIDENCE" value={`${confidence}%`} valueClass="text-base sm:text-lg" />
-        <Cell
-          label="RISK"
-          value={riskScore}
-          context="/ 100"
-          valueClass={cn(
-            "text-base sm:text-lg",
-            riskScore > 70 ? "text-loss" : riskScore > 40 ? "text-warn" : "text-gain"
-          )}
-        />
-      </div>
+    <Card className={cn("w-full overflow-hidden bg-background border-border", className)}>
+      <div className="p-4 space-y-4">
+        {/* SECTION 1: SIGNAL OVERVIEW */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-6">
+          <DataPoint
+            label="Signal"
+            subLabel={strategyResult.regime.replace(/_/g, " ").toLowerCase()}
+          >
+            <span className={cn("font-semibold tracking-tight", signalColor)}>
+              {overallSignal.replace(/_/g, " ")}
+            </span>
+          </DataPoint>
 
-      {/* Secondary Row: Entry Levels (only if has direction) */}
-      {hasDirection && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-border/50">
-          <Cell label="ENTRY" value={`$${formatPrice(entry.entryPrice)}`} />
-          <Cell
-            label="TARGET"
-            value={`$${formatPrice(entry.targetPrice)}`}
-            context={`+${targetPct.toFixed(1)}%`}
-            valueClass={directionColor}
-            contextClass={directionColor}
-          />
-          <Cell
-            label="STOP"
-            value={`$${formatPrice(entry.stopLoss)}`}
-            context={`-${stopPct.toFixed(1)}%`}
-            valueClass={isLong ? "text-loss" : "text-gain"}
-            contextClass={isLong ? "text-loss" : "text-gain"}
-          />
-          <Cell
-            label="R:R"
-            value={`${entry.riskRewardRatio}:1`}
-            context={`${entry.suggestedLeverage}x lev`}
-          />
+          <DataPoint label="Direction" subLabel={strength.toLowerCase()}>
+            <span className={cn("font-semibold", directionColor)}>{direction}</span>
+          </DataPoint>
+
+          <DataPoint label="Confidence">
+            <span className="font-semibold tabular-nums">{confidence}%</span>
+          </DataPoint>
+
+          <DataPoint label="Risk">
+            <span
+              className={cn(
+                "font-semibold tabular-nums",
+                riskScore > 75 ? "text-loss" : riskScore > 40 ? "text-warn" : "text-gain"
+              )}
+            >
+              {riskScore}
+              <span className="text-sm text-muted-foreground font-normal ml-0.5">/100</span>
+            </span>
+          </DataPoint>
         </div>
-      )}
 
-      {/* Indicators Row - Inline compact */}
-      <div className="px-3 py-2 sm:px-4 border-t border-border/50">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <Indicator
-            label="RSI"
-            value={rsi.value}
-            signal={
-              rsi.signal === "OVERSOLD" ? "gain" : rsi.signal === "OVERBOUGHT" ? "loss" : undefined
-            }
-          />
-          <Indicator
-            label="MACD"
-            value={macd.trend.charAt(0) + macd.trend.slice(1).toLowerCase()}
-            signal={
-              macd.trend === "BULLISH" ? "gain" : macd.trend === "BEARISH" ? "loss" : undefined
-            }
-          />
-          <Indicator label="ADX" value={adx.value} />
-          <Indicator label="ATR" value={`${atr.value}%`} />
-        </div>
-      </div>
-    </div>
-  );
-}
+        {/* SECTION 2: EXECUTION LEVELS */}
+        {hasDirection && (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-6">
+              <DataPoint label="Entry">
+                <span className="font-mono font-medium tabular-nums text-foreground">
+                  {formatCurrency(entryPrice)}
+                </span>
+              </DataPoint>
 
-function Cell({
-  label,
-  value,
-  context,
-  valueClass,
-  contextClass,
-}: {
-  label: string;
-  value: string | number;
-  context?: string;
-  valueClass?: string;
-  contextClass?: string;
-}) {
-  return (
-    <div className="px-3 py-2 sm:px-4 sm:py-3 border-r border-b border-border/50 last:border-r-0 even:border-r-0 sm:even:border-r sm:nth-[4n]:border-r-0">
-      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className={cn("font-medium tabular-nums", valueClass)}>{value}</div>
-      {context && (
-        <div className={cn("text-[10px] tabular-nums", contextClass || "text-muted-foreground")}>
-          {context}
-        </div>
-      )}
-    </div>
-  );
-}
+              <DataPoint
+                label="Target"
+                subLabel={`+${targetPct.toFixed(1)}%`}
+                subLabelColor="text-gain"
+              >
+                <span className={cn("font-mono font-medium tabular-nums", directionColor)}>
+                  {formatCurrency(targetPrice)}
+                </span>
+              </DataPoint>
 
-function Indicator({
-  label,
-  value,
-  signal,
-}: {
-  label: string;
-  value: string | number;
-  signal?: "gain" | "loss";
-}) {
-  return (
-    <span className="text-muted-foreground">
-      {label}{" "}
-      <span
-        className={cn(
-          "font-medium",
-          signal === "gain" ? "text-gain" : signal === "loss" ? "text-loss" : "text-foreground"
+              <DataPoint
+                label="Stop"
+                subLabel={`-${stopPct.toFixed(1)}%`}
+                subLabelColor="text-loss"
+              >
+                <span
+                  className={cn(
+                    "font-mono font-medium tabular-nums",
+                    isLong ? "text-loss" : "text-gain"
+                  )}
+                >
+                  {formatCurrency(stopLoss)}
+                </span>
+              </DataPoint>
+
+              <DataPoint label="R:R" subLabel={`${entrySignal.suggestedLeverage}x leverage`}>
+                <span className="font-medium tabular-nums">{entrySignal.riskRewardRatio}:1</span>
+              </DataPoint>
+            </div>
+          </>
         )}
-      >
-        {value}
-      </span>
-    </span>
+
+        {/* SECTION 3: TECHNICAL CONTEXT */}
+        <div className="flex flex-wrap items-center gap-2">
+          <IndicatorBadge
+            label="RSI"
+            value={indicatorSummary.rsi.value.toFixed(0)}
+            state={getIndicatorState(indicatorSummary.rsi.value, "RSI")}
+          />
+          <IndicatorBadge
+            label="MACD"
+            value={formatTrend(indicatorSummary.macd.trend)}
+            state={
+              indicatorSummary.macd.trend === "BULLISH"
+                ? "gain"
+                : indicatorSummary.macd.trend === "BEARISH"
+                  ? "loss"
+                  : "neutral"
+            }
+          />
+          <IndicatorBadge
+            label="ADX"
+            value={indicatorSummary.adx.value.toFixed(0)}
+            state="neutral"
+          />
+          <IndicatorBadge label="ATR" value={`${indicatorSummary.atr.value}%`} state="neutral" />
+        </div>
+      </div>
+    </Card>
   );
+}
+
+// --- Sub-components for Structural Consistency ---
+
+function DataPoint({
+  label,
+  subLabel,
+  subLabelColor,
+  children,
+}: {
+  label: string;
+  subLabel?: string;
+  subLabelColor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+        {label}
+      </span>
+      <div className="text-base sm:text-lg leading-none mb-1">{children}</div>
+      {subLabel && (
+        <span className={cn("text-xs leading-none", subLabelColor || "text-muted-foreground")}>
+          {subLabel}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function IndicatorBadge({
+  label,
+  value,
+  state,
+}: {
+  label: string;
+  value: string | number;
+  state: "gain" | "loss" | "neutral";
+}) {
+  const stateColor =
+    state === "gain"
+      ? "text-gain bg-gain/10 border-gain/20"
+      : state === "loss"
+        ? "text-loss bg-loss/10 border-loss/20"
+        : "text-foreground bg-secondary/50 border-transparent";
+
+  return (
+    <Badge variant="outline" className={cn("h-6 px-2.5 font-normal border gap-1.5", stateColor)}>
+      <span className="text-muted-foreground text-[10px] uppercase font-medium">{label}</span>
+      <span className="text-xs font-semibold tabular-nums">{value}</span>
+    </Badge>
+  );
+}
+
+// --- Utilities (Local for context, move to @/lib/utils in production) ---
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatTrend(trend: string): string {
+  if (!trend) return "Neutral";
+  return trend.charAt(0) + trend.slice(1).toLowerCase();
+}
+
+function getIndicatorState(value: number, type: "RSI"): "gain" | "loss" | "neutral" {
+  if (type === "RSI") {
+    if (value < 30) return "gain"; // Oversold
+    if (value > 70) return "loss"; // Overbought
+  }
+  return "neutral";
 }

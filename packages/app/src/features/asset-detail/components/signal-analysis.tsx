@@ -1,11 +1,13 @@
 /**
  * Signal Analysis - Minimalist design
  * Consistent 2-col mobile → 6-col desktop for ALL sections
- * Semantic colors only for signal values
+ * Uses Card component with softer rounded corners
  */
 
 import { cn } from "@/core/utils/cn";
 import type { MarketRegime, NoiseScore, StrategyResult } from "@0xsignal/shared";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface SignalAnalysisProps {
   signal: "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
@@ -53,47 +55,48 @@ export function SignalAnalysis({
       : "";
 
   return (
-    <div className={cn("rounded border border-border/50", className)}>
+    <Card className={cn("py-0 shadow-none overflow-hidden", className)}>
       {/* Primary Metrics - 2 col mobile, 6 col desktop */}
       <div className="grid grid-cols-2 sm:grid-cols-6">
-        <Cell
-          label="SIGNAL"
+        <MetricCell
+          label="Signal"
           value={signal.replace("_", " ")}
           context={primarySignal.strategy.replace("_", " ")}
           valueClass={signalColor}
         />
-        <Cell
-          label="REGIME"
+        <MetricCell
+          label="Regime"
           value={REGIME_LABEL[strategyResult.regime]}
           context={`ADX ${Math.round(adx)}`}
         />
-        <Cell
-          label="CONFIDENCE"
+        <MetricCell
+          label="Confidence"
           value={`${confidence}%`}
           context={`${indicatorAgreement}% agree`}
         />
-        <Cell
-          label="RISK"
+        <MetricCell
+          label="Risk"
           value={riskScore}
           context="/ 100"
           valueClass={riskScore > 70 ? "text-loss" : riskScore > 40 ? "text-warn" : "text-gain"}
         />
-        <Cell
-          label="NOISE"
+        <MetricCell
+          label="Noise"
           value={noise.value}
           context={noise.level.toLowerCase()}
           valueClass={noise.value > 75 ? "text-loss" : noise.value > 50 ? "text-warn" : ""}
         />
-        <Cell
-          label="VOLATILITY"
+        <MetricCell
+          label="Volatility"
           value={atr !== undefined ? `${atr.toFixed(1)}%` : "-"}
           context="ATR"
+          isLast
         />
       </div>
 
-      {/* Secondary Indicators - 2 col mobile, 6 col desktop (CONSISTENT) */}
+      {/* Secondary Indicators - 2 col mobile, 6 col desktop */}
       <div className="grid grid-cols-2 sm:grid-cols-6 border-t border-border/50">
-        <CellSmall
+        <IndicatorCell
           label="RSI"
           value={rsi !== undefined ? Math.round(rsi) : "-"}
           context={
@@ -105,15 +108,15 @@ export function SignalAnalysis({
                   : "neutral"
               : undefined
           }
-          valueClass={
+          signal={
             rsi !== undefined && rsi < 30
-              ? "text-gain"
+              ? "gain"
               : rsi !== undefined && rsi > 70
-                ? "text-loss"
-                : ""
+                ? "loss"
+                : undefined
           }
         />
-        <CellSmall
+        <IndicatorCell
           label="%B"
           value={percentB !== undefined ? percentB.toFixed(2) : "-"}
           context={
@@ -126,8 +129,8 @@ export function SignalAnalysis({
               : undefined
           }
         />
-        <CellSmall
-          label="STOCH"
+        <IndicatorCell
+          label="Stoch"
           value={stochastic !== undefined ? Math.round(stochastic) : "-"}
           context={
             stochastic !== undefined
@@ -138,16 +141,16 @@ export function SignalAnalysis({
                   : "neutral"
               : undefined
           }
-          valueClass={
+          signal={
             stochastic !== undefined && stochastic < 20
-              ? "text-gain"
+              ? "gain"
               : stochastic !== undefined && stochastic > 80
-                ? "text-loss"
-                : ""
+                ? "loss"
+                : undefined
           }
         />
-        <CellSmall
-          label="DIST MA"
+        <IndicatorCell
+          label="Dist MA"
           value={
             distanceMA !== undefined ? `${distanceMA > 0 ? "+" : ""}${distanceMA.toFixed(1)}%` : "-"
           }
@@ -155,7 +158,7 @@ export function SignalAnalysis({
             distanceMA !== undefined ? (Math.abs(distanceMA) > 3 ? "extended" : "near") : undefined
           }
         />
-        <CellSmall
+        <IndicatorCell
           label="MACD"
           value={
             macdTrend !== undefined
@@ -167,65 +170,92 @@ export function SignalAnalysis({
               : "-"
           }
           context="trend"
-          valueClass={
+          signal={
             macdTrend !== undefined && macdTrend > 0
-              ? "text-gain"
+              ? "gain"
               : macdTrend !== undefined && macdTrend < 0
-                ? "text-loss"
-                : ""
+                ? "loss"
+                : undefined
           }
         />
-        <CellSmall
-          label="AGREE"
+        <IndicatorCell
+          label="Agree"
           value={indicatorAgreement > 0 ? `${indicatorAgreement}%` : "-"}
           context={
             indicatorAgreement >= 70 ? "strong" : indicatorAgreement >= 50 ? "moderate" : "weak"
           }
+          isLast
         />
       </div>
-    </div>
+    </Card>
   );
 }
 
-// Primary cell
-function Cell({
+function MetricCell({
   label,
   value,
   context,
   valueClass,
+  isLast,
 }: {
   label: string;
   value: string | number;
   context?: string;
   valueClass?: string;
+  isLast?: boolean;
 }) {
   return (
-    <div className="px-3 py-3 sm:px-4 sm:py-4 border-r border-b border-border/50 even:border-r-0 sm:even:border-r sm:last:border-r-0">
+    <div
+      className={cn(
+        "px-4 py-3 border-b border-border/50",
+        !isLast && "border-r border-border/50",
+        "even:border-r-0 sm:even:border-r",
+        isLast && "sm:border-r-0"
+      )}
+    >
       <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{label}</div>
-      <div className={cn("text-base sm:text-lg font-medium tabular-nums", valueClass)}>{value}</div>
+      <div className={cn("text-base sm:text-lg font-semibold tabular-nums", valueClass)}>
+        {value}
+      </div>
       {context && <div className="text-[10px] text-muted-foreground mt-0.5">{context}</div>}
     </div>
   );
 }
 
-// Secondary cell - smaller
-function CellSmall({
+function IndicatorCell({
   label,
   value,
   context,
-  valueClass,
+  signal,
+  isLast,
 }: {
   label: string;
   value: string | number;
   context?: string;
-  valueClass?: string;
+  signal?: "gain" | "loss";
+  isLast?: boolean;
 }) {
   return (
-    <div className="px-3 py-2 sm:px-3 sm:py-3 border-r border-b border-border/50 even:border-r-0 sm:even:border-r sm:last:border-r-0">
+    <div
+      className={cn(
+        "px-3 py-2.5 border-b border-border/50",
+        !isLast && "border-r border-border/50",
+        "even:border-r-0 sm:even:border-r",
+        isLast && "sm:border-r-0"
+      )}
+    >
       <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">
         {label}
       </div>
-      <div className={cn("text-sm font-medium tabular-nums", valueClass)}>{value}</div>
+      <div
+        className={cn(
+          "text-sm font-medium tabular-nums",
+          signal === "gain" && "text-gain",
+          signal === "loss" && "text-loss"
+        )}
+      >
+        {value}
+      </div>
       {context && <div className="text-[9px] text-muted-foreground">{context}</div>}
     </div>
   );

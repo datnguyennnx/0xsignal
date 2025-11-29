@@ -1,4 +1,6 @@
-// Hold Signals Page - Effect-TS cached queries + pure filtering
+/**
+ * Hold Signals Page - Card-based layout
+ */
 
 import { cachedTopAnalysis } from "@/core/cache/effect-cache";
 import { useEffectQuery } from "@/core/runtime/use-effect-query";
@@ -17,13 +19,13 @@ export function AllHoldSignals() {
   const highNoiseCount = holdSignals.filter((s) => (s.noise?.value ?? 0) > 60).length;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 px-4 py-4 sm:px-6 sm:py-6">
+    <div className="max-w-7xl mx-auto space-y-5 px-4 py-4 sm:px-6 sm:py-6">
       <header>
-        <h1 className="text-lg sm:text-xl font-semibold text-muted-foreground">
+        <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-muted-foreground">
           Neutral Positions
         </h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-          {holdSignals.length} assets with no clear directional bias · {highNoiseCount} high noise
+        <p className="text-xs text-muted-foreground mt-1">
+          {holdSignals.length} assets · {highNoiseCount} high noise
         </p>
       </header>
       {holdSignals.length === 0 ? (

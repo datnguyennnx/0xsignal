@@ -1,10 +1,15 @@
-// Signal Card - Mobile-first responsive design
+/**
+ * Signal Card - Mobile-first responsive design
+ * Clean monochrome design, no colored backgrounds
+ */
 
 import { useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { formatPrice, formatPercent } from "@/core/utils/formatters";
 import { CryptoIcon } from "@/components/crypto-icon";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface SignalCardProps {
   readonly signal: AssetAnalysis;
@@ -23,84 +28,66 @@ export function SignalCard({ signal, type }: SignalCardProps) {
   const riskScore = signal.riskScore || 0;
 
   return (
-    <button
+    <Card
+      className="py-0 shadow-none cursor-pointer transition-all hover:shadow-sm active:scale-[0.995]"
       onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
-      className={cn(
-        "w-full px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-sm border transition-all text-left",
-        "active:scale-[0.99] hover:border-foreground/20",
-        type === "hold"
-          ? "border-border/30"
-          : isStrong
-            ? type === "buy"
-              ? "border-gain/30 bg-gain/5"
-              : "border-loss/30 bg-loss/5"
-            : "border-border/50"
-      )}
     >
-      {/* Mobile: 2-row layout, Desktop: single row */}
-      <div className="flex items-center justify-between gap-2">
-        {/* Left: Symbol + Price */}
-        <div className="flex items-center gap-2 min-w-0">
-          <CryptoIcon symbol={signal.symbol} size={18} className="shrink-0" />
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono font-medium text-xs sm:text-sm">
-                {signal.symbol.toUpperCase()}
-              </span>
-              {isStrong && (
-                <span className="hidden sm:inline text-[9px] px-1 py-0.5 rounded bg-muted font-medium">
-                  STRONG
-                </span>
-              )}
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-3">
+          {/* Left: Symbol + Price */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <CryptoIcon symbol={signal.symbol} size={20} className="shrink-0" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-medium text-sm">{signal.symbol.toUpperCase()}</span>
+                {isStrong && (
+                  <Badge
+                    variant="secondary"
+                    className="hidden sm:inline-flex text-[9px] h-4 px-1.5"
+                  >
+                    STRONG
+                  </Badge>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground tabular-nums">
+                ${formatPrice(price)}
+              </div>
             </div>
-            <div className="text-[10px] sm:text-xs text-muted-foreground tabular-nums">
-              ${formatPrice(price)}
+          </div>
+
+          {/* Right: Key metrics */}
+          <div className="flex items-center gap-4 sm:gap-5 text-right shrink-0">
+            {/* 24h Change */}
+            <div className="min-w-[48px]">
+              <div className="hidden sm:block text-[9px] text-muted-foreground uppercase tracking-wide">
+                24h
+              </div>
+              <div
+                className={cn(
+                  "text-sm font-medium tabular-nums",
+                  change24h > 0 ? "text-gain" : "text-loss"
+                )}
+              >
+                {formatPercent(change24h)}
+              </div>
+            </div>
+
+            {/* Confidence */}
+            <div className="min-w-[40px]">
+              <div className="hidden sm:block text-[9px] text-muted-foreground uppercase tracking-wide">
+                Conf
+              </div>
+              <div className="text-sm font-medium tabular-nums">{confidence}%</div>
+            </div>
+
+            {/* Risk - Hidden on mobile */}
+            <div className="hidden sm:block min-w-[36px]">
+              <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Risk</div>
+              <div className="text-sm font-medium tabular-nums">{riskScore}</div>
             </div>
           </div>
         </div>
-
-        {/* Right: Key metrics */}
-        <div className="flex items-center gap-3 sm:gap-4 text-right">
-          {/* 24h Change - Always visible */}
-          <div>
-            <div className="hidden sm:block text-[9px] text-muted-foreground uppercase">24h</div>
-            <div
-              className={cn(
-                "text-xs sm:text-sm font-medium tabular-nums",
-                change24h > 0 ? "text-gain" : "text-loss"
-              )}
-            >
-              {formatPercent(change24h)}
-            </div>
-          </div>
-
-          {/* Confidence - Always visible */}
-          <div>
-            <div className="hidden sm:block text-[9px] text-muted-foreground uppercase">Conf</div>
-            <div
-              className={cn(
-                "text-xs sm:text-sm font-medium tabular-nums",
-                type === "buy" ? "text-gain" : type === "sell" ? "text-loss" : ""
-              )}
-            >
-              {confidence}%
-            </div>
-          </div>
-
-          {/* Risk - Hidden on mobile */}
-          <div className="hidden sm:block">
-            <div className="text-[9px] text-muted-foreground uppercase">Risk</div>
-            <div
-              className={cn(
-                "text-sm font-medium tabular-nums",
-                riskScore > 70 ? "text-loss" : riskScore > 40 ? "text-warn" : "text-gain"
-              )}
-            >
-              {riskScore}
-            </div>
-          </div>
-        </div>
-      </div>
-    </button>
+      </CardContent>
+    </Card>
   );
 }

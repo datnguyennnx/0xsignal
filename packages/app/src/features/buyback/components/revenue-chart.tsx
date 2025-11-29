@@ -1,9 +1,13 @@
-// Revenue Chart - memo kept for chart library integration
+/**
+ * Revenue Chart - memo kept for chart library integration
+ * Uses Card component for empty state
+ */
 
 import { memo, useMemo } from "react";
 import { Area, AreaChart, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { DailyRevenuePoint } from "@0xsignal/shared";
 import { formatCompact } from "@/core/utils/formatters";
+import { Badge } from "@/components/ui/badge";
 
 interface RevenueChartProps {
   readonly data: readonly DailyRevenuePoint[];
@@ -18,9 +22,9 @@ function CustomTooltip({
 }) {
   if (!active || !payload?.[0]) return null;
   return (
-    <div className="bg-background border border-border rounded px-2 py-1.5 text-xs shadow-sm">
-      <div className="text-muted-foreground">{payload[0].payload.dateLabel}</div>
-      <div className="font-medium tabular-nums">${formatCompact(payload[0].value)}</div>
+    <div className="bg-background border border-border rounded-lg px-3 py-2 text-xs shadow-sm">
+      <div className="text-muted-foreground mb-0.5">{payload[0].payload.dateLabel}</div>
+      <div className="font-semibold tabular-nums">${formatCompact(payload[0].value)}</div>
     </div>
   );
 }
@@ -61,13 +65,15 @@ export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartPro
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between text-xs">
-        <div>
-          <span className="text-muted-foreground">Daily Revenue</span>
-          <span className="text-muted-foreground/60 ml-1">({data.length}d)</span>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Daily Revenue</span>
+          <Badge variant="secondary" className="text-[10px]">
+            {data.length}d
+          </Badge>
         </div>
-        <div className="flex items-center gap-3 text-muted-foreground">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>
             Avg{" "}
             <span className="text-foreground tabular-nums font-medium">

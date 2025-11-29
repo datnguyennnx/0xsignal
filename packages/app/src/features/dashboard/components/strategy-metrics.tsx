@@ -1,4 +1,8 @@
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+/**
+ * Strategy Metrics - Pure component with Card styling
+ */
+
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/core/utils/cn";
 
 interface StrategyMetricsProps {
@@ -28,19 +32,23 @@ export function StrategyMetrics({ metrics, className }: StrategyMetricsProps) {
   if (entries.length === 0) return null;
 
   return (
-    <Card className={cn("border-border/50", className)}>
-      <CardHeader className="p-4 sm:p-6">
-        <CardTitle className="text-sm font-medium mb-4">Strategy Metrics</CardTitle>
+    <Card className={cn("py-0 shadow-none", className)}>
+      <CardHeader className="px-4 py-3 border-b border-border/50">
+        <CardTitle className="text-sm">Strategy Metrics</CardTitle>
+      </CardHeader>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+      <CardContent className="p-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {entries.map(([key, value]) => (
-            <div key={key} className="space-y-1">
-              <div className="text-xs text-muted-foreground">{formatMetricName(key)}</div>
-              <div className="font-medium tabular-nums">{formatMetricValue(value)}</div>
+            <div key={key}>
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+                {formatMetricName(key)}
+              </div>
+              <div className="text-sm font-medium tabular-nums">{formatMetricValue(value)}</div>
             </div>
           ))}
         </div>
-      </CardHeader>
+      </CardContent>
     </Card>
   );
 }

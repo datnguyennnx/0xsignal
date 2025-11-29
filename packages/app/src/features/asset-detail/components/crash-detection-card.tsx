@@ -1,11 +1,13 @@
 /**
  * Crash Detection Card - Minimalist design
  * Clean, monochrome with semantic colors only for severity
- * Consistent layout with trade-setup-card
+ * Uses Card component with softer rounded corners
  */
 
 import type { CrashSignal } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface CrashDetectionCardProps {
   crash: CrashSignal;
@@ -21,65 +23,59 @@ export function CrashDetectionCard({ crash, className }: CrashDetectionCardProps
         ? "text-warn"
         : "text-muted-foreground";
 
-  return (
-    <div className={cn("rounded border border-border/50", className)}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 border-b border-border/50">
-        <span className="text-xs sm:text-sm font-medium">Crash Detection</span>
-        <span className={cn("text-[10px] sm:text-xs font-medium", severityColor)}>
-          {crash.severity}
-        </span>
-      </div>
+  const severityBorderColor =
+    crash.severity === "EXTREME" || crash.severity === "HIGH"
+      ? "border-loss/30"
+      : crash.severity === "MEDIUM"
+        ? "border-warn/30"
+        : "border-border/50";
 
-      {/* Indicators - Consistent 2-col grid */}
-      <div className="grid grid-cols-2 px-3 py-2 sm:px-4 sm:py-3 gap-y-2 gap-x-4">
-        <div className="flex items-center justify-between text-[10px] sm:text-xs">
-          <span className="text-muted-foreground">Rapid Drop</span>
-          <span
-            className={
-              crash.indicators.rapidDrop ? "text-loss font-medium" : "text-muted-foreground"
-            }
+  return (
+    <Card className={cn("py-0 shadow-none overflow-hidden", className)}>
+      {/* Header */}
+      <CardHeader className="px-4 py-3 border-b border-border/50">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm">Crash Detection</CardTitle>
+          <Badge
+            variant="outline"
+            className={cn("text-[10px]", severityColor, severityBorderColor)}
           >
-            {crash.indicators.rapidDrop ? "Yes" : "No"}
-          </span>
+            {crash.severity}
+          </Badge>
         </div>
-        <div className="flex items-center justify-between text-[10px] sm:text-xs">
-          <span className="text-muted-foreground">Volume Spike</span>
-          <span
-            className={
-              crash.indicators.volumeSpike ? "text-loss font-medium" : "text-muted-foreground"
-            }
-          >
-            {crash.indicators.volumeSpike ? "Yes" : "No"}
-          </span>
+      </CardHeader>
+
+      {/* Indicators */}
+      <CardContent className="px-4 py-3">
+        <div className="grid grid-cols-2 gap-3">
+          <IndicatorRow label="Rapid Drop" active={crash.indicators.rapidDrop} />
+          <IndicatorRow label="Volume Spike" active={crash.indicators.volumeSpike} />
+          <IndicatorRow label="Oversold" active={crash.indicators.oversoldExtreme} />
+          <IndicatorRow label="High Vol" active={crash.indicators.highVolatility} />
         </div>
-        <div className="flex items-center justify-between text-[10px] sm:text-xs">
-          <span className="text-muted-foreground">Oversold</span>
-          <span
-            className={
-              crash.indicators.oversoldExtreme ? "text-loss font-medium" : "text-muted-foreground"
-            }
-          >
-            {crash.indicators.oversoldExtreme ? "Yes" : "No"}
-          </span>
-        </div>
-        <div className="flex items-center justify-between text-[10px] sm:text-xs">
-          <span className="text-muted-foreground">High Vol</span>
-          <span
-            className={
-              crash.indicators.highVolatility ? "text-loss font-medium" : "text-muted-foreground"
-            }
-          >
-            {crash.indicators.highVolatility ? "Yes" : "No"}
-          </span>
-        </div>
-      </div>
+      </CardContent>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 border-t border-border/50 text-[10px] sm:text-xs text-muted-foreground">
-        <span>{activeCount}/4 active</span>
-        <span>Confidence {crash.confidence}%</span>
-      </div>
+      <CardContent className="px-4 py-3 border-t border-border/50">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span className="tabular-nums">{activeCount}/4 active</span>
+          <span className="tabular-nums">Confidence {crash.confidence}%</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function IndicatorRow({ label, active }: { label: string; active: boolean }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <Badge
+        variant={active ? "destructive" : "secondary"}
+        className={cn("text-[10px] h-5", !active && "text-muted-foreground")}
+      >
+        {active ? "Yes" : "No"}
+      </Badge>
     </div>
   );
 }

@@ -1,158 +1,239 @@
-// Market Depth Page - Mobile-first responsive design
+/**
+ * Market Depth Page - Clean layout with proper spacing
+ */
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { cachedHeatmap, cachedLiquidationHeatmap } from "@/core/cache/effect-cache";
 import { useEffectQuery } from "@/core/runtime/use-effect-query";
 import { MarketHeatmapComponent } from "../components/market-heatmap";
 import { LiquidationHeatmapComponent } from "../components/liquidation-heatmap";
 import { cn } from "@/core/utils/cn";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const DISPLAY_LIMIT = 20;
+import { formatCompact } from "@/core/utils/formatters";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function MarketDepthPage() {
   const [activeTab, setActiveTab] = useState<"heatmap" | "liquidation">("heatmap");
   const [selectedSymbol, setSelectedSymbol] = useState<string>("btc");
-  const [showSymbolList, setShowSymbolList] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 640);
 
-  // Always fetch heatmap (needed for symbol list in liquidation tab)
-  const { data: heatmapData, isLoading } = useEffectQuery(() => cachedHeatmap(100), []);
+  // Detect screen size changes
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 640);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
-  // Only fetch liquidation data when tab is active (lazy loading)
+  // Responsive data limit: 5 for mobile, 20 for desktop
+  const dataLimit = isDesktop ? 20 : 5;
+  const displayLimit = isDesktop ? 20 : 5;
+
+  const { data: heatmapData, isLoading } = useEffectQuery(
+    () => cachedHeatmap(dataLimit),
+    [dataLimit]
+  );
   const { data: liquidationData, isLoading: isLiquidationLoading } = useEffectQuery(
     () => cachedLiquidationHeatmap(selectedSymbol),
-    [selectedSymbol, activeTab === "liquidation"] // Re-fetch when tab becomes active
+    [selectedSymbol, activeTab === "liquidation"]
   );
 
   const availableSymbols = heatmapData?.cells
-    ? heatmapData.cells.slice(0, DISPLAY_LIMIT).map((cell) => cell.symbol.toLowerCase())
+    ? heatmapData.cells.slice(0, displayLimit).map((cell) => cell.symbol.toLowerCase())
     : [];
 
+  const heatmapStats = useMemo(() => {
+    if (!heatmapData?.cells?.length) return null;
+    const cells = heatmapData.cells;
+    const gainers = cells.filter((c) => c.change24h > 0);
+    const losers = cells.filter((c) => c.change24h < 0);
+    const totalMcap = cells.reduce((sum, c) => sum + c.marketCap, 0);
+    const avgChange = cells.reduce((sum, c) => sum + c.change24h, 0) / cells.length;
+    return {
+      totalAssets: cells.length,
+      gainers: gainers.length,
+      losers: losers.length,
+      totalMcap,
+      avgChange,
+    };
+  }, [heatmapData]);
+
+  const liquidationStats = useMemo(() => {
+    if (!liquidationData?.levels?.length) return null;
+    const levels = liquidationData.levels;
+    const totalLong = levels.reduce((sum, l) => sum + l.longLiquidationUsd, 0);
+    const totalShort = levels.reduce((sum, l) => sum + l.shortLiquidationUsd, 0);
+    const total = totalLong + totalShort;
+    const longPercent = total > 0 ? (totalLong / total) * 100 : 0;
+    return {
+      totalLong,
+      totalShort,
+      total,
+      longPercent,
+      currentPrice: liquidationData.currentPrice,
+    };
+  }, [liquidationData]);
+
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6">
+    <div className="h-[calc(100vh-8rem)] sm:h-[calc(100vh-6rem)] flex flex-col max-w-6xl mx-auto px-4 sm:px-6 py-4">
       {/* Header */}
-      <header className="py-3 border-b border-border/40">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg sm:text-xl font-semibold">Market Depth</h1>
-            <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-              {activeTab === "heatmap"
-                ? "Market cap weighted performance by 24h change"
-                : `Liquidation levels for ${selectedSymbol.toUpperCase()} · Long (red) vs Short (green)`}
-            </p>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setActiveTab("heatmap")}
-              className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded transition-colors",
-                activeTab === "heatmap"
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Heatmap
-            </button>
-            <button
-              onClick={() => setActiveTab("liquidation")}
-              className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded transition-colors",
-                activeTab === "liquidation"
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Liquidations
-            </button>
-          </div>
+      <div className="flex items-center justify-between mb-4 shrink-0">
+        <h1 className="text-lg sm:text-xl font-semibold tracking-tight">Market Depth</h1>
+        <div className="flex items-center gap-1">
+          <Button
+            variant={activeTab === "heatmap" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("heatmap")}
+            className="h-8 text-xs"
+          >
+            Heatmap
+          </Button>
+          <Button
+            variant={activeTab === "liquidation" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setActiveTab("liquidation")}
+            className="h-8 text-xs"
+          >
+            Liquidations
+          </Button>
         </div>
-      </header>
-
-      {/* Symbol selector for liquidation tab - Mobile only */}
-      <div className="sm:hidden py-2">
-        {activeTab === "liquidation" && (
-          <div className="relative">
-            <button
-              onClick={() => setShowSymbolList(!showSymbolList)}
-              className="px-3 py-1.5 text-sm font-medium bg-muted rounded flex items-center gap-1"
-            >
-              {selectedSymbol.toUpperCase()}
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-
-            {showSymbolList && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowSymbolList(false)} />
-                <div className="absolute right-0 top-full mt-1 z-50 bg-background border border-border rounded-lg shadow-lg overflow-hidden w-32 max-h-60 overflow-y-auto">
-                  {availableSymbols.map((symbol) => (
-                    <button
-                      key={symbol}
-                      onClick={() => {
-                        setSelectedSymbol(symbol);
-                        setShowSymbolList(false);
-                      }}
-                      className={cn(
-                        "w-full px-3 py-2 text-left text-sm transition-colors",
-                        selectedSymbol === symbol ? "bg-muted font-medium" : "hover:bg-muted/50"
-                      )}
-                    >
-                      {symbol.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Content - Fixed height with max-w-3xl */}
-      <div className="h-[calc(100vh-16rem)] sm:h-[calc(100vh-13rem)] mt-4">
+      {/* Stats Row */}
+      {activeTab === "heatmap" ? (
+        <HeatmapStats stats={heatmapStats} />
+      ) : (
+        <LiquidationStats
+          stats={liquidationStats}
+          selectedSymbol={selectedSymbol}
+          availableSymbols={availableSymbols}
+          onSymbolChange={setSelectedSymbol}
+        />
+      )}
+
+      {/* Chart */}
+      <div className="flex-1 min-h-0 mt-4 border border-border/50 rounded-lg overflow-hidden">
         {activeTab === "heatmap" ? (
-          <div className="h-full w-full rounded-lg border border-border/40 overflow-hidden">
+          isLoading ? (
+            <Skeleton className="h-full w-full rounded-none" />
+          ) : (
             <MarketHeatmapComponent data={heatmapData!} isLoading={isLoading} />
-          </div>
+          )
+        ) : isLiquidationLoading ? (
+          <Skeleton className="h-full w-full rounded-none" />
         ) : (
-          <div className="flex h-full gap-4">
-            {/* Desktop sidebar */}
-            <div className="hidden sm:block w-40 shrink-0 border border-border/40 rounded-lg overflow-y-auto p-3">
-              <div className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">
-                Assets ({availableSymbols.length})
-              </div>
-              <div className="space-y-0.5">
-                {availableSymbols.map((symbol) => (
-                  <button
-                    key={symbol}
-                    onClick={() => setSelectedSymbol(symbol)}
-                    className={cn(
-                      "w-full px-2.5 py-1.5 text-left text-sm rounded transition-colors",
-                      selectedSymbol === symbol
-                        ? "bg-foreground text-background font-medium"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    )}
-                  >
-                    {symbol.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Chart */}
-            <div className="flex-1 h-full min-w-0 rounded-lg border border-border/40 overflow-hidden">
-              <LiquidationHeatmapComponent
-                data={liquidationData!}
-                isLoading={isLiquidationLoading}
-              />
-            </div>
-          </div>
+          <LiquidationHeatmapComponent data={liquidationData!} isLoading={isLiquidationLoading} />
         )}
       </div>
+    </div>
+  );
+}
+
+function HeatmapStats({ stats }: { stats: any }) {
+  if (!stats) return <div className="h-12" />;
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 shrink-0">
+      <StatItem
+        label="Assets"
+        value={stats.totalAssets}
+        subValue={
+          <span>
+            <span className="text-gain">{stats.gainers}</span>
+            {" / "}
+            <span className="text-loss">{stats.losers}</span>
+          </span>
+        }
+      />
+      <StatItem label="MCap" value={`$${formatCompact(stats.totalMcap)}`} />
+      <StatItem
+        label="Avg Change"
+        value={`${stats.avgChange >= 0 ? "+" : ""}${stats.avgChange.toFixed(2)}%`}
+        valueClass={stats.avgChange >= 0 ? "text-gain" : "text-loss"}
+      />
+    </div>
+  );
+}
+
+function LiquidationStats({
+  stats,
+  selectedSymbol,
+  availableSymbols,
+  onSymbolChange,
+}: {
+  stats: any;
+  selectedSymbol: string;
+  availableSymbols: string[];
+  onSymbolChange: (s: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 sm:gap-6 shrink-0">
+      {/* Symbol Selector */}
+      <div>
+        <div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
+          Symbol
+        </div>
+        <Select value={selectedSymbol} onValueChange={onSymbolChange}>
+          <SelectTrigger size="sm" className="h-8 text-sm font-mono">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {availableSymbols.map((symbol) => (
+              <SelectItem key={symbol} value={symbol} className="font-mono text-xs">
+                {symbol.toUpperCase()}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {stats && (
+        <>
+          <StatItem label="Price" value={`$${stats.currentPrice?.toLocaleString()}`} />
+          <StatItem label="Total" value={`$${formatCompact(stats.total)}`} />
+          <StatItem
+            label="Longs"
+            value={`$${formatCompact(stats.totalLong)}`}
+            subValue={`${stats.longPercent.toFixed(0)}%`}
+            valueClass="text-loss"
+          />
+          <StatItem
+            label="Shorts"
+            value={`$${formatCompact(stats.totalShort)}`}
+            subValue={`${(100 - stats.longPercent).toFixed(0)}%`}
+            valueClass="text-gain"
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function StatItem({
+  label,
+  value,
+  subValue,
+  valueClass,
+}: {
+  label: string;
+  value: string | number;
+  subValue?: React.ReactNode;
+  valueClass?: string;
+}) {
+  return (
+    <div>
+      <div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">{label}</div>
+      <div className={cn("text-sm sm:text-base font-semibold tabular-nums", valueClass)}>
+        {value}
+      </div>
+      {subValue && <div className="text-xs text-muted-foreground tabular-nums">{subValue}</div>}
     </div>
   );
 }

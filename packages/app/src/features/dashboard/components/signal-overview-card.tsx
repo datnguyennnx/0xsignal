@@ -1,7 +1,6 @@
 /**
  * Signal Overview Card - Minimalist design
  * Clean, monochrome with semantic colors only for price change and direction
- * Consistent with other cards in the system
  */
 
 import { useNavigate } from "react-router-dom";
@@ -9,6 +8,8 @@ import type { AssetAnalysis } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { formatPrice, formatPercent } from "@/core/utils/formatters";
 import { CryptoIcon } from "@/components/crypto-icon";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface SignalOverviewCardProps {
   asset: AssetAnalysis;
@@ -26,42 +27,56 @@ export function SignalOverviewCard({ asset, className }: SignalOverviewCardProps
   const isLong = entry?.direction === "LONG";
 
   return (
-    <button
-      onClick={() => navigate(`/asset/${asset.symbol.toLowerCase()}`)}
+    <Card
       className={cn(
-        "w-full text-left rounded border border-border/50 p-3 sm:p-4 transition-colors",
-        "hover:border-foreground/20 active:scale-[0.99]",
+        "py-0 shadow-none cursor-pointer transition-all hover:shadow-sm active:scale-[0.995]",
         className
       )}
+      onClick={() => navigate(`/asset/${asset.symbol.toLowerCase()}`)}
     >
-      {/* Row 1: Symbol + Price */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <CryptoIcon symbol={asset.symbol} size={18} className="shrink-0" />
-          <span className="font-mono text-sm font-medium">{asset.symbol.toUpperCase()}</span>
-        </div>
-        <span className="text-sm font-medium tabular-nums">${formatPrice(price?.price || 0)}</span>
-      </div>
-
-      {/* Row 2: Change + Setup */}
-      <div className="flex items-center justify-between text-[10px] sm:text-xs">
-        <span className={cn("tabular-nums", isPositive ? "text-gain" : "text-loss")}>
-          {formatPercent(change24h)}
-        </span>
-        {hasSetup ? (
-          <span className={cn("font-medium", isLong ? "text-gain" : "text-loss")}>
-            {entry.direction} · {entry.strength.replace("_", " ")}
+      <CardContent className="p-4">
+        {/* Row 1: Symbol + Price */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2.5">
+            <CryptoIcon symbol={asset.symbol} size={20} className="shrink-0" />
+            <span className="font-mono text-sm font-medium">{asset.symbol.toUpperCase()}</span>
+          </div>
+          <span className="text-sm font-medium tabular-nums">
+            ${formatPrice(price?.price || 0)}
           </span>
-        ) : (
-          <span className="text-muted-foreground">No setup</span>
-        )}
-      </div>
+        </div>
 
-      {/* Row 3: Metrics */}
-      <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
-        <span>Conf {asset.confidence}%</span>
-        <span>Risk {asset.riskScore}</span>
-      </div>
-    </button>
+        {/* Row 2: Change + Setup */}
+        <div className="flex items-center justify-between mb-3">
+          <span
+            className={cn(
+              "text-sm font-medium tabular-nums",
+              isPositive ? "text-gain" : "text-loss"
+            )}
+          >
+            {formatPercent(change24h)}
+          </span>
+          {hasSetup ? (
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[10px]",
+                isLong ? "text-gain border-gain/30" : "text-loss border-loss/30"
+              )}
+            >
+              {entry.direction} · {entry.strength.replace("_", " ")}
+            </Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">No setup</span>
+          )}
+        </div>
+
+        {/* Row 3: Metrics */}
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span className="tabular-nums">Conf {asset.confidence}%</span>
+          <span className="tabular-nums">Risk {asset.riskScore}</span>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

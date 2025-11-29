@@ -1,7 +1,11 @@
-// Market Heatmap - lazy loaded ECharts for performance
+/**
+ * Market Heatmap - lazy loaded ECharts for performance
+ * Uses Card component for loading/empty states
+ */
 
 import { useMemo, lazy, Suspense } from "react";
 import type { MarketHeatmap } from "@0xsignal/shared";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Lazy load ECharts (heavy library)
 const ReactECharts = lazy(() => import("echarts-for-react"));
@@ -36,7 +40,7 @@ export function MarketHeatmapComponent({ data, isLoading }: MarketHeatmapProps) 
       },
       itemStyle: {
         color: getHeatmapColor(cell.change24h, isDark),
-        borderRadius: 3,
+        borderRadius: 6,
         borderColor: c.border,
         borderWidth: 2,
       },
@@ -48,6 +52,7 @@ export function MarketHeatmapComponent({ data, isLoading }: MarketHeatmapProps) 
         trigger: "item",
         backgroundColor: c.tooltipBg,
         borderColor: c.tooltipBorder,
+        borderRadius: 8,
         textStyle: { color: c.tooltipText },
         formatter: (params: any) => {
           const { name, data: d } = params;
@@ -82,7 +87,7 @@ export function MarketHeatmapComponent({ data, isLoading }: MarketHeatmapProps) 
           roam: false,
           nodeClick: false,
           breadcrumb: { show: false },
-          squareRatio: 0.8,
+          squareRatio: 1,
           left: 0,
           right: 0,
           top: 0,
@@ -111,9 +116,9 @@ export function MarketHeatmapComponent({ data, isLoading }: MarketHeatmapProps) 
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <div className="text-center space-y-2">
-          <div className="h-5 w-5 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin mx-auto" />
+      <div className="flex h-full items-center justify-center bg-background p-4">
+        <div className="text-center space-y-3">
+          <Skeleton className="h-5 w-5 rounded-full mx-auto" />
           <p className="text-xs text-muted-foreground">Loading market heatmap</p>
         </div>
       </div>
@@ -122,7 +127,7 @@ export function MarketHeatmapComponent({ data, isLoading }: MarketHeatmapProps) 
 
   if (!data?.cells?.length) {
     return (
-      <div className="flex h-full items-center justify-center bg-background">
+      <div className="flex h-full items-center justify-center bg-background p-4">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">No market data</p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -138,7 +143,7 @@ export function MarketHeatmapComponent({ data, isLoading }: MarketHeatmapProps) 
       <Suspense
         fallback={
           <div className="flex h-full items-center justify-center">
-            <div className="h-5 w-5 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+            <Skeleton className="h-5 w-5 rounded-full" />
           </div>
         }
       >

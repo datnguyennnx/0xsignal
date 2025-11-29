@@ -1,4 +1,7 @@
-// Protocol Detail Dialog - memo kept for Dialog (prevents re-mount)
+/**
+ * Protocol Detail Dialog - memo kept for Dialog (prevents re-mount)
+ * Uses Card components for consistent styling
+ */
 
 import { memo } from "react";
 import type { BuybackSignal } from "@0xsignal/shared";
@@ -8,6 +11,9 @@ import { useEffectQuery } from "@/core/runtime/use-effect-query";
 import { RevenueChart } from "./revenue-chart";
 import { cn } from "@/core/utils/cn";
 import { formatCurrency } from "@/core/utils/formatters";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProtocolDetailDialogProps {
   readonly signal: BuybackSignal | null;
@@ -15,7 +21,7 @@ interface ProtocolDetailDialogProps {
   readonly onOpenChange: (open: boolean) => void;
 }
 
-function Stat({
+function StatCard({
   label,
   value,
   variant,
@@ -25,18 +31,20 @@ function Stat({
   variant?: "gain" | "loss" | "default";
 }) {
   return (
-    <div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div
-        className={cn(
-          "text-lg font-semibold tabular-nums mt-0.5 sm:text-xl",
-          variant === "gain" && "text-gain",
-          variant === "loss" && "text-loss"
-        )}
-      >
-        {value}
-      </div>
-    </div>
+    <Card className="py-0 shadow-none">
+      <CardContent className="p-3">
+        <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</div>
+        <div
+          className={cn(
+            "text-lg font-semibold tabular-nums mt-1",
+            variant === "gain" && "text-gain",
+            variant === "loss" && "text-loss"
+          )}
+        >
+          {value}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -49,21 +57,27 @@ function DetailContent({ protocol }: { protocol: string }) {
 
   if (isLoading) {
     return (
-      <div className="py-12 flex flex-col items-center justify-center gap-2">
-        <div className="h-5 w-5 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
-        <p className="text-xs text-muted-foreground">Loading protocol details</p>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-20 rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="h-48 rounded-xl" />
       </div>
     );
   }
 
   if (isError || !detail) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-sm text-muted-foreground">Unable to load protocol data</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Revenue data may be temporarily unavailable
-        </p>
-      </div>
+      <Card className="py-0 shadow-none">
+        <CardContent className="py-12 text-center">
+          <p className="text-sm text-muted-foreground">Unable to load protocol data</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Revenue data may be temporarily unavailable
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -72,52 +86,80 @@ function DetailContent({ protocol }: { protocol: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat label="Revenue 24h" value={formatCurrency(detail.signal.revenue24h)} />
-        <Stat label="Market Cap" value={formatCurrency(detail.signal.marketCap)} />
-        <Stat
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Revenue 24h" value={formatCurrency(detail.signal.revenue24h)} />
+        <StatCard label="Market Cap" value={formatCurrency(detail.signal.marketCap)} />
+        <StatCard
           label="Yield"
           value={`${yieldRate.toFixed(2)}%`}
           variant={yieldRate >= 10 ? "gain" : "default"}
         />
-        <Stat
+        <StatCard
           label="P/Rev"
           value={detail.signal.impliedPE > 0 ? `${detail.signal.impliedPE.toFixed(1)}x` : "—"}
         />
       </div>
 
       {growth !== 0 && (
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">7d Growth</span>
-          <span className={cn("tabular-nums font-medium", growth > 0 ? "text-gain" : "text-loss")}>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">7d Growth</span>
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-xs",
+              growth > 0 ? "text-gain border-gain/30" : "text-loss border-loss/30"
+            )}
+          >
             {growth > 0 ? "+" : ""}
             {growth.toFixed(1)}%
-          </span>
+          </Badge>
         </div>
       )}
 
       {detail.dailyRevenue.length > 0 && (
-        <div className="pt-2">
-          <RevenueChart data={detail.dailyRevenue} />
-        </div>
+        <Card className="py-0 shadow-none overflow-hidden">
+          <CardContent className="p-4">
+            <RevenueChart data={detail.dailyRevenue} />
+          </CardContent>
+        </Card>
       )}
 
       {detail.revenueSource && (
-        <div className="pt-2 border-t border-border/40">
-          <div className="text-xs text-muted-foreground mb-1">Revenue Source</div>
-          <p className="text-sm leading-relaxed">{detail.revenueSource}</p>
-        </div>
+        <Card className="py-0 shadow-none">
+          <CardContent className="p-4">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
+              Revenue Source
+            </div>
+            <p className="text-sm leading-relaxed">{detail.revenueSource}</p>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/40 text-sm">
-        <div>
-          <div className="text-xs text-muted-foreground mb-0.5">Category</div>
-          <div>{detail.signal.category}</div>
-        </div>
-        <div>
-          <div className="text-xs text-muted-foreground mb-0.5">Chains</div>
-          <div className="truncate">{detail.signal.chains.slice(0, 3).join(", ")}</div>
-        </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="py-0 shadow-none">
+          <CardContent className="p-3">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+              Category
+            </div>
+            <Badge variant="secondary" className="text-xs">
+              {detail.signal.category}
+            </Badge>
+          </CardContent>
+        </Card>
+        <Card className="py-0 shadow-none">
+          <CardContent className="p-3">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+              Chains
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {detail.signal.chains.slice(0, 3).map((chain) => (
+                <Badge key={chain} variant="outline" className="text-[10px]">
+                  {chain}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
@@ -134,8 +176,8 @@ export const ProtocolDetailDialog = memo(function ProtocolDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[calc(100%-1rem)] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-        <DialogHeader className="pb-3">
+      <DialogContent className="max-w-4xl w-[calc(100%-1rem)] max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
+        <DialogHeader className="pb-4">
           <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <span className="font-semibold">{signal.symbol.toUpperCase()}</span>
             <span className="font-normal text-muted-foreground truncate">{signal.protocol}</span>

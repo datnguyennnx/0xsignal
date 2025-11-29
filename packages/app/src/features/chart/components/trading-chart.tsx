@@ -123,6 +123,10 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
   const updateScheduledRef = useRef(false);
 
   const [activeIndicators, setActiveIndicators] = useState<ActiveIndicator[]>([]);
+  const [hoveredCandle, setHoveredCandle] = useState<ChartDataPoint | null>(null);
+
+  // Current candle for OHLCV display (hovered or latest)
+  const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
 
   const priceFormat = usePriceFormat(data);
   const candlestickData = useCandlestickData(data);
@@ -198,6 +202,25 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
     });
 
     resizeObserver.observe(chartContainerRef.current);
+
+    // Crosshair move handler for OHLCV display
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.seriesData) {
+        setHoveredCandle(null);
+        return;
+      }
+      const candleData = param.seriesData.get(candlestickSeries);
+      if (candleData && "open" in candleData) {
+        setHoveredCandle({
+          time: param.time as number,
+          open: candleData.open,
+          high: candleData.high,
+          low: candleData.low,
+          close: candleData.close,
+          volume: 0, // Volume from separate series
+        });
+      }
+    });
 
     return () => {
       resizeObserver.disconnect();
@@ -412,14 +435,48 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
             </div>
           </div>
 
-          {/* Indicator Button - Hidden on mobile for cleaner UX */}
-          <div className="hidden sm:block">
-            <IndicatorButton
-              activeIndicators={activeIndicators}
-              onAddIndicator={handleAddIndicator}
-              onRemoveIndicator={handleRemoveIndicator}
-              onToggleIndicator={handleToggleIndicator}
-            />
+          {/* OHLCV + Indicator Button */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* OHLCV Display - Hidden on mobile */}
+            {displayCandle && (
+              <div className="hidden sm:flex items-center gap-3 text-xs">
+                <span className="text-muted-foreground">
+                  O <span className="font-mono tabular-nums">{displayCandle.open.toFixed(2)}</span>
+                </span>
+                <span className="text-muted-foreground">
+                  H{" "}
+                  <span className="font-mono tabular-nums text-gain">
+                    {displayCandle.high.toFixed(2)}
+                  </span>
+                </span>
+                <span className="text-muted-foreground">
+                  L{" "}
+                  <span className="font-mono tabular-nums text-loss">
+                    {displayCandle.low.toFixed(2)}
+                  </span>
+                </span>
+                <span className="text-muted-foreground">
+                  C{" "}
+                  <span
+                    className={cn(
+                      "font-mono tabular-nums",
+                      displayCandle.close >= displayCandle.open ? "text-gain" : "text-loss"
+                    )}
+                  >
+                    {displayCandle.close.toFixed(2)}
+                  </span>
+                </span>
+              </div>
+            )}
+            {/* Indicator Button - Hidden on mobile for cleaner UX */}
+            <div className="hidden sm:block">
+              <IndicatorButton
+                activeIndicators={activeIndicators}
+                onAddIndicator={handleAddIndicator}
+                onRemoveIndicator={handleRemoveIndicator}
+                onToggleIndicator={handleToggleIndicator}
+              />
+            </div>
           </div>
         </div>
 
