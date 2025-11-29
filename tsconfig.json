@@ -1,11 +1,19 @@
 {
-  "files": [],
-  "references": [{ "path": "./app/tsconfig.app.json" }, { "path": "./app/tsconfig.node.json" }],
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["app/src/*"],
-      "@shared/*": ["shared/*"]
+      "@0xsignal/api": ["packages/api/index.ts"],
+      "@0xsignal/api/*": ["packages/api/*"],
+      "@0xsignal/app": ["packages/app/src/index.ts"],
+      "@0xsignal/app/*": ["packages/app/src/*"],
+      "@0xsignal/shared": ["packages/shared/index.ts"],
+      "@0xsignal/shared/*": ["packages/shared/*"]
     }
-  }
+  },
+  "references": [
+    { "path": "packages/api" },
+    { "path": "packages/app" },
+    { "path": "packages/shared" }
+  ]
 }

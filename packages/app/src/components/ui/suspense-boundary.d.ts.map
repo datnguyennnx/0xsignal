@@ -1,0 +1,1 @@
+{"version":3,"file":"suspense-boundary.d.ts","sourceRoot":"","sources":["suspense-boundary.tsx"],"names":[],"mappings":"AAAA,OAAO,EAAY,KAAK,SAAS,EAAE,MAAM,OAAO,CAAC;AAEjD,UAAU,qBAAqB;IAC7B,QAAQ,EAAE,SAAS,CAAC;IACpB,QAAQ,CAAC,EAAE,SAAS,CAAC;CACtB;AAWD,eAAO,MAAM,gBAAgB,GAAI,wBAAwB,qBAAqB,4CAE7E,CAAC"}

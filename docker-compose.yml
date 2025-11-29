@@ -2,7 +2,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: api/Dockerfile
+      dockerfile: packages/api/Dockerfile
     container_name: 0xsignal-api
     ports:
       - "9006:9006"
@@ -21,7 +21,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: app/Dockerfile
+      dockerfile: packages/app/Dockerfile
     container_name: 0xsignal-app
     ports:
       - "80:80"

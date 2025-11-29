@@ -1,0 +1,22 @@
+{
+  "name": "@0xsignal/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types/*": "./types/*",
+    "./utils/*": "./utils/*",
+    "./indicators/*": "./indicators/*"
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "lint": "eslint . --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

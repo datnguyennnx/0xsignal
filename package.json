@@ -3,26 +3,22 @@
   "private": true,
   "version": "0.0.0",
   "workspaces": [
-    "api",
-    "app",
-    "shared"
+    "packages/*"
   ],
   "scripts": {
-    "dev": "nx run-many -t dev --projects=api,app --parallel",
-    "dev:api": "nx run api:dev",
-    "dev:app": "nx run app:dev",
-    "start": "nx run-many -t start --projects=api,app --parallel",
-    "start:api": "nx run api:start",
-    "start:app": "nx run app:preview",
-    "build": "nx run-many -t build --projects=api,app",
-    "build:api": "nx run api:build",
-    "build:app": "nx run app:build",
-    "analyze": "nx run api:analyze",
-    "monitor": "nx run api:monitor",
-    "lint": "nx run-many -t lint --all",
+    "dev": "bun run --filter '*' dev",
+    "dev:api": "bun run --filter @0xsignal/api dev",
+    "dev:app": "bun run --filter @0xsignal/app dev",
+    "build": "bun run --filter '*' build",
+    "build:api": "bun run --filter @0xsignal/api build",
+    "build:app": "bun run --filter @0xsignal/app build",
+    "start": "bun run --filter '*' start",
+    "start:api": "bun run --filter @0xsignal/api start",
+    "start:app": "bun run --filter @0xsignal/app start",
+    "lint": "bun run --filter '*' lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "clean": "nx reset && rm -rf node_modules api/node_modules app/node_modules shared/node_modules",
+    "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -31,7 +27,6 @@
     "eslint": "^9.39.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
-    "nx": "^22.1.0",
     "prettier": "^3.6.2",
     "typescript": "~5.9.3"
   },

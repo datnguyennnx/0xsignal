@@ -1,0 +1,1 @@
+{"version":3,"file":"protocol-detail-dialog.d.ts","sourceRoot":"","sources":["protocol-detail-dialog.tsx"],"names":[],"mappings":"AAGA,OAAO,KAAK,EAAE,aAAa,EAAE,MAAM,kBAAkB,CAAC;AAQtD,UAAU,yBAAyB;IACjC,QAAQ,CAAC,MAAM,EAAE,aAAa,GAAG,IAAI,CAAC;IACtC,QAAQ,CAAC,IAAI,EAAE,OAAO,CAAC;IACvB,QAAQ,CAAC,YAAY,EAAE,CAAC,IAAI,EAAE,OAAO,KAAK,IAAI,CAAC;CAChD;AA+GD,eAAO,MAAM,oBAAoB,iEAqB/B,CAAC"}
