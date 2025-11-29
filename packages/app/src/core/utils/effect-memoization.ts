@@ -44,6 +44,75 @@ export const categorizeSignals = (analyses: readonly AssetAnalysis[]) => {
   return { buySignals, sellSignals, holdSignals };
 };
 
+// Crash Detection Filtering
+export const getCrashWarnings = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
+  analyses.filter((a) => a.crashSignal?.isCrashing);
+
+export const getCrashBySeverity = (
+  analyses: readonly AssetAnalysis[],
+  severity: "LOW" | "MEDIUM" | "HIGH" | "EXTREME"
+): AssetAnalysis[] => analyses.filter((a) => a.crashSignal?.severity === severity);
+
+export const sortByCrashSeverity = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] => {
+  const severityOrder = { EXTREME: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+  return [...analyses].sort((a, b) => {
+    const aSeverity = a.crashSignal?.severity || "LOW";
+    const bSeverity = b.crashSignal?.severity || "LOW";
+    return severityOrder[aSeverity] - severityOrder[bSeverity];
+  });
+};
+
+// Entry Signal Filtering - Now supports both LONG and SHORT
+// Only show entries with meaningful confidence (>30%) to avoid false signals
+const MIN_ENTRY_CONFIDENCE = 30;
+
+export const getOptimalLongEntries = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
+  analyses.filter(
+    (a) =>
+      a.entrySignal?.isOptimalEntry &&
+      a.entrySignal?.direction === "LONG" &&
+      a.entrySignal?.confidence >= MIN_ENTRY_CONFIDENCE
+  );
+
+export const getOptimalShortEntries = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
+  analyses.filter(
+    (a) =>
+      a.entrySignal?.isOptimalEntry &&
+      a.entrySignal?.direction === "SHORT" &&
+      a.entrySignal?.confidence >= MIN_ENTRY_CONFIDENCE
+  );
+
+export const getOptimalEntries = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
+  analyses.filter(
+    (a) =>
+      a.entrySignal?.isOptimalEntry &&
+      a.entrySignal?.direction !== "NEUTRAL" &&
+      a.entrySignal?.confidence >= MIN_ENTRY_CONFIDENCE
+  );
+
+export const getEntriesByStrength = (
+  analyses: readonly AssetAnalysis[],
+  strength: "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG"
+): AssetAnalysis[] => analyses.filter((a) => a.entrySignal?.strength === strength);
+
+export const sortByEntryStrength = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] => {
+  const strengthOrder = { VERY_STRONG: 0, STRONG: 1, MODERATE: 2, WEAK: 3 };
+  return [...analyses].sort((a, b) => {
+    const aStrength = a.entrySignal?.strength || "WEAK";
+    const bStrength = b.entrySignal?.strength || "WEAK";
+    return strengthOrder[aStrength] - strengthOrder[bStrength];
+  });
+};
+
+// Combined categorization with crash and entry signals
+export const categorizeAllSignals = (analyses: readonly AssetAnalysis[]) => {
+  const base = categorizeSignals(analyses);
+  const crashWarnings = sortByCrashSeverity(getCrashWarnings(analyses));
+  const longEntries = sortByEntryStrength(getOptimalLongEntries(analyses));
+  const shortEntries = sortByEntryStrength(getOptimalShortEntries(analyses));
+  return { ...base, crashWarnings, longEntries, shortEntries };
+};
+
 // Sorting Functions
 export const sortByConfidence = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
   [...analyses].sort((a, b) => (b.confidence || 0) - (a.confidence || 0));

@@ -1,7 +1,7 @@
-/** Signal Detection - Crash and entry signal detection */
+/** Signal Detection - Crash and entry signal detection for LONG and SHORT */
 
 import { Match } from "effect";
-import type { CryptoPrice } from "@0xsignal/shared";
+import type { CryptoPrice, Signal, TradeDirection } from "@0xsignal/shared";
 import type { CrashIndicators, EntryIndicators } from "../types";
 import type { IndicatorSet } from "./indicators";
 
@@ -16,18 +16,61 @@ export const detectCrashIndicators = (
   highVolatility: indicators.atr.normalizedATR > 10,
 });
 
-// Detect entry indicators
-export const detectEntryIndicators = (
+// Detect LONG entry indicators (bullish setup)
+export const detectLongIndicators = (
   price: CryptoPrice,
   indicators: IndicatorSet
 ): EntryIndicators => ({
   trendReversal:
-    indicators.macd.trend === "BULLISH" && indicators.rsi.rsi > 40 && indicators.rsi.rsi < 70,
+    indicators.macd.trend === "BULLISH" && indicators.rsi.rsi > 30 && indicators.rsi.rsi < 70,
   volumeIncrease: indicators.volumeROC.value > 20,
   momentumBuilding: indicators.adx.adx > 25 && price.change24h > 0,
-  bullishDivergence:
+  divergence:
     indicators.divergence.hasDivergence && indicators.divergence.divergenceType === "BULLISH",
 });
+
+// Detect SHORT entry indicators (bearish setup)
+export const detectShortIndicators = (
+  price: CryptoPrice,
+  indicators: IndicatorSet
+): EntryIndicators => ({
+  trendReversal:
+    indicators.macd.trend === "BEARISH" && indicators.rsi.rsi > 30 && indicators.rsi.rsi < 70,
+  volumeIncrease: indicators.volumeROC.value > 20,
+  momentumBuilding: indicators.adx.adx > 25 && price.change24h < 0,
+  divergence:
+    indicators.divergence.hasDivergence && indicators.divergence.divergenceType === "BEARISH",
+});
+
+// Detect entry indicators based on signal direction
+export const detectEntryIndicators = (
+  price: CryptoPrice,
+  indicators: IndicatorSet,
+  overallSignal: Signal
+): { indicators: EntryIndicators; direction: TradeDirection } => {
+  const isLong = overallSignal === "BUY" || overallSignal === "STRONG_BUY";
+  const isShort = overallSignal === "SELL" || overallSignal === "STRONG_SELL";
+
+  if (isLong) {
+    return { indicators: detectLongIndicators(price, indicators), direction: "LONG" };
+  }
+  if (isShort) {
+    return { indicators: detectShortIndicators(price, indicators), direction: "SHORT" };
+  }
+  // HOLD - check which direction has more indicators
+  const longIndicators = detectLongIndicators(price, indicators);
+  const shortIndicators = detectShortIndicators(price, indicators);
+  const longCount = Object.values(longIndicators).filter(Boolean).length;
+  const shortCount = Object.values(shortIndicators).filter(Boolean).length;
+
+  if (longCount > shortCount && longCount >= 2) {
+    return { indicators: longIndicators, direction: "LONG" };
+  }
+  if (shortCount > longCount && shortCount >= 2) {
+    return { indicators: shortIndicators, direction: "SHORT" };
+  }
+  return { indicators: longIndicators, direction: "NEUTRAL" };
+};
 
 // Crash severity type
 type CrashSeverity = "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
@@ -37,19 +80,17 @@ const crashRecommendation = Match.type<{ severity: CrashSeverity; change: number
   Match.when(
     { severity: "EXTREME" },
     ({ change }) =>
-      `EXTREME CRASH: ${Math.abs(change).toFixed(1)}% drop. AVOID buying. Wait for stabilization. Consider stop-losses.`
+      `EXTREME CRASH: ${Math.abs(change).toFixed(1)}% drop. AVOID buying. Wait for stabilization.`
   ),
   Match.when(
     { severity: "HIGH" },
-    () =>
-      `HIGH SEVERITY CRASH: Significant selling pressure. Wait for RSI to recover above 30 before considering entry.`
+    () => `HIGH SEVERITY: Significant selling pressure. Wait for RSI recovery above 30.`
   ),
   Match.when(
     { severity: "MEDIUM" },
-    () =>
-      `MEDIUM CRASH: Market stress detected. Only enter with tight stop-losses. Watch for reversal signals.`
+    () => `MEDIUM CRASH: Market stress detected. Use tight stop-losses if entering.`
   ),
-  Match.orElse(() => `LOW SEVERITY: Minor crash indicators. Monitor closely but not critical yet.`)
+  Match.orElse(() => `LOW SEVERITY: Minor crash indicators. Monitor closely.`)
 );
 
 export const generateCrashRecommendation = (
@@ -65,55 +106,63 @@ export const generateCrashRecommendation = (
 // Entry strength type
 type EntryStrength = "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG";
 
-// Entry levels based on strength
-const strengthConfig = Match.type<EntryStrength>().pipe(
-  Match.when("VERY_STRONG", () => ({ targetMult: 1.2, stopPct: 0.05 })),
-  Match.when("STRONG", () => ({ targetMult: 1.15, stopPct: 0.07 })),
-  Match.when("MODERATE", () => ({ targetMult: 1.1, stopPct: 0.1 })),
-  Match.orElse(() => ({ targetMult: 1.05, stopPct: 0.12 }))
-);
+// Leverage calculation based on ATR volatility
+export const calculateLeverage = (normalizedATR: number): { suggested: number; max: number } =>
+  Match.value(normalizedATR).pipe(
+    Match.when(
+      (atr) => atr < 1,
+      () => ({ suggested: 10, max: 20 })
+    ),
+    Match.when(
+      (atr) => atr < 2,
+      () => ({ suggested: 5, max: 10 })
+    ),
+    Match.when(
+      (atr) => atr < 4,
+      () => ({ suggested: 3, max: 5 })
+    ),
+    Match.when(
+      (atr) => atr < 6,
+      () => ({ suggested: 2, max: 3 })
+    ),
+    Match.orElse(() => ({ suggested: 1, max: 2 }))
+  );
 
-export const calculateEntryLevels = (price: number, strength: EntryStrength) => {
-  const { targetMult, stopPct } = strengthConfig(strength);
-  return { target: price * targetMult, stopLoss: price * (1 - stopPct) };
-};
-
-// Entry recommendation using Match
-const entryRecommendation = Match.type<{
-  strength: EntryStrength;
-  entry: number;
-  target: number;
-  stop: number;
-  rr: string;
-}>().pipe(
-  Match.when(
-    { strength: "VERY_STRONG" },
-    ({ entry, target, stop, rr }) =>
-      `VERY STRONG BULL ENTRY: Multiple confirmations. Entry: ${entry.toFixed(2)}, Target: ${target.toFixed(2)}, Stop: ${stop.toFixed(2)}. Risk/Reward: ${rr}:1. Consider larger position.`
-  ),
-  Match.when(
-    { strength: "STRONG" },
-    ({ entry, target, stop, rr }) =>
-      `STRONG BULL ENTRY: Good setup with confirmation. Entry: ${entry.toFixed(2)}, Target: ${target.toFixed(2)}, Stop: ${stop.toFixed(2)}. Risk/Reward: ${rr}:1.`
-  ),
-  Match.when(
-    { strength: "MODERATE" },
-    ({ entry, target, stop, rr }) =>
-      `MODERATE BULL ENTRY: Decent setup but watch closely. Entry: ${entry.toFixed(2)}, Target: ${target.toFixed(2)}, Stop: ${stop.toFixed(2)}. Risk/Reward: ${rr}:1. Use smaller position.`
-  ),
-  Match.orElse(
-    () => `WEAK BULL SIGNAL: Entry possible but risky. Consider waiting for stronger confirmation.`
-  )
-);
-
+// Entry recommendation - provides actionable trade setup info
 export const generateEntryRecommendation = (
-  isOptimalEntry: boolean,
+  _isOptimalEntry: boolean,
   strength: EntryStrength,
+  direction: TradeDirection,
   entry: number,
   target: number,
-  stopLoss: number
+  stopLoss: number,
+  rr: number,
+  leverage: number
 ): string => {
-  if (!isOptimalEntry) return "Not optimal entry. Wait for stronger bull signals.";
-  const rr = ((target - entry) / (entry - stopLoss)).toFixed(2);
-  return entryRecommendation({ strength, entry, target, stop: stopLoss, rr });
+  if (direction === "NEUTRAL") {
+    return "No clear setup. Wait for stronger confirmation signals.";
+  }
+
+  const dirLabel = direction === "LONG" ? "LONG" : "SHORT";
+  const targetPct =
+    direction === "LONG"
+      ? (((target - entry) / entry) * 100).toFixed(1)
+      : (((entry - target) / entry) * 100).toFixed(1);
+  const stopPct =
+    direction === "LONG"
+      ? (((entry - stopLoss) / entry) * 100).toFixed(1)
+      : (((stopLoss - entry) / entry) * 100).toFixed(1);
+
+  const setupInfo = `${dirLabel} setup: Target +${targetPct}%, Stop -${stopPct}%, R:R ${rr}:1.`;
+
+  // Different messages based on strength
+  return Match.value(strength).pipe(
+    Match.when(
+      "VERY_STRONG",
+      () => `${setupInfo} Strong confirmation. Consider ${leverage}x leverage.`
+    ),
+    Match.when("STRONG", () => `${setupInfo} Good setup. Suggested ${leverage}x leverage.`),
+    Match.when("MODERATE", () => `${setupInfo} Moderate setup. Use smaller position size.`),
+    Match.orElse(() => `${setupInfo} Weak confirmation. Consider waiting for better entry.`)
+  );
 };

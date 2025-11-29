@@ -61,19 +61,38 @@ export interface CrashSignal {
 }
 
 /**
- * Entry detection indicators
+ * Entry detection indicators (for both long and short)
  */
 export interface EntryIndicators {
   readonly trendReversal: boolean;
   readonly volumeIncrease: boolean;
   readonly momentumBuilding: boolean;
-  readonly bullishDivergence: boolean;
+  readonly divergence: boolean;
 }
 
 /**
- * Entry signal output
+ * Trade direction
+ */
+export type TradeDirection = "LONG" | "SHORT" | "NEUTRAL";
+
+/**
+ * Indicator summary for trade setup
+ */
+export interface IndicatorSummary {
+  readonly rsi: { value: number; signal: "OVERSOLD" | "NEUTRAL" | "OVERBOUGHT" };
+  readonly macd: { trend: "BULLISH" | "BEARISH" | "NEUTRAL"; histogram: number };
+  readonly adx: {
+    value: number;
+    strength: "VERY_WEAK" | "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG";
+  };
+  readonly atr: { value: number; volatility: "VERY_LOW" | "LOW" | "NORMAL" | "HIGH" | "VERY_HIGH" };
+}
+
+/**
+ * Entry signal output - supports both LONG and SHORT
  */
 export interface EntrySignal {
+  readonly direction: TradeDirection;
   readonly isOptimalEntry: boolean;
   readonly strength: "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG";
   readonly confidence: number;
@@ -81,6 +100,11 @@ export interface EntrySignal {
   readonly entryPrice: number;
   readonly targetPrice: number;
   readonly stopLoss: number;
+  readonly riskRewardRatio: number;
+  readonly suggestedLeverage: number;
+  readonly maxLeverage: number;
+  readonly indicatorSummary: IndicatorSummary;
+  readonly dataSource: "24H_SNAPSHOT";
   readonly recommendation: string;
 }
 

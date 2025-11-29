@@ -13,4 +13,6 @@ export type {
   MarketOverview,
   IndicatorResult,
   NoiseScore,
+  IndicatorSummary,
+  TradeDirection,
 } from "@0xsignal/shared";

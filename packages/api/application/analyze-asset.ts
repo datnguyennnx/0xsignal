@@ -89,26 +89,33 @@ const combineResults = (
   strategyResult: AssetAnalysis["strategyResult"],
   entrySignal: AssetAnalysis["entrySignal"]
 ) => {
+  // If entry is NEUTRAL (stablecoin/low volatility), force HOLD signal
+  if (entrySignal.direction === "NEUTRAL" && entrySignal.confidence === 0) {
+    return {
+      overallSignal: "HOLD" as Signal,
+      confidence: 0,
+      riskScore: 0,
+      recommendation: entrySignal.recommendation,
+    };
+  }
+
   const signal = upgradeSignal({
     signal: strategyResult.primarySignal.signal,
     isOptimal: entrySignal.isOptimalEntry,
     strength: entrySignal.strength,
   });
 
-  const confidence =
-    entrySignal.isOptimalEntry &&
-    (entrySignal.strength === "VERY_STRONG" || entrySignal.strength === "STRONG")
-      ? Math.max(strategyResult.overallConfidence, entrySignal.confidence)
-      : strategyResult.overallConfidence;
+  // Entry confidence is now aligned with strategy - use it directly
+  const confidence = entrySignal.confidence;
 
   const recommendation = pipe(
     [
       `Market Regime: ${strategyResult.regime}`,
-      entrySignal.isOptimalEntry ? entrySignal.recommendation : null,
+      entrySignal.recommendation,
       strategyResult.primarySignal.reasoning,
       signalToAction(signal),
     ],
-    Arr.filter((x): x is string => x !== null),
+    Arr.filter((x): x is string => x !== null && x !== ""),
     Arr.join(". ")
   );
 
@@ -118,13 +125,13 @@ const combineResults = (
 // Analyze single asset
 export const analyzeAsset = (price: CryptoPrice): Effect.Effect<AssetAnalysis, never> =>
   Effect.gen(function* () {
-    const { strategyResult, entrySignal } = yield* Effect.all(
-      {
-        strategyResult: executeStrategies(price),
-        entrySignal: findEntry(price),
-      },
-      { concurrency: 2 }
-    );
+    // First get strategy result to determine signal direction
+    const strategyResult = yield* executeStrategies(price);
+    const baseSignal = strategyResult.primarySignal.signal;
+    const strategyConfidence = strategyResult.overallConfidence;
+
+    // Then find entry with the correct direction and strategy confidence
+    const entrySignal = yield* findEntry(price, baseSignal, strategyConfidence);
 
     const { overallSignal, confidence, riskScore, recommendation } = combineResults(
       strategyResult,

@@ -1,4 +1,8 @@
-// Signal Analysis - pure component
+/**
+ * Signal Analysis - Minimalist design
+ * Consistent 2-col mobile → 6-col desktop for ALL sections
+ * Semantic colors only for signal values
+ */
 
 import { cn } from "@/core/utils/cn";
 import type { MarketRegime, NoiseScore, StrategyResult } from "@0xsignal/shared";
@@ -21,40 +25,6 @@ const REGIME_LABEL: Record<MarketRegime, string> = {
   LOW_VOLATILITY: "Low Vol",
   HIGH_VOLATILITY: "High Vol",
 };
-
-function IndicatorCell({
-  label,
-  value,
-  context,
-  highlight,
-  bullish,
-}: {
-  label: string;
-  value?: string | number;
-  context?: string;
-  highlight?: boolean;
-  bullish?: boolean;
-}) {
-  return (
-    <div className="bg-background p-2 sm:p-3">
-      <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5 sm:mb-1">
-        {label}
-      </div>
-      <div
-        className={cn(
-          "text-xs sm:text-sm font-medium tabular-nums",
-          highlight && bullish && "text-gain",
-          highlight && !bullish && "text-loss"
-        )}
-      >
-        {value ?? "-"}
-      </div>
-      {context && (
-        <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{context}</div>
-      )}
-    </div>
-  );
-}
 
 export function SignalAnalysis({
   signal,
@@ -84,88 +54,48 @@ export function SignalAnalysis({
 
   return (
     <div className={cn("rounded border border-border/50", className)}>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-border/30">
-        <div className="bg-background p-3 sm:p-4">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-            Signal
-          </div>
-          <div className={cn("text-base sm:text-lg font-medium", signalColor)}>
-            {signal.replace("_", " ")}
-          </div>
-          <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-            {primarySignal.strategy.replace("_", " ")}
-          </div>
-        </div>
-
-        <div className="bg-background p-3 sm:p-4">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-            Regime
-          </div>
-          <div className="text-base sm:text-lg font-medium">
-            {REGIME_LABEL[strategyResult.regime]}
-          </div>
-          <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-            ADX {Math.round(adx)}
-          </div>
-        </div>
-
-        <div className="bg-background p-3 sm:p-4">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-            Confidence
-          </div>
-          <div className="text-base sm:text-lg font-medium tabular-nums">{confidence}%</div>
-          <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-            {indicatorAgreement}% agree
-          </div>
-        </div>
-
-        <div className="bg-background p-3 sm:p-4">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-            Risk
-          </div>
-          <div
-            className={cn(
-              "text-base sm:text-lg font-medium tabular-nums",
-              riskScore > 70 ? "text-loss" : riskScore > 40 ? "text-warn" : "text-gain"
-            )}
-          >
-            {riskScore}
-          </div>
-          <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">/ 100</div>
-        </div>
-
-        <div className="bg-background p-3 sm:p-4">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-            Noise
-          </div>
-          <div
-            className={cn(
-              "text-base sm:text-lg font-medium tabular-nums",
-              noise.value > 75 ? "text-loss" : noise.value > 50 ? "text-warn" : ""
-            )}
-          >
-            {noise.value}
-          </div>
-          <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-            {noise.level.toLowerCase()}
-          </div>
-        </div>
-
-        <div className="bg-background p-3 sm:p-4">
-          <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-            Volatility
-          </div>
-          <div className="text-base sm:text-lg font-medium tabular-nums">
-            {atr !== undefined ? `${atr.toFixed(1)}%` : "-"}
-          </div>
-          <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">ATR</div>
-        </div>
+      {/* Primary Metrics - 2 col mobile, 6 col desktop */}
+      <div className="grid grid-cols-2 sm:grid-cols-6">
+        <Cell
+          label="SIGNAL"
+          value={signal.replace("_", " ")}
+          context={primarySignal.strategy.replace("_", " ")}
+          valueClass={signalColor}
+        />
+        <Cell
+          label="REGIME"
+          value={REGIME_LABEL[strategyResult.regime]}
+          context={`ADX ${Math.round(adx)}`}
+        />
+        <Cell
+          label="CONFIDENCE"
+          value={`${confidence}%`}
+          context={`${indicatorAgreement}% agree`}
+        />
+        <Cell
+          label="RISK"
+          value={riskScore}
+          context="/ 100"
+          valueClass={riskScore > 70 ? "text-loss" : riskScore > 40 ? "text-warn" : "text-gain"}
+        />
+        <Cell
+          label="NOISE"
+          value={noise.value}
+          context={noise.level.toLowerCase()}
+          valueClass={noise.value > 75 ? "text-loss" : noise.value > 50 ? "text-warn" : ""}
+        />
+        <Cell
+          label="VOLATILITY"
+          value={atr !== undefined ? `${atr.toFixed(1)}%` : "-"}
+          context="ATR"
+        />
       </div>
 
-      <div className="grid grid-cols-3 lg:grid-cols-6 gap-px bg-border/30 border-t border-border/30">
-        <IndicatorCell
+      {/* Secondary Indicators - 2 col mobile, 6 col desktop (CONSISTENT) */}
+      <div className="grid grid-cols-2 sm:grid-cols-6 border-t border-border/50">
+        <CellSmall
           label="RSI"
-          value={rsi !== undefined ? Math.round(rsi) : undefined}
+          value={rsi !== undefined ? Math.round(rsi) : "-"}
           context={
             rsi !== undefined
               ? rsi < 30
@@ -175,12 +105,17 @@ export function SignalAnalysis({
                   : "neutral"
               : undefined
           }
-          highlight={rsi !== undefined && (rsi < 30 || rsi > 70)}
-          bullish={rsi !== undefined && rsi < 30}
+          valueClass={
+            rsi !== undefined && rsi < 30
+              ? "text-gain"
+              : rsi !== undefined && rsi > 70
+                ? "text-loss"
+                : ""
+          }
         />
-        <IndicatorCell
+        <CellSmall
           label="%B"
-          value={percentB !== undefined ? percentB.toFixed(2) : undefined}
+          value={percentB !== undefined ? percentB.toFixed(2) : "-"}
           context={
             percentB !== undefined
               ? percentB < 0.2
@@ -190,12 +125,10 @@ export function SignalAnalysis({
                   : "mid"
               : undefined
           }
-          highlight={percentB !== undefined && (percentB < 0.2 || percentB > 0.8)}
-          bullish={percentB !== undefined && percentB < 0.2}
         />
-        <IndicatorCell
-          label="Stoch"
-          value={stochastic !== undefined ? Math.round(stochastic) : undefined}
+        <CellSmall
+          label="STOCH"
+          value={stochastic !== undefined ? Math.round(stochastic) : "-"}
           context={
             stochastic !== undefined
               ? stochastic < 20
@@ -205,23 +138,24 @@ export function SignalAnalysis({
                   : "neutral"
               : undefined
           }
-          highlight={stochastic !== undefined && (stochastic < 20 || stochastic > 80)}
-          bullish={stochastic !== undefined && stochastic < 20}
+          valueClass={
+            stochastic !== undefined && stochastic < 20
+              ? "text-gain"
+              : stochastic !== undefined && stochastic > 80
+                ? "text-loss"
+                : ""
+          }
         />
-        <IndicatorCell
-          label="Dist MA"
+        <CellSmall
+          label="DIST MA"
           value={
-            distanceMA !== undefined
-              ? `${distanceMA > 0 ? "+" : ""}${distanceMA.toFixed(1)}%`
-              : undefined
+            distanceMA !== undefined ? `${distanceMA > 0 ? "+" : ""}${distanceMA.toFixed(1)}%` : "-"
           }
           context={
             distanceMA !== undefined ? (Math.abs(distanceMA) > 3 ? "extended" : "near") : undefined
           }
-          highlight={distanceMA !== undefined && Math.abs(distanceMA) > 3}
-          bullish={distanceMA !== undefined && distanceMA < -3}
         />
-        <IndicatorCell
+        <CellSmall
           label="MACD"
           value={
             macdTrend !== undefined
@@ -230,22 +164,69 @@ export function SignalAnalysis({
                 : macdTrend < 0
                   ? "Bear"
                   : "Flat"
-              : undefined
+              : "-"
           }
-          context={macdTrend !== undefined ? "trend" : undefined}
-          highlight={macdTrend !== undefined && macdTrend !== 0}
-          bullish={macdTrend !== undefined && macdTrend > 0}
+          context="trend"
+          valueClass={
+            macdTrend !== undefined && macdTrend > 0
+              ? "text-gain"
+              : macdTrend !== undefined && macdTrend < 0
+                ? "text-loss"
+                : ""
+          }
         />
-        <IndicatorCell
-          label="Agree"
-          value={indicatorAgreement > 0 ? `${indicatorAgreement}%` : undefined}
+        <CellSmall
+          label="AGREE"
+          value={indicatorAgreement > 0 ? `${indicatorAgreement}%` : "-"}
           context={
             indicatorAgreement >= 70 ? "strong" : indicatorAgreement >= 50 ? "moderate" : "weak"
           }
-          highlight={indicatorAgreement >= 70}
-          bullish={indicatorAgreement >= 70}
         />
       </div>
+    </div>
+  );
+}
+
+// Primary cell
+function Cell({
+  label,
+  value,
+  context,
+  valueClass,
+}: {
+  label: string;
+  value: string | number;
+  context?: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="px-3 py-3 sm:px-4 sm:py-4 border-r border-b border-border/50 even:border-r-0 sm:even:border-r sm:last:border-r-0">
+      <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">{label}</div>
+      <div className={cn("text-base sm:text-lg font-medium tabular-nums", valueClass)}>{value}</div>
+      {context && <div className="text-[10px] text-muted-foreground mt-0.5">{context}</div>}
+    </div>
+  );
+}
+
+// Secondary cell - smaller
+function CellSmall({
+  label,
+  value,
+  context,
+  valueClass,
+}: {
+  label: string;
+  value: string | number;
+  context?: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="px-3 py-2 sm:px-3 sm:py-3 border-r border-b border-border/50 even:border-r-0 sm:even:border-r sm:last:border-r-0">
+      <div className="text-[9px] text-muted-foreground uppercase tracking-wider mb-0.5">
+        {label}
+      </div>
+      <div className={cn("text-sm font-medium tabular-nums", valueClass)}>{value}</div>
+      {context && <div className="text-[9px] text-muted-foreground">{context}</div>}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-/** Signals Tests - Using @effect/vitest */
+/** Signals Tests - Using vitest */
 
 import { expect, describe, it } from "vitest";
 import type { CryptoPrice } from "@0xsignal/shared";
@@ -6,9 +6,11 @@ import type { IndicatorSet } from "../indicators";
 import {
   detectCrashIndicators,
   detectEntryIndicators,
+  detectLongIndicators,
+  detectShortIndicators,
   generateCrashRecommendation,
   generateEntryRecommendation,
-  calculateEntryLevels,
+  calculateLeverage,
 } from "../signals";
 
 // Mock price data factory
@@ -114,7 +116,7 @@ describe("Signals", () => {
     });
   });
 
-  describe("detectEntryIndicators", () => {
+  describe("detectLongIndicators", () => {
     it("detects trend reversal with bullish MACD and moderate RSI", () => {
       const price = createMockPrice();
       const indicators = createMockIndicators({
@@ -122,7 +124,7 @@ describe("Signals", () => {
         rsi: { rsi: 55, signal: "NEUTRAL", momentum: 5 },
       });
 
-      const result = detectEntryIndicators(price, indicators);
+      const result = detectLongIndicators(price, indicators);
 
       expect(result.trendReversal).toBe(true);
     });
@@ -134,7 +136,7 @@ describe("Signals", () => {
         rsi: { rsi: 80, signal: "OVERBOUGHT", momentum: 10 },
       });
 
-      const result = detectEntryIndicators(price, indicators);
+      const result = detectLongIndicators(price, indicators);
 
       expect(result.trendReversal).toBe(false);
     });
@@ -145,7 +147,7 @@ describe("Signals", () => {
         volumeROC: { value: 30, signal: "HIGH", activity: "ELEVATED" },
       });
 
-      const result = detectEntryIndicators(price, indicators);
+      const result = detectLongIndicators(price, indicators);
 
       expect(result.volumeIncrease).toBe(true);
     });
@@ -162,7 +164,7 @@ describe("Signals", () => {
         },
       });
 
-      const result = detectEntryIndicators(price, indicators);
+      const result = detectLongIndicators(price, indicators);
 
       expect(result.momentumBuilding).toBe(true);
     });
@@ -180,12 +182,43 @@ describe("Signals", () => {
         },
       });
 
-      const result = detectEntryIndicators(price, indicators);
+      const result = detectLongIndicators(price, indicators);
 
-      expect(result.bullishDivergence).toBe(true);
+      expect(result.divergence).toBe(true);
+    });
+  });
+
+  describe("detectShortIndicators", () => {
+    it("detects trend reversal with bearish MACD and moderate RSI", () => {
+      const price = createMockPrice();
+      const indicators = createMockIndicators({
+        macd: { macd: -100, signal: -50, histogram: -50, trend: "BEARISH" },
+        rsi: { rsi: 45, signal: "NEUTRAL", momentum: -5 },
+      });
+
+      const result = detectShortIndicators(price, indicators);
+
+      expect(result.trendReversal).toBe(true);
     });
 
-    it("does not detect bullish divergence for bearish divergence", () => {
+    it("detects momentum building with strong ADX and negative change", () => {
+      const price = createMockPrice({ change24h: -5 });
+      const indicators = createMockIndicators({
+        adx: {
+          adx: 35,
+          plusDI: 15,
+          minusDI: 30,
+          trendStrength: "STRONG",
+          trendDirection: "BEARISH",
+        },
+      });
+
+      const result = detectShortIndicators(price, indicators);
+
+      expect(result.momentumBuilding).toBe(true);
+    });
+
+    it("detects bearish divergence", () => {
       const price = createMockPrice();
       const indicators = createMockIndicators({
         divergence: {
@@ -198,9 +231,78 @@ describe("Signals", () => {
         },
       });
 
-      const result = detectEntryIndicators(price, indicators);
+      const result = detectShortIndicators(price, indicators);
 
-      expect(result.bullishDivergence).toBe(false);
+      expect(result.divergence).toBe(true);
+    });
+  });
+
+  describe("detectEntryIndicators", () => {
+    it("returns LONG direction for BUY signal", () => {
+      const price = createMockPrice();
+      const indicators = createMockIndicators();
+
+      const result = detectEntryIndicators(price, indicators, "BUY");
+
+      expect(result.direction).toBe("LONG");
+    });
+
+    it("returns LONG direction for STRONG_BUY signal", () => {
+      const price = createMockPrice();
+      const indicators = createMockIndicators();
+
+      const result = detectEntryIndicators(price, indicators, "STRONG_BUY");
+
+      expect(result.direction).toBe("LONG");
+    });
+
+    it("returns SHORT direction for SELL signal", () => {
+      const price = createMockPrice();
+      const indicators = createMockIndicators();
+
+      const result = detectEntryIndicators(price, indicators, "SELL");
+
+      expect(result.direction).toBe("SHORT");
+    });
+
+    it("returns SHORT direction for STRONG_SELL signal", () => {
+      const price = createMockPrice();
+      const indicators = createMockIndicators();
+
+      const result = detectEntryIndicators(price, indicators, "STRONG_SELL");
+
+      expect(result.direction).toBe("SHORT");
+    });
+
+    it("returns NEUTRAL for HOLD with no strong indicators", () => {
+      const price = createMockPrice({ change24h: 0 });
+      const indicators = createMockIndicators({
+        adx: { adx: 15, plusDI: 20, minusDI: 20, trendStrength: "WEAK", trendDirection: "NEUTRAL" },
+      });
+
+      const result = detectEntryIndicators(price, indicators, "HOLD");
+
+      expect(result.direction).toBe("NEUTRAL");
+    });
+
+    it("returns LONG for HOLD when long indicators dominate", () => {
+      const price = createMockPrice({ change24h: 5 });
+      const indicators = createMockIndicators({
+        macd: { macd: 100, signal: 50, histogram: 50, trend: "BULLISH" },
+        rsi: { rsi: 55, signal: "NEUTRAL", momentum: 5 },
+        adx: {
+          adx: 30,
+          plusDI: 30,
+          minusDI: 15,
+          trendStrength: "STRONG",
+          trendDirection: "BULLISH",
+        },
+        volumeROC: { value: 30, signal: "HIGH", activity: "ELEVATED" },
+      });
+
+      const result = detectEntryIndicators(price, indicators, "HOLD");
+
+      expect(result.direction).toBe("LONG");
     });
   });
 
@@ -241,78 +343,113 @@ describe("Signals", () => {
     });
   });
 
-  describe("calculateEntryLevels", () => {
-    it("calculates VERY_STRONG entry levels", () => {
-      const result = calculateEntryLevels(50000, "VERY_STRONG");
+  describe("calculateLeverage", () => {
+    it("returns high leverage for low volatility (ATR < 1)", () => {
+      const result = calculateLeverage(0.5);
 
-      expect(result.target).toBe(60000); // 50000 * 1.2
-      expect(result.stopLoss).toBe(47500); // 50000 * 0.95
+      expect(result.suggested).toBe(10);
+      expect(result.max).toBe(20);
     });
 
-    it("calculates STRONG entry levels", () => {
-      const result = calculateEntryLevels(50000, "STRONG");
+    it("returns moderate leverage for normal volatility (ATR 1-2)", () => {
+      const result = calculateLeverage(1.5);
 
-      expect(result.target).toBeCloseTo(57500, 0); // 50000 * 1.15
-      expect(result.stopLoss).toBeCloseTo(46500, 0); // 50000 * 0.93
+      expect(result.suggested).toBe(5);
+      expect(result.max).toBe(10);
     });
 
-    it("calculates MODERATE entry levels", () => {
-      const result = calculateEntryLevels(50000, "MODERATE");
+    it("returns lower leverage for higher volatility (ATR 2-4)", () => {
+      const result = calculateLeverage(3);
 
-      expect(result.target).toBeCloseTo(55000, 0); // 50000 * 1.1
-      expect(result.stopLoss).toBeCloseTo(45000, 0); // 50000 * 0.9
+      expect(result.suggested).toBe(3);
+      expect(result.max).toBe(5);
     });
 
-    it("calculates WEAK entry levels", () => {
-      const result = calculateEntryLevels(50000, "WEAK");
+    it("returns conservative leverage for high volatility (ATR 4-6)", () => {
+      const result = calculateLeverage(5);
 
-      expect(result.target).toBe(52500); // 50000 * 1.05
-      expect(result.stopLoss).toBe(44000); // 50000 * 0.88
+      expect(result.suggested).toBe(2);
+      expect(result.max).toBe(3);
+    });
+
+    it("returns minimal leverage for extreme volatility (ATR > 6)", () => {
+      const result = calculateLeverage(8);
+
+      expect(result.suggested).toBe(1);
+      expect(result.max).toBe(2);
     });
   });
 
   describe("generateEntryRecommendation", () => {
-    it("returns not optimal message when not optimal entry", () => {
-      const result = generateEntryRecommendation(false, "WEAK", 50000, 52500, 47500);
+    it("returns not optimal message when direction is NEUTRAL", () => {
+      const result = generateEntryRecommendation(
+        false,
+        "WEAK",
+        "NEUTRAL",
+        50000,
+        52500,
+        47500,
+        1.5,
+        3
+      );
 
-      expect(result).toBe("Not optimal entry. Wait for stronger bull signals.");
+      expect(result).toBe("No clear setup. Wait for stronger confirmation signals.");
     });
 
-    it("returns VERY_STRONG entry recommendation", () => {
-      const result = generateEntryRecommendation(true, "VERY_STRONG", 50000, 60000, 47500);
+    it("returns LONG recommendation with setup info", () => {
+      const result = generateEntryRecommendation(true, "STRONG", "LONG", 50000, 55000, 47500, 2, 5);
 
-      expect(result).toContain("VERY STRONG BULL ENTRY");
-      expect(result).toContain("50000");
-      expect(result).toContain("60000");
-      expect(result).toContain("47500");
-      expect(result).toContain("larger position");
+      expect(result).toContain("LONG setup");
+      expect(result).toContain("R:R 2:1");
+      expect(result).toContain("5x leverage");
     });
 
-    it("returns STRONG entry recommendation", () => {
-      const result = generateEntryRecommendation(true, "STRONG", 50000, 57500, 46500);
+    it("returns SHORT recommendation with setup info", () => {
+      const result = generateEntryRecommendation(
+        true,
+        "STRONG",
+        "SHORT",
+        50000,
+        45000,
+        52500,
+        2,
+        5
+      );
 
-      expect(result).toContain("STRONG BULL ENTRY");
-      expect(result).toContain("confirmation");
+      expect(result).toContain("SHORT setup");
+      expect(result).toContain("R:R 2:1");
     });
 
-    it("returns MODERATE entry recommendation", () => {
-      const result = generateEntryRecommendation(true, "MODERATE", 50000, 55000, 45000);
+    it("returns VERY_STRONG entry recommendation with strong confirmation", () => {
+      const result = generateEntryRecommendation(
+        true,
+        "VERY_STRONG",
+        "LONG",
+        50000,
+        60000,
+        47500,
+        4,
+        10
+      );
 
-      expect(result).toContain("MODERATE BULL ENTRY");
-      expect(result).toContain("smaller position");
+      expect(result).toContain("Strong confirmation");
+      expect(result).toContain("10x leverage");
     });
 
-    it("returns WEAK entry recommendation", () => {
-      const result = generateEntryRecommendation(true, "WEAK", 50000, 52500, 44000);
+    it("returns WEAK entry recommendation with waiting suggestion", () => {
+      const result = generateEntryRecommendation(
+        false,
+        "WEAK",
+        "LONG",
+        50000,
+        52500,
+        47500,
+        1.5,
+        3
+      );
 
-      expect(result).toContain("WEAK BULL SIGNAL");
-      expect(result).toContain("risky");
-    });
-
-    it("includes risk/reward ratio in recommendation", () => {
-      const result = generateEntryRecommendation(true, "STRONG", 50000, 57500, 46500);
-
-      expect(result).toContain("Risk/Reward");
+      expect(result).toContain("Weak confirmation");
+      expect(result).toContain("waiting");
     });
   });
 });
