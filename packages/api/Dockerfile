@@ -1,34 +1,66 @@
-# Multi-stage Dockerfile for Bun-based API
+# syntax=docker/dockerfile:1.4
+
+# =============================================================================
+# Stage 1: Dependencies
+# =============================================================================
 FROM oven/bun:1-alpine AS deps
+
 WORKDIR /app
 
-# Copy package files
-COPY package.json bun.lock* ./
+# Copy all package files for workspace resolution
+COPY package.json bun.lock ./
 COPY packages/api/package.json ./packages/api/
 COPY packages/app/package.json ./packages/app/
 COPY packages/shared/package.json ./packages/shared/
 
-# Install dependencies using Bun
+# Install dependencies
 RUN bun install --frozen-lockfile
 
-# Production stage
-FROM oven/bun:1-alpine AS runner
-ENV NODE_ENV=production
+# =============================================================================
+# Stage 2: Builder
+# =============================================================================
+FROM oven/bun:1-alpine AS builder
+
 WORKDIR /app
 
-# Copy dependencies and package files
+# Copy dependencies from deps stage (hoisted to root)
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/package.json ./package.json
-COPY --from=deps /app/packages/api/node_modules ./packages/api/node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 
 # Copy source files
+COPY package.json ./
+COPY tsconfig.json tsconfig.base.json ./
 COPY packages/api ./packages/api
 COPY packages/shared ./packages/shared
-COPY tsconfig.json tsconfig.base.json ./
 
-# Expose port
+# =============================================================================
+# Stage 3: Production Runner
+# =============================================================================
+FROM oven/bun:1-alpine AS runner
+
+# Set production environment
+ENV NODE_ENV=production
+ENV BUN_ENV=production
+
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && adduser -S -u 1001 -G appgroup appuser
+
+# Copy only necessary files from builder
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appgroup /app/packages/api ./packages/api
+COPY --from=builder --chown=appuser:appgroup /app/packages/shared ./packages/shared
+COPY --from=builder --chown=appuser:appgroup /app/package.json ./
+
+# Switch to non-root user
+USER appuser
+
+# Expose port (non-privileged)
 EXPOSE 9006
 
-# Run with bun
-CMD ["bun", "run", "packages/api/presentation/http/server.ts"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:9006/api/health || exit 1
+
+# Run with bun (direct execution)
+CMD ["bun", "packages/api/presentation/http/server.ts"]

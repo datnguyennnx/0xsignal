@@ -11,9 +11,5 @@
       "@0xsignal/shared/*": ["packages/shared/*"]
     }
   },
-  "references": [
-    { "path": "packages/api" },
-    { "path": "packages/app" },
-    { "path": "packages/shared" }
-  ]
+  "references": [{ "path": "packages/api" }, { "path": "packages/shared" }]
 }

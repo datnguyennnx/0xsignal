@@ -1,0 +1,44 @@
+# Production overrides - use with: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+services:
+  api:
+    environment:
+      - NODE_ENV=production
+      - BUN_ENV=production
+    # Production: Use specific image tags
+    # image: ghcr.io/your-org/0xsignal-api:${VERSION:-latest}
+    deploy:
+      mode: replicated
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  app:
+    # Production: Use specific image tags
+    # image: ghcr.io/your-org/0xsignal-app:${VERSION:-latest}
+    deploy:
+      mode: replicated
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
