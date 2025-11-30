@@ -47,7 +47,12 @@ function SignalItem({ signal, type }: { signal: AssetAnalysis; type: SignalType 
         {/* Row 1: Symbol + Price + Change */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
-            <CryptoIcon symbol={signal.symbol} size={24} className="shrink-0" />
+            <CryptoIcon
+              symbol={signal.symbol}
+              image={signal.price?.image}
+              size={24}
+              className="shrink-0"
+            />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-mono font-medium text-sm">{signal.symbol.toUpperCase()}</span>

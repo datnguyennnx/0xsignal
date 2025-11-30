@@ -43,11 +43,12 @@ export const API_URLS = {
 export const CACHE_TTL = {
   COINGECKO_PRICE: Duration.minutes(5),
   COINGECKO_TOP_CRYPTOS: Duration.minutes(5),
+  COINGECKO_HISTORICAL: Duration.minutes(10),
   BINANCE_EXCHANGE_INFO: Duration.minutes(10),
   BINANCE_OPEN_INTEREST: Duration.minutes(2),
   BINANCE_FUNDING_RATE: Duration.minutes(5),
   BINANCE_LIQUIDATIONS: Duration.minutes(2),
-  BINANCE_CHART: Duration.minutes(1),
+  BINANCE_CHART: Duration.minutes(2),
   DEFILLAMA_PROTOCOLS: Duration.minutes(15),
   DEFILLAMA_PROTOCOL: Duration.minutes(10),
   HEATMAP: Duration.minutes(5),

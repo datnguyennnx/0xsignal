@@ -22,6 +22,7 @@ const initialState = <A, E>(): QueryState<A, E> => ({
 });
 
 // Primary query hook with fiber cancellation - uses singleton runtime
+// Implements stale-while-revalidate: shows cached data while fetching fresh data
 export function useEffectQuery<A, E>(
   makeEffect: () => Effect.Effect<A, E, AppContext>,
   deps: React.DependencyList = []
@@ -29,10 +30,17 @@ export function useEffectQuery<A, E>(
   const [state, setState] = useState<QueryState<A, E>>(initialState);
   const fiberRef = useRef<Fiber.RuntimeFiber<A, E> | null>(null);
   const mountedRef = useRef(true);
+  const prevDataRef = useRef<A | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
-    setState(initialState());
+
+    // Stale-while-revalidate: keep previous data while loading
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      data: prev.data ?? prevDataRef.current,
+    }));
 
     // Use singleton runtime to ensure cache is shared
     getAppRuntime().then((runtime) => {
@@ -49,15 +57,16 @@ export function useEffectQuery<A, E>(
           Exit.match({
             onFailure: (cause) => {
               const error = cause._tag === "Fail" ? cause.error : null;
-              setState({
-                data: null,
+              setState((prev) => ({
+                data: prev.data,
                 error: error as E,
                 isLoading: false,
                 isSuccess: false,
                 isError: true,
-              });
+              }));
             },
             onSuccess: (data) => {
+              prevDataRef.current = data;
               setState({ data, error: null, isLoading: false, isSuccess: true, isError: false });
             },
           })

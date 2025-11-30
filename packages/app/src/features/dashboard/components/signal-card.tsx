@@ -36,7 +36,12 @@ export function SignalCard({ signal, type }: SignalCardProps) {
         <div className="flex items-center justify-between gap-3">
           {/* Left: Symbol + Price */}
           <div className="flex items-center gap-2.5 min-w-0">
-            <CryptoIcon symbol={signal.symbol} size={20} className="shrink-0" />
+            <CryptoIcon
+              symbol={signal.symbol}
+              image={signal.price?.image}
+              size={20}
+              className="shrink-0"
+            />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-mono font-medium text-sm">{signal.symbol.toUpperCase()}</span>

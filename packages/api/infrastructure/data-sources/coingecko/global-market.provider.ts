@@ -71,6 +71,9 @@ export const GlobalMarketServiceLive = Layer.effect(
         }),
     });
 
+    // Pre-warm cache on startup
+    yield* Effect.fork(cache.get("global").pipe(Effect.catchAll(() => Effect.void)));
+
     return {
       getGlobalMarket: () => cache.get("global"),
     };

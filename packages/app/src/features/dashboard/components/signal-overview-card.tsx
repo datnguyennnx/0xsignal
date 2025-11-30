@@ -38,7 +38,12 @@ export function SignalOverviewCard({ asset, className }: SignalOverviewCardProps
         {/* Row 1: Symbol + Price */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
-            <CryptoIcon symbol={asset.symbol} size={20} className="shrink-0" />
+            <CryptoIcon
+              symbol={asset.symbol}
+              image={asset.price?.image}
+              size={20}
+              className="shrink-0"
+            />
             <span className="font-mono text-sm font-medium">{asset.symbol.toUpperCase()}</span>
           </div>
           <span className="text-sm font-medium tabular-nums">

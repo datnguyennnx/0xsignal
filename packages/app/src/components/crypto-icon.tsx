@@ -1,18 +1,20 @@
-// Crypto Icon - dynamically loads individual token icons
+// Crypto Icon - Uses CoinGecko images with fallback
 
-import { useState, useEffect, type ComponentType } from "react";
+import { useState } from "react";
 import { CircleHelp } from "lucide-react";
+import { cn } from "@/core/utils/cn";
 
 interface CryptoIconProps {
   symbol: string;
+  image?: string;
   size?: number;
   className?: string;
 }
 
-function IconFallback({ size, className }: { size: number; className: string }) {
+function IconFallback({ size, className }: { size: number; className?: string }) {
   return (
     <div
-      className={`flex items-center justify-center rounded-full bg-muted ${className}`}
+      className={cn("flex items-center justify-center rounded-full bg-muted", className)}
       style={{ width: size, height: size }}
     >
       <CircleHelp
@@ -23,46 +25,23 @@ function IconFallback({ size, className }: { size: number; className: string }) 
   );
 }
 
-// Cache for loaded icon components
-const iconCache = new Map<string, ComponentType<{ size?: number; className?: string }>>();
-
-export function CryptoIcon({ symbol, size = 32, className = "" }: CryptoIconProps) {
-  const [IconComponent, setIconComponent] = useState<ComponentType<{
-    size?: number;
-    className?: string;
-  }> | null>(() => iconCache.get(symbol.toUpperCase()) ?? null);
+export function CryptoIcon({ symbol, image, size = 32, className = "" }: CryptoIconProps) {
   const [hasError, setHasError] = useState(false);
 
-  useEffect(() => {
-    const upperSymbol = symbol.toUpperCase();
-
-    // Already cached
-    if (iconCache.has(upperSymbol)) {
-      setIconComponent(() => iconCache.get(upperSymbol)!);
-      return;
-    }
-
-    // Dynamically import the specific token icon
-    import("@web3icons/react")
-      .then((module) => {
-        const iconName = `Token${upperSymbol}` as keyof typeof module;
-        const Icon = module[iconName] as ComponentType<{ size?: number; className?: string }>;
-
-        if (Icon) {
-          iconCache.set(upperSymbol, Icon);
-          setIconComponent(() => Icon);
-        } else {
-          setHasError(true);
-        }
-      })
-      .catch(() => {
-        setHasError(true);
-      });
-  }, [symbol]);
-
-  if (hasError || !IconComponent) {
+  // If no image URL or error loading, show fallback
+  if (!image || hasError) {
     return <IconFallback size={size} className={className} />;
   }
 
-  return <IconComponent size={size} className={className} />;
+  return (
+    <img
+      src={image}
+      alt={symbol}
+      width={size}
+      height={size}
+      className={cn("rounded-full", className)}
+      onError={() => setHasError(true)}
+      loading="lazy"
+    />
+  );
 }

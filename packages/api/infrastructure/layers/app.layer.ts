@@ -3,7 +3,11 @@
 import { Layer } from "effect";
 import { HttpClientLive } from "../http/client";
 import { AppConfigLive } from "../config/app.config";
-import { CoinGeckoServiceLive, GlobalMarketServiceLive } from "../data-sources/coingecko";
+import {
+  CoinGeckoServiceLive,
+  GlobalMarketServiceLive,
+  CoinGeckoChartServiceLive,
+} from "../data-sources/coingecko";
 import { BinanceServiceLive } from "../data-sources/binance";
 import { HeatmapServiceLive } from "../data-sources/heatmap";
 import { DefiLlamaServiceLive } from "../data-sources/defillama";
@@ -31,6 +35,10 @@ const CoinGeckoLayer = CoinGeckoServiceLive.pipe(
 );
 
 const GlobalMarketLayer = GlobalMarketServiceLive.pipe(
+  Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
+);
+
+const CoinGeckoChartLayer = CoinGeckoChartServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
 );
 
@@ -64,6 +72,7 @@ export const AppLayer = Layer.mergeAll(
   InfraLayer,
   CoinGeckoLayer,
   GlobalMarketLayer,
+  CoinGeckoChartLayer,
   BinanceLayer,
   DefiLlamaLayer,
   HeatmapLayer,

@@ -59,10 +59,6 @@ export default defineConfig({
       "@effect/platform",
       "@effect/schema",
     ],
-    exclude: [
-      // Exclude large icon library from pre-bundling
-      "@web3icons/react",
-    ],
   },
   esbuild: {
     drop: process.env.NODE_ENV === "production" ? ["console", "debugger"] : [],

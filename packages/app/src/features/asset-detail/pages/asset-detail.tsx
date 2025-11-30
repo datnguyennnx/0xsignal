@@ -31,12 +31,12 @@ const INTERVAL_TIMEFRAMES: Record<string, string> = {
 function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string }) {
   const navigate = useNavigate();
   const [interval, setInterval] = useState("1h");
-  const binanceSymbol = `${symbol.toUpperCase()}USDT`;
+  const chartSymbol = symbol.toUpperCase();
   const timeframe = INTERVAL_TIMEFRAMES[interval] || "7d";
 
   const { data: chartData, isLoading: chartLoading } = useEffectQuery(
-    () => cachedChartData(binanceSymbol, interval, timeframe),
-    [binanceSymbol, interval, timeframe]
+    () => cachedChartData(chartSymbol, interval, timeframe),
+    [chartSymbol, interval, timeframe]
   );
 
   const price = asset.price;
@@ -57,7 +57,12 @@ function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string 
         </Button>
 
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <CryptoIcon symbol={asset.symbol} size={28} className="shrink-0" />
+          <CryptoIcon
+            symbol={asset.symbol}
+            image={asset.price?.image}
+            size={28}
+            className="shrink-0"
+          />
           <div className="flex items-baseline gap-2 flex-wrap min-w-0">
             <span className="text-lg sm:text-xl font-semibold tracking-tight">
               {asset.symbol.toUpperCase()}
@@ -91,7 +96,7 @@ function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string 
       {chartData && chartData.length > 0 ? (
         <TradingChart
           data={chartData}
-          symbol={binanceSymbol}
+          symbol={chartSymbol}
           interval={interval}
           onIntervalChange={setInterval}
         />

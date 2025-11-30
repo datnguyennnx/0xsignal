@@ -1,18 +1,10 @@
 /** Binance Chart Data Provider - OHLCV kline data */
 
 import { Effect, Context, Layer, Cache } from "effect";
+import type { ChartDataPoint } from "@0xsignal/shared";
 import { DataSourceError } from "../types";
 import { API_URLS, CACHE_TTL, CACHE_CAPACITY, BINANCE_INTERVALS } from "../../config/app.config";
 import { HttpClientTag } from "../../http/client";
-
-export interface ChartDataPoint {
-  readonly time: number;
-  readonly open: number;
-  readonly high: number;
-  readonly low: number;
-  readonly close: number;
-  readonly volume: number;
-}
 
 export interface ChartDataService {
   readonly getHistoricalData: (

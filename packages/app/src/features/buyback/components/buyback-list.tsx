@@ -47,7 +47,12 @@ function ProtocolCard({
         {/* Row 1: Symbol + Category */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
-            <CryptoIcon symbol={signal.symbol} size={24} className="shrink-0" />
+            <CryptoIcon
+              symbol={signal.symbol}
+              image={signal.logo ?? undefined}
+              size={24}
+              className="shrink-0"
+            />
             <div>
               <div className="font-medium text-sm">{signal.symbol.toUpperCase()}</div>
               <Badge variant="secondary" className="text-[9px] h-4 px-1.5 mt-0.5">

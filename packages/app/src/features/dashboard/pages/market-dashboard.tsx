@@ -170,7 +170,12 @@ function SetupCard({ asset }: { asset: AssetAnalysis }) {
         <CardContent className="p-3">
           {/* Row 1: Symbol + Direction */}
           <div className="flex items-center gap-2 mb-2">
-            <CryptoIcon symbol={asset.symbol} size={18} className="shrink-0" />
+            <CryptoIcon
+              symbol={asset.symbol}
+              image={asset.price?.image}
+              size={18}
+              className="shrink-0"
+            />
             <span className="font-mono text-sm font-semibold">{asset.symbol.toUpperCase()}</span>
             <span className="text-[10px] text-muted-foreground">
               {entry.direction} · {entry.strength.replace("_", " ")}
@@ -264,7 +269,7 @@ function DashboardSkeleton() {
 }
 
 export function MarketDashboard() {
-  const { data, isLoading, isError } = useConcurrentQueries(
+  const { data, isLoading, isError, error } = useConcurrentQueries(
     {
       analyses: () => cachedTopAnalysis(100),
       globalMarket: () => cachedGlobalMarket(),
@@ -277,11 +282,23 @@ export function MarketDashboard() {
   }
 
   if (isError || !data?.analyses) {
+    const errorObj = error as { status?: number; message?: string } | null;
+    const isRateLimit = errorObj?.status === 429 || (errorObj?.message?.includes("429") ?? false);
+
     return (
       <div className="px-4 py-6 max-w-6xl mx-auto">
         <Card className="py-0">
           <CardContent className="p-6 text-center">
-            <p className="text-sm text-muted-foreground mb-4">Unable to load data.</p>
+            {isRateLimit ? (
+              <>
+                <p className="text-sm font-medium mb-2">Rate limit exceeded</p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Too many requests to data provider. Please wait a moment.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground mb-4">Unable to load data.</p>
+            )}
             <Button onClick={() => window.location.reload()}>Retry</Button>
           </CardContent>
         </Card>

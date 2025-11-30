@@ -37,6 +37,8 @@ export const COINGECKO_INFO: AdapterInfo = {
 const toCryptoPrice = (coin: CoinGeckoMarketItem): CryptoPrice => ({
   id: coin.id,
   symbol: coin.symbol,
+  name: coin.name,
+  image: coin.image,
   price: coin.current_price,
   marketCap: coin.market_cap,
   volume24h: coin.total_volume,
@@ -96,6 +98,7 @@ export class CoinGeckoService extends Context.Tag("CoinGeckoService")<
     readonly info: AdapterInfo;
     readonly getPrice: (symbol: string) => Effect.Effect<CryptoPrice, DataSourceError>;
     readonly getTopCryptos: (limit?: number) => Effect.Effect<CryptoPrice[], DataSourceError>;
+    readonly getCoinId: (symbol: string) => Effect.Effect<string | null, never>;
   }
 >() {}
 
@@ -181,6 +184,15 @@ export const CoinGeckoServiceLive = Layer.effect(
       info: COINGECKO_INFO,
       getPrice: (symbol) => priceCache.get(symbol),
       getTopCryptos: (limit = DEFAULT_LIMITS.TOP_CRYPTOS) => topCryptosCache.get(limit),
+      getCoinId: (symbol: string) =>
+        Effect.gen(function* () {
+          const normalized = symbol.toLowerCase();
+          // Ensure symbol map is populated
+          yield* topCryptosCache.get(DEFAULT_LIMITS.TOP_CRYPTOS).pipe(Effect.option);
+          const symbolMap = yield* Ref.get(symbolMapRef);
+          const found = lookupFromMap(symbolMap, normalized);
+          return Option.isSome(found) ? (found.value.id ?? null) : null;
+        }),
     };
   })
 );

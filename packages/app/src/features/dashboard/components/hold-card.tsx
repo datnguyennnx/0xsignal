@@ -25,7 +25,7 @@ export function HoldCard({ signal }: HoldCardProps) {
       onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
       className="h-7 px-2.5 gap-1.5 rounded-full"
     >
-      <CryptoIcon symbol={signal.symbol} size={14} />
+      <CryptoIcon symbol={signal.symbol} image={signal.price?.image} size={14} />
       <span className="font-mono text-xs">{signal.symbol.toUpperCase()}</span>
       <span className={cn("text-[10px] tabular-nums", change24h > 0 ? "text-gain" : "text-loss")}>
         {formatPercent(change24h)}

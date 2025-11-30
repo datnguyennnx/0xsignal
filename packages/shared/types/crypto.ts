@@ -5,6 +5,8 @@
 export interface CryptoPrice {
   readonly id?: string;
   readonly symbol: string;
+  readonly name?: string;
+  readonly image?: string;
   readonly price: number;
   readonly marketCap: number;
   readonly volume24h: number;

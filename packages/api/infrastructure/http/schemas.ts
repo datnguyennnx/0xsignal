@@ -20,6 +20,8 @@ export const CoinGeckoSimplePriceSchema = Schema.Record({
 export const CoinGeckoMarketItemSchema = Schema.Struct({
   id: Schema.String,
   symbol: Schema.String,
+  name: Schema.optional(Schema.String),
+  image: Schema.optional(Schema.String),
   current_price: Schema.Number,
   market_cap: Schema.Number,
   total_volume: Schema.Number,
