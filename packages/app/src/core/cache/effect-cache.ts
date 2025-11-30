@@ -11,6 +11,7 @@ import type {
   LiquidationHeatmap,
   OpenInterestData,
   FundingRateData,
+  GlobalMarketData,
 } from "@0xsignal/shared";
 import { ApiServiceTag } from "../api/client";
 import type { ApiError, NetworkError } from "../api/errors";
@@ -37,6 +38,7 @@ export interface CacheService {
   readonly liquidationHeatmap: Cache.Cache<string, LiquidationHeatmap, ApiError | NetworkError>;
   readonly openInterest: Cache.Cache<string, OpenInterestData, ApiError | NetworkError>;
   readonly fundingRate: Cache.Cache<string, FundingRateData, ApiError | NetworkError>;
+  readonly globalMarket: Cache.Cache<"global", GlobalMarketData, ApiError | NetworkError>;
 }
 
 export class CacheServiceTag extends Context.Tag("CacheService")<CacheServiceTag, CacheService>() {}
@@ -164,6 +166,18 @@ const makeFundingRateCache = Effect.gen(function* () {
   });
 });
 
+const makeGlobalMarketCache = Effect.gen(function* () {
+  return yield* Cache.make({
+    capacity: 1,
+    timeToLive: CACHE_CONFIG.MEDIUM_TTL,
+    lookup: (_: "global") =>
+      pipe(
+        ApiServiceTag,
+        Effect.flatMap((api) => api.getGlobalMarket())
+      ),
+  });
+});
+
 // Cache Service Layer
 export const CacheServiceLive = Layer.effect(
   CacheServiceTag,
@@ -179,6 +193,7 @@ export const CacheServiceLive = Layer.effect(
       liquidationHeatmap: yield* makeLiquidationHeatmapCache,
       openInterest: yield* makeOpenInterestCache,
       fundingRate: yield* makeFundingRateCache,
+      globalMarket: yield* makeGlobalMarketCache,
     };
   })
 );
@@ -244,6 +259,12 @@ export const cachedFundingRate = (symbol: string) =>
     return yield* cache.fundingRate.get(symbol);
   });
 
+export const cachedGlobalMarket = () =>
+  Effect.gen(function* () {
+    const cache = yield* CacheServiceTag;
+    return yield* cache.globalMarket.get("global");
+  });
+
 // Cache Invalidation
 export const invalidateTopAnalysis = () =>
   Effect.gen(function* () {
@@ -278,6 +299,7 @@ export const invalidateAll = () =>
         cache.liquidationHeatmap.invalidateAll,
         cache.openInterest.invalidateAll,
         cache.fundingRate.invalidateAll,
+        cache.globalMarket.invalidateAll,
       ],
       { concurrency: "unbounded" }
     );

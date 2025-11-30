@@ -29,6 +29,7 @@ import {
   protocolBuybackRoute,
   protocolBuybackDetailRoute,
 } from "./routes/buyback.routes";
+import { globalMarketRoute } from "./routes/global-market.routes";
 
 // Helpers
 const getParam = (url: URL, key: string, def: string) => url.searchParams.get(key) || def;
@@ -66,6 +67,8 @@ export const handleRequest = (url: URL, _method: string) => {
   switch (path) {
     case "/api/health":
       return healthRoute();
+    case "/api/global":
+      return globalMarketRoute();
     case "/api/analysis/top":
       return topAnalysisRoute(getInt(url, "limit", 20, 100));
     case "/api/overview":

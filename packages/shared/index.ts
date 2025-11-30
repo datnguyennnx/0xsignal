@@ -5,6 +5,9 @@
 // Core crypto types
 export * from "./types/crypto";
 
+// Global market types
+export * from "./types/global-market";
+
 // Analysis types
 export * from "./types/analysis";
 

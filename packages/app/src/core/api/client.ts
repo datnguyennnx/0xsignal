@@ -13,6 +13,7 @@ import type {
   BuybackSignal,
   BuybackOverview,
   ProtocolBuybackDetail,
+  GlobalMarketData,
 } from "@0xsignal/shared";
 import { ApiError, NetworkError } from "./errors";
 
@@ -24,6 +25,9 @@ export type { ChartDataPoint };
 export interface ApiService {
   // Health
   readonly health: () => Effect.Effect<unknown, ApiError | NetworkError>;
+
+  // Global Market
+  readonly getGlobalMarket: () => Effect.Effect<GlobalMarketData, ApiError | NetworkError>;
 
   // Analysis
   readonly getTopAnalysis: (
@@ -202,6 +206,9 @@ const fetchJson = <T>(
 export const ApiServiceLive = Layer.succeed(ApiServiceTag, {
   // Health - no dedup needed
   health: () => fetchJson(`${API_BASE}/health`),
+
+  // Global Market
+  getGlobalMarket: () => fetchJsonDeduped<GlobalMarketData>(`${API_BASE}/global`),
 
   // Analysis - use deduped fetch for read operations
   getTopAnalysis: (limit = 20) =>
