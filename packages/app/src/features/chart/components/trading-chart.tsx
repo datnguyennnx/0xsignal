@@ -23,6 +23,15 @@ import { IndicatorButton } from "./indicator-button";
 import { cn } from "@/core/utils/cn";
 import { useTheme } from "@/core/providers/theme-provider";
 import { getChartColors, getCandlestickColors, getVolumeColor } from "@/core/utils/colors";
+import { useICTWorker } from "@/core/workers/use-ict-worker";
+import {
+  ICTButton,
+  ICTLegend,
+  useICTOverlay,
+  DEFAULT_ICT_VISIBILITY,
+  type ICTVisibility,
+  type ICTFeature,
+} from "../ict";
 
 interface TradingChartProps {
   data: ChartDataPoint[];
@@ -124,6 +133,38 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
 
   const [activeIndicators, setActiveIndicators] = useState<ActiveIndicator[]>([]);
   const [hoveredCandle, setHoveredCandle] = useState<ChartDataPoint | null>(null);
+
+  // ICT State
+  const [ictVisibility, setIctVisibility] = useState<ICTVisibility>(DEFAULT_ICT_VISIBILITY);
+  const ictEnabled = Object.values(ictVisibility).some(Boolean);
+
+  // ICT Analysis via Web Worker (offloads heavy computation)
+  const { analysis: ictAnalysis } = useICTWorker({
+    data,
+    enabled: ictEnabled,
+  });
+
+  // Last candle time for extending ICT lines
+  const lastTime = useMemo(() => {
+    return data.length > 0 ? data[data.length - 1].time : 0;
+  }, [data]);
+
+  // ICT Overlay rendering
+  useICTOverlay({
+    chart: chartRef.current,
+    analysis: ictAnalysis,
+    visibility: ictVisibility,
+    isDark,
+    lastTime,
+  });
+
+  // ICT toggle handler
+  const handleToggleICT = useCallback((feature: ICTFeature) => {
+    setIctVisibility((prev) => ({
+      ...prev,
+      [feature]: !prev[feature],
+    }));
+  }, []);
 
   // Current candle for OHLCV display (hovered or latest)
   const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
@@ -468,8 +509,9 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
                 </span>
               </div>
             )}
-            {/* Indicator Button - Hidden on mobile for cleaner UX */}
-            <div className="hidden sm:block">
+            {/* ICT & Indicator Buttons - Hidden on mobile for cleaner UX */}
+            <div className="hidden sm:flex items-center gap-2">
+              <ICTButton visibility={ictVisibility} onToggle={handleToggleICT} />
               <IndicatorButton
                 activeIndicators={activeIndicators}
                 onAddIndicator={handleAddIndicator}
@@ -482,6 +524,12 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
 
         <div className="flex-1 relative">
           <div ref={chartContainerRef} className="absolute inset-0" />
+          {/* ICT Legend - Shows active ICT elements */}
+          {ictEnabled && ictAnalysis && (
+            <div className="absolute top-2 left-2 z-10">
+              <ICTLegend analysis={ictAnalysis} visibility={ictVisibility} />
+            </div>
+          )}
         </div>
       </div>
     </div>
