@@ -56,14 +56,17 @@ export const ICTButton = memo(function ICTButton({
         variant={isOpen ? "default" : "outline"}
         size="sm"
         onClick={handleToggle}
-        className="gap-2"
+        className="gap-1.5 px-2 sm:px-3"
       >
         <TrendingUp className="w-3.5 h-3.5" />
-        <span>ICT</span>
+        <span className="hidden sm:inline">ICT</span>
         {activeCount > 0 && (
           <Badge
             variant={isOpen ? "secondary" : "default"}
-            className={cn("px-1.5 py-0 text-[10px] h-4", isOpen && "bg-primary-foreground/20")}
+            className={cn(
+              "px-1 sm:px-1.5 py-0 text-[10px] h-4 min-w-[16px]",
+              isOpen && "bg-primary-foreground/20"
+            )}
           >
             {activeCount}
           </Badge>

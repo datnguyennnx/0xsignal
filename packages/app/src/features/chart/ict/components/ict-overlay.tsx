@@ -38,13 +38,6 @@ const ensureUniqueAscending = (
     .map(([time, value]) => ({ time: time as Time, value }));
 };
 
-// Format price for labels
-const formatPrice = (price: number): string => {
-  if (price >= 1000) return price.toFixed(0);
-  if (price >= 1) return price.toFixed(2);
-  return price.toPrecision(4);
-};
-
 export function useICTOverlay({ chart, analysis, visibility, isDark, lastTime }: ICTOverlayProps) {
   const seriesRef = useRef<ICTSeriesRefs>({
     swingLines: [],
@@ -345,7 +338,6 @@ export function useICTOverlay({ chart, analysis, visibility, isDark, lastTime }:
     const recentOTEs = analysis.oteZones.slice(-2);
 
     for (const ote of recentOTEs) {
-      const isBullish = ote.direction === "bullish";
       const color = isDark ? "rgba(245, 158, 11, 0.6)" : "rgba(217, 119, 6, 0.6)";
       const mutedColor = isDark ? "rgba(161, 161, 170, 0.4)" : "rgba(120, 113, 108, 0.4)";
 

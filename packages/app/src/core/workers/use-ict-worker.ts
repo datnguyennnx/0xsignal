@@ -1,6 +1,7 @@
 /**
  * React hook for ICT analysis using Web Worker
  * Offloads heavy pattern detection to background thread
+ * Optimized with debouncing and request cancellation
  */
 
 import { useRef, useCallback, useEffect, useState } from "react";
@@ -16,6 +17,7 @@ interface UseICTWorkerOptions {
   data: ChartDataPoint[];
   config?: Partial<ICTConfig>;
   enabled?: boolean;
+  debounceMs?: number;
 }
 
 interface UseICTWorkerResult {
@@ -25,13 +27,18 @@ interface UseICTWorkerResult {
   refresh: () => void;
 }
 
+// Debounce delay to prevent rapid worker calls during data streaming
+const DEFAULT_DEBOUNCE_MS = 150;
+
 export const useICTWorker = ({
   data,
   config,
   enabled = true,
+  debounceMs = DEFAULT_DEBOUNCE_MS,
 }: UseICTWorkerOptions): UseICTWorkerResult => {
   const workerRef = useRef<Worker | null>(null);
-  const pendingRef = useRef<Map<string, (res: ICTWorkerResponse) => void>>(new Map());
+  const latestRequestIdRef = useRef<string | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [analysis, setAnalysis] = useState<ICTAnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,12 +51,9 @@ export const useICTWorker = ({
 
     workerRef.current.onmessage = (event: MessageEvent<ICTWorkerResponse>) => {
       const { id, result, error: err } = event.data;
-      const resolve = pendingRef.current.get(id);
 
-      if (resolve) {
-        resolve(event.data);
-        pendingRef.current.delete(id);
-      }
+      // Ignore stale responses (newer request already sent)
+      if (id !== latestRequestIdRef.current) return;
 
       if (err) {
         setError(err);
@@ -69,12 +73,13 @@ export const useICTWorker = ({
 
     return () => {
       workerRef.current?.terminate();
-      pendingRef.current.clear();
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      latestRequestIdRef.current = null;
     };
   }, []);
 
-  // Run analysis
-  const runAnalysis = useCallback(() => {
+  // Run analysis (immediate, no debounce)
+  const runAnalysisImmediate = useCallback(() => {
     if (!workerRef.current || !enabled || data.length < 30) {
       return;
     }
@@ -83,27 +88,37 @@ export const useICTWorker = ({
     setError(null);
 
     const id = `ict-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    latestRequestIdRef.current = id;
+
     const request: ICTWorkerRequest = {
       id,
       type: "ANALYZE_ICT",
       data: { candles: data, config },
     };
 
-    pendingRef.current.set(id, () => {});
     workerRef.current.postMessage(request);
   }, [data, config, enabled]);
 
-  // Auto-run on data change
+  // Debounced analysis trigger
+  const runAnalysis = useCallback(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(runAnalysisImmediate, debounceMs);
+  }, [runAnalysisImmediate, debounceMs]);
+
+  // Auto-run on data change (debounced)
   useEffect(() => {
     if (enabled && data.length >= 30) {
       runAnalysis();
     }
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
   }, [data, enabled, runAnalysis]);
 
   return {
     analysis,
     isLoading,
     error,
-    refresh: runAnalysis,
+    refresh: runAnalysisImmediate, // Manual refresh bypasses debounce
   };
 };

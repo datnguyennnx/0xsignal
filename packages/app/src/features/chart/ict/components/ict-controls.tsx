@@ -1,7 +1,7 @@
 // ICT Controls Panel
 // Toggle controls for ICT visualization features
 
-import { memo, useCallback } from "react";
+import { memo } from "react";
 import { X, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -112,7 +112,7 @@ export const ICTControls = memo(function ICTControls({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+    <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-lg shadow-lg z-99999 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <span className="text-sm font-medium">ICT Analysis</span>
         <Button variant="ghost" size="icon-sm" onClick={onClose}>
