@@ -1,7 +1,3 @@
-/**
- * Regime Badge - Pure component using shadcn Badge
- */
-
 import { cn } from "@/core/utils/cn";
 import { Badge } from "@/components/ui/badge";
 
@@ -10,7 +6,7 @@ interface RegimeBadgeProps {
   className?: string;
 }
 
-const regimeStyles: Record<string, string> = {
+const REGIME_STYLES: Record<string, string> = {
   BULL_MARKET: "bg-gain/10 text-gain border-gain/30",
   BEAR_MARKET: "bg-loss/10 text-loss border-loss/30",
   SIDEWAYS: "bg-muted text-muted-foreground border-border",
@@ -21,8 +17,7 @@ const regimeStyles: Record<string, string> = {
 };
 
 export function RegimeBadge({ regime, className }: RegimeBadgeProps) {
-  const style = regimeStyles[regime] || regimeStyles.SIDEWAYS;
-
+  const style = REGIME_STYLES[regime] || REGIME_STYLES.SIDEWAYS;
   return (
     <Badge variant="outline" className={cn("text-[10px]", style, className)}>
       {regime.replace(/_/g, " ")}

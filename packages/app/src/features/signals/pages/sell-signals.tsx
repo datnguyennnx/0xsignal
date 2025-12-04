@@ -1,15 +1,13 @@
-/**
- * Sell Signals Page - Card-based layout
- */
-
 import { cachedTopAnalysis } from "@/core/cache/effect-cache";
 import { useEffectQuery } from "@/core/runtime/use-effect-query";
 import { getSellSignals } from "@/core/utils/effect-memoization";
 import { QueryLoading, QueryError, QueryEmpty } from "@/components/query-state";
 import { SignalTable } from "../components/signal-table";
 
+const fetchTopAnalysis = () => cachedTopAnalysis(100);
+
 export function AllSellSignals() {
-  const { data, isLoading, isError } = useEffectQuery(() => cachedTopAnalysis(100), []);
+  const { data, isLoading, isError } = useEffectQuery(fetchTopAnalysis, []);
 
   if (isLoading)
     return <QueryLoading message="Loading sell signals" context="Analyzing bearish setups" />;

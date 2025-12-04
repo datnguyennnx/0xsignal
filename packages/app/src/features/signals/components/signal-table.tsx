@@ -1,15 +1,9 @@
-/**
- * Signal Table - Card-based vertical layout
- * Better UX with stacked information instead of horizontal columns
- */
-
 import { useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@0xsignal/shared";
 import { formatPrice, formatCurrency, formatPercentChange } from "@/core/utils/formatters";
 import { cn } from "@/core/utils/cn";
 import { CryptoIcon } from "@/components/crypto-icon";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 type SignalType = "buy" | "sell" | "hold";
 
@@ -18,15 +12,21 @@ interface SignalTableProps {
   type: SignalType;
 }
 
-const strongSignalMap: Record<SignalType, string> = {
+const STRONG_SIGNAL_MAP: Record<SignalType, string> = {
   buy: "STRONG_BUY",
   sell: "STRONG_SELL",
   hold: "",
 };
 
+const EMPTY_MESSAGES: Record<SignalType, string> = {
+  buy: "No bullish setups detected",
+  sell: "No bearish setups detected",
+  hold: "No neutral positions",
+};
+
 function SignalItem({ signal, type }: { signal: AssetAnalysis; type: SignalType }) {
   const navigate = useNavigate();
-  const isStrong = signal.overallSignal === strongSignalMap[type];
+  const isStrong = signal.overallSignal === STRONG_SIGNAL_MAP[type];
   const price = signal.price?.price || 0;
   const change24h = signal.price?.change24h || 0;
   const confidence = signal.confidence || 0;
@@ -44,7 +44,6 @@ function SignalItem({ signal, type }: { signal: AssetAnalysis; type: SignalType 
     >
       <CardContent className="p-3.5 sm:p-3">
         <div className="flex items-center justify-between">
-          {/* Left: Symbol & Context */}
           <div className="flex items-center gap-3">
             <CryptoIcon
               symbol={signal.symbol}
@@ -63,8 +62,6 @@ function SignalItem({ signal, type }: { signal: AssetAnalysis; type: SignalType 
                   </span>
                 )}
               </div>
-
-              {/* Mobile: Show simplified context | Desktop: Full metrics */}
               <div className="flex items-center gap-2.5 sm:gap-3 mt-1.5 sm:mt-1 text-[11px] sm:text-[10px] text-muted-foreground tabular-nums">
                 <span className="sm:hidden">{confidence}%</span>
                 <span className="hidden sm:inline" title="Confidence">
@@ -74,17 +71,14 @@ function SignalItem({ signal, type }: { signal: AssetAnalysis; type: SignalType 
               </div>
             </div>
           </div>
-
           <div className="text-right">
             <div className="text-sm font-medium tabular-nums tracking-tight leading-none mb-1.5 sm:mb-1">
               ${formatPrice(price)}
             </div>
             <div className="flex items-center justify-end gap-3 text-[11px] tabular-nums">
-              {/* Desktop+: Show Volume */}
               <span className="hidden xl:block text-muted-foreground">
                 Vol {formatCurrency(volume)}
               </span>
-
               <span className={cn("font-medium", change24h > 0 ? "text-gain" : "text-loss")}>
                 {change24h > 0 ? "+" : ""}
                 {formatPercentChange(change24h)}
@@ -102,11 +96,7 @@ export function SignalTable({ signals, type }: SignalTableProps) {
     return (
       <Card className="py-0 shadow-none">
         <CardContent className="p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            {type === "buy" && "No bullish setups detected"}
-            {type === "sell" && "No bearish setups detected"}
-            {type === "hold" && "No neutral positions"}
-          </p>
+          <p className="text-sm text-muted-foreground">{EMPTY_MESSAGES[type]}</p>
           <p className="text-xs text-muted-foreground mt-1">Market conditions may have changed</p>
         </CardContent>
       </Card>

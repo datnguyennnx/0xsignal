@@ -1,6 +1,3 @@
-// ICT Legend - Shows active ICT elements with tooltips
-// Displays on chart for quick reference
-
 import { memo, useMemo } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/core/utils/cn";
@@ -21,6 +18,11 @@ interface LegendItem {
   tooltip: string;
 }
 
+const getTrendColor = (trend: string) =>
+  trend === "bullish" ? "text-gain" : trend === "bearish" ? "text-loss" : "text-muted-foreground";
+const getTrendArrow = (trend: string) =>
+  trend === "bullish" ? "↑" : trend === "bearish" ? "↓" : "—";
+
 export const ICTLegend = memo(function ICTLegend({
   analysis,
   visibility,
@@ -28,24 +30,17 @@ export const ICTLegend = memo(function ICTLegend({
 }: ICTLegendProps) {
   const items = useMemo((): LegendItem[] => {
     if (!analysis) return [];
-
     const result: LegendItem[] = [];
 
     if (visibility.marketStructure && analysis.marketStructure.events.length > 0) {
       const bosCount = analysis.marketStructure.events.filter((e) => e.type === "BOS").length;
       const chochCount = analysis.marketStructure.events.filter((e) => e.type === "ChoCH").length;
       const trend = analysis.marketStructure.currentTrend;
-
       result.push({
         label: "Market Structure",
-        shortLabel: `MS ${trend === "bullish" ? "↑" : trend === "bearish" ? "↓" : "—"}`,
+        shortLabel: `MS ${getTrendArrow(trend)}`,
         count: analysis.marketStructure.swings.length,
-        color:
-          trend === "bullish"
-            ? "text-gain"
-            : trend === "bearish"
-              ? "text-loss"
-              : "text-muted-foreground",
+        color: getTrendColor(trend),
         tooltip: `${analysis.marketStructure.swings.length} swings, ${bosCount} BOS, ${chochCount} ChoCH | Trend: ${trend}`,
       });
     }
@@ -54,7 +49,6 @@ export const ICTLegend = memo(function ICTLegend({
       const unfilled = analysis.fvgs.filter((f) => !f.filled);
       const bullish = unfilled.filter((f) => f.type === "bullish").length;
       const bearish = unfilled.filter((f) => f.type === "bearish").length;
-
       result.push({
         label: "Fair Value Gaps",
         shortLabel: `FVG ${unfilled.length}`,
@@ -68,7 +62,6 @@ export const ICTLegend = memo(function ICTLegend({
       const active = analysis.orderBlocks.filter((ob) => !ob.mitigated);
       const bullish = active.filter((ob) => ob.type === "bullish").length;
       const bearish = active.filter((ob) => ob.type === "bearish").length;
-
       result.push({
         label: "Order Blocks",
         shortLabel: `OB ${active.length}`,
@@ -87,7 +80,6 @@ export const ICTLegend = memo(function ICTLegend({
       const unswept = analysis.liquidityZones.filter((z) => !z.swept);
       const bsl = unswept.filter((z) => z.type === "BSL").length;
       const ssl = unswept.filter((z) => z.type === "SSL").length;
-
       result.push({
         label: "Liquidity",
         shortLabel: `LIQ ${unswept.length}`,
@@ -99,7 +91,6 @@ export const ICTLegend = memo(function ICTLegend({
 
     if (visibility.ote && analysis.oteZones.length > 0) {
       const latest = analysis.oteZones[analysis.oteZones.length - 1];
-
       result.push({
         label: "OTE Zone",
         shortLabel: `OTE ${latest.direction === "bullish" ? "↑" : "↓"}`,

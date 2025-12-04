@@ -1,13 +1,8 @@
-/**
- * Market Dashboard - Minimalist quant-focused design
- * High signal density, reduced cognitive load
- */
-
 import type { AssetAnalysis, GlobalMarketData } from "@0xsignal/shared";
 import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { cachedTopAnalysis, cachedGlobalMarket } from "@/core/cache/effect-cache";
-import { useEffectQuery, useConcurrentQueries } from "@/core/runtime/use-effect-query";
+import { cachedDashboardData } from "@/core/cache/effect-cache";
+import { useResilientQuery } from "@/core/runtime/use-effect-query";
 import { SignalCard } from "@/features/dashboard/components/signal-card";
 import { TradeSetupCard } from "@/features/dashboard/components/trade-setup-card";
 import { useMemoizedAllSignals } from "@/features/dashboard/hooks/use-memoized-calc";
@@ -242,14 +237,14 @@ function DashboardSkeleton() {
   );
 }
 
+// Hoisted effect factory - stable reference using batch query
+const fetchDashboardData = () => cachedDashboardData(100);
+
 export function MarketDashboard() {
-  const { data, isLoading, isError, error } = useConcurrentQueries(
-    {
-      analyses: () => cachedTopAnalysis(100),
-      globalMarket: () => cachedGlobalMarket(),
-    },
-    []
-  );
+  const { data, isLoading, isError, error } = useResilientQuery(fetchDashboardData, [], {
+    timeoutMs: 20000,
+    retries: 2,
+  });
 
   if (isLoading) {
     return <DashboardSkeleton />;

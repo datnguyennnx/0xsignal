@@ -1,9 +1,4 @@
-// ICT (Inner Circle Trader) Type Definitions
-// Pure data structures for ICT concepts
-
 import type { Time } from "lightweight-charts";
-
-// ===== SWING & MARKET STRUCTURE =====
 
 export type SwingType = "HH" | "HL" | "LH" | "LL";
 export type TrendDirection = "bullish" | "bearish" | "neutral";
@@ -30,23 +25,19 @@ export interface MarketStructure {
   readonly currentTrend: TrendDirection;
 }
 
-// ===== FAIR VALUE GAP (FVG) =====
-
 export type FVGType = "bullish" | "bearish";
 
 export interface FairValueGap {
   readonly startTime: Time;
   readonly endTime: Time;
   readonly type: FVGType;
-  readonly high: number; // Upper boundary
-  readonly low: number; // Lower boundary
+  readonly high: number;
+  readonly low: number;
   readonly midpoint: number;
   readonly filled: boolean;
   readonly fillPercent: number;
   readonly index: number;
 }
-
-// ===== ORDER BLOCK (OB) =====
 
 export type OrderBlockType = "bullish" | "bearish";
 
@@ -59,9 +50,7 @@ export interface OrderBlock {
   readonly index: number;
 }
 
-// ===== LIQUIDITY ZONES =====
-
-export type LiquidityType = "BSL" | "SSL"; // Buy-Side / Sell-Side Liquidity
+export type LiquidityType = "BSL" | "SSL";
 
 export interface LiquidityZone {
   readonly type: LiquidityType;
@@ -72,8 +61,6 @@ export interface LiquidityZone {
   readonly sweepTime?: Time;
   readonly touchCount: number;
 }
-
-// ===== OPTIMAL TRADE ENTRY (OTE) =====
 
 export interface OTEZone {
   readonly startTime: Time;
@@ -88,20 +75,16 @@ export interface OTEZone {
     readonly "0.786": number;
     readonly "1": number;
   };
-  readonly goldenPocketHigh: number; // 0.618
-  readonly goldenPocketLow: number; // 0.786
+  readonly goldenPocketHigh: number;
+  readonly goldenPocketLow: number;
 }
-
-// ===== DISPLACEMENT =====
 
 export interface Displacement {
   readonly time: Time;
   readonly direction: TrendDirection;
-  readonly magnitude: number; // ATR multiple
+  readonly magnitude: number;
   readonly index: number;
 }
-
-// ===== ICT ANALYSIS RESULT =====
 
 export interface ICTAnalysis {
   readonly marketStructure: MarketStructure;
@@ -112,8 +95,6 @@ export interface ICTAnalysis {
   readonly displacements: Displacement[];
 }
 
-// ===== ICT CONFIG =====
-
 export interface ICTConfig {
   readonly showMarketStructure: boolean;
   readonly showFVG: boolean;
@@ -121,12 +102,11 @@ export interface ICTConfig {
   readonly showLiquidity: boolean;
   readonly showOTE: boolean;
   readonly showDisplacement: boolean;
-  // Detection parameters
-  readonly swingThreshold: number; // Percentage for swing detection
-  readonly fvgMinSize: number; // Minimum FVG size as % of price
-  readonly obLookback: number; // Candles to look back for OB
-  readonly liquidityTolerance: number; // % tolerance for equal highs/lows
-  readonly displacementMultiple: number; // ATR multiple for displacement
+  readonly swingThreshold: number;
+  readonly fvgMinSize: number;
+  readonly obLookback: number;
+  readonly liquidityTolerance: number;
+  readonly displacementMultiple: number;
 }
 
 export const DEFAULT_ICT_CONFIG: ICTConfig = {
@@ -142,8 +122,6 @@ export const DEFAULT_ICT_CONFIG: ICTConfig = {
   liquidityTolerance: 0.1,
   displacementMultiple: 1.5,
 };
-
-// ===== ICT VISIBILITY STATE =====
 
 export type ICTFeature =
   | "marketStructure"
@@ -162,7 +140,6 @@ export interface ICTVisibility {
   readonly displacement: boolean;
 }
 
-// Default: All features OFF - user must explicitly enable
 export const DEFAULT_ICT_VISIBILITY: ICTVisibility = {
   marketStructure: false,
   fvg: false,

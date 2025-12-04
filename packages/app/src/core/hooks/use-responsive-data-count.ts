@@ -1,26 +1,24 @@
 import { useState, useEffect } from "react";
 
+const BREAKPOINTS = { SM: 640, MD: 1024, LG: 1280, XL: 1536, XXL: 1920 } as const;
+
 interface ResponsiveDataConfig {
-  mobile: number; // < 640px
-  tablet: number; // 640-1024px
-  desktop: number; // 1024-1280px
-  desktopWide?: number; // 1280-1536px (Optional, defaults to desktop)
-  desktop2xl?: number; // 1536-1920px (Optional, defaults to desktopWide or desktop)
-  desktop4k: number; // >= 1920px
+  mobile: number;
+  tablet: number;
+  desktop: number;
+  desktopWide?: number;
+  desktop2xl?: number;
+  desktop4k: number;
 }
 
-/**
- * Hook to determine how many data items to display based on screen size.
- * Larger screens = more data density.
- */
 export function useResponsiveDataCount(config: ResponsiveDataConfig): number {
   const getDataCount = () => {
     const width = window.innerWidth;
-    if (width < 640) return config.mobile;
-    if (width < 1024) return config.tablet;
-    if (width < 1280) return config.desktop;
-    if (width < 1536) return config.desktopWide ?? config.desktop;
-    if (width < 1920) return config.desktop2xl ?? config.desktopWide ?? config.desktop;
+    if (width < BREAKPOINTS.SM) return config.mobile;
+    if (width < BREAKPOINTS.MD) return config.tablet;
+    if (width < BREAKPOINTS.LG) return config.desktop;
+    if (width < BREAKPOINTS.XL) return config.desktopWide ?? config.desktop;
+    if (width < BREAKPOINTS.XXL) return config.desktop2xl ?? config.desktopWide ?? config.desktop;
     return config.desktop4k;
   };
 

@@ -1,8 +1,3 @@
-/**
- * Revenue Chart - memo kept for chart library integration
- * Uses Card component for empty state
- */
-
 import { memo, useMemo } from "react";
 import { Area, AreaChart, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { DailyRevenuePoint } from "@0xsignal/shared";
@@ -29,8 +24,9 @@ function CustomTooltip({
   );
 }
 
+const MIN_DATA_POINTS = 2;
+
 export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartProps) {
-  // useMemo kept - data transformation
   const chartData = useMemo(() => {
     return data.map((d) => {
       const date = new Date(d.date * 1000);
@@ -42,7 +38,6 @@ export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartPro
     });
   }, [data]);
 
-  // useMemo kept - stats calculation
   const stats = useMemo(() => {
     if (data.length === 0) return { max: 0, avg: 0 };
     const values = data.map((d) => d.revenue);
@@ -51,13 +46,13 @@ export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartPro
     return { max, avg: total / values.length };
   }, [data]);
 
-  if (data.length < 2) {
+  if (data.length < MIN_DATA_POINTS) {
     return (
       <div className="h-48 flex items-center justify-center">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">Insufficient revenue history</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Need at least 2 data points to display chart
+            Need at least {MIN_DATA_POINTS} data points to display chart
           </p>
         </div>
       </div>
@@ -88,7 +83,6 @@ export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartPro
           </span>
         </div>
       </div>
-
       <div className="h-56 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>

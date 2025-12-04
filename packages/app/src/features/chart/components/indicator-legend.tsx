@@ -1,10 +1,6 @@
-// Indicator Legend - Shows active indicators with colors
-// Displays on chart for quick reference
-
 import { memo } from "react";
 import { X, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/core/utils/cn";
-import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { ActiveIndicator } from "@0xsignal/shared";
 
@@ -30,8 +26,7 @@ export const IndicatorLegend = memo(function IndicatorLegend({
           <TooltipTrigger asChild>
             <div
               className={cn(
-                "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium",
-                "bg-background/80 backdrop-blur-sm border border-border/50",
+                "flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-background/80 backdrop-blur-sm border border-border/50",
                 !ind.visible && "opacity-50"
               )}
             >

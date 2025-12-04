@@ -3,12 +3,8 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-// React Compiler config for React 19.2
-const ReactCompilerConfig = {
-  target: "19", // React 19.2 target
-};
+const ReactCompilerConfig = { target: "19" };
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react({
@@ -19,18 +15,12 @@ export default defineConfig({
     tailwindcss(),
   ],
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-    // Dedupe to prevent multiple instances
+    alias: { "@": path.resolve(__dirname, "./src") },
     dedupe: ["react", "react-dom", "effect"],
   },
   server: {
     proxy: {
-      "/api": {
-        target: "http://localhost:9006",
-        changeOrigin: true,
-      },
+      "/api": { target: "http://localhost:9006", changeOrigin: true },
     },
     warmup: {
       clientFiles: [
@@ -46,12 +36,24 @@ export default defineConfig({
     minify: "esbuild",
     cssMinify: "lightningcss",
     sourcemap: false,
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
         chunkFileNames: "assets/[name]-[hash].js",
         entryFileNames: "assets/[name]-[hash].js",
         assetFileNames: "assets/[name]-[hash].[ext]",
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "effect-vendor": ["effect"],
+          "chart-vendor": ["echarts", "echarts-for-react"],
+          "ui-vendor": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-tooltip",
+            "@radix-ui/react-slot",
+          ],
+        },
       },
     },
   },
@@ -62,12 +64,17 @@ export default defineConfig({
       "react/jsx-dev-runtime",
       "react-dom",
       "react-router-dom",
-      // Pre-bundle Effect-TS core for faster dev startup
       "effect",
       "effect/Effect",
       "effect/Layer",
       "effect/Cache",
       "effect/Duration",
+      "effect/Runtime",
+      "effect/Fiber",
+      "effect/Exit",
+      "effect/Schedule",
+      "effect/Option",
+      "effect/ManagedRuntime",
       "@effect/platform",
       "@effect/schema",
     ],
@@ -78,7 +85,7 @@ export default defineConfig({
     minifyIdentifiers: true,
     minifySyntax: true,
     minifyWhitespace: true,
-    // Preserve Effect-TS generator functions
     keepNames: true,
+    treeShaking: true,
   },
 });

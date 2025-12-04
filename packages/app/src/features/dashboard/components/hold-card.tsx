@@ -1,8 +1,3 @@
-/**
- * Hold Card - Compact chip-style display
- * Uses shadcn Button for consistent interaction
- */
-
 import { useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";

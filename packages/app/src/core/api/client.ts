@@ -19,35 +19,23 @@ import { ApiError, NetworkError } from "./errors";
 
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost:9006/api";
 
-// Re-export for convenience
 export type { ChartDataPoint };
 
 export interface ApiService {
-  // Health
   readonly health: () => Effect.Effect<unknown, ApiError | NetworkError>;
-
-  // Global Market
   readonly getGlobalMarket: () => Effect.Effect<GlobalMarketData, ApiError | NetworkError>;
-
-  // Analysis
   readonly getTopAnalysis: (
     limit?: number
   ) => Effect.Effect<AssetAnalysis[], ApiError | NetworkError>;
   readonly getAnalysis: (symbol: string) => Effect.Effect<AssetAnalysis, ApiError | NetworkError>;
   readonly getOverview: () => Effect.Effect<MarketOverview, ApiError | NetworkError>;
   readonly getSignals: () => Effect.Effect<AssetAnalysis[], ApiError | NetworkError>;
-
-  // Chart
   readonly getChartData: (
     symbol: string,
     interval: string,
     timeframe: string
   ) => Effect.Effect<ChartDataPoint[], ApiError | NetworkError>;
-
-  // Heatmap
   readonly getHeatmap: (limit?: number) => Effect.Effect<MarketHeatmap, ApiError | NetworkError>;
-
-  // Liquidations
   readonly getLiquidationSummary: () => Effect.Effect<
     MarketLiquidationSummary,
     ApiError | NetworkError
@@ -59,8 +47,6 @@ export interface ApiService {
   readonly getLiquidationHeatmap: (
     symbol: string
   ) => Effect.Effect<LiquidationHeatmap, ApiError | NetworkError>;
-
-  // Derivatives
   readonly getTopOpenInterest: (
     limit?: number
   ) => Effect.Effect<OpenInterestData[], ApiError | NetworkError>;
@@ -70,8 +56,6 @@ export interface ApiService {
   readonly getFundingRate: (
     symbol: string
   ) => Effect.Effect<FundingRateData, ApiError | NetworkError>;
-
-  // Buyback
   readonly getBuybackSignals: (
     limit?: number
   ) => Effect.Effect<BuybackSignal[], ApiError | NetworkError>;
@@ -85,55 +69,42 @@ export interface ApiService {
 }
 
 export class ApiServiceTag extends Context.Tag("ApiService")<ApiServiceTag, ApiService>() {}
-
-// Keep backward compatibility
 export const ApiService = ApiServiceTag;
 
-// URL-based request deduplication Set for in-flight requests
-// This prevents duplicate concurrent requests to the same endpoint
-type InFlightEntry = {
-  promise: Promise<unknown>;
-  timestamp: number;
-};
-
+type InFlightEntry = { promise: Promise<unknown>; timestamp: number };
 const inFlightRequests = new Map<string, InFlightEntry>();
 const urlSet = new Set<string>();
 
-// Clean up stale entries (older than 30 seconds)
+const STALE_THRESHOLD_MS = 30000;
+const CLEANUP_INTERVAL_MS = 10000;
+
 const cleanupStaleEntries = () => {
   const now = Date.now();
   for (const [key, entry] of inFlightRequests.entries()) {
-    if (now - entry.timestamp > 30000) {
+    if (now - entry.timestamp > STALE_THRESHOLD_MS) {
       inFlightRequests.delete(key);
       urlSet.delete(key);
     }
   }
 };
 
-// Run cleanup every 10 seconds
 if (typeof window !== "undefined") {
-  setInterval(cleanupStaleEntries, 10000);
+  setInterval(cleanupStaleEntries, CLEANUP_INTERVAL_MS);
 }
 
-// Core fetch function with deduplication
 const fetchWithDedup = async <T>(url: string, options?: RequestInit): Promise<T> => {
   const cacheKey = `${options?.method || "GET"}:${url}`;
 
-  // Check if request is already in-flight using urlSet
   if (urlSet.has(cacheKey)) {
     const existing = inFlightRequests.get(cacheKey);
-    if (existing) {
-      return existing.promise as Promise<T>;
-    }
+    if (existing) return existing.promise as Promise<T>;
   }
 
-  // Mark URL as in-flight
   urlSet.add(cacheKey);
 
   const fetchPromise = (async () => {
     try {
       const response = await fetch(url, options);
-
       if (!response.ok) {
         throw new ApiError({
           message: `API request failed: ${response.statusText}`,
@@ -141,24 +112,17 @@ const fetchWithDedup = async <T>(url: string, options?: RequestInit): Promise<T>
           statusText: response.statusText,
         });
       }
-
       return (await response.json()) as T;
     } finally {
-      // Clean up after request completes
       urlSet.delete(cacheKey);
       inFlightRequests.delete(cacheKey);
     }
   })();
 
-  inFlightRequests.set(cacheKey, {
-    promise: fetchPromise,
-    timestamp: Date.now(),
-  });
-
+  inFlightRequests.set(cacheKey, { promise: fetchPromise, timestamp: Date.now() });
   return fetchPromise;
 };
 
-// Deduplicated fetch wrapped in Effect
 const fetchJsonDeduped = <T>(
   url: string,
   options?: RequestInit
@@ -173,7 +137,6 @@ const fetchJsonDeduped = <T>(
     },
   });
 
-// Simple fetch without deduplication (for mutations)
 const fetchJson = <T>(
   url: string,
   options?: RequestInit
@@ -204,62 +167,36 @@ const fetchJson = <T>(
   });
 
 export const ApiServiceLive = Layer.succeed(ApiServiceTag, {
-  // Health - no dedup needed
   health: () => fetchJson(`${API_BASE}/health`),
-
-  // Global Market
   getGlobalMarket: () => fetchJsonDeduped<GlobalMarketData>(`${API_BASE}/global`),
-
-  // Analysis - use deduped fetch for read operations
   getTopAnalysis: (limit = 20) =>
     fetchJsonDeduped<AssetAnalysis[]>(`${API_BASE}/analysis/top?limit=${limit}`),
-
-  getAnalysis: (symbol: string) =>
-    fetchJsonDeduped<AssetAnalysis>(`${API_BASE}/analysis/${symbol}`),
-
+  getAnalysis: (symbol) => fetchJsonDeduped<AssetAnalysis>(`${API_BASE}/analysis/${symbol}`),
   getOverview: () => fetchJsonDeduped<MarketOverview>(`${API_BASE}/overview`),
-
   getSignals: () => fetchJsonDeduped<AssetAnalysis[]>(`${API_BASE}/signals`),
-
-  // Chart
-  getChartData: (symbol: string, interval: string, timeframe: string) =>
+  getChartData: (symbol, interval, timeframe) =>
     fetchJsonDeduped<ChartDataPoint[]>(
       `${API_BASE}/chart?symbol=${symbol}&interval=${interval}&timeframe=${timeframe}`
     ),
-
-  // Heatmap
   getHeatmap: (limit = 100) =>
     fetchJsonDeduped<MarketHeatmap>(`${API_BASE}/heatmap?limit=${limit}`),
-
-  // Liquidations
   getLiquidationSummary: () =>
     fetchJsonDeduped<MarketLiquidationSummary>(`${API_BASE}/liquidations/summary`),
-
-  getLiquidations: (symbol: string, timeframe: LiquidationTimeframe = "24h") =>
+  getLiquidations: (symbol, timeframe: LiquidationTimeframe = "24h") =>
     fetchJsonDeduped<LiquidationData>(`${API_BASE}/liquidations/${symbol}?timeframe=${timeframe}`),
-
-  getLiquidationHeatmap: (symbol: string) =>
+  getLiquidationHeatmap: (symbol) =>
     fetchJsonDeduped<LiquidationHeatmap>(`${API_BASE}/liquidations/${symbol}/heatmap`),
-
-  // Derivatives
   getTopOpenInterest: (limit = 20) =>
     fetchJsonDeduped<OpenInterestData[]>(`${API_BASE}/derivatives/open-interest?limit=${limit}`),
-
-  getOpenInterest: (symbol: string) =>
+  getOpenInterest: (symbol) =>
     fetchJsonDeduped<OpenInterestData>(`${API_BASE}/derivatives/${symbol}/open-interest`),
-
-  getFundingRate: (symbol: string) =>
+  getFundingRate: (symbol) =>
     fetchJsonDeduped<FundingRateData>(`${API_BASE}/derivatives/${symbol}/funding-rate`),
-
-  // Buyback
   getBuybackSignals: (limit = 50) =>
     fetchJsonDeduped<BuybackSignal[]>(`${API_BASE}/buyback/signals?limit=${limit}`),
-
   getBuybackOverview: () => fetchJsonDeduped<BuybackOverview>(`${API_BASE}/buyback/overview`),
-
-  getProtocolBuyback: (protocol: string) =>
+  getProtocolBuyback: (protocol) =>
     fetchJsonDeduped<BuybackSignal>(`${API_BASE}/buyback/${protocol}`),
-
-  getProtocolBuybackDetail: (protocol: string) =>
+  getProtocolBuybackDetail: (protocol) =>
     fetchJsonDeduped<ProtocolBuybackDetail>(`${API_BASE}/buyback/${protocol}/detail`),
 });

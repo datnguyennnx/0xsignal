@@ -8,33 +8,31 @@ interface UnifiedSignalCardProps {
   className?: string;
 }
 
+const formatCurrency = (value: number): string =>
+  new Intl.NumberFormat("en-US", {
+    style: "decimal",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
+const calculatePct = (start: number, end: number) => {
+  if (!start || start === 0) return 0;
+  return ((end - start) / start) * 100;
+};
+
+const getSignalColor = (signal: string) =>
+  signal.includes("BUY") ? "text-gain" : signal.includes("SELL") ? "text-loss" : "text-foreground";
+
 export function UnifiedSignalCard({ analysis, className }: UnifiedSignalCardProps) {
   const { overallSignal, confidence, riskScore, entrySignal, strategyResult } = analysis;
   const { entryPrice, targetPrice, stopLoss, direction, riskRewardRatio } = entrySignal;
-
-  // Derived State
   const hasDirection = direction !== "NEUTRAL";
-
-  // Semantic Logic
-  const signalColor = overallSignal.includes("BUY")
-    ? "text-gain"
-    : overallSignal.includes("SELL")
-      ? "text-loss"
-      : "text-foreground";
-
-  // Percentage Calculations
-  const calculatePct = (start: number, end: number) => {
-    if (!start || start === 0) return 0;
-    return ((end - start) / start) * 100;
-  };
-
   const targetPct = hasDirection ? Math.abs(calculatePct(entryPrice, targetPrice)) : 0;
   const stopPct = hasDirection ? Math.abs(calculatePct(entryPrice, stopLoss)) : 0;
 
   return (
     <Card className={cn("w-full bg-card border-border/40 shadow-none p-5", className)}>
       <div className="flex flex-col space-y-6">
-        {/* SECTION 1: Context & Headline */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
@@ -42,9 +40,13 @@ export function UnifiedSignalCard({ analysis, className }: UnifiedSignalCardProp
             </span>
             <span className="text-[10px] font-mono text-muted-foreground">CONF {confidence}%</span>
           </div>
-
           <div className="flex items-baseline gap-3">
-            <h2 className={cn("text-xl font-bold tracking-tight leading-none", signalColor)}>
+            <h2
+              className={cn(
+                "text-xl font-bold tracking-tight leading-none",
+                getSignalColor(overallSignal)
+              )}
+            >
               {overallSignal.replace(/_/g, " ")}
             </h2>
             <Badge
@@ -56,7 +58,6 @@ export function UnifiedSignalCard({ analysis, className }: UnifiedSignalCardProp
           </div>
         </div>
 
-        {/* SECTION 2: The 'Lead' - Entry Price */}
         <div>
           <div className="flex items-baseline gap-2">
             <span className="text-4xl font-mono font-medium tracking-tighter text-foreground tabular-nums">
@@ -69,8 +70,6 @@ export function UnifiedSignalCard({ analysis, className }: UnifiedSignalCardProp
           </p>
         </div>
 
-        {/* SECTION 3: The 'Ticker' - Responsive Layout */}
-        {/* Mobile/Tablet: 3-Column Grid | Desktop: Vertical List */}
         {hasDirection && (
           <div className="grid grid-cols-3 gap-4 pt-2 lg:flex lg:flex-col lg:gap-0 lg:space-y-3 lg:pt-0">
             <TickerItem
@@ -98,8 +97,6 @@ export function UnifiedSignalCard({ analysis, className }: UnifiedSignalCardProp
   );
 }
 
-// --- Sub-components ---
-
 function TickerItem({
   label,
   value,
@@ -119,7 +116,6 @@ function TickerItem({
         : "text-muted-foreground";
 
   return (
-    // Mobile: Vertical Stack (Label Top) | Desktop: Horizontal Row (Label Left)
     <div className="flex flex-col space-y-0.5 lg:flex-row lg:justify-between lg:items-center lg:space-y-0 lg:border-b lg:border-border/40 lg:pb-2 lg:last:border-0 lg:last:pb-0">
       <span className="text-[9px] uppercase tracking-widest text-muted-foreground/70">{label}</span>
       <div className="flex flex-col lg:flex-row lg:items-baseline lg:gap-2">
@@ -134,14 +130,4 @@ function TickerItem({
       </div>
     </div>
   );
-}
-
-// --- Utilities ---
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "decimal",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
 }

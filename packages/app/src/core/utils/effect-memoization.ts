@@ -1,12 +1,8 @@
-// Pure functions for data transformations - React Compiler handles memoization
-
 import { Effect } from "effect";
 import type { AssetAnalysis, BuybackSignal } from "@0xsignal/shared";
 
-// Signal Types
 export type SignalType = "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
 
-// Signal Filtering
 export const filterBySignal = (
   analyses: readonly AssetAnalysis[],
   signalType: SignalType
@@ -44,7 +40,6 @@ export const categorizeSignals = (analyses: readonly AssetAnalysis[]) => {
   return { buySignals, sellSignals, holdSignals };
 };
 
-// Crash Detection Filtering
 export const getCrashWarnings = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
   analyses.filter((a) => a.crashSignal?.isCrashing);
 
@@ -53,17 +48,15 @@ export const getCrashBySeverity = (
   severity: "LOW" | "MEDIUM" | "HIGH" | "EXTREME"
 ): AssetAnalysis[] => analyses.filter((a) => a.crashSignal?.severity === severity);
 
-export const sortByCrashSeverity = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] => {
-  const severityOrder = { EXTREME: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-  return [...analyses].sort((a, b) => {
+const SEVERITY_ORDER = { EXTREME: 0, HIGH: 1, MEDIUM: 2, LOW: 3 } as const;
+
+export const sortByCrashSeverity = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
+  [...analyses].sort((a, b) => {
     const aSeverity = a.crashSignal?.severity || "LOW";
     const bSeverity = b.crashSignal?.severity || "LOW";
-    return severityOrder[aSeverity] - severityOrder[bSeverity];
+    return SEVERITY_ORDER[aSeverity] - SEVERITY_ORDER[bSeverity];
   });
-};
 
-// Entry Signal Filtering - Now supports both LONG and SHORT
-// Only show entries with meaningful confidence (>30%) to avoid false signals
 const MIN_ENTRY_CONFIDENCE = 30;
 
 export const getOptimalLongEntries = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
@@ -95,16 +88,15 @@ export const getEntriesByStrength = (
   strength: "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG"
 ): AssetAnalysis[] => analyses.filter((a) => a.entrySignal?.strength === strength);
 
-export const sortByEntryStrength = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] => {
-  const strengthOrder = { VERY_STRONG: 0, STRONG: 1, MODERATE: 2, WEAK: 3 };
-  return [...analyses].sort((a, b) => {
+const STRENGTH_ORDER = { VERY_STRONG: 0, STRONG: 1, MODERATE: 2, WEAK: 3 } as const;
+
+export const sortByEntryStrength = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
+  [...analyses].sort((a, b) => {
     const aStrength = a.entrySignal?.strength || "WEAK";
     const bStrength = b.entrySignal?.strength || "WEAK";
-    return strengthOrder[aStrength] - strengthOrder[bStrength];
+    return STRENGTH_ORDER[aStrength] - STRENGTH_ORDER[bStrength];
   });
-};
 
-// Combined categorization with crash and entry signals
 export const categorizeAllSignals = (analyses: readonly AssetAnalysis[]) => {
   const base = categorizeSignals(analyses);
   const crashWarnings = sortByCrashSeverity(getCrashWarnings(analyses));
@@ -113,7 +105,6 @@ export const categorizeAllSignals = (analyses: readonly AssetAnalysis[]) => {
   return { ...base, crashWarnings, longEntries, shortEntries };
 };
 
-// Sorting Functions
 export const sortByConfidence = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
   [...analyses].sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
 
@@ -126,7 +117,6 @@ export const sortByRisk = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] 
 export const sortByVolume = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
   [...analyses].sort((a, b) => (b.price?.volume24h || 0) - (a.price?.volume24h || 0));
 
-// Buyback Processing
 export const sortBuybackByYield = (signals: readonly BuybackSignal[]): BuybackSignal[] =>
   [...signals].sort((a, b) => (b.annualizedBuybackRate || 0) - (a.annualizedBuybackRate || 0));
 
@@ -147,7 +137,6 @@ export const groupBuybackByCategory = (
   return groups;
 };
 
-// Effect-based Memoization
 export const createMemoizedCategorizer = () =>
   Effect.cachedFunction((analyses: readonly AssetAnalysis[]) =>
     Effect.succeed(categorizeSignals(analyses))
@@ -170,7 +159,6 @@ export const createMemoizedSorter = () =>
     }
   });
 
-// Pagination
 export interface PaginationResult<T> {
   readonly items: T[];
   readonly totalItems: number;
@@ -199,7 +187,6 @@ export const paginate = <T>(
   };
 };
 
-// Search/Filter
 export const searchBySymbol = (
   analyses: readonly AssetAnalysis[],
   query: string
@@ -237,7 +224,6 @@ export const filterAnalyses = (
   return result;
 };
 
-// Statistics
 export interface MarketStats {
   readonly totalAssets: number;
   readonly avgConfidence: number;

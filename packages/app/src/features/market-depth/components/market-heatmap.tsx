@@ -1,17 +1,11 @@
-/**
- * Market Heatmap - lazy loaded ECharts for performance
- * Uses Card component for loading/empty states
- */
-
 import { useMemo, lazy, Suspense } from "react";
 import type { MarketHeatmap } from "@0xsignal/shared";
 import { Skeleton } from "@/components/ui/skeleton";
-
-// Lazy load ECharts (heavy library)
-const ReactECharts = lazy(() => import("echarts-for-react"));
 import { useTheme } from "@/core/providers/theme-provider";
 import { formatUSD, formatIntlCompact } from "@/core/utils/formatters";
 import { getChartColors, getHeatmapColor } from "@/core/utils/colors";
+
+const ReactECharts = lazy(() => import("echarts-for-react"));
 
 interface MarketHeatmapProps {
   data: MarketHeatmap;
@@ -22,10 +16,8 @@ export function MarketHeatmapComponent({ data, isLoading }: MarketHeatmapProps) 
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  // useMemo kept - expensive chart option computation
   const option = useMemo(() => {
     if (!data?.cells?.length) return {};
-
     const c = getChartColors(isDark);
 
     const formattedData = data.cells.map((cell) => ({
@@ -94,10 +86,8 @@ export function MarketHeatmapComponent({ data, isLoading }: MarketHeatmapProps) 
           bottom: 0,
           label: {
             show: true,
-            formatter: (params: any) => {
-              const change = params.data.custom.change24h;
-              return `${params.name}\n${change >= 0 ? "+" : ""}${change.toFixed(2)}%`;
-            },
+            formatter: (params: any) =>
+              `${params.name}\n${params.data.custom.change24h >= 0 ? "+" : ""}${params.data.custom.change24h.toFixed(2)}%`,
             fontSize: 13,
             fontWeight: "bold",
             color: isDark ? "#fafafa" : "#ffffff",

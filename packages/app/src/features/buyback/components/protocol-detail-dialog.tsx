@@ -1,8 +1,3 @@
-/**
- * Protocol Detail Dialog - memo kept for Dialog (prevents re-mount)
- * Uses Card components for consistent styling
- */
-
 import { memo } from "react";
 import type { BuybackSignal } from "@0xsignal/shared";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -165,7 +160,6 @@ function DetailContent({ protocol }: { protocol: string }) {
   );
 }
 
-// memo kept - Dialog should not re-mount on parent re-renders
 export const ProtocolDetailDialog = memo(function ProtocolDetailDialog({
   signal,
   open,

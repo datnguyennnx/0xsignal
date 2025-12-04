@@ -1,8 +1,3 @@
-/**
- * Buyback List - Card-based vertical layout
- * Better UX with stacked information instead of horizontal columns
- */
-
 import { useState, useMemo } from "react";
 import type { BuybackSignal, BuybackStrength } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
@@ -20,13 +15,20 @@ interface BuybackListProps {
 
 type SortKey = "annualizedBuybackRate" | "revenue24h" | "marketCap" | "revenueGrowth7d";
 
-const strengthStyles: Record<BuybackStrength, string> = {
+const STRENGTH_STYLES: Record<BuybackStrength, string> = {
   NONE: "text-muted-foreground",
   LOW: "text-muted-foreground",
   MODERATE: "text-foreground",
   HIGH: "text-gain",
   VERY_HIGH: "text-gain font-semibold",
 };
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "annualizedBuybackRate", label: "Yield" },
+  { key: "revenue24h", label: "Revenue" },
+  { key: "marketCap", label: "MCap" },
+  { key: "revenueGrowth7d", label: "Growth" },
+];
 
 function ProtocolCard({
   signal,
@@ -44,7 +46,6 @@ function ProtocolCard({
       onClick={() => onSelect?.(signal)}
     >
       <CardContent className="p-3">
-        {/* Row 1: Symbol + Category */}
         <div className="flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-2.5">
             <CryptoIcon
@@ -64,7 +65,7 @@ function ProtocolCard({
             <div
               className={cn(
                 "text-lg font-bold tabular-nums leading-none mb-0.5",
-                strengthStyles[signal.signal]
+                STRENGTH_STYLES[signal.signal]
               )}
             >
               {yieldRate.toFixed(1)}%
@@ -74,8 +75,6 @@ function ProtocolCard({
             </div>
           </div>
         </div>
-
-        {/* Row 2: Metrics */}
         <div className="flex items-center justify-between pt-2.5 border-t border-border/40 text-[11px]">
           <div className="flex items-center gap-3 text-muted-foreground">
             <div className="flex items-center gap-1">
@@ -116,7 +115,6 @@ export function BuybackList({ signals, onSelect }: BuybackListProps) {
     }
   };
 
-  // useMemo kept - sorting large arrays is expensive
   const sorted = useMemo(() => {
     return [...signals].sort((a, b) => {
       const aVal = a[sortKey] ?? 0;
@@ -127,15 +125,9 @@ export function BuybackList({ signals, onSelect }: BuybackListProps) {
 
   return (
     <div className="space-y-4">
-      {/* Sort controls */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-muted-foreground">Sort:</span>
-        {[
-          { key: "annualizedBuybackRate" as SortKey, label: "Yield" },
-          { key: "revenue24h" as SortKey, label: "Revenue" },
-          { key: "marketCap" as SortKey, label: "MCap" },
-          { key: "revenueGrowth7d" as SortKey, label: "Growth" },
-        ].map(({ key, label }) => (
+        {SORT_OPTIONS.map(({ key, label }) => (
           <Button
             key={key}
             variant={sortKey === key ? "secondary" : "ghost"}
@@ -149,8 +141,6 @@ export function BuybackList({ signals, onSelect }: BuybackListProps) {
           </Button>
         ))}
       </div>
-
-      {/* Protocol cards grid - More columns on larger screens */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-responsive">
         {sorted.map((signal) => (
           <ProtocolCard key={signal.protocol} signal={signal} onSelect={onSelect} />

@@ -1,9 +1,3 @@
-/**
- * Asset Detail Page - Minimalist quant-focused design
- * Single unified signal card, clean layout, high signal density
- * Optimized: TradingChart lazy-loaded for better initial load
- */
-
 import { useState, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@0xsignal/shared";
@@ -19,12 +13,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
 
-// Lazy load the heavy TradingChart component (793 lines, 27KB)
 const TradingChart = lazy(() =>
   import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart }))
 );
 
-// Skeleton fallback for lazy-loaded chart
 const ChartSkeleton = () => (
   <div className="h-full w-full flex items-center justify-center bg-card border border-border/50 rounded-lg">
     <Skeleton className="h-full w-full rounded-lg" />
@@ -60,13 +52,11 @@ function AssetContent({
 }: AssetContentProps) {
   const navigate = useNavigate();
   const chartSymbol = symbol.toUpperCase();
-
   const price = asset.price;
   const change24h = price?.change24h || 0;
 
   return (
     <div className="container-fluid h-full flex flex-col justify-center py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header */}
       <header className="flex items-center gap-3 mb-5 sm:mb-6 border-b border-border/40 pb-4">
         <Button
           variant="ghost"
@@ -77,7 +67,6 @@ function AssetContent({
         >
           <ChevronLeft className="w-5 h-5" />
         </Button>
-
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <CryptoIcon
             symbol={asset.symbol}
@@ -117,15 +106,10 @@ function AssetContent({
         </div>
       </header>
 
-      {/* Mobile: Signal first, Chart below */}
-      {/* Large Screen: Side-by-side - Chart 80%, Signal 20% */}
       <div className="flex-1 min-h-0 flex flex-col xl:grid xl:grid-cols-5 gap-4 xl:gap-5">
-        {/* Signal Card - First on mobile, right side on desktop */}
         <div className="xl:col-span-1 xl:order-2 xl:flex xl:items-start">
           <UnifiedSignalCard analysis={asset} className="w-full" />
         </div>
-
-        {/* Chart Area - Height scales with device resolution */}
         <div className="xl:col-span-4 xl:order-1 flex-1 min-h-[300px] sm:min-h-[350px] lg:min-h-[450px] xl:min-h-[500px] 2xl:min-h-[600px]">
           {chartData && chartData.length > 0 ? (
             <Suspense fallback={<ChartSkeleton />}>
@@ -151,7 +135,6 @@ function AssetContent({
   );
 }
 
-// Loading skeleton
 function AssetDetailSkeleton({ symbol }: { symbol?: string }) {
   return (
     <div className="container-fluid py-3 sm:py-6 space-y-5 sm:space-y-6">
@@ -174,22 +157,17 @@ export function AssetDetail() {
   const chartSymbol = symbol?.toUpperCase() || "";
   const timeframe = INTERVAL_TIMEFRAMES[interval] || "7d";
 
-  // Fetch asset data
   const {
     data: asset,
     isLoading: assetLoading,
     isError,
   } = useEffectQuery(() => fetchAssetData(symbol || ""), [symbol]);
-
-  // Fetch chart data in parallel
   const { data: chartData, isLoading: chartLoading } = useEffectQuery(
     () => cachedChartData(chartSymbol, interval, timeframe),
     [chartSymbol, interval, timeframe]
   );
 
-  if (assetLoading) {
-    return <AssetDetailSkeleton symbol={symbol} />;
-  }
+  if (assetLoading) return <AssetDetailSkeleton symbol={symbol} />;
 
   if (isError || !asset) {
     return (

@@ -1,10 +1,6 @@
-// Core Module Exports
-
-// API
 export { ApiServiceTag, ApiServiceLive, type ApiService } from "./api/client";
 export { ApiError, NetworkError } from "./api/errors";
 
-// Cache
 export {
   CacheServiceTag,
   CacheServiceLive,
@@ -18,49 +14,70 @@ export {
   cachedLiquidationHeatmap,
   cachedOpenInterest,
   cachedFundingRate,
+  cachedGlobalMarket,
+  cachedDashboardData,
+  cachedMarketDepthData,
+  cachedMultipleAnalyses,
   invalidateTopAnalysis,
   invalidateAnalysis,
   invalidateChartData,
   invalidateAll,
+  refreshAnalysis,
+  refreshTopAnalysis,
   getCacheStats,
 } from "./cache/effect-cache";
 
-// Runtime
 export {
   AppLayer,
   type AppContext,
   getAppRuntime,
+  disposeRuntime,
   runEffect,
   runEffectExit,
   forkEffect,
   runEffectWithTimeout,
   runConcurrent,
   runBatched,
+  runWithConcurrencyLimit,
+  runWithRetry,
+  runResilient,
   createFiberController,
+  type FiberController,
   createDeferred,
+  type DeferredEffect,
   createMemoizedEffect,
   createCachedEffect,
   createCachedEffectWithTTL,
 } from "./runtime/effect-runtime";
 
-// Hooks
 export {
   useEffectQuery,
+  useResilientQuery,
   useEffectInterval,
   useLazyEffectQuery,
   useConcurrentQueries,
+  useConcurrentQueriesResilient,
   useEffectExit,
   type QueryState,
   type LazyQueryResult,
+  type ResilientQueryOptions,
 } from "./runtime/use-effect-query";
 
-// Memoization
 export {
   filterBySignal,
   getBuySignals,
   getSellSignals,
   getHoldSignals,
   categorizeSignals,
+  categorizeAllSignals,
+  getCrashWarnings,
+  getCrashBySeverity,
+  sortByCrashSeverity,
+  getOptimalLongEntries,
+  getOptimalShortEntries,
+  getOptimalEntries,
+  getEntriesByStrength,
+  sortByEntryStrength,
   sortByConfidence,
   sortByChange24h,
   sortByRisk,
@@ -68,6 +85,8 @@ export {
   sortBuybackByYield,
   filterBuybackByMinYield,
   groupBuybackByCategory,
+  createMemoizedCategorizer,
+  createMemoizedSorter,
   paginate,
   searchBySymbol,
   filterAnalyses,
@@ -79,8 +98,8 @@ export {
   type MarketStats,
 } from "./utils/effect-memoization";
 
-// Utils
 export { cn } from "./utils/cn";
+
 export {
   formatPrice,
   formatVolume,
@@ -92,7 +111,6 @@ export {
   formatIntlCompact,
 } from "./utils/formatters";
 
-// Colors
 export {
   colors,
   getChartColors,

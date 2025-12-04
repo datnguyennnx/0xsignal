@@ -1,8 +1,3 @@
-/**
- * Main Layout - Mobile-first with bottom navigation
- * Clean monochrome design following minimalism philosophy
- */
-
 import { useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -17,12 +12,10 @@ interface LayoutProps {
   children: ReactNode;
 }
 
-// Navigation order: Signals → Buyback → Depth
-// Icons optimized for mobile recognition
 const NAV_ITEMS = [
-  { path: "/", label: "Signals", icon: TrendingUp }, // Market signals/trends
-  { path: "/buyback", label: "Buyback", icon: Coins }, // Protocol revenue/buybacks
-  { path: "/market-depth", label: "Depth", icon: Layers }, // Market depth/heatmaps
+  { path: "/", label: "Signals", icon: TrendingUp },
+  { path: "/buyback", label: "Buyback", icon: Coins },
+  { path: "/market-depth", label: "Depth", icon: Layers },
 ] as const;
 
 export function Layout({ children }: LayoutProps) {
@@ -34,15 +27,13 @@ export function Layout({ children }: LayoutProps) {
     try {
       await Effect.runPromise(invalidateAll().pipe(Effect.provide(AppLayer)));
       window.location.reload();
-    } catch (error) {
-      console.error("Failed to refresh cache:", error);
+    } catch {
       setIsRefreshing(false);
     }
   };
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      {/* Desktop Header - Clean, no borders on nav */}
       <header className="hidden sm:block shrink-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="container-fluid">
           <div className="flex items-center justify-between h-12">
@@ -84,7 +75,6 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      {/* Mobile Header - Enhanced touch target */}
       <header className="sm:hidden shrink-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="flex items-center justify-between h-12 px-4">
           <Link to="/" className="font-press-start tap-highlight">
@@ -106,12 +96,10 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      {/* Main Content - Scrollable Area */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 pb-16 sm:pb-0">
         {children}
       </main>
 
-      {/* Desktop Footer - Fixed at bottom */}
       <footer className="hidden sm:block shrink-0 border-t border-border/40 bg-background/80 backdrop-blur-md z-40">
         <div className="container-fluid py-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -121,7 +109,6 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </footer>
 
-      {/* Mobile Bottom Navigation - Enhanced touch targets */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border/40 safe-area-pb">
         <div className="flex items-center justify-around h-16">
           {NAV_ITEMS.map((item) => {

@@ -4,11 +4,18 @@ import { cn } from "@/core/utils/cn";
 import { CryptoIcon } from "@/components/crypto-icon";
 import { Card, CardContent } from "@/components/ui/card";
 import { MiniSparkline } from "@/features/dashboard/components/mini-sparkline";
-import { Badge } from "@/components/ui/badge";
 
 interface TradeSetupCardProps {
   asset: AssetAnalysis;
 }
+
+const formatPrice = (p: number) => {
+  if (p < 0.0001) return p.toFixed(8);
+  if (p < 0.01) return p.toFixed(6);
+  if (p < 1) return p.toFixed(4);
+  if (p < 100) return p.toFixed(2);
+  return p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 
 export function TradeSetupCard({ asset }: TradeSetupCardProps) {
   const entry = asset.entrySignal;
@@ -17,20 +24,10 @@ export function TradeSetupCard({ asset }: TradeSetupCardProps) {
   const change = asset.price?.change24h || 0;
   const isPositive = change >= 0;
 
-  // Format price based on value
-  const formatPrice = (p: number) => {
-    if (p < 0.0001) return p.toFixed(8);
-    if (p < 0.01) return p.toFixed(6);
-    if (p < 1) return p.toFixed(4);
-    if (p < 100) return p.toFixed(2);
-    return p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
-
   return (
     <Card className="py-0 shadow-none hover:bg-secondary/30 transition-all active:scale-[0.98] group border-border/50 tap-highlight">
       <Link to={`/asset/${asset.symbol.toLowerCase()}`} className="block">
         <CardContent className="p-3.5 sm:p-3">
-          {/* Row 1: Header - Symbol & Price */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-3">
               <CryptoIcon
@@ -58,7 +55,6 @@ export function TradeSetupCard({ asset }: TradeSetupCardProps) {
                 </div>
               </div>
             </div>
-
             <div className="text-right">
               <div
                 className={cn(
@@ -74,8 +70,6 @@ export function TradeSetupCard({ asset }: TradeSetupCardProps) {
               </div>
             </div>
           </div>
-
-          {/* Row 2: Sparkline - Hidden on mobile for simplicity */}
           <div className="hidden sm:block h-10 mb-3 opacity-60 group-hover:opacity-90 transition-opacity">
             <MiniSparkline
               symbol={asset.symbol}
@@ -83,8 +77,6 @@ export function TradeSetupCard({ asset }: TradeSetupCardProps) {
               className="h-full w-full"
             />
           </div>
-
-          {/* Row 3: Footer - Key Metrics */}
           <div className="flex items-center justify-between pt-2.5 border-t border-border/40 text-[11px] text-muted-foreground tabular-nums">
             <div className="flex items-center gap-3">
               <span title="Confidence">C:{entry.confidence}%</span>

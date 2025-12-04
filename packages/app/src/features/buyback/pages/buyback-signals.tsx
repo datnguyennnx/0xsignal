@@ -1,8 +1,3 @@
-/**
- * Buyback Signals Page - Minimalist quant-focused design
- * Matches market-dashboard pattern: clean sections, high signal density
- */
-
 import { useState } from "react";
 import type { BuybackOverview, BuybackSignal } from "@0xsignal/shared";
 import { cachedBuybackOverview } from "@/core/cache/effect-cache";
@@ -15,7 +10,6 @@ import { formatCurrency } from "@/core/utils/formatters";
 
 const fetchBuybackData = () => cachedBuybackOverview();
 
-// Compact inline stat bar - matches GlobalMarketBar pattern
 function StatsBar({ overview }: { overview: BuybackOverview }) {
   const items = [
     { label: "24H REV", value: formatCurrency(overview.totalRevenue24h) },

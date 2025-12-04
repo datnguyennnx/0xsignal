@@ -1,8 +1,3 @@
-/**
- * Global Market Bar - Clean horizontal metrics strip
- * Monochrome with clear visual hierarchy
- */
-
 import type { GlobalMarketData } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { formatCompact, formatPercent } from "@/core/utils/formatters";
@@ -15,7 +10,6 @@ interface GlobalMarketBarProps {
 export function GlobalMarketBar({ data, className }: GlobalMarketBarProps) {
   return (
     <div className={cn("flex items-center text-xs gap-x-2", className)}>
-      {/* Left: Market Cap + Volume */}
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">MCap</span>
@@ -31,8 +25,6 @@ export function GlobalMarketBar({ data, className }: GlobalMarketBarProps) {
           <span className="font-medium tabular-nums">${formatCompact(data.totalVolume24h)}</span>
         </div>
       </div>
-
-      {/* Right: Dominance */}
       <div className="flex items-center gap-4 sm:gap-6">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">BTC</span>

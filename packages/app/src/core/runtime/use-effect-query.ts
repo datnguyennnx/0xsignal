@@ -1,9 +1,5 @@
-// React Hooks for Effect-TS - bridges Effect layer with React components
-// CRITICAL: Uses singleton runtime to ensure cache is shared across all queries
-// Optimized for React 19.2 with startTransition for non-blocking updates
-
 import { useEffect, useState, useRef, useCallback, startTransition } from "react";
-import { Effect, Exit, Fiber, pipe, Runtime } from "effect";
+import { Effect, Exit, Fiber, pipe, Runtime, Schedule } from "effect";
 import { getAppRuntime, type AppContext } from "./effect-runtime";
 
 export interface QueryState<A, E> {
@@ -12,7 +8,18 @@ export interface QueryState<A, E> {
   readonly isLoading: boolean;
   readonly isSuccess: boolean;
   readonly isError: boolean;
-  readonly isStale: boolean; // New: indicates showing cached data while revalidating
+  readonly isStale: boolean;
+}
+
+export interface LazyQueryResult<A, E> extends QueryState<A, E> {
+  readonly execute: () => void;
+  readonly reset: () => void;
+}
+
+export interface ResilientQueryOptions {
+  readonly timeoutMs?: number;
+  readonly retries?: number;
+  readonly retryDelayMs?: number;
 }
 
 const initialState = <A, E>(): QueryState<A, E> => ({
@@ -24,9 +31,18 @@ const initialState = <A, E>(): QueryState<A, E> => ({
   isStale: false,
 });
 
-// Primary query hook with fiber cancellation - uses singleton runtime
-// Implements stale-while-revalidate: shows cached data while fetching fresh data
-// Uses startTransition for non-blocking UI updates (React 19.2)
+const idleState = <A, E>(): QueryState<A, E> => ({
+  data: null,
+  error: null,
+  isLoading: false,
+  isSuccess: false,
+  isError: false,
+  isStale: false,
+});
+
+const extractError = <E>(cause: { _tag: string; error?: E }): E | null =>
+  cause._tag === "Fail" ? (cause.error as E) : null;
+
 export function useEffectQuery<A, E>(
   makeEffect: () => Effect.Effect<A, E, AppContext>,
   deps: React.DependencyList = []
@@ -38,8 +54,6 @@ export function useEffectQuery<A, E>(
 
   useEffect(() => {
     mountedRef.current = true;
-
-    // Stale-while-revalidate: keep previous data while loading, mark as stale
     const hasCachedData = prevDataRef.current !== null;
     setState((prev) => ({
       ...prev,
@@ -48,12 +62,10 @@ export function useEffectQuery<A, E>(
       data: prev.data ?? prevDataRef.current,
     }));
 
-    // Use singleton runtime to ensure cache is shared
     getAppRuntime().then((runtime) => {
       if (!mountedRef.current) return;
 
-      const effect = makeEffect();
-      const fiber = Runtime.runFork(runtime)(effect);
+      const fiber = Runtime.runFork(runtime)(makeEffect());
       fiberRef.current = fiber;
 
       fiber.addObserver((exit) => {
@@ -62,10 +74,9 @@ export function useEffectQuery<A, E>(
           exit,
           Exit.match({
             onFailure: (cause) => {
-              const error = cause._tag === "Fail" ? cause.error : null;
               setState((prev) => ({
-                data: prev.data, // Keep stale data on error
-                error: error as E,
+                data: prev.data,
+                error: extractError(cause),
                 isLoading: false,
                 isSuccess: false,
                 isError: true,
@@ -74,7 +85,6 @@ export function useEffectQuery<A, E>(
             },
             onSuccess: (data) => {
               prevDataRef.current = data;
-              // Use startTransition for non-blocking UI update
               startTransition(() => {
                 setState({
                   data,
@@ -100,7 +110,92 @@ export function useEffectQuery<A, E>(
   return state;
 }
 
-// Polling hook with interval - uses singleton runtime
+export function useResilientQuery<A, E>(
+  makeEffect: () => Effect.Effect<A, E, AppContext>,
+  deps: React.DependencyList = [],
+  options: ResilientQueryOptions = {}
+): QueryState<A, E> {
+  const { timeoutMs = 15000, retries = 2, retryDelayMs = 500 } = options;
+  const [state, setState] = useState<QueryState<A, E>>(initialState);
+  const fiberRef = useRef<Fiber.RuntimeFiber<A, E | null> | null>(null);
+  const mountedRef = useRef(true);
+  const prevDataRef = useRef<A | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const hasCachedData = prevDataRef.current !== null;
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      isStale: hasCachedData,
+      data: prev.data ?? prevDataRef.current,
+    }));
+
+    getAppRuntime().then((runtime) => {
+      if (!mountedRef.current) return;
+
+      const resilientEffect = makeEffect().pipe(
+        Effect.timeoutFail({
+          duration: `${timeoutMs} millis`,
+          onTimeout: () => null as E,
+        }),
+        Effect.retry(
+          Schedule.exponential(`${retryDelayMs} millis`).pipe(
+            Schedule.intersect(Schedule.recurs(retries))
+          )
+        ),
+        Effect.catchAll(() =>
+          prevDataRef.current !== null
+            ? Effect.succeed(prevDataRef.current)
+            : Effect.fail(null as E)
+        )
+      );
+
+      const fiber = Runtime.runFork(runtime)(resilientEffect);
+      fiberRef.current = fiber as Fiber.RuntimeFiber<A, E | null>;
+
+      fiber.addObserver((exit) => {
+        if (!mountedRef.current) return;
+        pipe(
+          exit,
+          Exit.match({
+            onFailure: (cause) => {
+              setState((prev) => ({
+                data: prev.data,
+                error: extractError(cause),
+                isLoading: false,
+                isSuccess: false,
+                isError: true,
+                isStale: prev.data !== null,
+              }));
+            },
+            onSuccess: (data) => {
+              prevDataRef.current = data;
+              startTransition(() => {
+                setState({
+                  data,
+                  error: null,
+                  isLoading: false,
+                  isSuccess: true,
+                  isError: false,
+                  isStale: false,
+                });
+              });
+            },
+          })
+        );
+      });
+    });
+
+    return () => {
+      mountedRef.current = false;
+      if (fiberRef.current) Effect.runFork(Fiber.interrupt(fiberRef.current));
+    };
+  }, deps);
+
+  return state;
+}
+
 export function useEffectInterval<A, E>(
   makeEffect: () => Effect.Effect<A, E, AppContext>,
   intervalMs: number,
@@ -116,18 +211,16 @@ export function useEffectInterval<A, E>(
       const runtime = await getAppRuntime();
       if (!mountedRef.current) return;
 
-      const effect = makeEffect().pipe(Effect.exit);
-      const exit = await Runtime.runPromise(runtime)(effect);
-
+      const exit = await Runtime.runPromise(runtime)(makeEffect().pipe(Effect.exit));
       if (!mountedRef.current) return;
+
       pipe(
         exit,
         Exit.match({
           onFailure: (cause) => {
-            const error = cause._tag === "Fail" ? cause.error : null;
             setState((prev) => ({
               ...prev,
-              error: error as E,
+              error: extractError(cause),
               isLoading: false,
               isError: true,
               isStale: false,
@@ -160,23 +253,10 @@ export function useEffectInterval<A, E>(
   return state;
 }
 
-// Lazy query hook for user-triggered actions - uses singleton runtime
-export interface LazyQueryResult<A, E> extends QueryState<A, E> {
-  readonly execute: () => void;
-  readonly reset: () => void;
-}
-
 export function useLazyEffectQuery<A, E>(
   makeEffect: () => Effect.Effect<A, E, AppContext>
 ): LazyQueryResult<A, E> {
-  const [state, setState] = useState<QueryState<A, E>>({
-    data: null,
-    error: null,
-    isLoading: false,
-    isSuccess: false,
-    isError: false,
-    isStale: false,
-  });
+  const [state, setState] = useState<QueryState<A, E>>(idleState);
   const fiberRef = useRef<Fiber.RuntimeFiber<A, E> | null>(null);
   const mountedRef = useRef(true);
 
@@ -195,8 +275,7 @@ export function useLazyEffectQuery<A, E>(
     const runtime = await getAppRuntime();
     if (!mountedRef.current) return;
 
-    const effect = makeEffect();
-    const fiber = Runtime.runFork(runtime)(effect);
+    const fiber = Runtime.runFork(runtime)(makeEffect());
     fiberRef.current = fiber;
 
     fiber.addObserver((exit) => {
@@ -205,10 +284,9 @@ export function useLazyEffectQuery<A, E>(
         exit,
         Exit.match({
           onFailure: (cause) => {
-            const error = cause._tag === "Fail" ? cause.error : null;
             setState({
               data: null,
-              error: error as E,
+              error: extractError(cause),
               isLoading: false,
               isSuccess: false,
               isError: true,
@@ -234,20 +312,12 @@ export function useLazyEffectQuery<A, E>(
 
   const reset = useCallback(() => {
     if (fiberRef.current) Effect.runFork(Fiber.interrupt(fiberRef.current));
-    setState({
-      data: null,
-      error: null,
-      isLoading: false,
-      isSuccess: false,
-      isError: false,
-      isStale: false,
-    });
+    setState(idleState());
   }, []);
 
   return { ...state, execute, reset };
 }
 
-// Concurrent queries hook - uses singleton runtime
 export function useConcurrentQueries<
   T extends Record<string, () => Effect.Effect<any, any, AppContext>>,
 >(
@@ -286,16 +356,15 @@ export function useConcurrentQueries<
       );
 
       const exit = await Runtime.runPromise(runtime)(program);
-
       if (!mountedRef.current) return;
+
       pipe(
         exit,
         Exit.match({
           onFailure: (cause) => {
-            const error = cause._tag === "Fail" ? cause.error : null;
             setState({
               data: null,
-              error: error as ErrorType,
+              error: extractError(cause) as ErrorType,
               isLoading: false,
               isSuccess: false,
               isError: true,
@@ -319,7 +388,6 @@ export function useConcurrentQueries<
     };
 
     runQueries();
-
     return () => {
       mountedRef.current = false;
     };
@@ -328,7 +396,65 @@ export function useConcurrentQueries<
   return state;
 }
 
-// Legacy Exit hook (deprecated - use useEffectQuery)
+export function useConcurrentQueriesResilient<
+  T extends Record<string, () => Effect.Effect<any, any, AppContext>>,
+>(
+  queries: T,
+  deps: React.DependencyList = []
+): QueryState<{ [K in keyof T]: Effect.Effect.Success<ReturnType<T[K]>> | null }, null> {
+  type ResultType = { [K in keyof T]: Effect.Effect.Success<ReturnType<T[K]>> | null };
+
+  const [state, setState] = useState<QueryState<ResultType, null>>(initialState);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    setState(initialState());
+
+    const runQueries = async () => {
+      const runtime = await getAppRuntime();
+      if (!mountedRef.current) return;
+
+      const keys = Object.keys(queries) as (keyof T)[];
+      const effects = keys.map((key) =>
+        queries[key]().pipe(
+          Effect.map((result) => ({ key, result, error: null })),
+          Effect.catchAll(() => Effect.succeed({ key, result: null, error: true }))
+        )
+      );
+
+      const results = await Runtime.runPromise(runtime)(
+        Effect.all(effects, { concurrency: "unbounded" })
+      );
+      if (!mountedRef.current) return;
+
+      const data = {} as ResultType;
+      results.forEach(({ key, result }) => {
+        data[key as keyof T] = result;
+      });
+
+      startTransition(() => {
+        setState({
+          data,
+          error: null,
+          isLoading: false,
+          isSuccess: true,
+          isError: false,
+          isStale: false,
+        });
+      });
+    };
+
+    runQueries();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, deps);
+
+  return state;
+}
+
+/** @deprecated Use useEffectQuery instead */
 export function useEffectExit<A, E>(
   makeEffect: () => Effect.Effect<A, E, AppContext>,
   deps: React.DependencyList = []
@@ -338,12 +464,9 @@ export function useEffectExit<A, E>(
 
   useEffect(() => {
     setExit(null);
-
     getAppRuntime().then((runtime) => {
-      const program = makeEffect().pipe(Effect.exit);
-      const fiber = Runtime.runFork(runtime)(program);
+      const fiber = Runtime.runFork(runtime)(makeEffect().pipe(Effect.exit));
       fiberRef.current = fiber;
-
       fiber.addObserver((result) => {
         if (Exit.isSuccess(result)) setExit(result.value);
       });

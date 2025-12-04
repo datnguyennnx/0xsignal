@@ -1,6 +1,3 @@
-// ICT Button - Toggle for ICT analysis panel
-// Similar to IndicatorButton for consistency
-
 import { useState, useCallback, memo, useRef, useEffect } from "react";
 import { TrendingUp } from "lucide-react";
 import { cn } from "@/core/utils/cn";
@@ -26,19 +23,15 @@ export const ICTButton = memo(function ICTButton({
   const handleToggle = useCallback(() => setIsOpen((prev) => !prev), []);
   const handleClose = useCallback(() => setIsOpen(false), []);
 
-  // Click outside handler
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        handleClose();
-      }
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) handleClose();
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, handleClose]);
 
-  // Escape key handler
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (e: KeyboardEvent) => {
@@ -72,7 +65,6 @@ export const ICTButton = memo(function ICTButton({
           </Badge>
         )}
       </Button>
-
       <ICTControls
         visibility={visibility}
         onToggle={onToggle}

@@ -1,7 +1,3 @@
-/**
- * Category Breakdown - Pure computation with Card component
- */
-
 import type { CategoryBuybackStats } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,15 +8,20 @@ interface CategoryBreakdownProps {
   readonly categories: Record<string, CategoryBuybackStats>;
 }
 
+const HIGH_YIELD_THRESHOLD = 10;
+const MIN_RATE_THRESHOLD = 0.1;
+
 export function CategoryBreakdown({ categories }: CategoryBreakdownProps) {
   const sorted = Object.values(categories)
-    .filter((c) => c.averageBuybackRate > 0.1)
+    .filter((c) => c.averageBuybackRate > MIN_RATE_THRESHOLD)
     .sort((a, b) => b.averageBuybackRate - a.averageBuybackRate);
 
   if (sorted.length === 0) return null;
 
   const maxRate = Math.max(...sorted.map((c) => c.averageBuybackRate));
-  const highYieldCategories = sorted.filter((c) => c.averageBuybackRate >= 10).length;
+  const highYieldCategories = sorted.filter(
+    (c) => c.averageBuybackRate >= HIGH_YIELD_THRESHOLD
+  ).length;
 
   return (
     <Card className="py-0 shadow-none">
@@ -35,8 +36,7 @@ export function CategoryBreakdown({ categories }: CategoryBreakdownProps) {
       <CardContent className="p-4 space-y-3">
         {sorted.map((cat) => {
           const width = (cat.averageBuybackRate / maxRate) * 100;
-          const isHighYield = cat.averageBuybackRate >= 10;
-
+          const isHighYield = cat.averageBuybackRate >= HIGH_YIELD_THRESHOLD;
           return (
             <div key={cat.category} className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">

@@ -1,7 +1,3 @@
-/**
- * Market Depth Page - Clean layout with proper spacing
- */
-
 import { useState, useMemo, useEffect } from "react";
 import { cachedHeatmap, cachedLiquidationHeatmap } from "@/core/cache/effect-cache";
 import { useEffectQuery } from "@/core/runtime/use-effect-query";
@@ -11,7 +7,6 @@ import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useResponsiveDataCount } from "@/core/hooks/use-responsive-data-count";
-
 import { formatCompact } from "@/core/utils/formatters";
 import {
   Select,
@@ -21,21 +16,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const SM_BREAKPOINT = 640;
+
 export function MarketDepthPage() {
   const [activeTab, setActiveTab] = useState<"heatmap" | "liquidation">("heatmap");
   const [selectedSymbol, setSelectedSymbol] = useState<string>("btc");
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 640);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= SM_BREAKPOINT);
 
-  // Detect screen size changes
   useEffect(() => {
-    const handleResize = () => setIsDesktop(window.innerWidth >= 640);
+    const handleResize = () => setIsDesktop(window.innerWidth >= SM_BREAKPOINT);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Responsive data limit: 5 mobile, 10 tablet, 20 desktop, 40 for 4K
   const dataLimit = useResponsiveDataCount({ mobile: 5, tablet: 10, desktop: 20, desktop4k: 40 });
-  const displayLimit = dataLimit;
 
   const { data: heatmapData, isLoading } = useEffectQuery(
     () => cachedHeatmap(dataLimit),
@@ -47,7 +41,7 @@ export function MarketDepthPage() {
   );
 
   const availableSymbols = heatmapData?.cells
-    ? heatmapData.cells.slice(0, displayLimit).map((cell) => cell.symbol.toLowerCase())
+    ? heatmapData.cells.slice(0, dataLimit).map((cell) => cell.symbol.toLowerCase())
     : [];
 
   const heatmapStats = useMemo(() => {
@@ -84,7 +78,6 @@ export function MarketDepthPage() {
 
   return (
     <div className="h-full flex flex-col container-fluid py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header - Stacked on mobile */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-3 sm:mb-4 shrink-0 border-b border-border/40 pb-3 sm:pb-4">
         <h1 className="text-base sm:text-lg font-mono font-bold tracking-tight uppercase">
           Market Depth
@@ -115,7 +108,6 @@ export function MarketDepthPage() {
         </div>
       </div>
 
-      {/* Stats Row */}
       <div className="mb-4">
         {activeTab === "heatmap" ? (
           <HeatmapStats stats={heatmapStats} />
@@ -129,7 +121,6 @@ export function MarketDepthPage() {
         )}
       </div>
 
-      {/* Chart - Full height available */}
       <div className="flex-1 min-h-[300px] sm:min-h-0 border border-border/50 bg-card/30 rounded-sm overflow-hidden relative">
         {activeTab === "heatmap" ? (
           isLoading ? (
@@ -149,7 +140,6 @@ export function MarketDepthPage() {
 
 function HeatmapStats({ stats }: { stats: any }) {
   if (!stats) return <div className="h-12" />;
-
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 shrink-0">
       <StatItem
@@ -186,7 +176,6 @@ function LiquidationStats({
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 sm:gap-6 shrink-0">
-      {/* Symbol Selector */}
       <div>
         <div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1.5">
           Symbol
@@ -204,7 +193,6 @@ function LiquidationStats({
           </SelectContent>
         </Select>
       </div>
-
       {stats && (
         <>
           <StatItem label="Price" value={`$${stats.currentPrice?.toLocaleString()}`} />

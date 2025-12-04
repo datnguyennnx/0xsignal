@@ -1,15 +1,9 @@
-/**
- * Signal Card - Mobile-first responsive design
- * Clean monochrome design, no colored backgrounds
- */
-
 import { useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { formatPrice, formatPercent, formatCurrency } from "@/core/utils/formatters";
 import { CryptoIcon } from "@/components/crypto-icon";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 interface SignalCardProps {
   readonly signal: AssetAnalysis;
@@ -18,10 +12,8 @@ interface SignalCardProps {
 
 export function SignalCard({ signal, type }: SignalCardProps) {
   const navigate = useNavigate();
-
-  const overallSignal = signal.overallSignal;
   const isStrong =
-    type !== "hold" && overallSignal === (type === "buy" ? "STRONG_BUY" : "STRONG_SELL");
+    type !== "hold" && signal.overallSignal === (type === "buy" ? "STRONG_BUY" : "STRONG_SELL");
   const confidence = signal.confidence || 0;
   const price = signal.price?.price || 0;
   const change24h = signal.price?.change24h || 0;
@@ -35,7 +27,6 @@ export function SignalCard({ signal, type }: SignalCardProps) {
     >
       <CardContent className="p-3.5 sm:p-3">
         <div className="flex items-center justify-between">
-          {/* Left: Symbol & Context */}
           <div className="flex items-center gap-3">
             <CryptoIcon
               symbol={signal.symbol}
@@ -54,8 +45,6 @@ export function SignalCard({ signal, type }: SignalCardProps) {
                   </span>
                 )}
               </div>
-
-              {/* Mobile: Show minimal context | Desktop: Full metrics */}
               <div className="flex items-center gap-2.5 sm:gap-3 mt-1.5 sm:mt-1 text-[11px] sm:text-[10px] text-muted-foreground tabular-nums">
                 <span className="sm:hidden">{confidence}%</span>
                 <span className="hidden sm:inline" title="Confidence">
@@ -65,18 +54,14 @@ export function SignalCard({ signal, type }: SignalCardProps) {
               </div>
             </div>
           </div>
-
-          {/* Right: Price & Data */}
           <div className="text-right">
             <div className="text-sm font-medium tabular-nums tracking-tight leading-none mb-1.5 sm:mb-1">
               ${formatPrice(price)}
             </div>
             <div className="flex items-center justify-end gap-3 text-[11px] tabular-nums">
-              {/* Desktop+: Show Volume */}
               <span className="hidden xl:block text-muted-foreground">
                 Vol {formatCurrency(volume)}
               </span>
-
               <span className={cn("font-medium", change24h > 0 ? "text-gain" : "text-loss")}>
                 {change24h > 0 ? "+" : ""}
                 {formatPercent(change24h)}

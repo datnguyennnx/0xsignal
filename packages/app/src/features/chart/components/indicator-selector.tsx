@@ -22,7 +22,8 @@ interface IndicatorSelectorProps {
   onClose: () => void;
 }
 
-// Memoized active indicator item
+const DEFAULT_PERIOD = 14;
+
 const ActiveIndicatorItem = memo(function ActiveIndicatorItem({
   indicator,
   onToggle,
@@ -60,7 +61,6 @@ const ActiveIndicatorItem = memo(function ActiveIndicatorItem({
   );
 });
 
-// Memoized indicator row
 const IndicatorRow = memo(function IndicatorRow({
   indicator,
   info,
@@ -169,7 +169,6 @@ const IndicatorRow = memo(function IndicatorRow({
         </CollapsibleTrigger>
         {info && <InfoTooltip info={info} />}
       </div>
-
       <CollapsibleContent>
         <div className="px-2 py-2 bg-muted/50 space-y-2 rounded-b">
           <div className="grid grid-cols-4 gap-1">
@@ -193,7 +192,6 @@ const IndicatorRow = memo(function IndicatorRow({
               </Tooltip>
             ))}
           </div>
-
           <div className="flex items-center gap-2">
             <div className="flex-1 flex items-center border border-border rounded overflow-hidden bg-background">
               <Button
@@ -224,7 +222,6 @@ const IndicatorRow = memo(function IndicatorRow({
               Add
             </Button>
           </div>
-
           {isActive && (
             <Button
               variant="ghost"
@@ -241,7 +238,6 @@ const IndicatorRow = memo(function IndicatorRow({
   );
 });
 
-// Memoized info tooltip
 const InfoTooltip = memo(function InfoTooltip({ info }: { info: IndicatorInfo }) {
   return (
     <Tooltip>
@@ -267,10 +263,9 @@ export function IndicatorSelector({
   onClose,
 }: IndicatorSelectorProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [customPeriod, setCustomPeriod] = useState<number>(14);
+  const [customPeriod, setCustomPeriod] = useState<number>(DEFAULT_PERIOD);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Click outside handler
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -280,7 +275,6 @@ export function IndicatorSelector({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, onClose]);
 
-  // Escape key handler
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (e: KeyboardEvent) => {
@@ -290,7 +284,6 @@ export function IndicatorSelector({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
-  // Memoized indicator groups
   const { overlayIndicators, oscillatorIndicators } = useMemo(
     () => ({
       overlayIndicators: AVAILABLE_INDICATORS.filter((i) => i.overlayOnPrice),
@@ -299,7 +292,6 @@ export function IndicatorSelector({
     []
   );
 
-  // Memoized active indicator lookup
   const activeIndicatorMap = useMemo(() => {
     const map = new Map<string, ActiveIndicator>();
     for (const ind of activeIndicators) {
@@ -314,7 +306,6 @@ export function IndicatorSelector({
     [activeIndicators]
   );
 
-  // Stable callbacks
   const handleQuickAdd = useCallback(
     (indicator: IndicatorConfig, period?: number) => {
       const params = period ? { ...indicator.defaultParams, period } : indicator.defaultParams;
@@ -328,7 +319,7 @@ export function IndicatorSelector({
     (indicator: IndicatorConfig) => {
       onAddIndicator(indicator, { ...indicator.defaultParams, period: customPeriod });
       setExpandedId(null);
-      setCustomPeriod(14);
+      setCustomPeriod(DEFAULT_PERIOD);
     },
     [onAddIndicator, customPeriod]
   );
@@ -346,7 +337,6 @@ export function IndicatorSelector({
           <X className="w-4 h-4" />
         </Button>
       </div>
-
       <div className="max-h-[420px] overflow-y-auto">
         {activeIndicators.length > 0 && (
           <div className="px-3 py-2 border-b border-border bg-muted/30 space-y-1">
@@ -360,7 +350,6 @@ export function IndicatorSelector({
             ))}
           </div>
         )}
-
         <div className="p-2">
           <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
             Overlays
@@ -385,7 +374,6 @@ export function IndicatorSelector({
             />
           ))}
         </div>
-
         <div className="p-2 border-t border-border">
           <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
             Oscillators

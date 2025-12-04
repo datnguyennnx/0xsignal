@@ -1,17 +1,11 @@
-/**
- * Liquidation Heatmap - lazy loaded ECharts for performance
- * Uses Skeleton for loading states
- */
-
 import { useMemo, lazy, Suspense } from "react";
 import type { LiquidationHeatmap } from "@0xsignal/shared";
 import { Skeleton } from "@/components/ui/skeleton";
-
-// Lazy load ECharts (heavy library)
-const ReactECharts = lazy(() => import("echarts-for-react"));
 import { useTheme } from "@/core/providers/theme-provider";
 import { formatUSD, formatCompact } from "@/core/utils/formatters";
 import { getChartColors } from "@/core/utils/colors";
+
+const ReactECharts = lazy(() => import("echarts-for-react"));
 
 interface LiquidationHeatmapProps {
   data: LiquidationHeatmap;
@@ -22,10 +16,8 @@ export function LiquidationHeatmapComponent({ data, isLoading }: LiquidationHeat
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  // useMemo kept - expensive chart option computation
   const option = useMemo(() => {
     if (!data?.levels?.length) return {};
-
     const c = getChartColors(isDark);
     const prices = data.levels.map((l) => l.price);
     const longData = data.levels.map((l) => l.longLiquidationUsd);
