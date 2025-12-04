@@ -37,16 +37,17 @@ export const colors = {
 
 // ===== CHART COLORS (for external libraries) =====
 export const getChartColors = (isDark: boolean) => ({
-  // Background & Grid
-  bg: isDark ? "#18181b" : "#fafaf9",
-  grid: isDark ? "#27272a" : "#e7e5e4",
+  // Background - transparent to blend with card/page background
+  bg: "transparent",
+  // Grid - subtle, low contrast for minimal visual noise
+  grid: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)",
   text: isDark ? "#a1a1aa" : "#78716c",
-  border: isDark ? "#3f3f46" : "#d6d3d1",
+  border: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.08)",
   crosshair: isDark ? "#71717a" : "#a8a29e",
 
-  // Tooltip
+  // Tooltip - matches card background
   tooltipBg: isDark ? "rgba(24, 24, 27, 0.96)" : "rgba(255, 255, 255, 0.96)",
-  tooltipBorder: isDark ? "#3f3f46" : "#e7e5e4",
+  tooltipBorder: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.08)",
   tooltipText: isDark ? "#fafafa" : "#1c1917",
 
   // Semantic - Gain/Loss

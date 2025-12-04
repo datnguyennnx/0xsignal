@@ -102,7 +102,11 @@ export const createCategoryStats = (
   );
 
 // Create buyback overview from signals
-export const createBuybackOverview = (signals: readonly BuybackSignal[]): BuybackOverview => ({
+// Default shows top 50 protocols to match DEFAULT_LIMITS.BUYBACK_SIGNALS
+export const createBuybackOverview = (
+  signals: readonly BuybackSignal[],
+  limit = 50
+): BuybackOverview => ({
   totalProtocols: signals.length,
   totalRevenue24h: Arr.reduce(signals, 0, (sum, s) => sum + s.revenue24h),
   totalRevenue7d: Arr.reduce(signals, 0, (sum, s) => sum + s.revenue7d),
@@ -110,7 +114,7 @@ export const createBuybackOverview = (signals: readonly BuybackSignal[]): Buybac
     Arr.reduce(signals, 0, (sum, s) => sum + s.annualizedBuybackRate),
     signals.length
   ),
-  topBuybackProtocols: Arr.take(signals, 10),
+  topBuybackProtocols: Arr.take(signals, limit),
   byCategory: createCategoryStats(signals),
   timestamp: new Date(),
 });

@@ -1,7 +1,8 @@
 // React Hooks for Effect-TS - bridges Effect layer with React components
 // CRITICAL: Uses singleton runtime to ensure cache is shared across all queries
+// Optimized for React 19.2 with startTransition for non-blocking updates
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, startTransition } from "react";
 import { Effect, Exit, Fiber, pipe, Runtime } from "effect";
 import { getAppRuntime, type AppContext } from "./effect-runtime";
 
@@ -11,6 +12,7 @@ export interface QueryState<A, E> {
   readonly isLoading: boolean;
   readonly isSuccess: boolean;
   readonly isError: boolean;
+  readonly isStale: boolean; // New: indicates showing cached data while revalidating
 }
 
 const initialState = <A, E>(): QueryState<A, E> => ({
@@ -19,10 +21,12 @@ const initialState = <A, E>(): QueryState<A, E> => ({
   isLoading: true,
   isSuccess: false,
   isError: false,
+  isStale: false,
 });
 
 // Primary query hook with fiber cancellation - uses singleton runtime
 // Implements stale-while-revalidate: shows cached data while fetching fresh data
+// Uses startTransition for non-blocking UI updates (React 19.2)
 export function useEffectQuery<A, E>(
   makeEffect: () => Effect.Effect<A, E, AppContext>,
   deps: React.DependencyList = []
@@ -35,10 +39,12 @@ export function useEffectQuery<A, E>(
   useEffect(() => {
     mountedRef.current = true;
 
-    // Stale-while-revalidate: keep previous data while loading
+    // Stale-while-revalidate: keep previous data while loading, mark as stale
+    const hasCachedData = prevDataRef.current !== null;
     setState((prev) => ({
       ...prev,
       isLoading: true,
+      isStale: hasCachedData,
       data: prev.data ?? prevDataRef.current,
     }));
 
@@ -58,16 +64,27 @@ export function useEffectQuery<A, E>(
             onFailure: (cause) => {
               const error = cause._tag === "Fail" ? cause.error : null;
               setState((prev) => ({
-                data: prev.data,
+                data: prev.data, // Keep stale data on error
                 error: error as E,
                 isLoading: false,
                 isSuccess: false,
                 isError: true,
+                isStale: prev.data !== null,
               }));
             },
             onSuccess: (data) => {
               prevDataRef.current = data;
-              setState({ data, error: null, isLoading: false, isSuccess: true, isError: false });
+              // Use startTransition for non-blocking UI update
+              startTransition(() => {
+                setState({
+                  data,
+                  error: null,
+                  isLoading: false,
+                  isSuccess: true,
+                  isError: false,
+                  isStale: false,
+                });
+              });
             },
           })
         );
@@ -108,10 +125,25 @@ export function useEffectInterval<A, E>(
         Exit.match({
           onFailure: (cause) => {
             const error = cause._tag === "Fail" ? cause.error : null;
-            setState((prev) => ({ ...prev, error: error as E, isLoading: false, isError: true }));
+            setState((prev) => ({
+              ...prev,
+              error: error as E,
+              isLoading: false,
+              isError: true,
+              isStale: false,
+            }));
           },
           onSuccess: (data) => {
-            setState({ data, error: null, isLoading: false, isSuccess: true, isError: false });
+            startTransition(() => {
+              setState({
+                data,
+                error: null,
+                isLoading: false,
+                isSuccess: true,
+                isError: false,
+                isStale: false,
+              });
+            });
           },
         })
       );
@@ -143,6 +175,7 @@ export function useLazyEffectQuery<A, E>(
     isLoading: false,
     isSuccess: false,
     isError: false,
+    isStale: false,
   });
   const fiberRef = useRef<Fiber.RuntimeFiber<A, E> | null>(null);
   const mountedRef = useRef(true);
@@ -179,10 +212,20 @@ export function useLazyEffectQuery<A, E>(
               isLoading: false,
               isSuccess: false,
               isError: true,
+              isStale: false,
             });
           },
           onSuccess: (data) => {
-            setState({ data, error: null, isLoading: false, isSuccess: true, isError: false });
+            startTransition(() => {
+              setState({
+                data,
+                error: null,
+                isLoading: false,
+                isSuccess: true,
+                isError: false,
+                isStale: false,
+              });
+            });
           },
         })
       );
@@ -191,7 +234,14 @@ export function useLazyEffectQuery<A, E>(
 
   const reset = useCallback(() => {
     if (fiberRef.current) Effect.runFork(Fiber.interrupt(fiberRef.current));
-    setState({ data: null, error: null, isLoading: false, isSuccess: false, isError: false });
+    setState({
+      data: null,
+      error: null,
+      isLoading: false,
+      isSuccess: false,
+      isError: false,
+      isStale: false,
+    });
   }, []);
 
   return { ...state, execute, reset };
@@ -249,10 +299,20 @@ export function useConcurrentQueries<
               isLoading: false,
               isSuccess: false,
               isError: true,
+              isStale: false,
             });
           },
           onSuccess: (data) => {
-            setState({ data, error: null, isLoading: false, isSuccess: true, isError: false });
+            startTransition(() => {
+              setState({
+                data,
+                error: null,
+                isLoading: false,
+                isSuccess: true,
+                isError: false,
+                isStale: false,
+              });
+            });
           },
         })
       );

@@ -1,6 +1,7 @@
 // Trading Chart - useMemo/useCallback kept for chart library integration
+// React 19.2: Uses startTransition for non-urgent overlay updates
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, startTransition } from "react";
 import {
   createChart,
   ColorType,
@@ -212,12 +213,14 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
     lastTime,
   });
 
-  // ICT toggle handler
+  // ICT toggle handler - uses startTransition for non-blocking UI updates
   const handleToggleICT = useCallback((feature: ICTFeature) => {
-    setIctVisibility((prev) => ({
-      ...prev,
-      [feature]: !prev[feature],
-    }));
+    startTransition(() => {
+      setIctVisibility((prev) => ({
+        ...prev,
+        [feature]: !prev[feature],
+      }));
+    });
   }, []);
 
   // Fullscreen toggle

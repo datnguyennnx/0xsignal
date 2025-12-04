@@ -1,21 +1,41 @@
 /**
- * Buyback Signals Page - Card-based layout
+ * Buyback Signals Page - Minimalist quant-focused design
+ * Matches market-dashboard pattern: clean sections, high signal density
  */
 
 import { useState } from "react";
 import type { BuybackOverview, BuybackSignal } from "@0xsignal/shared";
 import { cachedBuybackOverview } from "@/core/cache/effect-cache";
 import { useEffectQuery } from "@/core/runtime/use-effect-query";
-import { BuybackStats } from "@/features/buyback/components/buyback-stats";
 import { BuybackList } from "@/features/buyback/components/buyback-list";
-import { CategoryBreakdown } from "@/features/buyback/components/category-breakdown";
 import { ProtocolDetailDialog } from "@/features/buyback/components/protocol-detail-dialog";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
+import { formatCurrency } from "@/core/utils/formatters";
 
 const fetchBuybackData = () => cachedBuybackOverview();
+
+// Compact inline stat bar - matches GlobalMarketBar pattern
+function StatsBar({ overview }: { overview: BuybackOverview }) {
+  const items = [
+    { label: "24H REV", value: formatCurrency(overview.totalRevenue24h) },
+    { label: "AVG YIELD", value: `${overview.averageBuybackRate.toFixed(1)}%` },
+    { label: "PROTOCOLS", value: overview.totalProtocols.toString() },
+  ];
+
+  return (
+    <div className="flex items-center gap-4 sm:gap-6 text-xs">
+      {items.map((item, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <span className="text-muted-foreground font-mono text-[10px] uppercase tracking-wide">
+            {item.label}
+          </span>
+          <span className="font-semibold tabular-nums">{item.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function BuybackContent({ overview }: { overview: BuybackOverview }) {
   const signals = overview.topBuybackProtocols;
@@ -28,34 +48,38 @@ function BuybackContent({ overview }: { overview: BuybackOverview }) {
   };
 
   return (
-    <div className="container-fluid py-4 sm:py-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header */}
-      <header className="mb-4 sm:mb-5">
-        <h1 className="text-base sm:text-lg lg:text-xl font-semibold tracking-tight">
-          Protocol Buybacks
-        </h1>
-        <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">
-          Revenue yield relative to market cap · Higher yield = stronger buyback potential
-        </p>
-      </header>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="container-fluid py-4 sm:py-6">
+        {/* Header - Matches market-dashboard pattern */}
+        <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0 mb-5 sm:mb-6 border-b border-border/40 pb-4">
+          <div>
+            <h1 className="text-base sm:text-lg font-mono font-bold tracking-tight uppercase">
+              Protocol Buybacks
+            </h1>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+              Revenue yield relative to market cap
+            </p>
+          </div>
+          <StatsBar overview={overview} />
+        </header>
 
-      {/* Stats Grid */}
-      <BuybackStats overview={overview} />
-
-      {/* Main Content - Sidebar below on mobile, side on desktop */}
-      <div className="flex flex-col-reverse lg:flex-row gap-5 lg:gap-6">
-        {/* Protocol Grid */}
-        <section className="flex-1 min-w-0">
-          <div className="flex items-baseline justify-between mb-4 border-b border-border/40 pb-2">
+        {/* Protocols Section */}
+        <section>
+          <div className="flex items-center justify-between mb-3 border-b border-border/40 pb-2">
             <div className="flex items-center gap-2">
               <h2 className="text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
-                Protocols
+                Top Protocols by Yield
               </h2>
               <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded-sm tabular-nums">
                 {signals.length}
               </span>
             </div>
+            {/* Inline metric legend */}
+            <span className="hidden sm:block text-[9px] text-muted-foreground font-mono">
+              YIELD = (30D REV × 12) / MCAP
+            </span>
           </div>
+
           {signals.length === 0 ? (
             <div className="py-12 text-center border border-dashed border-border/60 rounded-sm">
               <p className="text-xs text-muted-foreground font-mono">NO PROTOCOLS FOUND</p>
@@ -64,30 +88,6 @@ function BuybackContent({ overview }: { overview: BuybackOverview }) {
             <BuybackList signals={signals} onSelect={handleSelectProtocol} />
           )}
         </section>
-
-        {/* Sidebar - At bottom on mobile */}
-        <aside className="w-full lg:w-64 shrink-0 space-y-4">
-          <CategoryBreakdown categories={overview.byCategory} />
-
-          {/* Metrics Legend */}
-          <Card className="hidden sm:block py-0 shadow-none">
-            <CardHeader className="px-4 py-3">
-              <CardTitle className="text-xs">Metrics</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 pt-0">
-              <dl className="text-[10px] text-muted-foreground space-y-1.5">
-                <div>
-                  <dt className="inline font-medium text-foreground">Yield</dt>
-                  <dd className="inline"> = (30d Rev × 12) / MCap</dd>
-                </div>
-                <div>
-                  <dt className="inline font-medium text-foreground">P/Rev</dt>
-                  <dd className="inline"> = MCap / Annual Rev</dd>
-                </div>
-              </dl>
-            </CardContent>
-          </Card>
-        </aside>
       </div>
 
       <ProtocolDetailDialog
@@ -99,31 +99,22 @@ function BuybackContent({ overview }: { overview: BuybackOverview }) {
   );
 }
 
-// Loading skeleton
+// Loading skeleton - Matches dashboard skeleton
 function BuybackSkeleton() {
   return (
-    <div className="container-fluid py-4 sm:py-6 space-y-6">
-      <div>
-        <Skeleton className="h-6 w-40 mb-2" />
-        <Skeleton className="h-4 w-64" />
+    <div className="container-fluid py-4 sm:py-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 border-b border-border/40 pb-4">
+        <div>
+          <Skeleton className="h-5 w-40 mb-1" />
+          <Skeleton className="h-3 w-48" />
+        </div>
+        <Skeleton className="h-4 w-48" />
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-3">
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-24 rounded-xl" />
+      <Skeleton className="h-5 w-36 mb-3" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-responsive">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-lg" />
         ))}
-      </div>
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="flex-1">
-          <Skeleton className="h-5 w-20 mb-4" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-28 rounded-xl" />
-            ))}
-          </div>
-        </div>
-        <div className="w-full lg:w-64">
-          <Skeleton className="h-48 rounded-xl" />
-        </div>
       </div>
     </div>
   );
@@ -139,7 +130,6 @@ export function BuybackSignalsPage() {
   if (isError || !data) {
     return (
       <div className="container-fluid py-6">
-        <h1 className="text-lg font-semibold mb-4">Protocol Buybacks</h1>
         <ErrorState
           title="Unable to load buyback data"
           retryAction={() => window.location.reload()}

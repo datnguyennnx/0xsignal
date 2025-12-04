@@ -1,16 +1,16 @@
 /**
  * Asset Detail Page - Minimalist quant-focused design
  * Single unified signal card, clean layout, high signal density
+ * Optimized: TradingChart lazy-loaded for better initial load
  */
 
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@0xsignal/shared";
 import { cachedAnalysis, cachedChartData } from "@/core/cache/effect-cache";
 import { useEffectQuery } from "@/core/runtime/use-effect-query";
 import { cn } from "@/core/utils/cn";
 import { formatPrice, formatCurrency, formatPercentChange } from "@/core/utils/formatters";
-import { TradingChart } from "@/features/chart/components/trading-chart";
 import { CryptoIcon } from "@/components/crypto-icon";
 import { UnifiedSignalCard } from "../components/unified-signal-card";
 import { ChevronLeft } from "lucide-react";
@@ -18,6 +18,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
+
+// Lazy load the heavy TradingChart component (793 lines, 27KB)
+const TradingChart = lazy(() =>
+  import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart }))
+);
+
+// Skeleton fallback for lazy-loaded chart
+const ChartSkeleton = () => (
+  <div className="h-full w-full flex items-center justify-center bg-card border border-border/50 rounded-lg">
+    <Skeleton className="h-full w-full rounded-lg" />
+  </div>
+);
 
 const fetchAssetData = (symbol: string) => cachedAnalysis(symbol);
 
@@ -29,16 +41,25 @@ const INTERVAL_TIMEFRAMES: Record<string, string> = {
   "1w": "1y",
 };
 
-function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string }) {
-  const navigate = useNavigate();
-  const [interval, setInterval] = useState("1h");
-  const chartSymbol = symbol.toUpperCase();
-  const timeframe = INTERVAL_TIMEFRAMES[interval] || "7d";
+interface AssetContentProps {
+  asset: AssetAnalysis;
+  symbol: string;
+  chartData: any[] | null;
+  chartLoading: boolean;
+  interval: string;
+  onIntervalChange: (interval: string) => void;
+}
 
-  const { data: chartData, isLoading: chartLoading } = useEffectQuery(
-    () => cachedChartData(chartSymbol, interval, timeframe),
-    [chartSymbol, interval, timeframe]
-  );
+function AssetContent({
+  asset,
+  symbol,
+  chartData,
+  chartLoading,
+  interval,
+  onIntervalChange,
+}: AssetContentProps) {
+  const navigate = useNavigate();
+  const chartSymbol = symbol.toUpperCase();
 
   const price = asset.price;
   const change24h = price?.change24h || 0;
@@ -107,12 +128,14 @@ function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string 
         {/* Chart Area - Height scales with device resolution */}
         <div className="xl:col-span-4 xl:order-1 flex-1 min-h-[300px] sm:min-h-[350px] lg:min-h-[450px] xl:min-h-[500px] 2xl:min-h-[600px]">
           {chartData && chartData.length > 0 ? (
-            <TradingChart
-              data={chartData}
-              symbol={chartSymbol}
-              interval={interval}
-              onIntervalChange={setInterval}
-            />
+            <Suspense fallback={<ChartSkeleton />}>
+              <TradingChart
+                data={chartData}
+                symbol={chartSymbol}
+                interval={interval}
+                onIntervalChange={onIntervalChange}
+              />
+            </Suspense>
           ) : !chartLoading ? (
             <Card className="py-0 shadow-none h-full flex items-center justify-center border-dashed border-border/60">
               <CardContent className="text-center">
@@ -147,13 +170,24 @@ function AssetDetailSkeleton({ symbol }: { symbol?: string }) {
 
 export function AssetDetail() {
   const { symbol } = useParams<{ symbol: string }>();
+  const [interval, setInterval] = useState("1h");
+  const chartSymbol = symbol?.toUpperCase() || "";
+  const timeframe = INTERVAL_TIMEFRAMES[interval] || "7d";
+
+  // Fetch asset data
   const {
     data: asset,
-    isLoading,
+    isLoading: assetLoading,
     isError,
   } = useEffectQuery(() => fetchAssetData(symbol || ""), [symbol]);
 
-  if (isLoading) {
+  // Fetch chart data in parallel
+  const { data: chartData, isLoading: chartLoading } = useEffectQuery(
+    () => cachedChartData(chartSymbol, interval, timeframe),
+    [chartSymbol, interval, timeframe]
+  );
+
+  if (assetLoading) {
     return <AssetDetailSkeleton symbol={symbol} />;
   }
 
@@ -168,5 +202,14 @@ export function AssetDetail() {
     );
   }
 
-  return <AssetContent asset={asset} symbol={symbol || ""} />;
+  return (
+    <AssetContent
+      asset={asset}
+      symbol={symbol || ""}
+      chartData={chartData}
+      chartLoading={chartLoading}
+      interval={interval}
+      onIntervalChange={setInterval}
+    />
+  );
 }

@@ -8,7 +8,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/core/utils/cn";
-import { BarChart3, Wallet, Home, RefreshCw } from "lucide-react";
+import { TrendingUp, Coins, Layers, RefreshCw } from "lucide-react";
 import { invalidateAll } from "@/core/cache/effect-cache";
 import { Effect } from "effect";
 import { AppLayer } from "@/core/runtime/effect-runtime";
@@ -17,10 +17,12 @@ interface LayoutProps {
   children: ReactNode;
 }
 
+// Navigation order: Signals → Buyback → Depth
+// Icons optimized for mobile recognition
 const NAV_ITEMS = [
-  { path: "/", label: "Signals", icon: Home },
-  { path: "/market-depth", label: "Depth", icon: BarChart3 },
-  { path: "/buyback", label: "Buyback", icon: Wallet },
+  { path: "/", label: "Signals", icon: TrendingUp }, // Market signals/trends
+  { path: "/buyback", label: "Buyback", icon: Coins }, // Protocol revenue/buybacks
+  { path: "/market-depth", label: "Depth", icon: Layers }, // Market depth/heatmaps
 ] as const;
 
 export function Layout({ children }: LayoutProps) {
