@@ -5,7 +5,7 @@
 import { cachedTopAnalysis } from "@/core/cache/effect-cache";
 import { useEffectQuery } from "@/core/runtime/use-effect-query";
 import { getHoldSignals } from "@/core/utils/effect-memoization";
-import { QueryLoading, QueryError, QueryEmpty } from "@/components/ui/query-state";
+import { QueryLoading, QueryError, QueryEmpty } from "@/components/query-state";
 import { SignalTable } from "../components/signal-table";
 
 export function AllHoldSignals() {
@@ -19,7 +19,7 @@ export function AllHoldSignals() {
   const highNoiseCount = holdSignals.filter((s) => (s.noise?.value ?? 0) > 60).length;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5 px-4 py-4 sm:px-6 sm:py-6">
+    <div className="container-fluid space-y-5 py-4 sm:py-6">
       <header>
         <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-muted-foreground">
           Neutral Positions

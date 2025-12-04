@@ -784,7 +784,7 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
   // Normal mode
   return (
     <div className="rounded-lg border border-border/50 bg-card overflow-hidden">
-      <div className="relative h-[280px] sm:h-[450px] lg:h-[600px] flex flex-col">
+      <div className="relative h-[400px] sm:h-[550px] lg:h-[800px] flex flex-col">
         {chartContent}
       </div>
     </div>

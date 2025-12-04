@@ -6,7 +6,7 @@
 import { useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
-import { formatPrice, formatPercent } from "@/core/utils/formatters";
+import { formatPrice, formatPercent, formatCurrency } from "@/core/utils/formatters";
 import { CryptoIcon } from "@/components/crypto-icon";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,69 +26,61 @@ export function SignalCard({ signal, type }: SignalCardProps) {
   const price = signal.price?.price || 0;
   const change24h = signal.price?.change24h || 0;
   const riskScore = signal.riskScore || 0;
+  const volume = signal.price?.volume24h || 0;
 
   return (
     <Card
-      className="py-0 shadow-none cursor-pointer transition-all hover:shadow-sm active:scale-[0.995]"
+      className="py-0 shadow-none cursor-pointer transition-all hover:bg-secondary/30 active:scale-[0.98] group border-border/50 tap-highlight"
       onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
     >
-      <CardContent className="p-3 sm:p-4">
-        <div className="flex items-center justify-between gap-3">
-          {/* Left: Symbol + Price */}
-          <div className="flex items-center gap-2.5 min-w-0">
+      <CardContent className="p-3.5 sm:p-3">
+        <div className="flex items-center justify-between">
+          {/* Left: Symbol & Context */}
+          <div className="flex items-center gap-3">
             <CryptoIcon
               symbol={signal.symbol}
               image={signal.price?.image}
-              size={20}
-              className="shrink-0"
+              size={24}
+              className="shrink-0 opacity-90 sm:w-[22px] sm:h-[22px]"
             />
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-medium text-sm">{signal.symbol.toUpperCase()}</span>
+            <div className="flex flex-col">
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono font-bold text-sm tracking-tight leading-none">
+                  {signal.symbol.toUpperCase()}
+                </span>
                 {isStrong && (
-                  <Badge
-                    variant="secondary"
-                    className="hidden sm:inline-flex text-[9px] h-4 px-1.5"
-                  >
-                    STRONG
-                  </Badge>
+                  <span className="text-[9px] font-semibold text-foreground/80 uppercase tracking-wider leading-none">
+                    Strong
+                  </span>
                 )}
               </div>
-              <div className="text-xs text-muted-foreground tabular-nums">
-                ${formatPrice(price)}
+
+              {/* Mobile: Show minimal context | Desktop: Full metrics */}
+              <div className="flex items-center gap-2.5 sm:gap-3 mt-1.5 sm:mt-1 text-[11px] sm:text-[10px] text-muted-foreground tabular-nums">
+                <span className="sm:hidden">{confidence}%</span>
+                <span className="hidden sm:inline" title="Confidence">
+                  C:{confidence}%
+                </span>
+                <span title="Risk Score">R:{riskScore}</span>
               </div>
             </div>
           </div>
 
-          {/* Right: Key metrics */}
-          <div className="flex items-center gap-4 sm:gap-5 text-right shrink-0">
-            {/* 24h Change */}
-            <div className="min-w-[48px]">
-              <div className="hidden sm:block text-[9px] text-muted-foreground uppercase tracking-wide">
-                24h
-              </div>
-              <div
-                className={cn(
-                  "text-sm font-medium tabular-nums",
-                  change24h > 0 ? "text-gain" : "text-loss"
-                )}
-              >
+          {/* Right: Price & Data */}
+          <div className="text-right">
+            <div className="text-sm font-medium tabular-nums tracking-tight leading-none mb-1.5 sm:mb-1">
+              ${formatPrice(price)}
+            </div>
+            <div className="flex items-center justify-end gap-3 text-[11px] tabular-nums">
+              {/* Desktop+: Show Volume */}
+              <span className="hidden xl:block text-muted-foreground">
+                Vol {formatCurrency(volume)}
+              </span>
+
+              <span className={cn("font-medium", change24h > 0 ? "text-gain" : "text-loss")}>
+                {change24h > 0 ? "+" : ""}
                 {formatPercent(change24h)}
-              </div>
-            </div>
-
-            {/* Confidence */}
-            <div className="min-w-[40px]">
-              <div className="hidden sm:block text-[9px] text-muted-foreground uppercase tracking-wide">
-                Conf
-              </div>
-              <div className="text-sm font-medium tabular-nums">{confidence}%</div>
-            </div>
-
-            {/* Risk - Hidden on mobile */}
-            <div className="hidden sm:block min-w-[36px]">
-              <div className="text-[9px] text-muted-foreground uppercase tracking-wide">Risk</div>
-              <div className="text-sm font-medium tabular-nums">{riskScore}</div>
+              </span>
             </div>
           </div>
         </div>

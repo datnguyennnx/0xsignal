@@ -17,6 +17,7 @@ import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/error-state";
 
 const fetchAssetData = (symbol: string) => cachedAnalysis(symbol);
 
@@ -43,14 +44,14 @@ function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string 
   const change24h = price?.change24h || 0;
 
   return (
-    <div className="px-3 sm:px-6 py-3 sm:py-6 max-w-6xl mx-auto space-y-4">
+    <div className="container-fluid h-full flex flex-col justify-center py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
-      <header className="flex items-center gap-3">
+      <header className="flex items-center gap-3 mb-5 sm:mb-6 border-b border-border/40 pb-4">
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={() => navigate(-1)}
-          className="sm:hidden -ml-2"
+          className="sm:hidden -ml-2 touch-target-44"
           aria-label="Go back"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -60,27 +61,33 @@ function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string 
           <CryptoIcon
             symbol={asset.symbol}
             image={asset.price?.image}
-            size={28}
-            className="shrink-0"
+            size={32}
+            className="shrink-0 sm:w-7 sm:h-7"
           />
-          <div className="flex items-baseline gap-2 flex-wrap min-w-0">
-            <span className="text-lg sm:text-xl font-semibold tracking-tight">
-              {asset.symbol.toUpperCase()}
-            </span>
-            <span className="text-lg sm:text-xl tabular-nums">
-              ${formatPrice(price?.price || 0)}
-            </span>
-            <span
-              className={cn(
-                "text-sm tabular-nums font-medium",
-                change24h > 0 ? "text-gain" : change24h < 0 ? "text-loss" : "text-muted-foreground"
-              )}
-            >
-              {formatPercentChange(change24h)}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              Vol ${formatCurrency(price?.volume24h || 0)}
-              <span className="hidden sm:inline">
+          <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 flex-wrap min-w-0">
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg sm:text-xl font-mono font-bold tracking-tight">
+                {asset.symbol.toUpperCase()}
+              </span>
+              <span className="text-lg sm:text-xl tabular-nums font-medium">
+                ${formatPrice(price?.price || 0)}
+              </span>
+              <span
+                className={cn(
+                  "text-sm tabular-nums font-medium",
+                  change24h > 0
+                    ? "text-gain"
+                    : change24h < 0
+                      ? "text-loss"
+                      : "text-muted-foreground"
+                )}
+              >
+                {formatPercentChange(change24h)}
+              </span>
+            </div>
+            <span className="text-xs text-muted-foreground font-mono">
+              VOL ${formatCurrency(price?.volume24h || 0)}
+              <span className="hidden lg:inline">
                 {" · "}H ${formatPrice(price?.high24h || 0)}
                 {" · "}L ${formatPrice(price?.low24h || 0)}
               </span>
@@ -89,24 +96,34 @@ function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string 
         </div>
       </header>
 
-      {/* Unified Signal Card */}
-      <UnifiedSignalCard analysis={asset} />
+      {/* Mobile: Signal first, Chart below */}
+      {/* Large Screen: Side-by-side - Chart 80%, Signal 20% */}
+      <div className="flex-1 min-h-0 flex flex-col xl:grid xl:grid-cols-5 gap-4 xl:gap-5">
+        {/* Signal Card - First on mobile, right side on desktop */}
+        <div className="xl:col-span-1 xl:order-2 xl:flex xl:items-start">
+          <UnifiedSignalCard analysis={asset} className="w-full" />
+        </div>
 
-      {/* Chart */}
-      {chartData && chartData.length > 0 ? (
-        <TradingChart
-          data={chartData}
-          symbol={chartSymbol}
-          interval={interval}
-          onIntervalChange={setInterval}
-        />
-      ) : !chartLoading ? (
-        <Card className="py-0 shadow-none">
-          <CardContent className="p-8 text-center">
-            <p className="text-sm text-muted-foreground">Chart data unavailable</p>
-          </CardContent>
-        </Card>
-      ) : null}
+        {/* Chart Area - Height scales with device resolution */}
+        <div className="xl:col-span-4 xl:order-1 flex-1 min-h-[300px] sm:min-h-[350px] lg:min-h-[450px] xl:min-h-[500px] 2xl:min-h-[600px]">
+          {chartData && chartData.length > 0 ? (
+            <TradingChart
+              data={chartData}
+              symbol={chartSymbol}
+              interval={interval}
+              onIntervalChange={setInterval}
+            />
+          ) : !chartLoading ? (
+            <Card className="py-0 shadow-none h-full flex items-center justify-center border-dashed border-border/60">
+              <CardContent className="text-center">
+                <p className="text-sm text-muted-foreground font-mono">CHART DATA UNAVAILABLE</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Skeleton className="h-full w-full rounded-sm" />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -114,7 +131,7 @@ function AssetContent({ asset, symbol }: { asset: AssetAnalysis; symbol: string 
 // Loading skeleton
 function AssetDetailSkeleton({ symbol }: { symbol?: string }) {
   return (
-    <div className="px-3 sm:px-6 py-3 sm:py-6 max-w-6xl mx-auto space-y-5 sm:space-y-6">
+    <div className="container-fluid py-3 sm:py-6 space-y-5 sm:space-y-6">
       <header className="flex items-center gap-3">
         <Skeleton className="w-7 h-7 rounded-full" />
         <div>
@@ -142,15 +159,11 @@ export function AssetDetail() {
 
   if (isError || !asset) {
     return (
-      <div className="px-4 py-6 max-w-6xl mx-auto">
-        <Card className="py-0">
-          <CardContent className="p-6 text-center">
-            <p className="text-sm text-muted-foreground mb-4">
-              {isError ? "Unable to load data." : `No data for ${symbol?.toUpperCase()}.`}
-            </p>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
-          </CardContent>
-        </Card>
+      <div className="container-fluid py-6">
+        <ErrorState
+          title={isError ? "Unable to load asset data" : `No data for ${symbol?.toUpperCase()}`}
+          retryAction={() => window.location.reload()}
+        />
       </div>
     );
   }

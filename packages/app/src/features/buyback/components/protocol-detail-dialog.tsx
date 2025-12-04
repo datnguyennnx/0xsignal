@@ -152,7 +152,7 @@ function DetailContent({ protocol }: { protocol: string }) {
               Chains
             </div>
             <div className="flex flex-wrap gap-1">
-              {detail.signal.chains.slice(0, 3).map((chain) => (
+              {detail.signal.chains.map((chain) => (
                 <Badge key={chain} variant="outline" className="text-[10px]">
                   {chain}
                 </Badge>
@@ -176,7 +176,7 @@ export const ProtocolDetailDialog = memo(function ProtocolDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[calc(100%-1rem)] max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
+      <DialogContent className="max-w-5xl w-[calc(100%-1rem)] max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-xl">
         <DialogHeader className="pb-4">
           <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <span className="font-semibold">{signal.symbol.toUpperCase()}</span>

@@ -44,10 +44,17 @@
   --color-gain: var(--gain);
   --color-loss: var(--loss);
   --color-warn: var(--warn);
+
+  /* Extended Breakpoints for Ultra-Wide Screens */
+  --breakpoint-3xl: 1920px;
+  --breakpoint-4xl: 2560px;
 }
 
 :root {
   --radius: 0.625rem;
+
+  /* Fluid Typography: Scales from 14px at 320px to 16px at 1920px */
+  font-size: clamp(14px, 0.875rem + 0.25vw, 16px);
 
   /* Monochrome Base - Warm off-white for less eye strain */
   --background: oklch(0.985 0.002 90);
@@ -368,5 +375,146 @@
   }
   .border-warn-dark {
     border-color: var(--warn-dark);
+  }
+
+  /* Fluid Container Utility */
+  .container-fluid {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    max-width: 100%;
+  }
+
+  @media (min-width: 640px) {
+    .container-fluid {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-fluid {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .container-fluid {
+      max-width: 2400px; /* Cap at 2400px for 4k/5k screens */
+      padding-left: 3rem;
+      padding-right: 3rem;
+    }
+  }
+
+  /* ===== TOUCH TARGET UTILITIES ===== */
+  /* Minimum touch targets for mobile accessibility */
+  .touch-target-44 {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .touch-target-48 {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  /* Touch-friendly padding for list items */
+  .touch-padding {
+    padding: 0.875rem 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .touch-padding {
+      padding: 0.75rem 1rem;
+    }
+  }
+
+  /* ===== RESPONSIVE TEXT UTILITIES ===== */
+  /* Mobile-first text that scales down density on small screens */
+  .text-responsive-sm {
+    font-size: 0.8125rem; /* 13px on mobile */
+    line-height: 1.4;
+  }
+
+  @media (min-width: 640px) {
+    .text-responsive-sm {
+      font-size: 0.75rem; /* 12px on tablet+ */
+      line-height: 1.5;
+    }
+  }
+
+  .text-responsive-xs {
+    font-size: 0.6875rem; /* 11px on mobile */
+  }
+
+  @media (min-width: 640px) {
+    .text-responsive-xs {
+      font-size: 0.625rem; /* 10px on tablet+ */
+    }
+  }
+
+  /* ===== MOBILE INTERACTION FEEDBACK ===== */
+  .tap-highlight {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .tap-highlight:active {
+    opacity: 0.85;
+    transition: opacity 0.1s ease-out;
+  }
+
+  /* ===== RESPONSIVE VISIBILITY ===== */
+  /* Show only on mobile */
+  .mobile-only {
+    display: block;
+  }
+
+  @media (min-width: 640px) {
+    .mobile-only {
+      display: none;
+    }
+  }
+
+  /* Hide on mobile, show on tablet+ */
+  .tablet-up {
+    display: none;
+  }
+
+  @media (min-width: 640px) {
+    .tablet-up {
+      display: block;
+    }
+  }
+
+  /* Hide below desktop */
+  .desktop-up {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .desktop-up {
+      display: block;
+    }
+  }
+
+  /* ===== RESPONSIVE GRID GAPS ===== */
+  /* Smaller gaps on mobile, larger on desktop */
+  .gap-responsive {
+    gap: 0.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .gap-responsive {
+      gap: 0.75rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .gap-responsive {
+      gap: 1rem;
+    }
   }
 }

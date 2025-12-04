@@ -16,11 +16,11 @@ import type {
 import { ApiServiceTag } from "../api/client";
 import type { ApiError, NetworkError } from "../api/errors";
 
-// Cache TTL Configuration - longer TTLs to reduce API calls
+// Cache TTL Configuration - Optimized to prevent 429 rate limit errors
 const CACHE_CONFIG = {
-  SHORT_TTL: Duration.minutes(2), // 2 min for frequently changing data
-  MEDIUM_TTL: Duration.minutes(5), // 5 min for most data
-  LONG_TTL: Duration.minutes(15), // 15 min for stable data
+  SHORT_TTL: Duration.minutes(10), // 10 min for frequently changing data (charts, liquidations)
+  MEDIUM_TTL: Duration.minutes(15), // 15 min for analysis data
+  LONG_TTL: Duration.minutes(30), // 30 min for stable data (buybacks, metadata)
   SMALL_CAPACITY: 20,
   MEDIUM_CAPACITY: 100,
   LARGE_CAPACITY: 500,

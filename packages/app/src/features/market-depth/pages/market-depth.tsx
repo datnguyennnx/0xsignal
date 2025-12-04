@@ -10,6 +10,7 @@ import { LiquidationHeatmapComponent } from "../components/liquidation-heatmap";
 import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useResponsiveDataCount } from "@/core/hooks/use-responsive-data-count";
 
 import { formatCompact } from "@/core/utils/formatters";
 import {
@@ -32,9 +33,9 @@ export function MarketDepthPage() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Responsive data limit: 5 for mobile, 20 for desktop
-  const dataLimit = isDesktop ? 20 : 5;
-  const displayLimit = isDesktop ? 20 : 5;
+  // Responsive data limit: 5 mobile, 10 tablet, 20 desktop, 40 for 4K
+  const dataLimit = useResponsiveDataCount({ mobile: 5, tablet: 10, desktop: 20, desktop4k: 40 });
+  const displayLimit = dataLimit;
 
   const { data: heatmapData, isLoading } = useEffectQuery(
     () => cachedHeatmap(dataLimit),
@@ -82,44 +83,54 @@ export function MarketDepthPage() {
   }, [liquidationData]);
 
   return (
-    <div className="h-[calc(100vh-8rem)] sm:h-[calc(100vh-6rem)] flex flex-col max-w-6xl mx-auto px-4 sm:px-6 py-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 shrink-0">
-        <h1 className="text-lg sm:text-xl font-semibold tracking-tight">Market Depth</h1>
-        <div className="flex items-center gap-1">
+    <div className="h-full flex flex-col container-fluid py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Header - Stacked on mobile */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-3 sm:mb-4 shrink-0 border-b border-border/40 pb-3 sm:pb-4">
+        <h1 className="text-base sm:text-lg font-mono font-bold tracking-tight uppercase">
+          Market Depth
+        </h1>
+        <div className="flex items-center gap-1 bg-secondary/20 p-1 rounded-sm self-start sm:self-auto">
           <Button
             variant={activeTab === "heatmap" ? "secondary" : "ghost"}
             size="sm"
             onClick={() => setActiveTab("heatmap")}
-            className="h-8 text-xs"
+            className={cn(
+              "h-7 text-xs font-mono rounded-sm transition-all",
+              activeTab === "heatmap" ? "bg-background shadow-sm" : "hover:bg-background/50"
+            )}
           >
-            Heatmap
+            HEATMAP
           </Button>
           <Button
             variant={activeTab === "liquidation" ? "secondary" : "ghost"}
             size="sm"
             onClick={() => setActiveTab("liquidation")}
-            className="h-8 text-xs"
+            className={cn(
+              "h-7 text-xs font-mono rounded-sm transition-all",
+              activeTab === "liquidation" ? "bg-background shadow-sm" : "hover:bg-background/50"
+            )}
           >
-            Liquidations
+            LIQUIDATIONS
           </Button>
         </div>
       </div>
 
       {/* Stats Row */}
-      {activeTab === "heatmap" ? (
-        <HeatmapStats stats={heatmapStats} />
-      ) : (
-        <LiquidationStats
-          stats={liquidationStats}
-          selectedSymbol={selectedSymbol}
-          availableSymbols={availableSymbols}
-          onSymbolChange={setSelectedSymbol}
-        />
-      )}
+      <div className="mb-4">
+        {activeTab === "heatmap" ? (
+          <HeatmapStats stats={heatmapStats} />
+        ) : (
+          <LiquidationStats
+            stats={liquidationStats}
+            selectedSymbol={selectedSymbol}
+            availableSymbols={availableSymbols}
+            onSymbolChange={setSelectedSymbol}
+          />
+        )}
+      </div>
 
-      {/* Chart */}
-      <div className="flex-1 min-h-0 mt-4 border border-border/50 rounded-lg overflow-hidden">
+      {/* Chart - Full height available */}
+      <div className="flex-1 min-h-[300px] sm:min-h-0 border border-border/50 bg-card/30 rounded-sm overflow-hidden relative">
         {activeTab === "heatmap" ? (
           isLoading ? (
             <Skeleton className="h-full w-full rounded-none" />

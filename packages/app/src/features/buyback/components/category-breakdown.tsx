@@ -15,8 +15,7 @@ interface CategoryBreakdownProps {
 export function CategoryBreakdown({ categories }: CategoryBreakdownProps) {
   const sorted = Object.values(categories)
     .filter((c) => c.averageBuybackRate > 0.1)
-    .sort((a, b) => b.averageBuybackRate - a.averageBuybackRate)
-    .slice(0, 6);
+    .sort((a, b) => b.averageBuybackRate - a.averageBuybackRate);
 
   if (sorted.length === 0) return null;
 

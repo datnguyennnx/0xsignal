@@ -25,33 +25,20 @@ interface ErrorProps {
   onRetry?: () => void;
 }
 
+import { ErrorState } from "@/components/error-state";
+
 export function QueryError({
   title,
   message = "Connection failed. Check your network and try again.",
   onRetry,
 }: ErrorProps) {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
-      <h1 className="text-lg sm:text-xl font-semibold">{title}</h1>
-      <div className="rounded-lg border border-border bg-muted/30 p-6">
-        <p className="text-sm text-muted-foreground mb-4">{message}</p>
-        {onRetry && (
-          <button
-            onClick={onRetry}
-            className="px-4 py-2 text-sm font-medium bg-foreground text-background rounded hover:bg-foreground/90 transition-colors"
-          >
-            Retry
-          </button>
-        )}
-        {!onRetry && (
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 text-sm font-medium bg-foreground text-background rounded hover:bg-foreground/90 transition-colors"
-          >
-            Reload Page
-          </button>
-        )}
-      </div>
+    <div className="container-fluid">
+      <ErrorState
+        title={title}
+        description={message}
+        retryAction={onRetry || (() => window.location.reload())}
+      />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { ProtocolDetailDialog } from "@/features/buyback/components/protocol-det
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/error-state";
 
 const fetchBuybackData = () => cachedBuybackOverview();
 
@@ -27,11 +28,13 @@ function BuybackContent({ overview }: { overview: BuybackOverview }) {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-4 sm:px-6 sm:py-6 space-y-6">
+    <div className="container-fluid py-4 sm:py-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
-      <header>
-        <h1 className="text-lg sm:text-xl font-semibold tracking-tight">Protocol Buybacks</h1>
-        <p className="text-xs text-muted-foreground mt-1">
+      <header className="mb-4 sm:mb-5">
+        <h1 className="text-base sm:text-lg lg:text-xl font-semibold tracking-tight">
+          Protocol Buybacks
+        </h1>
+        <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">
           Revenue yield relative to market cap · Higher yield = stronger buyback potential
         </p>
       </header>
@@ -39,26 +42,30 @@ function BuybackContent({ overview }: { overview: BuybackOverview }) {
       {/* Stats Grid */}
       <BuybackStats overview={overview} />
 
-      {/* Main Content */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Protocol List */}
+      {/* Main Content - Sidebar below on mobile, side on desktop */}
+      <div className="flex flex-col-reverse lg:flex-row gap-5 lg:gap-6">
+        {/* Protocol Grid */}
         <section className="flex-1 min-w-0">
-          <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-sm font-medium">Protocols</h2>
-            <span className="text-xs text-muted-foreground tabular-nums">{signals.length}</span>
+          <div className="flex items-baseline justify-between mb-4 border-b border-border/40 pb-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
+                Protocols
+              </h2>
+              <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded-sm tabular-nums">
+                {signals.length}
+              </span>
+            </div>
           </div>
           {signals.length === 0 ? (
-            <Card className="py-0 shadow-none">
-              <CardContent className="py-12 text-center">
-                <p className="text-sm text-muted-foreground">No protocols with buyback data</p>
-              </CardContent>
-            </Card>
+            <div className="py-12 text-center border border-dashed border-border/60 rounded-sm">
+              <p className="text-xs text-muted-foreground font-mono">NO PROTOCOLS FOUND</p>
+            </div>
           ) : (
             <BuybackList signals={signals} onSelect={handleSelectProtocol} />
           )}
         </section>
 
-        {/* Sidebar */}
+        {/* Sidebar - At bottom on mobile */}
         <aside className="w-full lg:w-64 shrink-0 space-y-4">
           <CategoryBreakdown categories={overview.byCategory} />
 
@@ -95,12 +102,12 @@ function BuybackContent({ overview }: { overview: BuybackOverview }) {
 // Loading skeleton
 function BuybackSkeleton() {
   return (
-    <div className="max-w-6xl mx-auto px-4 py-4 sm:px-6 sm:py-6 space-y-6">
+    <div className="container-fluid py-4 sm:py-6 space-y-6">
       <div>
         <Skeleton className="h-6 w-40 mb-2" />
         <Skeleton className="h-4 w-64" />
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-3">
         {[1, 2, 3, 4].map((i) => (
           <Skeleton key={i} className="h-24 rounded-xl" />
         ))}
@@ -131,16 +138,12 @@ export function BuybackSignalsPage() {
 
   if (isError || !data) {
     return (
-      <div className="px-4 py-6 max-w-6xl mx-auto">
+      <div className="container-fluid py-6">
         <h1 className="text-lg font-semibold mb-4">Protocol Buybacks</h1>
-        <Card className="py-0">
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground mb-4">
-              Unable to fetch protocol revenue data.
-            </p>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
-          </CardContent>
-        </Card>
+        <ErrorState
+          title="Unable to load buyback data"
+          retryAction={() => window.location.reload()}
+        />
       </div>
     );
   }

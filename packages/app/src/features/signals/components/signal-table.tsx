@@ -29,96 +29,67 @@ function SignalItem({ signal, type }: { signal: AssetAnalysis; type: SignalType 
   const isStrong = signal.overallSignal === strongSignalMap[type];
   const price = signal.price?.price || 0;
   const change24h = signal.price?.change24h || 0;
-  const volume24h = signal.price?.volume24h || 0;
   const confidence = signal.confidence || 0;
   const riskScore = signal.riskScore || 0;
-  const noiseValue = signal.noise?.value ?? 0;
+  const volume = signal.price?.volume24h || 0;
   const isHold = type === "hold";
 
   return (
     <Card
       className={cn(
-        "py-0 shadow-none cursor-pointer transition-all hover:shadow-sm active:scale-[0.995]",
+        "py-0 shadow-none cursor-pointer transition-all hover:bg-secondary/30 active:scale-[0.98] group border-border/50 tap-highlight",
         isHold && "opacity-80"
       )}
       onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
     >
-      <CardContent className="p-4">
-        {/* Row 1: Symbol + Price + Change */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
+      <CardContent className="p-3.5 sm:p-3">
+        <div className="flex items-center justify-between">
+          {/* Left: Symbol & Context */}
+          <div className="flex items-center gap-3">
             <CryptoIcon
               symbol={signal.symbol}
               image={signal.price?.image}
               size={24}
-              className="shrink-0"
+              className="shrink-0 opacity-90 sm:w-[22px] sm:h-[22px]"
             />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-medium text-sm">{signal.symbol.toUpperCase()}</span>
+            <div className="flex flex-col">
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono font-bold text-sm tracking-tight leading-none">
+                  {signal.symbol.toUpperCase()}
+                </span>
                 {isStrong && (
-                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
-                    STRONG
-                  </Badge>
+                  <span className="text-[9px] font-semibold text-foreground/80 uppercase tracking-wider leading-none">
+                    Strong
+                  </span>
                 )}
               </div>
-              <div className="text-xs text-muted-foreground tabular-nums">
-                ${formatPrice(price)}
-              </div>
-            </div>
-          </div>
-          <div className="text-right">
-            <div
-              className={cn(
-                "text-sm font-medium tabular-nums",
-                change24h > 0 ? "text-gain" : "text-loss"
-              )}
-            >
-              {formatPercentChange(change24h)}
-            </div>
-            <div className="text-[10px] text-muted-foreground">24h</div>
-          </div>
-        </div>
 
-        {/* Row 2: Metrics */}
-        <div className="flex items-center justify-between pt-3 border-t border-border/50">
-          <div className="flex items-center gap-4 text-xs">
-            <div>
-              <span className="text-muted-foreground">Vol </span>
-              <span className="tabular-nums">{formatCurrency(volume24h)}</span>
-            </div>
-            {isHold ? (
-              <>
-                <div>
-                  <span className="text-muted-foreground">Risk </span>
-                  <span
-                    className={cn("tabular-nums font-medium", riskScore > 60 ? "text-warn" : "")}
-                  >
-                    {riskScore}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Noise </span>
-                  <span
-                    className={cn("tabular-nums font-medium", noiseValue > 60 ? "text-warn" : "")}
-                  >
-                    {noiseValue}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div>
-                <span className="text-muted-foreground">Conf </span>
-                <span
-                  className={cn(
-                    "tabular-nums font-medium",
-                    type === "buy" ? "text-gain" : type === "sell" ? "text-loss" : ""
-                  )}
-                >
-                  {confidence}%
+              {/* Mobile: Show simplified context | Desktop: Full metrics */}
+              <div className="flex items-center gap-2.5 sm:gap-3 mt-1.5 sm:mt-1 text-[11px] sm:text-[10px] text-muted-foreground tabular-nums">
+                <span className="sm:hidden">{confidence}%</span>
+                <span className="hidden sm:inline" title="Confidence">
+                  C:{confidence}%
                 </span>
+                {!isHold && <span title="Risk Score">R:{riskScore}</span>}
               </div>
-            )}
+            </div>
+          </div>
+
+          <div className="text-right">
+            <div className="text-sm font-medium tabular-nums tracking-tight leading-none mb-1.5 sm:mb-1">
+              ${formatPrice(price)}
+            </div>
+            <div className="flex items-center justify-end gap-3 text-[11px] tabular-nums">
+              {/* Desktop+: Show Volume */}
+              <span className="hidden xl:block text-muted-foreground">
+                Vol {formatCurrency(volume)}
+              </span>
+
+              <span className={cn("font-medium", change24h > 0 ? "text-gain" : "text-loss")}>
+                {change24h > 0 ? "+" : ""}
+                {formatPercentChange(change24h)}
+              </span>
+            </div>
           </div>
         </div>
       </CardContent>
@@ -143,7 +114,7 @@ export function SignalTable({ signals, type }: SignalTableProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-responsive">
       {signals.map((signal) => (
         <SignalItem key={signal.symbol} signal={signal} type={type} />
       ))}

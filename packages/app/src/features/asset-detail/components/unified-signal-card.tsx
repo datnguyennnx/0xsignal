@@ -10,21 +10,17 @@ interface UnifiedSignalCardProps {
 
 export function UnifiedSignalCard({ analysis, className }: UnifiedSignalCardProps) {
   const { overallSignal, confidence, riskScore, entrySignal, strategyResult } = analysis;
-  const { entryPrice, targetPrice, stopLoss, direction, strength, indicatorSummary } = entrySignal;
+  const { entryPrice, targetPrice, stopLoss, direction, riskRewardRatio } = entrySignal;
 
   // Derived State
-  const isLong = direction === "LONG";
-  const isShort = direction === "SHORT";
   const hasDirection = direction !== "NEUTRAL";
 
-  // Semantic Coloring
+  // Semantic Logic
   const signalColor = overallSignal.includes("BUY")
     ? "text-gain"
     : overallSignal.includes("SELL")
       ? "text-loss"
-      : "text-muted-foreground";
-
-  const directionColor = isLong ? "text-gain" : isShort ? "text-loss" : "text-muted-foreground";
+      : "text-foreground";
 
   // Percentage Calculations
   const calculatePct = (start: number, end: number) => {
@@ -33,188 +29,119 @@ export function UnifiedSignalCard({ analysis, className }: UnifiedSignalCardProp
   };
 
   const targetPct = hasDirection ? Math.abs(calculatePct(entryPrice, targetPrice)) : 0;
-
   const stopPct = hasDirection ? Math.abs(calculatePct(entryPrice, stopLoss)) : 0;
 
   return (
-    <Card className={cn("w-full overflow-hidden bg-background border-border", className)}>
-      <div className="p-4 space-y-4">
-        {/* SECTION 1: SIGNAL OVERVIEW */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-6">
-          <DataPoint
-            label="Signal"
-            subLabel={strategyResult.regime.replace(/_/g, " ").toLowerCase()}
-          >
-            <span className={cn("font-semibold tracking-tight", signalColor)}>
+    <Card className={cn("w-full bg-card border-border/40 shadow-none p-5", className)}>
+      <div className="flex flex-col space-y-6">
+        {/* SECTION 1: Context & Headline */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+              {strategyResult.regime.replace(/_/g, " ")}
+            </span>
+            <span className="text-[10px] font-mono text-muted-foreground">CONF {confidence}%</span>
+          </div>
+
+          <div className="flex items-baseline gap-3">
+            <h2 className={cn("text-xl font-bold tracking-tight leading-none", signalColor)}>
               {overallSignal.replace(/_/g, " ")}
-            </span>
-          </DataPoint>
-
-          <DataPoint label="Direction" subLabel={strength.toLowerCase()}>
-            <span className={cn("font-semibold", directionColor)}>{direction}</span>
-          </DataPoint>
-
-          <DataPoint label="Confidence">
-            <span className="font-semibold tabular-nums">{confidence}%</span>
-          </DataPoint>
-
-          <DataPoint label="Risk">
-            <span
-              className={cn(
-                "font-semibold tabular-nums",
-                riskScore > 75 ? "text-loss" : riskScore > 40 ? "text-warn" : "text-gain"
-              )}
+            </h2>
+            <Badge
+              variant="secondary"
+              className="h-5 px-1.5 text-[9px] font-mono uppercase tracking-wide text-muted-foreground bg-secondary/50 hover:bg-secondary/50 border-0 rounded-sm"
             >
-              {riskScore}
-              <span className="text-sm text-muted-foreground font-normal ml-0.5">/100</span>
+              {direction}
+            </Badge>
+          </div>
+        </div>
+
+        {/* SECTION 2: The 'Lead' - Entry Price */}
+        <div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-4xl font-mono font-medium tracking-tighter text-foreground tabular-nums">
+              {formatCurrency(entryPrice)}
             </span>
-          </DataPoint>
+            <span className="text-xs text-muted-foreground font-medium">USD</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
+            Suggested Entry Zone
+          </p>
         </div>
 
-        {/* SECTION 2: EXECUTION LEVELS */}
+        {/* SECTION 3: The 'Ticker' - Responsive Layout */}
+        {/* Mobile/Tablet: 3-Column Grid | Desktop: Vertical List */}
         {hasDirection && (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-6">
-              <DataPoint label="Entry">
-                <span className="font-mono font-medium tabular-nums text-foreground">
-                  {formatCurrency(entryPrice)}
-                </span>
-              </DataPoint>
-
-              <DataPoint
-                label="Target"
-                subLabel={`+${targetPct.toFixed(1)}%`}
-                subLabelColor="text-gain"
-              >
-                <span className={cn("font-mono font-medium tabular-nums", directionColor)}>
-                  {formatCurrency(targetPrice)}
-                </span>
-              </DataPoint>
-
-              <DataPoint
-                label="Stop"
-                subLabel={`-${stopPct.toFixed(1)}%`}
-                subLabelColor="text-loss"
-              >
-                <span
-                  className={cn(
-                    "font-mono font-medium tabular-nums",
-                    isLong ? "text-loss" : "text-gain"
-                  )}
-                >
-                  {formatCurrency(stopLoss)}
-                </span>
-              </DataPoint>
-
-              <DataPoint label="R:R" subLabel={`${entrySignal.suggestedLeverage}x leverage`}>
-                <span className="font-medium tabular-nums">{entrySignal.riskRewardRatio}:1</span>
-              </DataPoint>
-            </div>
-          </>
+          <div className="grid grid-cols-3 gap-4 pt-2 lg:flex lg:flex-col lg:gap-0 lg:space-y-3 lg:pt-0">
+            <TickerItem
+              label="Target"
+              value={formatCurrency(targetPrice)}
+              subValue={`+${targetPct.toFixed(2)}%`}
+              highlight="gain"
+            />
+            <TickerItem
+              label="Stop"
+              value={formatCurrency(stopLoss)}
+              subValue={`-${stopPct.toFixed(2)}%`}
+              highlight="loss"
+            />
+            <TickerItem
+              label="Risk / Reward"
+              value={`${riskScore}/100`}
+              subValue={`1:${riskRewardRatio}`}
+              highlight="neutral"
+            />
+          </div>
         )}
-
-        {/* SECTION 3: TECHNICAL CONTEXT */}
-        <div className="flex flex-wrap items-center gap-2">
-          <IndicatorBadge
-            label="RSI"
-            value={indicatorSummary.rsi.value.toFixed(0)}
-            state={getIndicatorState(indicatorSummary.rsi.value, "RSI")}
-          />
-          <IndicatorBadge
-            label="MACD"
-            value={formatTrend(indicatorSummary.macd.trend)}
-            state={
-              indicatorSummary.macd.trend === "BULLISH"
-                ? "gain"
-                : indicatorSummary.macd.trend === "BEARISH"
-                  ? "loss"
-                  : "neutral"
-            }
-          />
-          <IndicatorBadge
-            label="ADX"
-            value={indicatorSummary.adx.value.toFixed(0)}
-            state="neutral"
-          />
-          <IndicatorBadge label="ATR" value={`${indicatorSummary.atr.value}%`} state="neutral" />
-        </div>
       </div>
     </Card>
   );
 }
 
-// --- Sub-components for Structural Consistency ---
+// --- Sub-components ---
 
-function DataPoint({
+function TickerItem({
   label,
-  subLabel,
-  subLabelColor,
-  children,
+  value,
+  subValue,
+  highlight,
 }: {
   label: string;
-  subLabel?: string;
-  subLabelColor?: string;
-  children: React.ReactNode;
+  value: string;
+  subValue: string;
+  highlight: "gain" | "loss" | "neutral";
 }) {
+  const subColor =
+    highlight === "gain"
+      ? "text-gain"
+      : highlight === "loss"
+        ? "text-loss"
+        : "text-muted-foreground";
+
   return (
-    <div className="flex flex-col">
-      <span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-        {label}
-      </span>
-      <div className="text-base sm:text-lg leading-none mb-1">{children}</div>
-      {subLabel && (
-        <span className={cn("text-xs leading-none", subLabelColor || "text-muted-foreground")}>
-          {subLabel}
+    // Mobile: Vertical Stack (Label Top) | Desktop: Horizontal Row (Label Left)
+    <div className="flex flex-col space-y-0.5 lg:flex-row lg:justify-between lg:items-center lg:space-y-0 lg:border-b lg:border-border/40 lg:pb-2 lg:last:border-0 lg:last:pb-0">
+      <span className="text-[9px] uppercase tracking-widest text-muted-foreground/70">{label}</span>
+      <div className="flex flex-col lg:flex-row lg:items-baseline lg:gap-2">
+        <span className="text-sm font-mono font-medium text-foreground tabular-nums leading-tight">
+          {value}
         </span>
-      )}
+        <span
+          className={cn("text-[10px] font-mono tabular-nums leading-none lg:text-right", subColor)}
+        >
+          {subValue}
+        </span>
+      </div>
     </div>
   );
 }
 
-function IndicatorBadge({
-  label,
-  value,
-  state,
-}: {
-  label: string;
-  value: string | number;
-  state: "gain" | "loss" | "neutral";
-}) {
-  const stateColor =
-    state === "gain"
-      ? "text-gain bg-gain/10 border-gain/20"
-      : state === "loss"
-        ? "text-loss bg-loss/10 border-loss/20"
-        : "text-foreground bg-secondary/50 border-transparent";
-
-  return (
-    <Badge variant="outline" className={cn("h-6 px-2.5 font-normal border gap-1.5", stateColor)}>
-      <span className="text-muted-foreground text-[10px] uppercase font-medium">{label}</span>
-      <span className="text-xs font-semibold tabular-nums">{value}</span>
-    </Badge>
-  );
-}
-
-// --- Utilities (Local for context, move to @/lib/utils in production) ---
+// --- Utilities ---
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+    style: "decimal",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
-}
-
-function formatTrend(trend: string): string {
-  if (!trend) return "Neutral";
-  return trend.charAt(0) + trend.slice(1).toLowerCase();
-}
-
-function getIndicatorState(value: number, type: "RSI"): "gain" | "loss" | "neutral" {
-  if (type === "RSI") {
-    if (value < 30) return "gain"; // Oversold
-    if (value > 70) return "loss"; // Overbought
-  }
-  return "neutral";
 }

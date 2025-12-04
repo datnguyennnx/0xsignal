@@ -40,12 +40,12 @@ function ProtocolCard({
 
   return (
     <Card
-      className="py-0 shadow-none cursor-pointer transition-all hover:shadow-sm active:scale-[0.995]"
+      className="py-0 shadow-none cursor-pointer transition-all hover:bg-secondary/20 active:scale-[0.995] group border-border/60"
       onClick={() => onSelect?.(signal)}
     >
-      <CardContent className="p-4">
+      <CardContent className="p-3">
         {/* Row 1: Symbol + Category */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-2.5">
             <CryptoIcon
               symbol={signal.symbol}
@@ -54,32 +54,39 @@ function ProtocolCard({
               className="shrink-0"
             />
             <div>
-              <div className="font-medium text-sm">{signal.symbol.toUpperCase()}</div>
-              <Badge variant="secondary" className="text-[9px] h-4 px-1.5 mt-0.5">
+              <div className="font-bold text-sm tracking-tight">{signal.symbol.toUpperCase()}</div>
+              <Badge variant="secondary" className="text-[9px] h-3.5 px-1.5 mt-0.5 font-normal">
                 {signal.category}
               </Badge>
             </div>
           </div>
           <div className="text-right">
             <div
-              className={cn("text-lg font-semibold tabular-nums", strengthStyles[signal.signal])}
+              className={cn(
+                "text-lg font-bold tabular-nums leading-none mb-0.5",
+                strengthStyles[signal.signal]
+              )}
             >
               {yieldRate.toFixed(1)}%
             </div>
-            <div className="text-[10px] text-muted-foreground">Yield</div>
+            <div className="text-[9px] text-muted-foreground uppercase tracking-wide opacity-70">
+              Yield
+            </div>
           </div>
         </div>
 
         {/* Row 2: Metrics */}
-        <div className="flex items-center justify-between pt-3 border-t border-border/50 text-xs">
-          <div className="flex items-center gap-4">
-            <div>
-              <span className="text-muted-foreground">Rev </span>
-              <span className="tabular-nums">{formatCurrency(signal.revenue24h)}</span>
+        <div className="flex items-center justify-between pt-2.5 border-t border-border/40 text-[11px]">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <span className="uppercase tracking-wider opacity-70 text-[9px]">Rev</span>
+              <span className="tabular-nums font-medium text-foreground">
+                {formatCurrency(signal.revenue24h)}
+              </span>
             </div>
-            <div>
-              <span className="text-muted-foreground">MCap </span>
-              <span className="tabular-nums text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <span className="uppercase tracking-wider opacity-70 text-[9px]">MCap</span>
+              <span className="tabular-nums font-medium text-foreground">
                 {formatCurrency(signal.marketCap)}
               </span>
             </div>
@@ -143,8 +150,8 @@ export function BuybackList({ signals, onSelect }: BuybackListProps) {
         ))}
       </div>
 
-      {/* Protocol cards grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Protocol cards grid - More columns on larger screens */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-responsive">
         {sorted.map((signal) => (
           <ProtocolCard key={signal.protocol} signal={signal} onSelect={onSelect} />
         ))}

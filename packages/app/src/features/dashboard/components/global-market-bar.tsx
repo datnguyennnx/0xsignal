@@ -14,7 +14,7 @@ interface GlobalMarketBarProps {
 
 export function GlobalMarketBar({ data, className }: GlobalMarketBarProps) {
   return (
-    <div className={cn("flex items-center text-xs", className)}>
+    <div className={cn("flex items-center text-xs gap-x-2", className)}>
       {/* Left: Market Cap + Volume */}
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
