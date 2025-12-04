@@ -45,10 +45,7 @@ export function Layout({ children }: LayoutProps) {
         <div className="container-fluid">
           <div className="flex items-center justify-between h-12">
             <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <span className="text-base font-semibold tracking-tight">0xSignal</span>
-              <span className="text-xs text-muted-foreground hidden lg:inline">
-                Quantitative Crypto Analysis
-              </span>
+              <p className="font-press-start">0xsignal</p>
             </Link>
 
             <nav className="flex items-center gap-6">
@@ -88,8 +85,8 @@ export function Layout({ children }: LayoutProps) {
       {/* Mobile Header - Enhanced touch target */}
       <header className="sm:hidden shrink-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="flex items-center justify-between h-12 px-4">
-          <Link to="/" className="text-base font-semibold tracking-tight tap-highlight">
-            0xSignal
+          <Link to="/" className="font-press-start tap-highlight">
+            0xsignal
           </Link>
           <div className="flex items-center gap-1">
             <Button
