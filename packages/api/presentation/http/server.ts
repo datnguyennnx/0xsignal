@@ -104,6 +104,7 @@ const handleFetch = (req: Request): Promise<Response> | Response => {
 const server = Bun.serve({
   port: PORT,
   fetch: handleFetch,
+  reusePort: true,
 });
 
 console.log(`0xSignal API Server`);

@@ -2,6 +2,8 @@
 
 import { Layer } from "effect";
 import { HttpClientLive } from "../http/client";
+import { RateLimiterLive } from "../http/rate-limiter";
+import { RequestCacheLayer } from "../cache/request-cache";
 import { AppConfigLive } from "../config/app.config";
 import {
   CoinGeckoServiceLive,
@@ -17,19 +19,14 @@ import { BuybackServiceLive } from "../../services/buyback";
 import { ChartDataServiceLive } from "../data-sources/binance/chart.provider";
 import { DevLoggerLive } from "../logging/logger";
 
-// Core: logging + config
 const CoreLayer = Layer.mergeAll(DevLoggerLive, AppConfigLive);
 
-// HTTP client
-const HttpLayer = HttpClientLive;
+const HttpLayer = Layer.mergeAll(HttpClientLive, RateLimiterLive);
 
-// Chart data (depends on HTTP)
 const ChartLayer = ChartDataServiceLive.pipe(Layer.provide(HttpLayer));
 
-// Infrastructure
 const InfraLayer = Layer.mergeAll(HttpLayer, ChartLayer).pipe(Layer.provide(CoreLayer));
 
-// Data providers
 const CoinGeckoLayer = CoinGeckoServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
 );
@@ -52,12 +49,10 @@ const HeatmapLayer = HeatmapServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer))
 );
 
-// Aggregated data
 const AggregatedDataLayer = AggregatedDataServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer, BinanceLayer, HeatmapLayer))
 );
 
-// Services
 const AnalysisLayer = AnalysisServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer))
 );
@@ -66,7 +61,6 @@ const BuybackLayer = BuybackServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer, DefiLlamaLayer))
 );
 
-// Combined app layer
 export const AppLayer = Layer.mergeAll(
   CoreLayer,
   InfraLayer,
@@ -78,7 +72,8 @@ export const AppLayer = Layer.mergeAll(
   HeatmapLayer,
   AggregatedDataLayer,
   AnalysisLayer,
-  BuybackLayer
+  BuybackLayer,
+  RequestCacheLayer
 );
 
 export type AppLayer = typeof AppLayer;

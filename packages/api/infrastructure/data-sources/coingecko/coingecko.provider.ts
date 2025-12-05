@@ -1,8 +1,9 @@
-/** CoinGecko Provider - Spot price data with caching and functional patterns */
+/** CoinGecko Provider - Spot price data with caching and rate limiting */
 
 import { Effect, Context, Layer, Data, Cache, Ref, Option, pipe, Array as Arr } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
 import { HttpClientTag } from "../../http/client";
+import { RateLimiterTag } from "../../http/rate-limiter";
 import { CoinGeckoMarketsSchema, type CoinGeckoMarketItem } from "../../http/schemas";
 import { DataSourceError, type AdapterInfo } from "../types";
 import {
@@ -106,10 +107,17 @@ export const CoinGeckoServiceLive = Layer.effect(
   CoinGeckoService,
   Effect.gen(function* () {
     const http = yield* HttpClientTag;
+    const rateLimiter = yield* RateLimiterTag;
     const symbolMapRef = yield* Ref.make<Map<string, CryptoPrice>>(new Map());
 
     const updateSymbolMap = (cryptos: CryptoPrice[]) =>
       Ref.set(symbolMapRef, buildSymbolMap(cryptos));
+
+    const withRateLimit = <A, E>(effect: Effect.Effect<A, E>) =>
+      rateLimiter.acquire("coingecko").pipe(
+        Effect.flatMap(() => effect),
+        Effect.catchTag("RateLimitExceeded", () => effect)
+      );
 
     const topCryptosCache = yield* Cache.make({
       capacity: CACHE_CAPACITY.SINGLE,
@@ -117,7 +125,9 @@ export const CoinGeckoServiceLive = Layer.effect(
       lookup: (limit: number) =>
         Effect.gen(function* () {
           const url = `${API_URLS.COINGECKO}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=${limit}&page=1&sparkline=false&price_change_percentage=24h`;
-          const data = yield* http.get(url, CoinGeckoMarketsSchema).pipe(Effect.mapError(mapError));
+          const data = yield* withRateLimit(
+            http.get(url, CoinGeckoMarketsSchema).pipe(Effect.mapError(mapError))
+          );
           const cryptos = Arr.map(data, toCryptoPrice);
           yield* updateSymbolMap(cryptos);
           return cryptos;
@@ -147,7 +157,9 @@ export const CoinGeckoServiceLive = Layer.effect(
 
           // Direct API fallback
           const url = `${API_URLS.COINGECKO}/simple/price?ids=${normalized}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`;
-          const data = yield* http.getJson(url).pipe(Effect.mapError((e) => mapError(e, symbol)));
+          const data = yield* withRateLimit(
+            http.getJson(url).pipe(Effect.mapError((e) => mapError(e, symbol)))
+          );
           const parsed = data as Record<
             string,
             { usd: number; usd_market_cap?: number; usd_24h_vol?: number; usd_24h_change?: number }

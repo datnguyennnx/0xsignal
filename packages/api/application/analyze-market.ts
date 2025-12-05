@@ -9,7 +9,7 @@ import { analyzeAsset } from "./analyze-asset";
 export const analyzeMarket = (
   prices: ReadonlyArray<CryptoPrice>
 ): Effect.Effect<ReadonlyArray<AssetAnalysis>, never> =>
-  Effect.forEach(prices, analyzeAsset, { concurrency: 10 });
+  Effect.forEach(prices, analyzeAsset, { concurrency: 10, batching: true });
 
 // Create market overview
 export const createMarketOverview = (analyses: ReadonlyArray<AssetAnalysis>): MarketOverview => ({
