@@ -17,6 +17,7 @@ export interface LiquidationEvent {
 
 /**
  * Aggregated liquidation data for a symbol
+ * NOTE: isEstimate=true means this is modeled from OI/volatility, not real liquidation tape
  */
 export interface LiquidationData {
   readonly symbol: string;
@@ -29,6 +30,7 @@ export interface LiquidationData {
   readonly liquidationRatio: number; // long/short ratio
   readonly timestamp: Date;
   readonly timeframe: LiquidationTimeframe;
+  readonly isEstimate?: boolean; // true = derived model, not real tape data
 }
 
 /**
@@ -44,6 +46,7 @@ export interface LiquidationLevel {
 
 /**
  * Liquidation heatmap data
+ * NOTE: isEstimate=true means this is modeled from price range, not real orderbook
  */
 export interface LiquidationHeatmap {
   readonly symbol: string;
@@ -54,10 +57,12 @@ export interface LiquidationHeatmap {
   readonly totalLongLiquidationUsd: number;
   readonly totalShortLiquidationUsd: number;
   readonly timestamp: Date;
+  readonly isEstimate?: boolean; // true = derived model, not real tape data
 }
 
 /**
  * Market-wide liquidation summary
+ * NOTE: isEstimate=true means this is modeled from OI/volatility, not real liquidation tape
  */
 export interface MarketLiquidationSummary {
   readonly totalLiquidations24h: number;
@@ -67,6 +72,7 @@ export interface MarketLiquidationSummary {
   readonly largestLiquidation: LiquidationEvent | null;
   readonly topLiquidatedSymbols: readonly LiquidationData[];
   readonly timestamp: Date;
+  readonly isEstimate?: boolean; // true = derived model, not real tape data
 }
 
 export type LiquidationTimeframe = "1h" | "4h" | "12h" | "24h";

@@ -14,7 +14,7 @@ interface LayoutProps {
 
 const NAV_ITEMS = [
   { path: "/", label: "Signals", icon: TrendingUp },
-  { path: "/buyback", label: "Buyback", icon: Coins },
+  { path: "/buyback", label: "Revenue", icon: Coins },
   { path: "/treasury", label: "Treasury", icon: Landmark },
   { path: "/market-depth", label: "Depth", icon: Layers },
 ] as const;

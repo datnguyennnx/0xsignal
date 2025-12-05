@@ -12,7 +12,7 @@ const fetchBuybackData = () => cachedBuybackOverview();
 
 function StatsBar({ overview }: { overview: BuybackOverview }) {
   const items = [
-    { label: "24H REV", value: formatCurrency(overview.totalRevenue24h) },
+    { label: "24H FEES", value: formatCurrency(overview.totalRevenue24h) },
     { label: "AVG YIELD", value: `${overview.averageBuybackRate.toFixed(1)}%` },
     { label: "PROTOCOLS", value: overview.totalProtocols.toString() },
   ];
@@ -48,10 +48,10 @@ function BuybackContent({ overview }: { overview: BuybackOverview }) {
         <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0 mb-5 sm:mb-6 border-b border-border/40 pb-4">
           <div>
             <h1 className="text-base sm:text-lg font-mono font-bold tracking-tight uppercase">
-              Protocol Buybacks
+              Protocol Revenue
             </h1>
             <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
-              Revenue yield relative to market cap
+              Fee yield relative to market cap (not all fees = buybacks)
             </p>
           </div>
           <StatsBar overview={overview} />
@@ -70,7 +70,7 @@ function BuybackContent({ overview }: { overview: BuybackOverview }) {
             </div>
             {/* Inline metric legend */}
             <span className="hidden sm:block text-[9px] text-muted-foreground font-mono">
-              YIELD = (30D REV × 12) / MCAP
+              YIELD = (30D FEES × 12) / MCAP
             </span>
           </div>
 

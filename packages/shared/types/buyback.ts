@@ -1,10 +1,19 @@
 /**
- * Buyback Signal Types
- * Types for protocol buyback analysis relative to market cap
+ * Protocol Revenue/Yield Types
+ * Types for protocol fee analysis relative to market cap
+ *
+ * IMPORTANT: "Revenue" here means protocol fees collected.
+ * This does NOT necessarily mean tokens are being "bought back" or burned.
+ * Fee distribution varies by protocol:
+ * - Some protocols burn fees (MKR, BNB)
+ * - Some distribute to LPs (Uniswap, Curve)
+ * - Some go to treasury (Aave, Compound)
+ *
+ * Use "Yield" terminology for user-facing labels for transparency.
  */
 
 /**
- * Protocol buyback data from DefiLlama
+ * Protocol fee/revenue data from DefiLlama
  */
 export interface ProtocolBuyback {
   readonly protocol: string;
