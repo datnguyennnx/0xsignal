@@ -6,10 +6,8 @@
   "main": "./index.ts",
   "scripts": {
     "dev": "bun --watch presentation/http/server.ts",
-    "start": "bun presentation/http/server.ts",
-    "build": "tsc -b tsconfig.json",
-    "build:prod": "bun build ./presentation/http/server.ts --target=bun --minify --sourcemap --outdir=./dist",
-    "start:prod": "bun ./dist/server.js",
+    "start": "bun ./dist/server.js",
+    "build": "tsc -b tsconfig.json && bun build ./presentation/http/server.ts --target=bun --minify --sourcemap --outdir=./dist",
     "lint": "eslint . --ext .ts",
     "clean": "rm -rf dist",
     "test": "vitest run",

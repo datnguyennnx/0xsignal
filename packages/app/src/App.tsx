@@ -30,6 +30,11 @@ const BuybackSignalsPage = lazy(() =>
     default: m.BuybackSignalsPage,
   }))
 );
+const TreasuryDashboard = lazy(() =>
+  import("@/features/treasury/pages/treasury-dashboard").then((m) => ({
+    default: m.TreasuryDashboard,
+  }))
+);
 
 // Minimal loading fallback
 function PageLoader() {
@@ -55,6 +60,7 @@ function App() {
                 <Route path="/asset/:symbol" element={<AssetDetail />} />
                 <Route path="/market-depth" element={<MarketDepthPage />} />
                 <Route path="/buyback" element={<BuybackSignalsPage />} />
+                <Route path="/treasury" element={<TreasuryDashboard />} />
               </Routes>
             </Suspense>
           </Layout>

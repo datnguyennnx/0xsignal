@@ -9,6 +9,7 @@ import {
   CoinGeckoServiceLive,
   GlobalMarketServiceLive,
   CoinGeckoChartServiceLive,
+  TreasuryServiceLive,
 } from "../data-sources/coingecko";
 import { BinanceServiceLive } from "../data-sources/binance";
 import { HeatmapServiceLive } from "../data-sources/heatmap";
@@ -61,6 +62,10 @@ const BuybackLayer = BuybackServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer, DefiLlamaLayer))
 );
 
+const TreasuryLayer = TreasuryServiceLive.pipe(
+  Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
+);
+
 export const AppLayer = Layer.mergeAll(
   CoreLayer,
   InfraLayer,
@@ -73,6 +78,7 @@ export const AppLayer = Layer.mergeAll(
   AggregatedDataLayer,
   AnalysisLayer,
   BuybackLayer,
+  TreasuryLayer,
   RequestCacheLayer
 );
 

@@ -23,6 +23,9 @@ export * from "./types/liquidation";
 // Buyback types
 export * from "./types/buyback";
 
+// Treasury types
+export * from "./types/treasury";
+
 // Indicators
 export * from "./indicators";
 

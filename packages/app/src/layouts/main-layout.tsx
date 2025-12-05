@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/core/utils/cn";
-import { TrendingUp, Coins, Layers, RefreshCw } from "lucide-react";
+import { TrendingUp, Coins, Layers, RefreshCw, Landmark } from "lucide-react";
 import { invalidateAll } from "@/core/cache/effect-cache";
 import { Effect } from "effect";
 import { AppLayer } from "@/core/runtime/effect-runtime";
@@ -15,6 +15,7 @@ interface LayoutProps {
 const NAV_ITEMS = [
   { path: "/", label: "Signals", icon: TrendingUp },
   { path: "/buyback", label: "Buyback", icon: Coins },
+  { path: "/treasury", label: "Treasury", icon: Landmark },
   { path: "/market-depth", label: "Depth", icon: Layers },
 ] as const;
 

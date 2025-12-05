@@ -10,6 +10,8 @@ import type {
   OpenInterestData,
   FundingRateData,
   GlobalMarketData,
+  TreasurySummary,
+  TreasuryEntitiesResponse,
 } from "@0xsignal/shared";
 import { ApiServiceTag } from "../api/client";
 import type { ApiError, NetworkError } from "../api/errors";
@@ -34,6 +36,12 @@ export interface CacheService {
   readonly openInterest: Cache.Cache<string, OpenInterestData, ApiError | NetworkError>;
   readonly fundingRate: Cache.Cache<string, FundingRateData, ApiError | NetworkError>;
   readonly globalMarket: Cache.Cache<"global", GlobalMarketData, ApiError | NetworkError>;
+  readonly treasuryEntities: Cache.Cache<
+    "entities",
+    TreasuryEntitiesResponse,
+    ApiError | NetworkError
+  >;
+  readonly treasuryHoldings: Cache.Cache<string, TreasurySummary, ApiError | NetworkError>;
 }
 
 export class CacheServiceTag extends Context.Tag("CacheService")<CacheServiceTag, CacheService>() {}
@@ -113,6 +121,19 @@ const makeGlobalMarketCache = Cache.make({
   lookup: (_: "global") => ApiServiceTag.pipe(Effect.flatMap((api) => api.getGlobalMarket())),
 });
 
+const makeTreasuryEntitiesCache = Cache.make({
+  capacity: 1,
+  timeToLive: TTL.LONG,
+  lookup: (_: "entities") => ApiServiceTag.pipe(Effect.flatMap((api) => api.getTreasuryEntities())),
+});
+
+const makeTreasuryHoldingsCache = Cache.make({
+  capacity: CAPACITY.SMALL,
+  timeToLive: TTL.LONG,
+  lookup: (coinId: string) =>
+    ApiServiceTag.pipe(Effect.flatMap((api) => api.getTreasuryHoldings(coinId))),
+});
+
 export const CacheServiceLive = Layer.effect(
   CacheServiceTag,
   Effect.all({
@@ -127,6 +148,8 @@ export const CacheServiceLive = Layer.effect(
     openInterest: makeOpenInterestCache,
     fundingRate: makeFundingRateCache,
     globalMarket: makeGlobalMarketCache,
+    treasuryEntities: makeTreasuryEntitiesCache,
+    treasuryHoldings: makeTreasuryHoldingsCache,
   })
 );
 
@@ -164,6 +187,12 @@ export const cachedFundingRate = (symbol: string) =>
 
 export const cachedGlobalMarket = () =>
   CacheServiceTag.pipe(Effect.flatMap((c) => c.globalMarket.get("global")));
+
+export const cachedTreasuryEntities = () =>
+  CacheServiceTag.pipe(Effect.flatMap((c) => c.treasuryEntities.get("entities")));
+
+export const cachedTreasuryHoldings = (coinId: string) =>
+  CacheServiceTag.pipe(Effect.flatMap((c) => c.treasuryHoldings.get(coinId)));
 
 export const cachedDashboardData = (analysisLimit = 100) =>
   Effect.all(
@@ -215,6 +244,8 @@ export const invalidateAll = () =>
           c.openInterest.invalidateAll,
           c.fundingRate.invalidateAll,
           c.globalMarket.invalidateAll,
+          c.treasuryEntities.invalidateAll,
+          c.treasuryHoldings.invalidateAll,
         ],
         { concurrency: "unbounded" }
       )
@@ -236,6 +267,8 @@ export const getCacheStats = () =>
         openInterest: c.openInterest.size,
         fundingRate: c.fundingRate.size,
         globalMarket: c.globalMarket.size,
+        treasuryEntities: c.treasuryEntities.size,
+        treasuryHoldings: c.treasuryHoldings.size,
       })
     )
   );

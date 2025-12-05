@@ -30,6 +30,12 @@ import {
   protocolBuybackDetailRoute,
 } from "./routes/buyback.routes";
 import { globalMarketRoute } from "./routes/global-market.routes";
+import {
+  treasuryEntitiesRoute,
+  treasuryHoldingsRoute,
+  treasuryChartRoute,
+  treasurySupportedCoinsRoute,
+} from "./routes/treasury.routes";
 
 // Helpers
 const getParam = (url: URL, key: string, def: string) => url.searchParams.get(key) || def;
@@ -49,6 +55,8 @@ const patterns = {
   buybackDetail: /^\/api\/buyback\/([^/]+)\/detail$/,
   buyback: /^\/api\/buyback\/([^/]+)$/,
   analysis: /^\/api\/analysis\/([^/]+)$/,
+  treasuryHoldings: /^\/api\/treasury\/([^/]+)\/holdings$/,
+  treasuryChart: /^\/api\/treasury\/([^/]+)\/chart$/,
 };
 
 // Match pattern and extract param
@@ -101,6 +109,11 @@ export const handleRequest = (url: URL, _method: string) => {
         category: getParam(url, "category", "") || undefined,
         sortBy: getParam(url, "sortBy", "marketCap") as HeatmapConfig["sortBy"],
       });
+    case "/api/treasury/overview":
+    case "/api/treasury/entities":
+      return treasuryEntitiesRoute();
+    case "/api/treasury/coins":
+      return treasurySupportedCoinsRoute();
   }
 
   // Dynamic routes - liquidation heatmap
@@ -139,6 +152,14 @@ export const handleRequest = (url: URL, _method: string) => {
   if (analysisMatch && analysisMatch[1] !== "top") {
     return symbolAnalysisRoute(analysisMatch[1]);
   }
+
+  // Dynamic routes - treasury holdings
+  const treasuryHoldingsMatch = path.match(patterns.treasuryHoldings);
+  if (treasuryHoldingsMatch) return treasuryHoldingsRoute(treasuryHoldingsMatch[1]);
+
+  // Dynamic routes - treasury chart
+  const treasuryChartMatch = path.match(patterns.treasuryChart);
+  if (treasuryChartMatch) return treasuryChartRoute(treasuryChartMatch[1]);
 
   return notFound;
 };

@@ -56,6 +56,9 @@ export const CACHE_TTL = {
   BUYBACK_SIGNALS: Duration.minutes(10),
   BUYBACK_OVERVIEW: Duration.minutes(10),
   BUYBACK_PROTOCOL: Duration.minutes(10),
+  TREASURY_HOLDINGS: Duration.minutes(30),
+  TREASURY_TRANSACTIONS: Duration.minutes(15),
+  TREASURY_ENTITIES: Duration.hours(1),
 } as const;
 
 // Cache capacity

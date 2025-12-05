@@ -14,6 +14,8 @@ import type {
   BuybackOverview,
   ProtocolBuybackDetail,
   GlobalMarketData,
+  TreasurySummary,
+  TreasuryEntitiesResponse,
 } from "@0xsignal/shared";
 import { ApiError, NetworkError } from "./errors";
 
@@ -66,6 +68,13 @@ export interface ApiService {
   readonly getProtocolBuybackDetail: (
     protocol: string
   ) => Effect.Effect<ProtocolBuybackDetail, ApiError | NetworkError>;
+  readonly getTreasuryEntities: () => Effect.Effect<
+    TreasuryEntitiesResponse,
+    ApiError | NetworkError
+  >;
+  readonly getTreasuryHoldings: (
+    coinId: string
+  ) => Effect.Effect<TreasurySummary, ApiError | NetworkError>;
 }
 
 export class ApiServiceTag extends Context.Tag("ApiService")<ApiServiceTag, ApiService>() {}
@@ -199,4 +208,8 @@ export const ApiServiceLive = Layer.succeed(ApiServiceTag, {
     fetchJsonDeduped<BuybackSignal>(`${API_BASE}/buyback/${protocol}`),
   getProtocolBuybackDetail: (protocol) =>
     fetchJsonDeduped<ProtocolBuybackDetail>(`${API_BASE}/buyback/${protocol}/detail`),
+  getTreasuryEntities: () =>
+    fetchJsonDeduped<TreasuryEntitiesResponse>(`${API_BASE}/treasury/entities`),
+  getTreasuryHoldings: (coinId) =>
+    fetchJsonDeduped<TreasurySummary>(`${API_BASE}/treasury/${coinId}/holdings`),
 });
