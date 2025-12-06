@@ -261,14 +261,14 @@ describe("Buyback Domain", () => {
       expect(overview.averageBuybackRate).toBe(15);
     });
 
-    it("includes top 10 buyback protocols", () => {
-      const signals = Array.from({ length: 15 }, (_, i) =>
+    it("includes top 50 buyback protocols by default", () => {
+      const signals = Array.from({ length: 60 }, (_, i) =>
         createMockSignal({ protocol: `protocol-${i}` })
       );
 
       const overview = createBuybackOverview(signals);
 
-      expect(overview.topBuybackProtocols).toHaveLength(10);
+      expect(overview.topBuybackProtocols).toHaveLength(50);
     });
 
     it("includes category stats", () => {
