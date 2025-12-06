@@ -4,6 +4,7 @@ import { getHoldSignals } from "@/core/utils/effect-memoization";
 import { QueryLoading, QueryError, QueryEmpty } from "@/components/query-state";
 import { SignalTable } from "../components/signal-table";
 
+// Backend full-list cache: benefits from any prior fetch (dashboard=130)
 const fetchTopAnalysis = () => cachedTopAnalysis(100);
 
 export function AllHoldSignals() {

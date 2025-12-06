@@ -6,6 +6,8 @@ import { LiquidationHeatmapComponent } from "../components/liquidation-heatmap";
 import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useResponsiveDataCount } from "@/core/hooks/use-responsive-data-count";
 import { formatCompact } from "@/core/utils/formatters";
 import {
@@ -99,11 +101,28 @@ export function MarketDepthPage() {
             size="sm"
             onClick={() => setActiveTab("liquidation")}
             className={cn(
-              "h-7 text-xs font-mono rounded-sm transition-all",
+              "h-7 text-xs font-mono rounded-sm transition-all gap-1.5",
               activeTab === "liquidation" ? "bg-background shadow-sm" : "hover:bg-background/50"
             )}
           >
             LIQUIDATIONS
+            <Tooltip delayDuration={100}>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className="text-[8px] h-4 px-1 border-orange-500/40 text-orange-500"
+                >
+                  EST
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                <p className="font-semibold mb-1">Estimated Data</p>
+                <p>
+                  Calculated from Open Interest and volatility. Not actual exchange liquidation
+                  tape.
+                </p>
+              </TooltipContent>
+            </Tooltip>
           </Button>
         </div>
       </div>

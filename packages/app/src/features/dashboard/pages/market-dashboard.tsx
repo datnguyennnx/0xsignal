@@ -237,8 +237,8 @@ function DashboardSkeleton() {
   );
 }
 
-// Hoisted effect factory - stable reference using batch query
-const fetchDashboardData = () => cachedDashboardData(100);
+// Fetch limit: max UI needs (12 setups + 36 signals + 50 hold) × 1.3 buffer = 130
+const fetchDashboardData = () => cachedDashboardData(130);
 
 export function MarketDashboard() {
   const { data, isLoading, isError, error } = useResilientQuery(fetchDashboardData, [], {
