@@ -12,6 +12,7 @@ import type {
   GlobalMarketData,
   TreasurySummary,
   TreasuryEntitiesResponse,
+  AssetContext,
 } from "@0xsignal/shared";
 import { ApiServiceTag } from "../api/client";
 import type { ApiError, NetworkError } from "../api/errors";
@@ -42,6 +43,7 @@ export interface CacheService {
     ApiError | NetworkError
   >;
   readonly treasuryHoldings: Cache.Cache<string, TreasurySummary, ApiError | NetworkError>;
+  readonly context: Cache.Cache<string, AssetContext, ApiError | NetworkError>;
 }
 
 export class CacheServiceTag extends Context.Tag("CacheService")<CacheServiceTag, CacheService>() {}
@@ -134,6 +136,12 @@ const makeTreasuryHoldingsCache = Cache.make({
     ApiServiceTag.pipe(Effect.flatMap((api) => api.getTreasuryHoldings(coinId))),
 });
 
+const makeContextCache = Cache.make({
+  capacity: CAPACITY.LARGE,
+  timeToLive: TTL.MEDIUM,
+  lookup: (symbol: string) => ApiServiceTag.pipe(Effect.flatMap((api) => api.getContext(symbol))),
+});
+
 export const CacheServiceLive = Layer.effect(
   CacheServiceTag,
   Effect.all({
@@ -150,6 +158,7 @@ export const CacheServiceLive = Layer.effect(
     globalMarket: makeGlobalMarketCache,
     treasuryEntities: makeTreasuryEntitiesCache,
     treasuryHoldings: makeTreasuryHoldingsCache,
+    context: makeContextCache,
   })
 );
 
@@ -193,6 +202,9 @@ export const cachedTreasuryEntities = () =>
 
 export const cachedTreasuryHoldings = (coinId: string) =>
   CacheServiceTag.pipe(Effect.flatMap((c) => c.treasuryHoldings.get(coinId)));
+
+export const cachedContext = (symbol: string) =>
+  CacheServiceTag.pipe(Effect.flatMap((c) => c.context.get(symbol)));
 
 export const cachedDashboardData = (analysisLimit = 100) =>
   Effect.all(
@@ -246,6 +258,7 @@ export const invalidateAll = () =>
           c.globalMarket.invalidateAll,
           c.treasuryEntities.invalidateAll,
           c.treasuryHoldings.invalidateAll,
+          c.context.invalidateAll,
         ],
         { concurrency: "unbounded" }
       )
@@ -269,6 +282,7 @@ export const getCacheStats = () =>
         globalMarket: c.globalMarket.size,
         treasuryEntities: c.treasuryEntities.size,
         treasuryHoldings: c.treasuryHoldings.size,
+        context: c.context.size,
       })
     )
   );

@@ -36,6 +36,7 @@ import {
   treasuryChartRoute,
   treasurySupportedCoinsRoute,
 } from "./routes/treasury.routes";
+import { assetContextRoute } from "./routes/context.routes";
 
 // Helpers
 const getParam = (url: URL, key: string, def: string) => url.searchParams.get(key) || def;
@@ -57,6 +58,7 @@ const patterns = {
   analysis: /^\/api\/analysis\/([^/]+)$/,
   treasuryHoldings: /^\/api\/treasury\/([^/]+)\/holdings$/,
   treasuryChart: /^\/api\/treasury\/([^/]+)\/chart$/,
+  context: /^\/api\/context\/([^/]+)$/,
 };
 
 // Match pattern and extract param
@@ -160,6 +162,19 @@ export const handleRequest = (url: URL, _method: string) => {
   // Dynamic routes - treasury chart
   const treasuryChartMatch = path.match(patterns.treasuryChart);
   if (treasuryChartMatch) return treasuryChartRoute(treasuryChartMatch[1]);
+
+  // Dynamic routes - unified context
+  const contextMatch = path.match(patterns.context);
+  if (contextMatch) {
+    const includeTreasury = getParam(url, "treasury", "true") === "true";
+    const includeLiquidation = getParam(url, "liquidation", "true") === "true";
+    const includeDerivatives = getParam(url, "derivatives", "true") === "true";
+    return assetContextRoute(contextMatch[1], {
+      includeTreasury,
+      includeLiquidation,
+      includeDerivatives,
+    });
+  }
 
   return notFound;
 };

@@ -26,6 +26,9 @@ export * from "./types/buyback";
 // Treasury types
 export * from "./types/treasury";
 
+// Context types (unified cross-domain)
+export * from "./types/context";
+
 // Indicators
 export * from "./indicators";
 

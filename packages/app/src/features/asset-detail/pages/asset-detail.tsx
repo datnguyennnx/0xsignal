@@ -1,7 +1,7 @@
 import { useState, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import type { AssetAnalysis } from "@0xsignal/shared";
-import { cachedAnalysis, cachedChartData } from "@/core/cache/effect-cache";
+import type { AssetAnalysis, AssetContext } from "@0xsignal/shared";
+import { cachedAnalysis, cachedChartData, cachedContext } from "@/core/cache/effect-cache";
 import { useEffectQuery } from "@/core/runtime/use-effect-query";
 import { cn } from "@/core/utils/cn";
 import { formatPrice, formatCurrency, formatPercentChange } from "@/core/utils/formatters";
@@ -23,8 +23,6 @@ const ChartSkeleton = () => (
   </div>
 );
 
-const fetchAssetData = (symbol: string) => cachedAnalysis(symbol);
-
 const INTERVAL_TIMEFRAMES: Record<string, string> = {
   "15m": "24h",
   "1h": "7d",
@@ -35,6 +33,7 @@ const INTERVAL_TIMEFRAMES: Record<string, string> = {
 
 interface AssetContentProps {
   asset: AssetAnalysis;
+  context: AssetContext | null;
   symbol: string;
   chartData: any[] | null;
   chartLoading: boolean;
@@ -44,6 +43,7 @@ interface AssetContentProps {
 
 function AssetContent({
   asset,
+  context,
   symbol,
   chartData,
   chartLoading,
@@ -108,7 +108,7 @@ function AssetContent({
 
       <div className="flex-1 min-h-0 flex flex-col xl:grid xl:grid-cols-5 gap-4 xl:gap-5">
         <div className="xl:col-span-1 xl:order-2 xl:flex xl:items-start">
-          <UnifiedSignalCard analysis={asset} className="w-full" />
+          <UnifiedSignalCard analysis={asset} context={context} className="w-full" />
         </div>
         <div className="xl:col-span-4 xl:order-1 flex-1 min-h-[300px] sm:min-h-[350px] lg:min-h-[450px] xl:min-h-[500px] 2xl:min-h-[600px]">
           {chartData && chartData.length > 0 ? (
@@ -161,11 +161,14 @@ export function AssetDetail() {
     data: asset,
     isLoading: assetLoading,
     isError,
-  } = useEffectQuery(() => fetchAssetData(symbol || ""), [symbol]);
+  } = useEffectQuery(() => cachedAnalysis(symbol || ""), [symbol]);
+
   const { data: chartData, isLoading: chartLoading } = useEffectQuery(
     () => cachedChartData(chartSymbol, interval, timeframe),
     [chartSymbol, interval, timeframe]
   );
+
+  const { data: context } = useEffectQuery(() => cachedContext(symbol || ""), [symbol]);
 
   if (assetLoading) return <AssetDetailSkeleton symbol={symbol} />;
 
@@ -183,6 +186,7 @@ export function AssetDetail() {
   return (
     <AssetContent
       asset={asset}
+      context={context ?? null}
       symbol={symbol || ""}
       chartData={chartData}
       chartLoading={chartLoading}

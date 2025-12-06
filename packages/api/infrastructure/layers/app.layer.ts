@@ -17,6 +17,7 @@ import { DefiLlamaServiceLive } from "../data-sources/defillama";
 import { AggregatedDataServiceLive } from "../data-sources/aggregator";
 import { AnalysisServiceLive } from "../../services/analysis";
 import { BuybackServiceLive } from "../../services/buyback";
+import { ContextServiceLive } from "../../services/context";
 import { ChartDataServiceLive } from "../data-sources/binance/chart.provider";
 import { DevLoggerLive } from "../logging/logger";
 
@@ -66,6 +67,19 @@ const TreasuryLayer = TreasuryServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
 );
 
+const ContextLayer = ContextServiceLive.pipe(
+  Layer.provide(
+    Layer.mergeAll(
+      CoreLayer,
+      InfraLayer,
+      CoinGeckoLayer,
+      BinanceLayer,
+      TreasuryLayer,
+      AnalysisLayer
+    )
+  )
+);
+
 export const AppLayer = Layer.mergeAll(
   CoreLayer,
   InfraLayer,
@@ -79,6 +93,7 @@ export const AppLayer = Layer.mergeAll(
   AnalysisLayer,
   BuybackLayer,
   TreasuryLayer,
+  ContextLayer,
   RequestCacheLayer
 );
 

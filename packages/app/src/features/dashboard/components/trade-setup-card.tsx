@@ -4,9 +4,13 @@ import { cn } from "@/core/utils/cn";
 import { CryptoIcon } from "@/components/crypto-icon";
 import { Card, CardContent } from "@/components/ui/card";
 import { MiniSparkline } from "@/features/dashboard/components/mini-sparkline";
+import { Landmark, Zap } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TradeSetupCardProps {
   asset: AssetAnalysis;
+  hasInstitutionalHoldings?: boolean;
+  hasLiquidationRisk?: boolean;
 }
 
 const formatPrice = (p: number) => {
@@ -17,12 +21,26 @@ const formatPrice = (p: number) => {
   return p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-export function TradeSetupCard({ asset }: TradeSetupCardProps) {
+const getRiskColor = (score: number) => {
+  if (score < 30) return "text-gain";
+  if (score < 50) return "text-muted-foreground";
+  if (score < 75) return "text-warn";
+  return "text-loss";
+};
+
+export function TradeSetupCard({
+  asset,
+  hasInstitutionalHoldings = false,
+  hasLiquidationRisk = false,
+}: TradeSetupCardProps) {
   const entry = asset.entrySignal;
   const isLong = entry.direction === "LONG";
   const price = asset.price?.price || 0;
   const change = asset.price?.change24h || 0;
   const isPositive = change >= 0;
+  const showInstitutional =
+    hasInstitutionalHoldings &&
+    ["btc", "eth", "bitcoin", "ethereum"].includes(asset.symbol.toLowerCase());
 
   return (
     <Card className="py-0 shadow-none hover:bg-secondary/30 transition-all active:scale-[0.98] group border-border/50 tap-highlight">
@@ -49,6 +67,34 @@ export function TradeSetupCard({ asset }: TradeSetupCardProps) {
                   >
                     {entry.direction}
                   </span>
+                  {(showInstitutional || hasLiquidationRisk) && (
+                    <div className="flex items-center gap-1 ml-0.5">
+                      {showInstitutional && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help">
+                              <Landmark size={10} className="text-muted-foreground/70" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-[10px]">
+                            Institutional holdings
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {hasLiquidationRisk && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help">
+                              <Zap size={10} className="text-warn/70" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-[10px]">
+                            High liquidation risk
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="text-[11px] sm:text-[10px] text-muted-foreground font-medium mt-1">
                   {entry.strength.replace("_", " ")}
@@ -80,7 +126,25 @@ export function TradeSetupCard({ asset }: TradeSetupCardProps) {
           <div className="flex items-center justify-between pt-2.5 border-t border-border/40 text-[11px] text-muted-foreground tabular-nums">
             <div className="flex items-center gap-3">
               <span title="Confidence">C:{entry.confidence}%</span>
-              <span title="Risk Score">R:{asset.riskScore}</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={cn("cursor-help", getRiskColor(asset.riskScore))}>
+                    R:{asset.riskScore}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-[10px] max-w-48">
+                  <p className="font-medium mb-0.5">Risk Score</p>
+                  <p className="text-muted-foreground">
+                    {asset.riskScore < 30
+                      ? "Low risk environment"
+                      : asset.riskScore < 50
+                        ? "Moderate risk"
+                        : asset.riskScore < 75
+                          ? "Elevated risk"
+                          : "High risk zone"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
             </div>
             <span title="Risk:Reward">RR {entry.riskRewardRatio}:1</span>
           </div>

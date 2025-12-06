@@ -16,6 +16,7 @@ import type {
   GlobalMarketData,
   TreasurySummary,
   TreasuryEntitiesResponse,
+  AssetContext,
 } from "@0xsignal/shared";
 import { ApiError, NetworkError } from "./errors";
 
@@ -75,6 +76,7 @@ export interface ApiService {
   readonly getTreasuryHoldings: (
     coinId: string
   ) => Effect.Effect<TreasurySummary, ApiError | NetworkError>;
+  readonly getContext: (symbol: string) => Effect.Effect<AssetContext, ApiError | NetworkError>;
 }
 
 export class ApiServiceTag extends Context.Tag("ApiService")<ApiServiceTag, ApiService>() {}
@@ -212,4 +214,5 @@ export const ApiServiceLive = Layer.succeed(ApiServiceTag, {
     fetchJsonDeduped<TreasuryEntitiesResponse>(`${API_BASE}/treasury/entities`),
   getTreasuryHoldings: (coinId) =>
     fetchJsonDeduped<TreasurySummary>(`${API_BASE}/treasury/${coinId}/holdings`),
+  getContext: (symbol) => fetchJsonDeduped<AssetContext>(`${API_BASE}/context/${symbol}`),
 });
