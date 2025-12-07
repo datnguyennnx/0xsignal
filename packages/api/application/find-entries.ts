@@ -1,14 +1,9 @@
-/** Entry Detection - Dynamic trade setup aligned with strategy signals */
+/** Entry Detection - Trade setup using real indicator data */
 
 import { Effect, Match } from "effect";
-import type { CryptoPrice, Signal } from "@0xsignal/shared";
+import type { CryptoPrice, Signal, TradeDirection } from "@0xsignal/shared";
 import type { EntrySignal, IndicatorSummary } from "../domain/types";
-import { computeIndicators, type IndicatorSet } from "../domain/analysis/indicators";
-import {
-  detectEntryIndicators,
-  generateEntryRecommendation,
-  calculateLeverage,
-} from "../domain/analysis/signals";
+import type { IndicatorOutput } from "../domain/analysis/indicator-types";
 
 // Stablecoins - should never have trade signals
 const STABLECOINS = new Set([
@@ -27,51 +22,62 @@ const STABLECOINS = new Set([
   "SUSD",
   "CUSD",
   "USDJ",
-  "UST",
   "MIM",
-  "DOLA",
-  "CRVUSD",
 ]);
 
-// Check if asset is tradeable
+// Check if asset is tradeable using REAL ATR data
 const isTradeable = (symbol: string, atr: number, volume24h: number): boolean => {
   const upperSymbol = symbol.toUpperCase().replace(/USD$/, "");
   if (STABLECOINS.has(upperSymbol) || STABLECOINS.has(symbol.toUpperCase())) return false;
-  if (atr < 0.3) return false; // Minimum 0.3% daily volatility (relaxed)
-  if (volume24h < 100000) return false; // Minimum $100K daily volume (relaxed)
+  if (atr < 0.5) return false; // Minimum 0.5% normalized ATR
+  if (volume24h < 100000) return false; // Minimum $100K volume
   return true;
 };
 
-// Map signal to base strength
-const signalToStrength = (signal: Signal): "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG" =>
-  Match.value(signal).pipe(
-    Match.when("STRONG_BUY", () => "VERY_STRONG" as const),
-    Match.when("STRONG_SELL", () => "VERY_STRONG" as const),
-    Match.when("BUY", () => "STRONG" as const),
-    Match.when("SELL", () => "STRONG" as const),
-    Match.orElse(() => "MODERATE" as const)
-  );
-
-// Map signal to base confidence
-const signalToBaseConfidence = (signal: Signal): number =>
-  Match.value(signal).pipe(
-    Match.when("STRONG_BUY", () => 70),
-    Match.when("STRONG_SELL", () => 70),
-    Match.when("BUY", () => 50),
-    Match.when("SELL", () => 50),
-    Match.orElse(() => 20)
-  );
-
-// Calculate strength from signal + indicators
 type EntryStrength = "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG";
 
+const signalToStrength = Match.type<Signal>().pipe(
+  Match.when("STRONG_BUY", () => "VERY_STRONG" as const),
+  Match.when("STRONG_SELL", () => "VERY_STRONG" as const),
+  Match.when("BUY", () => "STRONG" as const),
+  Match.when("SELL", () => "STRONG" as const),
+  Match.orElse(() => "MODERATE" as const)
+);
+
+const signalToBaseConfidence = Match.type<Signal>().pipe(
+  Match.when("STRONG_BUY", () => 70),
+  Match.when("STRONG_SELL", () => 70),
+  Match.when("BUY", () => 50),
+  Match.when("SELL", () => 50),
+  Match.orElse(() => 20)
+);
+
+// Determine direction from real indicator data
+const determineDirection = (indicators: IndicatorOutput, signal: Signal): TradeDirection => {
+  const isLongSignal = signal === "BUY" || signal === "STRONG_BUY";
+  const isShortSignal = signal === "SELL" || signal === "STRONG_SELL";
+
+  if (isLongSignal) return "LONG";
+  if (isShortSignal) return "SHORT";
+
+  // For HOLD, check indicator bias
+  const plusDI = indicators.adx.plusDI;
+  const minusDI = indicators.adx.minusDI;
+  const rsi = indicators.rsi.value;
+
+  if (plusDI > minusDI + 5 && rsi > 50) return "LONG";
+  if (minusDI > plusDI + 5 && rsi < 50) return "SHORT";
+  return "NEUTRAL";
+};
+
+// Calculate strength from REAL indicator alignment
 const calculateStrength = (
   baseStrength: EntryStrength,
-  activeCount: number,
-  adx: number,
-  hasDivergence: boolean
+  indicators: IndicatorOutput,
+  direction: TradeDirection
 ): EntryStrength => {
-  // Start with base strength from signal
+  if (direction === "NEUTRAL") return "WEAK";
+
   let score = Match.value(baseStrength).pipe(
     Match.when("VERY_STRONG", () => 80),
     Match.when("STRONG", () => 60),
@@ -79,15 +85,21 @@ const calculateStrength = (
     Match.orElse(() => 20)
   );
 
-  // Boost from entry indicators (up to +20)
-  score += activeCount * 5;
+  // Real ADX trend strength
+  if (indicators.adx.value > 40) score += 15;
+  else if (indicators.adx.value > 25) score += 10;
+  else if (indicators.adx.value < 15) score -= 10;
 
-  // Boost from trend strength (up to +10)
-  if (adx > 25) score += 10;
-  else if (adx > 15) score += 5;
+  // RSI confirmation
+  const rsi = indicators.rsi.value;
+  if (direction === "LONG" && rsi < 40) score += 10; // Oversold for long
+  if (direction === "SHORT" && rsi > 60) score += 10; // Overbought for short
 
-  // Boost from divergence (+10)
-  if (hasDivergence) score += 10;
+  // MACD confirmation
+  const macdAligned =
+    (direction === "LONG" && indicators.macd.histogram > 0) ||
+    (direction === "SHORT" && indicators.macd.histogram < 0);
+  if (macdAligned) score += 10;
 
   if (score >= 80) return "VERY_STRONG";
   if (score >= 60) return "STRONG";
@@ -95,10 +107,10 @@ const calculateStrength = (
   return "WEAK";
 };
 
-// Dynamic target/stop calculation using ATR and market conditions
+// Dynamic target/stop using REAL ATR
 const calculateDynamicLevels = (
   price: number,
-  direction: "LONG" | "SHORT" | "NEUTRAL",
+  direction: TradeDirection,
   atrPercent: number,
   strength: EntryStrength
 ) => {
@@ -106,10 +118,8 @@ const calculateDynamicLevels = (
     return { target: price, stopLoss: price, riskRewardRatio: 0 };
   }
 
-  // Ensure minimum ATR for calculation
-  const effectiveATR = Math.max(atrPercent, 1.5);
+  const effectiveATR = Math.max(atrPercent, 1.0);
 
-  // Base multipliers from strength
   const baseTargetMultiplier = Match.value(strength).pipe(
     Match.when("VERY_STRONG", () => 3.0),
     Match.when("STRONG", () => 2.5),
@@ -124,16 +134,11 @@ const calculateDynamicLevels = (
     Match.orElse(() => 2.0)
   );
 
-  // Calculate percentages
   const targetPct = (effectiveATR * baseTargetMultiplier) / 100;
   const stopPct = (effectiveATR * baseStopMultiplier) / 100;
 
-  // Minimum thresholds
-  const minTarget = 0.02; // 2% minimum
-  const minStop = 0.01; // 1% minimum
-
-  const finalTargetPct = Math.max(targetPct, minTarget);
-  const finalStopPct = Math.max(stopPct, minStop);
+  const finalTargetPct = Math.max(targetPct, 0.02);
+  const finalStopPct = Math.max(stopPct, 0.01);
 
   if (direction === "LONG") {
     const target = price * (1 + finalTargetPct);
@@ -148,30 +153,57 @@ const calculateDynamicLevels = (
   }
 };
 
-// Build indicator summary
-const buildIndicatorSummary = (indicators: IndicatorSet): IndicatorSummary => ({
+// Build indicator summary from REAL data
+const buildIndicatorSummary = (indicators: IndicatorOutput): IndicatorSummary => ({
   rsi: {
-    value: Math.round(indicators.rsi.rsi),
+    value: Math.round(indicators.rsi.value),
     signal: indicators.rsi.signal,
   },
   macd: {
-    trend: indicators.macd.trend,
+    trend:
+      indicators.macd.histogram > 0
+        ? "BULLISH"
+        : indicators.macd.histogram < 0
+          ? "BEARISH"
+          : "NEUTRAL",
     histogram: Math.round(indicators.macd.histogram * 100) / 100,
   },
   adx: {
-    value: Math.round(indicators.adx.adx),
-    strength: indicators.adx.trendStrength,
+    value: Math.round(indicators.adx.value),
+    strength: indicators.adx.trend as "STRONG" | "MODERATE" | "WEAK" | "VERY_STRONG" | "VERY_WEAK",
   },
   atr: {
-    value: Math.round(indicators.atr.normalizedATR * 100) / 100,
-    volatility: indicators.atr.volatilityLevel,
+    value: Math.round(indicators.atr.normalized * 100) / 100,
+    volatility: indicators.atr.volatility as "VERY_LOW" | "LOW" | "NORMAL" | "HIGH" | "VERY_HIGH",
   },
 });
+
+// Leverage calculation using REAL ATR volatility
+const calculateLeverage = (normalizedATR: number): { suggested: number; max: number } =>
+  Match.value(normalizedATR).pipe(
+    Match.when(
+      (atr) => atr < 1,
+      () => ({ suggested: 10, max: 20 })
+    ),
+    Match.when(
+      (atr) => atr < 2,
+      () => ({ suggested: 5, max: 10 })
+    ),
+    Match.when(
+      (atr) => atr < 4,
+      () => ({ suggested: 3, max: 5 })
+    ),
+    Match.when(
+      (atr) => atr < 6,
+      () => ({ suggested: 2, max: 3 })
+    ),
+    Match.orElse(() => ({ suggested: 1, max: 2 }))
+  );
 
 // Create neutral signal for non-tradeable assets
 const createNeutralSignal = (
   price: CryptoPrice,
-  indicators: IndicatorSet,
+  indicators: IndicatorOutput,
   reason: string
 ): EntrySignal => ({
   direction: "NEUTRAL",
@@ -191,102 +223,108 @@ const createNeutralSignal = (
   suggestedLeverage: 1,
   maxLeverage: 1,
   indicatorSummary: buildIndicatorSummary(indicators),
-  dataSource: "24H_SNAPSHOT",
+  dataSource: "HISTORICAL_OHLCV",
   recommendation: reason,
 });
 
-// Input for entry detection - includes strategy context
-interface EntryContext {
-  signal: Signal;
-  strategyConfidence: number;
-}
+// Generate recommendation based on REAL data
+const generateRecommendation = (
+  direction: TradeDirection,
+  strength: EntryStrength,
+  target: number,
+  stopLoss: number,
+  entry: number,
+  rr: number,
+  leverage: number
+): string => {
+  if (direction === "NEUTRAL") {
+    return "No clear setup. Wait for stronger confirmation.";
+  }
 
-export const findEntry = (
+  const targetPct = Math.abs(((target - entry) / entry) * 100).toFixed(1);
+  const stopPct = Math.abs(((stopLoss - entry) / entry) * 100).toFixed(1);
+  const dirLabel = direction === "LONG" ? "LONG" : "SHORT";
+
+  return (
+    `${dirLabel}: Target +${targetPct}%, Stop -${stopPct}%, R:R ${rr}:1. ` +
+    `${strength === "VERY_STRONG" ? "Strong confirmation" : "Moderate setup"}. ` +
+    `Suggested ${leverage}x leverage.`
+  );
+};
+
+/** Find entry using REAL indicator data - no approximations */
+export const findEntryWithIndicators = (
   price: CryptoPrice,
-  overallSignal: Signal = "HOLD",
-  strategyConfidence: number = 50
+  indicators: IndicatorOutput,
+  overallSignal: Signal,
+  strategyConfidence: number
 ): Effect.Effect<EntrySignal, never> =>
-  Effect.gen(function* () {
-    const indicators = yield* computeIndicators(price);
-
-    // Check if tradeable
-    if (!isTradeable(price.symbol, indicators.atr.normalizedATR, price.volume24h)) {
-      const isStable =
-        STABLECOINS.has(price.symbol.toUpperCase()) ||
-        STABLECOINS.has(price.symbol.toUpperCase().replace(/USD$/, ""));
+  Effect.sync(() => {
+    // Check if tradeable using REAL ATR
+    if (!isTradeable(price.symbol, indicators.atr.normalized, price.volume24h)) {
+      const isStable = STABLECOINS.has(price.symbol.toUpperCase());
       const reason = isStable
         ? `${price.symbol} is a stablecoin - not suitable for directional trading.`
         : `${price.symbol} has insufficient volatility or volume for trading.`;
       return createNeutralSignal(price, indicators, reason);
     }
 
-    const { indicators: entryIndicators, direction } = detectEntryIndicators(
-      price,
-      indicators,
-      overallSignal
-    );
+    // If insufficient data, can't generate reliable signals
+    if (!indicators.isValid) {
+      return createNeutralSignal(
+        price,
+        indicators,
+        `Insufficient historical data (${indicators.dataPoints} periods). Need 35+ for reliable signals.`
+      );
+    }
 
-    const activeCount = Object.values(entryIndicators).filter(Boolean).length;
-    const hasDivergence = indicators.divergence.hasDivergence;
-
-    // Get base strength from signal
+    const direction = determineDirection(indicators, overallSignal);
     const baseStrength = signalToStrength(overallSignal);
+    const strength = calculateStrength(baseStrength, indicators, direction);
 
-    // Calculate final strength considering indicators
-    const strength = calculateStrength(
-      baseStrength,
-      activeCount,
-      indicators.adx.adx,
-      hasDivergence
-    );
-
-    // Optimal entry: has direction + reasonable strength
     const isOptimalEntry =
       direction !== "NEUTRAL" && (strength === "STRONG" || strength === "VERY_STRONG");
 
-    // Confidence: start with strategy confidence, adjust based on entry quality
-    const baseConfidence = signalToBaseConfidence(overallSignal);
-    let confidence = Math.max(baseConfidence, strategyConfidence);
+    // Confidence based on real indicator agreement
+    let confidence = Math.max(signalToBaseConfidence(overallSignal), strategyConfidence);
 
-    // Adjust confidence based on entry indicators
-    if (activeCount >= 3) confidence = Math.min(confidence + 15, 100);
-    else if (activeCount >= 2) confidence = Math.min(confidence + 10, 100);
-    else if (activeCount === 1) confidence = Math.min(confidence + 5, 100);
-
-    // Boost for divergence
-    if (hasDivergence) confidence = Math.min(confidence + 10, 100);
-
-    // Penalty for weak ADX (no clear trend)
-    if (indicators.adx.adx < 15) confidence = Math.max(confidence - 10, 10);
+    // Adjust based on ADX trend strength
+    if (indicators.adx.value > 40) confidence = Math.min(confidence + 15, 100);
+    else if (indicators.adx.value < 15) confidence = Math.max(confidence - 15, 10);
 
     confidence = Math.round(confidence);
 
-    // Dynamic levels
     const { target, stopLoss, riskRewardRatio } = calculateDynamicLevels(
       price.price,
       direction,
-      indicators.atr.normalizedATR,
+      indicators.atr.normalized,
       strength
     );
 
     const { suggested: suggestedLeverage, max: maxLeverage } = calculateLeverage(
-      indicators.atr.normalizedATR
+      indicators.atr.normalized
     );
 
-    // Generate recommendation aligned with signal
-    const recommendation =
-      direction === "NEUTRAL"
-        ? "No clear setup. Wait for stronger confirmation signals."
-        : generateEntryRecommendation(
-            isOptimalEntry,
-            strength,
-            direction,
-            price.price,
-            target,
-            stopLoss,
-            riskRewardRatio,
-            suggestedLeverage
-          );
+    const recommendation = generateRecommendation(
+      direction,
+      strength,
+      target,
+      stopLoss,
+      price.price,
+      riskRewardRatio,
+      suggestedLeverage
+    );
+
+    // Entry indicators based on REAL data
+    const entryIndicators = {
+      trendReversal: indicators.macd.crossover !== "NONE",
+      volumeIncrease: false, // Would need volume data
+      momentumBuilding:
+        indicators.adx.value > 25 &&
+        ((direction === "LONG" && indicators.adx.plusDI > indicators.adx.minusDI) ||
+          (direction === "SHORT" && indicators.adx.minusDI > indicators.adx.plusDI)),
+      divergence: false, // Would need price-RSI divergence detection
+    };
 
     return {
       direction,
@@ -301,7 +339,41 @@ export const findEntry = (
       suggestedLeverage,
       maxLeverage,
       indicatorSummary: buildIndicatorSummary(indicators),
-      dataSource: "24H_SNAPSHOT" as const,
+      dataSource: "HISTORICAL_OHLCV" as const,
       recommendation,
     };
+  });
+
+/** Legacy wrapper for backward compatibility - will be deprecated */
+export const findEntry = (
+  price: CryptoPrice,
+  overallSignal: Signal = "HOLD",
+  strategyConfidence: number = 50
+): Effect.Effect<EntrySignal, never> =>
+  Effect.sync(() => {
+    // Create minimal indicators for stablecoin detection
+    const minimalIndicators: IndicatorOutput = {
+      rsi: { value: 50, signal: "NEUTRAL", avgGain: 0, avgLoss: 0 },
+      macd: { macd: 0, signal: 0, histogram: 0, crossover: "NONE" },
+      adx: { value: 25, plusDI: 25, minusDI: 25, trend: "WEAK" },
+      atr: { value: 0, normalized: 2, volatility: "MEDIUM" },
+      isValid: false,
+      dataPoints: 0,
+    };
+
+    const isStable = STABLECOINS.has(price.symbol.toUpperCase().replace(/USD$/, ""));
+    if (isStable) {
+      return createNeutralSignal(
+        price,
+        minimalIndicators,
+        `${price.symbol} is a stablecoin - not suitable for trading.`
+      );
+    }
+
+    // Return neutral with low confidence - should use findEntryWithIndicators
+    return createNeutralSignal(
+      price,
+      minimalIndicators,
+      "Signal requires historical data. Use findEntryWithIndicators for accurate signals."
+    );
   });

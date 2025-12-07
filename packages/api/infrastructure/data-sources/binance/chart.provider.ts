@@ -1,59 +1,85 @@
-/** Binance Chart Data Provider - OHLCV kline data */
-
-import { Effect, Context, Layer, Cache } from "effect";
-import type { ChartDataPoint } from "@0xsignal/shared";
-import { DataSourceError } from "../types";
-import { API_URLS, CACHE_TTL, CACHE_CAPACITY, BINANCE_INTERVALS } from "../../config/app.config";
+import { Effect, Context, Layer, Cache, Duration } from "effect";
 import { HttpClientTag } from "../../http/client";
+import { DataSourceError, type AdapterInfo } from "../types";
+import { API_URLS } from "../../config/app.config";
+import type { ChartDataPoint } from "@0xsignal/shared";
 
-export interface ChartDataService {
+const CHART_INFO: AdapterInfo = {
+  name: "BinanceCharts",
+  version: "1.0.0",
+  capabilities: {
+    spotPrices: false,
+    futuresPrices: true,
+    historicalData: true,
+    realtime: false,
+    liquidations: false,
+    openInterest: false,
+    fundingRates: false,
+    heatmap: false,
+  },
+  rateLimit: { requestsPerMinute: 2400 },
+};
+
+export interface ChartDataClient {
+  readonly info: AdapterInfo;
   readonly getHistoricalData: (
     symbol: string,
     interval: string,
-    limit: number
+    limit?: number
   ) => Effect.Effect<ChartDataPoint[], DataSourceError>;
 }
 
-export class ChartDataServiceTag extends Context.Tag("ChartDataService")<
-  ChartDataServiceTag,
-  ChartDataService
+export class ChartDataService extends Context.Tag("ChartDataService")<
+  ChartDataService,
+  ChartDataClient
 >() {}
 
-const toChartPoint = (kline: any[]): ChartDataPoint => ({
-  time: Math.floor(kline[0] / 1000),
-  open: parseFloat(kline[1]),
-  high: parseFloat(kline[2]),
-  low: parseFloat(kline[3]),
-  close: parseFloat(kline[4]),
-  volume: parseFloat(kline[5]),
-});
-
 export const ChartDataServiceLive = Layer.effect(
-  ChartDataServiceTag,
+  ChartDataService,
   Effect.gen(function* () {
     const http = yield* HttpClientTag;
 
-    const cache = yield* Cache.make({
-      capacity: CACHE_CAPACITY.DEFAULT,
-      timeToLive: CACHE_TTL.BINANCE_CHART,
-      lookup: (key: string) =>
-        Effect.gen(function* () {
-          const [symbol, interval, limitStr] = key.split(":");
-          const binanceInterval = BINANCE_INTERVALS[interval] || "1h";
-          const url = `${API_URLS.BINANCE}/klines?symbol=${symbol}&interval=${binanceInterval}&limit=${limitStr}`;
-          const data = yield* http
-            .getJson(url)
-            .pipe(
-              Effect.mapError(
-                (e) => new DataSourceError({ source: "Binance", message: e.message, symbol })
-              )
-            );
-          return (data as any[]).map(toChartPoint);
-        }),
+    const mapError = (e: unknown, symbol?: string) =>
+      new DataSourceError({
+        source: "BinanceCharts",
+        message: e instanceof Error ? e.message : "Unknown error",
+        symbol,
+      });
+
+    // Cache chart data to avoid hitting limits
+    const chartCache = yield* Cache.make({
+      capacity: 100,
+      timeToLive: Duration.minutes(2),
+      lookup: (key: string) => {
+        const [symbol, interval, limitStr] = key.split(":");
+        const limit = parseInt(limitStr);
+
+        return http
+          .getJson(
+            `${API_URLS.BINANCE_FUTURES}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
+          )
+          .pipe(
+            Effect.map((data: unknown) => {
+              if (!Array.isArray(data)) return [];
+              return data.map((d: any[]) => ({
+                timestamp: new Date(d[0]),
+                time: d[0],
+                open: parseFloat(d[1]),
+                high: parseFloat(d[2]),
+                low: parseFloat(d[3]),
+                close: parseFloat(d[4]),
+                volume: parseFloat(d[5]),
+              }));
+            }),
+            Effect.mapError((e) => mapError(e, symbol))
+          );
+      },
     });
 
     return {
-      getHistoricalData: (symbol, interval, limit) => cache.get(`${symbol}:${interval}:${limit}`),
+      info: CHART_INFO,
+      getHistoricalData: (symbol: string, interval: string, limit: number = 100) =>
+        chartCache.get(`${symbol}:${interval}:${limit}`),
     };
   })
 );

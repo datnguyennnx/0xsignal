@@ -1,7 +1,7 @@
 /** Chart Routes */
 
 import { Effect } from "effect";
-import { ChartDataServiceTag } from "../../../infrastructure/data-sources/binance/chart.provider";
+import { ChartDataService } from "../../../infrastructure/data-sources/binance";
 import {
   CoinGeckoChartServiceTag,
   CoinGeckoService,
@@ -32,7 +32,7 @@ export const chartDataRoute = (symbol: string, interval: string, timeframe: stri
   const baseSymbol = toBaseSymbol(symbol).toLowerCase();
 
   // Try Binance first
-  const binanceChart = Effect.flatMap(ChartDataServiceTag, (s) =>
+  const binanceChart = Effect.flatMap(ChartDataService, (s) =>
     s.getHistoricalData(binanceSymbol, interval, limit)
   );
 

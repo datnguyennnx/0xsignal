@@ -1,4 +1,8 @@
-/** Binance Provider - Futures data with BULK fetching (optimized) */
+/**
+ * Binance Provider - Futures data with BULK fetching
+ * IMPORTANT: Liquidation data is ESTIMATED based on Open Interest and volatility.
+ * This is NOT real liquidation tape data. Use for risk assessment only.
+ */
 
 import { Effect, Context, Layer, Duration, Option, Cache, Array as Arr, pipe } from "effect";
 import type {

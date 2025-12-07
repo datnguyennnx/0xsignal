@@ -1,154 +1,55 @@
 import type { CryptoPrice } from "./crypto";
 
-/**
- * Trading signal types
- */
-export type Signal = "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
-
-/**
- * Market regime classification
- */
-export type MarketRegime =
-  | "BULL_MARKET"
-  | "BEAR_MARKET"
-  | "TRENDING"
-  | "SIDEWAYS"
-  | "MEAN_REVERSION"
-  | "LOW_VOLATILITY"
-  | "HIGH_VOLATILITY";
-
-/**
- * Strategy signal output
- */
-export interface StrategySignal {
-  readonly strategy: string;
-  readonly signal: Signal;
-  readonly confidence: number;
-  readonly reasoning: string;
-  readonly metrics: Record<string, number>;
-}
-
-/**
- * Strategy execution result
- */
-export interface StrategyResult {
-  readonly regime: MarketRegime;
-  readonly signals: readonly StrategySignal[];
-  readonly primarySignal: StrategySignal;
-  readonly overallConfidence: number;
-  readonly riskScore: number;
-}
-
-/**
- * Crash detection indicators
- */
-export interface CrashIndicators {
-  readonly rapidDrop: boolean;
-  readonly volumeSpike: boolean;
-  readonly oversoldExtreme: boolean;
-  readonly highVolatility: boolean;
-}
-
-/**
- * Crash signal output
- */
-export interface CrashSignal {
-  readonly isCrashing: boolean;
-  readonly severity: "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
-  readonly confidence: number;
-  readonly indicators: CrashIndicators;
-  readonly recommendation: string;
-}
-
-/**
- * Entry detection indicators (for both long and short)
- */
-export interface EntryIndicators {
-  readonly trendReversal: boolean;
-  readonly volumeIncrease: boolean;
-  readonly momentumBuilding: boolean;
-  readonly divergence: boolean;
-}
-
-/**
- * Trade direction
- */
+export type Signal = "BUY" | "SELL" | "HOLD";
+export type MarketRegime = "TRENDING" | "RANGING" | "VOLATILE" | "ACCUMULATION" | "DISTRIBUTION";
 export type TradeDirection = "LONG" | "SHORT" | "NEUTRAL";
+export type TrendStrength = "WEAK" | "MODERATE" | "STRONG" | "EXTREME";
 
-/**
- * Indicator summary for trade setup
- */
-export interface IndicatorSummary {
-  readonly rsi: { value: number; signal: "OVERSOLD" | "NEUTRAL" | "OVERBOUGHT" };
-  readonly macd: { trend: "BULLISH" | "BEARISH" | "NEUTRAL"; histogram: number };
-  readonly adx: {
-    value: number;
-    strength: "VERY_WEAK" | "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG";
-  };
-  readonly atr: { value: number; volatility: "VERY_LOW" | "LOW" | "NORMAL" | "HIGH" | "VERY_HIGH" };
-}
-
-/**
- * Entry signal output - supports both LONG and SHORT
- */
-export interface EntrySignal {
-  readonly direction: TradeDirection;
-  readonly isOptimalEntry: boolean;
-  readonly strength: "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG";
-  readonly confidence: number;
-  readonly indicators: EntryIndicators;
-  readonly entryPrice: number;
-  readonly targetPrice: number;
-  readonly stopLoss: number;
-  readonly riskRewardRatio: number;
-  readonly suggestedLeverage: number;
-  readonly maxLeverage: number;
-  readonly indicatorSummary: IndicatorSummary;
-  readonly dataSource: "24H_SNAPSHOT";
-  readonly recommendation: string;
-}
-
-/**
- * Noise score - measures signal clarity vs market randomness
- * Lower noise = cleaner signal, higher noise = more random/choppy
- */
 export interface NoiseScore {
-  readonly value: number; // 0-100, higher = more noise
-  readonly level: "LOW" | "MODERATE" | "HIGH" | "EXTREME";
+  readonly score: number;
+  readonly level: "LOW" | "MEDIUM" | "HIGH";
+  readonly factors: readonly string[];
 }
 
-/**
- * Complete asset analysis result
- */
+export interface MarketCondition {
+  readonly regime: MarketRegime;
+  readonly dominance_index: number;
+  readonly volatility_score: number;
+}
+
+export interface TechnicalSignal {
+  readonly type: Signal;
+  readonly confidence: number;
+  readonly timeframe: string;
+  readonly indicators: {
+    readonly rsi: number;
+    readonly macd: {
+      readonly histogram: number;
+      readonly signal: number;
+      readonly line: number;
+    };
+    readonly adx: number;
+  };
+}
+
 export interface AssetAnalysis {
   readonly symbol: string;
-  readonly timestamp: Date;
   readonly price: CryptoPrice;
-  readonly strategyResult: StrategyResult;
-  readonly crashSignal: CrashSignal;
-  readonly entrySignal: EntrySignal;
-  readonly overallSignal: Signal;
-  readonly confidence: number;
-  readonly riskScore: number;
-  readonly noise: NoiseScore;
-  readonly recommendation: string;
-}
-
-/**
- * Market overview summary
- */
-export interface MarketOverview {
-  readonly totalAnalyzed: number;
-  readonly highRiskAssets: readonly string[];
-  readonly averageRiskScore: number;
-  readonly timestamp: Date;
-}
-
-/**
- * Indicator result base interface
- */
-export interface IndicatorResult {
-  readonly value: number;
   readonly signal: Signal;
   readonly confidence: number;
+  readonly score: number;
+
+  readonly regime: MarketRegime;
+  readonly direction: TradeDirection;
+  readonly strength: TrendStrength;
+
+  readonly noise: NoiseScore;
+
+  readonly condition?: MarketCondition;
+  readonly technicals?: TechnicalSignal;
+
+  readonly timestamp: Date;
+
+  // Computed fields often used in UI
+  readonly recommendation: string;
 }

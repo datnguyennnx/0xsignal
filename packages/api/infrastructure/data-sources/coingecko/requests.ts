@@ -1,6 +1,6 @@
 /** CoinGecko Request Batching - Effect Request/Resolver pattern with rate limiting */
 
-import { Effect, Request, RequestResolver, Array as Arr } from "effect";
+import { Effect, Request, RequestResolver, Array as Arr, Duration } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
 import { HttpClientTag } from "../../http/client";
 import { RateLimiterTag } from "../../http/rate-limiter";
@@ -51,9 +51,14 @@ const makeBatchedResolver = RequestResolver.makeBatched(
         return;
       }
 
-      yield* rateLimiter
-        .acquire("coingecko")
-        .pipe(Effect.catchTag("RateLimitExceeded", () => Effect.void));
+      yield* rateLimiter.acquire("coingecko").pipe(
+        Effect.catchTag("RateLimitExceeded", (err) =>
+          Effect.sleep(Duration.millis(err.retryAfterMs)).pipe(
+            Effect.flatMap(() => rateLimiter.acquire("coingecko")),
+            Effect.catchAll(() => Effect.void)
+          )
+        )
+      );
 
       const url = `${API_URLS.COINGECKO}/simple/price?ids=${coinIds.join(",")}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`;
 

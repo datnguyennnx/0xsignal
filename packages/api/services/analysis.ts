@@ -3,6 +3,7 @@
 import { Effect, Context, Layer, Cache, pipe } from "effect";
 import type { AssetAnalysis, MarketOverview } from "../domain/types";
 import { AnalysisError } from "../domain/types/errors";
+import { ChartDataService } from "../infrastructure/data-sources/binance";
 import { CoinGeckoService } from "../infrastructure/data-sources/coingecko";
 import { analyzeAsset } from "../application/analyze-asset";
 import {
@@ -35,6 +36,7 @@ export const AnalysisServiceLive = Layer.effect(
   AnalysisServiceTag,
   Effect.gen(function* () {
     const coinGecko = yield* CoinGeckoService;
+    const chartService = yield* ChartDataService;
 
     const symbolCache = yield* Cache.make({
       capacity: CACHE_CAPACITY.LARGE,
@@ -59,7 +61,7 @@ export const AnalysisServiceLive = Layer.effect(
           const prices = yield* coinGecko
             .getTopCryptos(FULL_LIST_SIZE)
             .pipe(Effect.mapError(mapToAnalysisError));
-          return yield* analyzeMarket(prices);
+          return yield* analyzeMarket(prices, chartService);
         }),
     });
 

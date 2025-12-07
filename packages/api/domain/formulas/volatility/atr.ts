@@ -1,122 +1,74 @@
-/** ATR (Average True Range) - Volatility Measurement with functional patterns */
-// TR = max(High - Low, |High - PrevClose|, |Low - PrevClose|), ATR = EMA(TR)
+/** ATR - Real calculation using historical OHLC data */
 
-import { Effect, Match, Array as Arr, pipe } from "effect";
-import type { FormulaMetadata } from "../core/types";
-import { calculateEMA } from "../trend/moving-averages";
+import { Effect, Match } from "effect";
 
-export interface ATRResult {
-  readonly value: number;
+export interface ATRHistoricalResult {
+  readonly atr: number;
   readonly normalizedATR: number;
-  readonly volatilityLevel: "VERY_LOW" | "LOW" | "NORMAL" | "HIGH" | "VERY_HIGH";
+  readonly volatility: "HIGH" | "MEDIUM" | "LOW";
 }
 
-// Volatility level classification
+const DEFAULT_PERIOD = 14;
+
 const classifyVolatility = Match.type<number>().pipe(
   Match.when(
-    (n) => n < 1,
-    () => "VERY_LOW" as const
-  ),
-  Match.when(
-    (n) => n < 2,
-    () => "LOW" as const
-  ),
-  Match.when(
-    (n) => n < 4,
-    () => "NORMAL" as const
-  ),
-  Match.when(
-    (n) => n < 6,
+    (n) => n > 5,
     () => "HIGH" as const
   ),
-  Match.orElse(() => "VERY_HIGH" as const)
+  Match.when(
+    (n) => n > 2,
+    () => "MEDIUM" as const
+  ),
+  Match.orElse(() => "LOW" as const)
 );
 
-// Round to 2 decimal places
-const round2 = (n: number): number => Math.round(n * 100) / 100;
+const calculateATR = (
+  highs: readonly number[],
+  lows: readonly number[],
+  closes: readonly number[],
+  period: number
+): ATRHistoricalResult => {
+  const len = Math.min(highs.length, lows.length, closes.length);
 
-// Calculate True Range
-export const calculateTrueRange = (high: number, low: number, previousClose: number): number =>
-  Math.max(high - low, Math.abs(high - previousClose), Math.abs(low - previousClose));
+  if (len < period + 1) {
+    return { atr: 0, normalizedATR: 0, volatility: "LOW" };
+  }
 
-// Calculate TR series using Arr.zipWith
-const calculateTRSeries = (
-  highs: ReadonlyArray<number>,
-  lows: ReadonlyArray<number>,
-  closes: ReadonlyArray<number>
-): ReadonlyArray<number> =>
-  pipe(
-    Arr.zipWith(
-      Arr.zip(Arr.drop(highs, 1), Arr.drop(lows, 1)),
-      Arr.dropRight(closes, 1),
-      ([high, low], prevClose) => calculateTrueRange(high, low, prevClose)
-    )
-  );
+  const trueRanges: number[] = [];
 
-// Calculate ATR
-export const calculateATR = (
-  highs: ReadonlyArray<number>,
-  lows: ReadonlyArray<number>,
-  closes: ReadonlyArray<number>,
-  period: number = 14
-): ATRResult => {
-  const trSeries = calculateTRSeries(highs, lows, closes);
-  const atr = calculateEMA(trSeries, period);
+  for (let i = 1; i < len; i++) {
+    const tr = Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1])
+    );
+    trueRanges.push(tr);
+  }
+
+  let atr = 0;
+  for (let i = 0; i < period; i++) {
+    atr += trueRanges[i];
+  }
+  atr /= period;
+
+  for (let i = period; i < trueRanges.length; i++) {
+    atr = (atr * (period - 1) + trueRanges[i]) / period;
+  }
+
   const currentPrice = closes[closes.length - 1];
-  const normalizedATR = (atr.value / currentPrice) * 100;
+  const normalizedATR = currentPrice > 0 ? (atr / currentPrice) * 100 : 0;
 
   return {
-    value: round2(atr.value),
-    normalizedATR: round2(normalizedATR),
-    volatilityLevel: classifyVolatility(normalizedATR),
+    atr: Math.round(atr * 100) / 100,
+    normalizedATR: Math.round(normalizedATR * 100) / 100,
+    volatility: classifyVolatility(normalizedATR),
   };
 };
 
-// Calculate ATR series using Arr.scan
-export const calculateATRSeries = (
-  highs: ReadonlyArray<number>,
-  lows: ReadonlyArray<number>,
-  closes: ReadonlyArray<number>,
-  period: number = 14
-): ReadonlyArray<number> => {
-  const trSeries = calculateTRSeries(highs, lows, closes);
-  const alpha = 2 / (period + 1);
-  const initialATR =
-    pipe(
-      Arr.take(trSeries, period),
-      Arr.reduce(0, (a, b) => a + b)
-    ) / period;
-  const remaining = Arr.drop(trSeries, period);
-
-  return pipe(
-    remaining,
-    Arr.scan(initialATR, (atr, tr) => tr * alpha + atr * (1 - alpha))
-  );
-};
-
-// Effect-based wrapper
-export const computeATR = (
-  highs: ReadonlyArray<number>,
-  lows: ReadonlyArray<number>,
-  closes: ReadonlyArray<number>,
-  period: number = 14
-): Effect.Effect<ATRResult> => Effect.sync(() => calculateATR(highs, lows, closes, period));
-
-export const ATRMetadata: FormulaMetadata = {
-  name: "ATR",
-  category: "volatility",
-  difficulty: "beginner",
-  description: "Average True Range - measures market volatility",
-  requiredInputs: ["highs", "lows", "closes"],
-  optionalInputs: ["period"],
-  minimumDataPoints: 15,
-  outputType: "ATRResult",
-  useCases: [
-    "volatility measurement",
-    "stop-loss placement",
-    "position sizing",
-    "breakout confirmation",
-  ],
-  timeComplexity: "O(n)",
-  dependencies: ["EMA"],
-};
+export const computeATRFromHistory = (
+  highs: readonly number[],
+  lows: readonly number[],
+  closes: readonly number[],
+  period: number = DEFAULT_PERIOD
+): Effect.Effect<ATRHistoricalResult> =>
+  Effect.sync(() => calculateATR(highs, lows, closes, period));

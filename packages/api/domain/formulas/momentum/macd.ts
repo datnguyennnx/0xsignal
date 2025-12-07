@@ -1,162 +1,119 @@
-/** MACD (Moving Average Convergence Divergence) - Momentum analysis */
-// MACD = EMA(12) - EMA(26), Signal = EMA(9) of MACD, Histogram = MACD - Signal
+/** MACD - Real calculation using historical close prices */
 
 import { Effect, Match } from "effect";
-import type { CryptoPrice } from "@0xsignal/shared";
-import { calculateEMA, calculateEMASeries } from "../trend/moving-averages";
-import type { FormulaMetadata } from "../core/types";
 
-export interface MACDResult {
+export interface MACDHistoricalResult {
   readonly macd: number;
   readonly signal: number;
   readonly histogram: number;
   readonly trend: "BULLISH" | "BEARISH" | "NEUTRAL";
+  readonly crossover: "BULLISH_CROSS" | "BEARISH_CROSS" | "NONE";
 }
 
-export interface MACDCrossover {
-  readonly symbol: string;
-  readonly hasCrossover: boolean;
-  readonly crossoverType: "BULLISH" | "BEARISH" | "NONE";
-  readonly strength: number;
-  readonly macd: number;
-  readonly signal: number;
-  readonly histogram: number;
-}
+const DEFAULT_FAST = 12;
+const DEFAULT_SLOW = 26;
+const DEFAULT_SIGNAL = 9;
 
-// Trend classification
-const classifyTrend = Match.type<{ macd: number; histogram: number }>().pipe(
+const classifyTrend = Match.type<number>().pipe(
   Match.when(
-    ({ macd, histogram }) => macd > 0 && histogram > 0,
+    (h) => h > 0.5,
     () => "BULLISH" as const
   ),
   Match.when(
-    ({ macd, histogram }) => macd < 0 && histogram < 0,
+    (h) => h < -0.5,
     () => "BEARISH" as const
   ),
   Match.orElse(() => "NEUTRAL" as const)
 );
 
-// Crossover type classification
-const classifyCrossoverType = Match.type<{ hasCrossover: boolean; histogram: number }>().pipe(
-  Match.when(
-    ({ hasCrossover, histogram }) => hasCrossover && histogram > 0,
-    () => "BULLISH" as const
-  ),
-  Match.when(
-    ({ hasCrossover, histogram }) => hasCrossover && histogram < 0,
-    () => "BEARISH" as const
-  ),
-  Match.orElse(() => "NONE" as const)
-);
+const calculateEMA = (data: readonly number[], period: number): number[] => {
+  if (data.length < period) return [];
 
-// Calculate MACD
-export const calculateMACD = (
-  prices: ReadonlyArray<number>,
-  fastPeriod: number = 12,
-  slowPeriod: number = 26,
-  signalPeriod: number = 9
-): MACDResult => {
-  const fastEMA = calculateEMA(prices, fastPeriod);
-  const slowEMA = calculateEMA(prices, slowPeriod);
-  const macd = fastEMA.value - slowEMA.value;
+  const k = 2 / (period + 1);
+  const result: number[] = [];
 
-  const fastSeries = calculateEMASeries(prices, fastPeriod);
-  const slowSeries = calculateEMASeries(prices, slowPeriod);
-  const macdSeries = fastSeries.map((fast, i) => fast - slowSeries[i]);
-  const signalEMA = calculateEMA(macdSeries, signalPeriod);
-  const signal = signalEMA.value;
-  const histogram = macd - signal;
+  let sum = 0;
+  for (let i = 0; i < period; i++) {
+    sum += data[i];
+  }
+  result.push(sum / period);
 
-  return { macd, signal, histogram, trend: classifyTrend({ macd, histogram }) };
+  for (let i = period; i < data.length; i++) {
+    result.push(data[i] * k + result[result.length - 1] * (1 - k));
+  }
+
+  return result;
 };
 
-// Calculate MACD series
-export const calculateMACDSeries = (
-  prices: ReadonlyArray<number>,
-  fastPeriod: number = 12,
-  slowPeriod: number = 26,
-  signalPeriod: number = 9
-): {
-  readonly macd: ReadonlyArray<number>;
-  readonly signal: ReadonlyArray<number>;
-  readonly histogram: ReadonlyArray<number>;
-} => {
-  const fastSeries = calculateEMASeries(prices, fastPeriod);
-  const slowSeries = calculateEMASeries(prices, slowPeriod);
-  const macdSeries = fastSeries.map((fast, i) => fast - slowSeries[i]);
-  const signalSeries = calculateEMASeries(macdSeries, signalPeriod);
-  const histogramSeries = macdSeries
-    .slice(signalPeriod - 1)
-    .map((macd, i) => macd - signalSeries[i]);
+const calculateMACD = (
+  closes: readonly number[],
+  fastPeriod: number,
+  slowPeriod: number,
+  signalPeriod: number
+): MACDHistoricalResult => {
+  if (closes.length < slowPeriod + signalPeriod) {
+    return {
+      macd: 0,
+      signal: 0,
+      histogram: 0,
+      trend: "NEUTRAL",
+      crossover: "NONE",
+    };
+  }
 
-  return { macd: macdSeries, signal: signalSeries, histogram: histogramSeries };
-};
+  const fastEMA = calculateEMA(closes, fastPeriod);
+  const slowEMA = calculateEMA(closes, slowPeriod);
 
-// Effect-based wrapper
-export const computeMACD = (
-  prices: ReadonlyArray<number>,
-  fastPeriod: number = 12,
-  slowPeriod: number = 26,
-  signalPeriod: number = 9
-): Effect.Effect<MACDResult> =>
-  Effect.sync(() => calculateMACD(prices, fastPeriod, slowPeriod, signalPeriod));
+  const startIdx = slowPeriod - fastPeriod;
+  const macdLine: number[] = [];
 
-// Effect-based MACD from CryptoPrice
-export const computeMACDFromPrice = (
-  price: CryptoPrice,
-  fastPeriod: number = 12,
-  slowPeriod: number = 26,
-  signalPeriod: number = 9
-): Effect.Effect<MACDResult> => {
-  const prices =
-    price.high24h && price.low24h ? [price.low24h, price.price, price.high24h] : [price.price];
-  return computeMACD(
-    prices,
-    Math.min(fastPeriod, prices.length),
-    Math.min(slowPeriod, prices.length),
-    Math.min(signalPeriod, prices.length)
-  );
-};
+  for (let i = 0; i < slowEMA.length; i++) {
+    const fastIdx = startIdx + i;
+    if (fastIdx >= 0 && fastIdx < fastEMA.length) {
+      macdLine.push(fastEMA[fastIdx] - slowEMA[i]);
+    }
+  }
 
-// Detect MACD crossover
-export const detectMACDCrossover = (price: CryptoPrice, macd: MACDResult): MACDCrossover => {
-  const hasCrossover = Math.abs(macd.histogram) < Math.abs(macd.macd) * 0.1;
-  const crossoverType = classifyCrossoverType({ hasCrossover, histogram: macd.histogram });
-  const strength = hasCrossover ? Math.min(Math.abs(macd.histogram) * 10, 100) : 0;
+  if (macdLine.length < signalPeriod) {
+    return {
+      macd: macdLine.length > 0 ? macdLine[macdLine.length - 1] : 0,
+      signal: 0,
+      histogram: 0,
+      trend: "NEUTRAL",
+      crossover: "NONE",
+    };
+  }
+
+  const signalLine = calculateEMA(macdLine, signalPeriod);
+
+  const currentMACD = macdLine[macdLine.length - 1];
+  const currentSignal = signalLine[signalLine.length - 1];
+  const histogram = currentMACD - currentSignal;
+
+  let crossover: "BULLISH_CROSS" | "BEARISH_CROSS" | "NONE" = "NONE";
+  if (macdLine.length >= 2 && signalLine.length >= 2) {
+    const prevMACD = macdLine[macdLine.length - 2];
+    const prevSignal = signalLine[signalLine.length - 2];
+    if (prevMACD < prevSignal && currentMACD > currentSignal) {
+      crossover = "BULLISH_CROSS";
+    } else if (prevMACD > prevSignal && currentMACD < currentSignal) {
+      crossover = "BEARISH_CROSS";
+    }
+  }
 
   return {
-    symbol: price.symbol,
-    hasCrossover,
-    crossoverType,
-    strength: Math.round(strength),
-    macd: macd.macd,
-    signal: macd.signal,
-    histogram: macd.histogram,
+    macd: Math.round(currentMACD * 1000) / 1000,
+    signal: Math.round(currentSignal * 1000) / 1000,
+    histogram: Math.round(histogram * 1000) / 1000,
+    trend: classifyTrend(histogram),
+    crossover,
   };
 };
 
-// Effect-based crossover detection
-export const detectCrossover = (price: CryptoPrice): Effect.Effect<MACDCrossover> =>
-  Effect.gen(function* () {
-    const macd = yield* computeMACDFromPrice(price);
-    return yield* Effect.sync(() => detectMACDCrossover(price, macd));
-  });
-
-export const MACDMetadata: FormulaMetadata = {
-  name: "MACD",
-  category: "momentum",
-  difficulty: "beginner",
-  description: "Moving Average Convergence Divergence - momentum indicator using two EMAs",
-  requiredInputs: ["prices"],
-  optionalInputs: ["fastPeriod", "slowPeriod", "signalPeriod"],
-  minimumDataPoints: 26,
-  outputType: "MACDResult",
-  useCases: [
-    "trend identification",
-    "momentum analysis",
-    "crossover signals",
-    "divergence detection",
-  ],
-  timeComplexity: "O(n)",
-  dependencies: ["EMA"],
-};
+export const computeMACDFromHistory = (
+  closes: readonly number[],
+  fastPeriod: number = DEFAULT_FAST,
+  slowPeriod: number = DEFAULT_SLOW,
+  signalPeriod: number = DEFAULT_SIGNAL
+): Effect.Effect<MACDHistoricalResult> =>
+  Effect.sync(() => calculateMACD(closes, fastPeriod, slowPeriod, signalPeriod));

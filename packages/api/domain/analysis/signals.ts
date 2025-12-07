@@ -3,7 +3,7 @@
 import { Match } from "effect";
 import type { CryptoPrice, Signal, TradeDirection } from "@0xsignal/shared";
 import type { CrashIndicators, EntryIndicators } from "../types";
-import type { IndicatorSet } from "./indicators";
+import type { IndicatorSet } from "./indicator-types";
 
 // Detect crash indicators
 export const detectCrashIndicators = (
@@ -11,7 +11,7 @@ export const detectCrashIndicators = (
   indicators: IndicatorSet
 ): CrashIndicators => ({
   rapidDrop: price.change24h < -15,
-  volumeSpike: indicators.volumeROC.value > 100,
+  volumeSpike: (indicators.volumeROC?.value ?? 0) > 100,
   oversoldExtreme: indicators.rsi.rsi < 20,
   highVolatility: indicators.atr.normalizedATR > 10,
 });
@@ -23,7 +23,7 @@ export const detectLongIndicators = (
 ): EntryIndicators => ({
   trendReversal:
     indicators.macd.trend === "BULLISH" && indicators.rsi.rsi > 30 && indicators.rsi.rsi < 70,
-  volumeIncrease: indicators.volumeROC.value > 20,
+  volumeIncrease: (indicators.volumeROC?.value ?? 0) > 20,
   momentumBuilding: indicators.adx.adx > 25 && price.change24h > 0,
   divergence:
     indicators.divergence.hasDivergence && indicators.divergence.divergenceType === "BULLISH",
@@ -36,7 +36,7 @@ export const detectShortIndicators = (
 ): EntryIndicators => ({
   trendReversal:
     indicators.macd.trend === "BEARISH" && indicators.rsi.rsi > 30 && indicators.rsi.rsi < 70,
-  volumeIncrease: indicators.volumeROC.value > 20,
+  volumeIncrease: (indicators.volumeROC?.value ?? 0) > 20,
   momentumBuilding: indicators.adx.adx > 25 && price.change24h < 0,
   divergence:
     indicators.divergence.hasDivergence && indicators.divergence.divergenceType === "BEARISH",
