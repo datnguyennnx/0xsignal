@@ -18,15 +18,35 @@ export const analyzeMarket = (
     { concurrency: CONCURRENCY, batching: true }
   );
 
-export const createMarketOverview = (analyses: ReadonlyArray<AssetAnalysis>): MarketOverview => ({
-  totalAnalyzed: analyses.length,
-  highRiskAssets: analyses.filter((a) => a.riskScore > 70).map((a) => a.symbol),
-  averageRiskScore:
+export const createMarketOverview = (analyses: ReadonlyArray<AssetAnalysis>): MarketOverview => {
+  const avgRisk =
     analyses.length > 0
       ? Math.round(analyses.reduce((sum, a) => sum + a.riskScore, 0) / analyses.length)
-      : 0,
-  timestamp: new Date(),
-});
+      : 0;
+  const avgConfidence =
+    analyses.length > 0
+      ? Math.round(analyses.reduce((sum, a) => sum + a.confidence, 0) / analyses.length)
+      : 0;
+  const riskLevel =
+    avgRisk > 70 ? "EXTREME" : avgRisk > 50 ? "HIGH" : avgRisk > 30 ? "MEDIUM" : "LOW";
+  const activeSignals = analyses.filter((a) => a.overallSignal !== "HOLD").length;
+  const topOpportunities = analyses
+    .filter((a) => a.confidence >= 60)
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 10);
+
+  return {
+    globalRegime: "TRENDING",
+    averageConfidence: avgConfidence,
+    activeSignals,
+    topOpportunities,
+    riskLevel,
+    timestamp: new Date(),
+    totalAnalyzed: analyses.length,
+    highRiskAssets: analyses.filter((a) => a.riskScore > 70).length,
+    averageRiskScore: avgRisk,
+  };
+};
 
 export const filterHighConfidence = (
   analyses: ReadonlyArray<AssetAnalysis>,

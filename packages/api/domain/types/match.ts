@@ -34,12 +34,29 @@ export const matchRegime = Match.type<MarketRegime>().pipe(
     () => ({ bias: "neutral", strategies: ["breakout", "mean-reversion"] }) as const
   ),
   Match.when("HIGH_VOLATILITY", () => ({ bias: "neutral", strategies: ["volatility"] }) as const),
+  Match.when(
+    "RANGING",
+    () => ({ bias: "neutral", strategies: ["mean-reversion", "range-bound"] }) as const
+  ),
+  Match.when(
+    "VOLATILE",
+    () => ({ bias: "neutral", strategies: ["volatility", "breakout"] }) as const
+  ),
+  Match.when(
+    "ACCUMULATION",
+    () => ({ bias: "bullish", strategies: ["accumulation", "swing"] }) as const
+  ),
+  Match.when(
+    "DISTRIBUTION",
+    () => ({ bias: "bearish", strategies: ["distribution", "short"] }) as const
+  ),
   Match.exhaustive
 );
 
 // Noise level to reliability mapping
 const noiseReliability: Record<NoiseLevel, { reliability: number; description: string }> = {
   LOW: { reliability: 0.9, description: "High signal clarity" },
+  MEDIUM: { reliability: 0.7, description: "Average noise" },
   MODERATE: { reliability: 0.7, description: "Acceptable noise" },
   HIGH: { reliability: 0.5, description: "Noisy signals" },
   EXTREME: { reliability: 0.3, description: "Very unreliable" },

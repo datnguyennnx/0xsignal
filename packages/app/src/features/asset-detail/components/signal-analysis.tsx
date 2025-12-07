@@ -26,6 +26,10 @@ const REGIME_LABEL: Record<MarketRegime, string> = {
   MEAN_REVERSION: "Reversion",
   LOW_VOLATILITY: "Low Vol",
   HIGH_VOLATILITY: "High Vol",
+  RANGING: "Range",
+  VOLATILE: "Volatile",
+  ACCUMULATION: "Accum",
+  DISTRIBUTION: "Distrib",
 };
 
 export function SignalAnalysis({
@@ -82,9 +86,9 @@ export function SignalAnalysis({
         />
         <MetricCell
           label="Noise"
-          value={noise.value}
+          value={noise.score}
           context={noise.level.toLowerCase()}
-          valueClass={noise.value > 75 ? "text-loss" : noise.value > 50 ? "text-warn" : ""}
+          valueClass={noise.score > 75 ? "text-loss" : noise.score > 50 ? "text-warn" : ""}
         />
         <MetricCell
           label="Volatility"

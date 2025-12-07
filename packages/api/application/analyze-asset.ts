@@ -267,7 +267,7 @@ export const analyzeAsset = (
         overallSignal: "HOLD" as Signal,
         confidence: 0,
         riskScore: 50,
-        noise: { value: 50, level: "MODERATE" as const },
+        noise: { score: 50, value: 50, level: "MODERATE" as const },
         recommendation: "Insufficient historical data for reliable analysis.",
         sparkline: [],
       };

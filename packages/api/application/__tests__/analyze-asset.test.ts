@@ -1,9 +1,17 @@
 /** Analyze Asset Tests - Using @effect/vitest */
 
 import { it, expect } from "@effect/vitest";
-import { Effect, Exit } from "effect";
+import { Effect, Exit, Layer } from "effect";
 import { analyzeAsset } from "../analyze-asset";
-import type { CryptoPrice } from "@0xsignal/shared";
+import type { CryptoPrice, ChartDataPoint } from "@0xsignal/shared";
+import { ChartDataService } from "../../infrastructure/data-sources/binance";
+
+// Mock ChartDataService that returns empty data
+const MockChartDataService = Layer.succeed(ChartDataService, {
+  info: { name: "MockChartData", version: "1.0.0" },
+  getHistoricalData: (_symbol: string, _interval: string, _limit?: number) =>
+    Effect.succeed([] as ChartDataPoint[]),
+});
 
 // Mock price data factory
 const createMockPrice = (overrides: Partial<CryptoPrice> = {}): CryptoPrice => ({

@@ -73,6 +73,7 @@ export const calculateNoiseScore = (
   const clampedNoise = clamp(noiseValue, 0, 100);
 
   return {
+    score: clampedNoise,
     value: clampedNoise,
     level: classifyNoiseLevel(clampedNoise),
   };

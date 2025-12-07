@@ -88,7 +88,14 @@ export const getEntriesByStrength = (
   strength: "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG"
 ): AssetAnalysis[] => analyses.filter((a) => a.entrySignal?.strength === strength);
 
-const STRENGTH_ORDER = { VERY_STRONG: 0, STRONG: 1, MODERATE: 2, WEAK: 3 } as const;
+const STRENGTH_ORDER = {
+  VERY_STRONG: 0,
+  EXTREME: 0,
+  STRONG: 1,
+  MODERATE: 2,
+  WEAK: 3,
+  VERY_WEAK: 4,
+} as const;
 
 export const sortByEntryStrength = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
   [...analyses].sort((a, b) => {
