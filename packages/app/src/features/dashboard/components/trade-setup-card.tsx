@@ -4,13 +4,12 @@ import { cn } from "@/core/utils/cn";
 import { CryptoIcon } from "@/components/crypto-icon";
 import { Card, CardContent } from "@/components/ui/card";
 import { MiniSparkline } from "@/features/dashboard/components/mini-sparkline";
-import { Landmark, Zap } from "lucide-react";
+import { Landmark } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TradeSetupCardProps {
   asset: AssetAnalysis;
   hasInstitutionalHoldings?: boolean;
-  hasLiquidationRisk?: boolean;
 }
 
 const formatPrice = (p: number) => {
@@ -28,11 +27,7 @@ const getRiskColor = (score: number) => {
   return "text-loss";
 };
 
-export function TradeSetupCard({
-  asset,
-  hasInstitutionalHoldings = false,
-  hasLiquidationRisk = false,
-}: TradeSetupCardProps) {
+export function TradeSetupCard({ asset, hasInstitutionalHoldings = false }: TradeSetupCardProps) {
   const entry = asset.entrySignal;
   const isLong = entry.direction === "LONG";
   const price = asset.price?.price || 0;
@@ -43,7 +38,7 @@ export function TradeSetupCard({
     ["btc", "eth", "bitcoin", "ethereum"].includes(asset.symbol.toLowerCase());
 
   return (
-    <Card className="py-0 shadow-none hover:bg-secondary/30 transition-all active:scale-[0.98] group border-border/50 tap-highlight">
+    <Card className="py-0 shadow-none hover:bg-secondary/40 transition-all duration-300 ease-premium hover:-translate-y-[1px] hover:shadow-sm hover:border-border/80 active:scale-[0.99] group border-border/50 tap-highlight">
       <Link to={`/asset/${asset.symbol.toLowerCase()}`} className="block">
         <CardContent className="p-3.5 sm:p-3">
           <div className="flex items-start justify-between mb-3">
@@ -67,32 +62,18 @@ export function TradeSetupCard({
                   >
                     {entry.direction}
                   </span>
-                  {(showInstitutional || hasLiquidationRisk) && (
+                  {showInstitutional && (
                     <div className="flex items-center gap-1 ml-0.5">
-                      {showInstitutional && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-help">
-                              <Landmark size={10} className="text-muted-foreground/70" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-[10px]">
-                            Institutional holdings
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                      {hasLiquidationRisk && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-help">
-                              <Zap size={10} className="text-warn/70" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-[10px]">
-                            High liquidation risk
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">
+                            <Landmark size={10} className="text-muted-foreground/70" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-[10px]">
+                          Institutional holdings
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
                   )}
                 </div>

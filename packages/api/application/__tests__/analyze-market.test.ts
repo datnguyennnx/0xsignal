@@ -1,7 +1,5 @@
-/** Analyze Market Tests - Using @effect/vitest */
-
-import { it, expect } from "@effect/vitest";
-import { Effect, Exit } from "effect";
+import { it, expect, describe } from "@effect/vitest";
+import { Effect, Exit, Layer } from "effect";
 import {
   analyzeMarket,
   createMarketOverview,
@@ -11,9 +9,31 @@ import {
   getTopMovers,
 } from "../analyze-market";
 import { analyzeAsset } from "../analyze-asset";
-import type { CryptoPrice, AssetAnalysis } from "@0xsignal/shared";
+import type { CryptoPrice, AssetAnalysis, ChartDataPoint } from "@0xsignal/shared";
+import { ChartDataService, type ChartDataClient } from "../../infrastructure/data-sources/binance";
 
-// Mock price data factory
+const mockChartClient: ChartDataClient = {
+  info: {
+    name: "MockChartData",
+    version: "1.0.0",
+    capabilities: {
+      spotPrices: false,
+      futuresPrices: false,
+      historicalData: true,
+      realtime: false,
+      liquidations: false,
+      openInterest: false,
+      fundingRates: false,
+      heatmap: false,
+    },
+    rateLimit: { requestsPerMinute: 1000 },
+  },
+  getHistoricalData: (_symbol: string, _interval: string, _limit?: number) =>
+    Effect.succeed([] as ChartDataPoint[]),
+};
+
+const MockChartDataService = Layer.succeed(ChartDataService, mockChartClient);
+
 const createMockPrice = (overrides: Partial<CryptoPrice> = {}): CryptoPrice => ({
   id: "bitcoin",
   symbol: "btc",
@@ -31,9 +51,10 @@ const createMockPrice = (overrides: Partial<CryptoPrice> = {}): CryptoPrice => (
   ...overrides,
 });
 
-// Helper to create mock analysis
 const createMockAnalysis = async (price: CryptoPrice): Promise<AssetAnalysis> => {
-  const result = await Effect.runPromise(analyzeAsset(price));
+  const result = await Effect.runPromise(
+    analyzeAsset(price).pipe(Effect.provide(MockChartDataService))
+  );
   return result;
 };
 
@@ -46,7 +67,7 @@ describe("Analyze Market", () => {
           createMockPrice({ symbol: "eth", id: "ethereum", price: 3000 }),
         ];
 
-        const results = yield* analyzeMarket(prices);
+        const results = yield* analyzeMarket(prices, mockChartClient);
 
         expect(results).toHaveLength(2);
         expect(results[0].symbol).toBe("btc");
@@ -56,7 +77,7 @@ describe("Analyze Market", () => {
 
     it.effect("returns empty array for empty input", () =>
       Effect.gen(function* () {
-        const results = yield* analyzeMarket([]);
+        const results = yield* analyzeMarket([], mockChartClient);
 
         expect(results).toHaveLength(0);
       })
@@ -66,7 +87,7 @@ describe("Analyze Market", () => {
       Effect.gen(function* () {
         const prices = [createMockPrice()];
 
-        const results = yield* analyzeMarket(prices);
+        const results = yield* analyzeMarket(prices, mockChartClient);
 
         expect(results[0].symbol).toBeDefined();
         expect(results[0].strategyResult).toBeDefined();
@@ -79,7 +100,7 @@ describe("Analyze Market", () => {
     it.effect("returns success Exit (never fails)", () =>
       Effect.gen(function* () {
         const prices = [createMockPrice()];
-        const result = yield* Effect.exit(analyzeMarket(prices));
+        const result = yield* Effect.exit(analyzeMarket(prices, mockChartClient));
 
         expect(Exit.isSuccess(result)).toBe(true);
       })
@@ -109,7 +130,6 @@ describe("Analyze Market", () => {
 
       const overview = createMarketOverview(analyses);
 
-      // High volatility should result in higher risk
       expect(overview.highRiskAssets).toBeDefined();
     });
 
@@ -138,7 +158,7 @@ describe("Analyze Market", () => {
 
       expect(overview.totalAnalyzed).toBe(0);
       expect(overview.averageRiskScore).toBe(0);
-      expect(overview.highRiskAssets).toHaveLength(0);
+      expect(overview.highRiskAssets).toBe(0);
     });
   });
 
@@ -149,7 +169,6 @@ describe("Analyze Market", () => {
         createMockAnalysis(createMockPrice({ symbol: "eth" })),
       ]);
 
-      // Use a low threshold to ensure some pass
       const filtered = filterHighConfidence(analyses, 20);
 
       expect(filtered.length).toBeGreaterThanOrEqual(0);
@@ -173,7 +192,6 @@ describe("Analyze Market", () => {
 
       const filtered = filterHighConfidence(analyses, 100);
 
-      // May or may not have results depending on actual confidence
       expect(Array.isArray(filtered)).toBe(true);
     });
   });
@@ -188,7 +206,6 @@ describe("Analyze Market", () => {
       const ranked = rankByQuality(analyses);
 
       expect(ranked).toHaveLength(2);
-      // First should have higher quality score
       const firstQuality = ranked[0].confidence - ranked[0].riskScore / 2;
       const secondQuality = ranked[1].confidence - ranked[1].riskScore / 2;
       expect(firstQuality).toBeGreaterThanOrEqual(secondQuality);
@@ -217,7 +234,6 @@ describe("Analyze Market", () => {
       const grouped = groupBySignal(analyses);
 
       expect(typeof grouped).toBe("object");
-      // Should have at least one group
       const totalGrouped = Object.values(grouped).reduce((sum, arr) => sum + arr.length, 0);
       expect(totalGrouped).toBe(analyses.length);
     });
@@ -240,7 +256,6 @@ describe("Analyze Market", () => {
       const topMovers = getTopMovers(analyses, 2);
 
       expect(topMovers).toHaveLength(2);
-      // First should have highest absolute change
       expect(Math.abs(topMovers[0].price.change24h)).toBeGreaterThanOrEqual(
         Math.abs(topMovers[1].price.change24h)
       );

@@ -25,7 +25,7 @@ export const COINGECKO_INFO: AdapterInfo = {
   capabilities: {
     spotPrices: true,
     futuresPrices: false,
-    liquidations: false,
+
     openInterest: false,
     fundingRates: false,
     heatmap: false,

@@ -22,7 +22,7 @@ export function SignalCard({ signal, type }: SignalCardProps) {
 
   return (
     <Card
-      className="py-0 shadow-none cursor-pointer transition-all hover:bg-secondary/30 active:scale-[0.98] group border-border/50 tap-highlight"
+      className="py-0 shadow-none cursor-pointer transition-all duration-300 ease-premium hover:bg-secondary/40 hover:-translate-y-[1px] hover:shadow-sm hover:border-border/80 active:scale-[0.99] group border-border/50 tap-highlight"
       onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
     >
       <CardContent className="p-3.5 sm:p-3">

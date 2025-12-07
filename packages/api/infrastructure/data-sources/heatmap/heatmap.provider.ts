@@ -13,7 +13,7 @@ export const HEATMAP_INFO: AdapterInfo = {
   capabilities: {
     spotPrices: false,
     futuresPrices: false,
-    liquidations: false,
+
     openInterest: false,
     fundingRates: false,
     heatmap: true,

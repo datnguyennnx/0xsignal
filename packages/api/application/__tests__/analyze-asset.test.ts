@@ -1,19 +1,29 @@
-/** Analyze Asset Tests - Using @effect/vitest */
-
-import { it, expect } from "@effect/vitest";
+import { it, expect, describe } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 import { analyzeAsset } from "../analyze-asset";
 import type { CryptoPrice, ChartDataPoint } from "@0xsignal/shared";
 import { ChartDataService } from "../../infrastructure/data-sources/binance";
 
-// Mock ChartDataService that returns empty data
 const MockChartDataService = Layer.succeed(ChartDataService, {
-  info: { name: "MockChartData", version: "1.0.0" },
+  info: {
+    name: "MockChartData",
+    version: "1.0.0",
+    capabilities: {
+      spotPrices: false,
+      futuresPrices: false,
+      historicalData: true,
+      realtime: false,
+      liquidations: false,
+      openInterest: false,
+      fundingRates: false,
+      heatmap: false,
+    },
+    rateLimit: { requestsPerMinute: 1000 },
+  },
   getHistoricalData: (_symbol: string, _interval: string, _limit?: number) =>
     Effect.succeed([] as ChartDataPoint[]),
 });
 
-// Mock price data factory
 const createMockPrice = (overrides: Partial<CryptoPrice> = {}): CryptoPrice => ({
   id: "bitcoin",
   symbol: "btc",
@@ -40,7 +50,7 @@ describe("analyzeAsset", () => {
       expect(result.symbol).toBe("btc");
       expect(result.price).toEqual(price);
       expect(result.timestamp).toBeInstanceOf(Date);
-    })
+    }).pipe(Effect.provide(MockChartDataService))
   );
 
   it.effect("includes strategy result with regime", () =>
@@ -51,7 +61,7 @@ describe("analyzeAsset", () => {
       expect(result.strategyResult).toBeDefined();
       expect(result.strategyResult.regime).toBeDefined();
       expect(result.strategyResult.primarySignal).toBeDefined();
-    })
+    }).pipe(Effect.provide(MockChartDataService))
   );
 
   it.effect("includes entry signal analysis", () =>
@@ -62,7 +72,7 @@ describe("analyzeAsset", () => {
       expect(result.entrySignal).toBeDefined();
       expect(typeof result.entrySignal.isOptimalEntry).toBe("boolean");
       expect(result.entrySignal.strength).toBeDefined();
-    })
+    }).pipe(Effect.provide(MockChartDataService))
   );
 
   it.effect("calculates overall signal", () =>
@@ -72,7 +82,7 @@ describe("analyzeAsset", () => {
 
       const validSignals = ["STRONG_BUY", "BUY", "HOLD", "SELL", "STRONG_SELL"];
       expect(validSignals).toContain(result.overallSignal);
-    })
+    }).pipe(Effect.provide(MockChartDataService))
   );
 
   it.effect("calculates confidence between 0 and 100", () =>
@@ -82,7 +92,7 @@ describe("analyzeAsset", () => {
 
       expect(result.confidence).toBeGreaterThanOrEqual(0);
       expect(result.confidence).toBeLessThanOrEqual(100);
-    })
+    }).pipe(Effect.provide(MockChartDataService))
   );
 
   it.effect("calculates risk score", () =>
@@ -92,7 +102,7 @@ describe("analyzeAsset", () => {
 
       expect(result.riskScore).toBeGreaterThanOrEqual(0);
       expect(result.riskScore).toBeLessThanOrEqual(100);
-    })
+    }).pipe(Effect.provide(MockChartDataService))
   );
 
   it.effect("includes noise score", () =>
@@ -101,10 +111,9 @@ describe("analyzeAsset", () => {
       const result = yield* analyzeAsset(price);
 
       expect(result.noise).toBeDefined();
-      // NoiseScore has 'value' and 'level' properties
-      expect(result.noise.value).toBeGreaterThanOrEqual(0);
+      expect(result.noise.score).toBeGreaterThanOrEqual(0);
       expect(result.noise.level).toBeDefined();
-    })
+    }).pipe(Effect.provide(MockChartDataService))
   );
 
   it.effect("generates recommendation string", () =>
@@ -114,7 +123,7 @@ describe("analyzeAsset", () => {
 
       expect(typeof result.recommendation).toBe("string");
       expect(result.recommendation.length).toBeGreaterThan(0);
-    })
+    }).pipe(Effect.provide(MockChartDataService))
   );
 
   it.effect("returns success Exit (never fails)", () =>
@@ -123,25 +132,22 @@ describe("analyzeAsset", () => {
       const result = yield* Effect.exit(analyzeAsset(price));
 
       expect(Exit.isSuccess(result)).toBe(true);
-    })
+    }).pipe(Effect.provide(MockChartDataService))
   );
 
   describe("signal upgrade scenarios", () => {
     it.effect("upgrades BUY to STRONG_BUY for optimal entry with strong strength", () =>
       Effect.gen(function* () {
-        // Create conditions favorable for optimal entry
         const price = createMockPrice({
-          change24h: -8, // Oversold condition
+          change24h: -8,
           price: 45000,
           low24h: 44000,
           athChangePercentage: -35,
         });
 
         const result = yield* analyzeAsset(price);
-
-        // Should have entry signal analysis
         expect(result.entrySignal).toBeDefined();
-      })
+      }).pipe(Effect.provide(MockChartDataService))
     );
   });
 });

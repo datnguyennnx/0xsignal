@@ -5,15 +5,7 @@
  */
 
 import { Effect, Context, Layer, Duration, Option, Cache, Array as Arr, pipe } from "effect";
-import type {
-  LiquidationData,
-  LiquidationHeatmap,
-  LiquidationLevel,
-  MarketLiquidationSummary,
-  LiquidationTimeframe,
-  OpenInterestData,
-  FundingRateData,
-} from "@0xsignal/shared";
+import type { OpenInterestData, FundingRateData } from "@0xsignal/shared";
 import { HttpClientTag } from "../../http/client";
 import {
   BinanceOpenInterestSchema,
@@ -24,12 +16,6 @@ import { DataSourceError, type AdapterInfo } from "../types";
 import { Schema } from "effect";
 
 const FUTURES_BASE = "https://fapi.binance.com/fapi/v1";
-const TIMEFRAME_HOURS: Record<LiquidationTimeframe, number> = {
-  "1h": 1,
-  "4h": 4,
-  "12h": 12,
-  "24h": 24,
-};
 
 const stripUsdt = (s: string) => s.replace("USDT", "");
 const normalizeSymbol = (s: string) => {
@@ -50,7 +36,7 @@ export const BINANCE_INFO: AdapterInfo = {
   capabilities: {
     spotPrices: true,
     futuresPrices: true,
-    liquidations: true, // Note: These are ESTIMATES, not real liquidation tape
+
     openInterest: true,
     fundingRates: true,
     heatmap: false,
@@ -67,17 +53,7 @@ export class BinanceService extends Context.Tag("BinanceService")<
   BinanceService,
   {
     readonly info: AdapterInfo;
-    readonly getLiquidations: (
-      symbol: string,
-      timeframe: LiquidationTimeframe
-    ) => Effect.Effect<LiquidationData, DataSourceError>;
-    readonly getLiquidationHeatmap: (
-      symbol: string
-    ) => Effect.Effect<LiquidationHeatmap, DataSourceError>;
-    readonly getMarketLiquidationSummary: () => Effect.Effect<
-      MarketLiquidationSummary,
-      DataSourceError
-    >;
+
     readonly getOpenInterest: (symbol: string) => Effect.Effect<OpenInterestData, DataSourceError>;
     readonly getFundingRate: (symbol: string) => Effect.Effect<FundingRateData, DataSourceError>;
     readonly getTopOpenInterest: (
@@ -217,129 +193,9 @@ export const BinanceServiceLive = Layer.effect(
         }),
     });
 
-    // Liquidations cache - CLEARLY MARKED AS ESTIMATES
-    const liqCache = yield* Cache.make({
-      capacity: 100,
-      timeToLive: Duration.minutes(2),
-      lookup: (key: string) => {
-        const [symbol, timeframe] = key.split(":") as [string, LiquidationTimeframe];
-        return Effect.all({
-          oi: oiCache.get(symbol),
-          ticker: getTickerFromBulk(symbol),
-        }).pipe(
-          Effect.map(({ oi, ticker }) => {
-            // IMPORTANT: These are ESTIMATES based on OI and volatility
-            // NOT real liquidation tape data
-            const volatility = Math.min(Math.abs(ticker.changePercent24h) / 10, 1);
-            const timeFactor = TIMEFRAME_HOURS[timeframe] / 24;
-            const estLiqUsd = oi.openInterestUsd * 0.01 * volatility * timeFactor;
-            const isUp = ticker.change24h > 0;
-            const longRatio = isUp ? 0.3 : 0.7;
-            const longUsd = estLiqUsd * longRatio;
-            const shortUsd = estLiqUsd * (1 - longRatio);
-
-            return {
-              symbol: oi.symbol,
-              longLiquidations: Math.round(longUsd / 25000),
-              shortLiquidations: Math.round(shortUsd / 25000),
-              totalLiquidations: Math.round(estLiqUsd / 25000),
-              longLiquidationUsd: longUsd,
-              shortLiquidationUsd: shortUsd,
-              totalLiquidationUsd: estLiqUsd,
-              liquidationRatio: shortUsd > 0 ? longUsd / shortUsd : 0,
-              timestamp: new Date(),
-              timeframe,
-              // Mark as estimate for transparency
-              isEstimate: true,
-            } as LiquidationData;
-          }),
-          Effect.mapError((e) => mapError(e, symbol))
-        );
-      },
-    });
-
-    // Heatmap cache - uses bulk ticker
-    const heatmapCache = yield* Cache.make({
-      capacity: 100,
-      timeToLive: Duration.minutes(2),
-      lookup: (symbol: string) =>
-        getTickerFromBulk(symbol).pipe(
-          Effect.map((ticker) => {
-            const { price, high, low, volume } = ticker;
-            const range = high - low;
-            const bucket = range / 10;
-            const levels: LiquidationLevel[] = Array.from({ length: 10 }, (_, i) => {
-              const p = low + bucket * i + bucket / 2;
-              const dist = Math.abs(p - price) / price;
-              const prox = Math.max(0, 1 - dist * 5);
-              const baseUsd = volume * 0.001 * prox;
-              const isAbove = p > price;
-              return {
-                price: Math.round(p * 100) / 100,
-                longLiquidationUsd: isAbove ? baseUsd * 0.3 : baseUsd * 0.7,
-                shortLiquidationUsd: isAbove ? baseUsd * 0.7 : baseUsd * 0.3,
-                totalUsd: baseUsd,
-                intensity: prox * 100,
-              };
-            });
-            return {
-              symbol: ticker.symbol,
-              levels,
-              currentPrice: price,
-              highestLiquidationPrice: high,
-              lowestLiquidationPrice: low,
-              totalLongLiquidationUsd: levels.reduce((s, l) => s + l.longLiquidationUsd, 0),
-              totalShortLiquidationUsd: levels.reduce((s, l) => s + l.shortLiquidationUsd, 0),
-              timestamp: new Date(),
-              // Mark as estimate for transparency
-              isEstimate: true,
-            } as LiquidationHeatmap;
-          }),
-          Effect.mapError((e) => mapError(e, symbol))
-        ),
-    });
-
-    // Market summary cache
-    const summaryCache = yield* Cache.make({
-      capacity: 1,
-      timeToLive: Duration.minutes(2),
-      lookup: (_: "summary") =>
-        Effect.gen(function* () {
-          const topOI = yield* topOICache.get(20);
-          const results = yield* Effect.forEach(
-            topOI.map((o) => o.symbol),
-            (s) => liqCache.get(`${s}:24h`).pipe(Effect.option),
-            { concurrency: 10 }
-          );
-          const valid = pipe(
-            results,
-            Arr.filterMap((o) => (Option.isSome(o) ? Option.some(o.value) : Option.none()))
-          );
-          const totalLong = valid.reduce((s, r) => s + r.longLiquidationUsd, 0);
-          const totalShort = valid.reduce((s, r) => s + r.shortLiquidationUsd, 0);
-          return {
-            totalLiquidations24h: valid.reduce((s, r) => s + r.totalLiquidations, 0),
-            totalLiquidationUsd24h: totalLong + totalShort,
-            longLiquidationUsd24h: totalLong,
-            shortLiquidationUsd24h: totalShort,
-            largestLiquidation: null,
-            topLiquidatedSymbols: pipe(
-              valid,
-              Arr.sortBy((a, b) => (b.totalLiquidationUsd > a.totalLiquidationUsd ? 1 : -1)),
-              Arr.take(10)
-            ),
-            timestamp: new Date(),
-            // Mark as estimate for transparency
-            isEstimate: true,
-          } as MarketLiquidationSummary;
-        }),
-    });
-
     return {
       info: BINANCE_INFO,
-      getLiquidations: (symbol, timeframe) => liqCache.get(`${symbol}:${timeframe}`),
-      getLiquidationHeatmap: (symbol) => heatmapCache.get(symbol),
-      getMarketLiquidationSummary: () => summaryCache.get("summary"),
+
       getOpenInterest: (symbol) => oiCache.get(symbol),
       getFundingRate: (symbol) => fundingCache.get(symbol),
       getTopOpenInterest: (limit = 20) => topOICache.get(limit),

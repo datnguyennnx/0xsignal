@@ -56,7 +56,7 @@ function AssetContent({
   const change24h = price?.change24h || 0;
 
   return (
-    <div className="container-fluid h-full overflow-y-auto flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="container-fluid h-full overflow-y-auto flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-2 duration-500 ease-premium">
       <header className="flex items-center gap-3 mb-5 sm:mb-6 border-b border-border/40 pb-4">
         <Button
           variant="ghost"
@@ -154,7 +154,11 @@ function AssetDetailSkeleton({ symbol }: { symbol?: string }) {
 export function AssetDetail() {
   const { symbol } = useParams<{ symbol: string }>();
   const [interval, setInterval] = useState("1h");
-  const chartSymbol = symbol?.toUpperCase() || "";
+
+  const normalizedSymbol = symbol?.toUpperCase() || "";
+  const chartSymbol = normalizedSymbol.endsWith("USDT")
+    ? normalizedSymbol
+    : `${normalizedSymbol}USDT`;
   const timeframe = INTERVAL_TIMEFRAMES[interval] || "7d";
 
   const {

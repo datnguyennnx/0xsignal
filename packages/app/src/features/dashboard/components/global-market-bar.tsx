@@ -1,6 +1,7 @@
 import type { GlobalMarketData } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { formatCompact, formatPercent } from "@/core/utils/formatters";
+import { DataFreshness } from "@/components/data-freshness";
 
 interface GlobalMarketBarProps {
   data: GlobalMarketData;
@@ -34,6 +35,10 @@ export function GlobalMarketBar({ data, className }: GlobalMarketBarProps) {
           <span className="text-muted-foreground">ETH</span>
           <span className="font-medium tabular-nums">{data.ethDominance.toFixed(1)}%</span>
         </div>
+        <DataFreshness
+          timestamp={new Date()}
+          className="hidden lg:inline text-[10px] text-muted-foreground/60 ml-2"
+        />
       </div>
     </div>
   );

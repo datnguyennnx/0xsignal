@@ -57,8 +57,8 @@
 :root {
   --radius: 0.625rem;
 
-  /* Fluid Typography: Scales from 14px at 320px to 16px at 1920px */
-  font-size: clamp(14px, 0.875rem + 0.25vw, 16px);
+  /* Fluid Typography: Scales from 14px at 320px to 17px at 1920px */
+  font-size: clamp(14px, 0.8rem + 0.3vw, 17px);
 
   /* Monochrome Base - Warm off-white for less eye strain */
   --background: oklch(0.985 0.002 90);
@@ -462,26 +462,38 @@
   }
 
   /* ===== RESPONSIVE TEXT UTILITIES ===== */
-  /* Mobile-first text that scales down density on small screens */
+  /* Mobile-first text that scales up on larger screens */
   .text-responsive-sm {
-    font-size: 0.8125rem; /* 13px on mobile */
+    font-size: 0.75rem; /* 12px on mobile */
     line-height: 1.4;
   }
 
   @media (min-width: 640px) {
     .text-responsive-sm {
-      font-size: 0.75rem; /* 12px on tablet+ */
+      font-size: 0.8125rem; /* 13px on tablet */
       line-height: 1.5;
     }
   }
 
+  @media (min-width: 1024px) {
+    .text-responsive-sm {
+      font-size: 0.875rem; /* 14px on desktop */
+    }
+  }
+
   .text-responsive-xs {
-    font-size: 0.6875rem; /* 11px on mobile */
+    font-size: 0.625rem; /* 10px on mobile */
   }
 
   @media (min-width: 640px) {
     .text-responsive-xs {
-      font-size: 0.625rem; /* 10px on tablet+ */
+      font-size: 0.6875rem; /* 11px on tablet */
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .text-responsive-xs {
+      font-size: 0.75rem; /* 12px on desktop */
     }
   }
 

@@ -3,10 +3,6 @@
 import { Effect, Context, Layer } from "effect";
 import type {
   CryptoPrice,
-  LiquidationData,
-  LiquidationHeatmap,
-  MarketLiquidationSummary,
-  LiquidationTimeframe,
   OpenInterestData,
   FundingRateData,
   MarketHeatmap,
@@ -20,17 +16,7 @@ import { DataSourceError, type AdapterInfo } from "./types";
 export interface AggregatedDataService {
   readonly getPrice: (symbol: string) => Effect.Effect<CryptoPrice, DataSourceError>;
   readonly getTopCryptos: (limit?: number) => Effect.Effect<CryptoPrice[], DataSourceError>;
-  readonly getLiquidations: (
-    symbol: string,
-    timeframe: LiquidationTimeframe
-  ) => Effect.Effect<LiquidationData, DataSourceError>;
-  readonly getLiquidationHeatmap: (
-    symbol: string
-  ) => Effect.Effect<LiquidationHeatmap, DataSourceError>;
-  readonly getMarketLiquidationSummary: () => Effect.Effect<
-    MarketLiquidationSummary,
-    DataSourceError
-  >;
+
   readonly getOpenInterest: (symbol: string) => Effect.Effect<OpenInterestData, DataSourceError>;
   readonly getFundingRate: (symbol: string) => Effect.Effect<FundingRateData, DataSourceError>;
   readonly getTopOpenInterest: (
@@ -58,11 +44,6 @@ export const AggregatedDataServiceLive = Layer.effect(
       // Spot (CoinGecko)
       getPrice: (symbol) => coinGecko.getPrice(symbol),
       getTopCryptos: (limit = 100) => coinGecko.getTopCryptos(limit),
-
-      // Liquidations (Binance)
-      getLiquidations: (symbol, timeframe) => binance.getLiquidations(symbol, timeframe),
-      getLiquidationHeatmap: (symbol) => binance.getLiquidationHeatmap(symbol),
-      getMarketLiquidationSummary: () => binance.getMarketLiquidationSummary(),
 
       // Derivatives (Binance)
       getOpenInterest: (symbol) => binance.getOpenInterest(symbol),

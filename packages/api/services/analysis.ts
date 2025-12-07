@@ -51,15 +51,13 @@ export const AnalysisServiceLive = Layer.effect(
     });
 
     // Full-list cache: fetch 250 once, slice in-memory per request
-    const FULL_LIST_SIZE = 250;
-
     const topAssetsCache = yield* Cache.make({
-      capacity: 1, // Single entry: the full list
+      capacity: 10,
       timeToLive: CACHE_TTL.ANALYSIS,
-      lookup: (_: "full") =>
+      lookup: (limit: number) =>
         Effect.gen(function* () {
           const prices = yield* coinGecko
-            .getTopCryptos(FULL_LIST_SIZE)
+            .getTopCryptos(limit)
             .pipe(Effect.mapError(mapToAnalysisError));
           return yield* analyzeMarket(prices, chartService);
         }),
@@ -68,10 +66,7 @@ export const AnalysisServiceLive = Layer.effect(
     const overviewCache = yield* Cache.make({
       capacity: 1,
       timeToLive: CACHE_TTL.ANALYSIS,
-      lookup: (_: "overview") =>
-        topAssetsCache
-          .get("full")
-          .pipe(Effect.map((analyses) => createMarketOverview(analyses.slice(0, 20)))),
+      lookup: (_: "overview") => topAssetsCache.get(20).pipe(Effect.map(createMarketOverview)),
     });
 
     return {
@@ -82,16 +77,15 @@ export const AnalysisServiceLive = Layer.effect(
         ),
       analyzeTopAssets: (limit) =>
         pipe(
-          topAssetsCache.get("full"),
-          Effect.map((analyses) => analyses.slice(0, Math.min(limit, FULL_LIST_SIZE))),
+          topAssetsCache.get(limit),
           Effect.withSpan("analysis.topAssets", { attributes: { limit } })
         ),
       getMarketOverview: () =>
         pipe(overviewCache.get("overview"), Effect.withSpan("analysis.marketOverview")),
       getHighConfidenceSignals: (minConfidence = 70) =>
         pipe(
-          topAssetsCache.get("full"),
-          Effect.map((analyses) => filterHighConfidence(analyses.slice(0, 50), minConfidence)),
+          topAssetsCache.get(50),
+          Effect.map((analyses) => filterHighConfidence(analyses, minConfidence)),
           Effect.withSpan("analysis.highConfidence", { attributes: { minConfidence } })
         ),
     };

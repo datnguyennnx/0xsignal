@@ -54,10 +54,10 @@ function ProtocolCard({
             className="shrink-0 rounded-full bg-secondary/20 p-0.5"
           />
           <div className="flex flex-col gap-0.5">
-            <span className="font-bold text-base tracking-tight font-mono leading-none">
+            <span className="font-bold text-base sm:text-lg tracking-tight font-mono leading-none">
               {signal.symbol.toUpperCase()}
             </span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest opacity-70">
+            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-widest opacity-70">
               {signal.category}
             </span>
           </div>
@@ -65,13 +65,13 @@ function ProtocolCard({
         <div className="text-right flex flex-col items-end gap-0.5">
           <div
             className={cn(
-              "text-lg font-bold tabular-nums tracking-tight font-mono leading-none",
+              "text-lg sm:text-xl font-bold tabular-nums tracking-tight font-mono leading-none",
               STRENGTH_STYLES[signal.signal]
             )}
           >
             {yieldRate.toFixed(1)}%
           </div>
-          <div className="text-[9px] text-muted-foreground/60 font-medium uppercase tracking-widest">
+          <div className="text-[9px] sm:text-[10px] text-muted-foreground/60 font-medium uppercase tracking-widest">
             Yield
           </div>
         </div>
@@ -80,28 +80,28 @@ function ProtocolCard({
       {/* Stats - No borders, just alignment */}
       <div className="grid grid-cols-3 gap-4 pt-2">
         <div className="flex flex-col gap-1">
-          <span className="text-[9px] text-muted-foreground uppercase tracking-wider opacity-50">
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider opacity-60">
             Rev 24h
           </span>
-          <span className="text-sm font-medium tabular-nums font-mono">
+          <span className="text-sm sm:text-base font-medium tabular-nums font-mono">
             {formatCompact(signal.revenue24h)}
           </span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-[9px] text-muted-foreground uppercase tracking-wider opacity-50">
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider opacity-60">
             MCap
           </span>
-          <span className="text-sm font-medium tabular-nums font-mono">
+          <span className="text-sm sm:text-base font-medium tabular-nums font-mono">
             {formatCompact(signal.marketCap)}
           </span>
         </div>
         <div className="flex flex-col gap-1 items-end">
-          <span className="text-[9px] text-muted-foreground uppercase tracking-wider opacity-50">
+          <span className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider opacity-60">
             7d Growth
           </span>
           <span
             className={cn(
-              "text-sm font-medium tabular-nums font-mono",
+              "text-sm sm:text-base font-medium tabular-nums font-mono",
               growth > 0 ? "text-gain" : growth < 0 ? "text-loss" : "text-muted-foreground"
             )}
           >

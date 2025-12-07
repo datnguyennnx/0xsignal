@@ -1,7 +1,7 @@
 /** HTTP Router - Route matching with functional patterns */
 
 import { Effect, Option, pipe } from "effect";
-import type { LiquidationTimeframe, HeatmapConfig } from "@0xsignal/shared";
+import type { HeatmapConfig } from "@0xsignal/shared";
 import { healthRoute } from "./routes/health.routes";
 import {
   topAnalysisRoute,
@@ -18,11 +18,7 @@ import {
   symbolFundingRateRoute,
   dataSourcesRoute,
 } from "./routes/heatmap.routes";
-import {
-  marketLiquidationSummaryRoute,
-  symbolLiquidationRoute,
-  liquidationHeatmapRoute,
-} from "./routes/liquidation.routes";
+
 import {
   buybackSignalsRoute,
   buybackOverviewRoute,
@@ -49,8 +45,6 @@ const badRequest = (msg: string) => Effect.fail({ status: 400, message: msg });
 
 // Route patterns
 const patterns = {
-  liquidationHeatmap: /^\/api\/liquidations\/([^/]+)\/heatmap$/,
-  liquidation: /^\/api\/liquidations\/([^/]+)$/,
   derivativesOI: /^\/api\/derivatives\/([^/]+)\/open-interest$/,
   derivativesFR: /^\/api\/derivatives\/([^/]+)\/funding-rate$/,
   buybackDetail: /^\/api\/buyback\/([^/]+)\/detail$/,
@@ -89,8 +83,7 @@ export const handleRequest = (url: URL, _method: string) => {
       return highConfidenceSignalsRoute(getInt(url, "confidence", 70));
     case "/api/heatmap/movers":
       return topMoversHeatmapRoute(getInt(url, "limit", 50));
-    case "/api/liquidations/summary":
-      return marketLiquidationSummaryRoute();
+
     case "/api/derivatives/open-interest":
       return topOpenInterestRoute(getInt(url, "limit", 20));
     case "/api/sources":
@@ -116,19 +109,6 @@ export const handleRequest = (url: URL, _method: string) => {
       return treasuryEntitiesRoute();
     case "/api/treasury/coins":
       return treasurySupportedCoinsRoute();
-  }
-
-  // Dynamic routes - liquidation heatmap
-  const liqHeatmapMatch = path.match(patterns.liquidationHeatmap);
-  if (liqHeatmapMatch) return liquidationHeatmapRoute(liqHeatmapMatch[1]);
-
-  // Dynamic routes - liquidation
-  const liqMatch = path.match(patterns.liquidation);
-  if (liqMatch && !path.includes("summary")) {
-    return symbolLiquidationRoute(
-      liqMatch[1],
-      getParam(url, "timeframe", "24h") as LiquidationTimeframe
-    );
   }
 
   // Dynamic routes - derivatives OI
@@ -167,11 +147,9 @@ export const handleRequest = (url: URL, _method: string) => {
   const contextMatch = path.match(patterns.context);
   if (contextMatch) {
     const includeTreasury = getParam(url, "treasury", "true") === "true";
-    const includeLiquidation = getParam(url, "liquidation", "true") === "true";
     const includeDerivatives = getParam(url, "derivatives", "true") === "true";
     return assetContextRoute(contextMatch[1], {
       includeTreasury,
-      includeLiquidation,
       includeDerivatives,
     });
   }

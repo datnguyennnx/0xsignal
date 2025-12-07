@@ -28,13 +28,13 @@ function StatRow({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] uppercase text-muted-foreground font-mono tracking-widest opacity-70">
+      <span className="text-[10px] sm:text-xs uppercase text-muted-foreground font-mono tracking-widest opacity-70">
         {label}
       </span>
       <div className="flex flex-col gap-0.5">
         <span
           className={cn(
-            "text-lg font-bold tabular-nums font-mono leading-none tracking-tight",
+            "text-lg sm:text-xl lg:text-2xl font-bold tabular-nums font-mono leading-none tracking-tight",
             variant === "gain" && "text-gain",
             variant === "loss" && "text-loss"
           )}
@@ -42,7 +42,9 @@ function StatRow({
           {value}
         </span>
         {subValue && (
-          <span className="text-[10px] font-mono text-muted-foreground opacity-60">{subValue}</span>
+          <span className="text-[10px] sm:text-xs font-mono text-muted-foreground opacity-60">
+            {subValue}
+          </span>
         )}
       </div>
     </div>
@@ -84,14 +86,31 @@ function DetailContent({ protocol }: { protocol: string }) {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Description / Revenue Source - Top "Bio" */}
-      {detail.revenueSource && (
-        <div className="text-sm leading-relaxed text-muted-foreground text-pretty">
-          {detail.revenueSource}
+      {/* Chains & Bio */}
+      <div className="space-y-3">
+        {/* Chains Badges - Moved to Top */}
+        <div className="flex flex-wrap gap-2">
+          {detail.signal.chains.map((chain) => (
+            <Badge
+              key={chain}
+              variant="outline"
+              className="font-mono text-[10px] sm:text-xs px-2.5 py-1 border-border/40 font-normal text-muted-foreground/80 hover:bg-muted/30"
+            >
+              {chain}
+            </Badge>
+          ))}
         </div>
-      )}
+
+        {/* Description */}
+        {detail.revenueSource && (
+          <div className="text-sm sm:text-base leading-relaxed text-muted-foreground text-pretty">
+            {detail.revenueSource}
+          </div>
+        )}
+      </div>
 
       {/* Key Metrics Row */}
-      <div className="grid grid-cols-2 gap-y-6 gap-x-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-y-6 gap-x-4">
         <StatRow label="Daily Rev" value={formatCurrency(detail.signal.revenue24h)} />
         <StatRow
           label="Yield"
@@ -123,21 +142,6 @@ function DetailContent({ protocol }: { protocol: string }) {
           </div>
         </div>
       )}
-
-      {/* Chains */}
-      <div className="space-y-3 pt-4 border-t border-border/10">
-        <div className="flex flex-wrap gap-2">
-          {detail.signal.chains.map((chain) => (
-            <Badge
-              key={chain}
-              variant="outline"
-              className="font-mono text-[10px] px-2.5 py-1 border-border/40 font-normal text-muted-foreground/80 hover:bg-muted/30"
-            >
-              {chain}
-            </Badge>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
@@ -155,19 +159,19 @@ export const ProtocolDetailPanel = memo(function ProtocolDetailPanel({
       <div className="shrink-0 pt-6 px-6 pb-2 flex items-start justify-between bg-transparent">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold tracking-tight font-mono">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight font-mono">
               {signal.symbol.toUpperCase()}
             </h2>
             {signal.category && (
               <Badge
                 variant="secondary"
-                className="text-[9px] h-5 px-1.5 font-mono tracking-wide font-normal bg-secondary/40 text-muted-foreground"
+                className="text-[10px] sm:text-xs h-6 px-2 font-mono tracking-wide font-normal bg-secondary/40 text-muted-foreground"
               >
                 {signal.category}
               </Badge>
             )}
           </div>
-          <span className="text-xs font-mono text-muted-foreground uppercase tracking-wider pl-0.5 opacity-60">
+          <span className="text-xs sm:text-sm font-mono text-muted-foreground uppercase tracking-wider pl-0.5 opacity-60">
             {signal.protocol}
           </span>
         </div>

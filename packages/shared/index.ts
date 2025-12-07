@@ -17,8 +17,9 @@ export * from "./types/chart";
 // Heatmap types
 export * from "./types/heatmap";
 
-// Liquidation & derivatives types
-export * from "./types/liquidation";
+// Liquidation & derivatives types - DEPRECATED
+// export * from "./types/liquidation";
+export * from "./types/derivatives";
 
 // Buyback types
 export * from "./types/buyback";
@@ -31,6 +32,9 @@ export * from "./types/context";
 
 // Indicators
 export * from "./indicators";
+
+// Meta types (data freshness)
+export * from "./types/meta";
 
 // Utilities
 export * from "./utils/math";

@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { path: "/", label: "Signals", icon: TrendingUp },
   { path: "/buyback", label: "Revenue", icon: Coins },
   { path: "/treasury", label: "Treasury", icon: Landmark },
-  { path: "/market-depth", label: "Depth", icon: Layers },
+  { path: "/market-depth", label: "Structure", icon: Layers },
 ] as const;
 
 export function Layout({ children }: LayoutProps) {
@@ -103,14 +103,17 @@ export function Layout({ children }: LayoutProps) {
       <footer className="hidden sm:block shrink-0 border-t border-border/40 bg-background/80 backdrop-blur-md z-40">
         <div className="container-fluid py-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>© {new Date().getFullYear()} 0xSignal</span>
+            <div className="flex items-center gap-4">
+              <span>© {new Date().getFullYear()} 0xSignal</span>
+              <span className="text-muted-foreground">Not financial advice</span>
+            </div>
             <span>Data: CoinGecko · DefiLlama · Binance</span>
           </div>
         </div>
       </footer>
 
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border/40 safe-area-pb">
-        <div className="flex items-center justify-around h-16">
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border/40 safe-area-pb transition-all duration-300 ease-premium">
+        <div className="flex items-center justify-around h-16 px-1">
           {NAV_ITEMS.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
@@ -118,20 +121,53 @@ export function Layout({ children }: LayoutProps) {
               <Link
                 key={item.path}
                 to={item.path}
-                className={cn(
-                  "flex flex-col items-center justify-center flex-1 h-full gap-1 transition-all tap-highlight touch-target-48",
-                  isActive ? "text-foreground" : "text-muted-foreground active:text-foreground"
-                )}
+                className="flex-1 flex items-center justify-center h-full relative group tap-highlight touch-target-48"
               >
                 <div
                   className={cn(
-                    "flex items-center justify-center w-10 h-6 rounded-full transition-colors",
-                    isActive && "bg-secondary"
+                    "flex flex-col items-center justify-center gap-1 transition-all duration-300 ease-premium w-full",
+                    isActive
+                      ? "scale-100 translate-y-0"
+                      : "scale-95 opacity-50 translate-y-0.5 active:scale-90"
                   )}
                 >
-                  <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+                  {/* Active Backdrop Glow */}
+                  <div
+                    className={cn(
+                      "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-secondary/40 rounded-full blur-xl transition-all duration-500",
+                      isActive ? "opacity-100 scale-100" : "opacity-0 scale-50"
+                    )}
+                  />
+
+                  {/* Icon Container */}
+                  <div
+                    className={cn(
+                      "relative z-10 p-1 rounded-xl transition-all duration-300",
+                      isActive
+                        ? "bg-background/40 shadow-[0_0_15px_-3px_rgba(0,0,0,0.1)] dark:shadow-[0_0_15px_-3px_rgba(255,255,255,0.1)] ring-1 ring-border/50"
+                        : "bg-transparent"
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "w-5 h-5 transition-all duration-300",
+                        isActive
+                          ? "text-foreground stroke-[2.5]"
+                          : "text-muted-foreground stroke-[1.5]"
+                      )}
+                    />
+                  </div>
+
+                  {/* Label */}
+                  <span
+                    className={cn(
+                      "relative z-10 text-[10px] font-medium tracking-wide transition-all duration-300",
+                      isActive ? "text-foreground font-semibold" : "text-muted-foreground"
+                    )}
+                  >
+                    {item.label}
+                  </span>
                 </div>
-                <span className="text-[10px] font-medium">{item.label}</span>
               </Link>
             );
           })}

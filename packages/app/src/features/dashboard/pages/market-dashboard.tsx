@@ -1,5 +1,4 @@
 import type { AssetAnalysis, GlobalMarketData } from "@0xsignal/shared";
-import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cachedDashboardData } from "@/core/cache/effect-cache";
 import { useResilientQuery } from "@/core/runtime/use-effect-query";
@@ -8,16 +7,11 @@ import { TradeSetupCard } from "@/features/dashboard/components/trade-setup-card
 import { useMemoizedAllSignals } from "@/features/dashboard/hooks/use-memoized-calc";
 import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CryptoIcon } from "@/components/crypto-icon";
-import { MiniSparkline } from "@/features/dashboard/components/mini-sparkline";
 import { ErrorState } from "@/components/error-state";
-import {
-  GlobalMarketBar,
-  GlobalMarketBarSkeleton,
-} from "@/features/dashboard/components/global-market-bar";
+import { GlobalMarketBar } from "@/features/dashboard/components/global-market-bar";
 import { useResponsiveDataCount } from "@/core/hooks/use-responsive-data-count";
+import { DataFreshness } from "@/components/data-freshness";
 
 interface DashboardContentProps {
   analyses: AssetAnalysis[];
@@ -25,8 +19,9 @@ interface DashboardContentProps {
 }
 
 function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
-  const { buySignals, sellSignals, holdSignals, longEntries, shortEntries } =
+  const { buySignals, sellSignals, holdSignals, longEntries, shortEntries, crashWarnings } =
     useMemoizedAllSignals(analyses);
+  const latestTimestamp = analyses[0]?.timestamp;
 
   // Responsive data counts - Match grid columns to fill rows properly
   // Grid: 1 col mobile, 2 col tablet, 4 col desktop, 5 col xl, 6 col 3xl
@@ -41,9 +36,9 @@ function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
   });
   const holdSignalsCount = useResponsiveDataCount({
     mobile: 8,
-    tablet: 16,
-    desktop: 30,
-    desktop4k: 50,
+    tablet: 12,
+    desktop: 20,
+    desktop4k: 30,
   });
   const signalsCount = useResponsiveDataCount({ mobile: 4, tablet: 6, desktop: 8, desktop4k: 18 });
 
@@ -51,25 +46,53 @@ function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
   const tradeSetups = [...longEntries, ...shortEntries].slice(0, tradeSetupsCount);
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full overflow-y-auto">
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 ease-premium h-full overflow-y-auto">
       <div className="container-fluid py-4 sm:py-6">
         {/* Header - Stacked on mobile, inline on tablet+ */}
         <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0 mb-5 sm:mb-6 border-b border-border/40 pb-4">
-          <h1 className="text-base sm:text-lg font-mono font-bold tracking-tight uppercase">
-            Market Overview
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
+              Market Overview
+            </h1>
+            <DataFreshness timestamp={latestTimestamp} />
+          </div>
           {globalMarket && <GlobalMarketBar data={globalMarket} />}
         </header>
 
-        {/* Trade Setups - High Density Grid */}
+        {crashWarnings.length > 0 && (
+          <section className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs sm:text-sm font-mono font-medium text-loss uppercase tracking-wider">
+                Risk Alerts
+              </span>
+              <span className="text-[10px] sm:text-xs bg-loss/10 text-loss px-1.5 py-0.5 rounded-sm tabular-nums">
+                {crashWarnings.length}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {crashWarnings.slice(0, 8).map((s) => (
+                <Link
+                  key={s.symbol}
+                  to={`/asset/${s.symbol.toLowerCase()}`}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-sm border border-border/40 bg-secondary/30 hover:bg-secondary/50 transition-colors text-xs sm:text-sm font-mono"
+                >
+                  <span>{s.symbol.toUpperCase()}</span>
+                  <span className="text-loss tabular-nums">{s.price?.change24h?.toFixed(1)}%</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Entry Signals Grid */}
         {tradeSetups.length > 0 && (
           <section className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <h2 className="text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
-                  Active Setups
+                <h2 className="text-xs sm:text-sm font-mono font-medium text-muted-foreground uppercase tracking-wider">
+                  Entry Signals
                 </h2>
-                <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded-sm tabular-nums">
+                <span className="text-[10px] sm:text-xs bg-secondary px-1.5 py-0.5 rounded-sm tabular-nums">
                   {longEntries.length + shortEntries.length}
                 </span>
               </div>
@@ -86,10 +109,10 @@ function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
         {holdSignals.length > 0 && (
           <section className="mb-6">
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
+              <span className="text-xs sm:text-sm font-mono font-medium text-muted-foreground uppercase tracking-wider">
                 Neutral / Hold
               </span>
-              <span className="text-[10px] text-muted-foreground tabular-nums">
+              <span className="text-[10px] sm:text-xs text-muted-foreground tabular-nums">
                 ({holdSignals.length})
               </span>
             </div>
@@ -117,17 +140,17 @@ function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
           <section>
             <div className="flex items-center justify-between mb-3 border-b border-border/40 pb-2">
               <div className="flex items-center gap-2">
-                <h2 className="text-xs font-mono font-medium text-gain uppercase tracking-wider">
+                <h2 className="text-xs sm:text-sm font-mono font-medium text-gain uppercase tracking-wider">
                   Long Signals
                 </h2>
-                <span className="text-[10px] bg-gain-muted text-gain-dark px-1.5 py-0.5 rounded-sm tabular-nums">
+                <span className="text-[10px] sm:text-xs bg-gain-muted text-gain-dark px-1.5 py-0.5 rounded-sm tabular-nums">
                   {buySignals.length}
                 </span>
               </div>
               {buySignals.length > signalsCount && (
                 <Link
                   to="/buy"
-                  className="text-[10px] font-mono hover:underline text-muted-foreground"
+                  className="text-[10px] sm:text-xs font-mono hover:underline text-muted-foreground"
                 >
                   VIEW ALL &rarr;
                 </Link>
@@ -135,7 +158,9 @@ function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
             </div>
             {buySignals.length === 0 ? (
               <div className="py-12 text-center border border-dashed border-border/60 rounded-sm">
-                <p className="text-xs text-muted-foreground font-mono">NO ACTIVE LONG SIGNALS</p>
+                <p className="text-xs sm:text-sm text-muted-foreground font-mono">
+                  NO ACTIVE LONG SIGNALS
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-responsive">
@@ -150,10 +175,10 @@ function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
           <section>
             <div className="flex items-center justify-between mb-3 border-b border-border/40 pb-2">
               <div className="flex items-center gap-2">
-                <h2 className="text-xs font-mono font-medium text-loss uppercase tracking-wider">
+                <h2 className="text-xs sm:text-sm font-mono font-medium text-loss uppercase tracking-wider">
                   Short Signals
                 </h2>
-                <span className="text-[10px] bg-loss-muted text-loss-dark px-1.5 py-0.5 rounded-sm tabular-nums">
+                <span className="text-[10px] sm:text-xs bg-loss-muted text-loss-dark px-1.5 py-0.5 rounded-sm tabular-nums">
                   {sellSignals.length}
                 </span>
               </div>
@@ -214,22 +239,47 @@ function HoldChip({ asset }: { asset: AssetAnalysis }) {
 function DashboardSkeleton() {
   return (
     <div className="h-full overflow-y-auto">
-      <GlobalMarketBarSkeleton />
       <div className="container-fluid py-4 sm:py-6">
-        <Skeleton className="h-6 w-20 mb-6" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3 mb-8">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-44 rounded-xl" />
-          ))}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5 sm:mb-6 border-b border-border/40 pb-4">
+          <Skeleton className="h-5 w-32" />
+          <div className="flex gap-4">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-16" />
+          </div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <section className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-8" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 rounded-lg" />
+            ))}
+          </div>
+        </section>
+        <section className="mb-6">
+          <Skeleton className="h-4 w-20 mb-3" />
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-7 w-20 rounded-full" />
+            ))}
+          </div>
+        </section>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
           {[1, 2].map((col) => (
-            <div key={col} className="space-y-2">
-              <Skeleton className="h-5 w-20 mb-4" />
-              {[1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} className="h-16 rounded-xl" />
-              ))}
-            </div>
+            <section key={col}>
+              <div className="flex items-center gap-2 mb-3 border-b border-border/40 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-8" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 rounded-lg" />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       </div>
@@ -250,16 +300,20 @@ export function MarketDashboard() {
     return <DashboardSkeleton />;
   }
 
-  if (isError || !data?.analyses) {
-    const errorObj = error as { status?: number; message?: string } | null;
-    const isRateLimit = errorObj?.status === 429 || (errorObj?.message?.includes("429") ?? false);
-
+  if (isError || !data) {
     return (
       <div className="container-fluid py-6 h-full overflow-y-auto">
-        <ErrorState
-          type={isRateLimit ? "rate-limit" : "general"}
-          retryAction={() => window.location.reload()}
-        />
+        <ErrorState type="general" retryAction={() => window.location.reload()} />
+      </div>
+    );
+  }
+
+  const hasAnalyses = data.analyses && data.analyses.length > 0;
+
+  if (!hasAnalyses) {
+    return (
+      <div className="container-fluid py-6 h-full overflow-y-auto">
+        <ErrorState type="general" retryAction={() => window.location.reload()} />
       </div>
     );
   }

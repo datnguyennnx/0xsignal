@@ -1,11 +1,9 @@
-/** Find Entries Tests - Using @effect/vitest */
-
-import { it, expect } from "@effect/vitest";
+import { it, expect, describe } from "@effect/vitest";
 import { Effect, Exit } from "effect";
-import { findEntry } from "../find-entries";
+import { findEntry, findEntryWithIndicators } from "../find-entries";
 import type { CryptoPrice } from "@0xsignal/shared";
+import type { IndicatorOutput } from "../../domain/analysis/indicator-types";
 
-// Mock price data factory
 const createMockPrice = (overrides: Partial<CryptoPrice> = {}): CryptoPrice => ({
   id: "bitcoin",
   symbol: "btc",
@@ -23,59 +21,19 @@ const createMockPrice = (overrides: Partial<CryptoPrice> = {}): CryptoPrice => (
   ...overrides,
 });
 
+const createMockIndicators = (overrides: Partial<IndicatorOutput> = {}): IndicatorOutput => ({
+  rsi: { value: 50, signal: "NEUTRAL", avgGain: 1, avgLoss: 1 },
+  macd: { macd: 0.5, signal: 0.3, histogram: 0.2, crossover: "NONE" },
+  adx: { value: 30, plusDI: 28, minusDI: 22, trend: "MODERATE" },
+  atr: { value: 500, normalized: 2.5, volatility: "MEDIUM" },
+  isValid: true,
+  dataPoints: 168,
+  ...overrides,
+});
+
 describe("Find Entries", () => {
-  describe("findEntry", () => {
-    it.effect("returns valid EntrySignal structure", () =>
-      Effect.gen(function* () {
-        const price = createMockPrice();
-        const result = yield* findEntry(price);
-
-        expect(result.direction).toBeDefined();
-        expect(typeof result.isOptimalEntry).toBe("boolean");
-        expect(result.strength).toBeDefined();
-        expect(result.confidence).toBeGreaterThanOrEqual(0);
-        expect(result.confidence).toBeLessThanOrEqual(100);
-        expect(result.indicators).toBeDefined();
-        expect(typeof result.entryPrice).toBe("number");
-        expect(typeof result.targetPrice).toBe("number");
-        expect(typeof result.stopLoss).toBe("number");
-        expect(typeof result.recommendation).toBe("string");
-        expect(result.indicatorSummary).toBeDefined();
-        expect(result.dataSource).toBe("24H_SNAPSHOT");
-      })
-    );
-
-    it.effect("returns valid direction values", () =>
-      Effect.gen(function* () {
-        const price = createMockPrice();
-        const result = yield* findEntry(price);
-
-        const validDirections = ["LONG", "SHORT", "NEUTRAL"];
-        expect(validDirections).toContain(result.direction);
-      })
-    );
-
-    it.effect("returns valid strength levels", () =>
-      Effect.gen(function* () {
-        const price = createMockPrice();
-        const result = yield* findEntry(price);
-
-        const validStrengths = ["WEAK", "MODERATE", "STRONG", "VERY_STRONG"];
-        expect(validStrengths).toContain(result.strength);
-      })
-    );
-
-    it.effect("sets entry price to current price", () =>
-      Effect.gen(function* () {
-        const price = createMockPrice({ price: 45000 });
-        const result = yield* findEntry(price);
-
-        expect(result.entryPrice).toBe(45000);
-      })
-    );
-
-    // Stablecoin filtering tests
-    it.effect("returns NEUTRAL for USDT (stablecoin)", () =>
+  describe("findEntry (legacy)", () => {
+    it.effect("returns NEUTRAL for stablecoins", () =>
       Effect.gen(function* () {
         const price = createMockPrice({ symbol: "usdt", price: 1.0, change24h: 0.01 });
         const result = yield* findEntry(price);
@@ -107,42 +65,86 @@ describe("Find Entries", () => {
       })
     );
 
-    it.effect("returns NEUTRAL for low volatility assets", () =>
+    it.effect("returns success Exit (never fails)", () =>
       Effect.gen(function* () {
-        // Very low volatility (high24h ≈ low24h ≈ price)
-        const price = createMockPrice({
-          symbol: "xyz",
-          price: 100,
-          high24h: 100.1,
-          low24h: 99.9,
-          change24h: 0.1,
-          volume24h: 1000000, // Enough volume
-        });
-        const result = yield* findEntry(price);
+        const price = createMockPrice();
+        const result = yield* Effect.exit(findEntry(price));
 
-        // Should be NEUTRAL due to low ATR
-        expect(result.direction).toBe("NEUTRAL");
+        expect(Exit.isSuccess(result)).toBe(true);
+      })
+    );
+  });
+
+  describe("findEntryWithIndicators", () => {
+    it.effect("returns valid EntrySignal structure", () =>
+      Effect.gen(function* () {
+        const price = createMockPrice();
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
+
+        expect(result.direction).toBeDefined();
+        expect(typeof result.isOptimalEntry).toBe("boolean");
+        expect(result.strength).toBeDefined();
+        expect(result.confidence).toBeGreaterThanOrEqual(0);
+        expect(result.confidence).toBeLessThanOrEqual(100);
+        expect(result.indicators).toBeDefined();
+        expect(typeof result.entryPrice).toBe("number");
+        expect(typeof result.targetPrice).toBe("number");
+        expect(typeof result.stopLoss).toBe("number");
+        expect(typeof result.recommendation).toBe("string");
+        expect(result.indicatorSummary).toBeDefined();
+        expect(result.dataSource).toBe("HISTORICAL_OHLCV");
+      })
+    );
+
+    it.effect("returns valid direction values", () =>
+      Effect.gen(function* () {
+        const price = createMockPrice();
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "HOLD", 50);
+
+        const validDirections = ["LONG", "SHORT", "NEUTRAL"];
+        expect(validDirections).toContain(result.direction);
+      })
+    );
+
+    it.effect("returns valid strength levels", () =>
+      Effect.gen(function* () {
+        const price = createMockPrice();
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
+
+        const validStrengths = ["WEAK", "MODERATE", "STRONG", "VERY_STRONG"];
+        expect(validStrengths).toContain(result.strength);
+      })
+    );
+
+    it.effect("sets entry price to current price", () =>
+      Effect.gen(function* () {
+        const price = createMockPrice({ price: 45000 });
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
+
+        expect(result.entryPrice).toBe(45000);
       })
     );
 
     it.effect("returns NEUTRAL for low volume assets", () =>
       Effect.gen(function* () {
-        const price = createMockPrice({
-          symbol: "xyz",
-          volume24h: 50000, // Below $100K threshold
-        });
-        const result = yield* findEntry(price);
+        const price = createMockPrice({ symbol: "xyz", volume24h: 50000 });
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
 
         expect(result.direction).toBe("NEUTRAL");
         expect(result.recommendation).toContain("insufficient");
       })
     );
 
-    // Direction tests with signal override
     it.effect("returns LONG direction for BUY signal", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price, "BUY");
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
 
         expect(result.direction).toBe("LONG");
       })
@@ -151,7 +153,8 @@ describe("Find Entries", () => {
     it.effect("returns LONG direction for STRONG_BUY signal", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price, "STRONG_BUY");
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "STRONG_BUY", 70);
 
         expect(result.direction).toBe("LONG");
       })
@@ -160,7 +163,8 @@ describe("Find Entries", () => {
     it.effect("returns SHORT direction for SELL signal", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price, "SELL");
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "SELL", 60);
 
         expect(result.direction).toBe("SHORT");
       })
@@ -169,75 +173,76 @@ describe("Find Entries", () => {
     it.effect("returns SHORT direction for STRONG_SELL signal", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price, "STRONG_SELL");
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "STRONG_SELL", 70);
 
         expect(result.direction).toBe("SHORT");
       })
     );
 
-    // Dynamic target/stop tests
     it.effect("calculates target above entry for LONG", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price, "BUY");
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
 
-        if (result.direction === "LONG") {
-          expect(result.targetPrice).toBeGreaterThan(result.entryPrice);
-          expect(result.stopLoss).toBeLessThan(result.entryPrice);
-        }
+        expect(result.direction).toBe("LONG");
+        expect(result.targetPrice).toBeGreaterThan(result.entryPrice);
+        expect(result.stopLoss).toBeLessThan(result.entryPrice);
       })
     );
 
     it.effect("calculates target below entry for SHORT", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price, "SELL");
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "SELL", 60);
 
-        if (result.direction === "SHORT") {
-          expect(result.targetPrice).toBeLessThan(result.entryPrice);
-          expect(result.stopLoss).toBeGreaterThan(result.entryPrice);
-        }
+        expect(result.direction).toBe("SHORT");
+        expect(result.targetPrice).toBeLessThan(result.entryPrice);
+        expect(result.stopLoss).toBeGreaterThan(result.entryPrice);
       })
     );
 
     it.effect("calculates positive risk/reward ratio", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price, "BUY");
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
 
-        if (result.direction !== "NEUTRAL") {
-          expect(result.riskRewardRatio).toBeGreaterThan(0);
-        }
+        expect(result.riskRewardRatio).toBeGreaterThan(0);
       })
     );
 
-    // Leverage tests
     it.effect("returns valid leverage values", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price);
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
 
         expect(result.suggestedLeverage).toBeGreaterThanOrEqual(1);
         expect(result.maxLeverage).toBeGreaterThanOrEqual(result.suggestedLeverage);
       })
     );
 
-    // Indicator summary tests
     it.effect("includes indicator summary with RSI", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price);
+        const indicators = createMockIndicators({
+          rsi: { value: 45, signal: "NEUTRAL", avgGain: 1, avgLoss: 1 },
+        });
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
 
         expect(result.indicatorSummary.rsi).toBeDefined();
-        expect(result.indicatorSummary.rsi.value).toBeGreaterThanOrEqual(0);
-        expect(result.indicatorSummary.rsi.value).toBeLessThanOrEqual(100);
+        expect(result.indicatorSummary.rsi.value).toBe(45);
       })
     );
 
     it.effect("includes indicator summary with MACD", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price);
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
 
         expect(result.indicatorSummary.macd).toBeDefined();
         expect(["BULLISH", "BEARISH", "NEUTRAL"]).toContain(result.indicatorSummary.macd.trend);
@@ -247,7 +252,8 @@ describe("Find Entries", () => {
     it.effect("includes indicator summary with ADX", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price);
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
 
         expect(result.indicatorSummary.adx).toBeDefined();
         expect(result.indicatorSummary.adx.value).toBeGreaterThanOrEqual(0);
@@ -257,18 +263,19 @@ describe("Find Entries", () => {
     it.effect("includes indicator summary with ATR", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price);
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
 
         expect(result.indicatorSummary.atr).toBeDefined();
         expect(result.indicatorSummary.atr.value).toBeGreaterThanOrEqual(0);
       })
     );
 
-    // Entry indicators tests
     it.effect("includes all entry indicator fields", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* findEntry(price);
+        const indicators = createMockIndicators();
+        const result = yield* findEntryWithIndicators(price, indicators, "BUY", 60);
 
         expect(typeof result.indicators.trendReversal).toBe("boolean");
         expect(typeof result.indicators.volumeIncrease).toBe("boolean");
@@ -277,41 +284,13 @@ describe("Find Entries", () => {
       })
     );
 
-    // Optimal entry tests
-    it.effect("isOptimalEntry requires direction and minimum indicators", () =>
-      Effect.gen(function* () {
-        const price = createMockPrice();
-        const result = yield* findEntry(price);
-
-        if (result.isOptimalEntry) {
-          expect(result.direction).not.toBe("NEUTRAL");
-          const activeCount = Object.values(result.indicators).filter(Boolean).length;
-          expect(activeCount).toBeGreaterThanOrEqual(2);
-        }
-      })
-    );
-
-    // Exit tests
     it.effect("returns success Exit (never fails)", () =>
       Effect.gen(function* () {
         const price = createMockPrice();
-        const result = yield* Effect.exit(findEntry(price));
+        const indicators = createMockIndicators();
+        const result = yield* Effect.exit(findEntryWithIndicators(price, indicators, "BUY", 60));
 
         expect(Exit.isSuccess(result)).toBe(true);
-      })
-    );
-
-    it.effect("handles price without high/low range", () =>
-      Effect.gen(function* () {
-        const price = createMockPrice({
-          high24h: undefined,
-          low24h: undefined,
-        });
-
-        const result = yield* findEntry(price);
-
-        expect(result.strength).toBeDefined();
-        expect(result.indicators).toBeDefined();
       })
     );
   });

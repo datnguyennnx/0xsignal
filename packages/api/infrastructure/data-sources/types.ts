@@ -3,10 +3,6 @@
 import { Data, Effect } from "effect";
 import type {
   CryptoPrice,
-  LiquidationData,
-  LiquidationHeatmap,
-  MarketLiquidationSummary,
-  LiquidationTimeframe,
   OpenInterestData,
   FundingRateData,
   MarketHeatmap,
@@ -36,7 +32,7 @@ export class DataNotAvailableError extends Data.TaggedError("DataNotAvailableErr
 export interface AdapterCapabilities {
   readonly spotPrices: boolean;
   readonly futuresPrices: boolean;
-  readonly liquidations: boolean;
+
   readonly openInterest: boolean;
   readonly fundingRates: boolean;
   readonly heatmap: boolean;
@@ -56,21 +52,6 @@ export interface SpotPriceProvider {
   readonly info: AdapterInfo;
   readonly getPrice: (symbol: string) => Effect.Effect<CryptoPrice, DataSourceError>;
   readonly getTopCryptos: (limit?: number) => Effect.Effect<CryptoPrice[], DataSourceError>;
-}
-
-export interface LiquidationProvider {
-  readonly info: AdapterInfo;
-  readonly getLiquidations: (
-    symbol: string,
-    timeframe: LiquidationTimeframe
-  ) => Effect.Effect<LiquidationData, DataSourceError>;
-  readonly getLiquidationHeatmap: (
-    symbol: string
-  ) => Effect.Effect<LiquidationHeatmap, DataSourceError>;
-  readonly getMarketLiquidationSummary: () => Effect.Effect<
-    MarketLiquidationSummary,
-    DataSourceError
-  >;
 }
 
 export interface DerivativesProvider {

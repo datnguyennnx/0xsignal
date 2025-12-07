@@ -6,7 +6,6 @@ import type {
   MarketHeatmap,
   BuybackOverview,
   ProtocolBuybackDetail,
-  LiquidationHeatmap,
   OpenInterestData,
   FundingRateData,
   GlobalMarketData,
@@ -18,9 +17,9 @@ import { ApiServiceTag } from "../api/client";
 import type { ApiError, NetworkError } from "../api/errors";
 
 const TTL = {
-  SHORT: Duration.minutes(10),
-  MEDIUM: Duration.minutes(15),
-  LONG: Duration.minutes(30),
+  REALTIME: Duration.minutes(5),
+  STANDARD: Duration.minutes(10),
+  STABLE: Duration.minutes(20),
 } as const;
 
 const CAPACITY = { SMALL: 20, MEDIUM: 100, LARGE: 500 } as const;
@@ -33,7 +32,7 @@ export interface CacheService {
   readonly heatmap: Cache.Cache<number, MarketHeatmap, ApiError | NetworkError>;
   readonly buybackOverview: Cache.Cache<"overview", BuybackOverview, ApiError | NetworkError>;
   readonly buybackDetail: Cache.Cache<string, ProtocolBuybackDetail, ApiError | NetworkError>;
-  readonly liquidationHeatmap: Cache.Cache<string, LiquidationHeatmap, ApiError | NetworkError>;
+
   readonly openInterest: Cache.Cache<string, OpenInterestData, ApiError | NetworkError>;
   readonly fundingRate: Cache.Cache<string, FundingRateData, ApiError | NetworkError>;
   readonly globalMarket: Cache.Cache<"global", GlobalMarketData, ApiError | NetworkError>;
@@ -50,19 +49,19 @@ export class CacheServiceTag extends Context.Tag("CacheService")<CacheServiceTag
 
 const makeTopAnalysisCache = Cache.make({
   capacity: CAPACITY.SMALL,
-  timeToLive: TTL.MEDIUM,
+  timeToLive: TTL.STANDARD,
   lookup: (limit: number) => ApiServiceTag.pipe(Effect.flatMap((api) => api.getTopAnalysis(limit))),
 });
 
 const makeAnalysisCache = Cache.make({
   capacity: CAPACITY.LARGE,
-  timeToLive: TTL.MEDIUM,
+  timeToLive: TTL.STANDARD,
   lookup: (symbol: string) => ApiServiceTag.pipe(Effect.flatMap((api) => api.getAnalysis(symbol))),
 });
 
 const makeChartDataCache = Cache.make({
   capacity: CAPACITY.MEDIUM,
-  timeToLive: TTL.SHORT,
+  timeToLive: TTL.REALTIME,
   lookup: (key: string) => {
     const [symbol, interval, timeframe] = key.split("|");
     return ApiServiceTag.pipe(
@@ -73,72 +72,65 @@ const makeChartDataCache = Cache.make({
 
 const makeOverviewCache = Cache.make({
   capacity: 1,
-  timeToLive: TTL.MEDIUM,
+  timeToLive: TTL.STANDARD,
   lookup: (_: "overview") => ApiServiceTag.pipe(Effect.flatMap((api) => api.getOverview())),
 });
 
 const makeHeatmapCache = Cache.make({
   capacity: CAPACITY.SMALL,
-  timeToLive: TTL.MEDIUM,
+  timeToLive: TTL.STANDARD,
   lookup: (limit: number) => ApiServiceTag.pipe(Effect.flatMap((api) => api.getHeatmap(limit))),
 });
 
 const makeBuybackOverviewCache = Cache.make({
   capacity: 1,
-  timeToLive: TTL.MEDIUM,
+  timeToLive: TTL.STABLE,
   lookup: (_: "overview") => ApiServiceTag.pipe(Effect.flatMap((api) => api.getBuybackOverview())),
 });
 
 const makeBuybackDetailCache = Cache.make({
   capacity: CAPACITY.MEDIUM,
-  timeToLive: TTL.MEDIUM,
+  timeToLive: TTL.STABLE,
   lookup: (protocol: string) =>
     ApiServiceTag.pipe(Effect.flatMap((api) => api.getProtocolBuybackDetail(protocol))),
 });
 
-const makeLiquidationHeatmapCache = Cache.make({
-  capacity: CAPACITY.MEDIUM,
-  timeToLive: TTL.SHORT,
-  lookup: (symbol: string) =>
-    ApiServiceTag.pipe(Effect.flatMap((api) => api.getLiquidationHeatmap(symbol))),
-});
-
 const makeOpenInterestCache = Cache.make({
   capacity: CAPACITY.MEDIUM,
-  timeToLive: TTL.SHORT,
+  timeToLive: TTL.REALTIME,
   lookup: (symbol: string) =>
     ApiServiceTag.pipe(Effect.flatMap((api) => api.getOpenInterest(symbol))),
 });
 
 const makeFundingRateCache = Cache.make({
   capacity: CAPACITY.MEDIUM,
-  timeToLive: TTL.SHORT,
+  timeToLive: TTL.REALTIME,
   lookup: (symbol: string) =>
     ApiServiceTag.pipe(Effect.flatMap((api) => api.getFundingRate(symbol))),
 });
 
 const makeGlobalMarketCache = Cache.make({
   capacity: 1,
-  timeToLive: TTL.MEDIUM,
+  timeToLive: TTL.REALTIME,
   lookup: (_: "global") => ApiServiceTag.pipe(Effect.flatMap((api) => api.getGlobalMarket())),
 });
 
 const makeTreasuryEntitiesCache = Cache.make({
   capacity: 1,
-  timeToLive: TTL.LONG,
+  timeToLive: TTL.STABLE,
   lookup: (_: "entities") => ApiServiceTag.pipe(Effect.flatMap((api) => api.getTreasuryEntities())),
 });
 
 const makeTreasuryHoldingsCache = Cache.make({
   capacity: CAPACITY.SMALL,
-  timeToLive: TTL.LONG,
+  timeToLive: TTL.STABLE,
   lookup: (coinId: string) =>
     ApiServiceTag.pipe(Effect.flatMap((api) => api.getTreasuryHoldings(coinId))),
 });
 
 const makeContextCache = Cache.make({
   capacity: CAPACITY.LARGE,
-  timeToLive: TTL.MEDIUM,
+  timeToLive: TTL.STANDARD,
   lookup: (symbol: string) => ApiServiceTag.pipe(Effect.flatMap((api) => api.getContext(symbol))),
 });
 
@@ -152,7 +144,7 @@ export const CacheServiceLive = Layer.effect(
     heatmap: makeHeatmapCache,
     buybackOverview: makeBuybackOverviewCache,
     buybackDetail: makeBuybackDetailCache,
-    liquidationHeatmap: makeLiquidationHeatmapCache,
+
     openInterest: makeOpenInterestCache,
     fundingRate: makeFundingRateCache,
     globalMarket: makeGlobalMarketCache,
@@ -185,9 +177,6 @@ export const cachedBuybackOverview = () =>
 export const cachedBuybackDetail = (protocol: string) =>
   CacheServiceTag.pipe(Effect.flatMap((c) => c.buybackDetail.get(protocol)));
 
-export const cachedLiquidationHeatmap = (symbol: string) =>
-  CacheServiceTag.pipe(Effect.flatMap((c) => c.liquidationHeatmap.get(symbol)));
-
 export const cachedOpenInterest = (symbol: string) =>
   CacheServiceTag.pipe(Effect.flatMap((c) => c.openInterest.get(symbol)));
 
@@ -209,9 +198,15 @@ export const cachedContext = (symbol: string) =>
 export const cachedDashboardData = (analysisLimit = 100) =>
   Effect.all(
     {
-      analyses: cachedTopAnalysis(analysisLimit),
-      globalMarket: cachedGlobalMarket(),
-      overview: cachedOverview(),
+      analyses: cachedTopAnalysis(analysisLimit).pipe(
+        Effect.catchAll(() => Effect.succeed([] as AssetAnalysis[]))
+      ),
+      globalMarket: cachedGlobalMarket().pipe(
+        Effect.catchAll(() => Effect.succeed(null as GlobalMarketData | null))
+      ),
+      overview: cachedOverview().pipe(
+        Effect.catchAll(() => Effect.succeed(null as MarketOverview | null))
+      ),
     },
     { concurrency: "unbounded" }
   );
@@ -219,7 +214,6 @@ export const cachedDashboardData = (analysisLimit = 100) =>
 export const cachedMarketDepthData = (symbol: string) =>
   Effect.all(
     {
-      liquidationHeatmap: cachedLiquidationHeatmap(symbol),
       openInterest: cachedOpenInterest(symbol),
       fundingRate: cachedFundingRate(symbol),
     },
@@ -252,7 +246,7 @@ export const invalidateAll = () =>
           c.heatmap.invalidateAll,
           c.buybackOverview.invalidateAll,
           c.buybackDetail.invalidateAll,
-          c.liquidationHeatmap.invalidateAll,
+
           c.openInterest.invalidateAll,
           c.fundingRate.invalidateAll,
           c.globalMarket.invalidateAll,
@@ -276,7 +270,7 @@ export const getCacheStats = () =>
         heatmap: c.heatmap.size,
         buybackOverview: c.buybackOverview.size,
         buybackDetail: c.buybackDetail.size,
-        liquidationHeatmap: c.liquidationHeatmap.size,
+
         openInterest: c.openInterest.size,
         fundingRate: c.fundingRate.size,
         globalMarket: c.globalMarket.size,

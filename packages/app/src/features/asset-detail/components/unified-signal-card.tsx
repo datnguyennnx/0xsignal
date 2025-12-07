@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Landmark, Zap, TrendingUp } from "lucide-react";
+import { EstimateBadge } from "@/components/data-freshness";
 
 interface UnifiedSignalCardProps {
   analysis: AssetAnalysis;
@@ -48,8 +49,8 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
   const targetPct = hasDirection ? Math.abs(calculatePct(entryPrice, targetPrice)) : 0;
   const stopPct = hasDirection ? Math.abs(calculatePct(entryPrice, stopLoss)) : 0;
 
-  const { treasury, liquidation, derivatives, riskContext } = context || {};
-  const hasContext = treasury || liquidation || derivatives;
+  const { treasury, derivatives, riskContext } = context || {};
+  const hasContext = treasury || derivatives;
 
   return (
     <Card className={cn("w-full bg-card border-border/40 shadow-none p-5", className)}>
@@ -57,15 +58,17 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
         {/* Signal Header */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+            <span className="text-xs sm:text-sm font-medium uppercase tracking-widest text-muted-foreground">
               {strategyResult.regime.replace(/_/g, " ")}
             </span>
-            <span className="text-[10px] font-mono text-muted-foreground">CONF {confidence}%</span>
+            <span className="text-xs sm:text-sm font-mono text-muted-foreground">
+              CONF {confidence}%
+            </span>
           </div>
           <div className="flex items-baseline gap-3">
             <h2
               className={cn(
-                "text-xl font-bold tracking-tight leading-none",
+                "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-none",
                 getSignalColor(overallSignal)
               )}
             >
@@ -73,7 +76,7 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
             </h2>
             <Badge
               variant="secondary"
-              className="h-5 px-1.5 text-[9px] font-mono uppercase tracking-wide text-muted-foreground bg-secondary/50 hover:bg-secondary/50 border-0 rounded-sm"
+              className="h-6 sm:h-7 px-2 text-xs font-mono uppercase tracking-wide text-muted-foreground bg-secondary/50 hover:bg-secondary/50 border-0 rounded-sm"
             >
               {direction}
             </Badge>
@@ -83,12 +86,12 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
         {/* Entry Price */}
         <div>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-mono font-medium tracking-tighter text-foreground tabular-nums">
+            <span className="text-5xl sm:text-6xl lg:text-7xl font-mono font-medium tracking-tighter text-foreground tabular-nums">
               {formatCurrency(entryPrice)}
             </span>
-            <span className="text-xs text-muted-foreground font-medium">USD</span>
+            <span className="text-sm sm:text-base text-muted-foreground font-medium">USD</span>
           </div>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider mt-1">
             Suggested Entry Zone
           </p>
         </div>
@@ -156,33 +159,6 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
                 />
               )}
 
-              {liquidation?.hasLiquidationData && (
-                <DataRow
-                  icon={
-                    <Zap
-                      size={14}
-                      className={
-                        liquidation.nearbyLiquidationRisk === "HIGH"
-                          ? "text-loss"
-                          : liquidation.nearbyLiquidationRisk === "MEDIUM"
-                            ? "text-warn"
-                            : "text-muted-foreground"
-                      }
-                    />
-                  }
-                  label="Liquidations"
-                  value={`$${formatCompact(liquidation.totalLiquidationUsd24h)}`}
-                  subValue={`${liquidation.dominantSide} heavy`}
-                  highlight={
-                    liquidation.nearbyLiquidationRisk === "HIGH"
-                      ? "loss"
-                      : liquidation.nearbyLiquidationRisk === "MEDIUM"
-                        ? "warn"
-                        : "neutral"
-                  }
-                />
-              )}
-
               {derivatives && (
                 <DataRow
                   icon={<TrendingUp size={14} className="text-muted-foreground" />}
@@ -201,6 +177,10 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
             </div>
           </div>
         )}
+
+        <div className="pt-3 border-t border-border/30">
+          <p className="text-[9px] text-muted-foreground/50">Not financial advice. DYOR.</p>
+        </div>
       </div>
     </Card>
   );
@@ -228,15 +208,18 @@ function TickerItem({
 
   const content = (
     <div className="flex flex-col space-y-0.5 lg:flex-row lg:justify-between lg:items-center lg:space-y-0 lg:border-b lg:border-border/40 lg:pb-2 lg:last:border-0 lg:last:pb-0">
-      <span className="text-[9px] uppercase tracking-widest text-muted-foreground/70 decoration-dotted underline-offset-2 hover:underline cursor-help">
+      <span className="text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground/70 decoration-dotted underline-offset-2 hover:underline cursor-help">
         {label}
       </span>
       <div className="flex flex-col lg:flex-row lg:items-baseline lg:gap-2">
-        <span className="text-sm font-mono font-medium text-foreground tabular-nums leading-tight">
+        <span className="text-base sm:text-lg font-mono font-medium text-foreground tabular-nums leading-tight">
           {value}
         </span>
         <span
-          className={cn("text-[10px] font-mono tabular-nums leading-none lg:text-right", subColor)}
+          className={cn(
+            "text-[10px] sm:text-xs font-mono tabular-nums leading-none lg:text-right",
+            subColor
+          )}
         >
           {subValue}
         </span>
@@ -298,13 +281,13 @@ function DataRow({
     <div className="flex items-center justify-between py-1">
       <div className="flex items-center gap-2">
         {icon}
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground/80">
+        <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground/80">
           {label}
         </span>
       </div>
       <div className="flex flex-col items-end">
-        <span className="text-xs font-mono font-medium tabular-nums">{value}</span>
-        <span className={cn("text-[9px] font-mono tabular-nums", subColor)}>{subValue}</span>
+        <span className="text-xs sm:text-sm font-mono font-medium tabular-nums">{value}</span>
+        <span className={cn("text-[10px] font-mono tabular-nums", subColor)}>{subValue}</span>
       </div>
     </div>
   );

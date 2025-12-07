@@ -88,7 +88,7 @@ function StatsBar({ totalValue, entityCount }: { totalValue: number; entityCount
   return (
     <div className="flex items-center gap-4 sm:gap-6 text-xs">
       <div className="flex items-center gap-1.5">
-        <span className="text-muted-foreground font-mono text-[10px] uppercase tracking-wide">
+        <span className="text-muted-foreground font-mono text-[10px] sm:text-xs uppercase tracking-wide">
           TOTAL VALUE
         </span>
         <span className="font-semibold tabular-nums font-mono border-b border-dashed border-muted-foreground/30">
@@ -96,7 +96,7 @@ function StatsBar({ totalValue, entityCount }: { totalValue: number; entityCount
         </span>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="text-muted-foreground font-mono text-[10px] uppercase tracking-wide">
+        <span className="text-muted-foreground font-mono text-[10px] sm:text-xs uppercase tracking-wide">
           ENTITIES
         </span>
         <span className="font-semibold tabular-nums font-mono border-b border-dashed border-muted-foreground/30">
@@ -124,7 +124,7 @@ function TreasuryContent({
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full h-full overflow-hidden">
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 ease-premium w-full h-full overflow-hidden">
       <div className="flex flex-col lg:flex-row items-start h-full">
         {/* Left Column: List (Scrollable) */}
         <div className="flex-1 min-w-0 w-full h-full overflow-y-auto">
@@ -132,10 +132,10 @@ function TreasuryContent({
             {/* Header */}
             <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-border/40 pb-6">
               <div>
-                <h1 className="text-xl sm:text-2xl font-mono font-bold tracking-tight uppercase">
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
                   Institutional Treasury
                 </h1>
-                <p className="text-xs text-muted-foreground mt-1.5 max-w-md leading-relaxed">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-md leading-relaxed">
                   Public companies and ETFs holding crypto assets. Analyze institutional adoption
                   and holdings.
                 </p>
@@ -147,14 +147,14 @@ function TreasuryContent({
             <section>
               <div className="flex items-center justify-between mb-4 pb-2">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xs font-mono font-medium text-muted-foreground uppercase tracking-widest">
+                  <h2 className="text-xs sm:text-sm font-mono font-medium text-muted-foreground uppercase tracking-widest">
                     Top Holdings
                   </h2>
-                  <span className="text-[10px] bg-secondary/50 px-2 py-0.5 rounded-full tabular-nums border border-border/40">
+                  <span className="text-[10px] sm:text-xs bg-secondary/50 px-2 py-0.5 rounded-full tabular-nums border border-border/40">
                     {entities.length}
                   </span>
                 </div>
-                <span className="hidden sm:block text-[10px] text-muted-foreground font-mono opacity-80">
+                <span className="hidden sm:block text-[10px] sm:text-xs text-muted-foreground font-mono opacity-80">
                   TAP CARD FOR PORTFOLIO BREAKDOWN
                 </span>
               </div>
@@ -196,7 +196,7 @@ function TreasuryContent({
 
         {/* Right Column: Detail Panel (App Pane) */}
         {selectedEntity && (
-          <aside className="w-full lg:w-[420px] shrink-0 fixed inset-0 z-50 h-[100dvh] lg:h-full lg:static lg:z-auto lg:block bg-background/80 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none transition-all duration-300 ease-premium border-l border-border/10">
+          <aside className="w-full lg:w-[500px] shrink-0 fixed inset-0 z-50 h-[100dvh] lg:h-full lg:static lg:z-auto lg:block bg-background/80 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none transition-all duration-300 ease-premium border-l border-border/10">
             <div className="h-full w-full">
               <EntityDetailPanel entity={selectedEntity} onClose={() => setSelectedEntity(null)} />
             </div>
@@ -213,12 +213,18 @@ function TreasurySkeleton() {
     <div className="container-fluid py-4 sm:py-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 border-b border-border/40 pb-4">
         <div>
-          <Skeleton className="h-5 w-48 mb-1" />
+          <Skeleton className="h-5 w-48 mb-2" />
           <Skeleton className="h-3 w-56" />
         </div>
-        <Skeleton className="h-4 w-48" />
+        <div className="flex gap-4">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-28" />
+        </div>
       </div>
-      <Skeleton className="h-5 w-32 mb-3" />
+      <div className="flex items-center gap-2 mb-3">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-4 w-8" />
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {Array.from({ length: 8 }).map((_, i) => (
           <Skeleton key={i} className="h-28 rounded-lg" />
@@ -236,13 +242,32 @@ export function TreasuryDashboard() {
     return <TreasurySkeleton />;
   }
 
-  if (isError || !data) {
+  if (isError) {
     return (
       <div className="container-fluid py-6">
         <ErrorState
           title="Unable to load treasury data"
           retryAction={() => window.location.reload()}
         />
+      </div>
+    );
+  }
+
+  if (!data || data.entityCount === 0) {
+    return (
+      <div className="container-fluid py-6">
+        <header className="mb-6 border-b border-border/40 pb-6">
+          <h1 className="text-xl sm:text-2xl font-mono font-bold tracking-tight uppercase">
+            Institutional Treasury
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1.5">
+            Public companies and ETFs holding crypto assets.
+          </p>
+        </header>
+        <div className="py-24 text-center border-2 border-dashed border-border/40 rounded-xl bg-muted/10">
+          <p className="text-sm text-muted-foreground font-mono mb-2">LOADING INSTITUTIONAL DATA</p>
+          <p className="text-xs text-muted-foreground/70">Refresh the page in a few seconds</p>
+        </div>
       </div>
     );
   }

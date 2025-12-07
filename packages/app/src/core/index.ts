@@ -11,7 +11,6 @@ export {
   cachedHeatmap,
   cachedBuybackOverview,
   cachedBuybackDetail,
-  cachedLiquidationHeatmap,
   cachedOpenInterest,
   cachedFundingRate,
   cachedGlobalMarket,

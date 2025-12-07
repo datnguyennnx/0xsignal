@@ -17,7 +17,7 @@ export const DEFILLAMA_INFO: AdapterInfo = {
   capabilities: {
     spotPrices: false,
     futuresPrices: false,
-    liquidations: false,
+
     openInterest: false,
     fundingRates: false,
     heatmap: false,

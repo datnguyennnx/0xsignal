@@ -23,31 +23,26 @@ const corsHeaders = {
 
 // Pre-warm caches
 const prewarmCaches = Effect.gen(function* () {
-  yield* Effect.logInfo("Pre-warming caches...");
-  const { coinGecko, defiLlama, heatmap, analysis, buyback } = yield* Effect.all({
+  yield* Effect.logInfo("Pre-warming essential caches...");
+  const { coinGecko, defiLlama, heatmap } = yield* Effect.all({
     coinGecko: CoinGeckoService,
     defiLlama: DefiLlamaService,
     heatmap: HeatmapService,
-    analysis: AnalysisServiceTag,
-    buyback: BuybackServiceTag,
   });
 
   yield* Effect.all(
     {
-      top100: coinGecko.getTopCryptos(DEFAULT_LIMITS.TOP_CRYPTOS),
-      top250: coinGecko.getTopCryptos(DEFAULT_LIMITS.TOP_CRYPTOS_EXTENDED),
+      top20: coinGecko.getTopCryptos(20),
       protocols: defiLlama.getProtocolsWithRevenue(),
       heatmapData: heatmap.getMarketHeatmap({
         limit: DEFAULT_LIMITS.HEATMAP,
         sortBy: "marketCap",
         metric: "change24h",
       }),
-      analysisData: analysis.analyzeTopAssets(DEFAULT_LIMITS.ANALYSIS_ASSETS),
-      buybackData: buyback.getBuybackOverview(),
     },
     { concurrency: "unbounded" }
   ).pipe(
-    Effect.tap(() => Effect.logInfo("Caches pre-warmed")),
+    Effect.tap(() => Effect.logInfo("Essential caches pre-warmed")),
     Effect.catchAll((e) => Effect.logWarning(`Cache pre-warm partial failure: ${e}`))
   );
 });

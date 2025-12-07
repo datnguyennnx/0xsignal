@@ -12,7 +12,7 @@ const CHART_INFO: AdapterInfo = {
     futuresPrices: true,
     historicalData: true,
     realtime: false,
-    liquidations: false,
+
     openInterest: false,
     fundingRates: false,
     heatmap: false,
@@ -48,8 +48,8 @@ export const ChartDataServiceLive = Layer.effect(
 
     // Cache chart data to avoid hitting limits
     const chartCache = yield* Cache.make({
-      capacity: 100,
-      timeToLive: Duration.minutes(2),
+      capacity: 500,
+      timeToLive: Duration.minutes(5),
       lookup: (key: string) => {
         const [symbol, interval, limitStr] = key.split(":");
         const limit = parseInt(limitStr);
@@ -59,6 +59,7 @@ export const ChartDataServiceLive = Layer.effect(
             `${API_URLS.BINANCE_FUTURES}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
           )
           .pipe(
+            Effect.timeout(Duration.seconds(5)),
             Effect.map((data: unknown) => {
               if (!Array.isArray(data)) return [];
               return data.map((d: any[]) => ({

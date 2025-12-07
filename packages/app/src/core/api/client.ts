@@ -4,12 +4,8 @@ import type {
   MarketOverview,
   ChartDataPoint,
   MarketHeatmap,
-  MarketLiquidationSummary,
-  LiquidationHeatmap,
-  LiquidationData,
   OpenInterestData,
   FundingRateData,
-  LiquidationTimeframe,
   BuybackSignal,
   BuybackOverview,
   ProtocolBuybackDetail,
@@ -39,17 +35,7 @@ export interface ApiService {
     timeframe: string
   ) => Effect.Effect<ChartDataPoint[], ApiError | NetworkError>;
   readonly getHeatmap: (limit?: number) => Effect.Effect<MarketHeatmap, ApiError | NetworkError>;
-  readonly getLiquidationSummary: () => Effect.Effect<
-    MarketLiquidationSummary,
-    ApiError | NetworkError
-  >;
-  readonly getLiquidations: (
-    symbol: string,
-    timeframe?: LiquidationTimeframe
-  ) => Effect.Effect<LiquidationData, ApiError | NetworkError>;
-  readonly getLiquidationHeatmap: (
-    symbol: string
-  ) => Effect.Effect<LiquidationHeatmap, ApiError | NetworkError>;
+
   readonly getTopOpenInterest: (
     limit?: number
   ) => Effect.Effect<OpenInterestData[], ApiError | NetworkError>;
@@ -191,12 +177,7 @@ export const ApiServiceLive = Layer.succeed(ApiServiceTag, {
     ),
   getHeatmap: (limit = 100) =>
     fetchJsonDeduped<MarketHeatmap>(`${API_BASE}/heatmap?limit=${limit}`),
-  getLiquidationSummary: () =>
-    fetchJsonDeduped<MarketLiquidationSummary>(`${API_BASE}/liquidations/summary`),
-  getLiquidations: (symbol, timeframe: LiquidationTimeframe = "24h") =>
-    fetchJsonDeduped<LiquidationData>(`${API_BASE}/liquidations/${symbol}?timeframe=${timeframe}`),
-  getLiquidationHeatmap: (symbol) =>
-    fetchJsonDeduped<LiquidationHeatmap>(`${API_BASE}/liquidations/${symbol}/heatmap`),
+
   getTopOpenInterest: (limit = 20) =>
     fetchJsonDeduped<OpenInterestData[]>(`${API_BASE}/derivatives/open-interest?limit=${limit}`),
   getOpenInterest: (symbol) =>
