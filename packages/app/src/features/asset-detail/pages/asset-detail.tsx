@@ -56,7 +56,7 @@ function AssetContent({
   const change24h = price?.change24h || 0;
 
   return (
-    <div className="container-fluid h-full flex flex-col justify-center py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="container-fluid h-full overflow-y-auto flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <header className="flex items-center gap-3 mb-5 sm:mb-6 border-b border-border/40 pb-4">
         <Button
           variant="ghost"
@@ -137,7 +137,7 @@ function AssetContent({
 
 function AssetDetailSkeleton({ symbol }: { symbol?: string }) {
   return (
-    <div className="container-fluid py-3 sm:py-6 space-y-5 sm:space-y-6">
+    <div className="container-fluid h-full overflow-y-auto py-3 sm:py-6 space-y-5 sm:space-y-6">
       <header className="flex items-center gap-3">
         <Skeleton className="w-7 h-7 rounded-full" />
         <div>
@@ -174,7 +174,7 @@ export function AssetDetail() {
 
   if (isError || !asset) {
     return (
-      <div className="container-fluid py-6">
+      <div className="container-fluid h-full overflow-y-auto py-6">
         <ErrorState
           title={isError ? "Unable to load asset data" : `No data for ${symbol?.toUpperCase()}`}
           retryAction={() => window.location.reload()}

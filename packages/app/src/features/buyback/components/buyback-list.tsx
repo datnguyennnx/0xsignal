@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import type { BuybackSignal, BuybackStrength } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
-import { formatCurrency } from "@/core/utils/formatters";
+import { formatCurrency, formatCompact } from "@/core/utils/formatters";
 import { CryptoIcon } from "@/components/crypto-icon";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,64 +41,76 @@ function ProtocolCard({
   const yieldRate = signal.annualizedBuybackRate;
 
   return (
-    <Card
-      className="py-0 shadow-none cursor-pointer transition-all hover:bg-secondary/20 active:scale-[0.995] group border-border/60"
+    <div
       onClick={() => onSelect?.(signal)}
+      className="group relative flex flex-col gap-4 p-5 rounded-2xl border border-border/40 bg-card hover:border-border/80 hover:bg-muted/30 transition-all duration-300 ease-premium cursor-pointer select-none"
     >
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between mb-2.5">
-          <div className="flex items-center gap-2.5">
-            <CryptoIcon
-              symbol={signal.symbol}
-              image={signal.logo ?? undefined}
-              size={24}
-              className="shrink-0"
-            />
-            <div>
-              <div className="font-bold text-sm tracking-tight">{signal.symbol.toUpperCase()}</div>
-              <Badge variant="secondary" className="text-[9px] h-3.5 px-1.5 mt-0.5 font-normal">
-                {signal.category}
-              </Badge>
-            </div>
-          </div>
-          <div className="text-right">
-            <div
-              className={cn(
-                "text-lg font-bold tabular-nums leading-none mb-0.5",
-                STRENGTH_STYLES[signal.signal]
-              )}
-            >
-              {yieldRate.toFixed(1)}%
-            </div>
-            <div className="text-[9px] text-muted-foreground uppercase tracking-wide opacity-70">
-              Yield
-            </div>
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3.5">
+          <CryptoIcon
+            symbol={signal.symbol}
+            image={signal.logo ?? undefined}
+            size={40}
+            className="shrink-0 rounded-full bg-secondary/20 p-0.5"
+          />
+          <div className="flex flex-col gap-0.5">
+            <span className="font-bold text-base tracking-tight font-mono leading-none">
+              {signal.symbol.toUpperCase()}
+            </span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest opacity-70">
+              {signal.category}
+            </span>
           </div>
         </div>
-        <div className="flex items-center justify-between pt-2.5 border-t border-border/40 text-[11px]">
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <span className="uppercase tracking-wider opacity-70 text-[9px]">Rev</span>
-              <span className="tabular-nums font-medium text-foreground">
-                {formatCurrency(signal.revenue24h)}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="uppercase tracking-wider opacity-70 text-[9px]">MCap</span>
-              <span className="tabular-nums font-medium text-foreground">
-                {formatCurrency(signal.marketCap)}
-              </span>
-            </div>
+        <div className="text-right flex flex-col items-end gap-0.5">
+          <div
+            className={cn(
+              "text-lg font-bold tabular-nums tracking-tight font-mono leading-none",
+              STRENGTH_STYLES[signal.signal]
+            )}
+          >
+            {yieldRate.toFixed(1)}%
           </div>
-          {growth !== 0 && (
-            <div className={cn("tabular-nums font-medium", growth > 0 ? "text-gain" : "text-loss")}>
-              {growth > 0 ? "+" : ""}
-              {growth.toFixed(0)}%
-            </div>
-          )}
+          <div className="text-[9px] text-muted-foreground/60 font-medium uppercase tracking-widest">
+            Yield
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Stats - No borders, just alignment */}
+      <div className="grid grid-cols-3 gap-4 pt-2">
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] text-muted-foreground uppercase tracking-wider opacity-50">
+            Rev 24h
+          </span>
+          <span className="text-sm font-medium tabular-nums font-mono">
+            {formatCompact(signal.revenue24h)}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[9px] text-muted-foreground uppercase tracking-wider opacity-50">
+            MCap
+          </span>
+          <span className="text-sm font-medium tabular-nums font-mono">
+            {formatCompact(signal.marketCap)}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1 items-end">
+          <span className="text-[9px] text-muted-foreground uppercase tracking-wider opacity-50">
+            7d Growth
+          </span>
+          <span
+            className={cn(
+              "text-sm font-medium tabular-nums font-mono",
+              growth > 0 ? "text-gain" : growth < 0 ? "text-loss" : "text-muted-foreground"
+            )}
+          >
+            {growth > 0 ? "+" : ""}
+            {growth.toFixed(0)}%
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -124,24 +136,33 @@ export function BuybackList({ signals, onSelect }: BuybackListProps) {
   }, [signals, sortKey, sortDesc]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs text-muted-foreground">Sort:</span>
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 flex-wrap pb-2">
+        <span className="text-xs font-mono text-muted-foreground mr-2">SORT BY:</span>
         {SORT_OPTIONS.map(({ key, label }) => (
           <Button
             key={key}
-            variant={sortKey === key ? "secondary" : "ghost"}
+            variant={sortKey === key ? "secondary" : "outline"}
             size="sm"
             onClick={() => handleSort(key)}
-            className="h-7 text-xs gap-1"
+            className={cn(
+              "h-7 text-[10px] font-mono uppercase tracking-wider gap-1",
+              sortKey === key
+                ? "border-transparent"
+                : "border-border/40 bg-transparent text-muted-foreground hover:text-foreground"
+            )}
           >
             {label}
             {sortKey === key &&
-              (sortDesc ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />)}
+              (sortDesc ? (
+                <ChevronDown className="w-3 h-3 opacity-50" />
+              ) : (
+                <ChevronUp className="w-3 h-3 opacity-50" />
+              ))}
           </Button>
         ))}
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 gap-responsive">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
         {sorted.map((signal) => (
           <ProtocolCard key={signal.protocol} signal={signal} onSelect={onSelect} />
         ))}

@@ -51,7 +51,7 @@ function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
   const tradeSetups = [...longEntries, ...shortEntries].slice(0, tradeSetupsCount);
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-full overflow-y-auto">
       <div className="container-fluid py-4 sm:py-6">
         {/* Header - Stacked on mobile, inline on tablet+ */}
         <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0 mb-5 sm:mb-6 border-b border-border/40 pb-4">
@@ -213,7 +213,7 @@ function HoldChip({ asset }: { asset: AssetAnalysis }) {
 // Loading skeleton
 function DashboardSkeleton() {
   return (
-    <div>
+    <div className="h-full overflow-y-auto">
       <GlobalMarketBarSkeleton />
       <div className="container-fluid py-4 sm:py-6">
         <Skeleton className="h-6 w-20 mb-6" />
@@ -255,7 +255,7 @@ export function MarketDashboard() {
     const isRateLimit = errorObj?.status === 429 || (errorObj?.message?.includes("429") ?? false);
 
     return (
-      <div className="container-fluid py-6">
+      <div className="container-fluid py-6 h-full overflow-y-auto">
         <ErrorState
           type={isRateLimit ? "rate-limit" : "general"}
           retryAction={() => window.location.reload()}

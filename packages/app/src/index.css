@@ -249,9 +249,24 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Hide scrollbar globally for all elements */
+  * {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  *::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
 }
 
 @layer utilities {
+  /* Premium Easing for UI interactions */
+  .ease-premium {
+    transition-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+  }
+
   .animate-pulse-slow {
     animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
@@ -266,10 +281,10 @@
     line-height: 1.2;
   }
 
-  /* Hide scrollbar but keep functionality */
+  /* Utility to strictly hide scrollbar (e.g. for horizontal scrollers) */
   .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;

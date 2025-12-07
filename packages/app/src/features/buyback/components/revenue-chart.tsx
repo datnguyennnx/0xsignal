@@ -1,30 +1,27 @@
 import { memo, useMemo } from "react";
-import { Area, AreaChart, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { Area, AreaChart, XAxis, YAxis } from "recharts";
 import type { DailyRevenuePoint } from "@0xsignal/shared";
 import { formatCompact } from "@/core/utils/formatters";
 import { Badge } from "@/components/ui/badge";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 
 interface RevenueChartProps {
   readonly data: readonly DailyRevenuePoint[];
 }
 
-function CustomTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: Array<{ value: number; payload: { dateLabel: string } }>;
-}) {
-  if (!active || !payload?.[0]) return null;
-  return (
-    <div className="bg-background border border-border rounded-lg px-3 py-2 text-xs shadow-sm">
-      <div className="text-muted-foreground mb-0.5">{payload[0].payload.dateLabel}</div>
-      <div className="font-semibold tabular-nums">${formatCompact(payload[0].value)}</div>
-    </div>
-  );
-}
-
 const MIN_DATA_POINTS = 2;
+
+const chartConfig: ChartConfig = {
+  revenue: {
+    label: "Daily Revenue",
+    color: "hsl(var(--primary))",
+  },
+};
 
 export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartProps) {
   const chartData = useMemo(() => {
@@ -84,43 +81,41 @@ export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartPro
         </div>
       </div>
       <div className="h-56 sm:h-72">
-        <ResponsiveContainer width="100%" height="100%">
+        <ChartContainer config={chartConfig} className="w-full h-full">
           <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
             <defs>
-              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="currentColor" stopOpacity={0.15} />
-                <stop offset="100%" stopColor="currentColor" stopOpacity={0.02} />
+              <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="var(--color-revenue)" stopOpacity={0.1} />
               </linearGradient>
             </defs>
             <XAxis
               dataKey="dateLabel"
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
               tickMargin={8}
+              minTickGap={32}
               interval="preserveStartEnd"
-              minTickGap={50}
+              tickFormatter={(value) => value}
             />
             <YAxis
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
               tickFormatter={(v) => formatCompact(v)}
               tickMargin={4}
               width={40}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: "hsl(var(--border))" }} />
+            <ChartTooltip content={<ChartTooltipContent indicator="line" labelKey="dateLabel" />} />
             <Area
-              type="monotone"
               dataKey="revenue"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              fill="url(#revenueGradient)"
-              className="text-foreground"
-              isAnimationActive={false}
+              type="natural"
+              fill="url(#fillRevenue)"
+              fillOpacity={0.4}
+              stroke="var(--color-revenue)"
+              stackId="a"
             />
           </AreaChart>
-        </ResponsiveContainer>
+        </ChartContainer>
       </div>
     </div>
   );
