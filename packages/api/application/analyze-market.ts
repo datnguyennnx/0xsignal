@@ -6,7 +6,7 @@ import type { AssetAnalysis, MarketOverview } from "../domain/types";
 import { analyzeAsset } from "./analyze-asset";
 import { ChartDataService, type ChartDataClient } from "../infrastructure/data-sources/binance";
 
-const CONCURRENCY = 5;
+const CONCURRENCY = 20;
 
 export const analyzeMarket = (
   prices: ReadonlyArray<CryptoPrice>,

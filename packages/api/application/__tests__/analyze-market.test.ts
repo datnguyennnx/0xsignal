@@ -21,7 +21,6 @@ const mockChartClient: ChartDataClient = {
       futuresPrices: false,
       historicalData: true,
       realtime: false,
-      liquidations: false,
       openInterest: false,
       fundingRates: false,
       heatmap: false,

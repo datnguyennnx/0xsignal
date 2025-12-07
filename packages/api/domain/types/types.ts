@@ -5,8 +5,6 @@ export type {
   MarketRegime,
   StrategySignal,
   StrategyResult,
-  CrashIndicators,
-  CrashSignal,
   EntryIndicators,
   EntrySignal,
   AssetAnalysis,

@@ -2,192 +2,138 @@
 
 import { Effect, Match, Array as Arr, pipe } from "effect";
 import type { CryptoPrice, ChartDataPoint } from "@0xsignal/shared";
-import type { AssetAnalysis, Signal, CrashSignal } from "../domain/types";
+import type { AssetAnalysis, Signal } from "../domain/types";
 import { computeIndicators } from "../domain/analysis/indicators";
 import type { IndicatorOutput } from "../domain/analysis/indicator-types";
 import { findEntryWithIndicators } from "./find-entries";
 import { calculateNoiseScore } from "../domain/formulas/statistical/noise";
-import { calculateRiskScore, scoreToSignal } from "../domain/analysis/scoring";
+import { calculateRiskScore } from "../domain/analysis/scoring";
 import { ChartDataService } from "../infrastructure/data-sources/binance";
 
-const KLINE_PERIODS = 168; // 7 days of hourly data for sparklines & indicators
+// Analysis configuration
+const KLINE_PERIODS = 168; // 7 days of 1h data
+const SPARKLINE_PERIODS = 365; // 1 year of 1d data
 
-type IndicatorSignal = { signal: "BUY" | "SELL" | "NEUTRAL"; weight: number };
-type MarketRegime =
-  | "HIGH_VOLATILITY"
-  | "LOW_VOLATILITY"
-  | "BULL_MARKET"
-  | "BEAR_MARKET"
-  | "TRENDING"
-  | "SIDEWAYS"
-  | "MEAN_REVERSION";
-
-const signalToAction = Match.type<Signal>().pipe(
-  Match.when("STRONG_BUY", () => "Strong buy opportunity. Consider entering position."),
-  Match.when("BUY", () => "Buy signal. Consider smaller position or DCA."),
-  Match.when("HOLD", () => "Hold current positions. Wait for clearer signals."),
-  Match.when("SELL", () => "Consider taking profits or reducing exposure."),
-  Match.when("STRONG_SELL", () => "Exit positions. Protect capital."),
-  Match.exhaustive
-);
+type MarketRegime = "TRENDING_BULL" | "TRENDING_BEAR" | "RANGING" | "VOLATILE" | "UNDEFINED";
 
 const normalizeSymbol = (s: string): string => {
   const upper = s.toUpperCase();
   return upper.endsWith("USDT") ? upper : `${upper}USDT`;
 };
 
-// Detect market regime from REAL indicators
-const detectRegime = (indicators: IndicatorOutput, change24h: number): MarketRegime =>
-  pipe(
-    Match.value({ atr: indicators.atr.normalized, adx: indicators.adx.value, change: change24h }),
-    Match.when(
-      ({ atr }) => atr > 8,
-      () => "HIGH_VOLATILITY" as MarketRegime
-    ),
-    Match.when(
-      ({ atr }) => atr < 1.5,
-      () => "LOW_VOLATILITY" as MarketRegime
-    ),
-    Match.when(
-      ({ adx, change }) => adx > 40 && change > 5,
-      () => "BULL_MARKET" as MarketRegime
-    ),
-    Match.when(
-      ({ adx, change }) => adx > 40 && change < -5,
-      () => "BEAR_MARKET" as MarketRegime
-    ),
-    Match.when(
-      ({ adx }) => adx > 35,
-      () => "TRENDING" as MarketRegime
-    ),
-    Match.when(
-      ({ adx }) => adx < 20,
-      () => "SIDEWAYS" as MarketRegime
-    ),
-    Match.orElse(() => "MEAN_REVERSION" as MarketRegime)
-  );
+// Advanced Regime Detection
+const detectRegime = (indicators: IndicatorOutput): MarketRegime => {
+  const { adx, atr, rsi, macd } = indicators;
 
-// Convert RSI to signal using standard thresholds
-const rsiToSignal = Match.type<number>().pipe(
-  Match.when(
-    (r) => r < 35,
-    () => "BUY" as const
-  ),
-  Match.when(
-    (r) => r > 65,
-    () => "SELL" as const
-  ),
-  Match.orElse(() => "NEUTRAL" as const)
-);
+  // Normalized ATR > 5 is considered high volatility in this normalized context (0-100 scale)
+  if (atr.normalized > 8) return "VOLATILE";
 
-// Convert MACD to signal
-const macdToSignal = (macd: number, histogram: number): "BUY" | "SELL" | "NEUTRAL" => {
-  if (macd > 0 && histogram > 0) return "BUY";
-  if (macd < 0 && histogram < 0) return "SELL";
-  return "NEUTRAL";
+  if (adx.value > 25) {
+    // Trend direction confirmation using EMA/MACD alignment
+    if (macd.macd > macd.signal && rsi.value > 50) return "TRENDING_BULL";
+    if (macd.macd < macd.signal && rsi.value < 50) return "TRENDING_BEAR";
+  }
+
+  if (adx.value < 20) return "RANGING";
+
+  return "UNDEFINED";
 };
 
-// Convert ADX direction to signal
-const adxToSignal = (plusDI: number, minusDI: number, adx: number): "BUY" | "SELL" | "NEUTRAL" => {
-  if (adx < 20) return "NEUTRAL";
-  if (plusDI > minusDI + 5) return "BUY";
-  if (minusDI > plusDI + 5) return "SELL";
-  return "NEUTRAL";
-};
+// Dynamic Scoring Strategy based on Regime
+const evaluateSignal = (
+  indicators: IndicatorOutput,
+  regime: MarketRegime
+): { signal: Signal; confidence: number; reasoning: string } => {
+  const { rsi, macd, adx } = indicators;
 
-// Calculate weighted signal score
-const calculateScore = (signals: IndicatorSignal[]): number =>
-  signals.reduce(
-    (score, { signal, weight }) =>
-      score + (signal === "BUY" ? weight : signal === "SELL" ? -weight : 0),
-    0
-  );
+  // Strategy: Trend Following
+  if (regime === "TRENDING_BULL") {
+    // In strong uptrend, ignore Overbought RSI, buy on dips or momentum
+    if (macd.histogram > 0 && rsi.value > 40 && rsi.value < 85) {
+      const strength = adx.value > 40 ? "STRONG_BUY" : "BUY";
+      return {
+        signal: strength,
+        confidence: Math.min(85 + adx.value / 2, 98),
+        reasoning: `Strong Bullish Trend (ADX ${adx.value.toFixed(0)}). Momentum aligns with trend.`,
+      };
+    }
+    // Pullback opportunity (Dip Buy)
+    if (rsi.value < 45 && rsi.value > 30) {
+      return {
+        signal: "BUY",
+        confidence: 75,
+        reasoning: "Bullish trend healthy pullback. Potential entry zone.",
+      };
+    }
+    if (macd.histogram < 0) {
+      return {
+        signal: "HOLD",
+        confidence: 60,
+        reasoning: "Bullish trend but losing momentum (Histogram negative).",
+      };
+    }
+  }
 
-// Calculate indicator agreement percentage
-const calculateAgreement = (signals: IndicatorSignal[]): number => {
-  const buyCount = signals.filter((s) => s.signal === "BUY").length;
-  const sellCount = signals.filter((s) => s.signal === "SELL").length;
-  const dominant = Math.max(buyCount, sellCount);
-  return signals.length > 0 ? dominant / signals.length : 0;
-};
+  // Strategy: Trend Following Short
+  if (regime === "TRENDING_BEAR") {
+    if (macd.histogram < 0 && rsi.value < 60 && rsi.value > 15) {
+      const strength = adx.value > 40 ? "STRONG_SELL" : "SELL";
+      return {
+        signal: strength,
+        confidence: Math.min(85 + adx.value / 2, 98),
+        reasoning: `Strong Bearish Trend (ADX ${adx.value.toFixed(0)}). Momentum aligns with trend.`,
+      };
+    }
+    // Oversold bounce risks
+    if (rsi.value < 25) {
+      return {
+        signal: "HOLD",
+        confidence: 40,
+        reasoning: "Bearish trend but Extreme Oversold. Wait for bounce to Sell.",
+      };
+    }
+  }
 
-// Calculate confidence from real indicator data
-const calculateConfidence = (
-  score: number,
-  agreement: number,
-  adx: number,
-  atr: number
-): number => {
-  const baseConfidence = Math.min(Math.abs(score), 100);
-  const trendBonus = adx > 30 ? 15 : adx > 20 ? 5 : 0;
-  const volatilityPenalty = atr > 6 ? -15 : atr > 4 ? -5 : 0;
-  const agreementBonus = agreement > 0.75 ? 15 : agreement > 0.5 ? 5 : -10;
-  return Math.max(
-    0,
-    Math.min(100, baseConfidence + trendBonus + volatilityPenalty + agreementBonus)
-  );
-};
+  // Strategy: Mean Reversion (Ranging)
+  if (regime === "RANGING") {
+    if (rsi.value > 70) {
+      return {
+        signal: "SELL",
+        confidence: 75,
+        reasoning: "Ranging Market: RSI Overbought (>70). Expect reversion.",
+      };
+    }
+    if (rsi.value < 30) {
+      return {
+        signal: "BUY",
+        confidence: 75,
+        reasoning: "Ranging Market: RSI Oversold (<30). Expect reversion.",
+      };
+    }
+    if (macd.crossover === "BULLISH_CROSS") {
+      return {
+        signal: "BUY",
+        confidence: 60,
+        reasoning: "Range bound MACD crossover. Weak buy signal.",
+      };
+    }
+    return { signal: "HOLD", confidence: 50, reasoning: "Choppy ranging market. No clear edge." };
+  }
 
-// Build reasoning from real indicator values
-const buildReasoning = (indicators: IndicatorOutput, agreement: number): string => {
-  const parts: string[] = [];
-  const agreementPct = Math.round(agreement * 100);
+  // Strategy: Volatility Protection
+  if (regime === "VOLATILE") {
+    return {
+      signal: "HOLD",
+      confidence: 50,
+      reasoning: "High Volatility detected. Markets unpredictable. Cash is a position.",
+    };
+  }
 
-  parts.push(
-    agreementPct >= 75
-      ? `Strong indicator alignment (${agreementPct}%)`
-      : agreementPct >= 50
-        ? `Moderate consensus (${agreementPct}%)`
-        : `Mixed signals (${agreementPct}%)`
-  );
-
-  const rsi = indicators.rsi.value;
-  if (rsi < 30) parts.push(`RSI oversold (${Math.round(rsi)})`);
-  else if (rsi > 70) parts.push(`RSI overbought (${Math.round(rsi)})`);
-
-  if (indicators.macd.crossover === "BULLISH_CROSS") parts.push("MACD bullish crossover");
-  else if (indicators.macd.crossover === "BEARISH_CROSS") parts.push("MACD bearish crossover");
-
-  if (indicators.adx.value > 40)
-    parts.push(`Strong trend (ADX ${Math.round(indicators.adx.value)})`);
-  else if (indicators.adx.value < 20) parts.push("Weak/ranging market");
-
-  parts.push(`Based on ${indicators.dataPoints} hourly candles`);
-
-  return parts.join(". ");
-};
-
-// Detect crash conditions from REAL indicators
-const detectCrash = (indicators: IndicatorOutput, price: CryptoPrice): CrashSignal => {
-  const crashIndicators = {
-    rapidDrop: price.change24h < -15,
-    volumeSpike: false, // Would need volume comparison
-    oversoldExtreme: indicators.rsi.value < 20,
-    highVolatility: indicators.atr.normalized > 8,
-  };
-
-  const activeCount = Object.values(crashIndicators).filter(Boolean).length;
-  const isCrashing = activeCount >= 2;
-
-  const severity =
-    activeCount >= 4
-      ? ("EXTREME" as const)
-      : activeCount >= 3
-        ? ("HIGH" as const)
-        : activeCount >= 2
-          ? ("MEDIUM" as const)
-          : ("LOW" as const);
-
-  const recommendation = isCrashing
-    ? `CRASH WARNING: ${activeCount} indicators triggered. Consider reducing exposure.`
-    : "No crash detected. Normal market conditions.";
-
+  // Default
   return {
-    isCrashing,
-    severity,
-    confidence: Math.round((activeCount / 4) * 100),
-    indicators: crashIndicators,
-    recommendation,
+    signal: "HOLD",
+    confidence: 50,
+    reasoning: "Mixed signals or undefined regime. No clear edge.",
   };
 };
 
@@ -198,170 +144,139 @@ export const analyzeAsset = (
     const chartService = yield* ChartDataService;
     const binanceSymbol = normalizeSymbol(price.symbol);
 
-    // Fetch historical data (Parallel fetch for Analysis & Sparkline)
+    // Parallel fetch: Analysis Data (1h) + Sparkline (1d)
     const [ohlcv, dailyHistory] = yield* Effect.all(
       [
-        // 1h data for analysis (indicators) - 168 periods (7 days)
         chartService
-          .getHistoricalData(binanceSymbol, "1h", 168)
+          .getHistoricalData(binanceSymbol, "1h", KLINE_PERIODS)
           .pipe(Effect.catchAll(() => Effect.succeed([] as ChartDataPoint[]))),
-        // 1d data for sparkline - 365 periods (1 year)
         chartService
-          .getHistoricalData(binanceSymbol, "1d", 365)
+          .getHistoricalData(binanceSymbol, "1d", SPARKLINE_PERIODS)
           .pipe(Effect.catchAll(() => Effect.succeed([] as ChartDataPoint[]))),
       ],
       { concurrency: 2 }
     );
 
-    // Compute REAL indicators from hourly data
-    const indicators = yield* computeIndicators(ohlcv as ChartDataPoint[]);
-
-    // Handle insufficient data case
-    if (!indicators.isValid) {
-      const neutralSignal = {
-        direction: "NEUTRAL" as const,
-        isOptimalEntry: false,
-        strength: "WEAK" as const,
-        confidence: 0,
-        indicators: {
-          trendReversal: false,
-          volumeIncrease: false,
-          momentumBuilding: false,
-          divergence: false,
-        },
-        entryPrice: price.price,
-        targetPrice: price.price,
-        stopLoss: price.price,
-        riskRewardRatio: 0,
-        suggestedLeverage: 1,
-        maxLeverage: 1,
-        indicatorSummary: {
-          rsi: { value: 50, signal: "NEUTRAL" as const },
-          macd: { trend: "NEUTRAL" as const, histogram: 0 },
-          adx: { value: 25, strength: "WEAK" as const },
-          atr: { value: 0, volatility: "NORMAL" as const },
-        },
-        dataSource: "INSUFFICIENT_DATA" as const,
-        recommendation: `Insufficient data (${indicators.dataPoints} periods). Need 35+ for reliable signals.`,
-      };
-
+    // Handle Insufficient Data
+    if (ohlcv.length < 50) {
       return {
         symbol: price.symbol,
         timestamp: new Date(),
         price,
+        overallSignal: "HOLD" as Signal,
+        confidence: 0,
+        riskScore: 50,
         strategyResult: {
-          regime: "SIDEWAYS" as const,
+          regime: "SIDEWAYS",
           signals: [],
           primarySignal: {
-            strategy: "INSUFFICIENT_DATA",
-            signal: "HOLD" as const,
+            strategy: "INSUFFICIENT" as any,
+            signal: "HOLD",
             confidence: 0,
-            reasoning: `Only ${indicators.dataPoints} periods available. Minimum 35 required.`,
-            metrics: { dataPoints: indicators.dataPoints },
+            reasoning: `Insufficient data (${ohlcv.length} periods). Need 50+.`,
+            metrics: { dataPoints: ohlcv.length } as any,
           },
           overallConfidence: 0,
           riskScore: 50,
         },
-        crashSignal: detectCrash(indicators, price),
-        entrySignal: neutralSignal,
-        overallSignal: "HOLD" as Signal,
-        confidence: 0,
-        riskScore: 50,
-        noise: { score: 50, value: 50, level: "MODERATE" as const },
-        recommendation: "Insufficient historical data for reliable analysis.",
+
+        entrySignal: {
+          direction: "NEUTRAL",
+          strength: "WEAK",
+          confidence: 0,
+          recommendation: "No Data",
+          isOptimalEntry: false,
+          entryPrice: 0,
+          targetPrice: 0,
+          stopLoss: 0,
+          riskRewardRatio: 0,
+          suggestedLeverage: 1,
+          maxLeverage: 1,
+          indicators: {
+            trendReversal: false,
+            volumeIncrease: false,
+            momentumBuilding: false,
+            divergence: false,
+          },
+          indicatorSummary: {
+            rsi: { value: 50, signal: "NEUTRAL" },
+            macd: { trend: "NEUTRAL", histogram: 0 },
+            adx: { value: 0, strength: "WEAK" },
+            atr: { value: 0, volatility: "NORMAL" },
+          },
+          dataSource: "INSUFFICIENT_DATA",
+        },
+        noise: { score: 0, value: 0, level: "LOW" },
+        recommendation: "Insufficient Data",
         sparkline: [],
       };
     }
 
-    // Calculate regime from REAL indicators
-    const regime = detectRegime(indicators, price.change24h);
+    const indicators = yield* computeIndicators(ohlcv as ChartDataPoint[]);
 
-    // Build signal array with weights (quant approach)
-    const signals: IndicatorSignal[] = [
-      { signal: rsiToSignal(indicators.rsi.value), weight: 30 },
-      { signal: macdToSignal(indicators.macd.macd, indicators.macd.histogram), weight: 30 },
-      {
-        signal: adxToSignal(indicators.adx.plusDI, indicators.adx.minusDI, indicators.adx.value),
-        weight: 25,
-      },
-      {
-        signal: price.change24h > 1 ? "BUY" : price.change24h < -1 ? "SELL" : "NEUTRAL",
-        weight: 15,
-      },
-    ];
+    // 1. Detect Regime (Core Quant Logic)
+    const regime = detectRegime(indicators);
 
-    const agreement = calculateAgreement(signals);
-    const score = calculateScore(signals);
-    const confidence = calculateConfidence(
-      score,
-      agreement,
-      indicators.adx.value,
-      indicators.atr.normalized
-    );
-    const overallSignal = scoreToSignal(score);
-    const riskScore = calculateRiskScore(regime, confidence, indicators.atr.normalized, agreement);
+    // 2. Evaluate Strategy based on Regime
+    const evaluation = evaluateSignal(indicators, regime);
 
-    // Build strategy result
-    const strategyResult = {
-      regime,
-      signals: [],
-      primarySignal: {
-        strategy: "QUANTITATIVE",
-        signal: overallSignal,
-        confidence,
-        reasoning: buildReasoning(indicators, agreement),
-        metrics: {
-          rsi: indicators.rsi.value,
-          macd: indicators.macd.macd,
-          macdHistogram: indicators.macd.histogram,
-          adx: indicators.adx.value,
-          plusDI: indicators.adx.plusDI,
-          minusDI: indicators.adx.minusDI,
-          atr: indicators.atr.value,
-          normalizedATR: indicators.atr.normalized,
-          indicatorAgreement: Math.round(agreement * 100),
-          dataPoints: indicators.dataPoints,
-        },
-      },
-      overallConfidence: confidence,
-      riskScore,
+    // 3. Risk Calculation
+    // Map internal regime to shared types if needed, or update types.
+    // Using mapping for compatibility with existing shared types
+    const regimeMap: Record<MarketRegime, any> = {
+      TRENDING_BULL: "BULL_MARKET",
+      TRENDING_BEAR: "BEAR_MARKET",
+      RANGING: "SIDEWAYS",
+      VOLATILE: "HIGH_VOLATILITY",
+      UNDEFINED: "SIDEWAYS",
     };
 
-    // Find entry using REAL indicator data
+    const riskScore = calculateRiskScore(
+      regimeMap[regime],
+      evaluation.confidence,
+      indicators.atr.normalized,
+      0.5 // agreement derived from single strategy
+    );
+
+    // 4. Entry Analysis
     const entrySignal = yield* findEntryWithIndicators(
       price,
       indicators,
-      overallSignal,
-      confidence
+      evaluation.signal,
+      evaluation.confidence
     );
 
-    // Calculate noise score from real data
-    const noise = calculateNoiseScore(indicators.adx.value, indicators.atr.normalized, agreement);
+    const noise = calculateNoiseScore(indicators.adx.value, indicators.atr.normalized, 0.8);
 
-    // Build final recommendation
-    const recommendation = pipe(
-      [
-        `Market Regime: ${regime}`,
-        entrySignal.recommendation,
-        buildReasoning(indicators, agreement),
-        signalToAction(overallSignal),
-      ],
-      Arr.filter((x): x is string => x !== null && x !== ""),
-      Arr.join(". ")
-    );
+    const strategyResult = {
+      regime: regimeMap[regime],
+      signals: [],
+      primarySignal: {
+        strategy: "REGIME_QUANT",
+        signal: evaluation.signal,
+        confidence: evaluation.confidence,
+        reasoning: evaluation.reasoning,
+        metrics: {
+          rsi: indicators.rsi.value,
+          adx: indicators.adx.value,
+          atr: indicators.atr.value,
+        },
+      },
+      overallConfidence: evaluation.confidence,
+      riskScore,
+    };
 
     return {
       symbol: price.symbol,
       timestamp: new Date(),
       price,
       strategyResult,
-      crashSignal: detectCrash(indicators, price),
       entrySignal,
-      overallSignal,
-      confidence,
+      overallSignal: evaluation.signal,
+      confidence: evaluation.confidence,
       riskScore,
       noise,
-      recommendation,
+      recommendation: evaluation.reasoning,
       sparkline: (dailyHistory as ChartDataPoint[]).map((c) => c.close),
     };
   });

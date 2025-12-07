@@ -38,17 +38,28 @@ export class BuybackServiceTag extends Context.Tag("BuybackService")<
 
 // Create signal from protocol data using Option
 const createSignalFromProtocol = (
-  protocolData: { geckoId: string | null },
-  priceMap: Map<string, { marketCap: number; price: number }>,
+  protocolData: { geckoId: string | null; symbol: string },
+  priceMap: Map<string, { marketCap: number; price: number; symbol: string }>,
   createFn: (mcap: number, price: number) => BuybackSignal
-): BuybackSignal | null =>
-  pipe(
+): BuybackSignal | null => {
+  const findBySymbol = () => {
+    // Fallback: search by symbol (case-insensitive)
+    const target = protocolData.symbol.toUpperCase();
+    for (const data of priceMap.values()) {
+      if (data.symbol.toUpperCase() === target) return Option.some(data);
+    }
+    return Option.none();
+  };
+
+  return pipe(
     Option.fromNullable(protocolData.geckoId),
     Option.flatMap((geckoId) => Option.fromNullable(priceMap.get(geckoId))),
+    Option.orElse(() => findBySymbol()),
     Option.filter((data) => data.marketCap > 0),
     Option.map((data) => createFn(data.marketCap, data.price)),
     Option.getOrNull
   );
+};
 
 // Transform daily fees to revenue points
 const toDailyRevenue = (

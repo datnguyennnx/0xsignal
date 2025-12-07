@@ -84,33 +84,29 @@ function DetailContent({ protocol }: { protocol: string }) {
   const growth = detail.signal.revenueGrowth7d ?? 0;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      {/* Description / Revenue Source - Top "Bio" */}
-      {/* Chains & Bio */}
-      <div className="space-y-3">
-        {/* Chains Badges - Moved to Top */}
+    <div className="space-y-10 animate-in fade-in duration-300">
+      {/* Header Info */}
+      <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
           {detail.signal.chains.map((chain) => (
             <Badge
               key={chain}
               variant="outline"
-              className="font-mono text-[10px] sm:text-xs px-2.5 py-1 border-border/40 font-normal text-muted-foreground/80 hover:bg-muted/30"
+              className="font-mono text-[10px] uppercase px-2.5 py-1 border-border/40 font-normal text-muted-foreground/80"
             >
               {chain}
             </Badge>
           ))}
         </div>
-
-        {/* Description */}
         {detail.revenueSource && (
-          <div className="text-sm sm:text-base leading-relaxed text-muted-foreground text-pretty">
+          <h3 className="text-sm font-medium text-muted-foreground leading-relaxed">
             {detail.revenueSource}
-          </div>
+          </h3>
         )}
       </div>
 
-      {/* Key Metrics Row */}
-      <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-2 gap-y-8 gap-x-4">
         <StatRow label="Daily Rev" value={formatCurrency(detail.signal.revenue24h)} />
         <StatRow
           label="Yield"
@@ -131,10 +127,10 @@ function DetailContent({ protocol }: { protocol: string }) {
         />
       </div>
 
-      {/* Revenue Chart */}
+      {/* Revenue Chart Section */}
       {detail.dailyRevenue.length > 0 && (
-        <div className="space-y-4">
-          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest opacity-50 px-1">
+        <div className="space-y-4 pt-2">
+          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest opacity-60">
             Revenue Trend (30d)
           </span>
           <div className="rounded-xl bg-transparent -ml-2 -mr-2">

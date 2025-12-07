@@ -1,22 +1,10 @@
-/** Signal Detection - Crash and entry signal detection for LONG and SHORT */
+/** Signal Detection - Entry signal detection for LONG and SHORT */
 
+import type { EntryIndicators } from "../types";
+import type { IndicatorSet } from "./indicator-types";
 import { Match } from "effect";
 import type { CryptoPrice, Signal, TradeDirection } from "@0xsignal/shared";
-import type { CrashIndicators, EntryIndicators } from "../types";
-import type { IndicatorSet } from "./indicator-types";
 
-// Detect crash indicators
-export const detectCrashIndicators = (
-  price: CryptoPrice,
-  indicators: IndicatorSet
-): CrashIndicators => ({
-  rapidDrop: price.change24h < -15,
-  volumeSpike: (indicators.volumeROC?.value ?? 0) > 100,
-  oversoldExtreme: indicators.rsi.rsi < 20,
-  highVolatility: indicators.atr.normalizedATR > 10,
-});
-
-// Detect LONG entry indicators (bullish setup)
 export const detectLongIndicators = (
   price: CryptoPrice,
   indicators: IndicatorSet
@@ -71,37 +59,6 @@ export const detectEntryIndicators = (
   }
   return { indicators: longIndicators, direction: "NEUTRAL" };
 };
-
-// Crash severity type
-type CrashSeverity = "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
-
-// Crash recommendation using Match
-const crashRecommendation = Match.type<{ severity: CrashSeverity; change: number }>().pipe(
-  Match.when(
-    { severity: "EXTREME" },
-    ({ change }) =>
-      `EXTREME CRASH: ${Math.abs(change).toFixed(1)}% drop. AVOID buying. Wait for stabilization.`
-  ),
-  Match.when(
-    { severity: "HIGH" },
-    () => `HIGH SEVERITY: Significant selling pressure. Wait for RSI recovery above 30.`
-  ),
-  Match.when(
-    { severity: "MEDIUM" },
-    () => `MEDIUM CRASH: Market stress detected. Use tight stop-losses if entering.`
-  ),
-  Match.orElse(() => `LOW SEVERITY: Minor crash indicators. Monitor closely.`)
-);
-
-export const generateCrashRecommendation = (
-  isCrashing: boolean,
-  severity: CrashSeverity,
-  priceChange: number,
-  _rsi: number
-): string =>
-  isCrashing
-    ? crashRecommendation({ severity, change: priceChange })
-    : "No crash detected. Normal market conditions.";
 
 // Entry strength type
 type EntryStrength = "WEAK" | "MODERATE" | "STRONG" | "VERY_STRONG";

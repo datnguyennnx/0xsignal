@@ -1,10 +1,11 @@
 /** Asset Context Service - Cross-domain data aggregation */
 
-import { Effect, Context, Layer, Cache, pipe, Array as Arr } from "effect";
+import { Effect, Context, Layer, Cache, pipe, Array as Arr, Duration } from "effect";
 import type {
   AssetContext,
   TreasuryContext,
   DerivativesContext,
+  LiquidationContext,
   ContextOptions,
   OpenInterestData,
   FundingRateData,
@@ -18,85 +19,6 @@ import { CACHE_TTL, CACHE_CAPACITY } from "../infrastructure/config/app.config";
 import { computeRiskContext, classifyFundingBias, generateInsights } from "../domain/context";
 
 const normalizeSymbol = (s: string) => s.toLowerCase().replace("usdt", "");
-
-const SYMBOL_COIN_MAP: Record<string, string> = {
-  btc: "bitcoin",
-  eth: "ethereum",
-  bnb: "binancecoin",
-  sol: "solana",
-  xrp: "ripple",
-  ada: "cardano",
-  doge: "dogecoin",
-  avax: "avalanche-2",
-  dot: "polkadot",
-  matic: "matic-network",
-  link: "chainlink",
-  uni: "uniswap",
-  atom: "cosmos",
-  ltc: "litecoin",
-  bch: "bitcoin-cash",
-  xlm: "stellar",
-  algo: "algorand",
-  vet: "vechain",
-  fil: "filecoin",
-  trx: "tron",
-  etc: "ethereum-classic",
-  near: "near",
-  apt: "aptos",
-  arb: "arbitrum",
-  op: "optimism",
-  sui: "sui",
-  sei: "sei-network",
-  inj: "injective-protocol",
-  tia: "celestia",
-  stx: "blockstack",
-  icp: "internet-computer",
-  hbar: "hedera-hashgraph",
-  ftm: "fantom",
-  rune: "thorchain",
-  ldo: "lido-dao",
-  aave: "aave",
-  mkr: "maker",
-  crv: "curve-dao-token",
-  snx: "synthetix-network-token",
-  comp: "compound",
-  gmx: "gmx",
-  dydx: "dydx",
-  pendle: "pendle",
-  fet: "fetch-ai",
-  rndr: "render-token",
-  grt: "the-graph",
-  ar: "arweave",
-  pepe: "pepe",
-  wif: "dogwifhat",
-  shib: "shiba-inu",
-  floki: "floki",
-  bonk: "bonk",
-  ton: "the-open-network",
-  kas: "kaspa",
-  xmr: "monero",
-  xlm2: "stellar",
-  eos: "eos",
-  xtz: "tezos",
-  theta: "theta-token",
-  neo: "neo",
-  egld: "elrond-erd-2",
-  sand: "the-sandbox",
-  mana: "decentraland",
-  axs: "axie-infinity",
-  gala: "gala",
-  imx: "immutable-x",
-  blur: "blur",
-  cake: "pancakeswap-token",
-  sushi: "sushi",
-  joe: "joe",
-  ape: "apecoin",
-  bitcoin: "bitcoin",
-  ethereum: "ethereum",
-};
-
-const symbolToCoinId = (symbol: string): string | null =>
-  SYMBOL_COIN_MAP[normalizeSymbol(symbol)] ?? null;
 
 const buildTreasuryContext = (summary: TreasurySummary): TreasuryContext => {
   const signal =
@@ -159,13 +81,7 @@ export const ContextServiceLive = Layer.effect(
     const treasury = yield* TreasuryService;
     const coinGecko = yield* CoinGeckoService;
 
-    const resolveCoinId = (symbol: string) =>
-      Effect.gen(function* () {
-        const staticId = symbolToCoinId(symbol);
-        if (staticId) return staticId;
-        const dynamicId = yield* coinGecko.getCoinId(symbol);
-        return dynamicId;
-      });
+    const resolveCoinId = (symbol: string) => coinGecko.getCoinId(symbol);
 
     const fetchTreasury = (coinId: string) =>
       treasury.getHoldingsByCoin(coinId).pipe(
@@ -206,9 +122,24 @@ export const ContextServiceLive = Layer.effect(
 
         const [treasuryData, oiData, fundingData] = yield* Effect.all(
           [
-            includeTreasury && coinId ? fetchTreasury(coinId) : Effect.succeed(null),
-            includeDerivatives ? fetchOI(binanceSymbol) : Effect.succeed(null),
-            includeDerivatives ? fetchFunding(binanceSymbol) : Effect.succeed(null),
+            includeTreasury && coinId
+              ? fetchTreasury(coinId).pipe(
+                  Effect.timeout(Duration.seconds(3)),
+                  Effect.catchAll(() => Effect.succeed(null))
+                )
+              : Effect.succeed(null),
+            includeDerivatives
+              ? fetchOI(binanceSymbol).pipe(
+                  Effect.timeout(Duration.seconds(2)),
+                  Effect.catchAll(() => Effect.succeed(null))
+                )
+              : Effect.succeed(null),
+            includeDerivatives
+              ? fetchFunding(binanceSymbol).pipe(
+                  Effect.timeout(Duration.seconds(2)),
+                  Effect.catchAll(() => Effect.succeed(null))
+                )
+              : Effect.succeed(null),
           ],
           { concurrency: "unbounded" }
         );
@@ -217,11 +148,12 @@ export const ContextServiceLive = Layer.effect(
         const derivativesCtx =
           oiData && fundingData ? buildDerivativesContext(oiData, fundingData) : null;
 
-        const riskContext = computeRiskContext(analysisResult.riskScore, treasuryCtx);
+        const riskContext = computeRiskContext(analysisResult.riskScore, null, treasuryCtx);
         const insights = generateInsights(
           analysisResult.overallSignal,
           riskContext,
           treasuryCtx,
+          null,
           derivativesCtx
         );
 
@@ -239,6 +171,7 @@ export const ContextServiceLive = Layer.effect(
           noise: analysisResult.noise,
           riskContext,
           treasury: treasuryCtx,
+          liquidation: null,
           derivatives: derivativesCtx,
           recommendation: analysisResult.recommendation,
           actionableInsights: insights,

@@ -11,7 +11,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
 import { GlobalMarketBar } from "@/features/dashboard/components/global-market-bar";
 import { useResponsiveDataCount } from "@/core/hooks/use-responsive-data-count";
-import { DataFreshness } from "@/components/data-freshness";
 
 interface DashboardContentProps {
   analyses: AssetAnalysis[];
@@ -19,7 +18,7 @@ interface DashboardContentProps {
 }
 
 function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
-  const { buySignals, sellSignals, holdSignals, longEntries, shortEntries, crashWarnings } =
+  const { buySignals, sellSignals, holdSignals, longEntries, shortEntries } =
     useMemoizedAllSignals(analyses);
   const latestTimestamp = analyses[0]?.timestamp;
 
@@ -54,35 +53,9 @@ function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
             <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
               Market Overview
             </h1>
-            <DataFreshness timestamp={latestTimestamp} />
           </div>
           {globalMarket && <GlobalMarketBar data={globalMarket} />}
         </header>
-
-        {crashWarnings.length > 0 && (
-          <section className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs sm:text-sm font-mono font-medium text-loss uppercase tracking-wider">
-                Risk Alerts
-              </span>
-              <span className="text-[10px] sm:text-xs bg-loss/10 text-loss px-1.5 py-0.5 rounded-sm tabular-nums">
-                {crashWarnings.length}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {crashWarnings.slice(0, 8).map((s) => (
-                <Link
-                  key={s.symbol}
-                  to={`/asset/${s.symbol.toLowerCase()}`}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-sm border border-border/40 bg-secondary/30 hover:bg-secondary/50 transition-colors text-xs sm:text-sm font-mono"
-                >
-                  <span>{s.symbol.toUpperCase()}</span>
-                  <span className="text-loss tabular-nums">{s.price?.change24h?.toFixed(1)}%</span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
 
         {/* Entry Signals Grid */}
         {tradeSetups.length > 0 && (

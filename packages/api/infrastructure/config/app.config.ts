@@ -43,22 +43,22 @@ export const API_URLS = {
 export const CACHE_TTL = {
   COINGECKO_PRICE: Duration.minutes(5),
   COINGECKO_TOP_CRYPTOS: Duration.minutes(5),
-  COINGECKO_HISTORICAL: Duration.minutes(10),
-  BINANCE_EXCHANGE_INFO: Duration.minutes(10),
-  BINANCE_OPEN_INTEREST: Duration.minutes(2),
-  BINANCE_FUNDING_RATE: Duration.minutes(5),
-  BINANCE_LIQUIDATIONS: Duration.minutes(2),
-  BINANCE_CHART: Duration.minutes(2),
-  DEFILLAMA_PROTOCOLS: Duration.minutes(15),
-  DEFILLAMA_PROTOCOL: Duration.minutes(10),
+  COINGECKO_HISTORICAL: Duration.minutes(60), // Historical data changes less often
+  BINANCE_EXCHANGE_INFO: Duration.hours(24),
+  BINANCE_OPEN_INTEREST: Duration.minutes(1), // Fast moving
+  BINANCE_FUNDING_RATE: Duration.minutes(1),
+  BINANCE_LIQUIDATIONS: Duration.minutes(1),
+  BINANCE_CHART: Duration.minutes(1), // Critical for signals
+  DEFILLAMA_PROTOCOLS: Duration.minutes(30),
+  DEFILLAMA_PROTOCOL: Duration.minutes(15),
   HEATMAP: Duration.minutes(5),
-  ANALYSIS: Duration.minutes(5),
-  BUYBACK_SIGNALS: Duration.minutes(10),
-  BUYBACK_OVERVIEW: Duration.minutes(10),
-  BUYBACK_PROTOCOL: Duration.minutes(10),
-  TREASURY_HOLDINGS: Duration.minutes(30),
-  TREASURY_TRANSACTIONS: Duration.minutes(15),
-  TREASURY_ENTITIES: Duration.hours(1),
+  ANALYSIS: Duration.minutes(1), // Fast signal updates
+  BUYBACK_SIGNALS: Duration.minutes(15),
+  BUYBACK_OVERVIEW: Duration.minutes(15),
+  BUYBACK_PROTOCOL: Duration.minutes(15),
+  TREASURY_HOLDINGS: Duration.hours(1), // Very slow changing
+  TREASURY_TRANSACTIONS: Duration.hours(1), // Slow changing
+  TREASURY_ENTITIES: Duration.hours(24),
 } as const;
 
 // Cache capacity

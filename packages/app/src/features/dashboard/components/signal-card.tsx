@@ -50,7 +50,19 @@ export function SignalCard({ signal, type }: SignalCardProps) {
                 <span className="hidden sm:inline" title="Confidence">
                   C:{confidence}%
                 </span>
-                <span title="Risk Score">R:{riskScore}</span>
+                <span
+                  className={cn(
+                    "px-1 py-0.5 rounded-[2px] text-[9px] font-bold uppercase tracking-wider",
+                    riskScore > 70
+                      ? "bg-loss/10 text-loss"
+                      : riskScore > 40
+                        ? "bg-yellow-500/10 text-yellow-500"
+                        : "bg-gain/10 text-gain"
+                  )}
+                  title={`Risk Score: ${riskScore}`}
+                >
+                  {riskScore > 70 ? "High Risk" : riskScore > 40 ? "Med Risk" : "Low Risk"}
+                </span>
               </div>
             </div>
           </div>

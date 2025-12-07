@@ -23,15 +23,17 @@ import { DevLoggerLive } from "../logging/logger";
 
 const CoreLayer = Layer.mergeAll(DevLoggerLive, AppConfigLive);
 
-const HttpLayer = Layer.mergeAll(HttpClientLive, RateLimiterLive);
-
-const ChartLayer = ChartDataServiceLive.pipe(Layer.provide(HttpLayer));
-
-const InfraLayer = Layer.mergeAll(HttpLayer, ChartLayer).pipe(Layer.provide(CoreLayer));
+const HttpLayer = Layer.mergeAll(HttpClientLive, RateLimiterLive).pipe(Layer.provide(CoreLayer));
 
 const CoinGeckoLayer = CoinGeckoServiceLive.pipe(
-  Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
+  Layer.provide(Layer.mergeAll(CoreLayer, HttpLayer))
 );
+
+const ChartLayer = ChartDataServiceLive.pipe(
+  Layer.provide(Layer.mergeAll(CoreLayer, HttpLayer, CoinGeckoLayer))
+);
+
+const InfraLayer = Layer.mergeAll(HttpLayer, ChartLayer);
 
 const GlobalMarketLayer = GlobalMarketServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))

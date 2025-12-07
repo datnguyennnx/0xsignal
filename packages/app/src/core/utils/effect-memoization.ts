@@ -40,23 +40,6 @@ export const categorizeSignals = (analyses: readonly AssetAnalysis[]) => {
   return { buySignals, sellSignals, holdSignals };
 };
 
-export const getCrashWarnings = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
-  analyses.filter((a) => a.crashSignal?.isCrashing);
-
-export const getCrashBySeverity = (
-  analyses: readonly AssetAnalysis[],
-  severity: "LOW" | "MEDIUM" | "HIGH" | "EXTREME"
-): AssetAnalysis[] => analyses.filter((a) => a.crashSignal?.severity === severity);
-
-const SEVERITY_ORDER = { EXTREME: 0, HIGH: 1, MEDIUM: 2, LOW: 3 } as const;
-
-export const sortByCrashSeverity = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
-  [...analyses].sort((a, b) => {
-    const aSeverity = a.crashSignal?.severity || "LOW";
-    const bSeverity = b.crashSignal?.severity || "LOW";
-    return SEVERITY_ORDER[aSeverity] - SEVERITY_ORDER[bSeverity];
-  });
-
 const MIN_ENTRY_CONFIDENCE = 30;
 
 export const getOptimalLongEntries = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>
@@ -106,10 +89,9 @@ export const sortByEntryStrength = (analyses: readonly AssetAnalysis[]): AssetAn
 
 export const categorizeAllSignals = (analyses: readonly AssetAnalysis[]) => {
   const base = categorizeSignals(analyses);
-  const crashWarnings = sortByCrashSeverity(getCrashWarnings(analyses));
   const longEntries = sortByEntryStrength(getOptimalLongEntries(analyses));
   const shortEntries = sortByEntryStrength(getOptimalShortEntries(analyses));
-  return { ...base, crashWarnings, longEntries, shortEntries };
+  return { ...base, longEntries, shortEntries };
 };
 
 export const sortByConfidence = (analyses: readonly AssetAnalysis[]): AssetAnalysis[] =>

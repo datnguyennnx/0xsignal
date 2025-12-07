@@ -13,7 +13,7 @@ const formatTimeAgo = (date: Date): string => {
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
 
-  if (seconds < 60) return "now";
+  if (seconds < 60) return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   if (minutes < 60) return `${minutes}m`;
   if (hours < 24) return `${hours}h`;
   return date.toLocaleDateString();
@@ -37,7 +37,7 @@ export function DataFreshness({ timestamp, className }: DataFreshnessProps) {
 
   return (
     <span
-      className={cn("text-[10px] text-muted-foreground/60 tabular-nums", className)}
+      className={cn("text-muted-foreground/60 tabular-nums", className)}
       title={date.toLocaleString()}
     >
       {timeAgo}
@@ -54,7 +54,7 @@ export function EstimateBadge({ className, tooltip }: EstimateBadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center px-1 py-0.5 text-[8px] font-mono font-medium",
+        "inline-flex font-mono font-medium",
         "rounded border border-warn/30 text-warn/80",
         className
       )}

@@ -7,6 +7,7 @@ import { TrendingUp, Coins, Layers, RefreshCw, Landmark } from "lucide-react";
 import { invalidateAll } from "@/core/cache/effect-cache";
 import { Effect } from "effect";
 import { AppLayer } from "@/core/runtime/effect-runtime";
+import { DataFreshness } from "@/components/data-freshness";
 
 interface LayoutProps {
   children: ReactNode;
@@ -104,10 +105,16 @@ export function Layout({ children }: LayoutProps) {
         <div className="container-fluid py-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-4">
-              <span>© {new Date().getFullYear()} 0xSignal</span>
-              <span className="text-muted-foreground">Not financial advice</span>
+              <p>© {new Date().getFullYear()} 0xSignal</p>
+              <p className="text-muted-foreground">Not financial advice</p>
             </div>
-            <span>Data: CoinGecko · DefiLlama · Binance</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <p>Validation check:</p>
+                <DataFreshness timestamp={new Date()} className="text-foreground/80" />
+              </div>
+              <p>Data: CoinGecko · DefiLlama · Binance</p>
+            </div>
           </div>
         </div>
       </footer>

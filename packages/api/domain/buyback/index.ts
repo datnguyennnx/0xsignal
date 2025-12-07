@@ -121,13 +121,13 @@ export const createBuybackOverview = (
 
 // Build price map from cryptos
 export const buildPriceMap = (
-  cryptos: readonly { id?: string; marketCap: number; price: number }[]
-): Map<string, { marketCap: number; price: number }> => {
+  cryptos: readonly { id?: string; symbol: string; marketCap: number; price: number }[]
+): Map<string, { marketCap: number; price: number; symbol: string }> => {
   const entries = pipe(
     cryptos,
     Arr.filterMap((c) =>
       c.id && c.marketCap > 0
-        ? Option.some([c.id, { marketCap: c.marketCap, price: c.price }] as const)
+        ? Option.some([c.id, { marketCap: c.marketCap, price: c.price, symbol: c.symbol }] as const)
         : Option.none()
     )
   );
@@ -143,19 +143,28 @@ const byBuybackRateDesc = Order.mapInput(
 // Compute signals from protocols and prices using functional approach
 export const computeBuybackSignals = (
   protocols: readonly ProtocolBuyback[],
-  priceMap: Map<string, { marketCap: number; price: number }>,
+  priceMap: Map<string, { marketCap: number; price: number; symbol: string }>,
   limit: number
 ): BuybackSignal[] =>
   pipe(
     protocols,
-    Arr.filterMap((p) =>
-      pipe(
+    Arr.filterMap((p) => {
+      const findBySymbol = () => {
+        const target = p.symbol.toUpperCase();
+        for (const data of priceMap.values()) {
+          if (data.symbol.toUpperCase() === target) return Option.some(data);
+        }
+        return Option.none();
+      };
+
+      return pipe(
         Option.fromNullable(p.geckoId),
         Option.flatMap((geckoId) => Option.fromNullable(priceMap.get(geckoId))),
+        Option.orElse(() => findBySymbol()),
         Option.map((data) => createBuybackSignal(p, data.marketCap, data.price)),
         Option.filter((signal) => signal.annualizedBuybackRate > 0)
-      )
-    ),
+      );
+    }),
     Arr.sortBy(byBuybackRateDesc),
     Arr.take(limit)
   );

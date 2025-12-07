@@ -8,7 +8,6 @@ export interface SignalStats {
 }
 
 export interface AllSignalStats extends SignalStats {
-  readonly crashWarnings: AssetAnalysis[];
   readonly longEntries: AssetAnalysis[];
   readonly shortEntries: AssetAnalysis[];
 }

@@ -67,21 +67,6 @@ export interface IndicatorSummary {
   };
 }
 
-export interface CrashIndicators {
-  readonly rapidDrop: boolean;
-  readonly volumeSpike: boolean;
-  readonly oversoldExtreme: boolean;
-  readonly highVolatility: boolean;
-}
-
-export interface CrashSignal {
-  readonly isCrashing: boolean;
-  readonly severity: "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
-  readonly confidence: number;
-  readonly indicators: CrashIndicators;
-  readonly recommendation: string;
-}
-
 export type EntryIndicators = {
   readonly trendReversal: boolean;
   readonly volumeIncrease: boolean;
@@ -132,7 +117,6 @@ export interface AssetAnalysis {
   // Strategy & Entry
   readonly entrySignal: EntrySignal;
   readonly strategyResult: StrategyResult;
-  readonly crashSignal: CrashSignal;
 
   // Legacy/UI Compatibility
   readonly score?: number;

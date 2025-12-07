@@ -199,10 +199,17 @@ export const CoinGeckoServiceLive = Layer.effect(
       getCoinId: (symbol: string) =>
         Effect.gen(function* () {
           const normalized = symbol.toLowerCase();
-          // Ensure symbol map is populated
+
+          // 1. Try default cache
           yield* topCryptosCache.get(DEFAULT_LIMITS.TOP_CRYPTOS).pipe(Effect.option);
-          const symbolMap = yield* Ref.get(symbolMapRef);
-          const found = lookupFromMap(symbolMap, normalized);
+          let symbolMap = yield* Ref.get(symbolMapRef);
+          let found = lookupFromMap(symbolMap, normalized);
+          if (Option.isSome(found)) return found.value.id ?? null;
+
+          // 2. Try extended cache
+          yield* topCryptosCache.get(DEFAULT_LIMITS.TOP_CRYPTOS_EXTENDED).pipe(Effect.option);
+          symbolMap = yield* Ref.get(symbolMapRef);
+          found = lookupFromMap(symbolMap, normalized);
           return Option.isSome(found) ? (found.value.id ?? null) : null;
         }),
     };

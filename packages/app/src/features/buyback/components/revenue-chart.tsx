@@ -58,31 +58,38 @@ export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartPro
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      {/* Stats Header */}
+      <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Daily Revenue</span>
-          <Badge variant="secondary" className="text-[10px]">
+          {/* <span className="text-sm font-medium text-foreground/90">Daily Revenue</span> */}
+          {/* Parent renders title, we render stats line? 
+              User wants:
+              Revenue Trend (30d) -- Parent
+              Daily Revenue [90d] -- Chart Header Left
+              Avg ... Peak ...    -- Chart Header Right
+          */}
+          <span className="text-xs font-medium text-muted-foreground">Daily Revenue</span>
+          <Badge
+            variant="secondary"
+            className="text-[10px] h-5 rounded-md px-1.5 font-mono text-muted-foreground/70 bg-secondary/50"
+          >
             {data.length}d
           </Badge>
         </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>
-            Avg{" "}
-            <span className="text-foreground tabular-nums font-medium">
-              ${formatCompact(stats.avg)}
-            </span>
-          </span>
-          <span>
-            Peak{" "}
-            <span className="text-foreground tabular-nums font-medium">
-              ${formatCompact(stats.max)}
-            </span>
-          </span>
+        <div className="flex items-center gap-4 text-[11px] font-mono text-muted-foreground/80">
+          <div className="flex items-baseline gap-1.5">
+            <span className="opacity-70">Avg</span>
+            <span className="text-foreground font-medium">${formatCompact(stats.avg)}</span>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="opacity-70">Peak</span>
+            <span className="text-foreground font-medium">${formatCompact(stats.max)}</span>
+          </div>
         </div>
       </div>
-      <div className="h-56 sm:h-72">
+      <div className="h-56 sm:h-72 w-full">
         <ChartContainer config={chartConfig} className="w-full h-full">
-          <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 5, right: 0, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="var(--color-revenue)" stopOpacity={0.8} />
@@ -93,25 +100,45 @@ export const RevenueChart = memo(function RevenueChart({ data }: RevenueChartPro
               dataKey="dateLabel"
               tickLine={false}
               axisLine={false}
-              tickMargin={8}
+              tickMargin={12}
               minTickGap={32}
               interval="preserveStartEnd"
               tickFormatter={(value) => value}
+              className="text-[10px] font-mono opacity-60"
             />
             <YAxis
               tickLine={false}
               axisLine={false}
               tickFormatter={(v) => formatCompact(v)}
               tickMargin={4}
-              width={40}
+              width={35}
+              className="text-[10px] font-mono opacity-60"
             />
-            <ChartTooltip content={<ChartTooltipContent indicator="line" labelKey="dateLabel" />} />
+            <ChartTooltip
+              cursor={{ stroke: "var(--color-revenue)", strokeWidth: 1, strokeDasharray: "4 4" }}
+              content={
+                <ChartTooltipContent
+                  indicator="line"
+                  labelKey="dateLabel"
+                  className="w-[150px] font-mono text-xs"
+                  formatter={(value, name) => (
+                    <div className="flex min-w-[120px] items-center justify-between text-xs text-muted-foreground">
+                      <span className="mr-2">{name}</span>
+                      <span className="font-medium text-foreground tabular-nums">
+                        ${Number(value).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                />
+              }
+            />
             <Area
               dataKey="revenue"
-              type="natural"
+              type="step"
               fill="url(#fillRevenue)"
-              fillOpacity={0.4}
+              fillOpacity={0.5}
               stroke="var(--color-revenue)"
+              strokeWidth={1.5}
               stackId="a"
             />
           </AreaChart>

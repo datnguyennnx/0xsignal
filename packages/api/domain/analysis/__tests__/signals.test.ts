@@ -4,11 +4,9 @@ import { expect, describe, it } from "vitest";
 import type { CryptoPrice } from "@0xsignal/shared";
 import type { IndicatorSet } from "../indicators";
 import {
-  detectCrashIndicators,
   detectEntryIndicators,
   detectLongIndicators,
   detectShortIndicators,
-  generateCrashRecommendation,
   generateEntryRecommendation,
   calculateLeverage,
 } from "../signals";
@@ -51,71 +49,6 @@ const createMockIndicators = (overrides: Partial<IndicatorSet> = {}): IndicatorS
 });
 
 describe("Signals", () => {
-  describe("detectCrashIndicators", () => {
-    it("detects rapid drop when change24h < -15", () => {
-      const price = createMockPrice({ change24h: -20 });
-      const indicators = createMockIndicators();
-
-      const result = detectCrashIndicators(price, indicators);
-
-      expect(result.rapidDrop).toBe(true);
-    });
-
-    it("does not detect rapid drop for normal price change", () => {
-      const price = createMockPrice({ change24h: -5 });
-      const indicators = createMockIndicators();
-
-      const result = detectCrashIndicators(price, indicators);
-
-      expect(result.rapidDrop).toBe(false);
-    });
-
-    it("detects volume spike when volumeROC > 100", () => {
-      const price = createMockPrice();
-      const indicators = createMockIndicators({
-        volumeROC: { value: 150, signal: "SURGE", activity: "UNUSUAL" },
-      });
-
-      const result = detectCrashIndicators(price, indicators);
-
-      expect(result.volumeSpike).toBe(true);
-    });
-
-    it("detects oversold extreme when RSI < 20", () => {
-      const price = createMockPrice();
-      const indicators = createMockIndicators({
-        rsi: { rsi: 15, signal: "OVERSOLD", momentum: -10 },
-      });
-
-      const result = detectCrashIndicators(price, indicators);
-
-      expect(result.oversoldExtreme).toBe(true);
-    });
-
-    it("detects high volatility when normalizedATR > 10", () => {
-      const price = createMockPrice();
-      const indicators = createMockIndicators({
-        atr: { value: 5000, normalizedATR: 12, volatilityLevel: "VERY_HIGH" },
-      });
-
-      const result = detectCrashIndicators(price, indicators);
-
-      expect(result.highVolatility).toBe(true);
-    });
-
-    it("returns all false for normal market conditions", () => {
-      const price = createMockPrice();
-      const indicators = createMockIndicators();
-
-      const result = detectCrashIndicators(price, indicators);
-
-      expect(result.rapidDrop).toBe(false);
-      expect(result.volumeSpike).toBe(false);
-      expect(result.oversoldExtreme).toBe(false);
-      expect(result.highVolatility).toBe(false);
-    });
-  });
-
   describe("detectLongIndicators", () => {
     it("detects trend reversal with bullish MACD and moderate RSI", () => {
       const price = createMockPrice();
@@ -303,43 +236,6 @@ describe("Signals", () => {
       const result = detectEntryIndicators(price, indicators, "HOLD");
 
       expect(result.direction).toBe("LONG");
-    });
-  });
-
-  describe("generateCrashRecommendation", () => {
-    it("returns no crash message when not crashing", () => {
-      const result = generateCrashRecommendation(false, "LOW", -5, 50);
-
-      expect(result).toBe("No crash detected. Normal market conditions.");
-    });
-
-    it("returns EXTREME crash recommendation", () => {
-      const result = generateCrashRecommendation(true, "EXTREME", -25, 15);
-
-      expect(result).toContain("EXTREME CRASH");
-      expect(result).toContain("25");
-      expect(result).toContain("AVOID");
-    });
-
-    it("returns HIGH severity crash recommendation", () => {
-      const result = generateCrashRecommendation(true, "HIGH", -18, 25);
-
-      expect(result).toContain("HIGH SEVERITY");
-      expect(result).toContain("RSI");
-    });
-
-    it("returns MEDIUM crash recommendation", () => {
-      const result = generateCrashRecommendation(true, "MEDIUM", -12, 35);
-
-      expect(result).toContain("MEDIUM CRASH");
-      expect(result).toContain("stop-losses");
-    });
-
-    it("returns LOW severity recommendation", () => {
-      const result = generateCrashRecommendation(true, "LOW", -8, 45);
-
-      expect(result).toContain("LOW SEVERITY");
-      expect(result).toContain("Monitor");
     });
   });
 
