@@ -47,7 +47,7 @@ function BuybackContent({ overview, fetchedAt }: { overview: BuybackOverview; fe
         <div className="flex-1 min-w-0 w-full h-full overflow-y-auto">
           <div className="container-fluid py-4 sm:py-6 space-y-8">
             {/* Header */}
-            <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-border/40 pb-6">
+            <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
@@ -108,7 +108,7 @@ function BuybackContent({ overview, fetchedAt }: { overview: BuybackOverview; fe
 function BuybackSkeleton() {
   return (
     <div className="container-fluid py-4 sm:py-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 border-b border-border/40 pb-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <div>
           <Skeleton className="h-5 w-40 mb-2" />
           <Skeleton className="h-3 w-64" />

@@ -34,11 +34,14 @@ const formatTimeAgo = (date: Date): string => {
   return date.toLocaleDateString();
 };
 
+import { FooterProvider, useFooter } from "@/core/providers/footer-provider";
+
 function LayoutInner({ children }: LayoutProps) {
   const location = useLocation();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { getLatestFetch } = useFreshness();
   const [timeAgo, setTimeAgo] = useState<string>("");
+  const { metadata, warning } = useFooter();
 
   const handleRefreshCache = async () => {
     setIsRefreshing(true);
@@ -129,18 +132,16 @@ function LayoutInner({ children }: LayoutProps) {
       </main>
 
       <footer className="hidden sm:block shrink-0 border-t border-border/40 bg-background/80 backdrop-blur-md z-40">
-        <div className="container-fluid py-3">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-4">
-              <p>© {new Date().getFullYear()} 0xSignal</p>
-              <p className="text-muted-foreground">Not financial advice</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <p className="tabular-nums">
-                Last update: <span className="text-foreground/80">{timeAgo}</span>
-              </p>
-              <p>Data: CoinGecko · DefiLlama · Binance</p>
-            </div>
+        <div className="flex items-center justify-between text-xs text-muted-foreground py-2 px-4">
+          <div className="flex items-center gap-4">
+            <p>© {new Date().getFullYear()} 0xSignal</p>
+            <div className="text-muted-foreground/80 font-medium">{warning}</div>
+          </div>
+          <div className="flex items-center gap-4">
+            <p className="tabular-nums">
+              Last update: <span className="text-foreground/80">{timeAgo}</span>
+            </p>
+            <div>{metadata || "Data: CoinGecko · DefiLlama · Binance"}</div>
           </div>
         </div>
       </footer>
@@ -213,7 +214,9 @@ function LayoutInner({ children }: LayoutProps) {
 export function Layout({ children }: LayoutProps) {
   return (
     <FreshnessProvider>
-      <LayoutInner>{children}</LayoutInner>
+      <FooterProvider>
+        <LayoutInner>{children}</LayoutInner>
+      </FooterProvider>
     </FreshnessProvider>
   );
 }

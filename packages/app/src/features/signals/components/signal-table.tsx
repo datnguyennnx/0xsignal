@@ -64,8 +64,8 @@ function SignalItem({ signal, type }: { signal: AssetAnalysis; type: SignalType 
               </div>
               <div className="flex items-center gap-2.5 sm:gap-3 mt-1.5 sm:mt-1 text-[11px] sm:text-[10px] text-muted-foreground tabular-nums">
                 <span className="sm:hidden">{confidence}%</span>
-                <span className="hidden sm:inline" title="Confidence">
-                  C:{confidence}%
+                <span className="hidden sm:inline" title="Signal Strength">
+                  S:{confidence}%
                 </span>
                 {!isHold && <span title="Risk Score">R:{riskScore}</span>}
               </div>

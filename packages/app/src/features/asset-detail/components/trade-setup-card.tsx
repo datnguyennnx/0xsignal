@@ -71,11 +71,11 @@ export function TradeSetupCard({ entry, className }: TradeSetupCardProps) {
         />
         <MetricCell label="R:R" value={`${entry.riskRewardRatio}:1`} />
         <MetricCell
-          label="Leverage"
-          value={`${entry.suggestedLeverage}x`}
-          context={`max ${entry.maxLeverage}x`}
+          label="Volatility"
+          value={atr.volatility.replace("_", " ")}
+          context={`ATR ${atr.value.toFixed(1)}%`}
         />
-        <MetricCell label="Conf" value={`${entry.confidence}%`} />
+        <MetricCell label="Strength" value={`${entry.confidence}%`} />
       </div>
 
       {/* Indicators */}
@@ -100,12 +100,12 @@ export function TradeSetupCard({ entry, className }: TradeSetupCardProps) {
         </div>
       </CardContent>
 
-      {/* Footer */}
-      {entry.recommendation && (
-        <CardContent className="px-4 py-3 border-t border-border/50">
-          <p className="text-xs text-muted-foreground line-clamp-2">{entry.recommendation}</p>
-        </CardContent>
-      )}
+      {/* Footer with recommendation */}
+      <CardContent className="px-4 py-3 border-t border-border/50 space-y-2">
+        {entry.recommendation && (
+          <p className="text-xs text-muted-foreground leading-relaxed">{entry.recommendation}</p>
+        )}
+      </CardContent>
     </Card>
   );
 }

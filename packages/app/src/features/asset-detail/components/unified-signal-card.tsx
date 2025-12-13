@@ -3,8 +3,6 @@ import { cn } from "@/core/utils/cn";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Landmark, Zap, TrendingUp } from "lucide-react";
-import { EstimateBadge } from "@/components/data-freshness";
 
 interface UnifiedSignalCardProps {
   analysis: AssetAnalysis;
@@ -35,22 +33,45 @@ const calculatePct = (start: number, end: number) => {
 const getSignalColor = (signal: string) =>
   signal.includes("BUY") ? "text-gain" : signal.includes("SELL") ? "text-loss" : "text-foreground";
 
-const getRiskColor = (level: string) => {
-  if (level === "LOW") return "text-gain";
-  if (level === "MEDIUM") return "text-muted-foreground";
-  if (level === "HIGH") return "text-warn";
-  return "text-loss";
+const getRiskLabel = (score: number): string => {
+  if (score < 30) return "Low";
+  if (score < 50) return "Moderate";
+  if (score < 70) return "Elevated";
+  return "High";
+};
+
+// Humanize regime names for user understanding
+const humanizeRegime = (regime: string): string => {
+  const map: Record<string, string> = {
+    TRENDING_BULL: "Uptrend",
+    TRENDING_BEAR: "Downtrend",
+    TRENDING: "Trending",
+    RANGING: "Sideways",
+    VOLATILE: "Volatile",
+    HIGH_VOLATILITY: "High Volatility",
+    LOW_VOLATILITY: "Low Volatility",
+    BULL_MARKET: "Bull Market",
+    BEAR_MARKET: "Bear Market",
+    SIDEWAYS: "Sideways",
+    MEAN_REVERSION: "Mean Reversion",
+    ACCUMULATION: "Accumulation",
+    DISTRIBUTION: "Distribution",
+  };
+  return map[regime] || regime.replace(/_/g, " ");
 };
 
 export function UnifiedSignalCard({ analysis, context, className }: UnifiedSignalCardProps) {
-  const { overallSignal, confidence, riskScore, entrySignal, strategyResult } = analysis;
-  const { entryPrice, targetPrice, stopLoss, direction, riskRewardRatio } = entrySignal;
+  const { overallSignal, confidence, riskScore, entrySignal, strategyResult, recommendation } =
+    analysis;
+  const { entryPrice, targetPrice, stopLoss, direction, riskRewardRatio, indicatorSummary } =
+    entrySignal;
   const hasDirection = direction !== "NEUTRAL";
   const targetPct = hasDirection ? Math.abs(calculatePct(entryPrice, targetPrice)) : 0;
   const stopPct = hasDirection ? Math.abs(calculatePct(entryPrice, stopLoss)) : 0;
 
   const { treasury, derivatives, riskContext } = context || {};
   const hasContext = treasury || derivatives;
+  const reasoning = strategyResult?.primarySignal?.reasoning || recommendation;
 
   return (
     <Card className={cn("w-full bg-card border-border/40 shadow-none p-5", className)}>
@@ -59,11 +80,18 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs sm:text-sm font-medium uppercase tracking-widest text-muted-foreground">
-              {strategyResult.regime.replace(/_/g, " ")}
+              {humanizeRegime(strategyResult.regime)}
             </span>
-            <span className="text-xs sm:text-sm font-mono text-muted-foreground">
-              CONF {confidence}%
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-xs sm:text-sm font-mono text-muted-foreground cursor-help">
+                  Strength {confidence}%
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-48 text-xs">
+                Signal strength based on indicator alignment. Not a probability of profit.
+              </TooltipContent>
+            </Tooltip>
           </div>
           <div className="flex items-baseline gap-3">
             <h2
@@ -83,6 +111,13 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
           </div>
         </div>
 
+        {/* Why This Signal - Reasoning Section */}
+        {reasoning && (
+          <div className="px-3 py-2.5 bg-secondary/30 rounded-sm border border-border/30">
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{reasoning}</p>
+          </div>
+        )}
+
         {/* Entry Price */}
         <div className="min-w-0 overflow-hidden">
           <div className="flex items-baseline gap-2 flex-wrap">
@@ -92,7 +127,7 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
             <span className="text-sm sm:text-base text-muted-foreground font-medium">USD</span>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider mt-1">
-            Suggested Entry Zone
+            Entry Zone
           </p>
         </div>
 
@@ -112,14 +147,14 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
               highlight="loss"
             />
             <TickerItem
-              label={riskContext ? "Smart Risk" : "Risk Score"}
-              value={`${riskContext ? riskContext.finalRisk : riskScore}/100`}
-              subValue={`1:${riskRewardRatio}`}
+              label="Risk"
+              value={`${getRiskLabel(riskContext?.finalRisk ?? riskScore)}`}
+              subValue={`${riskContext?.finalRisk ?? riskScore}/100 · R:R 1:${riskRewardRatio}`}
               highlight="neutral"
               tooltip={
                 riskContext ? (
                   <div className="max-w-56 text-[10px]">
-                    <p className="font-medium mb-1">Smart Risk: {riskContext.riskLevel}</p>
+                    <p className="font-medium mb-1">Risk Level: {riskContext.riskLevel}</p>
                     <p className="text-muted-foreground mb-1">Base Score: {riskScore}</p>
                     <p className="text-muted-foreground border-t border-border/50 pt-1 mt-1">
                       {riskContext.explanation}
@@ -131,19 +166,59 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
           </div>
         )}
 
+        {/* Indicator Summary */}
+        {indicatorSummary && (
+          <div className="pt-3 border-t border-border/30">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
+                Indicators
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <IndicatorChip
+                label="RSI"
+                value={indicatorSummary.rsi.value}
+                context={
+                  indicatorSummary.rsi.value < 30
+                    ? "oversold"
+                    : indicatorSummary.rsi.value > 70
+                      ? "overbought"
+                      : "neutral"
+                }
+              />
+              <IndicatorChip
+                label="MACD"
+                value={indicatorSummary.macd.trend}
+                context={
+                  indicatorSummary.macd.trend === "BULLISH"
+                    ? "bullish"
+                    : indicatorSummary.macd.trend === "BEARISH"
+                      ? "bearish"
+                      : "neutral"
+                }
+              />
+              <IndicatorChip
+                label="ADX"
+                value={indicatorSummary.adx.value}
+                context={indicatorSummary.adx.value > 25 ? "trending" : "weak"}
+              />
+              <IndicatorChip label="ATR" value={`${indicatorSummary.atr.value}%`} context="info" />
+            </div>
+          </div>
+        )}
+
         {/* Context Section */}
         {hasContext && (
-          <div className="pt-4 space-y-3">
+          <div className="pt-3 border-t border-border/30 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                Context
+              <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">
+                Market Context
               </span>
             </div>
 
             <div className="space-y-2">
               {treasury?.hasInstitutionalHoldings && (
                 <DataRow
-                  icon={<Landmark size={14} className="text-muted-foreground" />}
                   label="Treasury"
                   value={`$${formatCompact(treasury.totalHoldingsUsd)}`}
                   subValue={`${treasury.entityCount} entities`}
@@ -161,7 +236,6 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
 
               {derivatives && (
                 <DataRow
-                  icon={<TrendingUp size={14} className="text-muted-foreground" />}
                   label="Open Interest"
                   value={`$${formatCompact(derivatives.openInterestUsd)}`}
                   subValue={`${derivatives.oiChange24h >= 0 ? "+" : ""}${derivatives.oiChange24h.toFixed(1)}%`}
@@ -177,12 +251,42 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
             </div>
           </div>
         )}
-
-        <div className="pt-3 border-t border-border/30">
-          <p className="text-[9px] text-muted-foreground/50">Not financial advice. DYOR.</p>
-        </div>
       </div>
     </Card>
+  );
+}
+
+function IndicatorChip({
+  label,
+  value,
+  context,
+}: {
+  label: string;
+  value: string | number;
+  context:
+    | "bullish"
+    | "bearish"
+    | "oversold"
+    | "overbought"
+    | "trending"
+    | "weak"
+    | "neutral"
+    | "info";
+}) {
+  const contextColor =
+    context === "bullish" || context === "oversold" || context === "trending"
+      ? "text-gain"
+      : context === "bearish" || context === "overbought"
+        ? "text-loss"
+        : "text-muted-foreground";
+
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 bg-secondary/40 rounded-sm">
+      <span className="text-[10px] text-muted-foreground uppercase">{label}</span>
+      <span className={cn("text-xs font-mono font-medium tabular-nums", contextColor)}>
+        {value}
+      </span>
+    </div>
   );
 }
 
@@ -208,7 +312,7 @@ function TickerItem({
 
   const content = (
     <div className="flex flex-col space-y-0.5 lg:flex-row lg:justify-between lg:items-center lg:space-y-0 lg:border-b lg:border-border/40 lg:pb-2 lg:last:border-0 lg:last:pb-0">
-      <span className="text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground/70 decoration-dotted underline-offset-2 hover:underline cursor-help">
+      <span className="text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground/70">
         {label}
       </span>
       <div className="flex flex-col lg:flex-row lg:items-baseline lg:gap-2">
@@ -227,42 +331,26 @@ function TickerItem({
     </div>
   );
 
-  const plainContent = (
-    <div className="flex flex-col space-y-0.5 lg:flex-row lg:justify-between lg:items-center lg:space-y-0 lg:border-b lg:border-border/40 lg:pb-2 lg:last:border-0 lg:last:pb-0">
-      <span className="text-[9px] uppercase tracking-widest text-muted-foreground/70">{label}</span>
-      <div className="flex flex-col lg:flex-row lg:items-baseline lg:gap-2">
-        <span className="text-sm font-mono font-medium text-foreground tabular-nums leading-tight">
-          {value}
-        </span>
-        <span
-          className={cn("text-[10px] font-mono tabular-nums leading-none lg:text-right", subColor)}
-        >
-          {subValue}
-        </span>
-      </div>
-    </div>
-  );
-
   if (tooltip) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{content}</TooltipTrigger>
+        <TooltipTrigger asChild>
+          <div className="cursor-help">{content}</div>
+        </TooltipTrigger>
         <TooltipContent side="left">{tooltip}</TooltipContent>
       </Tooltip>
     );
   }
 
-  return plainContent;
+  return content;
 }
 
 function DataRow({
-  icon,
   label,
   value,
   subValue,
   highlight,
 }: {
-  icon: React.ReactNode;
   label: string;
   value: string;
   subValue: string;
@@ -279,12 +367,9 @@ function DataRow({
 
   return (
     <div className="flex items-center justify-between py-1">
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground/80">
-          {label}
-        </span>
-      </div>
+      <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground/80">
+        {label}
+      </span>
       <div className="flex flex-col items-end">
         <span className="text-xs sm:text-sm font-mono font-medium tabular-nums">{value}</span>
         <span className={cn("text-[10px] font-mono tabular-nums", subColor)}>{subValue}</span>

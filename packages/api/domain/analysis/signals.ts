@@ -94,7 +94,7 @@ export const generateEntryRecommendation = (
   target: number,
   stopLoss: number,
   rr: number,
-  leverage: number
+  _leverage: number
 ): string => {
   if (direction === "NEUTRAL") {
     return "No clear setup. Wait for stronger confirmation signals.";
@@ -112,14 +112,10 @@ export const generateEntryRecommendation = (
 
   const setupInfo = `${dirLabel} setup: Target +${targetPct}%, Stop -${stopPct}%, R:R ${rr}:1.`;
 
-  // Different messages based on strength
   return Match.value(strength).pipe(
-    Match.when(
-      "VERY_STRONG",
-      () => `${setupInfo} Strong confirmation. Consider ${leverage}x leverage.`
-    ),
-    Match.when("STRONG", () => `${setupInfo} Good setup. Suggested ${leverage}x leverage.`),
-    Match.when("MODERATE", () => `${setupInfo} Moderate setup. Use smaller position size.`),
+    Match.when("VERY_STRONG", () => `${setupInfo} Strong confirmation. Always manage your risk.`),
+    Match.when("STRONG", () => `${setupInfo} Good setup. Use proper position sizing.`),
+    Match.when("MODERATE", () => `${setupInfo} Moderate setup. Consider smaller position size.`),
     Match.orElse(() => `${setupInfo} Weak confirmation. Consider waiting for better entry.`)
   );
 };

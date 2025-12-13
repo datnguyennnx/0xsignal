@@ -19,10 +19,19 @@ interface DashboardContentProps {
   fetchedAt?: Date;
 }
 
+import { useFooter } from "@/core/providers/footer-provider";
+import { useEffect } from "react";
+
 function DashboardContent({ analyses, globalMarket, fetchedAt }: DashboardContentProps) {
   const { buySignals, sellSignals, holdSignals, longEntries, shortEntries } =
     useMemoizedAllSignals(analyses);
   const latestTimestamp = analyses[0]?.timestamp;
+  const { setMetadata } = useFooter();
+
+  useEffect(() => {
+    setMetadata("Data: CoinGecko · DefiLlama · Binance");
+    return () => setMetadata(null);
+  }, [setMetadata]);
 
   // Responsive data counts - Match grid columns to fill rows properly
   // Grid: 1 col mobile, 2 col tablet, 4 col desktop, 5 col xl, 6 col 3xl
@@ -50,14 +59,21 @@ function DashboardContent({ analyses, globalMarket, fetchedAt }: DashboardConten
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 ease-premium h-full overflow-y-auto">
       <div className="container-fluid py-4 sm:py-6">
         {/* Header - Stacked on mobile, inline on tablet+ */}
-        <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0 mb-5 sm:mb-6 border-b border-border/40 pb-4">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
-              Market Overview
-            </h1>
-            <DataAgeBadge timestamp={fetchedAt} />
+        {/* Header - Stacked on mobile, inline on tablet+ */}
+        <header className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0 mb-5 sm:mb-6">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
+                Market Overview
+              </h1>
+              <DataAgeBadge timestamp={fetchedAt} />
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-md leading-relaxed">
+              Aggregated market signals identifying regimes and statistical anomalies. Derived from
+              multi-timeframe Binance Futures data.
+            </p>
           </div>
-          {globalMarket && <GlobalMarketBar data={globalMarket} />}
+          {globalMarket && <GlobalMarketBar data={globalMarket} className="shrink-0 mt-1" />}
         </header>
 
         {/* Entry Signals Grid */}

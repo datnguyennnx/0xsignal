@@ -227,7 +227,7 @@ const createNeutralSignal = (
   recommendation: reason,
 });
 
-// Generate recommendation based on REAL data
+// Generate recommendation based on REAL data (no leverage advice)
 const generateRecommendation = (
   direction: TradeDirection,
   strength: EntryStrength,
@@ -235,7 +235,7 @@ const generateRecommendation = (
   stopLoss: number,
   entry: number,
   rr: number,
-  leverage: number
+  _leverage: number
 ): string => {
   if (direction === "NEUTRAL") {
     return "No clear setup. Wait for stronger confirmation.";
@@ -244,12 +244,9 @@ const generateRecommendation = (
   const targetPct = Math.abs(((target - entry) / entry) * 100).toFixed(1);
   const stopPct = Math.abs(((stopLoss - entry) / entry) * 100).toFixed(1);
   const dirLabel = direction === "LONG" ? "LONG" : "SHORT";
+  const strengthLabel = strength === "VERY_STRONG" ? "Strong setup" : "Moderate setup";
 
-  return (
-    `${dirLabel}: Target +${targetPct}%, Stop -${stopPct}%, R:R ${rr}:1. ` +
-    `${strength === "VERY_STRONG" ? "Strong confirmation" : "Moderate setup"}. ` +
-    `Suggested ${leverage}x leverage.`
-  );
+  return `${dirLabel}: Target +${targetPct}%, Stop -${stopPct}%, R:R ${rr}:1. ${strengthLabel}. Always manage your risk.`;
 };
 
 /** Find entry using REAL indicator data - no approximations */

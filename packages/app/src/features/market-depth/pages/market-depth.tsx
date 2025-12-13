@@ -45,23 +45,17 @@ export function MarketDepthPage() {
 
   return (
     <div className="h-full flex flex-col container-fluid py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-2 duration-500 ease-premium">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-3 sm:mb-4 shrink-0 border-b border-border/40 pb-3 sm:pb-4">
-        <h1 className="text-xl sm:text-2xl lg:text-3xl font-mono font-bold tracking-tight uppercase">
-          Market Structure
-        </h1>
-        <div className="flex items-center gap-1 bg-secondary/20 p-1 rounded-sm self-start sm:self-auto">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="h-7 text-xs font-mono rounded-sm transition-all bg-background shadow-sm pointer-events-none"
-          >
-            HEATMAP
-          </Button>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0 mb-3 sm:mb-4 shrink-0">
+        <div>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-mono font-bold tracking-tight uppercase">
+            Market Structure
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-md leading-relaxed">
+            Liquidity concentration and capital flow analysis. Visualizing order book depth and
+            cross-sectional market correlations.
+          </p>
         </div>
-      </div>
-
-      <div className="mb-4">
-        <HeatmapStats stats={heatmapStats} />
+        <HeaderStats stats={heatmapStats} />
       </div>
 
       <div className="flex-1 min-h-[300px] sm:min-h-0 border border-border/50 bg-card/30 rounded-sm overflow-hidden relative">
@@ -75,49 +69,42 @@ export function MarketDepthPage() {
   );
 }
 
-function HeatmapStats({ stats }: { stats: any }) {
-  if (!stats) return <div className="h-12" />;
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 shrink-0">
-      <StatItem
-        label="Assets"
-        value={stats.totalAssets}
-        subValue={
-          <span>
-            <span className="text-gain">{stats.gainers}</span>
-            {" / "}
-            <span className="text-loss">{stats.losers}</span>
-          </span>
-        }
-      />
-      <StatItem label="MCap" value={`$${formatCompact(stats.totalMcap)}`} />
-      <StatItem
-        label="Avg Change"
-        value={`${stats.avgChange >= 0 ? "+" : ""}${stats.avgChange.toFixed(2)}%`}
-        valueClass={stats.avgChange >= 0 ? "text-gain" : "text-loss"}
-      />
-    </div>
-  );
-}
+function HeaderStats({ stats }: { stats: any }) {
+  if (!stats) return null;
 
-function StatItem({
-  label,
-  value,
-  subValue,
-  valueClass,
-}: {
-  label: string;
-  value: string | number;
-  subValue?: React.ReactNode;
-  valueClass?: string;
-}) {
+  const items = [
+    {
+      label: "ASSETS",
+      value: stats.totalAssets,
+      sub: (
+        <span className="text-[10px] text-muted-foreground ml-1">
+          ({stats.gainers}/{stats.losers})
+        </span>
+      ),
+    },
+    { label: "MCAP", value: `$${formatCompact(stats.totalMcap)}` },
+    {
+      label: "AVG CHG",
+      value: `${stats.avgChange >= 0 ? "+" : ""}${stats.avgChange.toFixed(2)}%`,
+      className: stats.avgChange >= 0 ? "text-gain" : "text-loss",
+    },
+  ];
+
   return (
-    <div>
-      <div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">{label}</div>
-      <div className={cn("text-sm sm:text-base font-semibold tabular-nums", valueClass)}>
-        {value}
-      </div>
-      {subValue && <div className="text-xs text-muted-foreground tabular-nums">{subValue}</div>}
+    <div className="flex items-center gap-4 sm:gap-6 text-xs shrink-0 self-start sm:self-center mt-2 sm:mt-1">
+      {items.map((item, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <span className="text-muted-foreground font-mono text-[10px] uppercase tracking-wide">
+            {item.label}
+          </span>
+          <div className="flex items-baseline">
+            <span className={cn("font-semibold tabular-nums font-mono", item.className)}>
+              {item.value}
+            </span>
+            {item.sub}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

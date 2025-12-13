@@ -42,6 +42,8 @@ interface AssetContentProps {
   onIntervalChange: (interval: string) => void;
 }
 
+import { useFooter } from "@/core/providers/footer-provider";
+
 function AssetContent({
   asset,
   context,
@@ -56,6 +58,18 @@ function AssetContent({
   const price = asset.price;
   const change24h = price?.change24h || 0;
   const { recordFetch } = useFreshness();
+  const { setMetadata } = useFooter();
+
+  // Set footer context
+  useEffect(() => {
+    setMetadata(
+      <div className="flex items-center gap-1">
+        <span className="hidden sm:inline">Data source: </span>
+        <span>Binance Futures · 7d lookback · 1h candles</span>
+      </div>
+    );
+    return () => setMetadata(null);
+  }, [setMetadata]);
 
   // Record fetch time for footer display
   useEffect(() => {
@@ -64,53 +78,59 @@ function AssetContent({
 
   return (
     <div className="container-fluid h-full overflow-y-auto flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-2 duration-500 ease-premium">
-      <header className="flex items-center gap-3 mb-5 sm:mb-6 border-b border-border/40 pb-4">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => navigate(-1)}
-          className="sm:hidden -ml-2 touch-target-44"
-          aria-label="Go back"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </Button>
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <CryptoIcon
-            symbol={asset.symbol}
-            image={asset.price?.image}
-            size={32}
-            className="shrink-0 sm:w-7 sm:h-7"
-          />
-          <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 flex-wrap min-w-0">
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg sm:text-xl font-mono font-bold tracking-tight">
-                {asset.symbol.toUpperCase()}
-              </span>
-              <span className="text-lg sm:text-xl tabular-nums font-medium">
-                ${formatPrice(price?.price || 0)}
-              </span>
-              <span
-                className={cn(
-                  "text-sm tabular-nums font-medium",
-                  change24h > 0
-                    ? "text-gain"
-                    : change24h < 0
-                      ? "text-loss"
-                      : "text-muted-foreground"
-                )}
-              >
-                {formatPercentChange(change24h)}
+      <header className="mb-5 sm:mb-6">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => navigate(-1)}
+            className="sm:hidden -ml-2 touch-target-44 shrink-0"
+            aria-label="Go back"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <CryptoIcon
+              symbol={asset.symbol}
+              image={asset.price?.image}
+              size={32}
+              className="shrink-0 sm:w-7 sm:h-7"
+            />
+            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 flex-wrap min-w-0">
+              <div className="flex items-baseline gap-2">
+                <span className="text-lg sm:text-xl font-mono font-bold tracking-tight">
+                  {asset.symbol.toUpperCase()}
+                </span>
+                <span className="text-lg sm:text-xl tabular-nums font-medium">
+                  ${formatPrice(price?.price || 0)}
+                </span>
+                <span
+                  className={cn(
+                    "text-sm tabular-nums font-medium",
+                    change24h > 0
+                      ? "text-gain"
+                      : change24h < 0
+                        ? "text-loss"
+                        : "text-muted-foreground"
+                  )}
+                >
+                  {formatPercentChange(change24h)}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground font-mono">
+                VOL ${formatCurrency(price?.volume24h || 0)}
+                <span className="hidden lg:inline">
+                  {" · "}H ${formatPrice(price?.high24h || 0)}
+                  {" · "}L ${formatPrice(price?.low24h || 0)}
+                </span>
               </span>
             </div>
-            <span className="text-xs text-muted-foreground font-mono">
-              VOL ${formatCurrency(price?.volume24h || 0)}
-              <span className="hidden lg:inline">
-                {" · "}H ${formatPrice(price?.high24h || 0)}
-                {" · "}L ${formatPrice(price?.low24h || 0)}
-              </span>
-            </span>
           </div>
         </div>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-2 sm:mt-1.5 ml-1 sm:ml-10 max-w-2xl leading-relaxed opacity-80 hidden sm:block">
+          Algorithmic technical analysis synthesizing trend, momentum, and volatility vectors.
+          Statistically weighted signals for high-precision trade execution.
+        </p>
       </header>
 
       <div className="flex-1 min-h-0 flex flex-col xl:grid xl:grid-cols-5 gap-4 xl:gap-5">

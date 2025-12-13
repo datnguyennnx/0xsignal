@@ -106,7 +106,14 @@ export function TradeSetupCard({ asset, hasInstitutionalHoldings = false }: Trad
           </div>
           <div className="flex items-center justify-between pt-2.5 border-t border-border/40 text-[11px] text-muted-foreground tabular-nums">
             <div className="flex items-center gap-3">
-              <span title="Confidence">C:{entry.confidence}%</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help">S:{entry.confidence}%</span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-[10px] max-w-48">
+                  Signal strength based on indicator alignment
+                </TooltipContent>
+              </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className={cn("cursor-help", getRiskColor(asset.riskScore))}>
