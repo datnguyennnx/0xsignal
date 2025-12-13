@@ -23,6 +23,7 @@ import { cn } from "@/core/utils/cn";
 import { useTheme } from "@/core/providers/theme-provider";
 import { getChartColors, getCandlestickColors, getVolumeColor } from "@/core/utils/colors";
 import { useICTWorker } from "@/core/workers/use-ict-worker";
+import { useWyckoffWorker } from "@/core/workers/use-wyckoff-worker";
 import { Maximize2, Minimize2, RotateCcw, RefreshCcw } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,14 @@ import {
   type ICTVisibility,
   type ICTFeature,
 } from "../ict";
+import {
+  WyckoffButton,
+  WyckoffLegend,
+  useWyckoffOverlay,
+  DEFAULT_WYCKOFF_VISIBILITY,
+  type WyckoffVisibility,
+  type WyckoffFeature,
+} from "../wyckoff";
 
 interface TradingChartProps {
   data: ChartDataPoint[];
@@ -186,7 +195,13 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
   const [ictVisibility, setIctVisibility] = useState<ICTVisibility>(DEFAULT_ICT_VISIBILITY);
   const ictEnabled = Object.values(ictVisibility).some(Boolean);
 
+  const [wyckoffVisibility, setWyckoffVisibility] = useState<WyckoffVisibility>(
+    DEFAULT_WYCKOFF_VISIBILITY
+  );
+  const wyckoffEnabled = Object.values(wyckoffVisibility).some(Boolean);
+
   const { analysis: ictAnalysis } = useICTWorker({ data, enabled: ictEnabled });
+  const { analysis: wyckoffAnalysis } = useWyckoffWorker({ data, enabled: wyckoffEnabled });
 
   const lastTime = useMemo(() => (data.length > 0 ? data[data.length - 1].time : 0), [data]);
 
@@ -199,9 +214,24 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
     lastTime,
   });
 
+  useWyckoffOverlay({
+    chart: chartRef.current,
+    series: candlestickSeriesRef.current,
+    analysis: wyckoffAnalysis,
+    visibility: wyckoffVisibility,
+    isDark,
+    lastTime,
+  });
+
   const handleToggleICT = useCallback((feature: ICTFeature) => {
     startTransition(() => {
       setIctVisibility((prev) => ({ ...prev, [feature]: !prev[feature] }));
+    });
+  }, []);
+
+  const handleToggleWyckoff = useCallback((feature: WyckoffFeature) => {
+    startTransition(() => {
+      setWyckoffVisibility((prev) => ({ ...prev, [feature]: !prev[feature] }));
     });
   }, []);
 
@@ -209,6 +239,7 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
 
   const handleResetAll = useCallback(() => {
     setIctVisibility(DEFAULT_ICT_VISIBILITY);
+    setWyckoffVisibility(DEFAULT_WYCKOFF_VISIBILITY);
     if (chartRef.current) {
       indicatorSeriesRef.current.forEach((value) => {
         value.series.forEach((s) => {
@@ -222,7 +253,7 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
     setActiveIndicators([]);
   }, []);
 
-  const hasActiveOverlays = activeIndicators.length > 0 || ictEnabled;
+  const hasActiveOverlays = activeIndicators.length > 0 || ictEnabled || wyckoffEnabled;
 
   const handleIntervalChange = useCallback(
     (newInterval: string) => {
@@ -587,6 +618,7 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
         </div>
         <div className="flex items-center gap-2">
           <ICTButton visibility={ictVisibility} onToggle={handleToggleICT} />
+          <WyckoffButton visibility={wyckoffVisibility} onToggle={handleToggleWyckoff} />
           <IndicatorButton
             activeIndicators={activeIndicators}
             onAddIndicator={handleAddIndicator}
@@ -649,6 +681,9 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
           {ictEnabled && ictAnalysis && (
             <ICTLegend analysis={ictAnalysis} visibility={ictVisibility} />
           )}
+          {wyckoffEnabled && wyckoffAnalysis && (
+            <WyckoffLegend analysis={wyckoffAnalysis} visibility={wyckoffVisibility} />
+          )}
           {activeIndicators.length > 0 && (
             <IndicatorLegend
               indicators={activeIndicators}
@@ -661,6 +696,7 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
 
       <div className="flex sm:hidden items-center justify-center gap-2 px-2 py-1.5 border-t border-border/50 bg-card">
         <ICTButton visibility={ictVisibility} onToggle={handleToggleICT} />
+        <WyckoffButton visibility={wyckoffVisibility} onToggle={handleToggleWyckoff} />
         <IndicatorButton
           activeIndicators={activeIndicators}
           onAddIndicator={handleAddIndicator}
