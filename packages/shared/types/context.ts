@@ -6,7 +6,6 @@ import type { AccumulationSignal } from "./treasury";
 /** Risk context breakdown */
 export interface RiskContext {
   readonly baseRisk: number;
-  readonly liquidationMultiplier: number;
   readonly treasuryMultiplier: number;
   readonly finalRisk: number;
   readonly riskLevel: "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
@@ -25,20 +24,6 @@ export interface TreasuryContext {
     readonly name: string;
     readonly holdingsUsd: number;
     readonly percentOfSupply: number;
-  }[];
-}
-
-/** Liquidation context */
-export interface LiquidationContext {
-  readonly hasLiquidationData: boolean;
-  readonly nearbyLiquidationRisk: "LOW" | "MEDIUM" | "HIGH";
-  readonly dominantSide: "LONG" | "SHORT" | "BALANCED";
-  readonly liquidationRatio: number;
-  readonly totalLiquidationUsd24h: number;
-  readonly dangerZones: readonly {
-    readonly price: number;
-    readonly volumeUsd: number;
-    readonly side: "LONG" | "SHORT";
   }[];
 }
 
@@ -73,7 +58,6 @@ export interface AssetContext {
 
   /** Cross-domain Context */
   readonly treasury: TreasuryContext | null;
-  readonly liquidation: LiquidationContext | null;
   readonly derivatives: DerivativesContext | null;
 
   /** Unified Recommendation */

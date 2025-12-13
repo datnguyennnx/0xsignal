@@ -11,13 +11,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
 import { GlobalMarketBar } from "@/features/dashboard/components/global-market-bar";
 import { useResponsiveDataCount } from "@/core/hooks/use-responsive-data-count";
+import { DataAgeBadge } from "@/components/data-freshness";
 
 interface DashboardContentProps {
   analyses: AssetAnalysis[];
   globalMarket: GlobalMarketData | null;
+  fetchedAt?: Date;
 }
 
-function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
+function DashboardContent({ analyses, globalMarket, fetchedAt }: DashboardContentProps) {
   const { buySignals, sellSignals, holdSignals, longEntries, shortEntries } =
     useMemoizedAllSignals(analyses);
   const latestTimestamp = analyses[0]?.timestamp;
@@ -53,6 +55,7 @@ function DashboardContent({ analyses, globalMarket }: DashboardContentProps) {
             <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
               Market Overview
             </h1>
+            <DataAgeBadge timestamp={fetchedAt} />
           </div>
           {globalMarket && <GlobalMarketBar data={globalMarket} />}
         </header>
@@ -291,5 +294,11 @@ export function MarketDashboard() {
     );
   }
 
-  return <DashboardContent analyses={data.analyses} globalMarket={data.globalMarket} />;
+  return (
+    <DashboardContent
+      analyses={data.analyses}
+      globalMarket={data.globalMarket}
+      fetchedAt={data.fetchedAt}
+    />
+  );
 }

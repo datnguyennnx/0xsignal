@@ -7,6 +7,7 @@ import { ProtocolDetailPanel } from "@/features/buyback/components/protocol-deta
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
 import { formatCurrency } from "@/core/utils/formatters";
+import { DataAgeBadge } from "@/components/data-freshness";
 
 const fetchBuybackData = () => cachedBuybackOverview();
 
@@ -31,7 +32,7 @@ function StatsBar({ overview }: { overview: BuybackOverview }) {
   );
 }
 
-function BuybackContent({ overview }: { overview: BuybackOverview }) {
+function BuybackContent({ overview, fetchedAt }: { overview: BuybackOverview; fetchedAt?: Date }) {
   const signals = overview.topBuybackProtocols;
   const [selectedSignal, setSelectedSignal] = useState<BuybackSignal | null>(null);
 
@@ -55,6 +56,7 @@ function BuybackContent({ overview }: { overview: BuybackOverview }) {
                   <span className="text-[10px] sm:text-xs bg-secondary px-2 py-0.5 rounded-sm tabular-nums">
                     {overview.totalProtocols}
                   </span>
+                  <DataAgeBadge timestamp={fetchedAt} thresholds={{ fresh: 10, stale: 30 }} />
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-md leading-relaxed">
                   Fee yield relative to market cap. High yield suggests undervalued protocols or
@@ -148,5 +150,5 @@ export function BuybackSignalsPage() {
     );
   }
 
-  return <BuybackContent overview={data} />;
+  return <BuybackContent overview={data} fetchedAt={data.fetchedAt} />;
 }

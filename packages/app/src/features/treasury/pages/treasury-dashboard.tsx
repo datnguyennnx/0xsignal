@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/error-state";
 import { formatCompact } from "@/core/utils/formatters";
 import { cn } from "@/core/utils/cn";
 import { EntityDetailPanel } from "@/features/treasury/components/entity-detail-sheet";
+import { DataAgeBadge } from "@/components/data-freshness";
 
 const fetchTreasuryData = () => cachedTreasuryEntities();
 
@@ -112,10 +113,12 @@ function TreasuryContent({
   entities,
   totalValueUsd,
   entityCount,
+  fetchedAt,
 }: {
   entities: readonly TreasuryEntity[];
   totalValueUsd: number;
   entityCount: number;
+  fetchedAt?: Date;
 }) {
   const [selectedEntity, setSelectedEntity] = useState<TreasuryEntity | null>(null);
 
@@ -132,9 +135,12 @@ function TreasuryContent({
             {/* Header */}
             <header className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-border/40 pb-6">
               <div>
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
-                  Institutional Treasury
-                </h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
+                    Institutional Treasury
+                  </h1>
+                  <DataAgeBadge timestamp={fetchedAt} thresholds={{ fresh: 30, stale: 120 }} />
+                </div>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-md leading-relaxed">
                   Public companies and ETFs holding crypto assets. Analyze institutional adoption
                   and holdings.
@@ -277,6 +283,7 @@ export function TreasuryDashboard() {
       entities={data.entities}
       totalValueUsd={data.totalValueUsd}
       entityCount={data.entityCount}
+      fetchedAt={data.fetchedAt}
     />
   );
 }

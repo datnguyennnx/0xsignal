@@ -5,7 +5,6 @@ import type {
   AssetContext,
   TreasuryContext,
   DerivativesContext,
-  LiquidationContext,
   ContextOptions,
   OpenInterestData,
   FundingRateData,
@@ -148,12 +147,11 @@ export const ContextServiceLive = Layer.effect(
         const derivativesCtx =
           oiData && fundingData ? buildDerivativesContext(oiData, fundingData) : null;
 
-        const riskContext = computeRiskContext(analysisResult.riskScore, null, treasuryCtx);
+        const riskContext = computeRiskContext(analysisResult.riskScore, treasuryCtx);
         const insights = generateInsights(
           analysisResult.overallSignal,
           riskContext,
           treasuryCtx,
-          null,
           derivativesCtx
         );
 
@@ -171,7 +169,6 @@ export const ContextServiceLive = Layer.effect(
           noise: analysisResult.noise,
           riskContext,
           treasury: treasuryCtx,
-          liquidation: null,
           derivatives: derivativesCtx,
           recommendation: analysisResult.recommendation,
           actionableInsights: insights,

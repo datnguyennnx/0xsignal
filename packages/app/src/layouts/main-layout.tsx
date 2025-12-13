@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { TrendingUp, Coins, Layers, RefreshCw, Landmark } from "lucide-react";
 import { invalidateAll } from "@/core/cache/effect-cache";
 import { Effect } from "effect";
 import { AppLayer } from "@/core/runtime/effect-runtime";
-import { DataFreshness } from "@/components/data-freshness";
+import { FreshnessProvider, useFreshness } from "@/core/cache/freshness-context";
 
 interface LayoutProps {
   children: ReactNode;
@@ -20,9 +20,25 @@ const NAV_ITEMS = [
   { path: "/market-depth", label: "Structure", icon: Layers },
 ] as const;
 
-export function Layout({ children }: LayoutProps) {
+/** Format time ago as simple text */
+const formatTimeAgo = (date: Date): string => {
+  const now = Date.now();
+  const diff = now - date.getTime();
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (seconds < 60) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return date.toLocaleDateString();
+};
+
+function LayoutInner({ children }: LayoutProps) {
   const location = useLocation();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { getLatestFetch } = useFreshness();
+  const [timeAgo, setTimeAgo] = useState<string>("");
 
   const handleRefreshCache = async () => {
     setIsRefreshing(true);
@@ -33,6 +49,17 @@ export function Layout({ children }: LayoutProps) {
       setIsRefreshing(false);
     }
   };
+
+  // Update time ago every 30 seconds
+  useEffect(() => {
+    const update = () => {
+      const latestFetch = getLatestFetch();
+      setTimeAgo(latestFetch ? formatTimeAgo(latestFetch) : "—");
+    };
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, [getLatestFetch]);
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
@@ -109,10 +136,9 @@ export function Layout({ children }: LayoutProps) {
               <p className="text-muted-foreground">Not financial advice</p>
             </div>
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <p>Validation check:</p>
-                <DataFreshness timestamp={new Date()} className="text-foreground/80" />
-              </div>
+              <p className="tabular-nums">
+                Last update: <span className="text-foreground/80">{timeAgo}</span>
+              </p>
               <p>Data: CoinGecko · DefiLlama · Binance</p>
             </div>
           </div>
@@ -181,5 +207,13 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </nav>
     </div>
+  );
+}
+
+export function Layout({ children }: LayoutProps) {
+  return (
+    <FreshnessProvider>
+      <LayoutInner>{children}</LayoutInner>
+    </FreshnessProvider>
   );
 }

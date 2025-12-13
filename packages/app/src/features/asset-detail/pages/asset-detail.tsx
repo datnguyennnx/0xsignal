@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { AssetAnalysis, AssetContext } from "@0xsignal/shared";
 import { cachedAnalysis, cachedChartData, cachedContext } from "@/core/cache/effect-cache";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
+import { useFreshness } from "@/core/cache/freshness-context";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart }))
@@ -32,7 +33,7 @@ const INTERVAL_TIMEFRAMES: Record<string, string> = {
 };
 
 interface AssetContentProps {
-  asset: AssetAnalysis;
+  asset: AssetAnalysis & { fetchedAt?: Date };
   context: AssetContext | null;
   symbol: string;
   chartData: any[] | null;
@@ -54,6 +55,12 @@ function AssetContent({
   const chartSymbol = symbol.toUpperCase();
   const price = asset.price;
   const change24h = price?.change24h || 0;
+  const { recordFetch } = useFreshness();
+
+  // Record fetch time for footer display
+  useEffect(() => {
+    if (asset.fetchedAt) recordFetch("asset");
+  }, [asset.fetchedAt, recordFetch]);
 
   return (
     <div className="container-fluid h-full overflow-y-auto flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-2 duration-500 ease-premium">

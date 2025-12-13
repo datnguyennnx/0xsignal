@@ -84,9 +84,9 @@ export function UnifiedSignalCard({ analysis, context, className }: UnifiedSigna
         </div>
 
         {/* Entry Price */}
-        <div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-5xl sm:text-6xl lg:text-7xl font-mono font-medium tracking-tighter text-foreground tabular-nums">
+        <div className="min-w-0 overflow-hidden">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-3xl sm:text-4xl lg:text-5xl font-mono font-medium tracking-tighter text-foreground tabular-nums break-all">
               {formatCurrency(entryPrice)}
             </span>
             <span className="text-sm sm:text-base text-muted-foreground font-medium">USD</span>

@@ -158,7 +158,10 @@ export const cachedTopAnalysis = (limit = 20) =>
   CacheServiceTag.pipe(Effect.flatMap((c) => c.topAnalysis.get(limit)));
 
 export const cachedAnalysis = (symbol: string) =>
-  CacheServiceTag.pipe(Effect.flatMap((c) => c.analysis.get(symbol)));
+  CacheServiceTag.pipe(
+    Effect.flatMap((c) => c.analysis.get(symbol)),
+    Effect.map((data) => ({ ...data, fetchedAt: new Date() }))
+  );
 
 export const cachedChartData = (symbol: string, interval: string, timeframe: string) =>
   CacheServiceTag.pipe(
@@ -172,7 +175,10 @@ export const cachedHeatmap = (limit = 100) =>
   CacheServiceTag.pipe(Effect.flatMap((c) => c.heatmap.get(limit)));
 
 export const cachedBuybackOverview = () =>
-  CacheServiceTag.pipe(Effect.flatMap((c) => c.buybackOverview.get("overview")));
+  CacheServiceTag.pipe(
+    Effect.flatMap((c) => c.buybackOverview.get("overview")),
+    Effect.map((data) => ({ ...data, fetchedAt: new Date() }))
+  );
 
 export const cachedBuybackDetail = (protocol: string) =>
   CacheServiceTag.pipe(Effect.flatMap((c) => c.buybackDetail.get(protocol)));
@@ -187,7 +193,10 @@ export const cachedGlobalMarket = () =>
   CacheServiceTag.pipe(Effect.flatMap((c) => c.globalMarket.get("global")));
 
 export const cachedTreasuryEntities = () =>
-  CacheServiceTag.pipe(Effect.flatMap((c) => c.treasuryEntities.get("entities")));
+  CacheServiceTag.pipe(
+    Effect.flatMap((c) => c.treasuryEntities.get("entities")),
+    Effect.map((data) => ({ ...data, fetchedAt: new Date() }))
+  );
 
 export const cachedTreasuryHoldings = (coinId: string) =>
   CacheServiceTag.pipe(Effect.flatMap((c) => c.treasuryHoldings.get(coinId)));
@@ -209,6 +218,11 @@ export const cachedDashboardData = (analysisLimit = 100) =>
       ),
     },
     { concurrency: "unbounded" }
+  ).pipe(
+    Effect.map((data) => ({
+      ...data,
+      fetchedAt: new Date(),
+    }))
   );
 
 export const cachedMarketDepthData = (symbol: string) =>
@@ -218,6 +232,11 @@ export const cachedMarketDepthData = (symbol: string) =>
       fundingRate: cachedFundingRate(symbol),
     },
     { concurrency: "unbounded" }
+  ).pipe(
+    Effect.map((data) => ({
+      ...data,
+      fetchedAt: new Date(),
+    }))
   );
 
 export const cachedMultipleAnalyses = (symbols: readonly string[]) =>
