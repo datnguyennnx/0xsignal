@@ -1,8 +1,6 @@
 import { useState, useCallback, memo, useRef, useEffect } from "react";
-import { TrendingUp } from "lucide-react";
 import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import type { ICTVisibility, ICTFeature } from "../types";
 import { ICTControls } from "./ict-controls";
 
@@ -49,20 +47,14 @@ export const ICTButton = memo(function ICTButton({
         variant={isOpen ? "default" : "outline"}
         size="sm"
         onClick={handleToggle}
-        className="gap-1.5 px-2 sm:px-3"
+        className={cn(
+          "gap-1.5 text-xs font-medium",
+          activeCount > 0 && !isOpen && "border-primary/50 bg-primary/5"
+        )}
       >
-        <TrendingUp className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">ICT</span>
+        <span>ICT</span>
         {activeCount > 0 && (
-          <Badge
-            variant={isOpen ? "secondary" : "default"}
-            className={cn(
-              "px-1 sm:px-1.5 py-0 text-[10px] h-4 min-w-[16px]",
-              isOpen && "bg-primary-foreground/20"
-            )}
-          >
-            {activeCount}
-          </Badge>
+          <span className="text-[10px] text-muted-foreground">{activeCount}</span>
         )}
       </Button>
       <ICTControls
