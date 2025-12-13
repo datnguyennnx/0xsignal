@@ -45,7 +45,7 @@ const entitiesCache = Cache.make({
               coinSymbol: coinId === "bitcoin" ? "BTC" : "ETH",
               holders: summary.topHolders,
             })),
-            Effect.timeout(Duration.seconds(2)),
+            Effect.timeout(Duration.seconds(15)),
             Effect.catchAll(() => Effect.succeed(null))
           ),
         { concurrency: 2 }
@@ -117,7 +117,7 @@ const emptyResponse: TreasuryEntitiesResponse = {
 export const treasuryEntitiesRoute = () =>
   Effect.flatMap(entitiesCache, (cache) =>
     cache.get("all").pipe(
-      Effect.timeout(Duration.millis(500)),
+      Effect.timeout(Duration.seconds(30)),
       Effect.catchAll(() => Effect.succeed(emptyResponse))
     )
   );

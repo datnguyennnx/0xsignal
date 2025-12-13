@@ -4,11 +4,11 @@ import { cachedBuybackDetail } from "@/core/cache/effect-cache";
 import { useEffectQuery } from "@/core/runtime/use-effect-query";
 import { RevenueChart } from "./revenue-chart";
 import { cn } from "@/core/utils/cn";
-import { formatCurrency } from "@/core/utils/formatters";
+import { formatCurrency, formatCompact } from "@/core/utils/formatters";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface ProtocolDetailPanelProps {
   readonly signal: BuybackSignal | null;
@@ -51,6 +51,50 @@ function StatRow({
   );
 }
 
+function TrendBadge({ value }: { value: number | null }) {
+  if (value === null) return null;
+  const isPositive = value > 0;
+  const Icon = value > 0 ? TrendingUp : value < 0 ? TrendingDown : Minus;
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono",
+        isPositive ? "bg-gain/10 text-gain" : value < 0 ? "bg-loss/10 text-loss" : "bg-muted"
+      )}
+    >
+      <Icon className="h-3 w-3" />
+      <span>
+        {isPositive ? "+" : ""}
+        {value.toFixed(1)}% 30d
+      </span>
+    </div>
+  );
+}
+
+function YieldContext({ current, average1y }: { current: number; average1y: number | null }) {
+  if (!average1y || average1y <= 0) return null;
+  const ratio = current / average1y;
+  const label =
+    ratio >= 1.5
+      ? "Well Above Average"
+      : ratio >= 1.1
+        ? "Above Average"
+        : ratio >= 0.9
+          ? "Near Average"
+          : ratio >= 0.5
+            ? "Below Average"
+            : "Well Below Average";
+  const variant = ratio >= 1.1 ? "gain" : ratio < 0.9 ? "loss" : "default";
+  return (
+    <div className="text-[10px] font-mono text-muted-foreground">
+      <span className={cn(variant === "gain" && "text-gain", variant === "loss" && "text-loss")}>
+        {label}
+      </span>
+      <span className="opacity-60"> vs 1Y avg ({formatCompact(average1y)}/day)</span>
+    </div>
+  );
+}
+
 function DetailContent({ protocol }: { protocol: string }) {
   const {
     data: detail,
@@ -82,12 +126,14 @@ function DetailContent({ protocol }: { protocol: string }) {
 
   const yieldRate = detail.signal.annualizedBuybackRate;
   const growth = detail.signal.revenueGrowth7d ?? 0;
+  const change30d = detail.signal.change30d;
+  const average1y = detail.signal.average1y;
 
   return (
     <div className="space-y-10 animate-in fade-in duration-300">
       {/* Header Info */}
       <div className="space-y-4">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {detail.signal.chains.map((chain) => (
             <Badge
               key={chain}
@@ -97,22 +143,26 @@ function DetailContent({ protocol }: { protocol: string }) {
               {chain}
             </Badge>
           ))}
+          <TrendBadge value={change30d} />
         </div>
         {detail.revenueSource && (
-          <h3 className="text-sm font-medium text-muted-foreground leading-relaxed">
+          <p className="text-sm font-medium text-muted-foreground leading-relaxed">
             {detail.revenueSource}
-          </h3>
+          </p>
         )}
       </div>
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-2 gap-y-8 gap-x-4">
         <StatRow label="Daily Rev" value={formatCurrency(detail.signal.revenue24h)} />
-        <StatRow
-          label="Yield"
-          value={`${yieldRate.toFixed(2)}%`}
-          variant={yieldRate >= 10 ? "gain" : "default"}
-        />
+        <div className="space-y-1">
+          <StatRow
+            label="Yield"
+            value={`${yieldRate.toFixed(2)}%`}
+            variant={yieldRate >= 10 ? "gain" : "default"}
+          />
+          <YieldContext current={yieldRate} average1y={average1y} />
+        </div>
         <StatRow
           label="Market Cap"
           value={formatCurrency(detail.signal.marketCap)}

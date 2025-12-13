@@ -74,6 +74,8 @@ export const createBuybackSignal = (
     annualizedRevenue: annualizedRev,
     impliedPE: safeDivide(marketCap, annualizedRev),
     revenueGrowth7d: safeDivide(protocol.revenue24h - avgDaily7d, avgDaily7d) * 100,
+    average1y: protocol.average1y,
+    change30d: protocol.change30d,
   };
 };
 

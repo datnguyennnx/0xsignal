@@ -1,12 +1,10 @@
 import { useState, useMemo } from "react";
 import type { BuybackSignal, BuybackStrength } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
-import { formatCurrency, formatCompact } from "@/core/utils/formatters";
+import { formatCompact } from "@/core/utils/formatters";
 import { CryptoIcon } from "@/components/crypto-icon";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, TrendingUp, TrendingDown } from "lucide-react";
 
 interface BuybackListProps {
   readonly signals: readonly BuybackSignal[];
@@ -39,6 +37,7 @@ function ProtocolCard({
 }) {
   const growth = signal.revenueGrowth7d ?? 0;
   const yieldRate = signal.annualizedBuybackRate;
+  const change30d = signal.change30d;
 
   return (
     <div
@@ -57,9 +56,26 @@ function ProtocolCard({
             <span className="font-bold text-base sm:text-lg tracking-tight font-mono leading-none">
               {signal.symbol.toUpperCase()}
             </span>
-            <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-widest opacity-70">
-              {signal.category}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-widest opacity-70">
+                {signal.category}
+              </span>
+              {change30d !== null && change30d !== 0 && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-0.5 text-[9px] font-mono",
+                    change30d > 0 ? "text-gain" : "text-loss"
+                  )}
+                >
+                  {change30d > 0 ? (
+                    <TrendingUp className="h-2.5 w-2.5" />
+                  ) : (
+                    <TrendingDown className="h-2.5 w-2.5" />
+                  )}
+                  {Math.abs(change30d).toFixed(0)}%
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="text-right flex flex-col items-end gap-0.5">
@@ -77,7 +93,6 @@ function ProtocolCard({
         </div>
       </div>
 
-      {/* Stats - No borders, just alignment */}
       <div className="grid grid-cols-3 gap-4 pt-2">
         <div className="flex flex-col gap-1">
           <span className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-wider opacity-60">

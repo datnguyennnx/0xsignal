@@ -25,6 +25,9 @@ export interface ProtocolBuyback {
   readonly fees24h: number;
   readonly fees7d: number;
   readonly fees30d: number;
+  readonly average1y: number | null; // historical daily average
+  readonly total1y: number | null; // yearly total fees
+  readonly change30d: number | null; // 30d vs prior 30d trend %
   readonly chains: readonly string[];
   readonly category: string;
   readonly logo: string | null;
@@ -54,10 +57,13 @@ export interface BuybackSignal {
   readonly signal: BuybackStrength;
   readonly timestamp: Date;
   // Quant metrics
-  readonly revenueToMcap: number; // Revenue/MarketCap ratio (like inverse P/S)
-  readonly annualizedRevenue: number; // Projected annual revenue
-  readonly impliedPE: number; // MarketCap / AnnualizedRevenue (like P/E)
-  readonly revenueGrowth7d: number; // 7d vs 24h revenue growth rate
+  readonly revenueToMcap: number;
+  readonly annualizedRevenue: number;
+  readonly impliedPE: number;
+  readonly revenueGrowth7d: number;
+  // Historical benchmarks
+  readonly average1y: number | null;
+  readonly change30d: number | null;
 }
 
 /**

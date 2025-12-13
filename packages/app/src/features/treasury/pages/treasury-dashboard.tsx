@@ -166,9 +166,13 @@ function TreasuryContent({
               </div>
 
               {entities.length === 0 ? (
-                <div className="py-24 text-center border-2 border-dashed border-border/40 rounded-xl bg-muted/10">
-                  <p className="text-sm text-muted-foreground font-mono">
-                    NO TREASURY DATA AVAILABLE
+                <div className="py-16 text-center border-2 border-dashed border-border/40 rounded-xl bg-muted/10">
+                  <p className="text-sm text-muted-foreground font-mono mb-2">
+                    NO INSTITUTIONAL HOLDINGS DATA
+                  </p>
+                  <p className="text-xs text-muted-foreground/60 max-w-xs mx-auto leading-relaxed">
+                    Public company treasury data is limited to BTC and ETH holdings reported by
+                    publicly traded entities.
                   </p>
                 </div>
               ) : (
