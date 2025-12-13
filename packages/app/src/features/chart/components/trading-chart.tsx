@@ -192,6 +192,7 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
 
   useICTOverlay({
     chart: chartRef.current,
+    series: candlestickSeriesRef.current,
     analysis: ictAnalysis,
     visibility: ictVisibility,
     isDark,
