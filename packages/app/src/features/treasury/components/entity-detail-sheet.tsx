@@ -46,7 +46,7 @@ export function EntityDetailPanel({ entity, onClose }: EntityDetailPanelProps) {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 pb-48 lg:pb-12 space-y-8">
+      <div className="flex-1 overflow-y-auto px-6 pb-24 lg:pb-8 space-y-6">
         {/* Key Metrics Row */}
         <div className="grid grid-cols-2 gap-4 pt-4">
           <div className="flex flex-col gap-1">
@@ -80,15 +80,17 @@ export function EntityDetailPanel({ entity, onClose }: EntityDetailPanelProps) {
           </div>
         </div>
 
-        {/* Portfolio Breakdown */}
-        <div className="space-y-4">
-          <span className="text-[10px] sm:text-xs font-mono text-muted-foreground uppercase tracking-widest opacity-50 px-1">
-            Portfolio Allocation
-          </span>
-          <div className="-ml-2 -mr-2">
-            <PieChart holdings={entity.holdings} />
+        {/* Portfolio Breakdown - Only show pie chart for multiple holdings */}
+        {entity.holdings.length > 1 && (
+          <div className="space-y-3">
+            <span className="text-[10px] sm:text-xs font-mono text-muted-foreground uppercase tracking-widest opacity-50 px-1">
+              Portfolio Allocation
+            </span>
+            <div className="-ml-2 -mr-2">
+              <PieChart holdings={entity.holdings} />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Holdings List - Clean table-like */}
         <div className="space-y-4 pt-4 border-t border-border/10">

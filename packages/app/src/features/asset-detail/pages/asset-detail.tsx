@@ -77,7 +77,7 @@ function AssetContent({
   }, [asset.fetchedAt, recordFetch]);
 
   return (
-    <div className="container-fluid h-full overflow-y-auto flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-2 duration-500 ease-premium">
+    <div className="container-fluid h-full overflow-y-auto flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium">
       <header className="mb-5 sm:mb-6">
         <div className="flex items-center gap-3">
           <Button

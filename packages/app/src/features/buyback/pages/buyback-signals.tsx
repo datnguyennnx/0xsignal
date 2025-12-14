@@ -41,7 +41,7 @@ function BuybackContent({ overview, fetchedAt }: { overview: BuybackOverview; fe
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 ease-premium w-full h-full overflow-hidden">
+    <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium w-full h-full overflow-hidden">
       <div className="flex flex-col lg:flex-row items-start h-full">
         {/* Left Column: List (Scrollable) */}
         <div className="flex-1 min-w-0 w-full h-full overflow-y-auto">

@@ -7,6 +7,7 @@ import type { WyckoffVisibility, WyckoffFeature } from "../types";
 interface WyckoffButtonProps {
   visibility: WyckoffVisibility;
   onToggle: (feature: WyckoffFeature) => void;
+  isLoading?: boolean;
   className?: string;
 }
 
@@ -53,6 +54,7 @@ const FEATURES: FeatureConfig[] = [
 export const WyckoffButton = memo(function WyckoffButton({
   visibility,
   onToggle,
+  isLoading = false,
   className,
 }: WyckoffButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -87,8 +89,9 @@ export const WyckoffButton = memo(function WyckoffButton({
         size="sm"
         onClick={handleToggle}
         className={cn(
-          "gap-1.5 text-xs font-medium",
-          activeCount > 0 && !isOpen && "border-primary/50 bg-primary/5"
+          "gap-1.5 text-xs font-medium min-h-11 sm:min-h-8 tap-highlight",
+          activeCount > 0 && !isOpen && "border-primary/50 bg-primary/5",
+          isLoading && "computing-pulse"
         )}
       >
         <span>Wyckoff</span>
@@ -112,7 +115,7 @@ export const WyckoffButton = memo(function WyckoffButton({
                 key={feature.id}
                 onClick={() => onToggle(feature.id)}
                 className={cn(
-                  "flex items-center justify-between w-full py-2 px-3 rounded transition-colors",
+                  "interactive-toggle flex items-center justify-between w-full py-2 px-3 rounded-md transition-all duration-200",
                   visibility[feature.id] ? "bg-primary/10" : "hover:bg-muted/50"
                 )}
               >
@@ -125,7 +128,7 @@ export const WyckoffButton = memo(function WyckoffButton({
                 </div>
                 <div
                   className={cn(
-                    "w-4 h-4 rounded border flex items-center justify-center shrink-0",
+                    "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
                     visibility[feature.id]
                       ? "bg-primary border-primary"
                       : "border-muted-foreground/50"

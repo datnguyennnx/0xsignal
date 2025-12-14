@@ -44,7 +44,7 @@ export function MarketDepthPage() {
   }, [heatmapData]);
 
   return (
-    <div className="h-full flex flex-col container-fluid py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-2 duration-500 ease-premium">
+    <div className="h-full flex flex-col container-fluid py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0 mb-3 sm:mb-4 shrink-0">
         <div>
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-mono font-bold tracking-tight uppercase">

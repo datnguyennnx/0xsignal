@@ -200,8 +200,14 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
   );
   const wyckoffEnabled = Object.values(wyckoffVisibility).some(Boolean);
 
-  const { analysis: ictAnalysis } = useICTWorker({ data, enabled: ictEnabled });
-  const { analysis: wyckoffAnalysis } = useWyckoffWorker({ data, enabled: wyckoffEnabled });
+  const { analysis: ictAnalysis, isLoading: ictLoading } = useICTWorker({
+    data,
+    enabled: ictEnabled,
+  });
+  const { analysis: wyckoffAnalysis, isLoading: wyckoffLoading } = useWyckoffWorker({
+    data,
+    enabled: wyckoffEnabled,
+  });
 
   const lastTime = useMemo(() => (data.length > 0 ? data[data.length - 1].time : 0), [data]);
 
@@ -617,8 +623,12 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
           )}
         </div>
         <div className="flex items-center gap-2">
-          <ICTButton visibility={ictVisibility} onToggle={handleToggleICT} />
-          <WyckoffButton visibility={wyckoffVisibility} onToggle={handleToggleWyckoff} />
+          <ICTButton visibility={ictVisibility} onToggle={handleToggleICT} isLoading={ictLoading} />
+          <WyckoffButton
+            visibility={wyckoffVisibility}
+            onToggle={handleToggleWyckoff}
+            isLoading={wyckoffLoading}
+          />
           <IndicatorButton
             activeIndicators={activeIndicators}
             onAddIndicator={handleAddIndicator}
@@ -694,26 +704,33 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
         </div>
       </div>
 
-      <div className="flex sm:hidden items-center justify-center gap-2 px-2 py-1.5 border-t border-border/50 bg-card">
-        <ICTButton visibility={ictVisibility} onToggle={handleToggleICT} />
-        <WyckoffButton visibility={wyckoffVisibility} onToggle={handleToggleWyckoff} />
-        <IndicatorButton
-          activeIndicators={activeIndicators}
-          onAddIndicator={handleAddIndicator}
-          onRemoveIndicator={handleRemoveIndicator}
-          onToggleIndicator={handleToggleIndicator}
-        />
-        {hasActiveOverlays && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleResetAll}
-            className="px-2 text-muted-foreground"
-          >
-            <RefreshCcw className="w-3.5 h-3.5" />
-          </Button>
-        )}
-      </div>
+      {/* Mobile controls - only show in fullscreen mode */}
+      {isFullscreen && (
+        <div className="flex sm:hidden items-center justify-center gap-2 px-2 py-1.5 border-t border-border/50 bg-card">
+          <ICTButton visibility={ictVisibility} onToggle={handleToggleICT} isLoading={ictLoading} />
+          <WyckoffButton
+            visibility={wyckoffVisibility}
+            onToggle={handleToggleWyckoff}
+            isLoading={wyckoffLoading}
+          />
+          <IndicatorButton
+            activeIndicators={activeIndicators}
+            onAddIndicator={handleAddIndicator}
+            onRemoveIndicator={handleRemoveIndicator}
+            onToggleIndicator={handleToggleIndicator}
+          />
+          {hasActiveOverlays && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetAll}
+              className="px-2 text-muted-foreground"
+            >
+              <RefreshCcw className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
 
       {showOrientationWarning && (
         <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center z-99998 p-6">

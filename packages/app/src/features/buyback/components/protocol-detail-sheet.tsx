@@ -232,7 +232,7 @@ export const ProtocolDetailPanel = memo(function ProtocolDetailPanel({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 pb-32 lg:pb-12 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-6 pb-24 lg:pb-8">
         <DetailContent protocol={protocolSlug} />
       </div>
     </aside>

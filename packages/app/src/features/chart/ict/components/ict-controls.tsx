@@ -80,7 +80,7 @@ export const ICTControls = memo(function ICTControls({
             key={feature.id}
             onClick={() => onToggle(feature.id)}
             className={cn(
-              "flex items-center justify-between w-full py-2 px-3 rounded transition-colors",
+              "interactive-toggle flex items-center justify-between w-full py-2 px-3 rounded-md transition-all duration-200",
               visibility[feature.id] ? "bg-primary/10" : "hover:bg-muted/50"
             )}
           >
@@ -93,7 +93,7 @@ export const ICTControls = memo(function ICTControls({
             </div>
             <div
               className={cn(
-                "w-4 h-4 rounded border flex items-center justify-center shrink-0",
+                "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
                 visibility[feature.id] ? "bg-primary border-primary" : "border-muted-foreground/50"
               )}
             >

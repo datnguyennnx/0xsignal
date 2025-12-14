@@ -18,7 +18,7 @@ export function HoldCard({ signal }: HoldCardProps) {
       variant="outline"
       size="sm"
       onClick={() => navigate(`/asset/${signal.symbol.toLowerCase()}`)}
-      className="h-7 px-2.5 gap-1.5 rounded-full"
+      className="h-7 sm:h-7 min-h-11 sm:min-h-7 px-2.5 gap-1.5 rounded-full tap-highlight"
     >
       <CryptoIcon symbol={signal.symbol} image={signal.price?.image} size={14} />
       <span className="font-mono text-xs">{signal.symbol.toUpperCase()}</span>

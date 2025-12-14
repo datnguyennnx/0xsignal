@@ -7,12 +7,14 @@ import { ICTControls } from "./ict-controls";
 interface ICTButtonProps {
   visibility: ICTVisibility;
   onToggle: (feature: ICTFeature) => void;
+  isLoading?: boolean;
   className?: string;
 }
 
 export const ICTButton = memo(function ICTButton({
   visibility,
   onToggle,
+  isLoading = false,
   className,
 }: ICTButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -48,8 +50,9 @@ export const ICTButton = memo(function ICTButton({
         size="sm"
         onClick={handleToggle}
         className={cn(
-          "gap-1.5 text-xs font-medium",
-          activeCount > 0 && !isOpen && "border-primary/50 bg-primary/5"
+          "gap-1.5 text-xs font-medium min-h-11 sm:min-h-8 tap-highlight",
+          activeCount > 0 && !isOpen && "border-primary/50 bg-primary/5",
+          isLoading && "computing-pulse"
         )}
       >
         <span>ICT</span>

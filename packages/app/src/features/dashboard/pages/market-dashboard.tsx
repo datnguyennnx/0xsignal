@@ -56,7 +56,7 @@ function DashboardContent({ analyses, globalMarket, fetchedAt }: DashboardConten
   const tradeSetups = [...longEntries, ...shortEntries].slice(0, tradeSetupsCount);
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 ease-premium h-full overflow-y-auto">
+    <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium h-full overflow-y-auto">
       <div className="container-fluid py-4 sm:py-6">
         {/* Header - Stacked on mobile, inline on tablet+ */}
         {/* Header - Stacked on mobile, inline on tablet+ */}

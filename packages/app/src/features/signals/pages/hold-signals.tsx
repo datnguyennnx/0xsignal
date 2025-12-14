@@ -18,7 +18,7 @@ export function AllHoldSignals() {
   const highNoiseCount = holdSignals.filter((s) => (s.noise?.value ?? 0) > 60).length;
 
   return (
-    <div className="container-fluid space-y-5 py-4 sm:py-6">
+    <div className="container-fluid h-full overflow-y-auto space-y-5 py-4 sm:py-6">
       <header>
         <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-muted-foreground">
           Neutral Positions

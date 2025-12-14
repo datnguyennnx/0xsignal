@@ -18,7 +18,7 @@ export function AllBuySignals() {
   const strongCount = buySignals.filter((s) => s.overallSignal === "STRONG_BUY").length;
 
   return (
-    <div className="container-fluid space-y-5 py-4 sm:py-6">
+    <div className="container-fluid h-full overflow-y-auto space-y-5 py-4 sm:py-6">
       <header>
         <h1 className="text-lg sm:text-xl font-semibold tracking-tight">Long Positions</h1>
         <p className="text-xs text-muted-foreground mt-1">

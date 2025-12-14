@@ -15,7 +15,7 @@ interface UseWyckoffWorkerProps {
 
 interface UseWyckoffWorkerResult {
   analysis: WyckoffAnalysisResult | null;
-  loading: boolean;
+  isLoading: boolean;
   error: string | null;
 }
 
@@ -25,7 +25,7 @@ export function useWyckoffWorker({
   config,
 }: UseWyckoffWorkerProps): UseWyckoffWorkerResult {
   const [analysis, setAnalysis] = useState<WyckoffAnalysisResult | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const workerRef = useRef<Worker | null>(null);
@@ -43,7 +43,7 @@ export function useWyckoffWorker({
 
       if (parseInt(id, 10) !== requestIdRef.current) return;
 
-      setLoading(false);
+      setIsLoading(false);
 
       if (workerError) {
         setError(workerError);
@@ -55,7 +55,7 @@ export function useWyckoffWorker({
     };
 
     workerRef.current.onerror = (err) => {
-      setLoading(false);
+      setIsLoading(false);
       setError(err.message);
     };
 
@@ -71,7 +71,7 @@ export function useWyckoffWorker({
     requestIdRef.current += 1;
     const id = String(requestIdRef.current);
 
-    setLoading(true);
+    setIsLoading(true);
     setError(null);
 
     const request: WyckoffWorkerRequest = {
@@ -99,5 +99,5 @@ export function useWyckoffWorker({
     }
   }, [enabled]);
 
-  return { analysis, loading, error };
+  return { analysis, isLoading, error };
 }

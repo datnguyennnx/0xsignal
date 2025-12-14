@@ -503,12 +503,39 @@
   }
 
   .tap-highlight:active {
-    opacity: 0.85;
-    transition: opacity 0.1s ease-out;
+    opacity: 0.88;
+    transform: scale(0.98);
+    transition: all 0.1s ease-out;
+  }
+
+  /* ===== FOCUS RING UTILITIES ===== */
+  .focus-ring {
+    outline: none;
+  }
+
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Interactive toggle buttons in dropdowns */
+  .interactive-toggle {
+    outline: none;
+    transition: all 0.2s ease;
+  }
+
+  .interactive-toggle:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+    border-radius: var(--radius-sm);
+  }
+
+  .interactive-toggle:hover {
+    background-color: var(--muted);
   }
 
   /* ===== RESPONSIVE VISIBILITY ===== */
-  /* Show only on mobile */
   .mobile-only {
     display: block;
   }
@@ -519,7 +546,6 @@
     }
   }
 
-  /* Hide on mobile, show on tablet+ */
   .tablet-up {
     display: none;
   }
@@ -530,7 +556,6 @@
     }
   }
 
-  /* Hide below desktop */
   .desktop-up {
     display: none;
   }
@@ -542,7 +567,6 @@
   }
 
   /* ===== RESPONSIVE GRID GAPS ===== */
-  /* Smaller gaps on mobile, larger on desktop */
   .gap-responsive {
     gap: 0.5rem;
   }
@@ -557,5 +581,57 @@
     .gap-responsive {
       gap: 1rem;
     }
+  }
+
+  /* ===== LOADING STATES ===== */
+  .loading-shimmer {
+    background: linear-gradient(90deg, var(--muted) 0%, var(--secondary) 50%, var(--muted) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* Subtle pulse for active computing */
+  .computing-pulse {
+    animation: computing 1.2s ease-in-out infinite;
+  }
+
+  @keyframes computing {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+}
+
+/* ===== REDUCED MOTION SUPPORT ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .loading-shimmer {
+    animation: none;
+    background: var(--muted);
+  }
+
+  .computing-pulse {
+    animation: none;
   }
 }
