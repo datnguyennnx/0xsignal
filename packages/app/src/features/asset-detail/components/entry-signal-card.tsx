@@ -1,21 +1,15 @@
-/**
- * Trade Setup Card - Minimalist design
- * Consistent 2-col mobile → 3-col desktop
- * Uses Card component with softer rounded corners
- */
-
 import type { EntrySignal } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { formatPrice } from "@/core/utils/formatters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-interface TradeSetupCardProps {
+interface EntrySignalCardProps {
   entry: EntrySignal;
   className?: string;
 }
 
-export function TradeSetupCard({ entry, className }: TradeSetupCardProps) {
+export function EntrySignalCard({ entry, className }: EntrySignalCardProps) {
   const isLong = entry.direction === "LONG";
   const directionColor = isLong ? "text-gain" : "text-loss";
 

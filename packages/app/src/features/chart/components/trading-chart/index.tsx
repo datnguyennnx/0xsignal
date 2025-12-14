@@ -10,39 +10,43 @@ import {
   type Time,
 } from "lightweight-charts";
 import type { ChartDataPoint, ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
-import {
-  calculateLineIndicator,
-  calculateBandIndicator,
-  isBandIndicator,
-  getIndicatorColor,
-  MULTI_INSTANCE_INDICATORS,
-} from "@0xsignal/shared";
-import { IndicatorButton } from "./indicator-button";
-import { IndicatorLegend } from "./indicator-legend";
-import { cn } from "@/core/utils/cn";
+import { getIndicatorColor, MULTI_INSTANCE_INDICATORS } from "@0xsignal/shared";
 import { useTheme } from "@/core/providers/theme-provider";
-import { getChartColors, getCandlestickColors, getVolumeColor } from "@/core/utils/colors";
-import { useICTWorker } from "@/core/workers/use-ict-worker";
-import { useWyckoffWorker } from "@/core/workers/use-wyckoff-worker";
-import { Maximize2, Minimize2, RotateCcw, RefreshCcw } from "lucide-react";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
+import { getChartColors, getCandlestickColors } from "@/core/utils/colors";
+
 import {
-  ICTButton,
-  ICTLegend,
   useICTOverlay,
+  useICTWorker,
   DEFAULT_ICT_VISIBILITY,
   type ICTVisibility,
   type ICTFeature,
-} from "../ict";
+} from "../../ict";
 import {
-  WyckoffButton,
-  WyckoffLegend,
   useWyckoffOverlay,
+  useWyckoffWorker,
   DEFAULT_WYCKOFF_VISIBILITY,
   type WyckoffVisibility,
   type WyckoffFeature,
-} from "../wyckoff";
+} from "../../wyckoff";
+
+import {
+  VOLUME_PANE_HEIGHT,
+  INDICATOR_PANE_HEIGHT,
+  RESIZE_DELAY,
+  INTERVAL_RESTORE_DELAY,
+} from "./constants";
+import {
+  usePriceFormat,
+  useCandlestickData,
+  useVolumeData,
+  useIndicatorData,
+  useOrientationWarning,
+} from "./hooks";
+import { ChartHeader } from "./chart-header";
+import { ChartHeaderMobile } from "./chart-header-mobile";
+import { ChartControls } from "./chart-controls";
+import { ChartOverlays } from "./chart-overlays";
+import { OrientationWarning } from "./orientation-warning";
 
 interface TradingChartProps {
   data: ChartDataPoint[];
@@ -51,120 +55,11 @@ interface TradingChartProps {
   onIntervalChange: (interval: string) => void;
 }
 
-const INTERVALS = [
-  { value: "15m", label: "15m" },
-  { value: "1h", label: "1h" },
-  { value: "4h", label: "4h" },
-  { value: "1d", label: "1D" },
-  { value: "1w", label: "1W" },
-] as const;
-
-const MOBILE_BREAKPOINT = 768;
-const VOLUME_PANE_HEIGHT = 100;
-const INDICATOR_PANE_HEIGHT = 120;
-const RESIZE_DELAY = 50;
-const INTERVAL_RESTORE_DELAY = 100;
-
 const generateRandomColor = (): string => {
   const hue = Math.floor(Math.random() * 360);
   const saturation = 70 + Math.floor(Math.random() * 20);
   const lightness = 45 + Math.floor(Math.random() * 15);
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-};
-
-const useOrientationWarning = (isFullscreen: boolean) => {
-  const [showWarning, setShowWarning] = useState(false);
-
-  useEffect(() => {
-    if (!isFullscreen) {
-      setShowWarning(false);
-      return;
-    }
-
-    const checkOrientation = () => {
-      const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
-      const isPortrait = window.innerHeight > window.innerWidth;
-      setShowWarning(isMobile && isPortrait);
-    };
-
-    checkOrientation();
-    window.addEventListener("resize", checkOrientation);
-    window.addEventListener("orientationchange", checkOrientation);
-
-    return () => {
-      window.removeEventListener("resize", checkOrientation);
-      window.removeEventListener("orientationchange", checkOrientation);
-    };
-  }, [isFullscreen]);
-
-  return showWarning;
-};
-
-const usePriceFormat = (data: ChartDataPoint[]) => {
-  return useMemo(() => {
-    if (data.length === 0) return { precision: 2, minMove: 0.01 };
-    const prices = data.flatMap((d) => [d.open, d.high, d.low, d.close]);
-    const minPrice = Math.min(...prices.filter((p) => p > 0));
-    if (minPrice === 0) return { precision: 2, minMove: 0.01 };
-
-    const str = minPrice.toString();
-    const decimalIndex = str.indexOf(".");
-    if (decimalIndex === -1) return { precision: 0, minMove: 1 };
-
-    const decimals = str.slice(decimalIndex + 1);
-    let significantIndex = 0;
-    for (let i = 0; i < decimals.length; i++) {
-      if (decimals[i] !== "0") {
-        significantIndex = i;
-        break;
-      }
-    }
-    const precision = Math.min(significantIndex + 3, 10);
-    return { precision, minMove: Math.pow(10, -precision) };
-  }, [data]);
-};
-
-const useCandlestickData = (data: ChartDataPoint[]) =>
-  useMemo(
-    () =>
-      data.map((d) => ({
-        time: d.time as Time,
-        open: d.open,
-        high: d.high,
-        low: d.low,
-        close: d.close,
-      })),
-    [data]
-  );
-
-const useVolumeData = (data: ChartDataPoint[], isDark: boolean) =>
-  useMemo(
-    () =>
-      data.map((d) => ({
-        time: d.time as Time,
-        value: d.volume,
-        color: getVolumeColor(d.close >= d.open, isDark),
-      })),
-    [data, isDark]
-  );
-
-const useIndicatorData = (activeIndicators: ActiveIndicator[], data: ChartDataPoint[]) => {
-  return useMemo(() => {
-    if (data.length === 0) return new Map();
-    const results = new Map<string, { type: "line" | "band"; data: unknown }>();
-
-    for (const indicator of activeIndicators) {
-      if (!indicator.visible) continue;
-      if (isBandIndicator(indicator.config.id)) {
-        const bandData = calculateBandIndicator(indicator, data);
-        if (bandData?.length) results.set(indicator.config.id, { type: "band", data: bandData });
-      } else {
-        const lineData = calculateLineIndicator(indicator, data);
-        if (lineData?.length) results.set(indicator.config.id, { type: "line", data: lineData });
-      }
-    }
-    return results;
-  }, [activeIndicators, data]);
 };
 
 export function TradingChart({ data, symbol, interval, onIntervalChange }: TradingChartProps) {
@@ -179,25 +74,22 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
   >(new Map());
   const updateScheduledRef = useRef(false);
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
+  const isFullscreenRef = useRef(false);
 
   const [activeIndicators, setActiveIndicators] = useState<ActiveIndicator[]>([]);
   const [hoveredCandle, setHoveredCandle] = useState<ChartDataPoint | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-
-  const isFullscreenRef = useRef(false);
+  const [ictVisibility, setIctVisibility] = useState<ICTVisibility>(DEFAULT_ICT_VISIBILITY);
+  const [wyckoffVisibility, setWyckoffVisibility] = useState<WyckoffVisibility>(
+    DEFAULT_WYCKOFF_VISIBILITY
+  );
 
   useEffect(() => {
     isFullscreenRef.current = isFullscreen;
   }, [isFullscreen]);
 
   const showOrientationWarning = useOrientationWarning(isFullscreen);
-
-  const [ictVisibility, setIctVisibility] = useState<ICTVisibility>(DEFAULT_ICT_VISIBILITY);
   const ictEnabled = Object.values(ictVisibility).some(Boolean);
-
-  const [wyckoffVisibility, setWyckoffVisibility] = useState<WyckoffVisibility>(
-    DEFAULT_WYCKOFF_VISIBILITY
-  );
   const wyckoffEnabled = Object.values(wyckoffVisibility).some(Boolean);
 
   const { analysis: ictAnalysis, isLoading: ictLoading } = useICTWorker({
@@ -295,7 +187,6 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
   }, [isFullscreen]);
 
   const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
-
   const priceFormat = usePriceFormat(data);
   const candlestickData = useCandlestickData(data);
   const volumeData = useVolumeData(data, isDark);
@@ -572,175 +463,74 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
 
   const chartContent = (
     <>
-      <div className="hidden sm:flex items-center justify-between gap-4 px-4 py-2.5 border-b border-border/50 bg-card">
-        <div className="flex items-center gap-4">
-          <h3 className="text-sm font-semibold">{symbol}</h3>
-          <div className="flex items-center gap-1">
-            {INTERVALS.map((int) => (
-              <button
-                key={int.value}
-                onClick={() => handleIntervalChange(int.value)}
-                className={cn(
-                  "px-2.5 py-1 text-xs font-medium rounded transition-colors",
-                  interval === int.value
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted text-muted-foreground"
-                )}
-              >
-                {int.label}
-              </button>
-            ))}
-          </div>
-          {displayCandle && (
-            <div className="hidden lg:flex items-center gap-3 text-xs border-l border-border/50 pl-4">
-              <span className="text-muted-foreground">
-                O <span className="font-mono tabular-nums">{displayCandle.open.toFixed(2)}</span>
-              </span>
-              <span className="text-muted-foreground">
-                H{" "}
-                <span className="font-mono tabular-nums text-gain">
-                  {displayCandle.high.toFixed(2)}
-                </span>
-              </span>
-              <span className="text-muted-foreground">
-                L{" "}
-                <span className="font-mono tabular-nums text-loss">
-                  {displayCandle.low.toFixed(2)}
-                </span>
-              </span>
-              <span className="text-muted-foreground">
-                C{" "}
-                <span
-                  className={cn(
-                    "font-mono tabular-nums",
-                    displayCandle.close >= displayCandle.open ? "text-gain" : "text-loss"
-                  )}
-                >
-                  {displayCandle.close.toFixed(2)}
-                </span>
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <ICTButton visibility={ictVisibility} onToggle={handleToggleICT} isLoading={ictLoading} />
-          <WyckoffButton
-            visibility={wyckoffVisibility}
-            onToggle={handleToggleWyckoff}
-            isLoading={wyckoffLoading}
-          />
-          <IndicatorButton
-            activeIndicators={activeIndicators}
-            onAddIndicator={handleAddIndicator}
-            onRemoveIndicator={handleRemoveIndicator}
-            onToggleIndicator={handleToggleIndicator}
-          />
-          {hasActiveOverlays && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResetAll}
-                  className="px-2 text-muted-foreground hover:text-foreground"
-                >
-                  <RefreshCcw className="w-3.5 h-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Reset all overlays</TooltipContent>
-            </Tooltip>
-          )}
-          <Button variant="outline" size="sm" onClick={toggleFullscreen} className="px-3">
-            {isFullscreen ? (
-              <Minimize2 className="w-3.5 h-3.5" />
-            ) : (
-              <Maximize2 className="w-3.5 h-3.5" />
-            )}
-          </Button>
-        </div>
-      </div>
+      <ChartHeader
+        symbol={symbol}
+        interval={interval}
+        displayCandle={displayCandle}
+        onIntervalChange={handleIntervalChange}
+      >
+        <ChartControls
+          ictVisibility={ictVisibility}
+          ictLoading={ictLoading}
+          onToggleICT={handleToggleICT}
+          wyckoffVisibility={wyckoffVisibility}
+          wyckoffLoading={wyckoffLoading}
+          onToggleWyckoff={handleToggleWyckoff}
+          activeIndicators={activeIndicators}
+          onAddIndicator={handleAddIndicator}
+          onRemoveIndicator={handleRemoveIndicator}
+          onToggleIndicator={handleToggleIndicator}
+          hasActiveOverlays={hasActiveOverlays}
+          onResetAll={handleResetAll}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+        />
+      </ChartHeader>
 
-      <div className="flex sm:hidden items-center justify-between px-3 py-2 border-b border-border/50 bg-card">
-        <div className="flex items-center gap-2">
-          <h3 className="text-xs font-semibold">{symbol}</h3>
-          <div className="flex items-center">
-            {INTERVALS.map((int) => (
-              <button
-                key={int.value}
-                onClick={() => handleIntervalChange(int.value)}
-                className={cn(
-                  "px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors",
-                  interval === int.value
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground"
-                )}
-              >
-                {int.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <Button variant="ghost" size="sm" onClick={toggleFullscreen} className="h-7 w-7 p-0">
-          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-        </Button>
-      </div>
+      <ChartHeaderMobile
+        symbol={symbol}
+        interval={interval}
+        isFullscreen={isFullscreen}
+        onIntervalChange={handleIntervalChange}
+        onToggleFullscreen={toggleFullscreen}
+      />
 
       <div className="flex-1 relative bg-card">
         <div ref={chartContainerRef} className="absolute inset-0" />
-        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1.5">
-          {ictEnabled && ictAnalysis && (
-            <ICTLegend analysis={ictAnalysis} visibility={ictVisibility} />
-          )}
-          {wyckoffEnabled && wyckoffAnalysis && (
-            <WyckoffLegend analysis={wyckoffAnalysis} visibility={wyckoffVisibility} />
-          )}
-          {activeIndicators.length > 0 && (
-            <IndicatorLegend
-              indicators={activeIndicators}
-              onToggle={handleToggleIndicator}
-              onRemove={handleRemoveIndicator}
-            />
-          )}
-        </div>
+        <ChartOverlays
+          ictEnabled={ictEnabled}
+          ictAnalysis={ictAnalysis}
+          ictVisibility={ictVisibility}
+          wyckoffEnabled={wyckoffEnabled}
+          wyckoffAnalysis={wyckoffAnalysis}
+          wyckoffVisibility={wyckoffVisibility}
+          activeIndicators={activeIndicators}
+          onToggleIndicator={handleToggleIndicator}
+          onRemoveIndicator={handleRemoveIndicator}
+        />
       </div>
 
-      {/* Mobile controls - only show in fullscreen mode */}
       {isFullscreen && (
-        <div className="flex sm:hidden items-center justify-center gap-2 px-2 py-1.5 border-t border-border/50 bg-card">
-          <ICTButton visibility={ictVisibility} onToggle={handleToggleICT} isLoading={ictLoading} />
-          <WyckoffButton
-            visibility={wyckoffVisibility}
-            onToggle={handleToggleWyckoff}
-            isLoading={wyckoffLoading}
-          />
-          <IndicatorButton
-            activeIndicators={activeIndicators}
-            onAddIndicator={handleAddIndicator}
-            onRemoveIndicator={handleRemoveIndicator}
-            onToggleIndicator={handleToggleIndicator}
-          />
-          {hasActiveOverlays && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleResetAll}
-              className="px-2 text-muted-foreground"
-            >
-              <RefreshCcw className="w-3.5 h-3.5" />
-            </Button>
-          )}
-        </div>
+        <ChartControls
+          ictVisibility={ictVisibility}
+          ictLoading={ictLoading}
+          onToggleICT={handleToggleICT}
+          wyckoffVisibility={wyckoffVisibility}
+          wyckoffLoading={wyckoffLoading}
+          onToggleWyckoff={handleToggleWyckoff}
+          activeIndicators={activeIndicators}
+          onAddIndicator={handleAddIndicator}
+          onRemoveIndicator={handleRemoveIndicator}
+          onToggleIndicator={handleToggleIndicator}
+          hasActiveOverlays={hasActiveOverlays}
+          onResetAll={handleResetAll}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+          variant="mobile"
+        />
       )}
 
-      {showOrientationWarning && (
-        <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center z-99998 p-6">
-          <RotateCcw className="w-12 h-12 text-muted-foreground mb-4 animate-pulse" />
-          <h3 className="text-lg font-semibold mb-2">Rotate Your Device</h3>
-          <p className="text-sm text-muted-foreground text-center max-w-[280px]">
-            For the best chart experience, please rotate your device to landscape mode.
-          </p>
-        </div>
-      )}
+      {showOrientationWarning && <OrientationWarning />}
     </>
   );
 

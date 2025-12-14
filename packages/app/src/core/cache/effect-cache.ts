@@ -50,13 +50,21 @@ export class CacheServiceTag extends Context.Tag("CacheService")<CacheServiceTag
 const makeTopAnalysisCache = Cache.make({
   capacity: CAPACITY.SMALL,
   timeToLive: TTL.STANDARD,
-  lookup: (limit: number) => ApiServiceTag.pipe(Effect.flatMap((api) => api.getTopAnalysis(limit))),
+  lookup: (limit: number) =>
+    ApiServiceTag.pipe(
+      Effect.flatMap((api) => api.getTopAnalysis(limit)),
+      Effect.uninterruptible
+    ),
 });
 
 const makeAnalysisCache = Cache.make({
   capacity: CAPACITY.LARGE,
   timeToLive: TTL.STANDARD,
-  lookup: (symbol: string) => ApiServiceTag.pipe(Effect.flatMap((api) => api.getAnalysis(symbol))),
+  lookup: (symbol: string) =>
+    ApiServiceTag.pipe(
+      Effect.flatMap((api) => api.getAnalysis(symbol)),
+      Effect.uninterruptible
+    ),
 });
 
 const makeChartDataCache = Cache.make({
@@ -65,7 +73,8 @@ const makeChartDataCache = Cache.make({
   lookup: (key: string) => {
     const [symbol, interval, timeframe] = key.split("|");
     return ApiServiceTag.pipe(
-      Effect.flatMap((api) => api.getChartData(symbol, interval, timeframe))
+      Effect.flatMap((api) => api.getChartData(symbol, interval, timeframe)),
+      Effect.uninterruptible
     );
   },
 });
@@ -73,13 +82,21 @@ const makeChartDataCache = Cache.make({
 const makeOverviewCache = Cache.make({
   capacity: 1,
   timeToLive: TTL.STANDARD,
-  lookup: (_: "overview") => ApiServiceTag.pipe(Effect.flatMap((api) => api.getOverview())),
+  lookup: (_: "overview") =>
+    ApiServiceTag.pipe(
+      Effect.flatMap((api) => api.getOverview()),
+      Effect.uninterruptible
+    ),
 });
 
 const makeHeatmapCache = Cache.make({
   capacity: CAPACITY.SMALL,
   timeToLive: TTL.STANDARD,
-  lookup: (limit: number) => ApiServiceTag.pipe(Effect.flatMap((api) => api.getHeatmap(limit))),
+  lookup: (limit: number) =>
+    ApiServiceTag.pipe(
+      Effect.flatMap((api) => api.getHeatmap(limit)),
+      Effect.uninterruptible
+    ),
 });
 
 const makeBuybackOverviewCache = Cache.make({
@@ -112,7 +129,11 @@ const makeFundingRateCache = Cache.make({
 const makeGlobalMarketCache = Cache.make({
   capacity: 1,
   timeToLive: TTL.REALTIME,
-  lookup: (_: "global") => ApiServiceTag.pipe(Effect.flatMap((api) => api.getGlobalMarket())),
+  lookup: (_: "global") =>
+    ApiServiceTag.pipe(
+      Effect.flatMap((api) => api.getGlobalMarket()),
+      Effect.uninterruptible
+    ),
 });
 
 const makeTreasuryEntitiesCache = Cache.make({
@@ -240,7 +261,7 @@ export const cachedMarketDepthData = (symbol: string) =>
   );
 
 export const cachedMultipleAnalyses = (symbols: readonly string[]) =>
-  Effect.forEach(symbols, cachedAnalysis, { concurrency: 5, batching: true });
+  Effect.forEach(symbols, cachedAnalysis, { concurrency: "unbounded" });
 
 export const invalidateTopAnalysis = () =>
   CacheServiceTag.pipe(Effect.flatMap((c) => c.topAnalysis.invalidateAll));

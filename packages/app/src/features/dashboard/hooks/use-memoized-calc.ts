@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { AssetAnalysis } from "@0xsignal/shared";
 import { categorizeSignals, categorizeAllSignals } from "@/core/utils/effect-memoization";
 
@@ -13,7 +14,7 @@ export interface AllSignalStats extends SignalStats {
 }
 
 export const useMemoizedSignals = (analyses: AssetAnalysis[]): SignalStats =>
-  categorizeSignals(analyses);
+  useMemo(() => categorizeSignals(analyses), [analyses]);
 
 export const useMemoizedAllSignals = (analyses: AssetAnalysis[]): AllSignalStats =>
-  categorizeAllSignals(analyses);
+  useMemo(() => categorizeAllSignals(analyses), [analyses]);

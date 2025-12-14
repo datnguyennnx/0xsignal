@@ -25,11 +25,10 @@ dist-ssr
 
 .nx/*
 .kiro/*
+.agent/*
 
 # Environment files
 .env
 .env.local
 .env.*.local
 !.env.example
-
-llm/bun.txt

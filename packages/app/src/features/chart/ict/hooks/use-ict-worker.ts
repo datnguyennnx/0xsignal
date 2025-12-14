@@ -1,9 +1,3 @@
-/**
- * React hook for ICT analysis using Web Worker
- * Offloads heavy pattern detection to background thread
- * Optimized with debouncing and request cancellation
- */
-
 import { useRef, useCallback, useEffect, useState } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import type {
@@ -11,7 +5,7 @@ import type {
   ICTWorkerResponse,
   ICTAnalysisResult,
   ICTConfig,
-} from "./ict-worker";
+} from "../workers/ict-worker";
 
 interface UseICTWorkerOptions {
   data: ChartDataPoint[];
@@ -45,7 +39,7 @@ export const useICTWorker = ({
 
   // Initialize worker
   useEffect(() => {
-    workerRef.current = new Worker(new URL("./ict-worker.ts", import.meta.url), {
+    workerRef.current = new Worker(new URL("../workers/ict-worker.ts", import.meta.url), {
       type: "module",
     });
 

@@ -4,7 +4,6 @@ import { ThemeProvider } from "@/core/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/layouts/main-layout";
 
-// Lazy load all page components for code splitting
 const MarketDashboard = lazy(() =>
   import("@/features/dashboard/pages/market-dashboard").then((m) => ({
     default: m.MarketDashboard,
@@ -35,8 +34,10 @@ const TreasuryDashboard = lazy(() =>
     default: m.TreasuryDashboard,
   }))
 );
+const NotFoundPage = lazy(() =>
+  import("@/features/error/pages/not-found").then((m) => ({ default: m.NotFoundPage }))
+);
 
-// Minimal loading fallback
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
@@ -61,6 +62,7 @@ function App() {
                 <Route path="/market-depth" element={<MarketDepthPage />} />
                 <Route path="/buyback" element={<BuybackSignalsPage />} />
                 <Route path="/treasury" element={<TreasuryDashboard />} />
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
           </Layout>

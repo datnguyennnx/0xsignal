@@ -1,7 +1,8 @@
 import type { AssetAnalysis, GlobalMarketData } from "@0xsignal/shared";
+import { memo, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { cachedDashboardData } from "@/core/cache/effect-cache";
-import { useResilientQuery } from "@/core/runtime/use-effect-query";
+import { cachedChartData, cachedDashboardData } from "@/core/cache/effect-cache";
+import { useConcurrentQueries, useResilientQuery } from "@/core/runtime/use-effect-query";
 import { SignalCard } from "@/features/dashboard/components/signal-card";
 import { TradeSetupCard } from "@/features/dashboard/components/trade-setup-card";
 import { useMemoizedAllSignals } from "@/features/dashboard/hooks/use-memoized-calc";
@@ -12,6 +13,7 @@ import { ErrorState } from "@/components/error-state";
 import { GlobalMarketBar } from "@/features/dashboard/components/global-market-bar";
 import { useResponsiveDataCount } from "@/core/hooks/use-responsive-data-count";
 import { DataAgeBadge } from "@/components/data-freshness";
+import { useFooter } from "@/core/providers/footer-provider";
 
 interface DashboardContentProps {
   analyses: AssetAnalysis[];
@@ -19,13 +21,9 @@ interface DashboardContentProps {
   fetchedAt?: Date;
 }
 
-import { useFooter } from "@/core/providers/footer-provider";
-import { useEffect } from "react";
-
 function DashboardContent({ analyses, globalMarket, fetchedAt }: DashboardContentProps) {
   const { buySignals, sellSignals, holdSignals, longEntries, shortEntries } =
     useMemoizedAllSignals(analyses);
-  const latestTimestamp = analyses[0]?.timestamp;
   const { setMetadata } = useFooter();
 
   useEffect(() => {
@@ -53,12 +51,32 @@ function DashboardContent({ analyses, globalMarket, fetchedAt }: DashboardConten
   const signalsCount = useResponsiveDataCount({ mobile: 4, tablet: 6, desktop: 8, desktop4k: 18 });
 
   // Combine and limit trade setups
-  const tradeSetups = [...longEntries, ...shortEntries].slice(0, tradeSetupsCount);
+  const tradeSetups = useMemo(
+    () => [...longEntries, ...shortEntries].slice(0, tradeSetupsCount),
+    [longEntries, shortEntries, tradeSetupsCount]
+  );
+
+  // Performance: Batch fetch sparkline data for all trade setups (N+1 query optimization)
+  // This uses Effect.all(..., { concurrency: 'unbounded' }) efficiently
+  const sparklineQueries = useMemo(() => {
+    const queries: Record<string, () => any> = {};
+    tradeSetups.forEach((asset) => {
+      queries[asset.symbol] = () =>
+        cachedChartData(`${asset.symbol.toUpperCase()}USDT`, "1h", "7d");
+    });
+    return queries;
+  }, [tradeSetups]);
+
+  const symbolsKey = tradeSetups
+    .map((t) => t.symbol)
+    .sort()
+    .join(",");
+
+  const { data: sparklineData } = useConcurrentQueries(sparklineQueries, [symbolsKey]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium h-full overflow-y-auto">
       <div className="container-fluid py-4 sm:py-6">
-        {/* Header - Stacked on mobile, inline on tablet+ */}
         {/* Header - Stacked on mobile, inline on tablet+ */}
         <header className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0 mb-5 sm:mb-6">
           <div>
@@ -91,7 +109,11 @@ function DashboardContent({ analyses, globalMarket, fetchedAt }: DashboardConten
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-responsive">
               {tradeSetups.map((asset) => (
-                <TradeSetupCard key={asset.symbol} asset={asset} />
+                <TradeSetupCard
+                  key={asset.symbol}
+                  asset={asset}
+                  chartData={sparklineData?.[asset.symbol] as any}
+                />
               ))}
             </div>
           </section>
@@ -201,8 +223,7 @@ function DashboardContent({ analyses, globalMarket, fetchedAt }: DashboardConten
   );
 }
 
-// Hold chip - touch-friendly on mobile
-function HoldChip({ asset }: { asset: AssetAnalysis }) {
+const HoldChip = memo(function HoldChip({ asset }: { asset: AssetAnalysis }) {
   const change = asset.price?.change24h || 0;
   return (
     <Button
@@ -225,10 +246,9 @@ function HoldChip({ asset }: { asset: AssetAnalysis }) {
       </Link>
     </Button>
   );
-}
+});
 
-// Loading skeleton
-function DashboardSkeleton() {
+const DashboardSkeleton = memo(function DashboardSkeleton() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="container-fluid py-4 sm:py-6">
@@ -277,7 +297,7 @@ function DashboardSkeleton() {
       </div>
     </div>
   );
-}
+});
 
 // Fetch limit: max UI needs (12 setups + 36 signals + 50 hold) × 1.3 buffer = 130
 const fetchDashboardData = () => cachedDashboardData(130);

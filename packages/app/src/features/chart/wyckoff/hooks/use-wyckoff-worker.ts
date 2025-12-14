@@ -5,7 +5,7 @@ import type {
   WyckoffWorkerRequest,
   WyckoffWorkerResponse,
   WyckoffConfig,
-} from "./wyckoff-worker";
+} from "../workers/wyckoff-worker";
 
 interface UseWyckoffWorkerProps {
   data: ChartDataPoint[];
@@ -34,7 +34,7 @@ export function useWyckoffWorker({
   useEffect(() => {
     if (!enabled) return;
 
-    workerRef.current = new Worker(new URL("./wyckoff-worker.ts", import.meta.url), {
+    workerRef.current = new Worker(new URL("../workers/wyckoff-worker.ts", import.meta.url), {
       type: "module",
     });
 

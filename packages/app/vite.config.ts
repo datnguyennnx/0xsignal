@@ -34,9 +34,12 @@ export default defineConfig({
   build: {
     target: "esnext",
     minify: "esbuild",
-    cssMinify: "lightningcss",
+    cssMinify: "esbuild",
     sourcemap: false,
     chunkSizeWarningLimit: 1500,
+    cssCodeSplit: true,
+    modulePreload: { polyfill: false },
+    reportCompressedSize: false, // Performance: skip brotli/gzip size calculation
     rollupOptions: {
       output: {
         chunkFileNames: "assets/[name]-[hash].js",
@@ -45,13 +48,14 @@ export default defineConfig({
         manualChunks: {
           "react-vendor": ["react", "react-dom", "react-router-dom"],
           "effect-vendor": ["effect"],
-          "chart-vendor": ["echarts", "echarts-for-react"],
+          "chart-vendor": ["lightweight-charts"],
           "ui-vendor": [
             "@radix-ui/react-dialog",
             "@radix-ui/react-dropdown-menu",
             "@radix-ui/react-tabs",
             "@radix-ui/react-tooltip",
             "@radix-ui/react-slot",
+            "lucide-react",
           ],
         },
       },
@@ -63,6 +67,7 @@ export default defineConfig({
       "react/jsx-runtime",
       "react/jsx-dev-runtime",
       "react-dom",
+      "react-dom/client",
       "react-router-dom",
       "effect",
       "effect/Effect",
@@ -77,15 +82,17 @@ export default defineConfig({
       "effect/ManagedRuntime",
       "@effect/platform",
       "@effect/schema",
+      "lightweight-charts",
     ],
+    holdUntilCrawlEnd: false,
   },
   esbuild: {
     drop: process.env.NODE_ENV === "production" ? ["console", "debugger"] : [],
     target: "esnext",
+    legalComments: "none",
     minifyIdentifiers: true,
     minifySyntax: true,
     minifyWhitespace: true,
-    keepNames: true,
     treeShaking: true,
   },
 });

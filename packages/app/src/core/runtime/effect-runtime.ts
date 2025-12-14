@@ -69,7 +69,7 @@ export const runBatched = async <A, E>(
 ): Promise<A[]> => {
   const runtime = await getAppRuntime();
   return Runtime.runPromise(runtime)(
-    Effect.forEach(effects, (e) => e, { concurrency: "unbounded", batching: true })
+    Effect.forEach(effects, (e) => e, { concurrency: "unbounded" })
   );
 };
 

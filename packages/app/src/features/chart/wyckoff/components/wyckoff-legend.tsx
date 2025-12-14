@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { WyckoffAnalysisResult } from "@/core/workers/wyckoff-worker";
+import type { WyckoffAnalysisResult } from "../workers/wyckoff-worker";
 import type { WyckoffVisibility } from "../types";
 import { cn } from "@/core/utils/cn";
 

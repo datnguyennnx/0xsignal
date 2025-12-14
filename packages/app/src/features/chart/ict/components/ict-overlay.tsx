@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
-import type { ICTAnalysisResult } from "@/core/workers/ict-worker";
+import type { ICTAnalysisResult } from "../workers/ict-worker";
 import type { ICTVisibility } from "../types";
 import { ZonePrimitive } from "../primitives";
 import { BandPrimitive } from "../primitives";

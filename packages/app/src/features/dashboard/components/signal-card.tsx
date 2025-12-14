@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
@@ -10,7 +11,7 @@ interface SignalCardProps {
   readonly type: "buy" | "sell" | "hold";
 }
 
-export function SignalCard({ signal, type }: SignalCardProps) {
+export const SignalCard = memo(function SignalCard({ signal, type }: SignalCardProps) {
   const navigate = useNavigate();
   const isStrong =
     type !== "hold" && signal.overallSignal === (type === "buy" ? "STRONG_BUY" : "STRONG_SELL");
@@ -84,4 +85,4 @@ export function SignalCard({ signal, type }: SignalCardProps) {
       </CardContent>
     </Card>
   );
-}
+});

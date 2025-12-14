@@ -1,61 +1,63 @@
 # syntax=docker/dockerfile:1.4
 
-# Stage 1: Dependencies
+# Stage 1: Dependencies (cached layer)
 FROM oven/bun:1-alpine AS deps
-
 WORKDIR /app
 
-# Copy all package files for workspace resolution
+# Copy package files for dependency resolution
 COPY package.json bun.lock ./
 COPY packages/api/package.json ./packages/api/
 COPY packages/app/package.json ./packages/app/
 COPY packages/shared/package.json ./packages/shared/
 
-# Install dependencies
-RUN bun install --frozen-lockfile
+# Install dependencies with cache mount
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
 # Stage 2: Builder
 FROM oven/bun:1-alpine AS builder
-
 WORKDIR /app
 
-# Copy dependencies from deps stage (hoisted to root)
+# Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy source files
-COPY package.json ./
-COPY tsconfig.json tsconfig.base.json ./
+COPY package.json tsconfig.json tsconfig.base.json ./
 COPY packages/api ./packages/api
 COPY packages/shared ./packages/shared
 
-# Compile for production (minified bundle)
+# Build with minification
 RUN bun build packages/api/presentation/http/server.ts \
     --target=bun \
     --minify \
-    --sourcemap \
     --outdir=./dist/api
 
-# Stage 3: Production Runner
+# Stage 3: Production (minimal image)
 FROM oven/bun:1-alpine AS runner
 
-ENV NODE_ENV=production
-ENV BUN_ENV=production
+# Security: non-root user
+RUN addgroup -g 1001 -S app && adduser -S -u 1001 -G app app
 
 WORKDIR /app
 
-RUN addgroup -g 1001 -S appgroup && adduser -S -u 1001 -G appgroup appuser
+# Environment
+ENV NODE_ENV=production
+ENV BUN_ENV=production
 
-# Copy compiled bytecode and dependencies
-COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
-COPY --from=builder --chown=appuser:appgroup /app/dist/api ./dist/api
-COPY --from=builder --chown=appuser:appgroup /app/packages/shared ./packages/shared
-COPY --from=builder --chown=appuser:appgroup /app/package.json ./
+# Copy only production artifacts
+COPY --from=builder --chown=app:app /app/dist/api ./dist/api
+COPY --from=builder --chown=app:app /app/packages/shared ./packages/shared
+COPY --from=builder --chown=app:app /app/package.json ./
 
-USER appuser
+# Install only production deps (minimal)
+COPY --from=deps /app/node_modules ./node_modules
+
+USER app
 
 EXPOSE 9006
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:9006/api/health || exit 1
+# Optimized health check
+HEALTHCHECK --interval=30s --timeout=2s --start-period=5s --retries=3 \
+    CMD bun -e "fetch('http://localhost:9006/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD ["bun", "dist/api/server.js"]
+CMD ["bun", "run", "dist/api/server.js"]

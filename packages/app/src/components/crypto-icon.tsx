@@ -1,6 +1,4 @@
-// Crypto Icon - Uses CoinGecko images with fallback
-
-import { useState } from "react";
+import { memo, useState } from "react";
 import { CircleHelp } from "lucide-react";
 import { cn } from "@/core/utils/cn";
 
@@ -11,7 +9,13 @@ interface CryptoIconProps {
   className?: string;
 }
 
-function IconFallback({ size, className }: { size: number; className?: string }) {
+const IconFallback = memo(function IconFallback({
+  size,
+  className,
+}: {
+  size: number;
+  className?: string;
+}) {
   return (
     <div
       className={cn("flex items-center justify-center rounded-full bg-muted", className)}
@@ -23,12 +27,16 @@ function IconFallback({ size, className }: { size: number; className?: string })
       />
     </div>
   );
-}
+});
 
-export function CryptoIcon({ symbol, image, size = 32, className = "" }: CryptoIconProps) {
+export const CryptoIcon = memo(function CryptoIcon({
+  symbol,
+  image,
+  size = 32,
+  className = "",
+}: CryptoIconProps) {
   const [hasError, setHasError] = useState(false);
 
-  // If no image URL or error loading, show fallback
   if (!image || hasError) {
     return <IconFallback size={size} className={className} />;
   }
@@ -44,4 +52,4 @@ export function CryptoIcon({ symbol, image, size = 32, className = "" }: CryptoI
       loading="lazy"
     />
   );
-}
+});

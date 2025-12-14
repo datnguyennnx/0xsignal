@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
-import type { WyckoffAnalysisResult } from "@/core/workers/wyckoff-worker";
+import type { WyckoffAnalysisResult } from "../workers/wyckoff-worker";
 import type { WyckoffVisibility } from "../types";
 import { ZonePrimitive } from "../../ict/primitives";
 import { getWyckoffColors } from "../utils";

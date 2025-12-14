@@ -1,5 +1,6 @@
+import { memo } from "react";
 import { Link } from "react-router-dom";
-import type { AssetAnalysis } from "@0xsignal/shared";
+import type { AssetAnalysis, ChartDataPoint } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { CryptoIcon } from "@/components/crypto-icon";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface TradeSetupCardProps {
   asset: AssetAnalysis;
   hasInstitutionalHoldings?: boolean;
+  chartData?: ChartDataPoint[]; // Optional pre-fetched data
 }
 
 const formatPrice = (p: number) => {
@@ -27,7 +29,11 @@ const getRiskColor = (score: number) => {
   return "text-loss";
 };
 
-export function TradeSetupCard({ asset, hasInstitutionalHoldings = false }: TradeSetupCardProps) {
+export const TradeSetupCard = memo(function TradeSetupCard({
+  asset,
+  hasInstitutionalHoldings = false,
+  chartData,
+}: TradeSetupCardProps) {
   const entry = asset.entrySignal;
   const isLong = entry.direction === "LONG";
   const price = asset.price?.price || 0;
@@ -102,6 +108,7 @@ export function TradeSetupCard({ asset, hasInstitutionalHoldings = false }: Trad
               symbol={asset.symbol}
               isPositive={isPositive}
               className="h-full w-full"
+              data={chartData}
             />
           </div>
           <div className="flex items-center justify-between pt-2.5 border-t border-border/40 text-[11px] text-muted-foreground tabular-nums">
@@ -140,4 +147,4 @@ export function TradeSetupCard({ asset, hasInstitutionalHoldings = false }: Trad
       </Link>
     </Card>
   );
-}
+});

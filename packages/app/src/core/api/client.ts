@@ -68,72 +68,6 @@ export interface ApiService {
 export class ApiServiceTag extends Context.Tag("ApiService")<ApiServiceTag, ApiService>() {}
 export const ApiService = ApiServiceTag;
 
-type InFlightEntry = { promise: Promise<unknown>; timestamp: number };
-const inFlightRequests = new Map<string, InFlightEntry>();
-const urlSet = new Set<string>();
-
-const STALE_THRESHOLD_MS = 30000;
-const CLEANUP_INTERVAL_MS = 10000;
-
-const cleanupStaleEntries = () => {
-  const now = Date.now();
-  for (const [key, entry] of inFlightRequests.entries()) {
-    if (now - entry.timestamp > STALE_THRESHOLD_MS) {
-      inFlightRequests.delete(key);
-      urlSet.delete(key);
-    }
-  }
-};
-
-if (typeof window !== "undefined") {
-  setInterval(cleanupStaleEntries, CLEANUP_INTERVAL_MS);
-}
-
-const fetchWithDedup = async <T>(url: string, options?: RequestInit): Promise<T> => {
-  const cacheKey = `${options?.method || "GET"}:${url}`;
-
-  if (urlSet.has(cacheKey)) {
-    const existing = inFlightRequests.get(cacheKey);
-    if (existing) return existing.promise as Promise<T>;
-  }
-
-  urlSet.add(cacheKey);
-
-  const fetchPromise = (async () => {
-    try {
-      const response = await fetch(url, options);
-      if (!response.ok) {
-        throw new ApiError({
-          message: `API request failed: ${response.statusText}`,
-          status: response.status,
-          statusText: response.statusText,
-        });
-      }
-      return (await response.json()) as T;
-    } finally {
-      urlSet.delete(cacheKey);
-      inFlightRequests.delete(cacheKey);
-    }
-  })();
-
-  inFlightRequests.set(cacheKey, { promise: fetchPromise, timestamp: Date.now() });
-  return fetchPromise;
-};
-
-const fetchJsonDeduped = <T>(
-  url: string,
-  options?: RequestInit
-): Effect.Effect<T, ApiError | NetworkError> =>
-  Effect.tryPromise({
-    try: () => fetchWithDedup<T>(url, options),
-    catch: (error) => {
-      if (error instanceof ApiError) return error;
-      return new NetworkError({
-        message: error instanceof Error ? error.message : "Network request failed",
-      });
-    },
-  });
-
 const fetchJson = <T>(
   url: string,
   options?: RequestInit
@@ -165,35 +99,32 @@ const fetchJson = <T>(
 
 export const ApiServiceLive = Layer.succeed(ApiServiceTag, {
   health: () => fetchJson(`${API_BASE}/health`),
-  getGlobalMarket: () => fetchJsonDeduped<GlobalMarketData>(`${API_BASE}/global`),
+  getGlobalMarket: () => fetchJson<GlobalMarketData>(`${API_BASE}/global`),
   getTopAnalysis: (limit = 20) =>
-    fetchJsonDeduped<AssetAnalysis[]>(`${API_BASE}/analysis/top?limit=${limit}`),
-  getAnalysis: (symbol) => fetchJsonDeduped<AssetAnalysis>(`${API_BASE}/analysis/${symbol}`),
-  getOverview: () => fetchJsonDeduped<MarketOverview>(`${API_BASE}/overview`),
-  getSignals: () => fetchJsonDeduped<AssetAnalysis[]>(`${API_BASE}/signals`),
+    fetchJson<AssetAnalysis[]>(`${API_BASE}/analysis/top?limit=${limit}`),
+  getAnalysis: (symbol) => fetchJson<AssetAnalysis>(`${API_BASE}/analysis/${symbol}`),
+  getOverview: () => fetchJson<MarketOverview>(`${API_BASE}/overview`),
+  getSignals: () => fetchJson<AssetAnalysis[]>(`${API_BASE}/signals`),
   getChartData: (symbol, interval, timeframe) =>
-    fetchJsonDeduped<ChartDataPoint[]>(
+    fetchJson<ChartDataPoint[]>(
       `${API_BASE}/chart?symbol=${symbol}&interval=${interval}&timeframe=${timeframe}`
     ),
-  getHeatmap: (limit = 100) =>
-    fetchJsonDeduped<MarketHeatmap>(`${API_BASE}/heatmap?limit=${limit}`),
+  getHeatmap: (limit = 100) => fetchJson<MarketHeatmap>(`${API_BASE}/heatmap?limit=${limit}`),
 
   getTopOpenInterest: (limit = 20) =>
-    fetchJsonDeduped<OpenInterestData[]>(`${API_BASE}/derivatives/open-interest?limit=${limit}`),
+    fetchJson<OpenInterestData[]>(`${API_BASE}/derivatives/open-interest?limit=${limit}`),
   getOpenInterest: (symbol) =>
-    fetchJsonDeduped<OpenInterestData>(`${API_BASE}/derivatives/${symbol}/open-interest`),
+    fetchJson<OpenInterestData>(`${API_BASE}/derivatives/${symbol}/open-interest`),
   getFundingRate: (symbol) =>
-    fetchJsonDeduped<FundingRateData>(`${API_BASE}/derivatives/${symbol}/funding-rate`),
+    fetchJson<FundingRateData>(`${API_BASE}/derivatives/${symbol}/funding-rate`),
   getBuybackSignals: (limit = 50) =>
-    fetchJsonDeduped<BuybackSignal[]>(`${API_BASE}/buyback/signals?limit=${limit}`),
-  getBuybackOverview: () => fetchJsonDeduped<BuybackOverview>(`${API_BASE}/buyback/overview`),
-  getProtocolBuyback: (protocol) =>
-    fetchJsonDeduped<BuybackSignal>(`${API_BASE}/buyback/${protocol}`),
+    fetchJson<BuybackSignal[]>(`${API_BASE}/buyback/signals?limit=${limit}`),
+  getBuybackOverview: () => fetchJson<BuybackOverview>(`${API_BASE}/buyback/overview`),
+  getProtocolBuyback: (protocol) => fetchJson<BuybackSignal>(`${API_BASE}/buyback/${protocol}`),
   getProtocolBuybackDetail: (protocol) =>
-    fetchJsonDeduped<ProtocolBuybackDetail>(`${API_BASE}/buyback/${protocol}/detail`),
-  getTreasuryEntities: () =>
-    fetchJsonDeduped<TreasuryEntitiesResponse>(`${API_BASE}/treasury/entities`),
+    fetchJson<ProtocolBuybackDetail>(`${API_BASE}/buyback/${protocol}/detail`),
+  getTreasuryEntities: () => fetchJson<TreasuryEntitiesResponse>(`${API_BASE}/treasury/entities`),
   getTreasuryHoldings: (coinId) =>
-    fetchJsonDeduped<TreasurySummary>(`${API_BASE}/treasury/${coinId}/holdings`),
-  getContext: (symbol) => fetchJsonDeduped<AssetContext>(`${API_BASE}/context/${symbol}`),
+    fetchJson<TreasurySummary>(`${API_BASE}/treasury/${coinId}/holdings`),
+  getContext: (symbol) => fetchJson<AssetContext>(`${API_BASE}/context/${symbol}`),
 });

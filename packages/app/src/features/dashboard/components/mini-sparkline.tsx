@@ -1,24 +1,35 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
+import { Effect } from "effect";
 import { cachedChartData } from "@/core/cache/effect-cache";
 import { useEffectQuery } from "@/core/runtime/use-effect-query";
 import { cn } from "@/core/utils/cn";
+import type { ChartDataPoint } from "@0xsignal/shared";
 
 interface MiniSparklineProps {
   symbol: string;
   isPositive: boolean;
   className?: string;
+  data?: ChartDataPoint[]; // Optional pre-fetched data
 }
 
 const SAMPLE_INTERVAL = 4;
 
-export function MiniSparkline({ symbol, isPositive, className }: MiniSparklineProps) {
+export const MiniSparkline = memo(function MiniSparkline({
+  symbol,
+  isPositive,
+  className,
+  data,
+}: MiniSparklineProps) {
   const binanceSymbol = `${symbol.toUpperCase()}USDT`;
 
-  const { data: chartData, isLoading } = useEffectQuery(
-    () => cachedChartData(binanceSymbol, "1h", "7d"),
-    [binanceSymbol]
+  // Only fetch if data is not provided
+  const { data: fetchedData, isLoading } = useEffectQuery(
+    () => (data ? Effect.succeed([]) : cachedChartData(binanceSymbol, "1h", "7d")),
+    [binanceSymbol, !!data]
   );
+
+  const chartData = data || fetchedData;
 
   const sparklineData = useMemo(() => {
     if (!chartData?.length) return [];
@@ -27,7 +38,7 @@ export function MiniSparkline({ symbol, isPositive, className }: MiniSparklinePr
       .map((point) => ({ value: point.close }));
   }, [chartData]);
 
-  if (isLoading || sparklineData.length < 2) {
+  if ((!data && isLoading) || sparklineData.length < 2) {
     return <div className={cn("h-10 w-full bg-muted/30 rounded animate-pulse", className)} />;
   }
 
@@ -55,4 +66,4 @@ export function MiniSparkline({ symbol, isPositive, className }: MiniSparklinePr
       </ResponsiveContainer>
     </div>
   );
-}
+});
