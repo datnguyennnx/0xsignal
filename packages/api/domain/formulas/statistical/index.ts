@@ -4,4 +4,3 @@ export * from "./z-score";
 export * from "./correlation";
 export * from "./covariance";
 export * from "./linear-regression";
-export * from "./noise";

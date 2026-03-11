@@ -1,71 +1,21 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/core/utils/cn";
-import { TrendingUp, Coins, Layers, RefreshCw, Landmark } from "lucide-react";
-import { invalidateAll } from "@/core/cache/effect-cache";
-import { Effect } from "effect";
-import { AppLayer } from "@/core/runtime/effect-runtime";
-import { FreshnessProvider, useFreshness } from "@/core/cache/freshness-context";
+import { TrendingUp } from "lucide-react";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
-const NAV_ITEMS = [
-  { path: "/", label: "Signals", icon: TrendingUp },
-  { path: "/buyback", label: "Revenue", icon: Coins },
-  { path: "/treasury", label: "Treasury", icon: Landmark },
-  { path: "/market-depth", label: "Structure", icon: Layers },
-] as const;
-
-/** Format time ago as simple text */
-const formatTimeAgo = (date: Date): string => {
-  const now = Date.now();
-  const diff = now - date.getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  if (seconds < 60) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return date.toLocaleDateString();
-};
-
-import { FooterProvider, useFooter } from "@/core/providers/footer-provider";
+const NAV_ITEMS = [{ path: "/", label: "Watchlist", icon: TrendingUp }] as const;
 
 function LayoutInner({ children }: LayoutProps) {
   const location = useLocation();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const { getLatestFetch } = useFreshness();
-  const [timeAgo, setTimeAgo] = useState<string>("");
-  const { metadata, warning } = useFooter();
-
-  const handleRefreshCache = async () => {
-    setIsRefreshing(true);
-    try {
-      await Effect.runPromise(invalidateAll().pipe(Effect.provide(AppLayer)));
-      window.location.reload();
-    } catch {
-      setIsRefreshing(false);
-    }
-  };
-
-  // Update time ago every 30 seconds
-  useEffect(() => {
-    const update = () => {
-      const latestFetch = getLatestFetch();
-      setTimeAgo(latestFetch ? formatTimeAgo(latestFetch) : "—");
-    };
-    update();
-    const interval = setInterval(update, 30000);
-    return () => clearInterval(interval);
-  }, [getLatestFetch]);
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
+      {/* Desktop Header */}
       <header className="hidden sm:block shrink-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="container-fluid">
           <div className="flex items-center justify-between h-12">
@@ -91,61 +41,38 @@ function LayoutInner({ children }: LayoutProps) {
               })}
             </nav>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleRefreshCache}
-                disabled={isRefreshing}
-                title="Refresh cache"
-              >
-                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-              </Button>
+            <div className="flex items-center">
               <ModeToggle />
             </div>
           </div>
         </div>
       </header>
 
+      {/* Mobile Header */}
       <header className="sm:hidden shrink-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/40">
         <div className="flex items-center justify-between h-12 px-4">
           <Link to="/" className="font-press-start tap-highlight">
             0xsignal
           </Link>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleRefreshCache}
-              disabled={isRefreshing}
-              aria-label="Refresh data"
-            >
-              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            </Button>
+          <div className="flex items-center">
             <ModeToggle />
           </div>
         </div>
       </header>
 
+      {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden pb-16 sm:pb-0 relative">
         {children}
       </main>
 
+      {/* Desktop Footer - Minimal */}
       <footer className="hidden sm:block shrink-0 border-t border-border/40 bg-background/80 backdrop-blur-md z-40">
-        <div className="flex items-center justify-between text-xs text-muted-foreground py-2 px-4">
-          <div className="flex items-center gap-4">
-            <p>© {new Date().getFullYear()} 0xSignal</p>
-            <div className="text-muted-foreground/80 font-medium">{warning}</div>
-          </div>
-          <div className="flex items-center gap-4">
-            <p className="tabular-nums">
-              Last update: <span className="text-foreground/80">{timeAgo}</span>
-            </p>
-            <div>{metadata || "Data: CoinGecko · DefiLlama · Binance"}</div>
-          </div>
+        <div className="flex items-center justify-center text-xs text-muted-foreground py-2 px-4">
+          <p className="tabular-nums">Not financial advice</p>
         </div>
       </footer>
 
+      {/* Mobile Navigation */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border/40 safe-area-pb transition-all duration-300 ease-premium">
         <div className="flex items-center justify-around h-16 px-1">
           {NAV_ITEMS.map((item) => {
@@ -212,11 +139,5 @@ function LayoutInner({ children }: LayoutProps) {
 }
 
 export function Layout({ children }: LayoutProps) {
-  return (
-    <FreshnessProvider>
-      <FooterProvider>
-        <LayoutInner>{children}</LayoutInner>
-      </FooterProvider>
-    </FreshnessProvider>
-  );
+  return <LayoutInner>{children}</LayoutInner>;
 }

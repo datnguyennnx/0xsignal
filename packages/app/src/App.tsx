@@ -3,36 +3,10 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/core/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/layouts/main-layout";
+import { MarketDashboard } from "@/features/dashboard/pages/market-dashboard";
 
-const MarketDashboard = lazy(() =>
-  import("@/features/dashboard/pages/market-dashboard").then((m) => ({
-    default: m.MarketDashboard,
-  }))
-);
-const AllBuySignals = lazy(() =>
-  import("@/features/signals/pages/buy-signals").then((m) => ({ default: m.AllBuySignals }))
-);
-const AllSellSignals = lazy(() =>
-  import("@/features/signals/pages/sell-signals").then((m) => ({ default: m.AllSellSignals }))
-);
-const AllHoldSignals = lazy(() =>
-  import("@/features/signals/pages/hold-signals").then((m) => ({ default: m.AllHoldSignals }))
-);
 const AssetDetail = lazy(() =>
   import("@/features/asset-detail/pages/asset-detail").then((m) => ({ default: m.AssetDetail }))
-);
-const MarketDepthPage = lazy(() =>
-  import("@/features/market-depth/pages/market-depth").then((m) => ({ default: m.MarketDepthPage }))
-);
-const BuybackSignalsPage = lazy(() =>
-  import("@/features/buyback/pages/buyback-signals").then((m) => ({
-    default: m.BuybackSignalsPage,
-  }))
-);
-const TreasuryDashboard = lazy(() =>
-  import("@/features/treasury/pages/treasury-dashboard").then((m) => ({
-    default: m.TreasuryDashboard,
-  }))
 );
 const NotFoundPage = lazy(() =>
   import("@/features/error/pages/not-found").then((m) => ({ default: m.NotFoundPage }))
@@ -55,13 +29,7 @@ function App() {
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<MarketDashboard />} />
-                <Route path="/buy" element={<AllBuySignals />} />
-                <Route path="/sell" element={<AllSellSignals />} />
-                <Route path="/hold" element={<AllHoldSignals />} />
                 <Route path="/asset/:symbol" element={<AssetDetail />} />
-                <Route path="/market-depth" element={<MarketDepthPage />} />
-                <Route path="/buyback" element={<BuybackSignalsPage />} />
-                <Route path="/treasury" element={<TreasuryDashboard />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>

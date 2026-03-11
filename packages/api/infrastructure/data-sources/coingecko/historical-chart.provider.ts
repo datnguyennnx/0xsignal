@@ -1,4 +1,4 @@
-/** CoinGecko Historical Chart Provider - Fallback for non-Binance coins */
+/** CoinGecko Historical Chart Provider - Fallback for coins not on Hyperliquid */
 
 import { Effect, Context, Layer, Cache, Schema } from "effect";
 import type { ChartDataPoint } from "@0xsignal/shared";

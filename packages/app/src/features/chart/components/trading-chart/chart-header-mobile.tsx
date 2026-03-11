@@ -2,7 +2,7 @@ import { memo } from "react";
 import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Maximize2, Minimize2 } from "lucide-react";
-import { INTERVALS } from "./constants";
+import { DEFAULT_INTERVALS } from "./constants";
 
 interface ChartHeaderMobileProps {
   symbol: string;
@@ -24,7 +24,7 @@ export const ChartHeaderMobile = memo(function ChartHeaderMobile({
       <div className="flex items-center gap-2">
         <h3 className="text-xs font-semibold">{symbol}</h3>
         <div className="flex items-center">
-          {INTERVALS.map((int) => (
+          {DEFAULT_INTERVALS.map((int) => (
             <button
               key={int.value}
               onClick={() => onIntervalChange(int.value)}

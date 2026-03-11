@@ -19,8 +19,7 @@ export const createMeta = (source: string, isEstimate = false, ttlSeconds?: numb
 
 export const DATA_SOURCES = {
   COINGECKO: "CoinGecko",
-  BINANCE: "Binance",
-  DEFILLAMA: "DeFiLlama",
+  HYPERLIQUID: "Hyperliquid",
   COMPUTED: "Computed",
 } as const;
 

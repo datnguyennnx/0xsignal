@@ -40,68 +40,6 @@ export const CoinGeckoMarketItemSchema = Schema.Struct({
 
 export const CoinGeckoMarketsSchema = Schema.Array(CoinGeckoMarketItemSchema);
 
-// Binance futures schemas
-export const BinanceOpenInterestSchema = Schema.Struct({
-  symbol: Schema.String,
-  openInterest: Schema.String,
-  time: Schema.Number,
-});
-
-export const BinanceTickerSchema = Schema.Struct({
-  symbol: Schema.String,
-  priceChange: Schema.String,
-  priceChangePercent: Schema.String,
-  lastPrice: Schema.String,
-  highPrice: Schema.String,
-  lowPrice: Schema.String,
-  volume: Schema.String,
-  quoteVolume: Schema.String,
-});
-
-export const BinancePremiumIndexSchema = Schema.Struct({
-  symbol: Schema.String,
-  markPrice: Schema.String,
-  indexPrice: Schema.String,
-  lastFundingRate: Schema.String,
-  nextFundingTime: Schema.Number,
-  time: Schema.Number,
-});
-
-export const BinanceExchangeInfoSchema = Schema.Struct({
-  symbols: Schema.Array(
-    Schema.Struct({
-      symbol: Schema.String,
-      status: Schema.String,
-      baseAsset: Schema.String,
-      quoteAsset: Schema.String,
-    })
-  ),
-});
-
-// DefiLlama schemas
-export const DefiLlamaProtocolSchema = Schema.Struct({
-  name: Schema.String,
-  displayName: Schema.optional(Schema.String),
-  symbol: Schema.optional(Schema.String),
-  gecko_id: Schema.NullOr(Schema.String),
-  logo: Schema.optional(Schema.NullOr(Schema.String)),
-  url: Schema.optional(Schema.NullOr(Schema.String)),
-  category: Schema.optional(Schema.String),
-  chains: Schema.optional(Schema.Array(Schema.String)),
-  total24h: Schema.optional(Schema.Number),
-  total7d: Schema.optional(Schema.Number),
-  total30d: Schema.optional(Schema.Number),
-  revenue24h: Schema.optional(Schema.Number),
-  revenue7d: Schema.optional(Schema.Number),
-  revenue30d: Schema.optional(Schema.Number),
-});
-
-export const DefiLlamaFeesResponseSchema = Schema.Struct({
-  protocols: Schema.optional(Schema.Array(DefiLlamaProtocolSchema)),
-  totalFees24h: Schema.optional(Schema.Number),
-  totalRevenue24h: Schema.optional(Schema.Number),
-});
-
 // CoinGecko Treasury schemas (Public Treasury Endpoints - Nov 2025)
 export const TreasuryCompanySchema = Schema.Struct({
   name: Schema.String,
@@ -147,14 +85,25 @@ export const TreasuryHistoricalChartSchema = Schema.Struct({
   holding_value_in_usd: Schema.Array(Schema.Tuple(Schema.Number, Schema.Number)),
 });
 
+// Hyperliquid schemas
+export const HyperliquidCandleSchema = Schema.Struct({
+  t: Schema.Number, // Open time (ms)
+  T: Schema.Number, // Close time (ms)
+  o: Schema.String, // Open price
+  h: Schema.String, // High price
+  l: Schema.String, // Low price
+  c: Schema.String, // Close price
+  v: Schema.String, // Volume
+  n: Schema.Number, // Number of trades
+  i: Schema.String, // Interval
+  s: Schema.String, // Symbol
+});
+
 // Type exports
 export type CoinGeckoMarketItem = typeof CoinGeckoMarketItemSchema.Type;
-export type BinanceOpenInterest = typeof BinanceOpenInterestSchema.Type;
-export type BinanceTicker = typeof BinanceTickerSchema.Type;
-export type BinancePremiumIndex = typeof BinancePremiumIndexSchema.Type;
-export type DefiLlamaProtocol = typeof DefiLlamaProtocolSchema.Type;
 export type TreasuryCompany = typeof TreasuryCompanySchema.Type;
 export type TreasuryHoldingsByCoin = typeof TreasuryHoldingsByCoinSchema.Type;
 export type TreasuryTransaction = typeof TreasuryTransactionSchema.Type;
 export type TreasuryEntity = typeof TreasuryEntitySchema.Type;
 export type TreasuryHistoricalChart = typeof TreasuryHistoricalChartSchema.Type;
+export type HyperliquidCandle = typeof HyperliquidCandleSchema.Type;

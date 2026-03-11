@@ -1,13 +1,7 @@
 /** Data Source Types - Provider abstractions */
 
 import { Data, Effect } from "effect";
-import type {
-  CryptoPrice,
-  OpenInterestData,
-  FundingRateData,
-  MarketHeatmap,
-  HeatmapConfig,
-} from "@0xsignal/shared";
+import type { CryptoPrice, OpenInterestData, FundingRateData } from "@0xsignal/shared";
 
 // Errors
 export class DataSourceError extends Data.TaggedError("DataSourceError")<{
@@ -61,11 +55,4 @@ export interface DerivativesProvider {
   readonly getTopOpenInterest: (
     limit?: number
   ) => Effect.Effect<OpenInterestData[], DataSourceError>;
-}
-
-export interface HeatmapProvider {
-  readonly info: AdapterInfo;
-  readonly getMarketHeatmap: (
-    config: HeatmapConfig
-  ) => Effect.Effect<MarketHeatmap, DataSourceError>;
 }

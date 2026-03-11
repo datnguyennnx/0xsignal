@@ -12,24 +12,6 @@ export interface ChartDataPoint {
 }
 
 /**
- * Binance kline data from WebSocket
- */
-export interface BinanceKline {
-  readonly symbol: string;
-  readonly interval: string;
-  readonly openTime: number;
-  readonly closeTime: number;
-  readonly open: number;
-  readonly high: number;
-  readonly low: number;
-  readonly close: number;
-  readonly volume: number;
-  readonly trades: number;
-  readonly isFinal: boolean;
-  readonly isClosed?: boolean; // Alias for isFinal
-}
-
-/**
  * WebSocket subscription info
  */
 export interface Subscription {

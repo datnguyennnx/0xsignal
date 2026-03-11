@@ -1,38 +1,12 @@
 /** HTTP Router - Route matching with functional patterns */
 
-import { Effect, Option, pipe } from "effect";
-import type { HeatmapConfig } from "@0xsignal/shared";
+import { Effect } from "effect";
 import { healthRoute } from "./routes/health.routes";
-import {
-  topAnalysisRoute,
-  symbolAnalysisRoute,
-  marketOverviewRoute,
-} from "./routes/analysis.routes";
-import { tradingSignalsRoute, highConfidenceSignalsRoute } from "./routes/signals.routes";
-import { chartDataRoute } from "./routes/chart.routes";
-import {
-  marketHeatmapRoute,
-  topMoversHeatmapRoute,
-  topOpenInterestRoute,
-  symbolOpenInterestRoute,
-  symbolFundingRateRoute,
-  dataSourcesRoute,
-} from "./routes/heatmap.routes";
-
-import {
-  buybackSignalsRoute,
-  buybackOverviewRoute,
-  protocolBuybackRoute,
-  protocolBuybackDetailRoute,
-} from "./routes/buyback.routes";
 import { globalMarketRoute } from "./routes/global-market.routes";
-import {
-  treasuryEntitiesRoute,
-  treasuryHoldingsRoute,
-  treasuryChartRoute,
-  treasurySupportedCoinsRoute,
-} from "./routes/treasury.routes";
-import { assetContextRoute } from "./routes/context.routes";
+import { chartDataRoute } from "./routes/chart.routes";
+import { analyzeChartRoute, recommendTradeRoute, clearAICacheRoute } from "./routes/ai.routes";
+import { listModelsRoute } from "./routes/models.routes";
+import { AggregatedDataServiceTag } from "../../infrastructure/data-sources/aggregator";
 
 // Helpers
 const getParam = (url: URL, key: string, def: string) => url.searchParams.get(key) || def;
@@ -42,29 +16,18 @@ const getInt = (url: URL, key: string, def: number, max?: number) => {
 };
 const notFound = Effect.fail({ status: 404, message: "Not found" });
 const badRequest = (msg: string) => Effect.fail({ status: 400, message: msg });
+const methodNotAllowed = (method: string) =>
+  Effect.fail({ status: 405, message: `Method ${method} not allowed` });
 
-// Route patterns
-const patterns = {
-  derivativesOI: /^\/api\/derivatives\/([^/]+)\/open-interest$/,
-  derivativesFR: /^\/api\/derivatives\/([^/]+)\/funding-rate$/,
-  buybackDetail: /^\/api\/buyback\/([^/]+)\/detail$/,
-  buyback: /^\/api\/buyback\/([^/]+)$/,
-  analysis: /^\/api\/analysis\/([^/]+)$/,
-  treasuryHoldings: /^\/api\/treasury\/([^/]+)\/holdings$/,
-  treasuryChart: /^\/api\/treasury\/([^/]+)\/chart$/,
-  context: /^\/api\/context\/([^/]+)$/,
-};
+// Simple price route using AggregatedDataService
+const pricesRoute = (limit: number) =>
+  Effect.flatMap(AggregatedDataServiceTag, (s) => s.getTopCryptos(limit));
 
-// Match pattern and extract param
-const matchPattern = (path: string, pattern: RegExp): Option.Option<string> =>
-  pipe(
-    Option.fromNullable(path.match(pattern)),
-    Option.filter((m) => m.length > 1),
-    Option.map((m) => m[1])
-  );
+const priceBySymbolRoute = (symbol: string) =>
+  Effect.flatMap(AggregatedDataServiceTag, (s) => s.getPrice(symbol));
 
 // Main router - returns Effect with any requirements
-export const handleRequest = (url: URL, _method: string) => {
+export const handleRequest = (url: URL, method: string, body?: unknown) => {
   const path = url.pathname;
 
   // Static routes
@@ -73,85 +36,37 @@ export const handleRequest = (url: URL, _method: string) => {
       return healthRoute();
     case "/api/global":
       return globalMarketRoute();
-    case "/api/analysis/top":
-      return topAnalysisRoute(getInt(url, "limit", 20, 100));
-    case "/api/overview":
-      return marketOverviewRoute();
-    case "/api/signals":
-      return tradingSignalsRoute();
-    case "/api/signals/high-confidence":
-      return highConfidenceSignalsRoute(getInt(url, "confidence", 70));
-    case "/api/heatmap/movers":
-      return topMoversHeatmapRoute(getInt(url, "limit", 50));
-
-    case "/api/derivatives/open-interest":
-      return topOpenInterestRoute(getInt(url, "limit", 20));
-    case "/api/sources":
-      return dataSourcesRoute();
-    case "/api/buyback/signals":
-      return buybackSignalsRoute(getInt(url, "limit", 50, 100));
-    case "/api/buyback/overview":
-      return buybackOverviewRoute();
+    case "/api/prices":
+      return pricesRoute(getInt(url, "limit", 100, 250));
     case "/api/chart": {
       const symbol = url.searchParams.get("symbol");
       return symbol
         ? chartDataRoute(symbol, getParam(url, "interval", "1h"), getParam(url, "timeframe", "24h"))
         : badRequest("Symbol required");
     }
-    case "/api/heatmap":
-      return marketHeatmapRoute({
-        limit: getInt(url, "limit", 100),
-        category: getParam(url, "category", "") || undefined,
-        sortBy: getParam(url, "sortBy", "marketCap") as HeatmapConfig["sortBy"],
-      });
-    case "/api/treasury/overview":
-    case "/api/treasury/entities":
-      return treasuryEntitiesRoute();
-    case "/api/treasury/coins":
-      return treasurySupportedCoinsRoute();
+
+    // AI Routes
+    case "/api/ai/analyze":
+      if (method !== "POST") return methodNotAllowed(method);
+      return analyzeChartRoute(body);
+
+    case "/api/ai/recommend":
+      if (method !== "POST") return methodNotAllowed(method);
+      return recommendTradeRoute(body);
+
+    case "/api/ai/cache/clear":
+      if (method !== "POST") return methodNotAllowed(method);
+      return clearAICacheRoute(body);
+
+    // Models Route
+    case "/api/models":
+      return listModelsRoute();
   }
 
-  // Dynamic routes - derivatives OI
-  const oiMatch = path.match(patterns.derivativesOI);
-  if (oiMatch) return symbolOpenInterestRoute(oiMatch[1]);
-
-  // Dynamic routes - derivatives FR
-  const frMatch = path.match(patterns.derivativesFR);
-  if (frMatch) return symbolFundingRateRoute(frMatch[1]);
-
-  // Dynamic routes - buyback detail
-  const buybackDetailMatch = path.match(patterns.buybackDetail);
-  if (buybackDetailMatch) return protocolBuybackDetailRoute(buybackDetailMatch[1]);
-
-  // Dynamic routes - buyback
-  const buybackMatch = path.match(patterns.buyback);
-  if (buybackMatch && !["signals", "overview"].some((s) => path.includes(s))) {
-    return protocolBuybackRoute(buybackMatch[1]);
-  }
-
-  // Dynamic routes - analysis
-  const analysisMatch = path.match(patterns.analysis);
-  if (analysisMatch && analysisMatch[1] !== "top") {
-    return symbolAnalysisRoute(analysisMatch[1]);
-  }
-
-  // Dynamic routes - treasury holdings
-  const treasuryHoldingsMatch = path.match(patterns.treasuryHoldings);
-  if (treasuryHoldingsMatch) return treasuryHoldingsRoute(treasuryHoldingsMatch[1]);
-
-  // Dynamic routes - treasury chart
-  const treasuryChartMatch = path.match(patterns.treasuryChart);
-  if (treasuryChartMatch) return treasuryChartRoute(treasuryChartMatch[1]);
-
-  // Dynamic routes - unified context
-  const contextMatch = path.match(patterns.context);
-  if (contextMatch) {
-    const includeTreasury = getParam(url, "treasury", "true") === "true";
-    const includeDerivatives = getParam(url, "derivatives", "true") === "true";
-    return assetContextRoute(contextMatch[1], {
-      includeTreasury,
-      includeDerivatives,
-    });
+  // Dynamic routes - price by symbol
+  if (path.startsWith("/api/prices/")) {
+    const symbol = path.replace("/api/prices/", "");
+    return priceBySymbolRoute(symbol);
   }
 
   return notFound;

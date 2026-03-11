@@ -26,8 +26,7 @@ interface RateLimiterConfig {
 
 const CONFIG: Record<string, RateLimiterConfig> = {
   coingecko: { tokensPerMinute: 25, burstSize: 5 },
-  defillama: { tokensPerMinute: 50, burstSize: 10 },
-  binance: { tokensPerMinute: 1000, burstSize: 100 },
+  hyperliquid: { tokensPerMinute: 1000, burstSize: 100 },
 };
 
 const DEFAULT_CONFIG: RateLimiterConfig = { tokensPerMinute: 60, burstSize: 10 };

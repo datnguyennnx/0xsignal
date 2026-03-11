@@ -19,7 +19,7 @@ describe("Data Source Types", () => {
 
     it("creates error with optional symbol", () => {
       const error = new DataSourceError({
-        source: "Binance",
+        source: "Hyperliquid",
         message: "Symbol not found",
         symbol: "UNKNOWN",
       });
@@ -30,7 +30,7 @@ describe("Data Source Types", () => {
     it("creates error with optional cause", () => {
       const cause = new Error("Network error");
       const error = new DataSourceError({
-        source: "DefiLlama",
+        source: "CoinGecko",
         message: "Request failed",
         cause,
       });
@@ -76,7 +76,7 @@ describe("Data Source Types", () => {
   describe("RateLimitError", () => {
     it("creates error with correct tag", () => {
       const error = new RateLimitError({
-        source: "Binance",
+        source: "Hyperliquid",
       });
 
       expect(error._tag).toBe("RateLimitError");
@@ -94,7 +94,7 @@ describe("Data Source Types", () => {
 
     it("creates error without retryAfter", () => {
       const error = new RateLimitError({
-        source: "DefiLlama",
+        source: "CoinGecko",
       });
 
       expect(error.retryAfter).toBeUndefined();
@@ -119,7 +119,7 @@ describe("Data Source Types", () => {
       Effect.gen(function* () {
         const program = Effect.fail(
           new RateLimitError({
-            source: "Binance",
+            source: "Hyperliquid",
             retryAfter: 120,
           })
         ).pipe(
@@ -130,7 +130,7 @@ describe("Data Source Types", () => {
 
         const result = yield* program;
 
-        expect(result).toBe("Rate limited by Binance, retry in 120s");
+        expect(result).toBe("Rate limited by Hyperliquid, retry in 120s");
       })
     );
   });
@@ -138,7 +138,7 @@ describe("Data Source Types", () => {
   describe("DataNotAvailableError", () => {
     it("creates error with correct tag", () => {
       const error = new DataNotAvailableError({
-        source: "Binance",
+        source: "Hyperliquid",
         dataType: "liquidations",
       });
 
@@ -159,7 +159,7 @@ describe("Data Source Types", () => {
 
     it("creates error without symbol", () => {
       const error = new DataNotAvailableError({
-        source: "DefiLlama",
+        source: "CoinGecko",
         dataType: "fees",
       });
 
@@ -185,7 +185,7 @@ describe("Data Source Types", () => {
       Effect.gen(function* () {
         const program = Effect.fail(
           new DataNotAvailableError({
-            source: "Binance",
+            source: "Hyperliquid",
             dataType: "openInterest",
             symbol: "BTC",
           })
@@ -197,7 +197,7 @@ describe("Data Source Types", () => {
 
         const result = yield* program;
 
-        expect(result).toBe("openInterest not available for BTC from Binance");
+        expect(result).toBe("openInterest not available for BTC from Hyperliquid");
       })
     );
   });

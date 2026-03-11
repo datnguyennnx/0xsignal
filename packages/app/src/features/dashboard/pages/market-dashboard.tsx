@@ -1,252 +1,138 @@
-import type { AssetAnalysis, GlobalMarketData } from "@0xsignal/shared";
-import { memo, useEffect, useMemo } from "react";
+import type { GlobalMarketData, CryptoPrice } from "@0xsignal/shared";
+import { memo } from "react";
 import { Link } from "react-router-dom";
-import { cachedChartData, cachedDashboardData } from "@/core/cache/effect-cache";
-import { useConcurrentQueries, useResilientQuery } from "@/core/runtime/use-effect-query";
-import { SignalCard } from "@/features/dashboard/components/signal-card";
-import { TradeSetupCard } from "@/features/dashboard/components/trade-setup-card";
-import { useMemoizedAllSignals } from "@/features/dashboard/hooks/use-memoized-calc";
 import { cn } from "@/core/utils/cn";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
 import { GlobalMarketBar } from "@/features/dashboard/components/global-market-bar";
-import { useResponsiveDataCount } from "@/core/hooks/use-responsive-data-count";
-import { DataAgeBadge } from "@/components/data-freshness";
-import { useFooter } from "@/core/providers/footer-provider";
+import { usePrices, useGlobalMarket } from "@/hooks/prices";
 
 interface DashboardContentProps {
-  analyses: AssetAnalysis[];
+  cryptos: CryptoPrice[];
   globalMarket: GlobalMarketData | null;
   fetchedAt?: Date;
 }
 
-function DashboardContent({ analyses, globalMarket, fetchedAt }: DashboardContentProps) {
-  const { buySignals, sellSignals, holdSignals, longEntries, shortEntries } =
-    useMemoizedAllSignals(analyses);
-  const { setMetadata } = useFooter();
+// Format giá theo độ lớn
+const formatPrice = (price: number): string => {
+  const config =
+    price >= 1000 ? { min: 2, max: 2 } : price >= 1 ? { min: 2, max: 4 } : { min: 4, max: 6 };
 
-  useEffect(() => {
-    setMetadata("Data: CoinGecko · DefiLlama · Binance");
-    return () => setMetadata(null);
-  }, [setMetadata]);
-
-  // Responsive data counts - Match grid columns to fill rows properly
-  // Grid: 1 col mobile, 2 col tablet, 4 col desktop, 5 col xl, 6 col 3xl
-  // Show 2 rows worth of data at each breakpoint
-  const tradeSetupsCount = useResponsiveDataCount({
-    mobile: 2,
-    tablet: 4,
-    desktop: 8,
-    desktopWide: 10,
-    desktop2xl: 12,
-    desktop4k: 12,
+  return price.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: config.min,
+    maximumFractionDigits: config.max,
   });
-  const holdSignalsCount = useResponsiveDataCount({
-    mobile: 8,
-    tablet: 12,
-    desktop: 20,
-    desktop4k: 30,
-  });
-  const signalsCount = useResponsiveDataCount({ mobile: 4, tablet: 6, desktop: 8, desktop4k: 18 });
+};
 
-  // Combine and limit trade setups
-  const tradeSetups = useMemo(
-    () => [...longEntries, ...shortEntries].slice(0, tradeSetupsCount),
-    [longEntries, shortEntries, tradeSetupsCount]
-  );
-
-  // Performance: Batch fetch sparkline data for all trade setups (N+1 query optimization)
-  // This uses Effect.all(..., { concurrency: 'unbounded' }) efficiently
-  const sparklineQueries = useMemo(() => {
-    const queries: Record<string, () => any> = {};
-    tradeSetups.forEach((asset) => {
-      queries[asset.symbol] = () =>
-        cachedChartData(`${asset.symbol.toUpperCase()}USDT`, "1h", "7d");
-    });
-    return queries;
-  }, [tradeSetups]);
-
-  const symbolsKey = tradeSetups
-    .map((t) => t.symbol)
-    .sort()
-    .join(",");
-
-  const { data: sparklineData } = useConcurrentQueries(sparklineQueries, [symbolsKey]);
-
+function DashboardContent({ cryptos, globalMarket }: DashboardContentProps) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium h-full overflow-y-auto">
       <div className="container-fluid py-4 sm:py-6">
-        {/* Header - Stacked on mobile, inline on tablet+ */}
+        {/* Header */}
         <header className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0 mb-5 sm:mb-6">
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
-                Market Overview
-              </h1>
-              <DataAgeBadge timestamp={fetchedAt} />
-            </div>
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
+              Market Watchlist
+            </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-md leading-relaxed">
-              Aggregated market signals identifying regimes and statistical anomalies. Derived from
-              multi-timeframe Binance Futures data.
+              Track top cryptocurrencies with real-time price data from CoinGecko.
             </p>
           </div>
           {globalMarket && <GlobalMarketBar data={globalMarket} className="shrink-0 mt-1" />}
         </header>
 
-        {/* Entry Signals Grid */}
-        {tradeSetups.length > 0 && (
-          <section className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h2 className="text-xs sm:text-sm font-mono font-medium text-muted-foreground uppercase tracking-wider">
-                  Entry Signals
-                </h2>
-                <span className="text-[10px] sm:text-xs bg-secondary px-1.5 py-0.5 rounded-sm tabular-nums">
-                  {longEntries.length + shortEntries.length}
-                </span>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-responsive">
-              {tradeSetups.map((asset) => (
-                <TradeSetupCard
-                  key={asset.symbol}
-                  asset={asset}
-                  chartData={sparklineData?.[asset.symbol] as any}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Hold - Compact Bar */}
-        {holdSignals.length > 0 && (
-          <section className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs sm:text-sm font-mono font-medium text-muted-foreground uppercase tracking-wider">
-                Neutral / Hold
-              </span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground tabular-nums">
-                ({holdSignals.length})
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2 sm:gap-1.5">
-              {holdSignals.slice(0, holdSignalsCount).map((s) => (
-                <HoldChip key={s.symbol} asset={s} />
-              ))}
-              {holdSignals.length > holdSignalsCount && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className="h-7 px-2.5 rounded-sm text-[10px] font-mono border-dashed"
-                >
-                  <Link to="/hold">+{holdSignals.length - holdSignalsCount}</Link>
-                </Button>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* Long & Short - Split View or Full Width based on screen */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6 xl:gap-8">
-          {/* Long Signals */}
-          <section>
-            <div className="flex items-center justify-between mb-3 border-b border-border/40 pb-2">
-              <div className="flex items-center gap-2">
-                <h2 className="text-xs sm:text-sm font-mono font-medium text-gain uppercase tracking-wider">
-                  Long Signals
-                </h2>
-                <span className="text-[10px] sm:text-xs bg-gain-muted text-gain-dark px-1.5 py-0.5 rounded-sm tabular-nums">
-                  {buySignals.length}
-                </span>
-              </div>
-              {buySignals.length > signalsCount && (
-                <Link
-                  to="/buy"
-                  className="text-[10px] sm:text-xs font-mono hover:underline text-muted-foreground"
-                >
-                  VIEW ALL &rarr;
-                </Link>
-              )}
-            </div>
-            {buySignals.length === 0 ? (
-              <div className="py-12 text-center border border-dashed border-border/60 rounded-sm">
-                <p className="text-xs sm:text-sm text-muted-foreground font-mono">
-                  NO ACTIVE LONG SIGNALS
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-responsive">
-                {buySignals.slice(0, signalsCount).map((s) => (
-                  <SignalCard key={s.symbol} signal={s} type="buy" />
+        {/* Watchlist Table */}
+        <section className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left py-3 px-4 text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
+                    Asset
+                  </th>
+                  <th className="text-right py-3 px-4 text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
+                    Price
+                  </th>
+                  <th className="text-right py-3 px-4 text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
+                    24h Change
+                  </th>
+                  <th className="text-right py-3 px-4 text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider hidden sm:table-cell">
+                    Market Cap
+                  </th>
+                  <th className="text-right py-3 px-4 text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">
+                    Volume (24h)
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {cryptos.map((crypto, index) => (
+                  <tr
+                    key={crypto.symbol}
+                    className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                  >
+                    <td className="py-3 px-4">
+                      <Link
+                        to={`/asset/${crypto.symbol.toLowerCase()}`}
+                        className="flex items-center gap-3 group"
+                      >
+                        <span className="text-xs text-muted-foreground tabular-nums w-6">
+                          {index + 1}
+                        </span>
+                        {crypto.image && (
+                          <img
+                            src={crypto.image}
+                            alt={crypto.symbol}
+                            className="w-8 h-8 rounded-full"
+                          />
+                        )}
+                        <div>
+                          <div className="font-mono font-medium text-sm group-hover:text-primary transition-colors">
+                            {crypto.symbol.toUpperCase()}
+                          </div>
+                          {crypto.name && (
+                            <div className="text-xs text-muted-foreground">{crypto.name}</div>
+                          )}
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span className="font-mono text-sm tabular-nums">
+                        {formatPrice(crypto.price)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <span
+                        className={cn(
+                          "font-mono text-sm tabular-nums",
+                          crypto.change24h >= 0 ? "text-green-500" : "text-red-500"
+                        )}
+                      >
+                        {crypto.change24h >= 0 ? "+" : ""}
+                        {crypto.change24h.toFixed(2)}%
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right hidden sm:table-cell">
+                      <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                        ${(crypto.marketCap / 1e9).toFixed(2)}B
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right hidden md:table-cell">
+                      <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                        ${(crypto.volume24h / 1e9).toFixed(2)}B
+                      </span>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            )}
-          </section>
-
-          {/* Short Signals */}
-          <section>
-            <div className="flex items-center justify-between mb-3 border-b border-border/40 pb-2">
-              <div className="flex items-center gap-2">
-                <h2 className="text-xs sm:text-sm font-mono font-medium text-loss uppercase tracking-wider">
-                  Short Signals
-                </h2>
-                <span className="text-[10px] sm:text-xs bg-loss-muted text-loss-dark px-1.5 py-0.5 rounded-sm tabular-nums">
-                  {sellSignals.length}
-                </span>
-              </div>
-              {sellSignals.length > signalsCount && (
-                <Link
-                  to="/sell"
-                  className="text-[10px] font-mono hover:underline text-muted-foreground"
-                >
-                  VIEW ALL &rarr;
-                </Link>
-              )}
-            </div>
-            {sellSignals.length === 0 ? (
-              <div className="py-12 text-center border border-dashed border-border/60 rounded-sm">
-                <p className="text-xs text-muted-foreground font-mono">NO ACTIVE SHORT SIGNALS</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-responsive">
-                {sellSignals.slice(0, signalsCount).map((s) => (
-                  <SignalCard key={s.symbol} signal={s} type="sell" />
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );
 }
-
-const HoldChip = memo(function HoldChip({ asset }: { asset: AssetAnalysis }) {
-  const change = asset.price?.change24h || 0;
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      asChild
-      className="h-8 sm:h-7 px-3 sm:px-2.5 rounded-full tap-highlight"
-    >
-      <Link to={`/asset/${asset.symbol.toLowerCase()}`}>
-        <span className="font-mono text-[12px] sm:text-[11px]">{asset.symbol.toUpperCase()}</span>
-        <span
-          className={cn(
-            "text-[11px] sm:text-[10px] tabular-nums ml-1.5",
-            change >= 0 ? "text-gain" : "text-loss"
-          )}
-        >
-          {change >= 0 ? "+" : ""}
-          {change.toFixed(1)}%
-        </span>
-      </Link>
-    </Button>
-  );
-});
 
 const DashboardSkeleton = memo(function DashboardSkeleton() {
   return (
@@ -260,69 +146,50 @@ const DashboardSkeleton = memo(function DashboardSkeleton() {
             <Skeleton className="h-4 w-16" />
           </div>
         </div>
-        <section className="mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-8" />
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <div className="p-4 border-b border-border bg-muted/50">
+            <div className="flex gap-4">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-20 ml-auto" />
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-20 hidden sm:block" />
+              <Skeleton className="h-4 w-20 hidden md:block" />
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 rounded-lg" />
+          <div className="divide-y divide-border/50">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 p-4">
+                <Skeleton className="h-4 w-6" />
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <div className="flex-1">
+                  <Skeleton className="h-4 w-20 mb-1" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+                <Skeleton className="h-4 w-24 ml-auto" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-24 hidden sm:block" />
+                <Skeleton className="h-4 w-24 hidden md:block" />
+              </div>
             ))}
           </div>
-        </section>
-        <section className="mb-6">
-          <Skeleton className="h-4 w-20 mb-3" />
-          <div className="flex flex-wrap gap-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-7 w-20 rounded-full" />
-            ))}
-          </div>
-        </section>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
-          {[1, 2].map((col) => (
-            <section key={col}>
-              <div className="flex items-center gap-2 mb-3 border-b border-border/40 pb-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-8" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16 rounded-lg" />
-                ))}
-              </div>
-            </section>
-          ))}
         </div>
       </div>
     </div>
   );
 });
 
-// Fetch limit: max UI needs (12 setups + 36 signals + 50 hold) × 1.3 buffer = 130
-const fetchDashboardData = () => cachedDashboardData(130);
-
 export function MarketDashboard() {
-  const { data, isLoading, isError, error } = useResilientQuery(fetchDashboardData, [], {
-    timeoutMs: 20000,
-    retries: 2,
-  });
+  const { data: cryptos, isLoading: pricesLoading, error: pricesError } = usePrices(20);
+
+  const { data: globalMarket, isLoading: marketLoading } = useGlobalMarket();
+
+  const isLoading = pricesLoading || marketLoading;
 
   if (isLoading) {
     return <DashboardSkeleton />;
   }
 
-  if (isError || !data) {
-    return (
-      <div className="container-fluid py-6 h-full overflow-y-auto">
-        <ErrorState type="general" retryAction={() => window.location.reload()} />
-      </div>
-    );
-  }
-
-  const hasAnalyses = data.analyses && data.analyses.length > 0;
-
-  if (!hasAnalyses) {
+  if (pricesError || !cryptos) {
     return (
       <div className="container-fluid py-6 h-full overflow-y-auto">
         <ErrorState type="general" retryAction={() => window.location.reload()} />
@@ -332,9 +199,9 @@ export function MarketDashboard() {
 
   return (
     <DashboardContent
-      analyses={data.analyses}
-      globalMarket={data.globalMarket}
-      fetchedAt={data.fetchedAt}
+      cryptos={cryptos}
+      globalMarket={globalMarket || null}
+      fetchedAt={new Date()}
     />
   );
 }

@@ -152,7 +152,7 @@ describe("Domain Errors", () => {
 
     it("returns 502 status for market data errors", () => {
       const error = new MarketDataError({
-        source: "Binance",
+        source: "Hyperliquid",
         message: "API unavailable",
       });
 

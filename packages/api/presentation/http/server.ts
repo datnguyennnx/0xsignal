@@ -1,15 +1,11 @@
 #!/usr/bin/env bun
-/** HTTP Server - Effect-native using Bun with functional patterns */
+/** HTTP Server - Bun-native with WebSocket support */
 
-import { Effect, ManagedRuntime, Match } from "effect";
+import { Effect, ManagedRuntime } from "effect";
 import { AppLayer } from "../../infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
 import { CoinGeckoService } from "../../infrastructure/data-sources/coingecko";
-import { DefiLlamaService } from "../../infrastructure/data-sources/defillama";
-import { HeatmapService } from "../../infrastructure/data-sources/heatmap";
-import { AnalysisServiceTag } from "../../services/analysis";
-import { BuybackServiceTag } from "../../services/buyback";
-import { DEFAULT_LIMITS } from "../../infrastructure/config/app.config";
+import { createAIWebSocketHandlers } from "../websocket/ai-websocket";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
 
@@ -17,28 +13,18 @@ const runtime = ManagedRuntime.make(AppLayer);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
 // Pre-warm caches
 const prewarmCaches = Effect.gen(function* () {
   yield* Effect.logInfo("Pre-warming essential caches...");
-  const { coinGecko, defiLlama, heatmap } = yield* Effect.all({
-    coinGecko: CoinGeckoService,
-    defiLlama: DefiLlamaService,
-    heatmap: HeatmapService,
-  });
+  const coinGecko = yield* CoinGeckoService;
 
   yield* Effect.all(
     {
       top20: coinGecko.getTopCryptos(20),
-      protocols: defiLlama.getProtocolsWithRevenue(),
-      heatmapData: heatmap.getMarketHeatmap({
-        limit: DEFAULT_LIMITS.HEATMAP,
-        sortBy: "marketCap",
-        metric: "change24h",
-      }),
     },
     { concurrency: "unbounded" }
   ).pipe(
@@ -47,64 +33,75 @@ const prewarmCaches = Effect.gen(function* () {
   );
 });
 
-// Response builder using Match
-const buildResponse = Match.type<{ success: boolean; data?: unknown; error?: any }>().pipe(
-  Match.when(
-    { success: true },
-    ({ data }) =>
-      new Response(JSON.stringify(data), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      })
-  ),
-  Match.when(
-    { success: false },
-    ({ error }) =>
-      new Response(JSON.stringify({ error: error?.message || "Internal server error" }), {
-        status: error?.status || 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      })
-  ),
-  Match.exhaustive
-);
-
-// Handle OPTIONS request
-const handleOptions = () => new Response(null, { status: 204, headers: corsHeaders });
+// Parse request body for POST requests
+const parseBody = async (req: Request): Promise<unknown> => {
+  try {
+    const contentType = req.headers.get("content-type");
+    if (contentType?.includes("application/json")) {
+      return await req.json();
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+};
 
 // Handle API request
-const handleApiRequest = async (url: URL, method: string) => {
+const handleApiRequest = async (url: URL, method: string, body?: unknown) => {
   try {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
         yield* Effect.logInfo(`${method} ${url.pathname}`);
-        return yield* handleRequest(url, method);
+        return yield* handleRequest(url, method, body);
       })
     );
-    return buildResponse({ success: true, data: result });
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   } catch (error: any) {
-    return buildResponse({ success: false, error });
+    return new Response(JSON.stringify({ error: error?.message || "Internal server error" }), {
+      status: error?.status || 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   }
 };
 
-// Request handler using Match
-const handleFetch = (req: Request): Promise<Response> | Response => {
-  const url = new URL(req.url);
-  return Match.value(req.method).pipe(
-    Match.when("OPTIONS", () => handleOptions()),
-    Match.orElse(() => handleApiRequest(url, req.method))
-  );
-};
+// AI WebSocket handlers
+const aiWs = createAIWebSocketHandlers(runtime);
 
-// Bun server
+// Bun server with native WebSocket support
 const server = Bun.serve({
   port: PORT,
-  fetch: handleFetch,
+  fetch: async (req, server) => {
+    // Handle WebSocket upgrade
+    if (aiWs.shouldUpgrade(req)) {
+      return aiWs.upgrade(req, server) as Response | undefined;
+    }
+
+    const url = new URL(req.url);
+
+    // CORS preflight
+    if (req.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    // POST with body
+    if (req.method === "POST") {
+      const body = await parseBody(req);
+      return handleApiRequest(url, req.method, body);
+    }
+
+    return handleApiRequest(url, req.method);
+  },
+  websocket: aiWs.websocket as any,
   reusePort: true,
 });
 
 console.log(`0xSignal API Server`);
 console.log(`Server: http://localhost:${PORT}`);
 console.log(`Health: http://localhost:${PORT}/api/health`);
+console.log(`AI WebSocket: ws://localhost:${PORT}/ws/ai`);
 
 runtime.runFork(prewarmCaches);
 

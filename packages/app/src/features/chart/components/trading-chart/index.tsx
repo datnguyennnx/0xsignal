@@ -53,6 +53,8 @@ interface TradingChartProps {
   symbol: string;
   interval: string;
   onIntervalChange: (interval: string) => void;
+  loadMore?: (count?: number) => Promise<void>;
+  hasMore?: boolean;
 }
 
 const generateRandomColor = (): string => {
@@ -62,7 +64,16 @@ const generateRandomColor = (): string => {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
-export function TradingChart({ data, symbol, interval, onIntervalChange }: TradingChartProps) {
+import { memo } from "react";
+
+function TradingChartComponent({
+  data,
+  symbol,
+  interval,
+  onIntervalChange,
+  loadMore,
+  hasMore,
+}: TradingChartProps) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -280,13 +291,148 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
     };
   }, [isDark]);
 
+  const initialDataLoadedRef = useRef(false);
+  const prevDataForStreamingRef = useRef<ChartDataPoint[]>([]);
+  const prevIsDarkRef = useRef(isDark);
+  const prevIntervalRef = useRef(interval);
+  const isLoadingMoreRef = useRef(false);
+
+  // Subscribe to scroll events for infinite history - per Lightweight Charts docs
+  useEffect(() => {
+    if (!chartRef.current || !candlestickSeriesRef.current) return;
+
+    const chart = chartRef.current;
+    const series = candlestickSeriesRef.current;
+
+    const handleVisibleRangeChange = (
+      logicalRange: import("lightweight-charts").LogicalRange | null
+    ): void => {
+      if (!logicalRange || !loadMore || !hasMore || isLoadingMoreRef.current) return;
+
+      const barsInfo = series.barsInLogicalRange(logicalRange);
+      if (!barsInfo || barsInfo.from === null) return;
+
+      // When user scrolls near the left edge (older data), load more
+      if (typeof barsInfo.from === "number" && barsInfo.from < 10) {
+        isLoadingMoreRef.current = true;
+        loadMore(200).finally(() => {
+          isLoadingMoreRef.current = false;
+        });
+      }
+    };
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
+
+    return () => {
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
+    };
+  }, [loadMore, hasMore]); // Re-subscribe when loadMore/hasMore changes
+
+  // Effect for data loading - pass all data to chart
   useEffect(() => {
     if (!candlestickSeriesRef.current || !volumeSeriesRef.current || data.length === 0) return;
-    candlestickSeriesRef.current.applyOptions({ priceFormat: { type: "price", ...priceFormat } });
-    candlestickSeriesRef.current.setData(candlestickData);
-    volumeSeriesRef.current.setData(volumeData);
-    chartRef.current?.timeScale().fitContent();
-  }, [candlestickData, volumeData, priceFormat, data.length]);
+
+    // Reset on theme or interval change
+    const intervalChanged = prevIntervalRef.current !== interval;
+    if (prevIsDarkRef.current !== isDark || intervalChanged) {
+      prevIsDarkRef.current = isDark;
+      prevIntervalRef.current = interval;
+      initialDataLoadedRef.current = false;
+    }
+
+    const isInitialLoad = !initialDataLoadedRef.current;
+    const prevData = prevDataForStreamingRef.current;
+    const isMajorChange =
+      prevData.length > 0 &&
+      (data.length < prevData.length * 0.8 ||
+        data.length > prevData.length * 1.5 ||
+        data[0].time !== prevData[0].time);
+
+    if (isInitialLoad || isMajorChange || intervalChanged) {
+      candlestickSeriesRef.current.setData(candlestickData);
+      volumeSeriesRef.current.setData(volumeData);
+      chartRef.current?.timeScale().fitContent();
+      initialDataLoadedRef.current = true;
+    }
+  }, [candlestickData, volumeData, data, isDark, interval]);
+
+  // Effect for real-time streaming updates - MUST run after the initial load effect
+  useEffect(() => {
+    if (!candlestickSeriesRef.current || !volumeSeriesRef.current || data.length === 0) return;
+    if (!initialDataLoadedRef.current) return; // Wait for initial load
+
+    const currentData = data;
+    const prevData = prevDataForStreamingRef.current;
+
+    // Find what changed
+    const prevLastCandle = prevData[prevData.length - 1];
+    const currentLastCandle = currentData[currentData.length - 1];
+
+    if (!prevLastCandle || !currentLastCandle) {
+      prevDataForStreamingRef.current = currentData;
+      return;
+    }
+
+    // Check if it's just the last candle updating (same timestamp)
+    const isLastCandleUpdate =
+      currentData.length === prevData.length &&
+      currentLastCandle.time === prevLastCandle.time &&
+      (currentLastCandle.close !== prevLastCandle.close ||
+        currentLastCandle.volume !== prevLastCandle.volume);
+
+    if (isLastCandleUpdate) {
+      // Update the last candle
+      candlestickSeriesRef.current.update({
+        time: currentLastCandle.time as Time,
+        open: currentLastCandle.open,
+        high: currentLastCandle.high,
+        low: currentLastCandle.low,
+        close: currentLastCandle.close,
+      });
+
+      volumeSeriesRef.current.update({
+        time: currentLastCandle.time as Time,
+        value: currentLastCandle.volume,
+        color:
+          currentLastCandle.close >= currentLastCandle.open
+            ? isDark
+              ? "rgba(38, 166, 154, 0.5)"
+              : "#26a69a"
+            : isDark
+              ? "rgba(239, 83, 80, 0.5)"
+              : "#ef5350",
+      });
+    } else if (currentData.length > prevData.length) {
+      // New candle(s) added
+      for (let i = prevData.length; i < currentData.length; i++) {
+        const candle = currentData[i];
+        candlestickSeriesRef.current.update({
+          time: candle.time as Time,
+          open: candle.open,
+          high: candle.high,
+          low: candle.low,
+          close: candle.close,
+        });
+
+        volumeSeriesRef.current.update({
+          time: candle.time as Time,
+          value: candle.volume,
+          color:
+            candle.close >= candle.open
+              ? isDark
+                ? "rgba(38, 166, 154, 0.5)"
+                : "#26a69a"
+              : isDark
+                ? "rgba(239, 83, 80, 0.5)"
+                : "#ef5350",
+        });
+      }
+    } else {
+      console.log("[Chart Streaming] No update needed");
+    }
+
+    prevDataForStreamingRef.current = currentData;
+  }, [data, isDark]);
 
   const getNextPaneIndex = useCallback((): number => {
     const usedPanes = new Set<number>([0, 1]);
@@ -546,10 +692,11 @@ export function TradingChart({ data, symbol, interval, onIntervalChange }: Tradi
   }
 
   return (
-    <div className="rounded-lg border border-border/50 bg-card overflow-hidden">
-      <div className="relative h-[400px] sm:h-[550px] lg:h-[800px] flex flex-col">
-        {chartContent}
-      </div>
+    <div className="h-full rounded-lg border border-border/50 bg-card overflow-hidden flex flex-col">
+      <div className="relative flex-1 flex flex-col">{chartContent}</div>
     </div>
   );
 }
+
+// Memoize to prevent unnecessary re-renders - use default shallow comparison
+export const TradingChart = memo(TradingChartComponent);
