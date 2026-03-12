@@ -1,7 +1,6 @@
 import type { GlobalMarketData } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { formatCompact, formatPercent } from "@/core/utils/formatters";
-import { DataFreshness } from "@/components/data-freshness";
 
 interface GlobalMarketBarProps {
   data: GlobalMarketData;

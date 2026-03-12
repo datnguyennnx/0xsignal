@@ -35,13 +35,7 @@ import {
   RESIZE_DELAY,
   INTERVAL_RESTORE_DELAY,
 } from "./constants";
-import {
-  usePriceFormat,
-  useCandlestickData,
-  useVolumeData,
-  useIndicatorData,
-  useOrientationWarning,
-} from "./hooks";
+import { usePriceFormat, useIndicatorData, useOrientationWarning } from "./hooks";
 import { ChartHeader } from "./chart-header";
 import { ChartHeaderMobile } from "./chart-header-mobile";
 import { ChartControls } from "./chart-controls";
@@ -65,6 +59,36 @@ const generateRandomColor = (): string => {
 };
 
 import { memo } from "react";
+
+// ──────────────────────────────────────────────────────────────
+// Helper: convert raw data to lightweight-charts format (inline, no extra hook)
+// These are pure transforms — we memoise them here so the chart
+// component doesn't pay for a hook call that creates new arrays.
+// ──────────────────────────────────────────────────────────────
+function toCandlestickData(data: ChartDataPoint[]) {
+  return data.map((d) => ({
+    time: d.time as Time,
+    open: d.open,
+    high: d.high,
+    low: d.low,
+    close: d.close,
+  }));
+}
+
+function toVolumeData(data: ChartDataPoint[], isDark: boolean) {
+  return data.map((d) => ({
+    time: d.time as Time,
+    value: d.volume,
+    color:
+      d.close >= d.open
+        ? isDark
+          ? "rgba(38, 166, 154, 0.5)"
+          : "#26a69a"
+        : isDark
+          ? "rgba(239, 83, 80, 0.5)"
+          : "#ef5350",
+  }));
+}
 
 function TradingChartComponent({
   data,
@@ -154,7 +178,9 @@ function TradingChartComponent({
         value.series.forEach((s) => {
           try {
             chartRef.current?.removeSeries(s);
-          } catch {}
+          } catch {
+            /* ignore */
+          }
         });
       });
       indicatorSeriesRef.current.clear();
@@ -199,10 +225,39 @@ function TradingChartComponent({
 
   const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
   const priceFormat = usePriceFormat(data);
-  const candlestickData = useCandlestickData(data);
-  const volumeData = useVolumeData(data, isDark);
   const indicatorData = useIndicatorData(activeIndicators, data);
 
+  // ──────────────────────────────────────────────────────────────
+  // Refs for tracking data changes across renders — used by effects
+  // to determine WHAT kind of update to perform (initial, prepend,
+  // append, or single-candle update).
+  // ──────────────────────────────────────────────────────────────
+  const initialDataLoadedRef = useRef(false);
+  const prevDataLenRef = useRef(0);
+  const prevFirstTimeRef = useRef<number | null>(null);
+  const prevLastTimeRef = useRef<number | null>(null);
+  const prevLastCandleRef = useRef<ChartDataPoint | null>(null);
+  const prevIsDarkRef = useRef(isDark);
+  const prevIntervalRef = useRef(interval);
+  const isLoadingMoreRef = useRef(false);
+
+  // ──────────────────────────────────────────────────────────────
+  // Keep loadMore/hasMore in refs so the scroll handler (created
+  // once in the chart-init effect) always has the latest values
+  // without needing to re-subscribe.
+  // ──────────────────────────────────────────────────────────────
+  const loadMoreRef = useRef(loadMore);
+  const hasMoreRef = useRef(hasMore);
+  useEffect(() => {
+    loadMoreRef.current = loadMore;
+    hasMoreRef.current = hasMore;
+  }, [loadMore, hasMore]);
+
+  // ──────────────────────────────────────────────────────────────
+  // CHART INITIALISATION (runs only when theme changes)
+  // Creates the chart, series, resize observer, crosshair,
+  // AND the single scroll handler for infinite history.
+  // ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
@@ -239,7 +294,9 @@ function TradingChartComponent({
       borderVisible: false,
       wickUpColor: candle.wickUpColor,
       wickDownColor: candle.wickDownColor,
-      priceFormat: { type: "price", precision: 8, minMove: 0.00000001 },
+      priceFormat: priceFormat.formatter
+        ? { type: "custom" as const, formatter: priceFormat.formatter }
+        : { type: "price" as const, ...priceFormat },
     });
 
     const volumeSeries = chart.addSeries(
@@ -259,6 +316,37 @@ function TradingChartComponent({
     candlestickSeriesRef.current = candlestickSeries;
     volumeSeriesRef.current = volumeSeries;
 
+    // ── Infinite scroll handler (SINGLE registration) ─────────
+    // Uses refs so it never needs to be re-subscribed.
+    const handleVisibleRangeChange = (
+      logicalRange: import("lightweight-charts").LogicalRange | null
+    ): void => {
+      if (!logicalRange) return;
+
+      const series = candlestickSeriesRef.current;
+      if (!series) return;
+
+      const barsInfo = series.barsInLogicalRange(logicalRange);
+      if (!barsInfo) return;
+
+      // barsBefore < 0 means there are bars beyond the left edge
+      // barsBefore < 50 means user is near the left edge
+      if (
+        barsInfo.barsBefore < 50 &&
+        loadMoreRef.current &&
+        hasMoreRef.current &&
+        !isLoadingMoreRef.current
+      ) {
+        isLoadingMoreRef.current = true;
+        loadMoreRef.current(200).finally(() => {
+          isLoadingMoreRef.current = false;
+        });
+      }
+    };
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
+
+    // ── Resize observer ───────────────────────────────────────
     const resizeObserver = new ResizeObserver((entries) => {
       if (!chartRef.current || !entries[0]) return;
       const { width, height } = entries[0].contentRect;
@@ -267,6 +355,7 @@ function TradingChartComponent({
 
     resizeObserver.observe(chartContainerRef.current);
 
+    // ── Crosshair ─────────────────────────────────────────────
     chart.subscribeCrosshairMove((param) => {
       if (!param.time || !param.seriesData) {
         setHoveredCandle(null);
@@ -285,104 +374,116 @@ function TradingChartComponent({
       }
     });
 
-    return () => {
-      resizeObserver.disconnect();
-      chart.remove();
-    };
-  }, [isDark]);
-
-  const initialDataLoadedRef = useRef(false);
-  const prevDataForStreamingRef = useRef<ChartDataPoint[]>([]);
-  const prevIsDarkRef = useRef(isDark);
-  const prevIntervalRef = useRef(interval);
-  const isLoadingMoreRef = useRef(false);
-
-  // Subscribe to scroll events for infinite history - per Lightweight Charts docs
-  useEffect(() => {
-    if (!chartRef.current || !candlestickSeriesRef.current) return;
-
-    const chart = chartRef.current;
-    const series = candlestickSeriesRef.current;
-
-    const handleVisibleRangeChange = (
-      logicalRange: import("lightweight-charts").LogicalRange | null
-    ): void => {
-      if (!logicalRange || !loadMore || !hasMore || isLoadingMoreRef.current) return;
-
-      const barsInfo = series.barsInLogicalRange(logicalRange);
-      if (!barsInfo || barsInfo.from === null) return;
-
-      // When user scrolls near the left edge (older data), load more
-      if (typeof barsInfo.from === "number" && barsInfo.from < 10) {
-        isLoadingMoreRef.current = true;
-        loadMore(200).finally(() => {
-          isLoadingMoreRef.current = false;
-        });
-      }
-    };
-
-    chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
+    // Reset tracking when chart is recreated
+    initialDataLoadedRef.current = false;
+    prevDataLenRef.current = 0;
+    prevFirstTimeRef.current = null;
+    prevLastTimeRef.current = null;
+    prevLastCandleRef.current = null;
 
     return () => {
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
+      resizeObserver.disconnect();
+      chart.remove();
     };
-  }, [loadMore, hasMore]); // Re-subscribe when loadMore/hasMore changes
+  }, [isDark, priceFormat]);
 
-  // Effect for data loading - pass all data to chart
+  // ──────────────────────────────────────────────────────────────
+  // UNIFIED DATA EFFECT — determines the type of change and
+  // performs the minimal chart operation:
+  //
+  //   1. Initial load / interval change → setData + fitContent
+  //   2. Historical prepend (loadMore) → setData + preserve scroll
+  //   3. Real-time last candle update → series.update() (single bar)
+  //   4. New candle appended → setData (no fitContent)
+  //   5. No meaningful change → SKIP
+  //
+  // This replaces the old 2-effect approach which had race conditions
+  // and redundant setData calls.
+  // ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!candlestickSeriesRef.current || !volumeSeriesRef.current || data.length === 0) return;
 
-    // Reset on theme or interval change
+    const chart = chartRef.current;
+    const candleSeries = candlestickSeriesRef.current;
+    const volSeries = volumeSeriesRef.current;
+
+    // Detect theme or interval change → full reset
+    const themeChanged = prevIsDarkRef.current !== isDark;
     const intervalChanged = prevIntervalRef.current !== interval;
-    if (prevIsDarkRef.current !== isDark || intervalChanged) {
+    if (themeChanged || intervalChanged) {
       prevIsDarkRef.current = isDark;
       prevIntervalRef.current = interval;
       initialDataLoadedRef.current = false;
     }
 
-    const isInitialLoad = !initialDataLoadedRef.current;
-    const prevData = prevDataForStreamingRef.current;
-    const isMajorChange =
-      prevData.length > 0 &&
-      (data.length < prevData.length * 0.8 ||
-        data.length > prevData.length * 1.5 ||
-        data[0].time !== prevData[0].time);
+    const currentFirstTime = data[0].time;
+    const currentLastTime = data[data.length - 1].time;
+    const currentLastCandle = data[data.length - 1];
+    const prevFirstTime = prevFirstTimeRef.current;
+    const prevLastTime = prevLastTimeRef.current;
 
-    if (isInitialLoad || isMajorChange || intervalChanged) {
-      candlestickSeriesRef.current.setData(candlestickData);
-      volumeSeriesRef.current.setData(volumeData);
-      chartRef.current?.timeScale().fitContent();
+    // ─── Case 1: Initial load ────────────────────────────────
+    if (!initialDataLoadedRef.current) {
+      const csData = toCandlestickData(data);
+      const volData = toVolumeData(data, isDark);
+      candleSeries.setData(csData);
+      volSeries.setData(volData);
+      chart?.timeScale().fitContent();
       initialDataLoadedRef.current = true;
-    }
-  }, [candlestickData, volumeData, data, isDark, interval]);
 
-  // Effect for real-time streaming updates - MUST run after the initial load effect
-  useEffect(() => {
-    if (!candlestickSeriesRef.current || !volumeSeriesRef.current || data.length === 0) return;
-    if (!initialDataLoadedRef.current) return; // Wait for initial load
-
-    const currentData = data;
-    const prevData = prevDataForStreamingRef.current;
-
-    // Find what changed
-    const prevLastCandle = prevData[prevData.length - 1];
-    const currentLastCandle = currentData[currentData.length - 1];
-
-    if (!prevLastCandle || !currentLastCandle) {
-      prevDataForStreamingRef.current = currentData;
+      // Store tracking state
+      prevDataLenRef.current = data.length;
+      prevFirstTimeRef.current = currentFirstTime;
+      prevLastTimeRef.current = currentLastTime;
+      prevLastCandleRef.current = { ...currentLastCandle };
       return;
     }
 
-    // Check if it's just the last candle updating (same timestamp)
-    const isLastCandleUpdate =
-      currentData.length === prevData.length &&
-      currentLastCandle.time === prevLastCandle.time &&
-      (currentLastCandle.close !== prevLastCandle.close ||
-        currentLastCandle.volume !== prevLastCandle.volume);
+    // ─── Case 2: Historical data prepended (loadMore) ────────
+    // Detected when the first timestamp is earlier than before
+    if (prevFirstTime !== null && currentFirstTime < prevFirstTime) {
+      const timeScale = chart?.timeScale();
+      const visibleRange = timeScale?.getVisibleLogicalRange();
 
-    if (isLastCandleUpdate) {
-      // Update the last candle
-      candlestickSeriesRef.current.update({
+      const csData = toCandlestickData(data);
+      const volData = toVolumeData(data, isDark);
+      candleSeries.setData(csData);
+      volSeries.setData(volData);
+
+      // Restore visible range to keep current view STABLE — no jumping
+      if (visibleRange && timeScale) {
+        const barsDiff = data.length - prevDataLenRef.current;
+        timeScale.setVisibleLogicalRange({
+          from: visibleRange.from + barsDiff,
+          to: visibleRange.to + barsDiff,
+        });
+      }
+
+      // Update tracking
+      prevDataLenRef.current = data.length;
+      prevFirstTimeRef.current = currentFirstTime;
+      prevLastTimeRef.current = currentLastTime;
+      prevLastCandleRef.current = { ...currentLastCandle };
+      return;
+    }
+
+    // ─── Case 3: Real-time update on the SAME last candle ────
+    // Same timestamp, same array length, only OHLCV values changed
+    const prevCandle = prevLastCandleRef.current;
+    const isSameLastTimestamp = prevLastTime !== null && currentLastTime === prevLastTime;
+    const isSameLength = data.length === prevDataLenRef.current;
+    const lastCandleChanged =
+      prevCandle !== null &&
+      (prevCandle.open !== currentLastCandle.open ||
+        prevCandle.high !== currentLastCandle.high ||
+        prevCandle.low !== currentLastCandle.low ||
+        prevCandle.close !== currentLastCandle.close ||
+        prevCandle.volume !== currentLastCandle.volume);
+
+    if (isSameLastTimestamp && isSameLength && lastCandleChanged) {
+      // Incremental update — only touch the last bar, no re-render
+      candleSeries.update({
         time: currentLastCandle.time as Time,
         open: currentLastCandle.open,
         high: currentLastCandle.high,
@@ -390,7 +491,7 @@ function TradingChartComponent({
         close: currentLastCandle.close,
       });
 
-      volumeSeriesRef.current.update({
+      volSeries.update({
         time: currentLastCandle.time as Time,
         value: currentLastCandle.volume,
         color:
@@ -402,37 +503,39 @@ function TradingChartComponent({
               ? "rgba(239, 83, 80, 0.5)"
               : "#ef5350",
       });
-    } else if (currentData.length > prevData.length) {
-      // New candle(s) added
-      for (let i = prevData.length; i < currentData.length; i++) {
-        const candle = currentData[i];
-        candlestickSeriesRef.current.update({
-          time: candle.time as Time,
-          open: candle.open,
-          high: candle.high,
-          low: candle.low,
-          close: candle.close,
-        });
 
-        volumeSeriesRef.current.update({
-          time: candle.time as Time,
-          value: candle.volume,
-          color:
-            candle.close >= candle.open
-              ? isDark
-                ? "rgba(38, 166, 154, 0.5)"
-                : "#26a69a"
-              : isDark
-                ? "rgba(239, 83, 80, 0.5)"
-                : "#ef5350",
-        });
-      }
-    } else {
-      console.log("[Chart Streaming] No update needed");
+      prevLastCandleRef.current = { ...currentLastCandle };
+      return;
     }
 
-    prevDataForStreamingRef.current = currentData;
-  }, [data, isDark]);
+    // ─── Case 4: New candle(s) appended via WS ───────────────
+    // Last timestamp is newer OR array grew without prepending
+    if (
+      (prevLastTime !== null && currentLastTime > prevLastTime) ||
+      (prevFirstTime !== null &&
+        currentFirstTime === prevFirstTime &&
+        data.length > prevDataLenRef.current)
+    ) {
+      const csData = toCandlestickData(data);
+      const volData = toVolumeData(data, isDark);
+      candleSeries.setData(csData);
+      volSeries.setData(volData);
+      // Do NOT fitContent — let user keep their scroll position
+
+      prevDataLenRef.current = data.length;
+      prevFirstTimeRef.current = currentFirstTime;
+      prevLastTimeRef.current = currentLastTime;
+      prevLastCandleRef.current = { ...currentLastCandle };
+      return;
+    }
+
+    // ─── Case 5: No meaningful change — skip ─────────────────
+    // (This avoids redundant setData calls)
+    prevDataLenRef.current = data.length;
+    prevFirstTimeRef.current = currentFirstTime;
+    prevLastTimeRef.current = currentLastTime;
+    prevLastCandleRef.current = { ...currentLastCandle };
+  }, [data, isDark, interval]);
 
   const getNextPaneIndex = useCallback((): number => {
     const usedPanes = new Set<number>([0, 1]);
@@ -557,7 +660,7 @@ function TradingChartComponent({
       updateScheduledRef.current = false;
       updateIndicatorSeries();
     });
-  }, [indicatorData, activeIndicators, updateIndicatorSeries]);
+  }, [indicatorData, activeIndicators, updateIndicatorSeries, data.length]);
 
   const handleAddIndicator = useCallback(
     (config: IndicatorConfig, customParams?: Record<string, number>) => {
@@ -594,7 +697,9 @@ function TradingChartComponent({
       seriesData.series.forEach((s) => {
         try {
           chartRef.current?.removeSeries(s);
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       });
       indicatorSeriesRef.current.delete(indicatorId);
     }

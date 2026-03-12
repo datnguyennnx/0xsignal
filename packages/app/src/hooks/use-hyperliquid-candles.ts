@@ -1,42 +1,125 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
+import { useHyperliquidWs, normalizeSymbol, API_INFO_URL } from "./use-hyperliquid-ws";
 
-const WS_URL = "wss://api.hyperliquid.xyz/ws";
-const API_INFO_URL = "https://api.hyperliquid.xyz/info";
+type Interval =
+  | "1m"
+  | "3m"
+  | "5m"
+  | "15m"
+  | "30m"
+  | "1h"
+  | "2h"
+  | "4h"
+  | "8h"
+  | "12h"
+  | "1d"
+  | "3d"
+  | "1w"
+  | "1M";
 
-// Supported intervals for Hyperliquid
-const SUPPORTED_INTERVALS = [
-  "1m",
-  "3m",
-  "5m",
-  "15m",
-  "30m",
-  "1h",
-  "2h",
-  "4h",
-  "8h",
-  "12h",
-  "1d",
-  "3d",
-  "1w",
-  "1M",
-] as const;
+const mapInterval = (interval: string): Interval =>
+  (["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h", "12h", "1d", "3d", "1w", "1M"].includes(
+    interval
+  )
+    ? interval
+    : "1h") as Interval;
 
-type Interval = (typeof SUPPORTED_INTERVALS)[number];
+const getIntervalMs = (interval: string): number => {
+  const value = parseInt(interval);
+  const unit = interval.slice(-1);
+  const mult: Record<string, number> = {
+    m: 60_000,
+    h: 3_600_000,
+    d: 86_400_000,
+    w: 604_800_000,
+    M: 2_592_000_000,
+  };
+  return value * (mult[unit] || 3_600_000);
+};
 
-interface HyperliquidCandle {
-  t: number; // timestamp in ms
-  o: string; // open
-  h: string; // high
-  l: string; // low
-  c: string; // close
-  v: string; // volume
+// WS candle (numeric OHLCV per Hyperliquid docs)
+interface WsCandle {
+  t: number;
+  T: number;
+  s: string;
+  i: string;
+  o: number;
+  c: number;
+  h: number;
+  l: number;
+  v: number;
+  n: number;
 }
 
-interface WsMessage {
-  channel: string;
-  data: HyperliquidCandle | HyperliquidCandle[];
+// REST candle (string OHLCV)
+interface RestCandle {
+  t: number;
+  o: string;
+  h: string;
+  l: string;
+  c: string;
+  v: string;
 }
+
+const fromRest = (c: RestCandle): ChartDataPoint => ({
+  time: Math.floor(c.t / 1000),
+  open: parseFloat(c.o),
+  high: parseFloat(c.h),
+  low: parseFloat(c.l),
+  close: parseFloat(c.c),
+  volume: parseFloat(c.v),
+});
+
+const fromWs = (c: WsCandle): ChartDataPoint => ({
+  time: Math.floor(c.t / 1000),
+  open: Number(c.o),
+  high: Number(c.h),
+  low: Number(c.l),
+  close: Number(c.c),
+  volume: Number(c.v),
+});
+
+async function fetchHistorical(symbol: string, interval: Interval, limit: number) {
+  const coin = normalizeSymbol(symbol);
+  const now = Date.now();
+  const res = await fetch(API_INFO_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "candleSnapshot",
+      req: { coin, interval, startTime: now - limit * getIntervalMs(interval), endTime: now },
+    }),
+  });
+  if (!res.ok) throw new Error(`Fetch failed: ${res.statusText}`);
+  const candles: RestCandle[] = await res.json();
+  return candles
+    .sort((a, b) => a.t - b.t)
+    .slice(-limit)
+    .map(fromRest);
+}
+
+async function fetchByRange(
+  symbol: string,
+  interval: Interval,
+  startTime: number,
+  endTime: number
+) {
+  const coin = normalizeSymbol(symbol);
+  const res = await fetch(API_INFO_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "candleSnapshot",
+      req: { coin, interval, startTime, endTime },
+    }),
+  });
+  if (!res.ok) throw new Error(`Fetch failed: ${res.statusText}`);
+  const candles: RestCandle[] = await res.json();
+  return candles.sort((a, b) => a.t - b.t).map(fromRest);
+}
+
+const LOAD_MORE_COOLDOWN = 1000;
 
 interface UseHyperliquidCandlesOptions {
   symbol: string;
@@ -45,339 +128,163 @@ interface UseHyperliquidCandlesOptions {
   enabled?: boolean;
 }
 
-interface UseHyperliquidCandlesReturn {
-  data: ChartDataPoint[];
-  isLoading: boolean;
-  isConnected: boolean;
-  error: Error | null;
-  loadMore: (count?: number) => Promise<void>;
-  hasMore: boolean;
-}
-
-// Map interval from UI format to Hyperliquid format
-const mapInterval = (interval: string): Interval => {
-  const mapping: Record<string, Interval> = {
-    "1m": "1m",
-    "3m": "3m",
-    "5m": "5m",
-    "15m": "15m",
-    "30m": "30m",
-    "1h": "1h",
-    "2h": "2h",
-    "4h": "4h",
-    "8h": "8h",
-    "12h": "12h",
-    "1d": "1d",
-    "3d": "3d",
-    "1w": "1w",
-    "1M": "1M",
-  };
-  return mapping[interval] || "1h";
-};
-
-// Normalize symbol for Hyperliquid (remove USDT suffix)
-const normalizeSymbol = (symbol: string): string => {
-  const upper = symbol.toUpperCase();
-  return upper.endsWith("USDT") ? upper.slice(0, -4) : upper;
-};
-
-// Convert Hyperliquid candle to ChartDataPoint
-const convertCandle = (candle: HyperliquidCandle): ChartDataPoint => ({
-  time: Math.floor(candle.t / 1000),
-  open: parseFloat(candle.o),
-  high: parseFloat(candle.h),
-  low: parseFloat(candle.l),
-  close: parseFloat(candle.c),
-  volume: parseFloat(candle.v),
-});
-
-// Fetch historical candle data via REST API - gets most recent N candles
-const fetchHistoricalData = async (
-  symbol: string,
-  interval: Interval,
-  limit: number
-): Promise<ChartDataPoint[]> => {
-  const coin = normalizeSymbol(symbol);
-  const now = Date.now();
-  const intervalMs = getIntervalMilliseconds(interval);
-  const startTime = now - limit * intervalMs;
-
-  const response = await fetch(API_INFO_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "candleSnapshot",
-      req: { coin, interval, startTime, endTime: now },
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch historical data: ${response.statusText}`);
-  }
-
-  const candles: HyperliquidCandle[] = await response.json();
-
-  return candles
-    .sort((a, b) => a.t - b.t)
-    .slice(-limit)
-    .map(convertCandle);
-};
-
-// Fetch older historical data by time range (for infinite scroll)
-const fetchOlderData = async (
-  symbol: string,
-  interval: Interval,
-  endTime: number,
-  count: number
-): Promise<ChartDataPoint[]> => {
-  const coin = normalizeSymbol(symbol);
-  const intervalMs = getIntervalMilliseconds(interval);
-  const startTime = endTime - count * intervalMs;
-
-  const response = await fetch(API_INFO_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "candleSnapshot",
-      req: { coin, interval, startTime, endTime },
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch older data: ${response.statusText}`);
-  }
-
-  const candles: HyperliquidCandle[] = await response.json();
-
-  return candles.sort((a, b) => a.t - b.t).map(convertCandle);
-};
-
-const getIntervalMilliseconds = (interval: string): number => {
-  const value = parseInt(interval);
-  const unit = interval.slice(-1);
-  const multipliers: Record<string, number> = {
-    m: 60 * 1000,
-    h: 60 * 60 * 1000,
-    d: 24 * 60 * 60 * 1000,
-    w: 7 * 24 * 60 * 60 * 1000,
-    M: 30 * 24 * 60 * 60 * 1000,
-  };
-  return value * (multipliers[unit] || 60 * 60 * 1000);
-};
-
 export function useHyperliquidCandles({
   symbol,
   interval,
   limit = 200,
   enabled = true,
-}: UseHyperliquidCandlesOptions): UseHyperliquidCandlesReturn {
+}: UseHyperliquidCandlesOptions) {
   const [data, setData] = useState<ChartDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
-  // Use refs to survive React Strict Mode's double mount/unmount
-  const wsRef = useRef<WebSocket | null>(null);
+  const dataRef = useRef<ChartDataPoint[]>([]);
   const bufferRef = useRef<ChartDataPoint[]>([]);
   const rafRef = useRef<number | null>(null);
   const lastUpdateRef = useRef<number>(0);
-  const dataRef = useRef<ChartDataPoint[]>([]);
-  const limitRef = useRef(limit);
-  limitRef.current = limit;
   const isFetchingRef = useRef(false);
-  const disconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const subscriptionRef = useRef<{ symbol: string; interval: Interval } | null>(null);
+  const hasMoreRef = useRef(true);
+  const lastLoadMoreTimeRef = useRef<number>(0);
+  const symbolRef = useRef(symbol);
+  symbolRef.current = symbol;
+  const intervalRef = useRef(interval);
+  intervalRef.current = interval;
 
-  // Throttled update using requestAnimationFrame
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
+
+  const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
+  const hlInterval = useMemo(() => mapInterval(interval), [interval]);
+
+  const subscription = useMemo(
+    () => (enabled && coin ? { type: "candle" as const, coin, interval: hlInterval } : null),
+    [enabled, coin, hlInterval]
+  );
+
+  // RAF-throttled buffer flush
   const scheduleUpdate = useCallback(() => {
     if (rafRef.current) return;
-
     const now = performance.now();
-    const timeSinceLastUpdate = now - lastUpdateRef.current;
-    const minInterval = 16; // 60fps
-
-    const executeUpdate = () => {
+    const elapsed = now - lastUpdateRef.current;
+    const flush = () => {
       if (bufferRef.current.length > 0) {
-        const newCandles = bufferRef.current;
+        const map = new Map<number, ChartDataPoint>();
+        for (const c of dataRef.current) map.set(c.time, c);
+        for (const c of bufferRef.current) map.set(c.time, c);
         bufferRef.current = [];
-
-        // Use Map for O(1) lookups instead of O(n) findIndex
-        const candleMap = new Map<number, ChartDataPoint>();
-        for (const candle of dataRef.current) {
-          candleMap.set(candle.time, candle);
-        }
-
-        // Update with new candles
-        for (const candle of newCandles) {
-          candleMap.set(candle.time, candle);
-        }
-
-        // Convert back to array, sort, and limit
-        const sorted = Array.from(candleMap.values())
-          .sort((a, b) => a.time - b.time)
-          .slice(-limit);
-
+        const sorted = Array.from(map.values()).sort((a, b) => a.time - b.time);
         dataRef.current = sorted;
         setData(sorted);
         lastUpdateRef.current = performance.now();
       }
       rafRef.current = null;
     };
+    if (elapsed >= 16) flush();
+    else rafRef.current = requestAnimationFrame(() => setTimeout(flush, 16 - elapsed));
+  }, []);
 
-    if (timeSinceLastUpdate >= minInterval) {
-      executeUpdate();
-    } else {
-      rafRef.current = requestAnimationFrame(() => {
-        setTimeout(executeUpdate, minInterval - timeSinceLastUpdate);
-      });
-    }
-  }, [limit]);
+  const handleMessage = useCallback(
+    (rawData: unknown, channel: string) => {
+      if (channel !== "candle") return;
+      const candles = Array.isArray(rawData) ? rawData : [rawData];
+      const converted = candles.map((c: WsCandle) => fromWs(c));
+      if (converted.length > 0) {
+        bufferRef.current.push(...converted);
+        scheduleUpdate();
+      }
+    },
+    [scheduleUpdate]
+  );
 
+  const handleConnectionChange = useCallback((c: boolean) => setIsConnected(c), []);
+  const handleError = useCallback((e: Error) => setError(e), []);
+
+  useHyperliquidWs({
+    subscription,
+    onMessage: handleMessage,
+    enabled: enabled && !!symbol,
+    onConnectionChange: handleConnectionChange,
+    onError: handleError,
+  });
+
+  // Initial fetch on symbol/interval change
   useEffect(() => {
     if (!enabled || !symbol) {
       setIsLoading(false);
       return;
     }
-
-    // Fix for React Strict Mode: clear any pending disconnect
-    if (disconnectTimeoutRef.current) {
-      clearTimeout(disconnectTimeoutRef.current);
-      disconnectTimeoutRef.current = null;
-    }
-
-    const coin = normalizeSymbol(symbol);
-    const hlInterval = mapInterval(interval);
-
-    // Check if we need to reconnect (different interval)
-    const currentSubscription = subscriptionRef.current;
-    const needsReconnect = !currentSubscription || currentSubscription.interval !== hlInterval;
-
-    // Close existing WebSocket if interval changed - synchronous close
-    if (needsReconnect && wsRef.current) {
-      try {
-        if (
-          wsRef.current.readyState === WebSocket.OPEN ||
-          wsRef.current.readyState === WebSocket.CONNECTING
-        ) {
-          wsRef.current.close(1000, "Interval changed");
-        }
-      } catch {
-        // Ignore close errors
-      }
-      wsRef.current = null;
-      subscriptionRef.current = null;
-      dataRef.current = [];
-      setData([]);
-    }
-
-    // Skip if already connected to correct interval
-    if (!needsReconnect && wsRef.current?.readyState === WebSocket.OPEN) {
-      return;
-    }
-
+    let cancelled = false;
     isFetchingRef.current = true;
     setIsLoading(true);
     setError(null);
+    dataRef.current = [];
+    setData([]);
+    setHasMore(true);
 
-    fetchHistoricalData(symbol, hlInterval, limit)
-      .then((historicalData) => {
-        dataRef.current = historicalData;
-        setData(historicalData);
+    fetchHistorical(symbol, hlInterval, limit)
+      .then((historical) => {
+        if (cancelled) return;
+        dataRef.current = historical;
+        setData(historical);
         setIsLoading(false);
         isFetchingRef.current = false;
-
-        const ws = new WebSocket(WS_URL);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-          setIsConnected(true);
-          subscriptionRef.current = { symbol: coin, interval: hlInterval };
-          ws.send(
-            JSON.stringify({
-              method: "subscribe",
-              subscription: { type: "candle", coin, interval: hlInterval },
-            })
-          );
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data) as WsMessage;
-
-            if (msg.channel === "candle") {
-              const rawCandles = Array.isArray(msg.data) ? msg.data : [msg.data];
-              const newCandles = rawCandles.map(convertCandle);
-
-              if (newCandles.length > 0) {
-                bufferRef.current.push(...newCandles);
-                scheduleUpdate();
-              }
-            }
-          } catch (err) {
-            console.error("WS Parse error", err);
-          }
-        };
-
-        ws.onerror = () => {
-          setError(new Error("WebSocket connection error"));
-        };
-
-        ws.onclose = () => {
-          setIsConnected(false);
-        };
       })
       .catch((err) => {
+        if (cancelled) return;
         setError(err instanceof Error ? err : new Error(String(err)));
         setIsLoading(false);
         isFetchingRef.current = false;
       });
 
     return () => {
-      // React Strict Mode fix: delay disconnect to allow remount to cancel it
-      disconnectTimeoutRef.current = setTimeout(() => {
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        if (
-          wsRef.current?.readyState === WebSocket.OPEN ||
-          wsRef.current?.readyState === WebSocket.CONNECTING
-        ) {
-          wsRef.current.close();
-        }
-        wsRef.current = null;
-      }, 0);
+      cancelled = true;
     };
-  }, [symbol, interval, enabled, scheduleUpdate]);
+  }, [symbol, interval, enabled, hlInterval, limit]);
 
-  // Load more historical data (for infinite scroll)
-  const loadMore = useCallback(
-    async (count: number = 200) => {
-      if (!hasMore || data.length === 0) return;
+  // Stable loadMore — reads mutable state from refs
+  const loadMore = useCallback(async (count: number = 200) => {
+    if (isFetchingRef.current || !hasMoreRef.current) return;
+    if (Date.now() - lastLoadMoreTimeRef.current < LOAD_MORE_COOLDOWN) return;
 
-      const oldestTime = data[0].time * 1000; // Convert to ms
-      const hlInterval = mapInterval(interval);
+    const currentData = dataRef.current;
+    if (currentData.length === 0) return;
 
-      try {
-        const olderData = await fetchOlderData(symbol, hlInterval, oldestTime, count);
+    isFetchingRef.current = true;
+    lastLoadMoreTimeRef.current = Date.now();
 
-        if (olderData.length === 0) {
-          setHasMore(false);
-          return;
-        }
+    const hlInt = mapInterval(intervalRef.current);
+    const endTime = currentData[0].time * 1000 - 1;
+    const startTime = endTime - count * getIntervalMs(intervalRef.current);
 
-        const merged = [...olderData, ...data];
-        dataRef.current = merged;
-        setData(merged);
-
-        // Check if we hit the limit (no more data available)
-        if (olderData.length < count) {
-          setHasMore(false);
-        }
-      } catch (err) {
-        console.error("Failed to load more data:", err);
+    try {
+      const older = await fetchByRange(symbolRef.current, hlInt, startTime, endTime);
+      if (older.length === 0) {
+        setHasMore(false);
+        isFetchingRef.current = false;
+        return;
       }
-    },
-    [symbol, interval, data, hasMore]
-  );
+
+      const existing = new Set(dataRef.current.map((d) => d.time));
+      const filtered = older.filter((d) => !existing.has(d.time));
+      if (filtered.length === 0) {
+        setHasMore(false);
+        isFetchingRef.current = false;
+        return;
+      }
+
+      const merged = [...filtered, ...dataRef.current];
+      dataRef.current = merged;
+      setData(merged);
+      if (filtered.length < count * 0.5) setHasMore(false);
+    } catch (err) {
+      console.error("Failed to load more:", err);
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, []);
 
   return { data, isLoading, isConnected, error, loadMore, hasMore };
 }

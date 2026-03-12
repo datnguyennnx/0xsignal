@@ -22,7 +22,6 @@ import { queryKeys } from "@/lib/query/query-keys";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { AssetDetailTabs, type AssetDetailTab } from "@/components/asset-detail-tabs";
 import { OrderbookWidget } from "@/features/asset-detail/components/orderbook-widget";
-import { TradesWidget } from "@/features/asset-detail/components/trades-widget";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart }))
@@ -173,13 +172,6 @@ function AssetContent({
               className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden"
             >
               <OrderbookWidget symbol={symbol} />
-            </TabsContent>
-
-            <TabsContent
-              value="trades"
-              className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden"
-            >
-              <TradesWidget symbol={symbol} />
             </TabsContent>
 
             <TabsContent

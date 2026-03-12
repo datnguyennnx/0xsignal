@@ -3,7 +3,7 @@
 import { cn } from "@/core/utils/cn";
 import { BookOpen, Radio, Zap } from "lucide-react";
 
-export type AssetDetailTab = "orderbook" | "trades" | "insight";
+export type AssetDetailTab = "orderbook" | "insight";
 
 interface AssetDetailTabsProps {
   activeTab: AssetDetailTab;
@@ -16,11 +16,6 @@ const tabs = [
     id: "orderbook" as const,
     label: "Orderbook",
     icon: BookOpen,
-  },
-  {
-    id: "trades" as const,
-    label: "Trades",
-    icon: Radio,
   },
   {
     id: "insight" as const,

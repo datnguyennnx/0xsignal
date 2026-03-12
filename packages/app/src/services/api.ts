@@ -57,11 +57,6 @@ export const api = {
 
   getCryptoPrice: (symbol: string) => fetchJson<CryptoPrice>(`${API_BASE}/prices/${symbol}`),
 
-  getChartData: (symbol: string, interval: string, timeframe: string) =>
-    fetchJson<ChartDataPoint[]>(
-      `${API_BASE}/chart?symbol=${symbol}&interval=${interval}&timeframe=${timeframe}`
-    ),
-
   getTopOpenInterest: (limit = 20) =>
     fetchJson<OpenInterestData[]>(`${API_BASE}/derivatives/open-interest?limit=${limit}`),
 

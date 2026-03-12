@@ -62,19 +62,25 @@ export function useWyckoffOverlay({
     r.climaxLines.forEach((s) => {
       try {
         chart.removeSeries(s);
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     });
     r.eventLines.forEach((s) => {
       try {
         chart.removeSeries(s);
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     });
 
     const s = seriesRef.current;
     if (s && r.rangePrimitive) {
       try {
         s.detachPrimitive(r.rangePrimitive);
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     }
 
     r.rangePrimitive = null;

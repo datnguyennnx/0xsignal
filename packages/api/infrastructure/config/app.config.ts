@@ -148,7 +148,6 @@ export const AppConfigLive = Layer.effect(
 // API URLs
 export const API_URLS = {
   COINGECKO: "https://api.coingecko.com/api/v3",
-  HYPERLIQUID: "https://api.hyperliquid.xyz",
 } as const;
 
 // Cache TTL
@@ -156,7 +155,6 @@ export const CACHE_TTL = {
   COINGECKO_PRICE: Duration.minutes(5),
   COINGECKO_TOP_CRYPTOS: Duration.minutes(5),
   COINGECKO_HISTORICAL: Duration.minutes(60), // Historical data changes less often
-  HYPERLIQUID_CHART: Duration.minutes(1), // Critical for signals
   HEATMAP: Duration.minutes(5),
   ANALYSIS: Duration.minutes(1), // Fast signal updates
   BUYBACK_SIGNALS: Duration.minutes(15),
@@ -178,7 +176,6 @@ export const CACHE_CAPACITY = {
 // Rate limits
 export const RATE_LIMITS = {
   COINGECKO: 30,
-  HYPERLIQUID: 1200,
 } as const;
 
 // Default limits
@@ -199,29 +196,3 @@ export const WS_CONFIG = {
   PONG_TIMEOUT_MS: 10000,
   CLEANUP_INTERVAL: Duration.minutes(1),
 } as const;
-
-// Hyperliquid intervals
-export const HYPERLIQUID_INTERVALS: Record<string, string> = {
-  "1m": "1m",
-  "3m": "3m",
-  "5m": "5m",
-  "15m": "15m",
-  "30m": "30m",
-  "1h": "1h",
-  "2h": "2h",
-  "4h": "4h",
-  "8h": "8h",
-  "12h": "12h",
-  "1d": "1d",
-  "3d": "3d",
-  "1w": "1w",
-  "1M": "1M",
-};
-
-// Timeframe limits
-export const TIMEFRAME_LIMITS: Record<string, Record<string, number>> = {
-  "24h": { "1m": 1440, "5m": 288, "15m": 96, "30m": 48, "1h": 24 },
-  "7d": { "15m": 672, "30m": 336, "1h": 168, "4h": 42 },
-  "1M": { "1h": 720, "4h": 180, "1d": 30 },
-  "1y": { "1d": 365, "1w": 52 },
-};

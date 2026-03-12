@@ -11,7 +11,6 @@ import {
   CoinGeckoChartServiceLive,
 } from "../data-sources/coingecko";
 import { AggregatedDataServiceLive } from "../data-sources/aggregator";
-import { HyperliquidChartServiceLive } from "../data-sources/hyperliquid";
 import { DevLoggerLive } from "../logging/logger";
 import { AIServiceLive } from "../../services/ai-live";
 import { ModelsRegistryLive } from "../../services/models-registry";
@@ -24,11 +23,7 @@ const CoinGeckoLayer = CoinGeckoServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, HttpLayer))
 );
 
-const HyperliquidChartLayer = HyperliquidChartServiceLive.pipe(
-  Layer.provide(Layer.mergeAll(CoreLayer, HttpLayer))
-);
-
-const InfraLayer = Layer.mergeAll(HttpLayer, HyperliquidChartLayer);
+const InfraLayer = HttpLayer;
 
 const GlobalMarketLayer = GlobalMarketServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))

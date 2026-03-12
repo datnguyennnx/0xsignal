@@ -67,12 +67,16 @@ export function useICTOverlay({
     r.swingLines.forEach((s) => {
       try {
         chart.removeSeries(s);
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     });
     r.liquidityLines.forEach((s) => {
       try {
         chart.removeSeries(s);
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     });
 
     const s = seriesRef.current;
@@ -80,17 +84,23 @@ export function useICTOverlay({
       r.fvgPrimitives.forEach((p) => {
         try {
           s.detachPrimitive(p);
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       });
       r.obPrimitives.forEach((p) => {
         try {
           s.detachPrimitive(p);
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       });
       r.otePrimitives.forEach((p) => {
         try {
           s.detachPrimitive(p);
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       });
     }
 

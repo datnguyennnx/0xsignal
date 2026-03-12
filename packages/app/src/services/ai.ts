@@ -1,7 +1,5 @@
 // AI Service - Backend API integration with WebSocket streaming support
 
-import { api } from "./api";
-
 export interface ChartContext {
   symbol: string;
   timeframe: string;

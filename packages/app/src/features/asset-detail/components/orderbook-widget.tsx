@@ -1,59 +1,31 @@
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useHyperliquidOrderbook, type OrderbookLevel } from "@/hooks/use-hyperliquid-orderbook";
+import {
+  useHyperliquidOrderbook,
+  generateTickSizeOptions,
+  groupLevels,
+  type OrderbookLevel,
+  type TickSizeOption,
+} from "@/hooks/use-hyperliquid-orderbook";
 import { cn } from "@/core/utils/cn";
-import { Activity } from "lucide-react";
-type ViewMode = "both" | "asks" | "bids";
-
-const PRICE_SCALING_OPTIONS = [
-  { value: 0.001, label: "0.001" },
-  { value: 0.01, label: "0.01" },
-  { value: 0.1, label: "0.1" },
-  { value: 1, label: "1" },
-  { value: 10, label: "10" },
-  { value: 100, label: "100" },
-];
+import { Loader2 } from "lucide-react";
 
 const OrderbookToolbar = ({
-  viewMode,
-  onViewModeChange,
   priceScaling,
   onPriceScalingChange,
+  scalingOptions,
 }: {
-  viewMode: ViewMode;
-  onViewModeChange: (m: ViewMode) => void;
   priceScaling: number;
   onPriceScalingChange: (s: number) => void;
+  scalingOptions: TickSizeOption[];
 }) => {
   return (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-border/20 flex-shrink-0 bg-muted/10">
-      <div className="inline-flex items-center p-0.5 bg-muted/40 rounded-lg">
-        <ToolbarButton active={viewMode === "both"} onClick={() => onViewModeChange("both")}>
-          All
-        </ToolbarButton>
-        <ToolbarButton
-          active={viewMode === "asks"}
-          onClick={() => onViewModeChange("asks")}
-          activeColor="text-loss"
-          hoverColor="hover:text-loss"
-        >
-          Asks
-        </ToolbarButton>
-        <ToolbarButton
-          active={viewMode === "bids"}
-          onClick={() => onViewModeChange("bids")}
-          activeColor="text-gain"
-          hoverColor="hover:text-gain"
-        >
-          Bids
-        </ToolbarButton>
-      </div>
-
+    <div className="flex items-center justify-end px-3 py-2 border-b border-border/20 flex-shrink-0 bg-muted/10">
       <select
         value={priceScaling}
         onChange={(e) => onPriceScalingChange(Number(e.target.value))}
         className="bg-transparent text-[11px] font-mono border border-border/30 rounded px-1.5 py-1 h-6 min-w-[60px]"
       >
-        {PRICE_SCALING_OPTIONS.map((opt) => (
+        {scalingOptions.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
           </option>
@@ -62,30 +34,6 @@ const OrderbookToolbar = ({
     </div>
   );
 };
-
-const ToolbarButton = ({
-  children,
-  active,
-  onClick,
-  activeColor = "text-foreground",
-  hoverColor = "hover:text-foreground",
-}: {
-  children: React.ReactNode;
-  active: boolean;
-  onClick: () => void;
-  activeColor?: string;
-  hoverColor?: string;
-}) => (
-  <button
-    onClick={onClick}
-    className={cn(
-      "px-2.5 py-1 text-[11px] font-medium rounded-md transition-all duration-150",
-      active ? "bg-background shadow-sm" : cn("text-muted-foreground", hoverColor)
-    )}
-  >
-    {children}
-  </button>
-);
 
 interface OrderbookWidgetProps {
   symbol: string;
@@ -123,23 +71,18 @@ function useIsMobile() {
   return isMobile;
 }
 
-function getDynamicPriceScaling(price: number): number {
-  if (price >= 100000) return 10;
-  if (price >= 10000) return 1;
-  if (price >= 1000) return 1;
-  if (price >= 100) return 0.1;
-  if (price >= 10) return 0.1;
-  if (price >= 1) return 0.01;
-  if (price >= 0.01) return 0.001;
-  return 0.001;
-}
-
 function formatPriceWithScaling(price: number, scaling: number): string {
-  const decimals = scaling < 1 ? Math.abs(Math.log10(scaling)) : 0;
-  return price.toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
+  let decimals: number;
+
+  if (scaling >= 1000) {
+    decimals = 0;
+  } else if (scaling >= 1) {
+    decimals = 0;
+  } else {
+    decimals = Math.max(0, Math.min(6, -Math.floor(Math.log10(scaling))));
+  }
+
+  return price.toFixed(decimals);
 }
 
 function formatSize(size: number): string {
@@ -171,32 +114,48 @@ const OrderRow = memo(
           isHovered ? "bg-muted/50" : "hover:bg-muted/30"
         )}
         style={{ height: ROW_HEIGHT }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={level.price > 0 ? handleMouseEnter : undefined}
+        onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
       >
-        <div
-          className={cn(
-            "absolute top-0 bottom-0 right-0 opacity-20 pointer-events-none",
-            side === "bid" ? "bg-gain" : "bg-loss"
-          )}
-          style={{
-            width: `${Math.min(depthPercent, 100)}%`,
-            transform: "translateZ(0)",
-          }}
-        />
+        {level.price > 0 && (
+          <div
+            className={cn(
+              "absolute top-0 bottom-0 right-0 opacity-20 pointer-events-none",
+              side === "bid" ? "bg-gain" : "bg-loss"
+            )}
+            style={{
+              width: `${Math.min(depthPercent, 100)}%`,
+              transform: "translateZ(0)",
+            }}
+          />
+        )}
         <span
           className={cn(
             "relative z-10 flex-1 text-xs font-mono font-medium",
-            side === "bid" ? "text-gain" : "text-loss"
+            level.price === 0
+              ? "text-muted-foreground/30"
+              : side === "bid"
+                ? "text-gain"
+                : "text-loss"
           )}
         >
-          {formatPriceWithScaling(level.price, priceScaling)}
+          {level.price > 0 ? formatPriceWithScaling(level.price, priceScaling) : "-"}
         </span>
-        <span className="relative z-10 flex-1 text-right text-xs font-mono text-muted-foreground">
-          {formatSize(level.size)}
+        <span
+          className={cn(
+            "relative z-10 flex-1 text-right text-xs font-mono",
+            level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground"
+          )}
+        >
+          {level.price > 0 ? formatSize(level.size) : "-"}
         </span>
-        <span className="relative z-10 flex-1 text-right text-[11px] font-mono text-muted-foreground/70">
-          {formatSize(level.total)}
+        <span
+          className={cn(
+            "relative z-10 flex-1 text-right text-[11px] font-mono",
+            level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
+          )}
+        >
+          {level.price > 0 ? formatSize(level.total) : "-"}
         </span>
       </div>
     );
@@ -204,8 +163,7 @@ const OrderRow = memo(
 );
 
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
-  const { orderbook, isConnected, error } = useHyperliquidOrderbook(symbol);
-  const [viewMode, setViewMode] = useState<ViewMode>("both");
+  const { orderbook, isConnected, error, resubscribe } = useHyperliquidOrderbook(symbol);
   const [priceScaling, setPriceScaling] = useState<number>(1);
   const [popupData, setPopupData] = useState<PopupData | null>(null);
   const [popupPosition, setPopupPosition] = useState<{
@@ -216,59 +174,72 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const [hoveredIndex, setHoveredIndex] = useState<{ side: "bid" | "ask"; index: number } | null>(
     null
   );
-  const [containerHeight, setContainerHeight] = useState<number>(0);
   const widgetRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  // Measure container height
-  useEffect(() => {
-    const measureHeight = () => {
-      if (contentRef.current) {
-        setContainerHeight(contentRef.current.clientHeight);
-      }
-    };
-    measureHeight();
-    const resizeObserver = new ResizeObserver(measureHeight);
-    if (contentRef.current) {
-      resizeObserver.observe(contentRef.current);
-    }
-    return () => resizeObserver.disconnect();
-  }, [viewMode]);
+  const bestPrice = orderbook?.asks[0]?.price || orderbook?.bids[0]?.price || 0;
+  const scalingOptions = useMemo(() => generateTickSizeOptions(bestPrice), [bestPrice]);
 
-  // Calculate max total from ALL data
-  const maxTotal = orderbook
+  // Reset scaling when symbol changes (different price range)
+  useEffect(() => {
+    if (scalingOptions.length > 0 && !scalingOptions.find((o) => o.value === priceScaling)) {
+      setPriceScaling(scalingOptions[0].value);
+    }
+  }, [scalingOptions, priceScaling]);
+
+  // When tick size changes, send server-side nSigFigs if available
+  const handlePriceScalingChange = useCallback(
+    (newScale: number) => {
+      setPriceScaling(newScale);
+      const opt = scalingOptions.find((o) => o.value === newScale);
+      if (opt?.nSigFigs != null) {
+        // Use server-side aggregation for better performance, logic chuẩn Hyperliquid
+        resubscribe(opt.nSigFigs, opt.mantissa ?? undefined);
+      }
+    },
+    [scalingOptions, resubscribe]
+  );
+
+  // Fallback client-side grouping handles edge cases and very coarse tick sizes (nSigFigs=null)
+  const groupedOrderbook = useMemo(() => {
+    if (!orderbook) return null;
+    return {
+      asks: groupLevels(orderbook.asks, priceScaling, "asks"),
+      bids: groupLevels(orderbook.bids, priceScaling, "bids"),
+    };
+  }, [orderbook, priceScaling]);
+
+  const visibleAsks = useMemo(() => {
+    return groupedOrderbook?.asks.slice(0, 100) || [];
+  }, [groupedOrderbook]);
+
+  const visibleBids = useMemo(() => {
+    return groupedOrderbook?.bids.slice(0, 100) || [];
+  }, [groupedOrderbook]);
+
+  // Calculate max total from ALL data (use grouped orderbook)
+  const maxTotal = groupedOrderbook
     ? Math.max(
-        ...orderbook.asks.slice(0, 50).map((a) => a.total),
-        ...orderbook.bids.slice(0, 50).map((b) => b.total)
+        ...groupedOrderbook.asks.slice(0, 100).map((a) => a.total),
+        ...groupedOrderbook.bids.slice(0, 100).map((b) => b.total)
       )
     : 0;
 
-  // Auto-detect price scaling from orderbook data
-  useEffect(() => {
-    if (orderbook) {
-      const bestPrice = orderbook.asks[0]?.price || orderbook.bids[0]?.price || 0;
-      if (bestPrice > 0) {
-        const detectedScaling = getDynamicPriceScaling(bestPrice);
-        setPriceScaling(detectedScaling);
-      }
+  // Calculate spread from grouped orderbook
+  const { spread, spreadPercent } = useMemo(() => {
+    if (
+      !groupedOrderbook ||
+      groupedOrderbook.asks.length === 0 ||
+      groupedOrderbook.bids.length === 0
+    ) {
+      return { spread: 0, spreadPercent: 0 };
     }
-  }, [orderbook]);
-
-  // Calculate row count based on height
-  const getRowCount = () => {
-    if (containerHeight === 0) return 25;
-    if (viewMode === "both") {
-      return Math.floor((containerHeight - ROW_HEIGHT) / 2 / ROW_HEIGHT);
-    }
-    return Math.floor(containerHeight / ROW_HEIGHT);
-  };
-
-  const rowCount = getRowCount();
-
-  // Limit data to fill height
-  const visibleAsks = orderbook?.asks.slice(0, rowCount) || [];
-  const visibleBids = orderbook?.bids.slice(0, rowCount) || [];
+    const bestAsk = groupedOrderbook.asks[0]?.price || 0;
+    const bestBid = groupedOrderbook.bids[0]?.price || 0;
+    const s = bestAsk - bestBid;
+    const sp = bestBid > 0 ? (s / bestBid) * 100 : 0;
+    return { spread: s, spreadPercent: sp };
+  }, [groupedOrderbook]);
 
   // Calculate cumulative data from best price to hovered row
   const calculateCumulativeData = useCallback(
@@ -276,9 +247,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       side: "bid" | "ask",
       targetPrice: number
     ): { avgPrice: number; cumulativeSize: number } | null => {
-      if (!orderbook) return null;
+      if (!groupedOrderbook) return null;
 
-      const levels = side === "ask" ? orderbook.asks : orderbook.bids;
+      const levels = side === "ask" ? groupedOrderbook.asks : groupedOrderbook.bids;
       const targetIndex = levels.findIndex((l) => l.price === targetPrice);
       if (targetIndex === -1) return null;
 
@@ -299,7 +270,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         cumulativeSize: totalSize,
       };
     },
-    [orderbook]
+    [groupedOrderbook]
   );
 
   const handleHover = useCallback(
@@ -367,7 +338,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   if (!isConnected || !orderbook)
     return (
       <div className="h-full flex items-center justify-center">
-        <Activity className="w-5 h-5 animate-spin" />
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
       </div>
     );
 
@@ -389,10 +360,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       className="h-full flex flex-col bg-card border rounded-lg overflow-hidden p-2"
     >
       <OrderbookToolbar
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
         priceScaling={priceScaling}
-        onPriceScalingChange={setPriceScaling}
+        onPriceScalingChange={handlePriceScalingChange}
+        scalingOptions={scalingOptions}
       />
 
       {/* Header */}
@@ -405,91 +375,71 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       {/* Content */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Asks - flex-col-reverse so best ask (lowest price) is at bottom */}
-        {viewMode !== "bids" && (
-          <div
-            className={cn(
-              "flex flex-col-reverse relative",
-              viewMode === "asks" ? "flex-1 overflow-y-auto" : "flex-1 overflow-hidden"
-            )}
-          >
-            {visibleAsks.map((level, index) => (
-              <div key={level.price} data-row className="flex-shrink-0 relative">
-                {/* Overlay highlight range */}
-                {isRowInHighlightRange("ask", index) && (
-                  <div
-                    className={cn(
-                      "absolute inset-0 z-[5] pointer-events-none",
-                      "bg-foreground/5 dark:bg-foreground/10", // Màu gray trung tính
-                      // Dashed border at hover row
-                      isRowHovered("ask", index) && "border-b border-dashed border-foreground/30"
-                    )}
-                  />
-                )}
-                <OrderRow
-                  level={level}
-                  side="ask"
-                  index={index}
-                  isHovered={isRowHovered("ask", index)}
-                  onHover={handleHover}
-                  priceScaling={priceScaling}
-                  maxTotal={maxTotal}
+        <div className="flex flex-col-reverse relative flex-1 overflow-hidden">
+          {visibleAsks.map((level, index) => (
+            <div key={level.price} data-row className="flex-shrink-0 relative">
+              {/* Overlay highlight range */}
+              {isRowInHighlightRange("ask", index) && (
+                <div
+                  className={cn(
+                    "absolute inset-0 z-[5] pointer-events-none",
+                    "bg-foreground/5 dark:bg-foreground/10", // Màu gray trung tính
+                    // Dashed border at hover row
+                    isRowHovered("ask", index) && "border-b border-dashed border-foreground/30"
+                  )}
                 />
-              </div>
-            ))}
-          </div>
-        )}
+              )}
+              <OrderRow
+                level={level}
+                side="ask"
+                index={index}
+                isHovered={isRowHovered("ask", index)}
+                onHover={handleHover}
+                priceScaling={priceScaling}
+                maxTotal={maxTotal}
+              />
+            </div>
+          ))}
+        </div>
 
         {/* Spread */}
-        {viewMode === "both" && (
-          <div className="py-1.5 text-center border-y border-border/10 bg-muted/20 flex-shrink-0">
-            <span
-              className={cn(
-                "text-sm font-mono font-bold",
-                orderbook.spread > 0 ? "text-gain" : "text-loss"
-              )}
-            >
-              {formatPriceWithScaling(orderbook.spread, priceScaling)}
-            </span>
-            <span className="text-xs font-mono text-muted-foreground ml-2">
-              ({orderbook.spreadPercent.toFixed(2)}%)
-            </span>
-          </div>
-        )}
+        <div className="flex items-center justify-center gap-6 py-1.5 border-y border-border/10 bg-muted/20 flex-shrink-0">
+          <span className="text-xs font-mono font-medium text-muted-foreground/80">Spread</span>
+          <span className="text-xs font-mono text-muted-foreground/80">
+            {formatPriceWithScaling(spread, priceScaling)}
+          </span>
+          <span className="text-xs font-mono text-muted-foreground/80">
+            {spreadPercent.toFixed(3)}%
+          </span>
+        </div>
 
         {/* Bids - flex-col so best bid (highest price) is at top */}
-        {viewMode !== "asks" && (
-          <div
-            className={cn(
-              "flex flex-col relative",
-              viewMode === "bids" ? "flex-1 overflow-y-auto" : "flex-1 overflow-hidden"
-            )}
-          >
-            {visibleBids.map((level, index) => (
-              <div key={level.price} data-row className="flex-shrink-0 relative">
-                {/* Overlay highlight range */}
-                {isRowInHighlightRange("bid", index) && (
-                  <div
-                    className={cn(
-                      "absolute inset-0 z-[5] pointer-events-none",
-                      "bg-foreground/5 dark:bg-foreground/10", // Màu gray trung tính
-                      // Dashed border at hover row
-                      isRowHovered("bid", index) && "border-t border-dashed border-foreground/30"
-                    )}
-                  />
-                )}
-                <OrderRow
-                  level={level}
-                  side="bid"
-                  index={index}
-                  isHovered={isRowHovered("bid", index)}
-                  onHover={handleHover}
-                  priceScaling={priceScaling}
-                  maxTotal={maxTotal}
+        <div className="flex flex-col relative flex-1 overflow-hidden">
+          {visibleBids.map((level, index) => (
+            <div key={level.price} data-row className="flex-shrink-0 relative">
+              {/* Overlay highlight range */}
+              {isRowInHighlightRange("bid", index) && (
+                <div
+                  className={cn(
+                    "absolute inset-0 z-[5] pointer-events-none",
+                    "bg-foreground/5 dark:bg-foreground/10", // Màu gray trung tính
+                    // Dashed border at hover row
+                    isRowHovered("bid", index) && "border-t border-dashed border-foreground/30"
+                  )}
                 />
-              </div>
-            ))}
-          </div>
-        )}
+              )}
+              <OrderRow
+                level={level}
+                side="bid"
+                index={index}
+                isHovered={isRowHovered("bid", index)}
+                onHover={handleHover}
+                priceScaling={priceScaling}
+                maxTotal={maxTotal}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Popup */}

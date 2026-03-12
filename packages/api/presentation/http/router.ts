@@ -3,7 +3,6 @@
 import { Effect } from "effect";
 import { healthRoute } from "./routes/health.routes";
 import { globalMarketRoute } from "./routes/global-market.routes";
-import { chartDataRoute } from "./routes/chart.routes";
 import { analyzeChartRoute, recommendTradeRoute, clearAICacheRoute } from "./routes/ai.routes";
 import { listModelsRoute } from "./routes/models.routes";
 import { AggregatedDataServiceTag } from "../../infrastructure/data-sources/aggregator";
@@ -38,12 +37,6 @@ export const handleRequest = (url: URL, method: string, body?: unknown) => {
       return globalMarketRoute();
     case "/api/prices":
       return pricesRoute(getInt(url, "limit", 100, 250));
-    case "/api/chart": {
-      const symbol = url.searchParams.get("symbol");
-      return symbol
-        ? chartDataRoute(symbol, getParam(url, "interval", "1h"), getParam(url, "timeframe", "24h"))
-        : badRequest("Symbol required");
-    }
 
     // AI Routes
     case "/api/ai/analyze":

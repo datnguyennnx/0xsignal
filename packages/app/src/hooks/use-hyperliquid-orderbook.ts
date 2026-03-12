@@ -1,5 +1,11 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
+import {
+  useHyperliquidWs,
+  normalizeSymbol,
+  type HyperliquidSubscription,
+} from "./use-hyperliquid-ws";
 
+// ─── Types ───────────────────────────────────────────────────
 export interface OrderbookLevel {
   price: number;
   size: number;
@@ -14,174 +20,214 @@ export interface OrderbookData {
   spreadPercent: number;
 }
 
-const WS_URL = "wss://api.hyperliquid.xyz/ws";
-const MAX_LEVELS = 20; // Giảm xuống để performance tốt hơn
-const SIG_FIGS = 5;
-
 interface L2BookLevel {
   px: string;
   sz: string;
   n: number;
 }
 
-interface WsMessage {
-  channel: string;
-  data: {
-    coin: string;
-    time: number;
-    levels: [L2BookLevel[], L2BookLevel[]];
-  };
+// ─── Tick Size Scaling ───────────────────────────────────────
+
+export interface TickSizeOption {
+  value: number;
+  label: string;
+  /** nSigFigs parameter for server-side aggregation (null = client-side only) */
+  nSigFigs: number | null;
+  /** mantissa parameter (only valid when nSigFigs = 5) */
+  mantissa: number | null;
 }
+
+/**
+ * Generate tick size options from the current best price.
+ * Maps UI tick sizes to Hyperliquid's nSigFigs for server-side aggregation.
+ */
+export function generateTickSizeOptions(price: number): TickSizeOption[] {
+  if (price <= 0) return [{ value: 1, label: "1", nSigFigs: 5, mantissa: null }];
+
+  const magnitude = Math.pow(10, Math.floor(Math.log10(price)));
+  const baseTick = magnitude / 100_000;
+
+  const multipliers = [1, 10, 100, 1_000, 10_000, 100_000];
+  return multipliers.map((m) => {
+    const val = baseTick * m;
+    let nSigFigs: number | null = null;
+    const mantissa: number | null = null;
+
+    // Hyperliquid supports nSigFigs between 2 and 5
+    if (m === 1) nSigFigs = 5;
+    else if (m === 10) nSigFigs = 4;
+    else if (m === 100) nSigFigs = 3;
+    else if (m === 1_000) nSigFigs = 2;
+
+    return {
+      value: val,
+      label: formatTickLabel(val),
+      nSigFigs,
+      mantissa,
+    };
+  });
+}
+
+function formatTickLabel(v: number): string {
+  if (v >= 100_000) return `${v / 1_000}K`;
+  if (v >= 1_000) return `${v / 1_000}K`;
+  if (v >= 1) return String(v);
+  const decimals = Math.max(0, -Math.floor(Math.log10(v)));
+  return v.toFixed(decimals);
+}
+
+// ─── Data Processing ─────────────────────────────────────────
+
+function processLevels(rawBids: L2BookLevel[], rawAsks: L2BookLevel[]): OrderbookData {
+  let bidTotal = 0;
+  const bids: OrderbookLevel[] = rawBids
+    .sort((a, b) => parseFloat(b.px) - parseFloat(a.px))
+    .map((l) => {
+      const price = parseFloat(l.px);
+      const size = parseFloat(l.sz);
+      bidTotal += size;
+      return { price, size, total: bidTotal, depth: 0 };
+    });
+
+  let askTotal = 0;
+  const asks: OrderbookLevel[] = rawAsks
+    .sort((a, b) => parseFloat(a.px) - parseFloat(b.px))
+    .map((l) => {
+      const price = parseFloat(l.px);
+      const size = parseFloat(l.sz);
+      askTotal += size;
+      return { price, size, total: askTotal, depth: 0 };
+    });
+
+  const maxTotal = Math.max(bidTotal, askTotal, 1);
+  bids.forEach((b) => (b.depth = (b.total / maxTotal) * 100));
+  asks.forEach((a) => (a.depth = (a.total / maxTotal) * 100));
+
+  const bestBid = bids[0]?.price || 0;
+  const bestAsk = asks[0]?.price || 0;
+  const spread = bestAsk - bestBid;
+  const spreadPercent = bestBid > 0 ? (spread / bestBid) * 100 : 0;
+
+  return { bids, asks, spread, spreadPercent };
+}
+
+/**
+ * Group orderbook levels by tick size (client-side aggregation).
+ * Used as a fallback when nSigFigs is too coarse.
+ */
+export function groupLevels(
+  levels: OrderbookLevel[],
+  scale: number,
+  side: "bids" | "asks"
+): OrderbookLevel[] {
+  if (levels.length === 0 || scale <= 0) return levels;
+
+  const grouped = new Map<number, number>();
+
+  for (const level of levels) {
+    const bucket = Math.floor(level.price / scale) * scale;
+    grouped.set(bucket, (grouped.get(bucket) || 0) + level.size);
+  }
+
+  const sorted = Array.from(grouped.entries()).sort((a, b) =>
+    side === "bids" ? b[0] - a[0] : a[0] - b[0]
+  );
+
+  let cumTotal = 0;
+  const totalSize = sorted.reduce((s, [, sz]) => s + sz, 0);
+
+  return sorted.map(([price, size]) => {
+    cumTotal += size;
+    return {
+      price,
+      size,
+      total: cumTotal,
+      depth: totalSize > 0 ? (cumTotal / totalSize) * 100 : 0,
+    };
+  });
+}
+
+// ─── Hook ────────────────────────────────────────────────────
+
+const DEFAULT_SIGFIGS = 5;
 
 export function useHyperliquidOrderbook(symbol: string, enabled: boolean = true) {
   const [orderbook, setOrderbook] = useState<OrderbookData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const wsRef = useRef<WebSocket | null>(null);
+  const pendingRef = useRef<OrderbookData | null>(null);
   const rafRef = useRef<number | null>(null);
-  const lastUpdateRef = useRef<number>(0);
-  const dataRef = useRef<OrderbookData | null>(null); // Store latest data
-  const disconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Xử lý orderbook data - KHÔNG aggregate vì data đã aggregate từ Hyperliquid
-  const processData = useCallback((levels: [L2BookLevel[], L2BookLevel[]]): OrderbookData => {
-    const [rawBids, rawAsks] = levels;
+  const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
 
-    // Process bids - sort descending by price
-    let bidTotal = 0;
-    const bids: OrderbookLevel[] = rawBids
-      .sort((a, b) => parseFloat(b.px) - parseFloat(a.px))
-      .map((level) => {
-        const price = parseFloat(level.px);
-        const size = parseFloat(level.sz);
-        bidTotal += size;
-        return { price, size, total: bidTotal, depth: 0 };
-      });
+  // Initial subscription
+  const subscription = useMemo(
+    () => (enabled && coin ? { type: "l2Book" as const, coin, nSigFigs: DEFAULT_SIGFIGS } : null),
+    [enabled, coin]
+  );
 
-    // Process asks - sort ascending by price
-    let askTotal = 0;
-    const asks: OrderbookLevel[] = rawAsks
-      .sort((a, b) => parseFloat(a.px) - parseFloat(b.px))
-      .map((level) => {
-        const price = parseFloat(level.px);
-        const size = parseFloat(level.sz);
-        askTotal += size;
-        return { price, size, total: askTotal, depth: 0 };
-      });
-
-    // Calculate depth percentages
-    const maxTotal = Math.max(bidTotal, askTotal, 1);
-    bids.forEach((b) => (b.depth = (b.total / maxTotal) * 100));
-    asks.forEach((a) => (a.depth = (a.total / maxTotal) * 100));
-
-    // Calculate spread
-    const bestBid = bids[0]?.price || 0;
-    const bestAsk = asks[0]?.price || 0;
-    const spread = bestAsk - bestBid;
-    const spreadPercent = bestBid > 0 ? (spread / bestBid) * 100 : 0;
-
-    return { bids, asks, spread, spreadPercent };
-  }, []);
-
-  // Throttled update - dùng dataRef để tránh duplicate updates
-  const scheduleUpdate = useCallback(() => {
+  const scheduleUpdate = useCallback((data: OrderbookData) => {
+    pendingRef.current = data;
     if (rafRef.current) return;
-
-    const now = performance.now();
-    const timeSinceLastUpdate = now - lastUpdateRef.current;
-    const minInterval = 33; // ~30fps cho orderbook
-
-    const executeUpdate = () => {
-      if (dataRef.current) {
-        setOrderbook(dataRef.current);
-        lastUpdateRef.current = performance.now();
+    rafRef.current = requestAnimationFrame(() => {
+      if (pendingRef.current) {
+        setOrderbook(pendingRef.current);
+        pendingRef.current = null;
       }
       rafRef.current = null;
-    };
+    });
+  }, []);
 
-    if (timeSinceLastUpdate >= minInterval) {
-      executeUpdate();
-    } else {
-      rafRef.current = requestAnimationFrame(() => {
-        setTimeout(executeUpdate, minInterval - timeSinceLastUpdate);
-      });
+  const handleMessage = useCallback(
+    (data: unknown, channel: string) => {
+      if (channel !== "l2Book") return;
+      const book = data as { levels: [L2BookLevel[], L2BookLevel[]] };
+      if (!book?.levels) return;
+      scheduleUpdate(processLevels(book.levels[0], book.levels[1]));
+    },
+    [scheduleUpdate]
+  );
+
+  const handleConnectionChange = useCallback((connected: boolean) => {
+    setIsConnected(connected);
+    if (!connected && rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     }
   }, []);
 
-  useEffect(() => {
-    if (!enabled || !symbol) return;
+  const handleError = useCallback((err: Error) => {
+    setError(err.message);
+  }, []);
 
-    // Strict Mode fix: clear pending disconnect
-    if (disconnectTimeoutRef.current) {
-      clearTimeout(disconnectTimeoutRef.current);
-      disconnectTimeoutRef.current = null;
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        return; // Connection exists, reuse it
+  const ws = useHyperliquidWs({
+    subscription,
+    onMessage: handleMessage,
+    enabled: enabled && !!symbol,
+    onConnectionChange: handleConnectionChange,
+    onError: handleError,
+  });
+
+  const resubscribe = useCallback(
+    (nSigFigs: number, mantissa?: number) => {
+      if (!coin || !ws.resubscribe) return;
+
+      const sub: HyperliquidSubscription = {
+        type: "l2Book",
+        coin,
+        nSigFigs,
+      };
+      if (mantissa !== undefined && mantissa !== null) {
+        sub.mantissa = mantissa;
       }
-    }
+      ws.resubscribe(sub);
 
-    // Idempotent: avoid duplicate connections
-    if (
-      wsRef.current?.readyState === WebSocket.OPEN ||
-      wsRef.current?.readyState === WebSocket.CONNECTING
-    ) {
-      return;
-    }
+      // Optionally clear orderbook locally so UI handles the flash gracefully
+      // but waiting for new data is usually better.
+    },
+    [coin, ws]
+  );
 
-    const coin = symbol.toUpperCase().replace(/USDT$/, "");
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setIsConnected(true);
-      setError(null);
-      ws.send(
-        JSON.stringify({
-          method: "subscribe",
-          subscription: {
-            type: "l2Book",
-            coin: coin,
-            nLevels: MAX_LEVELS,
-            nSigFigs: SIG_FIGS,
-          },
-        })
-      );
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data) as WsMessage;
-        if (msg.channel === "l2Book" && msg.data?.levels) {
-          // Update dataRef và schedule render
-          dataRef.current = processData(msg.data.levels);
-          scheduleUpdate();
-        }
-      } catch (err) {
-        console.error("WebSocket parse error:", err);
-      }
-    };
-
-    ws.onerror = () => {
-      setError("Connection failed");
-      setIsConnected(false);
-    };
-
-    ws.onclose = () => {
-      setIsConnected(false);
-    };
-
-    return () => {
-      disconnectTimeoutRef.current = setTimeout(() => {
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-          ws.close();
-        }
-        wsRef.current = null;
-        dataRef.current = null;
-      }, 0);
-    };
-  }, [symbol, enabled, processData, scheduleUpdate]);
-
-  return { orderbook, isConnected, error };
+  return { orderbook, isConnected, error, resubscribe };
 }

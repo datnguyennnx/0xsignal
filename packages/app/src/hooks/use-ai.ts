@@ -3,9 +3,9 @@ import { useMutation } from "@tanstack/react-query";
 import {
   ai,
   type ChartContext,
-  type TradeContext,
   type AIStream,
   type ModelSelection,
+  type TradeRecommendation,
 } from "@/services/ai";
 
 // Hook cho AI Chat Panel
@@ -20,7 +20,7 @@ export function useAI({
   riskTolerance?: "conservative" | "moderate" | "aggressive";
   model?: ModelSelection;
 }) {
-  const [recommendation, setRecommendation] = useState<any>(null);
+  const [recommendation, setRecommendation] = useState<TradeRecommendation | null>(null);
   const [hasError, setHasError] = useState(false);
   const [lastQuery, setLastQuery] = useState<string | null>(null);
 
