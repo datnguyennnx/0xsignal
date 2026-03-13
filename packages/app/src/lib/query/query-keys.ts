@@ -27,14 +27,6 @@ export const queryKeys = {
     all: ["asset"] as const,
     bySymbol: (symbol: string) => [...queryKeys.asset.all, symbol] as const,
   },
-
-  // AI domain
-  ai: {
-    all: ["ai"] as const,
-    models: () => [...queryKeys.ai.all, "models"] as const,
-    analysis: (symbol: string, timeframe?: string) =>
-      [...queryKeys.ai.all, "analysis", symbol, timeframe] as const,
-  },
 } as const;
 
 // Type-safe query key builder

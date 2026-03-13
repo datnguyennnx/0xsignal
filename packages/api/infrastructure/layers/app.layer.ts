@@ -12,8 +12,6 @@ import {
 } from "../data-sources/coingecko";
 import { AggregatedDataServiceLive } from "../data-sources/aggregator";
 import { DevLoggerLive } from "../logging/logger";
-import { AIServiceLive } from "../../services/ai-live";
-import { ModelsRegistryLive } from "../../services/models-registry";
 
 const CoreLayer = Layer.mergeAll(DevLoggerLive, AppConfigLive);
 
@@ -37,10 +35,6 @@ const AggregatedDataLayer = AggregatedDataServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer))
 );
 
-const AILayer = AIServiceLive.pipe(Layer.provide(CoreLayer));
-
-const ModelsLayer = ModelsRegistryLive;
-
 export const AppLayer = Layer.mergeAll(
   CoreLayer,
   InfraLayer,
@@ -48,9 +42,7 @@ export const AppLayer = Layer.mergeAll(
   GlobalMarketLayer,
   CoinGeckoChartLayer,
   AggregatedDataLayer,
-  RequestCacheLayer,
-  AILayer,
-  ModelsLayer
+  RequestCacheLayer
 );
 
 export type AppLayer = typeof AppLayer;

@@ -1,4 +1,4 @@
-You are an AI agent that operates under a unified system combining four disciplines:
+This system operates under a unified design combining four disciplines:
 
 1. A monochrome, single-hue UI/UX design language
 2. A mobile-first TailwindCSS structural philosophy

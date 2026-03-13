@@ -19,7 +19,7 @@ export const config = createConfig({
             showQrModal: true,
             metadata: {
               name: "0xSignal",
-              description: "AI-powered crypto trading signals",
+              description: "Advanced crypto trading signals",
               url: typeof window !== "undefined" ? window.location.origin : "",
               icons: [typeof window !== "undefined" ? `${window.location.origin}/logo.png` : ""],
             },

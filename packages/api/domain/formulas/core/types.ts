@@ -2,7 +2,6 @@
 // FORMULA TYPES AND METADATA
 // ============================================================================
 // Standardized types for formula inputs, outputs, and metadata
-// Enables AI agent discovery and invocation
 // ============================================================================
 
 /**
@@ -33,7 +32,7 @@ export type FormulaCategory =
   | "timeseries";
 
 /**
- * Formula metadata for AI agent discovery
+ * Formula metadata
  */
 export interface FormulaMetadata {
   readonly name: string;

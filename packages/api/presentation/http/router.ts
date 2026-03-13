@@ -3,8 +3,6 @@
 import { Effect } from "effect";
 import { healthRoute } from "./routes/health.routes";
 import { globalMarketRoute } from "./routes/global-market.routes";
-import { analyzeChartRoute, recommendTradeRoute, clearAICacheRoute } from "./routes/ai.routes";
-import { listModelsRoute } from "./routes/models.routes";
 import { AggregatedDataServiceTag } from "../../infrastructure/data-sources/aggregator";
 
 // Helpers
@@ -37,23 +35,6 @@ export const handleRequest = (url: URL, method: string, body?: unknown) => {
       return globalMarketRoute();
     case "/api/prices":
       return pricesRoute(getInt(url, "limit", 100, 250));
-
-    // AI Routes
-    case "/api/ai/analyze":
-      if (method !== "POST") return methodNotAllowed(method);
-      return analyzeChartRoute(body);
-
-    case "/api/ai/recommend":
-      if (method !== "POST") return methodNotAllowed(method);
-      return recommendTradeRoute(body);
-
-    case "/api/ai/cache/clear":
-      if (method !== "POST") return methodNotAllowed(method);
-      return clearAICacheRoute(body);
-
-    // Models Route
-    case "/api/models":
-      return listModelsRoute();
   }
 
   // Dynamic routes - price by symbol

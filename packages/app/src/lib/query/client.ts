@@ -5,7 +5,6 @@ const STALE_TIMES = {
   prices: 20 * 1000, // 20 seconds - prices change frequently
   chart: 60 * 1000, // 1 minute - chart data updates less frequently
   globalMarket: 60 * 1000, // 1 minute
-  ai: 5 * 60 * 1000, // 5 minutes - AI analysis is expensive
   models: 60 * 60 * 1000, // 1 hour - models don't change often
 } as const;
 
@@ -13,7 +12,6 @@ const STALE_TIMES = {
 const GC_TIMES = {
   default: 5 * 60 * 1000, // 5 minutes
   chart: 10 * 60 * 1000, // 10 minutes - chart data is large
-  ai: 30 * 60 * 1000, // 30 minutes - AI results are expensive to recompute
 } as const;
 
 export const queryClient = new QueryClient({
@@ -73,12 +71,7 @@ export const getQueryOptions = {
     gcTime: GC_TIMES.default,
     refetchInterval: 120 * 1000, // Auto-refresh every 2 minutes
   },
-  ai: {
-    staleTime: STALE_TIMES.ai,
-    gcTime: GC_TIMES.ai,
-    retry: 0,
-    refetchOnWindowFocus: false,
-  },
+
   models: {
     staleTime: STALE_TIMES.models,
     gcTime: GC_TIMES.default,

@@ -7,18 +7,19 @@ interface PriceFormatResult {
   formatter?: (price: number) => string;
 }
 
-export const usePriceFormat = (data: ChartDataPoint[]): PriceFormatResult => {
+export const usePriceFormat = (data: ChartDataPoint[], symbol: string): PriceFormatResult => {
+  // Use the very first price we see for this symbol as the baseline for magnitude.
+  // We only re-calculate if the symbol itself changes.
+  const firstPrice = data.length > 0 ? data[0].close : 0;
+
   return useMemo(() => {
-    if (data.length === 0) return { precision: 2, minMove: 0.01 };
-    const prices = data.flatMap((d) => [d.open, d.high, d.low, d.close]);
-    const maxPrice = Math.max(...prices.filter((p) => p > 0));
-    if (maxPrice === 0) return { precision: 2, minMove: 0.01 };
+    if (firstPrice === 0) return { precision: 2, minMove: 0.01 };
 
     let precision: number;
-    if (maxPrice >= 1000) {
+    if (firstPrice >= 1000) {
       precision = 2;
     } else {
-      const str = maxPrice.toString();
+      const str = firstPrice.toString();
       const decimalIndex = str.indexOf(".");
       if (decimalIndex === -1) {
         precision = 2;
@@ -41,5 +42,5 @@ export const usePriceFormat = (data: ChartDataPoint[]): PriceFormatResult => {
     };
 
     return { precision, minMove: Math.pow(10, -precision), formatter };
-  }, [data]);
+  }, [symbol, firstPrice > 0]);
 };

@@ -5,7 +5,6 @@ import { Effect, ManagedRuntime } from "effect";
 import { AppLayer } from "../../infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
 import { CoinGeckoService } from "../../infrastructure/data-sources/coingecko";
-import { createAIWebSocketHandlers } from "../websocket/ai-websocket";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
 
@@ -67,18 +66,10 @@ const handleApiRequest = async (url: URL, method: string, body?: unknown) => {
   }
 };
 
-// AI WebSocket handlers
-const aiWs = createAIWebSocketHandlers(runtime);
-
 // Bun server with native WebSocket support
 const server = Bun.serve({
   port: PORT,
   fetch: async (req, server) => {
-    // Handle WebSocket upgrade
-    if (aiWs.shouldUpgrade(req)) {
-      return aiWs.upgrade(req, server) as Response | undefined;
-    }
-
     const url = new URL(req.url);
 
     // CORS preflight
@@ -94,14 +85,13 @@ const server = Bun.serve({
 
     return handleApiRequest(url, req.method);
   },
-  websocket: aiWs.websocket as any,
+
   reusePort: true,
 });
 
 console.log(`0xSignal API Server`);
 console.log(`Server: http://localhost:${PORT}`);
 console.log(`Health: http://localhost:${PORT}/api/health`);
-console.log(`AI WebSocket: ws://localhost:${PORT}/ws/ai`);
 
 runtime.runFork(prewarmCaches);
 

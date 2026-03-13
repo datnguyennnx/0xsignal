@@ -65,14 +65,13 @@ import { memo } from "react";
 // These are pure transforms — we memoise them here so the chart
 // component doesn't pay for a hook call that creates new arrays.
 // ──────────────────────────────────────────────────────────────
+// Helper: convert raw data to lightweight-charts format
+// Since our ChartDataPoint already has the required OHLC fields,
+// we only map if necessary to avoid unnecessary allocations.
 function toCandlestickData(data: ChartDataPoint[]) {
-  return data.map((d) => ({
-    time: d.time as Time,
-    open: d.open,
-    high: d.high,
-    low: d.low,
-    close: d.close,
-  }));
+  // Directly return the data array to the chart library.
+  // The library ignores extra properties like 'volume'.
+  return data as any[];
 }
 
 function toVolumeData(data: ChartDataPoint[], isDark: boolean) {
@@ -224,7 +223,7 @@ function TradingChartComponent({
   }, [isFullscreen]);
 
   const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
-  const priceFormat = usePriceFormat(data);
+  const priceFormat = usePriceFormat(data, symbol);
   const indicatorData = useIndicatorData(activeIndicators, data);
 
   // ──────────────────────────────────────────────────────────────
@@ -280,6 +279,13 @@ function TradingChartComponent({
         rightOffset: 12,
         barSpacing: 6,
       },
+      handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: true,
+      },
       rightPriceScale: { borderColor: c.border },
       crosshair: {
         mode: 1,
@@ -321,25 +327,24 @@ function TradingChartComponent({
     const handleVisibleRangeChange = (
       logicalRange: import("lightweight-charts").LogicalRange | null
     ): void => {
-      if (!logicalRange) return;
+      if (!logicalRange || !initialDataLoadedRef.current) return;
 
       const series = candlestickSeriesRef.current;
       if (!series) return;
 
-      const barsInfo = series.barsInLogicalRange(logicalRange);
-      if (!barsInfo) return;
-
-      // barsBefore < 0 means there are bars beyond the left edge
-      // barsBefore < 50 means user is near the left edge
+      // logicalRange.from < -5 means the user is actively scrolling left beyond the data
       if (
-        barsInfo.barsBefore < 50 &&
+        logicalRange.from < -5 &&
         loadMoreRef.current &&
         hasMoreRef.current &&
         !isLoadingMoreRef.current
       ) {
         isLoadingMoreRef.current = true;
-        loadMoreRef.current(200).finally(() => {
-          isLoadingMoreRef.current = false;
+        // Fetch a larger batch
+        loadMoreRef.current(500).finally(() => {
+          setTimeout(() => {
+            isLoadingMoreRef.current = false;
+          }, 500);
         });
       }
     };
@@ -441,17 +446,19 @@ function TradingChartComponent({
     }
 
     // ─── Case 2: Historical data prepended (loadMore) ────────
-    // Detected when the first timestamp is earlier than before
     if (prevFirstTime !== null && currentFirstTime < prevFirstTime) {
       const timeScale = chart?.timeScale();
       const visibleRange = timeScale?.getVisibleLogicalRange();
+
+      // Disable auto-scaling while prepending
+      timeScale?.applyOptions({ shiftVisibleRangeOnNewBar: false });
 
       const csData = toCandlestickData(data);
       const volData = toVolumeData(data, isDark);
       candleSeries.setData(csData);
       volSeries.setData(volData);
 
-      // Restore visible range to keep current view STABLE — no jumping
+      // Restore visible range precisely
       if (visibleRange && timeScale) {
         const barsDiff = data.length - prevDataLenRef.current;
         timeScale.setVisibleLogicalRange({
@@ -459,6 +466,9 @@ function TradingChartComponent({
           to: visibleRange.to + barsDiff,
         });
       }
+
+      // Re-enable auto-scaling if desired (usually it's true by default)
+      timeScale?.applyOptions({ shiftVisibleRangeOnNewBar: true });
 
       // Update tracking
       prevDataLenRef.current = data.length;
@@ -509,18 +519,33 @@ function TradingChartComponent({
     }
 
     // ─── Case 4: New candle(s) appended via WS ───────────────
-    // Last timestamp is newer OR array grew without prepending
-    if (
-      (prevLastTime !== null && currentLastTime > prevLastTime) ||
-      (prevFirstTime !== null &&
-        currentFirstTime === prevFirstTime &&
-        data.length > prevDataLenRef.current)
-    ) {
-      const csData = toCandlestickData(data);
-      const volData = toVolumeData(data, isDark);
-      candleSeries.setData(csData);
-      volSeries.setData(volData);
-      // Do NOT fitContent — let user keep their scroll position
+    if (prevLastTime !== null && currentLastTime >= prevLastTime) {
+      // If timestamp is same, it's a Case 3 (already handled)
+      // If timestamp is newer, it's a new nến — use update() to preserve zoom
+      const newCandles = data.filter((d) => d.time >= prevLastTime!);
+
+      newCandles.forEach((c) => {
+        candleSeries.update({
+          time: c.time as Time,
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+        });
+
+        volSeries.update({
+          time: c.time as Time,
+          value: c.volume,
+          color:
+            c.close >= c.open
+              ? isDark
+                ? "rgba(38, 166, 154, 0.5)"
+                : "#26a69a"
+              : isDark
+                ? "rgba(239, 83, 80, 0.5)"
+                : "#ef5350",
+        });
+      });
 
       prevDataLenRef.current = data.length;
       prevFirstTimeRef.current = currentFirstTime;

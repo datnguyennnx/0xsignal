@@ -5,10 +5,6 @@ import { getHydratedAnalysis } from "@/core/cache/analysis-store";
 import { cn } from "@/core/utils/cn";
 import { formatPrice, formatCurrency, formatPercentChange } from "@/core/utils/formatters";
 import { CryptoIcon } from "@/components/crypto-icon";
-import { AIChatPanel } from "@/features/ai-copilot/components/ai-chat-panel";
-import { useAI } from "@/hooks/use-ai";
-import { useModels } from "@/hooks/ai";
-import type { ModelSelection } from "@/services/ai";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,8 +15,6 @@ import { api } from "@/services/api";
 import { useHyperliquidCandles } from "@/hooks/use-hyperliquid-candles";
 import { queryKeys } from "@/lib/query/query-keys";
 
-import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { AssetDetailTabs, type AssetDetailTab } from "@/components/asset-detail-tabs";
 import { OrderbookWidget } from "@/features/asset-detail/components/orderbook-widget";
 
 const TradingChart = lazy(() =>
@@ -66,15 +60,6 @@ function AssetContent({
   const chartSymbol = symbol.toUpperCase();
   const price = asset.price;
   const change24h = price?.change24h || 0;
-
-  const [selectedModel, setSelectedModel] = useState<ModelSelection | undefined>();
-  const [activeTab, setActiveTab] = useState<AssetDetailTab>("orderbook");
-  const { data: modelsData } = useModels();
-
-  const { recommendation, loading, error, hasError, sendQuery, retry } = useAI({
-    symbol,
-    model: selectedModel,
-  });
 
   return (
     <div className="container-fluid h-full flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium overflow-y-auto lg:overflow-hidden">
@@ -130,10 +115,10 @@ function AssetContent({
         </div>
       </header>
 
-      {/* Main Content: Chart + AI Copilot */}
-      <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-3 gap-4 lg:gap-5">
-        {/* Chart - Takes 2/3 on desktop */}
-        <div className="lg:col-span-2 flex-1 min-h-[350px] lg:min-h-0 lg:h-full flex flex-col">
+      {/* Main Content: Chart + Side Panel */}
+      <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-5 gap-4 lg:gap-5">
+        {/* Chart - Takes 4/5 on desktop */}
+        <div className="lg:col-span-4 flex-1 min-h-[350px] lg:min-h-0 lg:h-full flex flex-col">
           {chartData && chartData.length > 0 ? (
             <Suspense fallback={<ChartSkeleton />}>
               <TradingChart
@@ -156,42 +141,9 @@ function AssetContent({
           )}
         </div>
 
-        {/* Side Panel: Orderbook + Trades + AI Copilot */}
+        {/* Side Panel: Orderbook + Trades */}
         <div className="lg:col-span-1 min-h-[400px] lg:min-h-0 lg:h-full flex flex-col">
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => setActiveTab(v as AssetDetailTab)}
-            className="h-full flex flex-col"
-          >
-            <div className="mb-3 shrink-0">
-              <AssetDetailTabs activeTab={activeTab} onTabChange={setActiveTab} />
-            </div>
-
-            <TabsContent
-              value="orderbook"
-              className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden"
-            >
-              <OrderbookWidget symbol={symbol} />
-            </TabsContent>
-
-            <TabsContent
-              value="insight"
-              className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden"
-            >
-              <AIChatPanel
-                symbol={symbol}
-                recommendation={recommendation}
-                loading={loading}
-                error={error}
-                hasError={hasError}
-                onSendQuery={sendQuery}
-                onRetry={retry}
-                providers={modelsData?.providers}
-                selectedModel={selectedModel}
-                onModelChange={setSelectedModel}
-              />
-            </TabsContent>
-          </Tabs>
+          <OrderbookWidget symbol={symbol} />
         </div>
       </div>
     </div>
@@ -208,8 +160,8 @@ function AssetDetailSkeleton({ symbol }: { readonly symbol?: string }) {
           <Skeleton className="h-4 w-48" />
         </div>
       </header>
-      <div className="grid lg:grid-cols-3 gap-4 lg:gap-5">
-        <Skeleton className="lg:col-span-2 h-80 lg:h-[500px] rounded-xl" />
+      <div className="grid lg:grid-cols-5 gap-4 lg:gap-5">
+        <Skeleton className="lg:col-span-4 h-80 lg:h-[500px] rounded-xl" />
         <Skeleton className="lg:col-span-1 h-80 lg:h-[500px] rounded-xl" />
       </div>
     </div>
@@ -265,6 +217,7 @@ export function AssetDetail() {
   } = useHyperliquidCandles({
     symbol: chartSymbol,
     interval,
+    limit: 1000,
     enabled: !!chartSymbol,
   });
 
