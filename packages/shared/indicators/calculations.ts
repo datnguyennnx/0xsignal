@@ -4,13 +4,20 @@
  */
 
 import type { ChartDataPoint } from "../types/chart";
-import { mean } from "../utils/math";
 import type {
   IndicatorDataPoint,
   BandIndicatorDataPoint,
   MACDResult,
   StochasticResult,
 } from "./types";
+
+/**
+ * Calculate the mean (average) of an array
+ */
+export const mean = (values: readonly number[]): number => {
+  if (values.length === 0) return 0;
+  return values.reduce((acc, val) => acc + val, 0) / values.length;
+};
 
 const calculateTrueRange = (high: number, low: number, previousClose: number): number => {
   const range1 = high - low;

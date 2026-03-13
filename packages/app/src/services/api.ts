@@ -1,11 +1,5 @@
 // API Client - Simple async functions
-import type {
-  ChartDataPoint,
-  GlobalMarketData,
-  OpenInterestData,
-  FundingRateData,
-  CryptoPrice,
-} from "@0xsignal/shared";
+import type { ChartDataPoint, GlobalMarketData, CryptoPrice } from "@0xsignal/shared";
 
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost:9006/api";
 
@@ -56,13 +50,4 @@ export const api = {
   getTopCryptos: (limit = 100) => fetchJson<CryptoPrice[]>(`${API_BASE}/prices?limit=${limit}`),
 
   getCryptoPrice: (symbol: string) => fetchJson<CryptoPrice>(`${API_BASE}/prices/${symbol}`),
-
-  getTopOpenInterest: (limit = 20) =>
-    fetchJson<OpenInterestData[]>(`${API_BASE}/derivatives/open-interest?limit=${limit}`),
-
-  getOpenInterest: (symbol: string) =>
-    fetchJson<OpenInterestData>(`${API_BASE}/derivatives/${symbol}/open-interest`),
-
-  getFundingRate: (symbol: string) =>
-    fetchJson<FundingRateData>(`${API_BASE}/derivatives/${symbol}/funding-rate`),
 };

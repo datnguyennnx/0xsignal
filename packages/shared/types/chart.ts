@@ -10,13 +10,3 @@ export interface ChartDataPoint {
   readonly close: number;
   readonly volume: number;
 }
-
-/**
- * WebSocket subscription info
- */
-export interface Subscription {
-  readonly symbol: string;
-  readonly interval: string;
-  readonly clientCount: number;
-  readonly lastUpdate: number;
-}

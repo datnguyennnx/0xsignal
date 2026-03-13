@@ -2,7 +2,7 @@
  * Indicator types - shared between frontend and backend
  */
 
-export type IndicatorCategory = "trend" | "momentum" | "volatility" | "volume" | "oscillators";
+export type IndicatorCategory = "trend" | "momentum" | "volatility" | "volume";
 
 export interface IndicatorConfig {
   readonly id: string;

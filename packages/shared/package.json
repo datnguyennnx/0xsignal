@@ -8,7 +8,6 @@
   "exports": {
     ".": "./index.ts",
     "./types/*": "./types/*",
-    "./utils/*": "./utils/*",
     "./indicators/*": "./indicators/*"
   },
   "scripts": {

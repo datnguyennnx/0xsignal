@@ -1,7 +1,7 @@
 /** Data Source Types - Provider abstractions */
 
 import { Data, Effect } from "effect";
-import type { CryptoPrice, OpenInterestData, FundingRateData } from "@0xsignal/shared";
+import type { CryptoPrice } from "@0xsignal/shared";
 
 // Errors
 export class DataSourceError extends Data.TaggedError("DataSourceError")<{
@@ -46,13 +46,4 @@ export interface SpotPriceProvider {
   readonly info: AdapterInfo;
   readonly getPrice: (symbol: string) => Effect.Effect<CryptoPrice, DataSourceError>;
   readonly getTopCryptos: (limit?: number) => Effect.Effect<CryptoPrice[], DataSourceError>;
-}
-
-export interface DerivativesProvider {
-  readonly info: AdapterInfo;
-  readonly getOpenInterest: (symbol: string) => Effect.Effect<OpenInterestData, DataSourceError>;
-  readonly getFundingRate: (symbol: string) => Effect.Effect<FundingRateData, DataSourceError>;
-  readonly getTopOpenInterest: (
-    limit?: number
-  ) => Effect.Effect<OpenInterestData[], DataSourceError>;
 }

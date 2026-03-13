@@ -1,6 +1,6 @@
 /** Infrastructure Data Source Types Tests */
 
-import { it, expect } from "@effect/vitest";
+import { it, expect, describe } from "@effect/vitest";
 import { Effect, Exit } from "effect";
 import { DataSourceError, RateLimitError, DataNotAvailableError } from "../types";
 
@@ -232,6 +232,8 @@ describe("Data Source Types", () => {
         expect(handleError(dataSourceError)).toBe("Data source error: Connection failed");
         expect(handleError(rateLimitError)).toBe("Rate limited: retry in 60s");
         expect(handleError(notAvailableError)).toBe("Data not available: historical");
+
+        yield* Effect.void;
       })
     );
   });

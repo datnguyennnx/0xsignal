@@ -12,7 +12,7 @@ import {
 import type { ChartDataPoint, ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
 import { getIndicatorColor, MULTI_INSTANCE_INDICATORS } from "@0xsignal/shared";
 import { useTheme } from "@/core/providers/theme-provider";
-import { getChartColors, getCandlestickColors } from "@/core/utils/colors";
+import { getChartColors, getCandlestickColors, getVolumeColor } from "@/core/utils/colors";
 
 import {
   useICTOverlay,
@@ -78,14 +78,7 @@ function toVolumeData(data: ChartDataPoint[], isDark: boolean) {
   return data.map((d) => ({
     time: d.time as Time,
     value: d.volume,
-    color:
-      d.close >= d.open
-        ? isDark
-          ? "rgba(38, 166, 154, 0.5)"
-          : "#26a69a"
-        : isDark
-          ? "rgba(239, 83, 80, 0.5)"
-          : "#ef5350",
+    color: getVolumeColor(d.close >= d.open, isDark),
   }));
 }
 
@@ -504,14 +497,7 @@ function TradingChartComponent({
       volSeries.update({
         time: currentLastCandle.time as Time,
         value: currentLastCandle.volume,
-        color:
-          currentLastCandle.close >= currentLastCandle.open
-            ? isDark
-              ? "rgba(38, 166, 154, 0.5)"
-              : "#26a69a"
-            : isDark
-              ? "rgba(239, 83, 80, 0.5)"
-              : "#ef5350",
+        color: getVolumeColor(currentLastCandle.close >= currentLastCandle.open, isDark),
       });
 
       prevLastCandleRef.current = { ...currentLastCandle };
@@ -536,14 +522,7 @@ function TradingChartComponent({
         volSeries.update({
           time: c.time as Time,
           value: c.volume,
-          color:
-            c.close >= c.open
-              ? isDark
-                ? "rgba(38, 166, 154, 0.5)"
-                : "#26a69a"
-              : isDark
-                ? "rgba(239, 83, 80, 0.5)"
-                : "#ef5350",
+          color: getVolumeColor(c.close >= c.open, isDark),
         });
       });
 

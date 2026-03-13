@@ -9,7 +9,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["domain/**/*.ts", "application/**/*.ts", "services/**/*.ts"],
+      include: ["infrastructure/**/*.ts", "presentation/**/*.ts"],
       exclude: ["**/*.test.ts", "**/index.ts"],
     },
     testTimeout: 10000,

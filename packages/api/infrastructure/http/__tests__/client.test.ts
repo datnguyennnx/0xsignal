@@ -1,6 +1,6 @@
 /** HTTP Client Tests */
 
-import { it, expect } from "@effect/vitest";
+import { it, expect, describe } from "@effect/vitest";
 import { Effect, Exit } from "effect";
 import { HttpError, HttpParseError } from "../client";
 
@@ -157,6 +157,8 @@ describe("HTTP Client", () => {
 
         expect(handleError(httpError)).toBe("HTTP: 404 - Not Found");
         expect(handleError(parseError)).toBe("Parse: Invalid JSON");
+
+        yield* Effect.void;
       })
     );
 

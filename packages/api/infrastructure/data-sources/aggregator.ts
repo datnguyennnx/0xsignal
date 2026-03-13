@@ -1,7 +1,7 @@
 /** Data Sources Aggregator - Combines multiple providers */
 
 import { Effect, Context, Layer } from "effect";
-import type { CryptoPrice, OpenInterestData, FundingRateData } from "@0xsignal/shared";
+import type { CryptoPrice } from "@0xsignal/shared";
 import { CoinGeckoService } from "./coingecko";
 import { DataSourceError, type AdapterInfo } from "./types";
 

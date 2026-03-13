@@ -11,6 +11,7 @@ export const usePriceFormat = (data: ChartDataPoint[], symbol: string): PriceFor
   // Use the very first price we see for this symbol as the baseline for magnitude.
   // We only re-calculate if the symbol itself changes.
   const firstPrice = data.length > 0 ? data[0].close : 0;
+  const hasPrice = firstPrice > 0;
 
   return useMemo(() => {
     if (firstPrice === 0) return { precision: 2, minMove: 0.01 };
@@ -42,5 +43,5 @@ export const usePriceFormat = (data: ChartDataPoint[], symbol: string): PriceFor
     };
 
     return { precision, minMove: Math.pow(10, -precision), formatter };
-  }, [symbol, firstPrice > 0]);
+  }, [symbol, hasPrice, firstPrice]);
 };

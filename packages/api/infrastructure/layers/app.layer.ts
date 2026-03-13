@@ -3,13 +3,8 @@
 import { Layer } from "effect";
 import { HttpClientLive } from "../http/client";
 import { RateLimiterLive } from "../http/rate-limiter";
-import { RequestCacheLayer } from "../cache/request-cache";
 import { AppConfigLive } from "../config/app.config";
-import {
-  CoinGeckoServiceLive,
-  GlobalMarketServiceLive,
-  CoinGeckoChartServiceLive,
-} from "../data-sources/coingecko";
+import { CoinGeckoServiceLive, GlobalMarketServiceLive } from "../data-sources/coingecko";
 import { AggregatedDataServiceLive } from "../data-sources/aggregator";
 import { DevLoggerLive } from "../logging/logger";
 
@@ -27,10 +22,6 @@ const GlobalMarketLayer = GlobalMarketServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
 );
 
-const CoinGeckoChartLayer = CoinGeckoChartServiceLive.pipe(
-  Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
-);
-
 const AggregatedDataLayer = AggregatedDataServiceLive.pipe(
   Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer))
 );
@@ -40,9 +31,7 @@ export const AppLayer = Layer.mergeAll(
   InfraLayer,
   CoinGeckoLayer,
   GlobalMarketLayer,
-  CoinGeckoChartLayer,
-  AggregatedDataLayer,
-  RequestCacheLayer
+  AggregatedDataLayer
 );
 
 export type AppLayer = typeof AppLayer;
