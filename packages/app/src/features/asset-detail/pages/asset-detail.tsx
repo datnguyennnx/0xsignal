@@ -5,7 +5,7 @@ import { getHydratedAnalysis } from "@/core/cache/analysis-store";
 import { cn } from "@/core/utils/cn";
 import { formatPrice, formatCurrency, formatPercentChange } from "@/core/utils/formatters";
 import { CryptoIcon } from "@/components/crypto-icon";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChartCandlestick } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -112,6 +112,15 @@ function AssetContent({
               </span>
             </div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(`/futures/${symbol}/orderbook`)}
+            className="lg:hidden shrink-0 border"
+            aria-label="Orderbook"
+          >
+            <ChartCandlestick className="w-5 h-5" />
+          </Button>
         </div>
       </header>
 
@@ -141,8 +150,8 @@ function AssetContent({
           )}
         </div>
 
-        {/* Side Panel: Orderbook + Trades */}
-        <div className="lg:col-span-1 min-h-[400px] lg:min-h-0 lg:h-full flex flex-col">
+        {/* Side Panel: Orderbook - Only visible on lg+ */}
+        <div className="hidden lg:block lg:col-span-1 min-h-[400px] lg:min-h-0 lg:h-full flex flex-col">
           <OrderbookWidget symbol={symbol} />
         </div>
       </div>

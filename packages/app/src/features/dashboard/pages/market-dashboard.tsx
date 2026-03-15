@@ -1,16 +1,23 @@
 import type { GlobalMarketData, CryptoPrice } from "@0xsignal/shared";
-import { memo } from "react";
-import { Link } from "react-router-dom";
+import { memo, useState, useMemo } from "react";
 import { cn } from "@/core/utils/cn";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/error-state";
 import { GlobalMarketBar } from "@/features/dashboard/components/global-market-bar";
 import { usePrices, useGlobalMarket } from "@/hooks/prices";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAGE_SIZE = 20;
+const MAX_ITEMS = 100;
 
 interface DashboardContentProps {
   cryptos: CryptoPrice[];
   globalMarket: GlobalMarketData | null;
   fetchedAt?: Date;
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
 }
 
 // Format giá theo độ lớn
@@ -26,7 +33,13 @@ const formatPrice = (price: number): string => {
   });
 };
 
-function DashboardContent({ cryptos, globalMarket }: DashboardContentProps) {
+function DashboardContent({
+  cryptos,
+  globalMarket,
+  page,
+  totalPages,
+  onPageChange,
+}: DashboardContentProps) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium h-full overflow-y-auto">
       <div className="container-fluid py-4 sm:py-6">
@@ -68,15 +81,9 @@ function DashboardContent({ cryptos, globalMarket }: DashboardContentProps) {
               </thead>
               <tbody>
                 {cryptos.map((crypto, index) => (
-                  <tr
-                    key={crypto.symbol}
-                    className="border-b border-border/50 hover:bg-muted/30 transition-colors"
-                  >
+                  <tr key={crypto.symbol} className="border-b border-border/50">
                     <td className="py-3 px-4">
-                      <Link
-                        to={`/asset/${crypto.symbol.toLowerCase()}`}
-                        className="flex items-center gap-3 group"
-                      >
+                      <div className="flex items-center gap-3">
                         <span className="text-xs text-muted-foreground tabular-nums w-6">
                           {index + 1}
                         </span>
@@ -88,14 +95,14 @@ function DashboardContent({ cryptos, globalMarket }: DashboardContentProps) {
                           />
                         )}
                         <div>
-                          <div className="font-mono font-medium text-sm group-hover:text-primary transition-colors">
+                          <div className="font-mono font-medium text-sm">
                             {crypto.symbol.toUpperCase()}
                           </div>
                           {crypto.name && (
                             <div className="text-xs text-muted-foreground">{crypto.name}</div>
                           )}
                         </div>
-                      </Link>
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-right">
                       <span className="font-mono text-sm tabular-nums">
@@ -128,6 +135,33 @@ function DashboardContent({ cryptos, globalMarket }: DashboardContentProps) {
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between py-3 px-4 border-t border-border bg-muted/30">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onPageChange(page - 1)}
+                disabled={page === 1}
+                className="gap-1 h-8"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Prev
+              </Button>
+              <span className="text-xs text-muted-foreground font-mono">
+                Page {page} / {totalPages}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onPageChange(page + 1)}
+                disabled={page === totalPages}
+                className="gap-1 h-8"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
         </section>
       </div>
     </div>
@@ -179,9 +213,17 @@ const DashboardSkeleton = memo(function DashboardSkeleton() {
 });
 
 export function MarketDashboard() {
-  const { data: cryptos, isLoading: pricesLoading, error: pricesError } = usePrices(20);
+  const [limit] = useState(MAX_ITEMS);
+  const [page, setPage] = useState(1);
 
+  const { data: cryptos, isLoading: pricesLoading, error: pricesError } = usePrices(limit);
   const { data: globalMarket, isLoading: marketLoading } = useGlobalMarket();
+
+  const totalPages = useMemo(() => Math.ceil((cryptos?.length || 0) / PAGE_SIZE), [cryptos]);
+  const paginatedCryptos = useMemo(
+    () => cryptos?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) || [],
+    [cryptos, page]
+  );
 
   const isLoading = pricesLoading || marketLoading;
 
@@ -199,9 +241,12 @@ export function MarketDashboard() {
 
   return (
     <DashboardContent
-      cryptos={cryptos}
+      cryptos={paginatedCryptos}
       globalMarket={globalMarket || null}
       fetchedAt={new Date()}
+      page={page}
+      totalPages={totalPages}
+      onPageChange={setPage}
     />
   );
 }

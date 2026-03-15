@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/core/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/layouts/main-layout";
@@ -7,6 +7,9 @@ import { MarketDashboard } from "@/features/dashboard/pages/market-dashboard";
 
 const AssetDetail = lazy(() =>
   import("@/features/asset-detail/pages/asset-detail").then((m) => ({ default: m.AssetDetail }))
+);
+const OrderbookPage = lazy(() =>
+  import("@/features/asset-detail/pages/orderbook-page").then((m) => ({ default: m.OrderbookPage }))
 );
 const NotFoundPage = lazy(() =>
   import("@/features/error/pages/not-found").then((m) => ({ default: m.NotFoundPage }))
@@ -29,7 +32,9 @@ function App() {
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<MarketDashboard />} />
-                <Route path="/asset/:symbol" element={<AssetDetail />} />
+                <Route path="/futures" element={<Navigate to="/futures/btc" replace />} />
+                <Route path="/futures/:symbol" element={<AssetDetail />} />
+                <Route path="/futures/:symbol/orderbook" element={<OrderbookPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
