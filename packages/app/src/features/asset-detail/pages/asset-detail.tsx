@@ -16,6 +16,7 @@ import { useHyperliquidCandles } from "@/hooks/use-hyperliquid-candles";
 import { queryKeys } from "@/lib/query/query-keys";
 
 import { OrderbookWidget } from "@/features/asset-detail/components/orderbook-widget";
+import { FuturesDropdown } from "@/features/futures/components/futures-dropdown";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart }))
@@ -66,15 +67,6 @@ function AssetContent({
       {/* Header */}
       <header className="mb-5 sm:mb-6 shrink-0">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => navigate(-1)}
-            className="sm:hidden -ml-2 touch-target-44 shrink-0"
-            aria-label="Go back"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </Button>
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <CryptoIcon
               symbol={asset.symbol}
@@ -83,10 +75,8 @@ function AssetContent({
               className="shrink-0 sm:w-7 sm:h-7"
             />
             <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 flex-wrap min-w-0">
-              <div className="flex items-baseline gap-2">
-                <span className="text-lg sm:text-xl font-mono font-bold tracking-tight">
-                  {asset.symbol.toUpperCase()}
-                </span>
+              <div className="flex items-center gap-1">
+                <FuturesDropdown currentSymbol={asset.symbol.toUpperCase()} />
                 <span className="text-lg sm:text-xl tabular-nums font-medium">
                   ${formatPrice(price?.price || 0)}
                 </span>
@@ -114,7 +104,7 @@ function AssetContent({
           </div>
           <Button
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             onClick={() => navigate(`/futures/${symbol}/orderbook`)}
             className="lg:hidden shrink-0 border"
             aria-label="Orderbook"
