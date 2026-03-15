@@ -1,11 +1,12 @@
-import { useState, useCallback, useRef, useMemo } from "react";
-import {
-  useHyperliquidWs,
-  normalizeSymbol,
-  type HyperliquidSubscription,
-} from "./use-hyperliquid-ws";
+/**
+ * Hyperliquid Orderbook Hook
+ * @features WebSocket realtime, nSigFigs aggregation, client-side fallback
+ * @performance RAF batching, memoized callbacks
+ */
 
-// ─── Types ───────────────────────────────────────────────────
+import { useState, useCallback, useRef, useMemo } from "react";
+import { useHyperliquidWs, normalizeSymbol } from "./use-hyperliquid-ws";
+
 export interface OrderbookLevel {
   price: number;
   size: number;
@@ -26,205 +27,148 @@ interface L2BookLevel {
   n: number;
 }
 
-// ─── Tick Size Scaling ───────────────────────────────────────
-
 export interface TickSizeOption {
   value: number;
   label: string;
-  /** nSigFigs parameter for server-side aggregation (null = client-side only) */
   nSigFigs: number | null;
-  /** mantissa parameter (only valid when nSigFigs = 5) */
   mantissa: number | null;
 }
 
-/**
- * Generate tick size options from the current best price.
- * Maps UI tick sizes to Hyperliquid's nSigFigs for server-side aggregation.
- */
+/** Dynamic tick size: Step = 10^(magnitude - nSigFigs + 1) */
 export function generateTickSizeOptions(price: number): TickSizeOption[] {
-  if (price <= 0) return [{ value: 1, label: "1", nSigFigs: 5, mantissa: null }];
+  if (!price || price <= 0) return [{ value: 0.01, label: "0.01", nSigFigs: 5, mantissa: null }];
 
-  const magnitude = Math.pow(10, Math.floor(Math.log10(price)));
-  const baseTick = magnitude / 100_000;
+  const mag = Math.floor(Math.log10(price));
+  const opts: TickSizeOption[] = [];
 
-  const multipliers = [1, 10, 100, 1_000, 10_000, 100_000];
-  return multipliers.map((m) => {
-    const val = baseTick * m;
-    let nSigFigs: number | null = null;
-    const mantissa: number | null = null;
+  for (const sig of [5, 4, 3, 2]) {
+    const step = Number(Math.pow(10, mag - sig + 1).toPrecision(10));
+    const label =
+      step >= 1000
+        ? `${step / 1000}K`
+        : step >= 1
+          ? String(step)
+          : step.toFixed(Math.max(0, -Math.floor(Math.log10(step))));
 
-    // Hyperliquid supports nSigFigs between 2 and 5
-    if (m === 1) nSigFigs = 5;
-    else if (m === 10) nSigFigs = 4;
-    else if (m === 100) nSigFigs = 3;
-    else if (m === 1_000) nSigFigs = 2;
-
-    return {
-      value: val,
-      label: formatTickLabel(val),
-      nSigFigs,
-      mantissa,
-    };
-  });
+    opts.push({ value: step, label, nSigFigs: sig, mantissa: null });
+    if (sig === 5) opts.push({ value: step * 5, label: `${label}*`, nSigFigs: 5, mantissa: 5 });
+  }
+  return opts;
 }
-
-function formatTickLabel(v: number): string {
-  if (v >= 100_000) return `${v / 1_000}K`;
-  if (v >= 1_000) return `${v / 1_000}K`;
-  if (v >= 1) return String(v);
-  const decimals = Math.max(0, -Math.floor(Math.log10(v)));
-  return v.toFixed(decimals);
-}
-
-// ─── Data Processing ─────────────────────────────────────────
 
 function processLevels(rawBids: L2BookLevel[], rawAsks: L2BookLevel[]): OrderbookData {
-  let bidTotal = 0;
-  const bids: OrderbookLevel[] = rawBids
-    .sort((a, b) => parseFloat(b.px) - parseFloat(a.px))
-    .map((l) => {
-      const price = parseFloat(l.px);
-      const size = parseFloat(l.sz);
-      bidTotal += size;
-      return { price, size, total: bidTotal, depth: 0 };
-    });
+  const toLevels = (arr: L2BookLevel[], desc = false) => {
+    const sorted = [...arr].sort((a, b) =>
+      desc ? parseFloat(b.px) - parseFloat(a.px) : parseFloat(a.px) - parseFloat(b.px)
+    );
+    let total = 0;
+    return sorted.map((l) => ({
+      price: parseFloat(l.px),
+      size: parseFloat(l.sz),
+      total: (total += parseFloat(l.sz)),
+      depth: 0,
+    }));
+  };
 
-  let askTotal = 0;
-  const asks: OrderbookLevel[] = rawAsks
-    .sort((a, b) => parseFloat(a.px) - parseFloat(b.px))
-    .map((l) => {
-      const price = parseFloat(l.px);
-      const size = parseFloat(l.sz);
-      askTotal += size;
-      return { price, size, total: askTotal, depth: 0 };
-    });
-
-  const maxTotal = Math.max(bidTotal, askTotal, 1);
-  bids.forEach((b) => (b.depth = (b.total / maxTotal) * 100));
-  asks.forEach((a) => (a.depth = (a.total / maxTotal) * 100));
+  const bids = toLevels(rawBids, true);
+  const asks = toLevels(rawAsks, false);
+  const max = Math.max(
+    bids.reduce((s, b) => s + b.size, 0),
+    asks.reduce((s, a) => s + a.size, 0),
+    1
+  );
+  bids.forEach((b) => (b.depth = (b.total / max) * 100));
+  asks.forEach((a) => (a.depth = (a.total / max) * 100));
 
   const bestBid = bids[0]?.price || 0;
   const bestAsk = asks[0]?.price || 0;
-  const spread = bestAsk - bestBid;
-  const spreadPercent = bestBid > 0 ? (spread / bestBid) * 100 : 0;
-
-  return { bids, asks, spread, spreadPercent };
+  return {
+    bids,
+    asks,
+    spread: bestAsk - bestBid,
+    spreadPercent: bestBid ? ((bestAsk - bestBid) / bestBid) * 100 : 0,
+  };
 }
 
-/**
- * Group orderbook levels by tick size (client-side aggregation).
- * Used as a fallback when nSigFigs is too coarse.
- */
+/** Client-side grouping: floor bids, ceil asks */
 export function groupLevels(
   levels: OrderbookLevel[],
-  scale: number,
+  step: number,
   side: "bids" | "asks"
 ): OrderbookLevel[] {
-  if (levels.length === 0 || scale <= 0) return levels;
+  if (!levels.length || step <= 0) return levels;
 
   const grouped = new Map<number, number>();
+  const inv = 1 / step;
 
-  for (const level of levels) {
-    const bucket = Math.floor(level.price / scale) * scale;
-    grouped.set(bucket, (grouped.get(bucket) || 0) + level.size);
+  for (const l of levels) {
+    const p = side === "bids" ? Math.floor(l.price * inv) / inv : Math.ceil(l.price * inv) / inv;
+    const key = Number(p.toFixed(Math.max(0, -Math.floor(Math.log10(step)))));
+    grouped.set(key, (grouped.get(key) || 0) + l.size);
   }
 
-  const sorted = Array.from(grouped.entries()).sort((a, b) =>
+  const sorted = [...grouped.entries()].sort((a, b) =>
     side === "bids" ? b[0] - a[0] : a[0] - b[0]
   );
-
-  let cumTotal = 0;
-  const totalSize = sorted.reduce((s, [, sz]) => s + sz, 0);
-
-  return sorted.map(([price, size]) => {
-    cumTotal += size;
-    return {
-      price,
-      size,
-      total: cumTotal,
-      depth: totalSize > 0 ? (cumTotal / totalSize) * 100 : 0,
-    };
-  });
+  let total = 0;
+  const totalSize = sorted.reduce((s, [, v]) => s + v, 0);
+  return sorted.map(([price, size]) => ({
+    price,
+    size,
+    total: (total += size),
+    depth: totalSize ? (total / totalSize) * 100 : 0,
+  }));
 }
-
-// ─── Hook ────────────────────────────────────────────────────
 
 const DEFAULT_SIGFIGS = 5;
 
-export function useHyperliquidOrderbook(symbol: string, enabled: boolean = true) {
+export function useHyperliquidOrderbook(symbol: string, enabled = true) {
   const [orderbook, setOrderbook] = useState<OrderbookData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const pendingRef = useRef<OrderbookData | null>(null);
-  const rafRef = useRef<number | null>(null);
+  const pending = useRef<OrderbookData | null>(null);
+  const raf = useRef(0);
 
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
-
-  // Initial subscription
   const subscription = useMemo(
     () => (enabled && coin ? { type: "l2Book" as const, coin, nSigFigs: DEFAULT_SIGFIGS } : null),
     [enabled, coin]
   );
 
-  const scheduleUpdate = useCallback((data: OrderbookData) => {
-    pendingRef.current = data;
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      if (pendingRef.current) {
-        setOrderbook(pendingRef.current);
-        pendingRef.current = null;
-      }
-      rafRef.current = null;
+  const schedule = useCallback((data: OrderbookData) => {
+    pending.current = data;
+    if (raf.current) return;
+    raf.current = requestAnimationFrame(() => {
+      if (pending.current) setOrderbook(pending.current);
+      raf.current = 0;
     });
   }, []);
 
-  const handleMessage = useCallback(
-    (data: unknown, channel: string) => {
-      if (channel !== "l2Book") return;
+  const handleMsg = useCallback(
+    (data: unknown, ch: string) => {
+      if (ch !== "l2Book") return;
       const book = data as { levels: [L2BookLevel[], L2BookLevel[]] };
-      if (!book?.levels) return;
-      scheduleUpdate(processLevels(book.levels[0], book.levels[1]));
+      if (book?.levels) schedule(processLevels(book.levels[0], book.levels[1]));
     },
-    [scheduleUpdate]
+    [schedule]
   );
-
-  const handleConnectionChange = useCallback((connected: boolean) => {
-    setIsConnected(connected);
-    if (!connected && rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-  }, []);
-
-  const handleError = useCallback((err: Error) => {
-    setError(err.message);
-  }, []);
 
   const ws = useHyperliquidWs({
     subscription,
-    onMessage: handleMessage,
+    onMessage: handleMsg,
     enabled: enabled && !!symbol,
-    onConnectionChange: handleConnectionChange,
-    onError: handleError,
+    onConnectionChange: (c) => {
+      setIsConnected(c);
+      if (!c && raf.current) cancelAnimationFrame(raf.current);
+    },
+    onError: (e) => setError(e.message),
   });
 
   const resubscribe = useCallback(
     (nSigFigs: number, mantissa?: number) => {
       if (!coin || !ws.resubscribe) return;
-
-      const sub: HyperliquidSubscription = {
-        type: "l2Book",
-        coin,
-        nSigFigs,
-      };
-      if (mantissa !== undefined && mantissa !== null) {
-        sub.mantissa = mantissa;
-      }
-      ws.resubscribe(sub);
-
-      // Optionally clear orderbook locally so UI handles the flash gracefully
-      // but waiting for new data is usually better.
+      ws.resubscribe({ type: "l2Book", coin, nSigFigs, ...(mantissa && { mantissa }) });
     },
     [coin, ws]
   );

@@ -13,6 +13,7 @@ import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { useHyperliquidCandles } from "@/hooks/use-hyperliquid-candles";
+import { useChartConfig } from "@/hooks/use-breakpoint";
 import { queryKeys } from "@/lib/query/query-keys";
 
 import { OrderbookWidget } from "@/features/asset-detail/components/orderbook-widget";
@@ -170,6 +171,7 @@ function AssetDetailSkeleton({ symbol }: { readonly symbol?: string }) {
 export function AssetDetail() {
   const { symbol } = useParams<{ symbol: string }>();
   const [interval, setInterval] = useState("1h");
+  const chartConfig = useChartConfig();
 
   const normalizedSymbol = symbol?.toUpperCase() || "";
   const chartSymbol = normalizedSymbol.endsWith("USDT")
@@ -207,7 +209,7 @@ export function AssetDetail() {
 
   const showSkeleton = !asset && assetLoading;
 
-  // Fetch chart data using Hyperliquid streaming hook
+  // Fetch chart data using Hyperliquid streaming hook with device-aware limits
   const {
     data: chartData,
     isLoading: chartLoading,
@@ -216,7 +218,7 @@ export function AssetDetail() {
   } = useHyperliquidCandles({
     symbol: chartSymbol,
     interval,
-    limit: 1000,
+    limit: chartConfig.initialCandles,
     enabled: !!chartSymbol,
   });
 

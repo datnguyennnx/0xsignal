@@ -181,11 +181,16 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const scalingOptions = useMemo(() => generateTickSizeOptions(bestPrice), [bestPrice]);
 
   // Reset scaling when symbol changes (different price range)
+  // Default to mantissa option (most granular) - the one with "*"
   useEffect(() => {
-    if (scalingOptions.length > 0 && !scalingOptions.find((o) => o.value === priceScaling)) {
-      setPriceScaling(scalingOptions[0].value);
+    if (scalingOptions.length > 0) {
+      const mantissaOpt = scalingOptions.find((o) => o.mantissa === 5);
+      const defaultValue = mantissaOpt?.value ?? scalingOptions[scalingOptions.length - 1].value;
+      if (!scalingOptions.find((o) => o.value === priceScaling)) {
+        setPriceScaling(defaultValue);
+      }
     }
-  }, [scalingOptions, priceScaling]);
+  }, [scalingOptions]);
 
   // When tick size changes, send server-side nSigFigs if available
   const handlePriceScalingChange = useCallback(
@@ -193,21 +198,39 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       setPriceScaling(newScale);
       const opt = scalingOptions.find((o) => o.value === newScale);
       if (opt?.nSigFigs != null) {
-        // Use server-side aggregation for better performance, logic chuẩn Hyperliquid
+        // Use server-side aggregation for better performance
         resubscribe(opt.nSigFigs, opt.mantissa ?? undefined);
+      } else {
+        // Fallback: no server-side aggregation, use raw data
+        resubscribe(5, undefined);
       }
     },
     [scalingOptions, resubscribe]
   );
 
-  // Fallback client-side grouping handles edge cases and very coarse tick sizes (nSigFigs=null)
+  // Get current option to determine if server-side aggregation is being used
+  const currentOption = scalingOptions.find((o) => o.value === priceScaling);
+
+  // Client-side grouping:
+  // - Skip grouping when using mantissa (server already provides most detailed data)
+  // - Only do client-side grouping when nSigFigs is coarse (3, 2) or when using step-based grouping
+  const shouldSkipGrouping = currentOption?.mantissa === 5;
+
   const groupedOrderbook = useMemo(() => {
     if (!orderbook) return null;
+
+    // When using mantissa option (nSigFigs=5 with mantissa=5), server already provides
+    // the most detailed aggregation, skip client-side grouping to avoid double aggregation
+    if (shouldSkipGrouping) {
+      return orderbook;
+    }
+
+    // Client-side grouping for coarser levels
     return {
       asks: groupLevels(orderbook.asks, priceScaling, "asks"),
       bids: groupLevels(orderbook.bids, priceScaling, "bids"),
     };
-  }, [orderbook, priceScaling]);
+  }, [orderbook, priceScaling, shouldSkipGrouping]);
 
   const visibleAsks = useMemo(() => {
     return groupedOrderbook?.asks.slice(0, 100) || [];

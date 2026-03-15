@@ -36,6 +36,8 @@ import {
   INTERVAL_RESTORE_DELAY,
 } from "./constants";
 import { usePriceFormat, useIndicatorData, useOrientationWarning } from "./hooks";
+import { useChartConfig } from "@/hooks/use-breakpoint";
+import { useHyperliquidMeta } from "@/hooks/use-hyperliquid-meta";
 import { ChartHeader } from "./chart-header";
 import { ChartHeaderMobile } from "./chart-header-mobile";
 import { ChartControls } from "./chart-controls";
@@ -92,6 +94,8 @@ function TradingChartComponent({
 }: TradingChartProps) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const chartConfig = useChartConfig();
+  const { getPrecision } = useHyperliquidMeta();
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -209,14 +213,22 @@ function TradingChartComponent({
       if (chartContainerRef.current && chartRef.current) {
         const { width, height } = chartContainerRef.current.getBoundingClientRect();
         chartRef.current.applyOptions({ width, height });
-        chartRef.current.timeScale().fitContent();
+        // Use device-aware visible range after resize for optimal UX
+        const dataLen = data.length;
+        const visibleCount = chartConfig.visibleCandles;
+        const fromIndex = Math.max(dataLen - visibleCount, 0);
+        chartRef.current.timeScale().setVisibleLogicalRange({
+          from: fromIndex,
+          to: dataLen,
+        });
       }
     }, RESIZE_DELAY);
     return () => clearTimeout(timer);
-  }, [isFullscreen]);
+  }, [isFullscreen, data.length, chartConfig.visibleCandles]);
 
   const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
-  const priceFormat = usePriceFormat(data, symbol);
+  const precision = useMemo(() => getPrecision(symbol), [symbol, getPrecision]);
+  const priceFormat = usePriceFormat(precision.pxDecimals);
   const indicatorData = useIndicatorData(activeIndicators, data);
 
   // ──────────────────────────────────────────────────────────────
@@ -246,11 +258,13 @@ function TradingChartComponent({
   }, [loadMore, hasMore]);
 
   // ──────────────────────────────────────────────────────────────
-  // CHART INITIALISATION (runs only when theme changes)
+  // CHART INITIALISATION (runs only when theme or symbol changes)
   // Creates the chart, series, resize observer, crosshair,
   // AND the single scroll handler for infinite history.
   // ──────────────────────────────────────────────────────────────
   useEffect(() => {
+    // Prevent re-initialization if chart already exists
+    if (chartRef.current) return;
     if (!chartContainerRef.current) return;
 
     const c = getChartColors(isDark);
@@ -334,7 +348,7 @@ function TradingChartComponent({
       ) {
         isLoadingMoreRef.current = true;
         // Fetch a larger batch
-        loadMoreRef.current(500).finally(() => {
+        loadMoreRef.current(chartConfig.loadMoreCandles).finally(() => {
           setTimeout(() => {
             isLoadingMoreRef.current = false;
           }, 500);
@@ -384,7 +398,7 @@ function TradingChartComponent({
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [isDark, priceFormat]);
+  }, [isDark, symbol]);
 
   // ──────────────────────────────────────────────────────────────
   // UNIFIED DATA EFFECT — determines the type of change and
@@ -427,7 +441,15 @@ function TradingChartComponent({
       const volData = toVolumeData(data, isDark);
       candleSeries.setData(csData);
       volSeries.setData(volData);
-      chart?.timeScale().fitContent();
+
+      // Use device-aware visible range instead of fitContent for optimal UX
+      const visibleCount = chartConfig.visibleCandles;
+      const dataLen = data.length;
+      const fromIndex = Math.max(dataLen - visibleCount, 0);
+      chart?.timeScale().setVisibleLogicalRange({
+        from: fromIndex,
+        to: dataLen,
+      });
       initialDataLoadedRef.current = true;
 
       // Store tracking state
@@ -723,6 +745,7 @@ function TradingChartComponent({
         interval={interval}
         displayCandle={displayCandle}
         onIntervalChange={handleIntervalChange}
+        precision={precision.pxDecimals}
       >
         <ChartControls
           ictVisibility={ictVisibility}

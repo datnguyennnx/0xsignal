@@ -3,11 +3,32 @@ import type { ChartDataPoint } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { DEFAULT_INTERVALS, ALL_INTERVALS } from "./constants";
 
+const MAX_DECIMALS_PERPETUAL = 6;
+
+function formatPriceValue(price: number, maxDecimals: number = MAX_DECIMALS_PERPETUAL): string {
+  if (!Number.isFinite(price) || price === 0) return "0";
+
+  const absPrice = Math.abs(price);
+  const intDigits = absPrice >= 1 ? Math.floor(Math.log10(absPrice)) + 1 : 1;
+
+  let requiredDecimals = 5 - intDigits;
+  requiredDecimals = Math.max(0, Math.min(requiredDecimals, maxDecimals));
+
+  const formatted = price.toFixed(requiredDecimals);
+
+  if (formatted.includes(".")) {
+    return formatted.replace(/\.?0+$/, "") || "0";
+  }
+
+  return formatted;
+}
+
 interface ChartHeaderProps {
   symbol: string;
   interval: string;
   displayCandle: ChartDataPoint | null;
   onIntervalChange: (interval: string) => void;
+  precision?: number;
   children?: React.ReactNode;
 }
 
@@ -16,6 +37,7 @@ export const ChartHeader = memo(function ChartHeader({
   interval,
   displayCandle,
   onIntervalChange,
+  precision = 2,
   children,
 }: ChartHeaderProps) {
   const isDefaultInterval = useMemo(
@@ -54,7 +76,6 @@ export const ChartHeader = memo(function ChartHeader({
               {int.label}
             </button>
           ))}
-          {/* Dropdown for non-default intervals */}
           {nonDefaultIntervals.length > 0 && (
             <select
               value={isDefaultInterval ? "" : interval}
@@ -84,18 +105,21 @@ export const ChartHeader = memo(function ChartHeader({
         {displayCandle && (
           <div className="hidden lg:flex items-center gap-3 text-xs border-l border-border/50 pl-4">
             <span className="text-muted-foreground">
-              O <span className="font-mono tabular-nums">{displayCandle.open.toFixed(2)}</span>
+              O{" "}
+              <span className="font-mono tabular-nums">
+                {formatPriceValue(displayCandle.open, precision)}
+              </span>
             </span>
             <span className="text-muted-foreground">
               H{" "}
               <span className="font-mono tabular-nums text-gain">
-                {displayCandle.high.toFixed(2)}
+                {formatPriceValue(displayCandle.high, precision)}
               </span>
             </span>
             <span className="text-muted-foreground">
               L{" "}
               <span className="font-mono tabular-nums text-loss">
-                {displayCandle.low.toFixed(2)}
+                {formatPriceValue(displayCandle.low, precision)}
               </span>
             </span>
             <span className="text-muted-foreground">
@@ -106,7 +130,7 @@ export const ChartHeader = memo(function ChartHeader({
                   displayCandle.close >= displayCandle.open ? "text-gain" : "text-loss"
                 )}
               >
-                {displayCandle.close.toFixed(2)}
+                {formatPriceValue(displayCandle.close, precision)}
               </span>
             </span>
           </div>
