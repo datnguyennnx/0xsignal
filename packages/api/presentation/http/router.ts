@@ -20,9 +20,6 @@ const methodNotAllowed = (method: string) =>
 const pricesRoute = (limit: number) =>
   Effect.flatMap(AggregatedDataServiceTag, (s) => s.getTopCryptos(limit));
 
-const priceBySymbolRoute = (symbol: string) =>
-  Effect.flatMap(AggregatedDataServiceTag, (s) => s.getPrice(symbol));
-
 // Main router - returns Effect with any requirements
 export const handleRequest = (url: URL, method: string, body?: unknown) => {
   const path = url.pathname;
@@ -35,12 +32,6 @@ export const handleRequest = (url: URL, method: string, body?: unknown) => {
       return globalMarketRoute();
     case "/api/prices":
       return pricesRoute(getInt(url, "limit", 100, 250));
-  }
-
-  // Dynamic routes - price by symbol
-  if (path.startsWith("/api/prices/")) {
-    const symbol = path.replace("/api/prices/", "");
-    return priceBySymbolRoute(symbol);
   }
 
   return notFound;

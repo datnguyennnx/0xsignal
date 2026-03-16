@@ -1,9 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  hyperliquidApi,
-  type HyperliquidAssetCtx,
-  type HyperliquidMeta,
-} from "@/services/hyperliquid";
+import { hyperliquidApi, type HyperliquidAssetCtx } from "@/services/hyperliquid";
 
 export interface FuturesAsset extends HyperliquidAssetCtx {
   maxLeverage: number;
@@ -11,79 +7,55 @@ export interface FuturesAsset extends HyperliquidAssetCtx {
   name: string;
 }
 
-function extractSymbol(fullName: string): string {
-  const colonIndex = fullName.indexOf(":");
-  return colonIndex !== -1 ? fullName.slice(colonIndex + 1) : fullName;
+export interface FuturesListData {
+  assets: FuturesAsset[];
 }
 
 export function useFuturesList() {
-  return useQuery({
+  return useQuery<FuturesListData>({
     queryKey: ["hyperliquid-futures"],
     queryFn: async () => {
-      const [rawMetaData, categories] = await Promise.all([
-        hyperliquidApi.getMetaAndAssetCtxs(),
-        hyperliquidApi.getPerpCategories(),
+      const [metaAndAssetCtxs, allMids] = await Promise.all([
+        hyperliquidApi.getMetaAndAssetCtxs(""),
+        hyperliquidApi.getAllMids(),
       ]);
 
-      const metaData = rawMetaData as
-        | { meta: HyperliquidMeta; assetCtxs: HyperliquidAssetCtx[] }
-        | [HyperliquidMeta, HyperliquidAssetCtx[]];
-
-      const meta = Array.isArray(metaData) ? metaData[0] : metaData.meta;
-      const assetCtxs = Array.isArray(metaData) ? metaData[1] : metaData.assetCtxs;
-
-      const categoryMap = new Map<string, string>();
-      const categoryEntries = Object.values(categories) as [string, string][];
-      for (const [fullName, category] of categoryEntries) {
-        const symbol = extractSymbol(fullName).toUpperCase();
-        if (!categoryMap.has(symbol)) {
-          categoryMap.set(symbol, category);
-        }
-      }
-
-      const delistedSet = new Set<string>();
-      const symbolToMaxLeverage = new Map<string, number>();
-      for (const asset of meta.universe) {
-        const symbol = asset.name.toUpperCase();
-        symbolToMaxLeverage.set(symbol, asset.maxLeverage);
-        if (asset.isDelisted) {
-          delistedSet.add(symbol);
-        }
-      }
-
+      const [meta, assetCtxs] = metaAndAssetCtxs;
       const universe = meta.universe;
 
-      const filtered = assetCtxs
-        .map((ctx, index) => {
-          const asset = universe[index];
-          const symbol = asset?.name?.toUpperCase() || "";
-          return {
-            ...ctx,
-            coin: symbol,
-            name: symbol,
-            maxLeverage: asset?.maxLeverage || 10,
-            category: categoryMap.get(symbol) || (symbol.includes(":") ? "perp" : "crypto"),
-          };
-        })
-        .filter((item) => {
-          if (!item.coin) return false;
-          return Number(item.openInterest) > 0 && !delistedSet.has(item.coin);
-        })
-        .sort((a, b) => Number(b.openInterest) - Number(a.openInterest));
+      const assets: FuturesAsset[] = [];
 
-      return filtered;
+      for (let i = 0; i < assetCtxs.length; i++) {
+        const ctx = assetCtxs[i];
+        const asset = universe[i];
+        if (!asset) continue;
+
+        const symbol = asset.name.toUpperCase();
+
+        if (Number(ctx.openInterest) <= 0) continue;
+        if (asset.isDelisted) continue;
+
+        const midPrice = allMids[symbol];
+
+        assets.push({
+          coin: symbol,
+          name: symbol,
+          funding: ctx.funding,
+          openInterest: ctx.openInterest,
+          prevDayPx: ctx.prevDayPx,
+          dayNtlVlm: ctx.dayNtlVlm,
+          premium: ctx.premium,
+          markPx: midPrice || ctx.markPx,
+          maxLeverage: asset.maxLeverage || 10,
+          category: "crypto",
+        });
+      }
+
+      assets.sort((a, b) => Number(b.openInterest) - Number(a.openInterest));
+
+      return { assets };
     },
     staleTime: 30_000,
     gcTime: 300_000,
   });
 }
-
-export const CATEGORIES = [
-  { id: "all", label: "All", color: "bg-muted" },
-  { id: "crypto", label: "Crypto", color: "bg-blue-500/20 text-blue-400" },
-  { id: "stocks", label: "Stocks", color: "bg-green-500/20 text-green-400" },
-  { id: "indices", label: "Indices", color: "bg-purple-500/20 text-purple-400" },
-  { id: "commodities", label: "Commodities", color: "bg-yellow-500/20 text-yellow-400" },
-  { id: "fx", label: "Forex", color: "bg-orange-500/20 text-orange-400" },
-  { id: "preipo", label: "Pre-IPO", color: "bg-pink-500/20 text-pink-400" },
-];

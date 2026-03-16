@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { OrderbookWidget } from "@/features/asset-detail/components/orderbook-widget";
+import { OrderbookWidget } from "@/features/perp/components/orderbook-widget";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

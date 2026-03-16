@@ -28,13 +28,16 @@ export interface HyperliquidMetaAndAssetCtxs {
 
 export type HyperliquidMetaAndAssetCtxsResponse = [HyperliquidMeta, HyperliquidAssetCtx[]];
 
-export type PerpCategory = [string, string];
+export type PerpCategoriesResponse = [string, string][];
 
-export type PerpCategoriesResponse = Record<string, PerpCategory>;
+export type AllPerpMetasResponse = [HyperliquidMeta, HyperliquidAssetCtx[]][];
 
 const INFO_URL = "https://api.hyperliquid.xyz/info";
 
-async function fetchJson<T>(url: string, body: { type: string }): Promise<T> {
+async function fetchJson<T>(
+  url: string,
+  body: { type: string; dex?: string | { name: string } }
+): Promise<T> {
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -52,15 +55,14 @@ async function fetchJson<T>(url: string, body: { type: string }): Promise<T> {
 export const hyperliquidApi = {
   getMeta: () => fetchJson<HyperliquidMeta>(INFO_URL, { type: "meta" }),
 
-  getMetaAndAssetCtxs: () =>
-    fetchJson<HyperliquidMetaAndAssetCtxsResponse>(INFO_URL, { type: "metaAndAssetCtxs" }),
+  getMetaAndAssetCtxs: (dex?: string | { name: string }) =>
+    fetchJson<HyperliquidMetaAndAssetCtxsResponse>(INFO_URL, { type: "metaAndAssetCtxs", dex }),
 
   getPerpCategories: () => fetchJson<PerpCategoriesResponse>(INFO_URL, { type: "perpCategories" }),
 
   getAllMids: () => fetchJson<Record<string, string>>(INFO_URL, { type: "allMids" }),
 
-  getAllPerpMetas: () =>
-    fetchJson<{ universe: { name: string; maxLeverage: number }[] }>(INFO_URL, {
-      type: "allPerpMetas",
-    }),
+  getAllPerpMetas: () => fetchJson<AllPerpMetasResponse>(INFO_URL, { type: "allPerpMetas" }),
+
+  getPerpDexs: () => fetchJson<(string | null)[]>(INFO_URL, { type: "perpDexs" }),
 };

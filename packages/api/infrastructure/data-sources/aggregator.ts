@@ -6,7 +6,6 @@ import { CoinGeckoService } from "./coingecko";
 import { DataSourceError, type AdapterInfo } from "./types";
 
 export interface AggregatedDataService {
-  readonly getPrice: (symbol: string) => Effect.Effect<CryptoPrice, DataSourceError>;
   readonly getTopCryptos: (limit?: number) => Effect.Effect<CryptoPrice[], DataSourceError>;
   readonly getSources: () => readonly AdapterInfo[];
 }
@@ -22,11 +21,7 @@ export const AggregatedDataServiceLive = Layer.effect(
     const coinGecko = yield* CoinGeckoService;
 
     return {
-      // Spot (CoinGecko)
-      getPrice: (symbol) => coinGecko.getPrice(symbol),
       getTopCryptos: (limit = 100) => coinGecko.getTopCryptos(limit),
-
-      // Metadata
       getSources: () => [coinGecko.info] as const,
     };
   })

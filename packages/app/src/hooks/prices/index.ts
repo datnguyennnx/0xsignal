@@ -28,16 +28,6 @@ export function usePrices(limit = 100) {
   });
 }
 
-// Lấy giá 1 crypto theo symbol
-export function usePrice(symbol: string) {
-  return useQuery({
-    queryKey: queryKeys.prices.detail(symbol),
-    queryFn: () => api.getCryptoPrice(symbol),
-    ...getQueryOptions.prices,
-    enabled: !!symbol,
-  });
-}
-
 // Lấy thông tin thị trường toàn cầu
 export function useGlobalMarket() {
   return useQuery({

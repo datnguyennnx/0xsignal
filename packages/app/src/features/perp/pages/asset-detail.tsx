@@ -4,20 +4,19 @@ import type { AssetAnalysis } from "@/core/types";
 import { getHydratedAnalysis } from "@/core/cache/analysis-store";
 import { cn } from "@/core/utils/cn";
 import { formatPrice, formatCurrency, formatPercentChange } from "@/core/utils/formatters";
-import { CryptoIcon } from "@/components/crypto-icon";
 import { ChevronLeft, ChartCandlestick } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/services/api";
+import { api, type FuturesPrice } from "@/services/api";
 import { useHyperliquidCandles } from "@/hooks/use-hyperliquid-candles";
 import { useChartConfig } from "@/hooks/use-breakpoint";
 import { queryKeys } from "@/lib/query/query-keys";
 
-import { OrderbookWidget } from "@/features/asset-detail/components/orderbook-widget";
-import { FuturesDropdown } from "@/features/futures/components/futures-dropdown";
+import { OrderbookWidget } from "@/features/perp/components/orderbook-widget";
+import { FuturesDropdown } from "@/features/perp/components/futures-dropdown";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart }))
@@ -66,48 +65,36 @@ function AssetContent({
   return (
     <div className="container-fluid h-full flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium overflow-y-auto lg:overflow-hidden">
       {/* Header */}
-      <header className="mb-5 sm:mb-6 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <CryptoIcon
-              symbol={asset.symbol}
-              image={asset.price?.image}
-              size={32}
-              className="shrink-0 sm:w-7 sm:h-7"
-            />
-            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 flex-wrap min-w-0">
-              <div className="flex items-center gap-1">
-                <FuturesDropdown currentSymbol={asset.symbol.toUpperCase()} />
-                <span className="text-lg sm:text-xl tabular-nums font-medium">
-                  ${formatPrice(price?.price || 0)}
-                </span>
-                <span
-                  className={cn(
-                    "text-sm tabular-nums font-medium",
-                    change24h > 0
-                      ? "text-gain"
-                      : change24h < 0
-                        ? "text-loss"
-                        : "text-muted-foreground"
-                  )}
-                >
-                  {formatPercentChange(change24h)}
-                </span>
-              </div>
-              <span className="text-xs text-muted-foreground font-mono">
-                VOL ${formatCurrency(price?.volume24h || 0)}
-                <span className="hidden lg:inline">
-                  {" · "}H ${formatPrice(price?.high24h || 0)}
-                  {" · "}L ${formatPrice(price?.low24h || 0)}
-                </span>
-              </span>
-            </div>
+      <header className="mb-4 sm:mb-5 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <FuturesDropdown currentSymbol={asset.symbol.toUpperCase()} />
+          <div className="flex items-baseline gap-1.5 sm:gap-2">
+            <span className="text-lg sm:text-xl tabular-nums font-medium">
+              ${formatPrice(price?.price || 0)}
+            </span>
+            <span
+              className={cn(
+                "text-xs sm:text-sm tabular-nums font-medium",
+                change24h > 0 ? "text-gain" : change24h < 0 ? "text-loss" : "text-muted-foreground"
+              )}
+            >
+              {formatPercentChange(change24h)}
+            </span>
+            <span className="text-xs text-muted-foreground font-mono hidden sm:inline">
+              VOL {formatCurrency(price?.volume24h || 0)}
+            </span>
+            <span className="text-xs text-muted-foreground font-mono hidden lg:inline">
+              H ${formatPrice(price?.high24h || 0)}
+            </span>
+            <span className="text-xs text-muted-foreground font-mono hidden lg:inline">
+              L ${formatPrice(price?.low24h || 0)}
+            </span>
           </div>
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={() => navigate(`/futures/${symbol}/orderbook`)}
-            className="lg:hidden shrink-0 border"
+            className="lg:hidden shrink-0 border ml-auto"
             aria-label="Orderbook"
           >
             <ChartCandlestick className="w-5 h-5" />
@@ -181,16 +168,18 @@ export function AssetDetail() {
 
   const hydratedData = useMemo(() => (symbol ? getHydratedAnalysis(symbol) : null), [symbol]);
 
-  // Fetch asset data với React Query - using query keys factory
+  // Fetch asset data với React Query - using Hyperliquid directly
   const {
     data: fetchedAsset,
     isLoading: assetLoading,
     error: assetError,
   } = useQuery({
     queryKey: queryKeys.asset.bySymbol(symbol || ""),
-    queryFn: () => api.getCryptoPrice(symbol || ""),
+    queryFn: () => api.getFuturesPrice(symbol || ""),
     enabled: !!symbol,
     staleTime: 60 * 1000,
+    refetchOnMount: true,
+    retry: 1,
   });
 
   // Tạo mock AssetAnalysis từ price data
@@ -202,7 +191,16 @@ export function AssetDetail() {
       overallSignal: "HOLD",
       confidence: 50,
       riskScore: 50,
-      price: fetchedAsset,
+      price: {
+        symbol: fetchedAsset.symbol,
+        price: fetchedAsset.price,
+        change24h: fetchedAsset.change24h,
+        volume24h: fetchedAsset.volume24h,
+        high24h: fetchedAsset.high24h,
+        low24h: fetchedAsset.low24h,
+        marketCap: 0,
+        timestamp: fetchedAsset.timestamp,
+      },
       entrySignal: null,
     };
   }, [fetchedAsset, hydratedData]);
@@ -224,11 +222,13 @@ export function AssetDetail() {
 
   if (showSkeleton) return <AssetDetailSkeleton symbol={symbol} />;
 
-  if (assetError || !asset) {
+  if (assetError || (!fetchedAsset && !assetLoading)) {
     return (
       <div className="container-fluid h-full overflow-y-auto py-6">
         <ErrorState
-          title={assetError ? "Unable to load asset data" : `No data for ${symbol?.toUpperCase()}`}
+          title={
+            assetError ? `Error: ${assetError.message}` : `No data for ${symbol?.toUpperCase()}`
+          }
           retryAction={() => window.location.reload()}
         />
       </div>
@@ -237,7 +237,7 @@ export function AssetDetail() {
 
   return (
     <AssetContent
-      asset={asset}
+      asset={asset!}
       symbol={symbol || ""}
       chartData={chartData || null}
       chartLoading={chartLoading}

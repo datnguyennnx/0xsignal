@@ -4,8 +4,6 @@ export const queryKeys = {
     all: ["prices"] as const,
     lists: () => [...queryKeys.prices.all, "list"] as const,
     list: (limit: number) => [...queryKeys.prices.lists(), limit] as const,
-    details: () => [...queryKeys.prices.all, "detail"] as const,
-    detail: (symbol: string) => [...queryKeys.prices.details(), symbol] as const,
   },
 
   // Global market domain

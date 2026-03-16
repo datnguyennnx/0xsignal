@@ -6,10 +6,10 @@ import { Layout } from "@/layouts/main-layout";
 import { MarketDashboard } from "@/features/dashboard/pages/market-dashboard";
 
 const AssetDetail = lazy(() =>
-  import("@/features/asset-detail/pages/asset-detail").then((m) => ({ default: m.AssetDetail }))
+  import("@/features/perp/pages/asset-detail").then((m) => ({ default: m.AssetDetail }))
 );
 const OrderbookPage = lazy(() =>
-  import("@/features/asset-detail/pages/orderbook-page").then((m) => ({ default: m.OrderbookPage }))
+  import("@/features/perp/pages/orderbook-page").then((m) => ({ default: m.OrderbookPage }))
 );
 const NotFoundPage = lazy(() =>
   import("@/features/error/pages/not-found").then((m) => ({ default: m.NotFoundPage }))

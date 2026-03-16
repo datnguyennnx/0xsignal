@@ -16,7 +16,9 @@ export function FuturesSearchModal({ open, onClose }: FuturesSearchModalProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data: futures, isLoading } = useFuturesList();
+  const { data, isLoading } = useFuturesList();
+
+  const futures = data?.assets;
 
   const filteredFutures = useMemo(() => {
     if (!futures || !query) return futures || [];

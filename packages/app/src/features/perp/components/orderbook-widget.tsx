@@ -476,8 +476,11 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
             transform: "translateY(-50%)",
           }}
         >
-          <div className="text-xs text-muted-foreground uppercase mb-2">
-            {popupData.side === "ask" ? "Ask" : "Bid"}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-muted-foreground uppercase">
+              {popupData.side === "ask" ? "Ask" : "Bid"}
+            </span>
+            <span className="text-xs font-mono text-muted-foreground">USDC</span>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">

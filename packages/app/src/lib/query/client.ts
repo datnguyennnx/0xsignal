@@ -86,12 +86,6 @@ export const prefetchQueries = {
       staleTime: STALE_TIMES.prices,
     }),
 
-  price: (symbol: string) =>
-    queryClient.prefetchQuery({
-      queryKey: ["prices", "detail", symbol],
-      staleTime: STALE_TIMES.prices,
-    }),
-
   globalMarket: () =>
     queryClient.prefetchQuery({
       queryKey: ["global-market", "overview"],

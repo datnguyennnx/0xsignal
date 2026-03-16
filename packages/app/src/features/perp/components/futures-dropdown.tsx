@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, ChevronDown, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
-import { useFuturesList, CATEGORIES } from "@/hooks/use-futures-list";
+import { useFuturesList } from "@/hooks/use-futures-list";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface FuturesDropdownProps {
@@ -14,35 +14,29 @@ export function FuturesDropdown({ currentSymbol }: FuturesDropdownProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data: futures, isLoading, error } = useFuturesList();
+  const { data, isLoading, error } = useFuturesList();
+
+  const futures = data?.assets;
 
   const filteredFutures = useMemo(() => {
     if (!futures) return [];
 
     let filtered = futures;
 
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter((f) => f.category === selectedCategory);
-    }
-
     if (query) {
       const q = query.toLowerCase();
-      filtered = filtered.filter(
-        (f) => f.coin.toLowerCase().includes(q) || f.category.toLowerCase().includes(q)
-      );
+      filtered = filtered.filter((f) => f.coin.toLowerCase().includes(q));
     }
 
     return filtered;
-  }, [futures, query, selectedCategory]);
+  }, [futures, query]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
     setQuery("");
-    setSelectedCategory("all");
   }, []);
 
   const handleOpen = useCallback(() => {
@@ -174,24 +168,6 @@ export function FuturesDropdown({ currentSymbol }: FuturesDropdownProps) {
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Category Tabs */}
-          <div className="flex gap-1 p-2 border-b border-border/50 overflow-x-auto scrollbar-hide">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap transition-colors",
-                  selectedCategory === cat.id
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                )}
-              >
-                {cat.label}
-              </button>
-            ))}
           </div>
 
           {/* Header */}

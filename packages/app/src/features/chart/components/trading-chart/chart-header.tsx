@@ -60,7 +60,6 @@ export const ChartHeader = memo(function ChartHeader({
   return (
     <div className="hidden sm:flex items-center justify-between gap-4 px-4 py-2.5 border-b border-border/50 bg-card">
       <div className="flex items-center gap-4">
-        <h3 className="text-sm font-semibold">{symbol}</h3>
         <div className="flex items-center gap-1">
           {DEFAULT_INTERVALS.map((int) => (
             <button
