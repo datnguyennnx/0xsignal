@@ -9,31 +9,36 @@ import {
 import { cn } from "@/core/utils/cn";
 import { Loader2 } from "lucide-react";
 
-const OrderbookToolbar = ({
-  priceScaling,
-  onPriceScalingChange,
-  scalingOptions,
-}: {
-  priceScaling: number;
-  onPriceScalingChange: (s: number) => void;
-  scalingOptions: TickSizeOption[];
-}) => {
-  return (
-    <div className="flex items-center justify-end px-3 py-2 border-b border-border/20 flex-shrink-0 bg-muted/10">
-      <select
-        value={priceScaling}
-        onChange={(e) => onPriceScalingChange(Number(e.target.value))}
-        className="bg-transparent text-[11px] font-mono border border-border/30 rounded px-1.5 py-1 h-6 min-w-[60px]"
-      >
-        {scalingOptions.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-};
+const OrderbookToolbar = memo(
+  ({
+    priceScaling,
+    onPriceScalingChange,
+    scalingOptions,
+  }: {
+    priceScaling: number;
+    onPriceScalingChange: (s: number) => void;
+    scalingOptions: TickSizeOption[];
+  }) => {
+    return (
+      <div className="flex items-center justify-end px-3 py-2 border-b border-border/20 flex-shrink-0 bg-muted/10">
+        <select
+          value={priceScaling}
+          onChange={(e) => onPriceScalingChange(Number(e.target.value))}
+          className="bg-transparent text-[11px] font-mono border border-border/30 rounded px-1.5 py-1 h-6 min-w-[60px]"
+        >
+          {scalingOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  },
+  (prev, next) => {
+    return prev.priceScaling === next.priceScaling;
+  }
+);
 
 interface OrderbookWidgetProps {
   symbol: string;
@@ -102,7 +107,7 @@ const OrderRow = memo(
         rowRef.current,
         index
       );
-    }, [onHover, level, side, index]);
+    }, [onHover, level.price, level.size, level.total, side, index]);
 
     const handleMouseLeave = useCallback(() => onHover(null, null), [onHover]);
 
@@ -159,12 +164,23 @@ const OrderRow = memo(
         </span>
       </div>
     );
+  },
+  (prev, next) => {
+    return (
+      prev.level.price === next.level.price &&
+      prev.level.size === next.level.size &&
+      prev.level.total === next.level.total &&
+      prev.side === next.side &&
+      prev.isHovered === next.isHovered &&
+      prev.priceScaling === next.priceScaling &&
+      prev.maxTotal === next.maxTotal
+    );
   }
 );
 
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const { orderbook, isConnected, error, resubscribe } = useHyperliquidOrderbook(symbol);
-  const [priceScaling, setPriceScaling] = useState<number>(1);
+  const [priceScaling, setPriceScaling] = useState<number>(0);
   const [popupData, setPopupData] = useState<PopupData | null>(null);
   const [popupPosition, setPopupPosition] = useState<{
     top: number;
@@ -176,33 +192,33 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   );
   const widgetRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const isFirstRender = useRef(true);
 
   const bestPrice = orderbook?.asks[0]?.price || orderbook?.bids[0]?.price || 0;
   const scalingOptions = useMemo(() => generateTickSizeOptions(bestPrice), [bestPrice]);
 
-  // Reset scaling when symbol changes (different price range)
-  // Default to mantissa option (most granular) - the one with "*"
+  // Set initial default to most granular option on first render or when symbol changes
   useEffect(() => {
-    if (scalingOptions.length > 0) {
-      const mantissaOpt = scalingOptions.find((o) => o.mantissa === 5);
-      const defaultValue = mantissaOpt?.value ?? scalingOptions[scalingOptions.length - 1].value;
-      if (!scalingOptions.find((o) => o.value === priceScaling)) {
-        setPriceScaling(defaultValue);
-      }
-    }
-  }, [scalingOptions]);
+    if (scalingOptions.length === 0) return;
 
-  // When tick size changes, send server-side nSigFigs if available
+    const shouldReset = isFirstRender.current || priceScaling === 0;
+    isFirstRender.current = false;
+
+    if (shouldReset) {
+      const defaultValue = scalingOptions[0].value;
+      setPriceScaling(defaultValue);
+    }
+  }, [symbol, scalingOptions, priceScaling]);
+
+  // When tick size changes, send server-side nSigFigs
   const handlePriceScalingChange = useCallback(
     (newScale: number) => {
       setPriceScaling(newScale);
       const opt = scalingOptions.find((o) => o.value === newScale);
       if (opt?.nSigFigs != null) {
-        // Use server-side aggregation for better performance
-        resubscribe(opt.nSigFigs, opt.mantissa ?? undefined);
+        resubscribe(opt.nSigFigs);
       } else {
-        // Fallback: no server-side aggregation, use raw data
-        resubscribe(5, undefined);
+        resubscribe(5);
       }
     },
     [scalingOptions, resubscribe]

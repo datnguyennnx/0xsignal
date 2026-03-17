@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 
 export const WS_URL = "wss://api.hyperliquid.xyz/ws";
 export const API_INFO_URL = "https://api-ui.hyperliquid.xyz/info";
@@ -7,7 +7,6 @@ const HEARTBEAT_INTERVAL = 30_000;
 const RECONNECT_BASE_DELAY = 1_000;
 const RECONNECT_MAX_DELAY = 30_000;
 const RECONNECT_MAX_ATTEMPTS = 10;
-const STRICT_MODE_CLEANUP_DELAY = 50;
 
 export interface HyperliquidSubscription {
   type: string;
@@ -28,8 +27,8 @@ interface WsState {
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   reconnectAttempts: number;
   isMounted: boolean;
-  subscription: HyperliquidSubscription | null;
-  cleanupTimer: ReturnType<typeof setTimeout> | null;
+  currentSubscription: HyperliquidSubscription | null;
+  pendingSubscription: HyperliquidSubscription | null;
 }
 
 export function normalizeSymbol(symbol: string): string {
@@ -44,14 +43,16 @@ export function useHyperliquidWs({
   onConnectionChange,
   onError,
 }: UseHyperliquidWsOptions) {
+  const [isConnected, setIsConnected] = useState(false);
+
   const stateRef = useRef<WsState>({
     ws: null,
     heartbeatTimer: null,
     reconnectTimer: null,
     reconnectAttempts: 0,
     isMounted: true,
-    subscription: null,
-    cleanupTimer: null,
+    currentSubscription: null,
+    pendingSubscription: null,
   });
 
   const onMessageRef = useRef(onMessage);
@@ -63,8 +64,6 @@ export function useHyperliquidWs({
     onConnectionChangeRef.current = onConnectionChange;
     onErrorRef.current = onError;
   }, [onMessage, onConnectionChange, onError]);
-
-  const subscriptionKey = subscription ? JSON.stringify(subscription) : null;
 
   const stopHeartbeat = useCallback(() => {
     const state = stateRef.current;
@@ -110,10 +109,19 @@ export function useHyperliquidWs({
       }
       state.ws = null;
     }
-    state.subscription = null;
+    state.currentSubscription = null;
+    setIsConnected(false);
   }, [stopHeartbeat, clearReconnectTimer]);
 
-  const connectRef = useRef<(() => void) | null>(null);
+  const subscribe = useCallback((ws: WebSocket, sub: HyperliquidSubscription) => {
+    ws.send(JSON.stringify({ method: "subscribe", subscription: sub }));
+  }, []);
+
+  const unsubscribe = useCallback((ws: WebSocket, sub: HyperliquidSubscription) => {
+    ws.send(JSON.stringify({ method: "unsubscribe", subscription: sub }));
+  }, []);
+
+  const subscriptionKey = subscription ? JSON.stringify(subscription) : null;
 
   const connect = useCallback(() => {
     const state = stateRef.current;
@@ -123,103 +131,115 @@ export function useHyperliquidWs({
 
     if (
       state.ws?.readyState === WebSocket.OPEN &&
-      JSON.stringify(state.subscription) === subscriptionKey
+      JSON.stringify(state.currentSubscription) === subscriptionKey
     ) {
       return;
     }
 
-    closeWs();
+    const ws = state.ws;
+    const needsNewConnection = !ws || ws.readyState !== WebSocket.OPEN;
 
-    const ws = new WebSocket(WS_URL);
-    state.ws = ws;
-
-    ws.onopen = () => {
-      if (!state.isMounted) {
+    if (needsNewConnection) {
+      if (ws) {
         ws.close();
-        return;
       }
-      state.reconnectAttempts = 0;
-      onConnectionChangeRef.current?.(true);
-      startHeartbeat(ws);
-      state.subscription = parsedSub;
-      ws.send(JSON.stringify({ method: "subscribe", subscription: parsedSub }));
-    };
 
-    ws.onmessage = (event) => {
-      if (!state.isMounted) return;
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.channel === "pong" || msg.channel === "subscriptionResponse") return;
-        onMessageRef.current(msg.data, msg.channel);
-      } catch {
-        /* ignore parse errors */
+      const newWs = new WebSocket(WS_URL);
+      state.ws = newWs;
+
+      newWs.onopen = () => {
+        if (!state.isMounted) {
+          newWs.close();
+          return;
+        }
+        state.reconnectAttempts = 0;
+        setIsConnected(true);
+        onConnectionChangeRef.current?.(true);
+        startHeartbeat(newWs);
+        state.currentSubscription = parsedSub;
+        subscribe(newWs, parsedSub);
+      };
+
+      newWs.onmessage = (event) => {
+        if (!state.isMounted) return;
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.channel === "pong" || msg.channel === "subscriptionResponse") return;
+          onMessageRef.current(msg.data, msg.channel);
+        } catch {
+          /* ignore parse errors */
+        }
+      };
+
+      newWs.onerror = () => {
+        if (!state.isMounted) return;
+        onErrorRef.current?.(new Error("WebSocket connection error"));
+      };
+
+      newWs.onclose = () => {
+        if (!state.isMounted) return;
+        stopHeartbeat();
+        setIsConnected(false);
+        onConnectionChangeRef.current?.(false);
+
+        if (state.reconnectAttempts < RECONNECT_MAX_ATTEMPTS) {
+          const delay = Math.min(
+            RECONNECT_BASE_DELAY * Math.pow(2, state.reconnectAttempts),
+            RECONNECT_MAX_DELAY
+          );
+          state.reconnectAttempts++;
+          state.reconnectTimer = setTimeout(() => {
+            if (state.isMounted && state.pendingSubscription) {
+              connect();
+            }
+          }, delay);
+        }
+      };
+    } else {
+      const prevSub = state.currentSubscription;
+      if (prevSub) {
+        unsubscribe(ws, prevSub);
       }
-    };
-
-    ws.onerror = () => {
-      if (!state.isMounted) return;
-      onErrorRef.current?.(new Error("WebSocket connection error"));
-    };
-
-    ws.onclose = () => {
-      if (!state.isMounted) return;
-      stopHeartbeat();
-      onConnectionChangeRef.current?.(false);
-
-      if (state.reconnectAttempts < RECONNECT_MAX_ATTEMPTS) {
-        const delay = Math.min(
-          RECONNECT_BASE_DELAY * Math.pow(2, state.reconnectAttempts),
-          RECONNECT_MAX_DELAY
-        );
-        state.reconnectAttempts++;
-        state.reconnectTimer = setTimeout(() => {
-          if (state.isMounted) connectRef.current?.();
-        }, delay);
-      }
-    };
-  }, [subscriptionKey, closeWs, startHeartbeat, stopHeartbeat]);
-
-  useEffect(() => {
-    connectRef.current = connect;
-  }, [connect]);
-
-  const resubscribe = useCallback((newSubscription: HyperliquidSubscription) => {
-    const state = stateRef.current;
-    if (state.ws?.readyState === WebSocket.OPEN) {
-      if (state.subscription) {
-        state.ws.send(JSON.stringify({ method: "unsubscribe", subscription: state.subscription }));
-      }
-      state.subscription = newSubscription;
-      state.ws.send(JSON.stringify({ method: "subscribe", subscription: newSubscription }));
+      state.currentSubscription = parsedSub;
+      subscribe(ws, parsedSub);
     }
-  }, []);
+  }, [subscriptionKey, subscribe, unsubscribe, startHeartbeat, stopHeartbeat]);
+
+  const resubscribe = useCallback(
+    (newSubscription: HyperliquidSubscription) => {
+      const state = stateRef.current;
+      state.pendingSubscription = newSubscription;
+
+      if (state.ws?.readyState === WebSocket.OPEN) {
+        const prevSub = state.currentSubscription;
+        if (prevSub) {
+          unsubscribe(state.ws, prevSub);
+        }
+        state.currentSubscription = newSubscription;
+        subscribe(state.ws, newSubscription);
+      }
+    },
+    [subscribe, unsubscribe]
+  );
 
   useEffect(() => {
     const state = stateRef.current;
-
     if (!enabled || !subscriptionKey) {
       closeWs();
-      onConnectionChangeRef.current?.(false);
       return;
-    }
-
-    // Cancel pending cleanup from React Strict Mode remount
-    if (state.cleanupTimer) {
-      clearTimeout(state.cleanupTimer);
-      state.cleanupTimer = null;
     }
 
     state.isMounted = true;
     connect();
 
     return () => {
-      // Delay cleanup to survive Strict Mode double-mount
-      state.cleanupTimer = setTimeout(() => {
-        state.isMounted = false;
-        closeWs();
-      }, STRICT_MODE_CLEANUP_DELAY);
+      state.isMounted = false;
     };
-  }, [enabled, subscriptionKey, connect, closeWs]);
+  }, [enabled, subscriptionKey]);
 
-  return { resubscribe };
+  return {
+    resubscribe,
+    isConnected,
+    subscription: subscription ? { ...subscription } : null,
+  };
 }

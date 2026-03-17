@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/error-state";
 import { GlobalMarketBar } from "@/features/dashboard/components/global-market-bar";
 import { usePrices, useGlobalMarket } from "@/hooks/prices";
+import { useDocumentTitle } from "@/hooks/use-document-title";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -33,7 +34,7 @@ const formatPrice = (price: number): string => {
   });
 };
 
-function DashboardContent({
+const DashboardContent = memo(function DashboardContent({
   cryptos,
   globalMarket,
   page,
@@ -166,7 +167,7 @@ function DashboardContent({
       </div>
     </div>
   );
-}
+});
 
 const DashboardSkeleton = memo(function DashboardSkeleton() {
   return (
@@ -215,6 +216,9 @@ const DashboardSkeleton = memo(function DashboardSkeleton() {
 export function MarketDashboard() {
   const [limit] = useState(MAX_ITEMS);
   const [page, setPage] = useState(1);
+
+  // Set watchlist title
+  useDocumentTitle({ title: "Market Watchlist" });
 
   const { data: cryptos, isLoading: pricesLoading, error: pricesError } = usePrices(limit);
   const { data: globalMarket, isLoading: marketLoading } = useGlobalMarket();

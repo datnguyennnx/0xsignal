@@ -1,36 +1,42 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { memo, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
-import { useFuturesList, type FuturesAsset } from "@/hooks/use-futures-list";
+import { usePerpList, type PerpAsset } from "@/hooks/use-perp-list";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface FuturesSearchModalProps {
+interface PerpSearchModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-export function FuturesSearchModal({ open, onClose }: FuturesSearchModalProps) {
+export const PerpSearchModal = memo(function PerpSearchModal({
+  open,
+  onClose,
+}: PerpSearchModalProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data, isLoading } = useFuturesList();
+  const { data, isLoading } = usePerpList();
 
-  const futures = data?.assets;
+  const perps = data?.assets;
 
-  const filteredFutures = useMemo(() => {
-    if (!futures || !query) return futures || [];
+  const filteredPerps = useMemo(() => {
+    if (!perps || !query) return perps || [];
     const q = query.toLowerCase();
-    return futures.filter((f) => f.coin.toLowerCase().includes(q));
-  }, [futures, query]);
+    return perps.filter((f) => f.coin.toLowerCase().includes(q));
+  }, [perps, query]);
 
-  const handleSelect = (symbol: string) => {
-    navigate(`/futures/${symbol.toLowerCase()}`);
-    setQuery("");
-    onClose();
-  };
+  const handleSelect = useCallback(
+    (symbol: string) => {
+      navigate(`/perp/${symbol.toLowerCase()}`);
+      setQuery("");
+      onClose();
+    },
+    [navigate, onClose]
+  );
 
   useEffect(() => {
     if (open) {
@@ -62,7 +68,7 @@ export function FuturesSearchModal({ open, onClose }: FuturesSearchModalProps) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search futures..."
+            placeholder="Search perp..."
             className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-base"
           />
           <Button variant="ghost" size="icon-sm" onClick={onClose} className="shrink-0">
@@ -76,11 +82,11 @@ export function FuturesSearchModal({ open, onClose }: FuturesSearchModalProps) {
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
-          ) : filteredFutures.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">No futures found</div>
+          ) : filteredPerps.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">No perp found</div>
           ) : (
             <div className="p-1">
-              {filteredFutures.map((item) => (
+              {filteredPerps.map((item) => (
                 <button
                   key={item.coin}
                   onClick={() => handleSelect(item.coin)}
@@ -88,7 +94,6 @@ export function FuturesSearchModal({ open, onClose }: FuturesSearchModalProps) {
                 >
                   <span className="font-mono font-medium">{item.coin}</span>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{Number(item.openInterest).toFixed(0)} OI</span>
                     <span className={cn(Number(item.funding) >= 0 ? "text-gain" : "text-loss")}>
                       {Number(item.funding) * 100}%
                     </span>
@@ -101,4 +106,4 @@ export function FuturesSearchModal({ open, onClose }: FuturesSearchModalProps) {
       </div>
     </div>
   );
-}
+});

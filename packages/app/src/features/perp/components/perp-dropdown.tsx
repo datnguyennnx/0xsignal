@@ -1,38 +1,52 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { memo, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ChevronDown, X } from "lucide-react";
+import { Search, ChevronDown, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
-import { useFuturesList } from "@/hooks/use-futures-list";
+import { usePerpList } from "@/hooks/use-perp-list";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface FuturesDropdownProps {
+interface PerpDropdownProps {
   currentSymbol: string;
 }
 
-export function FuturesDropdown({ currentSymbol }: FuturesDropdownProps) {
+export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDropdownProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [sortByChange, setSortByChange] = useState(false);
+  const [sortDesc, setSortDesc] = useState(true);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data, isLoading, error } = useFuturesList();
+  const { data, isLoading, error } = usePerpList();
 
-  const futures = data?.assets;
+  const perps = data?.assets;
 
-  const filteredFutures = useMemo(() => {
-    if (!futures) return [];
+  const filteredPerps = useMemo(() => {
+    if (!perps) return [];
 
-    let filtered = futures;
+    let filtered = perps;
 
     if (query) {
       const q = query.toLowerCase();
       filtered = filtered.filter((f) => f.coin.toLowerCase().includes(q));
     }
 
+    if (sortByChange) {
+      filtered = [...filtered].sort((a, b) => {
+        const changeA = a.prevDayPx
+          ? (Number(a.markPx) - Number(a.prevDayPx)) / Number(a.prevDayPx)
+          : 0;
+        const changeB = b.prevDayPx
+          ? (Number(b.markPx) - Number(b.prevDayPx)) / Number(b.prevDayPx)
+          : 0;
+        return sortDesc ? changeB - changeA : changeA - changeB;
+      });
+    }
+
     return filtered;
-  }, [futures, query]);
+  }, [perps, query, sortByChange, sortDesc]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -70,7 +84,7 @@ export function FuturesDropdown({ currentSymbol }: FuturesDropdownProps) {
 
   const handleSelect = useCallback(
     (coin: string) => {
-      navigate(`/futures/${coin.toLowerCase()}`);
+      navigate(`/perp/${coin.toLowerCase()}`);
       handleClose();
     },
     [navigate, handleClose]
@@ -87,7 +101,7 @@ export function FuturesDropdown({ currentSymbol }: FuturesDropdownProps) {
     if (!open) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (!(e.target as Element).closest("[data-futures-dropdown]")) {
+      if (!(e.target as Element).closest("[data-perp-dropdown]")) {
         handleClose();
       }
     };
@@ -106,10 +120,14 @@ export function FuturesDropdown({ currentSymbol }: FuturesDropdownProps) {
   }, [open, handleClose]);
 
   const formatPrice = useCallback((price: string) => {
-    return Number(price).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    const num = Number(price);
+    if (num >= 1000) {
+      return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+    if (num >= 1) {
+      return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    }
+    return num.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 8 });
   }, []);
 
   const formatChange = useCallback((markPx: string, prevDayPx: string) => {
@@ -131,7 +149,7 @@ export function FuturesDropdown({ currentSymbol }: FuturesDropdownProps) {
   const currentSymbolLower = useMemo(() => currentSymbol.toLowerCase(), [currentSymbol]);
 
   return (
-    <div className="relative" data-futures-dropdown>
+    <div className="relative" data-perp-dropdown>
       <div ref={triggerRef} className="flex items-center gap-1 cursor-pointer" onClick={handleOpen}>
         <span className="font-mono font-semibold text-foreground">{currentSymbol}</span>
         <ChevronDown
@@ -156,7 +174,7 @@ export function FuturesDropdown({ currentSymbol }: FuturesDropdownProps) {
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search markets..."
+                placeholder="Search perp..."
                 className="pl-9 pr-8 bg-muted/30 border-border h-10 text-sm rounded-md focus:ring-1 focus:ring-offset-0"
               />
               {query && (
@@ -174,13 +192,55 @@ export function FuturesDropdown({ currentSymbol }: FuturesDropdownProps) {
           <div className="hidden sm:grid grid-cols-4 gap-2 px-4 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
             <span>Market</span>
             <span className="text-right">Price</span>
-            <span className="text-right">24h</span>
+            <button
+              onClick={() => {
+                if (sortByChange) {
+                  setSortDesc((prev) => !prev);
+                } else {
+                  setSortByChange(true);
+                  setSortDesc(true);
+                }
+              }}
+              className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1"
+            >
+              24h
+              {sortByChange ? (
+                sortDesc ? (
+                  <ArrowDown className="w-3 h-3 text-gain" />
+                ) : (
+                  <ArrowUp className="w-3 h-3 text-loss" />
+                )
+              ) : (
+                <ArrowUpDown className="w-3 h-3 opacity-50" />
+              )}
+            </button>
             <span className="text-right">OI</span>
           </div>
           <div className="sm:hidden grid grid-cols-3 gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
             <span>Market</span>
             <span className="text-right">Price</span>
-            <span className="text-right">24h</span>
+            <button
+              onClick={() => {
+                if (sortByChange) {
+                  setSortDesc((prev) => !prev);
+                } else {
+                  setSortByChange(true);
+                  setSortDesc(true);
+                }
+              }}
+              className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1"
+            >
+              24h
+              {sortByChange ? (
+                sortDesc ? (
+                  <ArrowDown className="w-3 h-3 text-gain" />
+                ) : (
+                  <ArrowUp className="w-3 h-3 text-loss" />
+                )
+              ) : (
+                <ArrowUpDown className="w-3 h-3 opacity-50" />
+              )}
+            </button>
           </div>
 
           {/* Results */}
@@ -205,11 +265,11 @@ export function FuturesDropdown({ currentSymbol }: FuturesDropdownProps) {
               </div>
             ) : error ? (
               <div className="p-8 text-center text-loss text-sm">Failed to load markets</div>
-            ) : filteredFutures.length === 0 ? (
+            ) : filteredPerps.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground text-sm">No markets found</div>
             ) : (
               <div className="divide-y divide-border/30">
-                {filteredFutures.map((item) => {
+                {filteredPerps.map((item) => {
                   const { value: change, formatted: changeFormatted } = formatChange(
                     item.markPx,
                     item.prevDayPx
@@ -281,4 +341,4 @@ export function FuturesDropdown({ currentSymbol }: FuturesDropdownProps) {
       )}
     </div>
   );
-}
+});

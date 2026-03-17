@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, useMemo } from "react";
+import { useState, lazy, Suspense, useMemo, memo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@/core/types";
 import { getHydratedAnalysis } from "@/core/cache/analysis-store";
@@ -14,9 +14,10 @@ import { api, type FuturesPrice } from "@/services/api";
 import { useHyperliquidCandles } from "@/hooks/use-hyperliquid-candles";
 import { useChartConfig } from "@/hooks/use-breakpoint";
 import { queryKeys } from "@/lib/query/query-keys";
+import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
 
 import { OrderbookWidget } from "@/features/perp/components/orderbook-widget";
-import { FuturesDropdown } from "@/features/perp/components/futures-dropdown";
+import { PerpDropdown } from "@/features/perp/components/perp-dropdown";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart }))
@@ -47,7 +48,7 @@ interface AssetContentProps {
   readonly hasMore?: boolean;
 }
 
-function AssetContent({
+const AssetContent = memo(function AssetContent({
   asset,
   symbol,
   chartData,
@@ -67,7 +68,7 @@ function AssetContent({
       {/* Header */}
       <header className="mb-4 sm:mb-5 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3">
-          <FuturesDropdown currentSymbol={asset.symbol.toUpperCase()} />
+          <PerpDropdown currentSymbol={asset.symbol.toUpperCase()} />
           <div className="flex items-baseline gap-1.5 sm:gap-2">
             <span className="text-lg sm:text-xl tabular-nums font-medium">
               ${formatPrice(price?.price || 0)}
@@ -93,7 +94,7 @@ function AssetContent({
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={() => navigate(`/futures/${symbol}/orderbook`)}
+            onClick={() => navigate(`/perp/${symbol}/orderbook`)}
             className="lg:hidden shrink-0 border ml-auto"
             aria-label="Orderbook"
           >
@@ -135,7 +136,7 @@ function AssetContent({
       </div>
     </div>
   );
-}
+});
 
 function AssetDetailSkeleton({ symbol }: { readonly symbol?: string }) {
   return (
@@ -205,8 +206,7 @@ export function AssetDetail() {
     };
   }, [fetchedAsset, hydratedData]);
 
-  const showSkeleton = !asset && assetLoading;
-
+  // Get real-time price from latest candle for title
   // Fetch chart data using Hyperliquid streaming hook with device-aware limits
   const {
     data: chartData,
@@ -219,6 +219,23 @@ export function AssetDetail() {
     limit: chartConfig.initialCandles,
     enabled: !!chartSymbol,
   });
+
+  // Get real-time price from latest candle for title
+  const latestPrice = useMemo(() => {
+    if (!chartData || chartData.length === 0) return null;
+    return chartData[chartData.length - 1].close;
+  }, [chartData]);
+
+  const showSkeleton = !asset && assetLoading;
+
+  // Dynamic document title - Real-time price from chart
+  const documentTitle = useMemo(() => {
+    if (!asset?.price && !latestPrice) return "";
+    const price = latestPrice || asset?.price?.price || 0;
+    return formatPerpTitle(asset?.symbol.toUpperCase() || symbol?.toUpperCase() || "", price);
+  }, [asset, symbol, latestPrice]);
+
+  useDocumentTitle({ title: documentTitle });
 
   if (showSkeleton) return <AssetDetailSkeleton symbol={symbol} />;
 

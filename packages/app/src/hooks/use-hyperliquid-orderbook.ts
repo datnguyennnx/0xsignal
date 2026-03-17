@@ -36,7 +36,7 @@ export interface TickSizeOption {
 
 /** Dynamic tick size: Step = 10^(magnitude - nSigFigs + 1) */
 export function generateTickSizeOptions(price: number): TickSizeOption[] {
-  if (!price || price <= 0) return [{ value: 0.01, label: "0.01", nSigFigs: 5, mantissa: null }];
+  if (!price || price <= 0) return [];
 
   const mag = Math.floor(Math.log10(price));
   const opts: TickSizeOption[] = [];
@@ -51,7 +51,6 @@ export function generateTickSizeOptions(price: number): TickSizeOption[] {
           : step.toFixed(Math.max(0, -Math.floor(Math.log10(step))));
 
     opts.push({ value: step, label, nSigFigs: sig, mantissa: null });
-    if (sig === 5) opts.push({ value: step * 5, label: `${label}*`, nSigFigs: 5, mantissa: 5 });
   }
   return opts;
 }
@@ -124,7 +123,6 @@ const DEFAULT_SIGFIGS = 5;
 
 export function useHyperliquidOrderbook(symbol: string, enabled = true) {
   const [orderbook, setOrderbook] = useState<OrderbookData | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const pending = useRef<OrderbookData | null>(null);
@@ -158,20 +156,16 @@ export function useHyperliquidOrderbook(symbol: string, enabled = true) {
     subscription,
     onMessage: handleMsg,
     enabled: enabled && !!symbol,
-    onConnectionChange: (c) => {
-      setIsConnected(c);
-      if (!c && raf.current) cancelAnimationFrame(raf.current);
-    },
     onError: (e) => setError(e.message),
   });
 
   const resubscribe = useCallback(
-    (nSigFigs: number, mantissa?: number) => {
+    (nSigFigs: number) => {
       if (!coin || !ws.resubscribe) return;
-      ws.resubscribe({ type: "l2Book", coin, nSigFigs, ...(mantissa && { mantissa }) });
+      ws.resubscribe({ type: "l2Book", coin, nSigFigs });
     },
     [coin, ws]
   );
 
-  return { orderbook, isConnected, error, resubscribe };
+  return { orderbook, isConnected: ws.isConnected, error, resubscribe };
 }

@@ -106,13 +106,13 @@ export const ICTLegend = memo(function ICTLegend({
   if (items.length === 0) return null;
 
   return (
-    <div className={cn("flex flex-wrap gap-1.5", className)}>
+    <div className={cn("flex flex-wrap gap-1", className)}>
       {items.map((item) => (
         <Tooltip key={item.label}>
           <TooltipTrigger asChild>
             <div
               className={cn(
-                "px-1.5 py-0.5 rounded text-[10px] font-medium bg-background/80 backdrop-blur-sm border border-border/50 cursor-default",
+                "px-1.5 py-0.5 rounded text-[10px] font-medium cursor-default",
                 item.color
               )}
             >

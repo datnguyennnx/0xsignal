@@ -1,19 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { hyperliquidApi, type HyperliquidAssetCtx } from "@/services/hyperliquid";
 
-export interface FuturesAsset extends HyperliquidAssetCtx {
+export interface PerpAsset extends HyperliquidAssetCtx {
   maxLeverage: number;
   category: string;
   name: string;
 }
 
-export interface FuturesListData {
-  assets: FuturesAsset[];
+export interface PerpListData {
+  assets: PerpAsset[];
 }
 
-export function useFuturesList() {
-  return useQuery<FuturesListData>({
-    queryKey: ["hyperliquid-futures"],
+export function usePerpList() {
+  return useQuery<PerpListData>({
+    queryKey: ["hyperliquid-perp"],
     queryFn: async () => {
       const [metaAndAssetCtxs, allMids] = await Promise.all([
         hyperliquidApi.getMetaAndAssetCtxs(""),
@@ -23,7 +23,7 @@ export function useFuturesList() {
       const [meta, assetCtxs] = metaAndAssetCtxs;
       const universe = meta.universe;
 
-      const assets: FuturesAsset[] = [];
+      const assets: PerpAsset[] = [];
 
       for (let i = 0; i < assetCtxs.length; i++) {
         const ctx = assetCtxs[i];

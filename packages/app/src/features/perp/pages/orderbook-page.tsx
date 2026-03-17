@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { OrderbookWidget } from "@/features/perp/components/orderbook-widget";
+import { useDocumentTitle } from "@/hooks/use-document-title";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -7,13 +8,18 @@ export function OrderbookPage() {
   const { symbol } = useParams<{ symbol: string }>();
   const navigate = useNavigate();
 
+  // Dynamic document title
+  useDocumentTitle({
+    title: symbol ? `${symbol.toUpperCase()} Orderbook` : "",
+  });
+
   return (
     <div className="h-full flex flex-col animate-in fade-in slide-in-from-bottom-1 duration-300">
       <header className="flex items-center gap-2 px-2 py-3">
         <Button
           variant="ghost"
           size="icon-sm"
-          onClick={() => navigate(`/futures/${symbol}`)}
+          onClick={() => navigate(`/perp/${symbol}`)}
           className="touch-target-44"
           aria-label="Back to chart"
         >

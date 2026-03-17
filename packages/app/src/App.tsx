@@ -32,9 +32,9 @@ function App() {
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<MarketDashboard />} />
-                <Route path="/futures" element={<Navigate to="/futures/btc" replace />} />
-                <Route path="/futures/:symbol" element={<AssetDetail />} />
-                <Route path="/futures/:symbol/orderbook" element={<OrderbookPage />} />
+                <Route path="/perp" element={<Navigate to="/perp/btc" replace />} />
+                <Route path="/perp/:symbol" element={<AssetDetail />} />
+                <Route path="/perp/:symbol/orderbook" element={<OrderbookPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>

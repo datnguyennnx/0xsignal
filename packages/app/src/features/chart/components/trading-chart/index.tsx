@@ -41,7 +41,6 @@ import { useHyperliquidMeta } from "@/hooks/use-hyperliquid-meta";
 import { ChartHeader } from "./chart-header";
 import { ChartHeaderMobile } from "./chart-header-mobile";
 import { ChartControls } from "./chart-controls";
-import { ChartOverlays } from "./chart-overlays";
 import { OrientationWarning } from "./orientation-warning";
 
 interface TradingChartProps {
@@ -59,6 +58,24 @@ const generateRandomColor = (): string => {
   const lightness = 45 + Math.floor(Math.random() * 15);
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
+
+const MAX_DECIMALS_PERPETUAL = 6;
+
+function formatPriceValue(price: number, maxDecimals: number = MAX_DECIMALS_PERPETUAL): string {
+  if (!Number.isFinite(price) || price === 0) return "0";
+
+  const absPrice = Math.abs(price);
+  const intDigits = absPrice >= 1 ? Math.floor(Math.log10(absPrice)) + 1 : 1;
+
+  let requiredDecimals = 5 - intDigits;
+  requiredDecimals = Math.max(0, Math.min(requiredDecimals, maxDecimals));
+
+  const formatted = price.toFixed(requiredDecimals);
+  if (formatted.includes(".")) {
+    return formatted.replace(/\.?0+$/, "") || "0";
+  }
+  return formatted;
+}
 
 import { memo } from "react";
 
@@ -293,7 +310,11 @@ function TradingChartComponent({
         horzTouchDrag: true,
         vertTouchDrag: true,
       },
-      rightPriceScale: { borderColor: c.border },
+      rightPriceScale: {
+        borderColor: c.border,
+        scaleMargins: { top: 0.1, bottom: 0.2 },
+        autoScale: true,
+      },
       crosshair: {
         mode: 1,
         vertLine: { width: 1, color: c.crosshair, style: 3 },
@@ -307,9 +328,11 @@ function TradingChartComponent({
       borderVisible: false,
       wickUpColor: candle.wickUpColor,
       wickDownColor: candle.wickDownColor,
-      priceFormat: priceFormat.formatter
-        ? { type: "custom" as const, formatter: priceFormat.formatter }
-        : { type: "price" as const, ...priceFormat },
+      priceFormat: {
+        type: "custom" as const,
+        minMove: priceFormat.minMove,
+        formatter: priceFormat.formatter!,
+      },
     });
 
     const volumeSeries = chart.addSeries(
@@ -398,7 +421,57 @@ function TradingChartComponent({
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [isDark, symbol]);
+  }, [symbol]);
+
+  // ──────────────────────────────────────────────────────────────
+  // THEME CHANGE EFFECT — update colors without recreating chart
+  // This runs when theme changes to update chart appearance
+  // without destroying and recreating the entire chart.
+  // ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const chart = chartRef.current;
+    const candleSeries = candlestickSeriesRef.current;
+    const volSeries = volumeSeriesRef.current;
+
+    if (!chart || !candleSeries || !volSeries) return;
+
+    const c = getChartColors(isDark);
+    const candle = getCandlestickColors(isDark);
+
+    // Update chart layout options
+    chart.applyOptions({
+      layout: {
+        textColor: c.text,
+        panes: { separatorColor: c.border, separatorHoverColor: c.grid, enableResize: true },
+      },
+      grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+      timeScale: { borderColor: c.border },
+      rightPriceScale: { borderColor: c.border },
+      crosshair: {
+        vertLine: { color: c.crosshair },
+        horzLine: { color: c.crosshair },
+      },
+    });
+
+    // Update candlestick series colors
+    candleSeries.applyOptions({
+      upColor: candle.upColor,
+      downColor: candle.downColor,
+      wickUpColor: candle.wickUpColor,
+      wickDownColor: candle.wickDownColor,
+    });
+
+    // Update volume series colors
+    volSeries.applyOptions({
+      color: c.volume,
+    });
+
+    // Re-set data with new colors (for volume)
+    if (data.length > 0) {
+      const volData = toVolumeData(data, isDark);
+      volSeries.setData(volData);
+    }
+  }, [isDark, data]);
 
   // ──────────────────────────────────────────────────────────────
   // UNIFIED DATA EFFECT — determines the type of change and
@@ -607,7 +680,11 @@ function TradingChartComponent({
           const baseColor =
             indicator.color || getIndicatorColor(indicator.config.id.split("-")[0], 0);
           const priceOpts = indicator.config.overlayOnPrice
-            ? { priceFormat: { type: "price" as const, ...priceFormat } }
+            ? {
+                priceFormat: priceFormat.formatter
+                  ? { type: "custom" as const, formatter: priceFormat.formatter }
+                  : { type: "price" as const, ...priceFormat },
+              }
             : {};
 
           const upperSeries = chartRef.current!.addSeries(
@@ -657,7 +734,11 @@ function TradingChartComponent({
               lastValueVisible: true,
               priceLineVisible: indicator.config.overlayOnPrice,
               ...(indicator.config.overlayOnPrice
-                ? { priceFormat: { type: "price" as const, ...priceFormat } }
+                ? {
+                    priceFormat: priceFormat.formatter
+                      ? { type: "custom" as const, formatter: priceFormat.formatter }
+                      : { type: "price" as const, ...priceFormat },
+                  }
                 : {}),
             },
             paneIndex
@@ -745,7 +826,6 @@ function TradingChartComponent({
         interval={interval}
         displayCandle={displayCandle}
         onIntervalChange={handleIntervalChange}
-        precision={precision.pxDecimals}
       >
         <ChartControls
           ictVisibility={ictVisibility}
@@ -775,17 +855,38 @@ function TradingChartComponent({
 
       <div className="flex-1 relative bg-card">
         <div ref={chartContainerRef} className="absolute inset-0" />
-        <ChartOverlays
-          ictEnabled={ictEnabled}
-          ictAnalysis={ictAnalysis}
-          ictVisibility={ictVisibility}
-          wyckoffEnabled={wyckoffEnabled}
-          wyckoffAnalysis={wyckoffAnalysis}
-          wyckoffVisibility={wyckoffVisibility}
-          activeIndicators={activeIndicators}
-          onToggleIndicator={handleToggleIndicator}
-          onRemoveIndicator={handleRemoveIndicator}
-        />
+
+        {/* OHLC Overlay - Top Left of Chart - Always show latest candle */}
+        {displayCandle && (
+          <div className="absolute top-2 left-2 z-30 flex items-center gap-3 px-2.5 py-1.5 bg-card/90 backdrop-blur-sm border border-border/30 rounded-md text-xs font-mono shadow-sm">
+            <span className="text-muted-foreground">
+              O{" "}
+              <span className="text-foreground">
+                {formatPriceValue(displayCandle.open, precision.pxDecimals)}
+              </span>
+            </span>
+            <span className="text-muted-foreground">
+              H{" "}
+              <span className="text-gain">
+                {formatPriceValue(displayCandle.high, precision.pxDecimals)}
+              </span>
+            </span>
+            <span className="text-muted-foreground">
+              L{" "}
+              <span className="text-loss">
+                {formatPriceValue(displayCandle.low, precision.pxDecimals)}
+              </span>
+            </span>
+            <span className="text-muted-foreground">
+              C{" "}
+              <span
+                className={displayCandle.close >= displayCandle.open ? "text-gain" : "text-loss"}
+              >
+                {formatPriceValue(displayCandle.close, precision.pxDecimals)}
+              </span>
+            </span>
+          </div>
+        )}
       </div>
 
       {isFullscreen && (

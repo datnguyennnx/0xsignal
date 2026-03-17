@@ -17,15 +17,14 @@ export const WyckoffLegend = memo(function WyckoffLegend({
   if (!hasVisibleItems) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1 bg-background/80 backdrop-blur-sm rounded text-[10px]">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-medium">
       {analysis.cycle !== "unknown" && (
         <span
           className={cn(
-            "font-medium",
-            analysis.cycle === "accumulation" && "text-emerald-500",
-            analysis.cycle === "distribution" && "text-rose-500",
-            analysis.cycle === "markup" && "text-emerald-400",
-            analysis.cycle === "markdown" && "text-rose-400"
+            analysis.cycle === "accumulation" && "text-gain",
+            analysis.cycle === "distribution" && "text-loss",
+            analysis.cycle === "markup" && "text-gain",
+            analysis.cycle === "markdown" && "text-loss"
           )}
         >
           {analysis.cycle.toUpperCase()}
@@ -37,17 +36,17 @@ export const WyckoffLegend = memo(function WyckoffLegend({
       )}
 
       {visibility.tradingRange && analysis.tradingRange && (
-        <span className="text-indigo-400">
+        <span className="text-muted-foreground">
           TR: {analysis.tradingRange.low.toFixed(2)}-{analysis.tradingRange.high.toFixed(2)}
         </span>
       )}
 
       {visibility.climaxes && analysis.climaxes.length > 0 && (
-        <span className="text-muted-foreground">{analysis.climaxes.length} climax</span>
+        <span className="text-muted-foreground">{analysis.climaxes.length} Climax</span>
       )}
 
       {visibility.springs && analysis.events.length > 0 && (
-        <span className="text-muted-foreground">{analysis.events.length} events</span>
+        <span className="text-muted-foreground">{analysis.events.length} Events</span>
       )}
     </div>
   );

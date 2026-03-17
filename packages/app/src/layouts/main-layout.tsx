@@ -10,7 +10,7 @@ interface LayoutProps {
 
 const NAV_ITEMS = [
   { path: "/", label: "Watchlist", icon: TrendingUp },
-  { path: "/futures", label: "Futures", icon: LineChart },
+  { path: "/perp", label: "Perp", icon: LineChart },
 ] as const;
 
 function LayoutInner({ children }: LayoutProps) {

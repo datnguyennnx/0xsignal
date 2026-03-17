@@ -1,5 +1,5 @@
 /**
- * Price Format Hook - 5 significant figures (Hyperliquid standard)
+ * Price Format Hook - Precision for Lightweight Charts
  * @see https://tradingview.github.io/lightweight-charts/docs/api/interfaces/PriceFormatCustom
  * @memoized - only recalculates when pxDecimals changes
  */
@@ -15,44 +15,60 @@ export interface PriceFormatResult {
 const MAX_DECIMALS = 6;
 
 /**
- * Format price following Hyperliquid's 5 significant figures rule
- * @param price - Raw price
- * @param maxDecimals - MAX_DECIMALS from Hyperliquid (6 for perps, 8 for spot)
+ * Format price for chart axis - uses fixed decimals based on pxDecimals
+ * This ensures price scale shows consistent granularity
  */
-function formatPrice(price: number, maxDecimals: number): string {
+function formatPriceAxis(price: number, pxDecimals: number): string {
   if (!Number.isFinite(price) || price === 0) return "0";
 
   const absPrice = Math.abs(price);
 
-  // Integer digits: for price >= 1, count digits; for price < 1, it's 0
-  const intDigits = absPrice >= 1 ? Math.floor(Math.log10(absPrice)) + 1 : 0;
+  // Handle large prices (>= 1000) with K/M/B notation
+  if (absPrice >= 1_000_000_000) {
+    return `${(price / 1_000_000_000).toFixed(2)}B`;
+  }
+  if (absPrice >= 1_000_000) {
+    return `${(price / 1_000_000).toFixed(2)}M`;
+  }
+  if (absPrice >= 1_000) {
+    return `${(price / 1_000).toFixed(2)}K`;
+  }
 
-  // 5 significant figures: need (5 - intDigits) decimals
-  let requiredDecimals = 5 - intDigits;
-
-  // Clamp to valid range [0, maxDecimals]
-  requiredDecimals = Math.max(0, Math.min(requiredDecimals, maxDecimals));
-
-  return price.toFixed(requiredDecimals);
+  // Use fixed decimals = pxDecimals for axis
+  // This allows chart to show all price levels based on minMove
+  return price.toFixed(pxDecimals);
 }
 
 /**
- * Calculate minMove for smooth chart interaction
- * @docs minMove = 1 / 10^maxDecimals
+ * Format price for tooltip - shows full precision
  */
-function calcMinMove(maxDecimals: number): number {
-  return 1 / Math.pow(10, maxDecimals);
+function formatPriceTooltip(price: number, pxDecimals: number): string {
+  if (!Number.isFinite(price) || price === 0) return "0";
+  return price.toFixed(pxDecimals);
 }
 
-const createFormatter = (maxDecimals: number) => (price: number) => formatPrice(price, maxDecimals);
+/**
+ * Calculate minMove for price scale granularity
+ *
+ * minMove determines the price step between visible price levels
+ * Smaller = more detail when zoomed in
+ */
+function calcMinMove(pxDecimals: number): number {
+  // Use pxDecimals directly - this is the precision from Hyperliquid
+  // pxDecimals=5 -> minMove=0.00001 (shows 0.00001, 0.00002, etc.)
+  // pxDecimals=6 -> minMove=0.000001 (shows 0.000001, 0.000002, etc.)
+  return 1 / Math.pow(10, pxDecimals);
+}
 
 export const usePriceFormat = (pxDecimals?: number): PriceFormatResult => {
   return useMemo(() => {
-    const decimals = pxDecimals ?? 2;
+    // Default to 5 decimals if not provided (for small altcoins)
+    const decimals = pxDecimals ?? 5;
+
     return {
       precision: decimals,
       minMove: calcMinMove(decimals),
-      formatter: createFormatter(decimals),
+      formatter: (price: number) => formatPriceAxis(price, decimals),
     };
   }, [pxDecimals]);
 };
