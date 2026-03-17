@@ -8,6 +8,7 @@ interface ChartHeaderProps {
   interval: string;
   displayCandle: ChartDataPoint | null;
   onIntervalChange: (interval: string) => void;
+  isFetching?: boolean;
   children?: React.ReactNode;
 }
 
@@ -16,6 +17,7 @@ export const ChartHeader = memo(function ChartHeader({
   interval,
   displayCandle,
   onIntervalChange,
+  isFetching = false,
   children,
 }: ChartHeaderProps) {
   const isDefaultInterval = useMemo(
@@ -30,9 +32,11 @@ export const ChartHeader = memo(function ChartHeader({
 
   const handleIntervalChange = useCallback(
     (newInterval: string) => {
-      onIntervalChange(newInterval);
+      if (newInterval !== interval) {
+        onIntervalChange(newInterval);
+      }
     },
-    [onIntervalChange]
+    [onIntervalChange, interval]
   );
 
   return (
@@ -44,13 +48,19 @@ export const ChartHeader = memo(function ChartHeader({
               key={int.value}
               onClick={() => handleIntervalChange(int.value)}
               className={cn(
-                "px-2.5 py-1 text-xs font-medium rounded transition-colors",
+                "relative px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200 ease-premium tap-highlight",
                 interval === int.value
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-muted text-muted-foreground"
+                  ? "bg-primary text-primary-foreground scale-[1.02] shadow-sm"
+                  : "hover:bg-muted/80 text-muted-foreground hover:text-foreground"
               )}
             >
               {int.label}
+              {isFetching && interval === int.value && (
+                <span className="absolute -right-1 -top-0.5 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-foreground opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-foreground" />
+                </span>
+              )}
             </button>
           ))}
           {nonDefaultIntervals.length > 0 && (
@@ -60,7 +70,7 @@ export const ChartHeader = memo(function ChartHeader({
                 if (e.target.value) handleIntervalChange(e.target.value);
               }}
               className={cn(
-                "bg-transparent text-xs font-medium rounded px-2 py-1 cursor-pointer outline-none transition-colors",
+                "bg-transparent text-xs font-medium rounded-md px-2 py-1 cursor-pointer outline-none transition-colors",
                 isDefaultInterval
                   ? "text-muted-foreground hover:text-foreground"
                   : "bg-primary text-primary-foreground"
@@ -79,7 +89,6 @@ export const ChartHeader = memo(function ChartHeader({
             </select>
           )}
         </div>
-        {/* OHLC moved to chart overlay - removed from header */}
       </div>
       <div className="flex items-center gap-2">{children}</div>
     </div>

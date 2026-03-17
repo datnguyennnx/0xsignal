@@ -4,7 +4,7 @@
  * @performance RAF batching, memoized callbacks
  */
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useHyperliquidWs, normalizeSymbol } from "./use-hyperliquid-ws";
 
 export interface OrderbookLevel {
@@ -124,11 +124,20 @@ const DEFAULT_SIGFIGS = 5;
 export function useHyperliquidOrderbook(symbol: string, enabled = true) {
   const [orderbook, setOrderbook] = useState<OrderbookData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const prevSymbolRef = useRef(symbol);
 
   const pending = useRef<OrderbookData | null>(null);
   const raf = useRef(0);
 
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
+
+  // Clear orderbook when symbol changes - different coin = different prices!
+  useEffect(() => {
+    if (prevSymbolRef.current !== symbol) {
+      prevSymbolRef.current = symbol;
+      setOrderbook(null);
+    }
+  }, [symbol]);
   const subscription = useMemo(
     () => (enabled && coin ? { type: "l2Book" as const, coin, nSigFigs: DEFAULT_SIGFIGS } : null),
     [enabled, coin]

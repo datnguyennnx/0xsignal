@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
 import type { WyckoffAnalysisResult } from "../workers/wyckoff-worker";
@@ -216,3 +216,29 @@ export function useWyckoffOverlay({
 
   return { cleanup };
 }
+
+// Memoized wrapper to prevent unnecessary re-renders
+export const useWyckoffOverlayMemo = (props: WyckoffOverlayProps) => {
+  const memoizedProps = useMemo(
+    () => ({
+      chart: props.chart,
+      series: props.series,
+      analysis: props.analysis,
+      visibility: props.visibility,
+      isDark: props.isDark,
+      lastTime: props.lastTime,
+    }),
+    [
+      props.chart,
+      props.series,
+      props.analysis,
+      props.visibility.tradingRange,
+      props.visibility.climaxes,
+      props.visibility.springs,
+      props.isDark,
+      props.lastTime,
+    ]
+  );
+
+  return useWyckoffOverlay(memoizedProps);
+};

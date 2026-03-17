@@ -1,14 +1,12 @@
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { visualizer } from "rollup-plugin-visualizer";
 
 export default defineConfig({
   plugins: [
-    react({
-      devTarget: "esnext",
-    }),
+    react(),
     tailwindcss(),
     visualizer({
       filename: "dist/stats.html",
@@ -26,7 +24,7 @@ export default defineConfig({
         "./src/main.tsx",
         "./src/App.tsx",
         "./src/features/chart/components/trading-chart/index.tsx",
-        "./src/features/asset-detail/pages/asset-detail.tsx",
+        "./src/features/perp/pages/asset-detail.tsx",
       ],
     },
     proxy: {
@@ -39,25 +37,5 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
     cssCodeSplit: true,
     reportCompressedSize: false,
-    // Rolldown in Vite 8 handles chunk splitting automatically
-    rollupOptions: {
-      output: {
-        chunkFileNames: "assets/[name]-[hash].js",
-        entryFileNames: "assets/[name]-[hash].js",
-        assetFileNames: "assets/[name]-[hash].[ext]",
-      },
-    },
-  },
-  optimizeDeps: {
-    include: [
-      "react",
-      "react/jsx-runtime",
-      "react-dom",
-      "react-router-dom",
-      "lightweight-charts",
-      "@tanstack/react-query",
-      "viem",
-      "wagmi",
-    ],
   },
 });

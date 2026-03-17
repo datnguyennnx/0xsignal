@@ -1,11 +1,28 @@
+/**
+ * @fileoverview Hyperliquid WebSocket Hook
+ *
+ * Manages WebSocket connection to Hyperliquid for real-time data.
+ *
+ * @performance
+ * - Exponential backoff for reconnection (1s -> 30s max)
+ * - Heartbeat every 30s to detect dead connections
+ * - Auto-resubscribe on reconnection
+ * - Ref-based state to avoid stale closures
+ *
+ * @connection-flow
+ * 1. Connect to WS endpoint
+ * 2. Send subscription request
+ * 3. Receive messages via onMessage callback
+ * 4. Auto-reconnect on disconnect with backoff
+ */
 import { useEffect, useRef, useCallback, useState } from "react";
 
 export const WS_URL = "wss://api.hyperliquid.xyz/ws";
 export const API_INFO_URL = "https://api-ui.hyperliquid.xyz/info";
 
-const HEARTBEAT_INTERVAL = 30_000;
-const RECONNECT_BASE_DELAY = 1_000;
-const RECONNECT_MAX_DELAY = 30_000;
+const HEARTBEAT_INTERVAL = 30_000; // Ping every 30s
+const RECONNECT_BASE_DELAY = 1_000; // Start with 1s
+const RECONNECT_MAX_DELAY = 30_000; // Cap at 30s
 const RECONNECT_MAX_ATTEMPTS = 10;
 
 export interface HyperliquidSubscription {

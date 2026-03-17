@@ -1,18 +1,31 @@
-import { useEffect, useRef, useState, useCallback, useMemo, startTransition } from "react";
-import {
-  createChart,
-  ColorType,
-  CandlestickSeries,
-  HistogramSeries,
-  LineSeries,
-  type IChartApi,
-  type ISeriesApi,
-  type Time,
-} from "lightweight-charts";
+/**
+ * @fileoverview Trading Chart Component
+ *
+ * Main candlestick chart component using lightweight-charts.
+ *
+ * @composition
+ * - useChartEngine: Creates/manages chart instance
+ * - useChartData: Handles data updates to series
+ * - useICTOverlay: ICT analysis visualization
+ * - useWyckoffOverlay: Wyckoff analysis visualization
+ * - useIndicators: Technical indicators
+ *
+ * @state
+ * - hoveredCandle: Current candle under crosshair
+ * - ictVisibility: Toggle ICT features
+ * - wyckoffVisibility: Toggle Wyckoff features
+ *
+ * @memoization
+ * - Uses memo to prevent re-renders from parent
+ * - useMemo for derived values (precision, lastTime)
+ * - useCallback for event handlers
+ */
+import { useRef, useState, useCallback, useMemo, memo } from "react";
 import type { ChartDataPoint, ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
 import { getIndicatorColor, MULTI_INSTANCE_INDICATORS } from "@0xsignal/shared";
 import { useTheme } from "@/core/providers/theme-provider";
-import { getChartColors, getCandlestickColors, getVolumeColor } from "@/core/utils/colors";
+import { useHyperliquidMeta } from "@/hooks/use-hyperliquid-meta";
+import { useChartConfig } from "@/hooks/use-breakpoint";
 
 import {
   useICTOverlay,
@@ -29,19 +42,21 @@ import {
   type WyckoffFeature,
 } from "../../wyckoff";
 
-import {
-  VOLUME_PANE_HEIGHT,
-  INDICATOR_PANE_HEIGHT,
-  RESIZE_DELAY,
-  INTERVAL_RESTORE_DELAY,
-} from "./constants";
-import { usePriceFormat, useIndicatorData, useOrientationWarning } from "./hooks";
-import { useChartConfig } from "@/hooks/use-breakpoint";
-import { useHyperliquidMeta } from "@/hooks/use-hyperliquid-meta";
 import { ChartHeader } from "./chart-header";
 import { ChartHeaderMobile } from "./chart-header-mobile";
 import { ChartControls } from "./chart-controls";
 import { OrientationWarning } from "./orientation-warning";
+import {
+  usePriceFormat,
+  useIndicatorData,
+  useOrientationWarning,
+  useChartEngine,
+  useChartData,
+} from "./hooks";
+import { INTERVAL_RESTORE_DELAY } from "./constants";
+import { useFullscreen } from "./hooks/use-fullscreen";
+import { useIndicators } from "./hooks/use-indicators";
+import { ChartOhlcOverlay } from "./chart-ohlc-overlay";
 
 interface TradingChartProps {
   data: ChartDataPoint[];
@@ -50,6 +65,7 @@ interface TradingChartProps {
   onIntervalChange: (interval: string) => void;
   loadMore?: (count?: number) => Promise<void>;
   hasMore?: boolean;
+  isFetching?: boolean;
 }
 
 const generateRandomColor = (): string => {
@@ -59,86 +75,35 @@ const generateRandomColor = (): string => {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
-const MAX_DECIMALS_PERPETUAL = 6;
-
-function formatPriceValue(price: number, maxDecimals: number = MAX_DECIMALS_PERPETUAL): string {
-  if (!Number.isFinite(price) || price === 0) return "0";
-
-  const absPrice = Math.abs(price);
-  const intDigits = absPrice >= 1 ? Math.floor(Math.log10(absPrice)) + 1 : 1;
-
-  let requiredDecimals = 5 - intDigits;
-  requiredDecimals = Math.max(0, Math.min(requiredDecimals, maxDecimals));
-
-  const formatted = price.toFixed(requiredDecimals);
-  if (formatted.includes(".")) {
-    return formatted.replace(/\.?0+$/, "") || "0";
-  }
-  return formatted;
-}
-
-import { memo } from "react";
-
-// ──────────────────────────────────────────────────────────────
-// Helper: convert raw data to lightweight-charts format (inline, no extra hook)
-// These are pure transforms — we memoise them here so the chart
-// component doesn't pay for a hook call that creates new arrays.
-// ──────────────────────────────────────────────────────────────
-// Helper: convert raw data to lightweight-charts format
-// Since our ChartDataPoint already has the required OHLC fields,
-// we only map if necessary to avoid unnecessary allocations.
-function toCandlestickData(data: ChartDataPoint[]) {
-  // Directly return the data array to the chart library.
-  // The library ignores extra properties like 'volume'.
-  return data as any[];
-}
-
-function toVolumeData(data: ChartDataPoint[], isDark: boolean) {
-  return data.map((d) => ({
-    time: d.time as Time,
-    value: d.volume,
-    color: getVolumeColor(d.close >= d.open, isDark),
-  }));
-}
-
-function TradingChartComponent({
+const TradingChartComponent = ({
   data,
   symbol,
   interval,
   onIntervalChange,
   loadMore,
   hasMore,
-}: TradingChartProps) {
+  isFetching = false,
+}: TradingChartProps) => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const chartConfig = useChartConfig();
   const { getPrecision } = useHyperliquidMeta();
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
-  const indicatorSeriesRef = useRef<
-    Map<string, { series: ISeriesApi<"Line">[]; paneIndex: number }>
-  >(new Map());
-  const updateScheduledRef = useRef(false);
-  const fullscreenContainerRef = useRef<HTMLDivElement>(null);
-  const isFullscreenRef = useRef(false);
 
-  const [activeIndicators, setActiveIndicators] = useState<ActiveIndicator[]>([]);
   const [hoveredCandle, setHoveredCandle] = useState<ChartDataPoint | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [ictVisibility, setIctVisibility] = useState<ICTVisibility>(DEFAULT_ICT_VISIBILITY);
   const [wyckoffVisibility, setWyckoffVisibility] = useState<WyckoffVisibility>(
     DEFAULT_WYCKOFF_VISIBILITY
   );
 
-  useEffect(() => {
-    isFullscreenRef.current = isFullscreen;
-  }, [isFullscreen]);
-
+  const { isFullscreen, toggleFullscreen, fullscreenContainerRef } = useFullscreen();
   const showOrientationWarning = useOrientationWarning(isFullscreen);
-  const ictEnabled = Object.values(ictVisibility).some(Boolean);
-  const wyckoffEnabled = Object.values(wyckoffVisibility).some(Boolean);
+
+  const ictEnabled = useMemo(() => Object.values(ictVisibility).some(Boolean), [ictVisibility]);
+  const wyckoffEnabled = useMemo(
+    () => Object.values(wyckoffVisibility).some(Boolean),
+    [wyckoffVisibility]
+  );
 
   const { analysis: ictAnalysis, isLoading: ictLoading } = useICTWorker({
     data,
@@ -151,9 +116,47 @@ function TradingChartComponent({
 
   const lastTime = useMemo(() => (data.length > 0 ? data[data.length - 1].time : 0), [data]);
 
+  const precision = useMemo(() => getPrecision(symbol), [symbol, getPrecision]);
+  const priceFormat = usePriceFormat(precision.pxDecimals);
+
+  const {
+    activeIndicators,
+    indicatorData,
+    handleAddIndicator,
+    handleRemoveIndicator,
+    handleToggleIndicator,
+    handleResetAll: resetIndicators,
+    hasActiveOverlays,
+  } = useIndicators({ priceFormat });
+
+  // Stable callback wrapper for loadMore
+  const handleLoadMore = useCallback(() => {
+    loadMore?.(chartConfig.loadMoreCandles);
+  }, [loadMore, chartConfig.loadMoreCandles]);
+
+  const { chart, candlestickSeries, volumeSeries } = useChartEngine({
+    containerRef: chartContainerRef,
+    isDark,
+    priceFormat,
+    onCrosshairMove: setHoveredCandle,
+    onLoadMore: handleLoadMore,
+    hasMore: hasMore ?? false,
+  });
+
+  useChartData({
+    data,
+    isDark,
+    interval,
+    symbol,
+    candlestickSeries,
+    volumeSeries,
+    chart,
+    visibleCandles: chartConfig.visibleCandles,
+  });
+
   useICTOverlay({
-    chart: chartRef.current,
-    series: candlestickSeriesRef.current,
+    chart,
+    series: candlestickSeries,
     analysis: ictAnalysis,
     visibility: ictVisibility,
     isDark,
@@ -161,8 +164,8 @@ function TradingChartComponent({
   });
 
   useWyckoffOverlay({
-    chart: chartRef.current,
-    series: candlestickSeriesRef.current,
+    chart,
+    series: candlestickSeries,
     analysis: wyckoffAnalysis,
     visibility: wyckoffVisibility,
     isDark,
@@ -170,662 +173,42 @@ function TradingChartComponent({
   });
 
   const handleToggleICT = useCallback((feature: ICTFeature) => {
-    startTransition(() => {
-      setIctVisibility((prev) => ({ ...prev, [feature]: !prev[feature] }));
-    });
+    setIctVisibility((prev) => ({ ...prev, [feature]: !prev[feature] }));
   }, []);
 
   const handleToggleWyckoff = useCallback((feature: WyckoffFeature) => {
-    startTransition(() => {
-      setWyckoffVisibility((prev) => ({ ...prev, [feature]: !prev[feature] }));
-    });
+    setWyckoffVisibility((prev) => ({ ...prev, [feature]: !prev[feature] }));
   }, []);
-
-  const toggleFullscreen = useCallback(() => setIsFullscreen((prev) => !prev), []);
 
   const handleResetAll = useCallback(() => {
     setIctVisibility(DEFAULT_ICT_VISIBILITY);
     setWyckoffVisibility(DEFAULT_WYCKOFF_VISIBILITY);
-    if (chartRef.current) {
-      indicatorSeriesRef.current.forEach((value) => {
-        value.series.forEach((s) => {
-          try {
-            chartRef.current?.removeSeries(s);
-          } catch {
-            /* ignore */
-          }
-        });
-      });
-      indicatorSeriesRef.current.clear();
-    }
-    setActiveIndicators([]);
-  }, []);
-
-  const hasActiveOverlays = activeIndicators.length > 0 || ictEnabled || wyckoffEnabled;
+    resetIndicators();
+  }, [resetIndicators]);
 
   const handleIntervalChange = useCallback(
     (newInterval: string) => {
       if (newInterval === interval) return;
-      const wasFullscreen = isFullscreenRef.current;
+      const wasFullscreen = isFullscreen;
       onIntervalChange(newInterval);
       if (wasFullscreen) {
-        setTimeout(() => setIsFullscreen(true), INTERVAL_RESTORE_DELAY);
+        setTimeout(() => toggleFullscreen(), INTERVAL_RESTORE_DELAY);
       }
     },
-    [onIntervalChange, interval]
+    [onIntervalChange, interval, isFullscreen, toggleFullscreen]
   );
-
-  useEffect(() => {
-    if (!isFullscreen) return;
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsFullscreen(false);
-    };
-    document.addEventListener("keydown", handleEsc);
-    return () => document.removeEventListener("keydown", handleEsc);
-  }, [isFullscreen]);
-
-  useEffect(() => {
-    if (!chartRef.current || !chartContainerRef.current) return;
-    const timer = setTimeout(() => {
-      if (chartContainerRef.current && chartRef.current) {
-        const { width, height } = chartContainerRef.current.getBoundingClientRect();
-        chartRef.current.applyOptions({ width, height });
-        // Use device-aware visible range after resize for optimal UX
-        const dataLen = data.length;
-        const visibleCount = chartConfig.visibleCandles;
-        const fromIndex = Math.max(dataLen - visibleCount, 0);
-        chartRef.current.timeScale().setVisibleLogicalRange({
-          from: fromIndex,
-          to: dataLen,
-        });
-      }
-    }, RESIZE_DELAY);
-    return () => clearTimeout(timer);
-  }, [isFullscreen, data.length, chartConfig.visibleCandles]);
 
   const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
-  const precision = useMemo(() => getPrecision(symbol), [symbol, getPrecision]);
-  const priceFormat = usePriceFormat(precision.pxDecimals);
-  const indicatorData = useIndicatorData(activeIndicators, data);
-
-  // ──────────────────────────────────────────────────────────────
-  // Refs for tracking data changes across renders — used by effects
-  // to determine WHAT kind of update to perform (initial, prepend,
-  // append, or single-candle update).
-  // ──────────────────────────────────────────────────────────────
-  const initialDataLoadedRef = useRef(false);
-  const prevDataLenRef = useRef(0);
-  const prevFirstTimeRef = useRef<number | null>(null);
-  const prevLastTimeRef = useRef<number | null>(null);
-  const prevLastCandleRef = useRef<ChartDataPoint | null>(null);
-  const prevIsDarkRef = useRef(isDark);
-  const prevIntervalRef = useRef(interval);
-  const isLoadingMoreRef = useRef(false);
-
-  // ──────────────────────────────────────────────────────────────
-  // Keep loadMore/hasMore in refs so the scroll handler (created
-  // once in the chart-init effect) always has the latest values
-  // without needing to re-subscribe.
-  // ──────────────────────────────────────────────────────────────
-  const loadMoreRef = useRef(loadMore);
-  const hasMoreRef = useRef(hasMore);
-  useEffect(() => {
-    loadMoreRef.current = loadMore;
-    hasMoreRef.current = hasMore;
-  }, [loadMore, hasMore]);
-
-  // ──────────────────────────────────────────────────────────────
-  // CHART INITIALISATION (runs only when theme or symbol changes)
-  // Creates the chart, series, resize observer, crosshair,
-  // AND the single scroll handler for infinite history.
-  // ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    // Prevent re-initialization if chart already exists
-    if (chartRef.current) return;
-    if (!chartContainerRef.current) return;
-
-    const c = getChartColors(isDark);
-    const candle = getCandlestickColors(isDark);
-
-    const chart = createChart(chartContainerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: "transparent" },
-        textColor: c.text,
-        panes: { separatorColor: c.border, separatorHoverColor: c.grid, enableResize: true },
-      },
-      grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-      width: chartContainerRef.current.clientWidth,
-      height: chartContainerRef.current.clientHeight,
-      timeScale: {
-        timeVisible: true,
-        secondsVisible: false,
-        borderColor: c.border,
-        rightOffset: 12,
-        barSpacing: 6,
-      },
-      handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
-      handleScroll: {
-        mouseWheel: true,
-        pressedMouseMove: true,
-        horzTouchDrag: true,
-        vertTouchDrag: true,
-      },
-      rightPriceScale: {
-        borderColor: c.border,
-        scaleMargins: { top: 0.1, bottom: 0.2 },
-        autoScale: true,
-      },
-      crosshair: {
-        mode: 1,
-        vertLine: { width: 1, color: c.crosshair, style: 3 },
-        horzLine: { width: 1, color: c.crosshair, style: 3 },
-      },
-    });
-
-    const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: candle.upColor,
-      downColor: candle.downColor,
-      borderVisible: false,
-      wickUpColor: candle.wickUpColor,
-      wickDownColor: candle.wickDownColor,
-      priceFormat: {
-        type: "custom" as const,
-        minMove: priceFormat.minMove,
-        formatter: priceFormat.formatter!,
-      },
-    });
-
-    const volumeSeries = chart.addSeries(
-      HistogramSeries,
-      {
-        color: c.volume,
-        priceFormat: { type: "volume" },
-        lastValueVisible: false,
-        priceLineVisible: false,
-      },
-      1
-    );
-    const panes = chart.panes();
-    if (panes[1]) panes[1].setHeight(VOLUME_PANE_HEIGHT);
-
-    chartRef.current = chart;
-    candlestickSeriesRef.current = candlestickSeries;
-    volumeSeriesRef.current = volumeSeries;
-
-    // ── Infinite scroll handler (SINGLE registration) ─────────
-    // Uses refs so it never needs to be re-subscribed.
-    const handleVisibleRangeChange = (
-      logicalRange: import("lightweight-charts").LogicalRange | null
-    ): void => {
-      if (!logicalRange || !initialDataLoadedRef.current) return;
-
-      const series = candlestickSeriesRef.current;
-      if (!series) return;
-
-      // logicalRange.from < -5 means the user is actively scrolling left beyond the data
-      if (
-        logicalRange.from < -5 &&
-        loadMoreRef.current &&
-        hasMoreRef.current &&
-        !isLoadingMoreRef.current
-      ) {
-        isLoadingMoreRef.current = true;
-        // Fetch a larger batch
-        loadMoreRef.current(chartConfig.loadMoreCandles).finally(() => {
-          setTimeout(() => {
-            isLoadingMoreRef.current = false;
-          }, 500);
-        });
-      }
-    };
-
-    chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
-
-    // ── Resize observer ───────────────────────────────────────
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (!chartRef.current || !entries[0]) return;
-      const { width, height } = entries[0].contentRect;
-      chartRef.current.applyOptions({ width, height });
-    });
-
-    resizeObserver.observe(chartContainerRef.current);
-
-    // ── Crosshair ─────────────────────────────────────────────
-    chart.subscribeCrosshairMove((param) => {
-      if (!param.time || !param.seriesData) {
-        setHoveredCandle(null);
-        return;
-      }
-      const candleData = param.seriesData.get(candlestickSeries);
-      if (candleData && "open" in candleData) {
-        setHoveredCandle({
-          time: param.time as number,
-          open: candleData.open,
-          high: candleData.high,
-          low: candleData.low,
-          close: candleData.close,
-          volume: 0,
-        });
-      }
-    });
-
-    // Reset tracking when chart is recreated
-    initialDataLoadedRef.current = false;
-    prevDataLenRef.current = 0;
-    prevFirstTimeRef.current = null;
-    prevLastTimeRef.current = null;
-    prevLastCandleRef.current = null;
-
-    return () => {
-      chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
-      resizeObserver.disconnect();
-      chart.remove();
-    };
-  }, [symbol]);
-
-  // ──────────────────────────────────────────────────────────────
-  // THEME CHANGE EFFECT — update colors without recreating chart
-  // This runs when theme changes to update chart appearance
-  // without destroying and recreating the entire chart.
-  // ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const chart = chartRef.current;
-    const candleSeries = candlestickSeriesRef.current;
-    const volSeries = volumeSeriesRef.current;
-
-    if (!chart || !candleSeries || !volSeries) return;
-
-    const c = getChartColors(isDark);
-    const candle = getCandlestickColors(isDark);
-
-    // Update chart layout options
-    chart.applyOptions({
-      layout: {
-        textColor: c.text,
-        panes: { separatorColor: c.border, separatorHoverColor: c.grid, enableResize: true },
-      },
-      grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-      timeScale: { borderColor: c.border },
-      rightPriceScale: { borderColor: c.border },
-      crosshair: {
-        vertLine: { color: c.crosshair },
-        horzLine: { color: c.crosshair },
-      },
-    });
-
-    // Update candlestick series colors
-    candleSeries.applyOptions({
-      upColor: candle.upColor,
-      downColor: candle.downColor,
-      wickUpColor: candle.wickUpColor,
-      wickDownColor: candle.wickDownColor,
-    });
-
-    // Update volume series colors
-    volSeries.applyOptions({
-      color: c.volume,
-    });
-
-    // Re-set data with new colors (for volume)
-    if (data.length > 0) {
-      const volData = toVolumeData(data, isDark);
-      volSeries.setData(volData);
-    }
-  }, [isDark, data]);
-
-  // ──────────────────────────────────────────────────────────────
-  // UNIFIED DATA EFFECT — determines the type of change and
-  // performs the minimal chart operation:
-  //
-  //   1. Initial load / interval change → setData + fitContent
-  //   2. Historical prepend (loadMore) → setData + preserve scroll
-  //   3. Real-time last candle update → series.update() (single bar)
-  //   4. New candle appended → setData (no fitContent)
-  //   5. No meaningful change → SKIP
-  //
-  // This replaces the old 2-effect approach which had race conditions
-  // and redundant setData calls.
-  // ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!candlestickSeriesRef.current || !volumeSeriesRef.current || data.length === 0) return;
-
-    const chart = chartRef.current;
-    const candleSeries = candlestickSeriesRef.current;
-    const volSeries = volumeSeriesRef.current;
-
-    // Detect theme or interval change → full reset
-    const themeChanged = prevIsDarkRef.current !== isDark;
-    const intervalChanged = prevIntervalRef.current !== interval;
-    if (themeChanged || intervalChanged) {
-      prevIsDarkRef.current = isDark;
-      prevIntervalRef.current = interval;
-      initialDataLoadedRef.current = false;
-    }
-
-    const currentFirstTime = data[0].time;
-    const currentLastTime = data[data.length - 1].time;
-    const currentLastCandle = data[data.length - 1];
-    const prevFirstTime = prevFirstTimeRef.current;
-    const prevLastTime = prevLastTimeRef.current;
-
-    // ─── Case 1: Initial load ────────────────────────────────
-    if (!initialDataLoadedRef.current) {
-      const csData = toCandlestickData(data);
-      const volData = toVolumeData(data, isDark);
-      candleSeries.setData(csData);
-      volSeries.setData(volData);
-
-      // Use device-aware visible range instead of fitContent for optimal UX
-      const visibleCount = chartConfig.visibleCandles;
-      const dataLen = data.length;
-      const fromIndex = Math.max(dataLen - visibleCount, 0);
-      chart?.timeScale().setVisibleLogicalRange({
-        from: fromIndex,
-        to: dataLen,
-      });
-      initialDataLoadedRef.current = true;
-
-      // Store tracking state
-      prevDataLenRef.current = data.length;
-      prevFirstTimeRef.current = currentFirstTime;
-      prevLastTimeRef.current = currentLastTime;
-      prevLastCandleRef.current = { ...currentLastCandle };
-      return;
-    }
-
-    // ─── Case 2: Historical data prepended (loadMore) ────────
-    if (prevFirstTime !== null && currentFirstTime < prevFirstTime) {
-      const timeScale = chart?.timeScale();
-      const visibleRange = timeScale?.getVisibleLogicalRange();
-
-      // Disable auto-scaling while prepending
-      timeScale?.applyOptions({ shiftVisibleRangeOnNewBar: false });
-
-      const csData = toCandlestickData(data);
-      const volData = toVolumeData(data, isDark);
-      candleSeries.setData(csData);
-      volSeries.setData(volData);
-
-      // Restore visible range precisely
-      if (visibleRange && timeScale) {
-        const barsDiff = data.length - prevDataLenRef.current;
-        timeScale.setVisibleLogicalRange({
-          from: visibleRange.from + barsDiff,
-          to: visibleRange.to + barsDiff,
-        });
-      }
-
-      // Re-enable auto-scaling if desired (usually it's true by default)
-      timeScale?.applyOptions({ shiftVisibleRangeOnNewBar: true });
-
-      // Update tracking
-      prevDataLenRef.current = data.length;
-      prevFirstTimeRef.current = currentFirstTime;
-      prevLastTimeRef.current = currentLastTime;
-      prevLastCandleRef.current = { ...currentLastCandle };
-      return;
-    }
-
-    // ─── Case 3: Real-time update on the SAME last candle ────
-    // Same timestamp, same array length, only OHLCV values changed
-    const prevCandle = prevLastCandleRef.current;
-    const isSameLastTimestamp = prevLastTime !== null && currentLastTime === prevLastTime;
-    const isSameLength = data.length === prevDataLenRef.current;
-    const lastCandleChanged =
-      prevCandle !== null &&
-      (prevCandle.open !== currentLastCandle.open ||
-        prevCandle.high !== currentLastCandle.high ||
-        prevCandle.low !== currentLastCandle.low ||
-        prevCandle.close !== currentLastCandle.close ||
-        prevCandle.volume !== currentLastCandle.volume);
-
-    if (isSameLastTimestamp && isSameLength && lastCandleChanged) {
-      // Incremental update — only touch the last bar, no re-render
-      candleSeries.update({
-        time: currentLastCandle.time as Time,
-        open: currentLastCandle.open,
-        high: currentLastCandle.high,
-        low: currentLastCandle.low,
-        close: currentLastCandle.close,
-      });
-
-      volSeries.update({
-        time: currentLastCandle.time as Time,
-        value: currentLastCandle.volume,
-        color: getVolumeColor(currentLastCandle.close >= currentLastCandle.open, isDark),
-      });
-
-      prevLastCandleRef.current = { ...currentLastCandle };
-      return;
-    }
-
-    // ─── Case 4: New candle(s) appended via WS ───────────────
-    if (prevLastTime !== null && currentLastTime >= prevLastTime) {
-      // If timestamp is same, it's a Case 3 (already handled)
-      // If timestamp is newer, it's a new nến — use update() to preserve zoom
-      const newCandles = data.filter((d) => d.time >= prevLastTime!);
-
-      newCandles.forEach((c) => {
-        candleSeries.update({
-          time: c.time as Time,
-          open: c.open,
-          high: c.high,
-          low: c.low,
-          close: c.close,
-        });
-
-        volSeries.update({
-          time: c.time as Time,
-          value: c.volume,
-          color: getVolumeColor(c.close >= c.open, isDark),
-        });
-      });
-
-      prevDataLenRef.current = data.length;
-      prevFirstTimeRef.current = currentFirstTime;
-      prevLastTimeRef.current = currentLastTime;
-      prevLastCandleRef.current = { ...currentLastCandle };
-      return;
-    }
-
-    // ─── Case 5: No meaningful change — skip ─────────────────
-    // (This avoids redundant setData calls)
-    prevDataLenRef.current = data.length;
-    prevFirstTimeRef.current = currentFirstTime;
-    prevLastTimeRef.current = currentLastTime;
-    prevLastCandleRef.current = { ...currentLastCandle };
-  }, [data, isDark, interval]);
-
-  const getNextPaneIndex = useCallback((): number => {
-    const usedPanes = new Set<number>([0, 1]);
-    indicatorSeriesRef.current.forEach((v) => {
-      if (v.paneIndex > 1) usedPanes.add(v.paneIndex);
-    });
-    let paneIndex = 2;
-    while (usedPanes.has(paneIndex)) paneIndex++;
-    return paneIndex;
-  }, []);
-
-  const updateIndicatorSeries = useCallback(() => {
-    if (!chartRef.current) return;
-    const activeIds = new Set(
-      activeIndicators.filter((ind) => ind.visible).map((ind) => ind.config.id)
-    );
-
-    const toRemove: string[] = [];
-    indicatorSeriesRef.current.forEach((value, id) => {
-      if (!activeIds.has(id)) {
-        value.series.forEach((s) => chartRef.current!.removeSeries(s));
-        toRemove.push(id);
-      }
-    });
-    toRemove.forEach((id) => indicatorSeriesRef.current.delete(id));
-
-    for (const indicator of activeIndicators) {
-      if (!indicator.visible) continue;
-      const calcResult = indicatorData.get(indicator.config.id);
-      if (!calcResult) continue;
-
-      const existing = indicatorSeriesRef.current.get(indicator.config.id);
-
-      if (calcResult.type === "band") {
-        const bandData = calcResult.data as {
-          time: number;
-          upper: number;
-          middle: number;
-          lower: number;
-        }[];
-        if (!existing) {
-          const paneIndex = indicator.config.overlayOnPrice ? 0 : getNextPaneIndex();
-          const baseColor =
-            indicator.color || getIndicatorColor(indicator.config.id.split("-")[0], 0);
-          const priceOpts = indicator.config.overlayOnPrice
-            ? {
-                priceFormat: priceFormat.formatter
-                  ? { type: "custom" as const, formatter: priceFormat.formatter }
-                  : { type: "price" as const, ...priceFormat },
-              }
-            : {};
-
-          const upperSeries = chartRef.current!.addSeries(
-            LineSeries,
-            { color: baseColor, lineWidth: 1, lineStyle: 2, ...priceOpts },
-            paneIndex
-          );
-          const middleSeries = chartRef.current!.addSeries(
-            LineSeries,
-            { color: baseColor, lineWidth: 2, ...priceOpts },
-            paneIndex
-          );
-          const lowerSeries = chartRef.current!.addSeries(
-            LineSeries,
-            { color: baseColor, lineWidth: 1, lineStyle: 2, ...priceOpts },
-            paneIndex
-          );
-
-          upperSeries.setData(bandData.map((d) => ({ time: d.time as Time, value: d.upper })));
-          middleSeries.setData(bandData.map((d) => ({ time: d.time as Time, value: d.middle })));
-          lowerSeries.setData(bandData.map((d) => ({ time: d.time as Time, value: d.lower })));
-
-          indicatorSeriesRef.current.set(indicator.config.id, {
-            series: [upperSeries, middleSeries, lowerSeries],
-            paneIndex,
-          });
-        } else {
-          existing.series[0].setData(
-            bandData.map((d) => ({ time: d.time as Time, value: d.upper }))
-          );
-          existing.series[1].setData(
-            bandData.map((d) => ({ time: d.time as Time, value: d.middle }))
-          );
-          existing.series[2].setData(
-            bandData.map((d) => ({ time: d.time as Time, value: d.lower }))
-          );
-        }
-      } else {
-        const lineData = calcResult.data as { time: number; value: number }[];
-        if (!existing) {
-          const paneIndex = indicator.config.overlayOnPrice ? 0 : getNextPaneIndex();
-          const series = chartRef.current!.addSeries(
-            LineSeries,
-            {
-              color: indicator.color || getIndicatorColor(indicator.config.id.split("-")[0], 0),
-              lineWidth: 2,
-              lastValueVisible: true,
-              priceLineVisible: indicator.config.overlayOnPrice,
-              ...(indicator.config.overlayOnPrice
-                ? {
-                    priceFormat: priceFormat.formatter
-                      ? { type: "custom" as const, formatter: priceFormat.formatter }
-                      : { type: "price" as const, ...priceFormat },
-                  }
-                : {}),
-            },
-            paneIndex
-          );
-
-          series.setData(lineData.map((d) => ({ time: d.time as Time, value: d.value })));
-          indicatorSeriesRef.current.set(indicator.config.id, { series: [series], paneIndex });
-
-          if (!indicator.config.overlayOnPrice && paneIndex > 1) {
-            const panes = chartRef.current!.panes();
-            if (panes[paneIndex]) panes[paneIndex].setHeight(INDICATOR_PANE_HEIGHT);
-          }
-        } else {
-          existing.series[0].setData(
-            lineData.map((d) => ({ time: d.time as Time, value: d.value }))
-          );
-        }
-      }
-    }
-  }, [activeIndicators, indicatorData, getNextPaneIndex, priceFormat]);
-
-  useEffect(() => {
-    if (!chartRef.current || data.length === 0 || updateScheduledRef.current) return;
-    updateScheduledRef.current = true;
-    requestAnimationFrame(() => {
-      updateScheduledRef.current = false;
-      updateIndicatorSeries();
-    });
-  }, [indicatorData, activeIndicators, updateIndicatorSeries, data.length]);
-
-  const handleAddIndicator = useCallback(
-    (config: IndicatorConfig, customParams?: Record<string, number>) => {
-      const params = customParams || config.defaultParams || {};
-      const uniqueId = MULTI_INSTANCE_INDICATORS.includes(
-        config.id as (typeof MULTI_INSTANCE_INDICATORS)[number]
-      )
-        ? `${config.id}-${params.period || 20}`
-        : config.id;
-
-      setActiveIndicators((prev) => {
-        if (prev.some((ind) => ind.config.id === uniqueId)) return prev;
-        return [
-          ...prev,
-          {
-            config: {
-              ...config,
-              id: uniqueId,
-              name: params.period ? `${config.name} (${params.period})` : config.name,
-            },
-            params,
-            visible: true,
-            color: generateRandomColor(),
-          },
-        ];
-      });
-    },
-    []
-  );
-
-  const handleRemoveIndicator = useCallback((indicatorId: string) => {
-    const seriesData = indicatorSeriesRef.current.get(indicatorId);
-    if (seriesData && chartRef.current) {
-      seriesData.series.forEach((s) => {
-        try {
-          chartRef.current?.removeSeries(s);
-        } catch {
-          /* ignore */
-        }
-      });
-      indicatorSeriesRef.current.delete(indicatorId);
-    }
-    setActiveIndicators((prev) => prev.filter((ind) => ind.config.id !== indicatorId));
-  }, []);
-
-  const handleToggleIndicator = useCallback((indicatorId: string) => {
-    setActiveIndicators((prev) =>
-      prev.map((ind) => (ind.config.id === indicatorId ? { ...ind, visible: !ind.visible } : ind))
-    );
-  }, []);
+  const chartSymbol = symbol.toUpperCase();
 
   const chartContent = (
     <>
       <ChartHeader
-        symbol={symbol}
+        symbol={chartSymbol}
         interval={interval}
         displayCandle={displayCandle}
         onIntervalChange={handleIntervalChange}
+        isFetching={isFetching}
       >
         <ChartControls
           ictVisibility={ictVisibility}
@@ -846,47 +229,17 @@ function TradingChartComponent({
       </ChartHeader>
 
       <ChartHeaderMobile
-        symbol={symbol}
+        symbol={chartSymbol}
         interval={interval}
         isFullscreen={isFullscreen}
         onIntervalChange={handleIntervalChange}
         onToggleFullscreen={toggleFullscreen}
+        isFetching={isFetching}
       />
 
       <div className="flex-1 relative bg-card">
         <div ref={chartContainerRef} className="absolute inset-0" />
-
-        {/* OHLC Overlay - Top Left of Chart - Always show latest candle */}
-        {displayCandle && (
-          <div className="absolute top-2 left-2 z-30 flex items-center gap-3 px-2.5 py-1.5 bg-card/90 backdrop-blur-sm border border-border/30 rounded-md text-xs font-mono shadow-sm">
-            <span className="text-muted-foreground">
-              O{" "}
-              <span className="text-foreground">
-                {formatPriceValue(displayCandle.open, precision.pxDecimals)}
-              </span>
-            </span>
-            <span className="text-muted-foreground">
-              H{" "}
-              <span className="text-gain">
-                {formatPriceValue(displayCandle.high, precision.pxDecimals)}
-              </span>
-            </span>
-            <span className="text-muted-foreground">
-              L{" "}
-              <span className="text-loss">
-                {formatPriceValue(displayCandle.low, precision.pxDecimals)}
-              </span>
-            </span>
-            <span className="text-muted-foreground">
-              C{" "}
-              <span
-                className={displayCandle.close >= displayCandle.open ? "text-gain" : "text-loss"}
-              >
-                {formatPriceValue(displayCandle.close, precision.pxDecimals)}
-              </span>
-            </span>
-          </div>
-        )}
+        <ChartOhlcOverlay displayCandle={displayCandle} precision={precision.pxDecimals} />
       </div>
 
       {isFullscreen && (
@@ -929,7 +282,6 @@ function TradingChartComponent({
       <div className="relative flex-1 flex flex-col">{chartContent}</div>
     </div>
   );
-}
+};
 
-// Memoize to prevent unnecessary re-renders - use default shallow comparison
 export const TradingChart = memo(TradingChartComponent);

@@ -1,16 +1,21 @@
 /**
- * Hyperliquid Metadata Hook
+ * @fileoverview Hyperliquid Metadata Hook
  *
- * Fetches symbol precision (pxDecimals, szDecimals) from Hyperliquid API.
- * Used for: price formatting, orderbook aggregation, order placement.
+ * Fetches symbol precision from Hyperliquid API for price formatting.
  *
- * @cache 5min stale, 10min garbage collection
- * @memoized precisionMap and getPrecision callback
+ * @cache 5min stale, 10min GC
+ * @memoized precisionMap and getPrecision
+ *
+ * @precision-guide
+ * - BTC, ETH: pxDecimals = 2-3
+ * - SOL: pxDecimals = 3-4
+ * - Small altcoins: pxDecimals = 5-6
  */
 
 import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { hyperliquidApi } from "@/services/hyperliquid";
+import { queryKeys } from "@/lib/query/query-keys";
 
 const MAX_DECIMALS_PERP = 6;
 const MAX_DECIMALS_SPOT = 8;
@@ -20,16 +25,14 @@ export interface AssetPrecision {
   szDecimals: number;
 }
 
-// Use higher default for unknown tokens to show more detail
-// This ensures small altcoins show proper precision
 const DEFAULT: AssetPrecision = { pxDecimals: 5, szDecimals: 4 };
 
 export function useHyperliquidMeta() {
   const { data, isLoading, error } = useQuery({
-    queryKey: ["hyperliquid-meta"],
+    queryKey: queryKeys.hyperliquid.meta(),
     queryFn: () => hyperliquidApi.getMeta(),
-    staleTime: 300_000,
-    gcTime: 600_000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
   });
 

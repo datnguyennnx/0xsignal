@@ -8,10 +8,12 @@ export const formatCurrency = (value: number, decimals = 2): string => {
 export const formatVolume = (volume: number): string => formatCurrency(volume, 2);
 
 export const formatPrice = (price: number): string => {
+  if (!Number.isFinite(price) || price <= 0) return "0.00";
+  if (price >= 1000) return price.toLocaleString(undefined, { maximumFractionDigits: 2 });
   if (price >= 1)
-    return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (price >= 0.01) return price.toFixed(4);
-  return price.toFixed(6);
+    return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  if (price >= 0.0001) return price.toFixed(6);
+  return price.toFixed(8);
 };
 
 export const formatPercent = (value: number, showSign = true): string => {

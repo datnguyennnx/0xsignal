@@ -1,6 +1,24 @@
-import { useState, lazy, Suspense, useMemo, memo } from "react";
+/**
+ * @fileoverview Asset Detail Page
+ *
+ * Main perpetual trading page with chart, orderbook, and analysis.
+ *
+ * @data-flow
+ * 1. URL params -> symbol, interval
+ * 2. Fetch asset data (price, volume, etc.)
+ * 3. Fetch candlestick data (historical + real-time)
+ * 4. Render chart with TradingChart component
+ *
+ * @performance
+ * - Lazy loads TradingChart (heavy)
+ * - Prefetches on hover from dashboard
+ * - Uses React Query with optimized stale times
+ * - Memoizes derived values
+ */
+import { useState, lazy, Suspense, useMemo, memo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@/core/types";
+import type { ChartDataPoint } from "@0xsignal/shared";
 import { getHydratedAnalysis } from "@/core/cache/analysis-store";
 import { cn } from "@/core/utils/cn";
 import { formatPrice, formatCurrency, formatPercentChange } from "@/core/utils/formatters";
@@ -12,6 +30,7 @@ import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
 import { api, type FuturesPrice } from "@/services/api";
 import { useHyperliquidCandles } from "@/hooks/use-hyperliquid-candles";
+import { useHyperliquidMeta } from "@/hooks/use-hyperliquid-meta";
 import { useChartConfig } from "@/hooks/use-breakpoint";
 import { queryKeys } from "@/lib/query/query-keys";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
@@ -40,8 +59,9 @@ const INTERVAL_TIMEFRAMES: Record<string, string> = {
 interface AssetContentProps {
   readonly asset: AssetAnalysis & { fetchedAt?: Date };
   readonly symbol: string;
-  readonly chartData: any[] | null;
+  readonly chartData: ChartDataPoint[] | null;
   readonly chartLoading: boolean;
+  readonly chartFetching: boolean;
   readonly interval: string;
   readonly onIntervalChange: (interval: string) => void;
   readonly loadMore?: () => Promise<void>;
@@ -53,6 +73,7 @@ const AssetContent = memo(function AssetContent({
   symbol,
   chartData,
   chartLoading,
+  chartFetching,
   interval,
   onIntervalChange,
   loadMore,
@@ -109,6 +130,14 @@ const AssetContent = memo(function AssetContent({
         <div className="lg:col-span-4 flex-1 min-h-[350px] lg:min-h-0 lg:h-full flex flex-col">
           {chartData && chartData.length > 0 ? (
             <Suspense fallback={<ChartSkeleton />}>
+              {/*
+                @note No key prop - chart handles data updates naturally
+                When interval changes:
+                1. useHyperliquidCandles fetches new data
+                2. New data flows to TradingChart via props
+                3. useChartData effect detects data change, clears old data, loads new
+                This is SMOOTHER than remounting because chart instance is preserved
+              */}
               <TradingChart
                 data={chartData}
                 symbol={chartSymbol}
@@ -116,6 +145,7 @@ const AssetContent = memo(function AssetContent({
                 onIntervalChange={onIntervalChange}
                 loadMore={loadMore}
                 hasMore={hasMore}
+                isFetching={chartFetching}
               />
             </Suspense>
           ) : !chartLoading ? (
@@ -160,6 +190,11 @@ export function AssetDetail() {
   const { symbol } = useParams<{ symbol: string }>();
   const [interval, setInterval] = useState("1h");
   const chartConfig = useChartConfig();
+
+  // Stable callback - prevents re-render of child components
+  const handleIntervalChange = useCallback((newInterval: string) => {
+    setInterval(newInterval);
+  }, []);
 
   const normalizedSymbol = symbol?.toUpperCase() || "";
   const chartSymbol = normalizedSymbol.endsWith("USDT")
@@ -220,6 +255,11 @@ export function AssetDetail() {
     enabled: !!chartSymbol,
   });
 
+  const chartFetching = chartLoading;
+
+  // Get precision from hyperliquid meta
+  const { getPrecision } = useHyperliquidMeta();
+
   // Get real-time price from latest candle for title
   const latestPrice = useMemo(() => {
     if (!chartData || chartData.length === 0) return null;
@@ -232,8 +272,13 @@ export function AssetDetail() {
   const documentTitle = useMemo(() => {
     if (!asset?.price && !latestPrice) return "";
     const price = latestPrice || asset?.price?.price || 0;
-    return formatPerpTitle(asset?.symbol.toUpperCase() || symbol?.toUpperCase() || "", price);
-  }, [asset, symbol, latestPrice]);
+    const precision = getPrecision(symbol || "").pxDecimals;
+    return formatPerpTitle(
+      asset?.symbol.toUpperCase() || symbol?.toUpperCase() || "",
+      price,
+      precision
+    );
+  }, [asset, symbol, latestPrice, getPrecision]);
 
   useDocumentTitle({ title: documentTitle });
 
@@ -256,10 +301,11 @@ export function AssetDetail() {
     <AssetContent
       asset={asset!}
       symbol={symbol || ""}
-      chartData={chartData || null}
+      chartData={(chartData as ChartDataPoint[]) || null}
       chartLoading={chartLoading}
+      chartFetching={chartFetching}
       interval={interval}
-      onIntervalChange={setInterval}
+      onIntervalChange={handleIntervalChange}
       loadMore={loadMoreCandles}
       hasMore={hasMoreCandles}
     />

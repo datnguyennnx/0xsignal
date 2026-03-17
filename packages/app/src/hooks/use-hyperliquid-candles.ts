@@ -1,7 +1,24 @@
+/**
+ * @fileoverview Hyperliquid Candles Hook
+ *
+ * Fetches OHLCV candlestick data from Hyperliquid API with real-time WebSocket updates.
+ *
+ * @performance
+ * - Uses RAF (Request Animation Frame) batching for high-frequency WS updates
+ * - Deduplicates candles using Map by timestamp
+ * - Memoizes subscriptions to prevent unnecessary re-connections
+ * - Debounces loadMore to prevent rapid API calls
+ *
+ * @data-flow
+ * 1. Initial: REST API fetch for historical candles
+ * 2. Update: WebSocket for real-time ticks
+ * 3. LoadMore: REST API for older candles
+ */
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { useHyperliquidWs, normalizeSymbol, API_INFO_URL } from "./use-hyperliquid-ws";
 
+// Supported time intervals
 type Interval =
   | "1m"
   | "3m"
@@ -18,6 +35,7 @@ type Interval =
   | "1w"
   | "1M";
 
+// Maps user interval to Hyperliquid interval
 const mapInterval = (interval: string): Interval =>
   (["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h", "12h", "1d", "3d", "1w", "1M"].includes(
     interval
@@ -25,6 +43,7 @@ const mapInterval = (interval: string): Interval =>
     ? interval
     : "1h") as Interval;
 
+// Converts interval string to milliseconds
 const getIntervalMs = (interval: string): number => {
   const value = parseInt(interval);
   const unit = interval.slice(-1);
@@ -38,21 +57,21 @@ const getIntervalMs = (interval: string): number => {
   return value * (mult[unit] || 3_600_000);
 };
 
-// WS candle (numeric OHLCV per Hyperliquid docs)
+// WebSocket candle format (numeric OHLCV)
 interface WsCandle {
-  t: number;
-  T: number;
-  s: string;
-  i: string;
-  o: number;
-  c: number;
-  h: number;
-  l: number;
-  v: number;
-  n: number;
+  t: number; // start time
+  T: number; // end time
+  s: string; // symbol
+  i: string; // interval
+  o: number; // open
+  c: number; // close
+  h: number; // high
+  l: number; // low
+  v: number; // volume
+  n: number; // trades
 }
 
-// REST candle (string OHLCV)
+// REST API candle format (string OHLCV)
 interface RestCandle {
   t: number;
   o: string;
@@ -62,6 +81,7 @@ interface RestCandle {
   v: string;
 }
 
+// Convert REST response to ChartDataPoint
 const fromRest = (c: RestCandle): ChartDataPoint => ({
   time: Math.floor(c.t / 1000),
   open: parseFloat(c.o),
@@ -71,6 +91,7 @@ const fromRest = (c: RestCandle): ChartDataPoint => ({
   volume: parseFloat(c.v),
 });
 
+// Convert WebSocket message to ChartDataPoint
 const fromWs = (c: WsCandle): ChartDataPoint => ({
   time: Math.floor(c.t / 1000),
   open: Number(c.o),
@@ -80,6 +101,12 @@ const fromWs = (c: WsCandle): ChartDataPoint => ({
   volume: Number(c.v),
 });
 
+/**
+ * Fetches historical candles from Hyperliquid REST API
+ * @param symbol - Trading pair (e.g., "BTC", "ETH")
+ * @param interval - Time interval
+ * @param limit - Max candles to fetch
+ */
 async function fetchHistorical(symbol: string, interval: Interval, limit: number) {
   const coin = normalizeSymbol(symbol);
   const now = Date.now();
@@ -99,6 +126,9 @@ async function fetchHistorical(symbol: string, interval: Interval, limit: number
     .map(fromRest);
 }
 
+/**
+ * Fetches candles by time range (for loadMore)
+ */
 async function fetchByRange(
   symbol: string,
   interval: Interval,
@@ -128,6 +158,10 @@ interface UseHyperliquidCandlesOptions {
   enabled?: boolean;
 }
 
+/**
+ * Main hook for candlestick data
+ * @returns {data, isLoading, isConnected, error, loadMore, hasMore}
+ */
 export function useHyperliquidCandles({
   symbol,
   interval,
@@ -140,6 +174,7 @@ export function useHyperliquidCandles({
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
+  // Refs for mutable data (avoid re-renders)
   const dataRef = useRef<ChartDataPoint[]>([]);
   const bufferRef = useRef<ChartDataPoint[]>([]);
   const rafRef = useRef<number | null>(null);
@@ -148,14 +183,17 @@ export function useHyperliquidCandles({
   const hasMoreRef = useRef(true);
   const lastLoadMoreTimeRef = useRef<number>(0);
   const symbolRef = useRef(symbol);
-  symbolRef.current = symbol;
   const intervalRef = useRef(interval);
+  const prevSymbolRef = useRef(symbol);
+
+  symbolRef.current = symbol;
   intervalRef.current = interval;
 
   useEffect(() => {
     hasMoreRef.current = hasMore;
   }, [hasMore]);
 
+  // Memoized values to prevent unnecessary effect triggers
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
   const hlInterval = useMemo(() => mapInterval(interval), [interval]);
 
@@ -164,7 +202,11 @@ export function useHyperliquidCandles({
     [enabled, coin, hlInterval]
   );
 
-  // RAF-throttled buffer flush
+  /**
+   * RAF-throttled buffer flush
+   * Batches high-frequency WS updates to max 60fps
+   * Uses Map for O(1) deduplication by timestamp
+   */
   const scheduleUpdate = useCallback(() => {
     if (rafRef.current) return;
     const now = performance.now();
@@ -182,6 +224,7 @@ export function useHyperliquidCandles({
       }
       rafRef.current = null;
     };
+    // Batch if >16ms since last update (60fps)
     if (elapsed >= 16) flush();
     else rafRef.current = requestAnimationFrame(() => setTimeout(flush, 16 - elapsed));
   }, []);
@@ -202,6 +245,7 @@ export function useHyperliquidCandles({
   const handleConnectionChange = useCallback((c: boolean) => setIsConnected(c), []);
   const handleError = useCallback((e: Error) => setError(e), []);
 
+  // WebSocket connection for real-time updates
   useHyperliquidWs({
     subscription,
     onMessage: handleMessage,
@@ -210,7 +254,15 @@ export function useHyperliquidCandles({
     onError: handleError,
   });
 
-  // Initial fetch on symbol/interval change
+  /**
+   * Fetch on symbol/interval change
+   * @strategy
+   * - Symbol change: CLEAR data immediately (different coin = completely different prices)
+   * - Interval change: Keep old data visible (same coin, just different timeframe)
+   * @benefit
+   * - Symbol change: Prevents showing wrong prices from previous coin
+   * - Interval change: Smooth UX - no skeleton flash
+   */
   useEffect(() => {
     if (!enabled || !symbol) {
       setIsLoading(false);
@@ -218,11 +270,19 @@ export function useHyperliquidCandles({
     }
     let cancelled = false;
     isFetchingRef.current = true;
+
+    const symbolChanged = prevSymbolRef.current !== symbol;
+    prevSymbolRef.current = symbol;
+
+    // CRITICAL: Clear data when symbol changes - different coin = different prices!
+    if (symbolChanged) {
+      dataRef.current = [];
+      setData([]);
+      setHasMore(true);
+    }
+
     setIsLoading(true);
     setError(null);
-    dataRef.current = [];
-    setData([]);
-    setHasMore(true);
 
     fetchHistorical(symbol, hlInterval, limit)
       .then((historical) => {
@@ -244,7 +304,10 @@ export function useHyperliquidCandles({
     };
   }, [symbol, interval, enabled, hlInterval, limit]);
 
-  // Stable loadMore — reads mutable state from refs
+  /**
+   * Loads older candles for infinite scroll
+   * Uses refs to read current state without re-renders
+   */
   const loadMore = useCallback(async (count: number = 200) => {
     if (isFetchingRef.current || !hasMoreRef.current) return;
     if (Date.now() - lastLoadMoreTimeRef.current < LOAD_MORE_COOLDOWN) return;

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useHyperliquidMeta } from "./use-hyperliquid-meta";
 
 interface UseDocumentTitleOptions {
   title: string;
@@ -17,11 +18,11 @@ export function useDocumentTitle({
   }, [title, suffix, separator]);
 }
 
-export function formatPerpTitle(symbol: string, price: number): string {
-  const formattedPrice =
-    price >= 1000
-      ? price.toLocaleString(undefined, { maximumFractionDigits: 2 })
-      : price.toFixed(2);
-
+export function formatPerpTitle(symbol: string, price: number, pxDecimals?: number): string {
+  const decimals = pxDecimals ?? 5;
+  const formattedPrice = price.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals,
+  });
   return `${symbol} $${formattedPrice}`;
 }

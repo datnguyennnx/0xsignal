@@ -1,10 +1,21 @@
-import { lazy, Suspense } from "react";
+/**
+ * @overview Main App Component
+ *
+ * Sets up routing, theme, and preloading strategy for optimal initial load.
+ *
+ * @performance
+ * - Lazy loads heavy routes (AssetDetail, OrderbookPage, TradingChart)
+ * - Preloads critical routes 2s after mount to not block initial render
+ * - Uses Suspense for streaming SSR-like experience
+ */
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/core/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/layouts/main-layout";
 import { MarketDashboard } from "@/features/dashboard/pages/market-dashboard";
 
+// Lazy-loaded routes for code splitting
 const AssetDetail = lazy(() =>
   import("@/features/perp/pages/asset-detail").then((m) => ({ default: m.AssetDetail }))
 );
@@ -15,6 +26,23 @@ const NotFoundPage = lazy(() =>
   import("@/features/error/pages/not-found").then((m) => ({ default: m.NotFoundPage }))
 );
 
+/**
+ * Preloads heavy components after initial render
+ * @strategy Wait for initial paint (2s) then prefetch
+ * @benefit Reduces navigation latency for common user flows
+ */
+const usePreloadRoutes = () => {
+  useEffect(() => {
+    const preloadTimer = setTimeout(() => {
+      // Most visited: perp detail page
+      import("@/features/perp/pages/asset-detail");
+      // Heavy chart component
+      import("@/features/chart/components/trading-chart");
+    }, 2000);
+    return () => clearTimeout(preloadTimer);
+  }, []);
+};
+
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
@@ -24,6 +52,7 @@ function PageLoader() {
 }
 
 function App() {
+  usePreloadRoutes();
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <TooltipProvider>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, memo } from "react";
 import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
 import type { ICTAnalysisResult } from "../workers/ict-worker";
@@ -6,6 +6,7 @@ import type { ICTVisibility } from "../types";
 import { ZonePrimitive } from "../primitives";
 import { BandPrimitive } from "../primitives";
 import { getICTColors } from "../utils";
+import { useMemo } from "react";
 
 interface ICTOverlayProps {
   chart: IChartApi | null;
@@ -323,3 +324,32 @@ export function useICTOverlay({
 
   return { cleanup };
 }
+
+// Memoized wrapper to prevent unnecessary re-renders
+export const useICTOverlayMemo = (props: ICTOverlayProps) => {
+  const memoizedProps = useMemo(
+    () => ({
+      chart: props.chart,
+      series: props.series,
+      analysis: props.analysis,
+      visibility: props.visibility,
+      isDark: props.isDark,
+      lastTime: props.lastTime,
+    }),
+    // Only re-run when analysis changes significantly or visibility toggles
+    [
+      props.chart,
+      props.series,
+      props.analysis,
+      props.visibility.marketStructure,
+      props.visibility.fvg,
+      props.visibility.orderBlocks,
+      props.visibility.liquidity,
+      props.visibility.ote,
+      props.isDark,
+      props.lastTime,
+    ]
+  );
+
+  return useICTOverlay(memoizedProps);
+};

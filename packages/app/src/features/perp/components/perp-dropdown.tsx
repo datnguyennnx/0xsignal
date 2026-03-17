@@ -14,7 +14,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [sortByChange, setSortByChange] = useState(false);
+  const [sortBy, setSortBy] = useState<"name" | "change">("name");
   const [sortDesc, setSortDesc] = useState(true);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -33,20 +33,22 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
       filtered = filtered.filter((f) => f.coin.toLowerCase().includes(q));
     }
 
-    if (sortByChange) {
-      filtered = [...filtered].sort((a, b) => {
-        const changeA = a.prevDayPx
-          ? (Number(a.markPx) - Number(a.prevDayPx)) / Number(a.prevDayPx)
-          : 0;
-        const changeB = b.prevDayPx
-          ? (Number(b.markPx) - Number(b.prevDayPx)) / Number(b.prevDayPx)
-          : 0;
-        return sortDesc ? changeB - changeA : changeA - changeB;
-      });
-    }
+    filtered = [...filtered].sort((a, b) => {
+      if (sortBy === "name") {
+        return sortDesc ? b.coin.localeCompare(a.coin) : a.coin.localeCompare(b.coin);
+      }
+      // sortBy === "change"
+      const changeA = a.prevDayPx
+        ? (Number(a.markPx) - Number(a.prevDayPx)) / Number(a.prevDayPx)
+        : 0;
+      const changeB = b.prevDayPx
+        ? (Number(b.markPx) - Number(b.prevDayPx)) / Number(b.prevDayPx)
+        : 0;
+      return sortDesc ? changeB - changeA : changeA - changeB;
+    });
 
     return filtered;
-  }, [perps, query, sortByChange, sortDesc]);
+  }, [perps, query, sortBy, sortDesc]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -190,21 +192,42 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
 
           {/* Header */}
           <div className="hidden sm:grid grid-cols-4 gap-2 px-4 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
-            <span>Market</span>
+            <button
+              onClick={() => {
+                if (sortBy === "name") {
+                  setSortDesc((prev) => !prev);
+                } else {
+                  setSortBy("name");
+                  setSortDesc(true);
+                }
+              }}
+              className="text-left hover:text-foreground transition-colors flex items-center gap-1"
+            >
+              Market
+              {sortBy === "name" ? (
+                sortDesc ? (
+                  <ArrowDown className="w-3 h-3" />
+                ) : (
+                  <ArrowUp className="w-3 h-3" />
+                )
+              ) : (
+                <ArrowUpDown className="w-3 h-3 opacity-50" />
+              )}
+            </button>
             <span className="text-right">Price</span>
             <button
               onClick={() => {
-                if (sortByChange) {
+                if (sortBy === "change") {
                   setSortDesc((prev) => !prev);
                 } else {
-                  setSortByChange(true);
+                  setSortBy("change");
                   setSortDesc(true);
                 }
               }}
               className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1"
             >
               24h
-              {sortByChange ? (
+              {sortBy === "change" ? (
                 sortDesc ? (
                   <ArrowDown className="w-3 h-3 text-gain" />
                 ) : (
@@ -217,21 +240,42 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
             <span className="text-right">OI</span>
           </div>
           <div className="sm:hidden grid grid-cols-3 gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
-            <span>Market</span>
+            <button
+              onClick={() => {
+                if (sortBy === "name") {
+                  setSortDesc((prev) => !prev);
+                } else {
+                  setSortBy("name");
+                  setSortDesc(true);
+                }
+              }}
+              className="text-left hover:text-foreground transition-colors flex items-center gap-1"
+            >
+              Market
+              {sortBy === "name" ? (
+                sortDesc ? (
+                  <ArrowDown className="w-3 h-3" />
+                ) : (
+                  <ArrowUp className="w-3 h-3" />
+                )
+              ) : (
+                <ArrowUpDown className="w-3 h-3 opacity-50" />
+              )}
+            </button>
             <span className="text-right">Price</span>
             <button
               onClick={() => {
-                if (sortByChange) {
+                if (sortBy === "change") {
                   setSortDesc((prev) => !prev);
                 } else {
-                  setSortByChange(true);
+                  setSortBy("change");
                   setSortDesc(true);
                 }
               }}
               className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1"
             >
               24h
-              {sortByChange ? (
+              {sortBy === "change" ? (
                 sortDesc ? (
                   <ArrowDown className="w-3 h-3 text-gain" />
                 ) : (

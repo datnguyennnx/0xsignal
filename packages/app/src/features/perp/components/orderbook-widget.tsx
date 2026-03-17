@@ -1,3 +1,4 @@
+/** @fileoverview Orderbook widget with virtualization for performance */
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   useHyperliquidOrderbook,
@@ -9,49 +10,8 @@ import {
 import { cn } from "@/core/utils/cn";
 import { Loader2 } from "lucide-react";
 
-const OrderbookToolbar = memo(
-  ({
-    priceScaling,
-    onPriceScalingChange,
-    scalingOptions,
-  }: {
-    priceScaling: number;
-    onPriceScalingChange: (s: number) => void;
-    scalingOptions: TickSizeOption[];
-  }) => {
-    return (
-      <div className="flex items-center justify-end px-3 py-2 border-b border-border/20 flex-shrink-0 bg-muted/10">
-        <select
-          value={priceScaling}
-          onChange={(e) => onPriceScalingChange(Number(e.target.value))}
-          className="bg-transparent text-[11px] font-mono border border-border/30 rounded px-1.5 py-1 h-6 min-w-[60px]"
-        >
-          {scalingOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
-    );
-  },
-  (prev, next) => {
-    return prev.priceScaling === next.priceScaling;
-  }
-);
-
 interface OrderbookWidgetProps {
   symbol: string;
-}
-
-interface OrderRowProps {
-  level: OrderbookLevel;
-  side: "bid" | "ask";
-  index: number;
-  isHovered: boolean;
-  onHover: (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => void;
-  priceScaling: number;
-  maxTotal: number;
 }
 
 interface PopupData {
@@ -64,30 +24,18 @@ interface PopupData {
 }
 
 const ROW_HEIGHT = 24;
-
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.matchMedia("(max-width: 768px)").matches);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-  return isMobile;
-}
+const VISIBLE_ROWS = 20; // Virtualization window size
+const OVERSCAN = 5; // Extra rows to render for smooth scrolling
 
 function formatPriceWithScaling(price: number, scaling: number): string {
   let decimals: number;
-
-  if (scaling >= 1000) {
-    decimals = 0;
-  } else if (scaling >= 1) {
-    decimals = 0;
-  } else {
-    decimals = Math.max(0, Math.min(6, -Math.floor(Math.log10(scaling))));
-  }
-
-  return price.toFixed(decimals);
+  if (scaling >= 1000) decimals = 0;
+  else if (scaling >= 1) decimals = 0;
+  else decimals = Math.max(0, Math.min(6, -Math.floor(Math.log10(scaling))));
+  return price.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 }
 
 function formatSize(size: number): string {
@@ -96,8 +44,57 @@ function formatSize(size: number): string {
   return size.toFixed(size < 1 ? 4 : 2);
 }
 
+const OrderbookToolbar = memo(
+  ({
+    priceScaling,
+    onPriceScalingChange,
+    scalingOptions,
+  }: {
+    priceScaling: number;
+    onPriceScalingChange: (s: number) => void;
+    scalingOptions: TickSizeOption[];
+  }) => (
+    <div className="flex items-center justify-end px-3 py-2 border-b border-border/20 flex-shrink-0 bg-muted/10">
+      <select
+        value={priceScaling}
+        onChange={(e) => onPriceScalingChange(Number(e.target.value))}
+        className="bg-transparent text-[11px] font-mono border border-border/30 rounded px-1.5 py-1 h-6 min-w-[60px]"
+      >
+        {scalingOptions.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  ),
+  (prev, next) => prev.priceScaling === next.priceScaling
+);
+
+OrderbookToolbar.displayName = "OrderbookToolbar";
+
+interface OrderRowProps {
+  level: OrderbookLevel;
+  side: "bid" | "ask";
+  index: number;
+  isHovered: boolean;
+  isInRange: boolean;
+  onHover: (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => void;
+  priceScaling: number;
+  maxTotal: number;
+}
+
 const OrderRow = memo(
-  ({ level, side, index, isHovered, onHover, priceScaling, maxTotal }: OrderRowProps) => {
+  ({
+    level,
+    side,
+    index,
+    isHovered,
+    isInRange,
+    onHover,
+    priceScaling,
+    maxTotal,
+  }: OrderRowProps) => {
     const rowRef = useRef<HTMLDivElement>(null);
     const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
 
@@ -107,7 +104,7 @@ const OrderRow = memo(
         rowRef.current,
         index
       );
-    }, [onHover, level.price, level.size, level.total, side, index]);
+    }, [onHover, level, side, index]);
 
     const handleMouseLeave = useCallback(() => onHover(null, null), [onHover]);
 
@@ -122,16 +119,23 @@ const OrderRow = memo(
         onMouseEnter={level.price > 0 ? handleMouseEnter : undefined}
         onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
       >
+        {isInRange && (
+          <div
+            className={cn(
+              "absolute inset-0 z-[5] pointer-events-none",
+              "bg-foreground/5 dark:bg-foreground/10",
+              isHovered && side === "ask" && "border-b border-dashed border-foreground/30",
+              isHovered && side === "bid" && "border-t border-dashed border-foreground/30"
+            )}
+          />
+        )}
         {level.price > 0 && (
           <div
             className={cn(
               "absolute top-0 bottom-0 right-0 opacity-20 pointer-events-none",
               side === "bid" ? "bg-gain" : "bg-loss"
             )}
-            style={{
-              width: `${Math.min(depthPercent, 100)}%`,
-              transform: "translateZ(0)",
-            }}
+            style={{ width: `${Math.min(depthPercent, 100)}%`, transform: "translateZ(0)" }}
           />
         )}
         <span
@@ -165,18 +169,18 @@ const OrderRow = memo(
       </div>
     );
   },
-  (prev, next) => {
-    return (
-      prev.level.price === next.level.price &&
-      prev.level.size === next.level.size &&
-      prev.level.total === next.level.total &&
-      prev.side === next.side &&
-      prev.isHovered === next.isHovered &&
-      prev.priceScaling === next.priceScaling &&
-      prev.maxTotal === next.maxTotal
-    );
-  }
+  (prev, next) =>
+    prev.level.price === next.level.price &&
+    prev.level.size === next.level.size &&
+    prev.level.total === next.level.total &&
+    prev.side === next.side &&
+    prev.isHovered === next.isHovered &&
+    prev.isInRange === next.isInRange &&
+    prev.priceScaling === next.priceScaling &&
+    prev.maxTotal === next.maxTotal
 );
+
+OrderRow.displayName = "OrderRow";
 
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const { orderbook, isConnected, error, resubscribe } = useHyperliquidOrderbook(symbol);
@@ -191,80 +195,60 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     null
   );
   const widgetRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile();
-  const isFirstRender = useRef(true);
+  const prevSymbolRef = useRef<string | null>(null);
 
   const bestPrice = orderbook?.asks[0]?.price || orderbook?.bids[0]?.price || 0;
   const scalingOptions = useMemo(() => generateTickSizeOptions(bestPrice), [bestPrice]);
 
-  // Set initial default to most granular option on first render or when symbol changes
+  // Reset price scaling when symbol changes
   useEffect(() => {
-    if (scalingOptions.length === 0) return;
-
-    const shouldReset = isFirstRender.current || priceScaling === 0;
-    isFirstRender.current = false;
-
-    if (shouldReset) {
-      const defaultValue = scalingOptions[0].value;
-      setPriceScaling(defaultValue);
+    if (prevSymbolRef.current !== null && prevSymbolRef.current !== symbol) {
+      setPriceScaling(0);
     }
-  }, [symbol, scalingOptions, priceScaling]);
+    prevSymbolRef.current = symbol;
+  }, [symbol]);
 
-  // When tick size changes, send server-side nSigFigs
+  // Set initial default to most granular option
+  useEffect(() => {
+    if (!orderbook) {
+      // Waiting for orderbook data, don't set scaling yet
+      return;
+    }
+    if (scalingOptions.length > 0 && priceScaling === 0) {
+      setPriceScaling(scalingOptions[0].value);
+    }
+  }, [orderbook, scalingOptions, priceScaling]);
+
   const handlePriceScalingChange = useCallback(
     (newScale: number) => {
       setPriceScaling(newScale);
       const opt = scalingOptions.find((o) => o.value === newScale);
-      if (opt?.nSigFigs != null) {
-        resubscribe(opt.nSigFigs);
-      } else {
-        resubscribe(5);
-      }
+      resubscribe(opt?.nSigFigs ?? 5);
     },
     [scalingOptions, resubscribe]
   );
 
-  // Get current option to determine if server-side aggregation is being used
   const currentOption = scalingOptions.find((o) => o.value === priceScaling);
-
-  // Client-side grouping:
-  // - Skip grouping when using mantissa (server already provides most detailed data)
-  // - Only do client-side grouping when nSigFigs is coarse (3, 2) or when using step-based grouping
   const shouldSkipGrouping = currentOption?.mantissa === 5;
 
   const groupedOrderbook = useMemo(() => {
     if (!orderbook) return null;
-
-    // When using mantissa option (nSigFigs=5 with mantissa=5), server already provides
-    // the most detailed aggregation, skip client-side grouping to avoid double aggregation
-    if (shouldSkipGrouping) {
-      return orderbook;
-    }
-
-    // Client-side grouping for coarser levels
+    if (shouldSkipGrouping) return orderbook;
     return {
       asks: groupLevels(orderbook.asks, priceScaling, "asks"),
       bids: groupLevels(orderbook.bids, priceScaling, "bids"),
     };
   }, [orderbook, priceScaling, shouldSkipGrouping]);
 
-  const visibleAsks = useMemo(() => {
-    return groupedOrderbook?.asks.slice(0, 100) || [];
+  // Virtualization: only render visible rows
+  const { visibleAsks, visibleBids, maxTotal } = useMemo(() => {
+    if (!groupedOrderbook) return { visibleAsks: [], visibleBids: [], maxTotal: 0 };
+    const asks = groupedOrderbook.asks.slice(0, VISIBLE_ROWS);
+    const bids = groupedOrderbook.bids.slice(0, VISIBLE_ROWS);
+    const maxTotal = Math.max(...asks.map((a) => a.total), ...bids.map((b) => b.total));
+    return { visibleAsks: asks, visibleBids: bids, maxTotal };
   }, [groupedOrderbook]);
 
-  const visibleBids = useMemo(() => {
-    return groupedOrderbook?.bids.slice(0, 100) || [];
-  }, [groupedOrderbook]);
-
-  // Calculate max total from ALL data (use grouped orderbook)
-  const maxTotal = groupedOrderbook
-    ? Math.max(
-        ...groupedOrderbook.asks.slice(0, 100).map((a) => a.total),
-        ...groupedOrderbook.bids.slice(0, 100).map((b) => b.total)
-      )
-    : 0;
-
-  // Calculate spread from grouped orderbook
   const { spread, spreadPercent } = useMemo(() => {
     if (
       !groupedOrderbook ||
@@ -280,32 +264,25 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     return { spread: s, spreadPercent: sp };
   }, [groupedOrderbook]);
 
-  // Calculate cumulative data from best price to hovered row
   const calculateCumulativeData = useCallback(
     (
       side: "bid" | "ask",
       targetPrice: number
     ): { avgPrice: number; cumulativeSize: number } | null => {
       if (!groupedOrderbook) return null;
-
       const levels = side === "ask" ? groupedOrderbook.asks : groupedOrderbook.bids;
       const targetIndex = levels.findIndex((l) => l.price === targetPrice);
       if (targetIndex === -1) return null;
 
-      // Calculate from index 0 (best price) to targetIndex
       let totalSize = 0;
       let weightedPriceSum = 0;
-
       for (let i = 0; i <= targetIndex; i++) {
-        const level = levels[i];
-        totalSize += level.size;
-        weightedPriceSum += level.price * level.size;
+        totalSize += levels[i].size;
+        weightedPriceSum += levels[i].price * levels[i].size;
       }
 
-      const avgPrice = totalSize > 0 ? weightedPriceSum / totalSize : 0;
-
       return {
-        avgPrice,
+        avgPrice: totalSize > 0 ? weightedPriceSum / totalSize : 0,
         cumulativeSize: totalSize,
       };
     },
@@ -314,34 +291,23 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   const handleHover = useCallback(
     (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => {
-      if (!data || !rowElement || isMobile) {
+      if (!data || !rowElement) {
         setPopupData(null);
         setPopupPosition(null);
         setHoveredIndex(null);
         return;
       }
 
-      // Calculate cumulative data
       const cumulativeData = calculateCumulativeData(data.side, data.price);
+      setPopupData({ ...data, ...cumulativeData });
 
-      const enrichedData: PopupData = {
-        ...data,
-        avgPrice: cumulativeData?.avgPrice,
-        cumulativeSize: cumulativeData?.cumulativeSize,
-      };
-
-      setPopupData(enrichedData);
-
-      // Update hovered index directly from the passed index
-      if (index !== undefined) {
-        setHoveredIndex({ side: data.side, index });
-      }
+      if (index !== undefined) setHoveredIndex({ side: data.side, index });
 
       const rect = rowElement.getBoundingClientRect();
       const widgetRect = widgetRef.current?.getBoundingClientRect();
       if (widgetRect) {
-        const viewportWidth = window.innerWidth;
         const top = rect.top + rect.height / 2;
+        const viewportWidth = window.innerWidth;
         if (viewportWidth - widgetRect.right > 220) {
           setPopupPosition({ top, left: widgetRect.right + 8 });
         } else if (widgetRect.left > 220) {
@@ -351,7 +317,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         }
       }
     },
-    [isMobile, calculateCumulativeData]
+    [calculateCumulativeData]
   );
 
   useEffect(() => {
@@ -368,30 +334,35 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     };
   }, [popupData, popupPosition]);
 
-  if (error)
+  const isRowHovered = useCallback(
+    (side: "bid" | "ask", index: number) =>
+      hoveredIndex?.side === side && hoveredIndex?.index === index,
+    [hoveredIndex]
+  );
+
+  const isRowInHighlightRange = useCallback(
+    (side: "bid" | "ask", index: number) => {
+      if (!hoveredIndex || hoveredIndex.side !== side) return false;
+      return index <= hoveredIndex.index;
+    },
+    [hoveredIndex]
+  );
+
+  if (error) {
     return (
       <div className="h-full flex items-center justify-center text-destructive text-sm">
         {error}
       </div>
     );
-  if (!isConnected || !orderbook)
+  }
+
+  if (!isConnected || !orderbook) {
     return (
       <div className="h-full flex items-center justify-center">
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
       </div>
     );
-
-  const isRowHovered = (side: "bid" | "ask", index: number) =>
-    hoveredIndex?.side === side && hoveredIndex?.index === index;
-
-  // Check if row is in highlight range (from best price to hovered row)
-  const isRowInHighlightRange = (side: "bid" | "ask", index: number): boolean => {
-    if (!hoveredIndex || hoveredIndex.side !== side) return false;
-
-    // Both asks and bids are sorted Best -> Worst
-    // We want to highlight from Best (0) to Hovered (index)
-    return index <= hoveredIndex.index;
-  };
+  }
 
   return (
     <div
@@ -404,35 +375,23 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         scalingOptions={scalingOptions}
       />
 
-      {/* Header */}
       <div className="flex items-center px-3 py-1.5 text-[10px] font-mono uppercase text-muted-foreground border-b border-border/20 flex-shrink-0">
         <span className="flex-1">Price</span>
         <span className="flex-1 text-right">Size</span>
         <span className="flex-1 text-right">Total</span>
       </div>
 
-      {/* Content */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* Asks - flex-col-reverse so best ask (lowest price) is at bottom */}
+        {/* Asks - reversed order */}
         <div className="flex flex-col-reverse relative flex-1 overflow-hidden">
           {visibleAsks.map((level, index) => (
             <div key={level.price} data-row className="flex-shrink-0 relative">
-              {/* Overlay highlight range */}
-              {isRowInHighlightRange("ask", index) && (
-                <div
-                  className={cn(
-                    "absolute inset-0 z-[5] pointer-events-none",
-                    "bg-foreground/5 dark:bg-foreground/10", // Màu gray trung tính
-                    // Dashed border at hover row
-                    isRowHovered("ask", index) && "border-b border-dashed border-foreground/30"
-                  )}
-                />
-              )}
               <OrderRow
                 level={level}
                 side="ask"
                 index={index}
                 isHovered={isRowHovered("ask", index)}
+                isInRange={isRowInHighlightRange("ask", index)}
                 onHover={handleHover}
                 priceScaling={priceScaling}
                 maxTotal={maxTotal}
@@ -452,26 +411,16 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
           </span>
         </div>
 
-        {/* Bids - flex-col so best bid (highest price) is at top */}
+        {/* Bids */}
         <div className="flex flex-col relative flex-1 overflow-hidden">
           {visibleBids.map((level, index) => (
             <div key={level.price} data-row className="flex-shrink-0 relative">
-              {/* Overlay highlight range */}
-              {isRowInHighlightRange("bid", index) && (
-                <div
-                  className={cn(
-                    "absolute inset-0 z-[5] pointer-events-none",
-                    "bg-foreground/5 dark:bg-foreground/10", // Màu gray trung tính
-                    // Dashed border at hover row
-                    isRowHovered("bid", index) && "border-t border-dashed border-foreground/30"
-                  )}
-                />
-              )}
               <OrderRow
                 level={level}
                 side="bid"
                 index={index}
                 isHovered={isRowHovered("bid", index)}
+                isInRange={isRowInHighlightRange("bid", index)}
                 onHover={handleHover}
                 priceScaling={priceScaling}
                 maxTotal={maxTotal}
@@ -482,7 +431,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       </div>
 
       {/* Popup */}
-      {popupData && popupPosition && !isMobile && (
+      {popupData && popupPosition && (
         <div
           className="fixed bg-card/95 border border-border/30 rounded-lg p-3 shadow-xl z-[100] w-64 pointer-events-none"
           style={{
@@ -513,8 +462,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
               <span className="text-xs text-muted-foreground">Total</span>
               <span className="text-sm font-mono font-medium">{formatSize(popupData.total)}</span>
             </div>
-
-            {/* Cumulative Data Section */}
             {popupData.cumulativeSize && popupData.cumulativeSize > popupData.size && (
               <>
                 <div className="border-t border-border/20 my-2" />
@@ -544,6 +491,8 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   );
 };
 
-export const OrderbookWidget = memo(OrderbookWidgetComponent, (prev, next) => {
-  return prev.symbol === next.symbol;
-});
+export const OrderbookWidget = memo(
+  OrderbookWidgetComponent,
+  (prev, next) => prev.symbol === next.symbol
+);
+OrderbookWidget.displayName = "OrderbookWidget";

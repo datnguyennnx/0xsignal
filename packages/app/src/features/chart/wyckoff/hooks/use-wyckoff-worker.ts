@@ -1,11 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
-import type {
-  WyckoffAnalysisResult,
-  WyckoffWorkerRequest,
-  WyckoffWorkerResponse,
-  WyckoffConfig,
-} from "../workers/wyckoff-worker";
+import type { WyckoffAnalysisResult, WyckoffConfig } from "../workers/wyckoff-worker";
+import { workerPool } from "../../core/worker-pool";
 
 interface UseWyckoffWorkerProps {
   data: ChartDataPoint[];
@@ -19,6 +15,8 @@ interface UseWyckoffWorkerResult {
   error: string | null;
 }
 
+const MIN_CANDLES = 30;
+
 export function useWyckoffWorker({
   data,
   enabled,
@@ -27,69 +25,42 @@ export function useWyckoffWorker({
   const [analysis, setAnalysis] = useState<WyckoffAnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const workerRef = useRef<Worker | null>(null);
-  const requestIdRef = useRef(0);
+  const analyze = useCallback(async () => {
+    if (!enabled || data.length < MIN_CANDLES) return;
 
-  useEffect(() => {
-    if (!enabled) return;
-
-    workerRef.current = new Worker(new URL("../workers/wyckoff-worker.ts", import.meta.url), {
-      type: "module",
-    });
-
-    workerRef.current.onmessage = (event: MessageEvent<WyckoffWorkerResponse>) => {
-      const { id, result, error: workerError } = event.data;
-
-      if (parseInt(id, 10) !== requestIdRef.current) return;
-
-      setIsLoading(false);
-
-      if (workerError) {
-        setError(workerError);
-        setAnalysis(null);
-      } else {
-        setError(null);
-        setAnalysis(result);
-      }
-    };
-
-    workerRef.current.onerror = (err) => {
-      setIsLoading(false);
-      setError(err.message);
-    };
-
-    return () => {
-      workerRef.current?.terminate();
-      workerRef.current = null;
-    };
-  }, [enabled]);
-
-  const analyze = useCallback(() => {
-    if (!workerRef.current || !enabled || data.length === 0) return;
-
-    requestIdRef.current += 1;
-    const id = String(requestIdRef.current);
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
 
     setIsLoading(true);
     setError(null);
 
-    const request: WyckoffWorkerRequest = {
-      id,
-      type: "ANALYZE_WYCKOFF",
-      data: {
-        candles: data,
-        config,
-      },
-    };
-
-    workerRef.current.postMessage(request);
+    try {
+      const result = await workerPool.executeWyckoff(data, config);
+      if (!abortControllerRef.current.signal.aborted) {
+        setAnalysis(result);
+        setError(null);
+      }
+    } catch (err) {
+      if (!abortControllerRef.current.signal.aborted) {
+        setError(err instanceof Error ? err.message : "Analysis failed");
+        setAnalysis(null);
+      }
+    } finally {
+      if (!abortControllerRef.current.signal.aborted) {
+        setIsLoading(false);
+      }
+    }
   }, [data, enabled, config]);
 
   useEffect(() => {
-    if (enabled && data.length > 0) {
+    if (enabled && data.length >= MIN_CANDLES) {
       analyze();
     }
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [analyze, enabled, data.length]);
 
   useEffect(() => {

@@ -25,6 +25,12 @@ export const queryKeys = {
     all: ["asset"] as const,
     bySymbol: (symbol: string) => [...queryKeys.asset.all, symbol] as const,
   },
+
+  // Hyperliquid domain
+  hyperliquid: {
+    all: ["hyperliquid"] as const,
+    meta: () => [...queryKeys.hyperliquid.all, "meta"] as const,
+  },
 } as const;
 
 // Type-safe query key builder

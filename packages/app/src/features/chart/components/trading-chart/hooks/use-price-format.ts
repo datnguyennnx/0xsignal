@@ -1,7 +1,12 @@
 /**
  * Price Format Hook - Precision for Lightweight Charts
  * @see https://tradingview.github.io/lightweight-charts/docs/api/interfaces/PriceFormatCustom
- * @memoized - only recalculates when pxDecimals changes
+ * @memoized - only recalculates when pxDecimals or currentPrice changes
+ *
+ * Follows Hyperliquid orderbook precision logic:
+ * - nSigFigs approach: step = 10^(mag - nSigFigs + 1)
+ * - If step >= 1: show whole numbers (0 decimals)
+ * - If step < 1: use pxDecimals for precision
  */
 
 import { useMemo } from "react";
@@ -12,31 +17,30 @@ export interface PriceFormatResult {
   formatter?: (price: number) => string;
 }
 
-const MAX_DECIMALS = 6;
-
 /**
- * Format price for chart axis - uses fixed decimals based on pxDecimals
- * This ensures price scale shows consistent granularity
+ * Format price for chart axis
+ * Uses price magnitude to determine decimals - exact match with orderbook formatPriceWithScaling:
+ * - scaling >= 1000: decimals = 0 (large step = whole numbers)
+ * - scaling >= 1: decimals = 0
+ * - scaling < 1: decimals = -log10(scaling) capped at 6
+ * Uses toLocaleString("en-US") to match orderbook formatting (with commas)
  */
 function formatPriceAxis(price: number, pxDecimals: number): string {
   if (!Number.isFinite(price) || price === 0) return "0";
 
-  const absPrice = Math.abs(price);
+  // Calculate scaling from price magnitude - same as orderbook generateTickSizeOptions
+  const mag = Math.floor(Math.log10(price));
+  const scaling = Math.pow(10, mag - 5 + 1); // Using 5 sig figs like orderbook default
 
-  // Handle large prices (>= 1000) with K/M/B notation
-  if (absPrice >= 1_000_000_000) {
-    return `${(price / 1_000_000_000).toFixed(2)}B`;
-  }
-  if (absPrice >= 1_000_000) {
-    return `${(price / 1_000_000).toFixed(2)}M`;
-  }
-  if (absPrice >= 1_000) {
-    return `${(price / 1_000).toFixed(2)}K`;
-  }
+  let decimals: number;
+  if (scaling >= 1000) decimals = 0;
+  else if (scaling >= 1) decimals = 0;
+  else decimals = Math.max(0, Math.min(6, -Math.floor(Math.log10(scaling))));
 
-  // Use fixed decimals = pxDecimals for axis
-  // This allows chart to show all price levels based on minMove
-  return price.toFixed(pxDecimals);
+  return price.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 }
 
 /**
@@ -49,15 +53,10 @@ function formatPriceTooltip(price: number, pxDecimals: number): string {
 
 /**
  * Calculate minMove for price scale granularity
- *
- * minMove determines the price step between visible price levels
- * Smaller = more detail when zoomed in
+ * Uses pxDecimals directly - this is the precision from Hyperliquid
  */
 function calcMinMove(pxDecimals: number): number {
-  // Use pxDecimals directly - this is the precision from Hyperliquid
-  // pxDecimals=5 -> minMove=0.00001 (shows 0.00001, 0.00002, etc.)
-  // pxDecimals=6 -> minMove=0.000001 (shows 0.000001, 0.000002, etc.)
-  return 1 / Math.pow(10, pxDecimals);
+  return Math.pow(10, -pxDecimals);
 }
 
 export const usePriceFormat = (pxDecimals?: number): PriceFormatResult => {

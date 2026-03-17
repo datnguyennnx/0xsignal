@@ -21,7 +21,7 @@ interface DashboardContentProps {
   onPageChange: (page: number) => void;
 }
 
-// Format giá theo độ lớn
+// Format Giá theo độ lớn
 const formatPrice = (price: number): string => {
   const config =
     price >= 1000 ? { min: 2, max: 2 } : price >= 1 ? { min: 2, max: 4 } : { min: 4, max: 6 };
