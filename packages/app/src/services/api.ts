@@ -1,5 +1,6 @@
 // API Client - Simple async functions
 import type { ChartDataPoint, GlobalMarketData, CryptoPrice } from "@0xsignal/shared";
+import { hyperliquidApi } from "./hyperliquid";
 
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost:9006/api";
 
@@ -57,16 +58,6 @@ export interface FuturesPrice {
   readonly timestamp: Date;
 }
 
-const HYPERLIQUID_API = "https://api.hyperliquid.xyz/info";
-
-async function fetchHyperliquid<T>(body: object): Promise<T> {
-  return fetchJson<T>(HYPERLIQUID_API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
 export const api = {
   health: () => fetchJson(`${API_BASE}/health`),
 
@@ -78,8 +69,8 @@ export const api = {
     const searchSymbol = symbol.toUpperCase().trim();
 
     const [allMids, metaAndAssetCtxs] = await Promise.all([
-      fetchHyperliquid<Record<string, string>>({ type: "allMids" }),
-      fetchHyperliquid<[any, any[]]>({ type: "metaAndAssetCtxs" }),
+      hyperliquidApi.getAllMids(),
+      hyperliquidApi.getMetaAndAssetCtxs(),
     ]);
 
     if (!allMids || typeof allMids !== "object") {
@@ -93,11 +84,11 @@ export const api = {
     }
 
     const universe = meta.universe;
-    const perpSymbols = universe.map((u: any) => u.name);
+    const perpSymbols = universe.map((u) => u.name);
 
-    let coinIndex = universe.findIndex((u: any) => u.name === searchSymbol);
+    let coinIndex = universe.findIndex((u) => u.name === searchSymbol);
     if (coinIndex === -1) {
-      coinIndex = universe.findIndex((u: any) => u.name.toUpperCase() === searchSymbol);
+      coinIndex = universe.findIndex((u) => u.name.toUpperCase() === searchSymbol);
     }
     if (coinIndex === -1) {
       throw new ApiError(
@@ -131,8 +122,8 @@ export const api = {
       markPx: parseFloat(ctx.markPx || mid),
       midPx: parseFloat(ctx.midPx || mid),
       prevDayPx,
-      high24h: ctx.oraclePx ? parseFloat(ctx.oraclePx) * 1.005 : undefined,
-      low24h: ctx.oraclePx ? parseFloat(ctx.oraclePx) * 0.995 : undefined,
+      high24h: undefined,
+      low24h: undefined,
       timestamp: new Date(),
     };
   },

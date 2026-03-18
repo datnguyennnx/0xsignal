@@ -16,7 +16,8 @@
  */
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
-import { useHyperliquidWs, normalizeSymbol, API_INFO_URL } from "./use-hyperliquid-ws";
+import { useHyperliquidWs, normalizeSymbol } from "./use-hyperliquid-ws";
+import { hyperliquidApi } from "@/services/hyperliquid";
 
 // Supported time intervals
 type Interval =
@@ -110,16 +111,12 @@ const fromWs = (c: WsCandle): ChartDataPoint => ({
 async function fetchHistorical(symbol: string, interval: Interval, limit: number) {
   const coin = normalizeSymbol(symbol);
   const now = Date.now();
-  const res = await fetch(API_INFO_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "candleSnapshot",
-      req: { coin, interval, startTime: now - limit * getIntervalMs(interval), endTime: now },
-    }),
-  });
-  if (!res.ok) throw new Error(`Fetch failed: ${res.statusText}`);
-  const candles: RestCandle[] = await res.json();
+  const candles = await hyperliquidApi.candleSnapshot(
+    coin,
+    interval,
+    now - limit * getIntervalMs(interval),
+    now
+  );
   return candles
     .sort((a, b) => a.t - b.t)
     .slice(-limit)
@@ -136,16 +133,7 @@ async function fetchByRange(
   endTime: number
 ) {
   const coin = normalizeSymbol(symbol);
-  const res = await fetch(API_INFO_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "candleSnapshot",
-      req: { coin, interval, startTime, endTime },
-    }),
-  });
-  if (!res.ok) throw new Error(`Fetch failed: ${res.statusText}`);
-  const candles: RestCandle[] = await res.json();
+  const candles = await hyperliquidApi.candleSnapshot(coin, interval, startTime, endTime);
   return candles.sort((a, b) => a.t - b.t).map(fromRest);
 }
 

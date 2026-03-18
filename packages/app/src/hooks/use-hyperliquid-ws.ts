@@ -1,33 +1,27 @@
 /**
  * @fileoverview Hyperliquid WebSocket Hook
  *
- * Manages WebSocket connection to Hyperliquid for real-time data.
+ * Manages WebSocket connection to Hyperliquid for real-time data using @nktkas/hyperliquid SDK.
  *
  * @performance
- * - Exponential backoff for reconnection (1s -> 30s max)
- * - Heartbeat every 30s to detect dead connections
- * - Auto-resubscribe on reconnection
- * - Ref-based state to avoid stale closures
- *
- * @connection-flow
- * 1. Connect to WS endpoint
- * 2. Send subscription request
- * 3. Receive messages via onMessage callback
- * 4. Auto-reconnect on disconnect with backoff
+ * - Uses refs to avoid stale closures
+ * - Proper cleanup on unmount
+ * - Connection state tracking
  */
-import { useEffect, useRef, useCallback, useState } from "react";
 
-export const WS_URL = "wss://api.hyperliquid.xyz/ws";
-export const API_INFO_URL = "https://api-ui.hyperliquid.xyz/info";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { WebSocketTransport, SubscriptionClient } from "@nktkas/hyperliquid";
 
-const HEARTBEAT_INTERVAL = 30_000; // Ping every 30s
-const RECONNECT_BASE_DELAY = 1_000; // Start with 1s
-const RECONNECT_MAX_DELAY = 30_000; // Cap at 30s
-const RECONNECT_MAX_ATTEMPTS = 10;
+export const normalizeSymbol = (symbol: string): string => {
+  const upper = symbol.toUpperCase();
+  return upper.endsWith("USDT") ? upper.slice(0, -4) : upper;
+};
 
 export interface HyperliquidSubscription {
   type: string;
-  [key: string]: unknown;
+  coin?: string;
+  interval?: string;
+  nSigFigs?: number | null;
 }
 
 export interface UseHyperliquidWsOptions {
@@ -38,19 +32,24 @@ export interface UseHyperliquidWsOptions {
   onError?: (error: Error) => void;
 }
 
-interface WsState {
-  ws: WebSocket | null;
-  heartbeatTimer: ReturnType<typeof setInterval> | null;
-  reconnectTimer: ReturnType<typeof setTimeout> | null;
-  reconnectAttempts: number;
-  isMounted: boolean;
-  currentSubscription: HyperliquidSubscription | null;
-  pendingSubscription: HyperliquidSubscription | null;
-}
+type Interval =
+  | "1m"
+  | "3m"
+  | "5m"
+  | "15m"
+  | "30m"
+  | "1h"
+  | "2h"
+  | "4h"
+  | "8h"
+  | "12h"
+  | "1d"
+  | "3d"
+  | "1w"
+  | "1M";
 
-export function normalizeSymbol(symbol: string): string {
-  const upper = symbol.toUpperCase();
-  return upper.endsWith("USDT") ? upper.slice(0, -4) : upper;
+interface WsSubscription {
+  unsubscribe(): void;
 }
 
 export function useHyperliquidWs({
@@ -62,197 +61,144 @@ export function useHyperliquidWs({
 }: UseHyperliquidWsOptions) {
   const [isConnected, setIsConnected] = useState(false);
 
-  const stateRef = useRef<WsState>({
-    ws: null,
-    heartbeatTimer: null,
-    reconnectTimer: null,
-    reconnectAttempts: 0,
-    isMounted: true,
-    currentSubscription: null,
-    pendingSubscription: null,
-  });
+  const clientRef = useRef<SubscriptionClient | null>(null);
+  const subRef = useRef<WsSubscription | null>(null);
+  const isMountedRef = useRef(true);
 
+  // Use refs for callbacks to avoid stale closures
   const onMessageRef = useRef(onMessage);
   const onConnectionChangeRef = useRef(onConnectionChange);
   const onErrorRef = useRef(onError);
 
+  // Update refs when callbacks change
   useEffect(() => {
     onMessageRef.current = onMessage;
-    onConnectionChangeRef.current = onConnectionChange;
-    onErrorRef.current = onError;
-  }, [onMessage, onConnectionChange, onError]);
-
-  const stopHeartbeat = useCallback(() => {
-    const state = stateRef.current;
-    if (state.heartbeatTimer) {
-      clearInterval(state.heartbeatTimer);
-      state.heartbeatTimer = null;
-    }
-  }, []);
-
-  const startHeartbeat = useCallback(
-    (ws: WebSocket) => {
-      const state = stateRef.current;
-      stopHeartbeat();
-      state.heartbeatTimer = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ method: "ping" }));
-        }
-      }, HEARTBEAT_INTERVAL);
-    },
-    [stopHeartbeat]
-  );
-
-  const clearReconnectTimer = useCallback(() => {
-    const state = stateRef.current;
-    if (state.reconnectTimer) {
-      clearTimeout(state.reconnectTimer);
-      state.reconnectTimer = null;
-    }
-  }, []);
-
-  const closeWs = useCallback(() => {
-    const state = stateRef.current;
-    stopHeartbeat();
-    clearReconnectTimer();
-    if (state.ws) {
-      const ws = state.ws;
-      ws.onopen = null;
-      ws.onmessage = null;
-      ws.onerror = null;
-      ws.onclose = null;
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close(1000, "cleanup");
-      }
-      state.ws = null;
-    }
-    state.currentSubscription = null;
-    setIsConnected(false);
-  }, [stopHeartbeat, clearReconnectTimer]);
-
-  const subscribe = useCallback((ws: WebSocket, sub: HyperliquidSubscription) => {
-    ws.send(JSON.stringify({ method: "subscribe", subscription: sub }));
-  }, []);
-
-  const unsubscribe = useCallback((ws: WebSocket, sub: HyperliquidSubscription) => {
-    ws.send(JSON.stringify({ method: "unsubscribe", subscription: sub }));
-  }, []);
-
-  const subscriptionKey = subscription ? JSON.stringify(subscription) : null;
-
-  const connect = useCallback(() => {
-    const state = stateRef.current;
-    if (!state.isMounted || !subscriptionKey) return;
-
-    const parsedSub = JSON.parse(subscriptionKey) as HyperliquidSubscription;
-
-    if (
-      state.ws?.readyState === WebSocket.OPEN &&
-      JSON.stringify(state.currentSubscription) === subscriptionKey
-    ) {
-      return;
-    }
-
-    const ws = state.ws;
-    const needsNewConnection = !ws || ws.readyState !== WebSocket.OPEN;
-
-    if (needsNewConnection) {
-      if (ws) {
-        ws.close();
-      }
-
-      const newWs = new WebSocket(WS_URL);
-      state.ws = newWs;
-
-      newWs.onopen = () => {
-        if (!state.isMounted) {
-          newWs.close();
-          return;
-        }
-        state.reconnectAttempts = 0;
-        setIsConnected(true);
-        onConnectionChangeRef.current?.(true);
-        startHeartbeat(newWs);
-        state.currentSubscription = parsedSub;
-        subscribe(newWs, parsedSub);
-      };
-
-      newWs.onmessage = (event) => {
-        if (!state.isMounted) return;
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.channel === "pong" || msg.channel === "subscriptionResponse") return;
-          onMessageRef.current(msg.data, msg.channel);
-        } catch {
-          /* ignore parse errors */
-        }
-      };
-
-      newWs.onerror = () => {
-        if (!state.isMounted) return;
-        onErrorRef.current?.(new Error("WebSocket connection error"));
-      };
-
-      newWs.onclose = () => {
-        if (!state.isMounted) return;
-        stopHeartbeat();
-        setIsConnected(false);
-        onConnectionChangeRef.current?.(false);
-
-        if (state.reconnectAttempts < RECONNECT_MAX_ATTEMPTS) {
-          const delay = Math.min(
-            RECONNECT_BASE_DELAY * Math.pow(2, state.reconnectAttempts),
-            RECONNECT_MAX_DELAY
-          );
-          state.reconnectAttempts++;
-          state.reconnectTimer = setTimeout(() => {
-            if (state.isMounted && state.pendingSubscription) {
-              connect();
-            }
-          }, delay);
-        }
-      };
-    } else {
-      const prevSub = state.currentSubscription;
-      if (prevSub) {
-        unsubscribe(ws, prevSub);
-      }
-      state.currentSubscription = parsedSub;
-      subscribe(ws, parsedSub);
-    }
-  }, [subscriptionKey, subscribe, unsubscribe, startHeartbeat, stopHeartbeat]);
-
-  const resubscribe = useCallback(
-    (newSubscription: HyperliquidSubscription) => {
-      const state = stateRef.current;
-      state.pendingSubscription = newSubscription;
-
-      if (state.ws?.readyState === WebSocket.OPEN) {
-        const prevSub = state.currentSubscription;
-        if (prevSub) {
-          unsubscribe(state.ws, prevSub);
-        }
-        state.currentSubscription = newSubscription;
-        subscribe(state.ws, newSubscription);
-      }
-    },
-    [subscribe, unsubscribe]
-  );
+  }, [onMessage]);
 
   useEffect(() => {
-    const state = stateRef.current;
-    if (!enabled || !subscriptionKey) {
-      closeWs();
+    onConnectionChangeRef.current = onConnectionChange;
+  }, [onConnectionChange]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Cleanup subscription
+      if (subRef.current) {
+        subRef.current.unsubscribe();
+        subRef.current = null;
+      }
+    };
+  }, []);
+
+  // Subscribe/unsubscribe when subscription changes
+  useEffect(() => {
+    // Cleanup previous subscription
+    if (subRef.current) {
+      subRef.current.unsubscribe();
+      subRef.current = null;
+    }
+
+    if (!enabled || !subscription) {
+      setIsConnected(false);
+      onConnectionChangeRef.current?.(false);
       return;
     }
 
-    state.isMounted = true;
-    connect();
+    const { type: channel, coin, nSigFigs, interval } = subscription;
+
+    if (!coin) return;
+
+    const transport = new WebSocketTransport();
+    const client = new SubscriptionClient({ transport });
+    clientRef.current = client;
+
+    const subscribe = async () => {
+      try {
+        if (channel === "l2Book") {
+          subRef.current = await client.l2Book(
+            { coin, nSigFigs: nSigFigs ?? null },
+            (data: unknown) => onMessageRef.current(data, channel)
+          );
+        } else if (channel === "candle" && interval) {
+          subRef.current = await client.candle(
+            { coin, interval: interval as Interval },
+            (data: unknown) => onMessageRef.current(data, channel)
+          );
+        } else if (channel === "trades") {
+          subRef.current = await client.trades({ coin }, (data: unknown) =>
+            onMessageRef.current(data, channel)
+          );
+        } else if (channel === "allMids") {
+          subRef.current = await client.allMids((data: unknown) =>
+            onMessageRef.current(data, channel)
+          );
+        }
+
+        if (isMountedRef.current) {
+          setIsConnected(true);
+          onConnectionChangeRef.current?.(true);
+        }
+      } catch (err) {
+        if (isMountedRef.current) {
+          onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
+        }
+      }
+    };
+
+    subscribe();
 
     return () => {
-      state.isMounted = false;
+      if (subRef.current) {
+        subRef.current.unsubscribe();
+        subRef.current = null;
+      }
+      setIsConnected(false);
+      onConnectionChangeRef.current?.(false);
     };
-  }, [enabled, subscriptionKey]);
+  }, [
+    enabled,
+    subscription?.type,
+    subscription?.coin,
+    subscription?.interval,
+    subscription?.nSigFigs,
+  ]);
+
+  const resubscribe = useCallback(
+    async (newSubscription: HyperliquidSubscription) => {
+      if (!clientRef.current || !isConnected) return;
+
+      if (subRef.current) {
+        subRef.current.unsubscribe();
+      }
+
+      const { type: channel, coin, nSigFigs, interval } = newSubscription;
+
+      if (!coin) return;
+
+      try {
+        if (channel === "l2Book") {
+          subRef.current = await clientRef.current.l2Book(
+            { coin, nSigFigs: nSigFigs ?? null },
+            (data: unknown) => onMessageRef.current(data, channel)
+          );
+        } else if (channel === "candle" && interval) {
+          subRef.current = await clientRef.current.candle(
+            { coin, interval: interval as Interval },
+            (data: unknown) => onMessageRef.current(data, channel)
+          );
+        }
+      } catch (err) {
+        onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
+      }
+    },
+    [isConnected]
+  );
 
   return {
     resubscribe,

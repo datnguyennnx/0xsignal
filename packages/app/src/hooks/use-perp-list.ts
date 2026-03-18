@@ -16,7 +16,7 @@ export function usePerpList() {
     queryKey: ["hyperliquid-perp"],
     queryFn: async () => {
       const [metaAndAssetCtxs, allMids] = await Promise.all([
-        hyperliquidApi.getMetaAndAssetCtxs(""),
+        hyperliquidApi.getMetaAndAssetCtxs(),
         hyperliquidApi.getAllMids(),
       ]);
 
@@ -44,8 +44,8 @@ export function usePerpList() {
           openInterest: ctx.openInterest,
           prevDayPx: ctx.prevDayPx,
           dayNtlVlm: ctx.dayNtlVlm,
-          premium: ctx.premium,
-          markPx: midPrice || ctx.markPx,
+          premium: ctx.premium ?? "",
+          markPx: midPrice ?? ctx.markPx ?? "",
           maxLeverage: asset.maxLeverage || 10,
           category: "crypto",
         });

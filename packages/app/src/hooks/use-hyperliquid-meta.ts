@@ -40,12 +40,7 @@ export function useHyperliquidMeta() {
     const map = new Map<string, AssetPrecision>();
     if (!data?.universe) return map;
     for (const asset of data.universe) {
-      // Use pxDecimals directly from Hyperliquid API - it's the source of truth
-      // This gives correct precision for each token:
-      // - BTC, ETH: pxDecimals = 2-3 (prices like 67000, 3500)
-      // - SOL: pxDecimals = 3-4 (prices like 150)
-      // - Small altcoins: pxDecimals = 5-6 (prices like 0.001-0.05)
-      const pxDec = asset.pxDecimals ?? 5;
+      const pxDec = 5; // Default to 5 decimals for perp prices
       const sz = asset.szDecimals ?? 4;
       map.set(asset.name.toUpperCase(), {
         pxDecimals: Math.min(pxDec, MAX_DECIMALS_PERP),
