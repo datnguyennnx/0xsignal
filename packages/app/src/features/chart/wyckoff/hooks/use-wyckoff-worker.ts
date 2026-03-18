@@ -1,7 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
-import type { WyckoffAnalysisResult, WyckoffConfig } from "../workers/wyckoff-worker";
-import { workerPool } from "../../core/worker-pool";
+import {
+  analyzeWyckoff,
+  DEFAULT_WYCKOFF_CONFIG,
+  type WyckoffAnalysis,
+  type WyckoffConfig,
+} from "@0xsignal/shared";
 
 interface UseWyckoffWorkerProps {
   data: ChartDataPoint[];
@@ -10,7 +14,7 @@ interface UseWyckoffWorkerProps {
 }
 
 interface UseWyckoffWorkerResult {
-  analysis: WyckoffAnalysisResult | null;
+  analysis: WyckoffAnalysis | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -22,7 +26,7 @@ export function useWyckoffWorker({
   enabled,
   config,
 }: UseWyckoffWorkerProps): UseWyckoffWorkerResult {
-  const [analysis, setAnalysis] = useState<WyckoffAnalysisResult | null>(null);
+  const [analysis, setAnalysis] = useState<WyckoffAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -37,7 +41,8 @@ export function useWyckoffWorker({
     setError(null);
 
     try {
-      const result = await workerPool.executeWyckoff(data, config);
+      const mergedConfig = { ...DEFAULT_WYCKOFF_CONFIG, ...config };
+      const result = analyzeWyckoff(data, mergedConfig);
       if (!abortControllerRef.current.signal.aborted) {
         setAnalysis(result);
         setError(null);

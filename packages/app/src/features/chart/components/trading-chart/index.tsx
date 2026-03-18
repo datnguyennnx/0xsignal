@@ -27,14 +27,14 @@ import { useHyperliquidMeta } from "@/hooks/use-hyperliquid-meta";
 import { useChartConfig } from "@/hooks/use-breakpoint";
 
 import {
-  useICTOverlay,
+  useICTOverlayMemo,
   useICTWorker,
   DEFAULT_ICT_VISIBILITY,
   type ICTVisibility,
   type ICTFeature,
 } from "../../ict";
 import {
-  useWyckoffOverlay,
+  useWyckoffOverlayMemo,
   useWyckoffWorker,
   DEFAULT_WYCKOFF_VISIBILITY,
   type WyckoffVisibility,
@@ -147,7 +147,7 @@ const TradingChartComponent = ({
     visibleCandles: chartConfig.visibleCandles,
   });
 
-  useICTOverlay({
+  useICTOverlayMemo({
     chart,
     series: candlestickSeries,
     analysis: ictAnalysis,
@@ -156,7 +156,7 @@ const TradingChartComponent = ({
     lastTime,
   });
 
-  useWyckoffOverlay({
+  useWyckoffOverlayMemo({
     chart,
     series: candlestickSeries,
     analysis: wyckoffAnalysis,

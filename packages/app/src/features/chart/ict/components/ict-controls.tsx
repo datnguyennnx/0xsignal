@@ -96,8 +96,9 @@ export const ICTControls = memo(function ICTControls({
         ))}
       </div>
 
-      <div className="px-4 py-2 border-t border-border bg-muted/30">
-        <p className="text-[10px] text-muted-foreground">ICT concepts by Michael J. Huddleston</p>
+      <div className="px-4 py-2 bg-muted/30">
+        <p className="text-[10px] text-muted-foreground">Best on 15m, 1H, 4H timeframes</p>
+        <p className="text-[9px] text-muted-foreground/60 mt-0.5">ICT by Michael J. Huddleston</p>
       </div>
     </div>
   );

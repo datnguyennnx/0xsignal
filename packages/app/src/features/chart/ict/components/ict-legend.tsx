@@ -1,11 +1,11 @@
 import { memo, useMemo } from "react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/core/utils/cn";
-import type { ICTAnalysisResult } from "../workers/ict-worker";
+import type { ICTAnalysis } from "@0xsignal/shared";
 import type { ICTVisibility } from "../types";
 
 interface ICTLegendProps {
-  analysis: ICTAnalysisResult | null;
+  analysis: ICTAnalysis | null;
   visibility: ICTVisibility;
   className?: string;
 }

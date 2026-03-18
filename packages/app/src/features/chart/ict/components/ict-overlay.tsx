@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, memo } from "react";
 import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
-import type { ICTAnalysisResult } from "../workers/ict-worker";
+import type { ICTAnalysis } from "@0xsignal/shared";
 import type { ICTVisibility } from "../types";
 import { ZonePrimitive } from "../primitives";
 import { BandPrimitive } from "../primitives";
@@ -11,7 +11,7 @@ import { useMemo } from "react";
 interface ICTOverlayProps {
   chart: IChartApi | null;
   series?: ISeriesApi<"Candlestick"> | null;
-  analysis: ICTAnalysisResult | null;
+  analysis: ICTAnalysis | null;
   visibility: ICTVisibility;
   isDark: boolean;
   lastTime: number;

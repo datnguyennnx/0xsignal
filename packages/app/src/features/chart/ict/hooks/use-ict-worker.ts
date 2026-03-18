@@ -1,7 +1,6 @@
 import { useRef, useCallback, useEffect, useState } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
-import type { ICTAnalysisResult, ICTConfig } from "../workers/ict-worker";
-import { workerPool } from "../../core/worker-pool";
+import { analyzeICT, DEFAULT_ICT_CONFIG, type ICTAnalysis, type ICTConfig } from "@0xsignal/shared";
 
 interface UseICTWorkerOptions {
   data: ChartDataPoint[];
@@ -11,7 +10,7 @@ interface UseICTWorkerOptions {
 }
 
 interface UseICTWorkerResult {
-  analysis: ICTAnalysisResult | null;
+  analysis: ICTAnalysis | null;
   isLoading: boolean;
   error: string | null;
   refresh: () => void;
@@ -28,7 +27,7 @@ export const useICTWorker = ({
 }: UseICTWorkerOptions): UseICTWorkerResult => {
   const latestRequestIdRef = useRef<string | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [analysis, setAnalysis] = useState<ICTAnalysisResult | null>(null);
+  const [analysis, setAnalysis] = useState<ICTAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,7 +41,8 @@ export const useICTWorker = ({
     latestRequestIdRef.current = id;
 
     try {
-      const result = await workerPool.executeICT(data, config);
+      const mergedConfig = { ...DEFAULT_ICT_CONFIG, ...config };
+      const result = analyzeICT(data, mergedConfig);
       if (id === latestRequestIdRef.current) {
         setAnalysis(result);
         setError(null);

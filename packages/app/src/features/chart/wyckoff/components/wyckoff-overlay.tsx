@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
-import type { WyckoffAnalysisResult } from "../workers/wyckoff-worker";
+import type { WyckoffAnalysis } from "@0xsignal/shared";
 import type { WyckoffVisibility } from "../types";
 import { ZonePrimitive } from "../../ict/primitives";
 import { getWyckoffColors } from "../utils";
@@ -9,7 +9,7 @@ import { getWyckoffColors } from "../utils";
 interface WyckoffOverlayProps {
   chart: IChartApi | null;
   series?: ISeriesApi<"Candlestick"> | null;
-  analysis: WyckoffAnalysisResult | null;
+  analysis: WyckoffAnalysis | null;
   visibility: WyckoffVisibility;
   isDark: boolean;
   lastTime: number;
@@ -17,6 +17,8 @@ interface WyckoffOverlayProps {
 
 interface WyckoffRefs {
   rangePrimitive: ZonePrimitive | null;
+  phasePrimitives: ZonePrimitive[];
+  effortLines: ISeriesApi<"Line">[];
   climaxLines: ISeriesApi<"Line">[];
   eventLines: ISeriesApi<"Line">[];
 }
@@ -35,6 +37,14 @@ const ensureUniqueAscending = (
     .map(([time, value]) => ({ time: time as Time, value }));
 };
 
+const PHASE_COLORS: Record<string, { fill: string; border: string }> = {
+  A: { fill: "#1a1a2e", border: "#6366f1" },
+  B: { fill: "#1a1a2e", border: "#8b5cf6" },
+  C: { fill: "#1a1a2e", border: "#ec4899" },
+  D: { fill: "#1a1a2e", border: "#14b8a6" },
+  E: { fill: "#1a1a2e", border: "#f59e0b" },
+};
+
 export function useWyckoffOverlay({
   chart,
   series,
@@ -45,6 +55,8 @@ export function useWyckoffOverlay({
 }: WyckoffOverlayProps) {
   const refs = useRef<WyckoffRefs>({
     rangePrimitive: null,
+    phasePrimitives: [],
+    effortLines: [],
     climaxLines: [],
     eventLines: [],
   });
@@ -59,6 +71,13 @@ export function useWyckoffOverlay({
     if (!chart) return;
     const r = refs.current;
 
+    r.effortLines.forEach((s) => {
+      try {
+        chart.removeSeries(s);
+      } catch {
+        /* ignore */
+      }
+    });
     r.climaxLines.forEach((s) => {
       try {
         chart.removeSeries(s);
@@ -75,18 +94,134 @@ export function useWyckoffOverlay({
     });
 
     const s = seriesRef.current;
-    if (s && r.rangePrimitive) {
-      try {
-        s.detachPrimitive(r.rangePrimitive);
-      } catch {
-        /* ignore */
+    if (s) {
+      r.phasePrimitives.forEach((primitive) => {
+        try {
+          s.detachPrimitive(primitive);
+        } catch {
+          /* ignore */
+        }
+      });
+      if (r.rangePrimitive) {
+        try {
+          s.detachPrimitive(r.rangePrimitive);
+        } catch {
+          /* ignore */
+        }
       }
     }
 
     r.rangePrimitive = null;
+    r.phasePrimitives = [];
+    r.effortLines = [];
     r.climaxLines = [];
     r.eventLines = [];
   }, [chart]);
+
+  const renderPhases = useCallback(() => {
+    if (!chart || !analysis?.phases.length || !seriesRef.current) return;
+
+    const colors = getWyckoffColors(isDark);
+    const primitives: ZonePrimitive[] = [];
+
+    for (const phase of analysis.phases) {
+      const phaseColors = PHASE_COLORS[phase.phase] || PHASE_COLORS.A;
+      const cycleLabel = phase.cycle.charAt(0).toUpperCase() + phase.cycle.slice(1).slice(0, 4);
+
+      const primitive = new ZonePrimitive({
+        startTime: phase.startTime,
+        endTime:
+          phase.endIndex > 0 ? (analysis.events[phase.endIndex]?.time ?? lastTime) : lastTime,
+        highPrice: 0,
+        lowPrice: 0,
+        fillColor: phaseColors.fill,
+        borderColor: phaseColors.border,
+        borderWidth: 2,
+        label: `Phase ${phase.phase} (${cycleLabel})`,
+        showMidline: false,
+      });
+
+      seriesRef.current?.attachPrimitive(primitive);
+      primitives.push(primitive);
+    }
+
+    refs.current.phasePrimitives = primitives;
+  }, [chart, analysis, isDark, lastTime]);
+
+  const renderEffortResults = useCallback(() => {
+    if (!chart || !analysis?.effortResults.length) return;
+
+    const colors = getWyckoffColors(isDark);
+    const lines: ISeriesApi<"Line">[] = [];
+
+    for (const effort of analysis.effortResults.slice(-6)) {
+      let color: string;
+      let label: string;
+
+      switch (effort.divergence) {
+        case "bullish":
+          color = colors.effort?.bullish ?? "#14b8a6";
+          label = "Effort+";
+          break;
+        case "bearish":
+          color = colors.effort?.bearish ?? "#ef4444";
+          label = "Effort-";
+          break;
+        default:
+          color = colors.effort?.neutral ?? "#6b7280";
+          label = "Effort~";
+      }
+
+      const lineWidth = effort.divergence === "neutral" ? 1 : 2;
+      const lineStyle = effort.divergence === "neutral" ? 2 : 0;
+
+      const line = chart.addSeries(LineSeries, {
+        color,
+        lineWidth,
+        lineStyle,
+        lastValueVisible: true,
+        priceLineVisible: false,
+        crosshairMarkerVisible: true,
+        title: label,
+      });
+
+      const effortValue = effort.effort;
+      const resultValue = effort.result;
+
+      const lineData = ensureUniqueAscending([
+        { time: effort.time, value: effortValue },
+        { time: lastTime, value: effortValue },
+      ]);
+
+      if (lineData.length >= 2) {
+        line.setData(lineData);
+        lines.push(line);
+      }
+
+      if (Math.abs(effortValue - resultValue) > effortValue * 0.1) {
+        const resultLine = chart.addSeries(LineSeries, {
+          color: colors.effort?.result ?? "#94a3b8",
+          lineWidth: 1,
+          lineStyle: 3,
+          lastValueVisible: false,
+          priceLineVisible: false,
+          title: `${label} Result`,
+        });
+
+        const resultData = ensureUniqueAscending([
+          { time: effort.time, value: resultValue },
+          { time: lastTime, value: resultValue },
+        ]);
+
+        if (resultData.length >= 2) {
+          resultLine.setData(resultData);
+          lines.push(resultLine);
+        }
+      }
+    }
+
+    refs.current.effortLines = lines;
+  }, [chart, analysis, isDark, lastTime]);
 
   const renderTradingRange = useCallback(() => {
     if (!chart || !analysis?.tradingRange || !seriesRef.current) return;
@@ -207,17 +342,28 @@ export function useWyckoffOverlay({
     cleanup();
     if (!chart || !analysis) return;
 
+    if (visibility.phases) renderPhases();
+    if (visibility.effortResult) renderEffortResults();
     if (visibility.tradingRange) renderTradingRange();
     if (visibility.climaxes) renderClimaxes();
     if (visibility.springs) renderEvents();
 
     return cleanup;
-  }, [chart, analysis, visibility, cleanup, renderTradingRange, renderClimaxes, renderEvents]);
+  }, [
+    chart,
+    analysis,
+    visibility,
+    cleanup,
+    renderPhases,
+    renderEffortResults,
+    renderTradingRange,
+    renderClimaxes,
+    renderEvents,
+  ]);
 
   return { cleanup };
 }
 
-// Memoized wrapper to prevent unnecessary re-renders
 export const useWyckoffOverlayMemo = (props: WyckoffOverlayProps) => {
   const memoizedProps = useMemo(
     () => ({
@@ -235,6 +381,8 @@ export const useWyckoffOverlayMemo = (props: WyckoffOverlayProps) => {
       props.visibility.tradingRange,
       props.visibility.climaxes,
       props.visibility.springs,
+      props.visibility.effortResult,
+      props.visibility.phases,
       props.isDark,
       props.lastTime,
     ]

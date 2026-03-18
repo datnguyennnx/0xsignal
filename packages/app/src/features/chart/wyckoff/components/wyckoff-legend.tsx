@@ -1,10 +1,10 @@
 import { memo } from "react";
-import type { WyckoffAnalysisResult } from "../workers/wyckoff-worker";
+import type { WyckoffAnalysis } from "@0xsignal/shared";
 import type { WyckoffVisibility } from "../types";
 import { cn } from "@/core/utils/cn";
 
 interface WyckoffLegendProps {
-  analysis: WyckoffAnalysisResult;
+  analysis: WyckoffAnalysis;
   visibility: WyckoffVisibility;
 }
 

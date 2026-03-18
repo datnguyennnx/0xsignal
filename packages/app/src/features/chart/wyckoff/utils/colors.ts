@@ -10,7 +10,7 @@ export interface WyckoffColors {
     sow: string;
     st: string;
   };
-  effort: { bullish: string; bearish: string };
+  effort: { bullish: string; bearish: string; neutral: string; result: string };
   phase: { fill: string; border: string };
 }
 
@@ -37,6 +37,8 @@ export const getWyckoffColors = (isDark: boolean): WyckoffColors => {
       effort: {
         bullish: "rgba(16, 185, 129, 0.50)",
         bearish: "rgba(244, 63, 94, 0.50)",
+        neutral: "rgba(107, 114, 128, 0.40)",
+        result: "rgba(148, 163, 184, 0.35)",
       },
       phase: {
         fill: "rgba(99, 102, 241, 0.04)",
@@ -66,6 +68,8 @@ export const getWyckoffColors = (isDark: boolean): WyckoffColors => {
     effort: {
       bullish: "rgba(5, 150, 105, 0.45)",
       bearish: "rgba(225, 29, 72, 0.45)",
+      neutral: "rgba(107, 114, 128, 0.35)",
+      result: "rgba(100, 116, 139, 0.30)",
     },
     phase: {
       fill: "rgba(79, 70, 229, 0.03)",
