@@ -1,16 +1,21 @@
 /** @fileoverview Indicators hook - manages technical indicators state */
-import { useState, useCallback, useMemo } from "react";
-import type { ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
-import { MULTI_INSTANCE_INDICATORS } from "@0xsignal/shared";
+import { useState, useCallback } from "react";
+import type { ActiveIndicator, IndicatorConfig, ChartDataPoint } from "@0xsignal/shared";
+import {
+  createIndicatorInstanceId,
+  getIndicatorBaseId,
+  normalizeIndicatorParams,
+} from "@0xsignal/shared";
 import { useIndicatorData } from "./use-chart-data";
+import type { IndicatorRenderEntry } from "./indicator-data.types";
 
 interface UseIndicatorsProps {
-  priceFormat: { formatter?: (price: number) => string };
+  data?: ChartDataPoint[];
 }
 
 interface UseIndicatorsResult {
   activeIndicators: ActiveIndicator[];
-  indicatorData: Map<string, { type: "line" | "band"; data: unknown }>;
+  indicatorData: Map<string, IndicatorRenderEntry>;
   handleAddIndicator: (config: IndicatorConfig, customParams?: Record<string, number>) => void;
   handleRemoveIndicator: (indicatorId: string) => void;
   handleToggleIndicator: (indicatorId: string) => void;
@@ -25,32 +30,37 @@ const generateRandomColor = (): string => {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
-export const useIndicators = ({ priceFormat }: UseIndicatorsProps): UseIndicatorsResult => {
+export const useIndicators = ({ data = [] }: UseIndicatorsProps): UseIndicatorsResult => {
   const [activeIndicators, setActiveIndicators] = useState<ActiveIndicator[]>([]);
 
-  const indicatorData = useIndicatorData(activeIndicators, []);
+  const indicatorData = useIndicatorData(activeIndicators, data);
 
-  const hasActiveOverlays = useMemo(() => activeIndicators.length > 0, [activeIndicators.length]);
+  const hasActiveOverlays = activeIndicators.length > 0;
 
   const handleAddIndicator = useCallback(
     (config: IndicatorConfig, customParams?: Record<string, number>) => {
-      const params = customParams || config.defaultParams || {};
-      const uniqueId = MULTI_INSTANCE_INDICATORS.includes(
-        config.id as (typeof MULTI_INSTANCE_INDICATORS)[number]
-      )
-        ? `${config.id}-${params.period || 20}`
-        : config.id;
+      const params = normalizeIndicatorParams(config, customParams);
+      const instanceId = createIndicatorInstanceId(config, params);
 
       setActiveIndicators((prev) => {
-        if (prev.some((ind) => ind.config.id === uniqueId)) return prev;
+        const existingIdx = prev.findIndex((ind) => ind.instanceId === instanceId);
+        if (existingIdx >= 0) {
+          return prev.map((indicator, index) =>
+            index === existingIdx
+              ? {
+                  ...indicator,
+                  params,
+                  visible: true,
+                }
+              : indicator
+          );
+        }
+
         return [
           ...prev,
           {
-            config: {
-              ...config,
-              id: uniqueId,
-              name: params.period ? `${config.name} (${params.period})` : config.name,
-            },
+            instanceId,
+            config,
             params,
             visible: true,
             color: generateRandomColor(),
@@ -62,13 +72,29 @@ export const useIndicators = ({ priceFormat }: UseIndicatorsProps): UseIndicator
   );
 
   const handleRemoveIndicator = useCallback((indicatorId: string) => {
-    setActiveIndicators((prev) => prev.filter((ind) => ind.config.id !== indicatorId));
+    setActiveIndicators((prev) => {
+      const hasDirectMatch = prev.some((ind) => ind.instanceId === indicatorId);
+      if (hasDirectMatch) {
+        return prev.filter((ind) => ind.instanceId !== indicatorId);
+      }
+
+      return prev.filter((ind) => getIndicatorBaseId(ind.instanceId) !== indicatorId);
+    });
   }, []);
 
   const handleToggleIndicator = useCallback((indicatorId: string) => {
-    setActiveIndicators((prev) =>
-      prev.map((ind) => (ind.config.id === indicatorId ? { ...ind, visible: !ind.visible } : ind))
-    );
+    setActiveIndicators((prev) => {
+      const hasDirectMatch = prev.some((ind) => ind.instanceId === indicatorId);
+      if (hasDirectMatch) {
+        return prev.map((ind) =>
+          ind.instanceId === indicatorId ? { ...ind, visible: !ind.visible } : ind
+        );
+      }
+
+      return prev.map((ind) =>
+        getIndicatorBaseId(ind.instanceId) === indicatorId ? { ...ind, visible: !ind.visible } : ind
+      );
+    });
   }, []);
 
   const handleResetAll = useCallback(() => {

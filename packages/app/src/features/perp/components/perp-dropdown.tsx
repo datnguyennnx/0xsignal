@@ -181,8 +181,9 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
               />
               {query && (
                 <button
+                  type="button"
                   onClick={() => setQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground bg-transparent border-none p-0 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -193,6 +194,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
           {/* Header */}
           <div className="hidden sm:grid grid-cols-4 gap-2 px-4 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
             <button
+              type="button"
               onClick={() => {
                 if (sortBy === "name") {
                   setSortDesc((prev) => !prev);
@@ -201,7 +203,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
                   setSortDesc(true);
                 }
               }}
-              className="text-left hover:text-foreground transition-colors flex items-center gap-1"
+              className="text-left hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
             >
               Market
               {sortBy === "name" ? (
@@ -216,6 +218,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
             </button>
             <span className="text-right">Price</span>
             <button
+              type="button"
               onClick={() => {
                 if (sortBy === "change") {
                   setSortDesc((prev) => !prev);
@@ -224,14 +227,14 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
                   setSortDesc(true);
                 }
               }}
-              className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1"
+              className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1 cursor-pointer bg-transparent border-none p-0"
             >
               24h
               {sortBy === "change" ? (
                 sortDesc ? (
-                  <ArrowDown className="w-3 h-3 text-gain" />
+                  <ArrowDown className="w-3 h-3 text-green-500" />
                 ) : (
-                  <ArrowUp className="w-3 h-3 text-loss" />
+                  <ArrowUp className="w-3 h-3 text-red-500" />
                 )
               ) : (
                 <ArrowUpDown className="w-3 h-3 opacity-50" />
@@ -241,6 +244,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
           </div>
           <div className="sm:hidden grid grid-cols-3 gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
             <button
+              type="button"
               onClick={() => {
                 if (sortBy === "name") {
                   setSortDesc((prev) => !prev);
@@ -249,7 +253,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
                   setSortDesc(true);
                 }
               }}
-              className="text-left hover:text-foreground transition-colors flex items-center gap-1"
+              className="text-left hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
             >
               Market
               {sortBy === "name" ? (
@@ -264,6 +268,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
             </button>
             <span className="text-right">Price</span>
             <button
+              type="button"
               onClick={() => {
                 if (sortBy === "change") {
                   setSortDesc((prev) => !prev);
@@ -272,14 +277,14 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
                   setSortDesc(true);
                 }
               }}
-              className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1"
+              className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1 cursor-pointer bg-transparent border-none p-0"
             >
               24h
               {sortBy === "change" ? (
                 sortDesc ? (
-                  <ArrowDown className="w-3 h-3 text-gain" />
+                  <ArrowDown className="w-3 h-3 text-green-500" />
                 ) : (
-                  <ArrowUp className="w-3 h-3 text-loss" />
+                  <ArrowUp className="w-3 h-3 text-red-500" />
                 )
               ) : (
                 <ArrowUpDown className="w-3 h-3 opacity-50" />
@@ -324,9 +329,10 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
                   return (
                     <button
                       key={item.coin}
+                      type="button"
                       onClick={() => handleSelect(item.coin)}
                       className={cn(
-                        "w-full text-left transition-colors hover:bg-muted/40",
+                        "w-full text-left transition-colors hover:bg-muted/40 focus:bg-muted/40 focus:outline-none cursor-pointer",
                         isActive && "bg-muted/60"
                       )}
                     >

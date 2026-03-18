@@ -9,6 +9,7 @@ import {
 } from "@/hooks/use-hyperliquid-orderbook";
 import { cn } from "@/core/utils/cn";
 import { Loader2 } from "lucide-react";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 interface OrderbookWidgetProps {
   symbol: string;
@@ -24,8 +25,8 @@ interface PopupData {
 }
 
 const ROW_HEIGHT = 24;
-const VISIBLE_ROWS = 20; // Virtualization window size
-const OVERSCAN = 5; // Extra rows to render for smooth scrolling
+const VISIBLE_ROWS = 20;
+const OVERSCAN = 5;
 
 function formatPriceWithScaling(price: number, scaling: number): string {
   let decimals: number;
@@ -55,17 +56,17 @@ const OrderbookToolbar = memo(
     scalingOptions: TickSizeOption[];
   }) => (
     <div className="flex items-center justify-end px-3 py-2 border-b border-border/20 flex-shrink-0 bg-muted/10">
-      <select
-        value={priceScaling}
+      <NativeSelect
+        size="sm"
+        value={priceScaling.toString()}
         onChange={(e) => onPriceScalingChange(Number(e.target.value))}
-        className="bg-transparent text-[11px] font-mono border border-border/30 rounded px-1.5 py-1 h-6 min-w-[60px]"
       >
         {scalingOptions.map((opt) => (
-          <option key={opt.value} value={opt.value}>
+          <NativeSelectOption key={opt.value} value={opt.value.toString()}>
             {opt.label}
-          </option>
+          </NativeSelectOption>
         ))}
-      </select>
+      </NativeSelect>
     </div>
   ),
   (prev, next) => prev.priceScaling === next.priceScaling
@@ -200,7 +201,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const bestPrice = orderbook?.asks[0]?.price || orderbook?.bids[0]?.price || 0;
   const scalingOptions = useMemo(() => generateTickSizeOptions(bestPrice), [bestPrice]);
 
-  // Reset price scaling when symbol changes
   useEffect(() => {
     if (prevSymbolRef.current !== null && prevSymbolRef.current !== symbol) {
       setPriceScaling(0);
@@ -208,10 +208,8 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     prevSymbolRef.current = symbol;
   }, [symbol]);
 
-  // Set initial default to most granular option
   useEffect(() => {
     if (!orderbook) {
-      // Waiting for orderbook data, don't set scaling yet
       return;
     }
     if (scalingOptions.length > 0 && priceScaling === 0) {
@@ -240,7 +238,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     };
   }, [orderbook, priceScaling, shouldSkipGrouping]);
 
-  // Virtualization: only render visible rows
   const { visibleAsks, visibleBids, maxTotal } = useMemo(() => {
     if (!groupedOrderbook) return { visibleAsks: [], visibleBids: [], maxTotal: 0 };
     const asks = groupedOrderbook.asks.slice(0, VISIBLE_ROWS);
@@ -382,7 +379,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       </div>
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* Asks - reversed order */}
         <div className="flex flex-col-reverse relative flex-1 overflow-hidden">
           {visibleAsks.map((level, index) => (
             <div key={level.price} data-row className="flex-shrink-0 relative">
@@ -400,7 +396,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
           ))}
         </div>
 
-        {/* Spread */}
         <div className="flex items-center justify-center gap-6 py-1.5 border-y border-border/10 bg-muted/20 flex-shrink-0">
           <span className="text-xs font-mono font-medium text-muted-foreground/80">Spread</span>
           <span className="text-xs font-mono text-muted-foreground/80">
@@ -411,7 +406,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
           </span>
         </div>
 
-        {/* Bids */}
         <div className="flex flex-col relative flex-1 overflow-hidden">
           {visibleBids.map((level, index) => (
             <div key={level.price} data-row className="flex-shrink-0 relative">
@@ -430,7 +424,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         </div>
       </div>
 
-      {/* Popup */}
       {popupData && popupPosition && (
         <div
           className="fixed bg-card/95 border border-border/30 rounded-lg p-3 shadow-xl z-[100] w-64 pointer-events-none"

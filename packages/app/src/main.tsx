@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { WagmiProvider } from "wagmi";
 import { QueryClientProvider } from "@tanstack/react-query";
+import "katex/dist/katex.min.css";
 import "./index.css";
 import App from "./App";
 import { config } from "./config/web3";

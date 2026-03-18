@@ -2,26 +2,24 @@ import type { GlobalMarketData, CryptoPrice } from "@0xsignal/shared";
 import { memo, useState, useMemo } from "react";
 import { cn } from "@/core/utils/cn";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/error-state";
 import { GlobalMarketBar } from "@/features/dashboard/components/global-market-bar";
+import { Pagination } from "@/components/ui/pagination";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { usePrices, useGlobalMarket } from "@/hooks/prices";
 import { useDocumentTitle } from "@/hooks/use-document-title";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Sparkline } from "@/components/sparkline";
 
 const PAGE_SIZE = 20;
 const MAX_ITEMS = 100;
 
-interface DashboardContentProps {
-  cryptos: CryptoPrice[];
-  globalMarket: GlobalMarketData | null;
-  fetchedAt?: Date;
-  page: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
-}
-
-// Format Giá theo độ lớn
 const formatPrice = (price: number): string => {
   const config =
     price >= 1000 ? { min: 2, max: 2 } : price >= 1 ? { min: 2, max: 4 } : { min: 4, max: 6 };
@@ -34,17 +32,59 @@ const formatPrice = (price: number): string => {
   });
 };
 
+const formatMarketCap = (value: number): string => {
+  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
+  return `$${value.toLocaleString()}`;
+};
+
+const formatVolume = (value: number): string => {
+  if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
+  return value.toFixed(2);
+};
+
+const ChangeCell = memo(function ChangeCell({ value }: { value: number }) {
+  const isPositive = value >= 0;
+  return (
+    <span
+      className={cn(
+        "font-mono text-sm tabular-nums",
+        isPositive ? "text-green-500" : "text-red-500"
+      )}
+    >
+      {isPositive ? "+" : ""}
+      {value.toFixed(2)}%
+    </span>
+  );
+});
+
+interface DashboardContentProps {
+  cryptos: CryptoPrice[];
+  globalMarket: GlobalMarketData | null;
+  totalCryptos: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+}
+
 const DashboardContent = memo(function DashboardContent({
   cryptos,
   globalMarket,
+  totalCryptos,
   page,
-  totalPages,
+  pageSize,
   onPageChange,
+  onPageSizeChange,
 }: DashboardContentProps) {
+  const totalPages = Math.ceil(totalCryptos / pageSize);
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium h-full overflow-y-auto">
       <div className="container-fluid py-4 sm:py-6">
-        {/* Header */}
         <header className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0 mb-5 sm:mb-6">
           <div>
             <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
@@ -57,112 +97,90 @@ const DashboardContent = memo(function DashboardContent({
           {globalMarket && <GlobalMarketBar data={globalMarket} className="shrink-0 mt-1" />}
         </header>
 
-        {/* Watchlist Table */}
         <section className="bg-card rounded-lg border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left py-3 px-4 text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
-                    Asset
-                  </th>
-                  <th className="text-right py-3 px-4 text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
-                    Price
-                  </th>
-                  <th className="text-right py-3 px-4 text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
-                    24h Change
-                  </th>
-                  <th className="text-right py-3 px-4 text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider hidden sm:table-cell">
-                    Market Cap
-                  </th>
-                  <th className="text-right py-3 px-4 text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">
-                    Volume (24h)
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {cryptos.map((crypto, index) => (
-                  <tr key={crypto.symbol} className="border-b border-border/50">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground tabular-nums w-6">
-                          {index + 1}
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="w-10">#</TableHead>
+                <TableHead className="min-w-[140px]">Coin</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">1h</TableHead>
+                <TableHead className="text-right">24h</TableHead>
+                <TableHead className="text-right">7d</TableHead>
+                <TableHead className="text-right hidden sm:table-cell">Market Cap</TableHead>
+                <TableHead className="text-right hidden md:table-cell">Volume (24h)</TableHead>
+                <TableHead className="text-right">Last 7 Days</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {cryptos.map((crypto, index) => (
+                <TableRow key={crypto.symbol} className="hover:bg-muted/20">
+                  <TableCell>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {(page - 1) * pageSize + index + 1}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {crypto.image && (
+                        <img
+                          src={crypto.image}
+                          alt={crypto.symbol}
+                          className="w-6 h-6 rounded-full"
+                        />
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-medium text-sm">
+                          {crypto.symbol.toUpperCase()}
                         </span>
-                        {crypto.image && (
-                          <img
-                            src={crypto.image}
-                            alt={crypto.symbol}
-                            className="w-8 h-8 rounded-full"
-                          />
-                        )}
-                        <div>
-                          <div className="font-mono font-medium text-sm">
-                            {crypto.symbol.toUpperCase()}
-                          </div>
-                          {crypto.name && (
-                            <div className="text-xs text-muted-foreground">{crypto.name}</div>
-                          )}
-                        </div>
+                        <span className="text-xs text-muted-foreground truncate max-w-[100px]">
+                          {crypto.name}
+                        </span>
                       </div>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <span className="font-mono text-sm tabular-nums">
-                        {formatPrice(crypto.price)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <span
-                        className={cn(
-                          "font-mono text-sm tabular-nums",
-                          crypto.change24h >= 0 ? "text-green-500" : "text-red-500"
-                        )}
-                      >
-                        {crypto.change24h >= 0 ? "+" : ""}
-                        {crypto.change24h.toFixed(2)}%
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right hidden sm:table-cell">
-                      <span className="font-mono text-sm tabular-nums text-muted-foreground">
-                        ${(crypto.marketCap / 1e9).toFixed(2)}B
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right hidden md:table-cell">
-                      <span className="font-mono text-sm tabular-nums text-muted-foreground">
-                        ${(crypto.volume24h / 1e9).toFixed(2)}B
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between py-3 px-4 border-t border-border bg-muted/30">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onPageChange(page - 1)}
-                disabled={page === 1}
-                className="gap-1 h-8"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Prev
-              </Button>
-              <span className="text-xs text-muted-foreground font-mono">
-                Page {page} / {totalPages}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onPageChange(page + 1)}
-                disabled={page === totalPages}
-                className="gap-1 h-8"
-              >
-                Next
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className="font-mono text-sm tabular-nums">
+                      {formatPrice(crypto.price)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <ChangeCell value={crypto.change1h} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <ChangeCell value={crypto.change24h} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <ChangeCell value={crypto.change7d} />
+                  </TableCell>
+                  <TableCell className="text-right hidden sm:table-cell">
+                    <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                      {formatMarketCap(crypto.marketCap)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right hidden md:table-cell">
+                    <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                      ${formatVolume(crypto.volume24h)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end">
+                      <Sparkline data={crypto.sparkline7d} positive={crypto.change7d >= 0} />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalItems={totalCryptos}
+            pageSize={pageSize}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+          />
         </section>
       </div>
     </div>
@@ -182,31 +200,57 @@ const DashboardSkeleton = memo(function DashboardSkeleton() {
           </div>
         </div>
         <div className="bg-card rounded-lg border border-border overflow-hidden">
-          <div className="p-4 border-b border-border bg-muted/50">
-            <div className="flex gap-4">
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-4 w-20 ml-auto" />
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-4 w-20 hidden sm:block" />
-              <Skeleton className="h-4 w-20 hidden md:block" />
-            </div>
-          </div>
-          <div className="divide-y divide-border/50">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 p-4">
-                <Skeleton className="h-4 w-6" />
-                <Skeleton className="h-8 w-8 rounded-full" />
-                <div className="flex-1">
-                  <Skeleton className="h-4 w-20 mb-1" />
-                  <Skeleton className="h-3 w-32" />
-                </div>
-                <Skeleton className="h-4 w-24 ml-auto" />
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-4 w-24 hidden sm:block" />
-                <Skeleton className="h-4 w-24 hidden md:block" />
-              </div>
-            ))}
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="w-10">#</TableHead>
+                <TableHead className="min-w-[140px]">Coin</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">1h</TableHead>
+                <TableHead className="text-right">24h</TableHead>
+                <TableHead className="text-right">7d</TableHead>
+                <TableHead className="text-right hidden sm:table-cell">Market Cap</TableHead>
+                <TableHead className="text-right hidden md:table-cell">Volume (24h)</TableHead>
+                <TableHead className="text-right">Last 7 Days</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 10 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell>
+                    <Skeleton className="h-4 w-6" />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-6 w-6 rounded-full" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="h-4 w-20 ml-auto" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="h-4 w-12 ml-auto" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="h-4 w-12 ml-auto" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="h-4 w-12 ml-auto" />
+                  </TableCell>
+                  <TableCell className="text-right hidden sm:table-cell">
+                    <Skeleton className="h-4 w-16 ml-auto" />
+                  </TableCell>
+                  <TableCell className="text-right hidden md:table-cell">
+                    <Skeleton className="h-4 w-16 ml-auto" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="h-8 w-24 ml-auto" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </div>
@@ -214,22 +258,32 @@ const DashboardSkeleton = memo(function DashboardSkeleton() {
 });
 
 export function MarketDashboard() {
-  const [limit] = useState(MAX_ITEMS);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
-  // Set watchlist title
   useDocumentTitle({ title: "Market Watchlist" });
 
-  const { data: cryptos, isLoading: pricesLoading, error: pricesError } = usePrices(limit);
+  const { data: cryptos, isLoading: pricesLoading, error: pricesError } = usePrices(MAX_ITEMS);
   const { data: globalMarket, isLoading: marketLoading } = useGlobalMarket();
 
-  const totalPages = useMemo(() => Math.ceil((cryptos?.length || 0) / PAGE_SIZE), [cryptos]);
+  const totalCryptos = useMemo(() => cryptos?.length || 16642, [cryptos]);
+
   const paginatedCryptos = useMemo(
-    () => cryptos?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) || [],
-    [cryptos, page]
+    () => cryptos?.slice((page - 1) * pageSize, page * pageSize) || [],
+    [cryptos, page, pageSize]
   );
 
   const isLoading = pricesLoading || marketLoading;
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -247,10 +301,11 @@ export function MarketDashboard() {
     <DashboardContent
       cryptos={paginatedCryptos}
       globalMarket={globalMarket || null}
-      fetchedAt={new Date()}
+      totalCryptos={totalCryptos}
       page={page}
-      totalPages={totalPages}
-      onPageChange={setPage}
+      pageSize={pageSize}
+      onPageChange={handlePageChange}
+      onPageSizeChange={handlePageSizeChange}
     />
   );
 }

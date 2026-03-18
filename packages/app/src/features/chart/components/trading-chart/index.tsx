@@ -21,8 +21,7 @@
  * - useCallback for event handlers
  */
 import { useRef, useState, useCallback, useMemo, memo } from "react";
-import type { ChartDataPoint, ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
-import { getIndicatorColor, MULTI_INSTANCE_INDICATORS } from "@0xsignal/shared";
+import type { ChartDataPoint } from "@0xsignal/shared";
 import { useTheme } from "@/core/providers/theme-provider";
 import { useHyperliquidMeta } from "@/hooks/use-hyperliquid-meta";
 import { useChartConfig } from "@/hooks/use-breakpoint";
@@ -46,16 +45,17 @@ import { ChartHeader } from "./chart-header";
 import { ChartHeaderMobile } from "./chart-header-mobile";
 import { ChartControls } from "./chart-controls";
 import { OrientationWarning } from "./orientation-warning";
+import { IndicatorChips } from "./indicator-chips";
 import {
   usePriceFormat,
-  useIndicatorData,
   useOrientationWarning,
   useChartEngine,
   useChartData,
+  useFullscreen,
+  useIndicators,
 } from "./hooks";
+import { useIndicatorOverlay } from "./hooks/use-indicator-overlay";
 import { INTERVAL_RESTORE_DELAY } from "./constants";
-import { useFullscreen } from "./hooks/use-fullscreen";
-import { useIndicators } from "./hooks/use-indicators";
 import { ChartOhlcOverlay } from "./chart-ohlc-overlay";
 
 interface TradingChartProps {
@@ -68,13 +68,6 @@ interface TradingChartProps {
   isFetching?: boolean;
 }
 
-const generateRandomColor = (): string => {
-  const hue = Math.floor(Math.random() * 360);
-  const saturation = 70 + Math.floor(Math.random() * 20);
-  const lightness = 45 + Math.floor(Math.random() * 15);
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-};
-
 const TradingChartComponent = ({
   data,
   symbol,
@@ -84,8 +77,8 @@ const TradingChartComponent = ({
   hasMore,
   isFetching = false,
 }: TradingChartProps) => {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
   const chartConfig = useChartConfig();
   const { getPrecision } = useHyperliquidMeta();
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -127,7 +120,7 @@ const TradingChartComponent = ({
     handleToggleIndicator,
     handleResetAll: resetIndicators,
     hasActiveOverlays,
-  } = useIndicators({ priceFormat });
+  } = useIndicators({ data });
 
   // Stable callback wrapper for loadMore
   const handleLoadMore = useCallback(() => {
@@ -170,6 +163,12 @@ const TradingChartComponent = ({
     visibility: wyckoffVisibility,
     isDark,
     lastTime,
+  });
+
+  useIndicatorOverlay({
+    chart,
+    activeIndicators,
+    indicatorData,
   });
 
   const handleToggleICT = useCallback((feature: ICTFeature) => {
@@ -239,6 +238,7 @@ const TradingChartComponent = ({
 
       <div className="flex-1 relative bg-card">
         <div ref={chartContainerRef} className="absolute inset-0" />
+        <IndicatorChips indicators={activeIndicators} />
         <ChartOhlcOverlay displayCandle={displayCandle} precision={precision.pxDecimals} />
       </div>
 

@@ -2,18 +2,60 @@
  * Indicator types - shared between frontend and backend
  */
 
-export type IndicatorCategory = "trend" | "momentum" | "volatility" | "volume";
+export type IndicatorCategory =
+  | "trend"
+  | "momentum"
+  | "volatility"
+  | "volume"
+  | "adaptive"
+  | "regime"
+  | "hybrid"
+  | "cycle"
+  | "moneyflow";
+
+export type IndicatorOutputType = "line" | "band" | "histogram" | "dots" | "custom";
+
+export type IndicatorParamControl = "int" | "float";
+
+export interface IndicatorParamDefinition {
+  readonly key: string;
+  readonly label: string;
+  readonly description?: string;
+  readonly control: IndicatorParamControl;
+  readonly min: number;
+  readonly max: number;
+  readonly step: number;
+}
+
+export interface IndicatorUsageInfo {
+  readonly whatItDoes: string;
+  readonly whenToUse: string;
+  readonly formula?: string; // LaTeX format
+  readonly mathematicalWeaknesses?: string;
+  readonly regimePerformance?: string;
+  readonly comparisons?: string;
+  readonly upgrades?: string;
+  readonly tips?: readonly string[];
+  readonly pitfalls?: readonly string[];
+}
 
 export interface IndicatorConfig {
   readonly id: string;
   readonly name: string;
   readonly category: IndicatorCategory;
-  readonly description: string;
-  readonly defaultParams?: Record<string, number>;
+  readonly description: string; // shortDescription
+  readonly defaultParams: Record<string, number>;
+  readonly params: readonly IndicatorParamDefinition[];
+  readonly usage: IndicatorUsageInfo;
+  readonly output: IndicatorOutputType;
+  readonly allowMultiple: boolean;
   readonly overlayOnPrice: boolean;
+  readonly paneIndexRecommendation?: number | string;
+  readonly implementationNotesForDev?: string;
 }
 
 export interface ActiveIndicator {
+  readonly instanceId: string;
   readonly config: IndicatorConfig;
   readonly params: Record<string, number>;
   readonly visible: boolean;
@@ -36,21 +78,4 @@ export interface BandIndicatorDataPoint {
   readonly upper: number;
   readonly middle: number;
   readonly lower: number;
-}
-
-/**
- * MACD indicator result
- */
-export interface MACDResult {
-  readonly macd: IndicatorDataPoint[];
-  readonly signal: IndicatorDataPoint[];
-  readonly histogram: IndicatorDataPoint[];
-}
-
-/**
- * Stochastic indicator result
- */
-export interface StochasticResult {
-  readonly k: IndicatorDataPoint[];
-  readonly d: IndicatorDataPoint[];
 }

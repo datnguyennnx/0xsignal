@@ -10,7 +10,10 @@ export interface CryptoPrice {
   readonly price: number;
   readonly marketCap: number;
   readonly volume24h: number;
+  readonly change1h: number;
   readonly change24h: number;
+  readonly change7d: number;
+  readonly sparkline7d: readonly number[];
   readonly timestamp: Date;
   readonly high24h?: number;
   readonly low24h?: number;

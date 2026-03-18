@@ -1,7 +1,9 @@
 import { memo, useCallback, useMemo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
+import { Button } from "@/components/ui/button";
 import { DEFAULT_INTERVALS, ALL_INTERVALS } from "./constants";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 interface ChartHeaderProps {
   symbol: string;
@@ -44,14 +46,14 @@ export const ChartHeader = memo(function ChartHeader({
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1">
           {DEFAULT_INTERVALS.map((int) => (
-            <button
+            <Button
               key={int.value}
+              variant={interval === int.value ? "default" : "ghost"}
+              size="sm"
               onClick={() => handleIntervalChange(int.value)}
               className={cn(
-                "relative px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200 ease-premium tap-highlight",
-                interval === int.value
-                  ? "bg-primary text-primary-foreground scale-[1.02] shadow-sm"
-                  : "hover:bg-muted/80 text-muted-foreground hover:text-foreground"
+                "relative px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200 ease-premium",
+                interval === int.value ? "scale-[1.02] shadow-sm" : ""
               )}
             >
               {int.label}
@@ -61,32 +63,33 @@ export const ChartHeader = memo(function ChartHeader({
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-foreground" />
                 </span>
               )}
-            </button>
+            </Button>
           ))}
           {nonDefaultIntervals.length > 0 && (
-            <select
+            <NativeSelect
+              size="sm"
               value={isDefaultInterval ? "" : interval}
               onChange={(e) => {
                 if (e.target.value) handleIntervalChange(e.target.value);
               }}
               className={cn(
-                "bg-transparent text-xs font-medium rounded-md px-2 py-1 cursor-pointer outline-none transition-colors",
+                "bg-transparent text-xs font-medium px-2 py-1 cursor-pointer transition-colors",
                 isDefaultInterval
                   ? "text-muted-foreground hover:text-foreground"
                   : "bg-primary text-primary-foreground"
               )}
             >
               {isDefaultInterval && (
-                <option value="" disabled className="bg-card">
+                <NativeSelectOption value="" disabled>
                   More
-                </option>
+                </NativeSelectOption>
               )}
               {nonDefaultIntervals.map((int) => (
-                <option key={int.value} value={int.value} className="bg-card">
+                <NativeSelectOption key={int.value} value={int.value}>
                   {int.label}
-                </option>
+                </NativeSelectOption>
               ))}
-            </select>
+            </NativeSelect>
           )}
         </div>
       </div>

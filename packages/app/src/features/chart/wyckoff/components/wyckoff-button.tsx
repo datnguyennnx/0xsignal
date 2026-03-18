@@ -111,13 +111,14 @@ export const WyckoffButton = memo(function WyckoffButton({
 
           <div className="p-3 space-y-1">
             {FEATURES.map((feature) => (
-              <button
+              <Button
                 key={feature.id}
-                onClick={() => onToggle(feature.id)}
+                variant="ghost"
                 className={cn(
-                  "interactive-toggle flex items-center justify-between w-full py-2 px-3 rounded-md transition-all duration-200",
+                  "interactive-toggle flex items-center justify-between w-full py-2 px-3 rounded-md transition-all duration-200 h-auto",
                   visibility[feature.id] ? "bg-primary/10" : "hover:bg-muted/50"
                 )}
+                onClick={() => onToggle(feature.id)}
               >
                 <div className="flex items-center gap-2.5">
                   <span className={cn("w-2 h-2 rounded-full shrink-0", feature.color)} />
@@ -126,19 +127,7 @@ export const WyckoffButton = memo(function WyckoffButton({
                     <span className="text-[10px] text-muted-foreground">{feature.description}</span>
                   </div>
                 </div>
-                <div
-                  className={cn(
-                    "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
-                    visibility[feature.id]
-                      ? "bg-primary border-primary"
-                      : "border-muted-foreground/50"
-                  )}
-                >
-                  {visibility[feature.id] && (
-                    <span className="text-primary-foreground text-[10px]">✓</span>
-                  )}
-                </div>
-              </button>
+              </Button>
             ))}
           </div>
 

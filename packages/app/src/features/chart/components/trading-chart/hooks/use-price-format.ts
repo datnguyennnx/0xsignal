@@ -28,14 +28,24 @@ export interface PriceFormatResult {
 function formatPriceAxis(price: number, pxDecimals: number): string {
   if (!Number.isFinite(price) || price === 0) return "0";
 
+  // For oscillator values (typically small range like -100 to 100, or small decimals)
+  // use pxDecimals directly to avoid invalid decimals calculation
+  if (Math.abs(price) <= 200) {
+    const decimals = Math.min(20, Math.max(0, pxDecimals));
+    return price.toLocaleString("en-US", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  }
+
   // Calculate scaling from price magnitude - same as orderbook generateTickSizeOptions
-  const mag = Math.floor(Math.log10(price));
+  const mag = Math.floor(Math.log10(Math.abs(price)));
   const scaling = Math.pow(10, mag - 5 + 1); // Using 5 sig figs like orderbook default
 
   let decimals: number;
   if (scaling >= 1000) decimals = 0;
   else if (scaling >= 1) decimals = 0;
-  else decimals = Math.max(0, Math.min(6, -Math.floor(Math.log10(scaling))));
+  else decimals = Math.max(0, Math.min(20, -Math.floor(Math.log10(scaling))));
 
   return price.toLocaleString("en-US", {
     minimumFractionDigits: decimals,

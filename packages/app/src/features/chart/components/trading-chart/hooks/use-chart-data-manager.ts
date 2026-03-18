@@ -157,10 +157,11 @@ export const useChartData = ({
     }
 
     // Case 4: New candle(s) appended via WS
-    if (prevLastTime !== null && currentLastTime >= prevLastTime) {
-      const newCandles = data.filter((d) => d.time >= prevLastTime!);
+    if (prevLastTime !== null && currentLastTime > prevLastTime) {
+      const startIndex = Math.max(prevDataLenRef.current, 0);
+      const newCandles = data.slice(startIndex);
 
-      newCandles.forEach((c) => {
+      for (const c of newCandles) {
         candlestickSeries.update({
           time: c.time as Time,
           open: c.open,
@@ -174,7 +175,7 @@ export const useChartData = ({
           value: c.volume,
           color: getVolumeColor(c.close >= c.open, isDark),
         });
-      });
+      }
 
       prevDataLenRef.current = data.length;
       prevFirstTimeRef.current = currentFirstTime;

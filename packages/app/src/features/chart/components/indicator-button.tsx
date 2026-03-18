@@ -4,7 +4,7 @@ import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
-import { IndicatorSelector } from "./indicator-selector";
+import { IndicatorModal } from "./indicator-modal";
 
 interface IndicatorButtonProps {
   activeIndicators: ActiveIndicator[];
@@ -24,17 +24,16 @@ export const IndicatorButton = memo(function IndicatorButton({
   const [isOpen, setIsOpen] = useState(false);
 
   const handleToggle = useCallback(() => setIsOpen((prev) => !prev), []);
-  const handleClose = useCallback(() => setIsOpen(false), []);
 
   const indicatorCount = activeIndicators.length;
 
   return (
-    <div className={cn("relative", className)}>
+    <>
       <Button
         variant={isOpen ? "default" : "outline"}
         size="sm"
         onClick={handleToggle}
-        className="gap-1.5 px-2 sm:px-3"
+        className={cn("gap-1.5 px-2 sm:px-3", className)}
       >
         <Settings2 className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">Indicators</span>
@@ -51,14 +50,14 @@ export const IndicatorButton = memo(function IndicatorButton({
         )}
       </Button>
 
-      <IndicatorSelector
+      <IndicatorModal
         activeIndicators={activeIndicators}
         onAddIndicator={onAddIndicator}
         onRemoveIndicator={onRemoveIndicator}
         onToggleIndicator={onToggleIndicator}
-        isOpen={isOpen}
-        onClose={handleClose}
+        open={isOpen}
+        onOpenChange={setIsOpen}
       />
-    </div>
+    </>
   );
 });

@@ -43,7 +43,10 @@ const toCryptoPrice = (coin: CoinGeckoMarketItem): CryptoPrice => ({
   price: coin.current_price,
   marketCap: coin.market_cap,
   volume24h: coin.total_volume,
+  change1h: coin.price_change_percentage_1h_in_currency ?? 0,
   change24h: coin.price_change_percentage_24h ?? 0,
+  change7d: coin.price_change_percentage_7d_in_currency ?? 0,
+  sparkline7d: coin.sparkline_in_7d?.price ?? [],
   timestamp: new Date(coin.last_updated),
   high24h: coin.high_24h ?? undefined,
   low24h: coin.low_24h ?? undefined,
@@ -89,7 +92,10 @@ const createPriceFromApi = (
   price: data.usd,
   marketCap: data.usd_market_cap ?? 0,
   volume24h: data.usd_24h_vol ?? 0,
+  change1h: 0,
   change24h: data.usd_24h_change ?? 0,
+  change7d: 0,
+  sparkline7d: [],
   timestamp: new Date(),
 });
 
@@ -124,7 +130,7 @@ export const CoinGeckoServiceLive = Layer.effect(
       timeToLive: CACHE_TTL.COINGECKO_TOP_CRYPTOS,
       lookup: (limit: number) =>
         Effect.gen(function* () {
-          const url = `${API_URLS.COINGECKO}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=${limit}&page=1&sparkline=false&price_change_percentage=24h`;
+          const url = `${API_URLS.COINGECKO}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=${limit}&page=1&sparkline=true&price_change_percentage=1h,24h,7d`;
           const data = yield* withRateLimit(
             http.get(url, CoinGeckoMarketsSchema).pipe(Effect.mapError(mapError))
           );

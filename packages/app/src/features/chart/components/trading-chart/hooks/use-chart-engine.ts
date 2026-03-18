@@ -23,6 +23,7 @@ import {
   HistogramSeries,
   type IChartApi,
   type ISeriesApi,
+  type MouseEventHandler,
   type Time,
 } from "lightweight-charts";
 import type { ChartDataPoint } from "@0xsignal/shared";
@@ -59,10 +60,13 @@ export const useChartEngine = ({
   const isLoadingMoreRef = useRef(false);
   const loadMoreCallbackRef = useRef(onLoadMore);
   const hasMoreRef = useRef(hasMore);
+  const onCrosshairMoveRef = useRef(onCrosshairMove);
   const [, setReady] = useState(false);
+  const prevIsDarkRef = useRef(isDark);
 
   loadMoreCallbackRef.current = onLoadMore;
   hasMoreRef.current = hasMore;
+  onCrosshairMoveRef.current = onCrosshairMove;
 
   const initChart = useCallback(() => {
     if (!containerRef.current || chartRef.current) return;
@@ -114,7 +118,7 @@ export const useChartEngine = ({
       priceFormat: {
         type: "custom" as const,
         minMove: priceFormat.minMove,
-        formatter: priceFormat.formatter!,
+        formatter: priceFormat.formatter ?? ((value: number) => `${value}`),
       },
     });
 
@@ -163,14 +167,14 @@ export const useChartEngine = ({
     resizeObserver.observe(containerRef.current);
 
     // Crosshair move
-    chart.subscribeCrosshairMove((param) => {
+    const handleCrosshairMove: MouseEventHandler<Time> = (param) => {
       if (!param.time || !param.seriesData) {
-        onCrosshairMove(null);
+        onCrosshairMoveRef.current(null);
         return;
       }
       const candleData = param.seriesData.get(candlestickSeries);
       if (candleData && "open" in candleData) {
-        onCrosshairMove({
+        onCrosshairMoveRef.current({
           time: param.time as number,
           open: candleData.open,
           high: candleData.high,
@@ -179,19 +183,53 @@ export const useChartEngine = ({
           volume: 0,
         });
       }
-    });
+    };
+
+    chart.subscribeCrosshairMove(handleCrosshairMove);
 
     return () => {
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
+      chart.unsubscribeCrosshairMove(handleCrosshairMove);
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, [containerRef, isDark, priceFormat, onCrosshairMove]);
+  }, [containerRef, priceFormat]);
 
   useEffect(() => {
     const cleanup = initChart();
     return cleanup;
   }, [initChart]);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    if (prevIsDarkRef.current !== isDark) {
+      prevIsDarkRef.current = isDark;
+      const c = getChartColors(isDark);
+      const candle = getCandlestickColors(isDark);
+
+      chartRef.current.applyOptions({
+        layout: { textColor: c.text },
+        grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+        timeScale: { borderColor: c.border },
+        rightPriceScale: { borderColor: c.border },
+        crosshair: { vertLine: { color: c.crosshair }, horzLine: { color: c.crosshair } },
+      });
+
+      if (candlestickSeriesRef.current) {
+        candlestickSeriesRef.current.applyOptions({
+          upColor: candle.upColor,
+          downColor: candle.downColor,
+          wickUpColor: candle.wickUpColor,
+          wickDownColor: candle.wickDownColor,
+        });
+      }
+
+      if (volumeSeriesRef.current) {
+        volumeSeriesRef.current.applyOptions({ color: c.volume });
+      }
+    }
+  }, [isDark]);
 
   return {
     chart: chartRef.current,

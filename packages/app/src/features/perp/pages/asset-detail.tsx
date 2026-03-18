@@ -230,7 +230,10 @@ export function AssetDetail() {
       price: {
         symbol: fetchedAsset.symbol,
         price: fetchedAsset.price,
+        change1h: 0,
         change24h: fetchedAsset.change24h,
+        change7d: 0,
+        sparkline7d: [],
         volume24h: fetchedAsset.volume24h,
         high24h: fetchedAsset.high24h,
         low24h: fetchedAsset.low24h,

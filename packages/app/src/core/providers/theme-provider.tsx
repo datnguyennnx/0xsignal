@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 type Theme = "dark" | "light" | "system";
 
@@ -10,15 +10,22 @@ type ThemeProviderProps = {
 
 type ThemeProviderState = {
   theme: Theme;
+  resolvedTheme: "dark" | "light";
   setTheme: (theme: Theme) => void;
 };
 
 const initialState: ThemeProviderState = {
   theme: "system",
+  resolvedTheme: "dark",
   setTheme: () => null,
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
+
+const getSystemTheme = (): "dark" | "light" => {
+  if (typeof window === "undefined") return "dark";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+};
 
 export function ThemeProvider({
   children,
@@ -26,33 +33,50 @@ export function ThemeProvider({
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
+  const [theme, setThemeState] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   );
+  const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">(() => {
+    if (theme === "system") return getSystemTheme();
+    return theme;
+  });
 
   useEffect(() => {
     const root = window.document.documentElement;
-
     root.classList.remove("light", "dark");
 
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-
-      root.classList.add(systemTheme);
-      return;
-    }
-
-    root.classList.add(theme);
+    const actualTheme = theme === "system" ? getSystemTheme() : theme;
+    root.classList.add(actualTheme);
+    setResolvedTheme(actualTheme);
   }, [theme]);
+
+  useEffect(() => {
+    if (theme !== "system") return;
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) => {
+      const newTheme = e.matches ? "dark" : "light";
+      window.document.documentElement.classList.remove("light", "dark");
+      window.document.documentElement.classList.add(newTheme);
+      setResolvedTheme(newTheme);
+    };
+
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, [theme]);
+
+  const setTheme = useCallback(
+    (newTheme: Theme) => {
+      localStorage.setItem(storageKey, newTheme);
+      setThemeState(newTheme);
+    },
+    [storageKey]
+  );
 
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
-      setTheme(theme);
-    },
+    resolvedTheme,
+    setTheme,
   };
 
   return (

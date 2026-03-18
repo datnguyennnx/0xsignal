@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { ActiveIndicator } from "@0xsignal/shared";
+import type { ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Maximize2, Minimize2, RefreshCcw } from "lucide-react";
@@ -15,7 +15,7 @@ interface ChartControlsProps {
   wyckoffLoading: boolean;
   onToggleWyckoff: (feature: WyckoffFeature) => void;
   activeIndicators: ActiveIndicator[];
-  onAddIndicator: (config: any, params?: Record<string, number>) => void;
+  onAddIndicator: (config: IndicatorConfig, params?: Record<string, number>) => void;
   onRemoveIndicator: (id: string) => void;
   onToggleIndicator: (id: string) => void;
   hasActiveOverlays: boolean;
@@ -58,12 +58,14 @@ export const ChartControls = memo(function ChartControls({
         onToggle={onToggleWyckoff}
         isLoading={wyckoffLoading}
       />
-      <IndicatorButton
-        activeIndicators={activeIndicators}
-        onAddIndicator={onAddIndicator}
-        onRemoveIndicator={onRemoveIndicator}
-        onToggleIndicator={onToggleIndicator}
-      />
+      <div className="hidden xl:flex">
+        <IndicatorButton
+          activeIndicators={activeIndicators}
+          onAddIndicator={onAddIndicator}
+          onRemoveIndicator={onRemoveIndicator}
+          onToggleIndicator={onToggleIndicator}
+        />
+      </div>
       {hasActiveOverlays && (
         <Tooltip>
           <TooltipTrigger asChild>

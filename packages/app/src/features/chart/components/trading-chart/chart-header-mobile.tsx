@@ -27,14 +27,14 @@ export const ChartHeaderMobile = memo(function ChartHeaderMobile({
         <h3 className="text-xs font-semibold">{symbol}</h3>
         <div className="flex items-center">
           {DEFAULT_INTERVALS.map((int) => (
-            <button
+            <Button
               key={int.value}
+              variant={interval === int.value ? "default" : "ghost"}
+              size="sm"
               onClick={() => onIntervalChange(int.value)}
               className={cn(
-                "relative px-1.5 py-0.5 text-[10px] font-medium rounded transition-all duration-200 ease-premium tap-highlight",
-                interval === int.value
-                  ? "bg-primary text-primary-foreground scale-[1.02]"
-                  : "text-muted-foreground hover:text-foreground"
+                "relative px-1.5 py-0.5 text-[10px] font-medium rounded transition-all duration-200 ease-premium",
+                interval === int.value ? "scale-[1.02]" : ""
               )}
             >
               {int.label}
@@ -44,7 +44,7 @@ export const ChartHeaderMobile = memo(function ChartHeaderMobile({
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary-foreground" />
                 </span>
               )}
-            </button>
+            </Button>
           ))}
         </div>
       </div>

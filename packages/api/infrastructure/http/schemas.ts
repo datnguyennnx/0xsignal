@@ -14,7 +14,14 @@ export const CoinGeckoMarketItemSchema = Schema.Struct({
   current_price: Schema.Number,
   market_cap: Schema.Number,
   total_volume: Schema.Number,
+  price_change_percentage_1h_in_currency: Schema.NullOr(Schema.Number),
   price_change_percentage_24h: Schema.NullOr(Schema.Number),
+  price_change_percentage_7d_in_currency: Schema.NullOr(Schema.Number),
+  sparkline_in_7d: Schema.optional(
+    Schema.Struct({
+      price: Schema.Array(Schema.Number),
+    })
+  ),
   last_updated: Schema.String,
   high_24h: Schema.NullOr(Schema.Number),
   low_24h: Schema.NullOr(Schema.Number),

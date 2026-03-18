@@ -87,18 +87,21 @@ export const PerpSearchModal = memo(function PerpSearchModal({
           ) : (
             <div className="p-1">
               {filteredPerps.map((item) => (
-                <button
+                <Button
                   key={item.coin}
+                  variant="ghost"
                   onClick={() => handleSelect(item.coin)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-md hover:bg-muted/50 transition-colors text-left"
+                  className="w-full justify-between h-auto py-2.5 px-3 hover:bg-muted/50"
                 >
                   <span className="font-mono font-medium">{item.coin}</span>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className={cn(Number(item.funding) >= 0 ? "text-gain" : "text-loss")}>
+                    <span
+                      className={cn(Number(item.funding) >= 0 ? "text-green-500" : "text-red-500")}
+                    >
                       {Number(item.funding) * 100}%
                     </span>
                   </div>
-                </button>
+                </Button>
               ))}
             </div>
           )}
