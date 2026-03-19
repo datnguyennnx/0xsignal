@@ -18,6 +18,7 @@ import {
   calculateAverageVolume,
   calculateAverageSpread,
 } from "../common";
+import { WYCKOFF_TYPES, CYCLE_THRESHOLDS } from "../constants";
 
 export const detectSellingClimax = (
   data: ChartDataPoint[],
@@ -44,7 +45,7 @@ export const detectSellingClimax = (
   if (!isNewLow) return null;
 
   return {
-    type: "SC",
+    type: WYCKOFF_TYPES.CLIMAX.SC,
     time: bar.time,
     price: bar.low,
     volume: bar.volume,
@@ -77,7 +78,7 @@ export const detectBuyingClimax = (
   if (!isNewHigh) return null;
 
   return {
-    type: "BC",
+    type: WYCKOFF_TYPES.CLIMAX.BC,
     time: bar.time,
     price: bar.high,
     volume: bar.volume,
@@ -106,40 +107,44 @@ export const detectTradingRange = (
 };
 
 export const determineCycle = (climaxes: Climax[], data: ChartDataPoint[]): WyckoffCycle => {
-  if (climaxes.length === 0) return "unknown";
+  if (climaxes.length === 0) return WYCKOFF_TYPES.CYCLE.UNKNOWN;
 
   const lastClimax = climaxes[climaxes.length - 1];
   const recentBars = data.slice(lastClimax.index);
 
-  if (recentBars.length < 5) return "unknown";
+  if (recentBars.length < 5) return WYCKOFF_TYPES.CYCLE.UNKNOWN;
 
   const firstPrice = recentBars[0].close;
   const lastPrice = recentBars[recentBars.length - 1].close;
   const priceChange = (lastPrice - firstPrice) / firstPrice;
 
-  if (lastClimax.type === "SC") {
-    if (priceChange > 0.05) return "markup";
-    return "accumulation";
+  if (lastClimax.type === WYCKOFF_TYPES.CLIMAX.SC) {
+    if (priceChange > CYCLE_THRESHOLDS.PRICE_CHANGE_PERCENT) return WYCKOFF_TYPES.CYCLE.MARKUP;
+    return WYCKOFF_TYPES.CYCLE.ACCUMULATION;
   } else {
-    if (priceChange < -0.05) return "markdown";
-    return "distribution";
+    if (priceChange < -CYCLE_THRESHOLDS.PRICE_CHANGE_PERCENT) return WYCKOFF_TYPES.CYCLE.MARKDOWN;
+    return WYCKOFF_TYPES.CYCLE.DISTRIBUTION;
   }
 };
 
 export const determinePhase = (events: WyckoffEvent[], climaxes: Climax[]): WyckoffPhase | null => {
   if (events.length > 0) {
     const lastEvent = events[events.length - 1];
-    if (lastEvent.type === "ST") return "A";
-    else if (lastEvent.type === "spring" || lastEvent.type === "upthrust") return "C";
+    if (lastEvent.type === WYCKOFF_TYPES.EVENT.ST) return WYCKOFF_TYPES.PHASE.A;
     else if (
-      lastEvent.type === "LPS" ||
-      lastEvent.type === "LPSY" ||
-      lastEvent.type === "SOS" ||
-      lastEvent.type === "SOW"
+      lastEvent.type === WYCKOFF_TYPES.EVENT.SPRING ||
+      lastEvent.type === WYCKOFF_TYPES.EVENT.UPTHRUST
     )
-      return "D";
+      return WYCKOFF_TYPES.PHASE.C;
+    else if (
+      lastEvent.type === WYCKOFF_TYPES.EVENT.LPS ||
+      lastEvent.type === WYCKOFF_TYPES.EVENT.LPSY ||
+      lastEvent.type === WYCKOFF_TYPES.EVENT.SOS ||
+      lastEvent.type === WYCKOFF_TYPES.EVENT.SOW
+    )
+      return WYCKOFF_TYPES.PHASE.D;
   } else if (climaxes.length > 0) {
-    return "A";
+    return WYCKOFF_TYPES.PHASE.A;
   }
   return null;
 };
@@ -155,9 +160,8 @@ export const buildPhaseMarkers = (
 
   const lastClimax = climaxes[climaxes.length - 1];
 
-  // Phase A: Initial climax
   markers.push({
-    phase: "A",
+    phase: WYCKOFF_TYPES.PHASE.A,
     cycle,
     startTime: climaxes[0].time,
     endTime: lastClimax.time,
@@ -165,25 +169,23 @@ export const buildPhaseMarkers = (
     endIndex: lastClimax.index,
   });
 
-  // Find phase markers based on events
   const phaseEvents = events.filter(
     (e) =>
-      e.type === "ST" ||
-      e.type === "spring" ||
-      e.type === "upthrust" ||
-      e.type === "LPS" ||
-      e.type === "SOS"
+      e.type === WYCKOFF_TYPES.EVENT.ST ||
+      e.type === WYCKOFF_TYPES.EVENT.SPRING ||
+      e.type === WYCKOFF_TYPES.EVENT.UPTHRUST ||
+      e.type === WYCKOFF_TYPES.EVENT.LPS ||
+      e.type === WYCKOFF_TYPES.EVENT.SOS
   );
 
   if (phaseEvents.length > 0) {
     const lastPhaseEvent = phaseEvents[phaseEvents.length - 1];
-    const stEvents = events.filter((e) => e.type === "ST");
+    const stEvents = events.filter((e) => e.type === WYCKOFF_TYPES.EVENT.ST);
 
-    // Phase B: Testing (ST events)
     if (stEvents.length > 0) {
       const lastST = stEvents[stEvents.length - 1];
       markers.push({
-        phase: "B",
+        phase: WYCKOFF_TYPES.PHASE.B,
         cycle,
         startTime: lastClimax.time,
         endTime: lastST.time,
@@ -192,9 +194,8 @@ export const buildPhaseMarkers = (
       });
     }
 
-    // Phase C: Spring/Upthrust
     markers.push({
-      phase: "C",
+      phase: WYCKOFF_TYPES.PHASE.C,
       cycle,
       startTime: stEvents.length > 0 ? stEvents[stEvents.length - 1].time : lastClimax.time,
       endTime: lastPhaseEvent.time,
@@ -202,9 +203,8 @@ export const buildPhaseMarkers = (
       endIndex: lastPhaseEvent.index,
     });
 
-    // Phase D: Last point of supply/demand
     markers.push({
-      phase: "D",
+      phase: WYCKOFF_TYPES.PHASE.D,
       cycle,
       startTime: lastPhaseEvent.time,
       endTime: Date.now(),

@@ -7,6 +7,8 @@ import type { ChartDataPoint } from "../types/chart";
 import type { IndicatorDataPoint, BandIndicatorDataPoint } from "./types";
 import type { ActiveIndicator } from "./config";
 import { getIndicatorBaseId } from "./config";
+import { INDICATOR_TYPE } from "../patterns/constants";
+import { isBandIndicator } from "./metadata";
 import {
   calculateSMA,
   calculateEMA,
@@ -57,7 +59,6 @@ import {
   calculateMomentum,
   calculateTSI,
 } from "./calculations";
-import { isBandIndicator } from "./metadata";
 
 /**
  * Calculate a line indicator (single value per point)
@@ -71,59 +72,59 @@ export const calculateLineIndicator = (
 
   switch (baseId) {
     // Trend indicators
-    case "sma":
+    case INDICATOR_TYPE.SMA:
       return calculateSMA(data, params.period || 20);
-    case "ema":
+    case INDICATOR_TYPE.EMA:
       return calculateEMA(data, params.period || 20);
-    case "wma":
+    case INDICATOR_TYPE.WMA:
       return calculateWMAIndicator(data, params.period || 20);
-    case "hma":
+    case INDICATOR_TYPE.HMA:
       return calculateHMAIndicator(data, params.period || 21);
-    case "vwma":
+    case INDICATOR_TYPE.VWMA:
       return calculateVWMA(data, params.period || 20);
-    case "vwap":
+    case INDICATOR_TYPE.VWAP:
       return calculateVWAP(data);
-    case "superTrend":
+    case INDICATOR_TYPE.SUPER_TREND:
       return calculateSuperTrend(data, params.period || 10, params.multiplier || 3);
-    case "parabolicSAR":
+    case INDICATOR_TYPE.PARABOLIC_SAR:
       return calculateParabolicSAR(data, params.step || 0.02, params.maxStep || 0.2);
-    case "adx":
+    case INDICATOR_TYPE.ADX:
       return calculateADX(data, params.period || 14);
 
     // Momentum indicators
-    case "rsi":
+    case INDICATOR_TYPE.RSI:
       return calculateRSI(data, params.period || 14);
-    case "macd":
+    case INDICATOR_TYPE.MACD:
       return calculateMACDLine(data, params.fast || 12, params.slow || 26);
-    case "stochastic":
+    case INDICATOR_TYPE.STOCHASTIC:
       return calculateStochasticK(data, params.period || 14);
-    case "ao":
+    case INDICATOR_TYPE.AO:
       return calculateAO(data, params.fast || 5, params.slow || 34);
-    case "uo":
+    case INDICATOR_TYPE.UO:
       return calculateUO(data, params.short || 7, params.medium || 14, params.long || 28);
-    case "williamsR":
+    case INDICATOR_TYPE.WILLIAMS_R:
       return calculateWilliamsR(data, params.period || 14);
-    case "cci":
+    case INDICATOR_TYPE.CCI:
       return calculateCCI(data, params.period || 20);
-    case "roc":
+    case INDICATOR_TYPE.ROC:
       return calculateROC(data, params.period || 12);
-    case "momentum":
+    case INDICATOR_TYPE.MOMENTUM:
       return calculateMomentum(data, params.period || 10);
-    case "tsi":
+    case INDICATOR_TYPE.TSI:
       return calculateTSI(data, params.longPeriod || 25, params.shortPeriod || 13);
-    case "zscore":
+    case INDICATOR_TYPE.ZSCORE:
       return calculateZScoreIndicator(data, params.period || 30);
-    case "stddev":
+    case INDICATOR_TYPE.STDDEV:
       return calculateStdDevIndicator(data, params.period || 20);
-    case "linRegSlope":
+    case INDICATOR_TYPE.LIN_REG_SLOPE:
       return calculateLinRegSlopeIndicator(data, params.period || 50);
-    case "atrp":
+    case INDICATOR_TYPE.ATRP:
       return calculateATRPIndicator(data, params.period || 14);
-    case "chop":
+    case INDICATOR_TYPE.CHOP:
       return calculateChoppinessIndicator(data, params.period || 14);
-    case "efficiencyRatio":
+    case INDICATOR_TYPE.EFFICIENCY_RATIO:
       return calculateEfficiencyRatioIndicator(data, params.period || 10);
-    case "stc":
+    case INDICATOR_TYPE.STC:
       return calculateSTCIndicator(
         data,
         params.fast || 23,
@@ -131,56 +132,56 @@ export const calculateLineIndicator = (
         params.cycle || 10,
         params.smooth || 3
       );
-    case "dvo":
+    case INDICATOR_TYPE.DVO:
       return calculateDVOIndicator(data, params.maPeriod || 2, params.rankPeriod || 126);
-    case "kri":
+    case INDICATOR_TYPE.KRI:
       return calculateKRIIndicator(data, params.period || 14);
-    case "vzo":
+    case INDICATOR_TYPE.VZO:
       return calculateVZOIndicator(data, params.period || 14);
-    case "vortex":
+    case INDICATOR_TYPE.VORTEX:
       return calculateVortexIndicator(data, params.period || 14);
-    case "ppo":
+    case INDICATOR_TYPE.PPO:
       return calculatePPOIndicator(data, params.fast || 12, params.slow || 26);
-    case "trix":
+    case INDICATOR_TYPE.TRIX:
       return calculateTRIXIndicator(data, params.period || 18);
-    case "stochRsi":
+    case INDICATOR_TYPE.STOCH_RSI:
       return calculateStochRSIIndicator(
         data,
         params.rsiPeriod || 14,
         params.stochPeriod || 14,
         params.smoothK || 3
       );
-    case "volumeOsc":
+    case INDICATOR_TYPE.VOLUME_OSC:
       return calculateVolumeOscillatorIndicator(data, params.short || 14, params.long || 28);
-    case "chaikinOsc":
+    case INDICATOR_TYPE.CHAIKIN_OSC:
       return calculateChaikinOscillatorIndicator(data, params.fast || 3, params.slow || 10);
-    case "eom":
+    case INDICATOR_TYPE.EOM:
       return calculateEOMIndicator(data, params.period || 14);
-    case "histVol":
+    case INDICATOR_TYPE.HIST_VOL:
       return calculateHistoricalVolatilityIndicator(
         data,
         params.period || 20,
         params.annualization || 365
       );
-    case "aroonOsc":
+    case INDICATOR_TYPE.AROON_OSC:
       return calculateAroonOscillatorIndicator(data, params.period || 25);
 
     // Volatility indicators
-    case "atr":
+    case INDICATOR_TYPE.ATR:
       return calculateATR(data, params.period || 14);
 
     // Volume indicators
-    case "obv":
+    case INDICATOR_TYPE.OBV:
       return calculateOBV(data);
-    case "mfi":
+    case INDICATOR_TYPE.MFI:
       return calculateMFI(data, params.period || 14);
-    case "pvt":
+    case INDICATOR_TYPE.PVT:
       return calculatePVT(data);
-    case "nvi":
+    case INDICATOR_TYPE.NVI:
       return calculateNVI(data);
-    case "cmf":
+    case INDICATOR_TYPE.CMF:
       return calculateCMF(data, params.period || 20);
-    case "adLine":
+    case INDICATOR_TYPE.AD_LINE:
       return calculateADLine(data);
 
     default:
@@ -199,11 +200,11 @@ export const calculateBandIndicator = (
   const { params } = indicator;
 
   switch (baseId) {
-    case "bollingerBands":
+    case INDICATOR_TYPE.BOLLINGER_BANDS:
       return calculateBollingerBands(data, params.period || 20, params.stdDev || 2);
-    case "keltnerChannels":
+    case INDICATOR_TYPE.KELTNER_CHANNELS:
       return calculateKeltnerChannels(data, params.period || 20, params.multiplier || 2);
-    case "donchianChannels":
+    case INDICATOR_TYPE.DONCHIAN_CHANNELS:
       return calculateDonchianChannels(data, params.period || 20);
     default:
       return null;

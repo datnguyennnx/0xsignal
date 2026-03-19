@@ -1,4 +1,5 @@
 import type { SwingPoint, StructureEvent, OTEZone, TrendDirection } from "./types";
+import { DIRECTION, FIB_LEVELS, GOLDEN_POCKET } from "../constants";
 
 export const calculateOTEZones = (swings: SwingPoint[], events: StructureEvent[]): OTEZone[] => {
   const oteZones: OTEZone[] = [];
@@ -13,15 +14,26 @@ export const calculateOTEZones = (swings: SwingPoint[], events: StructureEvent[]
     const swingHigh = Math.max(lastTwo[0].price, lastTwo[1].price);
     const range = swingHigh - swingLow;
     const dir = event.direction;
+    const isBullish = dir === DIRECTION.BULLISH;
 
     const fibLevels: Record<string, number> = {
-      "0": dir === "bullish" ? swingLow : swingHigh,
-      "0.236": dir === "bullish" ? swingLow + range * 0.236 : swingHigh - range * 0.236,
-      "0.382": dir === "bullish" ? swingLow + range * 0.382 : swingHigh - range * 0.382,
-      "0.5": dir === "bullish" ? swingLow + range * 0.5 : swingHigh - range * 0.5,
-      "0.618": dir === "bullish" ? swingLow + range * 0.618 : swingHigh - range * 0.618,
-      "0.786": dir === "bullish" ? swingLow + range * 0.786 : swingHigh - range * 0.786,
-      "1": dir === "bullish" ? swingHigh : swingLow,
+      [FIB_LEVELS["0"]]: isBullish ? swingLow : swingHigh,
+      [FIB_LEVELS["0.236"]]: isBullish
+        ? swingLow + range * FIB_LEVELS["0.236"]
+        : swingHigh - range * FIB_LEVELS["0.236"],
+      [FIB_LEVELS["0.382"]]: isBullish
+        ? swingLow + range * FIB_LEVELS["0.382"]
+        : swingHigh - range * FIB_LEVELS["0.382"],
+      [FIB_LEVELS["0.5"]]: isBullish
+        ? swingLow + range * FIB_LEVELS["0.5"]
+        : swingHigh - range * FIB_LEVELS["0.5"],
+      [FIB_LEVELS["0.618"]]: isBullish
+        ? swingLow + range * FIB_LEVELS["0.618"]
+        : swingHigh - range * FIB_LEVELS["0.618"],
+      [FIB_LEVELS["0.786"]]: isBullish
+        ? swingLow + range * FIB_LEVELS["0.786"]
+        : swingHigh - range * FIB_LEVELS["0.786"],
+      [FIB_LEVELS["1"]]: isBullish ? swingHigh : swingLow,
     };
 
     oteZones.push({
@@ -29,47 +41,47 @@ export const calculateOTEZones = (swings: SwingPoint[], events: StructureEvent[]
       endTime: lastTwo[1].time,
       direction: dir,
       fibLevels,
-      goldenPocketHigh: fibLevels["0.618"],
-      goldenPocketLow: fibLevels["0.786"],
+      goldenPocketHigh: fibLevels[GOLDEN_POCKET.HIGH],
+      goldenPocketLow: fibLevels[GOLDEN_POCKET.LOW],
     });
   }
 
   return oteZones;
 };
 
-export const getOTEEntry = (
-  oteZones: OTEZone[],
-  direction: TrendDirection,
-  entryLevel: number = 0.618
-): number | null => {
-  if (oteZones.length === 0) return null;
-
-  const lastZone = oteZones[oteZones.length - 1];
-  const key = entryLevel.toString();
-  return lastZone.fibLevels[key] ?? null;
-};
-
-export const getGoldenPocketZone = (oteZones: OTEZone[]): { high: number; low: number } | null => {
-  if (oteZones.length === 0) return null;
-
-  const lastZone = oteZones[oteZones.length - 1];
-  return {
-    high: lastZone.goldenPocketHigh,
-    low: lastZone.goldenPocketLow,
-  };
-};
-
 export const isPriceInOTE = (
   price: number,
-  oteZones: OTEZone[],
+  zones: OTEZone[],
   direction: TrendDirection
 ): boolean => {
-  if (oteZones.length === 0) return false;
-
-  const lastZone = oteZones[oteZones.length - 1];
-  if (direction === "bullish") {
-    return price >= lastZone.goldenPocketLow && price <= lastZone.goldenPocketHigh;
-  } else {
-    return price >= lastZone.goldenPocketLow && price <= lastZone.goldenPocketHigh;
+  for (const zone of zones) {
+    if (zone.direction !== direction) continue;
+    if (price >= zone.goldenPocketLow && price <= zone.goldenPocketHigh) {
+      return true;
+    }
   }
+  return false;
+};
+
+export const getActiveOTEZone = (
+  zones: OTEZone[],
+  price: number,
+  direction: TrendDirection
+): OTEZone | null => {
+  for (const zone of zones.slice(-2)) {
+    if (zone.direction !== direction) continue;
+    if (price >= zone.goldenPocketLow && price <= zone.goldenPocketHigh) {
+      return zone;
+    }
+  }
+  return null;
+};
+
+export const getGoldenPocketZone = (zones: OTEZone[]): { low: number; high: number } | null => {
+  if (zones.length === 0) return null;
+  const lastZone = zones[zones.length - 1];
+  return {
+    low: lastZone.goldenPocketLow,
+    high: lastZone.goldenPocketHigh,
+  };
 };

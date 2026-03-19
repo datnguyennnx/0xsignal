@@ -1,4 +1,3 @@
-import type { ChartDataPoint } from "../../types/chart";
 import { ICT_TYPES, DIRECTION, DETECTION_THRESHOLDS } from "../constants";
 
 export type SwingType = (typeof ICT_TYPES.SWING)[keyof typeof ICT_TYPES.SWING];

@@ -1,42 +1,47 @@
 import type { ChartDataPoint } from "../../types/chart";
 import type { WyckoffCycle, Climax, TradingRange } from "./types";
 import { detectTradingRange, determineCycle } from "./phases";
+import {
+  WYCKOFF_TYPES,
+  CYCLE_PHASE,
+  CYCLE_DIRECTION,
+  type CyclePhaseType,
+  type CycleDirectionType,
+} from "../constants";
 
 export const identifyCycle = (data: ChartDataPoint[], climaxes: Climax[]): WyckoffCycle => {
   return determineCycle(climaxes, data);
 };
 
-export const getCyclePhase = (
-  cycle: WyckoffCycle
-): "accumulation" | "distribution" | "transition" => {
+export const getCyclePhase = (cycle: WyckoffCycle): CyclePhaseType => {
   switch (cycle) {
-    case "accumulation":
-    case "markup":
-      return "accumulation";
-    case "distribution":
-    case "markdown":
-      return "distribution";
+    case WYCKOFF_TYPES.CYCLE.ACCUMULATION:
+    case WYCKOFF_TYPES.CYCLE.MARKUP:
+      return CYCLE_PHASE.ACCUMULATION;
+    case WYCKOFF_TYPES.CYCLE.DISTRIBUTION:
+    case WYCKOFF_TYPES.CYCLE.MARKDOWN:
+      return CYCLE_PHASE.DISTRIBUTION;
     default:
-      return "transition";
+      return CYCLE_PHASE.TRANSITION;
   }
 };
 
 export const isInAccumulation = (cycle: WyckoffCycle): boolean => {
-  return cycle === "accumulation" || cycle === "markup";
+  return cycle === WYCKOFF_TYPES.CYCLE.ACCUMULATION || cycle === WYCKOFF_TYPES.CYCLE.MARKUP;
 };
 
 export const isInDistribution = (cycle: WyckoffCycle): boolean => {
-  return cycle === "distribution" || cycle === "markdown";
+  return cycle === WYCKOFF_TYPES.CYCLE.DISTRIBUTION || cycle === WYCKOFF_TYPES.CYCLE.MARKDOWN;
 };
 
-export const getCycleDirection = (cycle: WyckoffCycle): "up" | "down" | "sideways" => {
+export const getCycleDirection = (cycle: WyckoffCycle): CycleDirectionType => {
   switch (cycle) {
-    case "markup":
-      return "up";
-    case "markdown":
-      return "down";
+    case WYCKOFF_TYPES.CYCLE.MARKUP:
+      return CYCLE_DIRECTION.UP;
+    case WYCKOFF_TYPES.CYCLE.MARKDOWN:
+      return CYCLE_DIRECTION.DOWN;
     default:
-      return "sideways";
+      return CYCLE_DIRECTION.SIDEWAYS;
   }
 };
 
@@ -44,16 +49,21 @@ export const detectCycleTransition = (
   previousCycle: WyckoffCycle,
   currentCycle: WyckoffCycle
 ): boolean => {
-  if (previousCycle === "unknown" || currentCycle === "unknown") return false;
+  if (previousCycle === WYCKOFF_TYPES.CYCLE.UNKNOWN || currentCycle === WYCKOFF_TYPES.CYCLE.UNKNOWN)
+    return false;
   if (
-    (previousCycle === "accumulation" || previousCycle === "markup") &&
-    (currentCycle === "distribution" || currentCycle === "markdown")
+    (previousCycle === WYCKOFF_TYPES.CYCLE.ACCUMULATION ||
+      previousCycle === WYCKOFF_TYPES.CYCLE.MARKUP) &&
+    (currentCycle === WYCKOFF_TYPES.CYCLE.DISTRIBUTION ||
+      currentCycle === WYCKOFF_TYPES.CYCLE.MARKDOWN)
   ) {
     return true;
   }
   if (
-    (previousCycle === "distribution" || previousCycle === "markdown") &&
-    (currentCycle === "accumulation" || currentCycle === "markup")
+    (previousCycle === WYCKOFF_TYPES.CYCLE.DISTRIBUTION ||
+      previousCycle === WYCKOFF_TYPES.CYCLE.MARKDOWN) &&
+    (currentCycle === WYCKOFF_TYPES.CYCLE.ACCUMULATION ||
+      currentCycle === WYCKOFF_TYPES.CYCLE.MARKUP)
   ) {
     return true;
   }

@@ -1,127 +1,164 @@
 import type { ChartDataPoint } from "../../types/chart";
 import type {
   SwingPoint,
-  StructureEvent,
   MarketStructure,
-  SwingType,
+  StructureEvent,
   TrendDirection,
+  SwingType,
 } from "./types";
-import { isSwingHigh, isSwingLow } from "../common";
+import { calculateATR } from "../common";
+import { ICT_TYPES, DIRECTION, SWING_TYPE, type SwingTypeLevel } from "../constants";
 
-interface RawSwing {
-  index: number;
-  price: number;
-  isHigh: boolean;
-  time: number;
-}
-
-export const detectRawSwings = (data: ChartDataPoint[], lookback: number): RawSwing[] => {
-  const swings: RawSwing[] = [];
+export const detectSwingHighs = (data: ChartDataPoint[], lookback: number): SwingPoint[] => {
+  const swings: SwingPoint[] = [];
 
   for (let i = lookback; i < data.length - lookback; i++) {
-    if (isSwingHigh(data, i, lookback)) {
-      swings.push({ index: i, price: data[i].high, isHigh: true, time: data[i].time });
+    const curr = data[i];
+    const prev = data[i - 1];
+    const next = data[i + 1];
+
+    let isHigh = curr.high > prev.high && curr.high > next.high;
+
+    for (let j = 1; j <= lookback; j++) {
+      if (data[i - j].high >= curr.high || data[i + j].high >= curr.high) {
+        isHigh = false;
+        break;
+      }
     }
-    if (isSwingLow(data, i, lookback)) {
-      swings.push({ index: i, price: data[i].low, isHigh: false, time: data[i].time });
+
+    if (isHigh) {
+      swings.push({
+        time: curr.time,
+        price: curr.high,
+        type: ICT_TYPES.SWING.HH,
+        index: i,
+      });
     }
   }
 
-  swings.sort((a, b) => a.index - b.index);
-  const filtered: RawSwing[] = [];
-  for (const swing of swings) {
-    const last = filtered[filtered.length - 1];
-    if (!last || last.isHigh !== swing.isHigh) {
-      filtered.push(swing);
-    } else if (swing.isHigh && swing.price > last.price) {
-      filtered[filtered.length - 1] = swing;
-    } else if (!swing.isHigh && swing.price < last.price) {
-      filtered[filtered.length - 1] = swing;
+  return swings;
+};
+
+export const detectSwingLows = (data: ChartDataPoint[], lookback: number): SwingPoint[] => {
+  const swings: SwingPoint[] = [];
+
+  for (let i = lookback; i < data.length - lookback; i++) {
+    const curr = data[i];
+    const prev = data[i - 1];
+    const next = data[i + 1];
+
+    let isLow = curr.low < prev.low && curr.low < next.low;
+
+    for (let j = 1; j <= lookback; j++) {
+      if (data[i - j].low <= curr.low || data[i + j].low <= curr.low) {
+        isLow = false;
+        break;
+      }
+    }
+
+    if (isLow) {
+      swings.push({
+        time: curr.time,
+        price: curr.low,
+        type: ICT_TYPES.SWING.HL,
+        index: i,
+      });
     }
   }
 
-  return filtered;
+  return swings;
+};
+
+export const classifySwings = (highs: SwingPoint[], lows: SwingPoint[]): SwingPoint[] => {
+  const allSwings: SwingPoint[] = [...highs, ...lows].sort((a, b) => a.time - b.time);
+  const classified: SwingPoint[] = [];
+
+  for (let i = 0; i < allSwings.length; i++) {
+    const swing = allSwings[i];
+    const prev = classified[classified.length - 1];
+
+    let swingType: SwingType;
+
+    if (swing.type === ICT_TYPES.SWING.HH) {
+      if (!prev || prev.type === ICT_TYPES.SWING.LL || prev.type === ICT_TYPES.SWING.LH) {
+        swingType = ICT_TYPES.SWING.HH;
+      } else {
+        swingType = ICT_TYPES.SWING.LH;
+      }
+    } else {
+      if (!prev || prev.type === ICT_TYPES.SWING.HL || prev.type === ICT_TYPES.SWING.HH) {
+        swingType = ICT_TYPES.SWING.HL;
+      } else {
+        swingType = ICT_TYPES.SWING.LL;
+      }
+    }
+
+    classified.push({ ...swing, type: swingType });
+  }
+
+  return classified;
 };
 
 export const detectMarketStructure = (
   data: ChartDataPoint[],
-  lookback: number
+  lookback: number = 3
 ): MarketStructure => {
-  const rawSwings = detectRawSwings(data, lookback);
-  if (rawSwings.length < 4) {
-    return { swings: [], events: [], currentTrend: "neutral" };
+  const highs = detectSwingHighs(data, lookback);
+  const lows = detectSwingLows(data, lookback);
+  const swings = classifySwings(highs, lows);
+
+  const events: StructureEvent[] = [];
+  let trend: TrendDirection = DIRECTION.NEUTRAL;
+
+  for (let i = 0; i < swings.length; i++) {
+    const swing = swings[i];
+
+    if (swing.type === ICT_TYPES.SWING.HH) {
+      trend = DIRECTION.BULLISH;
+    } else if (swing.type === ICT_TYPES.SWING.LL) {
+      trend = DIRECTION.BEARISH;
+    }
   }
 
-  const swings: SwingPoint[] = [];
-  const events: StructureEvent[] = [];
-  let lastHighSwing: RawSwing | null = null;
-  let lastLowSwing: RawSwing | null = null;
-  let trend: TrendDirection = "neutral";
+  for (let i = 1; i < swings.length; i++) {
+    const curr = swings[i];
 
-  for (const swing of rawSwings) {
-    let swingType: SwingType;
-
-    if (swing.isHigh) {
-      swingType = !lastHighSwing || swing.price > lastHighSwing.price ? "HH" : "LH";
-      lastHighSwing = swing;
-    } else {
-      swingType = !lastLowSwing || swing.price > lastLowSwing.price ? "HL" : "LL";
-      lastLowSwing = swing;
+    if (trend === DIRECTION.BULLISH && curr.type === ICT_TYPES.SWING.HH) {
+      events.push({
+        time: curr.time,
+        price: curr.price,
+        type: ICT_TYPES.STRUCTURE.BOS,
+        direction: DIRECTION.BULLISH,
+        index: curr.index,
+      });
+    } else if (trend === DIRECTION.BEARISH && curr.type === ICT_TYPES.SWING.LL) {
+      events.push({
+        time: curr.time,
+        price: curr.price,
+        type: ICT_TYPES.STRUCTURE.BOS,
+        direction: DIRECTION.BEARISH,
+        index: curr.index,
+      });
     }
 
-    swings.push({
-      time: swing.time,
-      price: swing.price,
-      type: swingType,
-      index: swing.index,
-    });
-
-    if (swings.length >= 3) {
-      const curr = swings[swings.length - 1];
-
-      if (trend === "bullish" && curr.type === "HH") {
-        events.push({
-          time: curr.time,
-          price: curr.price,
-          type: "BOS",
-          direction: "bullish",
-          index: curr.index,
-        });
-      } else if (trend === "bearish" && curr.type === "LL") {
-        events.push({
-          time: curr.time,
-          price: curr.price,
-          type: "BOS",
-          direction: "bearish",
-          index: curr.index,
-        });
-      }
-
-      if (trend === "bullish" && curr.type === "LL") {
-        events.push({
-          time: curr.time,
-          price: curr.price,
-          type: "ChoCH",
-          direction: "bearish",
-          index: curr.index,
-        });
-        trend = "bearish";
-      } else if (trend === "bearish" && curr.type === "HH") {
-        events.push({
-          time: curr.time,
-          price: curr.price,
-          type: "ChoCH",
-          direction: "bullish",
-          index: curr.index,
-        });
-        trend = "bullish";
-      }
-
-      if (trend === "neutral") {
-        const prev = swings[swings.length - 2];
-        if (curr.type === "HH" && prev.type === "HL") trend = "bullish";
-        else if (curr.type === "LL" && prev.type === "LH") trend = "bearish";
-      }
+    if (trend === DIRECTION.BULLISH && curr.type === ICT_TYPES.SWING.LL) {
+      events.push({
+        time: curr.time,
+        price: curr.price,
+        type: ICT_TYPES.STRUCTURE.CHOCH,
+        direction: DIRECTION.BEARISH,
+        index: curr.index,
+      });
+      trend = DIRECTION.BEARISH;
+    } else if (trend === DIRECTION.BEARISH && curr.type === ICT_TYPES.SWING.HH) {
+      events.push({
+        time: curr.time,
+        price: curr.price,
+        type: ICT_TYPES.STRUCTURE.CHOCH,
+        direction: DIRECTION.BULLISH,
+        index: curr.index,
+      });
+      trend = DIRECTION.BULLISH;
     }
   }
 
@@ -134,28 +171,22 @@ export const getCurrentTrend = (structure: MarketStructure): TrendDirection => {
 
 export const getLastSwing = (
   structure: MarketStructure,
-  type?: "high" | "low"
+  type?: SwingTypeLevel
 ): SwingPoint | null => {
   const swings = structure.swings;
   if (swings.length === 0) return null;
 
   const last = swings[swings.length - 1];
-  if (type === "high") {
+  if (type === SWING_TYPE.HIGH) {
     for (let i = swings.length - 1; i >= 0; i--) {
-      if (swings[i].type === "HH" || swings[i].type === "LH") return swings[i];
+      if (swings[i].type === ICT_TYPES.SWING.HH || swings[i].type === ICT_TYPES.SWING.LH)
+        return swings[i];
     }
-  } else if (type === "low") {
+  } else if (type === SWING_TYPE.LOW) {
     for (let i = swings.length - 1; i >= 0; i--) {
-      if (swings[i].type === "HL" || swings[i].type === "LL") return swings[i];
+      if (swings[i].type === ICT_TYPES.SWING.HL || swings[i].type === ICT_TYPES.SWING.LL)
+        return swings[i];
     }
   }
-
   return last;
-};
-
-export const getRecentStructureEvents = (
-  structure: MarketStructure,
-  count: number = 3
-): StructureEvent[] => {
-  return structure.events.slice(-count);
 };

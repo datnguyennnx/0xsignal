@@ -1,4 +1,9 @@
-import { WYCKOFF_TYPES, DETECTION_THRESHOLDS } from "../constants";
+import {
+  WYCKOFF_TYPES,
+  DETECTION_THRESHOLDS,
+  SIGNIFICANCE,
+  type SignificanceLevel,
+} from "../constants";
 
 export type WyckoffPhase = (typeof WYCKOFF_TYPES.PHASE)[keyof typeof WYCKOFF_TYPES.PHASE];
 export type WyckoffCycle = (typeof WYCKOFF_TYPES.CYCLE)[keyof typeof WYCKOFF_TYPES.CYCLE];
@@ -26,7 +31,7 @@ export interface WyckoffEvent {
   readonly time: number;
   readonly price: number;
   readonly index: number;
-  readonly significance: "high" | "medium" | "low";
+  readonly significance: SignificanceLevel;
 }
 
 export interface PhaseMarker {

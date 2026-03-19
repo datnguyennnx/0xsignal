@@ -8,10 +8,21 @@ import { detectFVGs, getUnfilledFVGs, getRecentFVGs } from "./fvg";
 import { detectOrderBlocks, getUnmitigatedOBs } from "./order-blocks";
 import { detectLiquidityZones, getUnsweptLiquidity } from "./liquidity";
 import { calculateOTEZones, getGoldenPocketZone, isPriceInOTE } from "./ote";
+import { DIRECTION, SIGNAL_TYPE, TRADE_PARAMS, CONFIDENCE } from "../constants";
 
 export { DEFAULT_ICT_CONFIG } from "./types";
 
 export const analyzeICT = (candles: ChartDataPoint[], config: ICTConfig): ICTAnalysis => {
+  if (candles.length === 0) {
+    return {
+      marketStructure: { swings: [], events: [], currentTrend: DIRECTION.NEUTRAL },
+      fvgs: [],
+      orderBlocks: [],
+      liquidityZones: [],
+      oteZones: [],
+    };
+  }
+
   const atr = calculateATR(candles, config.atrPeriod);
   const marketStructure = detectMarketStructure(candles, config.swingLookback);
   const fvgs = detectFVGs(candles, config.fvgMinSize);
@@ -38,9 +49,9 @@ export const generateICTSignals = (
   const unmitigatedOBs = getUnmitigatedOBs(analysis.orderBlocks);
   const unsweptLiquidity = getUnsweptLiquidity(analysis.liquidityZones);
 
-  if (trend === "bullish") {
-    const recentFVGs = getRecentFVGs(unfilledFVGs, 3, "bullish");
-    const recentOBs = unmitigatedOBs.filter((ob) => ob.type === "bullish").slice(-2);
+  if (trend === DIRECTION.BULLISH) {
+    const recentFVGs = getRecentFVGs(unfilledFVGs, 3, DIRECTION.BULLISH);
+    const recentOBs = unmitigatedOBs.filter((ob) => ob.type === DIRECTION.BULLISH).slice(-2);
     const gpZone = getGoldenPocketZone(analysis.oteZones);
 
     if (recentFVGs.length > 0 && recentOBs.length > 0) {
@@ -49,31 +60,33 @@ export const generateICTSignals = (
 
       if (currentPrice <= lastFVG.midpoint && currentPrice >= lastOB.low) {
         signals.push({
-          type: "long",
+          type: SIGNAL_TYPE.LONG,
           entry: currentPrice,
-          stopLoss: lastOB.low - (lastOB.high - lastOB.low) * 0.5,
-          takeProfit: currentPrice + (currentPrice - lastOB.low) * 2,
+          stopLoss: lastOB.low - (lastOB.high - lastOB.low) * TRADE_PARAMS.STOP_LOSS_MULTIPLIER,
+          takeProfit:
+            currentPrice + (currentPrice - lastOB.low) * TRADE_PARAMS.TAKE_PROFIT_MULTIPLIER,
           reason: "Bullish FVG + Order Block confluence",
-          confidence: 75,
+          confidence: CONFIDENCE.MEDIUM,
           timestamp: Date.now(),
         });
       }
     }
 
-    if (gpZone && isPriceInOTE(currentPrice, analysis.oteZones, "bullish")) {
+    if (gpZone && isPriceInOTE(currentPrice, analysis.oteZones, DIRECTION.BULLISH)) {
       signals.push({
-        type: "long",
+        type: SIGNAL_TYPE.LONG,
         entry: currentPrice,
-        stopLoss: gpZone.low - (gpZone.high - gpZone.low) * 0.5,
-        takeProfit: currentPrice + (currentPrice - gpZone.low) * 2,
+        stopLoss: gpZone.low - (gpZone.high - gpZone.low) * TRADE_PARAMS.STOP_LOSS_MULTIPLIER,
+        takeProfit:
+          currentPrice + (currentPrice - gpZone.low) * TRADE_PARAMS.TAKE_PROFIT_MULTIPLIER,
         reason: "Price in Golden Pocket OTE zone",
-        confidence: 80,
+        confidence: CONFIDENCE.HIGH,
         timestamp: Date.now(),
       });
     }
-  } else if (trend === "bearish") {
-    const recentFVGs = getRecentFVGs(unfilledFVGs, 3, "bearish");
-    const recentOBs = unmitigatedOBs.filter((ob) => ob.type === "bearish").slice(-2);
+  } else if (trend === DIRECTION.BEARISH) {
+    const recentFVGs = getRecentFVGs(unfilledFVGs, 3, DIRECTION.BEARISH);
+    const recentOBs = unmitigatedOBs.filter((ob) => ob.type === DIRECTION.BEARISH).slice(-2);
     const gpZone = getGoldenPocketZone(analysis.oteZones);
 
     if (recentFVGs.length > 0 && recentOBs.length > 0) {
@@ -82,25 +95,27 @@ export const generateICTSignals = (
 
       if (currentPrice >= lastFVG.midpoint && currentPrice <= lastOB.high) {
         signals.push({
-          type: "short",
+          type: SIGNAL_TYPE.SHORT,
           entry: currentPrice,
-          stopLoss: lastOB.high + (lastOB.high - lastOB.low) * 0.5,
-          takeProfit: currentPrice - (lastOB.high - currentPrice) * 2,
+          stopLoss: lastOB.high + (lastOB.high - lastOB.low) * TRADE_PARAMS.STOP_LOSS_MULTIPLIER,
+          takeProfit:
+            currentPrice - (lastOB.high - currentPrice) * TRADE_PARAMS.TAKE_PROFIT_MULTIPLIER,
           reason: "Bearish FVG + Order Block confluence",
-          confidence: 75,
+          confidence: CONFIDENCE.MEDIUM,
           timestamp: Date.now(),
         });
       }
     }
 
-    if (gpZone && isPriceInOTE(currentPrice, analysis.oteZones, "bearish")) {
+    if (gpZone && isPriceInOTE(currentPrice, analysis.oteZones, DIRECTION.BEARISH)) {
       signals.push({
-        type: "short",
+        type: SIGNAL_TYPE.SHORT,
         entry: currentPrice,
-        stopLoss: gpZone.high + (gpZone.high - gpZone.low) * 0.5,
-        takeProfit: currentPrice - (gpZone.high - currentPrice) * 2,
+        stopLoss: gpZone.high + (gpZone.high - gpZone.low) * TRADE_PARAMS.STOP_LOSS_MULTIPLIER,
+        takeProfit:
+          currentPrice - (gpZone.high - currentPrice) * TRADE_PARAMS.TAKE_PROFIT_MULTIPLIER,
         reason: "Price in Golden Pocket OTE zone",
-        confidence: 80,
+        confidence: CONFIDENCE.HIGH,
         timestamp: Date.now(),
       });
     }

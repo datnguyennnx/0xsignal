@@ -1,10 +1,12 @@
+import { SIGNAL_TYPE } from "../constants";
+
 export interface PatternAnalysis {
   signals: TradingSignal[];
   metadata: Record<string, unknown>;
 }
 
 export interface TradingSignal {
-  type: "long" | "short" | "none";
+  type: (typeof SIGNAL_TYPE)[keyof typeof SIGNAL_TYPE];
   entry?: number;
   stopLoss?: number;
   takeProfit?: number;

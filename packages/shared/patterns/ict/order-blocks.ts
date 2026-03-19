@@ -1,12 +1,12 @@
 import type { ChartDataPoint } from "../../types/chart";
 import type { OrderBlock, OrderBlockType } from "./types";
 import { getCandleBodySize, isBullishCandle, isBearishCandle } from "../common";
+import { DIRECTION, DETECTION_THRESHOLDS } from "../constants";
 
 export const detectOrderBlocks = (data: ChartDataPoint[], atr: number): OrderBlock[] => {
   const orderBlocks: OrderBlock[] = [];
   if (data.length < 3 || atr === 0) return orderBlocks;
 
-  // Pre-calculate running minimum of lows and maximum of highs for O(n) performance
   const runningMinLow: number[] = new Array(data.length);
   const runningMaxHigh: number[] = new Array(data.length);
 
@@ -23,14 +23,17 @@ export const detectOrderBlocks = (data: ChartDataPoint[], atr: number): OrderBlo
     const nextCandle = data[i + 1];
     const nextBodySize = getCandleBodySize(nextCandle);
 
-    // Bullish Order Block: Bearish candle + strong bullish move
-    if (isBearishCandle(candle) && isBullishCandle(nextCandle) && nextBodySize > atr * 1.5) {
+    if (
+      isBearishCandle(candle) &&
+      isBullishCandle(nextCandle) &&
+      nextBodySize > atr * DETECTION_THRESHOLDS.ORDER_BLOCK_ATR_MULTIPLIER
+    ) {
       const mitigatedAt =
         i + 2 < data.length && runningMinLow[i + 2] <= candle.low ? data[i + 2].time : undefined;
 
       orderBlocks.push({
         time: candle.time,
-        type: "bullish",
+        type: DIRECTION.BULLISH,
         high: candle.high,
         low: candle.low,
         mitigated: !!mitigatedAt,
@@ -39,14 +42,17 @@ export const detectOrderBlocks = (data: ChartDataPoint[], atr: number): OrderBlo
       });
     }
 
-    // Bearish Order Block: Bullish candle + strong bearish move
-    if (isBullishCandle(candle) && isBearishCandle(nextCandle) && nextBodySize > atr * 1.5) {
+    if (
+      isBullishCandle(candle) &&
+      isBearishCandle(nextCandle) &&
+      nextBodySize > atr * DETECTION_THRESHOLDS.ORDER_BLOCK_ATR_MULTIPLIER
+    ) {
       const mitigatedAt =
         i + 2 < data.length && runningMaxHigh[i + 2] >= candle.high ? data[i + 2].time : undefined;
 
       orderBlocks.push({
         time: candle.time,
-        type: "bearish",
+        type: DIRECTION.BEARISH,
         high: candle.high,
         low: candle.low,
         mitigated: !!mitigatedAt,
@@ -84,10 +90,10 @@ export const getActiveOrderBlock = (
   if (unmitigated.length === 0) return null;
 
   const last = unmitigated[unmitigated.length - 1];
-  if (type === "bullish" && currentPrice > last.low && currentPrice < last.high) {
+  if (type === DIRECTION.BULLISH && currentPrice > last.low && currentPrice < last.high) {
     return last;
   }
-  if (type === "bearish" && currentPrice < last.high && currentPrice > last.low) {
+  if (type === DIRECTION.BEARISH && currentPrice < last.high && currentPrice > last.low) {
     return last;
   }
   return null;

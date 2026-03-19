@@ -1,5 +1,6 @@
 import type { ChartDataPoint } from "../../types/chart";
 import type { LiquidityZone, LiquidityType } from "./types";
+import { ICT_TYPES } from "../constants";
 
 export const detectLiquidityZones = (
   data: ChartDataPoint[],
@@ -57,7 +58,7 @@ export const detectLiquidityZones = (
         }
       }
       zones.push({
-        type: "BSL",
+        type: ICT_TYPES.LIQUIDITY.BSL,
         price: cluster.price,
         startTime: data[startIdx].time,
         endTime: data[endIdx].time,
@@ -82,7 +83,7 @@ export const detectLiquidityZones = (
         }
       }
       zones.push({
-        type: "SSL",
+        type: ICT_TYPES.LIQUIDITY.SSL,
         price: cluster.price,
         startTime: data[startIdx].time,
         endTime: data[endIdx].time,
@@ -121,10 +122,10 @@ export const getActiveLiquidity = (
   if (unswept.length === 0) return null;
 
   const last = unswept[unswept.length - 1];
-  if (type === "BSL" && currentPrice < last.price) {
+  if (type === ICT_TYPES.LIQUIDITY.BSL && currentPrice < last.price) {
     return last;
   }
-  if (type === "SSL" && currentPrice > last.price) {
+  if (type === ICT_TYPES.LIQUIDITY.SSL && currentPrice > last.price) {
     return last;
   }
   return null;

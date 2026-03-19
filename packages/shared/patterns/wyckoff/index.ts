@@ -21,6 +21,14 @@ import {
 } from "./events";
 import { calculateEffortResult } from "./effort-result";
 import { isInAccumulation, isInDistribution } from "./cycles";
+import {
+  WYCKOFF_TYPES,
+  DIRECTION,
+  SIGNAL_TYPE,
+  DETECTION_THRESHOLDS,
+  CONFIDENCE,
+  TRADE_PARAMS,
+} from "../constants";
 
 export { DEFAULT_WYCKOFF_CONFIG } from "./types";
 export type {
@@ -40,7 +48,7 @@ export type {
 export const analyzeWyckoff = (data: ChartDataPoint[], config: WyckoffConfig): WyckoffAnalysis => {
   if (data.length < config.volumeLookback + 10) {
     return {
-      cycle: "unknown",
+      cycle: WYCKOFF_TYPES.CYCLE.UNKNOWN,
       currentPhase: null,
       tradingRange: null,
       climaxes: [],
@@ -61,15 +69,15 @@ export const analyzeWyckoff = (data: ChartDataPoint[], config: WyckoffConfig): W
     const bc = detectBuyingClimax(data, i, config);
     if (bc) climaxes.push(bc);
 
-    const er = calculateEffortResult(data, i, 5);
-    if (er && er.divergence !== "neutral") {
+    const er = calculateEffortResult(data, i, DETECTION_THRESHOLDS.EFFORT_LOOKBACK);
+    if (er && er.divergence !== WYCKOFF_TYPES.DIVERGENCE.NEUTRAL) {
       effortResults.push(er);
     }
   }
 
   if (climaxes.length === 0) {
     return {
-      cycle: "unknown",
+      cycle: WYCKOFF_TYPES.CYCLE.UNKNOWN,
       currentPhase: null,
       tradingRange: null,
       climaxes: [],
@@ -80,7 +88,7 @@ export const analyzeWyckoff = (data: ChartDataPoint[], config: WyckoffConfig): W
   }
 
   const lastClimax = climaxes[climaxes.length - 1];
-  const isAccumulation = lastClimax.type === "SC";
+  const isAccumulation = lastClimax.type === WYCKOFF_TYPES.CLIMAX.SC;
 
   const rangeStart = lastClimax.index;
   const rangeEnd = data.length - 1;
@@ -142,83 +150,116 @@ export const generateWyckoffSignals = (
   const signals: TradingSignal[] = [];
   const { cycle, currentPhase, tradingRange, events, climaxes, effortResults } = analysis;
 
-  if (cycle === "unknown" || !tradingRange) return signals;
+  if (cycle === WYCKOFF_TYPES.CYCLE.UNKNOWN || !tradingRange) return signals;
 
   const lastClimax = climaxes[climaxes.length - 1];
   const lastEvent = events.length > 0 ? events[events.length - 1] : null;
   const lastDivergence = effortResults.length > 0 ? effortResults[effortResults.length - 1] : null;
 
   if (isInAccumulation(cycle)) {
-    if (currentPhase === "C" || lastEvent?.type === "spring") {
+    if (currentPhase === WYCKOFF_TYPES.PHASE.C || lastEvent?.type === WYCKOFF_TYPES.EVENT.SPRING) {
       signals.push({
-        type: "long",
+        type: SIGNAL_TYPE.LONG,
         entry: currentPrice,
-        stopLoss: tradingRange.low - (tradingRange.high - tradingRange.low) * 0.02,
-        takeProfit: tradingRange.high + (tradingRange.high - tradingRange.low) * 1.5,
+        stopLoss:
+          tradingRange.low -
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.STOP_LOSS_PERCENT,
+        takeProfit:
+          tradingRange.high +
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.TAKE_PROFIT_MULTIPLIER_LOW,
         reason: "Wyckoff Spring/Test in Accumulation",
-        confidence: 80,
+        confidence: CONFIDENCE.MEDIUM,
         timestamp: Date.now(),
       });
     }
 
-    if (lastEvent?.type === "LPS" || lastEvent?.type === "SOS") {
+    if (
+      lastEvent?.type === WYCKOFF_TYPES.EVENT.LPS ||
+      lastEvent?.type === WYCKOFF_TYPES.EVENT.SOS
+    ) {
       signals.push({
-        type: "long",
+        type: SIGNAL_TYPE.LONG,
         entry: currentPrice,
-        stopLoss: tradingRange.low - (tradingRange.high - tradingRange.low) * 0.02,
-        takeProfit: tradingRange.high + (tradingRange.high - tradingRange.low) * 2,
+        stopLoss:
+          tradingRange.low -
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.STOP_LOSS_PERCENT,
+        takeProfit:
+          tradingRange.high +
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.TAKE_PROFIT_MULTIPLIER_HIGH,
         reason: "Wyckoff LPS/SOS Signal",
-        confidence: 85,
+        confidence: CONFIDENCE.HIGH,
         timestamp: Date.now(),
       });
     }
 
-    if (lastDivergence?.divergence === "bullish") {
+    if (lastDivergence?.divergence === WYCKOFF_TYPES.DIVERGENCE.BULLISH) {
       signals.push({
-        type: "long",
+        type: SIGNAL_TYPE.LONG,
         entry: currentPrice,
-        stopLoss: tradingRange.low - (tradingRange.high - tradingRange.low) * 0.02,
-        takeProfit: tradingRange.high + (tradingRange.high - tradingRange.low) * 1.5,
+        stopLoss:
+          tradingRange.low -
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.STOP_LOSS_PERCENT,
+        takeProfit:
+          tradingRange.high +
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.TAKE_PROFIT_MULTIPLIER_LOW,
         reason: "Bullish Effort vs Result Divergence",
-        confidence: 70,
+        confidence: CONFIDENCE.MEDIUM,
         timestamp: Date.now(),
       });
     }
   }
 
   if (isInDistribution(cycle)) {
-    if (currentPhase === "C" || lastEvent?.type === "upthrust") {
+    if (
+      currentPhase === WYCKOFF_TYPES.PHASE.C ||
+      lastEvent?.type === WYCKOFF_TYPES.EVENT.UPTHRUST
+    ) {
       signals.push({
-        type: "short",
+        type: SIGNAL_TYPE.SHORT,
         entry: currentPrice,
-        stopLoss: tradingRange.high + (tradingRange.high - tradingRange.low) * 0.02,
-        takeProfit: tradingRange.low - (tradingRange.high - tradingRange.low) * 1.5,
+        stopLoss:
+          tradingRange.high +
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.STOP_LOSS_PERCENT,
+        takeProfit:
+          tradingRange.low -
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.TAKE_PROFIT_MULTIPLIER_LOW,
         reason: "Wyckoff Upthrust in Distribution",
-        confidence: 80,
+        confidence: CONFIDENCE.MEDIUM,
         timestamp: Date.now(),
       });
     }
 
-    if (lastEvent?.type === "LPSY" || lastEvent?.type === "SOW") {
+    if (
+      lastEvent?.type === WYCKOFF_TYPES.EVENT.LPSY ||
+      lastEvent?.type === WYCKOFF_TYPES.EVENT.SOW
+    ) {
       signals.push({
-        type: "short",
+        type: SIGNAL_TYPE.SHORT,
         entry: currentPrice,
-        stopLoss: tradingRange.high + (tradingRange.high - tradingRange.low) * 0.02,
-        takeProfit: tradingRange.low - (tradingRange.high - tradingRange.low) * 2,
+        stopLoss:
+          tradingRange.high +
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.STOP_LOSS_PERCENT,
+        takeProfit:
+          tradingRange.low -
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.TAKE_PROFIT_MULTIPLIER_HIGH,
         reason: "Wyckoff LPSY/SOW Signal",
-        confidence: 85,
+        confidence: CONFIDENCE.HIGH,
         timestamp: Date.now(),
       });
     }
 
-    if (lastDivergence?.divergence === "bearish") {
+    if (lastDivergence?.divergence === WYCKOFF_TYPES.DIVERGENCE.BEARISH) {
       signals.push({
-        type: "short",
+        type: SIGNAL_TYPE.SHORT,
         entry: currentPrice,
-        stopLoss: tradingRange.high + (tradingRange.high - tradingRange.low) * 0.02,
-        takeProfit: tradingRange.low - (tradingRange.high - tradingRange.low) * 1.5,
+        stopLoss:
+          tradingRange.high +
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.STOP_LOSS_PERCENT,
+        takeProfit:
+          tradingRange.low -
+          (tradingRange.high - tradingRange.low) * TRADE_PARAMS.TAKE_PROFIT_MULTIPLIER_LOW,
         reason: "Bearish Effort vs Result Divergence",
-        confidence: 70,
+        confidence: CONFIDENCE.MEDIUM,
         timestamp: Date.now(),
       });
     }

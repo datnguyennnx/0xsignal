@@ -1,6 +1,7 @@
 import type { ChartDataPoint } from "../../types/chart";
 import type { EffortResult } from "./types";
 import { average, getSpread, isDownBar, isUpBar } from "../common";
+import { WYCKOFF_TYPES, DIVERGENCE_THRESHOLDS } from "../constants";
 
 export const calculateEffortResult = (
   data: ChartDataPoint[],
@@ -17,12 +18,18 @@ export const calculateEffortResult = (
   const effort = bar.volume / avgVolume;
   const result = getSpread(bar) / avgSpread;
 
-  let divergence: "bullish" | "bearish" | "neutral" = "neutral";
+  let divergence: (typeof WYCKOFF_TYPES.DIVERGENCE)[keyof typeof WYCKOFF_TYPES.DIVERGENCE] =
+    WYCKOFF_TYPES.DIVERGENCE.NEUTRAL;
 
-  if (effort > 1.5 && result < 0.5) {
-    divergence = isDownBar(bar) ? "bullish" : "bearish";
-  } else if (effort < 0.5 && result > 1.5) {
-    divergence = isUpBar(bar) ? "bullish" : "bearish";
+  if (effort > DIVERGENCE_THRESHOLDS.EFFORT_HIGH && result < DIVERGENCE_THRESHOLDS.RESULT_LOW) {
+    divergence = isDownBar(bar)
+      ? WYCKOFF_TYPES.DIVERGENCE.BULLISH
+      : WYCKOFF_TYPES.DIVERGENCE.BEARISH;
+  } else if (
+    effort < DIVERGENCE_THRESHOLDS.EFFORT_LOW &&
+    result > DIVERGENCE_THRESHOLDS.RESULT_HIGH
+  ) {
+    divergence = isUpBar(bar) ? WYCKOFF_TYPES.DIVERGENCE.BULLISH : WYCKOFF_TYPES.DIVERGENCE.BEARISH;
   }
 
   return {
@@ -33,24 +40,27 @@ export const calculateEffortResult = (
     index,
   };
 };
-
 export const getBullishDivergences = (effortResults: EffortResult[]): EffortResult[] => {
-  return effortResults.filter((er) => er.divergence === "bullish");
+  return effortResults.filter((er) => er.divergence === WYCKOFF_TYPES.DIVERGENCE.BULLISH);
 };
 
 export const getBearishDivergences = (effortResults: EffortResult[]): EffortResult[] => {
-  return effortResults.filter((er) => er.divergence === "bearish");
+  return effortResults.filter((er) => er.divergence === WYCKOFF_TYPES.DIVERGENCE.BEARISH);
 };
 
 export const getLastDivergence = (effortResults: EffortResult[]): EffortResult | null => {
-  const divergences = effortResults.filter((er) => er.divergence !== "neutral");
+  const divergences = effortResults.filter(
+    (er) => er.divergence !== WYCKOFF_TYPES.DIVERGENCE.NEUTRAL
+  );
   if (divergences.length === 0) return null;
   return divergences[divergences.length - 1];
 };
 
 export const isStrongDivergence = (effortResult: EffortResult): boolean => {
   return (
-    (effortResult.effort > 2.0 && effortResult.result < 0.3) ||
-    (effortResult.effort < 0.3 && effortResult.result > 2.0)
+    (effortResult.effort > DIVERGENCE_THRESHOLDS.STRONG_EFFORT &&
+      effortResult.result < DIVERGENCE_THRESHOLDS.STRONG_RESULT) ||
+    (effortResult.effort < DIVERGENCE_THRESHOLDS.STRONG_REVERSE_EFFORT &&
+      effortResult.result > DIVERGENCE_THRESHOLDS.STRONG_REVERSE_RESULT)
   );
 };

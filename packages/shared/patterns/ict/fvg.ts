@@ -1,11 +1,11 @@
 import type { ChartDataPoint } from "../../types/chart";
 import type { FairValueGap, FVGType } from "./types";
+import { DIRECTION } from "../constants";
 
 export const detectFVGs = (data: ChartDataPoint[], minSizePercent: number): FairValueGap[] => {
   const fvgs: FairValueGap[] = [];
   if (data.length < 3) return fvgs;
 
-  // Pre-calculate running minimum of lows and maximum of highs for O(n) performance
   const runningMinLow: number[] = new Array(data.length);
   const runningMaxHigh: number[] = new Array(data.length);
 
@@ -23,12 +23,10 @@ export const detectFVGs = (data: ChartDataPoint[], minSizePercent: number): Fair
     const avgPrice = (c1.close + c3.close) / 2;
     const minSize = avgPrice * (minSizePercent / 100);
 
-    // Bullish FVG: c1.high < c3.low (gap up)
     if (c1.high < c3.low && c3.low - c1.high >= minSize) {
       const fvgSize = c3.low - c1.high;
       let fillPercent = 0;
 
-      // Check if filled using running minimum - O(1) instead of O(n)
       if (i + 1 < data.length) {
         const lowestAfter = runningMinLow[i + 1];
         if (lowestAfter <= c1.high) {
@@ -41,7 +39,7 @@ export const detectFVGs = (data: ChartDataPoint[], minSizePercent: number): Fair
       fvgs.push({
         startTime: c1.time,
         endTime: c3.time,
-        type: "bullish",
+        type: DIRECTION.BULLISH,
         high: c3.low,
         low: c1.high,
         midpoint: (c3.low + c1.high) / 2,
@@ -51,12 +49,10 @@ export const detectFVGs = (data: ChartDataPoint[], minSizePercent: number): Fair
       });
     }
 
-    // Bearish FVG: c1.low > c3.high (gap down)
     if (c1.low > c3.high && c1.low - c3.high >= minSize) {
       const fvgSize = c1.low - c3.high;
       let fillPercent = 0;
 
-      // Check if filled using running maximum - O(1) instead of O(n)
       if (i + 1 < data.length) {
         const highestAfter = runningMaxHigh[i + 1];
         if (highestAfter >= c1.low) {
@@ -69,7 +65,7 @@ export const detectFVGs = (data: ChartDataPoint[], minSizePercent: number): Fair
       fvgs.push({
         startTime: c1.time,
         endTime: c3.time,
-        type: "bearish",
+        type: DIRECTION.BEARISH,
         high: c1.low,
         low: c3.high,
         midpoint: (c1.low + c3.high) / 2,
@@ -108,10 +104,10 @@ export const getActiveFVG = (
   if (unfilled.length === 0) return null;
 
   const last = unfilled[unfilled.length - 1];
-  if (type === "bullish" && currentPrice > last.high) {
+  if (type === DIRECTION.BULLISH && currentPrice > last.high) {
     return last;
   }
-  if (type === "bearish" && currentPrice < last.low) {
+  if (type === DIRECTION.BEARISH && currentPrice < last.low) {
     return last;
   }
   return null;
