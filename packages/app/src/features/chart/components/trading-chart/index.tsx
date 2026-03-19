@@ -84,6 +84,8 @@ const TradingChartComponent = ({
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
   const [hoveredCandle, setHoveredCandle] = useState<ChartDataPoint | null>(null);
+  const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
+  const chartSymbol = symbol.toUpperCase();
   const [ictVisibility, setIctVisibility] = useState<ICTVisibility>(DEFAULT_ICT_VISIBILITY);
   const [wyckoffVisibility, setWyckoffVisibility] = useState<WyckoffVisibility>(
     DEFAULT_WYCKOFF_VISIBILITY
@@ -117,7 +119,6 @@ const TradingChartComponent = ({
     indicatorData,
     handleAddIndicator,
     handleRemoveIndicator,
-    handleToggleIndicator,
     handleResetAll: resetIndicators,
     hasActiveOverlays,
   } = useIndicators({ data });
@@ -197,15 +198,10 @@ const TradingChartComponent = ({
     [onIntervalChange, interval, isFullscreen, toggleFullscreen]
   );
 
-  const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
-  const chartSymbol = symbol.toUpperCase();
-
   const chartContent = (
     <>
       <ChartHeader
-        symbol={chartSymbol}
         interval={interval}
-        displayCandle={displayCandle}
         onIntervalChange={handleIntervalChange}
         isFetching={isFetching}
       >
@@ -219,7 +215,6 @@ const TradingChartComponent = ({
           activeIndicators={activeIndicators}
           onAddIndicator={handleAddIndicator}
           onRemoveIndicator={handleRemoveIndicator}
-          onToggleIndicator={handleToggleIndicator}
           hasActiveOverlays={hasActiveOverlays}
           onResetAll={handleResetAll}
           isFullscreen={isFullscreen}
@@ -236,7 +231,7 @@ const TradingChartComponent = ({
         isFetching={isFetching}
       />
 
-      <div className="flex-1 relative bg-card">
+      <div className="flex-1 relative bg-card overscroll-none">
         <div ref={chartContainerRef} className="absolute inset-0" />
         <IndicatorChips indicators={activeIndicators} />
         <ChartOhlcOverlay displayCandle={displayCandle} precision={precision.pxDecimals} />
@@ -253,7 +248,6 @@ const TradingChartComponent = ({
           activeIndicators={activeIndicators}
           onAddIndicator={handleAddIndicator}
           onRemoveIndicator={handleRemoveIndicator}
-          onToggleIndicator={handleToggleIndicator}
           hasActiveOverlays={hasActiveOverlays}
           onResetAll={handleResetAll}
           isFullscreen={isFullscreen}
@@ -270,7 +264,7 @@ const TradingChartComponent = ({
     return (
       <div
         ref={fullscreenContainerRef}
-        className="fixed inset-0 z-99990 bg-background flex flex-col"
+        className="fixed inset-0 z-50 bg-background flex flex-col overscroll-none"
       >
         <div className="w-full h-full max-w-8xl mx-auto flex flex-col">{chartContent}</div>
       </div>
@@ -278,7 +272,7 @@ const TradingChartComponent = ({
   }
 
   return (
-    <div className="h-full rounded-lg border border-border/50 bg-card overflow-hidden flex flex-col">
+    <div className="h-full rounded-lg bg-card overflow-hidden flex flex-col">
       <div className="relative flex-1 flex flex-col">{chartContent}</div>
     </div>
   );

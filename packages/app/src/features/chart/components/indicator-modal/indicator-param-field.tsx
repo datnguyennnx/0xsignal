@@ -47,7 +47,7 @@ export function IndicatorParamField({
           </p>
         </div>
 
-        <div className="flex items-center ring-1 ring-border rounded-md overflow-hidden bg-muted/5 group-hover/param:ring-muted-foreground/30 transition-all">
+        <div className="flex items-center ring-1 ring-border/30 rounded-xl overflow-hidden bg-muted/5 group-hover/param:ring-muted-foreground/30 transition-all">
           <button
             type="button"
             onClick={() => adjust(-1)}
@@ -64,7 +64,7 @@ export function IndicatorParamField({
             step={definition.step}
             value={value}
             onChange={(e) => onValueChange(e.target.value)}
-            className="w-12 h-7 px-1 text-center text-xs font-bold bg-transparent focus:outline-none tabular-nums"
+            className="w-12 h-7 px-1 text-center text-xs font-bold bg-transparent focus:outline-none tabular-nums select-none"
           />
 
           <button

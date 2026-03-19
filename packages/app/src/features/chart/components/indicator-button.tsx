@@ -10,7 +10,6 @@ interface IndicatorButtonProps {
   activeIndicators: ActiveIndicator[];
   onAddIndicator: (indicator: IndicatorConfig, params?: Record<string, number>) => void;
   onRemoveIndicator: (indicatorId: string) => void;
-  onToggleIndicator: (indicatorId: string) => void;
   className?: string;
 }
 
@@ -18,7 +17,6 @@ export const IndicatorButton = memo(function IndicatorButton({
   activeIndicators,
   onAddIndicator,
   onRemoveIndicator,
-  onToggleIndicator,
   className,
 }: IndicatorButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -41,7 +39,7 @@ export const IndicatorButton = memo(function IndicatorButton({
           <Badge
             variant={isOpen ? "secondary" : "default"}
             className={cn(
-              "px-1 sm:px-1.5 py-0 text-[10px] h-4 min-w-[16px]",
+              "px-1 sm:px-1.5 py-0 text-[10px] h-4 min-w-[16px] tabular-nums select-none",
               isOpen && "bg-primary-foreground/20"
             )}
           >
@@ -54,7 +52,6 @@ export const IndicatorButton = memo(function IndicatorButton({
         activeIndicators={activeIndicators}
         onAddIndicator={onAddIndicator}
         onRemoveIndicator={onRemoveIndicator}
-        onToggleIndicator={onToggleIndicator}
         open={isOpen}
         onOpenChange={setIsOpen}
       />

@@ -6,7 +6,6 @@ import type {
   TrendDirection,
   SwingType,
 } from "./types";
-import { calculateATR } from "../common";
 import { ICT_TYPES, DIRECTION, SWING_TYPE, type SwingTypeLevel } from "../constants";
 
 export const detectSwingHighs = (data: ChartDataPoint[], lookback: number): SwingPoint[] => {

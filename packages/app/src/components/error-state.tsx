@@ -1,3 +1,5 @@
+import { memo } from "react";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/core/utils/cn";
 
@@ -9,7 +11,7 @@ interface ErrorStateProps {
   className?: string;
 }
 
-export function ErrorState({
+export const ErrorState = memo(function ErrorState({
   title = "Unable to load data",
   description = "An unexpected error occurred. Please try again.",
   retryAction,
@@ -25,7 +27,13 @@ export function ErrorState({
         className
       )}
     >
-      <h3 className="text-base font-medium tracking-tight mb-3">
+      <AlertCircle
+        size={28}
+        strokeWidth={1.5}
+        className="text-muted-foreground/40 mb-4"
+        aria-hidden="true"
+      />
+      <h3 className="text-base font-semibold tracking-tight mb-3">
         {isRateLimit ? "System Cooling Down" : title}
       </h3>
 
@@ -42,4 +50,4 @@ export function ErrorState({
       )}
     </div>
   );
-}
+});

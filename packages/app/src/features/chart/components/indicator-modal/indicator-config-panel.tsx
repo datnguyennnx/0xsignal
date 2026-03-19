@@ -7,6 +7,7 @@ import {
 } from "@0xsignal/shared";
 import { Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ContentUnavailable } from "@/components/content-unavailable";
 import { IndicatorParamField } from "./indicator-param-field";
 import { parseFormValues, toFormValues } from "./utils";
 
@@ -81,8 +82,8 @@ export function IndicatorConfigPanel({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-2 space-y-8 scrollbar-none">
-        <div className="space-y-6">
+      <div className="flex-1 overflow-y-auto px-6 py-2 scrollbar-none overscroll-none">
+        <div className="space-y-8">
           {indicator.params.length > 0 ? (
             <div className="space-y-8">
               {indicator.params.map((paramDef) => (
@@ -95,16 +96,12 @@ export function IndicatorConfigPanel({
               ))}
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center py-20">
-              <div className="text-center space-y-4">
-                <div className="space-y-1 px-8 max-w-[280px] mx-auto">
-                  <p className="text-[11px] font-bold uppercase tracking-widest">Fixed Model</p>
-                  <p className="text-[11px] leading-relaxed italic ">
-                    This strategy utilizes fixed institutional logic and does not require manual
-                    parameter adjustment.
-                  </p>
-                </div>
-              </div>
+            <div className="flex items-center justify-center min-h-[200px]">
+              <ContentUnavailable
+                variant="empty"
+                title="Fixed Model"
+                description="This strategy utilizes fixed institutional logic and does not require manual parameter adjustment."
+              />
             </div>
           )}
         </div>

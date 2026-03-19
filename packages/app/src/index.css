@@ -12,6 +12,7 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -57,101 +58,93 @@
 :root {
   --radius: 0.625rem;
 
-  /* Fluid Typography: Scales from 14px at 320px to 17px at 1920px */
+  /* Fluid Typography */
   font-size: clamp(14px, 0.8rem + 0.3vw, 17px);
 
-  /* Monochrome Base - Warm off-white for less eye strain */
-  --background: oklch(0.985 0.002 90);
-  --foreground: oklch(0.15 0 0);
+  /* ===== PURE MONOCHROME BASE - LIGHT MODE ===== */
+  /* C=0 for pure grayscale. Increased contrast between bg and cards. */
+  --background: oklch(0.97 0 0); /* Slightly deeper off-white */
+  --foreground: oklch(0.12 0 0); /* Stronger near-black for high legibility */
 
-  /* Cards - Subtle warmth */
-  --card: oklch(0.99 0.001 90);
-  --card-foreground: oklch(0.15 0 0);
-  --popover: oklch(0.99 0.001 90);
-  --popover-foreground: oklch(0.15 0 0);
+  --card: oklch(1 0 0); /* Pure white to pop against background */
+  --card-foreground: oklch(0.12 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.12 0 0);
 
-  /* Primary - Near black for high contrast */
   --primary: oklch(0.12 0 0);
   --primary-foreground: oklch(0.98 0 0);
 
-  /* Secondary - Soft gray */
-  --secondary: oklch(0.94 0.002 90);
-  --secondary-foreground: oklch(0.15 0 0);
+  --secondary: oklch(0.93 0 0);
+  --secondary-foreground: oklch(0.12 0 0);
 
-  --muted: oklch(0.94 0.002 90);
-  --muted-foreground: oklch(0.5 0 0);
+  --muted: oklch(0.93 0 0);
+  --muted-foreground: oklch(0.45 0 0); /* Sharper muted text */
 
-  --accent: oklch(0.94 0.002 90);
-  --accent-foreground: oklch(0.15 0 0);
+  --accent: oklch(0.93 0 0);
+  --accent-foreground: oklch(0.12 0 0);
 
   --destructive: oklch(0.55 0.2 25);
   --success: oklch(0.55 0.15 145);
   --warning: oklch(0.7 0.15 70);
 
-  --border: oklch(0.88 0.002 90);
-  --input: oklch(0.88 0.002 90);
+  /* Sharper borders to prevent elements from blending together */
+  --border: oklch(0.85 0 0);
+  --input: oklch(0.85 0 0);
   --ring: oklch(0.12 0 0);
 
-  /* Charts - Grayscale spectrum */
-  --chart-1: oklch(0.15 0 0);
+  /* Charts - Pure Grayscale spectrum */
+  --chart-1: oklch(0.12 0 0);
   --chart-2: oklch(0.35 0 0);
   --chart-3: oklch(0.55 0 0);
   --chart-4: oklch(0.75 0 0);
-  --chart-5: oklch(0.88 0 0);
+  --chart-5: oklch(0.85 0 0);
 
-  --sidebar: oklch(0.97 0.002 90);
-  --sidebar-foreground: oklch(0.15 0 0);
+  --sidebar: oklch(0.97 0 0);
+  --sidebar-foreground: oklch(0.12 0 0);
   --sidebar-primary: oklch(0.12 0 0);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.94 0.002 90);
-  --sidebar-accent-foreground: oklch(0.15 0 0);
-  --sidebar-border: oklch(0.88 0.002 90);
+  --sidebar-accent: oklch(0.93 0 0);
+  --sidebar-accent-foreground: oklch(0.12 0 0);
+  --sidebar-border: oklch(0.85 0 0);
   --sidebar-ring: oklch(0.12 0 0);
 
-  /* ===== SEMANTIC COLORS - HIGH CONTRAST ===== */
-  /* Gain (Green) - Optimized for visibility */
-  --gain: #16a34a;
-  --gain-light: #22c55e;
-  --gain-dark: #15803d;
-  --gain-muted: rgba(22, 163, 74, 0.15);
+  /* ===== SEMANTIC COLORS - HIGH CONTRAST (OKLCH) ===== */
+  /* Perceptual uniformity via OKLCH — avoids the harshness of sRGB hex for color-critical data */
+  --gain: oklch(0.58 0.19 145);
+  --gain-light: oklch(0.67 0.19 145);
+  --gain-dark: oklch(0.49 0.19 145);
+  --gain-muted: oklch(0.58 0.19 145 / 0.15);
 
-  /* Loss (Red) - Optimized for visibility */
-  --loss: #dc2626;
-  --loss-light: #ef4444;
-  --loss-dark: #b91c1c;
-  --loss-muted: rgba(220, 38, 38, 0.15);
+  --loss: oklch(0.55 0.22 25);
+  --loss-light: oklch(0.63 0.22 25);
+  --loss-dark: oklch(0.46 0.22 25);
+  --loss-muted: oklch(0.55 0.22 25 / 0.15);
 
-  /* Warn (Amber) - Optimized for visibility */
-  --warn: #d97706;
-  --warn-light: #f59e0b;
-  --warn-dark: #b45309;
-  --warn-muted: rgba(217, 119, 6, 0.15);
+  --warn: oklch(0.72 0.16 75);
+  --warn-light: oklch(0.78 0.16 75);
+  --warn-dark: oklch(0.64 0.16 75);
+  --warn-muted: oklch(0.72 0.16 75 / 0.15);
 
   /* ===== CHART SPECIFIC COLORS ===== */
-  /* Monochrome chart elements */
-  --chart-bg: oklch(0.985 0.002 90);
-  --chart-grid: oklch(0.92 0.002 90);
-  --chart-text: oklch(0.5 0 0);
-  --chart-border: oklch(0.85 0.002 90);
+  --chart-bg: oklch(0.97 0 0);
+  --chart-grid: oklch(0.9 0 0);
+  --chart-text: oklch(0.45 0 0);
+  --chart-border: oklch(0.85 0 0);
   --chart-crosshair: oklch(0.6 0 0);
 
-  /* Tooltip */
-  --tooltip-bg: rgba(255, 255, 255, 0.96);
-  --tooltip-border: oklch(0.88 0.002 90);
-  --tooltip-text: oklch(0.15 0 0);
+  --tooltip-bg: oklch(1 0 0 / 0.98);
+  --tooltip-border: oklch(0.85 0 0);
+  --tooltip-text: oklch(0.12 0 0);
 
-  /* Volume - Neutral gray */
   --chart-volume: oklch(0.7 0 0);
   --chart-volume-up: var(--gain);
   --chart-volume-down: var(--loss);
 
-  /* Candlestick */
   --candle-up: var(--gain);
   --candle-down: var(--loss);
   --candle-wick-up: var(--gain);
   --candle-wick-down: var(--loss);
 
-  /* Heatmap - Balanced intensity */
   --heatmap-gain-strong: var(--gain-dark);
   --heatmap-gain: var(--gain);
   --heatmap-gain-light: var(--gain-light);
@@ -160,86 +153,110 @@
   --heatmap-loss-light: var(--loss-light);
   --heatmap-neutral: oklch(0.7 0 0);
   --heatmap-marker: var(--warn);
+
+  /* ===== CHART PHASE COLORS (MONOCHROME) ===== */
+  /* Wyckoff phase zones — rgba for lightweight-charts compatibility */
+  --phase-fill-a: rgba(128, 128, 128, 0.08);
+  --phase-border-a: rgba(128, 128, 128, 0.45);
+  --phase-fill-b: rgba(89, 89, 89, 0.08);
+  --phase-border-b: rgba(89, 89, 89, 0.45);
+  --phase-fill-c: rgba(140, 140, 140, 0.08);
+  --phase-border-c: rgba(140, 140, 140, 0.45);
+  --phase-fill-d: rgba(64, 64, 64, 0.08);
+  --phase-border-d: rgba(64, 64, 64, 0.45);
+  --phase-fill-e: rgba(51, 51, 51, 0.08);
+  --phase-border-e: rgba(51, 51, 51, 0.45);
+
+  /* ===== CHART EFFORT INDICATOR COLORS (MONOCHROME) ===== */
+  --effort-bullish: rgba(22, 163, 74, 0.6);
+  --effort-bearish: rgba(220, 38, 38, 0.6);
+  --effort-neutral: rgba(148, 163, 184, 0.5);
+  --effort-result: rgba(148, 163, 184, 0.45);
+
+  /* ===== CHART OTE FILL (MONOCHROME) ===== */
+  --ote-fill: rgba(161, 161, 170, 0.06);
 }
 
 .dark {
-  /* Monochrome Base - Deep charcoal, not pure black */
-  --background: oklch(0.12 0.005 270);
-  --foreground: oklch(0.92 0 0);
+  /* ===== PURE MONOCHROME BASE - DARK MODE ===== */
+  /* Deepened the base from 0.15 to 0.11 for a true professional terminal feel */
+  --background: oklch(0.11 0 0);
+  --foreground: oklch(0.96 0 0); /* Crisper white for readability */
 
-  /* Cards - Slightly elevated */
-  --card: oklch(0.15 0.005 270);
-  --card-foreground: oklch(0.92 0 0);
-  --popover: oklch(0.15 0.005 270);
-  --popover-foreground: oklch(0.92 0 0);
+  --card: oklch(0.15 0 0); /* Clear structural separation from background */
+  --card-foreground: oklch(0.96 0 0);
+  --popover: oklch(0.15 0 0);
+  --popover-foreground: oklch(0.96 0 0);
 
-  /* Primary - Near white */
-  --primary: oklch(0.95 0 0);
-  --primary-foreground: oklch(0.12 0 0);
+  --primary: oklch(0.96 0 0);
+  --primary-foreground: oklch(0.11 0 0);
 
-  /* Secondary */
-  --secondary: oklch(0.2 0.005 270);
-  --secondary-foreground: oklch(0.92 0 0);
+  --secondary: oklch(0.2 0 0);
+  --secondary-foreground: oklch(0.96 0 0);
 
-  --muted: oklch(0.2 0.005 270);
-  --muted-foreground: oklch(0.6 0 0);
+  --muted: oklch(0.18 0 0);
+  --muted-foreground: oklch(0.65 0 0); /* Brighter muted text to prevent straining */
 
-  --accent: oklch(0.2 0.005 270);
-  --accent-foreground: oklch(0.92 0 0);
+  --accent: oklch(0.2 0 0);
+  --accent-foreground: oklch(0.96 0 0);
 
   --destructive: oklch(0.6 0.18 22);
   --success: oklch(0.6 0.15 150);
   --warning: oklch(0.75 0.15 85);
 
-  --border: oklch(0.25 0.005 270);
-  --input: oklch(0.25 0.005 270);
-  --ring: oklch(0.95 0 0);
+  --border: oklch(0.25 0 0); /* Stronger structural borders */
+  --input: oklch(0.25 0 0);
+  --ring: oklch(0.96 0 0);
 
-  /* Charts - Grayscale spectrum (inverted) */
-  --chart-1: oklch(0.95 0 0);
+  /* Charts - Pure Grayscale spectrum (inverted) */
+  --chart-1: oklch(0.96 0 0);
   --chart-2: oklch(0.75 0 0);
   --chart-3: oklch(0.55 0 0);
   --chart-4: oklch(0.35 0 0);
   --chart-5: oklch(0.25 0 0);
 
-  --sidebar: oklch(0.1 0.005 270);
-  --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.95 0 0);
-  --sidebar-primary-foreground: oklch(0.12 0 0);
-  --sidebar-accent: oklch(0.2 0.005 270);
-  --sidebar-accent-foreground: oklch(0.92 0 0);
-  --sidebar-border: oklch(0.25 0.005 270);
-  --sidebar-ring: oklch(0.95 0 0);
-
-  /* ===== SEMANTIC COLORS - HIGH CONTRAST (DARK) ===== */
-  /* Slightly brighter for dark mode visibility */
-  --gain: #22c55e;
-  --gain-light: #4ade80;
-  --gain-dark: #16a34a;
-  --gain-muted: rgba(34, 197, 94, 0.2);
-
-  --loss: #ef4444;
-  --loss-light: #f87171;
-  --loss-dark: #dc2626;
-  --loss-muted: rgba(239, 68, 68, 0.2);
-
-  --warn: #f59e0b;
-  --warn-light: #fbbf24;
-  --warn-dark: #d97706;
-  --warn-muted: rgba(245, 158, 11, 0.2);
+  --sidebar: oklch(0.11 0 0);
+  --sidebar-foreground: oklch(0.96 0 0);
+  --sidebar-primary: oklch(0.96 0 0);
+  --sidebar-primary-foreground: oklch(0.11 0 0);
+  --sidebar-accent: oklch(0.2 0 0);
+  --sidebar-accent-foreground: oklch(0.96 0 0);
+  --sidebar-border: oklch(0.25 0 0);
+  --sidebar-ring: oklch(0.96 0 0);
 
   /* ===== CHART SPECIFIC COLORS (DARK) ===== */
-  --chart-bg: oklch(0.12 0.005 270);
-  --chart-grid: oklch(0.22 0.005 270);
-  --chart-text: oklch(0.6 0 0);
-  --chart-border: oklch(0.28 0.005 270);
+  --chart-bg: oklch(0.11 0 0);
+  --chart-grid: oklch(0.18 0 0);
+  --chart-text: oklch(0.65 0 0);
+  --chart-border: oklch(0.25 0 0);
   --chart-crosshair: oklch(0.5 0 0);
 
-  --tooltip-bg: rgba(24, 24, 27, 0.96);
-  --tooltip-border: oklch(0.3 0.005 270);
-  --tooltip-text: oklch(0.95 0 0);
+  --tooltip-bg: oklch(0.15 0 0 / 0.98);
+  --tooltip-border: oklch(0.25 0 0);
+  --tooltip-text: oklch(0.96 0 0);
 
   --chart-volume: oklch(0.45 0 0);
+
+  /* ===== CHART PHASE COLORS (MONOCHROME - DARK) ===== */
+  --phase-fill-a: rgba(200, 200, 200, 0.08);
+  --phase-border-a: rgba(200, 200, 200, 0.45);
+  --phase-fill-b: rgba(167, 167, 167, 0.08);
+  --phase-border-b: rgba(167, 167, 167, 0.45);
+  --phase-fill-c: rgba(181, 181, 181, 0.08);
+  --phase-border-c: rgba(181, 181, 181, 0.45);
+  --phase-fill-d: rgba(155, 155, 155, 0.08);
+  --phase-border-d: rgba(155, 155, 155, 0.45);
+  --phase-fill-e: rgba(140, 140, 140, 0.08);
+  --phase-border-e: rgba(140, 140, 140, 0.45);
+
+  /* ===== CHART EFFORT INDICATOR COLORS (DARK) ===== */
+  --effort-bullish: rgba(22, 163, 74, 0.6);
+  --effort-bearish: rgba(220, 38, 38, 0.6);
+  --effort-neutral: rgba(163, 163, 163, 0.5);
+  --effort-result: rgba(148, 148, 148, 0.45);
+
+  /* ===== CHART OTE FILL (MONOCHROME - DARK) ===== */
+  --ote-fill: rgba(90, 90, 90, 0.06);
 }
 
 @layer base {
@@ -274,23 +291,22 @@
   /* Custom Font - Responsive sizing */
   .font-press-start {
     font-family: "Pixelify Sans", sans-serif;
-    /* Fluid font size: 14px (mobile) -> 16px (tablet) -> 18px (desktop) -> 20px (ultra-wide) */
     font-size: clamp(0.875rem, 0.75rem + 0.5vw, 1.25rem);
     font-weight: 600;
     letter-spacing: -0.02em;
     line-height: 1.2;
   }
 
-  /* Utility to strictly hide scrollbar (e.g. for horizontal scrollers) */
+  /* Utility to strictly hide scrollbar */
   .scrollbar-hide {
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
 
-  /* Safe area padding for mobile */
+  /* Safe area padding for PWA Mobile */
   .safe-area-pb {
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
@@ -298,7 +314,7 @@
     padding-top: env(safe-area-inset-top, 0);
   }
 
-  /* Text colors - Gain */
+  /* Text colors */
   .text-gain {
     color: var(--gain);
   }
@@ -309,7 +325,6 @@
     color: var(--gain-dark);
   }
 
-  /* Text colors - Loss */
   .text-loss {
     color: var(--loss);
   }
@@ -320,7 +335,6 @@
     color: var(--loss-dark);
   }
 
-  /* Text colors - Warn */
   .text-warn {
     color: var(--warn);
   }
@@ -331,7 +345,7 @@
     color: var(--warn-dark);
   }
 
-  /* Background colors - Gain */
+  /* Background colors */
   .bg-gain {
     background-color: var(--gain);
   }
@@ -345,7 +359,6 @@
     background-color: var(--gain-muted);
   }
 
-  /* Background colors - Loss */
   .bg-loss {
     background-color: var(--loss);
   }
@@ -359,7 +372,6 @@
     background-color: var(--loss-muted);
   }
 
-  /* Background colors - Warn */
   .bg-warn {
     background-color: var(--warn);
   }
@@ -373,7 +385,7 @@
     background-color: var(--warn-muted);
   }
 
-  /* Border colors - Gain */
+  /* Border colors */
   .border-gain {
     border-color: var(--gain);
   }
@@ -384,7 +396,6 @@
     border-color: var(--gain-dark);
   }
 
-  /* Border colors - Loss */
   .border-loss {
     border-color: var(--loss);
   }
@@ -395,7 +406,6 @@
     border-color: var(--loss-dark);
   }
 
-  /* Border colors - Warn */
   .border-warn {
     border-color: var(--warn);
   }
@@ -432,14 +442,13 @@
 
   @media (min-width: 1920px) {
     .container-fluid {
-      max-width: 2400px; /* Cap at 2400px for 4k/5k screens */
+      max-width: 2400px;
       padding-left: 3rem;
       padding-right: 3rem;
     }
   }
 
-  /* ===== TOUCH TARGET UTILITIES ===== */
-  /* Minimum touch targets for mobile accessibility */
+  /* ===== PWA TOUCH TARGET UTILITIES ===== */
   .touch-target-44 {
     min-height: 44px;
     min-width: 44px;
@@ -450,7 +459,6 @@
     min-width: 48px;
   }
 
-  /* Touch-friendly padding for list items */
   .touch-padding {
     padding: 0.875rem 1rem;
   }
@@ -462,44 +470,44 @@
   }
 
   /* ===== RESPONSIVE TEXT UTILITIES ===== */
-  /* Mobile-first text that scales up on larger screens */
   .text-responsive-sm {
-    font-size: 0.75rem; /* 12px on mobile */
+    font-size: 0.75rem;
     line-height: 1.4;
   }
 
   @media (min-width: 640px) {
     .text-responsive-sm {
-      font-size: 0.8125rem; /* 13px on tablet */
+      font-size: 0.8125rem;
       line-height: 1.5;
     }
   }
 
   @media (min-width: 1024px) {
     .text-responsive-sm {
-      font-size: 0.875rem; /* 14px on desktop */
+      font-size: 0.875rem;
     }
   }
 
   .text-responsive-xs {
-    font-size: 0.625rem; /* 10px on mobile */
+    font-size: 0.625rem;
   }
 
   @media (min-width: 640px) {
     .text-responsive-xs {
-      font-size: 0.6875rem; /* 11px on tablet */
+      font-size: 0.6875rem;
     }
   }
 
   @media (min-width: 1024px) {
     .text-responsive-xs {
-      font-size: 0.75rem; /* 12px on desktop */
+      font-size: 0.75rem;
     }
   }
 
-  /* ===== MOBILE INTERACTION FEEDBACK ===== */
+  /* ===== PWA MOBILE INTERACTION FEEDBACK ===== */
   .tap-highlight {
     -webkit-tap-highlight-color: transparent;
+    user-select: none; /* Prevent accidental text selection on tap */
   }
 
   .tap-highlight:active {
@@ -519,7 +527,6 @@
     border-radius: var(--radius-sm);
   }
 
-  /* Interactive toggle buttons in dropdowns */
   .interactive-toggle {
     outline: none;
     transition: all 0.2s ease;
@@ -583,6 +590,23 @@
     }
   }
 
+  /* ===== MONOCHROME TYPOGRAPHY UTILITIES ===== */
+  /* slashed-zero: prevents O/0 confusion in tickers, addresses, hashes — critical for fund safety */
+  .font-mono-slashed {
+    font-family:
+      ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Monaco, Consolas, monospace;
+    font-variant-numeric: slashed-zero tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ===== PWA OVERSCROLL CONTROL ===== */
+  /* Disables pull-to-refresh on interactive containers — prevents conflict with chart pan and orderbook scroll */
+  .overscroll-none {
+    overscroll-behavior: none;
+    overscroll-behavior: contain;
+  }
+
   /* ===== LOADING STATES ===== */
   .loading-shimmer {
     background: linear-gradient(90deg, var(--muted) 0%, var(--secondary) 50%, var(--muted) 100%);
@@ -599,7 +623,6 @@
     }
   }
 
-  /* Subtle pulse for active computing */
   .computing-pulse {
     animation: computing 1.2s ease-in-out infinite;
   }

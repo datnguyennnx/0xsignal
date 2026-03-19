@@ -2,6 +2,7 @@ import type { GlobalMarketData, CryptoPrice } from "@0xsignal/shared";
 import { memo, useState, useMemo } from "react";
 import { cn } from "@/core/utils/cn";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ContentUnavailable } from "@/components/content-unavailable";
 import { ErrorState } from "@/components/error-state";
 import { GlobalMarketBar } from "@/features/dashboard/components/global-market-bar";
 import { Pagination } from "@/components/ui/pagination";
@@ -17,7 +18,6 @@ import { usePrices, useGlobalMarket } from "@/hooks/prices";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { Sparkline } from "@/components/sparkline";
 
-const PAGE_SIZE = 20;
 const MAX_ITEMS = 100;
 
 const formatPrice = (price: number): string => {
@@ -49,12 +49,7 @@ const formatVolume = (value: number): string => {
 const ChangeCell = memo(function ChangeCell({ value }: { value: number }) {
   const isPositive = value >= 0;
   return (
-    <span
-      className={cn(
-        "font-mono text-sm tabular-nums",
-        isPositive ? "text-green-500" : "text-red-500"
-      )}
-    >
+    <span className={cn("font-mono text-sm tabular-nums", isPositive ? "text-gain" : "text-loss")}>
       {isPositive ? "+" : ""}
       {value.toFixed(2)}%
     </span>
@@ -83,21 +78,21 @@ const DashboardContent = memo(function DashboardContent({
   const totalPages = Math.ceil(totalCryptos / pageSize);
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium h-full overflow-y-auto">
+    <div className="animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium h-full overflow-y-auto overscroll-none">
       <div className="container-fluid py-4 sm:py-6">
         <header className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-0 mb-5 sm:mb-6">
           <div>
             <h1 className="text-lg sm:text-xl lg:text-2xl font-mono font-bold tracking-tight uppercase">
-              Market Watchlist
+              Market Data
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-md leading-relaxed">
-              Track top cryptocurrencies with real-time price data from CoinGecko.
+              Sorted by market capitalization. Prices from CoinGecko.
             </p>
           </div>
           {globalMarket && <GlobalMarketBar data={globalMarket} className="shrink-0 mt-1" />}
         </header>
 
-        <section className="bg-card rounded-lg border border-border overflow-hidden">
+        <section className="bg-card rounded-xl border-border/30 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -113,63 +108,75 @@ const DashboardContent = memo(function DashboardContent({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {cryptos.map((crypto, index) => (
-                <TableRow key={crypto.symbol} className="hover:bg-muted/20">
-                  <TableCell>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {(page - 1) * pageSize + index + 1}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {crypto.image && (
-                        <img
-                          src={crypto.image}
-                          alt={crypto.symbol}
-                          className="w-6 h-6 rounded-full"
-                        />
-                      )}
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-medium text-sm">
-                          {crypto.symbol.toUpperCase()}
-                        </span>
-                        <span className="text-xs text-muted-foreground truncate max-w-[100px]">
-                          {crypto.name}
-                        </span>
+              {cryptos.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="h-[400px] !p-0 align-middle">
+                    <ContentUnavailable
+                      variant="no-data"
+                      title="No Markets Available"
+                      description="Market data is currently unavailable. Please try again later."
+                    />
+                  </td>
+                </tr>
+              ) : (
+                cryptos.map((crypto, index) => (
+                  <TableRow key={crypto.symbol} className="hover:bg-muted/20 select-none">
+                    <TableCell>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {(page - 1) * pageSize + index + 1}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {crypto.image && (
+                          <img
+                            src={crypto.image}
+                            alt={crypto.symbol}
+                            className="w-6 h-6 rounded-full"
+                          />
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-medium text-sm">
+                            {crypto.symbol.toUpperCase()}
+                          </span>
+                          <span className="text-xs text-muted-foreground truncate max-w-[100px]">
+                            {crypto.name}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="font-mono text-sm tabular-nums">
-                      {formatPrice(crypto.price)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <ChangeCell value={crypto.change1h} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <ChangeCell value={crypto.change24h} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <ChangeCell value={crypto.change7d} />
-                  </TableCell>
-                  <TableCell className="text-right hidden sm:table-cell">
-                    <span className="font-mono text-sm tabular-nums text-muted-foreground">
-                      {formatMarketCap(crypto.marketCap)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right hidden md:table-cell">
-                    <span className="font-mono text-sm tabular-nums text-muted-foreground">
-                      ${formatVolume(crypto.volume24h)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end">
-                      <Sparkline data={crypto.sparkline7d} positive={crypto.change7d >= 0} />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="font-mono text-sm tabular-nums">
+                        {formatPrice(crypto.price)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <ChangeCell value={crypto.change1h} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <ChangeCell value={crypto.change24h} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <ChangeCell value={crypto.change7d} />
+                    </TableCell>
+                    <TableCell className="text-right hidden sm:table-cell">
+                      <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                        {formatMarketCap(crypto.marketCap)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right hidden md:table-cell">
+                      <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                        ${formatVolume(crypto.volume24h)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end">
+                        <Sparkline data={crypto.sparkline7d} positive={crypto.change7d >= 0} />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
 
@@ -189,7 +196,7 @@ const DashboardContent = memo(function DashboardContent({
 
 const DashboardSkeleton = memo(function DashboardSkeleton() {
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto overscroll-none">
       <div className="container-fluid py-4 sm:py-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5 sm:mb-6 border-b border-border/40 pb-4">
           <Skeleton className="h-5 w-32" />
@@ -199,7 +206,7 @@ const DashboardSkeleton = memo(function DashboardSkeleton() {
             <Skeleton className="h-4 w-16" />
           </div>
         </div>
-        <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <div className="bg-card rounded-xl border-border/30 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -261,7 +268,7 @@ export function MarketDashboard() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  useDocumentTitle({ title: "Market Watchlist" });
+  useDocumentTitle({ title: "Market Data" });
 
   const { data: cryptos, isLoading: pricesLoading, error: pricesError } = usePrices(MAX_ITEMS);
   const { data: globalMarket, isLoading: marketLoading } = useGlobalMarket();
@@ -291,7 +298,7 @@ export function MarketDashboard() {
 
   if (pricesError || !cryptos) {
     return (
-      <div className="container-fluid py-6 h-full overflow-y-auto">
+      <div className="container-fluid py-6 h-full overflow-y-auto overscroll-none">
         <ErrorState type="general" retryAction={() => window.location.reload()} />
       </div>
     );

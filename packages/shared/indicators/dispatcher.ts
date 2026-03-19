@@ -60,38 +60,40 @@ import {
   calculateTSI,
 } from "./calculations";
 
-/**
- * Calculate a line indicator (single value per point)
- */
-export const calculateLineIndicator = (
-  indicator: ActiveIndicator,
-  data: ChartDataPoint[]
+const calculateTrendIndicator = (
+  baseId: string,
+  params: ActiveIndicator["params"]
 ): IndicatorDataPoint[] | null => {
-  const baseId = getIndicatorBaseId(indicator.config.id);
-  const { params } = indicator;
-
   switch (baseId) {
-    // Trend indicators
     case INDICATOR_TYPE.SMA:
-      return calculateSMA(data, params.period || 20);
+      return calculateSMA([], params.period || 20);
     case INDICATOR_TYPE.EMA:
-      return calculateEMA(data, params.period || 20);
+      return calculateEMA([], params.period || 20);
     case INDICATOR_TYPE.WMA:
-      return calculateWMAIndicator(data, params.period || 20);
+      return calculateWMAIndicator([], params.period || 20);
     case INDICATOR_TYPE.HMA:
-      return calculateHMAIndicator(data, params.period || 21);
+      return calculateHMAIndicator([], params.period || 21);
     case INDICATOR_TYPE.VWMA:
-      return calculateVWMA(data, params.period || 20);
+      return calculateVWMA([], params.period || 20);
     case INDICATOR_TYPE.VWAP:
-      return calculateVWAP(data);
+      return calculateVWAP([]);
     case INDICATOR_TYPE.SUPER_TREND:
-      return calculateSuperTrend(data, params.period || 10, params.multiplier || 3);
+      return calculateSuperTrend([], params.period || 10, params.multiplier || 3);
     case INDICATOR_TYPE.PARABOLIC_SAR:
-      return calculateParabolicSAR(data, params.step || 0.02, params.maxStep || 0.2);
+      return calculateParabolicSAR([], params.step || 0.02, params.maxStep || 0.2);
     case INDICATOR_TYPE.ADX:
-      return calculateADX(data, params.period || 14);
+      return calculateADX([], params.period || 14);
+    default:
+      return null;
+  }
+};
 
-    // Momentum indicators
+const calculateMomentumIndicator = (
+  baseId: string,
+  data: ChartDataPoint[],
+  params: ActiveIndicator["params"]
+): IndicatorDataPoint[] | null => {
+  switch (baseId) {
     case INDICATOR_TYPE.RSI:
       return calculateRSI(data, params.period || 14);
     case INDICATOR_TYPE.MACD:
@@ -165,12 +167,17 @@ export const calculateLineIndicator = (
       );
     case INDICATOR_TYPE.AROON_OSC:
       return calculateAroonOscillatorIndicator(data, params.period || 25);
+    default:
+      return null;
+  }
+};
 
-    // Volatility indicators
-    case INDICATOR_TYPE.ATR:
-      return calculateATR(data, params.period || 14);
-
-    // Volume indicators
+const calculateVolumeIndicator = (
+  baseId: string,
+  data: ChartDataPoint[],
+  params: ActiveIndicator["params"]
+): IndicatorDataPoint[] | null => {
+  switch (baseId) {
     case INDICATOR_TYPE.OBV:
       return calculateOBV(data);
     case INDICATOR_TYPE.MFI:
@@ -183,10 +190,41 @@ export const calculateLineIndicator = (
       return calculateCMF(data, params.period || 20);
     case INDICATOR_TYPE.AD_LINE:
       return calculateADLine(data);
-
     default:
       return null;
   }
+};
+
+const calculateVolatilityIndicator = (
+  baseId: string,
+  data: ChartDataPoint[],
+  params: ActiveIndicator["params"]
+): IndicatorDataPoint[] | null => {
+  switch (baseId) {
+    case INDICATOR_TYPE.ATR:
+      return calculateATR(data, params.period || 14);
+    default:
+      return null;
+  }
+};
+
+/**
+ * Calculate a line indicator (single value per point)
+ */
+export const calculateLineIndicator = (
+  indicator: ActiveIndicator,
+  data: ChartDataPoint[]
+): IndicatorDataPoint[] | null => {
+  const baseId = getIndicatorBaseId(indicator.config.id);
+  const { params } = indicator;
+
+  return (
+    calculateTrendIndicator(baseId, params) ||
+    calculateMomentumIndicator(baseId, data, params) ||
+    calculateVolumeIndicator(baseId, data, params) ||
+    calculateVolatilityIndicator(baseId, data, params) ||
+    null
+  );
 };
 
 /**

@@ -37,12 +37,15 @@ const ensureUniqueAscending = (
     .map(([time, value]) => ({ time: time as Time, value }));
 };
 
-const PHASE_COLORS: Record<string, { fill: string; border: string }> = {
-  A: { fill: "#1a1a2e", border: "#6366f1" },
-  B: { fill: "#1a1a2e", border: "#8b5cf6" },
-  C: { fill: "#1a1a2e", border: "#ec4899" },
-  D: { fill: "#1a1a2e", border: "#14b8a6" },
-  E: { fill: "#1a1a2e", border: "#f59e0b" },
+const getPhaseColor = (phase: string): { fill: string; border: string } => {
+  const map: Record<string, { fill: string; border: string }> = {
+    A: { fill: "var(--phase-fill-a)", border: "var(--phase-border-a)" },
+    B: { fill: "var(--phase-fill-b)", border: "var(--phase-border-b)" },
+    C: { fill: "var(--phase-fill-c)", border: "var(--phase-border-c)" },
+    D: { fill: "var(--phase-fill-d)", border: "var(--phase-border-d)" },
+    E: { fill: "var(--phase-fill-e)", border: "var(--phase-border-e)" },
+  };
+  return map[phase] || map.A;
 };
 
 export function useWyckoffOverlay({
@@ -121,11 +124,10 @@ export function useWyckoffOverlay({
   const renderPhases = useCallback(() => {
     if (!chart || !analysis?.phases.length || !seriesRef.current) return;
 
-    const colors = getWyckoffColors(isDark);
     const primitives: ZonePrimitive[] = [];
 
     for (const phase of analysis.phases) {
-      const phaseColors = PHASE_COLORS[phase.phase] || PHASE_COLORS.A;
+      const phaseColors = getPhaseColor(phase.phase);
       const cycleLabel = phase.cycle.charAt(0).toUpperCase() + phase.cycle.slice(1).slice(0, 4);
 
       const primitive = new ZonePrimitive({
@@ -146,7 +148,7 @@ export function useWyckoffOverlay({
     }
 
     refs.current.phasePrimitives = primitives;
-  }, [chart, analysis, isDark, lastTime]);
+  }, [chart, analysis, lastTime]);
 
   const renderEffortResults = useCallback(() => {
     if (!chart || !analysis?.effortResults.length) return;
@@ -160,15 +162,15 @@ export function useWyckoffOverlay({
 
       switch (effort.divergence) {
         case "bullish":
-          color = colors.effort?.bullish ?? "#14b8a6";
+          color = colors.effort?.bullish ?? "var(--effort-bullish)";
           label = "Effort+";
           break;
         case "bearish":
-          color = colors.effort?.bearish ?? "#ef4444";
+          color = colors.effort?.bearish ?? "var(--effort-bearish)";
           label = "Effort-";
           break;
         default:
-          color = colors.effort?.neutral ?? "#6b7280";
+          color = colors.effort?.neutral ?? "var(--effort-neutral)";
           label = "Effort~";
       }
 
@@ -200,7 +202,7 @@ export function useWyckoffOverlay({
 
       if (Math.abs(effortValue - resultValue) > effortValue * 0.1) {
         const resultLine = chart.addSeries(LineSeries, {
-          color: colors.effort?.result ?? "#94a3b8",
+          color: colors.effort?.result ?? "var(--effort-result)",
           lineWidth: 1,
           lineStyle: 3,
           lastValueVisible: false,
@@ -365,6 +367,9 @@ export function useWyckoffOverlay({
 }
 
 export const useWyckoffOverlayMemo = (props: WyckoffOverlayProps) => {
+  const visibilityRef = useRef(props.visibility);
+  visibilityRef.current = props.visibility;
+
   const memoizedProps = useMemo(
     () => ({
       chart: props.chart,
@@ -374,18 +379,7 @@ export const useWyckoffOverlayMemo = (props: WyckoffOverlayProps) => {
       isDark: props.isDark,
       lastTime: props.lastTime,
     }),
-    [
-      props.chart,
-      props.series,
-      props.analysis,
-      props.visibility.tradingRange,
-      props.visibility.climaxes,
-      props.visibility.springs,
-      props.visibility.effortResult,
-      props.visibility.phases,
-      props.isDark,
-      props.lastTime,
-    ]
+    [props.chart, props.series, props.analysis, props.visibility, props.isDark, props.lastTime]
   );
 
   return useWyckoffOverlay(memoizedProps);

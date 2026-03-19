@@ -72,6 +72,23 @@ interface WsCandle {
   n: number; // trades
 }
 
+function isWsCandle(value: unknown): value is WsCandle {
+  if (typeof value !== "object" || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.t === "number" &&
+    typeof obj.T === "number" &&
+    typeof obj.s === "string" &&
+    typeof obj.i === "string" &&
+    typeof obj.o === "number" &&
+    typeof obj.c === "number" &&
+    typeof obj.h === "number" &&
+    typeof obj.l === "number" &&
+    typeof obj.v === "number" &&
+    typeof obj.n === "number"
+  );
+}
+
 // REST API candle format (string OHLCV)
 interface RestCandle {
   t: number;
@@ -221,7 +238,7 @@ export function useHyperliquidCandles({
     (rawData: unknown, channel: string) => {
       if (channel !== "candle") return;
       const candles = Array.isArray(rawData) ? rawData : [rawData];
-      const converted = candles.map((c: WsCandle) => fromWs(c));
+      const converted = candles.filter(isWsCandle).map((c: WsCandle) => fromWs(c));
       if (converted.length > 0) {
         bufferRef.current.push(...converted);
         scheduleUpdate();

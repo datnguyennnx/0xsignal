@@ -1,6 +1,4 @@
-import type { ChartDataPoint } from "../../types/chart";
-import type { WyckoffCycle, Climax, TradingRange } from "./types";
-import { detectTradingRange, determineCycle } from "./phases";
+import type { WyckoffCycle } from "./types";
 import {
   WYCKOFF_TYPES,
   CYCLE_PHASE,
@@ -8,10 +6,6 @@ import {
   type CyclePhaseType,
   type CycleDirectionType,
 } from "../constants";
-
-export const identifyCycle = (data: ChartDataPoint[], climaxes: Climax[]): WyckoffCycle => {
-  return determineCycle(climaxes, data);
-};
 
 export const getCyclePhase = (cycle: WyckoffCycle): CyclePhaseType => {
   switch (cycle) {

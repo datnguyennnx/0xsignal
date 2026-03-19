@@ -14,6 +14,7 @@ import { ThemeProvider } from "@/core/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/layouts/main-layout";
 import { MarketDashboard } from "@/features/dashboard/pages/market-dashboard";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 // Lazy-loaded routes for code splitting
 const AssetDetail = lazy(() =>
@@ -54,23 +55,25 @@ function PageLoader() {
 function App() {
   usePreloadRoutes();
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <TooltipProvider>
-        <BrowserRouter>
-          <Layout>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/" element={<MarketDashboard />} />
-                <Route path="/perp" element={<Navigate to="/perp/btc" replace />} />
-                <Route path="/perp/:symbol" element={<AssetDetail />} />
-                <Route path="/perp/:symbol/orderbook" element={<OrderbookPage />} />
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
-            </Suspense>
-          </Layout>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+        <TooltipProvider>
+          <BrowserRouter>
+            <Layout>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<MarketDashboard />} />
+                  <Route path="/perp" element={<Navigate to="/perp/btc" replace />} />
+                  <Route path="/perp/:symbol" element={<AssetDetail />} />
+                  <Route path="/perp/:symbol/orderbook" element={<OrderbookPage />} />
+                  <Route path="*" element={<NotFoundPage />} />
+                </Routes>
+              </Suspense>
+            </Layout>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

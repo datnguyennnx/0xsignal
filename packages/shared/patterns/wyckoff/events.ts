@@ -1,6 +1,6 @@
 import type { ChartDataPoint } from "../../types/chart";
 import type { WyckoffEvent, WyckoffConfig } from "./types";
-import { calculateATR, average, isUpBar, isDownBar, getSpread } from "../common";
+import { calculateATR, average, isUpBar, isDownBar } from "../common";
 import {
   WYCKOFF_TYPES,
   SIGNIFICANCE,

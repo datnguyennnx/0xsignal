@@ -27,7 +27,7 @@ export const Sparkline = memo(function Sparkline({ data, className, positive }: 
   });
 
   const pathD = `M ${points.join(" L ")}`;
-  const color = positive ? "#22c55e" : "#ef4444";
+  const color = positive ? "var(--gain)" : "var(--loss)";
 
   return (
     <svg
@@ -38,7 +38,7 @@ export const Sparkline = memo(function Sparkline({ data, className, positive }: 
       <path
         d={pathD}
         fill="none"
-        stroke={color}
+        style={{ stroke: color }}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"

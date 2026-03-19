@@ -14,7 +14,7 @@ export function OrderbookPage() {
   });
 
   return (
-    <div className="h-full flex flex-col animate-in fade-in slide-in-from-bottom-1 duration-300">
+    <div className="h-full flex flex-col animate-in fade-in slide-in-from-bottom-1 duration-300 overscroll-none select-none">
       <header className="flex items-center gap-2 px-2 py-3">
         <Button
           variant="ghost"
@@ -29,7 +29,7 @@ export function OrderbookPage() {
           {symbol?.toUpperCase()} Orderbook
         </h1>
       </header>
-      <div className="flex-1 min-h-0 px-2 pb-2">
+      <div className="flex-1 min-h-0 px-2 pb-2 overscroll-none">
         <OrderbookWidget symbol={symbol || ""} />
       </div>
     </div>

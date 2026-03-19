@@ -97,10 +97,7 @@ class BandPaneRenderer implements IPrimitivePaneRenderer {
 
 class BandPaneView implements IPrimitivePaneView {
   private _renderer = new BandPaneRenderer();
-  private _data: RenderData | null = null;
-
   update(data: RenderData | null): void {
-    this._data = data;
     this._renderer.update(data);
   }
 

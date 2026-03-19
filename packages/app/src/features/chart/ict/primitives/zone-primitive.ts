@@ -104,10 +104,7 @@ class ZonePaneRenderer implements IPrimitivePaneRenderer {
 
 class ZonePaneView implements IPrimitivePaneView {
   private _renderer = new ZonePaneRenderer();
-  private _data: RenderData | null = null;
-
   update(data: RenderData | null): void {
-    this._data = data;
     this._renderer.update(data);
   }
 

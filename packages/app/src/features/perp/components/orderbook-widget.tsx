@@ -26,7 +26,6 @@ interface PopupData {
 
 const ROW_HEIGHT = 24;
 const VISIBLE_ROWS = 20;
-const OVERSCAN = 5;
 
 function formatPriceWithScaling(price: number, scaling: number): string {
   let decimals: number;
@@ -355,7 +354,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   if (!isConnected || !orderbook) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="h-full flex items-center justify-center opacity-50">
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
       </div>
     );
@@ -364,7 +363,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   return (
     <div
       ref={widgetRef}
-      className="h-full flex flex-col bg-card border rounded-lg overflow-hidden p-2"
+      className="h-full flex flex-col bg-card border-border/30 rounded-xl overflow-hidden p-2"
     >
       <OrderbookToolbar
         priceScaling={priceScaling}
@@ -378,8 +377,8 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         <span className="flex-1 text-right">Total</span>
       </div>
 
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex flex-col-reverse relative flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden overscroll-none">
+        <div className="flex flex-col-reverse relative flex-1 overflow-hidden overscroll-none">
           {visibleAsks.map((level, index) => (
             <div key={level.price} data-row className="flex-shrink-0 relative">
               <OrderRow
@@ -406,7 +405,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
           </span>
         </div>
 
-        <div className="flex flex-col relative flex-1 overflow-hidden">
+        <div className="flex flex-col relative flex-1 overflow-hidden overscroll-none">
           {visibleBids.map((level, index) => (
             <div key={level.price} data-row className="flex-shrink-0 relative">
               <OrderRow
@@ -426,7 +425,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
       {popupData && popupPosition && (
         <div
-          className="fixed bg-card/95 border border-border/30 rounded-lg p-3 shadow-xl z-[100] w-64 pointer-events-none"
+          className="fixed bg-card/95 border border-border/30 rounded-xl p-3 shadow-xl z-50 w-64 pointer-events-none"
           style={{
             top: popupPosition.top,
             left: popupPosition.left,

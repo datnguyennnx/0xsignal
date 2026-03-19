@@ -47,7 +47,6 @@ export const generateICTSignals = (
   const trend = getCurrentTrend(analysis.marketStructure);
   const unfilledFVGs = getUnfilledFVGs(analysis.fvgs);
   const unmitigatedOBs = getUnmitigatedOBs(analysis.orderBlocks);
-  const unsweptLiquidity = getUnsweptLiquidity(analysis.liquidityZones);
 
   if (trend === DIRECTION.BULLISH) {
     const recentFVGs = getRecentFVGs(unfilledFVGs, 3, DIRECTION.BULLISH);

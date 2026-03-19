@@ -23,14 +23,14 @@ import { calculateEffortResult } from "./effort-result";
 import { isInAccumulation, isInDistribution } from "./cycles";
 import {
   WYCKOFF_TYPES,
-  DIRECTION,
   SIGNAL_TYPE,
   DETECTION_THRESHOLDS,
   CONFIDENCE,
   TRADE_PARAMS,
 } from "../constants";
 
-export { DEFAULT_WYCKOFF_CONFIG } from "./types";
+export { DEFAULT_WYCKOFF_CONFIG };
+
 export type {
   WyckoffPhase,
   WyckoffCycle,
@@ -148,11 +148,10 @@ export const generateWyckoffSignals = (
   currentPrice: number
 ): TradingSignal[] => {
   const signals: TradingSignal[] = [];
-  const { cycle, currentPhase, tradingRange, events, climaxes, effortResults } = analysis;
+  const { cycle, currentPhase, tradingRange, events, effortResults } = analysis;
 
   if (cycle === WYCKOFF_TYPES.CYCLE.UNKNOWN || !tradingRange) return signals;
 
-  const lastClimax = climaxes[climaxes.length - 1];
   const lastEvent = events.length > 0 ? events[events.length - 1] : null;
   const lastDivergence = effortResults.length > 0 ? effortResults[effortResults.length - 1] : null;
 

@@ -54,14 +54,6 @@ function formatPriceAxis(price: number, pxDecimals: number): string {
 }
 
 /**
- * Format price for tooltip - shows full precision
- */
-function formatPriceTooltip(price: number, pxDecimals: number): string {
-  if (!Number.isFinite(price) || price === 0) return "0";
-  return price.toFixed(pxDecimals);
-}
-
-/**
  * Calculate minMove for price scale granularity
  * Uses pxDecimals directly - this is the precision from Hyperliquid
  */

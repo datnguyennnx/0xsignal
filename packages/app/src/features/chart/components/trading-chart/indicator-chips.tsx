@@ -31,14 +31,11 @@ export const IndicatorChips = memo(function IndicatorChips({ indicators }: Indic
           <div
             key={indicator.instanceId}
             className={cn(
-              "flex items-center gap-1 rounded-md border bg-background/90 px-2 py-1 text-xs backdrop-blur",
+              "flex items-center gap-1 rounded-xl border-border/30 bg-background/90 px-2 py-1 text-xs backdrop-blur",
               indicator.visible ? "" : "text-muted-foreground"
             )}
           >
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: indicator.color || "#64748b" }}
-            />
+            <span className="h-2 w-2 rounded-full bg-foreground/60" />
             <span className="max-w-[180px] truncate">{toChipLabel(indicator)}</span>
           </div>
         ))}

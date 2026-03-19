@@ -33,7 +33,7 @@ export const ChartHeaderMobile = memo(function ChartHeaderMobile({
               size="sm"
               onClick={() => onIntervalChange(int.value)}
               className={cn(
-                "relative px-1.5 py-0.5 text-[10px] font-medium rounded transition-all duration-200 ease-premium",
+                "relative px-1.5 py-0.5 text-[10px] font-medium rounded transition-all duration-200 ease-premium active:scale-[0.97]",
                 interval === int.value ? "scale-[1.02]" : ""
               )}
             >

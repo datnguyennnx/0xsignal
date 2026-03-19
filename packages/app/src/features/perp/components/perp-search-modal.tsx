@@ -2,9 +2,10 @@ import { memo, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ContentUnavailable } from "@/components/content-unavailable";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
-import { usePerpList, type PerpAsset } from "@/hooks/use-perp-list";
+import { usePerpList } from "@/hooks/use-perp-list";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface PerpSearchModalProps {
@@ -61,21 +62,21 @@ export const PerpSearchModal = memo(function PerpSearchModal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 sm:pt-24 px-4">
       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-card border border-border rounded-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center gap-2 p-3 border-b border-border">
+      <div className="relative w-full max-w-lg bg-card border-border/30 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center gap-2 p-3 border-b border-border/30">
           <Search className="w-5 h-5 text-muted-foreground shrink-0" />
           <Input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search perp..."
+            placeholder="Search market..."
             className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-base"
           />
           <Button variant="ghost" size="icon-sm" onClick={onClose} className="shrink-0">
             <X className="w-4 h-4" />
           </Button>
         </div>
-        <div className="max-h-[60vh] overflow-y-auto">
+        <div className="max-h-[60vh] overflow-y-auto overscroll-none flex flex-col">
           {isLoading ? (
             <div className="p-2 space-y-1">
               {Array.from({ length: 8 }).map((_, i) => (
@@ -83,7 +84,11 @@ export const PerpSearchModal = memo(function PerpSearchModal({
               ))}
             </div>
           ) : filteredPerps.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">No perp found</div>
+            <ContentUnavailable
+              variant="no-results"
+              title="No Markets Found"
+              description={`No markets match "${query}".`}
+            />
           ) : (
             <div className="p-1">
               {filteredPerps.map((item) => (
@@ -91,12 +96,15 @@ export const PerpSearchModal = memo(function PerpSearchModal({
                   key={item.coin}
                   variant="ghost"
                   onClick={() => handleSelect(item.coin)}
-                  className="w-full justify-between h-auto py-2.5 px-3 hover:bg-muted/50"
+                  className="w-full justify-between h-auto py-2.5 px-3 hover:bg-muted/50 select-none tap-highlight"
                 >
-                  <span className="font-mono font-medium">{item.coin}</span>
+                  <span className="font-mono font-medium font-mono-slashed">{item.coin}</span>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span
-                      className={cn(Number(item.funding) >= 0 ? "text-green-500" : "text-red-500")}
+                      className={cn(
+                        "tabular-nums font-mono",
+                        Number(item.funding) >= 0 ? "text-gain" : "text-loss"
+                      )}
                     >
                       {Number(item.funding) * 100}%
                     </span>

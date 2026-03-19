@@ -12,16 +12,13 @@ const getInt = (url: URL, key: string, def: number, max?: number) => {
   return max ? Math.min(v, max) : v;
 };
 const notFound = Effect.fail({ status: 404, message: "Not found" });
-const badRequest = (msg: string) => Effect.fail({ status: 400, message: msg });
-const methodNotAllowed = (method: string) =>
-  Effect.fail({ status: 405, message: `Method ${method} not allowed` });
 
 // Simple price route using AggregatedDataService
 const pricesRoute = (limit: number) =>
   Effect.flatMap(AggregatedDataServiceTag, (s) => s.getTopCryptos(limit));
 
 // Main router - returns Effect with any requirements
-export const handleRequest = (url: URL, method: string, body?: unknown) => {
+export const handleRequest = (url: URL) => {
   const path = url.pathname;
 
   // Static routes

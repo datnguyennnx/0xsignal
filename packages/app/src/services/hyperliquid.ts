@@ -1,5 +1,6 @@
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 
+// Singleton pattern for stateless HTTP client - intentionally created once
 const transport = new HttpTransport();
 const infoClient = new InfoClient({ transport });
 

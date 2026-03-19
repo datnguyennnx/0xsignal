@@ -1,9 +1,5 @@
-import {
-  WYCKOFF_TYPES,
-  DETECTION_THRESHOLDS,
-  SIGNIFICANCE,
-  type SignificanceLevel,
-} from "../constants";
+import { WYCKOFF_TYPES, DETECTION_THRESHOLDS } from "../constants";
+import type { SignificanceLevel } from "../constants";
 
 export type WyckoffPhase = (typeof WYCKOFF_TYPES.PHASE)[keyof typeof WYCKOFF_TYPES.PHASE];
 export type WyckoffCycle = (typeof WYCKOFF_TYPES.CYCLE)[keyof typeof WYCKOFF_TYPES.CYCLE];

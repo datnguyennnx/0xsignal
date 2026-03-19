@@ -16,3 +16,6 @@ export * from "./indicators";
 
 // Patterns (ICT, Wyckoff)
 export * from "./patterns";
+
+// Error types
+export * from "./utils/errors";

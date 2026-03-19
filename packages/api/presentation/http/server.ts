@@ -46,12 +46,12 @@ const parseBody = async (req: Request): Promise<unknown> => {
 };
 
 // Handle API request
-const handleApiRequest = async (url: URL, method: string, body?: unknown) => {
+const handleApiRequest = async (url: URL, _method: string, _body?: unknown) => {
   try {
     const result = await runtime.runPromise(
       Effect.gen(function* () {
-        yield* Effect.logInfo(`${method} ${url.pathname}`);
-        return yield* handleRequest(url, method, body);
+        yield* Effect.logInfo(`${_method} ${url.pathname}`);
+        return yield* handleRequest(url);
       })
     );
     return new Response(JSON.stringify(result), {
@@ -69,7 +69,7 @@ const handleApiRequest = async (url: URL, method: string, body?: unknown) => {
 // Bun server with native WebSocket support
 const server = Bun.serve({
   port: PORT,
-  fetch: async (req, server) => {
+  fetch: async (req, _server) => {
     const url = new URL(req.url);
 
     // CORS preflight

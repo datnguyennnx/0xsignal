@@ -9,7 +9,7 @@ interface LayoutProps {
 }
 
 const NAV_ITEMS = [
-  { path: "/", label: "Watchlist", icon: TrendingUp },
+  { path: "/", label: "Market", icon: TrendingUp },
   { path: "/perp", label: "Perp", icon: LineChart },
 ] as const;
 

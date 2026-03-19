@@ -88,10 +88,13 @@ export function useHyperliquidWs({
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      // Cleanup subscription
       if (subRef.current) {
         subRef.current.unsubscribe();
         subRef.current = null;
+      }
+      if (clientRef.current) {
+        (clientRef.current as { transport?: { close?: () => void } }).transport?.close?.();
+        clientRef.current = null;
       }
     };
   }, []);
@@ -161,13 +164,7 @@ export function useHyperliquidWs({
       setIsConnected(false);
       onConnectionChangeRef.current?.(false);
     };
-  }, [
-    enabled,
-    subscription?.type,
-    subscription?.coin,
-    subscription?.interval,
-    subscription?.nSigFigs,
-  ]);
+  }, [enabled, subscription]);
 
   const resubscribe = useCallback(
     async (newSubscription: HyperliquidSubscription) => {

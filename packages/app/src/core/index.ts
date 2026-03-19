@@ -9,8 +9,6 @@ export {
   formatPercent,
   formatPercentChange,
   formatCompact,
-  formatUSD,
-  formatIntlCompact,
 } from "./utils/formatters";
 
 export { cn } from "./utils/cn";
@@ -20,7 +18,5 @@ export {
   getChartColors,
   getCandlestickColors,
   getVolumeColor,
-  getHeatmapColor,
-  getIndicatorColors,
   isDarkMode,
 } from "./utils/colors";

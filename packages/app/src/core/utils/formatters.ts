@@ -33,9 +33,3 @@ export const formatCompact = (value: number): string => {
   if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
   return value.toFixed(0);
 };
-
-export const formatUSD = (val: number): string =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val);
-
-export const formatIntlCompact = (val: number): string =>
-  new Intl.NumberFormat("en-US", { notation: "compact", compactDisplay: "short" }).format(val);

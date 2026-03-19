@@ -1,23 +1,18 @@
 import { memo, useCallback, useMemo } from "react";
-import type { ChartDataPoint } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_INTERVALS, ALL_INTERVALS } from "./constants";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 interface ChartHeaderProps {
-  symbol: string;
   interval: string;
-  displayCandle: ChartDataPoint | null;
   onIntervalChange: (interval: string) => void;
   isFetching?: boolean;
   children?: React.ReactNode;
 }
 
 export const ChartHeader = memo(function ChartHeader({
-  symbol,
   interval,
-  displayCandle,
   onIntervalChange,
   isFetching = false,
   children,
@@ -52,7 +47,7 @@ export const ChartHeader = memo(function ChartHeader({
               size="sm"
               onClick={() => handleIntervalChange(int.value)}
               className={cn(
-                "relative px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200 ease-premium",
+                "relative px-2.5 py-1 text-xs font-medium rounded-xl transition-all duration-200 ease-premium active:scale-[0.97]",
                 interval === int.value ? "scale-[1.02] shadow-sm" : ""
               )}
             >

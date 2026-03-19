@@ -22,13 +22,14 @@ import type { ChartDataPoint } from "@0xsignal/shared";
 import { getHydratedAnalysis } from "@/core/cache/analysis-store";
 import { cn } from "@/core/utils/cn";
 import { formatPrice, formatCurrency, formatPercentChange } from "@/core/utils/formatters";
-import { ChevronLeft, ChartCandlestick } from "lucide-react";
+import { ChartCandlestick } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+
 import { Skeleton } from "@/components/ui/skeleton";
+import { ContentUnavailable } from "@/components/content-unavailable";
 import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
-import { api, type FuturesPrice } from "@/services/api";
+import { api } from "@/services/api";
 import { useHyperliquidCandles } from "@/hooks/use-hyperliquid-candles";
 import { useHyperliquidMeta } from "@/hooks/use-hyperliquid-meta";
 import { useChartConfig } from "@/hooks/use-breakpoint";
@@ -43,18 +44,10 @@ const TradingChart = lazy(() =>
 );
 
 const ChartSkeleton = () => (
-  <div className="h-full w-full flex items-center justify-center bg-card border border-border/50 rounded-lg">
-    <Skeleton className="h-full w-full rounded-lg" />
+  <div className="h-full w-full flex items-center justify-center bg-card/50 rounded-xl">
+    <Skeleton className="h-full w-full rounded-xl" />
   </div>
 );
-
-const INTERVAL_TIMEFRAMES: Record<string, string> = {
-  "15m": "24h",
-  "1h": "7d",
-  "4h": "1M",
-  "1d": "1M",
-  "1w": "1y",
-};
 
 interface AssetContentProps {
   readonly asset: AssetAnalysis & { fetchedAt?: Date };
@@ -62,6 +55,7 @@ interface AssetContentProps {
   readonly chartData: ChartDataPoint[] | null;
   readonly chartLoading: boolean;
   readonly chartFetching: boolean;
+  readonly isConnected: boolean;
   readonly interval: string;
   readonly onIntervalChange: (interval: string) => void;
   readonly loadMore?: () => Promise<void>;
@@ -74,6 +68,7 @@ const AssetContent = memo(function AssetContent({
   chartData,
   chartLoading,
   chartFetching,
+  isConnected,
   interval,
   onIntervalChange,
   loadMore,
@@ -85,12 +80,17 @@ const AssetContent = memo(function AssetContent({
   const change24h = price?.change24h || 0;
 
   return (
-    <div className="container-fluid h-full flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium overflow-y-auto lg:overflow-hidden">
+    <div className="container-fluid h-full flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium overflow-y-auto lg:overflow-hidden overscroll-none select-none">
       {/* Header */}
       <header className="mb-4 sm:mb-5 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3">
           <PerpDropdown currentSymbol={asset.symbol.toUpperCase()} />
-          <div className="flex items-baseline gap-1.5 sm:gap-2">
+          <div
+            className={cn(
+              "flex items-baseline gap-1.5 sm:gap-2 select-none",
+              !isConnected && "opacity-50"
+            )}
+          >
             <span className="text-lg sm:text-xl tabular-nums font-medium">
               ${formatPrice(price?.price || 0)}
             </span>
@@ -102,13 +102,13 @@ const AssetContent = memo(function AssetContent({
             >
               {formatPercentChange(change24h)}
             </span>
-            <span className="text-xs text-muted-foreground font-mono hidden sm:inline">
+            <span className="text-xs text-muted-foreground font-mono tabular-nums hidden sm:inline">
               VOL {formatCurrency(price?.volume24h || 0)}
             </span>
-            <span className="text-xs text-muted-foreground font-mono hidden lg:inline">
+            <span className="text-xs text-muted-foreground font-mono tabular-nums hidden lg:inline">
               H ${formatPrice(price?.high24h || 0)}
             </span>
-            <span className="text-xs text-muted-foreground font-mono hidden lg:inline">
+            <span className="text-xs text-muted-foreground font-mono tabular-nums hidden lg:inline">
               L ${formatPrice(price?.low24h || 0)}
             </span>
           </div>
@@ -127,7 +127,7 @@ const AssetContent = memo(function AssetContent({
       {/* Main Content: Chart + Side Panel */}
       <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-5 gap-4 lg:gap-5">
         {/* Chart - Takes 4/5 on desktop */}
-        <div className="lg:col-span-4 flex-1 min-h-[350px] lg:min-h-0 lg:h-full flex flex-col">
+        <div className="lg:col-span-4 flex-1 min-h-[350px] lg:min-h-0 lg:h-full min-h-0 flex flex-col">
           {chartData && chartData.length > 0 ? (
             <Suspense fallback={<ChartSkeleton />}>
               {/*
@@ -149,11 +149,12 @@ const AssetContent = memo(function AssetContent({
               />
             </Suspense>
           ) : !chartLoading ? (
-            <Card className="py-0 shadow-none h-full flex items-center justify-center border-dashed border-border/60">
-              <CardContent className="text-center">
-                <p className="text-sm text-muted-foreground font-mono">CHART DATA UNAVAILABLE</p>
-              </CardContent>
-            </Card>
+            <ContentUnavailable
+              variant="unavailable"
+              title="Chart Data Unavailable"
+              description="Market data for this symbol could not be loaded."
+              className="h-full"
+            />
           ) : (
             <Skeleton className="h-full w-full rounded-sm" />
           )}
@@ -168,9 +169,9 @@ const AssetContent = memo(function AssetContent({
   );
 });
 
-function AssetDetailSkeleton({ symbol }: { readonly symbol?: string }) {
+function AssetDetailSkeleton() {
   return (
-    <div className="container-fluid h-full overflow-y-auto py-3 sm:py-6 space-y-5 sm:space-y-6">
+    <div className="container-fluid h-full overflow-y-auto py-3 sm:py-6 space-y-5 sm:space-y-6 overscroll-none">
       <header className="flex items-center gap-3">
         <Skeleton className="w-7 h-7 rounded-full" />
         <div>
@@ -200,7 +201,6 @@ export function AssetDetail() {
   const chartSymbol = normalizedSymbol.endsWith("USDT")
     ? normalizedSymbol
     : `${normalizedSymbol}USDT`;
-  const timeframe = INTERVAL_TIMEFRAMES[interval] || "7d";
 
   const hydratedData = useMemo(() => (symbol ? getHydratedAnalysis(symbol) : null), [symbol]);
 
@@ -249,6 +249,7 @@ export function AssetDetail() {
   const {
     data: chartData,
     isLoading: chartLoading,
+    isConnected,
     loadMore: loadMoreCandles,
     hasMore: hasMoreCandles,
   } = useHyperliquidCandles({
@@ -285,11 +286,11 @@ export function AssetDetail() {
 
   useDocumentTitle({ title: documentTitle });
 
-  if (showSkeleton) return <AssetDetailSkeleton symbol={symbol} />;
+  if (showSkeleton) return <AssetDetailSkeleton />;
 
   if (assetError || (!fetchedAsset && !assetLoading)) {
     return (
-      <div className="container-fluid h-full overflow-y-auto py-6">
+      <div className="container-fluid h-full overflow-y-auto py-6 overscroll-none">
         <ErrorState
           title={
             assetError ? `Error: ${assetError.message}` : `No data for ${symbol?.toUpperCase()}`
@@ -307,6 +308,7 @@ export function AssetDetail() {
       chartData={(chartData as ChartDataPoint[]) || null}
       chartLoading={chartLoading}
       chartFetching={chartFetching}
+      isConnected={isConnected}
       interval={interval}
       onIntervalChange={handleIntervalChange}
       loadMore={loadMoreCandles}

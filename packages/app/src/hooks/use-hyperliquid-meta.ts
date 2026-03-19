@@ -18,7 +18,6 @@ import { hyperliquidApi } from "@/services/hyperliquid";
 import { queryKeys } from "@/lib/query/query-keys";
 
 const MAX_DECIMALS_PERP = 6;
-const MAX_DECIMALS_SPOT = 8;
 
 export interface AssetPrecision {
   pxDecimals: number;

@@ -17,7 +17,6 @@ interface ChartControlsProps {
   activeIndicators: ActiveIndicator[];
   onAddIndicator: (config: IndicatorConfig, params?: Record<string, number>) => void;
   onRemoveIndicator: (id: string) => void;
-  onToggleIndicator: (id: string) => void;
   hasActiveOverlays: boolean;
   onResetAll: () => void;
   isFullscreen: boolean;
@@ -35,7 +34,6 @@ export const ChartControls = memo(function ChartControls({
   activeIndicators,
   onAddIndicator,
   onRemoveIndicator,
-  onToggleIndicator,
   hasActiveOverlays,
   onResetAll,
   isFullscreen,
@@ -63,7 +61,6 @@ export const ChartControls = memo(function ChartControls({
           activeIndicators={activeIndicators}
           onAddIndicator={onAddIndicator}
           onRemoveIndicator={onRemoveIndicator}
-          onToggleIndicator={onToggleIndicator}
         />
       </div>
       {hasActiveOverlays && (

@@ -45,7 +45,7 @@ export function ViewModeToggle({ mode, onChange, className }: ViewModeToggleProp
             key={key}
             onClick={() => onChange(key)}
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md",
+              "flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-xl active:scale-[0.97]",
               "transition-all duration-150 ease-out",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
               isActive

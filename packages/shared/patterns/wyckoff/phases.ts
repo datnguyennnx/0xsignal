@@ -5,19 +5,10 @@ import type {
   Climax,
   TradingRange,
   WyckoffEvent,
-  EffortResult,
   WyckoffConfig,
   PhaseMarker,
 } from "./types";
-import {
-  calculateATR,
-  average,
-  getSpread,
-  isDownBar,
-  isUpBar,
-  calculateAverageVolume,
-  calculateAverageSpread,
-} from "../common";
+import { average, getSpread, isDownBar, isUpBar } from "../common";
 import { WYCKOFF_TYPES, CYCLE_THRESHOLDS } from "../constants";
 
 export const detectSellingClimax = (
@@ -40,7 +31,8 @@ export const detectSellingClimax = (
   if (!isClimax) return null;
 
   const prevLows = lookback.map((b) => b.low);
-  const isNewLow = bar.low < Math.min(...prevLows);
+  const minLow = prevLows.reduce((min, v) => (v < min ? v : min), Infinity);
+  const isNewLow = bar.low < minLow;
 
   if (!isNewLow) return null;
 
@@ -73,7 +65,8 @@ export const detectBuyingClimax = (
   if (!isClimax) return null;
 
   const prevHighs = lookback.map((b) => b.high);
-  const isNewHigh = bar.high > Math.max(...prevHighs);
+  const maxHigh = prevHighs.reduce((max, v) => (v > max ? v : max), -Infinity);
+  const isNewHigh = bar.high > maxHigh;
 
   if (!isNewHigh) return null;
 
@@ -94,8 +87,12 @@ export const detectTradingRange = (
   if (endIndex - startIndex < 5) return null;
 
   const rangeBars = data.slice(startIndex, endIndex + 1);
-  const high = Math.max(...rangeBars.map((b) => b.high));
-  const low = Math.min(...rangeBars.map((b) => b.low));
+  let high = -Infinity;
+  let low = Infinity;
+  for (const bar of rangeBars) {
+    if (bar.high > high) high = bar.high;
+    if (bar.low < low) low = bar.low;
+  }
 
   return {
     startTime: data[startIndex].time,

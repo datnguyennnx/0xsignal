@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useHyperliquidMeta } from "./use-hyperliquid-meta";
 
 interface UseDocumentTitleOptions {
   title: string;

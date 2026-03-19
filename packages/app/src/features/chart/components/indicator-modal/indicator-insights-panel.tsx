@@ -12,11 +12,11 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
     <div className={cn("flex flex-col h-full overflow-hidden bg-background", className)}>
       <div className="p-6">
         <div className="flex items-center gap-2 mb-2">
-          <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
-            {indicator.category}
+          <span className="px-1.5 py-0.5 rounded-xl bg-muted text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
+            Overlay
           </span>
           {indicator.overlayOnPrice && (
-            <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
+            <span className="px-1.5 py-0.5 rounded-xl bg-muted text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
               Overlay
             </span>
           )}
@@ -27,7 +27,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8 overscroll-none">
         <div className="space-y-6">
           <div className="grid gap-6">
             {indicator.usage.formula ? (
@@ -119,7 +119,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {indicator.implementationNotesForDev && (
-              <div className="mt-4 p-3 rounded bg-muted/10 border border-border/50">
+              <div className="mt-4 p-3 rounded-xl bg-muted/10 border border-border/30">
                 <p className="text-[9px] uppercase font-mono font-bold text-muted-foreground/40 mb-1">
                   Implementation Spec
                 </p>

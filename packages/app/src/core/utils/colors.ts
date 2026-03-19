@@ -1,8 +1,3 @@
-const getCSSVar = (name: string): string => {
-  if (typeof window === "undefined") return "";
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-};
-
 export const isDarkMode = (): boolean => document.documentElement.classList.contains("dark");
 
 export const colors = {
@@ -66,44 +61,3 @@ export const getVolumeColor = (isUp: boolean, isDark: boolean): string => {
   if (isUp) return isDark ? "#22c55e" : "#16a34a";
   return isDark ? "#ef4444" : "#dc2626";
 };
-
-const HEATMAP_THRESHOLDS = [10, 5, 2, 0.5, 0, -0.5, -2, -5, -10] as const;
-const HEATMAP_COLORS_DARK = [
-  "#059669",
-  "#10b981",
-  "#22c55e",
-  "#4ade80",
-  "#6ee7b7",
-  "#fca5a5",
-  "#f87171",
-  "#ef4444",
-  "#dc2626",
-  "#b91c1c",
-];
-const HEATMAP_COLORS_LIGHT = [
-  "#047857",
-  "#059669",
-  "#10b981",
-  "#34d399",
-  "#6ee7b7",
-  "#fca5a5",
-  "#f87171",
-  "#ef4444",
-  "#dc2626",
-  "#b91c1c",
-];
-
-export const getHeatmapColor = (change: number, isDark: boolean): string => {
-  const colors = isDark ? HEATMAP_COLORS_DARK : HEATMAP_COLORS_LIGHT;
-  for (let i = 0; i < HEATMAP_THRESHOLDS.length; i++) {
-    if (change >= HEATMAP_THRESHOLDS[i]) return colors[i];
-  }
-  return colors[colors.length - 1];
-};
-
-export const getIndicatorColors = (isDark: boolean) => [
-  isDark ? "#a1a1aa" : "#78716c",
-  isDark ? "#71717a" : "#a8a29e",
-  isDark ? "#52525b" : "#d6d3d1",
-  isDark ? "#3f3f46" : "#e7e5e4",
-];

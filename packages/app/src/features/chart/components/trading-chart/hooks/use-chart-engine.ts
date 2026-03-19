@@ -27,7 +27,6 @@ import {
   type Time,
 } from "lightweight-charts";
 import type { ChartDataPoint } from "@0xsignal/shared";
-import { getVolumeColor } from "@/core/utils/colors";
 import { getChartColors, getCandlestickColors } from "@/core/utils/colors";
 import { VOLUME_PANE_HEIGHT } from "../constants";
 
@@ -61,18 +60,20 @@ export const useChartEngine = ({
   const loadMoreCallbackRef = useRef(onLoadMore);
   const hasMoreRef = useRef(hasMore);
   const onCrosshairMoveRef = useRef(onCrosshairMove);
+  const isDarkRef = useRef(isDark);
   const [, setReady] = useState(false);
   const prevIsDarkRef = useRef(isDark);
 
   loadMoreCallbackRef.current = onLoadMore;
   hasMoreRef.current = hasMore;
   onCrosshairMoveRef.current = onCrosshairMove;
+  isDarkRef.current = isDark;
 
   const initChart = useCallback(() => {
-    if (!containerRef.current || chartRef.current) return;
+    if (!containerRef.current || chartRef.current) return undefined;
 
-    const c = getChartColors(isDark);
-    const candle = getCandlestickColors(isDark);
+    const c = getChartColors(isDarkRef.current);
+    const candle = getCandlestickColors(isDarkRef.current);
 
     const chart = createChart(containerRef.current, {
       layout: {

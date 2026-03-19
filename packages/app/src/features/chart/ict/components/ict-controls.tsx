@@ -29,31 +29,31 @@ const FEATURES: FeatureConfig[] = [
     id: "fvg",
     label: "Fair Value Gaps",
     description: "Imbalance zones",
-    color: "bg-amber-500/60",
+    color: "bg-foreground/50",
   },
   {
     id: "orderBlocks",
     label: "Order Blocks",
     description: "Supply/demand zones",
-    color: "bg-primary/60",
+    color: "bg-foreground/30",
   },
   {
     id: "liquidity",
     label: "Liquidity Zones",
     description: "BSL/SSL clusters",
-    color: "bg-muted-foreground/60",
+    color: "bg-foreground/60",
   },
   {
     id: "ote",
     label: "OTE Zones",
     description: "61.8%-78.6% Fibonacci",
-    color: "bg-amber-400/50",
+    color: "bg-foreground/40",
   },
   {
     id: "displacement",
     label: "Displacement",
     description: "Strong momentum candles",
-    color: "bg-foreground/40",
+    color: "bg-foreground/20",
   },
 ];
 
@@ -66,7 +66,7 @@ export const ICTControls = memo(function ICTControls({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-lg shadow-lg z-99999 overflow-hidden">
+    <div className="absolute right-0 top-full mt-2 w-64 bg-card border-border/30 rounded-xl shadow-lg z-50 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <span className="text-sm font-medium">ICT Analysis</span>
         <Button variant="ghost" size="icon-sm" onClick={onClose}>
@@ -80,7 +80,7 @@ export const ICTControls = memo(function ICTControls({
             key={feature.id}
             variant="ghost"
             className={cn(
-              "interactive-toggle flex items-center justify-between w-full py-2 px-3 rounded-md transition-all duration-200 h-auto",
+              "interactive-toggle flex items-center justify-between w-full py-2 px-3 rounded-xl transition-all duration-200 h-auto",
               visibility[feature.id] ? "bg-primary/10" : "hover:bg-muted/50"
             )}
             onClick={() => onToggle(feature.id)}

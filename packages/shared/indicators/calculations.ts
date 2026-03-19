@@ -65,8 +65,6 @@ import {
   calculateVolumeOscillator,
 } from "./calculators/quant";
 
-export { mean, getTrueRange } from "./math";
-
 // Re-exports with original names for compatibility
 
 // Trend indicators
@@ -136,7 +134,9 @@ export function calculateKeltnerChannels(
   const result: BandIndicatorDataPoint[] = [];
   const offset = data.length - atrSeries.length;
   for (let i = 0; i < atrSeries.length; i++) {
-    const m = middleSeries[i + offset];
+    const index = i + offset;
+    if (index < 0 || index >= middleSeries.length) continue;
+    const m = middleSeries[index];
     if (!m) continue;
     const atr = atrSeries[i].value;
     result.push({

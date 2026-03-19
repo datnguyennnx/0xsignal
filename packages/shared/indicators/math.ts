@@ -1,5 +1,3 @@
-import type { ChartDataPoint } from "../types/chart";
-
 export const mean = (values: readonly number[]): number => {
   if (values.length === 0) return 0;
   return values.reduce((acc, val) => acc + val, 0) / values.length;

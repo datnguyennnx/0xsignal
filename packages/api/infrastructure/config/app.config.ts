@@ -1,6 +1,6 @@
 /** Application Configuration - Type-safe config using Effect Config */
 
-import { Config, Context, Duration, Effect, Layer, Option, Redacted } from "effect";
+import { Config, Context, Duration, Effect, Layer } from "effect";
 
 // Environment config
 export const EnvConfig = Config.all({

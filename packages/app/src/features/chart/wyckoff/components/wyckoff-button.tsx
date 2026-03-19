@@ -23,31 +23,31 @@ const FEATURES: FeatureConfig[] = [
     id: "tradingRange",
     label: "Trading Range",
     description: "Accumulation/Distribution range",
-    color: "bg-indigo-500/60",
+    color: "bg-foreground/80",
   },
   {
     id: "climaxes",
     label: "Climaxes",
     description: "SC/BC volume spikes",
-    color: "bg-rose-500/60",
+    color: "bg-foreground/50",
   },
   {
     id: "springs",
     label: "Springs/Upthrusts",
     description: "False breakouts and tests",
-    color: "bg-emerald-500/60",
+    color: "bg-foreground/30",
   },
   {
     id: "effortResult",
     label: "Effort vs Result",
     description: "Volume divergences",
-    color: "bg-amber-500/50",
+    color: "bg-foreground/60",
   },
   {
     id: "phases",
     label: "Phases",
     description: "Wyckoff phase markers",
-    color: "bg-muted-foreground/60",
+    color: "bg-foreground/40",
   },
 ];
 
@@ -101,7 +101,7 @@ export const WyckoffButton = memo(function WyckoffButton({
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-lg shadow-lg z-99999 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border/30 rounded-xl shadow-lg z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <span className="text-sm font-medium">Wyckoff Analysis</span>
             <Button variant="ghost" size="icon-sm" onClick={handleClose}>
@@ -115,7 +115,7 @@ export const WyckoffButton = memo(function WyckoffButton({
                 key={feature.id}
                 variant="ghost"
                 className={cn(
-                  "interactive-toggle flex items-center justify-between w-full py-2 px-3 rounded-md transition-all duration-200 h-auto",
+                  "interactive-toggle flex items-center justify-between w-full py-2 px-3 rounded-xl transition-all duration-200 h-auto",
                   visibility[feature.id] ? "bg-primary/10" : "hover:bg-muted/50"
                 )}
                 onClick={() => onToggle(feature.id)}

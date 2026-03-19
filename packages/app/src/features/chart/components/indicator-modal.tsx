@@ -4,6 +4,7 @@ import { Layers, Activity, Sparkles } from "lucide-react";
 import { cn } from "@/core/utils/cn";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ContentUnavailable } from "@/components/content-unavailable";
 import { IndicatorConfigPanel } from "./indicator-modal/indicator-config-panel";
 import { IndicatorInsightsPanel } from "./indicator-modal/indicator-insights-panel";
 
@@ -11,7 +12,6 @@ interface IndicatorModalProps {
   activeIndicators: ActiveIndicator[];
   onAddIndicator: (indicator: IndicatorConfig, params?: Record<string, number>) => void;
   onRemoveIndicator: (indicatorId: string) => void;
-  onToggleIndicator: (indicatorId: string) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -28,7 +28,6 @@ export function IndicatorModal({
   activeIndicators,
   onAddIndicator,
   onRemoveIndicator,
-  onToggleIndicator,
   open,
   onOpenChange,
 }: IndicatorModalProps) {
@@ -94,7 +93,7 @@ export function IndicatorModal({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[98vw] xl:max-w-[1600px] w-fit h-[90vh] p-0 gap-0 overflow-hidden bg-background border shadow-xl rounded-lg"
+        className="max-w-[98vw] xl:max-w-[1600px] w-fit h-[90vh] p-0 gap-0 overflow-hidden bg-background border-border/30 shadow-xl rounded-lg"
       >
         <DialogTitle className="sr-only">Indicator Settings</DialogTitle>
 
@@ -107,7 +106,7 @@ export function IndicatorModal({
               </h2>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5 min-h-0 scrollbar-none">
+            <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5 min-h-0 scrollbar-none overscroll-none">
               {categories.map((cat) => {
                 const Icon = cat.icon;
                 const count =
@@ -156,57 +155,73 @@ export function IndicatorModal({
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Find Strategy..."
+                placeholder="Find indicator..."
                 className="h-9 text-[11px] bg-muted/20 border-border/40 focus-visible:ring-offset-0 focus-visible:ring-muted-foreground/10 placeholder:opacity-30 rounded px-3"
               />
             </div>
 
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 min-h-0 scrollbar-none">
-              {filteredIndicators.length > 0
-                ? filteredIndicators.map((indicator) => {
-                    const activeCount = activeByBaseId.get(indicator.id)?.length || 0;
-                    const isSelected = selectedIndicator?.id === indicator.id;
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 min-h-0 scrollbar-none overscroll-none">
+              {filteredIndicators.length > 0 ? (
+                filteredIndicators.map((indicator) => {
+                  const activeCount = activeByBaseId.get(indicator.id)?.length || 0;
+                  const isSelected = selectedIndicator?.id === indicator.id;
 
-                    return (
-                      <button
-                        key={indicator.id}
-                        onClick={() => setSelectedId(indicator.id)}
+                  return (
+                    <button
+                      key={indicator.id}
+                      onClick={() => setSelectedId(indicator.id)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 rounded text-[12px] transition-all",
+                        isSelected
+                          ? "bg-muted text-foreground font-bold shadow-inner"
+                          : "hover:bg-muted/30 text-muted-foreground/60 hover:text-foreground font-medium"
+                      )}
+                    >
+                      <div
                         className={cn(
-                          "w-full flex items-center gap-2 px-3 py-2 rounded text-[12px] transition-all",
-                          isSelected
-                            ? "bg-muted text-foreground font-bold shadow-inner"
-                            : "hover:bg-muted/30 text-muted-foreground/60 hover:text-foreground font-medium"
+                          "w-1.5 h-1.5 rounded-full shrink-0 transition-all",
+                          activeCount > 0 ? "bg-foreground" : "bg-muted-foreground/20",
+                          isSelected && "scale-105"
                         )}
-                      >
-                        <div
-                          className={cn(
-                            "w-1.5 h-1.5 rounded-full shrink-0 transition-all",
-                            activeCount > 0 ? "bg-foreground" : "bg-muted-foreground/20",
-                            isSelected && "scale-105"
-                          )}
-                        />
-                        <span className="flex-1 text-left truncate">{indicator.name}</span>
-                        {activeCount > 0 ? (
-                          <span className="text-[10px] font-bold text-muted-foreground/40 px-1">
-                            {activeCount}
-                          </span>
-                        ) : null}
-                      </button>
-                    );
-                  })
-                : null}
+                      />
+                      <span className="flex-1 text-left truncate">{indicator.name}</span>
+                      {activeCount > 0 ? (
+                        <span className="text-[10px] font-bold text-muted-foreground/40 px-1">
+                          {activeCount}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })
+              ) : (
+                <ContentUnavailable
+                  variant="no-results"
+                  title="No Indicators"
+                  description={
+                    normalizedQuery
+                      ? `No indicators match "${normalizedQuery}".`
+                      : "No indicators in this category."
+                  }
+                />
+              )}
             </div>
           </div>
 
           {/* Column 3: Insight Content */}
-          <div className="w-[550px] lg:w-[700px] flex flex-col min-h-0 bg-background/30">
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background/30">
             {selectedIndicator ? (
               <IndicatorInsightsPanel
                 key={`${selectedIndicator.id}-insights`}
                 indicator={selectedIndicator}
-                className="scrollbar-none px-2"
+                className="scrollbar-none px-2 flex-1"
               />
-            ) : null}
+            ) : (
+              <ContentUnavailable
+                variant="no-data"
+                title="No Indicator Selected"
+                description="Select an indicator from the list to view its details."
+              />
+            )}
           </div>
 
           {/* Column 4: Inspector Sidepan */}

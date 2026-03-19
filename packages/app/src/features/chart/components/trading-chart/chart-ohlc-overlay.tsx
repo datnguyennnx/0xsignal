@@ -1,6 +1,7 @@
 /** @fileoverview OHLC overlay - displays current candle data */
 import { memo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
+import { cn } from "@/core/utils/cn";
 import { formatPriceValue } from "./utils";
 
 interface ChartOhlcOverlayProps {
@@ -12,19 +13,33 @@ export const ChartOhlcOverlay = memo(({ displayCandle, precision }: ChartOhlcOve
   if (!displayCandle) return null;
 
   return (
-    <div className="absolute top-2 left-2 z-30 flex items-center gap-3 px-2.5 py-1.5 bg-card/90 backdrop-blur-sm border border-border/30 rounded-md text-xs font-mono shadow-sm">
+    <div className="absolute top-2 left-2 z-30 flex items-center gap-3 px-2.5 py-1.5 bg-card/90 backdrop-blur-sm rounded-xl text-xs font-mono shadow-sm select-none">
       <span className="text-muted-foreground">
-        O <span className="text-foreground">{formatPriceValue(displayCandle.open, precision)}</span>
+        O{" "}
+        <span className="text-foreground tabular-nums">
+          {formatPriceValue(displayCandle.open, precision)}
+        </span>
       </span>
       <span className="text-muted-foreground">
-        H <span className="text-gain">{formatPriceValue(displayCandle.high, precision)}</span>
+        H{" "}
+        <span className="text-gain tabular-nums">
+          {formatPriceValue(displayCandle.high, precision)}
+        </span>
       </span>
       <span className="text-muted-foreground">
-        L <span className="text-loss">{formatPriceValue(displayCandle.low, precision)}</span>
+        L{" "}
+        <span className="text-loss tabular-nums">
+          {formatPriceValue(displayCandle.low, precision)}
+        </span>
       </span>
       <span className="text-muted-foreground">
         C{" "}
-        <span className={displayCandle.close >= displayCandle.open ? "text-gain" : "text-loss"}>
+        <span
+          className={cn(
+            displayCandle.close >= displayCandle.open ? "text-gain" : "text-loss",
+            "tabular-nums"
+          )}
+        >
           {formatPriceValue(displayCandle.close, precision)}
         </span>
       </span>
