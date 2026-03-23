@@ -7,6 +7,7 @@ import {
   type OrderbookLevel,
   type TickSizeOption,
 } from "@/hooks/use-hyperliquid-orderbook";
+import { useOptionalL2BookNSigFigs } from "@/hooks/l2-book-nsig-figs-context";
 import { cn } from "@/core/utils/cn";
 import { Loader2 } from "lucide-react";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -183,7 +184,19 @@ const OrderRow = memo(
 OrderRow.displayName = "OrderRow";
 
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
-  const { orderbook, isConnected, error, resubscribe } = useHyperliquidOrderbook(symbol);
+  const l2BookSig = useOptionalL2BookNSigFigs();
+  const orderbookHookOptions = useMemo(() => {
+    if (l2BookSig != null) {
+      return { controlledNSigFigs: l2BookSig.nSigFigs, adaptiveNSigFigs: false as const };
+    }
+    return {};
+  }, [l2BookSig?.nSigFigs]);
+
+  const { orderbook, isConnected, error, resubscribe } = useHyperliquidOrderbook(
+    symbol,
+    true,
+    orderbookHookOptions
+  );
   const [priceScaling, setPriceScaling] = useState<number>(0);
   const [popupData, setPopupData] = useState<PopupData | null>(null);
   const [popupPosition, setPopupPosition] = useState<{
@@ -212,17 +225,24 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       return;
     }
     if (scalingOptions.length > 0 && priceScaling === 0) {
-      setPriceScaling(scalingOptions[0].value);
+      const first = scalingOptions[0];
+      setPriceScaling(first.value);
+      l2BookSig?.setNSigFigs(first.nSigFigs ?? 5);
     }
-  }, [orderbook, scalingOptions, priceScaling]);
+  }, [orderbook, scalingOptions, priceScaling, l2BookSig]);
 
   const handlePriceScalingChange = useCallback(
     (newScale: number) => {
       setPriceScaling(newScale);
       const opt = scalingOptions.find((o) => o.value === newScale);
-      resubscribe(opt?.nSigFigs ?? 5);
+      const nextSig = opt?.nSigFigs ?? 5;
+      if (l2BookSig) {
+        l2BookSig.setNSigFigs(nextSig);
+      } else {
+        resubscribe(nextSig);
+      }
     },
-    [scalingOptions, resubscribe]
+    [scalingOptions, resubscribe, l2BookSig]
   );
 
   const currentOption = scalingOptions.find((o) => o.value === priceScaling);

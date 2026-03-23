@@ -28,6 +28,7 @@ interface UseChartDataProps {
   volumeSeries: import("lightweight-charts").ISeriesApi<"Histogram"> | null;
   chart: import("lightweight-charts").IChartApi | null;
   visibleCandles: number;
+  enabled?: boolean;
 }
 
 export const useChartData = ({
@@ -39,6 +40,7 @@ export const useChartData = ({
   volumeSeries,
   chart,
   visibleCandles,
+  enabled = true,
 }: UseChartDataProps) => {
   const initialDataLoadedRef = useRef(false);
   const prevDataLenRef = useRef(0);
@@ -48,19 +50,27 @@ export const useChartData = ({
   const prevIsDarkRef = useRef(isDark);
   const prevIntervalRef = useRef(interval);
   const prevSymbolRef = useRef(symbol);
+  const prevEnabledRef = useRef(enabled);
 
   useEffect(() => {
     if (!candlestickSeries || !volumeSeries || data.length === 0) return;
 
+    if (!enabled) {
+      prevEnabledRef.current = false;
+      return;
+    }
+
     const themeChanged = prevIsDarkRef.current !== isDark;
     const intervalChanged = prevIntervalRef.current !== interval;
     const symbolChanged = prevSymbolRef.current !== symbol;
+    const resumedFromDisabled = !prevEnabledRef.current;
 
-    if (themeChanged || intervalChanged || symbolChanged) {
+    if (themeChanged || intervalChanged || symbolChanged || resumedFromDisabled) {
       prevIsDarkRef.current = isDark;
       prevIntervalRef.current = interval;
       prevSymbolRef.current = symbol;
       initialDataLoadedRef.current = false;
+      prevEnabledRef.current = true;
     }
 
     const currentFirstTime = data[0].time;
@@ -189,5 +199,15 @@ export const useChartData = ({
     prevFirstTimeRef.current = currentFirstTime;
     prevLastTimeRef.current = currentLastTime;
     prevLastCandleRef.current = { ...currentLastCandle };
-  }, [data, isDark, interval, symbol, candlestickSeries, volumeSeries, chart, visibleCandles]);
+  }, [
+    data,
+    isDark,
+    interval,
+    symbol,
+    candlestickSeries,
+    volumeSeries,
+    chart,
+    visibleCandles,
+    enabled,
+  ]);
 };

@@ -70,7 +70,7 @@ export const Pagination = memo(function Pagination({
           disabled={currentPage === totalPages}
           className="h-8 w-8"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" />
         </Button>
 
         {pageNumbers.map((page, i) =>
@@ -98,15 +98,7 @@ export const Pagination = memo(function Pagination({
           disabled={currentPage === totalPages}
           className="h-8 w-8"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
 

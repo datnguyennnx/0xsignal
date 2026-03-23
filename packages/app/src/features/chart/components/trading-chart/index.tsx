@@ -2,6 +2,7 @@
  * @fileoverview Trading Chart Component
  *
  * Main candlestick chart component using lightweight-charts.
+ * Supports view switching between Candlestick and Depth Chart.
  *
  * @composition
  * - useChartEngine: Creates/manages chart instance
@@ -9,11 +10,13 @@
  * - useICTOverlay: ICT analysis visualization
  * - useWyckoffOverlay: Wyckoff analysis visualization
  * - useIndicators: Technical indicators
+ * - useDepthChartEngine: Depth chart visualization
  *
  * @state
  * - hoveredCandle: Current candle under crosshair
  * - ictVisibility: Toggle ICT features
  * - wyckoffVisibility: Toggle Wyckoff features
+ * - viewMode: 'chart' | 'depth' - toggle between candlestick and depth view
  *
  * @memoization
  * - Uses memo to prevent re-renders from parent
@@ -57,6 +60,9 @@ import {
 import { useIndicatorOverlay } from "./hooks/use-indicator-overlay";
 import { INTERVAL_RESTORE_DELAY } from "./constants";
 import { ChartOhlcOverlay } from "./chart-ohlc-overlay";
+import { DepthChartWidget } from "../depth-chart";
+import { cn } from "@/core/utils/cn";
+import type { ChartViewMode } from "./types";
 
 interface TradingChartProps {
   data: ChartDataPoint[];
@@ -90,6 +96,7 @@ const TradingChartComponent = ({
   const [wyckoffVisibility, setWyckoffVisibility] = useState<WyckoffVisibility>(
     DEFAULT_WYCKOFF_VISIBILITY
   );
+  const [viewMode, setViewMode] = useState<ChartViewMode>("chart");
 
   const { isFullscreen, toggleFullscreen, fullscreenContainerRef } = useFullscreen();
   const showOrientationWarning = useOrientationWarning(isFullscreen);
@@ -102,11 +109,11 @@ const TradingChartComponent = ({
 
   const { analysis: ictAnalysis, isLoading: ictLoading } = useICTWorker({
     data,
-    enabled: ictEnabled,
+    enabled: ictEnabled && viewMode === "chart",
   });
   const { analysis: wyckoffAnalysis, isLoading: wyckoffLoading } = useWyckoffWorker({
     data,
-    enabled: wyckoffEnabled,
+    enabled: wyckoffEnabled && viewMode === "chart",
   });
 
   const lastTime = useMemo(() => (data.length > 0 ? data[data.length - 1].time : 0), [data]);
@@ -146,6 +153,7 @@ const TradingChartComponent = ({
     volumeSeries,
     chart,
     visibleCandles: chartConfig.visibleCandles,
+    enabled: viewMode === "chart",
   });
 
   useICTOverlayMemo({
@@ -186,6 +194,10 @@ const TradingChartComponent = ({
     resetIndicators();
   }, [resetIndicators]);
 
+  const handleViewModeChange = useCallback((mode: ChartViewMode) => {
+    setViewMode(mode);
+  }, []);
+
   const handleIntervalChange = useCallback(
     (newInterval: string) => {
       if (newInterval === interval) return;
@@ -219,6 +231,8 @@ const TradingChartComponent = ({
           onResetAll={handleResetAll}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
         />
       </ChartHeader>
 
@@ -229,12 +243,34 @@ const TradingChartComponent = ({
         onIntervalChange={handleIntervalChange}
         onToggleFullscreen={toggleFullscreen}
         isFetching={isFetching}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
       />
 
       <div className="flex-1 relative bg-card overscroll-none">
-        <div ref={chartContainerRef} className="absolute inset-0" />
-        <IndicatorChips indicators={activeIndicators} />
-        <ChartOhlcOverlay displayCandle={displayCandle} precision={precision.pxDecimals} />
+        {/* Candlestick chart container */}
+        <div
+          ref={chartContainerRef}
+          className="absolute inset-0"
+          style={{
+            pointerEvents: viewMode === "chart" ? "auto" : "none",
+            opacity: viewMode === "chart" ? 1 : 0,
+          }}
+        />
+        {/* Depth chart is mounted only in depth mode to avoid hidden realtime work */}
+        {viewMode === "depth" && (
+          <DepthChartWidget
+            symbol={chartSymbol}
+            className={cn("absolute inset-0 pointer-events-auto opacity-100")}
+          />
+        )}
+        {/* Indicator chips and overlays only show in chart mode */}
+        {viewMode === "chart" && (
+          <>
+            <IndicatorChips indicators={activeIndicators} />
+            <ChartOhlcOverlay displayCandle={displayCandle} precision={precision.pxDecimals} />
+          </>
+        )}
       </div>
 
       {isFullscreen && (
@@ -253,6 +289,8 @@ const TradingChartComponent = ({
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
           variant="mobile"
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
         />
       )}
 

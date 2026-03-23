@@ -3,6 +3,7 @@ import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { DEFAULT_INTERVALS } from "./constants";
+import type { ChartViewMode } from "./types";
 
 interface ChartHeaderMobileProps {
   symbol: string;
@@ -11,6 +12,8 @@ interface ChartHeaderMobileProps {
   onIntervalChange: (interval: string) => void;
   onToggleFullscreen: () => void;
   isFetching?: boolean;
+  viewMode?: ChartViewMode;
+  onViewModeChange?: (mode: ChartViewMode) => void;
 }
 
 export const ChartHeaderMobile = memo(function ChartHeaderMobile({
@@ -20,7 +23,11 @@ export const ChartHeaderMobile = memo(function ChartHeaderMobile({
   onIntervalChange,
   onToggleFullscreen,
   isFetching = false,
+  viewMode = "chart",
+  onViewModeChange,
 }: ChartHeaderMobileProps) {
+  const isDepthMode = viewMode === "depth";
+
   return (
     <div className="flex sm:hidden items-center justify-between px-3 py-2 border-b border-border/50 bg-card">
       <div className="flex items-center gap-2">
@@ -47,6 +54,34 @@ export const ChartHeaderMobile = memo(function ChartHeaderMobile({
             </Button>
           ))}
         </div>
+
+        {/* View Mode Toggle - Mobile */}
+        {onViewModeChange && (
+          <div className="flex items-center gap-1 ml-1 px-1 py-0.5 rounded bg-muted/50">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "px-1.5 py-0.5 text-[10px] font-medium",
+                !isDepthMode && "bg-background"
+              )}
+              onClick={() => onViewModeChange("chart")}
+            >
+              Chart
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "px-1.5 py-0.5 text-[10px] font-medium",
+                isDepthMode && "bg-background"
+              )}
+              onClick={() => onViewModeChange("depth")}
+            >
+              Depth
+            </Button>
+          </div>
+        )}
       </div>
       <Button variant="ghost" size="sm" onClick={onToggleFullscreen} className="h-7 w-7 p-0">
         {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}

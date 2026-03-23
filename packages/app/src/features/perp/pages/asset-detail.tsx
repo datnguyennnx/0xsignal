@@ -38,6 +38,7 @@ import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
 
 import { OrderbookWidget } from "@/features/perp/components/orderbook-widget";
 import { PerpDropdown } from "@/features/perp/components/perp-dropdown";
+import { L2BookNSigFigsProvider } from "@/hooks/l2-book-nsig-figs-context";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart }))
@@ -124,13 +125,15 @@ const AssetContent = memo(function AssetContent({
         </div>
       </header>
 
-      {/* Main Content: Chart + Side Panel */}
-      <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-5 gap-4 lg:gap-5">
-        {/* Chart - Takes 4/5 on desktop */}
-        <div className="lg:col-span-4 flex-1 min-h-[350px] lg:min-h-0 lg:h-full min-h-0 flex flex-col">
-          {chartData && chartData.length > 0 ? (
-            <Suspense fallback={<ChartSkeleton />}>
-              {/*
+      {/* Shared L2 nSigFigs so Orderbook dropdown and Depth chart use the same Hyperliquid aggregation */}
+      <L2BookNSigFigsProvider key={symbol}>
+        {/* Main Content: Chart + Side Panel */}
+        <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-5 gap-4 lg:gap-5">
+          {/* Chart - Takes 4/5 on desktop */}
+          <div className="lg:col-span-4 flex-1 min-h-[350px] lg:min-h-0 lg:h-full min-h-0 flex flex-col">
+            {chartData && chartData.length > 0 ? (
+              <Suspense fallback={<ChartSkeleton />}>
+                {/*
                 @note No key prop - chart handles data updates naturally
                 When interval changes:
                 1. useHyperliquidCandles fetches new data
@@ -138,33 +141,34 @@ const AssetContent = memo(function AssetContent({
                 3. useChartData effect detects data change, clears old data, loads new
                 This is SMOOTHER than remounting because chart instance is preserved
               */}
-              <TradingChart
-                data={chartData}
-                symbol={chartSymbol}
-                interval={interval}
-                onIntervalChange={onIntervalChange}
-                loadMore={loadMore}
-                hasMore={hasMore}
-                isFetching={chartFetching}
+                <TradingChart
+                  data={chartData}
+                  symbol={chartSymbol}
+                  interval={interval}
+                  onIntervalChange={onIntervalChange}
+                  loadMore={loadMore}
+                  hasMore={hasMore}
+                  isFetching={chartFetching}
+                />
+              </Suspense>
+            ) : !chartLoading ? (
+              <ContentUnavailable
+                variant="unavailable"
+                title="Chart Data Unavailable"
+                description="Market data for this symbol could not be loaded."
+                className="h-full"
               />
-            </Suspense>
-          ) : !chartLoading ? (
-            <ContentUnavailable
-              variant="unavailable"
-              title="Chart Data Unavailable"
-              description="Market data for this symbol could not be loaded."
-              className="h-full"
-            />
-          ) : (
-            <Skeleton className="h-full w-full rounded-sm" />
-          )}
-        </div>
+            ) : (
+              <Skeleton className="h-full w-full rounded-sm" />
+            )}
+          </div>
 
-        {/* Side Panel: Orderbook - Only visible on lg+ */}
-        <div className="hidden lg:block lg:col-span-1 min-h-[400px] lg:min-h-0 lg:h-full flex flex-col">
-          <OrderbookWidget symbol={symbol} />
+          {/* Side Panel: Orderbook - Only visible on lg+ */}
+          <div className="hidden lg:block lg:col-span-1 min-h-[400px] lg:min-h-0 lg:h-full flex flex-col">
+            <OrderbookWidget symbol={symbol} />
+          </div>
         </div>
-      </div>
+      </L2BookNSigFigsProvider>
     </div>
   );
 });

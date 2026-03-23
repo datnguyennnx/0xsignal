@@ -6,3 +6,4 @@ export * from "./prices";
 export { useHyperliquidWs } from "./use-hyperliquid-ws";
 export { useHyperliquidCandles } from "./use-hyperliquid-candles";
 export { useHyperliquidOrderbook } from "./use-hyperliquid-orderbook";
+export { L2BookNSigFigsProvider, useOptionalL2BookNSigFigs } from "./l2-book-nsig-figs-context";

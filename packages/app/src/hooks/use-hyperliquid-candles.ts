@@ -64,15 +64,21 @@ interface WsCandle {
   T: number; // end time
   s: string; // symbol
   i: string; // interval
-  o: number; // open
-  c: number; // close
-  h: number; // high
-  l: number; // low
-  v: number; // volume
+  o: number | string; // open
+  c: number | string; // close
+  h: number | string; // high
+  l: number | string; // low
+  v: number | string; // volume
   n: number; // trades
 }
 
-function isWsCandle(value: unknown): value is WsCandle {
+function toFiniteNumber(value: unknown): number | null {
+  const parsed =
+    typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isWsCandleShape(value: unknown): value is WsCandle {
   if (typeof value !== "object" || value === null) return false;
   const obj = value as Record<string, unknown>;
   return (
@@ -80,11 +86,11 @@ function isWsCandle(value: unknown): value is WsCandle {
     typeof obj.T === "number" &&
     typeof obj.s === "string" &&
     typeof obj.i === "string" &&
-    typeof obj.o === "number" &&
-    typeof obj.c === "number" &&
-    typeof obj.h === "number" &&
-    typeof obj.l === "number" &&
-    typeof obj.v === "number" &&
+    (typeof obj.o === "number" || typeof obj.o === "string") &&
+    (typeof obj.c === "number" || typeof obj.c === "string") &&
+    (typeof obj.h === "number" || typeof obj.h === "string") &&
+    (typeof obj.l === "number" || typeof obj.l === "string") &&
+    (typeof obj.v === "number" || typeof obj.v === "string") &&
     typeof obj.n === "number"
   );
 }
@@ -110,14 +116,64 @@ const fromRest = (c: RestCandle): ChartDataPoint => ({
 });
 
 // Convert WebSocket message to ChartDataPoint
-const fromWs = (c: WsCandle): ChartDataPoint => ({
-  time: Math.floor(c.t / 1000),
-  open: Number(c.o),
-  high: Number(c.h),
-  low: Number(c.l),
-  close: Number(c.c),
-  volume: Number(c.v),
-});
+const fromWs = (c: WsCandle): ChartDataPoint | null => {
+  const open = toFiniteNumber(c.o);
+  const high = toFiniteNumber(c.h);
+  const low = toFiniteNumber(c.l);
+  const close = toFiniteNumber(c.c);
+  const volume = toFiniteNumber(c.v);
+  if (
+    open === null ||
+    high === null ||
+    low === null ||
+    close === null ||
+    volume === null ||
+    !Number.isFinite(c.t)
+  ) {
+    return null;
+  }
+
+  return {
+    time: Math.floor(c.t / 1000),
+    open,
+    high,
+    low,
+    close,
+    volume,
+  };
+};
+
+function extractWsCandlePayloads(rawData: unknown): WsCandle[] {
+  const candidates = Array.isArray(rawData) ? rawData : [rawData];
+  const extracted: WsCandle[] = [];
+
+  for (const candidate of candidates) {
+    if (isWsCandleShape(candidate)) {
+      extracted.push(candidate);
+      continue;
+    }
+
+    if (typeof candidate !== "object" || candidate === null) {
+      continue;
+    }
+
+    const record = candidate as Record<string, unknown>;
+    const nested = [record.data, record.candle, record.payload];
+    for (const item of nested) {
+      if (isWsCandleShape(item)) {
+        extracted.push(item);
+      } else if (Array.isArray(item)) {
+        for (const subItem of item) {
+          if (isWsCandleShape(subItem)) {
+            extracted.push(subItem);
+          }
+        }
+      }
+    }
+  }
+
+  return extracted;
+}
 
 /**
  * Fetches historical candles from Hyperliquid REST API
@@ -237,8 +293,9 @@ export function useHyperliquidCandles({
   const handleMessage = useCallback(
     (rawData: unknown, channel: string) => {
       if (channel !== "candle") return;
-      const candles = Array.isArray(rawData) ? rawData : [rawData];
-      const converted = candles.filter(isWsCandle).map((c: WsCandle) => fromWs(c));
+      const converted = extractWsCandlePayloads(rawData)
+        .map((c) => fromWs(c))
+        .filter((c): c is ChartDataPoint => c !== null);
       if (converted.length > 0) {
         bufferRef.current.push(...converted);
         scheduleUpdate();
