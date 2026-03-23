@@ -1,3 +1,6 @@
+/**
+ * @overview Wyckoff Analysis Shared Types
+ */
 export type WyckoffFeature = "tradingRange" | "climaxes" | "springs" | "effortResult" | "phases";
 
 export interface WyckoffVisibility {

@@ -1,3 +1,9 @@
+/**
+ * @overview Content Unavailable View
+ *
+ * Generic component for empty states, missing data, or load errors.
+ * Includes multiple visual configurations (empty, no-results, error).
+ */
 import { memo } from "react";
 import { SearchX, BarChart3, AlertCircle, FileX } from "lucide-react";
 import { cn } from "@/core/utils/cn";

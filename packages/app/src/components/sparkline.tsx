@@ -1,3 +1,12 @@
+/**
+ * @overview Sparkline Component
+ *
+ * Renders a lightweight SVG-based line chart to visualize price trends over 7 days.
+ *
+ * @performance
+ * - Renders as a single SVG path for minimal DOM weight
+ * - Memoized to prevent re-renders when parent list items are static
+ */
 import { memo } from "react";
 import { cn } from "@/core/utils/cn";
 

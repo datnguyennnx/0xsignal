@@ -1,3 +1,13 @@
+/**
+ * @overview Main Layout Component
+ *
+ * Defines the primary shell for the application, including the top header, mobile navigation, and common footer.
+ * Implements a responsive dual-navigation pattern (header for desktop, bottom bar for mobile).
+ *
+ * @mechanism
+ * - utilizes React Router's useLocation to determine active navigation states.
+ * - applies glassmorphism (backdrop-blur) for a premium UI feel.
+ */
 import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";

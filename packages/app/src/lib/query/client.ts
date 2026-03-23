@@ -1,3 +1,14 @@
+/**
+ * @overview React Query Client Configuration
+ *
+ * Configures the global QueryClient with fine-tuned parameters for trading data.
+ * Implements exponential backoff retry strategies and custom garbage collection (GC) times.
+ *
+ * @strategy
+ * - short stale times for frequently updating price data (20s).
+ * - longer stale times for model and metadata.
+ * - disabled refetchOnWindowFocus to prevent unexpected jumps while trading.
+ */
 import { QueryClient } from "@tanstack/react-query";
 
 // Default stale times by data type

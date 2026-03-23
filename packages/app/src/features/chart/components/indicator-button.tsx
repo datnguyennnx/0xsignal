@@ -1,3 +1,9 @@
+/**
+ * @overview Indicator Settings Button
+ *
+ * Provides a UI toggle to open the Indicator Management Modal.
+ * Displays a badge showing the current count of active technical indicators.
+ */
 import { useState, useCallback, memo } from "react";
 import { Settings2 } from "lucide-react";
 import { cn } from "@/core/utils/cn";

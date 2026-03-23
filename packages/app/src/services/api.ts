@@ -1,3 +1,14 @@
+/**
+ * @overview API Client Services
+ *
+ * Provides a central interface for backend-related data and proxying to external
+ * exchange APIs (like Hyperliquid) when cross-source data is needed.
+ *
+ * @mechanism
+ * - Uses native fetch for stateless HTTP requests
+ * - Custom error classes (ApiError, NetworkError) for consistent error handling
+ * - Combines multiple external sources to provide unified DTOs (e.g. FuturesPrice)
+ */
 // API Client - Simple async functions
 import type { ChartDataPoint, GlobalMarketData, CryptoPrice } from "@0xsignal/shared";
 import { hyperliquidApi } from "./hyperliquid";

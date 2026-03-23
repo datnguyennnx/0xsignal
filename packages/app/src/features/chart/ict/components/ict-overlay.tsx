@@ -1,3 +1,15 @@
+/**
+ * @overview ICT (Inner Circle Trader) Chart Overlay Hook
+ *
+ * It renders complex ICT market primitives (FVGs, Order Blocks, Liquidity, OTE)
+ * using custom LW-Charts primitives (Zone, Band) and standard Line series.
+ *
+ * @mechanism
+ * - utilizes ZonePrimitive for FVG and OB shaded areas.
+ * - utilizes BandPrimitive for layered OTE fib levels and Golden Pocket shading.
+ * - utilizes LineSeries for Market Structure pivots (HH, LL) and trend breaks (BOS, ChoCH).
+ * - implements an efficient 150ms-throttled worker orchestration via the parent component.
+ */
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";

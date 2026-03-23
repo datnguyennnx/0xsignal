@@ -1,7 +1,13 @@
 /**
- * Breakpoint Detection Hook
+ * @overview Breakpoint Detection Hook
  *
- * @uses matchMedia API (efficient, no polling)
+ * Provides real-time detection of viewport size for responsive layout adjustments.
+ * Includes device-specific chart configurations (initial candles, etc.).
+ *
+ * @mechanism
+ * - Uses native matchMedia API for high-performance event-driven updates (no polling)
+ * - Returns semantic breakpoint labels (mobile, tablet, desktop)
+ *
  * @breakpoints mobile: <768px, tablet: 768-1023px, desktop: >=1024px
  */
 

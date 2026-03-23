@@ -1,3 +1,11 @@
+/**
+ * @overview Market Data Hooks
+ *
+ * Logic for fetching and caching global market stats and top cryptocurrency prices.
+ * Uses TanStack Query for caching and stale-while-revalidate strategy.
+ *
+ * @strategy Uses placeholder data for an "instant-on" UI feel before network requests complete.
+ */
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import type { CryptoPrice, GlobalMarketData } from "@0xsignal/shared";

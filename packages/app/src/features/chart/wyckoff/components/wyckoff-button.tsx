@@ -1,3 +1,9 @@
+/**
+ * @overview Wyckoff Analysis Toggle Button
+ *
+ * Renders a dropdown menu for enabling/disabling specific Wyckoff Method features
+ * (Trading Range, Climaxes, Springs, Phase analysis).
+ */
 import { memo, useState, useCallback, useRef, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";

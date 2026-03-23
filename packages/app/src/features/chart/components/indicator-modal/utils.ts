@@ -1,3 +1,9 @@
+/**
+ * @overview Indicator Modal Utilities
+ *
+ * Provides helper functions for parsing, formatting, and synchronizing indicator parameters
+ * between UI form values and the underlying numeric state.
+ */
 import {
   normalizeIndicatorParams,
   type ActiveIndicator,

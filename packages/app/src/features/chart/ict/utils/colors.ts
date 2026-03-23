@@ -1,3 +1,6 @@
+/**
+ * @overview ICT Analysis Color Palette
+ */
 export interface ICTColors {
   fvgBullish: { fill: string; border: string; mid: string };
   fvgBearish: { fill: string; border: string; mid: string };

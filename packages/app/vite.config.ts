@@ -23,8 +23,8 @@ export default defineConfig({
       clientFiles: [
         "./src/main.tsx",
         "./src/App.tsx",
-        "./src/features/chart/components/trading-chart/index.tsx",
-        "./src/features/perp/pages/asset-detail.tsx",
+        "./src/features/chart/trading-chart/index.tsx",
+        "./src/pages/asset-detail.tsx",
       ],
     },
     proxy: {

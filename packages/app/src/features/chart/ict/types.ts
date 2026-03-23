@@ -1,3 +1,6 @@
+/**
+ * @overview Inner Circle Trader (ICT) Analysis Shared Types
+ */
 import type { Time } from "lightweight-charts";
 
 export type SwingType = "HH" | "HL" | "LH" | "LL";

@@ -1,3 +1,9 @@
+/**
+ * @overview Indicator Insights Panel
+ *
+ * Renders detailed documentation and mathematical intuition for a specific technical indicator.
+ * Displays formulas (via KaTeX), pro-tips, pitfalls, and regime performance notes.
+ */
 import { type IndicatorConfig } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { IndicatorFormula } from "./indicator-formula";

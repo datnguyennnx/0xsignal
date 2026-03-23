@@ -1,3 +1,6 @@
+/**
+ * @overview Wyckoff Method Color Palette
+ */
 export interface WyckoffColors {
   tradingRange: { fill: string; border: string };
   climax: { sc: string; bc: string };

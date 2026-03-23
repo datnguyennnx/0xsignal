@@ -1,6 +1,22 @@
+/**
+ * @overview Global Market Stats Bar
+ *
+ * Renders high-level crypto market metrics at the top of the dashboard.
+ * Displays Total Market Cap (with 24h change), 24h Volume, and BTC/ETH dominance.
+ */
 import type { GlobalMarketData } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
-import { formatCompact, formatPercent } from "@/core/utils/formatters";
+
+const formatCompact = (value: number): string => {
+  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
+  return `$${value.toLocaleString()}`;
+};
+
+const formatPercent = (value: number): string => {
+  return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
+};
 
 interface GlobalMarketBarProps {
   data: GlobalMarketData;

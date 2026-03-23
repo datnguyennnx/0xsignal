@@ -1,3 +1,19 @@
+/**
+ * @overview Global Design System & Tokens
+ *
+ * Implements a pure monochrome, high-contrast quantitative aesthetic.
+ * Uses OKLCH for perceptually uniform colors and fluid typography for responsiveness.
+ *
+ * @tokens
+ * - Grayscale Base: oklch (C=0) for pure gray/black/white UI.
+ * - Semantic Colors: --gain (Green), --loss (Red), --warn (Orange) using high-contrast OKLCH.
+ * - Typography: Pixelify Sans for tickers, fluid sizing (clamp) for body text.
+ * - Transitions: ease-premium (cubic-bezier) for all UI micro-animations.
+ *
+ * @performance
+ * - Global scrollbar removal for terminal-like experience.
+ * - overscroll-none utility to prevent mobile pull-to-refresh conflicts with charts.
+ */
 @import url("https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";

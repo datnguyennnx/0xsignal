@@ -1,3 +1,9 @@
+/**
+ * @overview Web3 Connection Config
+ *
+ * Configures Wagmi/Viem providers and connectors for EVM-based functionality.
+ * Supports Arbitrum (Hyperliquid target) and Ethereum Mainnet.
+ */
 import { http, createConfig } from "wagmi";
 import { mainnet, arbitrum } from "wagmi/chains";
 import { injected, walletConnect } from "wagmi/connectors";

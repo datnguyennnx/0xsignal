@@ -1,3 +1,14 @@
+/**
+ * @overview Wyckoff Method Chart Overlay Hook
+ *
+ * Manages the rendering of Wyckoff Method annotations (Phases, Trading Ranges, Efforts, Events)
+ * using a combination of LW-Charts Series (Line) and custom Primitives (Zone).
+ *
+ * @mechanism
+ * - utilizes ZonePrimitive to render shaded background areas for Phases and Ranges.
+ * - utilizes LineSeries to render horizontal price levels for SC/BC and Effort/Result divergences.
+ * - implements a strict cleanup cycle (attach/detach/removeSeries) to prevent memory leaks and ghost primitives.
+ */
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";

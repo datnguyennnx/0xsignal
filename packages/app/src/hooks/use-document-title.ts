@@ -1,3 +1,9 @@
+/**
+ * @overview Document Title Hook
+ *
+ * Manages the browser tab title dynamically based on the current page context.
+ * Useful for real-time price updates in the tab title for better UX.
+ */
 import { useEffect } from "react";
 
 interface UseDocumentTitleOptions {

@@ -1,3 +1,9 @@
+/**
+ * @overview React Query Key Management
+ *
+ * Provides a type-safe central repository for all application query keys.
+ * Ensures consistent caching and invalidation across the app.
+ */
 export const queryKeys = {
   // Prices domain
   prices: {

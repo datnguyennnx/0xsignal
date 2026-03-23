@@ -1,3 +1,9 @@
+/**
+ * @overview Indicator Configuration Panel
+ *
+ * It manages the form state for updating or adding specific indicator instances.
+ * It handles the reconciliation between form inputs and existing active indicators (to detect "Update" vs "Add" actions).
+ */
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   createIndicatorInstanceId,

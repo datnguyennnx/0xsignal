@@ -1,3 +1,8 @@
+/**
+ * @overview ICT Analysis Control Panel
+ *
+ * Renders the list of toggleable ICT features with brief descriptions and status indicators.
+ */
 import { memo } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/core/utils/cn";

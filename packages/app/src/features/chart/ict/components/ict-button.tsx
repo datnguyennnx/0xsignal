@@ -1,3 +1,9 @@
+/**
+ * @overview ICT Analysis Toggle Button
+ *
+ * Renders a dropdown menu for enabling/disabling specific ICT (Inner Circle Trader) features
+ * such as Market Structure, FVG, Order Blocks, and Liquidity Zones.
+ */
 import { useState, useCallback, memo, useRef, useEffect } from "react";
 import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";

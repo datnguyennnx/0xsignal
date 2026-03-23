@@ -13,18 +13,18 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/core/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/layouts/main-layout";
-import { MarketDashboard } from "@/features/dashboard/pages/market-dashboard";
+import { MarketDashboard } from "@/pages/market-dashboard";
 import { ErrorBoundary } from "@/components/error-boundary";
 
 // Lazy-loaded routes for code splitting
 const AssetDetail = lazy(() =>
-  import("@/features/perp/pages/asset-detail").then((m) => ({ default: m.AssetDetail }))
+  import("@/pages/asset-detail").then((m) => ({ default: m.AssetDetail }))
 );
 const OrderbookPage = lazy(() =>
-  import("@/features/perp/pages/orderbook-page").then((m) => ({ default: m.OrderbookPage }))
+  import("@/pages/orderbook-page").then((m) => ({ default: m.OrderbookPage }))
 );
 const NotFoundPage = lazy(() =>
-  import("@/features/error/pages/not-found").then((m) => ({ default: m.NotFoundPage }))
+  import("@/pages/not-found").then((m) => ({ default: m.NotFoundPage }))
 );
 
 /**
@@ -36,9 +36,9 @@ const usePreloadRoutes = () => {
   useEffect(() => {
     const preloadTimer = setTimeout(() => {
       // Most visited: perp detail page
-      import("@/features/perp/pages/asset-detail");
+      import("@/pages/asset-detail");
       // Heavy chart component
-      import("@/features/chart/components/trading-chart");
+      import("@/features/chart/trading-chart");
     }, 2000);
     return () => clearTimeout(preloadTimer);
   }, []);

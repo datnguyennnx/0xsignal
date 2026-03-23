@@ -1,10 +1,21 @@
+/**
+ * @overview Perpetual Symbol Dropdown
+ *
+ * A searchable and sortable dropdown for switching between different perpetual markets.
+ * Includes real-time price, 24h change, and open interest for each market.
+ *
+ * @mechanism
+ * - Uses the usePerpList hook for market data
+ * - Implements custom sorting (alphabetical, 24h change) and filtering
+ * - Handles adaptive positioning to stay within viewport bounds
+ */
 import { memo, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, ChevronDown, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { ContentUnavailable } from "@/components/content-unavailable";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
-import { usePerpList } from "@/hooks/use-perp-list";
+import { usePerpList } from "@/features/perp/hooks/use-perp-list";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface PerpDropdownProps {

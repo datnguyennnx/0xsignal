@@ -1,3 +1,12 @@
+/**
+ * @overview Hyperliquid Info Client
+ *
+ * A specialized service for interacting with the Hyperliquid L1 API.
+ * Uses a singleton pattern to maintain a single stateless client.
+ *
+ * @strategy Singleton transport/client to minimize overhead in a server-side and client-side context.
+ * @benefit Type-safe access to Hyperliquid market data, L2 books, and candle snapshots.
+ */
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 
 // Singleton pattern for stateless HTTP client - intentionally created once

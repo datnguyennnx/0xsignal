@@ -1,3 +1,9 @@
+/**
+ * @overview LW-Charts Zone Primitive
+ *
+ * It renders rectangular areas on the chart using the Canvas API.
+ * Used for ICT Order Blocks, Balanced Price Ranges, and Fair Value Gaps.
+ */
 import type {
   ISeriesPrimitive,
   SeriesAttachedParameter,

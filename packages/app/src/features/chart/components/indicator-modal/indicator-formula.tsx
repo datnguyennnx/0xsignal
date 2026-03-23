@@ -1,3 +1,9 @@
+/**
+ * @overview Indicator Formula Renderer
+ *
+ * Renders mathematical expressions using KaTeX.
+ * It includes a custom tokenizer to handle multi-line formulas and stay within container bounds.
+ */
 import { BlockMath } from "react-katex";
 
 interface IndicatorFormulaProps {

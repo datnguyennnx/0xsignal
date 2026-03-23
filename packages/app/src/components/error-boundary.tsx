@@ -1,3 +1,9 @@
+/**
+ * @overview Error Boundary Component
+ *
+ * Catches runtime errors in its child component tree to prevent total app failure.
+ * Provides a localized "Try again" retry mechanism.
+ */
 import { Component, type ReactNode, type ErrorInfo } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw } from "lucide-react";

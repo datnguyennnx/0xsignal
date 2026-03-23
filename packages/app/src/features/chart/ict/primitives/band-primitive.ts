@@ -1,3 +1,9 @@
+/**
+ * @overview LW-Charts Multi-Band Primitive
+ *
+ * Renders multiple horizontal lines and shaded areas between them.
+ * Used for ICT Optimal Trade Entry (OTE) levels and Fibonacci expansions.
+ */
 import type {
   ISeriesPrimitive,
   SeriesAttachedParameter,

@@ -1,3 +1,13 @@
+/**
+ * @overview ICT Analysis Worker Hook
+ *
+ * Provdes a React hook interface for Inner Circle Trader (ICT) pattern analysis.
+ * Features automated debouncing of requests to minimize CPU pressure during rapid price changes.
+ *
+ * @mechanism
+ * - uses analyzeICT from @0xsignal/shared for core calculations.
+ * - implements a requestId system to ensure only the latest request updates the state (atomicity).
+ */
 import { useRef, useCallback, useEffect, useState } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { analyzeICT, DEFAULT_ICT_CONFIG, type ICTAnalysis, type ICTConfig } from "@0xsignal/shared";

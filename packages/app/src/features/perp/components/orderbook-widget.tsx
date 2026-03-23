@@ -1,4 +1,18 @@
-/** @fileoverview Orderbook widget with virtualization for performance */
+/**
+ * @overview Orderbook Widget
+ *
+ * Renders a real-time L2 orderbook with support for custom tick sizes and depth visualization.
+ * Supports row highlighting and cumulative volume calculations on hover.
+ *
+ * @mechanism
+ * - Uses virtualization/static row heights for efficient rendering of large books
+ * - Integrates with L2BookNSigFigsContext for cross-component aggregation sync
+ * - Implements client-side grouping when local tick size differs from exchange SigFigs
+ *
+ * @performance
+ * - Memoized OrderRow to prevent expensive re-renders of the entire list
+ * - RAF-throttled updates from the underlying hook
+ */
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   useHyperliquidOrderbook,
@@ -6,8 +20,8 @@ import {
   groupLevels,
   type OrderbookLevel,
   type TickSizeOption,
-} from "@/hooks/use-hyperliquid-orderbook";
-import { useOptionalL2BookNSigFigs } from "@/hooks/l2-book-nsig-figs-context";
+} from "@/features/perp/hooks/use-hyperliquid-orderbook";
+import { useOptionalL2BookNSigFigs } from "@/features/perp/contexts/l2-book-nsig-figs-context";
 import { cn } from "@/core/utils/cn";
 import { Loader2 } from "lucide-react";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";

@@ -1,3 +1,9 @@
+/**
+ * @overview Indicator Parameter Input Field
+ *
+ * Renders a specialized numeric input with increment/decrement buttons for indicator parameters.
+ * Supports integer and float constraints defined in the indicator's metadata.
+ */
 import { useCallback } from "react";
 import type { IndicatorParamDefinition } from "@0xsignal/shared";
 import { Plus, Minus } from "lucide-react";
