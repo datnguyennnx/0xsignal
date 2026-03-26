@@ -178,6 +178,8 @@ export function useHyperliquidOrderbook(
   const [fineBook, setFineBook] = useState<OrderbookData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeSigFigs, setActiveSigFigs] = useState(DEFAULT_SIGFIGS);
+  const activeSigFigsRef = useRef(activeSigFigs);
+  activeSigFigsRef.current = activeSigFigs;
   const prevSymbolRef = useRef(symbol);
   const lastResubscribeAtRef = useRef(0);
   const adaptiveDirectionRef = useRef<"out" | "in" | null>(null);
@@ -202,7 +204,7 @@ export function useHyperliquidOrderbook(
   }, [symbol]);
   const subscription = useMemo(
     () => (enabled && coin ? { type: "l2Book" as const, coin, nSigFigs: activeSigFigs } : null),
-    [activeSigFigs, enabled, coin]
+    [enabled, coin]
   );
 
   const schedule = useCallback((data: OrderbookData, sourceSigFigs: number) => {
@@ -221,9 +223,10 @@ export function useHyperliquidOrderbook(
     (data: unknown, ch: string) => {
       if (ch !== "l2Book") return;
       const book = data as { levels: [L2BookLevel[], L2BookLevel[]] };
-      if (book?.levels) schedule(processLevels(book.levels[0], book.levels[1]), activeSigFigs);
+      if (book?.levels)
+        schedule(processLevels(book.levels[0], book.levels[1]), activeSigFigsRef.current);
     },
-    [activeSigFigs, schedule]
+    [schedule]
   );
 
   const ws = useHyperliquidWs({
@@ -236,12 +239,12 @@ export function useHyperliquidOrderbook(
   const resubscribe = useCallback(
     (nSigFigs: number) => {
       const next = Math.max(MIN_SIGFIGS, Math.min(MAX_SIGFIGS, nSigFigs));
-      if (!coin || !ws.resubscribe || next === activeSigFigs) return;
+      if (!coin || !ws.resubscribe || next === activeSigFigsRef.current) return;
       ws.resubscribe({ type: "l2Book", coin, nSigFigs: next });
       setActiveSigFigs(next);
       lastResubscribeAtRef.current = Date.now();
     },
-    [activeSigFigs, coin, ws]
+    [coin, ws]
   );
 
   const controlledNSigFigs = options.controlledNSigFigs;

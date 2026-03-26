@@ -19,10 +19,8 @@ import { useState, lazy, Suspense, useMemo, memo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@/core/types";
 import type { ChartDataPoint } from "@0xsignal/shared";
-import { cn } from "@/core/utils/cn";
 import { ChartCandlestick } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContentUnavailable } from "@/components/content-unavailable";
 import { ErrorState } from "@/components/error-state";
@@ -33,10 +31,10 @@ import { useHyperliquidMeta } from "@/features/perp/hooks/use-hyperliquid-meta";
 import { useChartConfig } from "@/hooks/use-breakpoint";
 import { queryKeys } from "@/lib/query/query-keys";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
-
 import { OrderbookWidget } from "@/features/perp/components/orderbook-widget";
 import { PerpDropdown } from "@/features/perp/components/perp-dropdown";
 import { L2BookNSigFigsProvider } from "@/features/perp/contexts/l2-book-nsig-figs-context";
+import { usePerpAnnotation } from "@/features/perp/hooks/use-perp-annotation";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/trading-chart").then((m) => ({ default: m.TradingChart }))
@@ -54,21 +52,6 @@ const formatPrice = (price: number): string => {
   });
 };
 
-const formatCurrency = (value: number): string => {
-  return value.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-};
-
-const formatPercentChange = (value: number): string => {
-  const formatted = (value * 100).toFixed(2);
-  const sign = value >= 0 ? "+" : "";
-  return `${sign}${formatted}%`;
-};
-
 const ChartSkeleton = () => (
   <div className="h-full w-full flex items-center justify-center bg-card/50 rounded-xl">
     <Skeleton className="h-full w-full rounded-xl" />
@@ -81,7 +64,6 @@ interface AssetContentProps {
   readonly chartData: ChartDataPoint[] | null;
   readonly chartLoading: boolean;
   readonly chartFetching: boolean;
-  readonly isConnected: boolean;
   readonly interval: string;
   readonly onIntervalChange: (interval: string) => void;
   readonly loadMore?: () => Promise<void>;
@@ -94,7 +76,6 @@ const AssetContent = memo(function AssetContent({
   chartData,
   chartLoading,
   chartFetching,
-  isConnected,
   interval,
   onIntervalChange,
   loadMore,
@@ -103,41 +84,20 @@ const AssetContent = memo(function AssetContent({
   const navigate = useNavigate();
   const chartSymbol = symbol.toUpperCase();
   const price = asset.price;
-  const change24h = price?.change24h || 0;
+
+  const { data: annotation } = usePerpAnnotation(symbol);
+  const displayName = annotation?.displayName || asset.symbol.toUpperCase();
+  const description = annotation?.description;
 
   return (
     <div className="container-fluid h-full flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium overflow-y-auto lg:overflow-hidden overscroll-none select-none">
       {/* Header */}
       <header className="mb-4 sm:mb-5 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3">
-          <PerpDropdown currentSymbol={asset.symbol.toUpperCase()} />
-          <div
-            className={cn(
-              "flex items-baseline gap-1.5 sm:gap-2 select-none",
-              !isConnected && "opacity-50"
-            )}
-          >
-            <span className="text-lg sm:text-xl tabular-nums font-medium">
-              ${formatPrice(price?.price || 0)}
-            </span>
-            <span
-              className={cn(
-                "text-xs sm:text-sm tabular-nums font-medium",
-                change24h > 0 ? "text-gain" : change24h < 0 ? "text-loss" : "text-muted-foreground"
-              )}
-            >
-              {formatPercentChange(change24h)}
-            </span>
-            <span className="text-xs text-muted-foreground font-mono tabular-nums hidden sm:inline">
-              VOL {formatCurrency(price?.volume24h || 0)}
-            </span>
-            <span className="text-xs text-muted-foreground font-mono tabular-nums hidden lg:inline">
-              H ${formatPrice(price?.high24h || 0)}
-            </span>
-            <span className="text-xs text-muted-foreground font-mono tabular-nums hidden lg:inline">
-              L ${formatPrice(price?.low24h || 0)}
-            </span>
-          </div>
+          <PerpDropdown currentSymbol={displayName} />
+          <span className="text-lg sm:text-xl font-mono font-semibold tabular-nums">
+            {formatPrice(price?.price || 0)}
+          </span>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -148,6 +108,11 @@ const AssetContent = memo(function AssetContent({
             <ChartCandlestick className="w-5 h-5" />
           </Button>
         </div>
+        {description && (
+          <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed max-w-2xl">
+            {description}
+          </p>
+        )}
       </header>
 
       {/* Shared L2 nSigFigs so Orderbook dropdown and Depth chart use the same Hyperliquid aggregation */}
@@ -274,7 +239,6 @@ export function AssetDetail() {
   const {
     data: chartData,
     isLoading: chartLoading,
-    isConnected,
     loadMore: loadMoreCandles,
     hasMore: hasMoreCandles,
   } = useHyperliquidCandles({
@@ -333,7 +297,6 @@ export function AssetDetail() {
       chartData={(chartData as ChartDataPoint[]) || null}
       chartLoading={chartLoading}
       chartFetching={chartFetching}
-      isConnected={isConnected}
       interval={interval}
       onIntervalChange={handleIntervalChange}
       loadMore={loadMoreCandles}

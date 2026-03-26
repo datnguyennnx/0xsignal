@@ -13,7 +13,7 @@
  * - Memoized OrderRow to prevent expensive re-renders of the entire list
  * - RAF-throttled updates from the underlying hook
  */
-import { memo, useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { memo, useState, useCallback, useEffect, useRef, useMemo, startTransition } from "react";
 import {
   useHyperliquidOrderbook,
   generateTickSizeOptions,
@@ -88,28 +88,24 @@ const OrderbookToolbar = memo(
 
 OrderbookToolbar.displayName = "OrderbookToolbar";
 
+interface FormattedLevel extends OrderbookLevel {
+  formattedPrice: string;
+  formattedSize: string;
+  formattedTotal: string;
+}
+
 interface OrderRowProps {
-  level: OrderbookLevel;
+  level: FormattedLevel;
   side: "bid" | "ask";
   index: number;
   isHovered: boolean;
   isInRange: boolean;
   onHover: (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => void;
-  priceScaling: number;
   maxTotal: number;
 }
 
 const OrderRow = memo(
-  ({
-    level,
-    side,
-    index,
-    isHovered,
-    isInRange,
-    onHover,
-    priceScaling,
-    maxTotal,
-  }: OrderRowProps) => {
+  ({ level, side, index, isHovered, isInRange, onHover, maxTotal }: OrderRowProps) => {
     const rowRef = useRef<HTMLDivElement>(null);
     const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
 
@@ -163,7 +159,7 @@ const OrderRow = memo(
                 : "text-loss"
           )}
         >
-          {level.price > 0 ? formatPriceWithScaling(level.price, priceScaling) : "-"}
+          {level.formattedPrice}
         </span>
         <span
           className={cn(
@@ -171,7 +167,7 @@ const OrderRow = memo(
             level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground"
           )}
         >
-          {level.price > 0 ? formatSize(level.size) : "-"}
+          {level.formattedSize}
         </span>
         <span
           className={cn(
@@ -179,19 +175,19 @@ const OrderRow = memo(
             level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
           )}
         >
-          {level.price > 0 ? formatSize(level.total) : "-"}
+          {level.formattedTotal}
         </span>
       </div>
     );
   },
   (prev, next) =>
     prev.level.price === next.level.price &&
-    prev.level.size === next.level.size &&
-    prev.level.total === next.level.total &&
+    prev.level.formattedPrice === next.level.formattedPrice &&
+    prev.level.formattedSize === next.level.formattedSize &&
+    prev.level.formattedTotal === next.level.formattedTotal &&
     prev.side === next.side &&
     prev.isHovered === next.isHovered &&
     prev.isInRange === next.isInRange &&
-    prev.priceScaling === next.priceScaling &&
     prev.maxTotal === next.maxTotal
 );
 
@@ -199,6 +195,9 @@ OrderRow.displayName = "OrderRow";
 
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const l2BookSig = useOptionalL2BookNSigFigs();
+  const l2BookSigRef = useRef(l2BookSig);
+  l2BookSigRef.current = l2BookSig;
+
   const orderbookHookOptions = useMemo(() => {
     if (l2BookSig != null) {
       return { controlledNSigFigs: l2BookSig.nSigFigs, adaptiveNSigFigs: false as const };
@@ -241,22 +240,26 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     if (scalingOptions.length > 0 && priceScaling === 0) {
       const first = scalingOptions[0];
       setPriceScaling(first.value);
-      l2BookSig?.setNSigFigs(first.nSigFigs ?? 5);
+      l2BookSigRef.current?.setNSigFigs(first.nSigFigs ?? 5);
     }
-  }, [orderbook, scalingOptions, priceScaling, l2BookSig]);
+  }, [orderbook, scalingOptions, priceScaling]);
 
   const handlePriceScalingChange = useCallback(
     (newScale: number) => {
-      setPriceScaling(newScale);
       const opt = scalingOptions.find((o) => o.value === newScale);
       const nextSig = opt?.nSigFigs ?? 5;
-      if (l2BookSig) {
-        l2BookSig.setNSigFigs(nextSig);
+
+      startTransition(() => {
+        setPriceScaling(newScale);
+      });
+
+      if (l2BookSigRef.current) {
+        l2BookSigRef.current.setNSigFigs(nextSig);
       } else {
         resubscribe(nextSig);
       }
     },
-    [scalingOptions, resubscribe, l2BookSig]
+    [scalingOptions, resubscribe]
   );
 
   const currentOption = scalingOptions.find((o) => o.value === priceScaling);
@@ -271,13 +274,29 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     };
   }, [orderbook, priceScaling, shouldSkipGrouping]);
 
-  const { visibleAsks, visibleBids, maxTotal } = useMemo(() => {
+  const { visibleAsks, visibleBids, maxTotal } = useMemo((): {
+    visibleAsks: FormattedLevel[];
+    visibleBids: FormattedLevel[];
+    maxTotal: number;
+  } => {
     if (!groupedOrderbook) return { visibleAsks: [], visibleBids: [], maxTotal: 0 };
     const asks = groupedOrderbook.asks.slice(0, VISIBLE_ROWS);
     const bids = groupedOrderbook.bids.slice(0, VISIBLE_ROWS);
-    const maxTotal = Math.max(...asks.map((a) => a.total), ...bids.map((b) => b.total));
-    return { visibleAsks: asks, visibleBids: bids, maxTotal };
-  }, [groupedOrderbook]);
+    const mt = Math.max(...asks.map((a) => a.total), ...bids.map((b) => b.total));
+
+    const formatLevel = (level: OrderbookLevel): FormattedLevel => ({
+      ...level,
+      formattedPrice: level.price > 0 ? formatPriceWithScaling(level.price, priceScaling) : "-",
+      formattedSize: level.price > 0 ? formatSize(level.size) : "-",
+      formattedTotal: level.price > 0 ? formatSize(level.total) : "-",
+    });
+
+    return {
+      visibleAsks: asks.map(formatLevel),
+      visibleBids: bids.map(formatLevel),
+      maxTotal: mt,
+    };
+  }, [groupedOrderbook, priceScaling]);
 
   const { spread, spreadPercent } = useMemo(() => {
     if (
@@ -422,7 +441,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
                 isHovered={isRowHovered("ask", index)}
                 isInRange={isRowInHighlightRange("ask", index)}
                 onHover={handleHover}
-                priceScaling={priceScaling}
                 maxTotal={maxTotal}
               />
             </div>
@@ -449,7 +467,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
                 isHovered={isRowHovered("bid", index)}
                 isInRange={isRowInHighlightRange("bid", index)}
                 onHover={handleHover}
-                priceScaling={priceScaling}
                 maxTotal={maxTotal}
               />
             </div>

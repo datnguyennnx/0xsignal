@@ -46,10 +46,74 @@ export type PerpCategoriesResponse = [string, string][];
 
 export type AllPerpMetasResponse = [HyperliquidMeta, HyperliquidAssetCtx[]][];
 
-export const hyperliquidApi = {
-  getMeta: () => infoClient.meta(),
+export interface SpotMetaToken {
+  name: string;
+  szDecimals: number;
+  weiDecimals: number;
+  index: number;
+  tokenId: string;
+  isCanonical: boolean;
+  evmContract?: {
+    address: string;
+  };
+  fullName?: string;
+}
 
-  getMetaAndAssetCtxs: () => infoClient.metaAndAssetCtxs(),
+export interface SpotMetaUniverse {
+  tokens: [number, number];
+  name: string;
+  index: number;
+}
+
+export interface SpotMeta {
+  universe: SpotMetaUniverse[];
+  tokens: SpotMetaToken[];
+}
+
+export interface SpotAssetCtx {
+  coin: string;
+  prevDayPx: string;
+  dayNtlVlm: string;
+  markPx: string;
+  midPx: string | null;
+  circulatingSupply: string;
+  totalSupply: string;
+  dayBaseVlm: string;
+}
+
+export interface SpotMetaAndAssetCtxsResponse {
+  spotMeta: SpotMeta;
+  assetCtxs: SpotAssetCtx[];
+}
+
+export interface PerpDex {
+  dex: string;
+  fullName: string;
+  collateralToken: number;
+  isCanonical: boolean;
+  asset: number;
+}
+
+export interface OutcomeMeta {
+  outcomes: Array<{
+    outcome: number;
+    name: string;
+    description: string;
+    sideSpecs: Array<{ name: string }>;
+  }>;
+}
+
+export interface PerpAnnotation {
+  category: string;
+  description: string;
+  displayName?: string;
+  keywords?: string[];
+}
+
+export const hyperliquidApi = {
+  getMeta: (dex?: string) => infoClient.meta({ dex }),
+
+  getMetaAndAssetCtxs: (dex?: string) => infoClient.metaAndAssetCtxs({ dex }),
 
   getPerpCategories: () => infoClient.perpCategories(),
 
@@ -58,6 +122,14 @@ export const hyperliquidApi = {
   getAllPerpMetas: () => infoClient.allPerpMetas(),
 
   getPerpDexs: () => infoClient.perpDexs(),
+
+  getSpotMeta: () => infoClient.spotMeta(),
+
+  getSpotMetaAndAssetCtxs: () => infoClient.spotMetaAndAssetCtxs(),
+
+  getOutcomeMeta: () => infoClient.outcomeMeta(),
+
+  getAllPerpMids: (dex?: string) => infoClient.allMids({ dex }),
 
   l2Book: (coin: string, nSigFigs?: 2 | 3 | 4 | 5 | null) => infoClient.l2Book({ coin, nSigFigs }),
 
@@ -81,4 +153,7 @@ export const hyperliquidApi = {
     startTime: number,
     endTime: number
   ) => infoClient.candleSnapshot({ coin, interval, startTime, endTime }),
+
+  getPerpAnnotation: (coin: string) =>
+    infoClient.perpAnnotation({ coin }) as Promise<PerpAnnotation | null>,
 };

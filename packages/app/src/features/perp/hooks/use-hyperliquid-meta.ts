@@ -5,17 +5,23 @@
  * Provides helper functions for price and size precision formatting.
  *
  * @mechanism
- * - Fetches universe data from Hyperliquid Info API
+ * - Fetches universe data from Hyperliquid Info API for all DEXes (main + HIP-3)
  * - Memoizes a precision mapping for O(1) lookups during rendering
  * - Uses TanStack Query for long-term metadata caching
  *
- * @strategy 5min stale time as exchange metadata rarely changes during a session.
+ * @hyperliquid-mapping
+ * - Main perp (HIP-1): coin = "BTC", "ETH", etc.
+ * - Builder perp (HIP-3): coin = "xyz:CL", "km:US500", etc. (format: "dex:coin")
+ * - Use meta({ dex }) to query specific DEX
+ *
+ * @reference https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/asset-ids
  */
 
 import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { hyperliquidApi } from "@/services/hyperliquid";
 import { queryKeys } from "@/lib/query/query-keys";
+import { parseSymbol } from "./use-hyperliquid-ws";
 
 const MAX_DECIMALS_PERP = 6;
 
@@ -26,12 +32,15 @@ export interface AssetPrecision {
 
 const DEFAULT: AssetPrecision = { pxDecimals: 5, szDecimals: 4 };
 
-export function useHyperliquidMeta() {
+export function useHyperliquidMeta(symbol?: string) {
+  const parsed = symbol ? parseSymbol(symbol) : null;
+  const dex = parsed?.kind === "builderPerp" ? parsed.dex : undefined;
+
   const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.hyperliquid.meta(),
-    queryFn: () => hyperliquidApi.getMeta(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    queryKey: queryKeys.hyperliquid.meta(dex),
+    queryFn: () => hyperliquidApi.getMeta(dex),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
@@ -39,9 +48,11 @@ export function useHyperliquidMeta() {
     const map = new Map<string, AssetPrecision>();
     if (!data?.universe) return map;
     for (const asset of data.universe) {
-      const pxDec = 5; // Default to 5 decimals for perp prices
+      const pxDec = 5;
       const sz = asset.szDecimals ?? 4;
-      map.set(asset.name.toUpperCase(), {
+      // Keep original case for builder perps (contain ":")
+      const key = asset.name.includes(":") ? asset.name : asset.name.toUpperCase();
+      map.set(key, {
         pxDecimals: Math.min(pxDec, MAX_DECIMALS_PERP),
         szDecimals: sz,
       });
@@ -50,9 +61,12 @@ export function useHyperliquidMeta() {
   }, [data]);
 
   const getPrecision = useCallback(
-    (symbol: string): AssetPrecision => {
-      const norm = symbol.toUpperCase().replace(/USDT?$/, "");
-      return precisionMap.get(norm) ?? DEFAULT;
+    (sym: string): AssetPrecision => {
+      const parsed = parseSymbol(sym);
+      // For builder perps, lookup using the original coin format (dex:coin)
+      // For regular perps, lookup using uppercase
+      const lookupKey = parsed.kind === "builderPerp" ? parsed.coin : parsed.coin.toUpperCase();
+      return precisionMap.get(lookupKey) ?? DEFAULT;
     },
     [precisionMap]
   );

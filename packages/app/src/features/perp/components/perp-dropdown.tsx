@@ -25,6 +25,7 @@ interface PerpDropdownProps {
 interface FormattedPerp {
   coin: string;
   category: string;
+  displayCategory: string;
   markPx: string;
   prevDayPx: string;
   openInterest: string;
@@ -33,6 +34,17 @@ interface FormattedPerp {
   oiFormatted: string;
   isActive: boolean;
 }
+
+type CategoryTab = "all" | "crypto" | "stocks" | "commodities" | "fx" | "indices" | "preipo";
+
+const CATEGORY_TABS: { key: CategoryTab; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "crypto", label: "Crypto" },
+  { key: "stocks", label: "Stocks" },
+  { key: "commodities", label: "Commodities" },
+  { key: "fx", label: "Forex" },
+  { key: "indices", label: "Indices" },
+];
 
 const SortIcon = ({
   sortBy,
@@ -122,7 +134,7 @@ const MarketRowDesktop = ({ item }: { item: FormattedPerp }) => (
   <div className="hidden sm:grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-3">
     <div className="flex flex-col justify-center min-w-0">
       <span className="font-mono font-medium text-sm tabular-nums">{item.coin}</span>
-      <span className="text-[10px] text-muted-foreground capitalize">{item.category}</span>
+      <span className="text-[10px] text-muted-foreground">{item.displayCategory}</span>
     </div>
     <span className="font-mono text-sm text-right flex items-center justify-end text-foreground tabular-nums">
       ${formatPrice(item.markPx)}
@@ -145,7 +157,7 @@ const MarketRowMobile = ({ item }: { item: FormattedPerp }) => (
   <div className="sm:hidden grid min-w-0 grid-cols-[1fr_80px_80px] gap-2 px-3 py-3">
     <div className="flex flex-col justify-center min-w-0">
       <span className="font-mono font-medium text-sm tabular-nums truncate">{item.coin}</span>
-      <span className="text-[9px] text-muted-foreground capitalize">{item.category}</span>
+      <span className="text-[9px] text-muted-foreground">{item.displayCategory}</span>
     </div>
     <span className="font-mono text-sm text-right flex items-center justify-end text-foreground tabular-nums">
       ${formatPrice(item.markPx)}
@@ -190,6 +202,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState<CategoryTab>("all");
   const [sortBy, setSortBy] = useState<"name" | "change">("name");
   const [sortDesc, setSortDesc] = useState(true);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -199,10 +212,23 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
 
   const perps = data?.assets;
 
+  const categoryCounts = useMemo(() => {
+    if (!perps) return {};
+    const counts: Record<string, number> = { all: perps.length };
+    perps.forEach((p) => {
+      counts[p.category] = (counts[p.category] || 0) + 1;
+    });
+    return counts;
+  }, [perps]);
+
   const filteredPerps = useMemo(() => {
     if (!perps) return [];
 
     let filtered = perps;
+
+    if (category !== "all") {
+      filtered = filtered.filter((f) => f.category === category);
+    }
 
     if (query) {
       const q = query.toLowerCase();
@@ -223,7 +249,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
     });
 
     return filtered;
-  }, [perps, query, sortBy, sortDesc]);
+  }, [perps, category, query, sortBy, sortDesc]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -308,17 +334,21 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
     };
   }, [open, handleClose]);
 
-  const currentSymbolLower = useMemo(() => currentSymbol.toLowerCase(), [currentSymbol]);
-
   const formattedPerps = useMemo(() => {
     if (!filteredPerps) return [];
+    const symbolLower = currentSymbol.toLowerCase();
     return filteredPerps.map((item) => {
       const prevPx = Number(item.prevDayPx);
       const markPx = Number(item.markPx);
       const change = prevPx > 0 ? ((markPx - prevPx) / prevPx) * 100 : 0;
       const oi = Number(item.openInterest);
       return {
-        ...item,
+        coin: item.coin,
+        category: item.category,
+        displayCategory: item.displayCategory,
+        markPx: item.markPx,
+        prevDayPx: item.prevDayPx,
+        openInterest: item.openInterest,
         changeValue: change,
         changeFormatted: `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`,
         oiFormatted:
@@ -327,15 +357,15 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
             : oi > 1000
               ? `${(oi / 1000).toFixed(0)}K`
               : oi.toFixed(0),
-        isActive: item.coin.toLowerCase() === currentSymbolLower,
+        isActive: item.coin.toLowerCase() === symbolLower,
       };
     });
-  }, [filteredPerps, currentSymbolLower]);
+  }, [filteredPerps, currentSymbol]);
 
   return (
     <div className="relative" data-perp-dropdown>
       <div ref={triggerRef} className="flex items-center gap-1 cursor-pointer" onClick={handleOpen}>
-        <span className="font-mono font-semibold text-foreground tabular-nums font-mono-slashed">
+        <span className="text-lg sm:text-xl font-mono font-semibold text-foreground tabular-nums font-mono-slashed">
           {currentSymbol}
         </span>
         <ChevronDown
@@ -372,6 +402,36 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
                 </button>
               )}
             </div>
+          </div>
+
+          <div className="flex gap-1 px-3 py-2 border-b border-border/20 overflow-x-auto scrollbar-hide">
+            {CATEGORY_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setCategory(tab.key)}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors cursor-pointer",
+                  category === tab.key
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                {tab.label}
+                {categoryCounts[tab.key] !== undefined && (
+                  <span
+                    className={cn(
+                      "text-[10px]",
+                      category === tab.key
+                        ? "text-primary-foreground/70"
+                        : "text-muted-foreground/60"
+                    )}
+                  >
+                    {categoryCounts[tab.key]}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
 
           <MarketHeader sortBy={sortBy} sortDesc={sortDesc} onSort={handleSort} />

@@ -8,14 +8,55 @@
  * - Uses refs for callback persistence to avoid stale closures in effects
  * - Implements automatic cleanup and connection state tracking
  * - Efficiently handles high-frequency market data streams
+ *
+ * @hyperliquid-mapping
+ * - Main perp (HIP-1): coin = "BTC", "ETH", etc.
+ * - Builder perp (HIP-3): coin = "xyz:CL", "km:US500", etc. (format: "dex:coin")
+ * - Spot: coin = "@<spotIndex>" (e.g., "@107" for HYPE)
+ *
+ * @reference https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/asset-ids
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { WebSocketTransport, SubscriptionClient } from "@nktkas/hyperliquid";
 
-export const normalizeSymbol = (symbol: string): string => {
+export type AssetKind = "perp" | "builderPerp" | "spot";
+
+export interface NormalizedAsset {
+  kind: AssetKind;
+  coin: string;
+  dex?: string;
+  spotIndex?: number;
+}
+
+export function parseSymbol(symbol: string): NormalizedAsset {
+  // Handle spot symbols (e.g., "@107")
+  if (symbol.startsWith("@")) {
+    return { kind: "spot", coin: symbol };
+  }
+
   const upper = symbol.toUpperCase();
-  return upper.endsWith("USDT") ? upper.slice(0, -4) : upper;
+  const clean = upper.replace(/[^A-Z0-9:]/g, "");
+
+  if (clean.includes(":")) {
+    const [dex, ...rest] = clean.split(":");
+    let coinPart = rest.join(":");
+    coinPart = coinPart.replace(/USDT?$/, "").replace(/USDC?$/, "");
+    return {
+      kind: "builderPerp",
+      coin: `${dex.toLowerCase()}:${coinPart}`,
+      dex: dex.toLowerCase(),
+    };
+  }
+
+  // For perp, strip quote asset suffix (USDT, USDC) from the symbol
+  let cleaned = clean;
+  cleaned = cleaned.replace(/USDT?$/, "").replace(/USDC?$/, "");
+  return { kind: "perp", coin: cleaned };
+}
+
+export const normalizeSymbol = (symbol: string): string => {
+  return parseSymbol(symbol).coin;
 };
 
 export interface HyperliquidSubscription {
@@ -150,6 +191,8 @@ export function useHyperliquidWs({
         }
       } catch (err) {
         if (isMountedRef.current) {
+          setIsConnected(false);
+          onConnectionChangeRef.current?.(false);
           onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
         }
       }

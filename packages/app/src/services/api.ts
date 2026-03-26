@@ -13,7 +13,7 @@
 import type { ChartDataPoint, GlobalMarketData, CryptoPrice } from "@0xsignal/shared";
 import { hyperliquidApi } from "./hyperliquid";
 
-const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost:9006/api";
+const API_BASE = import.meta.env.DEV ? "/api" : `${import.meta.env.VITE_API_URL}/api`;
 
 export type { ChartDataPoint };
 
@@ -77,11 +77,27 @@ export const api = {
   getTopCryptos: (limit = 100) => fetchJson<CryptoPrice[]>(`${API_BASE}/prices?limit=${limit}`),
 
   getFuturesPrice: async (symbol: string): Promise<FuturesPrice> => {
-    const searchSymbol = symbol.toUpperCase().trim();
+    const cleanSymbol = symbol
+      .trim()
+      .replace(/USDT?$/, "")
+      .replace(/USDC?$/, "")
+      .toUpperCase();
+    const isBuilderPerp = cleanSymbol.includes(":");
+
+    let normalizedSearch: string;
+    let dex: string | undefined;
+
+    if (isBuilderPerp) {
+      const [dexPart, ...coinParts] = cleanSymbol.split(":");
+      normalizedSearch = `${dexPart.toLowerCase()}:${coinParts.join(":")}`;
+      dex = dexPart.toLowerCase();
+    } else {
+      normalizedSearch = cleanSymbol;
+    }
 
     const [allMids, metaAndAssetCtxs] = await Promise.all([
-      hyperliquidApi.getAllMids(),
-      hyperliquidApi.getMetaAndAssetCtxs(),
+      dex ? hyperliquidApi.getAllPerpMids(dex) : hyperliquidApi.getAllMids(),
+      dex ? hyperliquidApi.getMetaAndAssetCtxs(dex) : hyperliquidApi.getMetaAndAssetCtxs(),
     ]);
 
     if (!allMids || typeof allMids !== "object") {
@@ -95,17 +111,13 @@ export const api = {
     }
 
     const universe = meta.universe;
-    const perpSymbols = universe.map((u) => u.name);
 
-    let coinIndex = universe.findIndex((u) => u.name === searchSymbol);
+    let coinIndex = universe.findIndex((u) => u.name === normalizedSearch);
     if (coinIndex === -1) {
-      coinIndex = universe.findIndex((u) => u.name.toUpperCase() === searchSymbol);
+      coinIndex = universe.findIndex((u) => u.name.toUpperCase() === normalizedSearch);
     }
     if (coinIndex === -1) {
-      throw new ApiError(
-        `"${symbol}" is not a perpetual. Available: ${perpSymbols.slice(0, 15).join(", ")}...`,
-        404
-      );
+      throw new ApiError(`"${symbol}" not found`, 404);
     }
 
     const coinName = universe[coinIndex].name;
