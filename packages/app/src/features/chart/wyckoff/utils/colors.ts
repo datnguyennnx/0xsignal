@@ -17,66 +17,36 @@ export interface WyckoffColors {
   phase: { fill: string; border: string };
 }
 
-export const getWyckoffColors = (isDark: boolean): WyckoffColors => {
-  if (isDark) {
-    return {
-      tradingRange: {
-        fill: "rgba(99, 102, 241, 0.06)",
-        border: "rgba(99, 102, 241, 0.40)",
-      },
-      climax: {
-        sc: "rgba(244, 63, 94, 0.70)",
-        bc: "rgba(16, 185, 129, 0.70)",
-      },
-      event: {
-        spring: "rgba(16, 185, 129, 0.75)",
-        upthrust: "rgba(244, 63, 94, 0.75)",
-        lps: "rgba(16, 185, 129, 0.65)",
-        lpsy: "rgba(244, 63, 94, 0.65)",
-        sos: "rgba(34, 197, 94, 0.80)",
-        sow: "rgba(239, 68, 68, 0.80)",
-        st: "rgba(161, 161, 170, 0.55)",
-      },
-      effort: {
-        bullish: "rgba(16, 185, 129, 0.50)",
-        bearish: "rgba(244, 63, 94, 0.50)",
-        neutral: "rgba(107, 114, 128, 0.40)",
-        result: "rgba(148, 163, 184, 0.35)",
-      },
-      phase: {
-        fill: "rgba(99, 102, 241, 0.04)",
-        border: "rgba(99, 102, 241, 0.25)",
-      },
-    };
-  }
+import { getThemeColor } from "@/core/utils/theme";
 
+export const getWyckoffColors = (_isDark: boolean): WyckoffColors => {
   return {
     tradingRange: {
-      fill: "rgba(79, 70, 229, 0.05)",
-      border: "rgba(79, 70, 229, 0.35)",
+      fill: getThemeColor("wyckoff-tr-fill", "rgba(99, 102, 241, 0.06)"),
+      border: getThemeColor("wyckoff-tr-border", "rgba(99, 102, 241, 0.40)"),
     },
     climax: {
-      sc: "rgba(225, 29, 72, 0.65)",
-      bc: "rgba(5, 150, 105, 0.65)",
+      sc: getThemeColor("wyckoff-climax-sc", "rgba(244, 63, 94, 0.70)"),
+      bc: getThemeColor("wyckoff-climax-bc", "rgba(16, 185, 129, 0.70)"),
     },
     event: {
-      spring: "rgba(5, 150, 105, 0.70)",
-      upthrust: "rgba(225, 29, 72, 0.70)",
-      lps: "rgba(5, 150, 105, 0.60)",
-      lpsy: "rgba(225, 29, 72, 0.60)",
-      sos: "rgba(22, 163, 74, 0.75)",
-      sow: "rgba(220, 38, 38, 0.75)",
-      st: "rgba(113, 113, 122, 0.50)",
+      spring: getThemeColor("wyckoff-event-spring", "rgba(16, 185, 129, 0.75)"),
+      upthrust: getThemeColor("wyckoff-event-upthrust", "rgba(244, 63, 94, 0.75)"),
+      lps: getThemeColor("wyckoff-event-lps", "rgba(16, 185, 129, 0.65)"),
+      lpsy: getThemeColor("wyckoff-event-lpsy", "rgba(244, 63, 94, 0.65)"),
+      sos: getThemeColor("wyckoff-event-sos", "rgba(34, 197, 94, 0.80)"),
+      sow: getThemeColor("wyckoff-event-sow", "rgba(239, 68, 68, 0.80)"),
+      st: getThemeColor("wyckoff-event-st", "rgba(161, 161, 170, 0.55)"),
     },
     effort: {
-      bullish: "rgba(5, 150, 105, 0.45)",
-      bearish: "rgba(225, 29, 72, 0.45)",
-      neutral: "rgba(107, 114, 128, 0.35)",
-      result: "rgba(100, 116, 139, 0.30)",
+      bullish: getThemeColor("effort-bullish", "rgba(16, 185, 129, 0.50)"),
+      bearish: getThemeColor("effort-bearish", "rgba(244, 63, 94, 0.50)"),
+      neutral: getThemeColor("effort-neutral", "rgba(107, 114, 128, 0.40)"),
+      result: getThemeColor("effort-result", "rgba(148, 163, 184, 0.35)"),
     },
     phase: {
-      fill: "rgba(79, 70, 229, 0.03)",
-      border: "rgba(79, 70, 229, 0.20)",
+      fill: getThemeColor("phase-fill-a", "rgba(99, 102, 241, 0.04)"),
+      border: getThemeColor("phase-border-a", "rgba(99, 102, 241, 0.25)"),
     },
   };
 };

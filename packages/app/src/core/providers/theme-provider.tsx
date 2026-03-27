@@ -8,7 +8,7 @@
  * - uses matchMedia to listen for system theme changes when in 'system' mode.
  * - provides a resolvedTheme to child components to handle conditional styling in JS.
  */
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 
 type Theme = "dark" | "light" | "system";
 
@@ -46,34 +46,26 @@ export function ThemeProvider({
   const [theme, setThemeState] = useState<Theme>(
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   );
-  const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">(() => {
-    if (theme === "system") return getSystemTheme();
-    return theme;
-  });
+  const [systemTheme, setSystemTheme] = useState<"dark" | "light">(getSystemTheme);
 
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove("light", "dark");
-
-    const actualTheme = theme === "system" ? getSystemTheme() : theme;
+    const actualTheme = theme === "system" ? systemTheme : theme;
     root.classList.add(actualTheme);
-    setResolvedTheme(actualTheme);
-  }, [theme]);
+  }, [theme, systemTheme]);
 
   useEffect(() => {
-    if (theme !== "system") return;
-
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e: MediaQueryListEvent) => {
-      const newTheme = e.matches ? "dark" : "light";
-      window.document.documentElement.classList.remove("light", "dark");
-      window.document.documentElement.classList.add(newTheme);
-      setResolvedTheme(newTheme);
+      setSystemTheme(e.matches ? "dark" : "light");
     };
 
     mediaQuery.addEventListener("change", handler);
     return () => mediaQuery.removeEventListener("change", handler);
-  }, [theme]);
+  }, []);
+
+  const resolvedTheme = theme === "system" ? systemTheme : theme;
 
   const setTheme = useCallback(
     (newTheme: Theme) => {
@@ -83,11 +75,14 @@ export function ThemeProvider({
     [storageKey]
   );
 
-  const value = {
-    theme,
-    resolvedTheme,
-    setTheme,
-  };
+  const value = useMemo(
+    () => ({
+      theme,
+      resolvedTheme,
+      setTheme,
+    }),
+    [theme, resolvedTheme, setTheme]
+  );
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>

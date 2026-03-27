@@ -17,11 +17,14 @@ import { memo, useState, useCallback, useEffect, useRef, useMemo, startTransitio
 import {
   useHyperliquidOrderbook,
   generateTickSizeOptions,
-  groupLevels,
-  type OrderbookLevel,
   type TickSizeOption,
-} from "@/features/perp/hooks/use-hyperliquid-orderbook";
-import { useOptionalL2BookNSigFigs } from "@/features/perp/contexts/l2-book-nsig-figs-context";
+} from "@/features/trade/hooks/use-hyperliquid-orderbook";
+import {
+  groupOrderbookLevels,
+  type OrderbookLevel,
+  type OrderbookData,
+} from "@/core/utils/hyperliquid";
+import { useOptionalL2BookNSigFigs } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { cn } from "@/core/utils/cn";
 import { Loader2 } from "lucide-react";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -42,22 +45,7 @@ interface PopupData {
 const ROW_HEIGHT = 24;
 const VISIBLE_ROWS = 20;
 
-function formatPriceWithScaling(price: number, scaling: number): string {
-  let decimals: number;
-  if (scaling >= 1000) decimals = 0;
-  else if (scaling >= 1) decimals = 0;
-  else decimals = Math.max(0, Math.min(6, -Math.floor(Math.log10(scaling))));
-  return price.toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
-function formatSize(size: number): string {
-  if (size >= 1_000_000) return `${(size / 1_000_000).toFixed(2)}M`;
-  if (size >= 1_000) return `${(size / 1_000).toFixed(2)}K`;
-  return size.toFixed(size < 1 ? 4 : 2);
-}
+import { formatPriceWithScaling, formatSize } from "@/core/utils/formatters";
 
 const OrderbookToolbar = memo(
   ({
@@ -196,21 +184,24 @@ OrderRow.displayName = "OrderRow";
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const l2BookSig = useOptionalL2BookNSigFigs();
   const l2BookSigRef = useRef(l2BookSig);
-  l2BookSigRef.current = l2BookSig;
+  useEffect(() => {
+    l2BookSigRef.current = l2BookSig;
+  }, [l2BookSig]);
 
   const orderbookHookOptions = useMemo(() => {
     if (l2BookSig != null) {
       return { controlledNSigFigs: l2BookSig.nSigFigs, adaptiveNSigFigs: false as const };
     }
     return {};
-  }, [l2BookSig?.nSigFigs]);
+  }, [l2BookSig]);
 
   const { orderbook, isConnected, error, resubscribe } = useHyperliquidOrderbook(
     symbol,
     true,
     orderbookHookOptions
   );
-  const [priceScaling, setPriceScaling] = useState<number>(0);
+
+  const [userPriceScaling, setUserPriceScaling] = useState<number | null>(null);
   const [popupData, setPopupData] = useState<PopupData | null>(null);
   const [popupPosition, setPopupPosition] = useState<{
     top: number;
@@ -226,23 +217,30 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const bestPrice = orderbook?.asks[0]?.price || orderbook?.bids[0]?.price || 0;
   const scalingOptions = useMemo(() => generateTickSizeOptions(bestPrice), [bestPrice]);
 
-  useEffect(() => {
-    if (prevSymbolRef.current !== null && prevSymbolRef.current !== symbol) {
-      setPriceScaling(0);
-    }
-    prevSymbolRef.current = symbol;
-  }, [symbol]);
+  const [prevSymbol, setPrevSymbol] = useState(symbol);
+  if (symbol !== prevSymbol) {
+    setPrevSymbol(symbol);
+    setUserPriceScaling(null);
+  }
+
+  const priceScaling =
+    userPriceScaling ?? (scalingOptions.length > 0 ? scalingOptions[0].value : 0);
 
   useEffect(() => {
-    if (!orderbook) {
-      return;
-    }
-    if (scalingOptions.length > 0 && priceScaling === 0) {
+    if (
+      orderbook &&
+      scalingOptions.length > 0 &&
+      userPriceScaling === null &&
+      prevSymbolRef.current === symbol
+    ) {
+      // Just to fire context update if needed initially
       const first = scalingOptions[0];
-      setPriceScaling(first.value);
-      l2BookSigRef.current?.setNSigFigs(first.nSigFigs ?? 5);
+      if (l2BookSigRef.current) {
+        l2BookSigRef.current.setNSigFigs(first.nSigFigs ?? 5);
+      }
     }
-  }, [orderbook, scalingOptions, priceScaling]);
+    prevSymbolRef.current = symbol;
+  }, [orderbook, scalingOptions, userPriceScaling, symbol]);
 
   const handlePriceScalingChange = useCallback(
     (newScale: number) => {
@@ -250,7 +248,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       const nextSig = opt?.nSigFigs ?? 5;
 
       startTransition(() => {
-        setPriceScaling(newScale);
+        setUserPriceScaling(newScale);
       });
 
       if (l2BookSigRef.current) {
@@ -265,12 +263,13 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const currentOption = scalingOptions.find((o) => o.value === priceScaling);
   const shouldSkipGrouping = currentOption?.mantissa === 5;
 
-  const groupedOrderbook = useMemo(() => {
+  const groupedOrderbook = useMemo((): OrderbookData | null => {
     if (!orderbook) return null;
     if (shouldSkipGrouping) return orderbook;
     return {
-      asks: groupLevels(orderbook.asks, priceScaling, "asks"),
-      bids: groupLevels(orderbook.bids, priceScaling, "bids"),
+      ...orderbook,
+      asks: groupOrderbookLevels(orderbook.asks, priceScaling, "asks"),
+      bids: groupOrderbookLevels(orderbook.bids, priceScaling, "bids"),
     };
   }, [orderbook, priceScaling, shouldSkipGrouping]);
 

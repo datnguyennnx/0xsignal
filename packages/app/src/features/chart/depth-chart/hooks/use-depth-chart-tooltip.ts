@@ -85,13 +85,14 @@ export function useDepthChartTooltip({
   useEffect(() => {
     frameRef.current = frame;
     if (!frame.hasRenderableFrame || !frame.bounds) {
-      setTooltipState(null);
+      requestAnimationFrame(() => setTooltipState(null));
       lastHoverRef.current = null;
       return;
     }
     // Re-sync tooltip when realtime frame updates while pointer stays still.
     if (pointerRef.current.active && updateFromPointerRef.current) {
-      updateFromPointerRef.current(pointerRef.current.x, pointerRef.current.y);
+      const updater = updateFromPointerRef.current;
+      requestAnimationFrame(() => updater(pointerRef.current.x, pointerRef.current.y));
     }
   }, [frame]);
 

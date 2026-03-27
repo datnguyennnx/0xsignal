@@ -8,13 +8,19 @@ import { memo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { formatPriceValue } from "./utils";
+import { useHoverState } from "./contexts/hover-context";
 
 interface ChartOhlcOverlayProps {
-  displayCandle: ChartDataPoint | null;
+  data: ChartDataPoint[];
   precision: number;
 }
 
-export const ChartOhlcOverlay = memo(({ displayCandle, precision }: ChartOhlcOverlayProps) => {
+export const ChartOhlcOverlay = memo(({ data, precision }: ChartOhlcOverlayProps) => {
+  const { hoveredCandle } = useHoverState();
+
+  // Use hovered candle OR last data point as fallback
+  const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
+
   if (!displayCandle) return null;
 
   return (

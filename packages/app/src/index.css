@@ -170,8 +170,39 @@
   --heatmap-neutral: oklch(0.7 0 0);
   --heatmap-marker: var(--warn);
 
+  /* ===== CHART INDICATOR COLORS (ICT) ===== */
+  --fvg-bullish-fill: rgba(22, 163, 74, 0.08);
+  --fvg-bullish-border: rgba(22, 163, 74, 0.45);
+  --fvg-bearish-fill: rgba(220, 38, 38, 0.08);
+  --fvg-bearish-border: rgba(220, 38, 38, 0.45);
+  --ob-bullish-fill: rgba(22, 163, 74, 0.12);
+  --ob-bullish-border: rgba(22, 163, 74, 0.55);
+  --ob-bearish-fill: rgba(220, 38, 38, 0.12);
+  --ob-bearish-border: rgba(220, 38, 38, 0.55);
+  --liquidity-bsl: rgba(22, 163, 74, 0.55);
+  --liquidity-ssl: rgba(220, 38, 38, 0.55);
+
+  /* ===== DEPTH CHART COLORS ===== */
+  --depth-grid: rgba(0, 0, 0, 0.08);
+  --depth-bid-fill: rgba(38, 166, 154, 0.18);
+  --depth-ask-fill: rgba(239, 83, 80, 0.18);
+  --depth-label: rgba(30, 30, 30, 0.72);
+  --depth-axis: rgba(0, 0, 0, 0.2);
+  --depth-hover-fill: rgba(100, 116, 139, 0.08);
+  --depth-hover-stroke: rgba(71, 85, 105, 0.52);
+  --depth-hover-marker: rgba(71, 85, 105, 0.95);
+
+  /* ===== CHART INDICATOR COLORS (WYCKOFF) ===== */
+  --wyckoff-tr-fill: rgba(99, 102, 241, 0.06);
+  --wyckoff-tr-border: rgba(99, 102, 241, 0.4);
+  --wyckoff-climax-sc: rgba(244, 63, 94, 0.7);
+  --wyckoff-climax-bc: rgba(16, 185, 129, 0.7);
+  --wyckoff-event-spring: rgba(16, 185, 129, 0.75);
+  --wyckoff-event-upthrust: rgba(244, 63, 94, 0.75);
+  --wyckoff-event-sos: rgba(34, 197, 94, 0.8);
+  --wyckoff-event-sow: rgba(239, 68, 68, 0.8);
+
   /* ===== CHART PHASE COLORS (MONOCHROME) ===== */
-  /* Wyckoff phase zones — rgba for lightweight-charts compatibility */
   --phase-fill-a: rgba(128, 128, 128, 0.08);
   --phase-border-a: rgba(128, 128, 128, 0.45);
   --phase-fill-b: rgba(89, 89, 89, 0.08);
@@ -252,6 +283,38 @@
   --tooltip-text: oklch(0.96 0 0);
 
   --chart-volume: oklch(0.45 0 0);
+
+  /* ===== CHART INDICATOR COLORS (ICT - DARK) ===== */
+  --fvg-bullish-fill: rgba(22, 163, 74, 0.08);
+  --fvg-bullish-border: rgba(22, 163, 74, 0.45);
+  --fvg-bearish-fill: rgba(220, 38, 38, 0.08);
+  --fvg-bearish-border: rgba(220, 38, 38, 0.45);
+  --ob-bullish-fill: rgba(22, 163, 74, 0.12);
+  --ob-bullish-border: rgba(22, 163, 74, 0.55);
+  --ob-bearish-fill: rgba(220, 38, 38, 0.12);
+  --ob-bearish-border: rgba(220, 38, 38, 0.55);
+  --liquidity-bsl: rgba(22, 163, 74, 0.55);
+  --liquidity-ssl: rgba(220, 38, 38, 0.55);
+
+  /* ===== DEPTH CHART COLORS (DARK) ===== */
+  --depth-grid: rgba(255, 255, 255, 0.06);
+  --depth-bid-fill: rgba(38, 166, 154, 0.18);
+  --depth-ask-fill: rgba(239, 83, 80, 0.18);
+  --depth-label: rgba(240, 240, 240, 0.72);
+  --depth-axis: rgba(255, 255, 255, 0.2);
+  --depth-hover-fill: rgba(148, 163, 184, 0.06);
+  --depth-hover-stroke: rgba(148, 163, 184, 0.58);
+  --depth-hover-marker: rgba(203, 213, 225, 0.95);
+
+  /* ===== CHART INDICATOR COLORS (WYCKOFF - DARK) ===== */
+  --wyckoff-tr-fill: rgba(99, 102, 241, 0.06);
+  --wyckoff-tr-border: rgba(99, 102, 241, 0.4);
+  --wyckoff-climax-sc: rgba(244, 63, 94, 0.7);
+  --wyckoff-climax-bc: rgba(16, 185, 129, 0.7);
+  --wyckoff-event-spring: rgba(16, 185, 129, 0.75);
+  --wyckoff-event-upthrust: rgba(244, 63, 94, 0.75);
+  --wyckoff-event-sos: rgba(34, 197, 94, 0.8);
+  --wyckoff-event-sow: rgba(239, 68, 68, 0.8);
 
   /* ===== CHART PHASE COLORS (MONOCHROME - DARK) ===== */
   --phase-fill-a: rgba(200, 200, 200, 0.08);

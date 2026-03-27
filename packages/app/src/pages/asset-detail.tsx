@@ -1,19 +1,16 @@
 /**
- * @overview Asset Detail Page
+ * @overview Asset Detail Page (Trade View)
  *
- * Main perpetual trading page with chart, orderbook, and analysis.
+ * Data flow:
+ * 1. URL params → symbol (from /trade/:symbol route)
+ * 2. React Query → asset metadata (price, volume, leverage)
+ * 3. useHyperliquidCandles → real-time candlestick data (WS + history)
+ * 4. useHyperliquidMeta → price precision from exchange
+ * 5. L2BookNSigFigsProvider → syncs orderbook + depth chart precision
+ * 6. Renders: TradingChart (4/5 cols) + OrderbookWidget (1/5 col, lg+)
  *
- * @data-flow
- * 1. URL params -> symbol, interval
- * 2. Fetch asset data (price, volume, etc.)
- * 3. Fetch candlestick data (historical + real-time)
- * 4. Render chart with TradingChart component
- *
- * @performance
- * - Lazy loads TradingChart (heavy)
- * - Prefetches on hover from dashboard
- * - Uses React Query with optimized stale times
- * - Memoizes derived values
+ * State: interval is local (user's timeframe choice)
+ * Key consumers: TradingChart, OrderbookWidget, DepthChartWidget
  */
 import { useState, lazy, Suspense, useMemo, memo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -26,31 +23,21 @@ import { ContentUnavailable } from "@/components/content-unavailable";
 import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
-import { useHyperliquidCandles } from "@/features/perp/hooks/use-hyperliquid-candles";
-import { useHyperliquidMeta } from "@/features/perp/hooks/use-hyperliquid-meta";
+import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-candles";
+import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { useChartConfig } from "@/hooks/use-breakpoint";
 import { queryKeys } from "@/lib/query/query-keys";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
-import { OrderbookWidget } from "@/features/perp/components/orderbook-widget";
-import { PerpDropdown } from "@/features/perp/components/perp-dropdown";
-import { L2BookNSigFigsProvider } from "@/features/perp/contexts/l2-book-nsig-figs-context";
-import { usePerpAnnotation } from "@/features/perp/hooks/use-perp-annotation";
+import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
+import { TradeDropdown } from "@/features/trade/components/trade-dropdown";
+import { L2BookNSigFigsProvider } from "@/features/trade/contexts/l2-book-nsig-figs-context";
+import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/trading-chart").then((m) => ({ default: m.TradingChart }))
 );
 
-const formatPrice = (price: number): string => {
-  const config =
-    price >= 1000 ? { min: 2, max: 2 } : price >= 1 ? { min: 2, max: 4 } : { min: 4, max: 6 };
-
-  return price.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: config.min,
-    maximumFractionDigits: config.max,
-  });
-};
+import { formatPrice } from "@/core/utils/formatters";
 
 const ChartSkeleton = () => (
   <div className="h-full w-full flex items-center justify-center bg-card/50 rounded-xl">
@@ -85,7 +72,7 @@ const AssetContent = memo(function AssetContent({
   const chartSymbol = symbol.toUpperCase();
   const price = asset.price;
 
-  const { data: annotation } = usePerpAnnotation(symbol);
+  const { data: annotation } = useTradeAnnotation(symbol);
   const displayName = annotation?.displayName || asset.symbol.toUpperCase();
   const description = annotation?.description;
 
@@ -94,14 +81,14 @@ const AssetContent = memo(function AssetContent({
       {/* Header */}
       <header className="mb-4 sm:mb-5 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3">
-          <PerpDropdown currentSymbol={displayName} />
+          <TradeDropdown currentSymbol={displayName} />
           <span className="text-lg sm:text-xl font-mono font-semibold tabular-nums">
             {formatPrice(price?.price || 0)}
           </span>
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={() => navigate(`/perp/${symbol}/orderbook`)}
+            onClick={() => navigate(`/trade/${symbol}/orderbook`)}
             className="lg:hidden shrink-0 border ml-auto"
             aria-label="Orderbook"
           >

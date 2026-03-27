@@ -13,6 +13,7 @@ import { useEffect, useRef } from "react";
 import type { DepthChartCanonicalFrame } from "./use-depth-chart-canonical-frame";
 import type { DepthTooltipState } from "./use-depth-chart-tooltip";
 import { mapPriceToCanvasX } from "../lib/depth-canvas-mapping";
+import { getThemeColor } from "@/core/utils/theme";
 
 interface UseDepthChartOverlayEngineOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -89,9 +90,18 @@ export function useDepthChartOverlayEngine({
     const hover = tooltip.hover;
     const guideX =
       hover.canvasPoint?.x ?? mapPriceToCanvasX(hover.price, { bounds: frame.bounds, width });
-    const greyFill = isDark ? "rgba(148,163,184,0.06)" : "rgba(100,116,139,0.08)";
-    const greyStroke = isDark ? "rgba(148,163,184,0.58)" : "rgba(71,85,105,0.52)";
-    const greyMarker = isDark ? "rgba(203,213,225,0.95)" : "rgba(71,85,105,0.95)";
+    const greyFill = getThemeColor(
+      "depth-hover-fill",
+      isDark ? "rgba(148,163,184,0.06)" : "rgba(100,116,139,0.08)"
+    );
+    const greyStroke = getThemeColor(
+      "depth-hover-stroke",
+      isDark ? "rgba(148,163,184,0.58)" : "rgba(71,85,105,0.52)"
+    );
+    const greyMarker = getThemeColor(
+      "depth-hover-marker",
+      isDark ? "rgba(203,213,225,0.95)" : "rgba(71,85,105,0.95)"
+    );
     const minorBandHalfWidth = 14;
 
     if (hover.isInSpreadGap) {

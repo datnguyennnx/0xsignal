@@ -1,24 +1,17 @@
 /**
  * @overview Hyperliquid WebSocket Hook
  *
- * Manages WebSocket connection to Hyperliquid for real-time data using @nktkas/hyperliquid SDK.
- * Handles channel subscriptions for l2Book, candle, trades, and allMids.
+ * It consumes the shared WebSocket context and manages the lifecycle of individual channel subscriptions.
+ * It uses the global persistent connection, ensuring that changing parameters (interval, sigfigs)
+ * doesn't drop the socket.
  *
- * @performance
- * - Uses refs for callback persistence to avoid stale closures in effects
- * - Implements automatic cleanup and connection state tracking
- * - Efficiently handles high-frequency market data streams
- *
- * @hyperliquid-mapping
- * - Main perp (HIP-1): coin = "BTC", "ETH", etc.
- * - Builder perp (HIP-3): coin = "xyz:CL", "km:US500", etc. (format: "dex:coin")
- * - Spot: coin = "@<spotIndex>" (e.g., "@107" for HYPE)
- *
- * @reference https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/asset-ids
+ * @mechanism
+ * - Consumes SubscriptionClient from HyperliquidWsContext
+ * - Manages reactive unsubscription on effect cleanup or parameter update
+ * - Uses refs to persist callbacks and prevent stale closures
  */
-
 import { useEffect, useRef, useState, useCallback } from "react";
-import { WebSocketTransport, SubscriptionClient } from "@nktkas/hyperliquid";
+import { useHyperliquidWsClient } from "../contexts/hyperliquid-ws-context";
 
 export type AssetKind = "perp" | "builderPerp" | "spot";
 
@@ -30,14 +23,11 @@ export interface NormalizedAsset {
 }
 
 export function parseSymbol(symbol: string): NormalizedAsset {
-  // Handle spot symbols (e.g., "@107")
   if (symbol.startsWith("@")) {
     return { kind: "spot", coin: symbol };
   }
-
   const upper = symbol.toUpperCase();
   const clean = upper.replace(/[^A-Z0-9:]/g, "");
-
   if (clean.includes(":")) {
     const [dex, ...rest] = clean.split(":");
     let coinPart = rest.join(":");
@@ -48,8 +38,6 @@ export function parseSymbol(symbol: string): NormalizedAsset {
       dex: dex.toLowerCase(),
     };
   }
-
-  // For perp, strip quote asset suffix (USDT, USDC) from the symbol
   let cleaned = clean;
   cleaned = cleaned.replace(/USDT?$/, "").replace(/USDC?$/, "");
   return { kind: "perp", coin: cleaned };
@@ -101,31 +89,21 @@ export function useHyperliquidWs({
   onConnectionChange,
   onError,
 }: UseHyperliquidWsOptions) {
+  const client = useHyperliquidWsClient();
   const [isConnected, setIsConnected] = useState(false);
-
-  const clientRef = useRef<SubscriptionClient | null>(null);
   const subRef = useRef<WsSubscription | null>(null);
   const isMountedRef = useRef(true);
 
-  // Use refs for callbacks to avoid stale closures
   const onMessageRef = useRef(onMessage);
   const onConnectionChangeRef = useRef(onConnectionChange);
   const onErrorRef = useRef(onError);
 
-  // Update refs when callbacks change
   useEffect(() => {
     onMessageRef.current = onMessage;
-  }, [onMessage]);
-
-  useEffect(() => {
     onConnectionChangeRef.current = onConnectionChange;
-  }, [onConnectionChange]);
-
-  useEffect(() => {
     onErrorRef.current = onError;
-  }, [onError]);
+  });
 
-  // Cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -134,63 +112,51 @@ export function useHyperliquidWs({
         subRef.current.unsubscribe();
         subRef.current = null;
       }
-      if (clientRef.current) {
-        (clientRef.current as { transport?: { close?: () => void } }).transport?.close?.();
-        clientRef.current = null;
-      }
     };
   }, []);
 
-  // Subscribe/unsubscribe when subscription changes
   useEffect(() => {
-    // Cleanup previous subscription
+    let ignore = false;
+
     if (subRef.current) {
       subRef.current.unsubscribe();
       subRef.current = null;
     }
 
-    if (!enabled || !subscription) {
-      setIsConnected(false);
-      onConnectionChangeRef.current?.(false);
+    if (!enabled || !subscription || !client) {
       return;
     }
 
     const { type: channel, coin, nSigFigs, interval } = subscription;
-
-    if (!coin) return;
-
-    const transport = new WebSocketTransport();
-    const client = new SubscriptionClient({ transport });
-    clientRef.current = client;
+    if (!coin && channel !== "allMids") return;
 
     const subscribe = async () => {
       try {
-        if (channel === "l2Book") {
-          subRef.current = await client.l2Book(
-            { coin, nSigFigs: nSigFigs ?? null },
-            (data: unknown) => onMessageRef.current(data, channel)
-          );
-        } else if (channel === "candle" && interval) {
-          subRef.current = await client.candle(
-            { coin, interval: interval as Interval },
-            (data: unknown) => onMessageRef.current(data, channel)
-          );
-        } else if (channel === "trades") {
-          subRef.current = await client.trades({ coin }, (data: unknown) =>
+        let activeSub: WsSubscription | null = null;
+        if (channel === "l2Book" && coin) {
+          activeSub = await client.l2Book({ coin, nSigFigs: nSigFigs ?? null }, (data) =>
             onMessageRef.current(data, channel)
           );
+        } else if (channel === "candle" && interval && coin) {
+          activeSub = await client.candle({ coin, interval: interval as Interval }, (data) =>
+            onMessageRef.current(data, channel)
+          );
+        } else if (channel === "trades" && coin) {
+          activeSub = await client.trades({ coin }, (data) => onMessageRef.current(data, channel));
         } else if (channel === "allMids") {
-          subRef.current = await client.allMids((data: unknown) =>
-            onMessageRef.current(data, channel)
-          );
+          activeSub = await client.allMids((data) => onMessageRef.current(data, channel));
         }
 
-        if (isMountedRef.current) {
+        if (!ignore && isMountedRef.current && activeSub) {
+          subRef.current = activeSub;
           setIsConnected(true);
           onConnectionChangeRef.current?.(true);
+        } else if (activeSub) {
+          // Effectively cancelled before start, cleanup immediately
+          activeSub.unsubscribe();
         }
       } catch (err) {
-        if (isMountedRef.current) {
+        if (!ignore && isMountedRef.current) {
           setIsConnected(false);
           onConnectionChangeRef.current?.(false);
           onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
@@ -201,6 +167,7 @@ export function useHyperliquidWs({
     subscribe();
 
     return () => {
+      ignore = true;
       if (subRef.current) {
         subRef.current.unsubscribe();
         subRef.current = null;
@@ -208,37 +175,33 @@ export function useHyperliquidWs({
       setIsConnected(false);
       onConnectionChangeRef.current?.(false);
     };
-  }, [enabled, subscription]);
+  }, [enabled, subscription, client]);
 
   const resubscribe = useCallback(
     async (newSubscription: HyperliquidSubscription) => {
-      if (!clientRef.current || !isConnected) return;
-
-      if (subRef.current) {
-        subRef.current.unsubscribe();
-      }
+      if (!client || !isConnected) return;
+      if (subRef.current) subRef.current.unsubscribe();
 
       const { type: channel, coin, nSigFigs, interval } = newSubscription;
-
       if (!coin) return;
 
       try {
+        let activeSub: WsSubscription | null = null;
         if (channel === "l2Book") {
-          subRef.current = await clientRef.current.l2Book(
-            { coin, nSigFigs: nSigFigs ?? null },
-            (data: unknown) => onMessageRef.current(data, channel)
+          activeSub = await client.l2Book({ coin, nSigFigs: nSigFigs ?? null }, (data) =>
+            onMessageRef.current(data, channel)
           );
         } else if (channel === "candle" && interval) {
-          subRef.current = await clientRef.current.candle(
-            { coin, interval: interval as Interval },
-            (data: unknown) => onMessageRef.current(data, channel)
+          activeSub = await client.candle({ coin, interval: interval as Interval }, (data) =>
+            onMessageRef.current(data, channel)
           );
         }
+        if (activeSub) subRef.current = activeSub;
       } catch (err) {
         onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
       }
     },
-    [isConnected]
+    [isConnected, client]
   );
 
   return {

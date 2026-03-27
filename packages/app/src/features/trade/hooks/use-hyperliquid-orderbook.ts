@@ -14,27 +14,7 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useHyperliquidWs, normalizeSymbol } from "./use-hyperliquid-ws";
-
-export interface OrderbookLevel {
-  price: number;
-  size: number;
-  total: number;
-  depth: number;
-}
-
-export interface OrderbookData {
-  bids: OrderbookLevel[];
-  asks: OrderbookLevel[];
-  spread: number;
-  spreadPercent: number;
-  midPrice: number;
-}
-
-interface L2BookLevel {
-  px: string;
-  sz: string;
-  n: number;
-}
+import { processRawL2Levels, type OrderbookData, type L2BookLevel } from "@/core/utils/hyperliquid";
 
 export interface TickSizeOption {
   value: number;
@@ -43,7 +23,6 @@ export interface TickSizeOption {
   mantissa: number | null;
 }
 
-/** Dynamic tick size: Step = 10^(magnitude - nSigFigs + 1) */
 export function generateTickSizeOptions(price: number): TickSizeOption[] {
   if (!price || price <= 0) return [];
 
@@ -62,71 +41,6 @@ export function generateTickSizeOptions(price: number): TickSizeOption[] {
     opts.push({ value: step, label, nSigFigs: sig, mantissa: null });
   }
   return opts;
-}
-
-function processLevels(rawBids: L2BookLevel[], rawAsks: L2BookLevel[]): OrderbookData {
-  const toLevels = (arr: L2BookLevel[], desc = false) => {
-    const sorted = [...arr].sort((a, b) =>
-      desc ? parseFloat(b.px) - parseFloat(a.px) : parseFloat(a.px) - parseFloat(b.px)
-    );
-    let total = 0;
-    return sorted.map((l) => ({
-      price: parseFloat(l.px),
-      size: parseFloat(l.sz),
-      total: (total += parseFloat(l.sz)),
-      depth: 0,
-    }));
-  };
-
-  const bids = toLevels(rawBids, true);
-  const asks = toLevels(rawAsks, false);
-  const max = Math.max(
-    bids.reduce((s, b) => s + b.size, 0),
-    asks.reduce((s, a) => s + a.size, 0),
-    1
-  );
-  bids.forEach((b) => (b.depth = (b.total / max) * 100));
-  asks.forEach((a) => (a.depth = (a.total / max) * 100));
-
-  const bestBid = bids[0]?.price || 0;
-  const bestAsk = asks[0]?.price || 0;
-  return {
-    bids,
-    asks,
-    spread: bestAsk - bestBid,
-    spreadPercent: bestBid ? ((bestAsk - bestBid) / bestBid) * 100 : 0,
-    midPrice: bestBid && bestAsk ? (bestBid + bestAsk) / 2 : 0,
-  };
-}
-
-/** Client-side grouping: floor bids, ceil asks */
-export function groupLevels(
-  levels: OrderbookLevel[],
-  step: number,
-  side: "bids" | "asks"
-): OrderbookLevel[] {
-  if (!levels.length || step <= 0) return levels;
-
-  const grouped = new Map<number, number>();
-  const inv = 1 / step;
-
-  for (const l of levels) {
-    const p = side === "bids" ? Math.floor(l.price * inv) / inv : Math.ceil(l.price * inv) / inv;
-    const key = Number(p.toFixed(Math.max(0, -Math.floor(Math.log10(step)))));
-    grouped.set(key, (grouped.get(key) || 0) + l.size);
-  }
-
-  const sorted = [...grouped.entries()].sort((a, b) =>
-    side === "bids" ? b[0] - a[0] : a[0] - b[0]
-  );
-  let total = 0;
-  const totalSize = sorted.reduce((s, [, v]) => s + v, 0);
-  return sorted.map(([price, size]) => ({
-    price,
-    size,
-    total: (total += size),
-    depth: totalSize ? (total / totalSize) * 100 : 0,
-  }));
 }
 
 const DEFAULT_SIGFIGS = 5;
@@ -179,11 +93,17 @@ export function useHyperliquidOrderbook(
   const [error, setError] = useState<string | null>(null);
   const [activeSigFigs, setActiveSigFigs] = useState(DEFAULT_SIGFIGS);
   const activeSigFigsRef = useRef(activeSigFigs);
-  activeSigFigsRef.current = activeSigFigs;
   const prevSymbolRef = useRef(symbol);
   const lastResubscribeAtRef = useRef(0);
+  useEffect(() => {
+    activeSigFigsRef.current = activeSigFigs;
+    lastResubscribeAtRef.current = Date.now();
+  }, [activeSigFigs]);
   const adaptiveDirectionRef = useRef<"out" | "in" | null>(null);
   const adaptiveDirectionCountRef = useRef(0);
+  const [snapshotsBySigFigs, setSnapshotsBySigFigs] = useState<Map<number, OrderbookData>>(
+    new Map()
+  );
   const snapshotsBySigFigsRef = useRef<Map<number, OrderbookData>>(new Map());
 
   const pending = useRef<OrderbookData | null>(null);
@@ -192,19 +112,28 @@ export function useHyperliquidOrderbook(
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
 
   // Clear orderbook when symbol changes - different coin = different prices!
+  const [prevSymbol, setPrevSymbol] = useState(symbol);
+  if (symbol !== prevSymbol) {
+    setPrevSymbol(symbol);
+    setFineBook(null);
+    setActiveSigFigs(DEFAULT_SIGFIGS);
+    setSnapshotsBySigFigs(new Map());
+  }
+
+  // Ref updates must happen outside of the render phase
   useEffect(() => {
-    if (prevSymbolRef.current !== symbol) {
+    if (symbol !== prevSymbolRef.current) {
       prevSymbolRef.current = symbol;
-      setFineBook(null);
-      setActiveSigFigs(DEFAULT_SIGFIGS);
       adaptiveDirectionRef.current = null;
       adaptiveDirectionCountRef.current = 0;
       snapshotsBySigFigsRef.current = new Map();
+      pending.current = null;
     }
   }, [symbol]);
+
   const subscription = useMemo(
     () => (enabled && coin ? { type: "l2Book" as const, coin, nSigFigs: activeSigFigs } : null),
-    [enabled, coin]
+    [enabled, coin, activeSigFigs]
   );
 
   const schedule = useCallback((data: OrderbookData, sourceSigFigs: number) => {
@@ -214,6 +143,7 @@ export function useHyperliquidOrderbook(
     raf.current = requestAnimationFrame(() => {
       if (pending.current) {
         setFineBook(pending.current);
+        setSnapshotsBySigFigs(new Map(snapshotsBySigFigsRef.current));
       }
       raf.current = 0;
     });
@@ -224,7 +154,7 @@ export function useHyperliquidOrderbook(
       if (ch !== "l2Book") return;
       const book = data as { levels: [L2BookLevel[], L2BookLevel[]] };
       if (book?.levels)
-        schedule(processLevels(book.levels[0], book.levels[1]), activeSigFigsRef.current);
+        schedule(processRawL2Levels(book.levels[0], book.levels[1]), activeSigFigsRef.current);
     },
     [schedule]
   );
@@ -242,17 +172,19 @@ export function useHyperliquidOrderbook(
       if (!coin || !ws.resubscribe || next === activeSigFigsRef.current) return;
       ws.resubscribe({ type: "l2Book", coin, nSigFigs: next });
       setActiveSigFigs(next);
-      lastResubscribeAtRef.current = Date.now();
     },
     [coin, ws]
   );
 
   const controlledNSigFigs = options.controlledNSigFigs;
-
-  useEffect(() => {
-    if (controlledNSigFigs === undefined) return;
-    resubscribe(controlledNSigFigs);
-  }, [controlledNSigFigs, resubscribe]);
+  const [prevControlled, setPrevControlled] = useState(controlledNSigFigs);
+  if (controlledNSigFigs !== undefined && controlledNSigFigs !== prevControlled) {
+    setPrevControlled(controlledNSigFigs);
+    if (controlledNSigFigs !== activeSigFigs) {
+      const next = Math.max(MIN_SIGFIGS, Math.min(MAX_SIGFIGS, controlledNSigFigs));
+      setActiveSigFigs(next);
+    }
+  }
 
   useEffect(() => {
     if (!enabled || !options.adaptiveNSigFigs || !fineBook) {
@@ -296,13 +228,12 @@ export function useHyperliquidOrderbook(
     }
 
     adaptiveDirectionRef.current = null;
-    adaptiveDirectionCountRef.current = 0;
     if (direction === "out" && activeSigFigs > MIN_SIGFIGS) {
-      resubscribe(activeSigFigs - 1);
+      setTimeout(() => resubscribe(activeSigFigs - 1), 0);
       return;
     }
     if (direction === "in" && activeSigFigs < MAX_SIGFIGS) {
-      resubscribe(activeSigFigs + 1);
+      setTimeout(() => resubscribe(activeSigFigs + 1), 0);
     }
   }, [
     activeSigFigs,
@@ -315,8 +246,8 @@ export function useHyperliquidOrderbook(
   ]);
 
   const coarseBookBySigFigs = useMemo(
-    () => getCoarseBooksBySigFigs(snapshotsBySigFigsRef.current, activeSigFigs),
-    [activeSigFigs, fineBook]
+    () => getCoarseBooksBySigFigs(snapshotsBySigFigs, activeSigFigs),
+    [activeSigFigs, snapshotsBySigFigs]
   );
   const orderbook = fineBook;
 

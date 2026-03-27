@@ -1,9 +1,18 @@
 /**
  * @overview Indicator Data Calculation Hook
  *
- * It transforms raw candlestick data into indicator time-series (Line, Band, Histogram).
- * Implements an efficient caching layer (useMemo + refs) to avoid recalculating indicators when only the last candle updates.
+ * Transforms raw candlestick data into indicator time-series (Line, Band, Histogram).
+ * Uses a ref-based caching layer to avoid recalculating indicators when only the last candle updates.
+ *
+ * @performance
+ * - Cache stored in refs (not state) to avoid render-phase setState double-render loops.
+ * - useMemo recomputes only when `activeIndicators` or `data` change.
+ * - Cache keys encode data shape + last candle signature for fine-grained invalidation.
+ * - react-hooks/refs is disabled because this hook intentionally uses refs as a cross-render
+ *   memoization cache inside useMemo. Using useState would cause guaranteed double-renders on
+ *   every tick, as the cache setState restarts the render with the cached value as a dependency.
  */
+/* eslint-disable react-hooks/refs */
 import { useMemo, useRef } from "react";
 import type { ChartDataPoint, ActiveIndicator } from "@0xsignal/shared";
 import { calculateLineIndicator, calculateBandIndicator, isBandIndicator } from "@0xsignal/shared";
@@ -65,16 +74,18 @@ interface CacheEntry {
 }
 
 export const useIndicatorData = (activeIndicators: ActiveIndicator[], data: ChartDataPoint[]) => {
-  const cacheByIndicatorRef = useRef<Map<string, CacheEntry>>(new Map());
+  // Refs instead of state — avoids render-phase setState that caused double-renders
+  const indicatorCacheRef = useRef<Map<string, CacheEntry>>(new Map());
   const previousSourceRef = useRef<{
     firstTime: number;
     lastTime: number;
     dataLength: number;
   } | null>(null);
 
-  return useMemo(() => {
+  const results = useMemo(() => {
     if (data.length === 0) {
-      cacheByIndicatorRef.current.clear();
+      // Clear cache when data is empty (e.g. symbol change)
+      indicatorCacheRef.current = new Map();
       previousSourceRef.current = null;
       return new Map<string, IndicatorRenderEntry>();
     }
@@ -86,12 +97,16 @@ export const useIndicatorData = (activeIndicators: ActiveIndicator[], data: Char
     const sourceState = { firstTime, lastTime, dataLength: data.length };
     const mode = resolveUpdateMode(previousSourceRef.current, sourceState);
 
-    const results = new Map<string, IndicatorRenderEntry>();
+    const newResults = new Map<string, IndicatorRenderEntry>();
+    const cache = indicatorCacheRef.current;
+    let cacheModified = false;
     const activeIds = new Set(activeIndicators.map((indicator) => indicator.instanceId));
 
-    for (const indicatorId of cacheByIndicatorRef.current.keys()) {
-      if (!activeIds.has(indicatorId)) {
-        cacheByIndicatorRef.current.delete(indicatorId);
+    // Prune stale cache entries
+    for (const [id] of cache.entries()) {
+      if (!activeIds.has(id)) {
+        cache.delete(id);
+        cacheModified = true;
       }
     }
 
@@ -107,9 +122,9 @@ export const useIndicatorData = (activeIndicators: ActiveIndicator[], data: Char
         firstTime,
         lastSignature
       );
-      const cached = cacheByIndicatorRef.current.get(indicator.instanceId);
+      const cached = cache.get(indicator.instanceId);
       if (cached?.cacheKey === cacheKey) {
-        results.set(indicator.instanceId, cached.entry);
+        newResults.set(indicator.instanceId, cached.entry);
         continue;
       }
 
@@ -134,8 +149,9 @@ export const useIndicatorData = (activeIndicators: ActiveIndicator[], data: Char
           meta,
         };
 
-        results.set(indicator.instanceId, entry);
-        cacheByIndicatorRef.current.set(indicator.instanceId, { cacheKey, paramsKey, entry });
+        newResults.set(indicator.instanceId, entry);
+        cache.set(indicator.instanceId, { cacheKey, paramsKey, entry });
+        cacheModified = true;
         continue;
       }
 
@@ -149,11 +165,19 @@ export const useIndicatorData = (activeIndicators: ActiveIndicator[], data: Char
         meta,
       };
 
-      results.set(indicator.instanceId, entry);
-      cacheByIndicatorRef.current.set(indicator.instanceId, { cacheKey, paramsKey, entry });
+      newResults.set(indicator.instanceId, entry);
+      cache.set(indicator.instanceId, { cacheKey, paramsKey, entry });
+      cacheModified = true;
     }
 
+    // Persist cache updates to refs (no re-render triggered)
+    if (cacheModified) {
+      indicatorCacheRef.current = cache;
+    }
     previousSourceRef.current = sourceState;
-    return results;
+
+    return newResults;
   }, [activeIndicators, data]);
+
+  return results;
 };

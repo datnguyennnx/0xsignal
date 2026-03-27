@@ -9,7 +9,7 @@
  * - utilizes LineSeries to render horizontal price levels for SC/BC and Effort/Result divergences.
  * - implements a strict cleanup cycle (attach/detach/removeSeries) to prevent memory leaks and ghost primitives.
  */
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
 import type { WyckoffAnalysis } from "@0xsignal/shared";
@@ -81,6 +81,14 @@ export function useWyckoffOverlay({
     seriesRef.current = series ?? null;
   }, [series]);
 
+  const appliedKeysRef = useRef({
+    phases: "",
+    effort: "",
+    tradingRange: "",
+    climaxes: "",
+    events: "",
+  });
+
   const cleanup = useCallback(() => {
     if (!chart) return;
     const r = refs.current;
@@ -88,23 +96,17 @@ export function useWyckoffOverlay({
     r.effortLines.forEach((s) => {
       try {
         chart.removeSeries(s);
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     });
     r.climaxLines.forEach((s) => {
       try {
         chart.removeSeries(s);
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     });
     r.eventLines.forEach((s) => {
       try {
         chart.removeSeries(s);
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     });
 
     const s = seriesRef.current;
@@ -112,16 +114,12 @@ export function useWyckoffOverlay({
       r.phasePrimitives.forEach((primitive) => {
         try {
           s.detachPrimitive(primitive);
-        } catch {
-          /* ignore */
-        }
+        } catch {}
       });
       if (r.rangePrimitive) {
         try {
           s.detachPrimitive(r.rangePrimitive);
-        } catch {
-          /* ignore */
-        }
+        } catch {}
       }
     }
 
@@ -130,13 +128,29 @@ export function useWyckoffOverlay({
     r.effortLines = [];
     r.climaxLines = [];
     r.eventLines = [];
+
+    appliedKeysRef.current = {
+      phases: "",
+      effort: "",
+      tradingRange: "",
+      climaxes: "",
+      events: "",
+    };
   }, [chart]);
 
   const renderPhases = useCallback(() => {
     if (!chart || !analysis?.phases.length || !seriesRef.current) return;
+    const key = `phases-${analysis.phases.length}-${lastTime}`;
+    if (appliedKeysRef.current.phases === key) return;
+
+    const s = seriesRef.current;
+    refs.current.phasePrimitives.forEach((p) => {
+      try {
+        s.detachPrimitive(p);
+      } catch {}
+    });
 
     const primitives: ZonePrimitive[] = [];
-
     for (const phase of analysis.phases) {
       const phaseColors = getPhaseColor(phase.phase);
       const cycleLabel = phase.cycle.charAt(0).toUpperCase() + phase.cycle.slice(1).slice(0, 4);
@@ -154,15 +168,23 @@ export function useWyckoffOverlay({
         showMidline: false,
       });
 
-      seriesRef.current?.attachPrimitive(primitive);
+      s.attachPrimitive(primitive);
       primitives.push(primitive);
     }
-
     refs.current.phasePrimitives = primitives;
+    appliedKeysRef.current.phases = key;
   }, [chart, analysis, lastTime]);
 
   const renderEffortResults = useCallback(() => {
     if (!chart || !analysis?.effortResults.length) return;
+    const key = `effort-${analysis.effortResults.length}-${lastTime}`;
+    if (appliedKeysRef.current.effort === key) return;
+
+    refs.current.effortLines.forEach((l) => {
+      try {
+        chart.removeSeries(l);
+      } catch {}
+    });
 
     const colors = getWyckoffColors(isDark);
     const lines: ISeriesApi<"Line">[] = [];
@@ -198,12 +220,9 @@ export function useWyckoffOverlay({
         title: label,
       });
 
-      const effortValue = effort.effort;
-      const resultValue = effort.result;
-
       const lineData = ensureUniqueAscending([
-        { time: effort.time, value: effortValue },
-        { time: lastTime, value: effortValue },
+        { time: effort.time, value: effort.effort },
+        { time: lastTime, value: effort.effort },
       ]);
 
       if (lineData.length >= 2) {
@@ -211,7 +230,7 @@ export function useWyckoffOverlay({
         lines.push(line);
       }
 
-      if (Math.abs(effortValue - resultValue) > effortValue * 0.1) {
+      if (Math.abs(effort.effort - effort.result) > effort.effort * 0.1) {
         const resultLine = chart.addSeries(LineSeries, {
           color: colors.effort?.result ?? "var(--effort-result)",
           lineWidth: 1,
@@ -220,24 +239,31 @@ export function useWyckoffOverlay({
           priceLineVisible: false,
           title: `${label} Result`,
         });
-
         const resultData = ensureUniqueAscending([
-          { time: effort.time, value: resultValue },
-          { time: lastTime, value: resultValue },
+          { time: effort.time, value: effort.result },
+          { time: lastTime, value: effort.result },
         ]);
-
         if (resultData.length >= 2) {
           resultLine.setData(resultData);
           lines.push(resultLine);
         }
       }
     }
-
     refs.current.effortLines = lines;
+    appliedKeysRef.current.effort = key;
   }, [chart, analysis, isDark, lastTime]);
 
   const renderTradingRange = useCallback(() => {
     if (!chart || !analysis?.tradingRange || !seriesRef.current) return;
+    const key = `tr-${analysis.tradingRange.startTime}-${analysis.tradingRange.high}-${lastTime}`;
+    if (appliedKeysRef.current.tradingRange === key) return;
+
+    const s = seriesRef.current;
+    if (refs.current.rangePrimitive) {
+      try {
+        s.detachPrimitive(refs.current.rangePrimitive);
+      } catch {}
+    }
 
     const colors = getWyckoffColors(isDark);
     const tr = analysis.tradingRange;
@@ -255,12 +281,21 @@ export function useWyckoffOverlay({
       midlineColor: colors.tradingRange.border,
     });
 
-    seriesRef.current.attachPrimitive(primitive);
+    s.attachPrimitive(primitive);
     refs.current.rangePrimitive = primitive;
+    appliedKeysRef.current.tradingRange = key;
   }, [chart, analysis, isDark, lastTime]);
 
   const renderClimaxes = useCallback(() => {
     if (!chart || !analysis?.climaxes.length) return;
+    const key = `climax-${analysis.climaxes.length}-${lastTime}`;
+    if (appliedKeysRef.current.climaxes === key) return;
+
+    refs.current.climaxLines.forEach((l) => {
+      try {
+        chart.removeSeries(l);
+      } catch {}
+    });
 
     const colors = getWyckoffColors(isDark);
     const lines: ISeriesApi<"Line">[] = [];
@@ -268,7 +303,6 @@ export function useWyckoffOverlay({
     for (const climax of analysis.climaxes) {
       const color = climax.type === "SC" ? colors.climax.sc : colors.climax.bc;
       const label = climax.type === "SC" ? "SC" : "BC";
-
       const line = chart.addSeries(LineSeries, {
         color,
         lineWidth: 2,
@@ -278,23 +312,29 @@ export function useWyckoffOverlay({
         crosshairMarkerVisible: true,
         title: label,
       });
-
       const lineData = ensureUniqueAscending([
         { time: climax.time, value: climax.price },
         { time: lastTime, value: climax.price },
       ]);
-
       if (lineData.length >= 2) {
         line.setData(lineData);
         lines.push(line);
       }
     }
-
     refs.current.climaxLines = lines;
+    appliedKeysRef.current.climaxes = key;
   }, [chart, analysis, isDark, lastTime]);
 
   const renderEvents = useCallback(() => {
     if (!chart || !analysis?.events.length) return;
+    const key = `events-${analysis.events.length}-${lastTime}`;
+    if (appliedKeysRef.current.events === key) return;
+
+    refs.current.eventLines.forEach((l) => {
+      try {
+        chart.removeSeries(l);
+      } catch {}
+    });
 
     const colors = getWyckoffColors(isDark);
     const lines: ISeriesApi<"Line">[] = [];
@@ -326,7 +366,6 @@ export function useWyckoffOverlay({
 
       const lineWidth = event.significance === "high" ? 2 : 1;
       const lineStyle = event.type === "ST" ? 2 : 0;
-
       const line = chart.addSeries(LineSeries, {
         color,
         lineWidth,
@@ -336,62 +375,94 @@ export function useWyckoffOverlay({
         crosshairMarkerVisible: true,
         title: event.type,
       });
-
       const lineData = ensureUniqueAscending([
         { time: event.time, value: event.price },
         { time: lastTime, value: event.price },
       ]);
-
       if (lineData.length >= 2) {
         line.setData(lineData);
         lines.push(line);
       }
     }
-
     refs.current.eventLines = lines;
+    appliedKeysRef.current.events = key;
   }, [chart, analysis, isDark, lastTime]);
 
   useEffect(() => {
-    cleanup();
-    if (!chart || !analysis) return;
+    if (!chart || !analysis) {
+      cleanup();
+      return;
+    }
 
     if (visibility.phases) renderPhases();
-    if (visibility.effortResult) renderEffortResults();
-    if (visibility.tradingRange) renderTradingRange();
-    if (visibility.climaxes) renderClimaxes();
-    if (visibility.springs) renderEvents();
+    else {
+      const s = seriesRef.current;
+      if (s)
+        refs.current.phasePrimitives.forEach((p) => {
+          try {
+            s.detachPrimitive(p);
+          } catch {}
+        });
+      refs.current.phasePrimitives = [];
+      appliedKeysRef.current.phases = "";
+    }
 
-    return cleanup;
+    if (visibility.effortResult) renderEffortResults();
+    else {
+      refs.current.effortLines.forEach((l) => {
+        try {
+          chart.removeSeries(l);
+        } catch {}
+      });
+      refs.current.effortLines = [];
+      appliedKeysRef.current.effort = "";
+    }
+
+    if (visibility.tradingRange) renderTradingRange();
+    else {
+      const s = seriesRef.current;
+      if (s && refs.current.rangePrimitive) {
+        try {
+          s.detachPrimitive(refs.current.rangePrimitive);
+        } catch {}
+      }
+      refs.current.rangePrimitive = null;
+      appliedKeysRef.current.tradingRange = "";
+    }
+
+    if (visibility.climaxes) renderClimaxes();
+    else {
+      refs.current.climaxLines.forEach((l) => {
+        try {
+          chart.removeSeries(l);
+        } catch {}
+      });
+      refs.current.climaxLines = [];
+      appliedKeysRef.current.climaxes = "";
+    }
+
+    if (visibility.springs) renderEvents();
+    else {
+      refs.current.eventLines.forEach((l) => {
+        try {
+          chart.removeSeries(l);
+        } catch {}
+      });
+      refs.current.eventLines = [];
+      appliedKeysRef.current.events = "";
+    }
+
+    return () => {}; // Persist across updates
   }, [
     chart,
     analysis,
     visibility,
-    cleanup,
     renderPhases,
     renderEffortResults,
     renderTradingRange,
     renderClimaxes,
     renderEvents,
+    cleanup,
   ]);
-
   return { cleanup };
 }
-
-export const useWyckoffOverlayMemo = (props: WyckoffOverlayProps) => {
-  const visibilityRef = useRef(props.visibility);
-  visibilityRef.current = props.visibility;
-
-  const memoizedProps = useMemo(
-    () => ({
-      chart: props.chart,
-      series: props.series,
-      analysis: props.analysis,
-      visibility: props.visibility,
-      isDark: props.isDark,
-      lastTime: props.lastTime,
-    }),
-    [props.chart, props.series, props.analysis, props.visibility, props.isDark, props.lastTime]
-  );
-
-  return useWyckoffOverlay(memoizedProps);
-};

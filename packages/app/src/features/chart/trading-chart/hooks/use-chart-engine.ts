@@ -62,6 +62,11 @@ export const useChartEngine = ({
   onLoadMore,
   hasMore,
 }: UseChartEngineProps): UseChartEngineResult => {
+  const [chartResult, setChartResult] = useState<UseChartEngineResult>({
+    chart: null,
+    candlestickSeries: null,
+    volumeSeries: null,
+  });
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
@@ -70,13 +75,19 @@ export const useChartEngine = ({
   const hasMoreRef = useRef(hasMore);
   const onCrosshairMoveRef = useRef(onCrosshairMove);
   const isDarkRef = useRef(isDark);
-  const [, setReady] = useState(false);
   const prevIsDarkRef = useRef(isDark);
 
-  loadMoreCallbackRef.current = onLoadMore;
-  hasMoreRef.current = hasMore;
-  onCrosshairMoveRef.current = onCrosshairMove;
-  isDarkRef.current = isDark;
+  useEffect(() => {
+    loadMoreCallbackRef.current = onLoadMore;
+    hasMoreRef.current = hasMore;
+    onCrosshairMoveRef.current = onCrosshairMove;
+    isDarkRef.current = isDark;
+  });
+
+  const priceFormatRef = useRef(priceFormat);
+  useEffect(() => {
+    priceFormatRef.current = priceFormat;
+  }, [priceFormat]);
 
   const initChart = useCallback(() => {
     if (!containerRef.current || chartRef.current) return undefined;
@@ -127,8 +138,8 @@ export const useChartEngine = ({
       wickDownColor: candle.wickDownColor,
       priceFormat: {
         type: "custom" as const,
-        minMove: priceFormat.minMove,
-        formatter: priceFormat.formatter ?? ((value: number) => `${value}`),
+        minMove: priceFormatRef.current.minMove,
+        formatter: priceFormatRef.current.formatter ?? ((value: number) => `${value}`),
       },
     });
 
@@ -151,7 +162,7 @@ export const useChartEngine = ({
     volumeSeriesRef.current = volumeSeries;
 
     // Trigger re-render after chart is ready
-    setReady(true);
+    setChartResult({ chart, candlestickSeries, volumeSeries });
 
     // Infinite scroll handler
     const handleVisibleRangeChange = (logicalRange: { from: number; to: number } | null): void => {
@@ -202,13 +213,29 @@ export const useChartEngine = ({
       chart.unsubscribeCrosshairMove(handleCrosshairMove);
       resizeObserver.disconnect();
       chart.remove();
+      chartRef.current = null;
+      candlestickSeriesRef.current = null;
+      volumeSeriesRef.current = null;
+      setChartResult({ chart: null, candlestickSeries: null, volumeSeries: null });
     };
-  }, [containerRef, priceFormat]);
+  }, [containerRef]);
 
   useEffect(() => {
     const cleanup = initChart();
     return cleanup;
   }, [initChart]);
+
+  // Handle dynamic price format updates without re-creating the chart
+  useEffect(() => {
+    if (!candlestickSeriesRef.current) return;
+    candlestickSeriesRef.current.applyOptions({
+      priceFormat: {
+        type: "custom" as const,
+        minMove: priceFormat.minMove,
+        formatter: priceFormat.formatter ?? ((value: number) => `${value}`),
+      },
+    });
+  }, [priceFormat]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -241,9 +268,5 @@ export const useChartEngine = ({
     }
   }, [isDark]);
 
-  return {
-    chart: chartRef.current,
-    candlestickSeries: candlestickSeriesRef.current,
-    volumeSeries: volumeSeriesRef.current,
-  };
+  return chartResult;
 };

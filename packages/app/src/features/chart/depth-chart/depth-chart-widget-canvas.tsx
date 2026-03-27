@@ -54,6 +54,15 @@ export const DepthChartWidget = memo(function DepthChartWidget({
   });
   const [freezeVisibleRange, setFreezeVisibleRange] = useState(true);
 
+  // 0. Symbol Reset
+  const [prevSymbol, setPrevSymbol] = useState(symbol);
+  if (symbol !== prevSymbol) {
+    setPrevSymbol(symbol);
+    setStableCenterPrice(null);
+    setCommittedHalfSpan(null);
+    setIsInteracting(false);
+  }
+
   useEffect(() => {
     if (!containerRef.current) {
       return;
@@ -68,16 +77,10 @@ export const DepthChartWidget = memo(function DepthChartWidget({
     });
 
     resizeObserver.observe(container);
-    setViewportWidth(container.clientWidth || 0);
+    requestAnimationFrame(() => setViewportWidth(container.clientWidth || 0));
 
     return () => resizeObserver.disconnect();
   }, []);
-
-  useEffect(() => {
-    setStableCenterPrice(null);
-    setCommittedHalfSpan(null);
-    setIsInteracting(false);
-  }, [symbol]);
 
   const zoomController = useDepthChartZoomController({
     containerRef,
@@ -128,48 +131,68 @@ export const DepthChartWidget = memo(function DepthChartWidget({
     isDark,
   });
 
-  useEffect(() => {
-    setZoomConstraints({
-      minHalfSpan: frame.minHalfSpan,
-      maxHalfSpan: frame.maxHalfSpan,
-      defaultHalfSpan: frame.defaultHalfSpan,
-    });
-    setFreezeVisibleRange(!frame.hasRenderableFrame);
-  }, [frame.defaultHalfSpan, frame.hasRenderableFrame, frame.maxHalfSpan, frame.minHalfSpan]);
+  // Derive zoom constraints and freeze state synchronously from frame
+  // These are cheap assignments — no need for rAF batching that was causing multi-render waterfalls
+  const nextZoomConstraints = {
+    minHalfSpan: frame.minHalfSpan,
+    maxHalfSpan: frame.maxHalfSpan,
+    defaultHalfSpan: frame.defaultHalfSpan,
+  };
+  if (
+    nextZoomConstraints.minHalfSpan !== zoomConstraints.minHalfSpan ||
+    nextZoomConstraints.maxHalfSpan !== zoomConstraints.maxHalfSpan ||
+    nextZoomConstraints.defaultHalfSpan !== zoomConstraints.defaultHalfSpan
+  ) {
+    setZoomConstraints(nextZoomConstraints);
+  }
 
-  useEffect(() => {
-    if (!marketState.liveMidPrice) {
-      return;
-    }
+  const nextFreezeVisibleRange = !frame.hasRenderableFrame;
+  if (nextFreezeVisibleRange !== freezeVisibleRange) {
+    setFreezeVisibleRange(nextFreezeVisibleRange);
+  }
 
-    setStableCenterPrice((previous) => (previous === null ? marketState.liveMidPrice : previous));
-  }, [marketState.liveMidPrice]);
-
-  useEffect(() => {
-    if (frame.actualRenderableHalfSpan !== null && committedHalfSpan === null) {
-      setCommittedHalfSpan(frame.actualRenderableHalfSpan);
-      seedHalfSpan(frame.actualRenderableHalfSpan);
-    }
-  }, [committedHalfSpan, frame.actualRenderableHalfSpan, seedHalfSpan]);
-
-  useEffect(() => {
-    if (!frame.canCommitDesiredSpan || frame.actualRenderableHalfSpan === null) {
-      return;
-    }
-    setCommittedHalfSpan(frame.actualRenderableHalfSpan);
-    commitHalfSpan(frame.actualRenderableHalfSpan);
-  }, [commitHalfSpan, frame.actualRenderableHalfSpan, frame.canCommitDesiredSpan]);
-
-  useEffect(() => {
-    if (freezeVisibleRange || isInteracting || !marketState.shouldReconcileCenter) {
-      return;
-    }
+  // Center price sync — render-phase state transitions (React 19 declarative sync)
+  // These derive state from incoming hook data, not from external events
+  if (marketState.liveMidPrice && stableCenterPrice === null) {
+    setStableCenterPrice(marketState.liveMidPrice);
+  } else if (
+    !freezeVisibleRange &&
+    !isInteracting &&
+    marketState.shouldReconcileCenter &&
+    stableCenterPrice !== null
+  ) {
     setStableCenterPrice(marketState.nextStableCenterPrice);
+  }
+
+  // Span sync — render-phase setState + effect for external side effects
+  if (frame.actualRenderableHalfSpan !== null && committedHalfSpan === null) {
+    setCommittedHalfSpan(frame.actualRenderableHalfSpan);
+  } else if (
+    frame.canCommitDesiredSpan &&
+    frame.actualRenderableHalfSpan !== null &&
+    committedHalfSpan !== frame.actualRenderableHalfSpan
+  ) {
+    setCommittedHalfSpan(frame.actualRenderableHalfSpan);
+  }
+
+  // External side effects for zoom controller (not state derivation — must stay in effect)
+  useEffect(() => {
+    if (frame.actualRenderableHalfSpan === null) return;
+    if (committedHalfSpan === null) return;
+
+    if (committedHalfSpan === frame.actualRenderableHalfSpan) {
+      if (frame.canCommitDesiredSpan) {
+        commitHalfSpan(frame.actualRenderableHalfSpan);
+      } else {
+        seedHalfSpan(frame.actualRenderableHalfSpan);
+      }
+    }
   }, [
-    freezeVisibleRange,
-    isInteracting,
-    marketState.nextStableCenterPrice,
-    marketState.shouldReconcileCenter,
+    committedHalfSpan,
+    frame.actualRenderableHalfSpan,
+    frame.canCommitDesiredSpan,
+    seedHalfSpan,
+    commitHalfSpan,
   ]);
 
   useEffect(() => {

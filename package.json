@@ -23,9 +23,11 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@effect/eslint-plugin": "^0.3.2",
     "@typescript-eslint/eslint-plugin": "^8.47.0",
     "@typescript-eslint/parser": "^8.47.0",
     "eslint": "^9.39.1",
+    "eslint-plugin-react-compiler": "^19.0.0-beta-af1b7da-20250417",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.6.2",

@@ -62,27 +62,28 @@ import {
 
 const calculateTrendIndicator = (
   baseId: string,
+  data: ChartDataPoint[],
   params: ActiveIndicator["params"]
 ): IndicatorDataPoint[] | null => {
   switch (baseId) {
     case INDICATOR_TYPE.SMA:
-      return calculateSMA([], params.period || 20);
+      return calculateSMA(data, params.period || 20);
     case INDICATOR_TYPE.EMA:
-      return calculateEMA([], params.period || 20);
+      return calculateEMA(data, params.period || 20);
     case INDICATOR_TYPE.WMA:
-      return calculateWMAIndicator([], params.period || 20);
+      return calculateWMAIndicator(data, params.period || 20);
     case INDICATOR_TYPE.HMA:
-      return calculateHMAIndicator([], params.period || 21);
+      return calculateHMAIndicator(data, params.period || 21);
     case INDICATOR_TYPE.VWMA:
-      return calculateVWMA([], params.period || 20);
+      return calculateVWMA(data, params.period || 20);
     case INDICATOR_TYPE.VWAP:
-      return calculateVWAP([]);
+      return calculateVWAP(data);
     case INDICATOR_TYPE.SUPER_TREND:
-      return calculateSuperTrend([], params.period || 10, params.multiplier || 3);
+      return calculateSuperTrend(data, params.period || 10, params.multiplier || 3);
     case INDICATOR_TYPE.PARABOLIC_SAR:
-      return calculateParabolicSAR([], params.step || 0.02, params.maxStep || 0.2);
+      return calculateParabolicSAR(data, params.step || 0.02, params.maxStep || 0.2);
     case INDICATOR_TYPE.ADX:
-      return calculateADX([], params.period || 14);
+      return calculateADX(data, params.period || 14);
     default:
       return null;
   }
@@ -219,7 +220,7 @@ export const calculateLineIndicator = (
   const { params } = indicator;
 
   return (
-    calculateTrendIndicator(baseId, params) ||
+    calculateTrendIndicator(baseId, data, params) ||
     calculateMomentumIndicator(baseId, data, params) ||
     calculateVolumeIndicator(baseId, data, params) ||
     calculateVolatilityIndicator(baseId, data, params) ||

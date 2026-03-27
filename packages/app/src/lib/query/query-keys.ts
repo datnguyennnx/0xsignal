@@ -36,9 +36,9 @@ export const queryKeys = {
   hyperliquid: {
     all: ["hyperliquid"] as const,
     meta: (dex?: string) => [...queryKeys.hyperliquid.all, "meta", dex ?? "main"] as const,
-    perpList: () => [...queryKeys.hyperliquid.all, "perpList"] as const,
-    perpAnnotation: (coin: string) =>
-      [...queryKeys.hyperliquid.all, "perpAnnotation", coin] as const,
+    tradeList: () => [...queryKeys.hyperliquid.all, "tradeList"] as const,
+    tradeAnnotation: (coin: string) =>
+      [...queryKeys.hyperliquid.all, "tradeAnnotation", coin] as const,
   },
 } as const;
 

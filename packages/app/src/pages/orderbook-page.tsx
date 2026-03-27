@@ -5,7 +5,7 @@
  * Designed for smaller screens where the side-panel in AssetDetail is hidden.
  */
 import { useParams, useNavigate } from "react-router-dom";
-import { OrderbookWidget } from "@/features/perp/components/orderbook-widget";
+import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export function OrderbookPage() {
         <Button
           variant="ghost"
           size="icon-sm"
-          onClick={() => navigate(`/perp/${symbol}`)}
+          onClick={() => navigate(`/trade/${symbol}`)}
           className="touch-target-44"
           aria-label="Back to chart"
         >

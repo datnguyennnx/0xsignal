@@ -58,9 +58,11 @@ const handleApiRequest = async (url: URL, _method: string, _body?: unknown) => {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error?.message || "Internal server error" }), {
-      status: error?.status || 500,
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Internal server error";
+    const status = (error as { status?: number })?.status || 500;
+    return new Response(JSON.stringify({ error: message }), {
+      status,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }

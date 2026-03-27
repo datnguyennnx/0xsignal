@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { DEPTH_COLORS, type DepthLevel, type DepthRenderableBounds } from "../constants";
 import { resolveDepthStepEpsilon } from "../lib/depth-step-transform";
 import { getDepthMaxTotal, mapDepthSideToCanvasPoints } from "../lib/depth-canvas-mapping";
+import { getThemeColor } from "@/core/utils/theme";
 
 export interface DepthChartEngineOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -115,8 +116,14 @@ function drawAxes(
 ): void {
   const drawHeight = Math.max(height - TOP_PADDING - BOTTOM_PADDING, 1);
   const priceDecimals = getPriceDecimals(tickSize);
-  const labelColor = isDark ? "rgba(240,240,240,0.72)" : "rgba(30,30,30,0.72)";
-  const axisColor = isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)";
+  const labelColor = getThemeColor(
+    "depth-label",
+    isDark ? "rgba(240,240,240,0.72)" : "rgba(30,30,30,0.72)"
+  );
+  const axisColor = getThemeColor(
+    "depth-axis",
+    isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)"
+  );
 
   ctx.strokeStyle = axisColor;
   ctx.lineWidth = 1;
@@ -177,9 +184,9 @@ export function useDepthChartEngine({
 
   const colors = useMemo(
     () => ({
-      grid: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.08)",
-      bidFill: "rgba(38,166,154,0.18)",
-      askFill: "rgba(239,83,80,0.18)",
+      grid: getThemeColor("depth-grid", isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.08)"),
+      bidFill: getThemeColor("depth-bid-fill", "rgba(38,166,154,0.18)"),
+      askFill: getThemeColor("depth-ask-fill", "rgba(239,83,80,0.18)"),
     }),
     [isDark]
   );
@@ -273,39 +280,43 @@ export function useDepthChartEngine({
 
   const flushPendingPayload = useCallback(
     (force = false) => {
-      if (!pendingPayloadRef.current) {
-        return;
-      }
-
-      const elapsed = Date.now() - lastApplyRef.current;
-      if (!force && elapsed < UPDATE_THROTTLE_MS) {
-        if (!applyTimeoutRef.current) {
-          applyTimeoutRef.current = setTimeout(() => {
-            applyTimeoutRef.current = null;
-            flushPendingPayload();
-          }, UPDATE_THROTTLE_MS - elapsed);
+      const flush = (isForced: boolean) => {
+        if (!pendingPayloadRef.current) {
+          return;
         }
-        return;
-      }
 
-      const payload = pendingPayloadRef.current;
-      pendingPayloadRef.current = null;
-      if (!payload) {
-        return;
-      }
+        const elapsed = Date.now() - lastApplyRef.current;
+        if (!isForced && elapsed < UPDATE_THROTTLE_MS) {
+          if (!applyTimeoutRef.current) {
+            applyTimeoutRef.current = setTimeout(() => {
+              applyTimeoutRef.current = null;
+              flush(false);
+            }, UPDATE_THROTTLE_MS - elapsed);
+          }
+          return;
+        }
 
-      if (
-        payload.hash === lastRenderedHashRef.current &&
-        payload.bounds === lastAppliedPayloadRef.current?.bounds &&
-        payload.maxTotal === lastAppliedPayloadRef.current?.maxTotal
-      ) {
-        return;
-      }
+        const payload = pendingPayloadRef.current;
+        pendingPayloadRef.current = null;
+        if (!payload) {
+          return;
+        }
 
-      drawPayload(payload);
-      lastAppliedPayloadRef.current = payload;
-      lastRenderedHashRef.current = payload.hash;
-      lastApplyRef.current = Date.now();
+        if (
+          payload.hash === lastRenderedHashRef.current &&
+          payload.bounds === lastAppliedPayloadRef.current?.bounds &&
+          payload.maxTotal === lastAppliedPayloadRef.current?.maxTotal
+        ) {
+          return;
+        }
+
+        drawPayload(payload);
+        lastAppliedPayloadRef.current = payload;
+        lastRenderedHashRef.current = payload.hash;
+        lastApplyRef.current = Date.now();
+      };
+
+      flush(force);
     },
     [drawPayload]
   );

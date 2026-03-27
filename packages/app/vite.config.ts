@@ -36,6 +36,6 @@ export default defineConfig({
     sourcemap: false,
     chunkSizeWarningLimit: 1500,
     cssCodeSplit: true,
-    reportCompressedSize: false,
+    reportCompressedSize: true,
   },
 });

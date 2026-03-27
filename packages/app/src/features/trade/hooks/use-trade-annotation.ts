@@ -3,11 +3,11 @@ import { hyperliquidApi } from "@/services/hyperliquid";
 import { queryKeys } from "@/lib/query/query-keys";
 import { parseSymbol } from "./use-hyperliquid-ws";
 
-export function usePerpAnnotation(symbol: string) {
+export function useTradeAnnotation(symbol: string) {
   const coin = parseSymbol(symbol).coin;
 
   return useQuery({
-    queryKey: queryKeys.hyperliquid.perpAnnotation(coin),
+    queryKey: queryKeys.hyperliquid.tradeAnnotation(coin),
     queryFn: () => hyperliquidApi.getPerpAnnotation(coin),
     enabled: !!coin,
     staleTime: 60 * 60 * 1000,

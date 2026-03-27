@@ -12,6 +12,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/core/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HyperliquidWsProvider } from "@/features/trade/contexts/hyperliquid-ws-context";
 import { Layout } from "@/layouts/main-layout";
 import { MarketDashboard } from "@/pages/market-dashboard";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -35,7 +36,7 @@ const NotFoundPage = lazy(() =>
 const usePreloadRoutes = () => {
   useEffect(() => {
     const preloadTimer = setTimeout(() => {
-      // Most visited: perp detail page
+      // Most visited: trade detail page
       import("@/pages/asset-detail");
       // Heavy chart component
       import("@/features/chart/trading-chart");
@@ -57,21 +58,23 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <TooltipProvider>
-          <BrowserRouter>
-            <Layout>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  <Route path="/" element={<MarketDashboard />} />
-                  <Route path="/perp" element={<Navigate to="/perp/btc" replace />} />
-                  <Route path="/perp/:symbol" element={<AssetDetail />} />
-                  <Route path="/perp/:symbol/orderbook" element={<OrderbookPage />} />
-                  <Route path="*" element={<NotFoundPage />} />
-                </Routes>
-              </Suspense>
-            </Layout>
-          </BrowserRouter>
-        </TooltipProvider>
+        <HyperliquidWsProvider>
+          <TooltipProvider>
+            <BrowserRouter>
+              <Layout>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    <Route path="/" element={<MarketDashboard />} />
+                    <Route path="/trade" element={<Navigate to="/trade/btc" replace />} />
+                    <Route path="/trade/:symbol" element={<AssetDetail />} />
+                    <Route path="/trade/:symbol/orderbook" element={<OrderbookPage />} />
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Routes>
+                </Suspense>
+              </Layout>
+            </BrowserRouter>
+          </TooltipProvider>
+        </HyperliquidWsProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

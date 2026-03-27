@@ -22,18 +22,18 @@
 import { useRef, useState, useCallback, useMemo, memo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { useTheme } from "@/core/providers/theme-provider";
-import { useHyperliquidMeta } from "@/features/perp/hooks/use-hyperliquid-meta";
+import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { useChartConfig } from "@/hooks/use-breakpoint";
 
 import {
-  useICTOverlayMemo,
+  useICTOverlay,
   useICTWorker,
   DEFAULT_ICT_VISIBILITY,
   type ICTVisibility,
   type ICTFeature,
 } from "../ict";
 import {
-  useWyckoffOverlayMemo,
+  useWyckoffOverlay,
   useWyckoffWorker,
   DEFAULT_WYCKOFF_VISIBILITY,
   type WyckoffVisibility,
@@ -58,6 +58,7 @@ import { INTERVAL_RESTORE_DELAY } from "./constants";
 import { ChartOhlcOverlay } from "./chart-ohlc-overlay";
 import { DepthChartWidget } from "../depth-chart";
 import { cn } from "@/core/utils/cn";
+import { HoverProvider, useHoverActions } from "./contexts/hover-context";
 import type { ChartViewMode } from "./types";
 
 interface TradingChartProps {
@@ -70,7 +71,7 @@ interface TradingChartProps {
   isFetching?: boolean;
 }
 
-const TradingChartComponent = ({
+const TradingChartInner = ({
   data,
   symbol,
   interval,
@@ -84,9 +85,8 @@ const TradingChartComponent = ({
   const chartConfig = useChartConfig();
   const { getPrecision } = useHyperliquidMeta();
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const { setHoveredCandle } = useHoverActions();
 
-  const [hoveredCandle, setHoveredCandle] = useState<ChartDataPoint | null>(null);
-  const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
   const chartSymbol = symbol.toUpperCase();
   const [ictVisibility, setIctVisibility] = useState<ICTVisibility>(DEFAULT_ICT_VISIBILITY);
   const [wyckoffVisibility, setWyckoffVisibility] = useState<WyckoffVisibility>(
@@ -152,7 +152,7 @@ const TradingChartComponent = ({
     enabled: viewMode === "chart",
   });
 
-  useICTOverlayMemo({
+  useICTOverlay({
     chart,
     series: candlestickSeries,
     analysis: ictAnalysis,
@@ -161,7 +161,7 @@ const TradingChartComponent = ({
     lastTime,
   });
 
-  useWyckoffOverlayMemo({
+  useWyckoffOverlay({
     chart,
     series: candlestickSeries,
     analysis: wyckoffAnalysis,
@@ -172,6 +172,7 @@ const TradingChartComponent = ({
 
   useIndicatorOverlay({
     chart,
+    mainSeries: candlestickSeries,
     activeIndicators,
     indicatorData,
   });
@@ -264,7 +265,7 @@ const TradingChartComponent = ({
         {viewMode === "chart" && (
           <>
             <IndicatorChips indicators={activeIndicators} />
-            <ChartOhlcOverlay displayCandle={displayCandle} precision={precision.pxDecimals} />
+            <ChartOhlcOverlay data={data} precision={precision.pxDecimals} />
           </>
         )}
       </div>
@@ -309,6 +310,14 @@ const TradingChartComponent = ({
     <div className="h-full rounded-lg bg-card overflow-hidden flex flex-col">
       <div className="relative flex-1 flex flex-col">{chartContent}</div>
     </div>
+  );
+};
+
+const TradingChartComponent = (props: TradingChartProps) => {
+  return (
+    <HoverProvider>
+      <TradingChartInner {...props} />
+    </HoverProvider>
   );
 };
 

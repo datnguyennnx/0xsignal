@@ -8,18 +8,13 @@ import { useState, useEffect } from "react";
 import { MOBILE_BREAKPOINT } from "../constants";
 
 export const useOrientationWarning = (isFullscreen: boolean) => {
-  const [showWarning, setShowWarning] = useState(false);
+  const [isMobilePortrait, setIsMobilePortrait] = useState(false);
 
   useEffect(() => {
-    if (!isFullscreen) {
-      setShowWarning(false);
-      return;
-    }
-
     const checkOrientation = () => {
       const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
       const isPortrait = window.innerHeight > window.innerWidth;
-      setShowWarning(isMobile && isPortrait);
+      setIsMobilePortrait(isMobile && isPortrait);
     };
 
     checkOrientation();
@@ -30,7 +25,7 @@ export const useOrientationWarning = (isFullscreen: boolean) => {
       window.removeEventListener("resize", checkOrientation);
       window.removeEventListener("orientationchange", checkOrientation);
     };
-  }, [isFullscreen]);
+  }, []);
 
-  return showWarning;
+  return isFullscreen && isMobilePortrait;
 };

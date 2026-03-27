@@ -10,7 +10,7 @@
  * - utilizes LineSeries for Market Structure pivots (HH, LL) and trend breaks (BOS, ChoCH).
  * - implements an efficient 150ms-throttled worker orchestration via the parent component.
  */
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
 import type { ICTAnalysis } from "@0xsignal/shared";
@@ -72,6 +72,14 @@ export function useICTOverlay({
     seriesRef.current = series ?? null;
   }, [series]);
 
+  const appliedKeysRef = useRef({
+    marketStructure: "",
+    fvg: "",
+    orderBlocks: "",
+    liquidity: "",
+    ote: "",
+  });
+
   const cleanup = useCallback(() => {
     if (!chart) return;
     const r = refs.current;
@@ -79,16 +87,12 @@ export function useICTOverlay({
     r.swingLines.forEach((s) => {
       try {
         chart.removeSeries(s);
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     });
     r.liquidityLines.forEach((s) => {
       try {
         chart.removeSeries(s);
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     });
 
     const s = seriesRef.current;
@@ -96,23 +100,17 @@ export function useICTOverlay({
       r.fvgPrimitives.forEach((p) => {
         try {
           s.detachPrimitive(p);
-        } catch {
-          /* ignore */
-        }
+        } catch {}
       });
       r.obPrimitives.forEach((p) => {
         try {
           s.detachPrimitive(p);
-        } catch {
-          /* ignore */
-        }
+        } catch {}
       });
       r.otePrimitives.forEach((p) => {
         try {
           s.detachPrimitive(p);
-        } catch {
-          /* ignore */
-        }
+        } catch {}
       });
     }
 
@@ -121,12 +119,29 @@ export function useICTOverlay({
     r.obPrimitives = [];
     r.liquidityLines = [];
     r.otePrimitives = [];
+
+    appliedKeysRef.current = {
+      marketStructure: "",
+      fvg: "",
+      orderBlocks: "",
+      liquidity: "",
+      ote: "",
+    };
   }, [chart]);
 
   const renderMarketStructure = useCallback(() => {
     if (!chart || !analysis?.marketStructure) return;
     const { swings, events } = analysis.marketStructure;
-    if (swings.length < 2) return;
+
+    const key = `ms-${swings.length}-${events.length}-${lastTime}`;
+    if (appliedKeysRef.current.marketStructure === key) return;
+
+    // Remove old lines before adding new ones
+    refs.current.swingLines.forEach((l) => {
+      try {
+        chart.removeSeries(l);
+      } catch {}
+    });
 
     const colors = getICTColors(isDark);
     const lines: ISeriesApi<"Line">[] = [];
@@ -178,10 +193,21 @@ export function useICTOverlay({
     }
 
     refs.current.swingLines = lines;
+    appliedKeysRef.current.marketStructure = key;
   }, [chart, analysis, isDark, lastTime]);
 
+  // Similar key-based skip for other renders
   const renderFVGs = useCallback(() => {
     if (!chart || !analysis?.fvgs.length || !seriesRef.current) return;
+    const key = `fvg-${analysis.fvgs.length}-${lastTime}`;
+    if (appliedKeysRef.current.fvg === key) return;
+
+    const s = seriesRef.current;
+    refs.current.fvgPrimitives.forEach((p) => {
+      try {
+        s.detachPrimitive(p);
+      } catch {}
+    });
 
     const colors = getICTColors(isDark);
     const primitives: ZonePrimitive[] = [];
@@ -190,7 +216,6 @@ export function useICTOverlay({
     for (const fvg of recentFVGs) {
       const isBullish = fvg.type === "bullish";
       const palette = isBullish ? colors.fvgBullish : colors.fvgBearish;
-
       const primitive = new ZonePrimitive({
         startTime: fvg.startTime,
         endTime: lastTime,
@@ -203,16 +228,24 @@ export function useICTOverlay({
         showMidline: true,
         midlineColor: palette.mid,
       });
-
-      seriesRef.current.attachPrimitive(primitive);
+      s.attachPrimitive(primitive);
       primitives.push(primitive);
     }
-
     refs.current.fvgPrimitives = primitives;
+    appliedKeysRef.current.fvg = key;
   }, [chart, analysis, isDark, lastTime]);
 
   const renderOrderBlocks = useCallback(() => {
     if (!chart || !analysis?.orderBlocks.length || !seriesRef.current) return;
+    const key = `ob-${analysis.orderBlocks.length}-${lastTime}`;
+    if (appliedKeysRef.current.orderBlocks === key) return;
+
+    const s = seriesRef.current;
+    refs.current.obPrimitives.forEach((p) => {
+      try {
+        s.detachPrimitive(p);
+      } catch {}
+    });
 
     const colors = getICTColors(isDark);
     const primitives: ZonePrimitive[] = [];
@@ -221,7 +254,6 @@ export function useICTOverlay({
     for (const ob of activeOBs) {
       const isBullish = ob.type === "bullish";
       const palette = isBullish ? colors.obBullish : colors.obBearish;
-
       const primitive = new ZonePrimitive({
         startTime: ob.time,
         endTime: lastTime,
@@ -232,16 +264,23 @@ export function useICTOverlay({
         borderWidth: 2,
         label: isBullish ? "OB+" : "OB-",
       });
-
-      seriesRef.current.attachPrimitive(primitive);
+      s.attachPrimitive(primitive);
       primitives.push(primitive);
     }
-
     refs.current.obPrimitives = primitives;
+    appliedKeysRef.current.orderBlocks = key;
   }, [chart, analysis, isDark, lastTime]);
 
   const renderLiquidityZones = useCallback(() => {
     if (!chart || !analysis?.liquidityZones.length) return;
+    const key = `liq-${analysis.liquidityZones.length}-${lastTime}`;
+    if (appliedKeysRef.current.liquidity === key) return;
+
+    refs.current.liquidityLines.forEach((l) => {
+      try {
+        chart.removeSeries(l);
+      } catch {}
+    });
 
     const colors = getICTColors(isDark);
     const lines: ISeriesApi<"Line">[] = [];
@@ -250,7 +289,6 @@ export function useICTOverlay({
     for (const zone of activeZones) {
       const isBSL = zone.type === "BSL";
       const color = isBSL ? colors.liquidity.bsl : colors.liquidity.ssl;
-
       const line = chart.addSeries(LineSeries, {
         color,
         lineWidth: 1,
@@ -260,23 +298,30 @@ export function useICTOverlay({
         crosshairMarkerVisible: true,
         title: `${zone.type} (${zone.touchCount}x)`,
       });
-
       const lineData = ensureUniqueAscending([
         { time: zone.startTime, value: zone.price },
         { time: lastTime, value: zone.price },
       ]);
-
       if (lineData.length >= 2) {
         line.setData(lineData);
         lines.push(line);
       }
     }
-
     refs.current.liquidityLines = lines;
+    appliedKeysRef.current.liquidity = key;
   }, [chart, analysis, isDark, lastTime]);
 
   const renderOTEZones = useCallback(() => {
     if (!chart || !analysis?.oteZones.length || !seriesRef.current) return;
+    const key = `ote-${analysis.oteZones.length}`;
+    if (appliedKeysRef.current.ote === key) return;
+
+    const s = seriesRef.current;
+    refs.current.otePrimitives.forEach((p) => {
+      try {
+        s.detachPrimitive(p);
+      } catch {}
+    });
 
     const colors = getICTColors(isDark);
     const primitives: BandPrimitive[] = [];
@@ -302,57 +347,92 @@ export function useICTOverlay({
           { top: ote.goldenPocketHigh, bottom: ote.goldenPocketLow, color: colors.ote.fill },
         ],
       });
-
-      seriesRef.current.attachPrimitive(primitive);
+      s.attachPrimitive(primitive);
       primitives.push(primitive);
     }
-
     refs.current.otePrimitives = primitives;
+    appliedKeysRef.current.ote = key;
   }, [chart, analysis, isDark]);
 
   useEffect(() => {
-    cleanup();
-    if (!chart || !analysis) return;
+    if (!chart || !analysis) {
+      cleanup();
+      return;
+    }
 
     if (visibility.marketStructure) renderMarketStructure();
-    if (visibility.fvg) renderFVGs();
-    if (visibility.orderBlocks) renderOrderBlocks();
-    if (visibility.liquidity) renderLiquidityZones();
-    if (visibility.ote) renderOTEZones();
+    else {
+      refs.current.swingLines.forEach((l) => {
+        try {
+          chart.removeSeries(l);
+        } catch {}
+      });
+      refs.current.swingLines = [];
+      appliedKeysRef.current.marketStructure = "";
+    }
 
-    return cleanup;
+    if (visibility.fvg) renderFVGs();
+    else {
+      const s = seriesRef.current;
+      if (s)
+        refs.current.fvgPrimitives.forEach((p) => {
+          try {
+            s.detachPrimitive(p);
+          } catch {}
+        });
+      refs.current.fvgPrimitives = [];
+      appliedKeysRef.current.fvg = "";
+    }
+
+    if (visibility.orderBlocks) renderOrderBlocks();
+    else {
+      const s = seriesRef.current;
+      if (s)
+        refs.current.obPrimitives.forEach((p) => {
+          try {
+            s.detachPrimitive(p);
+          } catch {}
+        });
+      refs.current.obPrimitives = [];
+      appliedKeysRef.current.orderBlocks = "";
+    }
+
+    if (visibility.liquidity) renderLiquidityZones();
+    else {
+      refs.current.liquidityLines.forEach((l) => {
+        try {
+          chart.removeSeries(l);
+        } catch {}
+      });
+      refs.current.liquidityLines = [];
+      appliedKeysRef.current.liquidity = "";
+    }
+
+    if (visibility.ote) renderOTEZones();
+    else {
+      const s = seriesRef.current;
+      if (s)
+        refs.current.otePrimitives.forEach((p) => {
+          try {
+            s.detachPrimitive(p);
+          } catch {}
+        });
+      refs.current.otePrimitives = [];
+      appliedKeysRef.current.ote = "";
+    }
+
+    return () => {}; // Explicitly not cleaning up everything to allow persistence
   }, [
     chart,
     analysis,
     visibility,
-    cleanup,
     renderMarketStructure,
     renderFVGs,
     renderOrderBlocks,
     renderLiquidityZones,
     renderOTEZones,
+    cleanup,
   ]);
 
   return { cleanup };
 }
-
-// Memoized wrapper to prevent unnecessary re-renders
-export const useICTOverlayMemo = (props: ICTOverlayProps) => {
-  const visibilityRef = useRef(props.visibility);
-  visibilityRef.current = props.visibility;
-
-  const memoizedProps = useMemo(
-    () => ({
-      chart: props.chart,
-      series: props.series,
-      analysis: props.analysis,
-      visibility: props.visibility,
-      isDark: props.isDark,
-      lastTime: props.lastTime,
-    }),
-    // Only re-run when these change
-    [props.chart, props.series, props.analysis, props.visibility, props.isDark, props.lastTime]
-  );
-
-  return useICTOverlay(memoizedProps);
-};

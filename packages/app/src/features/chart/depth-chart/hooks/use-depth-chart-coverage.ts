@@ -9,10 +9,7 @@
  * - provides "min" and "default" zoom levels based on current market spread and tick size.
  * - implements source selection (micro vs none) to optimize performance.
  */
-import type {
-  OrderbookData,
-  OrderbookLevel,
-} from "@/features/perp/hooks/use-hyperliquid-orderbook";
+import { type OrderbookData, type OrderbookLevel } from "@/core/utils/hyperliquid";
 import { getMinHalfSpanValue } from "../lib/depth-visible-range";
 
 const FLOAT_EPSILON = 0.000000001;

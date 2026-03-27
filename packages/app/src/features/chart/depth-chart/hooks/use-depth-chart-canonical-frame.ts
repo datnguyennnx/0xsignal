@@ -7,13 +7,19 @@
  * @mechanism
  * - filters and buckets raw L2 levels based on centerPrice and halfSpan.
  * - ensures that the "canonical" representation of the book persists even as individual ticks change.
+ *
+ * @performance
+ * - stableCache stored in useRef (not state) to avoid render-phase setState double-render loops.
+ * - Only the returned frame object triggers consumer re-renders via useMemo.
+ * - react-hooks/refs is disabled because this hook intentionally reads/writes a ref-based cache
+ *   inside useMemo. The cache stores the previous frame for stable depth level merging. Using
+ *   useState would cause guaranteed double-renders on every orderbook tick.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  type OrderbookData,
-  useHyperliquidOrderbook,
-} from "@/features/perp/hooks/use-hyperliquid-orderbook";
-import { useOptionalL2BookNSigFigs } from "@/features/perp/contexts/l2-book-nsig-figs-context";
+/* eslint-disable react-hooks/refs */
+import { useMemo, useRef, useState } from "react";
+import { type OrderbookData } from "@/core/utils/hyperliquid";
+import { useHyperliquidOrderbook } from "@/features/trade/hooks/use-hyperliquid-orderbook";
+import { useOptionalL2BookNSigFigs } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { type DepthLevel, type DepthRenderableBounds } from "../constants";
 import { getDepthMaxTotal } from "../lib/depth-canvas-mapping";
 import { getMinHalfSpanValue } from "../lib/depth-visible-range";
@@ -326,36 +332,37 @@ export function useDepthChartCanonicalFrame({
 
   const { fineBook, coarseBookBySigFigs, orderbook, isConnected, error, activeSigFigs } =
     useHyperliquidOrderbook(symbol, enabled, orderbookOptions);
+
+  // Ref-based cache — avoids render-phase setState that caused double-renders on every tick
   const stableCacheRef = useRef<StableFrameCache>(createEmptyStableCache());
-  const [frameState, setFrameState] = useState<DepthChartCanonicalFrame>(() => createEmptyFrame());
 
-  useEffect(() => {
+  // 1. Symbol Reset
+  const [prevSymbol, setPrevSymbol] = useState(symbol);
+  if (symbol !== prevSymbol) {
+    setPrevSymbol(symbol);
     stableCacheRef.current = createEmptyStableCache();
-    setFrameState(createEmptyFrame());
-  }, [symbol]);
+  }
 
-  useEffect(() => {
+  // 2. Main Frame Reconciliation (Purely derived from incoming props/hook data)
+  const frame = useMemo(() => {
     const stableCache = stableCacheRef.current;
     const marketBook = fineBook ?? orderbook;
     const liveMidPrice =
       marketBook?.midPrice ?? stableCache.lastRenderableFrame?.liveMidPrice ?? null;
 
     if (!marketBook || !liveMidPrice || !Number.isFinite(liveMidPrice) || liveMidPrice <= 0) {
-      setFrameState(
-        buildFallbackFrame(stableCache.lastRenderableFrame, marketBook, {
-          isStale: true,
-          isCoveragePending: false,
-          coverageReady: false,
-          desiredHalfSpan,
-          canCommitDesiredSpan: false,
-          actualRenderableHalfSpan:
-            stableCache.lastRenderableFrame?.actualRenderableHalfSpan ?? null,
-          isConnected,
-          activeSigFigs,
-          error,
-        })
-      );
-      return;
+      const next = buildFallbackFrame(stableCache.lastRenderableFrame, marketBook, {
+        isStale: true,
+        isCoveragePending: false,
+        coverageReady: false,
+        desiredHalfSpan,
+        canCommitDesiredSpan: false,
+        actualRenderableHalfSpan: stableCache.lastRenderableFrame?.actualRenderableHalfSpan ?? null,
+        isConnected,
+        activeSigFigs,
+        error,
+      });
+      return next;
     }
 
     const renderCenterPrice = stableCenterPrice ?? liveMidPrice;
@@ -367,12 +374,14 @@ export function useDepthChartCanonicalFrame({
       desiredHalfSpan ??
       previousCommitted ??
       Math.max(marketBook.spread * 3, renderCenterPrice * 0.00018, MIN_STEP_FALLBACK);
+
     const coverage = resolveDepthChartCoverage({
       centerPrice: renderCenterPrice,
       requestedHalfSpan: inferredDesired,
       microBook: fineBook,
       defaultSourceBook: marketBook,
     });
+
     const coarseEntries = Object.entries(coarseBookBySigFigs)
       .map(([sig, book]) => ({ sigFigs: Number(sig), book }))
       .filter(
@@ -380,57 +389,34 @@ export function useDepthChartCanonicalFrame({
           Number.isFinite(entry.sigFigs) && entry.book.bids.length > 0 && entry.book.asks.length > 0
       )
       .sort((a, b) => b.sigFigs - a.sigFigs);
+
     const fineCoverage = computeCoverageHalfSpan(fineBook, renderCenterPrice);
     const bestCoarseForDesired =
       coarseEntries.find(
         (entry) => computeCoverageHalfSpan(entry.book, renderCenterPrice) >= inferredDesired
       ) ?? null;
-    const bestCoverageSpan = Math.max(
-      fineCoverage,
-      ...coarseEntries.map((entry) => computeCoverageHalfSpan(entry.book, renderCenterPrice))
-    );
     const coverageReady = fineCoverage >= inferredDesired || Boolean(bestCoarseForDesired);
     const selectedBook =
       fineCoverage >= inferredDesired
         ? fineBook
         : (bestCoarseForDesired?.book ?? fineBook ?? marketBook);
 
-    if (!selectedBook) {
-      setFrameState(
-        buildFallbackFrame(stableCache.lastRenderableFrame, marketBook, {
-          isStale: true,
-          isCoveragePending: false,
-          coverageReady: false,
-          desiredHalfSpan: inferredDesired,
-          canCommitDesiredSpan: false,
-          isConnected,
-          activeSigFigs,
-          error,
-        })
-      );
-      return;
-    }
-
-    const minHalfSpan = coverage.minHalfSpan;
+    const { minHalfSpan, defaultHalfSpan, tickSize } = coverage;
     const maxHalfSpan =
-      Math.max(coverage.maxHalfSpan ?? 0, bestCoverageSpan || 0) || coverage.maxHalfSpan;
-    const defaultHalfSpan = coverage.defaultHalfSpan;
-    const tickSize = coverage.tickSize;
+      Math.max(coverage.maxHalfSpan ?? 0, fineCoverage || 0) || coverage.maxHalfSpan || 0;
 
-    if (minHalfSpan === null || maxHalfSpan === null || defaultHalfSpan === null) {
-      setFrameState(
-        buildFallbackFrame(stableCache.lastRenderableFrame, marketBook, {
-          isStale: true,
-          isCoveragePending: false,
-          coverageReady: false,
-          desiredHalfSpan: inferredDesired,
-          canCommitDesiredSpan: false,
-          isConnected,
-          activeSigFigs,
-          error,
-        })
-      );
-      return;
+    if (!selectedBook || minHalfSpan === null || defaultHalfSpan === null) {
+      const next = buildFallbackFrame(stableCache.lastRenderableFrame, marketBook, {
+        isStale: true,
+        isCoveragePending: false,
+        coverageReady: false,
+        desiredHalfSpan: inferredDesired,
+        canCommitDesiredSpan: false,
+        isConnected,
+        activeSigFigs,
+        error,
+      });
+      return next;
     }
 
     const clampedDesired = Math.min(Math.max(inferredDesired, minHalfSpan), maxHalfSpan);
@@ -453,24 +439,21 @@ export function useDepthChartCanonicalFrame({
     });
 
     if (!materialized.hasRenderableFrame || !materialized.bounds) {
-      setFrameState(
-        buildFallbackFrame(stableCache.lastRenderableFrame, marketBook, {
-          isStale: true,
-          isCoveragePending: !coverageReady,
-          coverageReady,
-          desiredHalfSpan: clampedDesired,
-          actualRenderableHalfSpan: renderHalfSpan,
-          canCommitDesiredSpan: false,
-          isConnected,
-          activeSigFigs,
-          error,
-        })
-      );
-      return;
+      const next = buildFallbackFrame(stableCache.lastRenderableFrame, marketBook, {
+        isStale: true,
+        isCoveragePending: !coverageReady,
+        coverageReady,
+        desiredHalfSpan: clampedDesired,
+        actualRenderableHalfSpan: renderHalfSpan,
+        canCommitDesiredSpan: false,
+        isConnected,
+        activeSigFigs,
+        error,
+      });
+      return next;
     }
 
     const previousFrame = stableCache.lastRenderableFrame;
-
     const mergedBids = previousFrame?.bounds
       ? mergeVisibleLevels({
           previous: previousFrame.bids,
@@ -493,6 +476,7 @@ export function useDepthChartCanonicalFrame({
           step: materialized.bucketStep,
         })
       : materialized.asks;
+
     const bestBid = marketBook.bids[0]?.price || coverage.bestBid || 0;
     const bestAsk = marketBook.asks[0]?.price || coverage.bestAsk || 0;
     const sanitizedBids = sanitizeMergedSideLevels({
@@ -511,6 +495,7 @@ export function useDepthChartCanonicalFrame({
       minPrice: materialized.bounds.minPrice,
       maxPrice: materialized.bounds.maxPrice,
     });
+
     const stableBids = sanitizedBids.length > 0 ? sanitizedBids : materialized.bids;
     const stableAsks = sanitizedAsks.length > 0 ? sanitizedAsks : materialized.asks;
     const mergedMaxTotal = getDepthMaxTotal(stableBids, stableAsks);
@@ -533,7 +518,8 @@ export function useDepthChartCanonicalFrame({
         (level, index) =>
           level.price === stableAsks[index]?.price && level.size === stableAsks[index]?.size
       );
-    const renderVersion = sameAsPrevious
+
+    const nextRenderVersion = sameAsPrevious
       ? stableCache.renderVersion
       : stableCache.renderVersion + 1;
 
@@ -562,16 +548,22 @@ export function useDepthChartCanonicalFrame({
       actualRenderableHalfSpan: renderHalfSpan,
       canCommitDesiredSpan,
       maxTotal: stableMaxTotal,
-      renderVersion,
+      renderVersion: nextRenderVersion,
       activeSigFigs,
       isConnected,
       error,
     };
 
-    stableCacheRef.current.lastRenderableFrame = nextFrame;
-    stableCacheRef.current.lastBucketStep = materialized.bucketStep;
-    stableCacheRef.current.renderVersion = renderVersion;
-    setFrameState(nextFrame);
+    // 3. Persist cache to ref (no re-render triggered, unlike previous setState pattern)
+    if (nextFrame.hasRenderableFrame) {
+      stableCacheRef.current = {
+        lastRenderableFrame: nextFrame,
+        lastBucketStep: materialized.bucketStep,
+        renderVersion: nextRenderVersion,
+      };
+    }
+
+    return nextFrame;
   }, [
     activeSigFigs,
     coarseBookBySigFigs,
@@ -585,5 +577,5 @@ export function useDepthChartCanonicalFrame({
     viewportWidth,
   ]);
 
-  return useMemo(() => frameState, [frameState]);
+  return frame;
 }

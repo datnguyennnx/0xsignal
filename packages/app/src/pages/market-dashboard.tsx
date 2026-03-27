@@ -10,7 +10,7 @@
  * - Sparklines are rendered as lightweight SVG paths
  */
 import type { GlobalMarketData, CryptoPrice } from "@0xsignal/shared";
-import { memo, useState, useMemo } from "react";
+import { memo, useState, useMemo, useCallback } from "react";
 import { cn } from "@/core/utils/cn";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContentUnavailable } from "@/components/content-unavailable";
@@ -31,31 +31,7 @@ import { Sparkline } from "@/components/sparkline";
 
 const MAX_ITEMS = 100;
 
-const formatPrice = (price: number): string => {
-  const config =
-    price >= 1000 ? { min: 2, max: 2 } : price >= 1 ? { min: 2, max: 4 } : { min: 4, max: 6 };
-
-  return price.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: config.min,
-    maximumFractionDigits: config.max,
-  });
-};
-
-const formatMarketCap = (value: number): string => {
-  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
-  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
-  return `$${value.toLocaleString()}`;
-};
-
-const formatVolume = (value: number): string => {
-  if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
-  if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
-  if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
-  return value.toFixed(2);
-};
+import { formatPrice, formatMarketCap, formatVolume } from "@/core/utils/formatters";
 
 const ChangeCell = memo(function ChangeCell({ value }: { value: number }) {
   const isPositive = value >= 0;
@@ -293,15 +269,15 @@ export function MarketDashboard() {
 
   const isLoading = pricesLoading || marketLoading;
 
-  const handlePageChange = (newPage: number) => {
+  const handlePageChange = useCallback((newPage: number) => {
     setPage(newPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  }, []);
 
-  const handlePageSizeChange = (newSize: number) => {
+  const handlePageSizeChange = useCallback((newSize: number) => {
     setPageSize(newSize);
     setPage(1);
-  };
+  }, []);
 
   if (isLoading) {
     return <DashboardSkeleton />;

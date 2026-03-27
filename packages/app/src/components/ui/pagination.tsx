@@ -66,8 +66,8 @@ export const Pagination = memo(function Pagination({
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
           className="h-8 w-8"
         >
           <ChevronLeft className="h-4 w-4" />

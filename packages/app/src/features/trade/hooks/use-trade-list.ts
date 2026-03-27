@@ -1,22 +1,22 @@
 /**
- * @overview Perpetual Listing Hook
+ * @overview Trade Asset Listing Hook
  *
- * Fetches the complete list of available perpetual assets from Hyperliquid.
- * Includes HIP-1 (default perp) and HIP-3 (builder-deployed) perpetual markets.
+ * Data flow: Hyperliquid API → React Query cache → TradeDropdown component
  *
- * @mechanism
- * - Uses perpDexs to get all DEX names
- * - Uses perpCategories API to get category mapping (NOT hardcoded)
- * - For each DEX, calls metaAndAssetCtxs with the dex parameter
- * - Maps asset IDs correctly: HIP-1 = index, HIP-3 = 100000 + dexIndex * 10000 + index
+ * Fetches all available perpetual markets from Hyperliquid:
+ * 1. Calls perpDexs + perpCategories + allMids in parallel
+ * 2. For each DEX, fetches metaAndAssetCtxs to get asset details
+ * 3. Maps assets to TradeAsset with category, leverage, and pricing
+ * 4. Sorts by open interest (highest first)
  *
- * @strategy 30s stale time to keep market listings reasonably fresh without over-fetching.
+ * Caching: 30s stale time, 5min gc time
+ * Consumers: TradeDropdown (market selector)
  */
 import { useQuery } from "@tanstack/react-query";
 import { hyperliquidApi, type HyperliquidAssetCtx } from "@/services/hyperliquid";
 import { queryKeys } from "@/lib/query/query-keys";
 
-export type PerpCategory =
+export type TradeCategory =
   | "crypto"
   | "stocks"
   | "commodities"
@@ -25,20 +25,20 @@ export type PerpCategory =
   | "preipo"
   | string;
 
-export interface PerpAsset extends HyperliquidAssetCtx {
+export interface TradeAsset extends HyperliquidAssetCtx {
   maxLeverage: number;
-  category: PerpCategory;
+  category: TradeCategory;
   displayCategory: string;
   name: string;
   dex: string;
   assetId: number;
 }
 
-export interface PerpListData {
-  assets: PerpAsset[];
+export interface TradeListData {
+  assets: TradeAsset[];
 }
 
-function calculatePerpAssetId(dexIndex: number, assetIndex: number): number {
+function calculateAssetId(dexIndex: number, assetIndex: number): number {
   if (dexIndex === 0) {
     return assetIndex;
   }
@@ -58,9 +58,9 @@ function getDisplayCategory(category: string): string {
   return CATEGORY_DISPLAY_NAMES[category] || category.charAt(0).toUpperCase() + category.slice(1);
 }
 
-export function usePerpList() {
-  return useQuery<PerpListData>({
-    queryKey: queryKeys.hyperliquid.perpList(),
+export function useTradeList() {
+  return useQuery<TradeListData>({
+    queryKey: queryKeys.hyperliquid.tradeList(),
     queryFn: async () => {
       const [perpDexs, perpCategories, allMids] = await Promise.all([
         hyperliquidApi.getPerpDexs(),
@@ -80,7 +80,7 @@ export function usePerpList() {
         }
       });
 
-      const allAssets: PerpAsset[] = [];
+      const allAssets: TradeAsset[] = [];
 
       const metaPromises = dexNames.map((dexName) =>
         hyperliquidApi.getMetaAndAssetCtxs(dexName || undefined)
@@ -104,7 +104,7 @@ export function usePerpList() {
           if (asset.isDelisted) continue;
 
           const midPrice = allMids[symbol];
-          const assetId = calculatePerpAssetId(dexIndex, i);
+          const assetId = calculateAssetId(dexIndex, i);
 
           allAssets.push({
             coin: symbol,

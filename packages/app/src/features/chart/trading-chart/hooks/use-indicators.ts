@@ -32,12 +32,7 @@ interface UseIndicatorsResult {
   hasActiveOverlays: boolean;
 }
 
-const generateRandomColor = (): string => {
-  const hue = Math.floor(Math.random() * 360);
-  const saturation = 70 + Math.floor(Math.random() * 20);
-  const lightness = 45 + Math.floor(Math.random() * 15);
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-};
+import { getStableColor } from "@/core/utils/theme";
 
 export const useIndicators = ({ data = [] }: UseIndicatorsProps): UseIndicatorsResult => {
   const [activeIndicators, setActiveIndicators] = useState<ActiveIndicator[]>([]);
@@ -72,7 +67,7 @@ export const useIndicators = ({ data = [] }: UseIndicatorsProps): UseIndicatorsR
             config,
             params,
             visible: true,
-            color: generateRandomColor(),
+            color: getStableColor(instanceId),
           },
         ];
       });

@@ -75,10 +75,12 @@ export function useDepthChartZoomController({
     desiredHalfSpanRef.current = desiredHalfSpan;
   }, [desiredHalfSpan]);
 
-  useEffect(() => {
+  const [prevSymbol, setPrevSymbol] = useState(symbol);
+  if (symbol !== prevSymbol) {
+    setPrevSymbol(symbol);
     setDesiredHalfSpan(null);
     setIsInteracting(false);
-  }, [symbol]);
+  }
 
   const markInteraction = useCallback(() => {
     setIsInteracting(true);

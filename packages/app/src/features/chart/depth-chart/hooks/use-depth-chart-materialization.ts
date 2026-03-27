@@ -9,10 +9,7 @@
  * - implements normalizeStep to snap bucket sizes to common human-readable values (1, 2, 5, 10).
  * - rebuilds cumulative totals after bucketing to ensure the depth area remains accurate.
  */
-import type {
-  OrderbookData,
-  OrderbookLevel,
-} from "@/features/perp/hooks/use-hyperliquid-orderbook";
+import { type OrderbookData, type OrderbookLevel } from "@/core/utils/hyperliquid";
 import type { DepthLevel, DepthRenderableBounds } from "../constants";
 import { getMinHalfSpanValue } from "../lib/depth-visible-range";
 

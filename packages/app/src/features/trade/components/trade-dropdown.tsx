@@ -1,13 +1,17 @@
 /**
- * @overview Perpetual Symbol Dropdown
+ * @overview Trade Market Selector Dropdown
  *
- * A searchable and sortable dropdown for switching between different perpetual markets.
- * Includes real-time price, 24h change, and open interest for each market.
+ * Data flow: useTradeList → React Query → filtered/sorted list → navigate(/trade/:symbol)
  *
- * @mechanism
- * - Uses the usePerpList hook for market data
- * - Implements custom sorting (alphabetical, 24h change) and filtering
- * - Handles adaptive positioning to stay within viewport bounds
+ * A searchable, sortable dropdown for switching between perpetual markets.
+ * Shows real-time price, 24h change, and open interest per market.
+ *
+ * Mechanism:
+ * - Fetches market list via useTradeList (30s stale time)
+ * - Client-side filtering by category + search query
+ * - Sorting by name (A-Z) or 24h change (highest first)
+ * - Adaptive viewport positioning to avoid overflow
+ * - Navigates to /trade/:symbol on selection
  */
 import { memo, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -15,14 +19,15 @@ import { Search, ChevronDown, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-
 import { ContentUnavailable } from "@/components/content-unavailable";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
-import { usePerpList } from "@/features/perp/hooks/use-perp-list";
+import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatPrice, formatSize } from "@/core/utils/formatters";
 
-interface PerpDropdownProps {
+interface TradeDropdownProps {
   currentSymbol: string;
 }
 
-interface FormattedPerp {
+interface FormattedTrade {
   coin: string;
   category: string;
   displayCategory: string;
@@ -130,14 +135,14 @@ const MarketHeaderMobile = ({
   </div>
 );
 
-const MarketRowDesktop = ({ item }: { item: FormattedPerp }) => (
+const MarketRowDesktop = ({ item }: { item: FormattedTrade }) => (
   <div className="hidden sm:grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-3">
     <div className="flex flex-col justify-center min-w-0">
       <span className="font-mono font-medium text-sm tabular-nums">{item.coin}</span>
       <span className="text-[10px] text-muted-foreground">{item.displayCategory}</span>
     </div>
     <span className="font-mono text-sm text-right flex items-center justify-end text-foreground tabular-nums">
-      ${formatPrice(item.markPx)}
+      {formatPrice(Number(item.markPx))}
     </span>
     <span
       className={cn(
@@ -153,14 +158,14 @@ const MarketRowDesktop = ({ item }: { item: FormattedPerp }) => (
   </div>
 );
 
-const MarketRowMobile = ({ item }: { item: FormattedPerp }) => (
+const MarketRowMobile = ({ item }: { item: FormattedTrade }) => (
   <div className="sm:hidden grid min-w-0 grid-cols-[1fr_80px_80px] gap-2 px-3 py-3">
     <div className="flex flex-col justify-center min-w-0">
       <span className="font-mono font-medium text-sm tabular-nums truncate">{item.coin}</span>
       <span className="text-[9px] text-muted-foreground">{item.displayCategory}</span>
     </div>
     <span className="font-mono text-sm text-right flex items-center justify-end text-foreground tabular-nums">
-      ${formatPrice(item.markPx)}
+      {formatPrice(Number(item.markPx))}
     </span>
     <span
       className={cn(
@@ -190,15 +195,7 @@ const MarketRowSkeletonMobile = () => (
   </div>
 );
 
-function formatPrice(price: string): string {
-  const num = Number(price);
-  if (num >= 1000) return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  if (num >= 1)
-    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-  return num.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 8 });
-}
-
-export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDropdownProps) {
+export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: TradeDropdownProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -208,23 +205,23 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data, isLoading, error } = usePerpList();
+  const { data, isLoading, error } = useTradeList();
 
-  const perps = data?.assets;
+  const trades = data?.assets;
 
   const categoryCounts = useMemo(() => {
-    if (!perps) return {};
-    const counts: Record<string, number> = { all: perps.length };
-    perps.forEach((p) => {
+    if (!trades) return {};
+    const counts: Record<string, number> = { all: trades.length };
+    trades.forEach((p) => {
       counts[p.category] = (counts[p.category] || 0) + 1;
     });
     return counts;
-  }, [perps]);
+  }, [trades]);
 
-  const filteredPerps = useMemo(() => {
-    if (!perps) return [];
+  const filteredTrades = useMemo(() => {
+    if (!trades) return [];
 
-    let filtered = perps;
+    let filtered = trades;
 
     if (category !== "all") {
       filtered = filtered.filter((f) => f.category === category);
@@ -249,7 +246,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
     });
 
     return filtered;
-  }, [perps, category, query, sortBy, sortDesc]);
+  }, [trades, category, query, sortBy, sortDesc]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -287,7 +284,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
 
   const handleSelect = useCallback(
     (coin: string) => {
-      navigate(`/perp/${coin.toLowerCase()}`);
+      navigate(`/trade/${coin.toLowerCase()}`);
       handleClose();
     },
     [navigate, handleClose]
@@ -316,7 +313,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
     if (!open) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (!(e.target as Element).closest("[data-perp-dropdown]")) {
+      if (!(e.target as Element).closest("[data-trade-dropdown]")) {
         handleClose();
       }
     };
@@ -334,10 +331,10 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
     };
   }, [open, handleClose]);
 
-  const formattedPerps = useMemo(() => {
-    if (!filteredPerps) return [];
+  const formattedTrades = useMemo(() => {
+    if (!filteredTrades) return [];
     const symbolLower = currentSymbol.toLowerCase();
-    return filteredPerps.map((item) => {
+    return filteredTrades.map((item) => {
       const prevPx = Number(item.prevDayPx);
       const markPx = Number(item.markPx);
       const change = prevPx > 0 ? ((markPx - prevPx) / prevPx) * 100 : 0;
@@ -351,19 +348,14 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
         openInterest: item.openInterest,
         changeValue: change,
         changeFormatted: `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`,
-        oiFormatted:
-          oi > 1000000
-            ? `${(oi / 1000000).toFixed(1)}M`
-            : oi > 1000
-              ? `${(oi / 1000).toFixed(0)}K`
-              : oi.toFixed(0),
+        oiFormatted: formatSize(oi),
         isActive: item.coin.toLowerCase() === symbolLower,
       };
     });
-  }, [filteredPerps, currentSymbol]);
+  }, [filteredTrades, currentSymbol]);
 
   return (
-    <div className="relative" data-perp-dropdown>
+    <div className="relative" data-trade-dropdown>
       <div ref={triggerRef} className="flex items-center gap-1 cursor-pointer" onClick={handleOpen}>
         <span className="text-lg sm:text-xl font-mono font-semibold text-foreground tabular-nums font-mono-slashed">
           {currentSymbol}
@@ -453,7 +445,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
                 title="Failed to Load"
                 description="Could not retrieve market data. Please try again."
               />
-            ) : formattedPerps.length === 0 ? (
+            ) : formattedTrades.length === 0 ? (
               <ContentUnavailable
                 variant="no-data"
                 title="No Markets Found"
@@ -461,7 +453,7 @@ export const PerpDropdown = memo(function PerpDropdown({ currentSymbol }: PerpDr
               />
             ) : (
               <div className="divide-y divide-border/30">
-                {formattedPerps.map((item) => (
+                {formattedTrades.map((item) => (
                   <button
                     key={item.coin}
                     type="button"

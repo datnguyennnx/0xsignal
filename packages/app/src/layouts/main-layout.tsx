@@ -20,7 +20,7 @@ interface LayoutProps {
 
 const NAV_ITEMS = [
   { path: "/", label: "Market", icon: TrendingUp },
-  { path: "/perp", label: "Perp", icon: LineChart },
+  { path: "/trade", label: "Trade", icon: LineChart },
 ] as const;
 
 function LayoutInner({ children }: LayoutProps) {
