@@ -1,7 +1,12 @@
 /**
  * @overview Hyperliquid Data Utilities
- *
- * Provides shared logic for mapping and transforming Hyperliquid specific data formats.
+ * @audit 2026-04-03
+ *   - processRawL2Levels: reduced allocations from 4+ intermediate arrays to 2 (bids + asks only)
+ *     Time: O(n log n) dominated by sort (Ω(n log n) lower bound for comparison sort — optimal)
+ *     Space: O(n) for output arrays only, no temporary sorted copies
+ *   - groupOrderbookLevels: replaced Number(p.toFixed(d)) with Math.round(p*m)/m
+ *     Avoids O(d) string conversion per level; pure O(1) floating-point arithmetic
+ * @data-flow Hyperliquid WS → SDK → processRawL2Levels → RAF batch → React state → OrderbookWidget
  */
 
 // Supported time intervals
@@ -76,30 +81,41 @@ export interface L2BookLevel {
 
 /**
  * Standard processing of L2 raw data into structured levels with cumulative total and depth.
+ *
+ * Algorithm:
+ *   1. Parse + sort: O(n log n) — optimal for comparison-based sort
+ *   2. Single-pass cumulative totals: O(n)
+ *   3. Single-pass depth percentages: O(n)
+ *   Total time: O(n log n), Space: O(n) for output only (no intermediate arrays)
  */
 export function processRawL2Levels(rawBids: L2BookLevel[], rawAsks: L2BookLevel[]): OrderbookData {
-  const toLevels = (arr: L2BookLevel[], desc = false) => {
-    const sorted = [...arr].sort((a, b) =>
-      desc ? parseFloat(b.px) - parseFloat(a.px) : parseFloat(a.px) - parseFloat(b.px)
-    );
-    let total = 0;
-    return sorted.map((l) => ({
-      price: parseFloat(l.px),
-      size: parseFloat(l.sz),
-      total: (total += parseFloat(l.sz)),
-      depth: 0,
-    }));
-  };
+  const bids = rawBids
+    .map((l) => ({ price: parseFloat(l.px), size: parseFloat(l.sz), total: 0, depth: 0 }))
+    .sort((a, b) => b.price - a.price);
 
-  const bids = toLevels(rawBids, true);
-  const asks = toLevels(rawAsks, false);
-  const max = Math.max(
-    bids.reduce((s, b) => s + b.size, 0),
-    asks.reduce((s, a) => s + a.size, 0),
-    1
-  );
-  bids.forEach((b) => (b.depth = (b.total / max) * 100));
-  asks.forEach((a) => (a.depth = (a.total / max) * 100));
+  const asks = rawAsks
+    .map((l) => ({ price: parseFloat(l.px), size: parseFloat(l.sz), total: 0, depth: 0 }))
+    .sort((a, b) => a.price - b.price);
+
+  let bidTotal = 0;
+  for (let i = 0; i < bids.length; i++) {
+    bidTotal += bids[i].size;
+    bids[i].total = bidTotal;
+  }
+
+  let askTotal = 0;
+  for (let i = 0; i < asks.length; i++) {
+    askTotal += asks[i].size;
+    asks[i].total = askTotal;
+  }
+
+  const maxTotal = Math.max(bidTotal, askTotal, 1);
+  for (let i = 0; i < bids.length; i++) {
+    bids[i].depth = (bids[i].total / maxTotal) * 100;
+  }
+  for (let i = 0; i < asks.length; i++) {
+    asks[i].depth = (asks[i].total / maxTotal) * 100;
+  }
 
   const bestBid = bids[0]?.price || 0;
   const bestAsk = asks[0]?.price || 0;
@@ -114,6 +130,12 @@ export function processRawL2Levels(rawBids: L2BookLevel[], rawAsks: L2BookLevel[
 
 /**
  * Client-side grouping: floor bids, ceil asks based on specified tick step.
+ *
+ * Algorithm:
+ *   1. Group by tick boundary: O(n) using Map
+ *   2. Sort groups: O(m log m) where m = unique groups (m <= n)
+ *   3. Single-pass cumulative + depth: O(m)
+ *   Total time: O(n + m log m), Space: O(m) for the Map
  */
 export function groupOrderbookLevels(
   levels: OrderbookLevel[],
@@ -124,22 +146,36 @@ export function groupOrderbookLevels(
 
   const grouped = new Map<number, number>();
   const inv = 1 / step;
+  const logStep = Math.max(0, -Math.floor(Math.log10(step)));
+  const multiplier = Math.pow(10, Math.min(logStep, 15));
 
-  for (const l of levels) {
-    const p = side === "bids" ? Math.floor(l.price * inv) / inv : Math.ceil(l.price * inv) / inv;
-    const key = Number(p.toFixed(Math.max(0, -Math.floor(Math.log10(step)))));
+  for (let i = 0; i < levels.length; i++) {
+    const l = levels[i];
+    const rawP = side === "bids" ? Math.floor(l.price * inv) / inv : Math.ceil(l.price * inv) / inv;
+    const key = Math.round(rawP * multiplier) / multiplier;
     grouped.set(key, (grouped.get(key) || 0) + l.size);
   }
 
   const sorted = [...grouped.entries()].sort((a, b) =>
     side === "bids" ? b[0] - a[0] : a[0] - b[0]
   );
+
   let total = 0;
-  const totalSize = sorted.reduce((s, [, v]) => s + v, 0);
-  return sorted.map(([price, size]) => ({
-    price,
-    size,
-    total: (total += size),
-    depth: totalSize ? (total / totalSize) * 100 : 0,
-  }));
+  let totalSize = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    totalSize += sorted[i][1];
+  }
+
+  const result: OrderbookLevel[] = new Array(sorted.length);
+  for (let i = 0; i < sorted.length; i++) {
+    const [price, size] = sorted[i];
+    total += size;
+    result[i] = {
+      price,
+      size,
+      total,
+      depth: totalSize ? (total / totalSize) * 100 : 0,
+    };
+  }
+  return result;
 }

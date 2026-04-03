@@ -5,13 +5,13 @@
  * Supports row highlighting and cumulative volume calculations on hover.
  *
  * @mechanism
- * - Uses virtualization/static row heights for efficient rendering of large books
  * - Integrates with L2BookNSigFigsContext for cross-component aggregation sync
  * - Implements client-side grouping when local tick size differs from exchange SigFigs
  *
  * @performance
  * - Memoized OrderRow to prevent expensive re-renders of the entire list
  * - RAF-throttled updates from the underlying hook
+ * - Single-pass maxTotal computation (O(1) space, no intermediate arrays)
  */
 import { memo, useState, useCallback, useEffect, useRef, useMemo, startTransition } from "react";
 import {
@@ -103,7 +103,7 @@ const OrderRow = memo(
         rowRef.current,
         index
       );
-    }, [onHover, level, side, index]);
+    }, [onHover, level.price, level.size, level.total, side, index]);
 
     const handleMouseLeave = useCallback(() => onHover(null, null), [onHover]);
 
@@ -111,7 +111,7 @@ const OrderRow = memo(
       <div
         ref={rowRef}
         className={cn(
-          "relative flex items-center px-3 cursor-pointer tabular-nums select-none",
+          "relative flex items-center px-3 cursor-pointer tabular-nums select-none flex-shrink-0",
           isHovered ? "bg-muted/50" : "hover:bg-muted/30"
         )}
         style={{ height: ROW_HEIGHT }}
@@ -257,7 +257,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   );
 
   const currentOption = scalingOptions.find((o) => o.value === effectivePriceScaling);
-  const shouldSkipGrouping = currentOption?.mantissa === 5;
+  const shouldSkipGrouping = currentOption?.nSigFigs === 5;
 
   const groupedOrderbook = useMemo((): OrderbookData | null => {
     if (!orderbook) return null;
@@ -282,7 +282,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     if (!groupedOrderbook) return { visibleAsks: [], visibleBids: [], maxTotal: 0 };
     const asks = groupedOrderbook.asks.slice(0, VISIBLE_ROWS);
     const bids = groupedOrderbook.bids.slice(0, VISIBLE_ROWS);
-    const mt = Math.max(...asks.map((a) => a.total), ...bids.map((b) => b.total));
+    let mt = 0;
+    for (let i = 0; i < asks.length; i++) mt = Math.max(mt, asks[i].total);
+    for (let i = 0; i < bids.length; i++) mt = Math.max(mt, bids[i].total);
 
     const formatLevel = (level: OrderbookLevel): FormattedLevel => ({
       ...level,
@@ -371,11 +373,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     [calculateCumulativeData, setHoveredIndex]
   );
 
-  // Sync groupedOrderbook to ref in effect to avoid render-phase mutation
-  useEffect(() => {
-    groupedOrderbookRef.current = groupedOrderbook;
-  }, [groupedOrderbook]);
-
   // Stable callback for clearing popup on scroll/resize
   const clearPopup = useCallback(() => {
     setPopupData(null);
@@ -384,10 +381,10 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   useEffect(() => {
     if (!popupData || !popupPosition) return;
-    window.addEventListener("scroll", clearPopup, true);
+    window.addEventListener("scroll", clearPopup, { passive: true, capture: true });
     window.addEventListener("resize", clearPopup);
     return () => {
-      window.removeEventListener("scroll", clearPopup, true);
+      window.removeEventListener("scroll", clearPopup, { capture: true });
       window.removeEventListener("resize", clearPopup);
     };
   }, [popupData, popupPosition, clearPopup]);
@@ -442,17 +439,16 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden overscroll-none">
         <div className="flex flex-col-reverse relative flex-1 overflow-hidden overscroll-none">
           {visibleAsks.map((level, index) => (
-            <div key={level.price} data-row className="flex-shrink-0 relative">
-              <OrderRow
-                level={level}
-                side="ask"
-                index={index}
-                isHovered={isRowHovered("ask", index)}
-                isInRange={isRowInHighlightRange("ask", index)}
-                onHover={handleHover}
-                maxTotal={maxTotal}
-              />
-            </div>
+            <OrderRow
+              key={level.price}
+              level={level}
+              side="ask"
+              index={index}
+              isHovered={isRowHovered("ask", index)}
+              isInRange={isRowInHighlightRange("ask", index)}
+              onHover={handleHover}
+              maxTotal={maxTotal}
+            />
           ))}
         </div>
 
@@ -468,17 +464,16 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
         <div className="flex flex-col relative flex-1 overflow-hidden overscroll-none">
           {visibleBids.map((level, index) => (
-            <div key={level.price} data-row className="flex-shrink-0 relative">
-              <OrderRow
-                level={level}
-                side="bid"
-                index={index}
-                isHovered={isRowHovered("bid", index)}
-                isInRange={isRowInHighlightRange("bid", index)}
-                onHover={handleHover}
-                maxTotal={maxTotal}
-              />
-            </div>
+            <OrderRow
+              key={level.price}
+              level={level}
+              side="bid"
+              index={index}
+              isHovered={isRowHovered("bid", index)}
+              isInRange={isRowInHighlightRange("bid", index)}
+              onHover={handleHover}
+              maxTotal={maxTotal}
+            />
           ))}
         </div>
       </div>
