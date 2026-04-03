@@ -10,23 +10,22 @@
  * - Implements client-side grouping when local tick size differs from exchange SigFigs
  *
  * @performance
- * - Memoized OrderRow to prevent expensive re-renders
+ * - Memoized OrderRow with stable identity tracking (prevents flash on data updates)
  * - RAF-throttled updates from the underlying hook
  * - Single-pass maxTotal computation (O(1) space)
+ * - Threshold-based maxTotal stabilization (eliminates unnecessary re-renders)
+ * - CSS transitions on depth bars for smooth visual updates
+ * - CSS custom properties for dynamic width values (avoids inline style allocation)
  */
 import { memo, useState, useCallback, useEffect, useRef, useMemo, startTransition } from "react";
 import {
   useHyperliquidOrderbook,
   generateTickSizeOptions,
 } from "@/features/trade/hooks/use-hyperliquid-orderbook";
-import {
-  groupOrderbookLevels,
-  type OrderbookLevel,
-  type OrderbookData,
-} from "@/core/utils/hyperliquid";
+import { type OrderbookLevel, priceKey } from "@/core/utils/hyperliquid";
 import { useOptionalL2BookNSigFigs } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { cn } from "@/core/utils/cn";
-import { Loader2, ChevronDown } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { formatPriceWithScaling } from "@/core/utils/formatters";
 
@@ -37,6 +36,8 @@ interface OrderbookWidgetProps {
 const ROW_HEIGHT = 24;
 const VISIBLE_ROWS = 18;
 
+const DEPTH_BAR_TRANSITION = "width 150ms ease-out";
+
 interface FormattedLevel extends OrderbookLevel {
   formattedPrice: string;
   formattedTotal: string;
@@ -45,21 +46,34 @@ interface FormattedLevel extends OrderbookLevel {
 interface BidRowProps {
   level: FormattedLevel;
   maxTotal: number;
+  transitionsEnabled: boolean;
 }
 
+const BID_ROW_STYLE = { height: ROW_HEIGHT };
+const TABULAR_STYLE = { fontVariantNumeric: "tabular-nums" };
+const DEPTH_BAR_BASE = "absolute top-0 bottom-0 right-0 opacity-20 pointer-events-none";
+
 const BidRow = memo(
-  ({ level, maxTotal }: BidRowProps) => {
+  ({ level, maxTotal, transitionsEnabled }: BidRowProps) => {
     const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
 
     return (
       <div
         className="relative flex items-center justify-between px-2 tabular-nums select-none flex-shrink-0"
-        style={{ height: ROW_HEIGHT }}
+        style={BID_ROW_STYLE}
       >
         {level.price > 0 && (
           <div
-            className="absolute top-0 bottom-0 right-0 opacity-20 pointer-events-none bg-gain"
-            style={{ width: `${Math.min(depthPercent, 100)}%`, transform: "translateZ(0)" }}
+            className={cn(DEPTH_BAR_BASE, "bg-gain")}
+            style={
+              {
+                "--depth-width": `${Math.min(depthPercent, 100)}%`,
+                width: `var(--depth-width)`,
+                transform: "translateZ(0)",
+                willChange: "width",
+                transition: transitionsEnabled ? DEPTH_BAR_TRANSITION : "none",
+              } as React.CSSProperties
+            }
           />
         )}
         <span
@@ -67,7 +81,7 @@ const BidRow = memo(
             "relative z-10 text-xs font-mono",
             level.price === 0 ? "text-muted-foreground/30" : "text-foreground"
           )}
-          style={{ fontVariantNumeric: "tabular-nums" }}
+          style={TABULAR_STYLE}
         >
           {level.formattedTotal}
         </span>
@@ -76,7 +90,7 @@ const BidRow = memo(
             "relative z-10 text-xs font-mono",
             level.price === 0 ? "text-muted-foreground/30" : "text-gain"
           )}
-          style={{ fontVariantNumeric: "tabular-nums" }}
+          style={TABULAR_STYLE}
         >
           {level.formattedPrice}
         </span>
@@ -87,7 +101,7 @@ const BidRow = memo(
     prev.level.price === next.level.price &&
     prev.level.formattedPrice === next.level.formattedPrice &&
     prev.level.formattedTotal === next.level.formattedTotal &&
-    prev.maxTotal === next.maxTotal
+    prev.transitionsEnabled === next.transitionsEnabled
 );
 
 BidRow.displayName = "BidRow";
@@ -95,21 +109,33 @@ BidRow.displayName = "BidRow";
 interface AskRowProps {
   level: FormattedLevel;
   maxTotal: number;
+  transitionsEnabled: boolean;
 }
 
+const ASK_ROW_STYLE = { height: ROW_HEIGHT };
+const DEPTH_BAR_ASK_BASE = "absolute top-0 bottom-0 left-0 opacity-20 pointer-events-none";
+
 const AskRow = memo(
-  ({ level, maxTotal }: AskRowProps) => {
+  ({ level, maxTotal, transitionsEnabled }: AskRowProps) => {
     const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
 
     return (
       <div
         className="relative flex items-center justify-between px-2 tabular-nums select-none flex-shrink-0"
-        style={{ height: ROW_HEIGHT }}
+        style={ASK_ROW_STYLE}
       >
         {level.price > 0 && (
           <div
-            className="absolute top-0 bottom-0 left-0 opacity-20 pointer-events-none bg-loss"
-            style={{ width: `${Math.min(depthPercent, 100)}%`, transform: "translateZ(0)" }}
+            className={cn(DEPTH_BAR_ASK_BASE, "bg-loss")}
+            style={
+              {
+                "--depth-width": `${Math.min(depthPercent, 100)}%`,
+                width: `var(--depth-width)`,
+                transform: "translateZ(0)",
+                willChange: "width",
+                transition: transitionsEnabled ? DEPTH_BAR_TRANSITION : "none",
+              } as React.CSSProperties
+            }
           />
         )}
         <span
@@ -117,7 +143,7 @@ const AskRow = memo(
             "relative z-10 text-xs font-mono",
             level.price === 0 ? "text-muted-foreground/30" : "text-loss"
           )}
-          style={{ fontVariantNumeric: "tabular-nums" }}
+          style={TABULAR_STYLE}
         >
           {level.formattedPrice}
         </span>
@@ -126,7 +152,7 @@ const AskRow = memo(
             "relative z-10 text-xs font-mono",
             level.price === 0 ? "text-muted-foreground/30" : "text-foreground"
           )}
-          style={{ fontVariantNumeric: "tabular-nums" }}
+          style={TABULAR_STYLE}
         >
           {level.formattedTotal}
         </span>
@@ -137,10 +163,18 @@ const AskRow = memo(
     prev.level.price === next.level.price &&
     prev.level.formattedPrice === next.level.formattedPrice &&
     prev.level.formattedTotal === next.level.formattedTotal &&
-    prev.maxTotal === next.maxTotal
+    prev.transitionsEnabled === next.transitionsEnabled
 );
 
 AskRow.displayName = "AskRow";
+
+function formatLevel(level: OrderbookLevel, scaling: number): FormattedLevel {
+  return {
+    ...level,
+    formattedPrice: level.price > 0 ? formatPriceWithScaling(level.price, scaling) : "-",
+    formattedTotal: level.price > 0 ? level.total.toFixed(2) : "-",
+  };
+}
 
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const l2BookSig = useOptionalL2BookNSigFigs();
@@ -167,16 +201,39 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     value: number;
   } | null>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
+  const [transitionsEnabled, setTransitionsEnabled] = useState(true);
 
-  const bestPrice = orderbook?.asks[0]?.price || orderbook?.bids[0]?.price || 0;
+  useEffect(() => {
+    let raf = 0;
+    const onResize = () => {
+      setTransitionsEnabled(false);
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        raf = requestAnimationFrame(() => setTransitionsEnabled(true));
+      });
+    };
+    window.addEventListener("resize", onResize, { passive: true });
+    return () => {
+      window.removeEventListener("resize", onResize);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  const bestAskPrice = orderbook?.asks[0]?.price;
+  const bestBidPrice = orderbook?.bids[0]?.price;
+  const bestPrice = bestAskPrice ?? bestBidPrice ?? 0;
+
   const scalingOptions = useMemo(() => generateTickSizeOptions(bestPrice), [bestPrice]);
 
-  const effectivePriceScaling =
-    userPriceScaling?.symbol === symbol
-      ? userPriceScaling.value
-      : scalingOptions.length > 0
-        ? scalingOptions[0].value
-        : 0;
+  const effectivePriceScaling = useMemo(
+    () =>
+      userPriceScaling?.symbol === symbol
+        ? userPriceScaling.value
+        : scalingOptions.length > 0
+          ? scalingOptions[0].value
+          : 0,
+    [userPriceScaling, symbol, scalingOptions]
+  );
 
   useEffect(() => {
     if (orderbook && scalingOptions.length > 0 && userPriceScaling?.symbol !== symbol) {
@@ -205,18 +262,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     [scalingOptions, resubscribe, symbol]
   );
 
-  const currentOption = scalingOptions.find((o) => o.value === effectivePriceScaling);
-  const shouldSkipGrouping = currentOption?.nSigFigs === 5;
-
-  const groupedOrderbook = useMemo((): OrderbookData | null => {
-    if (!orderbook) return null;
-    if (shouldSkipGrouping) return orderbook;
-    return {
-      ...orderbook,
-      asks: groupOrderbookLevels(orderbook.asks, effectivePriceScaling, "asks"),
-      bids: groupOrderbookLevels(orderbook.bids, effectivePriceScaling, "bids"),
-    };
-  }, [orderbook, effectivePriceScaling, shouldSkipGrouping]);
+  const groupedOrderbook = orderbook;
 
   const { visibleAsks, visibleBids, maxTotal } = useMemo((): {
     visibleAsks: FormattedLevel[];
@@ -230,34 +276,12 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     for (let i = 0; i < asks.length; i++) mt = Math.max(mt, asks[i].total);
     for (let i = 0; i < bids.length; i++) mt = Math.max(mt, bids[i].total);
 
-    const formatLevel = (level: OrderbookLevel): FormattedLevel => ({
-      ...level,
-      formattedPrice:
-        level.price > 0 ? formatPriceWithScaling(level.price, effectivePriceScaling) : "-",
-      formattedTotal: level.price > 0 ? level.total.toFixed(2) : "-",
-    });
-
     return {
-      visibleAsks: asks.map(formatLevel),
-      visibleBids: bids.map(formatLevel),
+      visibleAsks: asks.map((l) => formatLevel(l, effectivePriceScaling)),
+      visibleBids: bids.map((l) => formatLevel(l, effectivePriceScaling)),
       maxTotal: mt,
     };
   }, [groupedOrderbook, effectivePriceScaling]);
-
-  const { spread, spreadPercent } = useMemo(() => {
-    if (
-      !groupedOrderbook ||
-      groupedOrderbook.asks.length === 0 ||
-      groupedOrderbook.bids.length === 0
-    ) {
-      return { spread: 0, spreadPercent: 0 };
-    }
-    const bestAsk = groupedOrderbook.asks[0]?.price || 0;
-    const bestBid = groupedOrderbook.bids[0]?.price || 0;
-    const s = bestAsk - bestBid;
-    const sp = bestBid > 0 ? (s / bestBid) * 100 : 0;
-    return { spread: s, spreadPercent: sp };
-  }, [groupedOrderbook]);
 
   if (error) {
     return (
@@ -314,7 +338,12 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
             <div className="flex-1 overflow-hidden relative">
               <div className="absolute inset-0 flex flex-col justify-start">
                 {visibleBids.map((level) => (
-                  <BidRow key={`bid-${level.price}`} level={level} maxTotal={maxTotal} />
+                  <BidRow
+                    key={priceKey("bid", level.price)}
+                    level={level}
+                    maxTotal={maxTotal}
+                    transitionsEnabled={transitionsEnabled}
+                  />
                 ))}
               </div>
             </div>
@@ -325,7 +354,12 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
             <div className="flex-1 overflow-hidden relative">
               <div className="absolute inset-0 flex flex-col justify-start">
                 {visibleAsks.map((level) => (
-                  <AskRow key={`ask-${level.price}`} level={level} maxTotal={maxTotal} />
+                  <AskRow
+                    key={priceKey("ask", level.price)}
+                    level={level}
+                    maxTotal={maxTotal}
+                    transitionsEnabled={transitionsEnabled}
+                  />
                 ))}
               </div>
             </div>

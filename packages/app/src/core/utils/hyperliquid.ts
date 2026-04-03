@@ -58,6 +58,15 @@ export function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * Produces a stable string key for an orderbook price level.
+ * Hyperliquid prices have ≤8 decimal places; toFixed(8) canonicalizes
+ * floating-point representation to prevent React key instability.
+ */
+export function priceKey(side: "bid" | "ask", price: number): string {
+  return `${side}-${price.toFixed(8)}`;
+}
+
 export interface OrderbookLevel {
   price: number;
   size: number;
