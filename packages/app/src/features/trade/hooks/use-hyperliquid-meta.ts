@@ -14,6 +14,12 @@
  * - Builder perp (HIP-3): coin = "xyz:CL", "km:US500", etc. (format: "dex:coin")
  * - Use meta({ dex }) to query specific DEX
  *
+ * @precision-formula
+ * Per Hyperliquid spec (llm/hyperliquid/tick-and-slot-size.md):
+ * - Perps: pxDecimals = min(5, 6 - szDecimals)
+ * - Spot:  pxDecimals = min(5, 8 - szDecimals)
+ * This ensures price decimals never exceed MAX_DECIMALS - szDecimals constraint.
+ *
  * @reference https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/asset-ids
  */
 
@@ -24,13 +30,23 @@ import { queryKeys } from "@/lib/query/query-keys";
 import { parseSymbol } from "./use-hyperliquid-ws";
 
 const MAX_DECIMALS_PERP = 6;
+const MAX_DECIMALS_SPOT = 8;
+const MAX_SIG_FIGS = 5;
 
 export interface AssetPrecision {
   pxDecimals: number;
   szDecimals: number;
 }
 
-const DEFAULT: AssetPrecision = { pxDecimals: 5, szDecimals: 4 };
+const DEFAULT: AssetPrecision = {
+  pxDecimals: Math.min(MAX_SIG_FIGS, MAX_DECIMALS_PERP - 4),
+  szDecimals: 4,
+};
+
+export function calculatePxDecimals(szDecimals: number, isSpot = false): number {
+  const maxDecimals = isSpot ? MAX_DECIMALS_SPOT : MAX_DECIMALS_PERP;
+  return Math.min(MAX_SIG_FIGS, maxDecimals - szDecimals);
+}
 
 export function useHyperliquidMeta(symbol?: string) {
   const parsed = symbol ? parseSymbol(symbol) : null;
@@ -48,12 +64,11 @@ export function useHyperliquidMeta(symbol?: string) {
     const map = new Map<string, AssetPrecision>();
     if (!data?.universe) return map;
     for (const asset of data.universe) {
-      const pxDec = 5;
       const sz = asset.szDecimals ?? 4;
-      // Keep original case for builder perps (contain ":")
+      const pxDec = calculatePxDecimals(sz, false);
       const key = asset.name.includes(":") ? asset.name : asset.name.toUpperCase();
       map.set(key, {
-        pxDecimals: Math.min(pxDec, MAX_DECIMALS_PERP),
+        pxDecimals: pxDec,
         szDecimals: sz,
       });
     }

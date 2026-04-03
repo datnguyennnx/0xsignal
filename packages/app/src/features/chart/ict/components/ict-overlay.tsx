@@ -25,7 +25,6 @@ interface ICTOverlayProps {
   series?: ISeriesApi<"Candlestick"> | null;
   analysis: ICTAnalysis | null;
   visibility: ICTVisibility;
-  isDark: boolean;
   lastTime: number;
 }
 
@@ -37,13 +36,7 @@ interface ICTRefs {
   otePrimitives: BandPrimitive[];
 }
 
-export function useICTOverlay({
-  chart,
-  series,
-  analysis,
-  visibility,
-  lastTime,
-}: Omit<ICTOverlayProps, "isDark">) {
+export function useICTOverlay({ chart, series, analysis, visibility, lastTime }: ICTOverlayProps) {
   const refs = useRef<ICTRefs>({
     swingLines: [],
     fvgPrimitives: [],
@@ -407,7 +400,7 @@ export function useICTOverlay({
       appliedKeysRef.current.ote = "";
     }
 
-    return () => {}; // Explicitly not cleaning up everything to allow persistence
+    return cleanup;
   }, [
     chart,
     analysis,

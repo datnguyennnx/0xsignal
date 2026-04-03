@@ -5,13 +5,16 @@
  * Handles diverse scaling for crypto pairs (from BTC @ $60k to PEPE @ $0.000001).
  */
 
-/**
- * Formats a numeric price into a localized USD string.
- * Automatically adjusts decimals based on magnitude.
- */
-export const formatPrice = (price: number): string => {
+const MAX_SIG_FIGS = 5;
+
+export const formatPrice = (price: number, pxDecimals?: number): string => {
+  const maxDec = pxDecimals ?? Math.min(MAX_SIG_FIGS, 6);
   const config =
-    price >= 1000 ? { min: 2, max: 2 } : price >= 1 ? { min: 2, max: 4 } : { min: 4, max: 6 };
+    price >= 1000
+      ? { min: Math.min(2, maxDec), max: Math.min(2, maxDec) }
+      : price >= 1
+        ? { min: Math.min(2, maxDec), max: Math.min(4, maxDec) }
+        : { min: Math.min(4, maxDec), max: Math.min(6, maxDec) };
 
   return price.toLocaleString("en-US", {
     style: "currency",
@@ -55,8 +58,7 @@ export const formatSize = (size: number): string => {
  */
 export const formatPriceWithScaling = (price: number, scaling: number): string => {
   let decimals: number;
-  if (scaling >= 1000) decimals = 0;
-  else if (scaling >= 1) decimals = 0;
+  if (scaling >= 1) decimals = 0;
   else decimals = Math.max(0, Math.min(6, -Math.floor(Math.log10(scaling))));
 
   return price.toLocaleString("en-US", {

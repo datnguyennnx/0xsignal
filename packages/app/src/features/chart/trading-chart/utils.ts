@@ -2,23 +2,18 @@
  * @overview Trading Chart Format Utilities
  *
  * Helper for formatting price values displayed in the OHLC overlay.
- * Uses a significant figures approach to keep display strings compact while maintaining precision.
+ * Uses the asset's pxDecimals from Hyperliquid metadata for correct precision.
+ *
+ * @precision-formula
+ * pxDecimals = min(5, MAX_DECIMALS - szDecimals) per Hyperliquid spec
+ * Trailing zeros are stripped for compact display (e.g., 42000.00 → 42000).
  */
-const MAX_DECIMALS_PERPETUAL = 6;
 
-export function formatPriceValue(
-  price: number,
-  maxDecimals: number = MAX_DECIMALS_PERPETUAL
-): string {
+export function formatPriceValue(price: number, pxDecimals: number): string {
   if (!Number.isFinite(price) || price === 0) return "0";
 
-  const absPrice = Math.abs(price);
-  const intDigits = absPrice >= 1 ? Math.floor(Math.log10(absPrice)) + 1 : 1;
-
-  let requiredDecimals = 5 - intDigits;
-  requiredDecimals = Math.max(0, Math.min(requiredDecimals, maxDecimals));
-
-  const formatted = price.toFixed(requiredDecimals);
+  const clampedDecimals = Math.max(0, Math.min(8, pxDecimals));
+  const formatted = price.toFixed(clampedDecimals);
   if (formatted.includes(".")) {
     return formatted.replace(/\.?0+$/, "") || "0";
   }

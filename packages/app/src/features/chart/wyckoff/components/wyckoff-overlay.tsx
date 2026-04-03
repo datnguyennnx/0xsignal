@@ -437,7 +437,7 @@ export function useWyckoffOverlay({
       appliedKeysRef.current.events = "";
     }
 
-    return () => {}; // Persist across updates
+    return cleanup;
   }, [
     chart,
     analysis,

@@ -43,16 +43,16 @@ interface PaneState {
   indicatorId: string;
 }
 
-const oscillatorPriceFormat = {
+const createOscillatorPriceFormat = (minDecimals = 2, maxDecimals = 4) => ({
   type: "custom" as const,
   formatter: (price: number) => {
     if (!Number.isFinite(price) || price === 0) return "0";
     return price.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
+      minimumFractionDigits: minDecimals,
+      maximumFractionDigits: maxDecimals,
     });
   },
-};
+});
 
 const createLineOptions = (color?: string) => ({
   color,
@@ -323,21 +323,32 @@ export const useIndicatorOverlay = ({
       const isHistogram = config?.output === "histogram" || isHistogramIndicator(instanceId);
 
       if (!seriesRef) {
+        const isOscillator = !indicator.config.overlayOnPrice;
+        const priceFormat = isOscillator ? createOscillatorPriceFormat() : undefined;
+
         const series = isHistogram
           ? paneState.pane.addSeries(HistogramSeries, {
               color: indicator.color,
-              priceFormat: oscillatorPriceFormat,
+              priceFormat,
             })
           : paneState.pane.addSeries(LineSeries, {
               ...createLineOptions(indicator.color),
-              priceFormat: oscillatorPriceFormat,
+              priceFormat,
             });
 
         seriesRef = { series, indicatorId: instanceId };
         lineSeriesRefs.current.set(instanceId, seriesRef);
       }
 
-      seriesRef.series.setData(data.data as any);
+      if (isHistogram) {
+        (seriesRef.series as ISeriesApi<"Histogram">).setData(
+          data.data as import("lightweight-charts").HistogramData<Time>[]
+        );
+      } else {
+        (seriesRef.series as ISeriesApi<"Line">).setData(
+          data.data as import("lightweight-charts").LineData<Time>[]
+        );
+      }
       appliedCacheKeyRef.current.set(instanceId, data.meta.cacheKey);
     }
 
@@ -350,7 +361,7 @@ export const useIndicatorOverlay = ({
         if (p !== volumePaneRef.current) p.setStretchFactor(300);
       });
     }
-  }, [chart, mainSeries, activeIndicators, indicatorData, overlayIndicators, oscillatorIndicators]);
+  }, [chart, mainSeries, activeIndicators, indicatorData]);
 
   useEffect(() => {
     return () => {

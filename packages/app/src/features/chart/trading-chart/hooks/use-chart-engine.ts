@@ -5,7 +5,7 @@
  * Handles resizing, crosshair tracking, and coordinate mapping between DOM and Library.
  *
  * @mechanism
- * - utilizes MutationObserver for theme-aware color updates without re-mounting.
+ * - utilizes useEffect + ref pattern for theme-aware color updates without re-mounting.
  * - implements an infinite scroll listener (loadMore) for historical candle data.
  * - abstracts data series (Candlestick, Volume) into a stable API for the main component.
  */
@@ -82,7 +82,7 @@ export const useChartEngine = ({
     hasMoreRef.current = hasMore;
     onCrosshairMoveRef.current = onCrosshairMove;
     isDarkRef.current = isDark;
-  });
+  }, [onLoadMore, hasMore, onCrosshairMove, isDark]);
 
   const priceFormatRef = useRef(priceFormat);
   useEffect(() => {

@@ -103,8 +103,8 @@ const AssetContent = memo(function AssetContent({
       {/* Shared L2 nSigFigs so Orderbook dropdown and Depth chart use the same Hyperliquid aggregation */}
       <L2BookNSigFigsProvider key={symbol}>
         {/* Main Content: Chart + Side Panel */}
-        <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-5 gap-4 lg:gap-5">
-          {/* Chart - Takes 4/5 on desktop */}
+        <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-5 lg:items-start gap-4 lg:gap-5">
+          {/* Chart - Takes 4/5 on desktop, fills height set by orderbook content */}
           <div className="lg:col-span-4 flex-1 min-h-[350px] lg:min-h-0 lg:h-full min-h-0 flex flex-col">
             {chartLoading ? (
               <Skeleton className="h-full w-full rounded-sm" />
@@ -119,8 +119,8 @@ const AssetContent = memo(function AssetContent({
             )}
           </div>
 
-          {/* Side Panel: Orderbook - Only visible on lg+ */}
-          <div className="hidden lg:block lg:col-span-1 min-h-[400px] lg:min-h-0 lg:h-full flex flex-col">
+          {/* Side Panel: Orderbook - Content-driven height, only visible on lg+ */}
+          <div className="hidden lg:block lg:col-span-1 flex flex-col">
             <OrderbookWidget key={symbol} symbol={symbol} />
           </div>
         </div>

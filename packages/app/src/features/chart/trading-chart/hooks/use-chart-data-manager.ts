@@ -208,4 +208,6 @@ export const useChartData = ({
     visibleCandles,
     enabled,
   ]);
+  // NOTE: `data` must be in deps because it's the sync trigger.
+  // Ref-based guards inside prevent unnecessary LWC API calls on every render.
 };

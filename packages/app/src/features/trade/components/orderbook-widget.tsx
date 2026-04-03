@@ -422,7 +422,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   return (
     <div
       ref={widgetRef}
-      className="h-full flex flex-col bg-card border-border/30 rounded-xl overflow-hidden p-2"
+      className="flex flex-col bg-card border-border/30 rounded-xl overflow-hidden p-2"
     >
       <OrderbookToolbar
         priceScaling={effectivePriceScaling}
@@ -436,8 +436,8 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         <span className="flex-1 text-right">Total</span>
       </div>
 
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden overscroll-none">
-        <div className="flex flex-col-reverse relative flex-1 overflow-hidden overscroll-none">
+      <div className="flex flex-col min-h-0 overflow-hidden overscroll-none">
+        <div className="flex flex-col-reverse relative overflow-hidden overscroll-none">
           {visibleAsks.map((level, index) => (
             <OrderRow
               key={level.price}
@@ -462,7 +462,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
           </span>
         </div>
 
-        <div className="flex flex-col relative flex-1 overflow-hidden overscroll-none">
+        <div className="flex flex-col relative overflow-hidden overscroll-none">
           {visibleBids.map((level, index) => (
             <OrderRow
               key={level.price}
