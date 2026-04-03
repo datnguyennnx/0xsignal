@@ -33,7 +33,7 @@ export const getStableColor = (seed: string): string => {
     hash = seed.charCodeAt(i) + ((hash << 5) - hash);
   }
 
-  // Use the hash to drive HSL for better visual distribution than RBG
+  // Use the hash to drive HSL for better visual distribution than RGB
   const h = Math.abs(hash) % 360;
   const s = 70 + (Math.abs(hash >> 8) % 20); // 70-90%
   const l = 45 + (Math.abs(hash >> 16) % 15); // 45-60%

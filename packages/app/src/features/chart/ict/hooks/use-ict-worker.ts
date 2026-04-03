@@ -1,7 +1,7 @@
 /**
  * @overview ICT Analysis Worker Hook
  *
- * Provdes a React hook interface for Inner Circle Trader (ICT) pattern analysis.
+ * Provides a React hook interface for Inner Circle Trader (ICT) pattern analysis.
  * Features automated debouncing of requests to minimize CPU pressure during rapid price changes.
  *
  * @mechanism

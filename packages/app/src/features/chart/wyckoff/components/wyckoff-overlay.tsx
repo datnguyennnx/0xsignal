@@ -10,19 +10,19 @@
  * - implements a strict cleanup cycle (attach/detach/removeSeries) to prevent memory leaks and ghost primitives.
  */
 import { useEffect, useRef, useCallback } from "react";
-import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
+import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
 import type { WyckoffAnalysis } from "@0xsignal/shared";
 import type { WyckoffVisibility } from "../types";
 import { ZonePrimitive } from "../../ict/primitives";
 import { getWyckoffColors } from "../utils";
+import { ensureUniqueAscending } from "../../utils/ensure-unique-ascending";
 
 interface WyckoffOverlayProps {
   chart: IChartApi | null;
   series?: ISeriesApi<"Candlestick"> | null;
   analysis: WyckoffAnalysis | null;
   visibility: WyckoffVisibility;
-  isDark: boolean;
   lastTime: number;
 }
 
@@ -33,20 +33,6 @@ interface WyckoffRefs {
   climaxLines: ISeriesApi<"Line">[];
   eventLines: ISeriesApi<"Line">[];
 }
-
-const ensureUniqueAscending = (
-  points: { time: number; value: number }[]
-): { time: Time; value: number }[] => {
-  if (points.length === 0) return [];
-  const sorted = [...points].sort((a, b) => a.time - b.time);
-  const uniqueMap = new Map<number, number>();
-  for (const p of sorted) {
-    uniqueMap.set(p.time, p.value);
-  }
-  return Array.from(uniqueMap.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map(([time, value]) => ({ time: time as Time, value }));
-};
 
 const getPhaseColor = (phase: string): { fill: string; border: string } => {
   const map: Record<string, { fill: string; border: string }> = {
@@ -64,7 +50,6 @@ export function useWyckoffOverlay({
   series,
   analysis,
   visibility,
-  isDark,
   lastTime,
 }: WyckoffOverlayProps) {
   const refs = useRef<WyckoffRefs>({
@@ -186,7 +171,7 @@ export function useWyckoffOverlay({
       } catch {}
     });
 
-    const colors = getWyckoffColors(isDark);
+    const colors = getWyckoffColors();
     const lines: ISeriesApi<"Line">[] = [];
 
     for (const effort of analysis.effortResults.slice(-6)) {
@@ -251,7 +236,7 @@ export function useWyckoffOverlay({
     }
     refs.current.effortLines = lines;
     appliedKeysRef.current.effort = key;
-  }, [chart, analysis, isDark, lastTime]);
+  }, [chart, analysis, lastTime]);
 
   const renderTradingRange = useCallback(() => {
     if (!chart || !analysis?.tradingRange || !seriesRef.current) return;
@@ -265,7 +250,7 @@ export function useWyckoffOverlay({
       } catch {}
     }
 
-    const colors = getWyckoffColors(isDark);
+    const colors = getWyckoffColors();
     const tr = analysis.tradingRange;
 
     const primitive = new ZonePrimitive({
@@ -284,7 +269,7 @@ export function useWyckoffOverlay({
     s.attachPrimitive(primitive);
     refs.current.rangePrimitive = primitive;
     appliedKeysRef.current.tradingRange = key;
-  }, [chart, analysis, isDark, lastTime]);
+  }, [chart, analysis, lastTime]);
 
   const renderClimaxes = useCallback(() => {
     if (!chart || !analysis?.climaxes.length) return;
@@ -297,7 +282,7 @@ export function useWyckoffOverlay({
       } catch {}
     });
 
-    const colors = getWyckoffColors(isDark);
+    const colors = getWyckoffColors();
     const lines: ISeriesApi<"Line">[] = [];
 
     for (const climax of analysis.climaxes) {
@@ -323,7 +308,7 @@ export function useWyckoffOverlay({
     }
     refs.current.climaxLines = lines;
     appliedKeysRef.current.climaxes = key;
-  }, [chart, analysis, isDark, lastTime]);
+  }, [chart, analysis, lastTime]);
 
   const renderEvents = useCallback(() => {
     if (!chart || !analysis?.events.length) return;
@@ -336,7 +321,7 @@ export function useWyckoffOverlay({
       } catch {}
     });
 
-    const colors = getWyckoffColors(isDark);
+    const colors = getWyckoffColors();
     const lines: ISeriesApi<"Line">[] = [];
 
     for (const event of analysis.events.slice(-8)) {
@@ -386,7 +371,7 @@ export function useWyckoffOverlay({
     }
     refs.current.eventLines = lines;
     appliedKeysRef.current.events = key;
-  }, [chart, analysis, isDark, lastTime]);
+  }, [chart, analysis, lastTime]);
 
   useEffect(() => {
     if (!chart || !analysis) {

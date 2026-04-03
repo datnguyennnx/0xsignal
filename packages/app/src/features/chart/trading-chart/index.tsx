@@ -12,6 +12,8 @@
  * @performance
  * - Throttles crosshair and price updates to 60fps
  * - Uses a Worker (in hooks) for heavy indicator calculations to keep UI responsive
+ * - Consumes candle data from CandleDataProvider via ref to avoid memo invalidation
+ *   from new array references on every candle tick
  *
  * @composition
  * - useChartEngine: Creates/manages chart instance
@@ -20,10 +22,10 @@
  * - useWyckoffOverlay: Wyckoff analysis visualization
  */
 import { useRef, useState, useCallback, useMemo, memo } from "react";
-import type { ChartDataPoint } from "@0xsignal/shared";
 import { useTheme } from "@/core/providers/theme-provider";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { useChartConfig } from "@/hooks/use-breakpoint";
+import { useCandleData } from "@/features/trade/contexts/candle-data-context";
 
 import {
   useICTOverlay,
@@ -56,43 +58,29 @@ import {
 import { useIndicatorOverlay } from "./hooks/use-indicator-overlay";
 import { INTERVAL_RESTORE_DELAY } from "./constants";
 import { ChartOhlcOverlay } from "./chart-ohlc-overlay";
-import { DepthChartWidget } from "../depth-chart";
-import { cn } from "@/core/utils/cn";
 import { HoverProvider, useHoverActions } from "./contexts/hover-context";
-import type { ChartViewMode } from "./types";
 
 interface TradingChartProps {
-  data: ChartDataPoint[];
   symbol: string;
   interval: string;
   onIntervalChange: (interval: string) => void;
-  loadMore?: (count?: number) => Promise<void>;
-  hasMore?: boolean;
-  isFetching?: boolean;
 }
 
-const TradingChartInner = ({
-  data,
-  symbol,
-  interval,
-  onIntervalChange,
-  loadMore,
-  hasMore,
-  isFetching = false,
-}: TradingChartProps) => {
+const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartProps) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const chartConfig = useChartConfig();
   const { getPrecision } = useHyperliquidMeta();
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const { setHoveredCandle } = useHoverActions();
+  // Use data (state) for render-phase access, not dataRef
+  const { data, loadMore, hasMore, isFetching } = useCandleData();
 
   const chartSymbol = symbol.toUpperCase();
   const [ictVisibility, setIctVisibility] = useState<ICTVisibility>(DEFAULT_ICT_VISIBILITY);
   const [wyckoffVisibility, setWyckoffVisibility] = useState<WyckoffVisibility>(
     DEFAULT_WYCKOFF_VISIBILITY
   );
-  const [viewMode, setViewMode] = useState<ChartViewMode>("chart");
 
   const { isFullscreen, toggleFullscreen, fullscreenContainerRef } = useFullscreen();
   const showOrientationWarning = useOrientationWarning(isFullscreen);
@@ -105,11 +93,11 @@ const TradingChartInner = ({
 
   const { analysis: ictAnalysis, isLoading: ictLoading } = useICTWorker({
     data,
-    enabled: ictEnabled && viewMode === "chart",
+    enabled: ictEnabled,
   });
   const { analysis: wyckoffAnalysis, isLoading: wyckoffLoading } = useWyckoffWorker({
     data,
-    enabled: wyckoffEnabled && viewMode === "chart",
+    enabled: wyckoffEnabled,
   });
 
   const lastTime = useMemo(() => (data.length > 0 ? data[data.length - 1].time : 0), [data]);
@@ -126,7 +114,6 @@ const TradingChartInner = ({
     hasActiveOverlays,
   } = useIndicators({ data });
 
-  // Stable callback wrapper for loadMore
   const handleLoadMore = useCallback(() => {
     loadMore?.(chartConfig.loadMoreCandles);
   }, [loadMore, chartConfig.loadMoreCandles]);
@@ -137,7 +124,7 @@ const TradingChartInner = ({
     priceFormat,
     onCrosshairMove: setHoveredCandle,
     onLoadMore: handleLoadMore,
-    hasMore: hasMore ?? false,
+    hasMore: hasMore,
   });
 
   useChartData({
@@ -149,7 +136,7 @@ const TradingChartInner = ({
     volumeSeries,
     chart,
     visibleCandles: chartConfig.visibleCandles,
-    enabled: viewMode === "chart",
+    enabled: true,
   });
 
   useICTOverlay({
@@ -157,7 +144,6 @@ const TradingChartInner = ({
     series: candlestickSeries,
     analysis: ictAnalysis,
     visibility: ictVisibility,
-    isDark,
     lastTime,
   });
 
@@ -166,7 +152,6 @@ const TradingChartInner = ({
     series: candlestickSeries,
     analysis: wyckoffAnalysis,
     visibility: wyckoffVisibility,
-    isDark,
     lastTime,
   });
 
@@ -190,10 +175,6 @@ const TradingChartInner = ({
     setWyckoffVisibility(DEFAULT_WYCKOFF_VISIBILITY);
     resetIndicators();
   }, [resetIndicators]);
-
-  const handleViewModeChange = useCallback((mode: ChartViewMode) => {
-    setViewMode(mode);
-  }, []);
 
   const handleIntervalChange = useCallback(
     (newInterval: string) => {
@@ -228,8 +209,6 @@ const TradingChartInner = ({
           onResetAll={handleResetAll}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
-          viewMode={viewMode}
-          onViewModeChange={handleViewModeChange}
         />
       </ChartHeader>
 
@@ -240,34 +219,12 @@ const TradingChartInner = ({
         onIntervalChange={handleIntervalChange}
         onToggleFullscreen={toggleFullscreen}
         isFetching={isFetching}
-        viewMode={viewMode}
-        onViewModeChange={handleViewModeChange}
       />
 
       <div className="flex-1 relative bg-card overscroll-none">
-        {/* Candlestick chart container */}
-        <div
-          ref={chartContainerRef}
-          className="absolute inset-0"
-          style={{
-            pointerEvents: viewMode === "chart" ? "auto" : "none",
-            opacity: viewMode === "chart" ? 1 : 0,
-          }}
-        />
-        {/* Depth chart is mounted only in depth mode to avoid hidden realtime work */}
-        {viewMode === "depth" && (
-          <DepthChartWidget
-            symbol={chartSymbol}
-            className={cn("absolute inset-0 pointer-events-auto opacity-100")}
-          />
-        )}
-        {/* Indicator chips and overlays only show in chart mode */}
-        {viewMode === "chart" && (
-          <>
-            <IndicatorChips indicators={activeIndicators} />
-            <ChartOhlcOverlay data={data} precision={precision.pxDecimals} />
-          </>
-        )}
+        <div ref={chartContainerRef} className="absolute inset-0" />
+        <IndicatorChips indicators={activeIndicators} />
+        <ChartOhlcOverlay data={data} precision={precision.pxDecimals} />
       </div>
 
       {isFullscreen && (
@@ -286,8 +243,6 @@ const TradingChartInner = ({
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
           variant="mobile"
-          viewMode={viewMode}
-          onViewModeChange={handleViewModeChange}
         />
       )}
 

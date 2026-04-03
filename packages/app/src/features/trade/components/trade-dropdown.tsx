@@ -83,7 +83,7 @@ const MarketHeader = ({
   sortDesc: boolean;
   onSort: (field: "name" | "change") => void;
 }) => (
-  <div className="hidden sm:grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
+  <div className="hidden sm:grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
     <button
       type="button"
       onClick={() => onSort("name")}

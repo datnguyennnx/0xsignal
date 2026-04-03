@@ -31,17 +31,25 @@ export function IndicatorConfigPanel({
   onApply,
   onRemoveInstance,
 }: IndicatorConfigPanelProps) {
-  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
-  const [formValues, setFormValues] = useState<Record<string, string>>(() =>
-    toFormValues(indicator)
+  // Track selected instance - null means "new/default"
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(() => {
+    if (activeIndicators.length > 0) {
+      return activeIndicators[0].instanceId;
+    }
+    return null;
+  });
+
+  // Derive form values from selected instance or defaults - no effect needed
+  const selectedInstance = useMemo(
+    () => activeIndicators.find((i) => i.instanceId === selectedInstanceId) ?? null,
+    [activeIndicators, selectedInstanceId]
   );
 
-  // Sync with first active indicator on mount if nothing selected
-  if (activeIndicators.length > 0 && !selectedInstanceId) {
-    const first = activeIndicators[0];
-    setSelectedInstanceId(first.instanceId);
-    setFormValues(toFormValues(indicator, first.params));
-  }
+  const formValues = useMemo(
+    () =>
+      selectedInstance ? toFormValues(indicator, selectedInstance.params) : toFormValues(indicator),
+    [indicator, selectedInstance]
+  );
 
   const parsedParamsForCurrentForm = useMemo(
     () => parseFormValues(indicator, formValues),
@@ -62,18 +70,13 @@ export function IndicatorConfigPanel({
     onApply(normalizeIndicatorParams(indicator, parsedParamsForCurrentForm));
   }, [indicator, parsedParamsForCurrentForm, onApply]);
 
-  const handleSelectExisting = useCallback(
-    (instance: ActiveIndicator) => {
-      setSelectedInstanceId(instance.instanceId);
-      setFormValues(toFormValues(indicator, instance.params));
-    },
-    [indicator]
-  );
+  const handleSelectExisting = useCallback((instance: ActiveIndicator) => {
+    setSelectedInstanceId(instance.instanceId);
+  }, []);
 
   const handleResetToDefault = useCallback(() => {
     setSelectedInstanceId(null);
-    setFormValues(toFormValues(indicator));
-  }, [indicator]);
+  }, []);
 
   const activeCount = activeIndicators.length;
 
@@ -142,9 +145,10 @@ export function IndicatorConfigPanel({
                   key={paramDef.key}
                   definition={paramDef}
                   value={formValues[paramDef.key] ?? ""}
-                  onValueChange={(next) =>
-                    setFormValues((prev) => ({ ...prev, [paramDef.key]: next }))
-                  }
+                  onValueChange={() => {
+                    // When user edits a field, switch to "new" mode since params no longer match any instance
+                    if (selectedInstanceId) setSelectedInstanceId(null);
+                  }}
                 />
               ))}
             </div>

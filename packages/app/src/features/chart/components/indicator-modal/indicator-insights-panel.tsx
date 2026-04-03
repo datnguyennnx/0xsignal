@@ -72,7 +72,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
                   {indicator.usage.tips.map((tip, idx) => (
                     <li
                       key={idx}
-                      className="text-[13px] leading-relaxed text-muted-foreground flex gap-2"
+                      className="text-sm leading-relaxed text-muted-foreground flex gap-2"
                     >
                       <span className="text-foreground/30">•</span> {tip}
                     </li>
@@ -90,7 +90,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
                   {indicator.usage.pitfalls.map((pitfall, idx) => (
                     <li
                       key={idx}
-                      className="text-[13px] leading-relaxed text-muted-foreground flex gap-2"
+                      className="text-sm leading-relaxed text-muted-foreground flex gap-2"
                     >
                       <span className="text-foreground/30">•</span> {pitfall}
                     </li>
@@ -129,7 +129,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
                 <p className="text-[9px] uppercase font-mono font-bold text-muted-foreground/40 mb-1">
                   Implementation Spec
                 </p>
-                <p className="text-[11px] font-mono text-muted-foreground/60 leading-tight">
+                <p className="text-xs font-mono text-muted-foreground/60 leading-tight">
                   {indicator.implementationNotesForDev}
                 </p>
               </div>

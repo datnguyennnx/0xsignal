@@ -1,7 +1,7 @@
 /**
  * @overview Wyckoff Analysis Worker Hook
  *
- * Provdes a React hook interface for the Wyckoff pattern analysis engine.
+ * Provides a React hook interface for the Wyckoff pattern analysis engine.
  * Handles async execution, error states, and cancellation (AbortController) to keep UI responsive.
  *
  * @mechanism

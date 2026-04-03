@@ -56,6 +56,6 @@ export const RATE_LIMITS = {
 
 // Default limits
 export const DEFAULT_LIMITS = {
-  TOP_CRYPTOS: 100,
+  TOP_CRYPTOS: 250,
   TOP_CRYPTOS_EXTENDED: 250,
 } as const;

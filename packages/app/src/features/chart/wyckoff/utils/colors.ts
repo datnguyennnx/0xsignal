@@ -19,7 +19,7 @@ export interface WyckoffColors {
 
 import { getThemeColor } from "@/core/utils/theme";
 
-export const getWyckoffColors = (_isDark: boolean): WyckoffColors => {
+export const getWyckoffColors = (): WyckoffColors => {
   return {
     tradingRange: {
       fill: getThemeColor("wyckoff-tr-fill", "rgba(99, 102, 241, 0.06)"),

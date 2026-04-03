@@ -31,12 +31,12 @@ export function OrderbookPage() {
         >
           <ChevronLeft className="w-5 h-5" />
         </Button>
-        <h1 className="text-lg font-mono font-bold tracking-tight">
+        <h1 className="text-lg sm:text-xl font-mono font-bold tracking-tight">
           {symbol?.toUpperCase()} Orderbook
         </h1>
       </header>
       <div className="flex-1 min-h-0 px-2 pb-2 overscroll-none">
-        <OrderbookWidget symbol={symbol || ""} />
+        <OrderbookWidget key={symbol} symbol={symbol || ""} />
       </div>
     </div>
   );

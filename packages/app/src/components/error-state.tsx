@@ -39,7 +39,7 @@ export const ErrorState = memo(function ErrorState({
         className="text-muted-foreground/40 mb-4"
         aria-hidden="true"
       />
-      <h3 className="text-base font-semibold tracking-tight mb-3">
+      <h3 className="text-sm font-semibold tracking-tight mb-3">
         {isRateLimit ? "System Cooling Down" : title}
       </h3>
 

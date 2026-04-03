@@ -12,7 +12,7 @@ import type { CryptoPrice, GlobalMarketData } from "@0xsignal/shared";
 import { queryKeys } from "@/lib/query/query-keys";
 import { getQueryOptions } from "@/lib/query/client";
 
-// Placeholder data cho UI load nhanh
+// Placeholder data for instant-on UI
 const placeholderPrices: CryptoPrice[] = [];
 
 const placeholderGlobalMarket: GlobalMarketData = {
@@ -26,7 +26,7 @@ const placeholderGlobalMarket: GlobalMarketData = {
   updatedAt: Date.now(),
 };
 
-// Lấy danh sách giá crypto
+// Fetch top cryptocurrency prices
 export function usePrices(limit = 100) {
   return useQuery({
     queryKey: queryKeys.prices.list(limit),
@@ -36,7 +36,7 @@ export function usePrices(limit = 100) {
   });
 }
 
-// Lấy thông tin thị trường toàn cầu
+// Fetch global market overview
 export function useGlobalMarket() {
   return useQuery({
     queryKey: queryKeys.globalMarket.overview(),

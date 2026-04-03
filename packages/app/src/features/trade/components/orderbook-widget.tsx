@@ -159,7 +159,7 @@ const OrderRow = memo(
         </span>
         <span
           className={cn(
-            "relative z-10 flex-1 text-right text-[11px] font-mono",
+            "relative z-10 flex-1 text-right text-xs font-mono",
             level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
           )}
         >
@@ -201,7 +201,10 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     orderbookHookOptions
   );
 
-  const [userPriceScaling, setUserPriceScaling] = useState<number | null>(null);
+  const [userPriceScaling, setUserPriceScaling] = useState<{
+    symbol: string;
+    value: number;
+  } | null>(null);
   const [popupData, setPopupData] = useState<PopupData | null>(null);
   const [popupPosition, setPopupPosition] = useState<{
     top: number;
@@ -212,35 +215,28 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     null
   );
   const widgetRef = useRef<HTMLDivElement>(null);
-  const prevSymbolRef = useRef<string | null>(null);
+  const groupedOrderbookRef = useRef<OrderbookData | null>(null);
 
   const bestPrice = orderbook?.asks[0]?.price || orderbook?.bids[0]?.price || 0;
   const scalingOptions = useMemo(() => generateTickSizeOptions(bestPrice), [bestPrice]);
 
-  const [prevSymbol, setPrevSymbol] = useState(symbol);
-  if (symbol !== prevSymbol) {
-    setPrevSymbol(symbol);
-    setUserPriceScaling(null);
-  }
+  // Reset userPriceScaling when symbol changes - tracked via symbol key in state
+  const effectivePriceScaling =
+    userPriceScaling?.symbol === symbol
+      ? userPriceScaling.value
+      : scalingOptions.length > 0
+        ? scalingOptions[0].value
+        : 0;
 
-  const priceScaling =
-    userPriceScaling ?? (scalingOptions.length > 0 ? scalingOptions[0].value : 0);
-
+  // Sync initial nSigFigs when orderbook data arrives
   useEffect(() => {
-    if (
-      orderbook &&
-      scalingOptions.length > 0 &&
-      userPriceScaling === null &&
-      prevSymbolRef.current === symbol
-    ) {
-      // Just to fire context update if needed initially
+    if (orderbook && scalingOptions.length > 0 && userPriceScaling?.symbol !== symbol) {
       const first = scalingOptions[0];
       if (l2BookSigRef.current) {
         l2BookSigRef.current.setNSigFigs(first.nSigFigs ?? 5);
       }
     }
-    prevSymbolRef.current = symbol;
-  }, [orderbook, scalingOptions, userPriceScaling, symbol]);
+  }, [orderbook, scalingOptions, symbol, userPriceScaling]);
 
   const handlePriceScalingChange = useCallback(
     (newScale: number) => {
@@ -248,7 +244,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       const nextSig = opt?.nSigFigs ?? 5;
 
       startTransition(() => {
-        setUserPriceScaling(newScale);
+        setUserPriceScaling({ symbol, value: newScale });
       });
 
       if (l2BookSigRef.current) {
@@ -257,10 +253,10 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         resubscribe(nextSig);
       }
     },
-    [scalingOptions, resubscribe]
+    [scalingOptions, resubscribe, symbol]
   );
 
-  const currentOption = scalingOptions.find((o) => o.value === priceScaling);
+  const currentOption = scalingOptions.find((o) => o.value === effectivePriceScaling);
   const shouldSkipGrouping = currentOption?.mantissa === 5;
 
   const groupedOrderbook = useMemo((): OrderbookData | null => {
@@ -268,10 +264,15 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     if (shouldSkipGrouping) return orderbook;
     return {
       ...orderbook,
-      asks: groupOrderbookLevels(orderbook.asks, priceScaling, "asks"),
-      bids: groupOrderbookLevels(orderbook.bids, priceScaling, "bids"),
+      asks: groupOrderbookLevels(orderbook.asks, effectivePriceScaling, "asks"),
+      bids: groupOrderbookLevels(orderbook.bids, effectivePriceScaling, "bids"),
     };
-  }, [orderbook, priceScaling, shouldSkipGrouping]);
+  }, [orderbook, effectivePriceScaling, shouldSkipGrouping]);
+
+  // Sync groupedOrderbook to ref in effect to avoid render-phase mutation
+  useEffect(() => {
+    groupedOrderbookRef.current = groupedOrderbook;
+  }, [groupedOrderbook]);
 
   const { visibleAsks, visibleBids, maxTotal } = useMemo((): {
     visibleAsks: FormattedLevel[];
@@ -285,7 +286,8 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
     const formatLevel = (level: OrderbookLevel): FormattedLevel => ({
       ...level,
-      formattedPrice: level.price > 0 ? formatPriceWithScaling(level.price, priceScaling) : "-",
+      formattedPrice:
+        level.price > 0 ? formatPriceWithScaling(level.price, effectivePriceScaling) : "-",
       formattedSize: level.price > 0 ? formatSize(level.size) : "-",
       formattedTotal: level.price > 0 ? formatSize(level.total) : "-",
     });
@@ -295,7 +297,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       visibleBids: bids.map(formatLevel),
       maxTotal: mt,
     };
-  }, [groupedOrderbook, priceScaling]);
+  }, [groupedOrderbook, effectivePriceScaling]);
 
   const { spread, spreadPercent } = useMemo(() => {
     if (
@@ -317,8 +319,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       side: "bid" | "ask",
       targetPrice: number
     ): { avgPrice: number; cumulativeSize: number } | null => {
-      if (!groupedOrderbook) return null;
-      const levels = side === "ask" ? groupedOrderbook.asks : groupedOrderbook.bids;
+      const book = groupedOrderbookRef.current;
+      if (!book) return null;
+      const levels = side === "ask" ? book.asks : book.bids;
       const targetIndex = levels.findIndex((l) => l.price === targetPrice);
       if (targetIndex === -1) return null;
 
@@ -334,7 +337,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         cumulativeSize: totalSize,
       };
     },
-    [groupedOrderbook]
+    []
   );
 
   const handleHover = useCallback(
@@ -365,22 +368,29 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         }
       }
     },
-    [calculateCumulativeData]
+    [calculateCumulativeData, setHoveredIndex]
   );
+
+  // Sync groupedOrderbook to ref in effect to avoid render-phase mutation
+  useEffect(() => {
+    groupedOrderbookRef.current = groupedOrderbook;
+  }, [groupedOrderbook]);
+
+  // Stable callback for clearing popup on scroll/resize
+  const clearPopup = useCallback(() => {
+    setPopupData(null);
+    setPopupPosition(null);
+  }, []);
 
   useEffect(() => {
     if (!popupData || !popupPosition) return;
-    const handleUpdate = () => {
-      setPopupData(null);
-      setPopupPosition(null);
-    };
-    window.addEventListener("scroll", handleUpdate, true);
-    window.addEventListener("resize", handleUpdate);
+    window.addEventListener("scroll", clearPopup, true);
+    window.addEventListener("resize", clearPopup);
     return () => {
-      window.removeEventListener("scroll", handleUpdate, true);
-      window.removeEventListener("resize", handleUpdate);
+      window.removeEventListener("scroll", clearPopup, true);
+      window.removeEventListener("resize", clearPopup);
     };
-  }, [popupData, popupPosition]);
+  }, [popupData, popupPosition, clearPopup]);
 
   const isRowHovered = useCallback(
     (side: "bid" | "ask", index: number) =>
@@ -418,7 +428,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       className="h-full flex flex-col bg-card border-border/30 rounded-xl overflow-hidden p-2"
     >
       <OrderbookToolbar
-        priceScaling={priceScaling}
+        priceScaling={effectivePriceScaling}
         onPriceScalingChange={handlePriceScalingChange}
         scalingOptions={scalingOptions}
       />
@@ -449,7 +459,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         <div className="flex items-center justify-center gap-6 py-1.5 border-y border-border/10 bg-muted/20 flex-shrink-0">
           <span className="text-xs font-mono font-medium text-muted-foreground/80">Spread</span>
           <span className="text-xs font-mono text-muted-foreground/80">
-            {formatPriceWithScaling(spread, priceScaling)}
+            {formatPriceWithScaling(spread, effectivePriceScaling)}
           </span>
           <span className="text-xs font-mono text-muted-foreground/80">
             {spreadPercent.toFixed(3)}%
@@ -493,7 +503,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
             <div className="flex justify-between">
               <span className="text-xs text-muted-foreground">Price</span>
               <span className="text-base font-mono font-medium">
-                {formatPriceWithScaling(popupData.price, priceScaling)}
+                {formatPriceWithScaling(popupData.price, effectivePriceScaling)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -514,7 +524,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
                   <span className="text-xs text-muted-foreground">Avg Price</span>
                   <span className="text-sm font-mono font-medium">
                     {popupData.avgPrice
-                      ? formatPriceWithScaling(popupData.avgPrice, priceScaling)
+                      ? formatPriceWithScaling(popupData.avgPrice, effectivePriceScaling)
                       : "-"}
                   </span>
                 </div>

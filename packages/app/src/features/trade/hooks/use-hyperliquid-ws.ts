@@ -207,6 +207,6 @@ export function useHyperliquidWs({
   return {
     resubscribe,
     isConnected,
-    subscription: subscription ? { ...subscription } : null,
+    subscription,
   };
 }

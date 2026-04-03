@@ -91,14 +91,25 @@ export function useHyperliquidOrderbook(
 ) {
   const [fineBook, setFineBook] = useState<OrderbookData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeSigFigs, setActiveSigFigs] = useState(DEFAULT_SIGFIGS);
+
+  // Use controlled or uncontrolled pattern based on options.controlledNSigFigs
+  const isControlled = options.controlledNSigFigs !== undefined;
+  const [uncontrolledSigFigs, setUncontrolledSigFigs] = useState(DEFAULT_SIGFIGS);
+
+  // Derive activeSigFigs from props if controlled, otherwise from internal state
+  const activeSigFigs = isControlled
+    ? Math.max(MIN_SIGFIGS, Math.min(MAX_SIGFIGS, options.controlledNSigFigs!))
+    : uncontrolledSigFigs;
+
   const activeSigFigsRef = useRef(activeSigFigs);
-  const prevSymbolRef = useRef(symbol);
   const lastResubscribeAtRef = useRef(0);
+
+  // Sync ref with current value for callbacks
   useEffect(() => {
     activeSigFigsRef.current = activeSigFigs;
     lastResubscribeAtRef.current = Date.now();
   }, [activeSigFigs]);
+
   const adaptiveDirectionRef = useRef<"out" | "in" | null>(null);
   const adaptiveDirectionCountRef = useRef(0);
   const [snapshotsBySigFigs, setSnapshotsBySigFigs] = useState<Map<number, OrderbookData>>(
@@ -110,26 +121,6 @@ export function useHyperliquidOrderbook(
   const raf = useRef(0);
 
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
-
-  // Clear orderbook when symbol changes - different coin = different prices!
-  const [prevSymbol, setPrevSymbol] = useState(symbol);
-  if (symbol !== prevSymbol) {
-    setPrevSymbol(symbol);
-    setFineBook(null);
-    setActiveSigFigs(DEFAULT_SIGFIGS);
-    setSnapshotsBySigFigs(new Map());
-  }
-
-  // Ref updates must happen outside of the render phase
-  useEffect(() => {
-    if (symbol !== prevSymbolRef.current) {
-      prevSymbolRef.current = symbol;
-      adaptiveDirectionRef.current = null;
-      adaptiveDirectionCountRef.current = 0;
-      snapshotsBySigFigsRef.current = new Map();
-      pending.current = null;
-    }
-  }, [symbol]);
 
   const subscription = useMemo(
     () => (enabled && coin ? { type: "l2Book" as const, coin, nSigFigs: activeSigFigs } : null),
@@ -171,23 +162,18 @@ export function useHyperliquidOrderbook(
       const next = Math.max(MIN_SIGFIGS, Math.min(MAX_SIGFIGS, nSigFigs));
       if (!coin || !ws.resubscribe || next === activeSigFigsRef.current) return;
       ws.resubscribe({ type: "l2Book", coin, nSigFigs: next });
-      setActiveSigFigs(next);
+      // Only update internal state if uncontrolled
+      if (!isControlled) {
+        setUncontrolledSigFigs(next);
+      }
     },
-    [coin, ws]
+    [coin, ws, isControlled]
   );
 
-  const controlledNSigFigs = options.controlledNSigFigs;
-  const [prevControlled, setPrevControlled] = useState(controlledNSigFigs);
-  if (controlledNSigFigs !== undefined && controlledNSigFigs !== prevControlled) {
-    setPrevControlled(controlledNSigFigs);
-    if (controlledNSigFigs !== activeSigFigs) {
-      const next = Math.max(MIN_SIGFIGS, Math.min(MAX_SIGFIGS, controlledNSigFigs));
-      setActiveSigFigs(next);
-    }
-  }
-
+  // Adaptive nSigFigs logic - only runs when not controlled
   useEffect(() => {
-    if (!enabled || !options.adaptiveNSigFigs || !fineBook) {
+    // Skip if controlled from parent
+    if (isControlled || !enabled || !options.adaptiveNSigFigs || !fineBook) {
       return;
     }
     const now = Date.now();
@@ -229,13 +215,15 @@ export function useHyperliquidOrderbook(
 
     adaptiveDirectionRef.current = null;
     if (direction === "out" && activeSigFigs > MIN_SIGFIGS) {
-      setTimeout(() => resubscribe(activeSigFigs - 1), 0);
+      // Use queueMicrotask instead of setTimeout for cleaner async
+      queueMicrotask(() => resubscribe(activeSigFigs - 1));
       return;
     }
     if (direction === "in" && activeSigFigs < MAX_SIGFIGS) {
-      setTimeout(() => resubscribe(activeSigFigs + 1), 0);
+      queueMicrotask(() => resubscribe(activeSigFigs + 1));
     }
   }, [
+    isControlled,
     activeSigFigs,
     enabled,
     options.adaptiveNSigFigs,

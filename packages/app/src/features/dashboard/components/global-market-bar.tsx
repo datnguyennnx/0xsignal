@@ -5,14 +5,8 @@
  * Displays Total Market Cap (with 24h change), 24h Volume, and BTC/ETH dominance.
  */
 import type { GlobalMarketData } from "@0xsignal/shared";
+import { formatMarketCap } from "@/core/utils/formatters";
 import { cn } from "@/core/utils/cn";
-
-const formatCompact = (value: number): string => {
-  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
-  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
-  return `$${value.toLocaleString()}`;
-};
 
 const formatPercent = (value: number): string => {
   return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
@@ -29,7 +23,7 @@ export function GlobalMarketBar({ data, className }: GlobalMarketBarProps) {
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">MCap</span>
-          <span className="font-medium tabular-nums">${formatCompact(data.totalMarketCap)}</span>
+          <span className="font-medium tabular-nums">{formatMarketCap(data.totalMarketCap)}</span>
           <span
             className={cn("tabular-nums", data.marketCapChange24h >= 0 ? "text-gain" : "text-loss")}
           >
@@ -38,17 +32,7 @@ export function GlobalMarketBar({ data, className }: GlobalMarketBarProps) {
         </div>
         <div className="hidden sm:flex items-center gap-2">
           <span className="text-muted-foreground">Vol</span>
-          <span className="font-medium tabular-nums">${formatCompact(data.totalVolume24h)}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-4 sm:gap-6">
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">BTC</span>
-          <span className="font-medium tabular-nums">{data.btcDominance.toFixed(1)}%</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">ETH</span>
-          <span className="font-medium tabular-nums">{data.ethDominance.toFixed(1)}%</span>
+          <span className="font-medium tabular-nums">{formatMarketCap(data.totalVolume24h)}</span>
         </div>
       </div>
     </div>

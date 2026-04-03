@@ -10,7 +10,7 @@
  * - Exposes the `SubscriptionClient` to all consuming hooks
  * - Handles the global lifecycle of the connection
  */
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { WebSocketTransport, SubscriptionClient } from "@nktkas/hyperliquid";
 
 interface HyperliquidWsContextValue {
@@ -19,30 +19,35 @@ interface HyperliquidWsContextValue {
 
 const HyperliquidWsContext = createContext<HyperliquidWsContextValue | null>(null);
 
+function createClient(): SubscriptionClient | null {
+  try {
+    const transport = new WebSocketTransport();
+    return new SubscriptionClient({ transport });
+  } catch (err) {
+    console.error("Failed to initialize Hyperliquid WebSocket:", err);
+    return null;
+  }
+}
+
 export function HyperliquidWsProvider({ children }: { children: React.ReactNode }) {
-  const value = useMemo(() => {
-    try {
-      const transport = new WebSocketTransport();
-      const client = new SubscriptionClient({ transport });
-      return { client };
-    } catch (err) {
-      console.error("Failed to initialize Hyperliquid WebSocket:", err);
-      return { client: null };
-    }
-  }, []);
+  // Use state with lazy initializer - client is created once and never changes
+  const [client] = useState<SubscriptionClient | null>(createClient);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (value.client) {
+      if (client) {
         // Access internal transport safely from the SDK client
-        const internal = value.client as any;
+        const internal = client as any;
         if (internal.transport && typeof internal.transport.close === "function") {
           internal.transport.close();
         }
       }
     };
-  }, [value.client]);
+  }, [client]);
+
+  // Memoize value to prevent unnecessary re-renders of consumers
+  const value = useMemo(() => ({ client }), [client]);
 
   return <HyperliquidWsContext.Provider value={value}>{children}</HyperliquidWsContext.Provider>;
 }

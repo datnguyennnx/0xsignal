@@ -13,7 +13,7 @@ export interface ICTColors {
 
 import { getThemeColor } from "@/core/utils/theme";
 
-export const getICTColors = (_isDark: boolean): ICTColors => {
+export const getICTColors = (): ICTColors => {
   return {
     fvgBullish: {
       fill: getThemeColor("fvg-bullish-fill", "rgba(22, 163, 74, 0.08)"),

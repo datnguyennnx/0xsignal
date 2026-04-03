@@ -136,7 +136,7 @@ export function IndicatorModal({
                       setSelectedId(null);
                     }}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-2 rounded text-[12px] transition-colors",
+                      "w-full flex items-center gap-2.5 px-3 py-2 rounded text-xs transition-colors",
                       category === cat.id
                         ? "bg-foreground text-background font-bold shadow-sm"
                         : "hover:bg-muted text-muted-foreground hover:text-foreground/80 font-medium"
@@ -162,58 +162,64 @@ export function IndicatorModal({
 
           {/* Column 2: Indicator Explorer */}
           <div className="w-[280px] flex flex-col shrink-0 min-h-0">
-            <div className="p-4">
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Find indicator..."
-                className="h-9 text-[11px] bg-muted/20 border-border/40 focus-visible:ring-offset-0 focus-visible:ring-muted-foreground/10 placeholder:opacity-30 rounded px-3"
-              />
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 min-h-0 scrollbar-none overscroll-none">
-              {filteredIndicators.length > 0 ? (
-                filteredIndicators.map((indicator) => {
-                  const activeCount = activeByBaseId.get(indicator.id)?.length || 0;
-                  const isSelected = selectedIndicator?.id === indicator.id;
-
-                  return (
-                    <button
-                      key={indicator.id}
-                      onClick={() => setSelectedId(indicator.id)}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-3 py-2 rounded text-[12px] transition-all",
-                        isSelected
-                          ? "bg-muted text-foreground font-bold shadow-inner"
-                          : "hover:bg-muted/30 text-muted-foreground/60 hover:text-foreground font-medium"
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "w-1.5 h-1.5 rounded-full shrink-0 transition-all",
-                          activeCount > 0 ? "bg-foreground" : "bg-muted-foreground/20",
-                          isSelected && "scale-105"
-                        )}
-                      />
-                      <span className="flex-1 text-left truncate">{indicator.name}</span>
-                      {activeCount > 0 ? (
-                        <span className="text-[10px] font-bold text-muted-foreground/40 px-1">
-                          {activeCount}
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })
-              ) : (
-                <ContentUnavailable
-                  variant="no-results"
-                  title="No Indicators"
-                  description={
-                    normalizedQuery
-                      ? `No indicators match "${normalizedQuery}".`
-                      : "No indicators in this category."
-                  }
+            {!(category === "active" && activeIndicatorConfigs.length === 0) && (
+              <div className="p-4">
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Find indicator..."
+                  className="h-9 text-xs bg-muted/20 border-border/40 focus-visible:ring-offset-0 focus-visible:ring-muted-foreground/10 placeholder:opacity-30 rounded px-3"
                 />
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto px-3 py-2 min-h-0 scrollbar-none overscroll-none">
+              {filteredIndicators.length > 0 ? (
+                <div className="space-y-0.5">
+                  {filteredIndicators.map((indicator) => {
+                    const activeCount = activeByBaseId.get(indicator.id)?.length || 0;
+                    const isSelected = selectedIndicator?.id === indicator.id;
+
+                    return (
+                      <button
+                        key={indicator.id}
+                        onClick={() => setSelectedId(indicator.id)}
+                        className={cn(
+                          "w-full flex items-center gap-2 px-3 py-2 rounded text-xs transition-all",
+                          isSelected
+                            ? "bg-muted text-foreground font-bold shadow-inner"
+                            : "hover:bg-muted/30 text-muted-foreground/60 hover:text-foreground font-medium"
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "w-1.5 h-1.5 rounded-full shrink-0 transition-all",
+                            activeCount > 0 ? "bg-foreground" : "bg-muted-foreground/20",
+                            isSelected && "scale-105"
+                          )}
+                        />
+                        <span className="flex-1 text-left truncate">{indicator.name}</span>
+                        {activeCount > 0 ? (
+                          <span className="text-[10px] font-bold text-muted-foreground/40 px-1">
+                            {activeCount}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="min-h-full flex items-center justify-center">
+                  <ContentUnavailable
+                    variant="no-results"
+                    title="No Indicators"
+                    description={
+                      normalizedQuery
+                        ? `No indicators match "${normalizedQuery}".`
+                        : "No indicators in this category."
+                    }
+                  />
+                </div>
               )}
             </div>
           </div>

@@ -5,21 +5,23 @@
  * 1. URL params → symbol (from /trade/:symbol route)
  * 2. React Query → asset metadata (price, volume, leverage)
  * 3. useHyperliquidCandles → real-time candlestick data (WS + history)
- * 4. useHyperliquidMeta → price precision from exchange
- * 5. L2BookNSigFigsProvider → syncs orderbook + depth chart precision
- * 6. Renders: TradingChart (4/5 cols) + OrderbookWidget (1/5 col, lg+)
+ * 4. CandleDataProvider → shares candle data via ref to avoid memo invalidation
+ * 5. useHyperliquidMeta → price precision from exchange
+ * 6. L2BookNSigFigsProvider → syncs orderbook + depth chart precision
+ * 7. Renders: TradingChart (4/5 cols) + OrderbookWidget (1/5 col, lg+)
  *
- * State: interval is local (user's timeframe choice)
- * Key consumers: TradingChart, OrderbookWidget, DepthChartWidget
+ * @performance
+ * - CandleDataProvider exposes dataRef instead of data array to prevent
+ *   memo invalidation on TradingChart/AssetContent from new array references
+ * - Chart consumes candles from context internally, not via props
+ * - State: interval is local (user's timeframe choice)
  */
 import { useState, lazy, Suspense, useMemo, memo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { AssetAnalysis } from "@/core/types";
-import type { ChartDataPoint } from "@0xsignal/shared";
 import { ChartCandlestick } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ContentUnavailable } from "@/components/content-unavailable";
 import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
@@ -29,12 +31,16 @@ import { useChartConfig } from "@/hooks/use-breakpoint";
 import { queryKeys } from "@/lib/query/query-keys";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
 import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
-import { TradeDropdown } from "@/features/trade/components/trade-dropdown";
 import { L2BookNSigFigsProvider } from "@/features/trade/contexts/l2-book-nsig-figs-context";
+import { CandleDataProvider } from "@/features/trade/contexts/candle-data-context";
 import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/trading-chart").then((m) => ({ default: m.TradingChart }))
+);
+
+const TradeDropdown = lazy(() =>
+  import("@/features/trade/components/trade-dropdown").then((m) => ({ default: m.TradeDropdown }))
 );
 
 import { formatPrice } from "@/core/utils/formatters";
@@ -48,25 +54,17 @@ const ChartSkeleton = () => (
 interface AssetContentProps {
   readonly asset: AssetAnalysis & { fetchedAt?: Date };
   readonly symbol: string;
-  readonly chartData: ChartDataPoint[] | null;
-  readonly chartLoading: boolean;
-  readonly chartFetching: boolean;
   readonly interval: string;
   readonly onIntervalChange: (interval: string) => void;
-  readonly loadMore?: () => Promise<void>;
-  readonly hasMore?: boolean;
+  readonly chartLoading: boolean;
 }
 
 const AssetContent = memo(function AssetContent({
   asset,
   symbol,
-  chartData,
-  chartLoading,
-  chartFetching,
   interval,
   onIntervalChange,
-  loadMore,
-  hasMore,
+  chartLoading,
 }: AssetContentProps) {
   const navigate = useNavigate();
   const chartSymbol = symbol.toUpperCase();
@@ -108,41 +106,22 @@ const AssetContent = memo(function AssetContent({
         <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-5 gap-4 lg:gap-5">
           {/* Chart - Takes 4/5 on desktop */}
           <div className="lg:col-span-4 flex-1 min-h-[350px] lg:min-h-0 lg:h-full min-h-0 flex flex-col">
-            {chartData && chartData.length > 0 ? (
+            {chartLoading ? (
+              <Skeleton className="h-full w-full rounded-sm" />
+            ) : (
               <Suspense fallback={<ChartSkeleton />}>
-                {/*
-                @note No key prop - chart handles data updates naturally
-                When interval changes:
-                1. useHyperliquidCandles fetches new data
-                2. New data flows to TradingChart via props
-                3. useChartData effect detects data change, clears old data, loads new
-                This is SMOOTHER than remounting because chart instance is preserved
-              */}
                 <TradingChart
-                  data={chartData}
                   symbol={chartSymbol}
                   interval={interval}
                   onIntervalChange={onIntervalChange}
-                  loadMore={loadMore}
-                  hasMore={hasMore}
-                  isFetching={chartFetching}
                 />
               </Suspense>
-            ) : !chartLoading ? (
-              <ContentUnavailable
-                variant="unavailable"
-                title="Chart Data Unavailable"
-                description="Market data for this symbol could not be loaded."
-                className="h-full"
-              />
-            ) : (
-              <Skeleton className="h-full w-full rounded-sm" />
             )}
           </div>
 
           {/* Side Panel: Orderbook - Only visible on lg+ */}
           <div className="hidden lg:block lg:col-span-1 min-h-[400px] lg:min-h-0 lg:h-full flex flex-col">
-            <OrderbookWidget symbol={symbol} />
+            <OrderbookWidget key={symbol} symbol={symbol} />
           </div>
         </div>
       </L2BookNSigFigsProvider>
@@ -173,9 +152,12 @@ export function AssetDetail() {
   const [interval, setInterval] = useState("1h");
   const chartConfig = useChartConfig();
 
-  // Stable callback - prevents re-render of child components
   const handleIntervalChange = useCallback((newInterval: string) => {
     setInterval(newInterval);
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    window.location.reload();
   }, []);
 
   const normalizedSymbol = symbol?.toUpperCase() || "";
@@ -183,7 +165,6 @@ export function AssetDetail() {
     ? normalizedSymbol
     : `${normalizedSymbol}USDT`;
 
-  // Fetch asset data with React Query - using Hyperliquid directly
   const {
     data: fetchedAsset,
     isLoading: assetLoading,
@@ -221,13 +202,13 @@ export function AssetDetail() {
     };
   }, [fetchedAsset]);
 
-  // Get real-time price from latest candle for title
-  // Fetch chart data using Hyperliquid streaming hook with device-aware limits
   const {
-    data: chartData,
+    data: candleData,
+    dataRef: candleDataRef,
     isLoading: chartLoading,
     loadMore: loadMoreCandles,
     hasMore: hasMoreCandles,
+    isFetching: chartFetching,
   } = useHyperliquidCandles({
     symbol: chartSymbol,
     interval,
@@ -235,20 +216,16 @@ export function AssetDetail() {
     enabled: !!chartSymbol,
   });
 
-  const chartFetching = chartLoading;
-
-  // Get precision from hyperliquid meta
   const { getPrecision } = useHyperliquidMeta();
 
-  // Get real-time price from latest candle for title
+  // Use data (state) instead of dataRef for render-phase access
   const latestPrice = useMemo(() => {
-    if (!chartData || chartData.length === 0) return null;
-    return chartData[chartData.length - 1].close;
-  }, [chartData]);
+    if (!candleData || candleData.length === 0) return null;
+    return candleData[candleData.length - 1].close;
+  }, [candleData]);
 
   const showSkeleton = !asset && assetLoading;
 
-  // Dynamic document title - Real-time price from chart
   const documentTitle = useMemo(() => {
     if (!asset?.price && !latestPrice) return "";
     const price = latestPrice || asset?.price?.price || 0;
@@ -271,23 +248,36 @@ export function AssetDetail() {
           title={
             assetError ? `Error: ${assetError.message}` : `No data for ${symbol?.toUpperCase()}`
           }
-          retryAction={() => window.location.reload()}
+          retryAction={handleRetry}
         />
       </div>
     );
   }
 
+  if (!asset) {
+    return (
+      <div className="container-fluid h-full overflow-y-auto py-6 overscroll-none">
+        <ErrorState title={`No data for ${symbol?.toUpperCase()}`} retryAction={handleRetry} />
+      </div>
+    );
+  }
+
   return (
-    <AssetContent
-      asset={asset!}
-      symbol={symbol || ""}
-      chartData={(chartData as ChartDataPoint[]) || null}
-      chartLoading={chartLoading}
-      chartFetching={chartFetching}
-      interval={interval}
-      onIntervalChange={handleIntervalChange}
+    <CandleDataProvider
+      data={candleData}
+      dataRef={candleDataRef}
+      isLoading={chartLoading}
       loadMore={loadMoreCandles}
       hasMore={hasMoreCandles}
-    />
+      isFetching={chartFetching}
+    >
+      <AssetContent
+        asset={asset}
+        symbol={symbol || ""}
+        interval={interval}
+        onIntervalChange={handleIntervalChange}
+        chartLoading={chartLoading}
+      />
+    </CandleDataProvider>
   );
 }

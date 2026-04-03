@@ -29,7 +29,7 @@ import { usePrices, useGlobalMarket } from "@/hooks/prices";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { Sparkline } from "@/components/sparkline";
 
-const MAX_ITEMS = 100;
+const MAX_ITEMS = 250;
 
 import { formatPrice, formatMarketCap, formatVolume } from "@/core/utils/formatters";
 
@@ -279,6 +279,10 @@ export function MarketDashboard() {
     setPage(1);
   }, []);
 
+  const handleRetry = useCallback(() => {
+    window.location.reload();
+  }, []);
+
   if (isLoading) {
     return <DashboardSkeleton />;
   }
@@ -286,7 +290,7 @@ export function MarketDashboard() {
   if (pricesError || !cryptos) {
     return (
       <div className="container-fluid py-6 h-full overflow-y-auto overscroll-none">
-        <ErrorState type="general" retryAction={() => window.location.reload()} />
+        <ErrorState type="general" retryAction={handleRetry} />
       </div>
     );
   }

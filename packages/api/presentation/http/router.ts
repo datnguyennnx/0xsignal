@@ -28,7 +28,7 @@ export const handleRequest = (url: URL) => {
     case "/api/global":
       return globalMarketRoute();
     case "/api/prices":
-      return pricesRoute(getInt(url, "limit", 100, 250));
+      return pricesRoute(getInt(url, "limit", 250, 250));
   }
 
   return notFound;

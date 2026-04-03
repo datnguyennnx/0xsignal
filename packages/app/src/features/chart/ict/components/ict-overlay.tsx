@@ -11,13 +11,14 @@
  * - implements an efficient 150ms-throttled worker orchestration via the parent component.
  */
 import { useEffect, useRef, useCallback } from "react";
-import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
+import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
 import type { ICTAnalysis } from "@0xsignal/shared";
 import type { ICTVisibility } from "../types";
 import { ZonePrimitive } from "../primitives";
 import { BandPrimitive } from "../primitives";
 import { getICTColors } from "../utils";
+import { ensureUniqueAscending } from "../../utils/ensure-unique-ascending";
 
 interface ICTOverlayProps {
   chart: IChartApi | null;
@@ -36,28 +37,13 @@ interface ICTRefs {
   otePrimitives: BandPrimitive[];
 }
 
-const ensureUniqueAscending = (
-  points: { time: number; value: number }[]
-): { time: Time; value: number }[] => {
-  if (points.length === 0) return [];
-  const sorted = [...points].sort((a, b) => a.time - b.time);
-  const uniqueMap = new Map<number, number>();
-  for (const p of sorted) {
-    uniqueMap.set(p.time, p.value);
-  }
-  return Array.from(uniqueMap.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map(([time, value]) => ({ time: time as Time, value }));
-};
-
 export function useICTOverlay({
   chart,
   series,
   analysis,
   visibility,
-  isDark,
   lastTime,
-}: ICTOverlayProps) {
+}: Omit<ICTOverlayProps, "isDark">) {
   const refs = useRef<ICTRefs>({
     swingLines: [],
     fvgPrimitives: [],
@@ -143,7 +129,7 @@ export function useICTOverlay({
       } catch {}
     });
 
-    const colors = getICTColors(isDark);
+    const colors = getICTColors();
     const lines: ISeriesApi<"Line">[] = [];
 
     const swingLine = chart.addSeries(LineSeries, {
@@ -194,7 +180,7 @@ export function useICTOverlay({
 
     refs.current.swingLines = lines;
     appliedKeysRef.current.marketStructure = key;
-  }, [chart, analysis, isDark, lastTime]);
+  }, [chart, analysis, lastTime]);
 
   // Similar key-based skip for other renders
   const renderFVGs = useCallback(() => {
@@ -209,7 +195,7 @@ export function useICTOverlay({
       } catch {}
     });
 
-    const colors = getICTColors(isDark);
+    const colors = getICTColors();
     const primitives: ZonePrimitive[] = [];
     const recentFVGs = analysis.fvgs.filter((f) => !f.filled).slice(-6);
 
@@ -233,7 +219,7 @@ export function useICTOverlay({
     }
     refs.current.fvgPrimitives = primitives;
     appliedKeysRef.current.fvg = key;
-  }, [chart, analysis, isDark, lastTime]);
+  }, [chart, analysis, lastTime]);
 
   const renderOrderBlocks = useCallback(() => {
     if (!chart || !analysis?.orderBlocks.length || !seriesRef.current) return;
@@ -247,7 +233,7 @@ export function useICTOverlay({
       } catch {}
     });
 
-    const colors = getICTColors(isDark);
+    const colors = getICTColors();
     const primitives: ZonePrimitive[] = [];
     const activeOBs = analysis.orderBlocks.filter((ob) => !ob.mitigated).slice(-4);
 
@@ -269,7 +255,7 @@ export function useICTOverlay({
     }
     refs.current.obPrimitives = primitives;
     appliedKeysRef.current.orderBlocks = key;
-  }, [chart, analysis, isDark, lastTime]);
+  }, [chart, analysis, lastTime]);
 
   const renderLiquidityZones = useCallback(() => {
     if (!chart || !analysis?.liquidityZones.length) return;
@@ -282,7 +268,7 @@ export function useICTOverlay({
       } catch {}
     });
 
-    const colors = getICTColors(isDark);
+    const colors = getICTColors();
     const lines: ISeriesApi<"Line">[] = [];
     const activeZones = analysis.liquidityZones.filter((z) => !z.swept).slice(-4);
 
@@ -309,7 +295,7 @@ export function useICTOverlay({
     }
     refs.current.liquidityLines = lines;
     appliedKeysRef.current.liquidity = key;
-  }, [chart, analysis, isDark, lastTime]);
+  }, [chart, analysis, lastTime]);
 
   const renderOTEZones = useCallback(() => {
     if (!chart || !analysis?.oteZones.length || !seriesRef.current) return;
@@ -323,7 +309,7 @@ export function useICTOverlay({
       } catch {}
     });
 
-    const colors = getICTColors(isDark);
+    const colors = getICTColors();
     const primitives: BandPrimitive[] = [];
     const recentOTEs = analysis.oteZones.slice(-2);
 
@@ -352,7 +338,7 @@ export function useICTOverlay({
     }
     refs.current.otePrimitives = primitives;
     appliedKeysRef.current.ote = key;
-  }, [chart, analysis, isDark]);
+  }, [chart, analysis]);
 
   useEffect(() => {
     if (!chart || !analysis) {

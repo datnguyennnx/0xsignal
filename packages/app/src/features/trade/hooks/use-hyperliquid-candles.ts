@@ -66,6 +66,7 @@ export function useHyperliquidCandles({
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
 
   // Refs for mutable data (avoid re-renders)
   const dataRef = useRef<ChartDataPoint[]>([]);
@@ -207,6 +208,7 @@ export function useHyperliquidCandles({
     const targetInterval = intervalRef.current;
 
     isFetchingRef.current = true;
+    setIsFetching(true);
     lastLoadMoreTimeRef.current = Date.now();
 
     const hlInt = mapToHLInterval(targetInterval);
@@ -242,15 +244,18 @@ export function useHyperliquidCandles({
       console.error("Failed to load more:", err);
     } finally {
       isFetchingRef.current = false;
+      setIsFetching(false);
     }
   }, []);
 
   return {
     data,
+    dataRef,
     isLoading: historyLoading,
     isConnected,
     error,
     loadMore,
     hasMore,
+    isFetching,
   };
 }
