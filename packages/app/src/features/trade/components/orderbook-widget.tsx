@@ -42,7 +42,7 @@ interface PopupData {
   cumulativeSize?: number;
 }
 
-const ROW_HEIGHT = 24;
+const ROW_HEIGHT = 28;
 const VISIBLE_ROWS = 20;
 
 import { formatPriceWithScaling, formatSize } from "@/core/utils/formatters";
@@ -62,6 +62,7 @@ const OrderbookToolbar = memo(
         size="sm"
         value={priceScaling.toString()}
         onChange={(e) => onPriceScalingChange(Number(e.target.value))}
+        className="min-h-[44px]"
       >
         {scalingOptions.map((opt) => (
           <NativeSelectOption key={opt.value} value={opt.value.toString()}>

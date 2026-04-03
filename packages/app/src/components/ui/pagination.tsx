@@ -53,16 +53,40 @@ export const Pagination = memo(function Pagination({
   return (
     <div
       className={cn(
-        "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 px-4 border-t border-border bg-muted/30",
+        "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 border-t border-border bg-muted/30",
         className
       )}
     >
-      <span className="text-sm text-muted-foreground font-mono order-1">
+      <div className="flex items-center gap-x-4 justify-between sm:hidden">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-9 min-h-[44px] flex-1 gap-1.5"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Prev
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-9 min-h-[44px] flex-1 gap-1.5"
+        >
+          Next
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <span className="hidden sm:block text-sm text-muted-foreground font-mono order-1">
         Showing {start.toLocaleString()} to {end.toLocaleString()} of {totalItems.toLocaleString()}{" "}
         results
       </span>
 
-      <div className="flex items-center gap-1 order-2">
+      <div className="hidden sm:flex items-center gap-1 order-2">
         <Button
           variant="ghost"
           size="icon"
@@ -103,7 +127,7 @@ export const Pagination = memo(function Pagination({
       </div>
 
       {onPageSizeChange && (
-        <div className="flex items-center gap-2 order-3 sm:order-4">
+        <div className="hidden sm:flex items-center gap-2 order-3 sm:order-4">
           <span className="text-sm text-muted-foreground">Rows</span>
           <NativeSelect
             size="sm"

@@ -57,7 +57,7 @@ export function IndicatorParamField({
           <button
             type="button"
             onClick={() => adjust(-1)}
-            className="w-7 h-7 flex items-center justify-center hover:bg-muted active:bg-muted-foreground/10 transition-colors border-r"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-muted active:bg-muted-foreground/10 transition-colors border-r"
           >
             <Minus className="w-3 h-3 opacity-30" />
           </button>
@@ -76,7 +76,7 @@ export function IndicatorParamField({
           <button
             type="button"
             onClick={() => adjust(1)}
-            className="w-7 h-7 flex items-center justify-center hover:bg-muted active:bg-muted-foreground/10 transition-colors border-l"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-muted active:bg-muted-foreground/10 transition-colors border-l"
           >
             <Plus className="w-3 h-3 opacity-40" />
           </button>

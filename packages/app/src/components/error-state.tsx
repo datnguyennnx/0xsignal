@@ -29,7 +29,7 @@ export const ErrorState = memo(function ErrorState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center text-center h-[calc(100vh-12rem)] animate-in fade-in duration-300",
+        "flex flex-col items-center justify-center text-center min-h-[50dvh] animate-in fade-in duration-300",
         className
       )}
     >
@@ -50,7 +50,12 @@ export const ErrorState = memo(function ErrorState({
       </p>
 
       {retryAction && (
-        <Button variant="outline" onClick={retryAction} size="sm" className="min-w-[120px] h-9">
+        <Button
+          variant="outline"
+          onClick={retryAction}
+          size="sm"
+          className="min-w-[120px] h-9 min-h-[44px]"
+        >
           {isRateLimit ? "Reconnect" : "Retry"}
         </Button>
       )}

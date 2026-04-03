@@ -113,7 +113,7 @@ export function IndicatorConfigPanel({
                     type="button"
                     onClick={() => handleSelectExisting(inst)}
                     className={cn(
-                      "px-2 py-1 rounded text-[10px] font-mono transition-all",
+                      "px-3 py-2 rounded text-[10px] font-mono transition-all min-h-[44px]",
                       selectedInstanceId === inst.instanceId
                         ? "bg-foreground text-background font-bold shadow-sm"
                         : "bg-muted text-muted-foreground hover:text-foreground"
@@ -126,7 +126,7 @@ export function IndicatorConfigPanel({
                   type="button"
                   onClick={handleResetToDefault}
                   className={cn(
-                    "px-2 py-1 rounded text-[10px] font-mono transition-all",
+                    "px-3 py-2 rounded text-[10px] font-mono transition-all min-h-[44px]",
                     !selectedInstanceId
                       ? "bg-foreground/10 text-foreground font-bold"
                       : "bg-muted/50 text-muted-foreground/60 hover:text-foreground hover:bg-muted"
@@ -169,7 +169,7 @@ export function IndicatorConfigPanel({
           <Button
             variant="ghost"
             size="sm"
-            className="h-9 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground"
+            className="h-9 min-h-[44px] text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground"
             onClick={() =>
               matchingActiveInstance && onRemoveInstance(matchingActiveInstance.instanceId)
             }
@@ -181,7 +181,7 @@ export function IndicatorConfigPanel({
 
           <Button
             size="sm"
-            className="h-9 text-[10px] font-bold uppercase tracking-widest bg-foreground text-background hover:bg-foreground/80 rounded"
+            className="h-9 min-h-[44px] text-[10px] font-bold uppercase tracking-widest bg-foreground text-background hover:bg-foreground/80 rounded"
             onClick={handleApply}
           >
             <Plus className="w-3 h-3 mr-2" />

@@ -105,7 +105,7 @@ const AssetContent = memo(function AssetContent({
         {/* Main Content: Chart + Side Panel */}
         <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-5 lg:items-start gap-4 lg:gap-5">
           {/* Chart - Takes 4/5 on desktop, fills height set by orderbook content */}
-          <div className="lg:col-span-4 flex-1 min-h-[350px] lg:min-h-0 lg:h-full min-h-0 flex flex-col">
+          <div className="lg:col-span-4 flex-1 min-h-[250px] sm:min-h-[350px] lg:min-h-0 lg:h-full min-h-0 flex flex-col">
             {chartLoading ? (
               <Skeleton className="h-full w-full rounded-sm" />
             ) : (

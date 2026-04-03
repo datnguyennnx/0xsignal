@@ -107,10 +107,15 @@ export const WyckoffButton = memo(function WyckoffButton({
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border/30 rounded-xl shadow-lg z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-16px)] bg-card border border-border/30 rounded-xl shadow-lg z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <span className="text-sm font-medium">Wyckoff Analysis</span>
-            <Button variant="ghost" size="icon-sm" onClick={handleClose}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClose}
+              className="min-h-[44px] min-w-[44px] p-2"
+            >
               <X className="w-4 h-4" />
             </Button>
           </div>
@@ -121,7 +126,7 @@ export const WyckoffButton = memo(function WyckoffButton({
                 key={feature.id}
                 variant="ghost"
                 className={cn(
-                  "interactive-toggle flex items-center justify-between w-full py-2 px-3 rounded-xl transition-all duration-200 h-auto",
+                  "interactive-toggle flex items-center justify-between w-full py-3 px-3 rounded-xl transition-all duration-200 h-auto min-h-[44px]",
                   visibility[feature.id] ? "bg-primary/10" : "hover:bg-muted/50"
                 )}
                 onClick={() => onToggle(feature.id)}

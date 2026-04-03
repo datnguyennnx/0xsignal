@@ -57,7 +57,7 @@ export const ChartControls = memo(function ChartControls({
     <div
       className={cn(
         "flex items-center gap-2",
-        isMobile && "justify-center px-2 py-1.5 border-t border-border/50 bg-card"
+        isMobile && "justify-center px-2 py-1.5 border-t border-border/50 bg-card safe-area-pb"
       )}
     >
       <ICTButton visibility={ictVisibility} onToggle={onToggleICT} isLoading={ictLoading} />
@@ -81,7 +81,7 @@ export const ChartControls = memo(function ChartControls({
               variant="outline"
               size="sm"
               onClick={onResetAll}
-              className="px-2 text-muted-foreground hover:text-foreground"
+              className="px-2 min-h-[44px] text-muted-foreground hover:text-foreground"
             >
               <RefreshCcw className="w-3.5 h-3.5" />
             </Button>

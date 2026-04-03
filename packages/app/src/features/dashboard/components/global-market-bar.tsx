@@ -19,13 +19,18 @@ interface GlobalMarketBarProps {
 
 export function GlobalMarketBar({ data, className }: GlobalMarketBarProps) {
   return (
-    <div className={cn("flex items-center text-xs gap-x-2", className)}>
-      <div className="flex items-center gap-6">
+    <div className={cn("flex items-center text-xs gap-x-2 flex-wrap", className)}>
+      <div className="flex items-center gap-4 sm:gap-6">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">MCap</span>
-          <span className="font-medium tabular-nums">{formatMarketCap(data.totalMarketCap)}</span>
+          <span className="font-medium tabular-nums truncate max-w-[120px]">
+            {formatMarketCap(data.totalMarketCap)}
+          </span>
           <span
-            className={cn("tabular-nums", data.marketCapChange24h >= 0 ? "text-gain" : "text-loss")}
+            className={cn(
+              "tabular-nums whitespace-nowrap",
+              data.marketCapChange24h >= 0 ? "text-gain" : "text-loss"
+            )}
           >
             {formatPercent(data.marketCapChange24h)}
           </span>
@@ -42,10 +47,7 @@ export function GlobalMarketBar({ data, className }: GlobalMarketBarProps) {
 export function GlobalMarketBarSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn(
-        "flex items-center justify-between px-4 sm:px-6 py-3 border-b animate-pulse",
-        className
-      )}
+      className={cn("flex items-center justify-between px-4 sm:px-6 py-3 animate-pulse", className)}
     >
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">

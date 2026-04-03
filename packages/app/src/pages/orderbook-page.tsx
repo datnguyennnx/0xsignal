@@ -5,7 +5,7 @@
  * Designed for smaller screens where the side-panel in AssetDetail is hidden.
  */
 import { useParams, useNavigate } from "react-router-dom";
-import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
+import { OrderbookWidget } from "@/features/trade/components/orderbook-widget-mobile";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ export function OrderbookPage() {
   const { symbol } = useParams<{ symbol: string }>();
   const navigate = useNavigate();
 
-  // Dynamic document title
   useDocumentTitle({
     title: symbol ? `${symbol.toUpperCase()} Orderbook` : "",
   });

@@ -24,36 +24,38 @@ export const ChartOhlcOverlay = memo(({ data, precision }: ChartOhlcOverlayProps
   if (!displayCandle) return null;
 
   return (
-    <div className="absolute top-2 left-2 z-30 flex items-center gap-3 px-2.5 py-1.5 bg-card/90 backdrop-blur-sm rounded-xl text-xs font-mono shadow-sm select-none">
-      <span className="text-muted-foreground">
-        O{" "}
-        <span className="text-foreground tabular-nums">
-          {formatPriceValue(displayCandle.open, precision)}
+    <div className="absolute top-2 left-2 right-2 z-30 px-2.5 py-1.5 bg-card/90 backdrop-blur-sm rounded-xl text-xs font-mono shadow-sm select-none overflow-x-auto scrollbar-hide">
+      <div className="flex items-center gap-3 min-w-fit">
+        <span className="text-muted-foreground">
+          O{" "}
+          <span className="text-foreground tabular-nums">
+            {formatPriceValue(displayCandle.open, precision)}
+          </span>
         </span>
-      </span>
-      <span className="text-muted-foreground">
-        H{" "}
-        <span className="text-gain tabular-nums">
-          {formatPriceValue(displayCandle.high, precision)}
+        <span className="text-muted-foreground">
+          H{" "}
+          <span className="text-gain tabular-nums">
+            {formatPriceValue(displayCandle.high, precision)}
+          </span>
         </span>
-      </span>
-      <span className="text-muted-foreground">
-        L{" "}
-        <span className="text-loss tabular-nums">
-          {formatPriceValue(displayCandle.low, precision)}
+        <span className="text-muted-foreground">
+          L{" "}
+          <span className="text-loss tabular-nums">
+            {formatPriceValue(displayCandle.low, precision)}
+          </span>
         </span>
-      </span>
-      <span className="text-muted-foreground">
-        C{" "}
-        <span
-          className={cn(
-            displayCandle.close >= displayCandle.open ? "text-gain" : "text-loss",
-            "tabular-nums"
-          )}
-        >
-          {formatPriceValue(displayCandle.close, precision)}
+        <span className="text-muted-foreground">
+          C{" "}
+          <span
+            className={cn(
+              displayCandle.close >= displayCandle.open ? "text-gain" : "text-loss",
+              "tabular-nums"
+            )}
+          >
+            {formatPriceValue(displayCandle.close, precision)}
+          </span>
         </span>
-      </span>
+      </div>
     </div>
   );
 });

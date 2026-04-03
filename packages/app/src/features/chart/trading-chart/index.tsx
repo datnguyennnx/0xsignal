@@ -228,22 +228,24 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
       </div>
 
       {isFullscreen && (
-        <ChartControls
-          ictVisibility={ictVisibility}
-          ictLoading={ictLoading}
-          onToggleICT={handleToggleICT}
-          wyckoffVisibility={wyckoffVisibility}
-          wyckoffLoading={wyckoffLoading}
-          onToggleWyckoff={handleToggleWyckoff}
-          activeIndicators={activeIndicators}
-          onAddIndicator={handleAddIndicator}
-          onRemoveIndicator={handleRemoveIndicator}
-          hasActiveOverlays={hasActiveOverlays}
-          onResetAll={handleResetAll}
-          isFullscreen={isFullscreen}
-          onToggleFullscreen={toggleFullscreen}
-          variant="mobile"
-        />
+        <div className="sm:hidden">
+          <ChartControls
+            ictVisibility={ictVisibility}
+            ictLoading={ictLoading}
+            onToggleICT={handleToggleICT}
+            wyckoffVisibility={wyckoffVisibility}
+            wyckoffLoading={wyckoffLoading}
+            onToggleWyckoff={handleToggleWyckoff}
+            activeIndicators={activeIndicators}
+            onAddIndicator={handleAddIndicator}
+            onRemoveIndicator={handleRemoveIndicator}
+            hasActiveOverlays={hasActiveOverlays}
+            onResetAll={handleResetAll}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+            variant="mobile"
+          />
+        </div>
       )}
 
       {showOrientationWarning && <OrientationWarning />}

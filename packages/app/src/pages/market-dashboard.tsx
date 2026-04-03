@@ -185,7 +185,7 @@ const DashboardSkeleton = memo(function DashboardSkeleton() {
   return (
     <div className="h-full overflow-y-auto overscroll-none">
       <div className="container-fluid py-4 sm:py-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5 sm:mb-6 border-b border-border/40 pb-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5 sm:mb-6 pb-4">
           <Skeleton className="h-5 w-32" />
           <div className="flex gap-4">
             <Skeleton className="h-4 w-20" />

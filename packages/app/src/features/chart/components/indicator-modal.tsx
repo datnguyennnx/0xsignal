@@ -11,7 +11,7 @@
  */
 import { useState, useCallback, useMemo } from "react";
 import { AVAILABLE_INDICATORS, type ActiveIndicator, type IndicatorConfig } from "@0xsignal/shared";
-import { Layers, Activity, Sparkles } from "lucide-react";
+import { Layers, Activity, Sparkles, X } from "lucide-react";
 import { cn } from "@/core/utils/cn";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -108,13 +108,19 @@ export function IndicatorModal({
       >
         <DialogTitle className="sr-only">Indicator Settings</DialogTitle>
 
-        <div className="flex h-full divide-x divide-border/50 min-h-0 bg-background">
+        <div className="flex flex-col sm:flex-row h-full divide-y sm:divide-y-0 sm:divide-x divide-border/50 min-h-0 bg-background">
           {/* Column 1: Indicators Sidebar */}
-          <div className="w-[180px] flex flex-col shrink-0 min-h-0">
-            <div className="p-6">
+          <div className="w-full sm:w-[180px] flex flex-col shrink-0 min-h-0 sm:max-h-[90vh]">
+            <div className="p-4 sm:p-6 flex items-center justify-between sm:justify-start gap-2">
               <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">
                 Indicators
               </h2>
+              <button
+                onClick={() => onOpenChange(false)}
+                className="sm:hidden p-2 min-w-[44px] min-h-[44px] flex items-center justify-center tap-highlight"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5 min-h-0 scrollbar-none overscroll-none">
@@ -136,7 +142,7 @@ export function IndicatorModal({
                       setSelectedId(null);
                     }}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-2 rounded text-xs transition-colors",
+                      "w-full flex items-center gap-2.5 px-3 py-3 sm:py-2 rounded text-xs transition-colors min-h-[44px]",
                       category === cat.id
                         ? "bg-foreground text-background font-bold shadow-sm"
                         : "hover:bg-muted text-muted-foreground hover:text-foreground/80 font-medium"
@@ -161,14 +167,14 @@ export function IndicatorModal({
           </div>
 
           {/* Column 2: Indicator Explorer */}
-          <div className="w-[280px] flex flex-col shrink-0 min-h-0">
+          <div className="w-full sm:w-[280px] max-h-[40vh] sm:max-h-[90vh] flex flex-col shrink-0 min-h-0">
             {!(category === "active" && activeIndicatorConfigs.length === 0) && (
               <div className="p-4">
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Find indicator..."
-                  className="h-9 text-xs bg-muted/20 border-border/40 focus-visible:ring-offset-0 focus-visible:ring-muted-foreground/10 placeholder:opacity-30 rounded px-3"
+                  className="h-10 text-xs bg-muted/20 border-border/40 focus-visible:ring-offset-0 focus-visible:ring-muted-foreground/10 placeholder:opacity-30 rounded px-3"
                 />
               </div>
             )}
@@ -185,7 +191,7 @@ export function IndicatorModal({
                         key={indicator.id}
                         onClick={() => setSelectedId(indicator.id)}
                         className={cn(
-                          "w-full flex items-center gap-2 px-3 py-2 rounded text-xs transition-all",
+                          "w-full flex items-center gap-2 px-3 py-3 sm:py-2 rounded text-xs transition-all min-h-[44px]",
                           isSelected
                             ? "bg-muted text-foreground font-bold shadow-inner"
                             : "hover:bg-muted/30 text-muted-foreground/60 hover:text-foreground font-medium"
@@ -225,7 +231,7 @@ export function IndicatorModal({
           </div>
 
           {/* Column 3: Insight Content */}
-          <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background/30">
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background/30 max-h-[50vh] sm:max-h-none">
             {selectedIndicator ? (
               <IndicatorInsightsPanel
                 key={`${selectedIndicator.id}-insights`}
@@ -242,7 +248,7 @@ export function IndicatorModal({
           </div>
 
           {/* Column 4: Inspector Sidepan */}
-          <div className="w-[350px] lg:w-[400px] flex flex-col shrink-0 min-h-0 shadow-[-1px_0_0_0_rgba(0,0,0,0.02)]">
+          <div className="w-full sm:w-[350px] lg:w-[400px] max-h-[50vh] sm:max-h-[90vh] flex flex-col shrink-0 min-h-0 shadow-[-1px_0_0_0_rgba(0,0,0,0.02)]">
             {selectedIndicator ? (
               <IndicatorConfigPanel
                 key={`${selectedIndicator.id}-config`}

@@ -118,7 +118,7 @@ const MarketHeaderMobile = ({
     <button
       type="button"
       onClick={() => onSort("name")}
-      className="text-left hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+      className="text-left hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none min-h-[44px] px-1"
     >
       Market
       <SortIcon sortBy={sortBy} sortField="name" sortDesc={sortDesc} />
@@ -127,7 +127,7 @@ const MarketHeaderMobile = ({
     <button
       type="button"
       onClick={() => onSort("change")}
-      className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1 cursor-pointer bg-transparent border-none p-0"
+      className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1 cursor-pointer bg-transparent border-none min-h-[44px] px-1"
     >
       24h
       <SortIcon sortBy={sortBy} sortField="change" sortDesc={sortDesc} />
@@ -356,7 +356,11 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
 
   return (
     <div className="relative" data-trade-dropdown>
-      <div ref={triggerRef} className="flex items-center gap-1 cursor-pointer" onClick={handleOpen}>
+      <div
+        ref={triggerRef}
+        className="flex items-center gap-1 cursor-pointer min-h-[44px] px-2 py-1"
+        onClick={handleOpen}
+      >
         <span className="text-lg sm:text-xl font-mono font-semibold text-foreground tabular-nums font-mono-slashed">
           {currentSymbol}
         </span>
@@ -388,7 +392,7 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
                 <button
                   type="button"
                   onClick={() => setQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground bg-transparent border-none p-0 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground/60 hover:text-foreground bg-transparent border-none cursor-pointer tap-highlight"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -403,7 +407,7 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
                 type="button"
                 onClick={() => setCategory(tab.key)}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors cursor-pointer",
+                  "flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-full whitespace-nowrap transition-colors cursor-pointer min-h-[44px]",
                   category === tab.key
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
