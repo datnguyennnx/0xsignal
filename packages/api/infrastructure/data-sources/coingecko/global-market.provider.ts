@@ -1,14 +1,11 @@
 /** Global Market Provider - Market-wide metrics from CoinGecko /global endpoint */
 
-import { Effect, Context, Layer, Data, Cache, Schema } from "effect";
+import { Effect, Context, Layer, Data, Cache, Schema, Duration, Schedule } from "effect";
 import type { GlobalMarketData } from "@0xsignal/shared";
 import { HttpClientTag } from "../../http/client";
+import { RateLimiterTag } from "../../http/rate-limiter";
 import { DataSourceError } from "../types";
 import { API_URLS, CACHE_TTL, CACHE_CAPACITY } from "../../config/app.config";
-
-export class GlobalMarketError extends Data.TaggedError("GlobalMarketError")<{
-  readonly message: string;
-}> {}
 
 // Schema for CoinGecko /global response
 const CoinGeckoGlobalDataSchema = Schema.Struct({
@@ -57,6 +54,18 @@ export const GlobalMarketServiceLive = Layer.effect(
   GlobalMarketService,
   Effect.gen(function* () {
     const http = yield* HttpClientTag;
+    const rateLimiter = yield* RateLimiterTag;
+
+    const withRateLimit = <A, E>(effect: Effect.Effect<A, E>) =>
+      rateLimiter.acquire("coingecko").pipe(
+        Effect.retry({
+          schedule: Schedule.exponential(Duration.millis(1000)).pipe(
+            Schedule.intersect(Schedule.recurs(5))
+          ),
+          while: (e) => e._tag === "RateLimitExceeded",
+        }),
+        Effect.flatMap(() => effect)
+      );
 
     const cache = yield* Cache.make({
       capacity: CACHE_CAPACITY.SINGLE,
@@ -64,18 +73,18 @@ export const GlobalMarketServiceLive = Layer.effect(
       lookup: (_: "global") =>
         Effect.gen(function* () {
           const url = `${API_URLS.COINGECKO}/global`;
-          const response = yield* http
-            .get(url, CoinGeckoGlobalResponseSchema)
-            .pipe(Effect.mapError(mapError));
+          const response = yield* withRateLimit(
+            http.get(url, CoinGeckoGlobalResponseSchema).pipe(Effect.mapError(mapError))
+          );
           return toGlobalMarketData(response);
         }),
     });
 
-    // Pre-warm cache on startup
-    yield* Effect.fork(cache.get("global").pipe(Effect.catchAll(() => Effect.void)));
-
     return {
-      getGlobalMarket: () => cache.get("global"),
+      getGlobalMarket: () =>
+        cache
+          .get("global")
+          .pipe(Effect.catchTag("RateLimitExceeded", (e) => Effect.fail(mapError(e)))),
     };
   })
 );

@@ -37,15 +37,11 @@ export const API_URLS = {
 
 // Cache TTL
 export const CACHE_TTL = {
-  COINGECKO_PRICE: Duration.minutes(5),
   COINGECKO_TOP_CRYPTOS: Duration.minutes(5),
 } as const;
 
 // Cache capacity
 export const CACHE_CAPACITY = {
-  DEFAULT: 100,
-  LARGE: 200,
-  SMALL: 20,
   SINGLE: 10,
 } as const;
 
@@ -57,5 +53,4 @@ export const RATE_LIMITS = {
 // Default limits
 export const DEFAULT_LIMITS = {
   TOP_CRYPTOS: 250,
-  TOP_CRYPTOS_EXTENDED: 250,
 } as const;

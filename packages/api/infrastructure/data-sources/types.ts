@@ -1,7 +1,6 @@
 /** Data Source Types - Provider abstractions */
 
-import { Data, Effect } from "effect";
-import type { CryptoPrice } from "@0xsignal/shared";
+import { Data } from "effect";
 
 // Errors
 export class DataSourceError extends Data.TaggedError("DataSourceError")<{
@@ -9,17 +8,6 @@ export class DataSourceError extends Data.TaggedError("DataSourceError")<{
   readonly message: string;
   readonly symbol?: string;
   readonly cause?: unknown;
-}> {}
-
-export class RateLimitError extends Data.TaggedError("RateLimitError")<{
-  readonly source: string;
-  readonly retryAfter?: number;
-}> {}
-
-export class DataNotAvailableError extends Data.TaggedError("DataNotAvailableError")<{
-  readonly source: string;
-  readonly dataType: string;
-  readonly symbol?: string;
 }> {}
 
 // Adapter metadata
@@ -39,11 +27,4 @@ export interface AdapterInfo {
   readonly version: string;
   readonly capabilities: AdapterCapabilities;
   readonly rateLimit: { readonly requestsPerMinute: number; readonly requestsPerSecond?: number };
-}
-
-// Provider interfaces
-export interface SpotPriceProvider {
-  readonly info: AdapterInfo;
-  readonly getPrice: (symbol: string) => Effect.Effect<CryptoPrice, DataSourceError>;
-  readonly getTopCryptos: (limit?: number) => Effect.Effect<CryptoPrice[], DataSourceError>;
 }

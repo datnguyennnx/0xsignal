@@ -28,13 +28,6 @@ export interface AppHttpClient {
     url: string,
     options?: { headers?: Record<string, string> }
   ) => Effect.Effect<unknown, HttpError>;
-
-  readonly post: <A, I>(
-    url: string,
-    body: unknown,
-    schema: Schema.Schema<A, I>,
-    options?: { headers?: Record<string, string> }
-  ) => Effect.Effect<A, AppHttpClientError>;
 }
 
 export class HttpClientTag extends Context.Tag("HttpClient")<HttpClientTag, AppHttpClient>() {}
@@ -59,84 +52,73 @@ const extractDomain = (url: string): string => {
   }
 };
 
-// Fetch helpers
-const fetchResponse = (url: string, init?: RequestInit) =>
-  Effect.tryPromise({
-    try: () => fetch(url, init),
-    catch: (e) => new HttpError({ message: e instanceof Error ? e.message : "Network error", url }),
-  });
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "@effect/platform";
 
-const checkStatus = (response: Response, url: string) =>
-  response.ok
-    ? Effect.succeed(response)
-    : Effect.fail(
-        new HttpError({
-          message: `HTTP ${response.status}: ${response.statusText}`,
-          status: response.status,
-          url,
+// Implementation using @effect/platform/HttpClient
+export const HttpClientLive = Layer.effect(
+  HttpClientTag,
+  Effect.gen(function* () {
+    const platformClient = yield* HttpClient.HttpClient;
+
+    const executeWithRetry = (request: HttpClientRequest.HttpClientRequest) =>
+      platformClient.execute(request).pipe(
+        Effect.flatMap((res) => {
+          if (res.status >= 400) {
+            return Effect.fail(
+              new HttpError({
+                message: `HTTP Error ${res.status}`,
+                status: res.status,
+                url: request.url,
+              })
+            );
+          }
+          return Effect.succeed(res);
+        }),
+        Effect.mapError((e) => {
+          if (e instanceof HttpError) return e;
+          return new HttpError({
+            message: e instanceof Error ? e.message : String(e),
+            url: request.url,
+          });
+        }),
+        Effect.retry({ schedule: retrySchedule, while: isRetryable }),
+        Effect.withSpan("http.request", {
+          attributes: { url: request.url, domain: extractDomain(request.url) },
         })
       );
 
-const parseJson = (response: Response, url: string) =>
-  Effect.tryPromise({
-    try: () => response.json(),
-    catch: () => new HttpParseError({ message: "Failed to parse JSON", url }),
-  });
+    return HttpClientTag.of({
+      get: <A, I>(
+        url: string,
+        schema: Schema.Schema<A, I>,
+        options?: { headers?: Record<string, string> }
+      ) =>
+        HttpClientRequest.get(url).pipe(
+          HttpClientRequest.setHeaders(options?.headers ?? {}),
+          executeWithRetry,
+          Effect.flatMap((res) =>
+            HttpClientResponse.schemaBodyJson(schema)(res).pipe(
+              Effect.mapError(
+                (e) =>
+                  new HttpParseError({
+                    message: `Schema validation failed: ${e}`,
+                    url,
+                  })
+              )
+            )
+          )
+        ),
 
-const decodeSchema = <A, I>(schema: Schema.Schema<A, I>, data: unknown, url: string) =>
-  Schema.decodeUnknown(schema)(data).pipe(
-    Effect.mapError(
-      (e) => new HttpParseError({ message: `Schema validation failed: ${e.message}`, url })
-    )
-  );
-
-// Implementation
-export const HttpClientLive = Layer.succeed(HttpClientTag, {
-  get: <A, I>(
-    url: string,
-    schema: Schema.Schema<A, I>,
-    options?: { headers?: Record<string, string> }
-  ) =>
-    Effect.gen(function* () {
-      const response = yield* fetchResponse(url, { headers: options?.headers });
-      yield* checkStatus(response, url);
-      const data = yield* parseJson(response, url);
-      return yield* decodeSchema(schema, data, url);
-    }).pipe(
-      Effect.retry({ schedule: retrySchedule, while: isRetryable }),
-      Effect.withSpan("http.get", { attributes: { url, domain: extractDomain(url) } })
-    ),
-
-  getJson: (url: string, options?: { headers?: Record<string, string> }) =>
-    Effect.gen(function* () {
-      const response = yield* fetchResponse(url, { headers: options?.headers });
-      yield* checkStatus(response, url);
-      return yield* Effect.tryPromise({
-        try: () => response.json(),
-        catch: () => new HttpError({ message: "Failed to parse JSON", url }),
-      });
-    }).pipe(
-      Effect.retry({ schedule: retrySchedule, while: isRetryable }),
-      Effect.withSpan("http.getJson", { attributes: { url, domain: extractDomain(url) } })
-    ),
-
-  post: <A, I>(
-    url: string,
-    body: unknown,
-    schema: Schema.Schema<A, I>,
-    options?: { headers?: Record<string, string> }
-  ) =>
-    Effect.gen(function* () {
-      const response = yield* fetchResponse(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...options?.headers },
-        body: JSON.stringify(body),
-      });
-      yield* checkStatus(response, url);
-      const data = yield* parseJson(response, url);
-      return yield* decodeSchema(schema, data, url);
-    }).pipe(
-      Effect.retry({ schedule: retrySchedule, while: isRetryable }),
-      Effect.withSpan("http.post", { attributes: { url, domain: extractDomain(url) } })
-    ),
-});
+      getJson: (url: string, options?: { headers?: Record<string, string> }) =>
+        HttpClientRequest.get(url).pipe(
+          HttpClientRequest.setHeaders(options?.headers ?? {}),
+          executeWithRetry,
+          Effect.flatMap((response) =>
+            response.json.pipe(
+              Effect.mapError(() => new HttpError({ message: "Failed to parse JSON", url }))
+            )
+          )
+        ),
+    });
+  })
+);

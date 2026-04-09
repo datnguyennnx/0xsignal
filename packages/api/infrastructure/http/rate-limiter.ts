@@ -1,9 +1,10 @@
 /** Rate Limiter - Token bucket rate limiting using Effect */
 
-import { Effect, Context, Layer, Ref, Duration, Data, pipe } from "effect";
+import { Effect, Context, Layer, Ref, Data } from "effect";
 
 export class RateLimitExceeded extends Data.TaggedError("RateLimitExceeded")<{
   readonly source: string;
+  readonly message: string;
   readonly retryAfterMs: number;
 }> {}
 
@@ -14,7 +15,6 @@ interface TokenBucket {
 
 export interface RateLimiter {
   readonly acquire: (source: string) => Effect.Effect<void, RateLimitExceeded>;
-  readonly tryAcquire: (source: string) => Effect.Effect<boolean, never>;
 }
 
 export class RateLimiterTag extends Context.Tag("RateLimiter")<RateLimiterTag, RateLimiter>() {}
@@ -25,11 +25,10 @@ interface RateLimiterConfig {
 }
 
 const CONFIG: Record<string, RateLimiterConfig> = {
-  coingecko: { tokensPerMinute: 25, burstSize: 5 },
-  hyperliquid: { tokensPerMinute: 1000, burstSize: 100 },
+  coingecko: { tokensPerMinute: 30, burstSize: 30 },
 };
 
-const DEFAULT_CONFIG: RateLimiterConfig = { tokensPerMinute: 60, burstSize: 10 };
+const DEFAULT_CONFIG: RateLimiterConfig = { tokensPerMinute: 60, burstSize: 20 };
 
 const getConfig = (source: string): RateLimiterConfig =>
   CONFIG[source.toLowerCase()] ?? DEFAULT_CONFIG;
@@ -50,9 +49,15 @@ export const RateLimiterLive = Layer.effect(
   Effect.gen(function* () {
     const buckets = yield* Ref.make<Map<string, TokenBucket>>(new Map());
 
-    const getBucket = (source: string) =>
+    const getBucket = (source: string, config: RateLimiterConfig) =>
       Ref.get(buckets).pipe(
-        Effect.map((m) => m.get(source) ?? { tokens: 0, lastRefill: Date.now() })
+        Effect.map(
+          (m) =>
+            m.get(source) ?? {
+              tokens: config.burstSize ?? config.tokensPerMinute,
+              lastRefill: Date.now(),
+            }
+        )
       );
 
     const updateBucket = (source: string, bucket: TokenBucket) =>
@@ -65,7 +70,7 @@ export const RateLimiterLive = Layer.effect(
     const acquire = (source: string): Effect.Effect<void, RateLimitExceeded> =>
       Effect.gen(function* () {
         const config = getConfig(source);
-        const current = yield* getBucket(source);
+        const current = yield* getBucket(source, config);
         const refilled = refillTokens(current, config);
 
         if (refilled.tokens >= 1) {
@@ -77,48 +82,12 @@ export const RateLimiterLive = Layer.effect(
         yield* Effect.fail(
           new RateLimitExceeded({
             source,
+            message: `Rate limit exceeded for ${source}. Retry after ${Math.ceil(msUntilToken)}ms`,
             retryAfterMs: Math.ceil(msUntilToken),
           })
         );
       });
 
-    const tryAcquire = (source: string): Effect.Effect<boolean, never> =>
-      acquire(source).pipe(
-        Effect.map(() => true),
-        Effect.catchAll(() => Effect.succeed(false))
-      );
-
-    return { acquire, tryAcquire };
+    return { acquire };
   })
 );
-
-export const withRateLimit = <A, E, R>(
-  source: string,
-  effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E | RateLimitExceeded, R | RateLimiterTag> =>
-  pipe(
-    RateLimiterTag,
-    Effect.flatMap((limiter) => limiter.acquire(source)),
-    Effect.flatMap(() => effect)
-  );
-
-export const withRateLimitRetry = <A, E, R>(
-  source: string,
-  effect: Effect.Effect<A, E, R>,
-  maxRetries = 3
-): Effect.Effect<A, E | RateLimitExceeded, R | RateLimiterTag> => {
-  const attempt = (
-    remaining: number
-  ): Effect.Effect<A, E | RateLimitExceeded, R | RateLimiterTag> =>
-    withRateLimit(source, effect).pipe(
-      Effect.catchAll((err) => {
-        if (err instanceof RateLimitExceeded && remaining > 0) {
-          return Effect.sleep(Duration.millis(err.retryAfterMs)).pipe(
-            Effect.flatMap(() => attempt(remaining - 1))
-          );
-        }
-        return Effect.fail(err);
-      })
-    );
-  return attempt(maxRetries);
-};

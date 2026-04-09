@@ -3,6 +3,7 @@
   "compilerOptions": {
     "composite": true,
     "noEmit": false,
+    "declaration": true,
     "outDir": "./dist",
     "rootDir": ".",
     "types": ["bun-types", "node", "vitest/globals"]

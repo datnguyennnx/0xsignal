@@ -7,31 +7,19 @@ import { AppConfigLive } from "../config/app.config";
 import { CoinGeckoServiceLive, GlobalMarketServiceLive } from "../data-sources/coingecko";
 import { AggregatedDataServiceLive } from "../data-sources/aggregator";
 import { DevLoggerLive } from "../logging/logger";
+import { FetchHttpClient } from "@effect/platform";
+import { BunContext } from "@effect/platform-bun";
 
-const CoreLayer = Layer.mergeAll(DevLoggerLive, AppConfigLive);
-
-const HttpLayer = Layer.mergeAll(HttpClientLive, RateLimiterLive).pipe(Layer.provide(CoreLayer));
-
-const CoinGeckoLayer = CoinGeckoServiceLive.pipe(
-  Layer.provide(Layer.mergeAll(CoreLayer, HttpLayer))
+const Core = Layer.mergeAll(DevLoggerLive, AppConfigLive, BunContext.layer, FetchHttpClient.layer);
+const Http = Layer.mergeAll(HttpClientLive, RateLimiterLive).pipe(Layer.provide(Core));
+const CoinGecko = CoinGeckoServiceLive.pipe(Layer.provide(Layer.mergeAll(Core, Http)));
+const GlobalMarket = GlobalMarketServiceLive.pipe(Layer.provide(Layer.mergeAll(Core, Http)));
+const Aggregator = AggregatedDataServiceLive.pipe(
+  Layer.provide(Layer.mergeAll(Core, Http, CoinGecko))
 );
 
-const InfraLayer = HttpLayer;
-
-const GlobalMarketLayer = GlobalMarketServiceLive.pipe(
-  Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer))
-);
-
-const AggregatedDataLayer = AggregatedDataServiceLive.pipe(
-  Layer.provide(Layer.mergeAll(CoreLayer, InfraLayer, CoinGeckoLayer))
-);
-
-export const AppLayer = Layer.mergeAll(
-  CoreLayer,
-  InfraLayer,
-  CoinGeckoLayer,
-  GlobalMarketLayer,
-  AggregatedDataLayer
+export const AppLayer = Layer.mergeAll(Core, Http, CoinGecko, GlobalMarket, Aggregator).pipe(
+  Layer.provide(Layer.mergeAll(Core, Http, CoinGecko))
 );
 
 export type AppLayer = typeof AppLayer;

@@ -3,11 +3,10 @@
 import { Effect, Context, Layer } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
 import { CoinGeckoService } from "./coingecko";
-import { DataSourceError, type AdapterInfo } from "./types";
+import { DataSourceError } from "./types";
 
 export interface AggregatedDataService {
   readonly getTopCryptos: (limit?: number) => Effect.Effect<CryptoPrice[], DataSourceError>;
-  readonly getSources: () => readonly AdapterInfo[];
 }
 
 export class AggregatedDataServiceTag extends Context.Tag("AggregatedDataService")<
@@ -22,7 +21,6 @@ export const AggregatedDataServiceLive = Layer.effect(
 
     return {
       getTopCryptos: (limit = 100) => coinGecko.getTopCryptos(limit),
-      getSources: () => [coinGecko.info] as const,
     };
   })
 );
