@@ -1,6 +1,6 @@
 /** CoinGecko Provider - Spot price data with caching and rate limiting */
 
-import { Effect, Context, Layer, Data, Cache, Schedule, Duration, Array as Arr } from "effect";
+import { Effect, Context, Layer, Cache, Schedule, Duration, Array as Arr } from "effect";
 import type { CryptoPrice } from "@0xsignal/shared";
 import { HttpClientTag } from "../../http/client";
 import { RateLimiterTag } from "../../http/rate-limiter";

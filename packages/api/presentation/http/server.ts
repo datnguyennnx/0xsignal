@@ -6,6 +6,7 @@ import { BunRuntime } from "@effect/platform-bun";
 import { AppLayer } from "../../infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
 import { CoinGeckoService, GlobalMarketService } from "../../infrastructure/data-sources/coingecko";
+import { runMigrations } from "../../infrastructure/db/postgres/migrations/migration";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
 
@@ -17,6 +18,18 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
+
+// Run migrations on startup
+const migrateAction = Effect.sync(async () => {
+  console.log("Running database migrations...");
+  try {
+    await runMigrations();
+    console.log("Migrations complete");
+  } catch (error) {
+    console.error("Migration failed:", error);
+    throw error;
+  }
+});
 
 // Pre-warm caches
 const prewarmAction = Effect.gen(function* () {
@@ -43,6 +56,8 @@ const prewarmAction = Effect.gen(function* () {
 
 // App Program
 const serverProgram = Effect.gen(function* () {
+  yield* migrateAction;
+
   // Use Effect's acquireRelease for the server lifecycle
   yield* Effect.acquireRelease(
     Effect.sync(() =>

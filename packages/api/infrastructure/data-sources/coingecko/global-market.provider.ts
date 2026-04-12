@@ -1,6 +1,6 @@
 /** Global Market Provider - Market-wide metrics from CoinGecko /global endpoint */
 
-import { Effect, Context, Layer, Data, Cache, Schema, Duration, Schedule } from "effect";
+import { Effect, Context, Layer, Cache, Schema, Duration, Schedule } from "effect";
 import type { GlobalMarketData } from "@0xsignal/shared";
 import { HttpClientTag } from "../../http/client";
 import { RateLimiterTag } from "../../http/rate-limiter";
