@@ -1,7 +1,8 @@
 import { it, expect, describe, vi, beforeEach } from "vitest";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { initializeMcpServer } from "../server";
 import { openSessionTool } from "../tools/open-session";
+import { AgentServices } from "../../../application/agent";
 
 describe("MCP Tool Execution", () => {
   const mockMcpRepo = {
@@ -43,7 +44,8 @@ describe("MCP Tool Execution", () => {
       objective: "test-objective",
     };
 
-    const effect = openSessionTool.execute(input);
+    const TestAgentServices = Layer.succeed(AgentServices, mockAgentServices as any);
+    const effect = openSessionTool.execute(input).pipe(Effect.provide(TestAgentServices));
     const result = await Effect.runPromise(effect);
 
     expect(result).toEqual({

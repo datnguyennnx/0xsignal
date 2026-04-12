@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../server";
+import { BacktestServices } from "../../../application/backtest";
 
 export const startBacktestRunTool = {
   name: "start_backtest_run",
@@ -12,10 +12,10 @@ export const startBacktestRunTool = {
     base_currency?: string;
     engine_version?: string;
     created_by_action_id?: string;
-  }) => {
-    const deps = getMcpDependencies();
-    return deps.backtestServices
-      .createBacktestRun({
+  }) =>
+    Effect.gen(function* () {
+      const services = yield* BacktestServices;
+      const run = yield* services.createBacktestRun({
         id: crypto.randomUUID(),
         strategy_version_id: input.strategy_version_id,
         dataset_snapshot_id: input.dataset_snapshot_id,
@@ -26,9 +26,9 @@ export const startBacktestRunTool = {
         initial_capital: input.initial_capital ?? 10000,
         base_currency: input.base_currency ?? "USD",
         created_by_action_id: input.created_by_action_id,
-      })
-      .pipe(Effect.map((run) => ({ run_id: run.id, status: run.status })));
-  },
+      });
+      return { run_id: run.id, status: run.status };
+    }),
   inputSchema: {
     type: "object",
     properties: {

@@ -1,8 +1,11 @@
 /** Backtest Routes - /api/backtests */
 
 import type { BacktestServices } from "../../../application/backtest";
+import type { Context } from "effect";
 
-export const makeBacktestRoutes = (services: BacktestServices) => ({
+type BacktestService = Context.Tag.Service<typeof BacktestServices>;
+
+export const makeBacktestRoutes = (services: BacktestService) => ({
   createRun: (body: {
     strategy_version_id: string;
     dataset_snapshot_id: string;

@@ -40,3 +40,29 @@ export const DatasetSnapshotSchema = Schema.Struct({
 });
 
 export type DatasetSnapshot = typeof DatasetSnapshotSchema.Type;
+
+export const CandleSchema = Schema.Struct({
+  timestamp: Schema.Date,
+  open: Schema.Number,
+  high: Schema.Number,
+  low: Schema.Number,
+  close: Schema.Number,
+  volume: Schema.Number,
+});
+
+export type Candle = typeof CandleSchema.Type;
+
+export const CoverageWindowSchema = Schema.Struct({
+  start: Schema.Date,
+  end: Schema.Date,
+});
+
+export const CoverageResultSchema = Schema.Struct({
+  hasData: Schema.Boolean,
+  rowCount: Schema.Number,
+  expectedCount: Schema.Number,
+  fullCoverage: Schema.Boolean,
+  missingWindows: Schema.Array(CoverageWindowSchema),
+});
+
+export type CoverageResult = typeof CoverageResultSchema.Type;

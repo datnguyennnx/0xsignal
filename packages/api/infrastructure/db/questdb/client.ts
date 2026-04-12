@@ -4,6 +4,7 @@ import { Config, Context, Effect, Layer } from "effect";
 import { Data } from "effect";
 
 export class QuestDBError extends Data.TaggedError("QuestDBError")<{
+  readonly code: "INTERNAL_ERROR";
   readonly message: string;
   readonly cause?: unknown;
 }> {}
@@ -33,33 +34,42 @@ const QuestDBConfigLive = Layer.effect(
 
 export const QuestDBClientLayer = QuestDBConfigLive;
 
-function buildUrl(baseUrl: string, sql: string): string {
-  const encoded = encodeURIComponent(sql);
-  return `${baseUrl}/exec?query=${encoded}`;
-}
-
-export function exec(sql: string): Effect.Effect<QuestDBResponse, QuestDBError> {
+/**
+ * Execute a SQL query (SELECT) and expect a JSON response.
+ * Uses GET for compatibility with all QuestDB versions.
+ */
+export function query(sql: string): Effect.Effect<QuestDBResponse, QuestDBError, QuestDBClient> {
   return Effect.flatMap(
     Effect.context() as Effect.Effect<Context.Context<QuestDBClient>>,
     (ctx) => {
       const config = Context.get(ctx, QuestDBClient);
-      const url = buildUrl(config.httpUrl, sql);
+      const url = new URL(`${config.httpUrl}/exec`);
+      url.searchParams.append("query", sql);
 
       return Effect.tryPromise({
         try: () =>
-          fetch(url, {
+          fetch(url.toString(), {
             method: "GET",
-            headers: { Accept: "application/json" },
+            headers: {
+              Accept: "application/json",
+            },
           }).then(async (res) => {
+            const text = await res.text();
             if (!res.ok) {
-              const text = await res.text();
-              throw new Error(`QuestDB HTTP ${res.status}: ${text}`);
+              throw new Error(`QuestDB Query Error (${res.status}): ${text}`);
             }
-            return res.json() as Promise<QuestDBResponse>;
+            try {
+              return JSON.parse(text) as QuestDBResponse;
+            } catch (e) {
+              throw new Error(
+                `Failed to parse QuestDB JSON response. Body: ${text.slice(0, 100)}...`
+              );
+            }
           }),
         catch: (cause): QuestDBError =>
           new QuestDBError({
-            message: `Failed to execute query: ${sql}`,
+            code: "INTERNAL_ERROR",
+            message: `Failed to execute query: ${sql.slice(0, 100)}...`,
             cause,
           }),
       });
@@ -67,7 +77,78 @@ export function exec(sql: string): Effect.Effect<QuestDBResponse, QuestDBError> 
   );
 }
 
-export function healthCheck(): Effect.Effect<boolean, QuestDBError> {
+/**
+ * Execute a SQL command (DDL/DML) via GET.
+ * This ensures compatibility with environments where POST to /exec is disabled.
+ */
+export function command(sql: string): Effect.Effect<void, QuestDBError, QuestDBClient> {
+  return Effect.flatMap(
+    Effect.context() as Effect.Effect<Context.Context<QuestDBClient>>,
+    (ctx) => {
+      const config = Context.get(ctx, QuestDBClient);
+      const url = new URL(`${config.httpUrl}/exec`);
+      url.searchParams.append("query", sql);
+
+      return Effect.tryPromise({
+        try: () =>
+          fetch(url.toString(), {
+            method: "GET",
+          }).then(async (res) => {
+            if (!res.ok) {
+              const text = await res.text();
+              throw new Error(`QuestDB Command Error (${res.status}): ${text}`);
+            }
+            return;
+          }),
+        catch: (cause): QuestDBError =>
+          new QuestDBError({
+            code: "INTERNAL_ERROR",
+            message: `Failed to execute command: ${sql.slice(0, 100)}...`,
+            cause,
+          }),
+      });
+    }
+  );
+}
+
+/**
+ * Ingest data using Influx Line Protocol (ILP) over HTTP.
+ * This is the optimized path for historical candle data.
+ */
+export function ingest(lines: string[]): Effect.Effect<void, QuestDBError, QuestDBClient> {
+  return Effect.flatMap(
+    Effect.context() as Effect.Effect<Context.Context<QuestDBClient>>,
+    (ctx) => {
+      const config = Context.get(ctx, QuestDBClient);
+      const url = `${config.httpUrl}/write`;
+
+      return Effect.tryPromise({
+        try: () =>
+          fetch(url, {
+            method: "POST",
+            body: lines.join("\n") + "\n",
+          }).then(async (res) => {
+            if (!res.ok) {
+              const text = await res.text();
+              throw new Error(`QuestDB Ingestion Error (${res.status}): ${text}`);
+            }
+            return;
+          }),
+        catch: (cause): QuestDBError =>
+          new QuestDBError({
+            code: "INTERNAL_ERROR",
+            message: `Failed to ingest ILP data (${lines.length} lines)`,
+            cause,
+          }),
+      });
+    }
+  );
+}
+
+/** Legacy alias to keep compatibility during refactor if needed, but preferred to use query/command */
+export const exec = query;
+
+export function healthCheck(): Effect.Effect<boolean, QuestDBError, QuestDBClient> {
   return Effect.flatMap(
     Effect.context() as Effect.Effect<Context.Context<QuestDBClient>>,
     (ctx) => {
@@ -78,6 +159,7 @@ export function healthCheck(): Effect.Effect<boolean, QuestDBError> {
         try: () => fetch(url, { method: "GET" }).then((res) => res.ok),
         catch: (cause): QuestDBError =>
           new QuestDBError({
+            code: "INTERNAL_ERROR",
             message: `Health check failed`,
             cause,
           }),

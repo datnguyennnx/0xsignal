@@ -1,8 +1,11 @@
 /** Strategy Routes - /api/strategies */
 
 import type { StrategyServices } from "../../../application/strategy";
+import type { Context } from "effect";
 
-export const makeStrategyRoutes = (services: StrategyServices) => ({
+type StrategyService = Context.Tag.Service<typeof StrategyServices>;
+
+export const makeStrategyRoutes = (services: StrategyService) => ({
   createStrategy: (body: {
     slug: string;
     name: string;

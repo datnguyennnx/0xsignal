@@ -10,19 +10,16 @@ import {
   ListResourceTemplatesRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { makeMcpDependencies, initializeMcpServer, getMcpDependencies } from "./server";
+import {
+  makeMcpDependencies,
+  initializeMcpServer,
+  getMcpDependencies,
+  McpContextLayer,
+} from "./server";
 
-import { openSessionTool } from "./tools/open-session";
-import { savePlanVersionTool } from "./tools/save-plan-version";
-import { recordAgentActionTool } from "./tools/record-agent-action";
-import { createStrategyDefinitionTool } from "./tools/create-strategy-definition";
-import { createStrategyVersionTool } from "./tools/create-strategy-version";
-import { createCandlestickRequestTool } from "./tools/create-candlestick-request";
-import { createDatasetSnapshotTool } from "./tools/create-dataset-snapshot";
-import { startBacktestRunTool } from "./tools/start-backtest-run";
-import { appendResearchNoteTool } from "./tools/append-research-note";
-import { createArtifactTool } from "./tools/create-artifact";
-import { getRunSummaryTool } from "./tools/get-run-summary";
+import { ALL_TOOLS } from "./registry";
+
+const TOOLS = ALL_TOOLS;
 
 import { systemArchitectureResource, getSystemArchitecture } from "./resources/system-architecture";
 import { strategySchemaResource, getStrategySchema } from "./resources/system-strategy-schema";
@@ -31,20 +28,8 @@ import { getRunSummaryResource } from "./resources/run-summary";
 import { getStrategyHistory } from "./resources/strategy-history";
 import { PROMPTS } from "./prompts/index";
 import { Effect } from "effect";
-
-const TOOLS = [
-  openSessionTool,
-  savePlanVersionTool,
-  recordAgentActionTool,
-  createStrategyDefinitionTool,
-  createStrategyVersionTool,
-  createCandlestickRequestTool,
-  createDatasetSnapshotTool,
-  startBacktestRunTool,
-  appendResearchNoteTool,
-  createArtifactTool,
-  getRunSummaryTool,
-];
+import { QuestDBClientLayer } from "../../infrastructure/db/questdb/client";
+import { initializeSchema } from "../../infrastructure/db/questdb/repositories/candle";
 
 function getResources() {
   return [systemArchitectureResource(), strategySchemaResource()];
@@ -67,8 +52,6 @@ export class McpServer extends Server {
         },
       }
     );
-
-    makeMcpDependencies();
 
     this.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
@@ -105,8 +88,19 @@ export class McpServer extends Server {
       });
 
       try {
-        const resultEffect = tool.execute(args as any) as any;
-        const result = await Effect.runPromise(resultEffect);
+        // Inject tracing metadata into tool arguments
+        const enrichedArgs = {
+          ...args,
+          _interactionId: interactionId,
+          _sessionId: sessionId,
+        };
+
+        const resultEffect = tool.execute(enrichedArgs as any) as any;
+
+        // Provide the necessary central layer stack
+        const providedEffect = resultEffect.pipe(Effect.provide(McpContextLayer));
+
+        const result = await Effect.runPromise(providedEffect);
 
         // Update interaction status
         await deps.mcpRepository.updateInteractionStatus(interactionId, "completed", result);
@@ -249,7 +243,15 @@ export class McpServer extends Server {
 
 export async function main() {
   // Initialize server with default dependencies
-  initializeMcpServer({}, makeMcpDependencies());
+  const deps = await makeMcpDependencies();
+  initializeMcpServer({}, deps);
+
+  // Bootstrap QuestDB schema silently
+  try {
+    await Effect.runPromise(initializeSchema().pipe(Effect.provide(QuestDBClientLayer)));
+  } catch (error) {
+    // Fail silently in main but error will be known on first query if it persists
+  }
 
   const transport = new StdioServerTransport();
   const server = new McpServer();

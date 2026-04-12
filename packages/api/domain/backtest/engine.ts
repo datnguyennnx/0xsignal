@@ -1,7 +1,12 @@
-import type { StrategyVersion } from "../../schemas/strategy";
-import type { DatasetSnapshot } from "../../schemas/market-data";
-
 export type RunLifecycleState = "pending" | "running" | "completed" | "failed" | "cancelled";
+
+export interface StrategySnapshotRef {
+  id: string;
+}
+
+export interface DatasetSnapshotRef {
+  id: string;
+}
 
 export interface ExecutionOptions {
   initial_capital: number;
@@ -13,8 +18,8 @@ export interface ExecutionOptions {
 }
 
 export interface EngineInput {
-  strategy_snapshot: StrategyVersion;
-  dataset_snapshot_ref: DatasetSnapshot;
+  strategy_snapshot: StrategySnapshotRef;
+  dataset_snapshot_ref: DatasetSnapshotRef;
   execution_options: ExecutionOptions;
   schema_version: string;
 }
@@ -40,3 +45,17 @@ export interface EngineOutput {
   run_duration_ms: number;
   bars_processed: number;
 }
+
+import { Context, Data, Effect } from "effect";
+
+export class EngineError extends Data.TaggedError("EngineError")<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}
+
+export class EngineExecutor extends Context.Tag("EngineExecutor")<
+  EngineExecutor,
+  {
+    readonly runEngine: (input: EngineInput) => Effect.Effect<EngineOutput, EngineError>;
+  }
+>() {}

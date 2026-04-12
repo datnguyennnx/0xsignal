@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../server";
+import { MarketDataServices } from "../../../application/market-data";
 
 export const createCandlestickRequestTool = {
   name: "create_candlestick_request",
@@ -21,23 +21,26 @@ export const createCandlestickRequestTool = {
     interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d" | "1w";
     start_time?: string;
     end_time?: string;
-  }) => {
-    const deps = getMcpDependencies();
-    return deps.marketDataServices
-      .requestCandlesticks({
-        id: crypto.randomUUID(),
-        symbol: input.symbol,
-        exchange: input.exchange ?? "binance",
-        base_timeframe: input.interval,
-        start_time: input.start_time,
-        end_time: input.end_time,
-      })
-      .pipe(
-        Effect.map((request) => ({
-          request_id: request.id,
-          symbol: request.symbol,
-          interval: request.base_timeframe,
-        }))
-      );
-  },
+    _interactionId?: string;
+  }) =>
+    Effect.gen(function* () {
+      const services = yield* MarketDataServices;
+      return yield* services
+        .requestCandlesticks({
+          id: crypto.randomUUID(),
+          symbol: input.symbol,
+          exchange: input.exchange ?? "hyperliquid",
+          base_timeframe: input.interval,
+          start_time: input.start_time,
+          end_time: input.end_time,
+          requested_by_action_id: input._interactionId,
+        })
+        .pipe(
+          Effect.map((request) => ({
+            request_id: request.id,
+            symbol: request.symbol,
+            interval: request.base_timeframe,
+          }))
+        );
+    }),
 };

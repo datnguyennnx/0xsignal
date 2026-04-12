@@ -47,8 +47,8 @@ export const createBacktestWorker = (deps: BacktestWorkerDependencies) => {
       });
 
       const engineInput: EngineInput = {
-        strategy_snapshot: { id: config.strategySnapshotId } as any,
-        dataset_snapshot_ref: { id: config.datasetSnapshotId } as any,
+        strategy_snapshot: { id: config.strategySnapshotId },
+        dataset_snapshot_ref: { id: config.datasetSnapshotId },
         execution_options: {
           initial_capital: run.initial_capital,
           base_currency: run.base_currency,

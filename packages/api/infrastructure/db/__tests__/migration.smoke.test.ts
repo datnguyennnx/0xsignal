@@ -1,24 +1,7 @@
 import { it, expect, describe, beforeAll, afterAll } from "@effect/vitest";
 import { query, getPool, closePool } from "../postgres/client";
 
-const MIGRATION_TABLES = [
-  "agent_sessions",
-  "agent_plans",
-  "agent_actions",
-  "strategy_definitions",
-  "strategy_versions",
-  "candlestick_requests",
-  "dataset_snapshots",
-  "backtest_runs",
-  "backtest_run_inputs",
-  "backtest_metrics",
-  "backtest_events",
-  "research_notes",
-  "artifacts",
-  "mcp_interactions",
-] as const;
-
-describe("Migration Smoke Tests", () => {
+describe("Migration Smoke Test", () => {
   beforeAll(async () => {
     const pool = getPool();
     await pool.query("SELECT 1");

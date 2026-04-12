@@ -99,7 +99,6 @@ describe("Backtest Reproducibility", () => {
 
   describe("Metrics Normalization", () => {
     it("metrics are stored with standardized names", async () => {
-      const metricRunId = `metric-run-${Date.now()}`;
       await query(
         `INSERT INTO backtest_metrics (run_id, metric_key, metric_value, metric_group, created_at)
          VALUES ($1, 'total_return', 15.5, 'returns', $2)`,

@@ -1,8 +1,11 @@
 /** Session Routes - /api/sessions */
 
 import type { AgentServices } from "../../../application/agent";
+import type { Context } from "effect";
 
-export const makeSessionRoutes = (services: AgentServices) => ({
+type AgentService = Context.Tag.Service<typeof AgentServices>;
+
+export const makeSessionRoutes = (services: AgentService) => ({
   createSession: (body: {
     source: string;
     objective: string;
