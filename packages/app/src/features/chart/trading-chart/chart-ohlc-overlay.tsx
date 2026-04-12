@@ -24,7 +24,7 @@ export const ChartOhlcOverlay = memo(({ data, precision }: ChartOhlcOverlayProps
   if (!displayCandle) return null;
 
   return (
-    <div className="absolute top-2 left-2 right-2 z-30 px-2.5 py-1.5 bg-card/90 backdrop-blur-sm rounded-xl text-xs font-mono shadow-sm select-none overflow-x-auto scrollbar-hide">
+    <div className="absolute top-2 left-2 right-2 z-30 px-2.5 py-1.5 bg-card/90 backdrop-blur-sm rounded-xl text-xs font-mono shadow-sm select-none overflow-x-auto scrollbar-hide w-fit">
       <div className="flex items-center gap-3 min-w-fit">
         <span className="text-muted-foreground">
           O{" "}
