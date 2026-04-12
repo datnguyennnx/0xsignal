@@ -75,7 +75,7 @@ const AssetContent = memo(function AssetContent({
   const description = annotation?.description;
 
   return (
-    <div className="container-fluid h-full flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium overflow-y-auto lg:overflow-hidden overscroll-none select-none">
+    <div className="container-fluid h-fit flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium overflow-y-auto lg:overflow-hidden overscroll-none select-none">
       {/* Header */}
       <header className="mb-4 sm:mb-5 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3">
