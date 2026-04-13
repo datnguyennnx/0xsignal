@@ -20,7 +20,19 @@ describe("MCP E2E Compliance Smoke Test", () => {
     openSession: vi
       .fn()
       .mockReturnValue(Effect.succeed({ id: "test-session-id", status: "pending" })),
-    getSession: vi.fn(),
+    getSession: vi.fn().mockReturnValue(
+      Effect.succeed({
+        id: "test-session-id",
+        source: "test",
+        objective: "test objective",
+        status: "pending",
+        context_scope: null,
+        actor_kind: null,
+        actor_name: null,
+        started_at: "2026-04-13T00:00:00.000Z",
+        ended_at: null,
+      })
+    ),
     savePlan: vi.fn(),
     recordAction: vi.fn(),
   };
@@ -58,6 +70,13 @@ describe("MCP E2E Compliance Smoke Test", () => {
   });
 
   describe("Protocol Compliance", () => {
+    it("should advertise prompt and resource capabilities", async () => {
+      expect((server as any)._capabilities).toBeDefined();
+      expect((server as any)._capabilities.tools).toBeDefined();
+      expect((server as any)._capabilities.prompts).toBeDefined();
+      expect((server as any)._capabilities.resources).toBeDefined();
+    });
+
     it("should list tools correctly", async () => {
       const result = await client.listTools();
       expect(result.tools).toBeDefined();
@@ -68,21 +87,58 @@ describe("MCP E2E Compliance Smoke Test", () => {
       const result = await client.listPrompts();
       expect(result.prompts).toBeDefined();
       expect(result.prompts.length).toBeGreaterThan(0);
+      expect(result.prompts.some((p: any) => p.name === "session_kickoff")).toBe(true);
+      expect(result.prompts.some((p: any) => p.name === "prepare_backtest_data")).toBe(true);
     });
 
     it("should resolve prompt correctly", async () => {
       const result = await client.getPrompt({
-        name: "design_strategy",
-        arguments: { market_type: "crypto", objective: "test" },
+        name: "session_kickoff",
+        arguments: { source: "cli", objective: "test" },
       });
-      expect((result.messages[0].content as any).text).toContain("Market Type: crypto");
-      expect((result.messages[0].content as any).text).toContain("Objective: test");
+      const combinedText = result.messages
+        .map((m) => (m.content as any).text)
+        .filter(Boolean)
+        .join("\n");
+      expect(combinedText).toContain("Source: cli");
+      expect(combinedText).toContain("Objective: test");
+    });
+
+    it("should validate required prompt arguments", async () => {
+      const result = await client.getPrompt({
+        name: "session_kickoff",
+        arguments: { source: "cli" },
+      });
+
+      const combinedText = result.messages
+        .map((m) => (m.content as any).text)
+        .filter(Boolean)
+        .join("\n");
+      expect(combinedText).toContain("Missing required prompt arguments");
+      expect(combinedText).toContain("objective");
     });
 
     it("should list resources correctly", async () => {
       const result = await client.listResources();
       expect(result.resources).toBeDefined();
       expect(result.resources.some((r: any) => r.uri === "system://architecture")).toBe(true);
+      expect(result.resources.some((r: any) => r.uri === "system://strategy-schema")).toBe(true);
+    });
+
+    it("should list resource templates correctly", async () => {
+      const result = await client.listResourceTemplates();
+      expect(result.resourceTemplates).toBeDefined();
+      expect(
+        result.resourceTemplates.some((t: any) => t.uriTemplate === "session://{sessionId}/context")
+      ).toBe(true);
+      expect(
+        result.resourceTemplates.some((t: any) => t.uriTemplate === "backtest://{runId}/summary")
+      ).toBe(true);
+      expect(
+        result.resourceTemplates.some(
+          (t: any) => t.uriTemplate === "strategy://{strategyId}/history"
+        )
+      ).toBe(true);
     });
 
     it("should read resource correctly", async () => {
@@ -93,6 +149,24 @@ describe("MCP E2E Compliance Smoke Test", () => {
         "server_name",
         "0xsignal"
       );
+    });
+
+    it("should read strategy schema resource correctly", async () => {
+      const result = await client.readResource({ uri: "system://strategy-schema" });
+      expect(result.contents).toBeDefined();
+      expect(result.contents[0].uri).toBe("system://strategy-schema");
+      const parsed = JSON.parse((result.contents[0] as any).text);
+      expect(parsed).toHaveProperty("definitions.strategy_definition");
+      expect(parsed).toHaveProperty("definitions.strategy_version");
+    });
+
+    it("should read a domain resource from template URI", async () => {
+      const result = await client.readResource({ uri: "session://test-session-id/context" });
+      expect(result.contents).toBeDefined();
+      expect(result.contents[0].uri).toBe("session://test-session-id/context");
+      const parsed = JSON.parse((result.contents[0] as any).text);
+      expect(parsed).toHaveProperty("id", "test-session-id");
+      expect(parsed).toHaveProperty("objective", "test objective");
     });
   });
 

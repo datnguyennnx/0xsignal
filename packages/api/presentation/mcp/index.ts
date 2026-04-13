@@ -26,6 +26,7 @@ import {
   getStrategyHistory,
 } from "./resources";
 import { PROMPTS } from "./prompts/index";
+import { MCP_AGENT_INSTRUCTION_MODULES, MCP_AGENT_SYSTEM_PROMPT } from "./harness-guidance";
 import { Effect, Layer } from "effect";
 import { QuestDBClientLayer } from "@infrastructure/db/questdb/client";
 import { initializeSchema } from "@infrastructure/db/questdb/repositories/candle";
@@ -138,6 +139,27 @@ const validateToolArguments = (
 function getResources() {
   return [systemArchitectureResource(), strategySchemaResource()];
 }
+
+const RESOURCE_TEMPLATES = [
+  {
+    uriTemplate: "session://{sessionId}/context",
+    name: "Session Context",
+    description: "Context details for a session",
+    mimeType: "application/json",
+  },
+  {
+    uriTemplate: "backtest://{runId}/summary",
+    name: "Run Summary",
+    description: "Metrics and events for a backtest run",
+    mimeType: "application/json",
+  },
+  {
+    uriTemplate: "strategy://{strategyId}/history",
+    name: "Strategy History",
+    description: "Version chain for a strategy",
+    mimeType: "application/json",
+  },
+] as const;
 
 // PROMPTS are imported from ./prompts/index
 
@@ -274,32 +296,26 @@ export class McpServer extends Server {
 
     this.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
       return {
-        resourceTemplates: [
-          {
-            uriTemplate: "session://{sessionId}/context",
-            name: "Session Context",
-            description: "Context details for a session",
-            mimeType: "application/json",
-          },
-          {
-            uriTemplate: "backtest://{runId}/summary",
-            name: "Run Summary",
-            description: "Metrics and events for a backtest run",
-            mimeType: "application/json",
-          },
-          {
-            uriTemplate: "strategy://{strategyId}/history",
-            name: "Strategy History",
-            description: "Version chain for a strategy",
-            mimeType: "application/json",
-          },
-        ],
+        resourceTemplates: [...RESOURCE_TEMPLATES],
       };
     });
 
     this.setRequestHandler(ListPromptsRequestSchema, async () => {
       return {
-        prompts: PROMPTS || [],
+        prompts: (PROMPTS || []).map((prompt) => {
+          const descriptionPrefix =
+            prompt.name === "session_kickoff"
+              ? "[canonical]"
+              : prompt.name === "prepare_backtest_data"
+                ? "[data-workflow]"
+                : prompt.name === "analyze_backtest_run"
+                  ? "[analysis-workflow]"
+                  : "[workflow]";
+          return {
+            ...prompt,
+            description: `${descriptionPrefix} ${prompt.description}`,
+          };
+        }),
       };
     });
 
@@ -312,15 +328,45 @@ export class McpServer extends Server {
         throw new Error(`Prompt "${promptName}" not found`);
       }
 
+      const requiredArgs: string[] = Array.isArray((prompt as any).arguments)
+        ? (prompt as any).arguments.filter((arg: any) => arg.required).map((arg: any) => arg.name)
+        : [];
+
+      const missingRequired = requiredArgs.filter((arg) => args[arg] === undefined);
+      if (missingRequired.length > 0) {
+        return {
+          description: prompt.description,
+          messages: [
+            {
+              role: "user",
+              content: {
+                type: "text",
+                text: `Error: Missing required prompt arguments for ${promptName}: ${missingRequired.join(", ")}.`,
+              },
+            },
+          ],
+        };
+      }
+
       // Simple template resolution
       let text = (prompt as any).template || "";
       for (const [key, value] of Object.entries(args)) {
-        text = text.replace(`{{${key}}}`, String(value));
+        text = text.replaceAll(`{{${key}}}`, String(value));
       }
+      text = text.replace(/\{\{[^}]+\}\}/g, "");
+
+      const guidance = `${MCP_AGENT_SYSTEM_PROMPT}\n\nInstruction modules:\n- Prerequisite checklist: ${MCP_AGENT_INSTRUCTION_MODULES.prerequisite_checklist.join(" ")}\n- Mutation verification: ${MCP_AGENT_INSTRUCTION_MODULES.mutation_verification.join(" ")}\n- Anti-confusion rules: ${MCP_AGENT_INSTRUCTION_MODULES.anti_confusion_rules.join(" ")}`;
 
       return {
         description: prompt.description,
         messages: [
+          {
+            role: "assistant",
+            content: {
+              type: "text",
+              text: guidance,
+            },
+          },
           {
             role: "user",
             content: {

@@ -1,4 +1,5 @@
 import { it, expect, describe } from "@effect/vitest";
+import { ALL_TOOLS } from "../registry";
 
 const MCP_TOOLS = [
   "open_session",
@@ -6,10 +7,15 @@ const MCP_TOOLS = [
   "record_agent_action",
   "create_strategy_definition",
   "create_strategy_version",
+  "discover_markets",
+  "get_candles",
+  "inspect_candle_coverage",
+  "ensure_candle_coverage",
   "create_candlestick_request",
   "create_dataset_snapshot",
   "start_backtest_run",
   "append_research_note",
+  "create_artifact",
   "get_run_summary",
 ] as const;
 
@@ -28,6 +34,12 @@ describe("MCP Tool Validation", () => {
     it("get_run_summary tool exports correctly", async () => {
       const { getRunSummaryTool } = await import("../tools");
       expect(getRunSummaryTool).toBeDefined();
+    });
+
+    it("registry contains all expected tools", () => {
+      const registryToolNames = ALL_TOOLS.map((tool) => tool.name).sort();
+      const expectedNames = [...MCP_TOOLS].sort();
+      expect(registryToolNames).toEqual(expectedNames);
     });
   });
 
@@ -50,9 +62,15 @@ describe("MCP Tool Validation", () => {
   describe("Tool Naming Convention", () => {
     it("all tool names use snake_case", () => {
       const snakeCasePattern = /^[a-z]+(?:_[a-z]+)*$/;
-      for (const toolName of MCP_TOOLS) {
+      for (const toolName of ALL_TOOLS.map((tool) => tool.name)) {
         expect(toolName).toMatch(snakeCasePattern);
       }
+    });
+
+    it("tool names are unique", () => {
+      const names = ALL_TOOLS.map((tool) => tool.name);
+      const unique = new Set(names);
+      expect(unique.size).toBe(names.length);
     });
   });
 

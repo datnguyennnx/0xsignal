@@ -167,16 +167,7 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     )) as { universe: unknown[] };
 
     expect(result.universe).toBeDefined();
-  });
-
-  it("explain_data_source_policy: should return policy tiers", async () => {
-    const tool = getTool("explain_data_source_policy");
-    const result = (await Effect.runPromise(
-      tool.execute({} as never).pipe(Effect.provide(TestContext))
-    )) as { policy: string; tiers: unknown[] };
-
-    expect(result.policy).toContain("Tiered Source Policy");
-    expect(result.tiers).toHaveLength(3);
+    expect(mockMarketDataServices.discoverMarkets).toHaveBeenCalled();
   });
 
   it("correlation: should propagate interactionId to MarketDataServices", async () => {

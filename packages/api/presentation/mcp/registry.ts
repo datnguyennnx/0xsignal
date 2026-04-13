@@ -13,7 +13,6 @@ import {
   discoverMarketsTool,
   getCandlesTool,
   inspectCandleCoverageTool,
-  explainDataSourcePolicyTool,
   ensureCandleCoverageTool,
 } from "./tools";
 
@@ -32,6 +31,5 @@ export const ALL_TOOLS = [
   discoverMarketsTool,
   getCandlesTool,
   inspectCandleCoverageTool,
-  explainDataSourcePolicyTool,
   ensureCandleCoverageTool,
 ];

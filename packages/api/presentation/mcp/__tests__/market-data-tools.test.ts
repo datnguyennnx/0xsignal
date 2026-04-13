@@ -5,7 +5,6 @@ import {
   discoverMarketsTool,
   getCandlesTool,
   inspectCandleCoverageTool,
-  explainDataSourcePolicyTool,
   ensureCandleCoverageTool,
 } from "../tools";
 
@@ -82,12 +81,6 @@ describe("MCP Market Data Tools Wiring", () => {
     );
 
     expect(mockMarketDataServices.inspectCoverage).toHaveBeenCalled();
-  });
-
-  it("explain_data_source_policy returns policy info", async () => {
-    const result = await Effect.runPromise(explainDataSourcePolicyTool.execute());
-    expect(result.policy).toBeDefined();
-    expect(result.tiers).toHaveLength(3);
   });
 
   it("ensure_candle_coverage orchestrates gap filling and returns verification", async () => {

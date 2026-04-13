@@ -57,7 +57,6 @@ export const defaultCapabilities = {
     discover_markets: true,
     get_candles: true,
     inspect_candle_coverage: true,
-    explain_data_source_policy: true,
     ensure_candle_coverage: true,
   },
 };
