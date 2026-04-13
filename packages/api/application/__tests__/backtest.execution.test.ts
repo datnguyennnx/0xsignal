@@ -8,6 +8,7 @@ describe("Backtest Execution Flow", () => {
     // We mock the repo dependencies to verify execution flow
     const mockRepo = {
       insertRun: vi.fn().mockImplementation((run) => Promise.resolve(run)),
+      createRunWithInput: vi.fn().mockImplementation((run) => Promise.resolve(run)),
       updateRunStatus: vi.fn().mockImplementation((_id, _status) => Promise.resolve()),
       insertEvent: vi.fn().mockImplementation((event) => Promise.resolve(event)),
       getRun: vi.fn().mockImplementation((id) =>
@@ -69,10 +70,13 @@ describe("Backtest Execution Flow", () => {
     await Effect.runPromise(effect);
 
     // Initial persistence check
-    expect(mockRepo.insertRun).toHaveBeenCalledWith(
+    expect(mockRepo.createRunWithInput).toHaveBeenCalledWith(
       expect.objectContaining({
         id: runId,
         status: "pending",
+      }),
+      expect.objectContaining({
+        run_id: runId,
       })
     );
 

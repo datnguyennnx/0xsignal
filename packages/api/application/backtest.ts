@@ -115,22 +115,37 @@ export const makeBacktestService = (repo: BacktestRepository) =>
         Effect.gen(function* () {
           const run = yield* Effect.tryPromise({
             try: () =>
-              repo.insertRun({
-                id: input.id,
-                session_id: input.session_id,
-                strategy_version_id: input.strategy_version_id,
-                dataset_snapshot_id: input.dataset_snapshot_id,
-                status: input.status,
-                engine_version: input.engine_version,
-                run_mode: input.run_mode,
-                initial_capital: input.initial_capital,
-                base_currency: input.base_currency,
-                created_by_action_id: input.created_by_action_id,
-                trace_id: input.trace_id,
-                span_id: input.span_id,
-                correlation_id: input.correlation_id,
-                started_at: new Date().toISOString(),
-              }),
+              repo.createRunWithInput(
+                {
+                  id: input.id,
+                  session_id: input.session_id,
+                  strategy_version_id: input.strategy_version_id,
+                  dataset_snapshot_id: input.dataset_snapshot_id,
+                  status: input.status,
+                  engine_version: input.engine_version,
+                  run_mode: input.run_mode,
+                  initial_capital: input.initial_capital,
+                  base_currency: input.base_currency,
+                  created_by_action_id: input.created_by_action_id,
+                  trace_id: input.trace_id,
+                  span_id: input.span_id,
+                  correlation_id: input.correlation_id,
+                  started_at: new Date().toISOString(),
+                },
+                {
+                  run_id: input.id,
+                  strategy_snapshot: { id: input.strategy_version_id },
+                  dataset_snapshot_ref: { id: input.dataset_snapshot_id },
+                  execution_options: {
+                    initial_capital: input.initial_capital,
+                    base_currency: input.base_currency,
+                    run_mode: input.run_mode,
+                    engine_version: input.engine_version,
+                  },
+                  schema_version: "1.0.0",
+                  created_at: new Date().toISOString(),
+                }
+              ),
             catch: (e) => validationError("Failed to create backtest run", e),
           });
 

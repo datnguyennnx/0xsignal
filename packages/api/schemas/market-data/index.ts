@@ -16,6 +16,7 @@ export const CandlestickRequestSchema = Schema.Struct({
   end_time: Schema.optional(Schema.String),
   adjustments: Schema.optional(Schema.Union(Schema.String, Schema.Unknown)),
   requested_by_action_id: Schema.optional(Schema.String),
+  requested_by_interaction_id: Schema.optional(Schema.String),
   ...traceCorrelationFields,
   request_id: Schema.optional(Schema.String),
   created_at: Schema.String,

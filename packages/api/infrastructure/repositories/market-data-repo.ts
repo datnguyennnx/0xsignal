@@ -11,8 +11,8 @@ export interface MarketDataRepository {
 export const postgresMarketDataRepository: MarketDataRepository = {
   async insertCandlestickRequest(request: CandlestickRequest): Promise<CandlestickRequest> {
     const sql = `
-      INSERT INTO candlestick_requests (id, session_id, symbol, exchange, base_timeframe, start_time, end_time, adjustments, requested_by_action_id, trace_id, span_id, correlation_id, request_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      INSERT INTO candlestick_requests (id, session_id, symbol, exchange, base_timeframe, start_time, end_time, adjustments, requested_by_action_id, requested_by_interaction_id, trace_id, span_id, correlation_id, request_id, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
     const result = await query(sql, [
@@ -25,6 +25,7 @@ export const postgresMarketDataRepository: MarketDataRepository = {
       request.end_time,
       request.adjustments ? JSON.stringify(request.adjustments) : null,
       request.requested_by_action_id,
+      request.requested_by_interaction_id,
       request.trace_id,
       request.span_id,
       request.correlation_id,

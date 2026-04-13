@@ -50,6 +50,7 @@ describe("MCP research/backtest tool behavior", () => {
       appendResearchNoteTool.execute({
         title: "N1",
         content_markdown: "Hello",
+        session_id: "session-1",
         tags: ["alpha", "btc"],
       })
     );
@@ -67,12 +68,25 @@ describe("MCP research/backtest tool behavior", () => {
     await Effect.runPromise(
       appendResearchNoteTool.execute({
         title: "N2",
+        session_id: "session-2",
       })
     );
 
     expect(mockResearchServices.appendResearchNote).toHaveBeenCalledWith(
       expect.objectContaining({ tags: undefined })
     );
+  });
+
+  it("append_research_note requires at least one anchor", async () => {
+    await expect(
+      Effect.runPromise(
+        appendResearchNoteTool.execute({
+          title: "No anchor",
+        })
+      )
+    ).rejects.toThrow(/requires at least one anchor/);
+
+    expect(mockResearchServices.appendResearchNote).not.toHaveBeenCalled();
   });
 
   it("append_research_note preserves explicit empty tags", async () => {
@@ -83,6 +97,7 @@ describe("MCP research/backtest tool behavior", () => {
     await Effect.runPromise(
       appendResearchNoteTool.execute({
         title: "N3",
+        session_id: "session-3",
         tags: [],
       })
     );
@@ -127,5 +142,20 @@ describe("MCP research/backtest tool behavior", () => {
       metrics: [{ key: "total_return", value: 0.1, group: "performance" }],
       event_count: 3,
     });
+  });
+
+  it("create_artifact requires at least one anchor", async () => {
+    const { createArtifactTool } = await import("../tools");
+
+    await expect(
+      Effect.runPromise(
+        createArtifactTool.execute({
+          artifact_type: "report",
+          storage_path: "/tmp/report.md",
+        })
+      )
+    ).rejects.toThrow(/requires at least one anchor/);
+
+    expect(mockResearchServices.createArtifact).not.toHaveBeenCalled();
   });
 });

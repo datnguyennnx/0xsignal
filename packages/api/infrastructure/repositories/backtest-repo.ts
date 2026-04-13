@@ -1,4 +1,4 @@
-import { query } from "../db/postgres/client";
+import { query, getClient } from "../db/postgres/client";
 import type {
   BacktestRun,
   BacktestRunInput as BacktestRunInputs,
@@ -9,6 +9,7 @@ import type {
 
 export interface BacktestRepository {
   insertRun(run: BacktestRun): Promise<BacktestRun>;
+  createRunWithInput(run: BacktestRun, input: BacktestRunInputs): Promise<BacktestRun>;
   getRun(id: string): Promise<BacktestRun | null>;
   insertRunInput(input: BacktestRunInputs): Promise<BacktestRunInputs>;
   getRunInput(runId: string): Promise<BacktestRunInputs | null>;
@@ -51,6 +52,66 @@ export const postgresBacktestRepository: BacktestRepository = {
     const sql = `SELECT * FROM backtest_runs WHERE id = $1`;
     const result = await query(sql, [id]);
     return result.rows[0] as BacktestRun | null;
+  },
+
+  async createRunWithInput(run: BacktestRun, input: BacktestRunInputs): Promise<BacktestRun> {
+    const client = await getClient();
+    try {
+      await client.query("BEGIN");
+
+      const runSql = `
+        INSERT INTO backtest_runs (id, session_id, strategy_version_id, dataset_snapshot_id, status, engine_version, run_mode, initial_capital, base_currency, created_by_action_id, trace_id, span_id, correlation_id, started_at, finished_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        RETURNING *
+      `;
+      const runResult = await client.query(runSql, [
+        run.id,
+        run.session_id,
+        run.strategy_version_id,
+        run.dataset_snapshot_id,
+        run.status,
+        run.engine_version,
+        run.run_mode,
+        run.initial_capital,
+        run.base_currency,
+        run.created_by_action_id,
+        run.trace_id,
+        run.span_id,
+        run.correlation_id,
+        run.started_at,
+        run.finished_at,
+      ]);
+
+      const inputSql = `
+        INSERT INTO backtest_run_inputs (run_id, strategy_snapshot, dataset_snapshot_ref, execution_options, schema_version, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `;
+
+      await client.query(inputSql, [
+        input.run_id,
+        typeof input.strategy_snapshot === "string"
+          ? input.strategy_snapshot
+          : JSON.stringify(input.strategy_snapshot),
+        typeof input.dataset_snapshot_ref === "string"
+          ? input.dataset_snapshot_ref
+          : JSON.stringify(input.dataset_snapshot_ref),
+        input.execution_options
+          ? typeof input.execution_options === "string"
+            ? input.execution_options
+            : JSON.stringify(input.execution_options)
+          : null,
+        input.schema_version,
+        input.created_at,
+      ]);
+
+      await client.query("COMMIT");
+      return runResult.rows[0] as BacktestRun;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 
   async insertRunInput(input: BacktestRunInputs): Promise<BacktestRunInputs> {

@@ -73,6 +73,16 @@ describe("Migration Smoke Test", () => {
       );
       expect(result.rows[0]?.count).toBe("1");
     });
+
+    it("candlestick_requests has requested_by_interaction_id column", async () => {
+      const result = await query(`
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_name = 'candlestick_requests'
+          AND column_name = 'requested_by_interaction_id'
+      `);
+      expect(result.rows[0]?.count).toBe("1");
+    });
   });
 
   describe("Backtest Core Tables", () => {

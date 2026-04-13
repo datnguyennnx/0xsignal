@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { getMcpDependencies } from "../../server";
+import { validationError } from "@application/errors";
 
 export const createArtifactTool = {
   name: "create_artifact",
@@ -30,6 +31,14 @@ export const createArtifactTool = {
     size_bytes?: number;
     metadata?: Record<string, unknown>;
   }) => {
+    if (!input.run_id && !input.strategy_version_id) {
+      return Effect.fail(
+        validationError(
+          "create_artifact requires at least one anchor: run_id or strategy_version_id"
+        )
+      );
+    }
+
     const deps = getMcpDependencies();
     return deps.researchServices
       .createArtifact({

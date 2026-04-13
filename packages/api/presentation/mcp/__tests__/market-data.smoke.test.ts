@@ -183,7 +183,7 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     );
 
     expect(mockMarketDataServices.requestCandlesticks).toHaveBeenCalledWith(
-      expect.objectContaining({ requested_by_action_id: "trace-999" })
+      expect.objectContaining({ requested_by_interaction_id: "trace-999" })
     );
   });
 

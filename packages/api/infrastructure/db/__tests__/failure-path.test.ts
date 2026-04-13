@@ -63,7 +63,7 @@ describe("Failure-Path Persistence Tests", () => {
       const mcpFailId = `mcp-fail-${Date.now()}`;
       await query(
         `INSERT INTO mcp_interactions (id, interaction_type, name, status, trace_id, span_id, correlation_id, created_at)
-         VALUES ($1, 'tool', 'create_strategy', 'failed', 'mcp-trace', 'mcp-span', 'mcp-corr', $2)`,
+         VALUES ($1, 'tool_call', 'create_strategy', 'failed', 'mcp-trace', 'mcp-span', 'mcp-corr', $2)`,
         [mcpFailId, new Date().toISOString()]
       );
       const result = await query(`SELECT status, name FROM mcp_interactions WHERE id = $1`, [

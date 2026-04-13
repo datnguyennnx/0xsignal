@@ -31,6 +31,7 @@ type RequestCandlesticksInput = {
   end_time?: string;
   adjustments?: string | unknown;
   requested_by_action_id?: string;
+  requested_by_interaction_id?: string;
   trace_id?: string;
   span_id?: string;
   correlation_id?: string;
