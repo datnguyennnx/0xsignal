@@ -78,6 +78,34 @@ export class BacktestServices extends Context.Tag("BacktestServices")<
   }
 >() {}
 
+const EVENT_TYPES = new Set([
+  "order_placed",
+  "order_filled",
+  "order_cancelled",
+  "position_opened",
+  "position_closed",
+  "signal",
+  "error",
+  "info",
+] as const);
+
+type EventType =
+  | "order_placed"
+  | "order_filled"
+  | "order_cancelled"
+  | "position_opened"
+  | "position_closed"
+  | "signal"
+  | "error"
+  | "info";
+
+const normalizeEventType = (value: string): EventType => {
+  if (EVENT_TYPES.has(value as EventType)) {
+    return value as EventType;
+  }
+  return "info";
+};
+
 export const makeBacktestService = (repo: BacktestRepository) =>
   Effect.gen(function* () {
     const executor = yield* EngineExecutor;
@@ -106,25 +134,101 @@ export const makeBacktestService = (repo: BacktestRepository) =>
             catch: (e) => validationError("Failed to create backtest run", e),
           });
 
-          // Dispatch the worker asynchronously using the injected executor logic
-          yield* Effect.forkDaemon(
-            executor
-              .runEngine({
-                strategy_snapshot: { id: run.strategy_version_id },
-                dataset_snapshot_ref: { id: run.dataset_snapshot_id },
-                execution_options: {
-                  initial_capital: run.initial_capital,
-                  base_currency: run.base_currency,
-                },
-                schema_version: "1.0.0",
+          const executeRun = Effect.gen(function* () {
+            yield* Effect.tryPromise({
+              try: () => repo.updateRunStatus(run.id, "running"),
+              catch: (e) => validationError("Failed to set run to running", e),
+            });
+
+            yield* Effect.tryPromise({
+              try: () =>
+                repo.insertEvent({
+                  id: crypto.randomUUID(),
+                  run_id: run.id,
+                  event_type: "info",
+                  payload: { message: "Starting backtest execution" },
+                  level: "info",
+                  created_at: new Date().toISOString(),
+                }),
+              catch: (e) => validationError("Failed to insert start event", e),
+            });
+
+            const output = yield* executor.runEngine({
+              strategy_snapshot: { id: run.strategy_version_id },
+              dataset_snapshot_ref: { id: run.dataset_snapshot_id },
+              execution_options: {
+                initial_capital: run.initial_capital,
+                base_currency: run.base_currency,
+              },
+              schema_version: "1.0.0",
+            });
+
+            yield* Effect.forEach(Object.entries(output.metrics), ([metricKey, metricValue]) =>
+              Effect.tryPromise({
+                try: () =>
+                  repo.insertMetric({
+                    run_id: run.id,
+                    metric_key: metricKey,
+                    metric_value: metricValue,
+                    metric_group: "performance",
+                    created_at: new Date().toISOString(),
+                  }),
+                catch: (e) => validationError("Failed to persist metric", e),
               })
-              .pipe(
-                Effect.tap((output) =>
-                  Effect.logInfo(`Engine finished with status: ${output.status}`)
-                ),
-                Effect.catchAll((err) => Effect.logError(`Engine execution failed: ${err.message}`))
-              )
+            );
+
+            yield* Effect.forEach(output.events, (event) =>
+              Effect.tryPromise({
+                try: () =>
+                  repo.insertEvent({
+                    id: crypto.randomUUID(),
+                    run_id: run.id,
+                    event_type: normalizeEventType(event.event_type),
+                    payload: event.payload,
+                    level: event.level,
+                    created_at: event.timestamp,
+                  }),
+                catch: (e) => validationError("Failed to persist event", e),
+              })
+            );
+
+            yield* Effect.tryPromise({
+              try: () => repo.updateRunStatus(run.id, output.status),
+              catch: (e) => validationError("Failed to update final run status", e),
+            });
+
+            yield* Effect.tryPromise({
+              try: () =>
+                repo.insertEvent({
+                  id: crypto.randomUUID(),
+                  run_id: run.id,
+                  event_type: "info",
+                  payload: { message: `Backtest completed with status: ${output.status}` },
+                  level: "info",
+                  created_at: new Date().toISOString(),
+                }),
+              catch: (e) => validationError("Failed to insert completion event", e),
+            });
+          }).pipe(
+            Effect.catchAll((err) =>
+              Effect.tryPromise({
+                try: async () => {
+                  await repo.updateRunStatus(run.id, "failed");
+                  await repo.insertEvent({
+                    id: crypto.randomUUID(),
+                    run_id: run.id,
+                    event_type: "error",
+                    payload: { message: err.message },
+                    level: "error",
+                    created_at: new Date().toISOString(),
+                  });
+                },
+                catch: () => err,
+              }).pipe(Effect.zipRight(Effect.logError(`Engine execution failed: ${err.message}`)))
+            )
           );
+
+          yield* Effect.forkDaemon(executeRun);
 
           return run;
         }),

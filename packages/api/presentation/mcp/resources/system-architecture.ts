@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { ALL_TOOLS } from "../registry";
 
 export interface SystemArchitectureResource {
   uri: string;
@@ -34,7 +35,7 @@ export const getSystemArchitecture = () =>
           },
           presentation: {
             http: ["REST API"],
-            mcp: ["MCP Server with 5 resources and 10 tools"],
+            mcp: [`MCP Server with 5 resources and ${ALL_TOOLS.length} tools`],
           },
         },
       },

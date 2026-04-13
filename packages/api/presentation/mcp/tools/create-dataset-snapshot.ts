@@ -17,6 +17,7 @@ export const createDatasetSnapshotTool = {
       row_count: { type: "integer" },
       checksum: { type: "string" },
     },
+    required: ["request_id", "symbol", "exchange", "timeframe", "start_time", "end_time"],
   },
   execute: (input: {
     request_id: string;

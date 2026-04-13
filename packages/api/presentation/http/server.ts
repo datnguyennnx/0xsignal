@@ -20,15 +20,16 @@ const corsHeaders = {
 };
 
 // Run migrations on startup
-const migrateAction = Effect.sync(async () => {
-  console.log("Running database migrations...");
-  try {
+const migrateAction = Effect.tryPromise({
+  try: async () => {
+    console.log("Running database migrations...");
     await runMigrations();
     console.log("Migrations complete");
-  } catch (error) {
+  },
+  catch: (error) => {
     console.error("Migration failed:", error);
-    throw error;
-  }
+    return error;
+  },
 });
 
 // Pre-warm caches

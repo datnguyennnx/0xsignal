@@ -184,7 +184,7 @@ export async function runMigrations(direction: "up" | "down" = "up"): Promise<vo
     throw error;
   } finally {
     if (client) {
-      await query("SELECT pg_advisory_unlock($1)", [ADVISORY_LOCK_ID]);
+      await client.query("SELECT pg_advisory_unlock($1)", [ADVISORY_LOCK_ID]).catch(() => {});
       client.release();
     }
   }
@@ -218,7 +218,7 @@ export async function rollbackMigration(filename: string): Promise<void> {
     throw error;
   } finally {
     if (client) {
-      await query("SELECT pg_advisory_unlock($1)", [ADVISORY_LOCK_ID]);
+      await client.query("SELECT pg_advisory_unlock($1)", [ADVISORY_LOCK_ID]).catch(() => {});
       client.release();
     }
   }

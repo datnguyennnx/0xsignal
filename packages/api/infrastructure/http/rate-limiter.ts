@@ -49,41 +49,40 @@ export const RateLimiterLive = Layer.effect(
   Effect.gen(function* () {
     const buckets = yield* Ref.make<Map<string, TokenBucket>>(new Map());
 
-    const getBucket = (source: string, config: RateLimiterConfig) =>
-      Ref.get(buckets).pipe(
-        Effect.map(
-          (m) =>
-            m.get(source) ?? {
-              tokens: config.burstSize ?? config.tokensPerMinute,
-              lastRefill: Date.now(),
-            }
-        )
-      );
-
-    const updateBucket = (source: string, bucket: TokenBucket) =>
-      Ref.update(buckets, (m) => {
-        const updated = new Map(m);
-        updated.set(source, bucket);
-        return updated;
-      });
-
     const acquire = (source: string): Effect.Effect<void, RateLimitExceeded> =>
       Effect.gen(function* () {
         const config = getConfig(source);
-        const current = yield* getBucket(source, config);
-        const refilled = refillTokens(current, config);
+        const decision = yield* Ref.modify(
+          buckets,
+          (m): readonly [{ allowed: boolean; retryAfterMs: number }, Map<string, TokenBucket>] => {
+            const current = m.get(source) ?? {
+              tokens: config.burstSize ?? config.tokensPerMinute,
+              lastRefill: Date.now(),
+            };
 
-        if (refilled.tokens >= 1) {
-          yield* updateBucket(source, { ...refilled, tokens: refilled.tokens - 1 });
+            const refilled = refillTokens(current, config);
+            const updated = new Map(m);
+
+            if (refilled.tokens >= 1) {
+              updated.set(source, { ...refilled, tokens: refilled.tokens - 1 });
+              return [{ allowed: true, retryAfterMs: 0 }, updated] as const;
+            }
+
+            const msUntilToken = (1 - refilled.tokens) / (config.tokensPerMinute / 60000);
+            updated.set(source, refilled);
+            return [{ allowed: false, retryAfterMs: Math.ceil(msUntilToken) }, updated] as const;
+          }
+        );
+
+        if (decision.allowed) {
           return;
         }
 
-        const msUntilToken = (1 - refilled.tokens) / (config.tokensPerMinute / 60000);
         yield* Effect.fail(
           new RateLimitExceeded({
             source,
-            message: `Rate limit exceeded for ${source}. Retry after ${Math.ceil(msUntilToken)}ms`,
-            retryAfterMs: Math.ceil(msUntilToken),
+            message: `Rate limit exceeded for ${source}. Retry after ${decision.retryAfterMs}ms`,
+            retryAfterMs: decision.retryAfterMs,
           })
         );
       });

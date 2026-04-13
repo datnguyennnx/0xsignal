@@ -52,7 +52,13 @@ export const defaultCapabilities = {
     create_dataset_snapshot: true,
     start_backtest_run: true,
     append_research_note: true,
+    create_artifact: true,
     get_run_summary: true,
+    discover_markets: true,
+    get_candles: true,
+    inspect_candle_coverage: true,
+    explain_data_source_policy: true,
+    ensure_candle_coverage: true,
   },
 };
 

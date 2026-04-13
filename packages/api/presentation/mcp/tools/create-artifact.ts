@@ -17,7 +17,7 @@ export const createArtifactTool = {
       strategy_version_id: { type: "string" },
       content_type: { type: "string" },
       size_bytes: { type: "integer" },
-      metadata: { type: "array", items: { type: "object" } },
+      metadata: { type: "object", additionalProperties: true },
     },
     required: ["artifact_type", "storage_path"],
   },
@@ -28,7 +28,7 @@ export const createArtifactTool = {
     strategy_version_id?: string;
     content_type?: string;
     size_bytes?: number;
-    metadata?: readonly [string, unknown][];
+    metadata?: Record<string, unknown>;
   }) => {
     const deps = getMcpDependencies();
     return deps.researchServices
@@ -40,7 +40,7 @@ export const createArtifactTool = {
         strategy_version_id: input.strategy_version_id,
         content_type: input.content_type,
         size_bytes: input.size_bytes,
-        metadata: input.metadata ? Object.fromEntries([...input.metadata]) : undefined,
+        metadata: input.metadata,
       })
       .pipe(
         Effect.map((artifact) => ({

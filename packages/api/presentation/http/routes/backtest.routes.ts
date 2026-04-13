@@ -5,6 +5,34 @@ import type { Context } from "effect";
 
 type BacktestService = Context.Tag.Service<typeof BacktestServices>;
 
+type BacktestEventType =
+  | "order_placed"
+  | "order_filled"
+  | "order_cancelled"
+  | "position_opened"
+  | "position_closed"
+  | "signal"
+  | "error"
+  | "info";
+
+const EVENT_TYPES = new Set<BacktestEventType>([
+  "order_placed",
+  "order_filled",
+  "order_cancelled",
+  "position_opened",
+  "position_closed",
+  "signal",
+  "error",
+  "info",
+]);
+
+const parseEventType = (value: string): BacktestEventType => {
+  if (EVENT_TYPES.has(value as BacktestEventType)) {
+    return value as BacktestEventType;
+  }
+  throw new Error(`Unsupported event_type: ${value}`);
+};
+
 export const makeBacktestRoutes = (services: BacktestService) => ({
   createRun: (body: {
     strategy_version_id: string;
@@ -39,7 +67,7 @@ export const makeBacktestRoutes = (services: BacktestService) => ({
     services.appendRunEvent({
       id: crypto.randomUUID(),
       run_id: body.run_id,
-      event_type: body.event_type as any,
+      event_type: parseEventType(body.event_type),
       payload: body.payload,
       level: body.level,
     }),

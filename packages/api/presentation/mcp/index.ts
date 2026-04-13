@@ -10,12 +10,7 @@ import {
   ListResourceTemplatesRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import {
-  makeMcpDependencies,
-  initializeMcpServer,
-  getMcpDependencies,
-  McpContextLayer,
-} from "./server";
+import { makeMcpDependencies, initializeMcpServer, getMcpDependencies } from "./server";
 
 import { ALL_TOOLS } from "./registry";
 
@@ -27,9 +22,114 @@ import { getSessionContext } from "./resources/session-context";
 import { getRunSummaryResource } from "./resources/run-summary";
 import { getStrategyHistory } from "./resources/strategy-history";
 import { PROMPTS } from "./prompts/index";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { QuestDBClientLayer } from "../../infrastructure/db/questdb/client";
 import { initializeSchema } from "../../infrastructure/db/questdb/repositories/candle";
+import { AgentServices } from "../../application/agent";
+import { BacktestServices } from "../../application/backtest";
+import { MarketDataServices } from "../../application/market-data";
+
+type JsonSchema = {
+  type?: string;
+  required?: string[];
+  properties?: Record<string, JsonSchema>;
+  enum?: readonly unknown[];
+  items?: JsonSchema;
+  additionalProperties?: boolean;
+};
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const validateSchemaValue = (schema: JsonSchema, value: unknown, path = "input"): string[] => {
+  const errors: string[] = [];
+
+  if (schema.enum && !schema.enum.includes(value)) {
+    errors.push(`${path} must be one of: ${schema.enum.join(", ")}`);
+    return errors;
+  }
+
+  if (!schema.type) {
+    return errors;
+  }
+
+  if (schema.type === "object") {
+    if (!isPlainObject(value)) {
+      errors.push(`${path} must be an object`);
+      return errors;
+    }
+
+    for (const key of schema.required ?? []) {
+      if (!(key in value)) {
+        errors.push(`${path}.${key} is required`);
+      }
+    }
+
+    if (schema.properties) {
+      for (const [key, childSchema] of Object.entries(schema.properties)) {
+        if (!(key in value)) {
+          continue;
+        }
+        errors.push(...validateSchemaValue(childSchema, value[key], `${path}.${key}`));
+      }
+
+      if (schema.additionalProperties === false) {
+        for (const key of Object.keys(value)) {
+          if (!(key in schema.properties)) {
+            errors.push(`${path}.${key} is not allowed`);
+          }
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  if (schema.type === "array") {
+    if (!Array.isArray(value)) {
+      errors.push(`${path} must be an array`);
+      return errors;
+    }
+    if (schema.items) {
+      for (let i = 0; i < value.length; i++) {
+        errors.push(...validateSchemaValue(schema.items, value[i], `${path}[${i}]`));
+      }
+    }
+    return errors;
+  }
+
+  if (schema.type === "string" && typeof value !== "string") {
+    errors.push(`${path} must be a string`);
+  }
+
+  if (schema.type === "number" && typeof value !== "number") {
+    errors.push(`${path} must be a number`);
+  }
+
+  if (schema.type === "integer") {
+    if (typeof value !== "number" || !Number.isInteger(value)) {
+      errors.push(`${path} must be an integer`);
+    }
+  }
+
+  if (schema.type === "boolean" && typeof value !== "boolean") {
+    errors.push(`${path} must be a boolean`);
+  }
+
+  return errors;
+};
+
+const validateToolArguments = (
+  schema: JsonSchema,
+  args: unknown
+): { ok: true; value: Record<string, unknown> } | { ok: false; message: string } => {
+  const value = isPlainObject(args) ? args : {};
+  const errors = validateSchemaValue(schema, value);
+  if (errors.length > 0) {
+    return { ok: false, message: errors.join("; ") };
+  }
+  return { ok: true, value };
+};
 
 function getResources() {
   return [systemArchitectureResource(), strategySchemaResource()];
@@ -74,7 +174,25 @@ export class McpServer extends Server {
 
       const deps = getMcpDependencies();
       const interactionId = crypto.randomUUID();
-      const sessionId = (args as any).session_id || (args as any).sessionId;
+      const validatedInput = validateToolArguments(tool.inputSchema as JsonSchema, args);
+      if (!validatedInput.ok) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: Invalid arguments for ${toolName}: ${validatedInput.message}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const sessionId =
+        typeof validatedInput.value.session_id === "string"
+          ? validatedInput.value.session_id
+          : typeof validatedInput.value.sessionId === "string"
+            ? validatedInput.value.sessionId
+            : undefined;
 
       // Start interaction tracking
       await deps.mcpRepository.insertInteraction({
@@ -90,15 +208,20 @@ export class McpServer extends Server {
       try {
         // Inject tracing metadata into tool arguments
         const enrichedArgs = {
-          ...args,
+          ...validatedInput.value,
           _interactionId: interactionId,
           _sessionId: sessionId,
         };
 
-        const resultEffect = tool.execute(enrichedArgs as any) as any;
+        const resultEffect = tool.execute(enrichedArgs as never) as Effect.Effect<unknown, unknown>;
 
-        // Provide the necessary central layer stack
-        const providedEffect = resultEffect.pipe(Effect.provide(McpContextLayer));
+        const requestLayer = Layer.mergeAll(
+          Layer.succeed(AgentServices, deps.agentServices),
+          Layer.succeed(BacktestServices, deps.backtestServices),
+          Layer.succeed(MarketDataServices, deps.marketDataServices)
+        );
+
+        const providedEffect = resultEffect.pipe(Effect.provide(requestLayer));
 
         const result = await Effect.runPromise(providedEffect);
 

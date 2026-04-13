@@ -33,5 +33,3 @@ export const ALL_TOOLS = [
   explainDataSourcePolicyTool,
   ensureCandleCoverageTool,
 ];
-
-export const findTool = (name: string) => ALL_TOOLS.find((t) => t.name === name);

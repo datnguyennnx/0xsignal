@@ -25,20 +25,5 @@ export const domainError = (code: DomainErrorCode, message: string, cause?: unkn
 export const notFoundError = (message: string, cause?: unknown) =>
   domainError("NOT_FOUND", message, cause);
 
-export const alreadyExistsError = (message: string, cause?: unknown) =>
-  domainError("ALREADY_EXISTS", message, cause);
-
 export const validationError = (message: string, cause?: unknown) =>
   domainError("VALIDATION_ERROR", message, cause);
-
-export const internalError = (message: string, cause?: unknown) =>
-  domainError("INTERNAL_ERROR", message, cause);
-
-export const invalidStateError = (message: string, cause?: unknown) =>
-  domainError("INVALID_STATE", message, cause);
-
-export const conflictError = (message: string, cause?: unknown) =>
-  domainError("CONFLICT", message, cause);
-
-export const forbidError = (message: string, cause?: unknown) =>
-  domainError("FORBIDDEN", message, cause);

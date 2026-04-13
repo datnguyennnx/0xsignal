@@ -1,5 +1,5 @@
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
-import { Context, Layer } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 export class HyperliquidClient extends Context.Tag("HyperliquidClient")<
   HyperliquidClient,
@@ -8,9 +8,11 @@ export class HyperliquidClient extends Context.Tag("HyperliquidClient")<
   }
 >() {}
 
-export const HyperliquidClientLive = Layer.succeed(
+export const HyperliquidClientLive = Layer.effect(
   HyperliquidClient,
-  HyperliquidClient.of({
-    info: new InfoClient({ transport: new HttpTransport() }),
-  })
+  Effect.sync(() =>
+    HyperliquidClient.of({
+      info: new InfoClient({ transport: new HttpTransport() }),
+    })
+  )
 );
