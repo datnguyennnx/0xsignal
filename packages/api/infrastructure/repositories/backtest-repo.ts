@@ -5,7 +5,7 @@ import type {
   BacktestMetric,
   BacktestEvent,
   RunSummary,
-} from "../../schemas/backtest";
+} from "@schemas/backtest";
 
 export interface BacktestRepository {
   insertRun(run: BacktestRun): Promise<BacktestRun>;

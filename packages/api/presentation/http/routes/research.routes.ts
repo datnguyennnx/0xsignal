@@ -1,6 +1,6 @@
 /** Research Routes - /api/research */
 
-import type { ResearchServices } from "../../../application/research";
+import type { ResearchServices } from "@application/research";
 
 export const makeResearchRoutes = (services: ResearchServices) => ({
   appendNote: (body: {

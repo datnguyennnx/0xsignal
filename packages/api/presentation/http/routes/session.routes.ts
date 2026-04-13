@@ -1,6 +1,6 @@
 /** Session Routes - /api/sessions */
 
-import type { AgentServices } from "../../../application/agent";
+import type { AgentServices } from "@application/agent";
 import type { Context } from "effect";
 
 type AgentService = Context.Tag.Service<typeof AgentServices>;

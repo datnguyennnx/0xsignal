@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { validationError, DomainError } from "./errors";
-import type { ResearchNote, Artifact } from "../schemas/research";
-import type { ResearchRepository } from "../infrastructure/repositories/research-repo";
+import type { ResearchNote, Artifact } from "@schemas/research";
+import type { ResearchRepository } from "@infrastructure/repositories/research-repo";
 
 type AppendResearchNoteInput = {
   id: string;

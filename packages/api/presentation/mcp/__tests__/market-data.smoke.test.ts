@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer } from "effect";
 import { ALL_TOOLS } from "../registry";
-import { MarketDataServices } from "../../../application/market-data";
-import { BacktestServices } from "../../../application/backtest";
-import { AgentServices } from "../../../application/agent";
+import { MarketDataServices } from "@application/market-data";
+import { BacktestServices } from "@application/backtest";
+import { AgentServices } from "@application/agent";
 
 describe("Market Data MCP Tools Smoke Proof", () => {
   const mockMarketDataServices = {

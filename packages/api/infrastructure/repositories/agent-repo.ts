@@ -1,5 +1,5 @@
 import { query } from "../db/postgres/client";
-import type { AgentSession, AgentPlan, AgentAction } from "../../schemas/agent";
+import type { AgentSession, AgentPlan, AgentAction } from "@schemas/agent";
 
 export interface AgentRepository {
   insertSession(session: AgentSession): Promise<AgentSession>;

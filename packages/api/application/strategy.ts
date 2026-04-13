@@ -5,8 +5,8 @@ import type {
   StrategyVersion,
   StrategyChangeRecord,
   StrategyHistory,
-} from "../schemas/strategy";
-import type { StrategyRepository } from "../infrastructure/repositories/strategy-repo";
+} from "@schemas/strategy";
+import type { StrategyRepository } from "@infrastructure/repositories/strategy-repo";
 
 type CreateStrategyDefinitionInput = {
   id: string;

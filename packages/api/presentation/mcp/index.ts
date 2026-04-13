@@ -16,18 +16,22 @@ import { ALL_TOOLS } from "./registry";
 
 const TOOLS = ALL_TOOLS;
 
-import { systemArchitectureResource, getSystemArchitecture } from "./resources/system-architecture";
-import { strategySchemaResource, getStrategySchema } from "./resources/system-strategy-schema";
-import { getSessionContext } from "./resources/session-context";
-import { getRunSummaryResource } from "./resources/run-summary";
-import { getStrategyHistory } from "./resources/strategy-history";
+import {
+  systemArchitectureResource,
+  getSystemArchitecture,
+  strategySchemaResource,
+  getStrategySchema,
+  getSessionContext,
+  getRunSummaryResource,
+  getStrategyHistory,
+} from "./resources";
 import { PROMPTS } from "./prompts/index";
 import { Effect, Layer } from "effect";
-import { QuestDBClientLayer } from "../../infrastructure/db/questdb/client";
-import { initializeSchema } from "../../infrastructure/db/questdb/repositories/candle";
-import { AgentServices } from "../../application/agent";
-import { BacktestServices } from "../../application/backtest";
-import { MarketDataServices } from "../../application/market-data";
+import { QuestDBClientLayer } from "@infrastructure/db/questdb/client";
+import { initializeSchema } from "@infrastructure/db/questdb/repositories/candle";
+import { AgentServices } from "@application/agent";
+import { BacktestServices } from "@application/backtest";
+import { MarketDataServices } from "@application/market-data";
 
 type JsonSchema = {
   type?: string;

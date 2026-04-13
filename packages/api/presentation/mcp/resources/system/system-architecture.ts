@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { ALL_TOOLS } from "../registry";
+import { ALL_TOOLS } from "../../registry";
 
 export interface SystemArchitectureResource {
   uri: string;

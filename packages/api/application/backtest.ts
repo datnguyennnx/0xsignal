@@ -6,9 +6,9 @@ import type {
   BacktestEvent,
   RunSummary,
   BacktestRunInput as BacktestRunInputs,
-} from "../schemas/backtest";
-import type { BacktestRepository } from "../infrastructure/repositories/backtest-repo";
-import { EngineExecutor } from "../domain/backtest/engine";
+} from "@schemas/backtest";
+import type { BacktestRepository } from "@infrastructure/repositories/backtest-repo";
+import { EngineExecutor } from "@domain/backtest/engine";
 
 type CreateBacktestRunInput = {
   id: string;

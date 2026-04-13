@@ -1,6 +1,6 @@
 /** Strategy Routes - /api/strategies */
 
-import type { StrategyServices } from "../../../application/strategy";
+import type { StrategyServices } from "@application/strategy";
 import type { Context } from "effect";
 
 type StrategyService = Context.Tag.Service<typeof StrategyServices>;

@@ -24,12 +24,21 @@ describe("MCP Tool Input Validation", () => {
     recordAction: vi.fn(),
   };
 
+  const mockMarketDataServices = {
+    inspectCoverage: vi.fn(),
+    createDatasetSnapshot: vi.fn(),
+    discoverMarkets: vi.fn(),
+    getCandles: vi.fn(),
+    requestCandlesticks: vi.fn(),
+    getDatasetSnapshot: vi.fn(),
+  };
+
   const mockDeps: McpServerDependencies = {
     agentServices: mockAgentServices,
     strategyServices: {} as never,
     backtestServices: {} as never,
     researchServices: {} as never,
-    marketDataServices: {} as never,
+    marketDataServices: mockMarketDataServices as never,
     mcpRepository: mockMcpRepo as never,
   };
 
@@ -60,5 +69,20 @@ describe("MCP Tool Input Validation", () => {
     expect((result as any).content[0].text).toContain("input.objective is required");
     expect(mockAgentServices.openSession).not.toHaveBeenCalled();
     expect(mockMcpRepo.insertInteraction).not.toHaveBeenCalled();
+  });
+
+  it("rejects create_dataset_snapshot when required fields are missing", async () => {
+    const result = await client.callTool({
+      name: "create_dataset_snapshot",
+      arguments: {
+        request_id: "r-1",
+        symbol: "BTC",
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect((result as any).content[0].text).toContain("Invalid arguments");
+    expect((result as any).content[0].text).toContain("input.exchange is required");
+    expect(mockMarketDataServices.inspectCoverage).not.toHaveBeenCalled();
   });
 });

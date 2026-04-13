@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { AgentServices } from "../../../application/agent";
+import { AgentServices } from "@application/agent";
 
 export const openSessionTool = {
   name: "open_session",

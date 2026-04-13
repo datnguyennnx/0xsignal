@@ -1,8 +1,8 @@
 import { it, expect, describe, vi, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import { initializeMcpServer } from "../server";
-import { openSessionTool } from "../tools/open-session";
-import { AgentServices } from "../../../application/agent";
+import { openSessionTool } from "../tools";
+import { AgentServices } from "@application/agent";
 
 describe("MCP Tool Execution", () => {
   const mockMcpRepo = {

@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer } from "effect";
-import { MarketDataServices } from "../../../application/market-data";
-import { discoverMarketsTool } from "../tools/discover-markets";
-import { getCandlesTool } from "../tools/get-candles";
-import { inspectCandleCoverageTool } from "../tools/inspect-candle-coverage";
-import { explainDataSourcePolicyTool } from "../tools/explain-data-source-policy";
-import { ensureCandleCoverageTool } from "../tools/ensure-candle-coverage";
+import { MarketDataServices } from "@application/market-data";
+import {
+  discoverMarketsTool,
+  getCandlesTool,
+  inspectCandleCoverageTool,
+  explainDataSourcePolicyTool,
+  ensureCandleCoverageTool,
+} from "../tools";
 
 describe("MCP Market Data Tools Wiring", () => {
   const mockMarketDataServices = {

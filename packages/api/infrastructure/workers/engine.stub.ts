@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { EngineExecutor, EngineOutput } from "../../domain/backtest/engine";
+import { EngineExecutor, EngineOutput } from "@domain/backtest/engine";
 
 export const StubEngineExecutor = Layer.succeed(
   EngineExecutor,

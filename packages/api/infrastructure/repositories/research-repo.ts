@@ -1,5 +1,5 @@
 import { query } from "../db/postgres/client";
-import type { ResearchNote, Artifact } from "../../schemas/research";
+import type { ResearchNote, Artifact } from "@schemas/research";
 
 export interface ResearchRepository {
   insertNote(note: ResearchNote): Promise<ResearchNote>;
@@ -25,7 +25,7 @@ export const postgresResearchRepository: ResearchRepository = {
       note.strategy_version_id,
       note.title,
       note.content_markdown,
-      note.tags ? JSON.stringify(note.tags) : null,
+      note.tags ?? null,
       note.trace_id,
       note.span_id,
       note.correlation_id,

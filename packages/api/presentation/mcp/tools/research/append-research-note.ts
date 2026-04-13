@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../server";
+import { getMcpDependencies } from "../../server";
 
 export const appendResearchNoteTool = {
   name: "append_research_note",
@@ -33,7 +33,7 @@ export const appendResearchNoteTool = {
         session_id: input.session_id,
         run_id: input.run_id,
         strategy_version_id: input.strategy_version_id,
-        tags: input.tags ? [...input.tags] : undefined,
+        tags: input.tags === undefined ? undefined : [...input.tags],
       })
       .pipe(Effect.map((note) => ({ note_id: note.id, title: note.title })));
   },

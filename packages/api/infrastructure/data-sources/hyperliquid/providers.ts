@@ -1,6 +1,6 @@
 import { Effect, Context, Data, Layer } from "effect";
 import { normalizeCandles, toHlInterval } from "./normalizer";
-import { type Candle } from "../../../schemas/market-data";
+import { type Candle } from "@schemas/market-data";
 import { HyperliquidClient } from "./client";
 import type { Timeframe } from "../../db/questdb/queries/candle";
 

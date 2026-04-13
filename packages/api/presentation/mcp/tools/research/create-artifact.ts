@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../server";
+import { getMcpDependencies } from "../../server";
 
 export const createArtifactTool = {
   name: "create_artifact",

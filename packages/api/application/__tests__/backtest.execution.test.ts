@@ -1,7 +1,7 @@
 import { it, expect, describe, vi } from "vitest";
 import { Effect, Layer } from "effect";
 import { makeBacktestService } from "../backtest";
-import { EngineExecutor, type EngineOutput } from "../../domain/backtest/engine";
+import { EngineExecutor, type EngineOutput } from "@domain/backtest/engine";
 
 describe("Backtest Execution Flow", () => {
   it("should trigger background worker and update row status when backtest is started", async () => {

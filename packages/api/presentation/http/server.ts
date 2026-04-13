@@ -3,10 +3,10 @@
 
 import { Effect, ManagedRuntime } from "effect";
 import { BunRuntime } from "@effect/platform-bun";
-import { AppLayer } from "../../infrastructure/layers/app.layer";
+import { AppLayer } from "@infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
-import { CoinGeckoService, GlobalMarketService } from "../../infrastructure/data-sources/coingecko";
-import { runMigrations } from "../../infrastructure/db/postgres/migrations/migration";
+import { CoinGeckoService, GlobalMarketService } from "@infrastructure/data-sources/coingecko";
+import { runMigrations } from "@infrastructure/db/postgres/migrations/migration";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
 

@@ -4,7 +4,7 @@ import type {
   StrategyVersion,
   StrategyChangeRecord,
   StrategyHistory,
-} from "../../schemas/strategy";
+} from "@schemas/strategy";
 
 export interface StrategyRepository {
   insertDefinition(def: StrategyDefinition): Promise<StrategyDefinition>;

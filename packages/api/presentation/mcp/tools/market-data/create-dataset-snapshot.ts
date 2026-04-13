@@ -1,6 +1,6 @@
 import { Effect } from "effect";
-import { MarketDataServices } from "../../../application/market-data";
-import { validationError } from "../../../application/errors";
+import { MarketDataServices } from "@application/market-data";
+import { validationError } from "@application/errors";
 
 export const createDatasetSnapshotTool = {
   name: "create_dataset_snapshot",

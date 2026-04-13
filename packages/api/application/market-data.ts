@@ -1,11 +1,14 @@
 import { Effect, Context, Layer } from "effect";
 import { validationError, notFoundError, DomainError } from "./errors";
-import type { CandlestickRequest, DatasetSnapshot } from "../schemas/market-data";
-import type { MarketDataRepository } from "../infrastructure/repositories/market-data-repo";
-import { CandleRepository } from "../infrastructure/db/questdb/repositories/candle";
-import { HyperliquidProvider } from "../infrastructure/data-sources/hyperliquid/providers";
-
-import { type Candle, type CoverageResult } from "../schemas/market-data";
+import type {
+  CandlestickRequest,
+  DatasetSnapshot,
+  Candle,
+  CoverageResult,
+} from "@schemas/market-data";
+import type { MarketDataRepository } from "@infrastructure/repositories/market-data-repo";
+import { CandleRepository } from "@infrastructure/db/questdb/repositories/candle";
+import { HyperliquidProvider } from "@infrastructure/data-sources/hyperliquid/providers";
 
 type MarketTimeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 

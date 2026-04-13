@@ -1,7 +1,7 @@
 import { Effect, Context, Layer } from "effect";
 import { validationError, notFoundError, DomainError } from "./errors";
-import type { AgentSession, AgentPlan, AgentAction } from "../schemas/agent";
-import type { AgentRepository } from "../infrastructure/repositories/agent-repo";
+import type { AgentSession, AgentPlan, AgentAction } from "@schemas/agent";
+import type { AgentRepository } from "@infrastructure/repositories/agent-repo";
 
 type OpenSessionInput = {
   id: string;

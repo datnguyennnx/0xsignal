@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer } from "effect";
 import { makeMarketDataService, MarketDataServices } from "../market-data";
-import { CandleRepository } from "../../infrastructure/db/questdb/repositories/candle";
-import { HyperliquidProvider } from "../../infrastructure/data-sources/hyperliquid/providers";
+import { CandleRepository } from "@infrastructure/db/questdb/repositories/candle";
+import { HyperliquidProvider } from "@infrastructure/data-sources/hyperliquid/providers";
 
 describe("Market Data Coverage Semantics", () => {
   const mockRepo = {} as any;

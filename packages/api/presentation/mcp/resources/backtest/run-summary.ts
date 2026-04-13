@@ -14,7 +14,7 @@ export const runSummaryResource = (runId: string): RunSummaryResource => ({
   mimeType: "application/json",
 });
 
-import { getMcpDependencies } from "../server";
+import { getMcpDependencies } from "../../server";
 
 export const getRunSummaryResource = (runId: string) => {
   const deps = getMcpDependencies();

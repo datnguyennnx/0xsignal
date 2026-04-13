@@ -1,7 +1,7 @@
 import { Effect, Context } from "effect";
 import { QuestDBError, query, ingest, QuestDBClient, command } from "../client";
 import * as queries from "../queries/candle";
-import { type Candle, type CoverageResult } from "../../../../schemas/market-data";
+import { type Candle, type CoverageResult } from "@schemas/market-data";
 
 export interface CandleQuery {
   readonly symbol: string;

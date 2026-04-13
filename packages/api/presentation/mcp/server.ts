@@ -1,21 +1,21 @@
-import { AgentServices, AgentServicesLayer } from "../../application/agent";
-import { StrategyServices, makeStrategyService } from "../../application/strategy";
-import { BacktestServices, BacktestServicesLayer } from "../../application/backtest";
-import type { ResearchServices } from "../../application/research";
-import { MarketDataServices, MarketDataServicesLayer } from "../../application/market-data";
-import { makeResearchService } from "../../application/research";
-import { postgresAgentRepository } from "../../infrastructure/repositories/agent-repo";
-import { postgresStrategyRepository } from "../../infrastructure/repositories/strategy-repo";
-import { postgresBacktestRepository } from "../../infrastructure/repositories/backtest-repo";
-import { postgresResearchRepository } from "../../infrastructure/repositories/research-repo";
-import { postgresMarketDataRepository } from "../../infrastructure/repositories/market-data-repo";
-import { postgresMCPRepository } from "../../infrastructure/repositories/mcp-repo";
+import { AgentServices, AgentServicesLayer } from "@application/agent";
+import { StrategyServices, makeStrategyService } from "@application/strategy";
+import { BacktestServices, BacktestServicesLayer } from "@application/backtest";
+import type { ResearchServices } from "@application/research";
+import { MarketDataServices, MarketDataServicesLayer } from "@application/market-data";
+import { makeResearchService } from "@application/research";
+import { postgresAgentRepository } from "@infrastructure/repositories/agent-repo";
+import { postgresStrategyRepository } from "@infrastructure/repositories/strategy-repo";
+import { postgresBacktestRepository } from "@infrastructure/repositories/backtest-repo";
+import { postgresResearchRepository } from "@infrastructure/repositories/research-repo";
+import { postgresMarketDataRepository } from "@infrastructure/repositories/market-data-repo";
+import { postgresMCPRepository } from "@infrastructure/repositories/mcp-repo";
 
-import { CandleRepositoryLayer } from "../../infrastructure/db/questdb/repositories/candle";
-import { HyperliquidProviderLayer } from "../../infrastructure/data-sources/hyperliquid/providers";
-import { QuestDBClientLayer } from "../../infrastructure/db/questdb/client";
-import { HyperliquidClientLive } from "../../infrastructure/data-sources/hyperliquid/client";
-import { StubEngineExecutor } from "../../infrastructure/workers/engine.stub";
+import { CandleRepositoryLayer } from "@infrastructure/db/questdb/repositories/candle";
+import { HyperliquidProviderLayer } from "@infrastructure/data-sources/hyperliquid/providers";
+import { QuestDBClientLayer } from "@infrastructure/db/questdb/client";
+import { HyperliquidClientLive } from "@infrastructure/data-sources/hyperliquid/client";
+import { StubEngineExecutor } from "@infrastructure/workers/engine.stub";
 import { Effect, Layer, Context } from "effect";
 
 export interface McpServerConfig {
@@ -23,7 +23,7 @@ export interface McpServerConfig {
   serverVersion: string;
 }
 
-import type { MCPRepository } from "../../infrastructure/repositories/mcp-repo";
+import type { MCPRepository } from "@infrastructure/repositories/mcp-repo";
 
 export interface McpServerDependencies {
   agentServices: Context.Tag.Service<typeof AgentServices>;

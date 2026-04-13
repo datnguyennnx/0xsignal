@@ -1,6 +1,6 @@
 /** Backtest Routes - /api/backtests */
 
-import type { BacktestServices } from "../../../application/backtest";
+import type { BacktestServices } from "@application/backtest";
 import type { Context } from "effect";
 
 type BacktestService = Context.Tag.Service<typeof BacktestServices>;

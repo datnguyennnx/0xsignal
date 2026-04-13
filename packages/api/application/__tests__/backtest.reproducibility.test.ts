@@ -1,5 +1,5 @@
 import { it, expect, describe, beforeAll, afterAll } from "@effect/vitest";
-import { query, getPool, closePool } from "../../infrastructure/db/postgres/client";
+import { query, getPool, closePool } from "@infrastructure/db/postgres/client";
 
 describe("Backtest Reproducibility", () => {
   let testStrategyVersionId: string;

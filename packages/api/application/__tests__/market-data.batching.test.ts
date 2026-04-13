@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer } from "effect";
 import { makeMarketDataService, MarketDataServices } from "../market-data";
-import { CandleRepository } from "../../infrastructure/db/questdb/repositories/candle";
-import { HyperliquidProvider } from "../../infrastructure/data-sources/hyperliquid/providers";
-import type { Candle } from "../../schemas/market-data";
+import { CandleRepository } from "@infrastructure/db/questdb/repositories/candle";
+import { HyperliquidProvider } from "@infrastructure/data-sources/hyperliquid/providers";
+import type { Candle } from "@schemas/market-data";
 
 const mkCandle = (timestampMs: number, price: number): Candle => ({
   timestamp: new Date(timestampMs),

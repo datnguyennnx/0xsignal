@@ -3,7 +3,7 @@
 import { Effect } from "effect";
 import { healthRoute } from "./routes/health.routes";
 import { globalMarketRoute } from "./routes/global-market.routes";
-import { AggregatedDataServiceTag } from "../../infrastructure/data-sources/aggregator";
+import { AggregatedDataServiceTag } from "@infrastructure/data-sources/aggregator";
 
 // Helpers
 const getParam = (url: URL, key: string, def: string) => url.searchParams.get(key) || def;

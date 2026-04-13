@@ -1,5 +1,5 @@
 import { query } from "../db/postgres/client";
-import type { McpInteraction as MCPInteraction } from "../../schemas/mcp";
+import type { McpInteraction as MCPInteraction } from "@schemas/mcp";
 
 export interface MCPRepository {
   insertInteraction(interaction: MCPInteraction): Promise<MCPInteraction>;
