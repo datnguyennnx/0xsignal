@@ -18,13 +18,12 @@
  */
 import { useState, lazy, Suspense, useMemo, memo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import type { AssetAnalysis } from "@/core/types";
 import { ChartCandlestick } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/services/api";
+import { api, type FuturesPrice } from "@/services/api";
 import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-candles";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { useChartConfig } from "@/hooks/use-breakpoint";
@@ -52,8 +51,13 @@ const ChartSkeleton = () => (
   </div>
 );
 
+interface AssetViewModel {
+  readonly symbol: string;
+  readonly price: FuturesPrice;
+}
+
 interface AssetContentProps {
-  readonly asset: AssetAnalysis & { fetchedAt?: Date };
+  readonly asset: AssetViewModel;
   readonly symbol: string;
   readonly interval: string;
   readonly onIntervalChange: (interval: string) => void;
@@ -189,27 +193,11 @@ export function AssetDetail() {
     retry: 1,
   });
 
-  const asset: AssetAnalysis | null = useMemo(() => {
+  const asset: AssetViewModel | null = useMemo(() => {
     if (!fetchedAsset) return null;
     return {
       symbol: fetchedAsset.symbol,
-      overallSignal: "HOLD",
-      confidence: 50,
-      riskScore: 50,
-      price: {
-        symbol: fetchedAsset.symbol,
-        price: fetchedAsset.price,
-        change1h: 0,
-        change24h: fetchedAsset.change24h,
-        change7d: 0,
-        sparkline7d: [],
-        volume24h: fetchedAsset.volume24h,
-        high24h: fetchedAsset.high24h,
-        low24h: fetchedAsset.low24h,
-        marketCap: 0,
-        timestamp: fetchedAsset.timestamp,
-      },
-      entrySignal: null,
+      price: fetchedAsset,
     };
   }, [fetchedAsset]);
 
