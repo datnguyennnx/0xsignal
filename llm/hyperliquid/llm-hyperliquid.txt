@@ -1,0 +1,148 @@
+# Hyperliquid Docs
+
+## Hyperliquid Docs
+
+- [About Hyperliquid](/hyperliquid-docs/about-hyperliquid.md)
+- [Hyperliquid 101 for non-crypto audiences](/hyperliquid-docs/about-hyperliquid/hyperliquid-101-for-non-crypto-audiences.md)
+- [Core contributors](/hyperliquid-docs/about-hyperliquid/core-contributors.md)
+- [Onboarding](/hyperliquid-docs/onboarding.md)
+- [How to start trading](/hyperliquid-docs/onboarding/how-to-start-trading.md)
+- [How to use the HyperEVM](/hyperliquid-docs/onboarding/how-to-use-the-hyperevm.md)
+- [How to stake HYPE](/hyperliquid-docs/onboarding/how-to-stake-hype.md)
+- [Connect mobile via QR code](/hyperliquid-docs/onboarding/connect-mobile-via-qr-code.md)
+- [Export your email wallet](/hyperliquid-docs/onboarding/export-your-email-wallet.md)
+- [Testnet faucet](/hyperliquid-docs/onboarding/testnet-faucet.md)
+- [HyperCore](/hyperliquid-docs/hypercore.md)
+- [Overview](/hyperliquid-docs/hypercore/overview.md)
+- [Bridge](/hyperliquid-docs/hypercore/bridge.md)
+- [API servers](/hyperliquid-docs/hypercore/api-servers.md)
+- [Clearinghouse](/hyperliquid-docs/hypercore/clearinghouse.md)
+- [Oracle](/hyperliquid-docs/hypercore/oracle.md)
+- [Order book](/hyperliquid-docs/hypercore/order-book.md)
+- [Staking](/hyperliquid-docs/hypercore/staking.md)
+- [Vaults](/hyperliquid-docs/hypercore/vaults.md)
+- [Protocol vaults](/hyperliquid-docs/hypercore/vaults/protocol-vaults.md)
+- [HyperCore vaults (legacy)](/hyperliquid-docs/hypercore/vaults/hypercore-vaults-legacy.md)
+- [For vault leaders (legacy)](/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy.md)
+- [For vault depositors (legacy)](/hyperliquid-docs/hypercore/vaults/for-vault-depositors-legacy.md)
+- [Multi-sig](/hyperliquid-docs/hypercore/multi-sig.md): Advanced Feature
+- [Permissionless spot quote assets](/hyperliquid-docs/hypercore/permissionless-spot-quote-assets.md)
+- [Aligned quote assets](/hyperliquid-docs/hypercore/aligned-quote-assets.md)
+- [HyperEVM](/hyperliquid-docs/hyperevm.md)
+- [Tools for HyperEVM builders](/hyperliquid-docs/hyperevm/tools-for-hyperevm-builders.md)
+- [Hyperliquid Improvement Proposals (HIPs)](/hyperliquid-docs/hyperliquid-improvement-proposals-hips.md)
+- [HIP-1: Native token standard](/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-1-native-token-standard.md)
+- [HIP-2: Hyperliquidity](/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-2-hyperliquidity.md)
+- [HIP-3: Builder-deployed perpetuals](/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-3-builder-deployed-perpetuals.md)
+- [Frontend checks](/hyperliquid-docs/hyperliquid-improvement-proposals-hips/frontend-checks.md)
+- [Trading](/hyperliquid-docs/trading.md)
+- [Fees](/hyperliquid-docs/trading/fees.md)
+- [Sub-accounts](/hyperliquid-docs/trading/sub-accounts.md)
+- [Builder codes](/hyperliquid-docs/trading/builder-codes.md)
+- [Perpetual assets](/hyperliquid-docs/trading/perpetual-assets.md)
+- [Contract specifications](/hyperliquid-docs/trading/contract-specifications.md)
+- [Margining](/hyperliquid-docs/trading/margining.md)
+- [Account abstraction modes](/hyperliquid-docs/trading/account-abstraction-modes.md)
+- [Portfolio margin](/hyperliquid-docs/trading/portfolio-margin.md): Alpha mode
+- [Margin tiers](/hyperliquid-docs/trading/margin-tiers.md)
+- [Robust price indices](/hyperliquid-docs/trading/robust-price-indices.md)
+- [Liquidations](/hyperliquid-docs/trading/liquidations.md)
+- [Auto-deleveraging](/hyperliquid-docs/trading/auto-deleveraging.md)
+- [Funding](/hyperliquid-docs/trading/funding.md)
+- [Order book](/hyperliquid-docs/trading/order-book.md)
+- [Order types](/hyperliquid-docs/trading/order-types.md)
+- [Take profit and stop loss orders (TP/SL)](/hyperliquid-docs/trading/take-profit-and-stop-loss-orders-tp-sl.md)
+- [Entry price and pnl](/hyperliquid-docs/trading/entry-price-and-pnl.md)
+- [Self-trade prevention](/hyperliquid-docs/trading/self-trade-prevention.md)
+- [Hyperps](/hyperliquid-docs/trading/hyperps.md)
+- [Delisting](/hyperliquid-docs/trading/delisting.md)
+- [Market making](/hyperliquid-docs/trading/market-making.md)
+- [Portfolio graphs](/hyperliquid-docs/trading/portfolio-graphs.md)
+- [Miscellaneous UI](/hyperliquid-docs/trading/miscellaneous-ui.md)
+- [Validators](/hyperliquid-docs/validators.md)
+- [Running a validator](/hyperliquid-docs/validators/running-a-validator.md)
+- [Delegation program](/hyperliquid-docs/validators/delegation-program.md)
+- [Referrals](/hyperliquid-docs/referrals.md)
+- [Proposal: Staking referral program](/hyperliquid-docs/referrals/proposal-staking-referral-program.md)
+- [Points](/hyperliquid-docs/points.md)
+- [Historical data](/hyperliquid-docs/historical-data.md)
+- [Risks](/hyperliquid-docs/risks.md)
+- [Bug bounty program](/hyperliquid-docs/bug-bounty-program.md)
+- [Audits](/hyperliquid-docs/audits.md)
+- [Brand kit](/hyperliquid-docs/brand-kit.md)
+- [API](/hyperliquid-docs/for-developers/api.md): Documentation for the Hyperliquid public API
+- [Notation](/hyperliquid-docs/for-developers/api/notation.md)
+- [Asset IDs](/hyperliquid-docs/for-developers/api/asset-ids.md)
+- [Tick and lot size](/hyperliquid-docs/for-developers/api/tick-and-lot-size.md)
+- [Nonces and API wallets](/hyperliquid-docs/for-developers/api/nonces-and-api-wallets.md)
+- [Info endpoint](/hyperliquid-docs/for-developers/api/info-endpoint.md): The info endpoint is used to fetch information about the exchange and specific users. The different request bodies result in different corresponding response body schemas.
+- [Perpetuals](/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals.md): The section documents the info endpoints that are specific to perpetuals. See Rate limits section for rate limiting logic and weights.
+- [Spot](/hyperliquid-docs/for-developers/api/info-endpoint/spot.md): The section documents the info endpoints that are specific to spot.
+- [Exchange endpoint](/hyperliquid-docs/for-developers/api/exchange-endpoint.md): The exchange endpoint is used to interact with and trade on the Hyperliquid chain. See the Python SDK for code to generate signatures for these requests.
+- [Websocket](/hyperliquid-docs/for-developers/api/websocket.md)
+- [Subscriptions](/hyperliquid-docs/for-developers/api/websocket/subscriptions.md): This page describes subscribing to data streams using the WebSocket API.
+- [Post requests](/hyperliquid-docs/for-developers/api/websocket/post-requests.md): This page describes posting requests using the WebSocket API.
+- [Timeouts and heartbeats](/hyperliquid-docs/for-developers/api/websocket/timeouts-and-heartbeats.md): This page describes the measures to keep WebSocket connections alive.
+- [Error responses](/hyperliquid-docs/for-developers/api/error-responses.md)
+- [Signing](/hyperliquid-docs/for-developers/api/signing.md)
+- [Rate limits and user limits](/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits.md)
+- [Activation gas fee](/hyperliquid-docs/for-developers/api/activation-gas-fee.md)
+- [Priority fees](/hyperliquid-docs/for-developers/api/priority-fees.md): Testnet-only, advanced feature for latency-sensitive users
+- [Optimizing latency](/hyperliquid-docs/for-developers/api/optimizing-latency.md)
+- [Bridge2](/hyperliquid-docs/for-developers/api/bridge2.md)
+- [Deploying HIP-1 and HIP-2 assets](/hyperliquid-docs/for-developers/api/deploying-hip-1-and-hip-2-assets.md)
+- [HIP-3 deployer actions](/hyperliquid-docs/for-developers/api/hip-3-deployer-actions.md)
+- [HyperEVM](/hyperliquid-docs/for-developers/hyperevm.md)
+- [Dual-block architecture](/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture.md)
+- [Raw HyperEVM block data](/hyperliquid-docs/for-developers/hyperevm/raw-hyperevm-block-data.md)
+- [Interacting with HyperCore](/hyperliquid-docs/for-developers/hyperevm/interacting-with-hypercore.md)
+- [HyperCore <> HyperEVM transfers](/hyperliquid-docs/for-developers/hyperevm/hypercore-less-than-greater-than-hyperevm-transfers.md)
+- [Interaction timings](/hyperliquid-docs/for-developers/hyperevm/interaction-timings.md)
+- [Wrapped HYPE](/hyperliquid-docs/for-developers/hyperevm/wrapped-hype.md)
+- [JSON-RPC](/hyperliquid-docs/for-developers/hyperevm/json-rpc.md)
+- [Nodes](/hyperliquid-docs/for-developers/nodes.md): Documentation for running nodes
+- [L1 data schemas](/hyperliquid-docs/for-developers/nodes/l1-data-schemas.md)
+- [Foundation non-validating node](/hyperliquid-docs/for-developers/nodes/foundation-non-validating-node.md)
+
+## Builder Tools
+
+- [Read Me - Builder Tools](/hyperliquid-docs/builder-tools/read-me-builder-tools.md)
+- [HyperEVM Tools](/hyperliquid-docs/builder-tools/hyperevm-tools.md)
+- [HyperCore Tools](/hyperliquid-docs/builder-tools/hypercore-tools.md)
+
+## Support
+
+- [Read Me - Support Guide](/hyperliquid-docs/support/read-me-support-guide.md): This Support Guide is meant to help you resolve common issues that users face on Hyperliquid.
+- [Connectivity issues](/hyperliquid-docs/support/faq/connectivity-issues.md)
+- [Connected via wallet](/hyperliquid-docs/support/faq/connectivity-issues/connected-via-wallet.md): Description: I can’t connect my wallet to Hyperliquid / I'm stuck in a loop when trying to sign / My wallet isn’t responding. What should I do?
+- [Connected via email](/hyperliquid-docs/support/faq/connectivity-issues/connected-via-email.md): Description: I no longer receive verification codes to login with email
+- [Deposit or transfer issues (Missing / Lost)](/hyperliquid-docs/support/faq/deposit-or-transfer-issues-missing-lost.md): Here are the guides in this section:
+- [Deposited via Arbitrum network (USDC)](/hyperliquid-docs/support/faq/deposit-or-transfer-issues-missing-lost/deposited-via-arbitrum-network-usdc.md): Description: You deposited via the Arbitrum network
+- [Deposited fiat](/hyperliquid-docs/support/faq/deposit-or-transfer-issues-missing-lost/deposited-fiat.md): Description: You deposited USDC using fiat, which is managed by Swapped.com
+- [Deposited via Bitcoin network](/hyperliquid-docs/support/faq/deposit-or-transfer-issues-missing-lost/deposited-via-bitcoin-network.md): Description: You deposited via the Bitcoin network, which is managed by Unit Protocol.
+- [Deposited via Ethereum network](/hyperliquid-docs/support/faq/deposit-or-transfer-issues-missing-lost/deposited-via-ethereum-network.md): Description: You deposited via the Ethereum network, which is managed by Unit Protocol.
+- [Deposited via Solana network](/hyperliquid-docs/support/faq/deposit-or-transfer-issues-missing-lost/deposited-via-solana-network.md): Description: You deposited via the Solana network, which is managed by Unit Protocol.
+- [Deposited via Plasma network](/hyperliquid-docs/support/faq/deposit-or-transfer-issues-missing-lost/deposited-via-plasma-network.md): Description: You deposited via the Plasma network, which is managed by Unit Protocol.
+- [Deposited via Monad network](/hyperliquid-docs/support/faq/deposit-or-transfer-issues-missing-lost/deposited-via-monad-network.md): Description: You deposited via the Monad network, which is managed by Unit Protocol.
+- [Transfer or deposit to USDC (Perps) missing](/hyperliquid-docs/support/faq/deposit-or-transfer-issues-missing-lost/transfer-or-deposit-to-usdc-perps-missing.md): Description: You transferred USDC from your Spot to Perps balance or deposited USDC via Arbitrum and can’t figure out where it went or why you are not able to use the USDC in your Perps balance.
+- [Withdrawal issues](/hyperliquid-docs/support/faq/withdrawal-issues.md): Here are the guides in this section:
+- [Withdrawal has not arrived in my wallet](/hyperliquid-docs/support/faq/withdrawal-issues/withdrawal-has-not-arrived-in-my-wallet.md): Description: You made a withdrawal, but your funds have not arrived in your wallet or intended destination.
+- [My withdrawal keeps getting re-deposited](/hyperliquid-docs/support/faq/withdrawal-issues/my-withdrawal-keeps-getting-re-deposited.md): Description: You made a withdrawal, but your funds have been re-deposited.
+- [Withdrawing to Phantom Wallet](/hyperliquid-docs/support/faq/withdrawal-issues/withdrawing-to-phantom-wallet.md): Description: You are connected using Phantom Wallet and face issues with withdrawal
+- [Trade outcome looks incorrect](/hyperliquid-docs/support/faq/trade-outcome-looks-incorrect.md): Here are the guides in this section:
+- [Why was I liquidated?](/hyperliquid-docs/support/faq/trade-outcome-looks-incorrect/why-was-i-liquidated.md): Description: Your perps position was liquidated and you see "Market Liquidation" in your Trade History
+- [How does margining work?](/hyperliquid-docs/support/faq/trade-outcome-looks-incorrect/how-does-margining-work.md): Description: You have open cross margin positions and don’t understand how margin is attributed to positions
+- [My TP/SL did not execute correctly](/hyperliquid-docs/support/faq/trade-outcome-looks-incorrect/my-tp-sl-did-not-execute-correctly.md): Description: You set a TP/SL and believe it was not executed correctly
+- [I can't sell leftover spot assets](/hyperliquid-docs/support/faq/trade-outcome-looks-incorrect/i-cant-sell-leftover-spot-assets.md): Description:  I have a small amount of a spot asset that I can’t sell
+- [What does "Action already expired" mean?](/hyperliquid-docs/support/faq/trade-outcome-looks-incorrect/what-does-action-already-expired-mean.md): Description: You received an error message saying '"Action already expired"' when placing an order
+- [HyperEVM issues](/hyperliquid-docs/support/faq/hyperevm-issues.md): Here are the guides in this section:
+- [Accidentally transferred to HyperEVM](/hyperliquid-docs/support/faq/hyperevm-issues/accidentally-transferred-to-hyperevm.md): Description: You clicked the “Transfer to/from EVM” button and can’t figure out what happened
+- [Can’t see my HyperEVM assets in wallet extension](/hyperliquid-docs/support/faq/hyperevm-issues/cant-see-my-hyperevm-assets-in-wallet-extension.md): Description: You are using the EVM and don’t see your assets on the EVM in your wallet extension
+- [Gas problem on EVM](/hyperliquid-docs/support/faq/hyperevm-issues/gas-problem-on-evm.md): Description: You are having issues paying for gas or getting transactions through on the HyperEVM
+- [Unstaking & link staking issues](/hyperliquid-docs/support/faq/unstaking-and-link-staking-issues.md): Here are the guides in this section:
+- [Unstaking transfer taking more than 7 days](/hyperliquid-docs/support/faq/unstaking-and-link-staking-issues/unstaking-transfer-taking-more-than-7-days.md): Description: You believe that you unstaked HYPE and the transfer has taken >7 days. Your unstaked HYPE has not reached your Spot balance
+- [Staking and trading account linking issues](/hyperliquid-docs/support/faq/unstaking-and-link-staking-issues/staking-and-trading-account-linking-issues.md): Description: You have questions after linking a staking and trading account
+- [Building on Hyperliquid](/hyperliquid-docs/support/faq/building-on-hyperliquid.md): Here are the guides in this section:
+- [I have API related questions](/hyperliquid-docs/support/faq/building-on-hyperliquid/i-have-api-related-questions.md): Description: You are building on HyperCore or HyperEVM
+- [I want to deploy a spot token or list a perp](/hyperliquid-docs/support/faq/building-on-hyperliquid/i-want-to-deploy-a-spot-token-or-list-a-perp.md)
+- [I got scammed/hacked](/hyperliquid-docs/support/faq/i-got-scammed-hacked.md): Description: Your account was compromised / you see transactions you did not authorize / your funds are missing.
