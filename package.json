@@ -19,6 +19,10 @@
     "lint": "bun run --filter '*' lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:up": "docker compose -f docker-compose.db.yml up -d",
+    "db:down": "docker compose -f docker-compose.db.yml down",
+    "db:logs": "docker compose -f docker-compose.db.yml logs -f postgres questdb",
+    "db:ps": "docker compose -f docker-compose.db.yml ps",
     "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist",
     "prepare": "husky"
   },

@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: 0xsignal-postgres
+    environment:
+      - POSTGRES_DB=0xsignal
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    ports:
+      - "54322:5432"
+    networks:
+      - oxsignal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d 0xsignal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  questdb:
+    image: questdb/questdb:latest
+    container_name: 0xsignal-questdb
+    environment:
+      - QGUEST_HPW=${QUESTDB_PASSWORD:-change-me-in-production}
+      - JAVA_OPTS=-XX:MaxRAMPercentage=70 -Djava.security.policy=file:///etc/questdb/security.policy -Dquestdb.security.allow.insecure=true
+    volumes:
+      - questdb-data:/var/lib/questdb
+    ports:
+      - "8812:8812"
+      - "9000:9000"
+    networks:
+      - oxsignal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "(echo > /dev/tcp/localhost/9000) >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  oxsignal-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  questdb-data:

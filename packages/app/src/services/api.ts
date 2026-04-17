@@ -13,7 +13,9 @@
 import type { ChartDataPoint, GlobalMarketData, CryptoPrice } from "@0xsignal/shared";
 import { hyperliquidApi } from "./hyperliquid";
 
-const API_BASE = import.meta.env.DEV ? "/api" : `${import.meta.env.VITE_API_URL}/api`;
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+const API_BASE =
+  import.meta.env.DEV || !configuredApiUrl ? "/api" : `${configuredApiUrl.replace(/\/+$/, "")}/api`;
 
 export type { ChartDataPoint };
 

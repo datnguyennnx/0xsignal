@@ -5,7 +5,7 @@ services:
     environment:
       - POSTGRES_DB=0xsignal
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change-me-in-production}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres-data:/var/lib/postgresql
     ports:
@@ -62,12 +62,12 @@ services:
     environment:
       - NODE_ENV=production
       - BUN_ENV=production
-      - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD:-change-me-in-production}@postgres:5432/0xsignal
+      - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/0xsignal
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=0xsignal
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change-me-in-production}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - QUESTDB_HOST=questdb
       - QUESTDB_ILP_PORT=8812
       - QUESTDB_HTTP_PORT=9000
