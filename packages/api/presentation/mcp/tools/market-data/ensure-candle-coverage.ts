@@ -31,7 +31,8 @@ export const ensureCandleCoverageTool = {
       return {
         symbol: input.symbol,
         interval: input.interval,
-        rowCount: result.candles.length,
+        returnedCandleCount: result.candles.length,
+        rowCount: coverage.rowCount,
         expectedCount: coverage.expectedCount,
         fullCoverage: coverage.fullCoverage,
         provenance: result.provenance,

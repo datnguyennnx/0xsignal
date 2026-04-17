@@ -1,5 +1,6 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../../server";
+import { StrategyServices } from "@application/strategy";
+import { DomainError } from "@application/errors";
 
 export const createStrategyDefinitionTool = {
   name: "create_strategy_definition",
@@ -19,16 +20,30 @@ export const createStrategyDefinitionTool = {
     name: string;
     market_type: "crypto" | "forex" | "equity" | "commodity";
     owner_type?: "user" | "system" | "shared";
-  }) => {
-    const deps = getMcpDependencies();
-    return deps.strategyServices
-      .createStrategyDefinition({
-        id: crypto.randomUUID(),
-        slug: input.slug,
-        name: input.name,
-        market_type: input.market_type,
-        owner_type: input.owner_type ?? "user",
-      })
-      .pipe(Effect.map((strategy) => ({ strategy_id: strategy.id, slug: strategy.slug })));
-  },
+  }) =>
+    Effect.gen(function* () {
+      const services = yield* StrategyServices;
+      return yield* services
+        .createStrategyDefinition({
+          id: crypto.randomUUID(),
+          slug: input.slug,
+          name: input.name,
+          market_type: input.market_type,
+          owner_type: input.owner_type ?? "user",
+        })
+        .pipe(
+          Effect.map((strategy) => ({ strategy_id: strategy.id, slug: strategy.slug })),
+          Effect.catchAll((error) => {
+            if (error instanceof DomainError && error.code === "ALREADY_EXISTS") {
+              return Effect.succeed({
+                error: "SLUG_ALREADY_EXISTS",
+                message: error.message,
+                slug: input.slug,
+              });
+            }
+
+            return Effect.fail(error);
+          })
+        );
+    }),
 };

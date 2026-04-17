@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { healthCheck as postgresHealthCheck } from "@infrastructure/db/postgres/client";
 
 export const healthRoute = () =>
-  Effect.try({
+  Effect.tryPromise({
     try: async () => {
       const postgres = await postgresHealthCheck();
       return {

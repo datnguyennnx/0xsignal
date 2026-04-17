@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../../server";
+import { StrategyServices } from "@application/strategy";
 
 export const createStrategyVersionTool = {
   name: "create_strategy_version",
@@ -25,19 +25,20 @@ export const createStrategyVersionTool = {
     change_reason?: string;
     created_by_action_id?: string;
     schema_version?: string;
-  }) => {
-    const deps = getMcpDependencies();
-    return deps.strategyServices
-      .createStrategyVersion({
-        id: crypto.randomUUID(),
-        strategy_id: input.strategy_id,
-        parent_version_id: input.parent_version_id,
-        version: input.version,
-        config: input.config,
-        change_reason: input.change_reason,
-        created_by_action_id: input.created_by_action_id,
-        schema_version: input.schema_version ?? "1.0",
-      })
-      .pipe(Effect.map((version) => ({ version_id: version.id, version: version.version })));
-  },
+  }) =>
+    Effect.gen(function* () {
+      const services = yield* StrategyServices;
+      return yield* services
+        .createStrategyVersion({
+          id: crypto.randomUUID(),
+          strategy_id: input.strategy_id,
+          parent_version_id: input.parent_version_id,
+          version: input.version,
+          config: input.config,
+          change_reason: input.change_reason,
+          created_by_action_id: input.created_by_action_id,
+          schema_version: input.schema_version ?? "1.0",
+        })
+        .pipe(Effect.map((version) => ({ version_id: version.id, version: version.version })));
+    }),
 };

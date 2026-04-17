@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../../server";
+import { AgentServices } from "@application/agent";
 
 export const savePlanVersionTool = {
   name: "save_plan_version",
@@ -21,17 +21,18 @@ export const savePlanVersionTool = {
     title: string;
     content_markdown?: string;
     structured_plan?: unknown;
-  }) => {
-    const deps = getMcpDependencies();
-    return deps.agentServices
-      .savePlan({
-        id: crypto.randomUUID(),
-        session_id: input.session_id,
-        version: input.version,
-        title: input.title,
-        content_markdown: input.content_markdown,
-        structured_plan: input.structured_plan,
-      })
-      .pipe(Effect.map((plan) => ({ plan_id: plan.id, version: plan.version })));
-  },
+  }) =>
+    Effect.gen(function* () {
+      const services = yield* AgentServices;
+      return yield* services
+        .savePlan({
+          id: crypto.randomUUID(),
+          session_id: input.session_id,
+          version: input.version,
+          title: input.title,
+          content_markdown: input.content_markdown,
+          structured_plan: input.structured_plan,
+        })
+        .pipe(Effect.map((plan) => ({ plan_id: plan.id, version: plan.version })));
+    }),
 };

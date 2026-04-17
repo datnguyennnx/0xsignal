@@ -1,5 +1,14 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../../server";
+import { StrategyServices } from "@application/strategy";
+
+type StrategyHistoryVersion = {
+  readonly id: string;
+  readonly version: number;
+  readonly parent_version_id?: string;
+  readonly change_reason?: string;
+  readonly schema_version: string;
+  readonly created_at: string;
+};
 
 export interface StrategyHistoryResource {
   uri: string;
@@ -16,8 +25,9 @@ export const strategyHistoryResource = (strategyId: string): StrategyHistoryReso
 });
 
 export const getStrategyHistory = (strategyId: string) => {
-  const deps = getMcpDependencies();
-  return deps.strategyServices.getStrategyHistory(strategyId).pipe(
+  return Effect.flatMap(StrategyServices, (services) =>
+    services.getStrategyHistory(strategyId)
+  ).pipe(
     Effect.map((h) => ({
       resource: strategyHistoryResource(strategyId),
       content: JSON.stringify({
@@ -28,7 +38,7 @@ export const getStrategyHistory = (strategyId: string) => {
           market_type: h.strategy.market_type,
           owner_type: h.strategy.owner_type,
         },
-        versions: h.versions.map((v: any) => ({
+        versions: h.versions.map((v: StrategyHistoryVersion) => ({
           id: v.id,
           version: v.version,
           parent_version_id: v.parent_version_id,

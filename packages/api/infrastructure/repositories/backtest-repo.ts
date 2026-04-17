@@ -4,7 +4,6 @@ import type {
   BacktestRunInput as BacktestRunInputs,
   BacktestMetric,
   BacktestEvent,
-  RunSummary,
 } from "@schemas/backtest";
 
 export interface BacktestRepository {
@@ -211,13 +210,3 @@ export const postgresBacktestRepository: BacktestRepository = {
     return (result.rows[0] as BacktestRun) ?? null;
   },
 };
-
-export async function getRunSummary(id: string): Promise<RunSummary | null> {
-  const run = await postgresBacktestRepository.getRun(id);
-  if (!run) return null;
-
-  const metrics = await postgresBacktestRepository.getMetricsByRun(id);
-  const eventCount = await postgresBacktestRepository.getEventCount(id);
-
-  return { run, metrics, eventCount };
-}

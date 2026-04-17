@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../../server";
+import { AgentServices } from "@application/agent";
 
 export interface SessionContextResource {
   uri: string;
@@ -16,8 +16,7 @@ export const sessionContextResource = (sessionId: string): SessionContextResourc
 });
 
 export const getSessionContext = (sessionId: string) => {
-  const deps = getMcpDependencies();
-  return deps.agentServices.getSession(sessionId).pipe(
+  return Effect.flatMap(AgentServices, (services) => services.getSession(sessionId)).pipe(
     Effect.map((session) => ({
       resource: sessionContextResource(sessionId),
       content: JSON.stringify({

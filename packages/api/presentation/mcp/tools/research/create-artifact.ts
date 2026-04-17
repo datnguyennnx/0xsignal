@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../../server";
+import { ResearchServicesTag } from "@application/research";
 import { validationError } from "@application/errors";
 
 export const createArtifactTool = {
@@ -39,24 +39,25 @@ export const createArtifactTool = {
       );
     }
 
-    const deps = getMcpDependencies();
-    return deps.researchServices
-      .createArtifact({
-        id: crypto.randomUUID(),
-        artifact_type: input.artifact_type,
-        storage_path: input.storage_path,
-        run_id: input.run_id,
-        strategy_version_id: input.strategy_version_id,
-        content_type: input.content_type,
-        size_bytes: input.size_bytes,
-        metadata: input.metadata,
-      })
-      .pipe(
-        Effect.map((artifact) => ({
-          artifact_id: artifact.id,
-          artifact_type: artifact.artifact_type,
-          storage_path: artifact.storage_path,
-        }))
-      );
+    return Effect.flatMap(ResearchServicesTag, (researchServices) =>
+      researchServices
+        .createArtifact({
+          id: crypto.randomUUID(),
+          artifact_type: input.artifact_type,
+          storage_path: input.storage_path,
+          run_id: input.run_id,
+          strategy_version_id: input.strategy_version_id,
+          content_type: input.content_type,
+          size_bytes: input.size_bytes,
+          metadata: input.metadata,
+        })
+        .pipe(
+          Effect.map((artifact) => ({
+            artifact_id: artifact.id,
+            artifact_type: artifact.artifact_type,
+            storage_path: artifact.storage_path,
+          }))
+        )
+    );
   },
 };

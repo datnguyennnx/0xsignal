@@ -145,9 +145,6 @@ export function ingest(lines: string[]): Effect.Effect<void, QuestDBError, Quest
   );
 }
 
-/** Legacy alias to keep compatibility during refactor if needed, but preferred to use query/command */
-export const exec = query;
-
 export function healthCheck(): Effect.Effect<boolean, QuestDBError, QuestDBClient> {
   return Effect.flatMap(
     Effect.context() as Effect.Effect<Context.Context<QuestDBClient>>,

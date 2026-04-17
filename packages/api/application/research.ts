@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Context, Layer } from "effect";
 import { validationError, DomainError } from "./errors";
 import type { ResearchNote, Artifact } from "@schemas/research";
 import type { ResearchRepository } from "@infrastructure/repositories/research-repo";
@@ -36,6 +36,11 @@ export interface ResearchServices {
   ): Effect.Effect<ResearchNote, DomainError, never>;
   createArtifact(input: CreateArtifactInput): Effect.Effect<Artifact, DomainError, never>;
 }
+
+export class ResearchServicesTag extends Context.Tag("ResearchServices")<
+  ResearchServicesTag,
+  ResearchServices
+>() {}
 
 export const makeResearchService = (repo: ResearchRepository): ResearchServices => ({
   appendResearchNote: (
@@ -79,3 +84,6 @@ export const makeResearchService = (repo: ResearchRepository): ResearchServices 
       catch: (e) => validationError("Failed to create artifact", e),
     }),
 });
+
+export const ResearchServicesLayer = (repo: ResearchRepository) =>
+  Layer.succeed(ResearchServicesTag, makeResearchService(repo));

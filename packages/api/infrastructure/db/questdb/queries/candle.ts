@@ -52,33 +52,6 @@ WHERE symbol = '${symbol}'
 `.trim();
 }
 
-export function buildCoverageQuery(
-  symbol: string,
-  exchange: string,
-  timeframe: Timeframe,
-  startTime: Date,
-  endTime: Date
-): string {
-  return `
-SELECT count(*) as count
-FROM candle
-WHERE symbol = '${symbol}'
-  AND exchange = '${exchange}'
-  AND timeframe = '${timeframe}'
-  AND timestamp >= '${startTime.toISOString()}'
-  AND timestamp <= '${endTime.toISOString()}'
-`.trim();
-}
-
-export function buildCountQuery(symbol: string, exchange: string, timeframe: Timeframe): string {
-  return `
-SELECT count(*) as count
-FROM candle
-WHERE symbol = '${symbol}'
-  AND exchange = '${exchange}'
-  AND timeframe = '${timeframe}'
-`.trim();
-}
 export function getTimeframeMs(timeframe: Timeframe): number {
   switch (timeframe) {
     case "1m":

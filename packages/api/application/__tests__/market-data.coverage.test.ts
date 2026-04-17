@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer } from "effect";
-import { makeMarketDataService, MarketDataServices } from "../market-data";
-import { CandleRepository } from "@infrastructure/db/questdb/repositories/candle";
-import { HyperliquidProvider } from "@infrastructure/data-sources/hyperliquid/providers";
+import {
+  makeMarketDataService,
+  MarketDataServices,
+  MarketCandleStore,
+  MarketRemoteProvider,
+} from "../market-data";
 
 describe("Market Data Coverage Semantics", () => {
   const mockRepo = {} as any;
@@ -22,8 +25,8 @@ describe("Market Data Coverage Semantics", () => {
   };
 
   const TestContext = Layer.mergeAll(
-    Layer.succeed(CandleRepository, mockCandleRepo as any),
-    Layer.succeed(HyperliquidProvider, mockHLProvider as any)
+    Layer.succeed(MarketCandleStore, mockCandleRepo as any),
+    Layer.succeed(MarketRemoteProvider, mockHLProvider as any)
   );
 
   const MarketDataServicesTest = Layer.effect(

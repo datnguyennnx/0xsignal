@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../../server";
+import { AgentServices } from "@application/agent";
 
 export const recordAgentActionTool = {
   name: "record_agent_action",
@@ -34,22 +34,23 @@ export const recordAgentActionTool = {
     status: "pending" | "running" | "completed" | "failed";
     error_code?: string;
     error_message?: string;
-  }) => {
-    const deps = getMcpDependencies();
-    return deps.agentServices
-      .recordAction({
-        id: crypto.randomUUID(),
-        session_id: input.session_id,
-        plan_id: input.plan_id,
-        action_type: input.action_type,
-        target_type: input.target_type,
-        target_id: input.target_id,
-        input_payload: input.input_payload,
-        result_payload: input.result_payload,
-        status: input.status,
-        error_code: input.error_code,
-        error_message: input.error_message,
-      })
-      .pipe(Effect.map((action) => ({ action_id: action.id, status: action.status })));
-  },
+  }) =>
+    Effect.gen(function* () {
+      const services = yield* AgentServices;
+      return yield* services
+        .recordAction({
+          id: crypto.randomUUID(),
+          session_id: input.session_id,
+          plan_id: input.plan_id,
+          action_type: input.action_type,
+          target_type: input.target_type,
+          target_id: input.target_id,
+          input_payload: input.input_payload,
+          result_payload: input.result_payload,
+          status: input.status,
+          error_code: input.error_code,
+          error_message: input.error_message,
+        })
+        .pipe(Effect.map((action) => ({ action_id: action.id, status: action.status })));
+    }),
 };

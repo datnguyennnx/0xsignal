@@ -7,10 +7,45 @@ import type {
   CoverageResult,
 } from "@schemas/market-data";
 import type { MarketDataRepository } from "@infrastructure/repositories/market-data-repo";
-import { CandleRepository } from "@infrastructure/db/questdb/repositories/candle";
-import { HyperliquidProvider } from "@infrastructure/data-sources/hyperliquid/providers";
 
 type MarketTimeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+
+export interface MarketCandleStorePort {
+  readonly getCandles: (query: CandleQuery) => Effect.Effect<Candle[], unknown>;
+  readonly checkCoverage: (
+    symbol: string,
+    exchange: string,
+    timeframe: MarketTimeframe,
+    startTime: Date,
+    endTime: Date
+  ) => Effect.Effect<CoverageResult, unknown>;
+  readonly insertCandles: (
+    symbol: string,
+    exchange: string,
+    timeframe: MarketTimeframe,
+    candles: Candle[]
+  ) => Effect.Effect<void, unknown>;
+}
+
+export interface MarketRemoteProviderPort {
+  readonly getCandleSnapshot: (
+    symbol: string,
+    timeframe: MarketTimeframe,
+    startTime: number,
+    endTime: number
+  ) => Effect.Effect<Candle[], unknown>;
+  readonly getMetadata: () => Effect.Effect<unknown, unknown>;
+}
+
+export class MarketCandleStore extends Context.Tag("MarketCandleStore")<
+  MarketCandleStore,
+  MarketCandleStorePort
+>() {}
+
+export class MarketRemoteProvider extends Context.Tag("MarketRemoteProvider")<
+  MarketRemoteProvider,
+  MarketRemoteProviderPort
+>() {}
 
 export type CandleQuery = {
   readonly symbol: string;
@@ -79,8 +114,45 @@ export class MarketDataServices extends Context.Tag("MarketDataServices")<
 
 export const makeMarketDataService = (repo: MarketDataRepository) =>
   Effect.gen(function* () {
-    const candleRepo = yield* CandleRepository;
-    const hlProvider = yield* HyperliquidProvider;
+    const candleRepo = yield* MarketCandleStore;
+    const remoteProvider = yield* MarketRemoteProvider;
+    const mapInfraError = (fallbackMessage: string) => (error: unknown) =>
+      validationError(error instanceof Error ? error.message : fallbackMessage, error);
+
+    const refreshCoverage = (
+      query: CandleQuery,
+      startTime: Date,
+      endTime: Date,
+      maxAttempts = 3
+    ): Effect.Effect<CoverageResult, never> => {
+      const checkOnce = () =>
+        candleRepo
+          .checkCoverage(query.symbol, query.exchange, query.timeframe, startTime, endTime)
+          .pipe(
+            Effect.catchAll(() =>
+              Effect.succeed({
+                hasData: false,
+                rowCount: 0,
+                expectedCount: 0,
+                fullCoverage: false,
+                missingWindows: [{ start: startTime, end: endTime }],
+              } satisfies CoverageResult)
+            )
+          );
+
+      const loop = (attempt: number): Effect.Effect<CoverageResult, never> =>
+        checkOnce().pipe(
+          Effect.flatMap((coverage) => {
+            if (coverage.fullCoverage || attempt >= maxAttempts) {
+              return Effect.succeed(coverage);
+            }
+
+            return Effect.sleep("150 millis").pipe(Effect.flatMap(() => loop(attempt + 1)));
+          })
+        );
+
+      return loop(1);
+    };
 
     /**
      * Internal helper to fill gaps in local storage by fetching from remote Tier 2 (Hyperliquid)
@@ -98,16 +170,20 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
           const MAX_LOOPS = 5;
 
           for (let i = 0; i < MAX_LOOPS; i++) {
-            const remoteCandles = yield* hlProvider
+            const remoteCandles = yield* remoteProvider
               .getCandleSnapshot(query.symbol, query.timeframe, currentStart, requestedEnd)
-              .pipe(Effect.mapError((e) => validationError(e.message, e.cause)));
+              .pipe(Effect.mapError(mapInfraError("Failed to fetch remote candles")));
 
             if (remoteCandles.length === 0) break;
 
             yield* candleRepo
               .insertCandles(query.symbol, query.exchange, query.timeframe, remoteCandles)
               .pipe(
-                Effect.catchAll((e) => Effect.logWarning(`Failed to cache candles: ${e.message}`))
+                Effect.catchAll((e) =>
+                  Effect.logWarning(
+                    `Failed to cache candles: ${e instanceof Error ? e.message : String(e)}`
+                  )
+                )
               );
 
             const lastCandleTime = remoteCandles[remoteCandles.length - 1].timestamp.getTime();
@@ -179,10 +255,14 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
           // 2. Fill gaps if necessary
           coverage = yield* fillGaps(query, coverage);
 
+          if (!coverage.fullCoverage && query.exchange.toLowerCase() === "hyperliquid") {
+            coverage = yield* refreshCoverage(query, startTime, endTime);
+          }
+
           // 3. Fetch final combined results from local store
           const candles = yield* candleRepo
             .getCandles(query)
-            .pipe(Effect.mapError((e) => validationError(e.message, e.cause)));
+            .pipe(Effect.mapError(mapInfraError("Failed to load candles")));
 
           const provenance = coverage.fullCoverage
             ? "QuestDB (Fully Covered)"
@@ -192,7 +272,9 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
         }),
 
       discoverMarkets: () =>
-        hlProvider.getMetadata().pipe(Effect.mapError((e) => validationError(e.message, e.cause))),
+        remoteProvider
+          .getMetadata()
+          .pipe(Effect.mapError(mapInfraError("Failed to discover markets"))),
 
       inspectCoverage: (query) =>
         candleRepo
@@ -203,7 +285,7 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
             query.startTime ?? new Date(0),
             query.endTime ?? new Date()
           )
-          .pipe(Effect.mapError((e) => validationError(e.message, e.cause))),
+          .pipe(Effect.mapError(mapInfraError("Failed to inspect coverage"))),
     });
   });
 

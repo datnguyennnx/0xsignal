@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer } from "effect";
 import { appendResearchNoteTool, startBacktestRunTool, getRunSummaryTool } from "../tools";
-import { initializeMcpServer } from "../server";
-import { BacktestServices } from "@application/backtest";
+import { BacktestServices } from "../../../application/backtest";
+import { ResearchServicesTag } from "../../../application/research";
 
 describe("MCP research/backtest tool behavior", () => {
   const mockResearchServices = {
@@ -18,28 +18,12 @@ describe("MCP research/backtest tool behavior", () => {
     recordMetric: vi.fn(),
   };
 
-  const mockMcpRepo = {
-    insertInteraction: vi.fn().mockResolvedValue({}),
-    updateInteractionStatus: vi.fn().mockResolvedValue({}),
-    getInteraction: vi.fn(),
-    getInteractionsBySession: vi.fn(),
-    getInteractionsByCorrelation: vi.fn(),
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
-    initializeMcpServer(
-      {},
-      {
-        agentServices: {} as never,
-        strategyServices: {} as never,
-        backtestServices: mockBacktestServices as never,
-        researchServices: mockResearchServices as never,
-        marketDataServices: {} as never,
-        mcpRepository: mockMcpRepo as never,
-      }
-    );
   });
+
+  const TestResearch = Layer.succeed(ResearchServicesTag, mockResearchServices as never);
+  const TestBacktest = Layer.succeed(BacktestServices, mockBacktestServices as never);
 
   it("append_research_note forwards tags array unchanged", async () => {
     mockResearchServices.appendResearchNote.mockReturnValue(
@@ -47,12 +31,14 @@ describe("MCP research/backtest tool behavior", () => {
     );
 
     await Effect.runPromise(
-      appendResearchNoteTool.execute({
-        title: "N1",
-        content_markdown: "Hello",
-        session_id: "session-1",
-        tags: ["alpha", "btc"],
-      })
+      appendResearchNoteTool
+        .execute({
+          title: "N1",
+          content_markdown: "Hello",
+          session_id: "session-1",
+          tags: ["alpha", "btc"],
+        })
+        .pipe(Effect.provide(TestResearch))
     );
 
     expect(mockResearchServices.appendResearchNote).toHaveBeenCalledWith(
@@ -66,10 +52,12 @@ describe("MCP research/backtest tool behavior", () => {
     );
 
     await Effect.runPromise(
-      appendResearchNoteTool.execute({
-        title: "N2",
-        session_id: "session-2",
-      })
+      appendResearchNoteTool
+        .execute({
+          title: "N2",
+          session_id: "session-2",
+        })
+        .pipe(Effect.provide(TestResearch))
     );
 
     expect(mockResearchServices.appendResearchNote).toHaveBeenCalledWith(
@@ -80,9 +68,11 @@ describe("MCP research/backtest tool behavior", () => {
   it("append_research_note requires at least one anchor", async () => {
     await expect(
       Effect.runPromise(
-        appendResearchNoteTool.execute({
-          title: "No anchor",
-        })
+        appendResearchNoteTool
+          .execute({
+            title: "No anchor",
+          })
+          .pipe(Effect.provide(TestResearch))
       )
     ).rejects.toThrow(/requires at least one anchor/);
 
@@ -95,11 +85,13 @@ describe("MCP research/backtest tool behavior", () => {
     );
 
     await Effect.runPromise(
-      appendResearchNoteTool.execute({
-        title: "N3",
-        session_id: "session-3",
-        tags: [],
-      })
+      appendResearchNoteTool
+        .execute({
+          title: "N3",
+          session_id: "session-3",
+          tags: [],
+        })
+        .pipe(Effect.provide(TestResearch))
     );
 
     expect(mockResearchServices.appendResearchNote).toHaveBeenCalledWith(
@@ -111,8 +103,6 @@ describe("MCP research/backtest tool behavior", () => {
     mockBacktestServices.createBacktestRun.mockReturnValue(
       Effect.succeed({ id: "run-1", status: "pending" })
     );
-
-    const TestBacktest = Layer.succeed(BacktestServices, mockBacktestServices as never);
 
     await Effect.runPromise(
       startBacktestRunTool
@@ -134,7 +124,9 @@ describe("MCP research/backtest tool behavior", () => {
       })
     );
 
-    const result = await Effect.runPromise(getRunSummaryTool.execute({ run_id: "run-22" }));
+    const result = await Effect.runPromise(
+      getRunSummaryTool.execute({ run_id: "run-22" }).pipe(Effect.provide(TestBacktest))
+    );
 
     expect(result).toEqual({
       run_id: "run-22",
@@ -149,10 +141,12 @@ describe("MCP research/backtest tool behavior", () => {
 
     await expect(
       Effect.runPromise(
-        createArtifactTool.execute({
-          artifact_type: "report",
-          storage_path: "/tmp/report.md",
-        })
+        createArtifactTool
+          .execute({
+            artifact_type: "report",
+            storage_path: "/tmp/report.md",
+          })
+          .pipe(Effect.provide(TestResearch))
       )
     ).rejects.toThrow(/requires at least one anchor/);
 

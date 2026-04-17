@@ -1,5 +1,5 @@
 import { Effect, Context, Layer } from "effect";
-import { validationError, notFoundError, DomainError } from "./errors";
+import { validationError, notFoundError, domainError, DomainError } from "./errors";
 import type {
   StrategyDefinition,
   StrategyVersion,
@@ -75,7 +75,18 @@ export const makeStrategyService = (repo: StrategyRepository) =>
             owner_type: input.owner_type,
             created_at: new Date().toISOString(),
           }),
-        catch: (e) => validationError("Failed to create strategy definition", e),
+        catch: (e) => {
+          if (
+            typeof e === "object" &&
+            e !== null &&
+            "code" in e &&
+            (e as { code?: string }).code === "23505"
+          ) {
+            return domainError("ALREADY_EXISTS", `Strategy slug '${input.slug}' already exists`, e);
+          }
+
+          return validationError("Failed to create strategy definition", e);
+        },
       }),
 
     createStrategyVersion: (input: CreateStrategyVersionInput) =>

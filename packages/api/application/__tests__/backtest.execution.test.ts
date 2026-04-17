@@ -80,8 +80,22 @@ describe("Backtest Execution Flow", () => {
       })
     );
 
-    // Wait briefly for background fork Daemon to execute
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await vi.waitFor(() => {
+      expect(mockRepo.updateRunStatus).toHaveBeenCalledWith(runId, "completed");
+      expect(mockRepo.insertMetric).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metric_key: "total_return",
+          metric_value: 1.5,
+        })
+      );
+      expect(mockRepo.insertEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            message: "Backtest completed with status: completed",
+          }),
+        })
+      );
+    });
 
     // Verify background worker state transitions
     // First it transitions to "running"
@@ -95,24 +109,6 @@ describe("Backtest Execution Flow", () => {
       })
     );
 
-    // Then it dumps completed metrics
-    expect(mockRepo.insertMetric).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metric_key: "total_return",
-        metric_value: 1.5,
-      })
-    );
-
-    // End event
-    expect(mockRepo.insertEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        payload: expect.objectContaining({
-          message: "Backtest completed with status: completed",
-        }),
-      })
-    );
-
-    // Final finish status
-    expect(mockRepo.updateRunStatus).toHaveBeenCalledWith(runId, "completed");
+    // Final async assertions are covered by waitFor above
   });
 });

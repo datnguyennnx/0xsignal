@@ -1,4 +1,11 @@
 import { Effect } from "effect";
+import { BacktestServices } from "@application/backtest";
+
+type SummaryMetric = {
+  readonly metric_key: string;
+  readonly metric_value: number;
+  readonly metric_group: string;
+};
 
 export interface RunSummaryResource {
   uri: string;
@@ -14,11 +21,8 @@ export const runSummaryResource = (runId: string): RunSummaryResource => ({
   mimeType: "application/json",
 });
 
-import { getMcpDependencies } from "../../server";
-
 export const getRunSummaryResource = (runId: string) => {
-  const deps = getMcpDependencies();
-  return deps.backtestServices.getRunSummary(runId).pipe(
+  return Effect.flatMap(BacktestServices, (services) => services.getRunSummary(runId)).pipe(
     Effect.map((s) => ({
       resource: runSummaryResource(runId),
       content: JSON.stringify({
@@ -32,7 +36,7 @@ export const getRunSummaryResource = (runId: string) => {
           started_at: s.run.started_at,
           finished_at: s.run.finished_at,
         },
-        metrics: s.metrics.map((m: any) => ({
+        metrics: s.metrics.map((m: SummaryMetric) => ({
           key: m.metric_key,
           value: m.metric_value,
           group: m.metric_group,

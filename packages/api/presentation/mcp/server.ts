@@ -3,6 +3,8 @@ import { StrategyServices, makeStrategyService } from "@application/strategy";
 import { BacktestServices, BacktestServicesLayer } from "@application/backtest";
 import type { ResearchServices } from "@application/research";
 import { MarketDataServices, MarketDataServicesLayer } from "@application/market-data";
+import { MarketCandleStore, MarketRemoteProvider } from "@application/market-data";
+import { EngineExecutor } from "@domain/backtest/engine";
 import { makeResearchService } from "@application/research";
 import { postgresAgentRepository } from "@infrastructure/repositories/agent-repo";
 import { postgresStrategyRepository } from "@infrastructure/repositories/strategy-repo";
@@ -11,8 +13,14 @@ import { postgresResearchRepository } from "@infrastructure/repositories/researc
 import { postgresMarketDataRepository } from "@infrastructure/repositories/market-data-repo";
 import { postgresMCPRepository } from "@infrastructure/repositories/mcp-repo";
 
-import { CandleRepositoryLayer } from "@infrastructure/db/questdb/repositories/candle";
-import { HyperliquidProviderLayer } from "@infrastructure/data-sources/hyperliquid/providers";
+import {
+  CandleRepository,
+  CandleRepositoryLayer,
+} from "@infrastructure/db/questdb/repositories/candle";
+import {
+  HyperliquidProvider,
+  HyperliquidProviderLayer,
+} from "@infrastructure/data-sources/hyperliquid/providers";
 import { QuestDBClientLayer } from "@infrastructure/db/questdb/client";
 import { HyperliquidClientLive } from "@infrastructure/data-sources/hyperliquid/client";
 import { StubEngineExecutor } from "@infrastructure/workers/engine.stub";
@@ -33,6 +41,10 @@ export interface McpServerDependencies {
   marketDataServices: Context.Tag.Service<typeof MarketDataServices>;
   mcpRepository: MCPRepository;
 }
+
+type McpExecutionLayerConfig = {
+  readonly backtestEngineLayer?: Layer.Layer<EngineExecutor>;
+};
 
 export const defaultCapabilities = {
   resources: {
@@ -104,22 +116,67 @@ export const getMcpDependencies = (): McpServerDependencies => {
   return dependencies;
 };
 
-/**
- * Creates the base Effect Layer for all top-level services
- */
-export const McpContextLayer = Layer.mergeAll(
+const MarketPortsLayer = Layer.mergeAll(
+  Layer.effect(
+    MarketCandleStore,
+    Effect.gen(function* () {
+      const repo = yield* CandleRepository;
+      return MarketCandleStore.of({
+        getCandles: (query) => repo.getCandles(query),
+        checkCoverage: (symbol, exchange, timeframe, startTime, endTime) =>
+          repo.checkCoverage(symbol, exchange, timeframe, startTime, endTime),
+        insertCandles: (symbol, exchange, timeframe, candles) =>
+          repo.insertCandles(symbol, exchange, timeframe, candles),
+      });
+    })
+  ),
+  Layer.effect(
+    MarketRemoteProvider,
+    Effect.gen(function* () {
+      const provider = yield* HyperliquidProvider;
+      return MarketRemoteProvider.of({
+        getCandleSnapshot: (symbol, timeframe, startTime, endTime) =>
+          provider.getCandleSnapshot(symbol, timeframe, startTime, endTime),
+        getMetadata: () => provider.getMetadata(),
+      });
+    })
+  )
+);
+
+const makeMarketDataLayer = () =>
   MarketDataServicesLayer(postgresMarketDataRepository).pipe(
+    Layer.provide(MarketPortsLayer),
     Layer.provide(CandleRepositoryLayer),
     Layer.provide(HyperliquidProviderLayer),
     Layer.provide(QuestDBClientLayer),
     Layer.provide(HyperliquidClientLive)
-  ),
+  );
+
+/**
+ * Creates the base Effect Layer for all top-level services
+ */
+export const McpContextLayer = Layer.mergeAll(
+  makeMarketDataLayer(),
   BacktestServicesLayer(postgresBacktestRepository).pipe(Layer.provide(StubEngineExecutor)),
   AgentServicesLayer(postgresAgentRepository)
 );
 
+export const makeMcpExecutionLayer = (config: McpExecutionLayerConfig = {}) => {
+  const backtestLayer = BacktestServicesLayer(postgresBacktestRepository).pipe(
+    Layer.provide(config.backtestEngineLayer ?? StubEngineExecutor)
+  );
+
+  return Layer.mergeAll(
+    makeMarketDataLayer(),
+    backtestLayer,
+    AgentServicesLayer(postgresAgentRepository)
+  );
+};
+
 // We keep these for legacy compatibility with the Stdio server handlers that are NOT fully Effectful yet
-export const makeMcpDependencies = async (): Promise<McpServerDependencies> => {
+export const makeMcpDependencies = async (
+  options: McpExecutionLayerConfig = {}
+): Promise<McpServerDependencies> => {
   // We run the effects to resolve the services from the Layer stack
   const services = await Effect.runPromise(
     Effect.gen(function* () {
@@ -135,7 +192,7 @@ export const makeMcpDependencies = async (): Promise<McpServerDependencies> => {
         researchServices: makeResearchService(postgresResearchRepository),
         mcpRepository: postgresMCPRepository,
       };
-    }).pipe(Effect.provide(McpContextLayer))
+    }).pipe(Effect.provide(makeMcpExecutionLayer(options)))
   );
 
   return services;

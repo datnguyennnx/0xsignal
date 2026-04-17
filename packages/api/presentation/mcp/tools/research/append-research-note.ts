@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { getMcpDependencies } from "../../server";
+import { ResearchServicesTag } from "@application/research";
 import { validationError } from "@application/errors";
 
 export const appendResearchNoteTool = {
@@ -33,17 +33,18 @@ export const appendResearchNoteTool = {
       );
     }
 
-    const deps = getMcpDependencies();
-    return deps.researchServices
-      .appendResearchNote({
-        id: crypto.randomUUID(),
-        title: input.title,
-        content_markdown: input.content_markdown,
-        session_id: input.session_id,
-        run_id: input.run_id,
-        strategy_version_id: input.strategy_version_id,
-        tags: input.tags === undefined ? undefined : [...input.tags],
-      })
-      .pipe(Effect.map((note) => ({ note_id: note.id, title: note.title })));
+    return Effect.flatMap(ResearchServicesTag, (researchServices) =>
+      researchServices
+        .appendResearchNote({
+          id: crypto.randomUUID(),
+          title: input.title,
+          content_markdown: input.content_markdown,
+          session_id: input.session_id,
+          run_id: input.run_id,
+          strategy_version_id: input.strategy_version_id,
+          tags: input.tags === undefined ? undefined : [...input.tags],
+        })
+        .pipe(Effect.map((note) => ({ note_id: note.id, title: note.title })))
+    );
   },
 };

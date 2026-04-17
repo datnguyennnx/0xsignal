@@ -88,7 +88,7 @@ describe("MCP Market Data Tools Wiring", () => {
       Effect.succeed({
         candles: [{}],
         provenance: "retrieved",
-        coverage: { expectedCount: 1, fullCoverage: true, missingWindows: [] },
+        coverage: { rowCount: 1, expectedCount: 1, fullCoverage: true, missingWindows: [] },
       })
     );
 
@@ -105,5 +105,7 @@ describe("MCP Market Data Tools Wiring", () => {
 
     expect(mockMarketDataServices.getCandles).toHaveBeenCalled();
     expect(result.status).toBe("Coverage Verified (FULL)");
+    expect(result.returnedCandleCount).toBe(1);
+    expect(result.rowCount).toBe(1);
   });
 });

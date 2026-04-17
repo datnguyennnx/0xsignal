@@ -18,6 +18,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+type HttpError = {
+  readonly message?: string;
+  readonly status?: number;
+};
+
+const toHttpError = (error: unknown): HttpError =>
+  typeof error === "object" && error !== null ? (error as HttpError) : {};
+
 // Run migrations on startup
 const migrateAction = Effect.tryPromise({
   try: async () => {
@@ -59,13 +67,15 @@ const serverProgram = Effect.gen(function* () {
               status: 200,
               headers: { "Content-Type": "application/json", ...corsHeaders },
             });
-          } catch (error: any) {
+          } catch (error) {
             // Enhanced error logging
             console.error("[Request Error]:", error);
 
+            const httpError = toHttpError(error);
+
             const message =
-              error?.message || (typeof error === "string" ? error : "Internal server error");
-            const status = error?.status || 500;
+              httpError.message || (typeof error === "string" ? error : "Internal server error");
+            const status = httpError.status ?? 500;
 
             return new Response(JSON.stringify({ error: message, status }), {
               status,
@@ -93,4 +103,4 @@ const serverProgram = Effect.gen(function* () {
 });
 
 // Run with Bun-optimized runtime
-BunRuntime.runMain(serverProgram.pipe(Effect.provide(AppLayer), Effect.scoped) as any);
+BunRuntime.runMain(serverProgram.pipe(Effect.provide(AppLayer), Effect.scoped));
