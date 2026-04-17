@@ -11,7 +11,7 @@
  */
 import { useEffect, useRef } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
-import type { Time } from "lightweight-charts";
+import type { CandlestickData, HistogramData, Time } from "lightweight-charts";
 const getVolumeColor = (isGain: boolean, isDark: boolean) => {
   if (isGain) return isDark ? "rgba(34, 197, 94, 0.45)" : "rgba(22, 163, 74, 0.4)";
   return isDark ? "rgba(239, 68, 68, 0.45)" : "rgba(220, 38, 38, 0.4)";
@@ -28,6 +28,24 @@ interface UseChartDataProps {
   visibleCandles: number;
   enabled?: boolean;
 }
+
+const toTime = (time: number): Time => time as Time;
+
+const toCandlestickData = (points: ChartDataPoint[]): CandlestickData<Time>[] =>
+  points.map((point) => ({
+    time: toTime(point.time),
+    open: point.open,
+    high: point.high,
+    low: point.low,
+    close: point.close,
+  }));
+
+const toVolumeHistogramData = (points: ChartDataPoint[], isDark: boolean): HistogramData<Time>[] =>
+  points.map((point) => ({
+    time: toTime(point.time),
+    value: point.volume,
+    color: getVolumeColor(point.close >= point.open, isDark),
+  }));
 
 export const useChartData = ({
   data,
@@ -79,14 +97,8 @@ export const useChartData = ({
 
     // Case 1: Initial load
     if (!initialDataLoadedRef.current) {
-      candlestickSeries.setData(data as unknown as { time: Time }[]);
-      volumeSeries.setData(
-        data.map((d) => ({
-          time: d.time as Time,
-          value: d.volume,
-          color: getVolumeColor(d.close >= d.open, isDark),
-        }))
-      );
+      candlestickSeries.setData(toCandlestickData(data));
+      volumeSeries.setData(toVolumeHistogramData(data, isDark));
 
       const dataLen = data.length;
       const fromIndex = Math.max(dataLen - visibleCandles, 0);
@@ -107,14 +119,8 @@ export const useChartData = ({
 
       timeScale?.applyOptions({ shiftVisibleRangeOnNewBar: false });
 
-      candlestickSeries.setData(data as unknown as { time: Time }[]);
-      volumeSeries.setData(
-        data.map((d) => ({
-          time: d.time as Time,
-          value: d.volume,
-          color: getVolumeColor(d.close >= d.open, isDark),
-        }))
-      );
+      candlestickSeries.setData(toCandlestickData(data));
+      volumeSeries.setData(toVolumeHistogramData(data, isDark));
 
       if (visibleRange && timeScale) {
         const barsDiff = data.length - prevDataLenRef.current;
@@ -147,7 +153,7 @@ export const useChartData = ({
 
     if (isSameLastTimestamp && isSameLength && lastCandleChanged) {
       candlestickSeries.update({
-        time: currentLastCandle.time as Time,
+        time: toTime(currentLastCandle.time),
         open: currentLastCandle.open,
         high: currentLastCandle.high,
         low: currentLastCandle.low,
@@ -155,7 +161,7 @@ export const useChartData = ({
       });
 
       volumeSeries.update({
-        time: currentLastCandle.time as Time,
+        time: toTime(currentLastCandle.time),
         value: currentLastCandle.volume,
         color: getVolumeColor(currentLastCandle.close >= currentLastCandle.open, isDark),
       });
@@ -171,7 +177,7 @@ export const useChartData = ({
 
       for (const c of newCandles) {
         candlestickSeries.update({
-          time: c.time as Time,
+          time: toTime(c.time),
           open: c.open,
           high: c.high,
           low: c.low,
@@ -179,7 +185,7 @@ export const useChartData = ({
         });
 
         volumeSeries.update({
-          time: c.time as Time,
+          time: toTime(c.time),
           value: c.volume,
           color: getVolumeColor(c.close >= c.open, isDark),
         });

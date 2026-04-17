@@ -24,6 +24,11 @@ import {
   generateTickSizeOptions,
   type TickSizeOption,
 } from "@/features/trade/hooks/use-hyperliquid-orderbook";
+import {
+  getEffectivePriceScaling,
+  mapVisibleOrderbookLevels,
+  type PriceScalingState,
+} from "./orderbook-widget.shared";
 import { type OrderbookLevel, priceKey } from "@/core/utils/hyperliquid";
 import { useOptionalL2BookNSigFigs } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { cn } from "@/core/utils/cn";
@@ -232,10 +237,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     orderbookHookOptions
   );
 
-  const [userPriceScaling, setUserPriceScaling] = useState<{
-    symbol: string;
-    value: number;
-  } | null>(null);
+  const [userPriceScaling, setUserPriceScaling] = useState<PriceScalingState | null>(null);
   const [hoverTarget, setHoverTarget] = useState<{
     side: "bid" | "ask";
     price: number;
@@ -325,12 +327,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const scalingOptions = useMemo(() => generateTickSizeOptions(bestPrice), [bestPrice]);
 
   const effectivePriceScaling = useMemo(
-    () =>
-      userPriceScaling?.symbol === symbol
-        ? userPriceScaling.value
-        : scalingOptions.length > 0
-          ? scalingOptions[0].value
-          : 0,
+    () => getEffectivePriceScaling(userPriceScaling, symbol, scalingOptions),
     [userPriceScaling, symbol, scalingOptions]
   );
 
@@ -367,24 +364,17 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   // reducing the visible row count (e.g., 20 server levels → 8 after client grouping).
   const groupedOrderbook = orderbook;
 
-  const { visibleAsks, visibleBids, maxTotal } = useMemo((): {
-    visibleAsks: FormattedLevel[];
-    visibleBids: FormattedLevel[];
-    maxTotal: number;
-  } => {
-    if (!groupedOrderbook) return { visibleAsks: [], visibleBids: [], maxTotal: 0 };
-    const asks = groupedOrderbook.asks.slice(0, VISIBLE_ROWS);
-    const bids = groupedOrderbook.bids.slice(0, VISIBLE_ROWS);
-    let mt = 0;
-    for (let i = 0; i < asks.length; i++) mt = Math.max(mt, asks[i].total);
-    for (let i = 0; i < bids.length; i++) mt = Math.max(mt, bids[i].total);
-
-    return {
-      visibleAsks: asks.map((l) => formatLevel(l, effectivePriceScaling)),
-      visibleBids: bids.map((l) => formatLevel(l, effectivePriceScaling)),
-      maxTotal: mt,
-    };
-  }, [groupedOrderbook, effectivePriceScaling]);
+  const { visibleAsks, visibleBids, maxTotal } = useMemo(
+    (): {
+      visibleAsks: FormattedLevel[];
+      visibleBids: FormattedLevel[];
+      maxTotal: number;
+    } =>
+      mapVisibleOrderbookLevels(groupedOrderbook, VISIBLE_ROWS, (level) =>
+        formatLevel(level, effectivePriceScaling)
+      ),
+    [groupedOrderbook, effectivePriceScaling]
+  );
 
   const { spread, spreadPercent } = useMemo(() => {
     if (

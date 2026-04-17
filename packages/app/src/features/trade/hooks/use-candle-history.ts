@@ -8,7 +8,12 @@ import { useQuery } from "@tanstack/react-query";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { hyperliquidApi } from "@/services/hyperliquid";
 import { normalizeSymbol } from "./use-hyperliquid-ws";
-import { mapToHLInterval, getIntervalMs, type HLInterval } from "@/core/utils/hyperliquid";
+import {
+  mapToHLInterval,
+  getIntervalMs,
+  toFiniteNumber,
+  type HLInterval,
+} from "@/core/utils/hyperliquid";
 
 // REST API candle format (string OHLCV)
 export interface RestCandle {
@@ -20,15 +25,58 @@ export interface RestCandle {
   v: string;
 }
 
+function toRestCandle(value: unknown): RestCandle | null {
+  if (typeof value !== "object" || value === null) return null;
+  const candle = value as Record<string, unknown>;
+
+  const t = toFiniteNumber(candle.t);
+  if (t === null) return null;
+
+  const o = typeof candle.o === "string" ? candle.o : null;
+  const h = typeof candle.h === "string" ? candle.h : null;
+  const l = typeof candle.l === "string" ? candle.l : null;
+  const c = typeof candle.c === "string" ? candle.c : null;
+  const v = typeof candle.v === "string" ? candle.v : null;
+
+  if (!o || !h || !l || !c || !v) return null;
+
+  return {
+    t,
+    o,
+    h,
+    l,
+    c,
+    v,
+  };
+}
+
 // Convert REST response to ChartDataPoint
-export const fromRest = (c: RestCandle): ChartDataPoint => ({
-  time: Math.floor(c.t / 1000),
-  open: parseFloat(c.o),
-  high: parseFloat(c.h),
-  low: parseFloat(c.l),
-  close: parseFloat(c.c),
-  volume: parseFloat(c.v),
-});
+export const fromRest = (c: RestCandle): ChartDataPoint | null => {
+  const open = toFiniteNumber(c.o);
+  const high = toFiniteNumber(c.h);
+  const low = toFiniteNumber(c.l);
+  const close = toFiniteNumber(c.c);
+  const volume = toFiniteNumber(c.v);
+
+  if (open === null || high === null || low === null || close === null || volume === null) {
+    return null;
+  }
+
+  return {
+    time: Math.floor(c.t / 1000),
+    open,
+    high,
+    low,
+    close,
+    volume,
+  };
+};
+
+function toChartData(raw: unknown): ChartDataPoint | null {
+  const parsed = toRestCandle(raw);
+  if (!parsed) return null;
+  return fromRest(parsed);
+}
 
 /**
  * Fetches historical candles from Hyperliquid REST API
@@ -42,10 +90,13 @@ async function fetchHistorical(symbol: string, interval: HLInterval, limit: numb
     now - limit * getIntervalMs(interval),
     now
   );
-  return candles
+  const parsed = candles
+    .map((c) => toRestCandle(c))
+    .filter((c): c is RestCandle => c !== null)
     .sort((a, b) => a.t - b.t)
-    .slice(-limit)
-    .map((c: unknown) => fromRest(c as RestCandle));
+    .slice(-limit);
+
+  return parsed.map(fromRest).filter((c): c is ChartDataPoint => c !== null);
 }
 
 /**
@@ -59,7 +110,13 @@ export async function fetchByRange(
 ) {
   const coin = normalizeSymbol(symbol);
   const candles = await hyperliquidApi.candleSnapshot(coin, interval, startTime, endTime);
-  return candles.sort((a, b) => a.t - b.t).map((c: unknown) => fromRest(c as RestCandle));
+
+  const parsed = candles
+    .map((c) => toRestCandle(c))
+    .filter((c): c is RestCandle => c !== null)
+    .sort((a, b) => a.t - b.t);
+
+  return parsed.map((c) => toChartData(c)).filter((c): c is ChartDataPoint => c !== null);
 }
 
 export function useCandleHistory(

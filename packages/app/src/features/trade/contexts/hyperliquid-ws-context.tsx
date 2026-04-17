@@ -31,10 +31,12 @@ const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
 const RECONNECT_MAX_ATTEMPTS = 10;
 
-function createClient(): {
+interface HyperliquidConnection {
   client: SubscriptionClient;
   transport: WebSocketTransport;
-} | null {
+}
+
+function createConnection(): HyperliquidConnection | null {
   try {
     const transport = new WebSocketTransport();
     const client = new SubscriptionClient({ transport });
@@ -45,15 +47,29 @@ function createClient(): {
   }
 }
 
-export function HyperliquidWsProvider({ children }: { children: React.ReactNode }) {
-  const [client, setClient] = useState<SubscriptionClient | null>(() => {
-    const result = createClient();
-    return result?.client ?? null;
+function closeTransport(transport: WebSocketTransport | null) {
+  if (!transport) return;
+  void transport.close().catch(() => {
+    // Ignore transport shutdown errors during teardown/reconnect.
   });
+}
+
+export function HyperliquidWsProvider({ children }: { children: React.ReactNode }) {
+  const [connection, setConnection] = useState<HyperliquidConnection | null>(() =>
+    createConnection()
+  );
+  const connectionRef = useRef<HyperliquidConnection | null>(connection);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
 
+  useEffect(() => {
+    connectionRef.current = connection;
+  }, [connection]);
+
   const scheduleReconnect = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      return;
+    }
     if (reconnectAttemptRef.current >= RECONNECT_MAX_ATTEMPTS) {
       console.warn("Hyperliquid WS: max reconnect attempts reached");
       return;
@@ -64,50 +80,48 @@ export function HyperliquidWsProvider({ children }: { children: React.ReactNode 
     );
     reconnectAttemptRef.current += 1;
     reconnectTimerRef.current = setTimeout(() => {
-      const result = createClient();
-      if (result) {
+      reconnectTimerRef.current = null;
+      const nextConnection = createConnection();
+      if (nextConnection) {
+        const previousConnection = connectionRef.current;
+        connectionRef.current = nextConnection;
         reconnectAttemptRef.current = 0;
-        setClient(result.client);
+        setConnection(nextConnection);
+        if (previousConnection) {
+          closeTransport(previousConnection.transport);
+        }
       }
     }, delay);
   }, []);
 
   useEffect(() => {
     return () => {
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
+      const reconnectTimer = reconnectTimerRef.current;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimerRef.current = null;
       }
-      const currentClient = client;
-      if (currentClient) {
-        const internal = currentClient as any;
-        if (internal.transport && typeof internal.transport.close === "function") {
-          try {
-            internal.transport.close();
-          } catch {
-            /* ignore */
-          }
-        }
-      }
+      closeTransport(connectionRef.current?.transport ?? null);
+      connectionRef.current = null;
     };
-  }, [client]);
+  }, []);
 
   useEffect(() => {
-    if (!client) return;
-    const internal = client as any;
-    const transport = internal.transport as { ws?: WebSocket } | undefined;
-    if (!transport) return;
-    const ws = transport.ws;
-    if (!ws) return;
+    if (!connection) return;
+    const socket = connection.transport.socket;
 
     const onClose = () => scheduleReconnect();
     const onError = () => scheduleReconnect();
-    ws.addEventListener("close", onClose);
-    ws.addEventListener("error", onError);
+    socket.addEventListener("close", onClose);
+    socket.addEventListener("error", onError);
+
     return () => {
-      ws.removeEventListener("close", onClose);
-      ws.removeEventListener("error", onError);
+      socket.removeEventListener("close", onClose);
+      socket.removeEventListener("error", onError);
     };
-  }, [client, scheduleReconnect]);
+  }, [connection, scheduleReconnect]);
+
+  const client = connection?.client ?? null;
 
   const value = useMemo(() => ({ client }), [client]);
 
