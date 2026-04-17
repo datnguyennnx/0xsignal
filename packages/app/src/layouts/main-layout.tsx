@@ -9,15 +9,11 @@ import { Link, useLocation } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";
 import { cn } from "@/core/utils/cn";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { TrendingUp, LineChart, Settings } from "lucide-react";
+import { LineChart, Settings } from "lucide-react";
 
-const DESKTOP_NAV_ITEMS = [
-  { path: "/", label: "Market" },
-  { path: "/trade", label: "Trade" },
-] as const;
+const DESKTOP_NAV_ITEMS = [{ path: "/trade", label: "Trade" }] as const;
 
 const MOBILE_NAV_ITEMS = [
-  { path: "/", label: "Market", icon: TrendingUp },
   { path: "/trade", label: "Trade", icon: LineChart },
   { path: "/settings", label: "Settings", icon: Settings },
 ] as const;
@@ -36,10 +32,7 @@ function DesktopShell({ children }: { children: ReactNode }) {
 
             <nav className="flex items-center gap-6">
               {DESKTOP_NAV_ITEMS.map((item) => {
-                const isActive =
-                  item.path === "/"
-                    ? location.pathname === "/"
-                    : location.pathname.startsWith(item.path);
+                const isActive = location.pathname.startsWith(item.path);
                 return (
                   <Link
                     key={item.path}
@@ -79,10 +72,7 @@ function MobileShell({ children }: { children: ReactNode }) {
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-sm border-t border-border/40 safe-area-pb">
         <div className="flex items-center justify-around h-14 px-1">
           {MOBILE_NAV_ITEMS.map((item) => {
-            const isActive =
-              item.path === "/"
-                ? location.pathname === "/"
-                : location.pathname.startsWith(item.path);
+            const isActive = location.pathname.startsWith(item.path);
             const Icon = item.icon;
             return (
               <Link

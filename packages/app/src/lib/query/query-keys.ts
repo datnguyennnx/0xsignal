@@ -5,19 +5,6 @@
  * Ensures consistent caching and invalidation across the app.
  */
 export const queryKeys = {
-  // Prices domain
-  prices: {
-    all: ["prices"] as const,
-    lists: () => [...queryKeys.prices.all, "list"] as const,
-    list: (limit: number) => [...queryKeys.prices.lists(), limit] as const,
-  },
-
-  // Global market domain
-  globalMarket: {
-    all: ["global-market"] as const,
-    overview: () => [...queryKeys.globalMarket.all, "overview"] as const,
-  },
-
   // Chart domain
   chart: {
     all: ["chart"] as const,

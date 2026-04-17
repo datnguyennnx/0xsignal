@@ -6,8 +6,8 @@ describe("RateLimiter", () => {
   it("does not oversubscribe burst tokens under concurrency", async () => {
     const program = Effect.gen(function* () {
       const limiter = yield* RateLimiterTag;
-      const attempts = Array.from({ length: 35 }, () =>
-        limiter.acquire("coingecko").pipe(
+      const attempts = Array.from({ length: 25 }, () =>
+        limiter.acquire("test-source").pipe(
           Effect.match({
             onSuccess: () => "ok" as const,
             onFailure: (error) => {
@@ -26,7 +26,7 @@ describe("RateLimiter", () => {
     const results = await Effect.runPromise(program);
     const successCount = results.filter((value) => value === "ok").length;
 
-    expect(successCount).toBeLessThanOrEqual(30);
-    expect(results.length).toBe(35);
+    expect(successCount).toBeLessThanOrEqual(20);
+    expect(results.length).toBe(25);
   });
 });

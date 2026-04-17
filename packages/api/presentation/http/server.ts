@@ -5,7 +5,6 @@ import { Effect, ManagedRuntime } from "effect";
 import { BunRuntime } from "@effect/platform-bun";
 import { AppLayer } from "@infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
-import { CoinGeckoService, GlobalMarketService } from "@infrastructure/data-sources/coingecko";
 import { runMigrations } from "@infrastructure/db/postgres/migrations/migration";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
@@ -30,29 +29,6 @@ const migrateAction = Effect.tryPromise({
     console.error("Migration failed:", error);
     return error;
   },
-});
-
-// Pre-warm caches
-const prewarmAction = Effect.gen(function* () {
-  const coinGecko = yield* CoinGeckoService;
-  const globalMarket = yield* GlobalMarketService;
-
-  yield* Effect.logInfo("Pre-warming essential caches...");
-
-  // Sequence pre-warming with small delays to avoid 429 burst
-  yield* coinGecko.getTopCryptos(250).pipe(
-    Effect.tap(() => Effect.logInfo("Top cryptos (250) cache pre-warmed")),
-    Effect.catchAll((e) => Effect.logWarning(`Top Cryptos pre-warm partial failure: ${e}`))
-  );
-
-  yield* Effect.sleep("2 seconds");
-
-  yield* globalMarket.getGlobalMarket().pipe(
-    Effect.tap(() => Effect.logInfo("Global market cache pre-warmed")),
-    Effect.catchAll((e) => Effect.logWarning(`Global Market pre-warm partial failure: ${e}`))
-  );
-
-  yield* Effect.logInfo("Essential caches pre-warm complete");
 });
 
 // App Program
@@ -111,9 +87,6 @@ const serverProgram = Effect.gen(function* () {
   console.log(`0xSignal API Server`);
   console.log(`Server: http://localhost:${PORT}`);
   console.log(`Health: http://localhost:${PORT}/api/health`);
-
-  // Run pre-warm in background
-  yield* Effect.fork(prewarmAction);
 
   // Keep the program alive until SIGTERM/SIGINT (handled by BunRuntime.runMain)
   yield* Effect.never;

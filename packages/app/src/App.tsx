@@ -14,7 +14,6 @@ import { ThemeProvider } from "@/core/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HyperliquidWsProvider } from "@/features/trade/contexts/hyperliquid-ws-context";
 import { Layout } from "@/layouts/main-layout";
-import { MarketDashboard } from "@/pages/market-dashboard";
 import { SettingsPage } from "@/pages/settings";
 import { ErrorBoundary } from "@/components/error-boundary";
 
@@ -65,7 +64,7 @@ function App() {
               <Layout>
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
-                    <Route path="/" element={<MarketDashboard />} />
+                    <Route path="/" element={<Navigate to="/trade/btc" replace />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/trade" element={<Navigate to="/trade/btc" replace />} />
                     <Route path="/trade/:symbol" element={<AssetDetail />} />

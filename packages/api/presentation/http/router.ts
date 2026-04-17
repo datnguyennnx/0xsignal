@@ -2,20 +2,8 @@
 
 import { Effect } from "effect";
 import { healthRoute } from "./routes/health.routes";
-import { globalMarketRoute } from "./routes/global-market.routes";
-import { AggregatedDataServiceTag } from "@infrastructure/data-sources/aggregator";
 
-// Helpers
-const getParam = (url: URL, key: string, def: string) => url.searchParams.get(key) || def;
-const getInt = (url: URL, key: string, def: number, max?: number) => {
-  const v = parseInt(getParam(url, key, String(def)));
-  return max ? Math.min(v, max) : v;
-};
 const notFound = Effect.fail({ status: 404, message: "Not found" });
-
-// Simple price route using AggregatedDataService
-const pricesRoute = (limit: number) =>
-  Effect.flatMap(AggregatedDataServiceTag, (s) => s.getTopCryptos(limit));
 
 // Main router - returns Effect with any requirements
 export const handleRequest = (url: URL) => {
@@ -25,10 +13,6 @@ export const handleRequest = (url: URL) => {
   switch (path) {
     case "/api/health":
       return healthRoute();
-    case "/api/global":
-      return globalMarketRoute();
-    case "/api/prices":
-      return pricesRoute(getInt(url, "limit", 250, 250));
   }
 
   return notFound;

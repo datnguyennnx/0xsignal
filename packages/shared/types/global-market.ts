@@ -1,5 +1,5 @@
 /**
- * Global Market Data - Market-wide metrics from CoinGecko
+ * Global market data types
  */
 
 export interface GlobalMarketData {

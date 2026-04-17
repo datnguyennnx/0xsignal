@@ -6,17 +6,14 @@
  *
  * @strategy
  * - short stale times for frequently updating price data (20s).
- * - longer stale times for model and metadata.
+ * - longer stale times for metadata.
  * - disabled refetchOnWindowFocus to prevent unexpected jumps while trading.
  */
 import { QueryClient } from "@tanstack/react-query";
 
 // Default stale times by data type
 const STALE_TIMES = {
-  prices: 20 * 1000, // 20 seconds - prices change frequently
   chart: 60 * 1000, // 1 minute - chart data updates less frequently
-  globalMarket: 60 * 1000, // 1 minute
-  models: 60 * 60 * 1000, // 1 hour - models don't change often
 } as const;
 
 // Garbage collection times
@@ -29,7 +26,7 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // Data freshness strategy
-      staleTime: STALE_TIMES.prices,
+      staleTime: STALE_TIMES.chart,
 
       // Garbage collection - v5 uses gcTime instead of cacheTime
       gcTime: GC_TIMES.default,
@@ -68,38 +65,13 @@ export const queryClient = new QueryClient({
 
 // Helper to get optimized query options by type
 export const getQueryOptions = {
-  prices: {
-    staleTime: STALE_TIMES.prices,
-    gcTime: GC_TIMES.default,
-    refetchInterval: 30 * 1000, // Auto-refresh every 30 seconds
-  },
   chart: {
     staleTime: STALE_TIMES.chart,
     gcTime: GC_TIMES.chart,
-  },
-  globalMarket: {
-    staleTime: STALE_TIMES.globalMarket,
-    gcTime: GC_TIMES.default,
-    refetchInterval: 120 * 1000, // Auto-refresh every 2 minutes
-  },
-
-  models: {
-    staleTime: STALE_TIMES.models,
-    gcTime: GC_TIMES.default,
   },
 } as const;
 
 // Prefetch helper for route preloading
 export const prefetchQueries = {
-  prices: (limit: number) =>
-    queryClient.prefetchQuery({
-      queryKey: ["prices", "list", limit],
-      staleTime: STALE_TIMES.prices,
-    }),
-
-  globalMarket: () =>
-    queryClient.prefetchQuery({
-      queryKey: ["global-market", "overview"],
-      staleTime: STALE_TIMES.globalMarket,
-    }),
+  // Intentionally left empty for now.
 };

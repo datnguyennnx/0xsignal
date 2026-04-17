@@ -2,7 +2,7 @@
  * @overview 404 Not Found Page
  *
  * Displays a clean error page when a user navigates to a non-existent route.
- * Provides a clear path back to the main dashboard.
+ * Provides a clear path back to the trade page.
  */
 import { memo } from "react";
 import { Link } from "react-router-dom";
@@ -22,14 +22,14 @@ export const NotFoundPage = memo(function NotFoundPage() {
 
         <p className="text-sm text-muted-foreground leading-relaxed">
           The requested resource does not exist or has been relocated. Verify the URL or return to
-          the dashboard.
+          trade.
         </p>
 
         <div className="pt-4">
           <Button asChild variant="outline" className="gap-2">
-            <Link to="/">
+            <Link to="/trade/btc">
               <ArrowLeft className="h-4 w-4" />
-              Return to Dashboard
+              Return to Trade
             </Link>
           </Button>
         </div>

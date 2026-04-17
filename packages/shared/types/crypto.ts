@@ -1,5 +1,5 @@
 /**
- * Crypto market data types - CoinGecko API focused
+ * Crypto market data types
  */
 
 export interface CryptoPrice {

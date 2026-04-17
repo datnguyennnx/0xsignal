@@ -10,7 +10,7 @@
  * - Combines multiple external sources to provide unified DTOs (e.g. FuturesPrice)
  */
 // API Client - Simple async functions
-import type { ChartDataPoint, GlobalMarketData, CryptoPrice } from "@0xsignal/shared";
+import type { ChartDataPoint } from "@0xsignal/shared";
 import { hyperliquidApi } from "./hyperliquid";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
@@ -73,10 +73,6 @@ export interface FuturesPrice {
 
 export const api = {
   health: () => fetchJson(`${API_BASE}/health`),
-
-  getGlobalMarket: () => fetchJson<GlobalMarketData>(`${API_BASE}/global`),
-
-  getTopCryptos: (limit = 100) => fetchJson<CryptoPrice[]>(`${API_BASE}/prices?limit=${limit}`),
 
   getFuturesPrice: async (symbol: string): Promise<FuturesPrice> => {
     const cleanSymbol = symbol

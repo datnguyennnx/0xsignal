@@ -24,9 +24,7 @@ interface RateLimiterConfig {
   readonly burstSize?: number;
 }
 
-const CONFIG: Record<string, RateLimiterConfig> = {
-  coingecko: { tokensPerMinute: 30, burstSize: 30 },
-};
+const CONFIG: Record<string, RateLimiterConfig> = {};
 
 const DEFAULT_CONFIG: RateLimiterConfig = { tokensPerMinute: 60, burstSize: 20 };
 
