@@ -138,7 +138,7 @@ const MarketHeaderMobile = ({
 const MarketRowDesktop = ({ item }: { item: FormattedTrade }) => (
   <div className="hidden sm:grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-3">
     <div className="flex flex-col justify-center min-w-0">
-      <span className="font-mono font-medium text-sm tabular-nums">{item.coin}</span>
+      <span className="font-mono font-medium text-sm tabular-nums truncate">{item.coin}</span>
       <span className="text-[10px] text-muted-foreground">{item.displayCategory}</span>
     </div>
     <span className="font-mono text-sm text-right flex items-center justify-end text-foreground tabular-nums">

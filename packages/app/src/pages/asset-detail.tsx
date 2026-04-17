@@ -34,6 +34,7 @@ import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
 import { L2BookNSigFigsProvider } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { CandleDataProvider } from "@/features/trade/contexts/candle-data-context";
 import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
+import { useHyperliquidSymbolLogo } from "@/features/trade/hooks/use-hyperliquid-symbol-logo";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/trading-chart").then((m) => ({ default: m.TradingChart }))
@@ -71,6 +72,7 @@ const AssetContent = memo(function AssetContent({
   const price = asset.price;
 
   const { data: annotation } = useTradeAnnotation(symbol);
+  const { data: logoUrl } = useHyperliquidSymbolLogo(symbol);
   const displayName = annotation?.displayName || asset.symbol.toUpperCase();
   const description = annotation?.description;
 
@@ -79,6 +81,15 @@ const AssetContent = memo(function AssetContent({
       {/* Header */}
       <header className="mb-4 sm:mb-5 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3">
+          {logoUrl && (
+            <img
+              src={logoUrl}
+              alt={`${displayName} logo`}
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full shrink-0"
+              loading="eager"
+              decoding="async"
+            />
+          )}
           <TradeDropdown currentSymbol={displayName} />
           <span className="text-lg sm:text-xl font-mono font-semibold tabular-nums">
             {formatPrice(price?.price || 0)}

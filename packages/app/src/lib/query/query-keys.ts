@@ -39,6 +39,8 @@ export const queryKeys = {
     tradeList: () => [...queryKeys.hyperliquid.all, "tradeList"] as const,
     tradeAnnotation: (coin: string) =>
       [...queryKeys.hyperliquid.all, "tradeAnnotation", coin] as const,
+    symbolLogo: (symbol: string) =>
+      [...queryKeys.hyperliquid.all, "symbolLogo", symbol.toUpperCase()] as const,
   },
 } as const;
 
