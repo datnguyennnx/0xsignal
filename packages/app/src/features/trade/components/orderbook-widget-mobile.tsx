@@ -66,6 +66,12 @@ const BidRow = memo(
       <div
         className="relative flex items-center justify-between px-2 tabular-nums select-none flex-shrink-0"
         style={BID_ROW_STYLE}
+        tabIndex={level.price > 0 ? 0 : -1}
+        aria-label={
+          level.price > 0
+            ? `Bid level, total ${level.formattedTotal}, price ${level.formattedPrice}`
+            : undefined
+        }
       >
         {level.price > 0 && (
           <div
@@ -128,6 +134,12 @@ const AskRow = memo(
       <div
         className="relative flex items-center justify-between px-2 tabular-nums select-none flex-shrink-0"
         style={ASK_ROW_STYLE}
+        tabIndex={level.price > 0 ? 0 : -1}
+        aria-label={
+          level.price > 0
+            ? `Ask level, price ${level.formattedPrice}, total ${level.formattedTotal}`
+            : undefined
+        }
       >
         {level.price > 0 && (
           <div
@@ -281,7 +293,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     );
   }
 
-  if (!isConnected || !orderbook) {
+  const hasBookData = !!orderbook && orderbook.asks.length > 0 && orderbook.bids.length > 0;
+
+  if (!hasBookData) {
     return (
       <div className="h-full flex items-center justify-center opacity-50">
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -293,11 +307,23 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     <div ref={widgetRef} className="flex flex-col h-full bg-background overscroll-none select-none">
       {/* Header: Tick Size (left) | Asset (right) */}
       <div className="flex items-center justify-between px-3 py-1.5 flex-shrink-0">
+        <div
+          className={cn(
+            "flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.02em] text-muted-foreground transition-opacity duration-150",
+            !isConnected ? "opacity-100" : "opacity-0"
+          )}
+          aria-live="polite"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/70 animate-pulse" />
+          Syncing
+        </div>
         <NativeSelect
           size="sm"
+          aria-label="Price precision"
           value={effectivePriceScaling.toString()}
           onChange={(e) => handlePriceScalingChange(Number(e.target.value))}
-          className="min-h-[28px] bg-transparent border-0 text-sm text-foreground font-mono"
+          wrapperClassName="min-w-[5.75rem] max-w-[5.75rem]"
+          className="h-11 min-h-[44px] w-full min-w-0 border border-border/50 bg-background/75 px-2 pr-7 text-[11px] tracking-[0.01em] text-foreground hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
         >
           {scalingOptions.map((opt) => (
             <NativeSelectOption key={opt.value} value={opt.value.toString()}>

@@ -104,7 +104,7 @@ export function IndicatorModal({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[98vw] xl:max-w-[1600px] w-fit h-[90vh] p-0 gap-0 overflow-hidden bg-background border-border/30 shadow-xl rounded-lg"
+        className="max-w-[98vw] xl:max-w-[1600px] w-fit h-[90vh] p-0 gap-0 overflow-hidden bg-background border-border/40 shadow-xl rounded-lg"
       >
         <DialogTitle className="sr-only">Indicator Settings</DialogTitle>
 
@@ -117,7 +117,7 @@ export function IndicatorModal({
               </h2>
               <button
                 onClick={() => onOpenChange(false)}
-                className="sm:hidden p-2 min-w-[44px] min-h-[44px] flex items-center justify-center tap-highlight"
+                className="sm:hidden p-2 min-w-[44px] min-h-[44px] flex items-center justify-center tap-highlight rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -142,10 +142,10 @@ export function IndicatorModal({
                       setSelectedId(null);
                     }}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-3 sm:py-2 rounded text-xs transition-colors min-h-[44px]",
+                      "w-full flex items-center gap-2.5 px-3 py-3 sm:py-2 rounded text-xs transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                       category === cat.id
                         ? "bg-foreground text-background font-bold shadow-sm"
-                        : "hover:bg-muted text-muted-foreground hover:text-foreground/80 font-medium"
+                        : "hover:bg-muted/60 text-muted-foreground hover:text-foreground font-medium"
                     )}
                   >
                     <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -174,7 +174,7 @@ export function IndicatorModal({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Find indicator..."
-                  className="h-10 text-xs bg-muted/20 border-border/40 focus-visible:ring-offset-0 focus-visible:ring-muted-foreground/10 placeholder:opacity-30 rounded px-3"
+                  className="h-10 text-xs bg-muted/20 border-border/50 focus-visible:ring-offset-0 focus-visible:ring-ring/25 placeholder:opacity-45 rounded px-3"
                 />
               </div>
             )}
@@ -191,10 +191,10 @@ export function IndicatorModal({
                         key={indicator.id}
                         onClick={() => setSelectedId(indicator.id)}
                         className={cn(
-                          "w-full flex items-center gap-2 px-3 py-3 sm:py-2 rounded text-xs transition-all min-h-[44px]",
+                          "w-full flex items-center gap-2 px-3 py-3 sm:py-2 rounded text-xs transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                           isSelected
-                            ? "bg-muted text-foreground font-bold shadow-inner"
-                            : "hover:bg-muted/30 text-muted-foreground/60 hover:text-foreground font-medium"
+                            ? "bg-muted/70 text-foreground font-bold shadow-inner"
+                            : "hover:bg-muted/40 text-muted-foreground/80 hover:text-foreground font-medium"
                         )}
                       >
                         <div

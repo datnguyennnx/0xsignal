@@ -56,7 +56,8 @@ export const ICTButton = memo(function ICTButton({
         size="sm"
         onClick={handleToggle}
         className={cn(
-          "gap-1.5 text-xs font-medium min-h-11 sm:min-h-8 tap-highlight",
+          "gap-1.5 text-xs font-medium min-h-11 sm:min-h-8 tap-highlight border-border/50 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25",
+          isOpen && "bg-foreground text-background hover:bg-foreground/90",
           activeCount > 0 && !isOpen && "border-primary/50 bg-primary/5",
           isLoading && "computing-pulse"
         )}

@@ -57,7 +57,7 @@ export function IndicatorParamField({
           <button
             type="button"
             onClick={() => adjust(-1)}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-muted active:bg-muted-foreground/10 transition-colors border-r"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-muted/60 active:bg-muted-foreground/10 transition-colors border-r border-border/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
           >
             <Minus className="w-3 h-3 opacity-30" />
           </button>
@@ -70,13 +70,13 @@ export function IndicatorParamField({
             step={definition.step}
             value={value}
             onChange={(e) => onValueChange(e.target.value)}
-            className="w-12 h-7 px-1 text-center text-xs font-bold bg-transparent focus:outline-none tabular-nums select-none"
+            className="w-12 h-7 px-1 text-center text-xs font-bold bg-transparent text-foreground focus:outline-none tabular-nums select-none"
           />
 
           <button
             type="button"
             onClick={() => adjust(1)}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-muted active:bg-muted-foreground/10 transition-colors border-l"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-muted/60 active:bg-muted-foreground/10 transition-colors border-l border-border/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
           >
             <Plus className="w-3 h-3 opacity-40" />
           </button>

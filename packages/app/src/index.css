@@ -7,22 +7,67 @@
  * @tokens
  * - Grayscale Base: oklch (C=0) for pure gray/black/white UI.
  * - Semantic Colors: --gain (Green), --loss (Red), --warn (Orange) using high-contrast OKLCH.
- * - Typography: Pixelify Sans for tickers, fluid sizing (clamp) for body text.
+ * - Typography: Inter/SF Pro + JetBrains Mono with fluid sizing (clamp).
  * - Transitions: ease-premium (cubic-bezier) for all UI micro-animations.
  *
  * @performance
  * - Global scrollbar removal for terminal-like experience.
  * - overscroll-none utility to prevent mobile pull-to-refresh conflicts with charts.
  */
-@import url("https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Custom Fonts */
-  --font-family-press-start: "Pixelify Sans", sans-serif;
+  /* Font Families */
+  --font-ui:
+    "Inter", "SF Pro Text", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display:
+    "SF Pro Display", "Inter", "SF Pro Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono:
+    "JetBrains Mono", "SF Mono", "Cascadia Code", "Source Code Pro", ui-monospace, Menlo, Monaco,
+    Consolas, monospace;
+
+  --font-family-ui: var(--font-ui);
+  --font-family-display: var(--font-display);
+  --font-family-mono: var(--font-mono);
+
+  /* Typography Scale */
+  --text-display: clamp(1.75rem, 2vw, 3rem);
+  --text-title: clamp(1.25rem, 1.2vw, 2rem);
+  --text-section: clamp(1.125rem, 0.8vw, 1.5rem);
+  --text-body: clamp(0.875rem, 0.3vw, 1rem);
+  --text-compact: clamp(0.8125rem, 0.2vw, 0.875rem);
+  --text-data: clamp(0.75rem, 0.2vw, 0.875rem);
+
+  /* Canonical Design Tokens (OKLCH) */
+  --color-bg-0: oklch(0.08 0 0);
+  --color-bg-1: oklch(0.1 0 0);
+  --color-surface-1: oklch(0.12 0 0);
+  --color-surface-2: oklch(0.15 0 0);
+  --color-surface-3: oklch(0.18 0 0);
+  --color-overlay: oklch(1 0 0 / 0.04);
+
+  --color-text-primary: oklch(0.97 0 0);
+  --color-text-secondary: oklch(0.84 0 0);
+  --color-text-tertiary: oklch(0.65 0 0);
+  --color-text-quaternary: oklch(0.48 0 0);
+  --color-text-inverse: oklch(0.08 0 0);
+
+  --color-border-soft: oklch(1 0 0 / 0.05);
+  --color-border-hairline: oklch(1 0 0 / 0.07);
+  --color-divider: oklch(1 0 0 / 0.04);
+
+  --color-gain: oklch(0.72 0.17 150);
+  --color-loss: oklch(0.64 0.21 25);
+  --color-warn: oklch(0.77 0.16 80);
+
+  --radius-panel: 1rem;
+  --radius-control: 9999px;
+  --radius-field: 0.875rem;
+  --spacing-touch: 2.75rem;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -62,9 +107,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --color-gain: var(--gain);
-  --color-loss: var(--loss);
-  --color-warn: var(--warn);
+  /* Breakpoint Tokens */
+  --breakpoint-tablet: 640px;
+  --breakpoint-desktop: 1024px;
+  --breakpoint-wide: 1536px;
 
   /* Extended Breakpoints for Ultra-Wide Screens */
   --breakpoint-3xl: 1920px;
@@ -367,15 +413,6 @@
     animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
-  /* Custom Font - Responsive sizing */
-  .font-press-start {
-    font-family: "Pixelify Sans", sans-serif;
-    font-size: clamp(0.875rem, 0.75rem + 0.5vw, 1.25rem);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-  }
-
   /* Utility to strictly hide scrollbar */
   .scrollbar-hide {
     -ms-overflow-style: none;
@@ -533,56 +570,6 @@
     min-width: 44px;
   }
 
-  .touch-target-48 {
-    min-height: 48px;
-    min-width: 48px;
-  }
-
-  .touch-padding {
-    padding: 0.875rem 1rem;
-  }
-
-  @media (min-width: 640px) {
-    .touch-padding {
-      padding: 0.75rem 1rem;
-    }
-  }
-
-  /* ===== RESPONSIVE TEXT UTILITIES ===== */
-  .text-responsive-sm {
-    font-size: 0.75rem;
-    line-height: 1.4;
-  }
-
-  @media (min-width: 640px) {
-    .text-responsive-sm {
-      font-size: 0.8125rem;
-      line-height: 1.5;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .text-responsive-sm {
-      font-size: 0.875rem;
-    }
-  }
-
-  .text-responsive-xs {
-    font-size: 0.625rem;
-  }
-
-  @media (min-width: 640px) {
-    .text-responsive-xs {
-      font-size: 0.6875rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .text-responsive-xs {
-      font-size: 0.75rem;
-    }
-  }
-
   /* ===== PWA MOBILE INTERACTION FEEDBACK ===== */
   .tap-highlight {
     -webkit-tap-highlight-color: transparent;
@@ -593,17 +580,6 @@
     opacity: 0.88;
     transform: scale(0.98);
     transition: all 0.1s ease-out;
-  }
-
-  /* ===== FOCUS RING UTILITIES ===== */
-  .focus-ring {
-    outline: none;
-  }
-
-  .focus-ring:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-    border-radius: var(--radius-sm);
   }
 
   .interactive-toggle {
@@ -621,59 +597,10 @@
     background-color: var(--muted);
   }
 
-  /* ===== RESPONSIVE VISIBILITY ===== */
-  .mobile-only {
-    display: block;
-  }
-
-  @media (min-width: 640px) {
-    .mobile-only {
-      display: none;
-    }
-  }
-
-  .tablet-up {
-    display: none;
-  }
-
-  @media (min-width: 640px) {
-    .tablet-up {
-      display: block;
-    }
-  }
-
-  .desktop-up {
-    display: none;
-  }
-
-  @media (min-width: 1024px) {
-    .desktop-up {
-      display: block;
-    }
-  }
-
-  /* ===== RESPONSIVE GRID GAPS ===== */
-  .gap-responsive {
-    gap: 0.5rem;
-  }
-
-  @media (min-width: 640px) {
-    .gap-responsive {
-      gap: 0.75rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .gap-responsive {
-      gap: 1rem;
-    }
-  }
-
   /* ===== MONOCHROME TYPOGRAPHY UTILITIES ===== */
   /* slashed-zero: prevents O/0 confusion in tickers, addresses, hashes — critical for fund safety */
   .font-mono-slashed {
-    font-family:
-      ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Monaco, Consolas, monospace;
+    font-family: var(--font-mono);
     font-variant-numeric: slashed-zero tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -683,7 +610,6 @@
   /* Disables pull-to-refresh on interactive containers — prevents conflict with chart pan and orderbook scroll */
   .overscroll-none {
     overscroll-behavior: none;
-    overscroll-behavior: contain;
   }
 
   /* ===== LOADING STATES ===== */

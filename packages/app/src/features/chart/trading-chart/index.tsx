@@ -130,8 +130,6 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   useChartData({
     data,
     isDark,
-    interval,
-    symbol,
     candlestickSeries,
     volumeSeries,
     chart,

@@ -49,12 +49,14 @@ export const ChartHeader = memo(function ChartHeader({
           {DEFAULT_INTERVALS.map((int) => (
             <Button
               key={int.value}
-              variant={interval === int.value ? "default" : "ghost"}
+              variant="ghost"
               size="sm"
               onClick={() => handleIntervalChange(int.value)}
               className={cn(
-                "relative px-2.5 py-1 text-xs font-medium rounded-xl transition-all duration-200 ease-premium active:scale-[0.97]",
-                interval === int.value ? "scale-[1.02] shadow-sm" : ""
+                "relative h-8 rounded-xl border px-2.5 py-1 text-[11px] font-mono tabular-nums tracking-[0.01em] transition-all duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/25",
+                interval === int.value
+                  ? "border-border/60 bg-muted/70 text-foreground scale-[1.02] shadow-sm"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
               )}
             >
               {int.label}
@@ -69,15 +71,17 @@ export const ChartHeader = memo(function ChartHeader({
           {nonDefaultIntervals.length > 0 && (
             <NativeSelect
               size="sm"
+              aria-label="More intervals"
               value={isDefaultInterval ? "" : interval}
               onChange={(e) => {
                 if (e.target.value) handleIntervalChange(e.target.value);
               }}
+              wrapperClassName="min-w-[4.5rem] max-w-[4.5rem]"
               className={cn(
-                "bg-transparent text-xs font-medium px-2 py-1 cursor-pointer transition-colors",
+                "h-8 w-full min-w-0 border border-border/50 bg-background/75 px-2.5 pr-7 text-[11px] font-mono tabular-nums tracking-[0.01em] cursor-pointer transition-[background-color,border-color,color,box-shadow] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/25",
                 isDefaultInterval
                   ? "text-muted-foreground hover:text-foreground"
-                  : "bg-primary text-primary-foreground"
+                  : "border-border/60 bg-muted/70 text-foreground"
               )}
             >
               {isDefaultInterval && (

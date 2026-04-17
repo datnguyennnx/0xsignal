@@ -71,7 +71,7 @@ export const ICTControls = memo(function ICTControls({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-16px)] bg-card border-border/30 rounded-xl shadow-lg z-50 overflow-hidden">
+    <div className="absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-16px)] bg-popover text-popover-foreground border border-border/40 rounded-xl shadow-lg z-50 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <span className="text-sm font-medium">ICT Analysis</span>
         <Button
@@ -90,8 +90,10 @@ export const ICTControls = memo(function ICTControls({
             key={feature.id}
             variant="ghost"
             className={cn(
-              "interactive-toggle flex items-center justify-between w-full py-3 px-3 rounded-xl transition-all duration-200 h-auto min-h-[44px]",
-              visibility[feature.id] ? "bg-primary/10" : "hover:bg-muted/50"
+              "interactive-toggle flex items-center justify-between w-full py-3 px-3 rounded-xl transition-all duration-200 h-auto min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring/25",
+              visibility[feature.id]
+                ? "bg-foreground/10 text-foreground"
+                : "hover:bg-muted/50 text-foreground"
             )}
             onClick={() => onToggle(feature.id)}
           >
@@ -106,7 +108,7 @@ export const ICTControls = memo(function ICTControls({
         ))}
       </div>
 
-      <div className="px-4 py-2 bg-muted/30">
+      <div className="px-4 py-2 bg-muted/25 border-t border-border/30">
         <p className="text-[10px] text-muted-foreground">Best on 15m, 1H, 4H timeframes</p>
         <p className="text-[9px] text-muted-foreground/60 mt-0.5">ICT by Michael J. Huddleston</p>
       </div>

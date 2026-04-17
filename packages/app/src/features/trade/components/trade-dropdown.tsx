@@ -196,6 +196,7 @@ const MarketRowSkeletonMobile = () => (
 );
 
 export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: TradeDropdownProps) {
+  const dropdownContentId = "trade-market-dropdown-content";
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -203,7 +204,7 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
   const [sortBy, setSortBy] = useState<"name" | "change">("name");
   const [sortDesc, setSortDesc] = useState(true);
   const [position, setPosition] = useState({ top: 0, left: 0 });
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { data, isLoading, error } = useTradeList();
 
@@ -251,6 +252,7 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
   const handleClose = useCallback(() => {
     setOpen(false);
     setQuery("");
+    triggerRef.current?.focus();
   }, []);
 
   const handleOpen = useCallback(() => {
@@ -356,10 +358,15 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
 
   return (
     <div className="relative" data-trade-dropdown>
-      <div
+      <button
+        type="button"
         ref={triggerRef}
         className="flex items-center gap-1 cursor-pointer min-h-[44px] px-2 py-1"
-        onClick={handleOpen}
+        onClick={open ? handleClose : handleOpen}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-controls={dropdownContentId}
+        aria-label={`Select market, current ${currentSymbol}`}
       >
         <span className="text-lg sm:text-xl font-mono font-semibold text-foreground tabular-nums font-mono-slashed">
           {currentSymbol}
@@ -370,10 +377,14 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
             open && "rotate-180"
           )}
         />
-      </div>
+      </button>
 
       {open && (
         <div
+          id={dropdownContentId}
+          role="dialog"
+          aria-modal="false"
+          aria-label="Market selector"
           className="fixed z-50 w-[calc(100vw-16px)] sm:w-[440px] bg-background border-border/30 rounded-xl shadow-2xl"
           style={{ top: position.top, left: position.left }}
           onClick={(e) => e.stopPropagation()}
@@ -392,6 +403,7 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
                 <button
                   type="button"
                   onClick={() => setQuery("")}
+                  aria-label="Clear search"
                   className="absolute right-2 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground/60 hover:text-foreground bg-transparent border-none cursor-pointer tap-highlight"
                 >
                   <X className="w-4 h-4" />
@@ -463,9 +475,10 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
                     type="button"
                     onClick={() => handleSelect(item.coin)}
                     className={cn(
-                      "w-full text-left transition-colors hover:bg-muted/40 focus:bg-muted/40 focus:outline-none cursor-pointer select-none tap-highlight",
+                      "w-full text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset cursor-pointer select-none tap-highlight",
                       item.isActive && "bg-muted/60"
                     )}
+                    aria-current={item.isActive ? "true" : undefined}
                   >
                     <MarketRowDesktop item={item} />
                     <MarketRowMobile item={item} />

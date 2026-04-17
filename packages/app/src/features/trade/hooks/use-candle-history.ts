@@ -4,7 +4,7 @@
  * It uses TanStack Query to fetch historical OHLCV data from the Hyperliquid REST API.
  * This ensures proper caching, deduplication, and retry logic.
  */
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { hyperliquidApi } from "@/services/hyperliquid";
 import { normalizeSymbol } from "./use-hyperliquid-ws";
@@ -130,6 +130,7 @@ export function useCandleHistory(
     queryKey: ["candles", symbol, interval, limit],
     queryFn: () => fetchHistorical(symbol, hlInterval, limit),
     enabled: enabled && !!symbol,
+    placeholderData: keepPreviousData,
     staleTime: 5 * 60 * 1000, // 5 minutes (historical data is relatively static)
     gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
   });

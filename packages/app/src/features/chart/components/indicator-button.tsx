@@ -37,7 +37,11 @@ export const IndicatorButton = memo(function IndicatorButton({
         variant={isOpen ? "default" : "outline"}
         size="sm"
         onClick={handleToggle}
-        className={cn("gap-1.5 px-2 sm:px-3", className)}
+        className={cn(
+          "gap-1.5 px-2 sm:px-3 border-border/50 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25",
+          isOpen && "bg-foreground text-background hover:bg-foreground/90",
+          className
+        )}
       >
         <Settings2 className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">Indicators</span>
@@ -46,7 +50,7 @@ export const IndicatorButton = memo(function IndicatorButton({
             variant={isOpen ? "secondary" : "default"}
             className={cn(
               "px-1 sm:px-1.5 py-0 text-[10px] h-4 min-w-[16px] tabular-nums select-none",
-              isOpen && "bg-primary-foreground/20"
+              isOpen && "bg-background/20 text-background"
             )}
           >
             {indicatorCount}

@@ -90,6 +90,7 @@ export const Pagination = memo(function Pagination({
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Previous page"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
           className="h-8 w-8"
@@ -118,6 +119,7 @@ export const Pagination = memo(function Pagination({
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Next page"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
           className="h-8 w-8"
@@ -131,9 +133,11 @@ export const Pagination = memo(function Pagination({
           <span className="text-sm text-muted-foreground">Rows</span>
           <NativeSelect
             size="sm"
+            aria-label="Rows per page"
             value={pageSize.toString()}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="h-8 w-24 font-mono"
+            wrapperClassName="min-w-[5.25rem] max-w-[5.25rem]"
+            className="h-8 w-full min-w-0 border-border/60 bg-background/80 px-2 pr-7 text-[12px] tracking-[0.01em] hover:bg-muted/35 focus-visible:ring-[2px] focus-visible:ring-ring/40"
           >
             {pageSizeOptions.map((size) => (
               <NativeSelectOption key={size} value={size.toString()}>

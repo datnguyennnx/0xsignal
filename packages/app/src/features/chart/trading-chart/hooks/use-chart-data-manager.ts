@@ -20,8 +20,6 @@ const getVolumeColor = (isGain: boolean, isDark: boolean) => {
 interface UseChartDataProps {
   data: ChartDataPoint[];
   isDark: boolean;
-  interval: string;
-  symbol: string;
   candlestickSeries: import("lightweight-charts").ISeriesApi<"Candlestick"> | null;
   volumeSeries: import("lightweight-charts").ISeriesApi<"Histogram"> | null;
   chart: import("lightweight-charts").IChartApi | null;
@@ -50,8 +48,6 @@ const toVolumeHistogramData = (points: ChartDataPoint[], isDark: boolean): Histo
 export const useChartData = ({
   data,
   isDark,
-  interval,
-  symbol,
   candlestickSeries,
   volumeSeries,
   chart,
@@ -64,8 +60,6 @@ export const useChartData = ({
   const prevLastTimeRef = useRef<number | null>(null);
   const prevLastCandleRef = useRef<ChartDataPoint | null>(null);
   const prevIsDarkRef = useRef(isDark);
-  const prevIntervalRef = useRef(interval);
-  const prevSymbolRef = useRef(symbol);
   const prevEnabledRef = useRef(enabled);
 
   useEffect(() => {
@@ -77,14 +71,10 @@ export const useChartData = ({
     }
 
     const themeChanged = prevIsDarkRef.current !== isDark;
-    const intervalChanged = prevIntervalRef.current !== interval;
-    const symbolChanged = prevSymbolRef.current !== symbol;
     const resumedFromDisabled = !prevEnabledRef.current;
 
-    if (themeChanged || intervalChanged || symbolChanged || resumedFromDisabled) {
+    if (themeChanged || resumedFromDisabled) {
       prevIsDarkRef.current = isDark;
-      prevIntervalRef.current = interval;
-      prevSymbolRef.current = symbol;
       initialDataLoadedRef.current = false;
       prevEnabledRef.current = true;
     }
@@ -198,22 +188,28 @@ export const useChartData = ({
       return;
     }
 
-    // Case 5: No meaningful change
+    // Case 5: Dataset replaced (interval/symbol switch or non-incremental source refresh)
+    if (
+      prevFirstTime !== null &&
+      prevLastTime !== null &&
+      (currentFirstTime !== prevFirstTime || currentLastTime !== prevLastTime)
+    ) {
+      candlestickSeries.setData(toCandlestickData(data));
+      volumeSeries.setData(toVolumeHistogramData(data, isDark));
+
+      prevDataLenRef.current = data.length;
+      prevFirstTimeRef.current = currentFirstTime;
+      prevLastTimeRef.current = currentLastTime;
+      prevLastCandleRef.current = { ...currentLastCandle };
+      return;
+    }
+
+    // Case 6: No meaningful change
     prevDataLenRef.current = data.length;
     prevFirstTimeRef.current = currentFirstTime;
     prevLastTimeRef.current = currentLastTime;
     prevLastCandleRef.current = { ...currentLastCandle };
-  }, [
-    data,
-    isDark,
-    interval,
-    symbol,
-    candlestickSeries,
-    volumeSeries,
-    chart,
-    visibleCandles,
-    enabled,
-  ]);
+  }, [data, isDark, candlestickSeries, volumeSeries, chart, visibleCandles, enabled]);
   // NOTE: `data` must be in deps because it's the sync trigger.
   // Ref-based guards inside prevent unnecessary LWC API calls on every render.
 };

@@ -16,7 +16,7 @@
  * - Chart consumes candles from context internally, not via props
  * - State: interval is local (user's timeframe choice)
  */
-import { useState, lazy, Suspense, useMemo, memo, useCallback } from "react";
+import { useState, lazy, Suspense, useMemo, memo, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChartCandlestick } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
 import { api, type FuturesPrice } from "@/services/api";
+import { cn } from "@/core/utils/cn";
 import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-candles";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { useChartConfig } from "@/hooks/use-breakpoint";
 import { queryKeys } from "@/lib/query/query-keys";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
@@ -45,6 +47,196 @@ const TradeDropdown = lazy(() =>
 
 import { formatPrice } from "@/core/utils/formatters";
 
+const formatCompactUsd = (value: number): string => {
+  if (!Number.isFinite(value)) return "-";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 2,
+  }).format(value);
+};
+
+const formatSignedUsd = (value: number): string => {
+  if (!Number.isFinite(value)) return "-";
+  const abs = Math.abs(value);
+  const formatted = abs.toLocaleString("en-US", {
+    minimumFractionDigits: abs >= 100 ? 0 : 2,
+    maximumFractionDigits: abs >= 100 ? 2 : 4,
+  });
+  return `${value >= 0 ? "+" : "-"}$${formatted}`;
+};
+
+const formatSignedPercent = (pct: number): string => {
+  if (!Number.isFinite(pct)) return "-";
+  return `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
+};
+
+const formatFundingPercent = (fundingRate: number): string => {
+  if (!Number.isFinite(fundingRate)) return "-";
+  return `${fundingRate >= 0 ? "+" : ""}${(fundingRate * 100).toFixed(4)}%`;
+};
+
+const toCountdown = (msRemaining: number): string => {
+  const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
+  const hours = Math.floor(totalSeconds / 3600)
+    .toString()
+    .padStart(2, "0");
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+    .toString()
+    .padStart(2, "0");
+  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+};
+
+const getNextFundingMs = (): number => {
+  const now = new Date();
+  const next = new Date(now);
+  next.setMinutes(0, 0, 0);
+  if (next.getTime() <= now.getTime()) {
+    next.setHours(next.getHours() + 1);
+  }
+  return next.getTime() - now.getTime();
+};
+
+const MetricBlock = memo(function MetricBlock({
+  label,
+  value,
+  secondary,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  secondary?: string;
+  tone?: "neutral" | "positive" | "negative";
+}) {
+  return (
+    <div className="flex-none min-w-[clamp(6.25rem,18vw,8.75rem)] px-[clamp(0.25rem,1vw,0.625rem)] py-0.5">
+      <p className="text-[clamp(0.5rem,1.7vw,0.625rem)] uppercase tracking-[0.06em] text-muted-foreground/75 leading-none">
+        {label}
+      </p>
+      <p
+        className={cn(
+          "mt-1 text-[clamp(0.72rem,2.8vw,0.86rem)] font-mono-slashed leading-none whitespace-nowrap",
+          tone === "positive" && "text-gain",
+          tone === "negative" && "text-loss"
+        )}
+      >
+        {value}
+      </p>
+      {secondary ? (
+        <p className="mt-1 text-[clamp(0.56rem,1.9vw,0.66rem)] font-mono-slashed text-muted-foreground leading-none whitespace-nowrap">
+          {secondary}
+        </p>
+      ) : null}
+    </div>
+  );
+});
+
+const MarketTerminalHeader = memo(function MarketTerminalHeader({
+  markPrice,
+  oraclePrice,
+  change24hAbs,
+  change24hPct,
+  volume24h,
+  openInterest,
+  fundingRate,
+  fundingCountdown,
+}: {
+  markPrice: number;
+  oraclePrice: number;
+  change24hAbs: number;
+  change24hPct: number;
+  volume24h: number;
+  openInterest: number;
+  fundingRate: number;
+  fundingCountdown: string;
+}) {
+  const changeTone = change24hPct >= 0 ? "positive" : "negative";
+  const fundingTone = fundingRate >= 0 ? "positive" : "negative";
+
+  return (
+    <div className="flex-none max-w-full overflow-x-auto scrollbar-hide" aria-live="polite">
+      <div className="inline-flex items-center gap-[clamp(0.125rem,0.8vw,0.5rem)] min-w-max">
+        <MetricBlock label="Mark" value={formatPrice(markPrice)} />
+        <MetricBlock label="Oracle" value={formatPrice(oraclePrice)} />
+        <MetricBlock
+          label="24h Change"
+          value={`${formatSignedUsd(change24hAbs)} / ${formatSignedPercent(change24hPct)}`}
+          tone={changeTone}
+        />
+        <MetricBlock label="24h Volume" value={formatCompactUsd(volume24h)} />
+        <MetricBlock label="Open Interest" value={formatCompactUsd(openInterest)} />
+        <MetricBlock
+          label="Funding / Countdown"
+          value={`${formatFundingPercent(fundingRate)} / ${fundingCountdown}`}
+          tone={fundingTone}
+        />
+      </div>
+    </div>
+  );
+});
+
+const MobileRealtimeHeader = memo(function MobileRealtimeHeader({
+  markPrice,
+  oraclePrice,
+  change24hAbs,
+  change24hPct,
+  volume24h,
+  openInterest,
+  fundingRate,
+  fundingCountdown,
+}: {
+  markPrice: number;
+  oraclePrice: number;
+  change24hAbs: number;
+  change24hPct: number;
+  volume24h: number;
+  openInterest: number;
+  fundingRate: number;
+  fundingCountdown: string;
+}) {
+  const changeTone = change24hPct >= 0 ? "text-gain" : "text-loss";
+  const fundingTone = fundingRate >= 0 ? "text-gain" : "text-loss";
+
+  const rows = [
+    { label: "Mark", value: formatPrice(markPrice), tone: "text-foreground" },
+    { label: "Oracle", value: formatPrice(oraclePrice), tone: "text-foreground" },
+    {
+      label: "24h Change",
+      value: `${formatSignedUsd(change24hAbs)} / ${formatSignedPercent(change24hPct)}`,
+      tone: changeTone,
+    },
+    { label: "24h Volume", value: formatCompactUsd(volume24h), tone: "text-foreground" },
+    { label: "Open Interest", value: formatCompactUsd(openInterest), tone: "text-foreground" },
+    {
+      label: "Funding",
+      value: `${formatFundingPercent(fundingRate)} / ${fundingCountdown}`,
+      tone: fundingTone,
+    },
+  ] as const;
+
+  return (
+    <div
+      className="sm:hidden rounded-lg border border-border/30 bg-card/35 px-2.5 py-2"
+      aria-live="polite"
+    >
+      <div className="grid grid-cols-3 gap-x-2 gap-y-2">
+        {rows.map((row) => (
+          <div key={row.label} className="min-w-0">
+            <p className="text-[9px] uppercase tracking-[0.05em] text-muted-foreground/75 leading-none">
+              {row.label}
+            </p>
+            <p className={cn("mt-1 text-[12px] font-mono-slashed leading-none truncate", row.tone)}>
+              {row.value}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
 const ChartSkeleton = () => (
   <div className="h-full w-full flex items-center justify-center bg-card/50 rounded-xl">
     <Skeleton className="h-full w-full rounded-xl" />
@@ -61,7 +253,7 @@ interface AssetContentProps {
   readonly symbol: string;
   readonly interval: string;
   readonly onIntervalChange: (interval: string) => void;
-  readonly chartLoading: boolean;
+  readonly showChartSkeleton: boolean;
 }
 
 const AssetContent = memo(function AssetContent({
@@ -69,11 +261,20 @@ const AssetContent = memo(function AssetContent({
   symbol,
   interval,
   onIntervalChange,
-  chartLoading,
+  showChartSkeleton,
 }: AssetContentProps) {
   const navigate = useNavigate();
+  const isMobile = useBreakpoint() === "mobile";
   const chartSymbol = symbol.toUpperCase();
   const price = asset.price;
+  const [fundingCountdown, setFundingCountdown] = useState(() => toCountdown(getNextFundingMs()));
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setFundingCountdown(toCountdown(getNextFundingMs()));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const { data: annotation } = useTradeAnnotation(symbol);
   const { data: logoUrl } = useHyperliquidSymbolLogo(symbol);
@@ -81,35 +282,62 @@ const AssetContent = memo(function AssetContent({
   const description = annotation?.description;
 
   return (
-    <div className="container-fluid h-fit flex flex-col py-3 sm:py-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium overflow-y-auto lg:overflow-hidden overscroll-none select-none">
+    <div className="container-fluid h-full flex flex-col py-[clamp(0.5rem,2vw,1rem)] animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium overflow-y-auto lg:overflow-hidden overscroll-none select-none">
       {/* Header */}
-      <header className="mb-4 sm:mb-5 shrink-0">
-        <div className="flex items-center gap-2 sm:gap-3">
+      <header className="mb-3 sm:mb-5 shrink-0">
+        <div className="w-fit max-w-full flex items-center gap-[clamp(0.25rem,1.2vw,0.5rem)] min-w-0 pb-[clamp(0.375rem,1.5vw,0.625rem)]">
           {logoUrl && (
             <img
               src={logoUrl}
               alt={`${displayName} logo`}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full shrink-0"
+              className="size-[clamp(1.5rem,6vw,2rem)] rounded-full shrink-0"
               loading="eager"
               decoding="async"
             />
           )}
-          <TradeDropdown currentSymbol={displayName} />
-          <span className="text-lg sm:text-xl font-mono font-semibold tabular-nums">
-            {formatPrice(price?.price || 0)}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => navigate(`/trade/${symbol}/orderbook`)}
-            className="lg:hidden shrink-0 border ml-auto"
-            aria-label="Orderbook"
-          >
-            <ChartCandlestick className="w-5 h-5" />
-          </Button>
+          <div className="shrink-0 pr-1">
+            <TradeDropdown currentSymbol={displayName} />
+          </div>
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => navigate(`/trade/${symbol}/orderbook`)}
+              className="shrink-0 bg-background/70 hover:bg-muted/40"
+              aria-label="Open orderbook"
+            >
+              <ChartCandlestick className="w-4 h-4" />
+            </Button>
+          )}
+          {!isMobile && (
+            <MarketTerminalHeader
+              markPrice={price?.markPx || price?.price || 0}
+              oraclePrice={price?.midPx || price?.markPx || 0}
+              change24hAbs={(price?.markPx || price?.price || 0) - (price?.prevDayPx || 0)}
+              change24hPct={price?.change24h || 0}
+              volume24h={price?.volume24h || 0}
+              openInterest={price?.openInterest || 0}
+              fundingRate={price?.funding || 0}
+              fundingCountdown={fundingCountdown}
+            />
+          )}
         </div>
+        {isMobile && (
+          <div className="mt-1.5">
+            <MobileRealtimeHeader
+              markPrice={price?.markPx || price?.price || 0}
+              oraclePrice={price?.midPx || price?.markPx || 0}
+              change24hAbs={(price?.markPx || price?.price || 0) - (price?.prevDayPx || 0)}
+              change24hPct={price?.change24h || 0}
+              volume24h={price?.volume24h || 0}
+              openInterest={price?.openInterest || 0}
+              fundingRate={price?.funding || 0}
+              fundingCountdown={fundingCountdown}
+            />
+          </div>
+        )}
         {description && (
-          <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed max-w-2xl">
+          <p className="mt-2 text-xs text-muted-foreground leading-relaxed max-w-2xl line-clamp-2 sm:line-clamp-none">
             {description}
           </p>
         )}
@@ -118,10 +346,10 @@ const AssetContent = memo(function AssetContent({
       {/* Shared L2 nSigFigs so Orderbook dropdown and Depth chart use the same Hyperliquid aggregation */}
       <L2BookNSigFigsProvider key={symbol}>
         {/* Main Content: Chart + Side Panel */}
-        <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-5 lg:items-start gap-4 lg:gap-5">
-          {/* Chart - Takes 4/5 on desktop, fills height set by orderbook content */}
-          <div className="lg:col-span-4 flex-1 min-h-[250px] sm:min-h-[350px] lg:min-h-0 lg:h-full min-h-0 flex flex-col">
-            {chartLoading ? (
+        <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-6 gap-4 lg:gap-5">
+          {/* Chart - Takes 5/6 on desktop, fills grid height */}
+          <div className="lg:col-span-5 flex-1 min-h-[clamp(18rem,56dvh,34rem)] sm:min-h-[clamp(22rem,60dvh,40rem)] lg:min-h-0 lg:h-full flex flex-col">
+            {showChartSkeleton ? (
               <Skeleton className="h-full w-full rounded-sm" />
             ) : (
               <Suspense fallback={<ChartSkeleton />}>
@@ -134,9 +362,11 @@ const AssetContent = memo(function AssetContent({
             )}
           </div>
 
-          {/* Side Panel: Orderbook - Content-driven height, only visible on lg+ */}
-          <div className="hidden lg:block lg:col-span-1 flex flex-col">
-            <OrderbookWidget key={symbol} symbol={symbol} />
+          {/* Side Panel: Orderbook - matched chart height on lg+ */}
+          <div className="hidden lg:flex lg:col-span-1 lg:h-full min-h-0 flex-col">
+            <div className="h-full min-h-0">
+              <OrderbookWidget key={symbol} symbol={symbol} />
+            </div>
           </div>
         </div>
       </L2BookNSigFigsProvider>
@@ -224,6 +454,7 @@ export function AssetDetail() {
   }, [candleData]);
 
   const showSkeleton = !asset && assetLoading;
+  const showChartSkeleton = chartLoading && candleData.length === 0;
 
   const documentTitle = useMemo(() => {
     if (!asset?.price && !latestPrice) return "";
@@ -275,7 +506,7 @@ export function AssetDetail() {
         symbol={symbol || ""}
         interval={interval}
         onIntervalChange={handleIntervalChange}
-        chartLoading={chartLoading}
+        showChartSkeleton={showChartSkeleton}
       />
     </CandleDataProvider>
   );

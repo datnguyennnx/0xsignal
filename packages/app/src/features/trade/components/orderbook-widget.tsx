@@ -60,27 +60,43 @@ const OrderbookToolbar = memo(
     priceScaling,
     onPriceScalingChange,
     scalingOptions,
+    showSyncing,
   }: {
     priceScaling: number;
     onPriceScalingChange: (s: number) => void;
     scalingOptions: TickSizeOption[];
+    showSyncing: boolean;
   }) => (
-    <div className="flex items-center justify-end px-3 py-2 border-b border-border/20 flex-shrink-0 bg-muted/10">
-      <NativeSelect
-        size="sm"
-        value={priceScaling.toString()}
-        onChange={(e) => onPriceScalingChange(Number(e.target.value))}
-        className="min-h-[44px]"
+    <div className="flex items-center justify-between px-3 py-2 border-b border-border/20 flex-shrink-0 bg-muted/10">
+      <div
+        className={cn(
+          "flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.02em] text-muted-foreground transition-opacity duration-150",
+          showSyncing ? "opacity-100" : "opacity-0"
+        )}
+        aria-live="polite"
       >
-        {scalingOptions.map((opt) => (
-          <NativeSelectOption key={opt.value} value={opt.value.toString()}>
-            {opt.label}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
+        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/70 animate-pulse" />
+        Syncing
+      </div>
+      <div className="min-w-fit">
+        <NativeSelect
+          size="sm"
+          aria-label="Price precision"
+          value={priceScaling.toString()}
+          onChange={(e) => onPriceScalingChange(Number(e.target.value))}
+          wrapperClassName="min-w-fit"
+          className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[11px] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
+        >
+          {scalingOptions.map((opt) => (
+            <NativeSelectOption key={opt.value} value={opt.value.toString()}>
+              {opt.label}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+      </div>
     </div>
   ),
-  (prev, next) => prev.priceScaling === next.priceScaling
+  (prev, next) => prev.priceScaling === next.priceScaling && prev.showSyncing === next.showSyncing
 );
 
 OrderbookToolbar.displayName = "OrderbookToolbar";
@@ -133,12 +149,21 @@ const OrderRow = memo(
       <div
         ref={rowRef}
         className={cn(
-          "relative flex items-center px-3 cursor-pointer tabular-nums select-none flex-shrink-0",
+          "relative flex items-center px-3 cursor-pointer tabular-nums select-none flex-shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset",
           isHovered ? "bg-muted/50" : "hover:bg-muted/30"
         )}
         style={ORDER_ROW_STYLE}
+        tabIndex={level.price > 0 ? 0 : -1}
+        aria-label={
+          level.price > 0
+            ? `${side} level, price ${level.formattedPrice}, size ${level.formattedSize}, total ${level.formattedTotal}`
+            : undefined
+        }
+        aria-describedby={level.price > 0 && isHovered ? "orderbook-depth-details" : undefined}
         onMouseEnter={level.price > 0 ? handleMouseEnter : undefined}
         onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
+        onFocus={level.price > 0 ? handleMouseEnter : undefined}
+        onBlur={level.price > 0 ? handleMouseLeave : undefined}
       >
         {isInRange && (
           <div
@@ -447,7 +472,10 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     );
   }
 
-  if (!isConnected || !orderbook) {
+  const hasBookData = !!orderbook && orderbook.asks.length > 0 && orderbook.bids.length > 0;
+  const showSyncing = !isConnected && hasBookData;
+
+  if (!hasBookData) {
     return (
       <div className="h-full flex items-center justify-center opacity-50">
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -461,6 +489,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         priceScaling={effectivePriceScaling}
         onPriceScalingChange={handlePriceScalingChange}
         scalingOptions={scalingOptions}
+        showSyncing={showSyncing}
       />
 
       <div className="flex items-center px-3 py-1.5 text-[10px] font-mono uppercase text-muted-foreground border-b border-border/20 flex-shrink-0">
@@ -515,6 +544,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
       {popupData && popupPosition && (
         <div
+          id="orderbook-depth-details"
           className="fixed bg-card/95 border border-border/30 rounded-xl p-3 shadow-xl z-50 w-64 pointer-events-none"
           style={{
             top: popupPosition.top,
