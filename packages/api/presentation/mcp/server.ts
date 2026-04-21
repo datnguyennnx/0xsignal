@@ -14,11 +14,6 @@ import { makeMarketDataLayer } from "@infrastructure/layers/market-data.layer";
 import { StubEngineExecutor } from "@infrastructure/workers/engine.stub";
 import { Effect, Layer, Context } from "effect";
 
-export interface McpServerConfig {
-  serverName: string;
-  serverVersion: string;
-}
-
 import type { MCPRepository } from "@infrastructure/repositories/mcp-repo";
 
 export interface McpServerDependencies {
@@ -42,8 +37,6 @@ export const makeMcpRequestLayer = (deps: McpServerDependencies) =>
 type McpExecutionLayerConfig = {
   readonly backtestEngineLayer?: Layer.Layer<EngineExecutor>;
 };
-
-export const initializeMcpServer = (_config?: Partial<McpServerConfig>): void => {};
 
 export const makeMcpExecutionLayer = (config: McpExecutionLayerConfig = {}) => {
   const backtestLayer = BacktestServicesLayer(postgresBacktestRepository).pipe(

@@ -1,6 +1,5 @@
 import { it, expect, describe, vi, beforeEach, afterEach } from "vitest";
 import { Effect } from "effect";
-import { initializeMcpServer } from "../server";
 import { McpServer } from "../index";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -87,7 +86,6 @@ describe("MCP E2E Compliance Smoke Test", () => {
     mockAgentServices.openSession.mockReturnValue(
       Effect.succeed({ id: "test-session-id", status: "pending" })
     );
-    initializeMcpServer();
 
     const [t1, t2] = InMemoryTransport.createLinkedPair();
     serverTransport = t1;

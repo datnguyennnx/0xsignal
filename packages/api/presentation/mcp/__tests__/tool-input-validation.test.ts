@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Effect } from "effect";
-import { initializeMcpServer } from "../server";
 import { McpServer } from "../index";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -64,7 +63,6 @@ describe("MCP Tool Input Validation", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    initializeMcpServer();
     const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair();
     server = new McpServer(mockDeps);
     client = new Client({ name: "test-client", version: "1.0.0" }, { capabilities: {} });

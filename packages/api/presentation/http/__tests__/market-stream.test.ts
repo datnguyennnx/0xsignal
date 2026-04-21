@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildMarketWsBucketKey,
   HyperliquidMarketStreamHub,
-  parseMarketWsSubscription,
-  type MarketWsSubscription,
-} from "../market-stream";
+} from "../../../infrastructure/streams/hyperliquid/hub";
+import { parseMarketWsSubscription } from "../ws/subscription-parser";
+import type { MarketWsSubscription } from "../../../schemas/market-data/ws";
 
 describe("Market WS subscription parser", () => {
   it("parses candle subscription with defaults", () => {
@@ -187,7 +187,7 @@ describe("Market WS emitter contract", () => {
     failureSignal: AbortSignal;
   };
 
-  type TestHub = HyperliquidMarketStreamHub & {
+  type TestHub = {
     broadcast: (bucket: unknown, payload: unknown) => void;
     subscriptionClient: {
       candle?: (params: unknown, onEvent: (event: unknown) => void) => Promise<StubUpstream>;

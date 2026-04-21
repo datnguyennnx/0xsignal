@@ -1,45 +1,14 @@
 import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
 import type { ISubscription } from "@nktkas/hyperliquid";
 import type { ServerWebSocket } from "bun";
-import { normalizeSymbol } from "@infrastructure/data-sources/hyperliquid/symbol";
 import { IS_DEV_MODE } from "@infrastructure/config/mode";
-import { parseOptionalSigFigsParam } from "./param-parsers";
-
-const SUPPORTED_INTERVALS = [
-  "1m",
-  "3m",
-  "5m",
-  "15m",
-  "30m",
-  "1h",
-  "2h",
-  "4h",
-  "8h",
-  "12h",
-  "1d",
-  "1w",
-] as const;
-
-type MarketWsInterval = (typeof SUPPORTED_INTERVALS)[number];
-type MarketWsChannel = "candle" | "l2Book" | "trades" | "allMids";
-
-export type MarketWsSubscription = {
-  readonly channel: MarketWsChannel;
-  readonly symbol?: string;
-  readonly interval?: MarketWsInterval;
-  readonly nSigFigs?: 2 | 3 | 4 | 5;
-  readonly dex?: string;
-};
+import type { MarketWsSubscription } from "@schemas/market-data/ws";
 
 export type MarketWsConnectionData = {
   readonly id: string;
   readonly bucketKey: string;
   readonly subscription: MarketWsSubscription;
 };
-
-type ParseResult =
-  | { readonly ok: true; readonly data: MarketWsSubscription }
-  | { readonly ok: false; readonly status: number; readonly message: string };
 
 type Bucket = {
   readonly key: string;
@@ -137,7 +106,6 @@ const normalizeL2BookData = (event: unknown): { levels: unknown[] } => {
 };
 
 const normalizeTradesData = (event: unknown): unknown => unwrapPayload(event);
-
 const normalizeAllMidsData = (event: unknown): unknown => unwrapPayload(event);
 
 export const buildMarketWsBucketKey = (subscription: MarketWsSubscription): string => {
@@ -151,119 +119,6 @@ export const buildMarketWsBucketKey = (subscription: MarketWsSubscription): stri
     return `trades:${subscription.symbol}`;
   }
   return `allMids:${subscription.dex ?? ""}`;
-};
-
-export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult => {
-  const channel = (params.get("channel") ?? params.get("type") ?? "").trim() as MarketWsChannel;
-  if (!channel) {
-    return {
-      ok: false,
-      status: 400,
-      message: "Missing required query parameter: channel",
-    };
-  }
-
-  if (
-    channel !== "candle" &&
-    channel !== "l2Book" &&
-    channel !== "trades" &&
-    channel !== "allMids"
-  ) {
-    return {
-      ok: false,
-      status: 400,
-      message: `Unsupported channel: ${channel}`,
-    };
-  }
-
-  const symbol = params.get("symbol") ?? params.get("coin") ?? "";
-
-  if (channel === "candle") {
-    const normalized = normalizeSymbol(symbol);
-    if (!normalized) {
-      return {
-        ok: false,
-        status: 400,
-        message: "Missing required query parameter: symbol",
-      };
-    }
-
-    const interval = (params.get("interval") ?? "1m").trim();
-    if (!SUPPORTED_INTERVALS.includes(interval as MarketWsInterval)) {
-      return {
-        ok: false,
-        status: 400,
-        message: `Unsupported interval: ${interval}`,
-      };
-    }
-
-    return {
-      ok: true,
-      data: {
-        channel,
-        symbol: normalized,
-        interval: interval as MarketWsInterval,
-      },
-    };
-  }
-
-  if (channel === "l2Book") {
-    const normalized = normalizeSymbol(symbol);
-    if (!normalized) {
-      return {
-        ok: false,
-        status: 400,
-        message: "Missing required query parameter: symbol",
-      };
-    }
-
-    const nSigFigs = parseOptionalSigFigsParam(params, "nSigFigs");
-    const depth = parseOptionalSigFigsParam(params, "depth");
-    if (nSigFigs === null || depth === null) {
-      return {
-        ok: false,
-        status: 400,
-        message: "Invalid nSigFigs/depth. Supported values are 2, 3, 4, 5.",
-      };
-    }
-
-    return {
-      ok: true,
-      data: {
-        channel,
-        symbol: normalized,
-        nSigFigs: nSigFigs ?? depth,
-      },
-    };
-  }
-
-  if (channel === "trades") {
-    const normalized = normalizeSymbol(symbol);
-    if (!normalized) {
-      return {
-        ok: false,
-        status: 400,
-        message: "Missing required query parameter: symbol",
-      };
-    }
-
-    return {
-      ok: true,
-      data: {
-        channel,
-        symbol: normalized,
-      },
-    };
-  }
-
-  const dex = params.get("dex")?.trim();
-  return {
-    ok: true,
-    data: {
-      channel,
-      dex,
-    },
-  };
 };
 
 export class HyperliquidMarketStreamHub {

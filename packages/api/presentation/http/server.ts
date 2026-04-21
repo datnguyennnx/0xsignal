@@ -6,54 +6,16 @@ import { BunRuntime } from "@effect/platform-bun";
 import { AppLayer } from "@infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
 import { runMigrations } from "@infrastructure/db/postgres/migrations/migration";
-import { type MarketWsConnectionData, parseMarketWsSubscription } from "./market-stream";
-import { MarketStreamHub, MarketStreamHubLayer } from "./market-stream.layer";
+import { type MarketWsConnectionData } from "@infrastructure/streams/hyperliquid/hub";
+import { MarketStreamHub, MarketStreamHubLayer } from "./ws/market-stream-hub.layer";
+import { parseMarketWsSubscription } from "./ws/subscription-parser";
+import { CORS_HEADERS, withCorsHeaders } from "./transport/cors";
+import { errorResponse } from "./transport/error-response";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
 
 // Create a managed runtime for bridging non-Effect code
 const runtime = ManagedRuntime.make(AppLayer);
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
-type HttpError = {
-  readonly message?: string;
-  readonly status?: number;
-};
-
-const toHttpError = (error: unknown): HttpError =>
-  typeof error === "object" && error !== null ? (error as HttpError) : {};
-
-const extractErrorMessage = (value: unknown): string | undefined => {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-      try {
-        const parsed = JSON.parse(trimmed) as { message?: unknown };
-        if (typeof parsed.message === "string") {
-          return parsed.message;
-        }
-      } catch {
-        return value;
-      }
-    }
-
-    return value;
-  }
-
-  if (typeof value === "object" && value !== null) {
-    const candidate = value as { message?: unknown };
-    if (typeof candidate.message === "string") {
-      return extractErrorMessage(candidate.message);
-    }
-  }
-
-  return undefined;
-};
 
 // Run migrations on startup
 const migrateAction = Effect.tryPromise({
@@ -88,7 +50,7 @@ const serverProgram = Effect.gen(function* () {
                 JSON.stringify({ error: parsed.message, status: parsed.status }),
                 {
                   status: parsed.status,
-                  headers: { "Content-Type": "application/json", ...corsHeaders },
+                  headers: { "Content-Type": "application/json", ...CORS_HEADERS },
                 }
               );
             }
@@ -105,14 +67,14 @@ const serverProgram = Effect.gen(function* () {
               JSON.stringify({ error: "WebSocket upgrade failed", status: 400 }),
               {
                 status: 400,
-                headers: { "Content-Type": "application/json", ...corsHeaders },
+                headers: { "Content-Type": "application/json", ...CORS_HEADERS },
               }
             );
           }
 
           // CORS preflight
           if (req.method === "OPTIONS") {
-            return new Response(null, { status: 204, headers: corsHeaders });
+            return new Response(null, { status: 204, headers: CORS_HEADERS });
           }
 
           try {
@@ -123,10 +85,7 @@ const serverProgram = Effect.gen(function* () {
               })
             );
 
-            const headers = new Headers(response.headers);
-            for (const [key, value] of Object.entries(corsHeaders)) {
-              headers.set(key, value);
-            }
+            const headers = withCorsHeaders(new Headers(response.headers));
 
             return new Response(response.body, {
               status: response.status,
@@ -135,19 +94,7 @@ const serverProgram = Effect.gen(function* () {
           } catch (error) {
             // Enhanced error logging
             console.error("[Request Error]:", error);
-
-            const httpError = toHttpError(error);
-
-            const message =
-              extractErrorMessage(httpError.message) ||
-              extractErrorMessage(error) ||
-              "Internal server error";
-            const status = httpError.status ?? 500;
-
-            return new Response(JSON.stringify({ error: message, status }), {
-              status,
-              headers: { "Content-Type": "application/json", ...corsHeaders },
-            });
+            return errorResponse(error);
           }
         },
         reusePort: true,

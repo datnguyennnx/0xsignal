@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from "effect";
-import { HyperliquidMarketStreamHub } from "./market-stream";
+import { HyperliquidMarketStreamHub } from "@infrastructure/streams/hyperliquid/hub";
 
 export class MarketStreamHub extends Context.Tag("MarketStreamHub")<
   MarketStreamHub,
