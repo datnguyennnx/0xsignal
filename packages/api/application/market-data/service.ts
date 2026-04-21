@@ -1,0 +1,258 @@
+import { Effect, Layer } from "effect";
+import { validationError, notFoundError } from "../errors";
+import type { CoverageResult } from "../../schemas/market-data";
+import type { MarketDataRepository } from "../ports/market-data-repository";
+import { MarketCandleStore, MarketDataServices, MarketRemoteProvider } from "./contracts";
+import type { RecentCandleQuery } from "./types";
+import { alignRangeToTimeframe } from "./range-alignment";
+import { getTimeframeMs } from "../../domain/market-data/timeframe";
+import {
+  DEFAULT_RECENT_CANDLES,
+  MAX_RANGE_CANDLES,
+  MAX_RECENT_CANDLES,
+  isCoverageCompleteStrict,
+  normalizeCandles,
+} from "./policies";
+import { mapMarketInfraError } from "./error-mapping";
+import { createCoverageRefresh, createGapFillWorkflow } from "./coverage-workflows";
+
+const CANDLE_TIMING_LOGS_ENABLED = process.env.MODE === "dev";
+
+const logCandleServiceTiming = (payload: Record<string, unknown>) =>
+  CANDLE_TIMING_LOGS_ENABLED
+    ? Effect.logInfo(JSON.stringify({ event: "candle_service_timing", ...payload }))
+    : Effect.succeed(undefined);
+
+export const makeMarketDataService = (repo: MarketDataRepository) =>
+  Effect.gen(function* () {
+    const candleRepo = yield* MarketCandleStore;
+    const remoteProvider = yield* MarketRemoteProvider;
+    const isCoverageComplete = (coverage: CoverageResult): boolean =>
+      isCoverageCompleteStrict(coverage);
+    const refreshCoverage = createCoverageRefresh(candleRepo);
+    const fillGaps = createGapFillWorkflow(candleRepo, remoteProvider, mapMarketInfraError);
+
+    return MarketDataServices.of({
+      requestCandlesticks: (input) =>
+        Effect.tryPromise({
+          try: () =>
+            repo.insertCandlestickRequest({ ...input, created_at: new Date().toISOString() }),
+          catch: (e) => validationError("Failed to request candlesticks", e),
+        }),
+
+      createDatasetSnapshot: (input) =>
+        Effect.tryPromise({
+          try: () => repo.insertDatasetSnapshot({ ...input, created_at: new Date().toISOString() }),
+          catch: (e) => validationError("Failed to create dataset snapshot", e),
+        }),
+
+      getDatasetSnapshot: (id) =>
+        Effect.gen(function* () {
+          const snapshot = yield* Effect.tryPromise({
+            try: () => repo.getDatasetSnapshot(id),
+            catch: (e) => validationError("Failed to get dataset snapshot", e),
+          });
+          if (!snapshot) return yield* Effect.fail(notFoundError(`Snapshot ${id} not found`));
+          return snapshot;
+        }),
+
+      getCandles: (query) =>
+        Effect.gen(function* () {
+          const startedAt = Date.now();
+          const requestedStartTime = query.startTime ?? new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const requestedEndTime = query.endTime ?? new Date();
+          const { startTime, endTime } = alignRangeToTimeframe(
+            query.timeframe,
+            requestedStartTime,
+            requestedEndTime
+          );
+
+          if (startTime.getTime() > endTime.getTime()) {
+            return yield* Effect.fail(validationError("Start time must be before end time"));
+          }
+
+          const requestedRangeCount =
+            Math.floor(
+              (endTime.getTime() - startTime.getTime()) / getTimeframeMs(query.timeframe)
+            ) + 1;
+          if (requestedRangeCount > MAX_RANGE_CANDLES) {
+            return yield* Effect.fail(
+              validationError(
+                `Requested range is too large (${requestedRangeCount} candles). Maximum is ${MAX_RANGE_CANDLES}.`
+              )
+            );
+          }
+
+          const fallbackCoverage: CoverageResult = {
+            hasData: false,
+            rowCount: 0,
+            expectedCount: 0,
+            fullCoverage: false,
+            missingWindows: [{ start: startTime, end: endTime }],
+          };
+
+          let coverage = yield* candleRepo
+            .checkCoverage(query.symbol, query.exchange, query.timeframe, startTime, endTime)
+            .pipe(Effect.catchAll(() => Effect.succeed(fallbackCoverage)));
+          const initialCoverageAt = Date.now();
+
+          coverage = yield* fillGaps(query, coverage, startTime, endTime);
+          const fillGapsAt = Date.now();
+
+          if (!isCoverageComplete(coverage) && query.exchange.toLowerCase() === "hyperliquid") {
+            coverage = yield* refreshCoverage(query, startTime, endTime);
+          }
+          const refreshedCoverageAt = Date.now();
+
+          const candles = yield* candleRepo
+            .getCandles({
+              ...query,
+              startTime,
+              endTime,
+              disableLimitForRange: Boolean(query.startTime && query.endTime),
+            })
+            .pipe(Effect.mapError(mapMarketInfraError("Failed to load candles")));
+          const storeFetchAt = Date.now();
+
+          const normalizedCandles = normalizeCandles(candles);
+          const normalizedAt = Date.now();
+
+          const provenance = isCoverageComplete(coverage)
+            ? "QuestDB (Fully Covered)"
+            : `QuestDB (Partial: ${normalizedCandles.length}/${coverage.expectedCount} rows)`;
+
+          yield* logCandleServiceTiming({
+            route: "getCandles",
+            symbol: query.symbol,
+            exchange: query.exchange,
+            timeframe: query.timeframe,
+            initial_coverage_ms: initialCoverageAt - startedAt,
+            fill_gaps_ms: fillGapsAt - initialCoverageAt,
+            refresh_coverage_ms: refreshedCoverageAt - fillGapsAt,
+            store_fetch_ms: storeFetchAt - refreshedCoverageAt,
+            normalize_ms: normalizedAt - storeFetchAt,
+            total_ms: normalizedAt - startedAt,
+            row_count: normalizedCandles.length,
+            expected_count: coverage.expectedCount,
+            full_coverage: coverage.fullCoverage,
+            missing_windows: coverage.missingWindows.length,
+          });
+
+          return { candles: normalizedCandles, provenance, coverage };
+        }),
+
+      getRecentCandles: (query: RecentCandleQuery) =>
+        Effect.gen(function* () {
+          const startedAt = Date.now();
+          const exchange = query.exchange ?? "Hyperliquid";
+          if (exchange.toLowerCase() !== "hyperliquid") {
+            return yield* Effect.fail(
+              validationError(
+                "Recent candle snapshots are currently supported only for Hyperliquid"
+              )
+            );
+          }
+
+          const requestedLimit = query.limit ?? DEFAULT_RECENT_CANDLES;
+          if (!Number.isFinite(requestedLimit) || requestedLimit <= 0) {
+            return yield* Effect.fail(validationError("limit must be a positive integer"));
+          }
+          if (requestedLimit > MAX_RECENT_CANDLES) {
+            return yield* Effect.fail(
+              validationError(
+                `limit is too large (${requestedLimit}). Maximum is ${MAX_RECENT_CANDLES}.`
+              )
+            );
+          }
+
+          const endTime = query.endTime ?? new Date();
+          const expectedCount = Math.trunc(requestedLimit);
+          const startTime = new Date(
+            endTime.getTime() - (expectedCount - 1) * getTimeframeMs(query.timeframe)
+          );
+
+          const snapshotCandles = yield* remoteProvider
+            .getCandleSnapshot(
+              query.symbol,
+              query.timeframe,
+              startTime.getTime(),
+              endTime.getTime()
+            )
+            .pipe(Effect.mapError(mapMarketInfraError("Failed to fetch recent candle snapshot")));
+          const remoteAt = Date.now();
+
+          const normalizedCandles = normalizeCandles(snapshotCandles).slice(-expectedCount);
+          const normalizedAt = Date.now();
+          const coverage: CoverageResult = {
+            hasData: normalizedCandles.length > 0,
+            rowCount: normalizedCandles.length,
+            expectedCount,
+            fullCoverage: normalizedCandles.length === expectedCount,
+            missingWindows: [],
+          };
+
+          const provenance = coverage.fullCoverage
+            ? "Hyperliquid Snapshot (Recent via Backend)"
+            : `Hyperliquid Snapshot (Recent Partial: ${coverage.rowCount}/${coverage.expectedCount} rows)`;
+
+          yield* logCandleServiceTiming({
+            route: "getRecentCandles",
+            symbol: query.symbol,
+            exchange,
+            timeframe: query.timeframe,
+            remote_fetch_ms: remoteAt - startedAt,
+            normalize_ms: normalizedAt - remoteAt,
+            total_ms: normalizedAt - startedAt,
+            row_count: normalizedCandles.length,
+            expected_count: expectedCount,
+            full_coverage: coverage.fullCoverage,
+          });
+
+          return {
+            candles: normalizedCandles,
+            provenance,
+            coverage,
+          };
+        }),
+
+      discoverMarkets: () =>
+        remoteProvider
+          .getMetadata()
+          .pipe(Effect.mapError(mapMarketInfraError("Failed to discover markets"))),
+
+      inspectCoverage: (query) =>
+        candleRepo
+          .checkCoverage(
+            query.symbol,
+            query.exchange,
+            query.timeframe,
+            query.startTime ?? new Date(0),
+            query.endTime ?? new Date()
+          )
+          .pipe(Effect.mapError(mapMarketInfraError("Failed to inspect coverage"))),
+
+      getTicker: (symbol) =>
+        typeof remoteProvider.getTicker === "function"
+          ? remoteProvider
+              .getTicker(symbol)
+              .pipe(Effect.mapError(mapMarketInfraError("Failed to get ticker")))
+          : Effect.fail(validationError("Ticker is not available in this runtime")),
+
+      getOrderBook: (symbol, depth) =>
+        typeof remoteProvider.getOrderBook === "function"
+          ? remoteProvider
+              .getOrderBook(symbol, depth)
+              .pipe(Effect.mapError(mapMarketInfraError("Failed to get orderbook")))
+          : Effect.fail(validationError("Orderbook is not available in this runtime")),
+
+      getTradeAnnotation: (symbol) =>
+        typeof remoteProvider.getTradeAnnotation === "function"
+          ? remoteProvider
+              .getTradeAnnotation(symbol)
+              .pipe(Effect.mapError(mapMarketInfraError("Failed to get trade annotation")))
+          : Effect.fail(validationError("Trade annotation is not available in this runtime")),
+    });
+  });
+
+export const MarketDataServicesLayer = (repo: MarketDataRepository) =>
+  Layer.effect(MarketDataServices, makeMarketDataService(repo));

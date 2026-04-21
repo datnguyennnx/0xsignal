@@ -1,23 +1,11 @@
 /** Candle SQL Queries for QuestDB */
 
-export type Timeframe =
-  | "1m"
-  | "3m"
-  | "5m"
-  | "15m"
-  | "30m"
-  | "1h"
-  | "2h"
-  | "4h"
-  | "8h"
-  | "12h"
-  | "1d"
-  | "1w";
+import { getTimeframeMs, type MarketTimeframe } from "../../../../domain/market-data/timeframe";
 
 export interface CandleQueryParams {
   readonly symbol: string;
   readonly exchange: string;
-  readonly timeframe: Timeframe;
+  readonly timeframe: MarketTimeframe;
   readonly startTime?: Date;
   readonly endTime?: Date;
   readonly limit?: number;
@@ -73,7 +61,7 @@ ORDER BY timestamp ASC
 export function buildLatestTimestampQuery(
   symbol: string,
   exchange: string,
-  timeframe: Timeframe
+  timeframe: MarketTimeframe
 ): string {
   return `
 SELECT max(timestamp) as latest
@@ -87,7 +75,7 @@ WHERE symbol = ${toSqlStringLiteral(symbol)}
 export function buildCoverageTimestampQuery(
   symbol: string,
   exchange: string,
-  timeframe: Timeframe,
+  timeframe: MarketTimeframe,
   startTime: Date,
   endTime: Date
 ): string {
@@ -103,38 +91,11 @@ ORDER BY timestamp ASC
 `.trim();
 }
 
-export function getTimeframeMs(timeframe: Timeframe): number {
-  switch (timeframe) {
-    case "1m":
-      return 60 * 1000;
-    case "5m":
-      return 5 * 60 * 1000;
-    case "3m":
-      return 3 * 60 * 1000;
-    case "15m":
-      return 15 * 60 * 1000;
-    case "30m":
-      return 30 * 60 * 1000;
-    case "1h":
-      return 60 * 60 * 1000;
-    case "2h":
-      return 2 * 60 * 60 * 1000;
-    case "4h":
-      return 4 * 60 * 60 * 1000;
-    case "8h":
-      return 8 * 60 * 60 * 1000;
-    case "12h":
-      return 12 * 60 * 60 * 1000;
-    case "1d":
-      return 24 * 60 * 60 * 1000;
-    case "1w":
-      return 7 * 24 * 60 * 60 * 1000;
-    default:
-      return 60 * 1000;
-  }
-}
-
-export function getExpectedRowCount(startTime: Date, endTime: Date, timeframe: Timeframe): number {
+export function getExpectedRowCount(
+  startTime: Date,
+  endTime: Date,
+  timeframe: MarketTimeframe
+): number {
   const diff = endTime.getTime() - startTime.getTime();
   const ms = getTimeframeMs(timeframe);
   return Math.floor(diff / ms) + 1;

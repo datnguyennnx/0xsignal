@@ -1,5 +1,5 @@
-import { type Candle } from "@schemas/market-data";
-import type { Timeframe } from "../../db/questdb/queries/candle";
+import { type Candle } from "../../../schemas/market-data";
+import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 
 export type HlInterval =
   | "1m"
@@ -24,10 +24,45 @@ export interface HlRawCandle {
   readonly v: number | string;
 }
 
+const isNumberOrString = (value: unknown): value is number | string =>
+  typeof value === "number" || typeof value === "string";
+
+const isHlRawCandle = (value: unknown): value is HlRawCandle => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candle = value as Record<string, unknown>;
+  return (
+    isNumberOrString(candle.t) &&
+    isNumberOrString(candle.o) &&
+    isNumberOrString(candle.h) &&
+    isNumberOrString(candle.l) &&
+    isNumberOrString(candle.c) &&
+    isNumberOrString(candle.v)
+  );
+};
+
+export function parseHlRawCandles(payload: unknown): HlRawCandle[] {
+  if (!Array.isArray(payload)) {
+    throw new TypeError("Hyperliquid candle payload must be an array");
+  }
+
+  const parsed: HlRawCandle[] = [];
+  for (const item of payload) {
+    if (!isHlRawCandle(item)) {
+      throw new TypeError("Hyperliquid candle item has invalid shape");
+    }
+    parsed.push(item);
+  }
+
+  return parsed;
+}
+
 /**
  * Maps internal timeframe to Hyperliquid SDK interval strings.
  */
-export function toHlInterval(timeframe: Timeframe): HlInterval {
+export function toHlInterval(timeframe: MarketTimeframe): HlInterval {
   switch (timeframe) {
     case "1m":
       return "1m";

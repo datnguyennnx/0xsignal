@@ -1,12 +1,13 @@
 import { Effect, Context } from "effect";
 import { QuestDBError, query, ingest, QuestDBClient, command } from "../client";
 import * as queries from "../queries/candle";
-import { type Candle, type CoverageResult } from "@schemas/market-data";
+import { type Candle, type CoverageResult } from "../../../../schemas/market-data";
+import { getTimeframeMs, type MarketTimeframe } from "../../../../domain/market-data/timeframe";
 
 export interface CandleQuery {
   readonly symbol: string;
   readonly exchange: string;
-  readonly timeframe: queries.Timeframe;
+  readonly timeframe: MarketTimeframe;
   readonly startTime?: Date;
   readonly endTime?: Date;
   readonly limit?: number;
@@ -20,19 +21,19 @@ export class CandleRepository extends Context.Tag("CandleRepository")<
     readonly getLatestTimestamp: (
       symbol: string,
       exchange: string,
-      timeframe: queries.Timeframe
+      timeframe: MarketTimeframe
     ) => Effect.Effect<Date | null, QuestDBError>;
     readonly checkCoverage: (
       symbol: string,
       exchange: string,
-      timeframe: queries.Timeframe,
+      timeframe: MarketTimeframe,
       startTime: Date,
       endTime: Date
     ) => Effect.Effect<CoverageResult, QuestDBError>;
     readonly insertCandles: (
       symbol: string,
       exchange: string,
-      timeframe: queries.Timeframe,
+      timeframe: MarketTimeframe,
       candles: Candle[]
     ) => Effect.Effect<void, QuestDBError>;
     readonly initializeSchema: () => Effect.Effect<void, QuestDBError>;
@@ -70,7 +71,7 @@ export function getCandles(
 export function getLatestTimestamp(
   symbol: string,
   exchange: string,
-  timeframe: queries.Timeframe
+  timeframe: MarketTimeframe
 ): Effect.Effect<Date | null, QuestDBError, QuestDBClient> {
   return Effect.gen(function* () {
     const sql = queries.buildLatestTimestampQuery(symbol, exchange, timeframe);
@@ -87,7 +88,7 @@ export function getLatestTimestamp(
 export function checkCoverage(
   symbol: string,
   exchange: string,
-  timeframe: queries.Timeframe,
+  timeframe: MarketTimeframe,
   startTime: Date,
   endTime: Date
 ): Effect.Effect<CoverageResult, QuestDBError, QuestDBClient> {
@@ -109,7 +110,7 @@ export function checkCoverage(
     ).size;
 
     const missingWindows: Array<{ start: Date; end: Date }> = [];
-    const timeframeMs = queries.getTimeframeMs(timeframe);
+    const timeframeMs = getTimeframeMs(timeframe);
 
     if (rowCount === 0) {
       missingWindows.push({ start: startTime, end: endTime });
@@ -154,7 +155,7 @@ export function checkCoverage(
 export function insertCandles(
   symbol: string,
   exchange: string,
-  timeframe: queries.Timeframe,
+  timeframe: MarketTimeframe,
   candles: Candle[]
 ): Effect.Effect<void, QuestDBError, QuestDBClient> {
   return Effect.gen(function* () {

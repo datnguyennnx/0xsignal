@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer, Context } from "effect";
 import { ALL_TOOLS } from "../registry";
-import { MarketDataServices } from "@application/market-data";
-import { BacktestServices } from "@application/backtest";
-import { AgentServices } from "@application/agent";
+import { MarketDataServices } from "../../../application/market-data/contracts";
+import { BacktestServices } from "../../../application/backtest/service";
+import { AgentServices } from "../../../application/agent/service";
 
 describe("Market Data MCP Tools Smoke Proof", () => {
   const mockMarketDataServices = {
@@ -46,6 +46,11 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     )
   );
 
+  type SmokeTestServices = MarketDataServices | AgentServices | BacktestServices;
+
+  const runWithSmokeContext = <A, E>(effect: Effect.Effect<A, E, SmokeTestServices>): Promise<A> =>
+    Effect.runPromise(effect.pipe(Effect.provide(TestContext)) as Effect.Effect<A, E, never>);
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -55,17 +60,6 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     if (!tool) throw new Error(`Tool ${name} not found in registry`);
     return tool;
   };
-
-  const getMarketDataToolsLayer = () =>
-    Layer.succeed(MarketDataServices, {
-      discoverMarkets: mockMarketDataServices.discoverMarkets,
-      getCandles: mockMarketDataServices.getCandles,
-      getRecentCandles: mockMarketDataServices.getRecentCandles,
-      inspectCoverage: mockMarketDataServices.inspectCoverage,
-      createDatasetSnapshot: mockMarketDataServices.createDatasetSnapshot,
-      requestCandlesticks: mockMarketDataServices.requestCandlesticks,
-      getDatasetSnapshot: mockMarketDataServices.getDatasetSnapshot,
-    } as unknown as Context.Tag.Service<typeof MarketDataServices>);
 
   it("get_candles: should return data with provenance", async () => {
     const tool = getTool("get_candles");
@@ -77,10 +71,12 @@ describe("Market Data MCP Tools Smoke Proof", () => {
       })
     );
 
-    const result = (await Effect.runPromise(
-      tool
-        .execute({ symbol: "BTC", interval: "1h" } as never)
-        .pipe(Effect.provide(getMarketDataToolsLayer()))
+    const result = (await runWithSmokeContext(
+      tool.execute({ symbol: "BTC", interval: "1h" } as never) as Effect.Effect<
+        unknown,
+        unknown,
+        SmokeTestServices
+      >
     )) as { candles: unknown[]; provenance: string };
 
     expect(result.candles).toHaveLength(1);
@@ -102,15 +98,13 @@ describe("Market Data MCP Tools Smoke Proof", () => {
       })
     );
 
-    const result = (await Effect.runPromise(
-      tool
-        .execute({
-          symbol: "ETH",
-          interval: "1m",
-          start_time: "2024-01-01",
-          end_time: "2024-01-02",
-        } as never)
-        .pipe(Effect.provide(getMarketDataToolsLayer()))
+    const result = (await runWithSmokeContext(
+      tool.execute({
+        symbol: "ETH",
+        interval: "1m",
+        start_time: "2024-01-01",
+        end_time: "2024-01-02",
+      } as never) as Effect.Effect<unknown, unknown, SmokeTestServices>
     )) as { rowCount: number; hasData: boolean };
 
     expect(result.rowCount).toBe(100);
@@ -130,18 +124,16 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     );
 
     await expect(
-      Effect.runPromise(
-        tool
-          .execute({
-            request_id: "r1",
-            symbol: "SOL",
-            exchange: "Hyperliquid",
-            timeframe: "1h",
-            start_time: "2024-01-01",
-            end_time: "2024-01-02",
-            checksum: "abc",
-          } as never)
-          .pipe(Effect.provide(getMarketDataToolsLayer()))
+      runWithSmokeContext(
+        tool.execute({
+          request_id: "r1",
+          symbol: "SOL",
+          exchange: "Hyperliquid",
+          timeframe: "1h",
+          start_time: "2024-01-01",
+          end_time: "2024-01-02",
+          checksum: "abc",
+        } as never) as Effect.Effect<unknown, unknown, SmokeTestServices>
       )
     ).rejects.toThrow(/Incomplete strict coverage/);
 
@@ -163,18 +155,16 @@ describe("Market Data MCP Tools Smoke Proof", () => {
       Effect.succeed({ id: "snap-42", symbol: "SOL", timeframe: "1h", row_count: 24 })
     );
 
-    const result = (await Effect.runPromise(
-      tool
-        .execute({
-          request_id: "r1",
-          symbol: "SOL",
-          exchange: "Hyperliquid",
-          timeframe: "1h",
-          start_time: "2024-01-01",
-          end_time: "2024-01-02",
-          checksum: "abc",
-        } as never)
-        .pipe(Effect.provide(getMarketDataToolsLayer()))
+    const result = (await runWithSmokeContext(
+      tool.execute({
+        request_id: "r1",
+        symbol: "SOL",
+        exchange: "Hyperliquid",
+        timeframe: "1h",
+        start_time: "2024-01-01",
+        end_time: "2024-01-02",
+        checksum: "abc",
+      } as never) as Effect.Effect<unknown, unknown, SmokeTestServices>
     )) as { snapshot_id: string; provenance: string; completeness: { semantics: string } };
 
     expect(result.snapshot_id).toBe("snap-42");
@@ -204,17 +194,15 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     );
 
     await expect(
-      Effect.runPromise(
-        tool
-          .execute({
-            request_id: "r1",
-            symbol: "SOL",
-            exchange: "Hyperliquid",
-            timeframe: "1h",
-            start_time: "2024-01-01",
-            end_time: "2024-01-02",
-          } as never)
-          .pipe(Effect.provide(getMarketDataToolsLayer()))
+      runWithSmokeContext(
+        tool.execute({
+          request_id: "r1",
+          symbol: "SOL",
+          exchange: "Hyperliquid",
+          timeframe: "1h",
+          start_time: "2024-01-01",
+          end_time: "2024-01-02",
+        } as never) as Effect.Effect<unknown, unknown, SmokeTestServices>
       )
     ).rejects.toThrow(/Incomplete strict coverage/);
 
@@ -225,17 +213,15 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     const tool = getTool("create_dataset_snapshot");
 
     await expect(
-      Effect.runPromise(
-        tool
-          .execute({
-            request_id: "r1",
-            symbol: "SOL",
-            exchange: "Hyperliquid",
-            timeframe: "1h",
-            start_time: "not-a-date",
-            end_time: "2024-01-02",
-          } as never)
-          .pipe(Effect.provide(getMarketDataToolsLayer()))
+      runWithSmokeContext(
+        tool.execute({
+          request_id: "r1",
+          symbol: "SOL",
+          exchange: "Hyperliquid",
+          timeframe: "1h",
+          start_time: "not-a-date",
+          end_time: "2024-01-02",
+        } as never) as Effect.Effect<unknown, unknown, SmokeTestServices>
       )
     ).rejects.toThrow(/Invalid date for start_time/);
 
@@ -246,17 +232,15 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     const tool = getTool("create_dataset_snapshot");
 
     await expect(
-      Effect.runPromise(
-        tool
-          .execute({
-            request_id: "r1",
-            symbol: "SOL",
-            exchange: "Hyperliquid",
-            timeframe: "1h",
-            start_time: "2024-01-03",
-            end_time: "2024-01-02",
-          } as never)
-          .pipe(Effect.provide(getMarketDataToolsLayer()))
+      runWithSmokeContext(
+        tool.execute({
+          request_id: "r1",
+          symbol: "SOL",
+          exchange: "Hyperliquid",
+          timeframe: "1h",
+          start_time: "2024-01-03",
+          end_time: "2024-01-02",
+        } as never) as Effect.Effect<unknown, unknown, SmokeTestServices>
       )
     ).rejects.toThrow(/start_time must be less than or equal to end_time/);
 
@@ -267,15 +251,13 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     const tool = getTool("ensure_candle_coverage");
 
     await expect(
-      Effect.runPromise(
-        tool
-          .execute({
-            symbol: "ETH",
-            interval: "1m",
-            start_time: "2024-01-01",
-            end_time: "not-a-date",
-          } as never)
-          .pipe(Effect.provide(getMarketDataToolsLayer()))
+      runWithSmokeContext(
+        tool.execute({
+          symbol: "ETH",
+          interval: "1m",
+          start_time: "2024-01-01",
+          end_time: "not-a-date",
+        } as never) as Effect.Effect<unknown, unknown, SmokeTestServices>
       )
     ).rejects.toThrow(/Invalid date for end_time/);
 
@@ -286,15 +268,13 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     const tool = getTool("inspect_candle_coverage");
 
     await expect(
-      Effect.runPromise(
-        tool
-          .execute({
-            symbol: "ETH",
-            interval: "1m",
-            start_time: "2024-01-01",
-            end_time: "not-a-date",
-          } as never)
-          .pipe(Effect.provide(getMarketDataToolsLayer()))
+      runWithSmokeContext(
+        tool.execute({
+          symbol: "ETH",
+          interval: "1m",
+          start_time: "2024-01-01",
+          end_time: "not-a-date",
+        } as never) as Effect.Effect<unknown, unknown, SmokeTestServices>
       )
     ).rejects.toThrow(/Invalid date for end_time/);
 
@@ -305,8 +285,8 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     const tool = getTool("discover_markets");
     mockMarketDataServices.discoverMarkets.mockReturnValue(Effect.succeed({ universe: [] }));
 
-    const result = (await Effect.runPromise(
-      tool.execute({} as never).pipe(Effect.provide(getMarketDataToolsLayer()))
+    const result = (await runWithSmokeContext(
+      tool.execute({} as never) as Effect.Effect<unknown, unknown, SmokeTestServices>
     )) as { universe: unknown[] };
 
     expect(result.universe).toBeDefined();
@@ -319,10 +299,12 @@ describe("Market Data MCP Tools Smoke Proof", () => {
       Effect.succeed({ id: "req-1", symbol: "BTC", base_timeframe: "1h" })
     );
 
-    await Effect.runPromise(
-      tool
-        .execute({ symbol: "BTC", interval: "1h", _interactionId: "trace-999" } as never)
-        .pipe(Effect.provide(getMarketDataToolsLayer()))
+    await runWithSmokeContext(
+      tool.execute({
+        symbol: "BTC",
+        interval: "1h",
+        _interactionId: "trace-999",
+      } as never) as Effect.Effect<unknown, unknown, SmokeTestServices>
     );
 
     expect(mockMarketDataServices.requestCandlesticks).toHaveBeenCalledWith(
@@ -336,10 +318,11 @@ describe("Market Data MCP Tools Smoke Proof", () => {
       Effect.succeed({ id: "run-1", status: "pending" })
     );
 
-    const result = (await Effect.runPromise(
-      tool
-        .execute({ strategy_version_id: "s1", dataset_snapshot_id: "d1" } as never)
-        .pipe(Effect.provide(TestContext))
+    const result = (await runWithSmokeContext(
+      tool.execute({
+        strategy_version_id: "s1",
+        dataset_snapshot_id: "d1",
+      } as never) as Effect.Effect<unknown, unknown, SmokeTestServices>
     )) as { run_id: string };
 
     expect(result.run_id).toBe("run-1");

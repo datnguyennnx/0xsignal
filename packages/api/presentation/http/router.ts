@@ -1,10 +1,10 @@
 /** HTTP Router - Route matching with functional patterns */
 
 import { Effect } from "effect";
-import { HealthServices } from "@application/health";
-import { MarketDataServices } from "@application/market-data";
-import { DomainError } from "@application/errors";
-import { IS_DEV_MODE } from "@infrastructure/config/mode";
+import { HealthServices } from "../../application/health";
+import { MarketDataServices } from "../../application/market-data/contracts";
+import { DomainError } from "../../application/errors";
+import { IS_DEV_MODE } from "../../infrastructure/config/mode";
 import { healthRoute } from "./routes/health.routes";
 import { buildMarketDataRoutes } from "./routes/market-data.routes";
 

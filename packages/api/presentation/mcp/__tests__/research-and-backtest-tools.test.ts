@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer } from "effect";
-import { appendResearchNoteTool, startBacktestRunTool, getRunSummaryTool } from "../tools";
-import { BacktestServices } from "../../../application/backtest";
-import { ResearchServicesTag } from "../../../application/research";
+import { appendResearchNoteTool } from "../tools/research/append-research-note";
+import { startBacktestRunTool } from "../tools/backtest/start-backtest-run";
+import { getRunSummaryTool } from "../tools/backtest/get-run-summary";
+import { BacktestServices } from "../../../application/backtest/service";
+import { ResearchServicesTag } from "../../../application/research/service";
 
 describe("MCP research/backtest tool behavior", () => {
   const mockResearchServices = {
@@ -137,7 +139,7 @@ describe("MCP research/backtest tool behavior", () => {
   });
 
   it("create_artifact requires at least one anchor", async () => {
-    const { createArtifactTool } = await import("../tools");
+    const { createArtifactTool } = await import("../tools/research/create-artifact");
 
     await expect(
       Effect.runPromise(

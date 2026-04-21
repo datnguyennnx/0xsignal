@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { Effect } from "effect";
 import { query, QuestDBClientLayer } from "../questdb/client";
 import * as repo from "../questdb/repositories/candle";
-import type { Timeframe } from "../questdb/queries/candle";
+import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 
 const shouldRunQuestDb = process.env.RUN_QUESTDB_INTEGRATION === "1";
 
@@ -32,7 +32,7 @@ if (shouldRunQuestDb) {
 
     it("should support checking coverage and detecting gaps", async () => {
       const symbol = "GAP-TEST-" + Date.now();
-      const timeframe: Timeframe = "1h";
+      const timeframe: MarketTimeframe = "1h";
       // Define a 5-hour range (6 candles expected: T=0, 1, 2, 3, 4, 5)
       // Wait, floor(5/1) + 1 = 6. Correct.
       const start = new Date("2024-01-01T00:00:00Z");

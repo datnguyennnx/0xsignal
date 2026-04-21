@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { StrategyServices } from "@application/strategy";
+import { StrategyServices } from "../../../../application/strategy/service";
 
 type StrategyHistoryVersion = {
   readonly id: string;

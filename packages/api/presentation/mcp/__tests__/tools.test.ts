@@ -22,17 +22,17 @@ const MCP_TOOLS = [
 describe("MCP Tool Validation", () => {
   describe("Tool Existence", () => {
     it("open_session tool exports correctly", async () => {
-      const { openSessionTool } = await import("../tools");
+      const { openSessionTool } = await import("../tools/session/open-session");
       expect(openSessionTool).toBeDefined();
     });
 
     it("start_backtest_run tool exports correctly", async () => {
-      const { startBacktestRunTool } = await import("../tools");
+      const { startBacktestRunTool } = await import("../tools/backtest/start-backtest-run");
       expect(startBacktestRunTool).toBeDefined();
     });
 
     it("get_run_summary tool exports correctly", async () => {
-      const { getRunSummaryTool } = await import("../tools");
+      const { getRunSummaryTool } = await import("../tools/backtest/get-run-summary");
       expect(getRunSummaryTool).toBeDefined();
     });
 
@@ -45,14 +45,14 @@ describe("MCP Tool Validation", () => {
 
   describe("Tool Schema Validation", () => {
     it("open_session has required fields", async () => {
-      const { openSessionTool } = await import("../tools");
+      const { openSessionTool } = await import("../tools/session/open-session");
       expect(openSessionTool.name).toBe("open_session");
       expect(openSessionTool.description).toBeTruthy();
       expect(openSessionTool.inputSchema).toBeDefined();
     });
 
     it("start_backtest_run has required fields", async () => {
-      const { startBacktestRunTool } = await import("../tools");
+      const { startBacktestRunTool } = await import("../tools/backtest/start-backtest-run");
       expect(startBacktestRunTool.name).toBe("start_backtest_run");
       expect(startBacktestRunTool.description).toBeTruthy();
       expect(startBacktestRunTool.inputSchema).toBeDefined();
@@ -76,7 +76,7 @@ describe("MCP Tool Validation", () => {
 
   describe("Tool Input Contracts", () => {
     it("open_session input has source and objective", async () => {
-      const { openSessionTool } = await import("../tools");
+      const { openSessionTool } = await import("../tools/session/open-session");
       const input = openSessionTool.inputSchema;
       expect(input).toHaveProperty("properties");
       expect(input.properties).toHaveProperty("source");
@@ -84,7 +84,7 @@ describe("MCP Tool Validation", () => {
     });
 
     it("start_backtest_run input has required strategy and snapshot ids", async () => {
-      const { startBacktestRunTool } = await import("../tools");
+      const { startBacktestRunTool } = await import("../tools/backtest/start-backtest-run");
       const input = startBacktestRunTool.inputSchema;
       expect(input).toHaveProperty("properties");
       expect(input.properties).toHaveProperty("strategy_version_id");

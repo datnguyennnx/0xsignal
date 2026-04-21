@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer, Context } from "effect";
-import { MarketDataServices } from "../../../application/market-data";
+import { MarketDataServices } from "../../../application/market-data/contracts";
 import { HealthServices } from "../../../application/health";
 import { notFoundError, domainError } from "../../../application/errors";
 import { handleRequest } from "../router";

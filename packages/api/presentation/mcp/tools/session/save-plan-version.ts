@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { AgentServices } from "@application/agent";
+import { AgentServices } from "../../../../application/agent/service";
 
 export const savePlanVersionTool = {
   name: "save_plan_version",

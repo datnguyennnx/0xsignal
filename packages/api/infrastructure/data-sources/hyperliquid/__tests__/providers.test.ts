@@ -9,8 +9,8 @@ import {
   getOrderBook,
   getTradeAnnotation,
   HyperliquidProviderLive,
-  HyperliquidProvider,
-} from "../providers";
+} from "../provider";
+import { HyperliquidProvider } from "../types";
 import { HyperliquidClient } from "../client";
 
 const mockInfoClient = {
@@ -212,8 +212,8 @@ describe("Hyperliquid Providers", () => {
     ]);
     mockInfoClient.allMids.mockResolvedValue({ BTC: "101.25" });
 
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const nowSpy = vi.spyOn(Date, "now");
+    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:00.000Z").getTime());
 
     const provider = HyperliquidProviderLive(
       HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient })
@@ -233,7 +233,7 @@ describe("Hyperliquid Providers", () => {
     expect(mockInfoClient.metaAndAssetCtxs).toHaveBeenCalledTimes(1);
     expect(mockInfoClient.allMids).toHaveBeenCalledTimes(1);
 
-    vi.setSystemTime(new Date("2026-01-01T00:00:01.500Z"));
+    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:01.500Z").getTime());
 
     const third = Effect.flatMap(HyperliquidProvider, (svc) => svc.getTicker("BTC")).pipe(
       Effect.provide(layer)
@@ -243,14 +243,14 @@ describe("Hyperliquid Providers", () => {
     expect(mockInfoClient.metaAndAssetCtxs).toHaveBeenCalledTimes(2);
     expect(mockInfoClient.allMids).toHaveBeenCalledTimes(2);
 
-    vi.useRealTimers();
+    nowSpy.mockRestore();
   });
 
   it("HyperliquidProviderLive caches trade annotation", async () => {
     mockInfoClient.perpAnnotation.mockResolvedValue({ category: "major" });
 
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const nowSpy = vi.spyOn(Date, "now");
+    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:00.000Z").getTime());
 
     const provider = HyperliquidProviderLive(
       HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient })
@@ -269,7 +269,7 @@ describe("Hyperliquid Providers", () => {
 
     expect(mockInfoClient.perpAnnotation).toHaveBeenCalledTimes(1);
 
-    vi.setSystemTime(new Date("2026-01-01T07:00:00.000Z"));
+    nowSpy.mockReturnValue(new Date("2026-01-01T07:00:00.000Z").getTime());
 
     const third = Effect.flatMap(HyperliquidProvider, (svc) => svc.getTradeAnnotation("BTC")).pipe(
       Effect.provide(layer)
@@ -278,7 +278,7 @@ describe("Hyperliquid Providers", () => {
 
     expect(mockInfoClient.perpAnnotation).toHaveBeenCalledTimes(2);
 
-    vi.useRealTimers();
+    nowSpy.mockRestore();
   });
 
   it("HyperliquidProviderLive caches candle snapshots for short ttl", async () => {
@@ -286,8 +286,8 @@ describe("Hyperliquid Providers", () => {
       { t: 1000, o: "1", h: "2", l: "0.5", c: "1.5", v: "10" },
     ]);
 
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+    const nowSpy = vi.spyOn(Date, "now");
+    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:00.000Z").getTime());
 
     const provider = HyperliquidProviderLive(
       HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient })
@@ -306,7 +306,7 @@ describe("Hyperliquid Providers", () => {
 
     expect(mockInfoClient.candleSnapshot).toHaveBeenCalledTimes(1);
 
-    vi.setSystemTime(new Date("2026-01-01T00:00:01.500Z"));
+    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:01.500Z").getTime());
 
     const third = Effect.flatMap(HyperliquidProvider, (svc) =>
       svc.getCandleSnapshot("BTC", "1m", 0, 60000)
@@ -315,6 +315,6 @@ describe("Hyperliquid Providers", () => {
 
     expect(mockInfoClient.candleSnapshot).toHaveBeenCalledTimes(2);
 
-    vi.useRealTimers();
+    nowSpy.mockRestore();
   });
 });

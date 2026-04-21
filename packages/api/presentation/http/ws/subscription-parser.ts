@@ -1,10 +1,10 @@
-import { normalizeSymbol } from "@infrastructure/data-sources/hyperliquid/symbol";
+import { normalizeSymbol } from "../../../infrastructure/data-sources/hyperliquid/symbol";
 import {
   MARKET_WS_INTERVALS,
   type MarketWsChannel,
   type MarketWsInterval,
   type MarketWsSubscription,
-} from "@schemas/market-data/ws";
+} from "../../../schemas/market-data/ws";
 import { parseOptionalSigFigsParam } from "../utils/param-parsers";
 
 export type ParseResult =

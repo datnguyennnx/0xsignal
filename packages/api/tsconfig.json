@@ -7,15 +7,7 @@
     "declaration": true,
     "outDir": "./dist",
     "rootDir": ".",
-    "types": ["bun-types", "node", "vitest/globals"],
-    "baseUrl": ".",
-    "paths": {
-      "@application/*": ["application/*"],
-      "@infrastructure/*": ["infrastructure/*"],
-      "@domain/*": ["domain/*"],
-      "@presentation/*": ["presentation/*"],
-      "@schemas/*": ["schemas/*"]
-    }
+    "types": ["bun-types", "node", "vitest/globals"]
   },
   "include": ["./**/*.ts"],
   "exclude": ["node_modules", "dist", "**/__tests__/**", "**/*.test.ts"],

@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { MarketDataServices } from "@application/market-data";
+import { MarketDataServices } from "../../../application/market-data/contracts";
 import {
   parseInterval,
   parseOptionalDate,

@@ -1,6 +1,7 @@
 import { Effect } from "effect";
-import { MarketDataServices, isCoverageCompleteStrict } from "@application/market-data";
-import { validationError } from "@application/errors";
+import { MarketDataServices } from "../../../../application/market-data/contracts";
+import { isCoverageCompleteStrict } from "../../../../application/market-data/policies";
+import { validationError } from "../../../../application/errors";
 
 const TIMEFRAME_ENUM = [
   "1m",

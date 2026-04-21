@@ -1,8 +1,15 @@
 import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
 import type { ISubscription } from "@nktkas/hyperliquid";
 import type { ServerWebSocket } from "bun";
-import { IS_DEV_MODE } from "@infrastructure/config/mode";
-import type { MarketWsSubscription } from "@schemas/market-data/ws";
+import type { MarketWsSubscription } from "../../../schemas/market-data/ws";
+import { marketWsLog } from "./logging";
+import { buildMarketWsBucketKey } from "./bucket-key";
+import {
+  normalizeAllMidsData,
+  normalizeCandleData,
+  normalizeL2BookData,
+  normalizeTradesData,
+} from "./normalizers";
 
 export type MarketWsConnectionData = {
   readonly id: string;
@@ -20,106 +27,8 @@ type Bucket = {
   firstMarketBroadcastLogged: boolean;
 };
 
-const MARKET_WS_DEBUG_LOGS_ENABLED = IS_DEV_MODE;
-
-const marketWsLog = (
-  event: string,
-  fields: Record<string, unknown>,
-  level: "info" | "warn" | "error" = "info"
-) => {
-  const payload = {
-    scope: "market-ws",
-    event,
-    ...fields,
-    ts: new Date().toISOString(),
-  };
-
-  if (level === "error") {
-    console.error(JSON.stringify(payload));
-    return;
-  }
-
-  if (level === "warn") {
-    console.warn(JSON.stringify(payload));
-    return;
-  }
-
-  if (!MARKET_WS_DEBUG_LOGS_ENABLED) {
-    return;
-  }
-
-  console.info(JSON.stringify(payload));
-};
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
-
-const unwrapPayload = (value: unknown): unknown => {
-  let current = value;
-
-  while (isRecord(current)) {
-    if (current.data !== undefined) {
-      current = current.data;
-      continue;
-    }
-    if (current.payload !== undefined) {
-      current = current.payload;
-      continue;
-    }
-    break;
-  }
-
-  return current;
-};
-
-const normalizeCandleData = (event: unknown): unknown => unwrapPayload(event);
-
-const extractOrderbookLevels = (value: unknown): unknown[] | null => {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  if (Array.isArray(value.levels)) {
-    return value.levels;
-  }
-
-  if ("l2Book" in value) {
-    return extractOrderbookLevels(value.l2Book);
-  }
-
-  if ("book" in value) {
-    return extractOrderbookLevels(value.book);
-  }
-
-  if ("orderbook" in value) {
-    return extractOrderbookLevels(value.orderbook);
-  }
-
-  return null;
-};
-
-const normalizeL2BookData = (event: unknown): { levels: unknown[] } => {
-  const payload = unwrapPayload(event);
-  return {
-    levels: extractOrderbookLevels(payload) ?? [],
-  };
-};
-
-const normalizeTradesData = (event: unknown): unknown => unwrapPayload(event);
-const normalizeAllMidsData = (event: unknown): unknown => unwrapPayload(event);
-
-export const buildMarketWsBucketKey = (subscription: MarketWsSubscription): string => {
-  if (subscription.channel === "candle") {
-    return `candle:${subscription.symbol}:${subscription.interval}`;
-  }
-  if (subscription.channel === "l2Book") {
-    return `l2Book:${subscription.symbol}:${subscription.nSigFigs ?? "raw"}`;
-  }
-  if (subscription.channel === "trades") {
-    return `trades:${subscription.symbol}`;
-  }
-  return `allMids:${subscription.dex ?? ""}`;
-};
 
 export class HyperliquidMarketStreamHub {
   private readonly transport = new WebSocketTransport({

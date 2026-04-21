@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { BacktestServices } from "@application/backtest";
+import { BacktestServices } from "../../../../application/backtest/service";
 
 type SummaryMetric = {
   readonly metric_key: string;

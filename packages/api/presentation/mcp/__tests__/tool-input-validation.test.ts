@@ -23,6 +23,17 @@ describe("MCP Tool Input Validation", () => {
     return "";
   };
 
+  const firstToolContentBlock = (result: unknown): unknown => {
+    if (typeof result !== "object" || result === null || !("content" in result)) {
+      throw new Error("expected tool result with content");
+    }
+    const content = (result as { content?: unknown }).content;
+    if (!Array.isArray(content) || content.length === 0) {
+      throw new Error("expected tool result.content to be a non-empty array");
+    }
+    return content[0];
+  };
+
   const mockMcpRepo = {
     insertInteraction: vi.fn().mockResolvedValue({}),
     updateInteractionStatus: vi.fn().mockResolvedValue({}),
@@ -80,8 +91,8 @@ describe("MCP Tool Input Validation", () => {
     });
 
     expect(result.isError).toBe(true);
-    expect(readTextContent(result.content[0])).toContain("Invalid arguments");
-    expect(readTextContent(result.content[0])).toContain("input.objective is required");
+    expect(readTextContent(firstToolContentBlock(result))).toContain("Invalid arguments");
+    expect(readTextContent(firstToolContentBlock(result))).toContain("input.objective is required");
     expect(mockAgentServices.openSession).not.toHaveBeenCalled();
     expect(mockMcpRepo.insertInteraction).not.toHaveBeenCalled();
   });
@@ -96,8 +107,8 @@ describe("MCP Tool Input Validation", () => {
     });
 
     expect(result.isError).toBe(true);
-    expect(readTextContent(result.content[0])).toContain("Invalid arguments");
-    expect(readTextContent(result.content[0])).toContain("input.exchange is required");
+    expect(readTextContent(firstToolContentBlock(result))).toContain("Invalid arguments");
+    expect(readTextContent(firstToolContentBlock(result))).toContain("input.exchange is required");
     expect(mockMarketDataServices.inspectCoverage).not.toHaveBeenCalled();
   });
 
@@ -115,8 +126,8 @@ describe("MCP Tool Input Validation", () => {
     });
 
     expect(result.isError).toBe(true);
-    expect(readTextContent(result.content[0])).toContain("Invalid arguments");
-    expect(readTextContent(result.content[0])).toContain("input.timeframe");
+    expect(readTextContent(firstToolContentBlock(result))).toContain("Invalid arguments");
+    expect(readTextContent(firstToolContentBlock(result))).toContain("input.timeframe");
     expect(mockMarketDataServices.inspectCoverage).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 /** Health Routes */
 
-import { HealthServices } from "@application/health";
+import { HealthServices } from "../../../application/health";
 
 type HealthHttpService = {
   readonly check: (typeof HealthServices.Service)["check"];

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer } from "effect";
+import { makeMarketDataService } from "../market-data/service";
 import {
-  makeMarketDataService,
   MarketDataServices,
   MarketCandleStore,
   MarketRemoteProvider,
   type MarketCandleStorePort,
   type MarketRemoteProviderPort,
-} from "../market-data";
+} from "../market-data/contracts";
 import type { MarketDataRepository } from "../ports/market-data-repository";
 
 describe("Market Data Coverage Semantics", () => {

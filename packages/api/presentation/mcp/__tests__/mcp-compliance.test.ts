@@ -6,10 +6,10 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { McpServerDependencies } from "../server";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { Context } from "effect";
-import { StrategyServices } from "@application/strategy";
-import { BacktestServices } from "@application/backtest";
-import { MarketDataServices } from "@application/market-data";
-import { ResearchServicesTag } from "@application/research";
+import { StrategyServices } from "../../../application/strategy/service";
+import { BacktestServices } from "../../../application/backtest/service";
+import { MarketDataServices } from "../../../application/market-data/contracts";
+import { ResearchServicesTag } from "../../../application/research/service";
 
 describe("MCP E2E Compliance Smoke Test", () => {
   const readTextBlock = (content: unknown): string => {
@@ -36,6 +36,17 @@ describe("MCP E2E Compliance Smoke Test", () => {
     }
 
     return "";
+  };
+
+  const firstToolContentBlock = (result: unknown): unknown => {
+    if (typeof result !== "object" || result === null || !("content" in result)) {
+      throw new Error("expected tool result with content");
+    }
+    const content = (result as { content?: unknown }).content;
+    if (!Array.isArray(content) || content.length === 0) {
+      throw new Error("expected tool result.content to be a non-empty array");
+    }
+    return content[0];
   };
 
   const mockMcpRepo = {
@@ -212,7 +223,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
         arguments: { source: "test", objective: "test" },
       });
 
-      const parsed = JSON.parse(readTextContent(result.content[0]));
+      const parsed = JSON.parse(readTextContent(firstToolContentBlock(result)));
       expect(parsed).toEqual({
         session_id: "test-session-id",
         status: "pending",
@@ -245,7 +256,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(readTextContent(result.content[0])).toContain("Simulated failure");
+      expect(readTextContent(firstToolContentBlock(result))).toContain("Simulated failure");
 
       // Verify interaction tracking recorded the failure
       expect(mockMcpRepo.updateInteractionStatus).toHaveBeenCalledWith(
@@ -264,7 +275,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
       });
 
       expect(result.isError).toBeFalsy();
-      const parsed = JSON.parse(readTextContent(result.content[0]));
+      const parsed = JSON.parse(readTextContent(firstToolContentBlock(result)));
       expect(parsed).toEqual({
         session_id: "test-session-id",
         status: "pending",
@@ -281,7 +292,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(readTextContent(result.content[0])).toContain("Simulated failure");
+      expect(readTextContent(firstToolContentBlock(result))).toContain("Simulated failure");
     });
   });
 });

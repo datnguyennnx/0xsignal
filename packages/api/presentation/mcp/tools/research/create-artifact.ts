@@ -1,6 +1,6 @@
 import { Effect } from "effect";
-import { ResearchServicesTag } from "@application/research";
-import { validationError } from "@application/errors";
+import { ResearchServicesTag } from "../../../../application/research/service";
+import { validationError } from "../../../../application/errors";
 
 export const createArtifactTool = {
   name: "create_artifact",

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildMarketWsBucketKey,
-  HyperliquidMarketStreamHub,
-} from "../../../infrastructure/streams/hyperliquid/hub";
+import { HyperliquidMarketStreamHub } from "../../../infrastructure/streams/hyperliquid/hub";
+import { buildMarketWsBucketKey } from "../../../infrastructure/streams/hyperliquid/bucket-key";
 import { parseMarketWsSubscription } from "../ws/subscription-parser";
 import type { MarketWsSubscription } from "../../../schemas/market-data/ws";
 

@@ -19,17 +19,19 @@ const TOOLS = ALL_TOOLS;
 import {
   systemArchitectureResource,
   getSystemArchitecture,
+} from "./resources/system/system-architecture";
+import {
   strategySchemaResource,
   getStrategySchema,
-  getSessionContext,
-  getRunSummaryResource,
-  getStrategyHistory,
-} from "./resources";
+} from "./resources/system/system-strategy-schema";
+import { getSessionContext } from "./resources/session/session-context";
+import { getRunSummaryResource } from "./resources/backtest/run-summary";
+import { getStrategyHistory } from "./resources/strategy/strategy-history";
 import { PROMPTS } from "./prompts/index";
 import { MCP_AGENT_INSTRUCTION_MODULES, MCP_AGENT_SYSTEM_PROMPT } from "./harness-guidance";
 import { Effect } from "effect";
-import { QuestDBClientLayer } from "@infrastructure/db/questdb/client";
-import { initializeSchema } from "@infrastructure/db/questdb/repositories/candle";
+import { QuestDBClientLayer } from "../../infrastructure/db/questdb/client";
+import { initializeSchema } from "../../infrastructure/db/questdb/repositories/candle";
 import type { McpServerDependencies } from "./server";
 import { formatToolErrorMessage, validateToolArguments } from "./tool-argument-validation";
 import type { JsonSchema } from "./tool-argument-validation";

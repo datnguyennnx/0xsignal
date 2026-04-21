@@ -1,20 +1,12 @@
 import { Effect, Layer } from "effect";
-import {
-  MarketCandleStore,
-  MarketDataServicesLayer,
-  MarketRemoteProvider,
-} from "@application/market-data";
-import {
-  CandleRepository,
-  CandleRepositoryLayer,
-} from "@infrastructure/db/questdb/repositories/candle";
-import {
-  HyperliquidProvider,
-  HyperliquidProviderLayer,
-} from "@infrastructure/data-sources/hyperliquid/providers";
-import { QuestDBClientLayer } from "@infrastructure/db/questdb/client";
-import { HyperliquidClientLive } from "@infrastructure/data-sources/hyperliquid/client";
-import { postgresMarketDataRepository } from "@infrastructure/repositories/market-data-repo";
+import { MarketCandleStore, MarketRemoteProvider } from "../../application/market-data/contracts";
+import { MarketDataServicesLayer } from "../../application/market-data/service";
+import { CandleRepository, CandleRepositoryLayer } from "../db/questdb/repositories/candle";
+import { HyperliquidProviderLayer } from "../data-sources/hyperliquid/provider";
+import { HyperliquidProvider } from "../data-sources/hyperliquid/types";
+import { QuestDBClientLayer } from "../db/questdb/client";
+import { HyperliquidClientLive } from "../data-sources/hyperliquid/client";
+import { postgresMarketDataRepository } from "../db/postgres/repositories/market-data.repository";
 
 const MarketPortsLayer = Layer.mergeAll(
   Layer.effect(

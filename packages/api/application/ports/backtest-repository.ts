@@ -3,7 +3,7 @@ import type {
   BacktestMetric,
   BacktestRun,
   BacktestRunInput as BacktestRunInputs,
-} from "@schemas/backtest";
+} from "../../schemas/backtest";
 
 export interface BacktestRepository {
   createRunWithInput(run: BacktestRun, input: BacktestRunInputs): Promise<BacktestRun>;

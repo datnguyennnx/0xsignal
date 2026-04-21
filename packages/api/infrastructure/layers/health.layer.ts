@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
-import { HealthServices } from "@application/health";
-import { healthCheck as postgresHealthCheck } from "@infrastructure/db/postgres/client";
+import { HealthServices } from "../../application/health";
+import { healthCheck as postgresHealthCheck } from "../db/postgres/client";
 
 export const HealthServicesLive = Layer.succeed(HealthServices, {
   check: () =>

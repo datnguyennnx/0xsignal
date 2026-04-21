@@ -1,3 +1,4 @@
+/** WebSocket subscription intervals; must stay aligned with `domain/market-data/timeframe` (see schema tests). */
 export const MARKET_WS_INTERVALS = [
   "1m",
   "3m",

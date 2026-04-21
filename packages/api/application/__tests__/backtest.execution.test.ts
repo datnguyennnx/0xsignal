@@ -1,9 +1,25 @@
 import { it, expect, describe, vi } from "vitest";
 import { Effect, Layer } from "effect";
-import { makeBacktestService } from "../backtest";
-import { EngineExecutor, type EngineOutput } from "@domain/backtest/engine";
+import { makeBacktestService } from "../backtest/service";
+import { EngineExecutor, type EngineOutput } from "../../domain/backtest/engine";
 
 describe("Backtest Execution Flow", () => {
+  const eventually = async (assertFn: () => void, timeoutMs = 1000) => {
+    const startedAt = Date.now();
+    // Poll because engine execution runs in a detached fiber.
+    for (;;) {
+      try {
+        assertFn();
+        return;
+      } catch (error) {
+        if (Date.now() - startedAt >= timeoutMs) {
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    }
+  };
+
   it("should trigger background worker and update row status when backtest is started", async () => {
     // We mock the repo dependencies to verify execution flow
     const mockRepo = {
@@ -80,7 +96,7 @@ describe("Backtest Execution Flow", () => {
       })
     );
 
-    await vi.waitFor(() => {
+    await eventually(() => {
       expect(mockRepo.updateRunStatus).toHaveBeenCalledWith(runId, "completed");
       expect(mockRepo.insertMetric).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -1,4 +1,4 @@
-import type { AgentAction, AgentPlan, AgentSession } from "@schemas/agent";
+import type { AgentAction, AgentPlan, AgentSession } from "../../schemas/agent";
 
 export interface AgentRepository {
   insertSession(session: AgentSession): Promise<AgentSession>;

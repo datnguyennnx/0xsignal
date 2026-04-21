@@ -3,10 +3,10 @@
 
 import { Effect, ManagedRuntime } from "effect";
 import { BunRuntime } from "@effect/platform-bun";
-import { AppLayer } from "@infrastructure/layers/app.layer";
+import { AppLayer } from "../../infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
-import { runMigrations } from "@infrastructure/db/postgres/migrations/migration";
-import { type MarketWsConnectionData } from "@infrastructure/streams/hyperliquid/hub";
+import { runMigrations } from "../../infrastructure/db/postgres/migrations/migration";
+import { type MarketWsConnectionData } from "../../infrastructure/streams/hyperliquid/hub";
 import { MarketStreamHub, MarketStreamHubLayer } from "./ws/market-stream-hub.layer";
 import { parseMarketWsSubscription } from "./ws/subscription-parser";
 import { CORS_HEADERS, withCorsHeaders } from "./transport/cors";

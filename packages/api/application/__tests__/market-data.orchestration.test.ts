@@ -1,15 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
+import { makeMarketDataService } from "../market-data/service";
+import { isCoverageCompleteStrict } from "../market-data/policies";
 import {
-  makeMarketDataService,
   MarketDataServices,
   MarketCandleStore,
   MarketRemoteProvider,
-  isCoverageCompleteStrict,
   type MarketCandleStorePort,
   type MarketRemoteProviderPort,
-} from "../market-data";
-import type { Candle } from "@schemas/market-data";
+} from "../market-data/contracts";
+import type { Candle } from "../../schemas/market-data";
 import type { MarketDataRepository } from "../ports/market-data-repository";
 
 const mkCandle = (timestamp: Date, price: number): Candle => ({

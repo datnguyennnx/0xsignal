@@ -1,4 +1,4 @@
-import type { CandlestickRequest, DatasetSnapshot } from "@schemas/market-data";
+import type { CandlestickRequest, DatasetSnapshot } from "../../schemas/market-data";
 
 export interface MarketDataRepository {
   insertCandlestickRequest(request: CandlestickRequest): Promise<CandlestickRequest>;

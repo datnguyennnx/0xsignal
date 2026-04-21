@@ -1,6 +1,6 @@
 import { Effect } from "effect";
-import { StrategyServices } from "@application/strategy";
-import { DomainError } from "@application/errors";
+import { StrategyServices } from "../../../../application/strategy/service";
+import { DomainError } from "../../../../application/errors";
 
 export const createStrategyDefinitionTool = {
   name: "create_strategy_definition",
