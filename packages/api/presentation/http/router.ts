@@ -1,6 +1,7 @@
 /** HTTP Router - Route matching with functional patterns */
 
 import { Effect } from "effect";
+import { HealthServices } from "@application/health";
 import { MarketDataServices } from "@application/market-data";
 import { DomainError } from "@application/errors";
 import { IS_DEV_MODE } from "@infrastructure/config/mode";
@@ -38,10 +39,13 @@ type MarketDataHttpService = {
   readonly getTradeAnnotation: (typeof MarketDataServices.Service)["getTradeAnnotation"];
 };
 
+type HealthHttpService = Parameters<typeof healthRoute>[0];
+
 type RouteHandler = (
   request: Request,
   url: URL,
-  marketData: MarketDataHttpService
+  marketData: MarketDataHttpService,
+  health: HealthHttpService
 ) => Effect.Effect<Response, HttpError>;
 
 const MARKET_INTERVALS = [
@@ -148,14 +152,19 @@ const parseOptionalPositiveInt = (
   params: URLSearchParams,
   key: string
 ): Effect.Effect<number | undefined, HttpError> => {
-  const value = params.get(key);
-  if (!value) {
+  const rawValue = params.get(key);
+  if (!rawValue) {
     return Effect.succeed(undefined);
+  }
+
+  const value = rawValue.trim();
+  if (!/^[+-]?\d+$/.test(value)) {
+    return badRequest(`Invalid integer for ${key}: ${rawValue}`);
   }
 
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    return badRequest(`Invalid integer for ${key}: ${value}`);
+    return badRequest(`Invalid integer for ${key}: ${rawValue}`);
   }
 
   return Effect.succeed(parsed);
@@ -188,7 +197,8 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
   {
     method: "GET",
     path: "/api/health",
-    handler: () => healthRoute().pipe(Effect.map((body) => json(body))),
+    handler: (_request, _url, _marketData, health) =>
+      healthRoute(health).pipe(Effect.map((body) => json(body))),
   },
   {
     method: "GET",
@@ -370,6 +380,7 @@ export const handleRequest = (request: Request) => {
     }
 
     const marketData = yield* MarketDataServices;
-    return yield* route.handler(request, url, marketData);
+    const health = yield* HealthServices;
+    return yield* route.handler(request, url, marketData, health);
   });
 };

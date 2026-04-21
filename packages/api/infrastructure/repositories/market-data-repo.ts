@@ -29,12 +29,6 @@ export const postgresMarketDataRepository: MarketDataRepository = {
     return result.rows[0] as CandlestickRequest;
   },
 
-  async getCandlestickRequest(id: string): Promise<CandlestickRequest | null> {
-    const sql = `SELECT * FROM candlestick_requests WHERE id = $1`;
-    const result = await query(sql, [id]);
-    return result.rows[0] as CandlestickRequest | null;
-  },
-
   async insertDatasetSnapshot(snapshot: DatasetSnapshot): Promise<DatasetSnapshot> {
     const sql = `
       INSERT INTO dataset_snapshots (id, request_id, symbol, exchange, timeframe, start_time, end_time, query_fingerprint, row_count, checksum, source_series, trace_id, span_id, correlation_id, created_at)

@@ -72,6 +72,21 @@ describe("Market WS subscription parser", () => {
     });
   });
 
+  it("rejects malformed l2Book precision values", () => {
+    const params = new URLSearchParams({
+      channel: "l2Book",
+      symbol: "ETH",
+      nSigFigs: "2abc",
+    });
+    const parsed = parseMarketWsSubscription(params);
+
+    expect(parsed).toEqual({
+      ok: false,
+      status: 400,
+      message: "Invalid nSigFigs/depth. Supported values are 2, 3, 4, 5.",
+    });
+  });
+
   it("supports allMids without symbol", () => {
     const params = new URLSearchParams({ channel: "allMids" });
     const parsed = parseMarketWsSubscription(params);

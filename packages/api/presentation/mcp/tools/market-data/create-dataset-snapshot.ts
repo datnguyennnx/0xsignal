@@ -2,6 +2,29 @@ import { Effect } from "effect";
 import { MarketDataServices, isCoverageCompleteStrict } from "@application/market-data";
 import { validationError } from "@application/errors";
 
+const TIMEFRAME_ENUM = [
+  "1m",
+  "3m",
+  "5m",
+  "15m",
+  "30m",
+  "1h",
+  "2h",
+  "4h",
+  "8h",
+  "12h",
+  "1d",
+  "1w",
+] as const;
+
+const parseIsoDate = (value: string, fieldName: "start_time" | "end_time") => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return Effect.fail(validationError(`Invalid date for ${fieldName}: ${value}`));
+  }
+  return Effect.succeed(parsed);
+};
+
 export const createDatasetSnapshotTool = {
   name: "create_dataset_snapshot",
   description: "Create a frozen snapshot of a dataset for reproducible backtesting",
@@ -11,7 +34,7 @@ export const createDatasetSnapshotTool = {
       request_id: { type: "string" },
       symbol: { type: "string" },
       exchange: { type: "string" },
-      timeframe: { type: "string" },
+      timeframe: { type: "string", enum: [...TIMEFRAME_ENUM] },
       start_time: { type: "string" },
       end_time: { type: "string" },
       row_count: { type: "integer" },
@@ -31,12 +54,21 @@ export const createDatasetSnapshotTool = {
   }) =>
     Effect.gen(function* () {
       const services = yield* MarketDataServices;
+      const startTime = yield* parseIsoDate(input.start_time, "start_time");
+      const endTime = yield* parseIsoDate(input.end_time, "end_time");
+
+      if (startTime.getTime() > endTime.getTime()) {
+        return yield* Effect.fail(
+          validationError("start_time must be less than or equal to end_time")
+        );
+      }
+
       const coverage = yield* services.inspectCoverage({
         symbol: input.symbol,
         exchange: input.exchange,
         timeframe: input.timeframe,
-        startTime: new Date(input.start_time),
-        endTime: new Date(input.end_time),
+        startTime,
+        endTime,
       });
 
       const strictComplete = isCoverageCompleteStrict(coverage);

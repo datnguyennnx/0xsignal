@@ -8,32 +8,6 @@ import type {
 import type { BacktestRepository } from "@application/ports/backtest-repository";
 
 export const postgresBacktestRepository: BacktestRepository = {
-  async insertRun(run: BacktestRun): Promise<BacktestRun> {
-    const sql = `
-      INSERT INTO backtest_runs (id, session_id, strategy_version_id, dataset_snapshot_id, status, engine_version, run_mode, initial_capital, base_currency, created_by_action_id, trace_id, span_id, correlation_id, started_at, finished_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING *
-    `;
-    const result = await query(sql, [
-      run.id,
-      run.session_id,
-      run.strategy_version_id,
-      run.dataset_snapshot_id,
-      run.status,
-      run.engine_version,
-      run.run_mode,
-      run.initial_capital,
-      run.base_currency,
-      run.created_by_action_id,
-      run.trace_id,
-      run.span_id,
-      run.correlation_id,
-      run.started_at,
-      run.finished_at,
-    ]);
-    return result.rows[0] as BacktestRun;
-  },
-
   async getRun(id: string): Promise<BacktestRun | null> {
     const sql = `SELECT * FROM backtest_runs WHERE id = $1`;
     const result = await query(sql, [id]);
@@ -125,12 +99,6 @@ export const postgresBacktestRepository: BacktestRepository = {
     return result.rows[0] as BacktestRunInputs;
   },
 
-  async getRunInput(runId: string): Promise<BacktestRunInputs | null> {
-    const sql = `SELECT * FROM backtest_run_inputs WHERE run_id = $1`;
-    const result = await query(sql, [runId]);
-    return result.rows[0] as BacktestRunInputs | null;
-  },
-
   async insertMetric(metric: BacktestMetric): Promise<BacktestMetric> {
     const sql = `
       INSERT INTO backtest_metrics (run_id, metric_key, metric_value, metric_group, created_at)
@@ -172,12 +140,6 @@ export const postgresBacktestRepository: BacktestRepository = {
       event.created_at,
     ]);
     return result.rows[0] as BacktestEvent;
-  },
-
-  async getEventsByRun(runId: string): Promise<BacktestEvent[]> {
-    const sql = `SELECT * FROM backtest_events WHERE run_id = $1 ORDER BY created_at`;
-    const result = await query(sql, [runId]);
-    return result.rows as BacktestEvent[];
   },
 
   async getEventCount(runId: string): Promise<number> {

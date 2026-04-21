@@ -56,18 +56,6 @@ export const postgresAgentRepository: AgentRepository = {
     return result.rows[0] as AgentPlan;
   },
 
-  async getPlan(id: string): Promise<AgentPlan | null> {
-    const sql = `SELECT * FROM agent_plans WHERE id = $1`;
-    const result = await query(sql, [id]);
-    return result.rows[0] as AgentPlan | null;
-  },
-
-  async getPlanBySession(sessionId: string): Promise<AgentPlan[]> {
-    const sql = `SELECT * FROM agent_plans WHERE session_id = $1 ORDER BY version DESC`;
-    const result = await query(sql, [sessionId]);
-    return result.rows as AgentPlan[];
-  },
-
   async insertAction(action: AgentAction): Promise<AgentAction> {
     const sql = `
       INSERT INTO agent_actions (id, session_id, plan_id, action_type, target_type, target_id, input_payload, result_payload, status, error_code, error_message, trace_id, span_id, correlation_id, request_id, parent_span_id, created_at)
@@ -94,17 +82,5 @@ export const postgresAgentRepository: AgentRepository = {
       action.created_at,
     ]);
     return result.rows[0] as AgentAction;
-  },
-
-  async getAction(id: string): Promise<AgentAction | null> {
-    const sql = `SELECT * FROM agent_actions WHERE id = $1`;
-    const result = await query(sql, [id]);
-    return result.rows[0] as AgentAction | null;
-  },
-
-  async getActionsBySession(sessionId: string): Promise<AgentAction[]> {
-    const sql = `SELECT * FROM agent_actions WHERE session_id = $1 ORDER BY created_at`;
-    const result = await query(sql, [sessionId]);
-    return result.rows as AgentAction[];
   },
 };

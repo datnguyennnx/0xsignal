@@ -43,62 +43,7 @@ type McpExecutionLayerConfig = {
   readonly backtestEngineLayer?: Layer.Layer<EngineExecutor>;
 };
 
-export const defaultCapabilities = {
-  resources: {
-    system_architecture: true,
-    system_strategy_schema: true,
-    session_context: true,
-    strategy_history: true,
-    run_summary: true,
-  },
-  tools: {
-    open_session: true,
-    save_plan_version: true,
-    record_agent_action: true,
-    create_strategy_definition: true,
-    create_strategy_version: true,
-    create_candlestick_request: true,
-    create_dataset_snapshot: true,
-    start_backtest_run: true,
-    append_research_note: true,
-    create_artifact: true,
-    get_run_summary: true,
-    discover_markets: true,
-    get_candles: true,
-    inspect_candle_coverage: true,
-    ensure_candle_coverage: true,
-  },
-};
-
-export interface McpServerState {
-  initialized: boolean;
-  capabilities: typeof defaultCapabilities;
-  config: McpServerConfig;
-}
-
-let serverState: McpServerState = {
-  initialized: false,
-  capabilities: defaultCapabilities,
-  config: {
-    serverName: "0xsignal-mcp",
-    serverVersion: "1.0.0",
-  },
-};
-
-export const initializeMcpServer = (config?: Partial<McpServerConfig>): McpServerState => {
-  serverState = {
-    ...serverState,
-    config: { ...serverState.config, ...config },
-    initialized: true,
-  };
-  return serverState;
-};
-
-export const shutdownMcpServer = async (): Promise<void> => {
-  serverState = { ...serverState, initialized: false };
-};
-
-export const getMcpServerState = (): McpServerState => serverState;
+export const initializeMcpServer = (_config?: Partial<McpServerConfig>): void => {};
 
 export const makeMcpExecutionLayer = (config: McpExecutionLayerConfig = {}) => {
   const backtestLayer = BacktestServicesLayer(postgresBacktestRepository).pipe(

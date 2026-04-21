@@ -1,10 +1,9 @@
 /** Health Routes */
 
-import { Effect } from "effect";
 import { HealthServices } from "@application/health";
 
-export const healthRoute = () =>
-  Effect.gen(function* () {
-    const health = yield* HealthServices;
-    return yield* health.check();
-  });
+type HealthHttpService = {
+  readonly check: (typeof HealthServices.Service)["check"];
+};
+
+export const healthRoute = (health: HealthHttpService) => health.check();

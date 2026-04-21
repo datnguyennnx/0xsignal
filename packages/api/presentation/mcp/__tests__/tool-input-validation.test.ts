@@ -102,4 +102,23 @@ describe("MCP Tool Input Validation", () => {
     expect(readTextContent(result.content[0])).toContain("input.exchange is required");
     expect(mockMarketDataServices.inspectCoverage).not.toHaveBeenCalled();
   });
+
+  it("rejects create_dataset_snapshot with unsupported timeframe", async () => {
+    const result = await client.callTool({
+      name: "create_dataset_snapshot",
+      arguments: {
+        request_id: "r-1",
+        symbol: "BTC",
+        exchange: "Hyperliquid",
+        timeframe: "10m",
+        start_time: "2024-01-01",
+        end_time: "2024-01-02",
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(readTextContent(result.content[0])).toContain("Invalid arguments");
+    expect(readTextContent(result.content[0])).toContain("input.timeframe");
+    expect(mockMarketDataServices.inspectCoverage).not.toHaveBeenCalled();
+  });
 });

@@ -191,6 +191,13 @@ describe("HTTP Market Data Router", () => {
     );
   });
 
+  it("rejects malformed integer suffixes for candle limit", async () => {
+    await expectHttpFailure(runRequest("/api/candles?symbol=BTC&interval=1m&limit=2abc"), {
+      status: 400,
+      message: "Invalid integer for limit: 2abc",
+    });
+  });
+
   it("routes /api/ticker preserving app-facing metrics fields", async () => {
     const response = await runRequest("/api/ticker?symbol=BTC");
 
@@ -219,6 +226,13 @@ describe("HTTP Market Data Router", () => {
     await expectHttpFailure(runRequest("/api/orderbook?symbol=BTC&nSigFigs=6"), {
       status: 400,
       message: "Invalid nSigFigs: 6. Supported values are 2, 3, 4, 5.",
+    });
+  });
+
+  it("rejects malformed orderbook precision values", async () => {
+    await expectHttpFailure(runRequest("/api/orderbook?symbol=BTC&nSigFigs=2abc"), {
+      status: 400,
+      message: "Invalid nSigFigs: 2abc. Supported values are 2, 3, 4, 5.",
     });
   });
 

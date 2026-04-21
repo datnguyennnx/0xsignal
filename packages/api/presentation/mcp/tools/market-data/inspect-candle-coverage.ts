@@ -1,5 +1,14 @@
 import { Effect } from "effect";
 import { MarketDataServices, isCoverageCompleteStrict } from "@application/market-data";
+import { validationError } from "@application/errors";
+
+const parseIsoDate = (value: string, fieldName: "start_time" | "end_time") => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return Effect.fail(validationError(`Invalid date for ${fieldName}: ${value}`));
+  }
+  return Effect.succeed(parsed);
+};
 
 export const inspectCandleCoverageTool = {
   name: "inspect_candle_coverage",
@@ -13,13 +22,15 @@ export const inspectCandleCoverageTool = {
   }) =>
     Effect.gen(function* () {
       const services = yield* MarketDataServices;
+      const startTime = yield* parseIsoDate(input.start_time, "start_time");
+      const endTime = yield* parseIsoDate(input.end_time, "end_time");
       return yield* services
         .inspectCoverage({
           symbol: input.symbol,
           exchange: input.exchange ?? "Hyperliquid",
           timeframe: input.interval,
-          startTime: new Date(input.start_time),
-          endTime: new Date(input.end_time),
+          startTime,
+          endTime,
         })
         .pipe(
           Effect.map((res) => ({

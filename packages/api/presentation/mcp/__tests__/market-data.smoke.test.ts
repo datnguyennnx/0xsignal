@@ -221,6 +221,86 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     expect(mockMarketDataServices.createDatasetSnapshot).not.toHaveBeenCalled();
   });
 
+  it("create_dataset_snapshot: should reject invalid start_time", async () => {
+    const tool = getTool("create_dataset_snapshot");
+
+    await expect(
+      Effect.runPromise(
+        tool
+          .execute({
+            request_id: "r1",
+            symbol: "SOL",
+            exchange: "Hyperliquid",
+            timeframe: "1h",
+            start_time: "not-a-date",
+            end_time: "2024-01-02",
+          } as never)
+          .pipe(Effect.provide(getMarketDataToolsLayer()))
+      )
+    ).rejects.toThrow(/Invalid date for start_time/);
+
+    expect(mockMarketDataServices.inspectCoverage).not.toHaveBeenCalled();
+  });
+
+  it("create_dataset_snapshot: should reject when start_time is after end_time", async () => {
+    const tool = getTool("create_dataset_snapshot");
+
+    await expect(
+      Effect.runPromise(
+        tool
+          .execute({
+            request_id: "r1",
+            symbol: "SOL",
+            exchange: "Hyperliquid",
+            timeframe: "1h",
+            start_time: "2024-01-03",
+            end_time: "2024-01-02",
+          } as never)
+          .pipe(Effect.provide(getMarketDataToolsLayer()))
+      )
+    ).rejects.toThrow(/start_time must be less than or equal to end_time/);
+
+    expect(mockMarketDataServices.inspectCoverage).not.toHaveBeenCalled();
+  });
+
+  it("ensure_candle_coverage: should reject invalid end_time", async () => {
+    const tool = getTool("ensure_candle_coverage");
+
+    await expect(
+      Effect.runPromise(
+        tool
+          .execute({
+            symbol: "ETH",
+            interval: "1m",
+            start_time: "2024-01-01",
+            end_time: "not-a-date",
+          } as never)
+          .pipe(Effect.provide(getMarketDataToolsLayer()))
+      )
+    ).rejects.toThrow(/Invalid date for end_time/);
+
+    expect(mockMarketDataServices.getCandles).not.toHaveBeenCalled();
+  });
+
+  it("inspect_candle_coverage: should reject invalid end_time", async () => {
+    const tool = getTool("inspect_candle_coverage");
+
+    await expect(
+      Effect.runPromise(
+        tool
+          .execute({
+            symbol: "ETH",
+            interval: "1m",
+            start_time: "2024-01-01",
+            end_time: "not-a-date",
+          } as never)
+          .pipe(Effect.provide(getMarketDataToolsLayer()))
+      )
+    ).rejects.toThrow(/Invalid date for end_time/);
+
+    expect(mockMarketDataServices.inspectCoverage).not.toHaveBeenCalled();
+  });
+
   it("discover_markets: should return metadata", async () => {
     const tool = getTool("discover_markets");
     mockMarketDataServices.discoverMarkets.mockReturnValue(Effect.succeed({ universe: [] }));

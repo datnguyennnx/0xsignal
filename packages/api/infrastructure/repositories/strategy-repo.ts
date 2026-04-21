@@ -25,12 +25,6 @@ export const postgresStrategyRepository: StrategyRepository = {
     return result.rows[0] as StrategyDefinition;
   },
 
-  async getDefinition(id: string): Promise<StrategyDefinition | null> {
-    const sql = `SELECT * FROM strategy_definitions WHERE id = $1`;
-    const result = await query(sql, [id]);
-    return result.rows[0] as StrategyDefinition | null;
-  },
-
   async insertVersion(version: StrategyVersion): Promise<StrategyVersion> {
     const sql = `
       INSERT INTO strategy_versions (id, strategy_id, parent_version_id, version, config, change_reason, created_by_action_id, schema_version, trace_id, span_id, correlation_id, created_at)
@@ -52,18 +46,6 @@ export const postgresStrategyRepository: StrategyRepository = {
       version.created_at,
     ]);
     return result.rows[0] as StrategyVersion;
-  },
-
-  async getVersion(id: string): Promise<StrategyVersion | null> {
-    const sql = `SELECT * FROM strategy_versions WHERE id = $1`;
-    const result = await query(sql, [id]);
-    return result.rows[0] as StrategyVersion | null;
-  },
-
-  async getVersionsByStrategy(strategyId: string): Promise<StrategyVersion[]> {
-    const sql = `SELECT * FROM strategy_versions WHERE strategy_id = $1 ORDER BY version DESC`;
-    const result = await query(sql, [strategyId]);
-    return result.rows as StrategyVersion[];
   },
 
   async insertChangeRecord(record: StrategyChangeRecord): Promise<StrategyChangeRecord> {
@@ -96,21 +78,21 @@ export const postgresStrategyRepository: StrategyRepository = {
     return result.rows[0] as StrategyChangeRecord;
   },
 
-  async getChangeRecordsByVersion(versionId: string): Promise<StrategyChangeRecord[]> {
-    const sql = `SELECT * FROM strategy_change_records WHERE strategy_version_id = $1 ORDER BY created_at`;
-    const result = await query(sql, [versionId]);
-    return result.rows as StrategyChangeRecord[];
-  },
-
   async getHistory(id: string): Promise<StrategyHistory | null> {
-    const def = await this.getDefinition(id);
+    const defSql = `SELECT * FROM strategy_definitions WHERE id = $1`;
+    const defResult = await query(defSql, [id]);
+    const def = (defResult.rows[0] as StrategyDefinition | undefined) ?? null;
     if (!def) return null;
 
-    const versions = await this.getVersionsByStrategy(id);
+    const versionsSql = `SELECT * FROM strategy_versions WHERE strategy_id = $1 ORDER BY version DESC`;
+    const versionsResult = await query(versionsSql, [id]);
+    const versions = versionsResult.rows as StrategyVersion[];
     const changes: StrategyChangeRecord[] = [];
 
     for (const v of versions) {
-      const vr = await this.getChangeRecordsByVersion(v.id);
+      const changesSql = `SELECT * FROM strategy_change_records WHERE strategy_version_id = $1 ORDER BY created_at`;
+      const changesResult = await query(changesSql, [v.id]);
+      const vr = changesResult.rows as StrategyChangeRecord[];
       changes.push(...vr);
     }
 

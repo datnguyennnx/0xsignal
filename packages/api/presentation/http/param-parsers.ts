@@ -1,10 +1,17 @@
+const INTEGER_PATTERN = /^[+-]?\d+$/;
+
 export const parseOptionalSigFigsParam = (
   params: URLSearchParams,
   key: string
 ): 2 | 3 | 4 | 5 | undefined | null => {
-  const value = params.get(key);
-  if (!value) {
+  const rawValue = params.get(key);
+  if (!rawValue) {
     return undefined;
+  }
+
+  const value = rawValue.trim();
+  if (!INTEGER_PATTERN.test(value)) {
+    return null;
   }
 
   const parsed = Number.parseInt(value, 10);

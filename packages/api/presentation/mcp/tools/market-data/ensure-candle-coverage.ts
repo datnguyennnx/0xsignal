@@ -1,5 +1,14 @@
 import { Effect } from "effect";
 import { MarketDataServices, isCoverageCompleteStrict } from "@application/market-data";
+import { validationError } from "@application/errors";
+
+const parseIsoDate = (value: string, fieldName: "start_time" | "end_time") => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return Effect.fail(validationError(`Invalid date for ${fieldName}: ${value}`));
+  }
+  return Effect.succeed(parsed);
+};
 
 export const ensureCandleCoverageTool = {
   name: "ensure_candle_coverage",
@@ -13,8 +22,8 @@ export const ensureCandleCoverageTool = {
   }) =>
     Effect.gen(function* () {
       const services = yield* MarketDataServices;
-      const startTime = new Date(input.start_time);
-      const endTime = new Date(input.end_time);
+      const startTime = yield* parseIsoDate(input.start_time, "start_time");
+      const endTime = yield* parseIsoDate(input.end_time, "end_time");
       const exchange = input.exchange ?? "Hyperliquid";
 
       // getCandles now implements gap filling logic AND returns the latest coverage
