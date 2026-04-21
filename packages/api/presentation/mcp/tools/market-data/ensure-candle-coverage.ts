@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { MarketDataServices } from "@application/market-data";
+import { MarketDataServices, isCoverageCompleteStrict } from "@application/market-data";
 
 export const ensureCandleCoverageTool = {
   name: "ensure_candle_coverage",
@@ -7,7 +7,7 @@ export const ensureCandleCoverageTool = {
   execute: (input: {
     symbol: string;
     exchange?: string;
-    interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+    interval: "1m" | "3m" | "5m" | "15m" | "30m" | "1h" | "2h" | "4h" | "8h" | "12h" | "1d" | "1w";
     start_time: string;
     end_time: string;
   }) =>
@@ -27,6 +27,7 @@ export const ensureCandleCoverageTool = {
       });
 
       const { coverage } = result;
+      const isComplete = isCoverageCompleteStrict(coverage);
 
       return {
         symbol: input.symbol,
@@ -35,10 +36,16 @@ export const ensureCandleCoverageTool = {
         rowCount: coverage.rowCount,
         expectedCount: coverage.expectedCount,
         fullCoverage: coverage.fullCoverage,
+        strictComplete: isComplete,
         provenance: result.provenance,
-        status: coverage.fullCoverage
-          ? "Coverage Verified (FULL)"
-          : "Coverage Partial (Gaps remaining)",
+        status: isComplete ? "Coverage Verified (FULL)" : "Coverage Partial (Gaps remaining)",
+        completeness: {
+          semantics: "strict",
+          complete: isComplete,
+          rowCount: coverage.rowCount,
+          expectedCount: coverage.expectedCount,
+          missingWindowCount: coverage.missingWindows.length,
+        },
         missingWindows: coverage.missingWindows,
       };
     }),
@@ -47,7 +54,10 @@ export const ensureCandleCoverageTool = {
     properties: {
       symbol: { type: "string" },
       exchange: { type: "string" },
-      interval: { type: "string", enum: ["1m", "5m", "15m", "1h", "4h", "1d"] },
+      interval: {
+        type: "string",
+        enum: ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h", "12h", "1d", "1w"],
+      },
       start_time: { type: "string" },
       end_time: { type: "string" },
     },

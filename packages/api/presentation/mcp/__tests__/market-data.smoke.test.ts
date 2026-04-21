@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Context } from "effect";
 import { ALL_TOOLS } from "../registry";
 import { MarketDataServices } from "@application/market-data";
 import { BacktestServices } from "@application/backtest";
@@ -9,6 +9,7 @@ describe("Market Data MCP Tools Smoke Proof", () => {
   const mockMarketDataServices = {
     discoverMarkets: vi.fn(),
     getCandles: vi.fn(),
+    getRecentCandles: vi.fn(),
     inspectCoverage: vi.fn(),
     createDatasetSnapshot: vi.fn(),
     requestCandlesticks: vi.fn(),
@@ -31,9 +32,18 @@ describe("Market Data MCP Tools Smoke Proof", () => {
   };
 
   const TestContext = Layer.mergeAll(
-    Layer.succeed(MarketDataServices, mockMarketDataServices as any),
-    Layer.succeed(AgentServices, mockAgentServices as any),
-    Layer.succeed(BacktestServices, mockBacktestServices as any)
+    Layer.succeed(
+      MarketDataServices,
+      mockMarketDataServices as unknown as Context.Tag.Service<typeof MarketDataServices>
+    ),
+    Layer.succeed(
+      AgentServices,
+      mockAgentServices as unknown as Context.Tag.Service<typeof AgentServices>
+    ),
+    Layer.succeed(
+      BacktestServices,
+      mockBacktestServices as unknown as Context.Tag.Service<typeof BacktestServices>
+    )
   );
 
   beforeEach(() => {
@@ -46,22 +56,35 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     return tool;
   };
 
+  const getMarketDataToolsLayer = () =>
+    Layer.succeed(MarketDataServices, {
+      discoverMarkets: mockMarketDataServices.discoverMarkets,
+      getCandles: mockMarketDataServices.getCandles,
+      getRecentCandles: mockMarketDataServices.getRecentCandles,
+      inspectCoverage: mockMarketDataServices.inspectCoverage,
+      createDatasetSnapshot: mockMarketDataServices.createDatasetSnapshot,
+      requestCandlesticks: mockMarketDataServices.requestCandlesticks,
+      getDatasetSnapshot: mockMarketDataServices.getDatasetSnapshot,
+    } as unknown as Context.Tag.Service<typeof MarketDataServices>);
+
   it("get_candles: should return data with provenance", async () => {
     const tool = getTool("get_candles");
     mockMarketDataServices.getCandles.mockReturnValue(
       Effect.succeed({
         candles: [{ open: 60000 }],
-        provenance: "QuestDB (Local Cache)",
+        provenance: "QuestDB (Historical + Gap Fill)",
         coverage: { expectedCount: 1, fullCoverage: true, missingWindows: [] },
       })
     );
 
     const result = (await Effect.runPromise(
-      tool.execute({ symbol: "BTC", interval: "1h" } as never).pipe(Effect.provide(TestContext))
+      tool
+        .execute({ symbol: "BTC", interval: "1h" } as never)
+        .pipe(Effect.provide(getMarketDataToolsLayer()))
     )) as { candles: unknown[]; provenance: string };
 
     expect(result.candles).toHaveLength(1);
-    expect(result.provenance).toBe("QuestDB (Local Cache)");
+    expect(result.provenance).toBe("QuestDB (Historical + Gap Fill)");
     expect(mockMarketDataServices.getCandles).toHaveBeenCalledWith(
       expect.objectContaining({ symbol: "BTC", timeframe: "1h" })
     );
@@ -87,7 +110,7 @@ describe("Market Data MCP Tools Smoke Proof", () => {
           start_time: "2024-01-01",
           end_time: "2024-01-02",
         } as never)
-        .pipe(Effect.provide(TestContext))
+        .pipe(Effect.provide(getMarketDataToolsLayer()))
     )) as { rowCount: number; hasData: boolean };
 
     expect(result.rowCount).toBe(100);
@@ -118,9 +141,9 @@ describe("Market Data MCP Tools Smoke Proof", () => {
             end_time: "2024-01-02",
             checksum: "abc",
           } as never)
-          .pipe(Effect.provide(TestContext))
+          .pipe(Effect.provide(getMarketDataToolsLayer()))
       )
-    ).rejects.toThrow(/Incomplete coverage/);
+    ).rejects.toThrow(/Incomplete strict coverage/);
 
     expect(mockMarketDataServices.createDatasetSnapshot).not.toHaveBeenCalled();
   });
@@ -151,11 +174,51 @@ describe("Market Data MCP Tools Smoke Proof", () => {
           end_time: "2024-01-02",
           checksum: "abc",
         } as never)
-        .pipe(Effect.provide(TestContext))
-    )) as { snapshot_id: string; provenance: string };
+        .pipe(Effect.provide(getMarketDataToolsLayer()))
+    )) as { snapshot_id: string; provenance: string; completeness: { semantics: string } };
 
     expect(result.snapshot_id).toBe("snap-42");
-    expect(result.provenance).toBe("QuestDB (Verified)");
+    expect(result.provenance).toContain("QuestDB (Strict Coverage Verified");
+    expect(result.completeness.semantics).toBe("strict");
+    expect(mockMarketDataServices.createDatasetSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query_fingerprint: "SOL|Hyperliquid|1h|2024-01-01|2024-01-02|strict",
+        source_series: expect.objectContaining({
+          source: "questdb",
+          completeness_semantics: "strict",
+        }),
+      })
+    );
+  });
+
+  it("create_dataset_snapshot: should reject strict-incomplete coverage even if fullCoverage=true", async () => {
+    const tool = getTool("create_dataset_snapshot");
+    mockMarketDataServices.inspectCoverage.mockReturnValue(
+      Effect.succeed({
+        hasData: true,
+        rowCount: 23,
+        expectedCount: 24,
+        fullCoverage: true,
+        missingWindows: [],
+      })
+    );
+
+    await expect(
+      Effect.runPromise(
+        tool
+          .execute({
+            request_id: "r1",
+            symbol: "SOL",
+            exchange: "Hyperliquid",
+            timeframe: "1h",
+            start_time: "2024-01-01",
+            end_time: "2024-01-02",
+          } as never)
+          .pipe(Effect.provide(getMarketDataToolsLayer()))
+      )
+    ).rejects.toThrow(/Incomplete strict coverage/);
+
+    expect(mockMarketDataServices.createDatasetSnapshot).not.toHaveBeenCalled();
   });
 
   it("discover_markets: should return metadata", async () => {
@@ -163,7 +226,7 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     mockMarketDataServices.discoverMarkets.mockReturnValue(Effect.succeed({ universe: [] }));
 
     const result = (await Effect.runPromise(
-      tool.execute({} as never).pipe(Effect.provide(TestContext))
+      tool.execute({} as never).pipe(Effect.provide(getMarketDataToolsLayer()))
     )) as { universe: unknown[] };
 
     expect(result.universe).toBeDefined();
@@ -179,7 +242,7 @@ describe("Market Data MCP Tools Smoke Proof", () => {
     await Effect.runPromise(
       tool
         .execute({ symbol: "BTC", interval: "1h", _interactionId: "trace-999" } as never)
-        .pipe(Effect.provide(TestContext))
+        .pipe(Effect.provide(getMarketDataToolsLayer()))
     );
 
     expect(mockMarketDataServices.requestCandlesticks).toHaveBeenCalledWith(

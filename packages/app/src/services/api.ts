@@ -1,21 +1,21 @@
 /**
  * @overview API Client Services
  *
- * Provides a central interface for backend-related data and proxying to external
- * exchange APIs (like Hyperliquid) when cross-source data is needed.
+ * Provides a central frontend client for backend-owned market data APIs.
+ * It does not connect directly to Hyperliquid for canonical market data flows.
  *
  * @mechanism
  * - Uses native fetch for stateless HTTP requests
  * - Custom error classes (ApiError, NetworkError) for consistent error handling
- * - Combines multiple external sources to provide unified DTOs (e.g. FuturesPrice)
+ * - Maps backend payloads into app-friendly DTOs for render-local state (e.g. FuturesPrice)
  */
 // API Client - Simple async functions
 import type { ChartDataPoint } from "@0xsignal/shared";
-import { hyperliquidApi } from "./hyperliquid";
+import { resolveApiBase } from "@/lib/api-base";
+import { normalizeSymbol } from "@/features/trade/lib/symbol";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
-const API_BASE =
-  import.meta.env.DEV || !configuredApiUrl ? "/api" : `${configuredApiUrl.replace(/\/+$/, "")}/api`;
+const API_BASE = resolveApiBase(configuredApiUrl, import.meta.env.DEV);
 
 export type { ChartDataPoint };
 
@@ -35,6 +35,99 @@ export class NetworkError extends Error {
     super(message);
     this.name = "NetworkError";
   }
+}
+
+interface ApiCandle {
+  timestamp?: string | number;
+  time?: string | number;
+  t?: number;
+  open?: string | number;
+  high?: string | number;
+  low?: string | number;
+  close?: string | number;
+  volume?: string | number;
+  o?: string | number;
+  h?: string | number;
+  l?: string | number;
+  c?: string | number;
+  v?: string | number;
+}
+
+interface ApiCandlePayload {
+  candles?: ApiCandle[];
+  lane?: ApiCandle[];
+  data?: ApiCandle[];
+}
+
+export function normalizeChartDataPoints(points: readonly ChartDataPoint[]): ChartDataPoint[] {
+  const dedupedByTime = new Map<number, ChartDataPoint>();
+
+  for (const point of points) {
+    if (Number.isFinite(point.time)) {
+      dedupedByTime.set(point.time, point);
+    }
+  }
+
+  return Array.from(dedupedByTime.values()).sort((a, b) => a.time - b.time);
+}
+
+function toNumericTimestampMs(value: string | number | undefined): number | null {
+  if (typeof value === "number") {
+    if (Number.isFinite(value)) {
+      return value > 1_000_000_000_000 ? value : value * 1000;
+    }
+    return null;
+  }
+  if (typeof value !== "string") return null;
+  const num = Number(value);
+  if (Number.isFinite(num)) {
+    return num > 1_000_000_000_000 ? num : num * 1000;
+  }
+  const dateMs = Date.parse(value);
+  return Number.isFinite(dateMs) ? dateMs : null;
+}
+
+function toNumberOrNull(value: unknown): number | null {
+  const parsed =
+    typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function mapCandleToChartDataPoint(candle: ApiCandle): ChartDataPoint | null {
+  const tsMs = toNumericTimestampMs(candle.timestamp ?? candle.time ?? candle.t);
+  const open = toNumberOrNull(candle.open ?? candle.o);
+  const high = toNumberOrNull(candle.high ?? candle.h);
+  const low = toNumberOrNull(candle.low ?? candle.l);
+  const close = toNumberOrNull(candle.close ?? candle.c);
+  const volume = toNumberOrNull(candle.volume ?? candle.v);
+
+  if (
+    tsMs === null ||
+    open === null ||
+    high === null ||
+    low === null ||
+    close === null ||
+    volume === null
+  ) {
+    return null;
+  }
+
+  return {
+    time: Math.floor(tsMs / 1000),
+    open,
+    high,
+    low,
+    close,
+    volume,
+  };
+}
+
+function extractCandles(payload: ApiCandlePayload | ApiCandle[]): ApiCandle[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.candles)) return payload.candles;
+  if (Array.isArray(payload.lane)) return payload.lane;
+  if (Array.isArray(payload.data)) return payload.data;
+  return [];
 }
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
@@ -71,77 +164,149 @@ export interface FuturesPrice {
   readonly timestamp: Date;
 }
 
+export interface BackendMarketAsset {
+  name: string;
+  szDecimals?: number;
+  maxLeverage?: number;
+  isDelisted?: boolean;
+}
+
+export interface BackendMarketsResponse {
+  universe?: BackendMarketAsset[];
+}
+
+export interface BackendTickerResponse {
+  symbol?: string;
+  mid?: number | string | null;
+  markPx?: number | string | null;
+  midPx?: number | string | null;
+  prevDayPx?: number | string | null;
+  dayNtlVlm?: number | string | null;
+  openInterest?: number | string | null;
+  funding?: number | string | null;
+}
+
+export interface BackendOrderbookResponse {
+  symbol?: string;
+  orderbook?: unknown;
+}
+
+export interface TradeAnnotation {
+  category?: string;
+  description?: string;
+  displayName?: string;
+  keywords?: string[];
+}
+
+export interface BackendTradeAnnotationResponse {
+  symbol?: string;
+  annotation?: TradeAnnotation | null;
+}
+
 export const api = {
   health: () => fetchJson(`${API_BASE}/health`),
 
+  getMarkets: () => fetchJson<BackendMarketsResponse>(`${API_BASE}/markets`),
+
+  getCandles: async (params: {
+    symbol: string;
+    interval: string;
+    startTime?: number;
+    endTime?: number;
+    limit?: number;
+  }): Promise<ChartDataPoint[]> => {
+    const query = new URLSearchParams({
+      symbol: normalizeSymbol(params.symbol),
+      interval: params.interval,
+    });
+    if (params.startTime !== undefined) {
+      query.set("start_time", new Date(params.startTime).toISOString());
+    }
+    if (params.endTime !== undefined) {
+      query.set("end_time", new Date(params.endTime).toISOString());
+    }
+    if (params.limit !== undefined) {
+      query.set("limit", String(params.limit));
+    }
+
+    const payload = await fetchJson<ApiCandlePayload>(`${API_BASE}/candles?${query.toString()}`);
+    const candles = extractCandles(payload);
+    return normalizeChartDataPoints(
+      candles
+        .map((candle) => mapCandleToChartDataPoint(candle))
+        .filter((point): point is ChartDataPoint => point !== null)
+    );
+  },
+
+  getRecentChartLane: async (params: {
+    symbol: string;
+    interval: string;
+    limit?: number;
+    endTime?: number;
+  }): Promise<ChartDataPoint[]> => {
+    const query = new URLSearchParams({
+      symbol: normalizeSymbol(params.symbol),
+      interval: params.interval,
+    });
+
+    if (params.limit !== undefined) {
+      query.set("limit", String(params.limit));
+    }
+    if (params.endTime !== undefined) {
+      query.set("end_time", new Date(params.endTime).toISOString());
+    }
+
+    const payload = await fetchJson<ApiCandlePayload>(
+      `${API_BASE}/candles/recent?${query.toString()}`
+    );
+    const candles = extractCandles(payload);
+    return normalizeChartDataPoints(
+      candles
+        .map((candle) => mapCandleToChartDataPoint(candle))
+        .filter((point): point is ChartDataPoint => point !== null)
+    );
+  },
+
+  getTicker: (symbol: string) =>
+    fetchJson<BackendTickerResponse>(
+      `${API_BASE}/ticker?symbol=${encodeURIComponent(normalizeSymbol(symbol))}`
+    ),
+
+  getOrderbook: (symbol: string, depth?: number) => {
+    const query = new URLSearchParams({ symbol: normalizeSymbol(symbol) });
+    if (depth !== undefined) query.set("depth", String(depth));
+    return fetchJson<BackendOrderbookResponse>(`${API_BASE}/orderbook?${query.toString()}`);
+  },
+
+  getTradeAnnotation: (symbol: string) =>
+    fetchJson<BackendTradeAnnotationResponse>(
+      `${API_BASE}/trade-annotation?symbol=${encodeURIComponent(normalizeSymbol(symbol))}`
+    ),
+
   getFuturesPrice: async (symbol: string): Promise<FuturesPrice> => {
-    const cleanSymbol = symbol
-      .trim()
-      .replace(/USDT?$/, "")
-      .replace(/USDC?$/, "")
-      .toUpperCase();
-    const isBuilderPerp = cleanSymbol.includes(":");
+    const normalizedSymbol = normalizeSymbol(symbol);
+    const ticker = await api.getTicker(normalizedSymbol);
 
-    let normalizedSearch: string;
-    let dex: string | undefined;
-
-    if (isBuilderPerp) {
-      const [dexPart, ...coinParts] = cleanSymbol.split(":");
-      normalizedSearch = `${dexPart.toLowerCase()}:${coinParts.join(":")}`;
-      dex = dexPart.toLowerCase();
-    } else {
-      normalizedSearch = cleanSymbol;
-    }
-
-    const [allMids, metaAndAssetCtxs] = await Promise.all([
-      dex ? hyperliquidApi.getAllPerpMids(dex) : hyperliquidApi.getAllMids(),
-      dex ? hyperliquidApi.getMetaAndAssetCtxs(dex) : hyperliquidApi.getMetaAndAssetCtxs(),
-    ]);
-
-    if (!allMids || typeof allMids !== "object") {
-      throw new ApiError("Failed to fetch prices from Hyperliquid", 500);
-    }
-
-    const [meta, assetCtxs] = metaAndAssetCtxs;
-
-    if (!meta || !meta.universe) {
-      throw new ApiError("Failed to fetch asset metadata from Hyperliquid", 500);
-    }
-
-    const universe = meta.universe;
-
-    let coinIndex = universe.findIndex((u) => u.name === normalizedSearch);
-    if (coinIndex === -1) {
-      coinIndex = universe.findIndex((u) => u.name.toUpperCase() === normalizedSearch);
-    }
-    if (coinIndex === -1) {
-      throw new ApiError(`"${symbol}" not found`, 404);
-    }
-
-    const coinName = universe[coinIndex].name;
-    const mid = allMids[coinName];
-    if (!mid) {
-      throw new ApiError(`No price data for ${coinName}`, 500);
-    }
-
-    const ctx = assetCtxs[coinIndex];
-    if (!ctx) {
-      throw new ApiError(`No asset context for ${coinName}`, 404);
-    }
-
-    const price = parseFloat(ctx.markPx || ctx.midPx || mid);
-    const prevDayPx = parseFloat(ctx.prevDayPx);
+    const mid = toNumberOrNull(ticker.mid ?? ticker.midPx ?? ticker.markPx) ?? 0;
+    const markPx = toNumberOrNull(ticker.markPx) ?? mid;
+    const midPx = toNumberOrNull(ticker.midPx) ?? mid;
+    const prevDayPx = toNumberOrNull(ticker.prevDayPx) ?? markPx;
+    const price = markPx || midPx;
     const change24h = prevDayPx > 0 ? ((price - prevDayPx) / prevDayPx) * 100 : 0;
+    const resolvedSymbol =
+      typeof ticker.symbol === "string" && ticker.symbol.trim().length > 0
+        ? ticker.symbol
+        : normalizedSymbol;
 
     return {
-      symbol: coinName,
+      symbol: resolvedSymbol,
       price,
       change24h,
-      volume24h: parseFloat(ctx.dayNtlVlm || "0"),
-      openInterest: parseFloat(ctx.openInterest || "0"),
-      funding: parseFloat(ctx.funding || "0"),
-      markPx: parseFloat(ctx.markPx || mid),
-      midPx: parseFloat(ctx.midPx || mid),
+      volume24h: toNumberOrNull(ticker.dayNtlVlm) ?? 0,
+      openInterest: toNumberOrNull(ticker.openInterest) ?? 0,
+      funding: toNumberOrNull(ticker.funding) ?? 0,
+      markPx,
+      midPx,
       prevDayPx,
       high24h: undefined,
       low24h: undefined,

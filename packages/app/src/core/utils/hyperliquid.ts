@@ -1,12 +1,13 @@
 /**
- * @overview Hyperliquid Data Utilities
+ * @overview Market Data UI Utilities
  * @audit 2026-04-03
  *   - processRawL2Levels: reduced allocations from 4+ intermediate arrays to 2 (bids + asks only)
  *     Time: O(n log n) dominated by sort (Ω(n log n) lower bound for comparison sort — optimal)
  *     Space: O(n) for output arrays only, no temporary sorted copies
  *   - groupOrderbookLevels: replaced Number(p.toFixed(d)) with Math.round(p*m)/m
  *     Avoids O(d) string conversion per level; pure O(1) floating-point arithmetic
- * @data-flow Hyperliquid WS → SDK → processRawL2Levels → RAF batch → React state → OrderbookWidget
+ * @data-flow backend WS/HTTP payloads → UI adapters → processRawL2Levels/groupOrderbookLevels
+ *   → RAF batch/local state → chart + orderbook rendering
  */
 
 // Supported time intervals
@@ -22,17 +23,13 @@ export type HLInterval =
   | "8h"
   | "12h"
   | "1d"
-  | "3d"
-  | "1w"
-  | "1M";
+  | "1w";
 
 /**
- * Maps a generic interval string (like "1h") to a valid Hyperliquid API interval.
+ * Maps a generic interval string (like "1h") to a supported backend market interval.
  */
 export const mapToHLInterval = (interval: string): HLInterval =>
-  (["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h", "12h", "1d", "3d", "1w", "1M"].includes(
-    interval
-  )
+  (["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h", "12h", "1d", "1w"].includes(interval)
     ? interval
     : "1h") as HLInterval;
 

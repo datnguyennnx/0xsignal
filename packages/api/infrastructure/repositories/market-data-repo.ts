@@ -1,12 +1,6 @@
 import { query } from "../db/postgres/client";
 import type { CandlestickRequest, DatasetSnapshot } from "@schemas/market-data";
-
-export interface MarketDataRepository {
-  insertCandlestickRequest(request: CandlestickRequest): Promise<CandlestickRequest>;
-  getCandlestickRequest(id: string): Promise<CandlestickRequest | null>;
-  insertDatasetSnapshot(snapshot: DatasetSnapshot): Promise<DatasetSnapshot>;
-  getDatasetSnapshot(id: string): Promise<DatasetSnapshot | null>;
-}
+import type { MarketDataRepository } from "@application/ports/market-data-repository";
 
 export const postgresMarketDataRepository: MarketDataRepository = {
   async insertCandlestickRequest(request: CandlestickRequest): Promise<CandlestickRequest> {

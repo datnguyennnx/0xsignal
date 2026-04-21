@@ -5,8 +5,11 @@ import {
   MarketDataServices,
   MarketCandleStore,
   MarketRemoteProvider,
+  type MarketCandleStorePort,
+  type MarketRemoteProviderPort,
 } from "../market-data";
 import type { Candle } from "@schemas/market-data";
+import type { MarketDataRepository } from "../ports/market-data-repository";
 
 const mkCandle = (timestampMs: number, price: number): Candle => ({
   timestamp: new Date(timestampMs),
@@ -18,7 +21,7 @@ const mkCandle = (timestampMs: number, price: number): Candle => ({
 });
 
 describe("MarketDataServices Batching", () => {
-  const mockRepo = {} as any;
+  const mockRepo = {} as unknown as MarketDataRepository;
 
   const mockCandleRepo = {
     checkCoverage: vi.fn(),
@@ -35,8 +38,8 @@ describe("MarketDataServices Batching", () => {
   };
 
   const TestContext = Layer.mergeAll(
-    Layer.succeed(MarketCandleStore, mockCandleRepo as any),
-    Layer.succeed(MarketRemoteProvider, mockHLProvider as any)
+    Layer.succeed(MarketCandleStore, mockCandleRepo as unknown as MarketCandleStorePort),
+    Layer.succeed(MarketRemoteProvider, mockHLProvider as unknown as MarketRemoteProviderPort)
   );
 
   const MarketDataServicesTest = Layer.effect(

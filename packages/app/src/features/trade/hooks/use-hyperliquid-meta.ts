@@ -1,11 +1,11 @@
 /**
  * @overview Hyperliquid Metadata Hook
  *
- * Fetches and manages perpetual asset metadata (universe, decimals, leverage).
+ * Fetches and manages market metadata from backend `/api/markets`.
  * Provides helper functions for price and size precision formatting.
  *
  * @mechanism
- * - Fetches universe data from Hyperliquid Info API for all DEXes (main + HIP-3)
+ * - Fetches backend-provided universe metadata (backend owns upstream source + normalization)
  * - Memoizes a precision mapping for O(1) lookups during rendering
  * - Uses TanStack Query for long-term metadata caching
  *
@@ -20,14 +20,14 @@
  * - Spot:  pxDecimals = min(5, 8 - szDecimals)
  * This ensures price decimals never exceed MAX_DECIMALS - szDecimals constraint.
  *
- * @reference https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/asset-ids
+ * @role frontend render-local precision adapter for UI formatting.
  */
 
 import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { hyperliquidApi } from "@/services/hyperliquid";
+import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
-import { parseSymbol } from "./use-hyperliquid-ws";
+import { parseSymbol } from "../lib/symbol";
 
 const MAX_DECIMALS_PERP = 6;
 const MAX_DECIMALS_SPOT = 8;
@@ -48,13 +48,10 @@ export function calculatePxDecimals(szDecimals: number, isSpot = false): number 
   return Math.min(MAX_SIG_FIGS, maxDecimals - szDecimals);
 }
 
-export function useHyperliquidMeta(symbol?: string) {
-  const parsed = symbol ? parseSymbol(symbol) : null;
-  const dex = parsed?.kind === "builderPerp" ? parsed.dex : undefined;
-
+export function useHyperliquidMeta() {
   const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.hyperliquid.meta(dex),
-    queryFn: () => hyperliquidApi.getMeta(dex),
+    queryKey: queryKeys.marketData.markets(),
+    queryFn: () => api.getMarkets(),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,

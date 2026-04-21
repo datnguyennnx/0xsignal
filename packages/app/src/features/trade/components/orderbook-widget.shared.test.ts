@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getEffectivePriceScaling,
   mapVisibleOrderbookLevels,
+  shouldApplyInitialPrecisionSync,
   type PriceScalingState,
 } from "./orderbook-widget.shared";
 import type { OrderbookData } from "@/core/utils/hyperliquid";
@@ -41,5 +42,47 @@ describe("orderbook-widget shared helpers", () => {
     expect(result.visibleBids).toEqual([99, 98]);
     expect(result.visibleAsks).toEqual([101, 102]);
     expect(result.maxTotal).toBe(4);
+  });
+
+  it("does not apply initial precision sync after user selects precision", () => {
+    const shouldSync = shouldApplyInitialPrecisionSync({
+      symbol: "btc",
+      userPriceScaling: { symbol: "btc", value: 2 },
+      hasSyncedForSymbol: false,
+      userInteracted: true,
+    });
+
+    expect(shouldSync).toBe(false);
+  });
+
+  it("does not apply initial precision sync when user scaling already exists for symbol", () => {
+    const shouldSync = shouldApplyInitialPrecisionSync({
+      symbol: "eth",
+      userPriceScaling: { symbol: "eth", value: 3 },
+      hasSyncedForSymbol: false,
+      userInteracted: false,
+    });
+
+    expect(shouldSync).toBe(false);
+  });
+
+  it("applies initial precision sync only before first symbol sync", () => {
+    expect(
+      shouldApplyInitialPrecisionSync({
+        symbol: "sol",
+        userPriceScaling: null,
+        hasSyncedForSymbol: false,
+        userInteracted: false,
+      })
+    ).toBe(true);
+
+    expect(
+      shouldApplyInitialPrecisionSync({
+        symbol: "sol",
+        userPriceScaling: null,
+        hasSyncedForSymbol: true,
+        userInteracted: false,
+      })
+    ).toBe(false);
   });
 });

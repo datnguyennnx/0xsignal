@@ -10,6 +10,7 @@ export interface CandleQuery {
   readonly startTime?: Date;
   readonly endTime?: Date;
   readonly limit?: number;
+  readonly disableLimitForRange?: boolean;
 }
 
 export class CandleRepository extends Context.Tag("CandleRepository")<
@@ -93,20 +94,19 @@ export function checkCoverage(
   return Effect.gen(function* () {
     const expectedCount = queries.getExpectedRowCount(startTime, endTime, timeframe);
 
-    // To find gaps, we need timestamps
-    const sql = `
-      SELECT timestamp
-      FROM candle
-      WHERE symbol = '${symbol}'
-        AND exchange = '${exchange}'
-        AND timeframe = '${timeframe}'
-        AND timestamp >= '${startTime.toISOString()}'
-        AND timestamp <= '${endTime.toISOString()}'
-      ORDER BY timestamp ASC
-    `.trim();
+    const sql = queries.buildCoverageTimestampQuery(
+      symbol,
+      exchange,
+      timeframe,
+      startTime,
+      endTime
+    );
 
     const result = yield* query(sql);
     const rowCount = result.dataset.length;
+    const uniqueTimestampCount = new Set(
+      result.dataset.map((row) => new Date(row[0] as string).getTime())
+    ).size;
 
     const missingWindows: Array<{ start: Date; end: Date }> = [];
     const timeframeMs = queries.getTimeframeMs(timeframe);
@@ -145,7 +145,7 @@ export function checkCoverage(
       hasData: rowCount > 0,
       rowCount,
       expectedCount,
-      fullCoverage: rowCount >= expectedCount,
+      fullCoverage: uniqueTimestampCount >= expectedCount && missingWindows.length === 0,
       missingWindows,
     };
   });

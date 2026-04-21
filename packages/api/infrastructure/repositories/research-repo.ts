@@ -1,15 +1,6 @@
 import { query } from "../db/postgres/client";
 import type { ResearchNote, Artifact } from "@schemas/research";
-
-export interface ResearchRepository {
-  insertNote(note: ResearchNote): Promise<ResearchNote>;
-  getNote(id: string): Promise<ResearchNote | null>;
-  getNotesBySession(sessionId: string): Promise<ResearchNote[]>;
-  getNotesByRun(runId: string): Promise<ResearchNote[]>;
-  insertArtifact(artifact: Artifact): Promise<Artifact>;
-  getArtifact(id: string): Promise<Artifact | null>;
-  getArtifactsByRun(runId: string): Promise<Artifact[]>;
-}
+import type { ResearchRepository } from "@application/ports/research-repository";
 
 export const postgresResearchRepository: ResearchRepository = {
   async insertNote(note: ResearchNote): Promise<ResearchNote> {

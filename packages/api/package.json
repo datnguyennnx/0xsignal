@@ -12,12 +12,8 @@
     "lint": "eslint . --ext .ts",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui",
-    "db:up": "docker compose -f docker-compose.yml up -d",
-    "db:down": "docker compose -f docker-compose.yml down",
-    "db:reset": "docker compose -f docker-compose.yml down -v"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@nktkas/hyperliquid": "^0.32.1",

@@ -75,12 +75,14 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   const { setHoveredCandle } = useHoverActions();
   // Use data (state) for render-phase access, not dataRef
   const { data, loadMore, hasMore, isFetching } = useCandleData();
+  const shouldShowLoadMoreIndicator = isFetching && data.length > 0;
 
   const chartSymbol = symbol.toUpperCase();
   const [ictVisibility, setIctVisibility] = useState<ICTVisibility>(DEFAULT_ICT_VISIBILITY);
   const [wyckoffVisibility, setWyckoffVisibility] = useState<WyckoffVisibility>(
     DEFAULT_WYCKOFF_VISIBILITY
   );
+  const [pendingInterval, setPendingInterval] = useState<string | null>(null);
 
   const { isFullscreen, toggleFullscreen, fullscreenContainerRef } = useFullscreen();
   const showOrientationWarning = useOrientationWarning(isFullscreen);
@@ -115,7 +117,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   } = useIndicators({ data });
 
   const handleLoadMore = useCallback(() => {
-    loadMore?.(chartConfig.loadMoreCandles);
+    return loadMore?.(chartConfig.loadMoreCandles);
   }, [loadMore, chartConfig.loadMoreCandles]);
 
   const { chart, candlestickSeries, volumeSeries } = useChartEngine({
@@ -177,6 +179,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   const handleIntervalChange = useCallback(
     (newInterval: string) => {
       if (newInterval === interval) return;
+      setPendingInterval(newInterval);
       const wasFullscreen = isFullscreen;
       onIntervalChange(newInterval);
       if (wasFullscreen) {
@@ -186,12 +189,15 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     [onIntervalChange, interval, isFullscreen, toggleFullscreen]
   );
 
+  const isIntervalSwitching =
+    pendingInterval !== null && (interval !== pendingInterval || data.length === 0);
+
   const chartContent = (
     <>
       <ChartHeader
         interval={interval}
         onIntervalChange={handleIntervalChange}
-        isFetching={isFetching}
+        isIntervalSwitching={isIntervalSwitching}
       >
         <ChartControls
           ictVisibility={ictVisibility}
@@ -216,11 +222,19 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
         isFullscreen={isFullscreen}
         onIntervalChange={handleIntervalChange}
         onToggleFullscreen={toggleFullscreen}
-        isFetching={isFetching}
+        isIntervalSwitching={isIntervalSwitching}
       />
 
       <div className="flex-1 relative bg-card overscroll-none">
         <div ref={chartContainerRef} className="absolute inset-0" />
+        {shouldShowLoadMoreIndicator && (
+          <div className="pointer-events-none absolute left-3 top-3 z-20">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/85 px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+              <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+              Loading older candles
+            </div>
+          </div>
+        )}
         <IndicatorChips indicators={activeIndicators} />
         <ChartOhlcOverlay data={data} precision={precision.pxDecimals} />
       </div>

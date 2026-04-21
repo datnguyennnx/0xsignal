@@ -7,6 +7,23 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { McpServerDependencies } from "../server";
 
 describe("MCP Tool Input Validation", () => {
+  const readTextContent = (entry: unknown): string => {
+    if (typeof entry === "object" && entry !== null && "text" in entry) {
+      const maybeText = (entry as { text?: unknown }).text;
+      return typeof maybeText === "string" ? maybeText : "";
+    }
+
+    if (typeof entry === "object" && entry !== null && "content" in entry) {
+      const content = (entry as { content?: unknown }).content;
+      if (typeof content === "object" && content !== null && "text" in content) {
+        const maybeText = (content as { text?: unknown }).text;
+        return typeof maybeText === "string" ? maybeText : "";
+      }
+    }
+
+    return "";
+  };
+
   const mockMcpRepo = {
     insertInteraction: vi.fn().mockResolvedValue({}),
     updateInteractionStatus: vi.fn().mockResolvedValue({}),
@@ -47,9 +64,9 @@ describe("MCP Tool Input Validation", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    initializeMcpServer({}, mockDeps);
+    initializeMcpServer();
     const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair();
-    server = new McpServer();
+    server = new McpServer(mockDeps);
     client = new Client({ name: "test-client", version: "1.0.0" }, { capabilities: {} });
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   });
@@ -65,8 +82,8 @@ describe("MCP Tool Input Validation", () => {
     });
 
     expect(result.isError).toBe(true);
-    expect((result as any).content[0].text).toContain("Invalid arguments");
-    expect((result as any).content[0].text).toContain("input.objective is required");
+    expect(readTextContent(result.content[0])).toContain("Invalid arguments");
+    expect(readTextContent(result.content[0])).toContain("input.objective is required");
     expect(mockAgentServices.openSession).not.toHaveBeenCalled();
     expect(mockMcpRepo.insertInteraction).not.toHaveBeenCalled();
   });
@@ -81,8 +98,8 @@ describe("MCP Tool Input Validation", () => {
     });
 
     expect(result.isError).toBe(true);
-    expect((result as any).content[0].text).toContain("Invalid arguments");
-    expect((result as any).content[0].text).toContain("input.exchange is required");
+    expect(readTextContent(result.content[0])).toContain("Invalid arguments");
+    expect(readTextContent(result.content[0])).toContain("input.exchange is required");
     expect(mockMarketDataServices.inspectCoverage).not.toHaveBeenCalled();
   });
 });

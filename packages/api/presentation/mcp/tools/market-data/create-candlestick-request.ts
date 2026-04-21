@@ -9,7 +9,10 @@ export const createCandlestickRequestTool = {
     properties: {
       symbol: { type: "string" },
       exchange: { type: "string" },
-      interval: { type: "string", enum: ["1m", "5m", "15m", "1h", "4h", "1d", "1w"] },
+      interval: {
+        type: "string",
+        enum: ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h", "12h", "1d", "1w"],
+      },
       start_time: { type: "string" },
       end_time: { type: "string" },
       requested_by_action_id: { type: "string" },
@@ -19,7 +22,7 @@ export const createCandlestickRequestTool = {
   execute: (input: {
     symbol: string;
     exchange?: string;
-    interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d" | "1w";
+    interval: "1m" | "3m" | "5m" | "15m" | "30m" | "1h" | "2h" | "4h" | "8h" | "12h" | "1d" | "1w";
     start_time?: string;
     end_time?: string;
     requested_by_action_id?: string;
@@ -33,7 +36,7 @@ export const createCandlestickRequestTool = {
           id: crypto.randomUUID(),
           session_id: input._sessionId,
           symbol: input.symbol,
-          exchange: input.exchange ?? "hyperliquid",
+          exchange: input.exchange ?? "Hyperliquid",
           base_timeframe: input.interval,
           start_time: input.start_time,
           end_time: input.end_time,

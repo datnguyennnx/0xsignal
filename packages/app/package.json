@@ -8,8 +8,8 @@
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "start": "vite preview",
     "lint": "eslint . --ext .ts,.tsx",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "clean": "rm -rf dist"
   },

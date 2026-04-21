@@ -4,13 +4,15 @@
  *   - Snapshot versioning uses useState counter instead of new Map() per RAF tick
  *     Eliminates per-frame GC pressure from Map allocation at 60fps
  *   - Adaptive effect guarded by cooldown; fineBook dependency is necessary for coverage calc
- * @data-flow WS message → processRawL2Levels → schedule() → RAF → setFineBook + setSnapshotVersion
+ * @data-flow backend WS l2Book payload → processRawL2Levels → schedule() → RAF
+ *   → setFineBook + snapshot cache for render/local interaction state
  * @perf RAF batches high-frequency WS messages into single render frame; snapshot Map avoids
  *   re-subscribing when switching sigFigs (coarse books available immediately from cache)
  */
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
-import { useHyperliquidWs, normalizeSymbol } from "./use-hyperliquid-ws";
+import { useHyperliquidWs } from "./use-hyperliquid-ws";
+import { normalizeSymbol } from "../lib/symbol";
 import { processRawL2Levels, type OrderbookData, type L2BookLevel } from "@/core/utils/hyperliquid";
 
 export interface TickSizeOption {
@@ -134,8 +136,11 @@ export function useHyperliquidOrderbook(
   }, []);
 
   const handleMsg = useCallback(
-    (data: unknown, ch: string) => {
+    (data: unknown, ch: string, meta?: { nSigFigs?: number; interval?: string }) => {
       if (ch !== "l2Book") return;
+      if (meta?.nSigFigs !== undefined && meta.nSigFigs !== activeSigFigsRef.current) {
+        return;
+      }
       const book = data as { levels: [L2BookLevel[], L2BookLevel[]] };
       if (book?.levels)
         schedule(processRawL2Levels(book.levels[0], book.levels[1]), activeSigFigsRef.current);

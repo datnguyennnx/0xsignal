@@ -10,7 +10,7 @@ import {
   ListResourceTemplatesRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { makeMcpDependencies, initializeMcpServer, getMcpDependencies } from "./server";
+import { makeMcpDependencies, initializeMcpServer, makeMcpRequestLayer } from "./server";
 
 import { ALL_TOOLS } from "./registry";
 
@@ -27,14 +27,10 @@ import {
 } from "./resources";
 import { PROMPTS } from "./prompts/index";
 import { MCP_AGENT_INSTRUCTION_MODULES, MCP_AGENT_SYSTEM_PROMPT } from "./harness-guidance";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { QuestDBClientLayer } from "@infrastructure/db/questdb/client";
 import { initializeSchema } from "@infrastructure/db/questdb/repositories/candle";
-import { AgentServices } from "@application/agent";
-import { BacktestServices } from "@application/backtest";
-import { MarketDataServices } from "@application/market-data";
-import { StrategyServices } from "@application/strategy";
-import { ResearchServicesTag } from "@application/research";
+import type { McpServerDependencies } from "./server";
 
 type PromptArgument = {
   readonly name: string;
@@ -63,6 +59,8 @@ type JsonSchema = {
   enum?: readonly unknown[];
   items?: JsonSchema;
   additionalProperties?: boolean;
+  minimum?: number;
+  maximum?: number;
 };
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -139,6 +137,15 @@ const validateSchemaValue = (schema: JsonSchema, value: unknown, path = "input")
     }
   }
 
+  if ((schema.type === "number" || schema.type === "integer") && typeof value === "number") {
+    if (typeof schema.minimum === "number" && value < schema.minimum) {
+      errors.push(`${path} must be >= ${schema.minimum}`);
+    }
+    if (typeof schema.maximum === "number" && value > schema.maximum) {
+      errors.push(`${path} must be <= ${schema.maximum}`);
+    }
+  }
+
   if (schema.type === "boolean" && typeof value !== "boolean") {
     errors.push(`${path} must be a boolean`);
   }
@@ -156,6 +163,21 @@ const validateToolArguments = (
     return { ok: false, message: errors.join("; ") };
   }
   return { ok: true, value };
+};
+
+const formatToolErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const maybeMessage = (error as { message?: unknown }).message;
+    if (typeof maybeMessage === "string") {
+      return maybeMessage;
+    }
+  }
+
+  return String(error);
 };
 
 function getResources() {
@@ -186,9 +208,10 @@ const RESOURCE_TEMPLATES = [
 // PROMPTS are imported from ./prompts/index
 
 export class McpServer extends Server {
-  private readonly deps;
+  private readonly deps: McpServerDependencies;
+  private readonly requestLayer: ReturnType<typeof makeMcpRequestLayer>;
 
-  constructor(deps = getMcpDependencies()) {
+  constructor(deps: McpServerDependencies) {
     super(
       {
         name: "0xsignal-mcp",
@@ -204,6 +227,7 @@ export class McpServer extends Server {
     );
 
     this.deps = deps;
+    this.requestLayer = makeMcpRequestLayer(this.deps);
 
     this.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
@@ -266,20 +290,16 @@ export class McpServer extends Server {
 
         const resultEffect = tool.execute(enrichedArgs as never) as Effect.Effect<unknown, unknown>;
 
-        const requestLayer = Layer.mergeAll(
-          Layer.succeed(AgentServices, this.deps.agentServices),
-          Layer.succeed(BacktestServices, this.deps.backtestServices),
-          Layer.succeed(MarketDataServices, this.deps.marketDataServices),
-          Layer.succeed(StrategyServices, this.deps.strategyServices),
-          Layer.succeed(ResearchServicesTag, this.deps.researchServices)
-        );
-
-        const providedEffect = resultEffect.pipe(Effect.provide(requestLayer));
+        const providedEffect = resultEffect.pipe(Effect.provide(this.requestLayer));
 
         const result = await Effect.runPromise(providedEffect);
 
         // Update interaction status
-        await this.deps.mcpRepository.updateInteractionStatus(interactionId, "completed", result);
+        try {
+          await this.deps.mcpRepository.updateInteractionStatus(interactionId, "completed", result);
+        } catch (trackingError) {
+          console.warn("Failed to record MCP interaction completion:", trackingError);
+        }
 
         return {
           content: [
@@ -290,12 +310,16 @@ export class McpServer extends Server {
           ],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = formatToolErrorMessage(error);
 
         // Record failure
-        await this.deps.mcpRepository.updateInteractionStatus(interactionId, "failed", {
-          error: errorMessage,
-        });
+        try {
+          await this.deps.mcpRepository.updateInteractionStatus(interactionId, "failed", {
+            error: errorMessage,
+          });
+        } catch (trackingError) {
+          console.warn("Failed to record MCP interaction failure:", trackingError);
+        }
 
         return {
           content: [
@@ -407,35 +431,29 @@ export class McpServer extends Server {
 
     this.setRequestHandler(ReadResourceRequestSchema, async (request) => {
       const uri = request.params.uri;
-      const requestLayer = Layer.mergeAll(
-        Layer.succeed(AgentServices, this.deps.agentServices),
-        Layer.succeed(BacktestServices, this.deps.backtestServices),
-        Layer.succeed(MarketDataServices, this.deps.marketDataServices),
-        Layer.succeed(StrategyServices, this.deps.strategyServices),
-        Layer.succeed(ResearchServicesTag, this.deps.researchServices)
-      );
-
       let result: ResourceReadResult | undefined;
       if (uri === "system://architecture") {
         result = await Effect.runPromise(
-          getSystemArchitecture().pipe(Effect.provide(requestLayer))
+          getSystemArchitecture().pipe(Effect.provide(this.requestLayer))
         );
       } else if (uri === "system://strategy-schema") {
-        result = await Effect.runPromise(getStrategySchema().pipe(Effect.provide(requestLayer)));
+        result = await Effect.runPromise(
+          getStrategySchema().pipe(Effect.provide(this.requestLayer))
+        );
       } else if (uri.startsWith("session://") && uri.endsWith("/context")) {
         const sessionId = uri.split("/")[2];
         result = await Effect.runPromise(
-          getSessionContext(sessionId).pipe(Effect.provide(requestLayer))
+          getSessionContext(sessionId).pipe(Effect.provide(this.requestLayer))
         );
       } else if (uri.startsWith("backtest://") && uri.endsWith("/summary")) {
         const runId = uri.split("/")[2];
         result = await Effect.runPromise(
-          getRunSummaryResource(runId).pipe(Effect.provide(requestLayer))
+          getRunSummaryResource(runId).pipe(Effect.provide(this.requestLayer))
         );
       } else if (uri.startsWith("strategy://") && uri.endsWith("/history")) {
         const strategyId = uri.split("/")[2];
         result = await Effect.runPromise(
-          getStrategyHistory(strategyId).pipe(Effect.provide(requestLayer))
+          getStrategyHistory(strategyId).pipe(Effect.provide(this.requestLayer))
         );
       }
 
@@ -459,12 +477,12 @@ export class McpServer extends Server {
 export async function main() {
   // Initialize server with default dependencies
   const deps = await makeMcpDependencies();
-  initializeMcpServer({}, deps);
+  initializeMcpServer();
 
   // Bootstrap QuestDB schema silently
   try {
     await Effect.runPromise(initializeSchema().pipe(Effect.provide(QuestDBClientLayer)));
-  } catch (error) {
+  } catch {
     // Fail silently in main but error will be known on first query if it persists
   }
 

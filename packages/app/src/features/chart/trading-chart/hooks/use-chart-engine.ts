@@ -44,7 +44,7 @@ interface UseChartEngineProps {
   isDark: boolean;
   priceFormat: { minMove: number; formatter?: (price: number) => string };
   onCrosshairMove: (candle: ChartDataPoint | null) => void;
-  onLoadMore?: () => void;
+  onLoadMore?: () => Promise<void> | void;
   hasMore: boolean;
 }
 
@@ -52,6 +52,20 @@ interface UseChartEngineResult {
   chart: IChartApi | null;
   candlestickSeries: ISeriesApi<"Candlestick"> | null;
   volumeSeries: ISeriesApi<"Histogram"> | null;
+}
+
+const LOAD_MORE_LEFT_BARS_THRESHOLD = 30;
+const LOAD_MORE_LOGICAL_FROM_THRESHOLD = -5;
+const LOAD_MORE_FALLBACK_UNLOCK_MS = 1500;
+const LOAD_MORE_LEFT_MOVE_EPSILON = 0.01;
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    (typeof value === "object" || typeof value === "function") &&
+    value !== null &&
+    "then" in value &&
+    typeof (value as { then: unknown }).then === "function"
+  );
 }
 
 export const useChartEngine = ({
@@ -76,6 +90,8 @@ export const useChartEngine = ({
   const onCrosshairMoveRef = useRef(onCrosshairMove);
   const isDarkRef = useRef(isDark);
   const prevIsDarkRef = useRef(isDark);
+  const hasSeenLogicalRangeRef = useRef(false);
+  const prevLogicalFromRef = useRef<number | null>(null);
 
   useEffect(() => {
     loadMoreCallbackRef.current = onLoadMore;
@@ -167,12 +183,38 @@ export const useChartEngine = ({
     // Infinite scroll handler
     const handleVisibleRangeChange = (logicalRange: { from: number; to: number } | null): void => {
       if (!logicalRange) return;
-      if (logicalRange.from < -5 && hasMoreRef.current && !isLoadingMoreRef.current) {
-        isLoadingMoreRef.current = true;
-        loadMoreCallbackRef.current?.();
+
+      const prevFrom = prevLogicalFromRef.current;
+      prevLogicalFromRef.current = logicalRange.from;
+
+      if (!hasSeenLogicalRangeRef.current) {
+        hasSeenLogicalRangeRef.current = true;
+        return;
+      }
+
+      const movedLeft =
+        typeof prevFrom === "number" && logicalRange.from < prevFrom - LOAD_MORE_LEFT_MOVE_EPSILON;
+      if (!movedLeft) return;
+
+      const barsInfo = candlestickSeriesRef.current?.barsInLogicalRange(logicalRange);
+      const isNearLeftByBars =
+        typeof barsInfo?.barsBefore === "number" &&
+        barsInfo.barsBefore < LOAD_MORE_LEFT_BARS_THRESHOLD;
+      const isNearLeftByLogical = logicalRange.from < LOAD_MORE_LOGICAL_FROM_THRESHOLD;
+
+      if (!(isNearLeftByBars || isNearLeftByLogical)) return;
+      if (!hasMoreRef.current || isLoadingMoreRef.current) return;
+
+      isLoadingMoreRef.current = true;
+      const loadResult = loadMoreCallbackRef.current?.();
+      if (isPromiseLike(loadResult)) {
+        void loadResult.finally(() => {
+          isLoadingMoreRef.current = false;
+        });
+      } else {
         setTimeout(() => {
           isLoadingMoreRef.current = false;
-        }, 500);
+        }, LOAD_MORE_FALLBACK_UNLOCK_MS);
       }
     };
 

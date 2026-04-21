@@ -1,7 +1,19 @@
 import { type Candle } from "@schemas/market-data";
 import type { Timeframe } from "../../db/questdb/queries/candle";
 
-export type HlInterval = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+export type HlInterval =
+  | "1m"
+  | "3m"
+  | "5m"
+  | "15m"
+  | "30m"
+  | "1h"
+  | "2h"
+  | "4h"
+  | "8h"
+  | "12h"
+  | "1d"
+  | "1w";
 
 export interface HlRawCandle {
   readonly t: number | string;
@@ -21,14 +33,26 @@ export function toHlInterval(timeframe: Timeframe): HlInterval {
       return "1m";
     case "5m":
       return "5m";
+    case "3m":
+      return "3m";
     case "15m":
       return "15m";
+    case "30m":
+      return "30m";
     case "1h":
       return "1h";
+    case "2h":
+      return "2h";
     case "4h":
       return "4h";
+    case "8h":
+      return "8h";
+    case "12h":
+      return "12h";
     case "1d":
       return "1d";
+    case "1w":
+      return "1w";
   }
 }
 

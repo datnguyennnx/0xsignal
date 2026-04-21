@@ -1,20 +1,19 @@
 /**
  * @overview Trade Asset Listing Hook
  *
- * Data flow: Hyperliquid API → React Query cache → TradeDropdown component
+ * Data flow: Backend API → React Query cache → TradeDropdown component
  *
- * Fetches all available perpetual markets from Hyperliquid:
- * 1. Calls perpDexs + perpCategories + allMids in parallel
- * 2. For each DEX, fetches metaAndAssetCtxs to get asset details
- * 3. Maps assets to TradeAsset with category, leverage, and pricing
- * 4. Sorts by open interest (highest first)
+ * Fetches all available perpetual markets from backend /api/markets.
+ * The payload can include either a simple universe array or richer metadata.
+ * The hook normalizes both shapes while preserving prior UI sort/display behavior.
  *
  * Caching: 30s stale time, 5min gc time
  * Consumers: TradeDropdown (market selector)
  */
 import { useQuery } from "@tanstack/react-query";
-import { hyperliquidApi, type HyperliquidAssetCtx } from "@/services/hyperliquid";
+import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
+import { normalizeSymbol } from "../lib/symbol";
 
 export type TradeCategory =
   | "crypto"
@@ -25,7 +24,30 @@ export type TradeCategory =
   | "preipo"
   | string;
 
-export interface TradeAsset extends HyperliquidAssetCtx {
+interface TradeAssetCtxLike {
+  funding?: string;
+  openInterest?: string;
+  prevDayPx?: string;
+  dayNtlVlm?: string;
+  premium?: string;
+  markPx?: string;
+}
+
+interface TradeAssetUniverseLike {
+  name?: string;
+  maxLeverage?: number;
+  isDelisted?: boolean;
+}
+
+interface BackendMarketsPayload {
+  universe?: TradeAssetUniverseLike[];
+  assetCtxs?: TradeAssetCtxLike[];
+  allMids?: Record<string, string>;
+  perpCategories?: Array<[string, string]>;
+}
+
+export interface TradeAsset extends Required<TradeAssetCtxLike> {
+  coin: string;
   maxLeverage: number;
   category: TradeCategory;
   displayCategory: string;
@@ -58,77 +80,53 @@ function getDisplayCategory(category: string): string {
   return CATEGORY_DISPLAY_NAMES[category] || category.charAt(0).toUpperCase() + category.slice(1);
 }
 
+function toTradeAssets(payload: BackendMarketsPayload): TradeAsset[] {
+  const universe = Array.isArray(payload.universe) ? payload.universe : [];
+  const assetCtxs = Array.isArray(payload.assetCtxs) ? payload.assetCtxs : [];
+  const allMids = payload.allMids ?? {};
+
+  const categoryMap = new Map<string, string>();
+  for (const [coin, category] of payload.perpCategories ?? []) {
+    categoryMap.set(normalizeSymbol(coin), category);
+  }
+
+  const assets: TradeAsset[] = [];
+
+  for (let i = 0; i < universe.length; i++) {
+    const market = universe[i];
+    const rawName = market?.name;
+    if (!rawName || market?.isDelisted) continue;
+
+    const normalized = normalizeSymbol(rawName);
+    const ctx = assetCtxs[i] ?? {};
+    const category = categoryMap.get(normalized) ?? "crypto";
+
+    assets.push({
+      coin: normalized,
+      name: normalized,
+      funding: ctx.funding ?? "0",
+      openInterest: ctx.openInterest ?? "0",
+      prevDayPx: ctx.prevDayPx ?? "0",
+      dayNtlVlm: ctx.dayNtlVlm ?? "0",
+      premium: ctx.premium ?? "",
+      markPx: allMids[normalized] ?? ctx.markPx ?? "0",
+      maxLeverage: market.maxLeverage || 10,
+      category,
+      displayCategory: getDisplayCategory(category),
+      dex: "HYPERLIQUID",
+      assetId: calculateAssetId(0, i),
+    });
+  }
+
+  assets.sort((a, b) => Number(b.openInterest) - Number(a.openInterest));
+  return assets;
+}
+
 export function useTradeList() {
-  return useQuery<TradeListData>({
-    queryKey: queryKeys.hyperliquid.tradeList(),
-    queryFn: async () => {
-      const [perpDexs, perpCategories, allMids] = await Promise.all([
-        hyperliquidApi.getPerpDexs(),
-        hyperliquidApi.getPerpCategories(),
-        hyperliquidApi.getAllMids(),
-      ]);
-
-      const categoryMap = new Map<string, string>();
-      perpCategories.forEach(([coin, category]) => {
-        categoryMap.set(coin.toUpperCase(), category);
-      });
-
-      const dexNames: string[] = [""];
-      perpDexs.forEach((dex) => {
-        if (dex) {
-          dexNames.push(dex.name);
-        }
-      });
-
-      const allAssets: TradeAsset[] = [];
-
-      const metaPromises = dexNames.map((dexName) =>
-        hyperliquidApi.getMetaAndAssetCtxs(dexName || undefined)
-      );
-
-      const metaResults = await Promise.all(metaPromises);
-
-      let dexIndex = 0;
-      for (const [meta, assetCtxs] of metaResults) {
-        const universe = meta.universe;
-
-        for (let i = 0; i < assetCtxs.length; i++) {
-          const ctx = assetCtxs[i];
-          const asset = universe[i];
-          if (!asset) continue;
-
-          const symbol = asset.name.toUpperCase();
-          const category = categoryMap.get(symbol) || "crypto";
-          const displayCategory = getDisplayCategory(category);
-
-          if (asset.isDelisted) continue;
-
-          const midPrice = allMids[symbol];
-          const assetId = calculateAssetId(dexIndex, i);
-
-          allAssets.push({
-            coin: symbol,
-            name: symbol,
-            funding: ctx.funding,
-            openInterest: ctx.openInterest,
-            prevDayPx: ctx.prevDayPx,
-            dayNtlVlm: ctx.dayNtlVlm,
-            premium: ctx.premium ?? "",
-            markPx: midPrice ?? ctx.markPx ?? "",
-            maxLeverage: asset.maxLeverage || 10,
-            category,
-            displayCategory,
-            dex: dexNames[dexIndex] || "HYPERLIQUID",
-            assetId,
-          });
-        }
-        dexIndex++;
-      }
-
-      allAssets.sort((a, b) => Number(b.openInterest) - Number(a.openInterest));
-
-      return { assets: allAssets };
-    },
+  return useQuery<BackendMarketsPayload, Error, TradeListData>({
+    queryKey: queryKeys.marketData.markets(),
+    queryFn: async () => (await api.getMarkets()) as BackendMarketsPayload,
+    select: (payload) => ({ assets: toTradeAssets(payload) }),
     staleTime: 30_000,
     gcTime: 300_000,
   });

@@ -8,9 +8,14 @@ export const queryKeys = {
   // Chart domain
   chart: {
     all: ["chart"] as const,
-    bySymbol: (symbol: string) => [...queryKeys.chart.all, symbol] as const,
-    byParams: (symbol: string, interval: string, timeframe: string) =>
-      [...queryKeys.chart.bySymbol(symbol), interval, timeframe] as const,
+    candles: (symbol: string, interval: string, limit: number) =>
+      [...queryKeys.chart.all, "candles", symbol, interval, limit] as const,
+  },
+
+  // Market data domain
+  marketData: {
+    all: ["marketData"] as const,
+    markets: () => [...queryKeys.marketData.all, "markets"] as const,
   },
 
   // Asset/Analysis domain
@@ -22,8 +27,6 @@ export const queryKeys = {
   // Hyperliquid domain
   hyperliquid: {
     all: ["hyperliquid"] as const,
-    meta: (dex?: string) => [...queryKeys.hyperliquid.all, "meta", dex ?? "main"] as const,
-    tradeList: () => [...queryKeys.hyperliquid.all, "tradeList"] as const,
     tradeAnnotation: (coin: string) =>
       [...queryKeys.hyperliquid.all, "tradeAnnotation", coin] as const,
     symbolLogo: (symbol: string) =>

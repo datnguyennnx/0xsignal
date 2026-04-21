@@ -7,7 +7,7 @@ import type {
   RunSummary,
   BacktestRunInput as BacktestRunInputs,
 } from "@schemas/backtest";
-import type { BacktestRepository } from "@infrastructure/repositories/backtest-repo";
+import type { BacktestRepository } from "./ports/backtest-repository";
 import { EngineExecutor } from "@domain/backtest/engine";
 
 type CreateBacktestRunInput = {

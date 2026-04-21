@@ -22,6 +22,9 @@ export interface QuestDBConfig {
 
 export class QuestDBClient extends Context.Tag("QuestDBClient")<QuestDBClient, QuestDBConfig>() {}
 
+const normalizeCause = (cause: unknown): unknown =>
+  cause instanceof Error ? cause.message : cause;
+
 const QuestDBConfigLive = Layer.effect(
   QuestDBClient,
   Effect.gen(function* () {
@@ -60,7 +63,7 @@ export function query(sql: string): Effect.Effect<QuestDBResponse, QuestDBError,
             }
             try {
               return JSON.parse(text) as QuestDBResponse;
-            } catch (e) {
+            } catch {
               throw new Error(
                 `Failed to parse QuestDB JSON response. Body: ${text.slice(0, 100)}...`
               );
@@ -70,7 +73,7 @@ export function query(sql: string): Effect.Effect<QuestDBResponse, QuestDBError,
           new QuestDBError({
             code: "INTERNAL_ERROR",
             message: `Failed to execute query: ${sql.slice(0, 100)}...`,
-            cause,
+            cause: normalizeCause(cause),
           }),
       });
     }
@@ -104,7 +107,7 @@ export function command(sql: string): Effect.Effect<void, QuestDBError, QuestDBC
           new QuestDBError({
             code: "INTERNAL_ERROR",
             message: `Failed to execute command: ${sql.slice(0, 100)}...`,
-            cause,
+            cause: normalizeCause(cause),
           }),
       });
     }
@@ -138,7 +141,7 @@ export function ingest(lines: string[]): Effect.Effect<void, QuestDBError, Quest
           new QuestDBError({
             code: "INTERNAL_ERROR",
             message: `Failed to ingest ILP data (${lines.length} lines)`,
-            cause,
+            cause: normalizeCause(cause),
           }),
       });
     }
@@ -158,7 +161,7 @@ export function healthCheck(): Effect.Effect<boolean, QuestDBError, QuestDBClien
           new QuestDBError({
             code: "INTERNAL_ERROR",
             message: `Health check failed`,
-            cause,
+            cause: normalizeCause(cause),
           }),
       });
     }

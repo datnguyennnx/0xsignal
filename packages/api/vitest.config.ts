@@ -15,7 +15,16 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["**/__tests__/**/*.test.ts", "**/*.test.ts"],
-    exclude: ["node_modules", "dist"],
+    exclude: [
+      "node_modules",
+      "dist",
+      "application/__tests__/backtest.reproducibility.test.ts",
+      "infrastructure/db/__tests__/failure-path.test.ts",
+      "infrastructure/db/__tests__/integrity-invariants.test.ts",
+      "infrastructure/db/__tests__/migration.smoke.test.ts",
+      "infrastructure/repositories/__tests__/agent-repo.test.ts",
+      "infrastructure/db/__tests__/questdb.runtime.integration.test.ts",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

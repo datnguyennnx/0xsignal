@@ -1,7 +1,8 @@
 /**
  * @overview Main App Component
  *
- * Sets up routing, theme, and preloading strategy for optimal initial load.
+ * Sets up routing, theme, and backend market-stream context for the frontend shell.
+ * Frontend consumes backend HTTP/WS market data while keeping render-local state in UI hooks.
  *
  * @performance
  * - Lazy loads heavy routes (AssetDetail, OrderbookPage, TradingChart)
@@ -12,7 +13,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/core/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { HyperliquidWsProvider } from "@/features/trade/contexts/hyperliquid-ws-context";
+import { MarketStreamProvider } from "@/features/trade/contexts/market-stream-context";
 import { Layout } from "@/layouts/main-layout";
 import { SettingsPage } from "@/pages/settings";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -58,7 +59,7 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <HyperliquidWsProvider>
+        <MarketStreamProvider>
           <TooltipProvider>
             <BrowserRouter>
               <Layout>
@@ -75,7 +76,7 @@ function App() {
               </Layout>
             </BrowserRouter>
           </TooltipProvider>
-        </HyperliquidWsProvider>
+        </MarketStreamProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

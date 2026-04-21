@@ -1,18 +1,10 @@
 /** Health Routes */
 
 import { Effect } from "effect";
-import { healthCheck as postgresHealthCheck } from "@infrastructure/db/postgres/client";
+import { HealthServices } from "@application/health";
 
 export const healthRoute = () =>
-  Effect.tryPromise({
-    try: async () => {
-      const postgres = await postgresHealthCheck();
-      return {
-        status: "ok",
-        timestamp: new Date(),
-        uptime: process.uptime(),
-        postgres,
-      };
-    },
-    catch: (error) => ({ status: 500, message: `Health check failed: ${error}` }),
+  Effect.gen(function* () {
+    const health = yield* HealthServices;
+    return yield* health.check();
   });

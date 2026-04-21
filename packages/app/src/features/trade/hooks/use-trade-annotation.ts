@@ -1,14 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { hyperliquidApi } from "@/services/hyperliquid";
+import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
-import { parseSymbol } from "./use-hyperliquid-ws";
+import { parseSymbol } from "../lib/symbol";
 
 export function useTradeAnnotation(symbol: string) {
   const coin = parseSymbol(symbol).coin;
 
   return useQuery({
     queryKey: queryKeys.hyperliquid.tradeAnnotation(coin),
-    queryFn: () => hyperliquidApi.getPerpAnnotation(coin),
+    queryFn: async () => {
+      const payload = await api.getTradeAnnotation(coin);
+      return payload.annotation ?? null;
+    },
     enabled: !!coin,
     staleTime: 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,

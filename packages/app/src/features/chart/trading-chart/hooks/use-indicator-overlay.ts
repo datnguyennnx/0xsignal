@@ -9,7 +9,7 @@
  * - implements smart Pane management (addPane, removePane) to host oscillators like RSI/MACD.
  * - supports multi-layer rendering for Band indicators (Upper, Middle, Lower).
  */
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import type { IChartApi, ISeriesApi, LineData, Time, IPaneApi } from "lightweight-charts";
 import { LineSeries, HistogramSeries } from "lightweight-charts";
 import type { ActiveIndicator, BandIndicatorDataPoint } from "@0xsignal/shared";
@@ -74,16 +74,6 @@ export const useIndicatorOverlay = ({
   const appliedCacheKeyRef = useRef<Map<string, string>>(new Map());
   const volumePaneRef = useRef<IPaneApi<Time> | null>(null);
 
-  const overlayIndicators = useMemo(
-    () => activeIndicators.filter((indicator) => indicator.config.overlayOnPrice),
-    [activeIndicators]
-  );
-
-  const oscillatorIndicators = useMemo(
-    () => activeIndicators.filter((indicator) => !indicator.config.overlayOnPrice),
-    [activeIndicators]
-  );
-
   const clearAllSeries = useCallback(() => {
     if (!chart) return;
 
@@ -131,6 +121,13 @@ export const useIndicatorOverlay = ({
 
   useEffect(() => {
     if (!chart) return;
+
+    const overlayIndicators = activeIndicators.filter(
+      (indicator) => indicator.config.overlayOnPrice
+    );
+    const oscillatorIndicators = activeIndicators.filter(
+      (indicator) => !indicator.config.overlayOnPrice
+    );
 
     const activeIds = new Set(activeIndicators.map((indicator) => indicator.instanceId));
 

@@ -7,23 +7,17 @@
     "packages/*"
   ],
   "scripts": {
+    "test": "bun run --filter '*' test",
+    "test:integration:api": "bun run --filter @0xsignal/api test:integration",
     "dev": "bun run --filter '*' dev",
-    "dev:api": "bun run --filter @0xsignal/api dev",
-    "dev:app": "bun run --filter @0xsignal/app dev",
     "build": "bun run --filter '*' build",
-    "build:api": "bun run --filter @0xsignal/api build",
-    "build:app": "bun run --filter @0xsignal/app build",
-    "start": "bun run --filter '*' start",
-    "start:api": "bun run --filter @0xsignal/api start",
-    "start:app": "bun run --filter @0xsignal/app start",
     "lint": "bun run --filter '*' lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "db:up": "docker compose -f docker-compose.db.yml up -d",
     "db:down": "docker compose -f docker-compose.db.yml down",
     "db:logs": "docker compose -f docker-compose.db.yml logs -f postgres questdb",
-    "db:ps": "docker compose -f docker-compose.db.yml ps",
-    "clean": "rm -rf node_modules packages/*/node_modules packages/*/dist",
+    "clean:all": "rm -rf node_modules packages/*/node_modules packages/*/dist",
     "prepare": "husky"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { MarketDataServices } from "@application/market-data";
+import { MarketDataServices, isCoverageCompleteStrict } from "@application/market-data";
 
 export const inspectCandleCoverageTool = {
   name: "inspect_candle_coverage",
@@ -7,7 +7,7 @@ export const inspectCandleCoverageTool = {
   execute: (input: {
     symbol: string;
     exchange?: string;
-    interval: "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+    interval: "1m" | "3m" | "5m" | "15m" | "30m" | "1h" | "2h" | "4h" | "8h" | "12h" | "1d" | "1w";
     start_time: string;
     end_time: string;
   }) =>
@@ -24,11 +24,18 @@ export const inspectCandleCoverageTool = {
         .pipe(
           Effect.map((res) => ({
             ...res,
-            status: res.fullCoverage
+            status: isCoverageCompleteStrict(res)
               ? "FULL_COVERAGE"
               : res.hasData
                 ? "PARTIAL_COVERAGE"
                 : "ZERO_COVERAGE",
+            completeness: {
+              semantics: "strict",
+              complete: isCoverageCompleteStrict(res),
+              rowCount: res.rowCount,
+              expectedCount: res.expectedCount,
+              missingWindowCount: res.missingWindows.length,
+            },
             symbol: input.symbol,
             interval: input.interval,
           }))
@@ -39,7 +46,10 @@ export const inspectCandleCoverageTool = {
     properties: {
       symbol: { type: "string" },
       exchange: { type: "string" },
-      interval: { type: "string", enum: ["1m", "5m", "15m", "1h", "4h", "1d"] },
+      interval: {
+        type: "string",
+        enum: ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h", "12h", "1d", "1w"],
+      },
       start_time: { type: "string" },
       end_time: { type: "string" },
     },

@@ -35,7 +35,26 @@ export default [
       "react-compiler/react-compiler": "error",
       "@effect/no-import-from-barrel-package": "error",
       "@effect/dprint": "off", // Optional: based on project preference
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "react-refresh/only-export-components": [
+        "warn",
+        {
+          allowConstantExport: true,
+          allowExportNames: [
+            "badgeVariants",
+            "buttonVariants",
+            "toggleVariants",
+            "useTheme",
+            "useHoverState",
+            "useHoverActions",
+            "useCandleData",
+            "useOptionalL2BookNSigFigs",
+            "resolveApiBase",
+            "createMarketStreamWsUrl",
+            "buildMarketStreamSearchParams",
+            "useMarketStreamClient",
+          ],
+        },
+      ],
       "react-hooks/exhaustive-deps": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],

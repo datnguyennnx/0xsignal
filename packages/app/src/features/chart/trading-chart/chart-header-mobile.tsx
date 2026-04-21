@@ -16,7 +16,7 @@ interface ChartHeaderMobileProps {
   isFullscreen: boolean;
   onIntervalChange: (interval: string) => void;
   onToggleFullscreen: () => void;
-  isFetching?: boolean;
+  isIntervalSwitching?: boolean;
 }
 
 export const ChartHeaderMobile = memo(function ChartHeaderMobile({
@@ -25,7 +25,7 @@ export const ChartHeaderMobile = memo(function ChartHeaderMobile({
   isFullscreen,
   onIntervalChange,
   onToggleFullscreen,
-  isFetching = false,
+  isIntervalSwitching = false,
 }: ChartHeaderMobileProps) {
   return (
     <div className="flex sm:hidden items-center justify-between px-[clamp(0.5rem,2.8vw,0.75rem)] py-[clamp(0.375rem,1.8vw,0.625rem)] bg-card gap-[clamp(0.25rem,1.2vw,0.5rem)]">
@@ -44,7 +44,7 @@ export const ChartHeaderMobile = memo(function ChartHeaderMobile({
             )}
           >
             {int.label}
-            {isFetching && interval === int.value && (
+            {isIntervalSwitching && interval === int.value && (
               <span className="absolute -right-0.5 -top-0.5 flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-foreground opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary-foreground" />

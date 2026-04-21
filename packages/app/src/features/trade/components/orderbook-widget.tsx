@@ -27,6 +27,7 @@ import {
 import {
   getEffectivePriceScaling,
   mapVisibleOrderbookLevels,
+  shouldApplyInitialPrecisionSync,
   type PriceScalingState,
 } from "./orderbook-widget.shared";
 import { type OrderbookLevel, priceKey } from "@/core/utils/hyperliquid";
@@ -52,6 +53,7 @@ const ROW_HEIGHT = 28;
 const VISIBLE_ROWS = 20;
 
 const DEPTH_BAR_TRANSITION = "width 150ms ease-out";
+const PRECISION_RESUBSCRIBE_DEBOUNCE_MS = 160;
 
 import { formatPriceWithScaling, formatSize } from "@/core/utils/formatters";
 
@@ -279,6 +281,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   );
   const widgetRef = useRef<HTMLDivElement>(null);
   const [transitionsEnabled, setTransitionsEnabled] = useState(true);
+  const initialSyncedSymbolsRef = useRef<Set<string>>(new Set());
+  const userInteractedSymbolsRef = useRef<Set<string>>(new Set());
+  const precisionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let raf = 0;
@@ -293,6 +298,15 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     return () => {
       window.removeEventListener("resize", onResize);
       if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (precisionTimerRef.current) {
+        clearTimeout(precisionTimerRef.current);
+        precisionTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -358,12 +372,26 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   // Sync initial nSigFigs when orderbook data arrives
   useEffect(() => {
-    if (orderbook && scalingOptions.length > 0 && userPriceScaling?.symbol !== symbol) {
-      const first = scalingOptions[0];
-      if (l2BookSigRef.current) {
-        l2BookSigRef.current.setNSigFigs(first.nSigFigs ?? 5);
-      }
+    if (!orderbook || scalingOptions.length === 0) {
+      return;
     }
+
+    if (
+      !shouldApplyInitialPrecisionSync({
+        symbol,
+        userPriceScaling,
+        hasSyncedForSymbol: initialSyncedSymbolsRef.current.has(symbol),
+        userInteracted: userInteractedSymbolsRef.current.has(symbol),
+      })
+    ) {
+      return;
+    }
+
+    const first = scalingOptions[0];
+    if (l2BookSigRef.current) {
+      l2BookSigRef.current.setNSigFigs(first.nSigFigs ?? 5);
+    }
+    initialSyncedSymbolsRef.current.add(symbol);
   }, [orderbook, scalingOptions, symbol, userPriceScaling]);
 
   const handlePriceScalingChange = useCallback(
@@ -375,11 +403,20 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         setUserPriceScaling({ symbol, value: newScale });
       });
 
-      if (l2BookSigRef.current) {
-        l2BookSigRef.current.setNSigFigs(nextSig);
-      } else {
-        resubscribe(nextSig);
+      userInteractedSymbolsRef.current.add(symbol);
+
+      if (precisionTimerRef.current) {
+        clearTimeout(precisionTimerRef.current);
       }
+
+      precisionTimerRef.current = setTimeout(() => {
+        if (l2BookSigRef.current) {
+          l2BookSigRef.current.setNSigFigs(nextSig);
+        } else {
+          resubscribe(nextSig);
+        }
+        precisionTimerRef.current = null;
+      }, PRECISION_RESUBSCRIBE_DEBOUNCE_MS);
     },
     [scalingOptions, resubscribe, symbol]
   );

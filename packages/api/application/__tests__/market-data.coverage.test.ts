@@ -5,10 +5,13 @@ import {
   MarketDataServices,
   MarketCandleStore,
   MarketRemoteProvider,
+  type MarketCandleStorePort,
+  type MarketRemoteProviderPort,
 } from "../market-data";
+import type { MarketDataRepository } from "../ports/market-data-repository";
 
 describe("Market Data Coverage Semantics", () => {
-  const mockRepo = {} as any;
+  const mockRepo = {} as unknown as MarketDataRepository;
 
   const mockCandleRepo = {
     checkCoverage: vi.fn(),
@@ -25,8 +28,8 @@ describe("Market Data Coverage Semantics", () => {
   };
 
   const TestContext = Layer.mergeAll(
-    Layer.succeed(MarketCandleStore, mockCandleRepo as any),
-    Layer.succeed(MarketRemoteProvider, mockHLProvider as any)
+    Layer.succeed(MarketCandleStore, mockCandleRepo as unknown as MarketCandleStorePort),
+    Layer.succeed(MarketRemoteProvider, mockHLProvider as unknown as MarketRemoteProviderPort)
   );
 
   const MarketDataServicesTest = Layer.effect(

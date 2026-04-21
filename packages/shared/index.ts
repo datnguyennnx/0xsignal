@@ -16,3 +16,6 @@ export * from "./patterns";
 
 // Error types
 export * from "./utils/errors";
+
+// Market symbol normalization
+export * from "./utils/market-symbol";

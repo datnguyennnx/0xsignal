@@ -6,8 +6,39 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { McpServerDependencies } from "../server";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { Context } from "effect";
+import { StrategyServices } from "@application/strategy";
+import { BacktestServices } from "@application/backtest";
+import { MarketDataServices } from "@application/market-data";
+import { ResearchServicesTag } from "@application/research";
 
 describe("MCP E2E Compliance Smoke Test", () => {
+  const readTextBlock = (content: unknown): string => {
+    if (typeof content === "object" && content !== null && "text" in content) {
+      const maybeText = (content as { text?: unknown }).text;
+      if (typeof maybeText === "string") {
+        return maybeText;
+      }
+    }
+
+    return "";
+  };
+
+  const readTextContent = (entry: unknown): string => {
+    if (typeof entry === "object" && entry !== null && "text" in entry) {
+      const maybeText = (entry as { text?: unknown }).text;
+      if (typeof maybeText === "string") {
+        return maybeText;
+      }
+    }
+
+    if (typeof entry === "object" && entry !== null && "content" in entry) {
+      return readTextBlock((entry as { content?: unknown }).content);
+    }
+
+    return "";
+  };
+
   const mockMcpRepo = {
     insertInteraction: vi.fn().mockResolvedValue({}),
     updateInteractionStatus: vi.fn().mockResolvedValue({}),
@@ -39,11 +70,11 @@ describe("MCP E2E Compliance Smoke Test", () => {
 
   const mockDeps: McpServerDependencies = {
     agentServices: mockAgentServices,
-    strategyServices: {} as any,
-    backtestServices: {} as any,
-    researchServices: {} as any,
-    marketDataServices: {} as any,
-    mcpRepository: mockMcpRepo as any,
+    strategyServices: {} as Context.Tag.Service<typeof StrategyServices>,
+    backtestServices: {} as Context.Tag.Service<typeof BacktestServices>,
+    researchServices: {} as Context.Tag.Service<typeof ResearchServicesTag>,
+    marketDataServices: {} as Context.Tag.Service<typeof MarketDataServices>,
+    mcpRepository: mockMcpRepo,
   };
 
   let server: McpServer;
@@ -53,13 +84,16 @@ describe("MCP E2E Compliance Smoke Test", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    initializeMcpServer({}, mockDeps);
+    mockAgentServices.openSession.mockReturnValue(
+      Effect.succeed({ id: "test-session-id", status: "pending" })
+    );
+    initializeMcpServer();
 
     const [t1, t2] = InMemoryTransport.createLinkedPair();
     serverTransport = t1;
     clientTransport = t2;
 
-    server = new McpServer();
+    server = new McpServer(mockDeps);
     client = new Client({ name: "test-client", version: "1.0.0" }, { capabilities: {} });
 
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -71,10 +105,15 @@ describe("MCP E2E Compliance Smoke Test", () => {
 
   describe("Protocol Compliance", () => {
     it("should advertise prompt and resource capabilities", async () => {
-      expect((server as any)._capabilities).toBeDefined();
-      expect((server as any)._capabilities.tools).toBeDefined();
-      expect((server as any)._capabilities.prompts).toBeDefined();
-      expect((server as any)._capabilities.resources).toBeDefined();
+      const tools = await client.listTools();
+      const prompts = await client.listPrompts();
+      const resources = await client.listResources();
+      const templates = await client.listResourceTemplates();
+
+      expect(tools.tools).toBeDefined();
+      expect(prompts.prompts).toBeDefined();
+      expect(resources.resources).toBeDefined();
+      expect(templates.resourceTemplates).toBeDefined();
     });
 
     it("should list tools correctly", async () => {
@@ -87,8 +126,8 @@ describe("MCP E2E Compliance Smoke Test", () => {
       const result = await client.listPrompts();
       expect(result.prompts).toBeDefined();
       expect(result.prompts.length).toBeGreaterThan(0);
-      expect(result.prompts.some((p: any) => p.name === "session_kickoff")).toBe(true);
-      expect(result.prompts.some((p: any) => p.name === "prepare_backtest_data")).toBe(true);
+      expect(result.prompts.some((p) => p.name === "session_kickoff")).toBe(true);
+      expect(result.prompts.some((p) => p.name === "prepare_backtest_data")).toBe(true);
     });
 
     it("should resolve prompt correctly", async () => {
@@ -97,7 +136,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
         arguments: { source: "cli", objective: "test" },
       });
       const combinedText = result.messages
-        .map((m) => (m.content as any).text)
+        .map((m) => readTextBlock(m.content))
         .filter(Boolean)
         .join("\n");
       expect(combinedText).toContain("Source: cli");
@@ -111,7 +150,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
       });
 
       const combinedText = result.messages
-        .map((m) => (m.content as any).text)
+        .map((m) => readTextBlock(m.content))
         .filter(Boolean)
         .join("\n");
       expect(combinedText).toContain("Missing required prompt arguments");
@@ -121,23 +160,21 @@ describe("MCP E2E Compliance Smoke Test", () => {
     it("should list resources correctly", async () => {
       const result = await client.listResources();
       expect(result.resources).toBeDefined();
-      expect(result.resources.some((r: any) => r.uri === "system://architecture")).toBe(true);
-      expect(result.resources.some((r: any) => r.uri === "system://strategy-schema")).toBe(true);
+      expect(result.resources.some((r) => r.uri === "system://architecture")).toBe(true);
+      expect(result.resources.some((r) => r.uri === "system://strategy-schema")).toBe(true);
     });
 
     it("should list resource templates correctly", async () => {
       const result = await client.listResourceTemplates();
       expect(result.resourceTemplates).toBeDefined();
       expect(
-        result.resourceTemplates.some((t: any) => t.uriTemplate === "session://{sessionId}/context")
+        result.resourceTemplates.some((t) => t.uriTemplate === "session://{sessionId}/context")
       ).toBe(true);
       expect(
-        result.resourceTemplates.some((t: any) => t.uriTemplate === "backtest://{runId}/summary")
+        result.resourceTemplates.some((t) => t.uriTemplate === "backtest://{runId}/summary")
       ).toBe(true);
       expect(
-        result.resourceTemplates.some(
-          (t: any) => t.uriTemplate === "strategy://{strategyId}/history"
-        )
+        result.resourceTemplates.some((t) => t.uriTemplate === "strategy://{strategyId}/history")
       ).toBe(true);
     });
 
@@ -145,7 +182,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
       const result = await client.readResource({ uri: "system://architecture" });
       expect(result.contents).toBeDefined();
       expect(result.contents[0].uri).toBe("system://architecture");
-      expect(JSON.parse((result.contents[0] as any).text)).toHaveProperty(
+      expect(JSON.parse(readTextContent(result.contents[0]))).toHaveProperty(
         "server_name",
         "0xsignal"
       );
@@ -155,7 +192,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
       const result = await client.readResource({ uri: "system://strategy-schema" });
       expect(result.contents).toBeDefined();
       expect(result.contents[0].uri).toBe("system://strategy-schema");
-      const parsed = JSON.parse((result.contents[0] as any).text);
+      const parsed = JSON.parse(readTextContent(result.contents[0]));
       expect(parsed).toHaveProperty("definitions.strategy_definition");
       expect(parsed).toHaveProperty("definitions.strategy_version");
     });
@@ -164,7 +201,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
       const result = await client.readResource({ uri: "session://test-session-id/context" });
       expect(result.contents).toBeDefined();
       expect(result.contents[0].uri).toBe("session://test-session-id/context");
-      const parsed = JSON.parse((result.contents[0] as any).text);
+      const parsed = JSON.parse(readTextContent(result.contents[0]));
       expect(parsed).toHaveProperty("id", "test-session-id");
       expect(parsed).toHaveProperty("objective", "test objective");
     });
@@ -177,7 +214,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
         arguments: { source: "test", objective: "test" },
       });
 
-      const parsed = JSON.parse((result as any).content[0].text);
+      const parsed = JSON.parse(readTextContent(result.content[0]));
       expect(parsed).toEqual({
         session_id: "test-session-id",
         status: "pending",
@@ -210,7 +247,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
       });
 
       expect(result.isError).toBe(true);
-      expect((result as any).content[0].text).toContain("Simulated failure");
+      expect(readTextContent(result.content[0])).toContain("Simulated failure");
 
       // Verify interaction tracking recorded the failure
       expect(mockMcpRepo.updateInteractionStatus).toHaveBeenCalledWith(
@@ -218,6 +255,35 @@ describe("MCP E2E Compliance Smoke Test", () => {
         "failed",
         expect.objectContaining({ error: "Simulated failure" })
       );
+    });
+
+    it("should still return success when completion tracking fails", async () => {
+      mockMcpRepo.updateInteractionStatus.mockRejectedValueOnce(new Error("completed-update-fail"));
+
+      const result = await client.callTool({
+        name: "open_session",
+        arguments: { source: "test", objective: "tracking-failure" },
+      });
+
+      expect(result.isError).toBeFalsy();
+      const parsed = JSON.parse(readTextContent(result.content[0]));
+      expect(parsed).toEqual({
+        session_id: "test-session-id",
+        status: "pending",
+      });
+    });
+
+    it("should still return tool error when failure tracking fails", async () => {
+      mockAgentServices.openSession.mockReturnValue(Effect.fail(new Error("Simulated failure")));
+      mockMcpRepo.updateInteractionStatus.mockRejectedValueOnce(new Error("failed-update-fail"));
+
+      const result = await client.callTool({
+        name: "open_session",
+        arguments: { source: "test", objective: "tracking-failure" },
+      });
+
+      expect(result.isError).toBe(true);
+      expect(readTextContent(result.content[0])).toContain("Simulated failure");
     });
   });
 });

@@ -15,7 +15,7 @@ describe("QuestDB Client Regression - JSON vs ILP", () => {
       ok: true,
       text: () => Promise.resolve("timestamp=2024-01-01 i_am_not_json"),
       status: 200,
-    } as any);
+    } as Response);
 
     const program = query("SELECT * FROM candle").pipe(
       Effect.provideService(QuestDBClient, config)
@@ -41,7 +41,7 @@ describe("QuestDB Client Regression - JSON vs ILP", () => {
       ok: true,
       status: 204,
       text: () => Promise.resolve(""),
-    } as any);
+    } as Response);
 
     const program = ingest(["candle,s=BTC v=1 1000"]).pipe(
       Effect.provideService(QuestDBClient, config)
@@ -63,7 +63,7 @@ describe("QuestDB Client Regression - JSON vs ILP", () => {
       ok: true,
       text: () => Promise.resolve(JSON.stringify(mockResponse)),
       status: 200,
-    } as any);
+    } as Response);
 
     const program = query("SELECT count(*) FROM candle").pipe(
       Effect.provideService(QuestDBClient, config)
