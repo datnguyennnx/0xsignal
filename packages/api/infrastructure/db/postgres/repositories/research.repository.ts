@@ -1,14 +1,15 @@
+import { Layer } from "effect";
 import { query } from "../client";
 import type { ResearchNote, Artifact } from "../../../../schemas/research";
-import type { ResearchRepository } from "../../../../application/ports/research-repository";
+import { ResearchRepository } from "../../../../application/ports/research-repository";
 
-export const postgresResearchRepository: ResearchRepository = {
+export const ResearchRepositoryLive = Layer.succeed(ResearchRepository, {
   async insertNote(note: ResearchNote): Promise<ResearchNote> {
     const sql = `
-      INSERT INTO research_notes (id, session_id, run_id, strategy_version_id, title, content_markdown, tags, trace_id, span_id, correlation_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING *
-    `;
+        INSERT INTO research_notes (id, session_id, run_id, strategy_version_id, title, content_markdown, tags, trace_id, span_id, correlation_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING *
+      `;
     const result = await query(sql, [
       note.id,
       note.session_id,
@@ -25,12 +26,24 @@ export const postgresResearchRepository: ResearchRepository = {
     return result.rows[0] as ResearchNote;
   },
 
+  async getNotesBySession(sessionId: string): Promise<ResearchNote[]> {
+    const sql = `SELECT * FROM research_notes WHERE session_id = $1 ORDER BY created_at DESC`;
+    const result = await query(sql, [sessionId]);
+    return result.rows as ResearchNote[];
+  },
+
+  async getNotesByStrategy(strategyId: string): Promise<ResearchNote[]> {
+    const sql = `SELECT * FROM research_notes WHERE strategy_version_id = $1 ORDER BY created_at DESC`;
+    const result = await query(sql, [strategyId]);
+    return result.rows as ResearchNote[];
+  },
+
   async insertArtifact(artifact: Artifact): Promise<Artifact> {
     const sql = `
-      INSERT INTO artifacts (id, run_id, strategy_version_id, artifact_type, storage_path, content_type, size_bytes, metadata, trace_id, span_id, correlation_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING *
-    `;
+        INSERT INTO artifacts (id, run_id, strategy_version_id, artifact_type, storage_path, content_type, size_bytes, metadata, trace_id, span_id, correlation_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        RETURNING *
+      `;
     const result = await query(sql, [
       artifact.id,
       artifact.run_id,
@@ -47,4 +60,10 @@ export const postgresResearchRepository: ResearchRepository = {
     ]);
     return result.rows[0] as Artifact;
   },
-};
+
+  async getArtifactsByRun(runId: string): Promise<Artifact[]> {
+    const sql = `SELECT * FROM artifacts WHERE run_id = $1 ORDER BY created_at DESC`;
+    const result = await query(sql, [runId]);
+    return result.rows as Artifact[];
+  },
+});

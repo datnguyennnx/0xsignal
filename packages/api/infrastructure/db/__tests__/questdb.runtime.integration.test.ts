@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Effect } from "effect";
 import { query, QuestDBClientLayer } from "../questdb/client";
+import { runQuestDBMigrations } from "../questdb/migrations/migration";
 import * as repo from "../questdb/repositories/candle";
 import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 
@@ -14,7 +15,7 @@ if (shouldRunQuestDb) {
     it("should initialize the schema and query the table", async () => {
       const program = Effect.gen(function* () {
         // 1. Ensure table exists
-        yield* repo.initializeSchema();
+        yield* runQuestDBMigrations();
 
         // 2. Perform a count query
         const sql = "SELECT count(*) as count FROM candle";
@@ -39,7 +40,7 @@ if (shouldRunQuestDb) {
       const end = new Date("2024-01-01T05:00:00Z");
 
       const program = Effect.gen(function* () {
-        yield* repo.initializeSchema();
+        yield* runQuestDBMigrations();
 
         // Insert only T=0, T=2, T=5
         const candles = [
@@ -108,7 +109,7 @@ if (shouldRunQuestDb) {
       ];
 
       const program = Effect.gen(function* () {
-        yield* repo.initializeSchema();
+        yield* runQuestDBMigrations();
         yield* repo.insertCandles(symbol, "TestExchange", "1m", candles);
 
         // Give QuestDB a tiny moment to flush WAL (though in tests we might just query immediately)

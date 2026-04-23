@@ -1,7 +1,7 @@
 import { Effect, Layer } from "effect";
 import { validationError, notFoundError } from "../errors";
 import type { CoverageResult } from "../../schemas/market-data";
-import type { MarketDataRepository } from "../ports/market-data-repository";
+import { MarketDataRepository } from "../ports/market-data-repository";
 import { MarketCandleStore, MarketDataServices, MarketRemoteProvider } from "./contracts";
 import type { RecentCandleQuery } from "./types";
 import { alignRangeToTimeframe } from "./range-alignment";
@@ -83,17 +83,9 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
             );
           }
 
-          const fallbackCoverage: CoverageResult = {
-            hasData: false,
-            rowCount: 0,
-            expectedCount: 0,
-            fullCoverage: false,
-            missingWindows: [{ start: startTime, end: endTime }],
-          };
-
           let coverage = yield* candleRepo
             .checkCoverage(query.symbol, query.exchange, query.timeframe, startTime, endTime)
-            .pipe(Effect.catchAll(() => Effect.succeed(fallbackCoverage)));
+            .pipe(Effect.mapError(mapMarketInfraError("QuestDB coverage check failed")));
           const initialCoverageAt = Date.now();
 
           coverage = yield* fillGaps(query, coverage, startTime, endTime);
@@ -254,5 +246,10 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
     });
   });
 
-export const MarketDataServicesLayer = (repo: MarketDataRepository) =>
-  Layer.effect(MarketDataServices, makeMarketDataService(repo));
+export const MarketDataServicesLive = Layer.effect(
+  MarketDataServices,
+  Effect.gen(function* () {
+    const repo = yield* MarketDataRepository;
+    return yield* makeMarketDataService(repo);
+  })
+);

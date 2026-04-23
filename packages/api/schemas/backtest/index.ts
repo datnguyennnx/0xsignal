@@ -12,8 +12,12 @@ export const BacktestRunSchema = Schema.Struct({
   strategy_version_id: Schema.String,
   dataset_snapshot_id: Schema.String,
   status: Schema.Union(
+    Schema.Literal("queued"),
     Schema.Literal("pending"),
+    Schema.Literal("initialized"),
+    Schema.Literal("preparing"),
     Schema.Literal("running"),
+    Schema.Literal("cancelling"),
     Schema.Literal("completed"),
     Schema.Literal("failed"),
     Schema.Literal("cancelled")

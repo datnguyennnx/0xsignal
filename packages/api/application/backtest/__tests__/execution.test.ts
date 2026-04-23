@@ -8,7 +8,7 @@ const minimalRun: BacktestRun = {
   id: "run-1",
   strategy_version_id: "strat-v1",
   dataset_snapshot_id: "ds-1",
-  status: "pending",
+  status: "queued",
   engine_version: "1",
   run_mode: "backtest",
   initial_capital: 10_000,

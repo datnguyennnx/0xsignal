@@ -1,11 +1,22 @@
-/** Application Layer - Dependency injection composition */
-
 import { Layer } from "effect";
 import { DevLoggerLive } from "../logging/logger";
 import { FetchHttpClient } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
-import { makeMarketDataLayer } from "./market-data.layer";
+import { MarketDataPortsLive } from "./market-data.layer";
 import { HealthServicesLive } from "./health.layer";
+import { RepositoriesLive } from "./repositories.layer";
+import { AppServicesLive } from "./services.layer";
+import { EngineLive } from "./engine.layer";
 
 const Core = Layer.mergeAll(DevLoggerLive, BunContext.layer, FetchHttpClient.layer);
-export const AppLayer = Layer.mergeAll(Core, makeMarketDataLayer(), HealthServicesLive);
+const Infrastructure = Layer.mergeAll(
+  MarketDataPortsLive,
+  HealthServicesLive,
+  RepositoriesLive,
+  EngineLive
+);
+
+export const AppLayer = AppServicesLive.pipe(
+  Layer.provideMerge(Infrastructure),
+  Layer.provideMerge(Core)
+);

@@ -4,25 +4,8 @@ import { Effect } from "effect";
 import { HealthServices } from "../../application/health";
 import { MarketDataServices } from "../../application/market-data/contracts";
 import { DomainError } from "../../application/errors";
-import { IS_DEV_MODE } from "../../infrastructure/config/mode";
 import { healthRoute } from "./routes/health.routes";
 import { buildMarketDataRoutes } from "./routes/market-data.routes";
-
-const CANDLE_TIMING_LOGS_ENABLED = IS_DEV_MODE;
-
-const logCandleRouteTiming = (payload: Record<string, unknown>) =>
-  CANDLE_TIMING_LOGS_ENABLED
-    ? Effect.logInfo(JSON.stringify({ event: "candle_route_timing", ...payload }))
-    : Effect.succeed(undefined);
-
-const extractCandleCount = (payload: unknown): number | undefined => {
-  if (typeof payload !== "object" || payload === null || !("candles" in payload)) {
-    return undefined;
-  }
-
-  const candles = (payload as { candles?: unknown }).candles;
-  return Array.isArray(candles) ? candles.length : undefined;
-};
 
 type HttpError = {
   readonly status: number;
@@ -110,8 +93,6 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
   ...buildMarketDataRoutes({
     json,
     mapServiceError,
-    logCandleRouteTiming,
-    extractCandleCount,
   }).map((route) => ({
     method: route.method,
     path: route.path,

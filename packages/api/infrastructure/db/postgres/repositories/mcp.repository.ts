@@ -1,25 +1,15 @@
+import { Layer } from "effect";
 import { query } from "../client";
 import type { McpInteraction as MCPInteraction } from "../../../../schemas/mcp";
+import { MCPRepository } from "../../../../application/ports/mcp-repository";
 
-export interface MCPRepository {
-  insertInteraction(interaction: MCPInteraction): Promise<MCPInteraction>;
-  getInteraction(id: string): Promise<MCPInteraction | null>;
-  getInteractionsBySession(sessionId: string): Promise<MCPInteraction[]>;
-  getInteractionsByCorrelation(correlationId: string): Promise<MCPInteraction[]>;
-  updateInteractionStatus(
-    id: string,
-    status: string,
-    outputPayload?: string | unknown
-  ): Promise<MCPInteraction | null>;
-}
-
-export const postgresMCPRepository: MCPRepository = {
+export const MCPRepositoryLive = Layer.succeed(MCPRepository, {
   async insertInteraction(interaction: MCPInteraction): Promise<MCPInteraction> {
     const sql = `
-      INSERT INTO mcp_interactions (id, session_id, interaction_type, name, input_payload, output_payload, status, trace_id, span_id, correlation_id, request_id, parent_span_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING *
-    `;
+        INSERT INTO mcp_interactions (id, session_id, interaction_type, name, input_payload, output_payload, status, trace_id, span_id, correlation_id, request_id, parent_span_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        RETURNING *
+      `;
     const result = await query(sql, [
       interaction.id,
       interaction.session_id,
@@ -70,11 +60,11 @@ export const postgresMCPRepository: MCPRepository = {
     outputPayload?: string | unknown
   ): Promise<MCPInteraction | null> {
     const sql = `
-      UPDATE mcp_interactions
-      SET status = $2, output_payload = $3
-      WHERE id = $1
-      RETURNING *
-    `;
+        UPDATE mcp_interactions
+        SET status = $2, output_payload = $3
+        WHERE id = $1
+        RETURNING *
+      `;
     const result = await query(sql, [
       id,
       status,
@@ -86,4 +76,4 @@ export const postgresMCPRepository: MCPRepository = {
     ]);
     return result.rows[0] as MCPInteraction | null;
   },
-};
+});

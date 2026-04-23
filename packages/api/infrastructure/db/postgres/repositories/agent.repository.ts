@@ -1,14 +1,15 @@
+import { Layer } from "effect";
 import { query } from "../client";
 import type { AgentSession, AgentPlan, AgentAction } from "../../../../schemas/agent";
-import type { AgentRepository } from "../../../../application/ports/agent-repository";
+import { AgentRepository } from "../../../../application/ports/agent-repository";
 
-export const postgresAgentRepository: AgentRepository = {
+export const AgentRepositoryLive = Layer.succeed(AgentRepository, {
   async insertSession(session: AgentSession): Promise<AgentSession> {
     const sql = `
-      INSERT INTO agent_sessions (id, source, objective, status, context_scope, actor_kind, actor_name, source_system, trace_id, span_id, correlation_id, request_id, started_at, ended_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-      RETURNING *
-    `;
+        INSERT INTO agent_sessions (id, source, objective, status, context_scope, actor_kind, actor_name, source_system, trace_id, span_id, correlation_id, request_id, started_at, ended_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        RETURNING *
+      `;
     const result = await query(sql, [
       session.id,
       session.source,
@@ -36,10 +37,10 @@ export const postgresAgentRepository: AgentRepository = {
 
   async insertPlan(plan: AgentPlan): Promise<AgentPlan> {
     const sql = `
-      INSERT INTO agent_plans (id, session_id, version, title, content_markdown, structured_plan, trace_id, span_id, correlation_id, request_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING *
-    `;
+        INSERT INTO agent_plans (id, session_id, version, title, content_markdown, structured_plan, trace_id, span_id, correlation_id, request_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING *
+      `;
     const result = await query(sql, [
       plan.id,
       plan.session_id,
@@ -56,12 +57,18 @@ export const postgresAgentRepository: AgentRepository = {
     return result.rows[0] as AgentPlan;
   },
 
+  async getPlansBySession(sessionId: string): Promise<AgentPlan[]> {
+    const sql = `SELECT * FROM agent_plans WHERE session_id = $1 ORDER BY created_at ASC`;
+    const result = await query(sql, [sessionId]);
+    return result.rows as AgentPlan[];
+  },
+
   async insertAction(action: AgentAction): Promise<AgentAction> {
     const sql = `
-      INSERT INTO agent_actions (id, session_id, plan_id, action_type, target_type, target_id, input_payload, result_payload, status, error_code, error_message, trace_id, span_id, correlation_id, request_id, parent_span_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-      RETURNING *
-    `;
+        INSERT INTO agent_actions (id, session_id, plan_id, action_type, target_type, target_id, input_payload, result_payload, status, error_code, error_message, trace_id, span_id, correlation_id, request_id, parent_span_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        RETURNING *
+      `;
     const result = await query(sql, [
       action.id,
       action.session_id,
@@ -83,4 +90,10 @@ export const postgresAgentRepository: AgentRepository = {
     ]);
     return result.rows[0] as AgentAction;
   },
-};
+
+  async getActionsBySession(sessionId: string): Promise<AgentAction[]> {
+    const sql = `SELECT * FROM agent_actions WHERE session_id = $1 ORDER BY created_at ASC`;
+    const result = await query(sql, [sessionId]);
+    return result.rows as AgentAction[];
+  },
+});

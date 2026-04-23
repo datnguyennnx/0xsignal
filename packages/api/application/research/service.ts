@@ -1,7 +1,7 @@
 import { Effect, Context, Layer } from "effect";
 import { validationError, DomainError } from "../errors";
 import type { ResearchNote, Artifact } from "../../schemas/research";
-import type { ResearchRepository } from "../ports/research-repository";
+import { ResearchRepository } from "../ports/research-repository";
 
 type AppendResearchNoteInput = {
   id: string;
@@ -34,7 +34,10 @@ export interface ResearchServices {
   appendResearchNote(
     input: AppendResearchNoteInput
   ): Effect.Effect<ResearchNote, DomainError, never>;
+  getNotesBySession(sessionId: string): Effect.Effect<ResearchNote[], DomainError, never>;
+  getNotesByStrategy(strategyId: string): Effect.Effect<ResearchNote[], DomainError, never>;
   createArtifact(input: CreateArtifactInput): Effect.Effect<Artifact, DomainError, never>;
+  getArtifactsByRun(runId: string): Effect.Effect<Artifact[], DomainError, never>;
 }
 
 export class ResearchServicesTag extends Context.Tag("ResearchServices")<
@@ -64,6 +67,18 @@ export const makeResearchService = (repo: ResearchRepository): ResearchServices 
       catch: (e) => validationError("Failed to append research note", e),
     }),
 
+  getNotesBySession: (sessionId: string): Effect.Effect<ResearchNote[], DomainError, never> =>
+    Effect.tryPromise({
+      try: () => repo.getNotesBySession(sessionId),
+      catch: (e) => validationError("Failed to load research notes for session", e),
+    }),
+
+  getNotesByStrategy: (strategyId: string): Effect.Effect<ResearchNote[], DomainError, never> =>
+    Effect.tryPromise({
+      try: () => repo.getNotesByStrategy(strategyId),
+      catch: (e) => validationError("Failed to load research notes for strategy", e),
+    }),
+
   createArtifact: (input: CreateArtifactInput): Effect.Effect<Artifact, DomainError, never> =>
     Effect.tryPromise({
       try: () =>
@@ -83,7 +98,18 @@ export const makeResearchService = (repo: ResearchRepository): ResearchServices 
         }),
       catch: (e) => validationError("Failed to create artifact", e),
     }),
+
+  getArtifactsByRun: (runId: string): Effect.Effect<Artifact[], DomainError, never> =>
+    Effect.tryPromise({
+      try: () => repo.getArtifactsByRun(runId),
+      catch: (e) => validationError("Failed to load artifacts for run", e),
+    }),
 });
 
-export const ResearchServicesLayer = (repo: ResearchRepository) =>
-  Layer.succeed(ResearchServicesTag, makeResearchService(repo));
+export const ResearchServicesLive = Layer.effect(
+  ResearchServicesTag,
+  Effect.gen(function* () {
+    const repo = yield* ResearchRepository;
+    return makeResearchService(repo);
+  })
+);

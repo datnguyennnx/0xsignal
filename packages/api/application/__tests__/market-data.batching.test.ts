@@ -28,7 +28,6 @@ describe("MarketDataServices Batching", () => {
     getCandles: vi.fn(),
     insertCandles: vi.fn(),
     getLatestTimestamp: vi.fn(),
-    initializeSchema: vi.fn(),
   };
 
   const mockHLProvider = {

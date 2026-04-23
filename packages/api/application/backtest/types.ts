@@ -3,7 +3,7 @@ export type CreateBacktestRunInput = {
   session_id?: string;
   strategy_version_id: string;
   dataset_snapshot_id: string;
-  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  status: "queued" | "preparing" | "running" | "cancelling" | "completed" | "failed" | "cancelled";
   engine_version: string;
   run_mode: "backtest" | "paper" | "live";
   initial_capital: number;

@@ -7,7 +7,7 @@ import type {
   RunSummary,
   BacktestRunInput as BacktestRunInputs,
 } from "../../schemas/backtest";
-import type { BacktestRepository } from "../ports/backtest-repository";
+import { BacktestRepository } from "../ports/backtest-repository";
 import { EngineExecutor } from "../../domain/backtest/engine";
 import type {
   CreateBacktestRunInput,
@@ -27,6 +27,8 @@ export class BacktestServices extends Context.Tag("BacktestServices")<
       input: SaveRunInputInput
     ) => Effect.Effect<BacktestRunInputs, DomainError>;
     readonly getRunSummary: (id: string) => Effect.Effect<RunSummary, DomainError>;
+    readonly getRunInput: (id: string) => Effect.Effect<BacktestRunInputs, DomainError>;
+    readonly getRunEvents: (id: string) => Effect.Effect<BacktestEvent[], DomainError>;
     readonly appendRunEvent: (
       input: AppendRunEventInput
     ) => Effect.Effect<BacktestEvent, DomainError>;
@@ -116,6 +118,26 @@ export const makeBacktestService = (repo: BacktestRepository) =>
           return { run, metrics, eventCount };
         }),
 
+      getRunInput: (id: string): Effect.Effect<BacktestRunInputs, DomainError> =>
+        Effect.gen(function* () {
+          const input = yield* Effect.tryPromise({
+            try: () => repo.getRunInput(id),
+            catch: (e) => validationError("Failed to load backtest run input", e),
+          });
+
+          if (!input) {
+            return yield* Effect.fail(notFoundError(`Input for run ${id} not found`));
+          }
+
+          return input;
+        }),
+
+      getRunEvents: (id: string): Effect.Effect<BacktestEvent[], DomainError> =>
+        Effect.tryPromise({
+          try: () => repo.getEventsByRun(id),
+          catch: (e) => validationError("Failed to load backtest run events", e),
+        }),
+
       appendRunEvent: (input: AppendRunEventInput): Effect.Effect<BacktestEvent, DomainError> =>
         Effect.tryPromise({
           try: () =>
@@ -149,5 +171,10 @@ export const makeBacktestService = (repo: BacktestRepository) =>
     });
   });
 
-export const BacktestServicesLayer = (repo: BacktestRepository) =>
-  Layer.effect(BacktestServices, makeBacktestService(repo));
+export const BacktestServicesLive = Layer.effect(
+  BacktestServices,
+  Effect.gen(function* () {
+    const repo = yield* BacktestRepository;
+    return yield* makeBacktestService(repo);
+  })
+);

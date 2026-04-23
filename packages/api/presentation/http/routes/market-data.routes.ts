@@ -32,15 +32,11 @@ type RouteHandler = (
 type BuildMarketDataRoutesParams = {
   readonly json: (body: unknown, status?: number, headers?: Record<string, string>) => Response;
   readonly mapServiceError: (error: unknown) => HttpError;
-  readonly logCandleRouteTiming: (payload: Record<string, unknown>) => Effect.Effect<void, never>;
-  readonly extractCandleCount: (payload: unknown) => number | undefined;
 };
 
 export const buildMarketDataRoutes = ({
   json,
   mapServiceError,
-  logCandleRouteTiming,
-  extractCandleCount,
 }: BuildMarketDataRoutesParams): Array<{
   method: string;
   path: string;
@@ -60,14 +56,12 @@ export const buildMarketDataRoutes = ({
     path: "/api/candles",
     handler: (_request, url, marketData) =>
       Effect.gen(function* () {
-        const startedAt = Date.now();
         const symbol = yield* parseRequiredString(url.searchParams, "symbol");
         const interval = yield* parseInterval(url.searchParams);
         const exchange = url.searchParams.get("exchange")?.trim() || "Hyperliquid";
         const startTime = yield* parseOptionalDate(url.searchParams, "start_time");
         const endTime = yield* parseOptionalDate(url.searchParams, "end_time");
         const limit = yield* parseOptionalPositiveInt(url.searchParams, "limit");
-        const parsedAt = Date.now();
 
         const payload = yield* marketData
           .getCandles({
@@ -79,23 +73,8 @@ export const buildMarketDataRoutes = ({
             limit,
           })
           .pipe(Effect.mapError(mapServiceError));
-        const serviceFinishedAt = Date.now();
 
-        const response = json(payload);
-        const respondedAt = Date.now();
-
-        yield* logCandleRouteTiming({
-          route: "/api/candles",
-          symbol,
-          interval,
-          parse_ms: parsedAt - startedAt,
-          service_ms: serviceFinishedAt - parsedAt,
-          response_ms: respondedAt - serviceFinishedAt,
-          total_ms: respondedAt - startedAt,
-          row_count: extractCandleCount(payload),
-        });
-
-        return response;
+        return json(payload);
       }),
   },
   {
@@ -103,13 +82,11 @@ export const buildMarketDataRoutes = ({
     path: "/api/candles/recent",
     handler: (_request, url, marketData) =>
       Effect.gen(function* () {
-        const startedAt = Date.now();
         const symbol = yield* parseRequiredString(url.searchParams, "symbol");
         const interval = yield* parseInterval(url.searchParams);
         const exchange = url.searchParams.get("exchange")?.trim() || "Hyperliquid";
         const endTime = yield* parseOptionalDate(url.searchParams, "end_time");
         const limit = yield* parseOptionalPositiveInt(url.searchParams, "limit");
-        const parsedAt = Date.now();
 
         const payload = yield* marketData
           .getRecentCandles({
@@ -120,23 +97,8 @@ export const buildMarketDataRoutes = ({
             limit,
           })
           .pipe(Effect.mapError(mapServiceError));
-        const serviceFinishedAt = Date.now();
 
-        const response = json(payload);
-        const respondedAt = Date.now();
-
-        yield* logCandleRouteTiming({
-          route: "/api/candles/recent",
-          symbol,
-          interval,
-          parse_ms: parsedAt - startedAt,
-          service_ms: serviceFinishedAt - parsedAt,
-          response_ms: respondedAt - serviceFinishedAt,
-          total_ms: respondedAt - startedAt,
-          row_count: extractCandleCount(payload),
-        });
-
-        return response;
+        return json(payload);
       }),
   },
   {

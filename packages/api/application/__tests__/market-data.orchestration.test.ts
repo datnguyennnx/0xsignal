@@ -26,7 +26,6 @@ describe("MarketDataServices Orchestration", () => {
     checkCoverage: vi.fn(),
     getCandles: vi.fn(),
     insertCandles: vi.fn(),
-    initializeSchema: vi.fn(),
   };
 
   const mockHLProvider = {

@@ -75,7 +75,7 @@ describe("Backtest Execution Flow", () => {
         id: runId,
         strategy_version_id: "strat-1",
         dataset_snapshot_id: "data-1",
-        status: "pending",
+        status: "queued",
         engine_version: "1.0",
         run_mode: "backtest",
         initial_capital: 10000,
@@ -89,7 +89,7 @@ describe("Backtest Execution Flow", () => {
     expect(mockRepo.createRunWithInput).toHaveBeenCalledWith(
       expect.objectContaining({
         id: runId,
-        status: "pending",
+        status: "queued",
       }),
       expect.objectContaining({
         run_id: runId,

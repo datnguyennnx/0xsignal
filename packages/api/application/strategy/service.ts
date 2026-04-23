@@ -6,7 +6,7 @@ import type {
   StrategyChangeRecord,
   StrategyHistory,
 } from "../../schemas/strategy";
-import type { StrategyRepository } from "../ports/strategy-repository";
+import { StrategyRepository } from "../ports/strategy-repository";
 
 type CreateStrategyDefinitionInput = {
   id: string;
@@ -141,5 +141,10 @@ export const makeStrategyService = (repo: StrategyRepository) =>
       }),
   });
 
-export const StrategyServicesLayer = (repo: StrategyRepository) =>
-  Layer.succeed(StrategyServices, makeStrategyService(repo));
+export const StrategyServicesLive = Layer.effect(
+  StrategyServices,
+  Effect.gen(function* () {
+    const repo = yield* StrategyRepository;
+    return makeStrategyService(repo);
+  })
+);

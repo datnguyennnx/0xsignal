@@ -1,5 +1,5 @@
 import { Effect, Context } from "effect";
-import { QuestDBError, query, ingest, QuestDBClient, command } from "../client";
+import { QuestDBError, query, ingest, QuestDBClient } from "../client";
 import * as queries from "../queries/candle";
 import { type Candle, type CoverageResult } from "../../../../schemas/market-data";
 import { getTimeframeMs, type MarketTimeframe } from "../../../../domain/market-data/timeframe";
@@ -36,7 +36,6 @@ export class CandleRepository extends Context.Tag("CandleRepository")<
       timeframe: MarketTimeframe,
       candles: Candle[]
     ) => Effect.Effect<void, QuestDBError>;
-    readonly initializeSchema: () => Effect.Effect<void, QuestDBError>;
   }
 >() {}
 
@@ -186,27 +185,6 @@ export function insertCandles(
   });
 }
 
-/**
- * Ensures the candle table exists with the correct schema.
- */
-export function initializeSchema(): Effect.Effect<void, QuestDBError, QuestDBClient> {
-  const sql = `
-    CREATE TABLE IF NOT EXISTS candle (
-      symbol SYMBOL,
-      exchange SYMBOL,
-      timeframe SYMBOL,
-      open DOUBLE,
-      high DOUBLE,
-      low DOUBLE,
-      close DOUBLE,
-      volume DOUBLE,
-      timestamp TIMESTAMP
-    ) timestamp(timestamp) PARTITION BY DAY WAL;
-  `.trim();
-
-  return command(sql);
-}
-
 export const CandleRepositoryLive = (client: QuestDBClientService) =>
   CandleRepository.of({
     getCandles: (params) => getCandles(params).pipe(Effect.provideService(QuestDBClient, client)),
@@ -222,7 +200,6 @@ export const CandleRepositoryLive = (client: QuestDBClientService) =>
       insertCandles(symbol, exchange, timeframe, candles).pipe(
         Effect.provideService(QuestDBClient, client)
       ),
-    initializeSchema: () => initializeSchema().pipe(Effect.provideService(QuestDBClient, client)),
   });
 
 // Also provide a Layer for the Repository

@@ -1,14 +1,15 @@
+import { Layer } from "effect";
 import { query } from "../client";
 import type { CandlestickRequest, DatasetSnapshot } from "../../../../schemas/market-data";
-import type { MarketDataRepository } from "../../../../application/ports/market-data-repository";
+import { MarketDataRepository } from "../../../../application/ports/market-data-repository";
 
-export const postgresMarketDataRepository: MarketDataRepository = {
+export const MarketDataRepositoryLive = Layer.succeed(MarketDataRepository, {
   async insertCandlestickRequest(request: CandlestickRequest): Promise<CandlestickRequest> {
     const sql = `
-      INSERT INTO candlestick_requests (id, session_id, symbol, exchange, base_timeframe, start_time, end_time, adjustments, requested_by_action_id, requested_by_interaction_id, trace_id, span_id, correlation_id, request_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING *
-    `;
+        INSERT INTO candlestick_requests (id, session_id, symbol, exchange, base_timeframe, start_time, end_time, adjustments, requested_by_action_id, requested_by_interaction_id, trace_id, span_id, correlation_id, request_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        RETURNING *
+      `;
     const result = await query(sql, [
       request.id,
       request.session_id,
@@ -31,10 +32,10 @@ export const postgresMarketDataRepository: MarketDataRepository = {
 
   async insertDatasetSnapshot(snapshot: DatasetSnapshot): Promise<DatasetSnapshot> {
     const sql = `
-      INSERT INTO dataset_snapshots (id, request_id, symbol, exchange, timeframe, start_time, end_time, query_fingerprint, row_count, checksum, source_series, trace_id, span_id, correlation_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING *
-    `;
+        INSERT INTO dataset_snapshots (id, request_id, symbol, exchange, timeframe, start_time, end_time, query_fingerprint, row_count, checksum, source_series, trace_id, span_id, correlation_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        RETURNING *
+      `;
     const result = await query(sql, [
       snapshot.id,
       snapshot.request_id,
@@ -60,4 +61,4 @@ export const postgresMarketDataRepository: MarketDataRepository = {
     const result = await query(sql, [id]);
     return result.rows[0] as DatasetSnapshot | null;
   },
-};
+});

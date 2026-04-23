@@ -1,8 +1,13 @@
+import { Context } from "effect";
 import type { AgentAction, AgentPlan, AgentSession } from "../../schemas/agent";
 
 export interface AgentRepository {
-  insertSession(session: AgentSession): Promise<AgentSession>;
-  getSession(id: string): Promise<AgentSession | null>;
-  insertPlan(plan: AgentPlan): Promise<AgentPlan>;
-  insertAction(action: AgentAction): Promise<AgentAction>;
+  readonly insertSession: (session: AgentSession) => Promise<AgentSession>;
+  readonly getSession: (id: string) => Promise<AgentSession | null>;
+  readonly insertPlan: (plan: AgentPlan) => Promise<AgentPlan>;
+  readonly getPlansBySession: (sessionId: string) => Promise<AgentPlan[]>;
+  readonly insertAction: (action: AgentAction) => Promise<AgentAction>;
+  readonly getActionsBySession: (sessionId: string) => Promise<AgentAction[]>;
 }
+
+export const AgentRepository = Context.GenericTag<AgentRepository>("@services/AgentRepository");

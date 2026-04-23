@@ -1,3 +1,4 @@
+import { Layer } from "effect";
 import { query, getClient } from "../client";
 import type {
   BacktestRun,
@@ -5,13 +6,19 @@ import type {
   BacktestMetric,
   BacktestEvent,
 } from "../../../../schemas/backtest";
-import type { BacktestRepository } from "../../../../application/ports/backtest-repository";
+import { BacktestRepository } from "../../../../application/ports/backtest-repository";
 
-export const postgresBacktestRepository: BacktestRepository = {
+export const BacktestRepositoryLive = Layer.succeed(BacktestRepository, {
   async getRun(id: string): Promise<BacktestRun | null> {
     const sql = `SELECT * FROM backtest_runs WHERE id = $1`;
     const result = await query(sql, [id]);
     return result.rows[0] as BacktestRun | null;
+  },
+
+  async getRunInput(runId: string): Promise<BacktestRunInputs | null> {
+    const sql = `SELECT * FROM backtest_run_inputs WHERE run_id = $1`;
+    const result = await query(sql, [runId]);
+    return (result.rows[0] as BacktestRunInputs) ?? null;
   },
 
   async createRunWithInput(run: BacktestRun, input: BacktestRunInputs): Promise<BacktestRun> {
@@ -20,10 +27,10 @@ export const postgresBacktestRepository: BacktestRepository = {
       await client.query("BEGIN");
 
       const runSql = `
-        INSERT INTO backtest_runs (id, session_id, strategy_version_id, dataset_snapshot_id, status, engine_version, run_mode, initial_capital, base_currency, created_by_action_id, trace_id, span_id, correlation_id, started_at, finished_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-        RETURNING *
-      `;
+          INSERT INTO backtest_runs (id, session_id, strategy_version_id, dataset_snapshot_id, status, engine_version, run_mode, initial_capital, base_currency, created_by_action_id, trace_id, span_id, correlation_id, started_at, finished_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          RETURNING *
+        `;
       const runResult = await client.query(runSql, [
         run.id,
         run.session_id,
@@ -43,9 +50,9 @@ export const postgresBacktestRepository: BacktestRepository = {
       ]);
 
       const inputSql = `
-        INSERT INTO backtest_run_inputs (run_id, strategy_snapshot, dataset_snapshot_ref, execution_options, schema_version, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `;
+          INSERT INTO backtest_run_inputs (run_id, strategy_snapshot, dataset_snapshot_ref, execution_options, schema_version, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `;
 
       await client.query(inputSql, [
         input.run_id,
@@ -76,10 +83,10 @@ export const postgresBacktestRepository: BacktestRepository = {
 
   async insertRunInput(input: BacktestRunInputs): Promise<BacktestRunInputs> {
     const sql = `
-      INSERT INTO backtest_run_inputs (run_id, strategy_snapshot, dataset_snapshot_ref, execution_options, schema_version, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `;
+        INSERT INTO backtest_run_inputs (run_id, strategy_snapshot, dataset_snapshot_ref, execution_options, schema_version, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `;
     const result = await query(sql, [
       input.run_id,
       typeof input.strategy_snapshot === "string"
@@ -101,10 +108,10 @@ export const postgresBacktestRepository: BacktestRepository = {
 
   async insertMetric(metric: BacktestMetric): Promise<BacktestMetric> {
     const sql = `
-      INSERT INTO backtest_metrics (run_id, metric_key, metric_value, metric_group, created_at)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-    `;
+        INSERT INTO backtest_metrics (run_id, metric_key, metric_value, metric_group, created_at)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+      `;
     const result = await query(sql, [
       metric.run_id,
       metric.metric_key,
@@ -123,10 +130,10 @@ export const postgresBacktestRepository: BacktestRepository = {
 
   async insertEvent(event: BacktestEvent): Promise<BacktestEvent> {
     const sql = `
-      INSERT INTO backtest_events (id, run_id, event_type, payload, level, trace_id, span_id, correlation_id, parent_span_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *
-    `;
+        INSERT INTO backtest_events (id, run_id, event_type, payload, level, trace_id, span_id, correlation_id, parent_span_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *
+      `;
     const result = await query(sql, [
       event.id,
       event.run_id,
@@ -142,6 +149,12 @@ export const postgresBacktestRepository: BacktestRepository = {
     return result.rows[0] as BacktestEvent;
   },
 
+  async getEventsByRun(runId: string): Promise<BacktestEvent[]> {
+    const sql = `SELECT * FROM backtest_events WHERE run_id = $1 ORDER BY created_at`;
+    const result = await query(sql, [runId]);
+    return result.rows as BacktestEvent[];
+  },
+
   async getEventCount(runId: string): Promise<number> {
     const sql = `SELECT COUNT(*) as count FROM backtest_events WHERE run_id = $1`;
     const result = await query(sql, [runId]);
@@ -150,12 +163,12 @@ export const postgresBacktestRepository: BacktestRepository = {
 
   async updateRunStatus(id: string, status: string): Promise<BacktestRun | null> {
     const sql = `
-      UPDATE backtest_runs
-      SET status = $2, finished_at = CASE WHEN $2 IN ('completed', 'failed', 'cancelled') THEN NOW() ELSE finished_at END
-      WHERE id = $1
-      RETURNING *
-    `;
+        UPDATE backtest_runs
+        SET status = $2, finished_at = CASE WHEN $2 IN ('completed', 'failed', 'cancelled') THEN NOW() ELSE finished_at END
+        WHERE id = $1
+        RETURNING *
+      `;
     const result = await query(sql, [id, status]);
     return (result.rows[0] as BacktestRun) ?? null;
   },
-};
+});

@@ -1,4 +1,11 @@
-export type RunLifecycleState = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type RunLifecycleState =
+  | "queued"
+  | "preparing"
+  | "running"
+  | "cancelling"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export interface StrategySnapshotRef {
   id: string;

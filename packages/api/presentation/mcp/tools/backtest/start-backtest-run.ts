@@ -20,7 +20,7 @@ export const startBacktestRunTool = {
         strategy_version_id: input.strategy_version_id,
         dataset_snapshot_id: input.dataset_snapshot_id,
         session_id: input.session_id,
-        status: "pending",
+        status: "queued",
         engine_version: input.engine_version ?? "1.0",
         run_mode: "backtest",
         initial_capital: input.initial_capital ?? 10000,

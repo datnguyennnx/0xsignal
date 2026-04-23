@@ -10,9 +10,10 @@ import {
   ListResourceTemplatesRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { makeMcpDependencies, makeMcpRequestLayer } from "./server";
+import { runMcpEffect } from "./server";
 
 import { ALL_TOOLS } from "./registry";
+import { McpServices } from "../../application/mcp/service";
 
 const TOOLS = ALL_TOOLS;
 
@@ -30,9 +31,6 @@ import { getStrategyHistory } from "./resources/strategy/strategy-history";
 import { PROMPTS } from "./prompts/index";
 import { MCP_AGENT_INSTRUCTION_MODULES, MCP_AGENT_SYSTEM_PROMPT } from "./harness-guidance";
 import { Effect } from "effect";
-import { QuestDBClientLayer } from "../../infrastructure/db/questdb/client";
-import { initializeSchema } from "../../infrastructure/db/questdb/repositories/candle";
-import type { McpServerDependencies } from "./server";
 import { formatToolErrorMessage, validateToolArguments } from "./tool-argument-validation";
 import type { JsonSchema } from "./tool-argument-validation";
 
@@ -81,13 +79,8 @@ const RESOURCE_TEMPLATES = [
   },
 ] as const;
 
-// PROMPTS are imported from ./prompts/index
-
 export class McpServer extends Server {
-  private readonly deps: McpServerDependencies;
-  private readonly requestLayer: ReturnType<typeof makeMcpRequestLayer>;
-
-  constructor(deps: McpServerDependencies) {
+  constructor() {
     super(
       {
         name: "0xsignal-mcp",
@@ -101,9 +94,6 @@ export class McpServer extends Server {
         },
       }
     );
-
-    this.deps = deps;
-    this.requestLayer = makeMcpRequestLayer(this.deps);
 
     this.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
@@ -145,16 +135,19 @@ export class McpServer extends Server {
             ? validatedInput.value.sessionId
             : undefined;
 
-      // Start interaction tracking
-      await this.deps.mcpRepository.insertInteraction({
-        id: interactionId,
-        session_id: sessionId,
-        interaction_type: "tool_call",
-        name: toolName,
-        input_payload: args,
-        status: "running",
-        created_at: new Date().toISOString(),
-      });
+      // Start interaction tracking via Effect
+      await runMcpEffect(
+        Effect.gen(function* () {
+          const mcp = yield* McpServices;
+          yield* mcp.trackInteraction({
+            id: interactionId,
+            session_id: sessionId,
+            interaction_type: "tool_call",
+            name: toolName,
+            input_payload: args,
+          });
+        })
+      ).catch((err) => console.warn("Failed to start MCP interaction tracking:", err));
 
       try {
         // Inject tracing metadata into tool arguments
@@ -165,17 +158,15 @@ export class McpServer extends Server {
         };
 
         const resultEffect = tool.execute(enrichedArgs as never) as Effect.Effect<unknown, unknown>;
-
-        const providedEffect = resultEffect.pipe(Effect.provide(this.requestLayer));
-
-        const result = await Effect.runPromise(providedEffect);
+        const result = await runMcpEffect(resultEffect);
 
         // Update interaction status
-        try {
-          await this.deps.mcpRepository.updateInteractionStatus(interactionId, "completed", result);
-        } catch (trackingError) {
-          console.warn("Failed to record MCP interaction completion:", trackingError);
-        }
+        await runMcpEffect(
+          Effect.gen(function* () {
+            const mcp = yield* McpServices;
+            yield* mcp.updateStatus(interactionId, "completed", result);
+          })
+        ).catch((err) => console.warn("Failed to record MCP interaction completion:", err));
 
         return {
           content: [
@@ -189,13 +180,14 @@ export class McpServer extends Server {
         const errorMessage = formatToolErrorMessage(error);
 
         // Record failure
-        try {
-          await this.deps.mcpRepository.updateInteractionStatus(interactionId, "failed", {
-            error: errorMessage,
-          });
-        } catch (trackingError) {
-          console.warn("Failed to record MCP interaction failure:", trackingError);
-        }
+        await runMcpEffect(
+          Effect.gen(function* () {
+            const mcp = yield* McpServices;
+            yield* mcp.updateStatus(interactionId, "error", {
+              error: errorMessage,
+            });
+          })
+        ).catch((err) => console.warn("Failed to record MCP interaction failure:", err));
 
         return {
           content: [
@@ -309,28 +301,18 @@ export class McpServer extends Server {
       const uri = request.params.uri;
       let result: ResourceReadResult | undefined;
       if (uri === "system://architecture") {
-        result = await Effect.runPromise(
-          getSystemArchitecture().pipe(Effect.provide(this.requestLayer))
-        );
+        result = await runMcpEffect(getSystemArchitecture());
       } else if (uri === "system://strategy-schema") {
-        result = await Effect.runPromise(
-          getStrategySchema().pipe(Effect.provide(this.requestLayer))
-        );
+        result = await runMcpEffect(getStrategySchema());
       } else if (uri.startsWith("session://") && uri.endsWith("/context")) {
         const sessionId = uri.split("/")[2];
-        result = await Effect.runPromise(
-          getSessionContext(sessionId).pipe(Effect.provide(this.requestLayer))
-        );
+        result = await runMcpEffect(getSessionContext(sessionId));
       } else if (uri.startsWith("backtest://") && uri.endsWith("/summary")) {
         const runId = uri.split("/")[2];
-        result = await Effect.runPromise(
-          getRunSummaryResource(runId).pipe(Effect.provide(this.requestLayer))
-        );
+        result = await runMcpEffect(getRunSummaryResource(runId));
       } else if (uri.startsWith("strategy://") && uri.endsWith("/history")) {
         const strategyId = uri.split("/")[2];
-        result = await Effect.runPromise(
-          getStrategyHistory(strategyId).pipe(Effect.provide(this.requestLayer))
-        );
+        result = await runMcpEffect(getStrategyHistory(strategyId));
       }
 
       if (!result) {
@@ -351,18 +333,8 @@ export class McpServer extends Server {
 }
 
 export async function main() {
-  // Initialize server with default dependencies
-  const deps = await makeMcpDependencies();
-
-  // Bootstrap QuestDB schema silently
-  try {
-    await Effect.runPromise(initializeSchema().pipe(Effect.provide(QuestDBClientLayer)));
-  } catch {
-    // Fail silently in main but error will be known on first query if it persists
-  }
-
   const transport = new StdioServerTransport();
-  const server = new McpServer(deps);
+  const server = new McpServer();
 
   await server.connect(transport);
 }

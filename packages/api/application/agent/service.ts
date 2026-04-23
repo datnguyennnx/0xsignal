@@ -1,7 +1,7 @@
 import { Effect, Context, Layer } from "effect";
 import { validationError, notFoundError, DomainError } from "../errors";
 import type { AgentSession, AgentPlan, AgentAction } from "../../schemas/agent";
-import type { AgentRepository } from "../ports/agent-repository";
+import { AgentRepository } from "../ports/agent-repository";
 
 type OpenSessionInput = {
   id: string;
@@ -55,7 +55,9 @@ export class AgentServices extends Context.Tag("AgentServices")<
     readonly openSession: (input: OpenSessionInput) => Effect.Effect<AgentSession, DomainError>;
     readonly getSession: (id: string) => Effect.Effect<AgentSession, DomainError>;
     readonly savePlan: (input: SavePlanInput) => Effect.Effect<AgentPlan, DomainError>;
+    readonly getPlansBySession: (sessionId: string) => Effect.Effect<AgentPlan[], DomainError>;
     readonly recordAction: (input: RecordActionInput) => Effect.Effect<AgentAction, DomainError>;
+    readonly getActionsBySession: (sessionId: string) => Effect.Effect<AgentAction[], DomainError>;
   }
 >() {}
 
@@ -113,6 +115,12 @@ export const makeAgentService = (repo: AgentRepository) =>
         catch: (e) => validationError("Failed to save plan", e),
       }),
 
+    getPlansBySession: (sessionId: string) =>
+      Effect.tryPromise({
+        try: () => repo.getPlansBySession(sessionId),
+        catch: (err) => validationError("Failed to get plans for session", err),
+      }),
+
     recordAction: (input: RecordActionInput) =>
       Effect.tryPromise({
         try: () =>
@@ -137,7 +145,18 @@ export const makeAgentService = (repo: AgentRepository) =>
           }),
         catch: (e) => validationError("Failed to record action", e),
       }),
+
+    getActionsBySession: (sessionId: string) =>
+      Effect.tryPromise({
+        try: () => repo.getActionsBySession(sessionId),
+        catch: (err) => validationError("Failed to get actions for session", err),
+      }),
   });
 
-export const AgentServicesLayer = (repo: AgentRepository) =>
-  Layer.succeed(AgentServices, makeAgentService(repo));
+export const AgentServicesLive = Layer.effect(
+  AgentServices,
+  Effect.gen(function* () {
+    const repo = yield* AgentRepository;
+    return makeAgentService(repo);
+  })
+);

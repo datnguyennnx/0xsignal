@@ -54,7 +54,7 @@ if (shouldRunPostgres) {
         // First, create the backtest run
         await query(
           `INSERT INTO backtest_runs (id, strategy_version_id, dataset_snapshot_id, status, run_mode, initial_capital, base_currency, trace_id, span_id, correlation_id, created_at)
-         VALUES ($1, $2, $3, 'pending', 'backtest', 50000, 'USD', 'trace-run', 'span-run', 'corr-run', $4)`,
+         VALUES ($1, $2, $3, 'queued', 'backtest', 50000, 'USD', 'trace-run', 'span-run', 'corr-run', $4)`,
           [testRunId, testStrategyVersionId, testDatasetSnapshotId, new Date().toISOString()]
         );
 

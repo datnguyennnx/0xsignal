@@ -10,6 +10,7 @@ const MIGRATION_FILES = [
   "005_research_core.sql",
   "006_mcp_core.sql",
   "007_integrity_hardening.sql",
+  "008_backtest_lifecycle_hardening.sql",
 ];
 
 const SCHEMA_MIGRATIONS_TABLE = `

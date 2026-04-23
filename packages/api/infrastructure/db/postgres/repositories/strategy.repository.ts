@@ -1,19 +1,19 @@
+import { Layer } from "effect";
 import { query } from "../client";
 import type {
   StrategyDefinition,
   StrategyVersion,
   StrategyChangeRecord,
-  StrategyHistory,
 } from "../../../../schemas/strategy";
-import type { StrategyRepository } from "../../../../application/ports/strategy-repository";
+import { StrategyRepository } from "../../../../application/ports/strategy-repository";
 
-export const postgresStrategyRepository: StrategyRepository = {
+export const StrategyRepositoryLive = Layer.succeed(StrategyRepository, {
   async insertDefinition(def: StrategyDefinition): Promise<StrategyDefinition> {
     const sql = `
-      INSERT INTO strategy_definitions (id, slug, name, market_type, owner_type, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `;
+        INSERT INTO strategy_definitions (id, slug, name, market_type, owner_type, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `;
     const result = await query(sql, [
       def.id,
       def.slug,
@@ -27,10 +27,10 @@ export const postgresStrategyRepository: StrategyRepository = {
 
   async insertVersion(version: StrategyVersion): Promise<StrategyVersion> {
     const sql = `
-      INSERT INTO strategy_versions (id, strategy_id, parent_version_id, version, config, change_reason, created_by_action_id, schema_version, trace_id, span_id, correlation_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING *
-    `;
+        INSERT INTO strategy_versions (id, strategy_id, parent_version_id, version, config, change_reason, created_by_action_id, schema_version, trace_id, span_id, correlation_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        RETURNING *
+      `;
     const result = await query(sql, [
       version.id,
       version.strategy_id,
@@ -50,10 +50,10 @@ export const postgresStrategyRepository: StrategyRepository = {
 
   async insertChangeRecord(record: StrategyChangeRecord): Promise<StrategyChangeRecord> {
     const sql = `
-      INSERT INTO strategy_change_records (id, strategy_version_id, change_type, path, previous_value, next_value, summary, trace_id, span_id, correlation_id, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING *
-    `;
+        INSERT INTO strategy_change_records (id, strategy_version_id, change_type, path, previous_value, next_value, summary, trace_id, span_id, correlation_id, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING *
+      `;
     const result = await query(sql, [
       record.id,
       record.strategy_version_id,
@@ -78,7 +78,7 @@ export const postgresStrategyRepository: StrategyRepository = {
     return result.rows[0] as StrategyChangeRecord;
   },
 
-  async getHistory(id: string): Promise<StrategyHistory | null> {
+  async getHistory(id: string): Promise<any | null> {
     const defSql = `SELECT * FROM strategy_definitions WHERE id = $1`;
     const defResult = await query(defSql, [id]);
     const def = (defResult.rows[0] as StrategyDefinition | undefined) ?? null;
@@ -102,4 +102,4 @@ export const postgresStrategyRepository: StrategyRepository = {
       changes,
     };
   },
-};
+});

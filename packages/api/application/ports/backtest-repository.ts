@@ -1,3 +1,4 @@
+import { Context } from "effect";
 import type {
   BacktestEvent,
   BacktestMetric,
@@ -6,12 +7,18 @@ import type {
 } from "../../schemas/backtest";
 
 export interface BacktestRepository {
-  createRunWithInput(run: BacktestRun, input: BacktestRunInputs): Promise<BacktestRun>;
-  getRun(id: string): Promise<BacktestRun | null>;
-  insertRunInput(input: BacktestRunInputs): Promise<BacktestRunInputs>;
-  insertMetric(metric: BacktestMetric): Promise<BacktestMetric>;
-  getMetricsByRun(runId: string): Promise<BacktestMetric[]>;
-  insertEvent(event: BacktestEvent): Promise<BacktestEvent>;
-  getEventCount(runId: string): Promise<number>;
-  updateRunStatus(id: string, status: string): Promise<BacktestRun | null>;
+  readonly createRunWithInput: (run: BacktestRun, input: BacktestRunInputs) => Promise<BacktestRun>;
+  readonly getRun: (id: string) => Promise<BacktestRun | null>;
+  readonly getRunInput: (runId: string) => Promise<BacktestRunInputs | null>;
+  readonly insertRunInput: (input: BacktestRunInputs) => Promise<BacktestRunInputs>;
+  readonly insertMetric: (metric: BacktestMetric) => Promise<BacktestMetric>;
+  readonly getMetricsByRun: (runId: string) => Promise<BacktestMetric[]>;
+  readonly insertEvent: (event: BacktestEvent) => Promise<BacktestEvent>;
+  readonly getEventsByRun: (runId: string) => Promise<BacktestEvent[]>;
+  readonly getEventCount: (runId: string) => Promise<number>;
+  readonly updateRunStatus: (id: string, status: string) => Promise<BacktestRun | null>;
 }
+
+export const BacktestRepository = Context.GenericTag<BacktestRepository>(
+  "@services/BacktestRepository"
+);

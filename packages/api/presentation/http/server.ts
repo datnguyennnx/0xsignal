@@ -1,11 +1,10 @@
-#!/usr/bin/env bun
-/** HTTP Server - Bun-native with WebSocket support */
-
 import { Effect, ManagedRuntime } from "effect";
 import { BunRuntime } from "@effect/platform-bun";
 import { AppLayer } from "../../infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
 import { runMigrations } from "../../infrastructure/db/postgres/migrations/migration";
+import { runQuestDBMigrations } from "../../infrastructure/db/questdb/migrations/migration";
+import { QuestDBClientLayer } from "../../infrastructure/db/questdb/client";
 import { type MarketWsConnectionData } from "../../infrastructure/streams/hyperliquid/hub";
 import { MarketStreamHub, MarketStreamHubLayer } from "./ws/market-stream-hub.layer";
 import { parseMarketWsSubscription } from "./ws/subscription-parser";
@@ -18,16 +17,27 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
 const runtime = ManagedRuntime.make(AppLayer);
 
 // Run migrations on startup
-const migrateAction = Effect.tryPromise({
-  try: async () => {
-    console.log("Running database migrations...");
-    await runMigrations();
-    console.log("Migrations complete");
-  },
-  catch: (error) => {
-    console.error("Migration failed:", error);
-    return error;
-  },
+const migrateAction = Effect.gen(function* () {
+  yield* Effect.logInfo("Running database migrations...");
+
+  // Postgres migrations
+  yield* Effect.tryPromise({
+    try: () => runMigrations(),
+    catch: (error) => {
+      console.error("Postgres migration failed:", error);
+      return error;
+    },
+  });
+
+  // QuestDB migrations
+  yield* runQuestDBMigrations().pipe(
+    Effect.catchAll((error) => {
+      console.error("QuestDB migration failed:", error);
+      return Effect.succeed(error);
+    })
+  );
+
+  yield* Effect.logInfo("Migrations complete");
 });
 
 // App Program
@@ -128,4 +138,11 @@ const serverProgram = Effect.gen(function* () {
 });
 
 // Run with Bun-optimized runtime
-BunRuntime.runMain(serverProgram.pipe(Effect.provide(MarketStreamHubLayer), Effect.scoped));
+BunRuntime.runMain(
+  serverProgram.pipe(
+    Effect.provide(MarketStreamHubLayer),
+    Effect.provide(QuestDBClientLayer),
+    Effect.provide(AppLayer),
+    Effect.scoped
+  )
+);
