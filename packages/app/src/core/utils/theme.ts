@@ -5,22 +5,10 @@
  * canvas-based rendering where Tailwind classes cannot be used directly.
  */
 
-/**
- * Resolves a CSS variable value from the document root.
- * @param variableName - The name of the CSS variable (e.g., "--primary")
- * @param fallback - Optional fallback value if the variable is not found
- */
-export const getCssVariable = (variableName: string, fallback: string = ""): string => {
-  if (typeof window === "undefined") return fallback;
-  const value = getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
-  return value || fallback;
-};
-
-/**
- * Specifically resolves color tokens from the design system.
- */
 export const getThemeColor = (token: string, fallback: string = ""): string => {
-  return getCssVariable(`--${token}`, fallback);
+  if (typeof window === "undefined") return fallback;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(`--${token}`).trim();
+  return value || fallback;
 };
 
 /**

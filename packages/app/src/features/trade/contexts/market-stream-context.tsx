@@ -6,18 +6,19 @@
  * updates and adapts payloads into render-friendly callbacks for trade/chart UI.
  */
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { mapToHLInterval, toFiniteNumber } from "@/core/utils/hyperliquid";
+import { mapToHLInterval } from "@/core/utils/hyperliquid";
 import { resolveApiBase } from "@/lib/api-base";
 import { normalizeSymbol } from "../lib/symbol";
 import {
   decodeMarketWsMessage,
+  convertToCandlePayload,
+  unwrapTradePayload,
+  unwrapTickerPayload,
   type MarketChannel,
   type MarketStreamMeta,
 } from "./market-stream-decoder";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
-export { resolveApiBase };
-
 export const createMarketStreamWsUrl = (
   apiBase: string,
   locationLike: Pick<Location, "protocol" | "host"> | undefined
@@ -87,87 +88,6 @@ interface MarketStreamClient {
   ) => Promise<MarketStreamSubscription>;
 }
 
-interface StreamCandlePayload {
-  t: number;
-  o: string;
-  h: string;
-  l: string;
-  c: string;
-  v: string;
-}
-
-const normalizeCandlePayload = (value: unknown): StreamCandlePayload[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  const mapped: StreamCandlePayload[] = [];
-
-  for (const entry of value) {
-    if (typeof entry !== "object" || entry === null) continue;
-    const raw = entry as Record<string, unknown>;
-
-    const time = raw.t ?? raw.time ?? raw.timestamp;
-    const t =
-      typeof time === "number" ? time : typeof time === "string" ? Date.parse(time) : Number.NaN;
-
-    const o = toFiniteNumber(raw.o ?? raw.open);
-    const h = toFiniteNumber(raw.h ?? raw.high);
-    const l = toFiniteNumber(raw.l ?? raw.low);
-    const c = toFiniteNumber(raw.c ?? raw.close);
-    const v = toFiniteNumber(raw.v ?? raw.volume);
-
-    if (!Number.isFinite(t) || o === null || h === null || l === null || c === null || v === null) {
-      continue;
-    }
-
-    mapped.push({
-      t,
-      o: String(o),
-      h: String(h),
-      l: String(l),
-      c: String(c),
-      v: String(v),
-    });
-  }
-
-  return mapped;
-};
-
-const resolveTradePayload = (value: unknown): unknown => {
-  if (typeof value !== "object" || value === null) return value;
-  const payload = value as Record<string, unknown>;
-  return payload.tradeAnnotation ?? payload.annotation ?? payload;
-};
-
-const resolveTickerPayload = (value: unknown): unknown => {
-  if (typeof value !== "object" || value === null) return value;
-  const payload = value as Record<string, unknown>;
-  return payload.ticker ?? payload.allMids ?? payload.mids ?? payload;
-};
-
-const resolveCandlePayload = (value: unknown): StreamCandlePayload[] => {
-  if (Array.isArray(value)) {
-    return normalizeCandlePayload(value);
-  }
-
-  if (typeof value !== "object" || value === null) {
-    return [];
-  }
-
-  const payload = value as Record<string, unknown>;
-
-  if (Array.isArray(payload.candles)) {
-    return normalizeCandlePayload(payload.candles);
-  }
-
-  if (Array.isArray(payload.candle)) {
-    return normalizeCandlePayload(payload.candle);
-  }
-
-  const single = normalizeCandlePayload([payload.candle ?? payload]);
-  return single;
-};
-
 const createWebSocketSubscription = (
   subscription: MarketSubscription,
   callbacks: MarketStreamCallbacks
@@ -232,17 +152,17 @@ const createWebSocketSubscription = (
       }
 
       if (decoded.channel === "trades") {
-        callbacks.onMessage(resolveTradePayload(decoded.payload), "trades");
+        callbacks.onMessage(unwrapTradePayload(decoded.payload), "trades");
         return;
       }
 
       if (decoded.channel === "allMids") {
-        callbacks.onMessage(resolveTickerPayload(decoded.payload), "allMids");
+        callbacks.onMessage(unwrapTickerPayload(decoded.payload), "allMids");
         return;
       }
 
       if (decoded.channel === "candle") {
-        const candles = resolveCandlePayload(decoded.payload);
+        const candles = convertToCandlePayload(decoded.payload);
         if (candles.length > 0) {
           callbacks.onMessage(candles, "candle", decoded.meta);
         }

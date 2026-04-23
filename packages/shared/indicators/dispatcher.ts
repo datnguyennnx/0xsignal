@@ -7,8 +7,8 @@ import type { ChartDataPoint } from "../types/chart";
 import type { IndicatorDataPoint, BandIndicatorDataPoint } from "./types";
 import type { ActiveIndicator } from "./config";
 import { getIndicatorBaseId } from "./config";
-import { INDICATOR_TYPE } from "../patterns/constants";
-import { isBandIndicator } from "./metadata";
+import { INDICATOR_TYPE } from "./constants";
+import { isBandIndicator, isHistogramIndicator } from "./metadata";
 import {
   calculateSMA,
   calculateEMA,
@@ -250,4 +250,4 @@ export const calculateBandIndicator = (
   }
 };
 
-export { isBandIndicator };
+export { isBandIndicator, isHistogramIndicator };

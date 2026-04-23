@@ -45,59 +45,13 @@ const TradeDropdown = lazy(() =>
   import("@/features/trade/components/trade-dropdown").then((m) => ({ default: m.TradeDropdown }))
 );
 
-import { formatPrice } from "@/core/utils/formatters";
-
-const formatCompactUsd = (value: number): string => {
-  if (!Number.isFinite(value)) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 2,
-  }).format(value);
-};
-
-const formatSignedUsd = (value: number): string => {
-  if (!Number.isFinite(value)) return "-";
-  const abs = Math.abs(value);
-  const formatted = abs.toLocaleString("en-US", {
-    minimumFractionDigits: abs >= 100 ? 0 : 2,
-    maximumFractionDigits: abs >= 100 ? 2 : 4,
-  });
-  return `${value >= 0 ? "+" : "-"}$${formatted}`;
-};
-
-const formatSignedPercent = (pct: number): string => {
-  if (!Number.isFinite(pct)) return "-";
-  return `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
-};
-
-const formatFundingPercent = (fundingRate: number): string => {
-  if (!Number.isFinite(fundingRate)) return "-";
-  return `${fundingRate >= 0 ? "+" : ""}${(fundingRate * 100).toFixed(4)}%`;
-};
-
-const toCountdown = (msRemaining: number): string => {
-  const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
-  const hours = Math.floor(totalSeconds / 3600)
-    .toString()
-    .padStart(2, "0");
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-    .toString()
-    .padStart(2, "0");
-  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
-  return `${hours}:${minutes}:${seconds}`;
-};
-
-const getNextFundingMs = (): number => {
-  const now = new Date();
-  const next = new Date(now);
-  next.setMinutes(0, 0, 0);
-  if (next.getTime() <= now.getTime()) {
-    next.setHours(next.getHours() + 1);
-  }
-  return next.getTime() - now.getTime();
-};
+import {
+  formatSignedUsd,
+  formatFundingPercent,
+  toCountdown,
+  getNextFundingMs,
+} from "./asset-detail.utils";
+import { formatCompactUsd, formatPrice, formatSignedPercent } from "@/core/utils/formatters";
 
 const MetricBlock = memo(function MetricBlock({
   label,

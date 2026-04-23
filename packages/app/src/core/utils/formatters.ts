@@ -25,26 +25,6 @@ export const formatPrice = (price: number, pxDecimals?: number): string => {
 };
 
 /**
- * Formats large market cap values with B/M/T suffixes.
- */
-export const formatMarketCap = (value: number): string => {
-  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
-  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
-  return `$${value.toLocaleString()}`;
-};
-
-/**
- * Formats trading volume with B/M/K suffixes.
- */
-export const formatVolume = (value: number): string => {
-  if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
-  if (value >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
-  if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
-  return value.toFixed(2);
-};
-
-/**
  * Formats orderbook or asset size.
  */
 export const formatSize = (size: number): string => {
@@ -65,4 +45,25 @@ export const formatPriceWithScaling = (price: number, scaling: number): string =
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
+};
+
+/**
+ * Formats value with compact USD notation (e.g., $1.2M, $500K).
+ */
+export const formatCompactUsd = (value: number): string => {
+  if (!Number.isFinite(value)) return "-";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 2,
+  }).format(value);
+};
+
+/**
+ * Formats percentage with sign prefix (+/-).
+ */
+export const formatSignedPercent = (pct: number): string => {
+  if (!Number.isFinite(pct)) return "-";
+  return `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
 };

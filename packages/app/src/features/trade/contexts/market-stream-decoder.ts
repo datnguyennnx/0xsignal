@@ -5,6 +5,8 @@
  * frontend rendering hooks. This is transport-local adaptation logic, not a
  * canonical market-data authority.
  */
+import { toFiniteNumber } from "@/core/utils/hyperliquid";
+
 type MarketChannel = "candle" | "l2Book" | "trades" | "allMids";
 
 interface L2BookPayload {
@@ -226,3 +228,89 @@ export function decodeMarketWsMessage(
 }
 
 export type { MarketChannel };
+
+const unwrapTradePayload = (value: unknown): unknown => {
+  if (typeof value !== "object" || value === null) return value;
+  const payload = value as Record<string, unknown>;
+  return payload.tradeAnnotation ?? payload.annotation ?? payload;
+};
+
+const unwrapTickerPayload = (value: unknown): unknown => {
+  if (typeof value !== "object" || value === null) return value;
+  const payload = value as Record<string, unknown>;
+  return payload.ticker ?? payload.allMids ?? payload.mids ?? payload;
+};
+
+export { unwrapTradePayload, unwrapTickerPayload };
+
+export interface StreamCandlePayload {
+  t: number;
+  o: string;
+  h: string;
+  l: string;
+  c: string;
+  v: string;
+}
+
+const normalizeCandleEntry = (raw: Record<string, unknown>): StreamCandlePayload | null => {
+  const time = raw.t ?? raw.time ?? raw.timestamp;
+  const t =
+    typeof time === "number" ? time : typeof time === "string" ? Date.parse(time) : Number.NaN;
+
+  const o = toFiniteNumber(raw.o ?? raw.open);
+  const h = toFiniteNumber(raw.h ?? raw.high);
+  const l = toFiniteNumber(raw.l ?? raw.low);
+  const c = toFiniteNumber(raw.c ?? raw.close);
+  const v = toFiniteNumber(raw.v ?? raw.volume);
+
+  if (!Number.isFinite(t) || o === null || h === null || l === null || c === null || v === null) {
+    return null;
+  }
+
+  return {
+    t,
+    o: String(o),
+    h: String(h),
+    l: String(l),
+    c: String(c),
+    v: String(v),
+  };
+};
+
+const normalizeCandlePayload = (value: unknown): StreamCandlePayload[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const mapped: StreamCandlePayload[] = [];
+
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const normalized = normalizeCandleEntry(entry as Record<string, unknown>);
+    if (normalized) mapped.push(normalized);
+  }
+
+  return mapped;
+};
+
+export const convertToCandlePayload = (value: unknown): StreamCandlePayload[] => {
+  if (Array.isArray(value)) {
+    return normalizeCandlePayload(value);
+  }
+
+  if (typeof value !== "object" || value === null) {
+    return [];
+  }
+
+  const payload = value as Record<string, unknown>;
+
+  if (Array.isArray(payload.candles)) {
+    return normalizeCandlePayload(payload.candles);
+  }
+
+  if (Array.isArray(payload.candle)) {
+    return normalizeCandlePayload(payload.candle);
+  }
+
+  const single = normalizeCandleEntry(payload);
+  return single ? [single] : [];
+};

@@ -62,16 +62,3 @@ export const queryClient = new QueryClient({
     },
   },
 });
-
-// Helper to get optimized query options by type
-export const getQueryOptions = {
-  chart: {
-    staleTime: STALE_TIMES.chart,
-    gcTime: GC_TIMES.chart,
-  },
-} as const;
-
-// Prefetch helper for route preloading
-export const prefetchQueries = {
-  // Intentionally left empty for now.
-};

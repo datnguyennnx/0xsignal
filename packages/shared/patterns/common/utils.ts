@@ -1,8 +1,5 @@
 import type { ChartDataPoint } from "../../types/chart";
-
-export const getTrueRange = (high: number, low: number, prevClose: number): number => {
-  return Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
-};
+import { getTrueRange } from "../../indicators/math";
 
 export const calculateATR = (data: ChartDataPoint[], period: number): number => {
   if (data.length < period + 1) return 0;

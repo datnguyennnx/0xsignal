@@ -421,9 +421,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     [scalingOptions, resubscribe, symbol]
   );
 
-  // No client-side grouping needed — server already aggregates at the requested nSigFigs.
-  // Applying groupOrderbookLevels on top of server-aggregated data double-collapses levels,
-  // reducing the visible row count (e.g., 20 server levels → 8 after client grouping).
+  // Server aggregates at the requested nSigFigs.
   const groupedOrderbook = orderbook;
 
   const { visibleAsks, visibleBids, maxTotal } = useMemo(

@@ -175,7 +175,7 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
     appliedKeysRef.current.marketStructure = key;
   }, [chart, analysis, lastTime]);
 
-  // Similar key-based skip for other renders
+  // Similar key-based skip for other renderers
   const renderFVGs = useCallback(() => {
     if (!chart || !analysis?.fvgs.length || !seriesRef.current) return;
     const key = `fvg-${analysis.fvgs.length}-${lastTime}`;

@@ -5,7 +5,7 @@
  * It handles the creation and destruction of secondary panes for oscillators and overlays for on-price indicators.
  *
  * @mechanism
- * - utilizes a cache map (appliedCacheKeyRef) to avoid redundant data synchronization.
+ * - uses a cache map (appliedCacheKeyRef) to avoid redundant data synchronization.
  * - implements smart Pane management (addPane, removePane) to host oscillators like RSI/MACD.
  * - supports multi-layer rendering for Band indicators (Upper, Middle, Lower).
  */

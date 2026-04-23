@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildMarketStreamSearchParams,
-  createMarketStreamWsUrl,
-  resolveApiBase,
-} from "./market-stream-context";
+import { resolveApiBase } from "@/lib/api-base";
+import { buildMarketStreamSearchParams, createMarketStreamWsUrl } from "./market-stream-context";
 
 describe("market stream URL helpers", () => {
   it("keeps /api in dev mode", () => {

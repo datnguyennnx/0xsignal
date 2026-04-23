@@ -1,5 +1,5 @@
 import { AVAILABLE_INDICATORS, getIndicatorBaseId } from "./config";
-import { INDICATOR_OUTPUT } from "../patterns/constants";
+import { INDICATOR_OUTPUT } from "./constants";
 
 export const BAND_INDICATOR_IDS = AVAILABLE_INDICATORS.filter(
   (indicator) => indicator.output === INDICATOR_OUTPUT.BAND
