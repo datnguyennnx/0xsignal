@@ -112,14 +112,13 @@ export const useChartEngine = ({
     const candle = getCandlestickColors(isDarkRef.current);
 
     const chart = createChart(containerRef.current, {
+      autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
         textColor: c.text,
         panes: { separatorColor: c.border, separatorHoverColor: c.grid, enableResize: true },
       },
       grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight,
       timeScale: {
         timeVisible: true,
         secondsVisible: false,

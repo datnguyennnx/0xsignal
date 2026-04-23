@@ -2,17 +2,7 @@
  * @overview Global Design System & Tokens
  *
  * Implements a pure monochrome, high-contrast quantitative aesthetic.
- * Uses OKLCH for perceptually uniform colors and fluid typography for responsiveness.
- *
- * @tokens
- * - Grayscale Base: oklch (C=0) for pure gray/black/white UI.
- * - Semantic Colors: --gain (Green), --loss (Red), --warn (Orange) using high-contrast OKLCH.
- * - Typography: Inter/SF Pro + JetBrains Mono with fluid sizing (clamp).
- * - Transitions: ease-premium (cubic-bezier) for all UI micro-animations.
- *
- * @performance
- * - Global scrollbar removal for terminal-like experience.
- * - overscroll-none utility to prevent mobile pull-to-refresh conflicts with charts.
+ * Uses OKLCH for perceptually uniform colors.
  */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap");
 @import "tailwindcss";
@@ -21,7 +11,27 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Font Families */
+  --color-border: var(--border);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
   --font-ui:
     "Inter", "SF Pro Text", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display:
@@ -34,31 +44,12 @@
   --font-family-display: var(--font-display);
   --font-family-mono: var(--font-mono);
 
-  /* Typography Scale */
   --text-display: clamp(1.75rem, 2vw, 3rem);
   --text-title: clamp(1.25rem, 1.2vw, 2rem);
   --text-section: clamp(1.125rem, 0.8vw, 1.5rem);
   --text-body: clamp(0.875rem, 0.3vw, 1rem);
   --text-compact: clamp(0.8125rem, 0.2vw, 0.875rem);
   --text-data: clamp(0.75rem, 0.2vw, 0.875rem);
-
-  /* Canonical Design Tokens (OKLCH) */
-  --color-bg-0: oklch(0.08 0 0);
-  --color-bg-1: oklch(0.1 0 0);
-  --color-surface-1: oklch(0.12 0 0);
-  --color-surface-2: oklch(0.15 0 0);
-  --color-surface-3: oklch(0.18 0 0);
-  --color-overlay: oklch(1 0 0 / 0.04);
-
-  --color-text-primary: oklch(0.97 0 0);
-  --color-text-secondary: oklch(0.84 0 0);
-  --color-text-tertiary: oklch(0.65 0 0);
-  --color-text-quaternary: oklch(0.48 0 0);
-  --color-text-inverse: oklch(0.08 0 0);
-
-  --color-border-soft: oklch(1 0 0 / 0.05);
-  --color-border-hairline: oklch(1 0 0 / 0.07);
-  --color-divider: oklch(1 0 0 / 0.04);
 
   --color-gain: oklch(0.72 0.17 150);
   --color-loss: oklch(0.64 0.21 25);
@@ -67,111 +58,33 @@
   --radius-panel: 1rem;
   --radius-control: 9999px;
   --radius-field: 0.875rem;
-  --spacing-touch: 2.75rem;
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  /* Breakpoint Tokens */
-  --breakpoint-tablet: 640px;
-  --breakpoint-desktop: 1024px;
-  --breakpoint-wide: 1536px;
-
-  /* Extended Breakpoints for Ultra-Wide Screens */
-  --breakpoint-3xl: 1920px;
-  --breakpoint-4xl: 2560px;
 }
 
 :root {
   --radius: 0.625rem;
-
-  /* Fluid Typography */
   font-size: clamp(14px, 0.8rem + 0.3vw, 17px);
 
-  /* ===== PURE MONOCHROME BASE - LIGHT MODE ===== */
-  /* C=0 for pure grayscale. Increased contrast between bg and cards. */
-  --background: oklch(0.97 0 0); /* Slightly deeper off-white */
-  --foreground: oklch(0.12 0 0); /* Stronger near-black for high legibility */
-
-  --card: oklch(1 0 0); /* Pure white to pop against background */
+  --background: oklch(0.97 0 0);
+  --foreground: oklch(0.12 0 0);
+  --card: oklch(1 0 0);
   --card-foreground: oklch(0.12 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.12 0 0);
-
   --primary: oklch(0.12 0 0);
   --primary-foreground: oklch(0.98 0 0);
-
   --secondary: oklch(0.93 0 0);
   --secondary-foreground: oklch(0.12 0 0);
-
   --muted: oklch(0.93 0 0);
-  --muted-foreground: oklch(0.45 0 0); /* Sharper muted text */
-
+  --muted-foreground: oklch(0.45 0 0);
   --accent: oklch(0.93 0 0);
   --accent-foreground: oklch(0.12 0 0);
-
   --destructive: oklch(0.55 0.2 25);
   --success: oklch(0.55 0.15 145);
   --warning: oklch(0.7 0.15 70);
-
-  /* Sharper borders to prevent elements from blending together */
   --border: oklch(0.85 0 0);
   --input: oklch(0.85 0 0);
   --ring: oklch(0.12 0 0);
 
-  /* Charts - Pure Grayscale spectrum */
-  --chart-1: oklch(0.12 0 0);
-  --chart-2: oklch(0.35 0 0);
-  --chart-3: oklch(0.55 0 0);
-  --chart-4: oklch(0.75 0 0);
-  --chart-5: oklch(0.85 0 0);
-
-  --sidebar: oklch(0.97 0 0);
-  --sidebar-foreground: oklch(0.12 0 0);
-  --sidebar-primary: oklch(0.12 0 0);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.93 0 0);
-  --sidebar-accent-foreground: oklch(0.12 0 0);
-  --sidebar-border: oklch(0.85 0 0);
-  --sidebar-ring: oklch(0.12 0 0);
-
-  /* ===== SEMANTIC COLORS - HIGH CONTRAST (OKLCH) ===== */
-  /* Perceptual uniformity via OKLCH — avoids the harshness of sRGB hex for color-critical data */
   --gain: oklch(0.58 0.19 145);
   --gain-light: oklch(0.67 0.19 145);
   --gain-dark: oklch(0.49 0.19 145);
@@ -187,250 +100,85 @@
   --warn-dark: oklch(0.64 0.16 75);
   --warn-muted: oklch(0.72 0.16 75 / 0.15);
 
-  /* ===== CHART SPECIFIC COLORS ===== */
   --chart-bg: oklch(0.97 0 0);
   --chart-grid: oklch(0.9 0 0);
   --chart-text: oklch(0.45 0 0);
   --chart-border: oklch(0.85 0 0);
   --chart-crosshair: oklch(0.6 0 0);
-
   --tooltip-bg: oklch(1 0 0 / 0.98);
   --tooltip-border: oklch(0.85 0 0);
   --tooltip-text: oklch(0.12 0 0);
-
   --chart-volume: oklch(0.7 0 0);
-  --chart-volume-up: var(--gain);
-  --chart-volume-down: var(--loss);
-
   --candle-up: var(--gain);
   --candle-down: var(--loss);
-  --candle-wick-up: var(--gain);
-  --candle-wick-down: var(--loss);
-
-  --heatmap-gain-strong: var(--gain-dark);
-  --heatmap-gain: var(--gain);
-  --heatmap-gain-light: var(--gain-light);
-  --heatmap-loss-strong: var(--loss-dark);
-  --heatmap-loss: var(--loss);
-  --heatmap-loss-light: var(--loss-light);
-  --heatmap-neutral: oklch(0.7 0 0);
-  --heatmap-marker: var(--warn);
-
-  /* ===== CHART INDICATOR COLORS (ICT) ===== */
-  --fvg-bullish-fill: rgba(22, 163, 74, 0.08);
-  --fvg-bullish-border: rgba(22, 163, 74, 0.45);
-  --fvg-bearish-fill: rgba(220, 38, 38, 0.08);
-  --fvg-bearish-border: rgba(220, 38, 38, 0.45);
-  --ob-bullish-fill: rgba(22, 163, 74, 0.12);
-  --ob-bullish-border: rgba(22, 163, 74, 0.55);
-  --ob-bearish-fill: rgba(220, 38, 38, 0.12);
-  --ob-bearish-border: rgba(220, 38, 38, 0.55);
-  --liquidity-bsl: rgba(22, 163, 74, 0.55);
-  --liquidity-ssl: rgba(220, 38, 38, 0.55);
-
-  /* ===== DEPTH CHART COLORS ===== */
-  --depth-grid: rgba(0, 0, 0, 0.08);
-  --depth-bid-fill: rgba(38, 166, 154, 0.18);
-  --depth-ask-fill: rgba(239, 83, 80, 0.18);
-  --depth-label: rgba(30, 30, 30, 0.72);
-  --depth-axis: rgba(0, 0, 0, 0.2);
-  --depth-hover-fill: rgba(100, 116, 139, 0.08);
-  --depth-hover-stroke: rgba(71, 85, 105, 0.52);
-  --depth-hover-marker: rgba(71, 85, 105, 0.95);
-
-  /* ===== CHART INDICATOR COLORS (WYCKOFF) ===== */
-  --wyckoff-tr-fill: rgba(99, 102, 241, 0.06);
-  --wyckoff-tr-border: rgba(99, 102, 241, 0.4);
-  --wyckoff-climax-sc: rgba(244, 63, 94, 0.7);
-  --wyckoff-climax-bc: rgba(16, 185, 129, 0.7);
-  --wyckoff-event-spring: rgba(16, 185, 129, 0.75);
-  --wyckoff-event-upthrust: rgba(244, 63, 94, 0.75);
-  --wyckoff-event-sos: rgba(34, 197, 94, 0.8);
-  --wyckoff-event-sow: rgba(239, 68, 68, 0.8);
-
-  /* ===== CHART PHASE COLORS (MONOCHROME) ===== */
-  --phase-fill-a: rgba(128, 128, 128, 0.08);
-  --phase-border-a: rgba(128, 128, 128, 0.45);
-  --phase-fill-b: rgba(89, 89, 89, 0.08);
-  --phase-border-b: rgba(89, 89, 89, 0.45);
-  --phase-fill-c: rgba(140, 140, 140, 0.08);
-  --phase-border-c: rgba(140, 140, 140, 0.45);
-  --phase-fill-d: rgba(64, 64, 64, 0.08);
-  --phase-border-d: rgba(64, 64, 64, 0.45);
-  --phase-fill-e: rgba(51, 51, 51, 0.08);
-  --phase-border-e: rgba(51, 51, 51, 0.45);
-
-  /* ===== CHART EFFORT INDICATOR COLORS (MONOCHROME) ===== */
-  --effort-bullish: rgba(22, 163, 74, 0.6);
-  --effort-bearish: rgba(220, 38, 38, 0.6);
-  --effort-neutral: rgba(148, 163, 184, 0.5);
-  --effort-result: rgba(148, 163, 184, 0.45);
-
-  /* ===== CHART OTE FILL (MONOCHROME) ===== */
-  --ote-fill: rgba(161, 161, 170, 0.06);
 }
 
 .dark {
-  /* ===== PURE MONOCHROME BASE - DARK MODE ===== */
-  /* Deepened the base from 0.15 to 0.11 for a true professional terminal feel */
   --background: oklch(0.11 0 0);
-  --foreground: oklch(0.96 0 0); /* Crisper white for readability */
-
-  --card: oklch(0.15 0 0); /* Clear structural separation from background */
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(0.15 0 0);
   --card-foreground: oklch(0.96 0 0);
   --popover: oklch(0.15 0 0);
   --popover-foreground: oklch(0.96 0 0);
-
   --primary: oklch(0.96 0 0);
   --primary-foreground: oklch(0.11 0 0);
-
   --secondary: oklch(0.2 0 0);
   --secondary-foreground: oklch(0.96 0 0);
-
   --muted: oklch(0.18 0 0);
-  --muted-foreground: oklch(0.65 0 0); /* Brighter muted text to prevent straining */
-
+  --muted-foreground: oklch(0.65 0 0);
   --accent: oklch(0.2 0 0);
   --accent-foreground: oklch(0.96 0 0);
-
   --destructive: oklch(0.6 0.18 22);
   --success: oklch(0.6 0.15 150);
   --warning: oklch(0.75 0.15 85);
-
-  --border: oklch(0.25 0 0); /* Stronger structural borders */
+  --border: oklch(0.25 0 0);
   --input: oklch(0.25 0 0);
   --ring: oklch(0.96 0 0);
 
-  /* Charts - Pure Grayscale spectrum (inverted) */
-  --chart-1: oklch(0.96 0 0);
-  --chart-2: oklch(0.75 0 0);
-  --chart-3: oklch(0.55 0 0);
-  --chart-4: oklch(0.35 0 0);
-  --chart-5: oklch(0.25 0 0);
-
-  --sidebar: oklch(0.11 0 0);
-  --sidebar-foreground: oklch(0.96 0 0);
-  --sidebar-primary: oklch(0.96 0 0);
-  --sidebar-primary-foreground: oklch(0.11 0 0);
-  --sidebar-accent: oklch(0.2 0 0);
-  --sidebar-accent-foreground: oklch(0.96 0 0);
-  --sidebar-border: oklch(0.25 0 0);
-  --sidebar-ring: oklch(0.96 0 0);
-
-  /* ===== CHART SPECIFIC COLORS (DARK) ===== */
   --chart-bg: oklch(0.11 0 0);
   --chart-grid: oklch(0.18 0 0);
   --chart-text: oklch(0.65 0 0);
   --chart-border: oklch(0.25 0 0);
   --chart-crosshair: oklch(0.5 0 0);
-
   --tooltip-bg: oklch(0.15 0 0 / 0.98);
   --tooltip-border: oklch(0.25 0 0);
   --tooltip-text: oklch(0.96 0 0);
-
   --chart-volume: oklch(0.45 0 0);
-
-  /* ===== CHART INDICATOR COLORS (ICT - DARK) ===== */
-  --fvg-bullish-fill: rgba(22, 163, 74, 0.08);
-  --fvg-bullish-border: rgba(22, 163, 74, 0.45);
-  --fvg-bearish-fill: rgba(220, 38, 38, 0.08);
-  --fvg-bearish-border: rgba(220, 38, 38, 0.45);
-  --ob-bullish-fill: rgba(22, 163, 74, 0.12);
-  --ob-bullish-border: rgba(22, 163, 74, 0.55);
-  --ob-bearish-fill: rgba(220, 38, 38, 0.12);
-  --ob-bearish-border: rgba(220, 38, 38, 0.55);
-  --liquidity-bsl: rgba(22, 163, 74, 0.55);
-  --liquidity-ssl: rgba(220, 38, 38, 0.55);
-
-  /* ===== DEPTH CHART COLORS (DARK) ===== */
-  --depth-grid: rgba(255, 255, 255, 0.06);
-  --depth-bid-fill: rgba(38, 166, 154, 0.18);
-  --depth-ask-fill: rgba(239, 83, 80, 0.18);
-  --depth-label: rgba(240, 240, 240, 0.72);
-  --depth-axis: rgba(255, 255, 255, 0.2);
-  --depth-hover-fill: rgba(148, 163, 184, 0.06);
-  --depth-hover-stroke: rgba(148, 163, 184, 0.58);
-  --depth-hover-marker: rgba(203, 213, 225, 0.95);
-
-  /* ===== CHART INDICATOR COLORS (WYCKOFF - DARK) ===== */
-  --wyckoff-tr-fill: rgba(99, 102, 241, 0.06);
-  --wyckoff-tr-border: rgba(99, 102, 241, 0.4);
-  --wyckoff-climax-sc: rgba(244, 63, 94, 0.7);
-  --wyckoff-climax-bc: rgba(16, 185, 129, 0.7);
-  --wyckoff-event-spring: rgba(16, 185, 129, 0.75);
-  --wyckoff-event-upthrust: rgba(244, 63, 94, 0.75);
-  --wyckoff-event-sos: rgba(34, 197, 94, 0.8);
-  --wyckoff-event-sow: rgba(239, 68, 68, 0.8);
-
-  /* ===== CHART PHASE COLORS (MONOCHROME - DARK) ===== */
-  --phase-fill-a: rgba(200, 200, 200, 0.08);
-  --phase-border-a: rgba(200, 200, 200, 0.45);
-  --phase-fill-b: rgba(167, 167, 167, 0.08);
-  --phase-border-b: rgba(167, 167, 167, 0.45);
-  --phase-fill-c: rgba(181, 181, 181, 0.08);
-  --phase-border-c: rgba(181, 181, 181, 0.45);
-  --phase-fill-d: rgba(155, 155, 155, 0.08);
-  --phase-border-d: rgba(155, 155, 155, 0.45);
-  --phase-fill-e: rgba(140, 140, 140, 0.08);
-  --phase-border-e: rgba(140, 140, 140, 0.45);
-
-  /* ===== CHART EFFORT INDICATOR COLORS (DARK) ===== */
-  --effort-bullish: rgba(22, 163, 74, 0.6);
-  --effort-bearish: rgba(220, 38, 38, 0.6);
-  --effort-neutral: rgba(163, 163, 163, 0.5);
-  --effort-result: rgba(148, 148, 148, 0.45);
-
-  /* ===== CHART OTE FILL (MONOCHROME - DARK) ===== */
-  --ote-fill: rgba(90, 90, 90, 0.06);
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+  *,
+  *::before,
+  *::after {
+    border-color: var(--border);
+    outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
   }
 
-  /* Hide scrollbar globally for all elements */
   * {
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
-
   *::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+    display: none;
   }
 }
 
 @layer utilities {
-  /* Premium Easing for UI interactions */
   .ease-premium {
     transition-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
   }
 
-  .animate-pulse-slow {
-    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  /* Utility to strictly hide scrollbar */
   .scrollbar-hide {
-    -ms-overflow-style: none;
     scrollbar-width: none;
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
 
-  /* Safe area padding for PWA Mobile */
-  .safe-area-pb {
-    padding-bottom: env(safe-area-inset-bottom, 0);
-  }
-  .safe-area-pt {
-    padding-top: env(safe-area-inset-top, 0);
-  }
-
-  /* Text colors */
   .text-gain {
     color: var(--gain);
   }
@@ -440,7 +188,6 @@
   .text-gain-dark {
     color: var(--gain-dark);
   }
-
   .text-loss {
     color: var(--loss);
   }
@@ -450,7 +197,6 @@
   .text-loss-dark {
     color: var(--loss-dark);
   }
-
   .text-warn {
     color: var(--warn);
   }
@@ -461,7 +207,6 @@
     color: var(--warn-dark);
   }
 
-  /* Background colors */
   .bg-gain {
     background-color: var(--gain);
   }
@@ -474,7 +219,6 @@
   .bg-gain-muted {
     background-color: var(--gain-muted);
   }
-
   .bg-loss {
     background-color: var(--loss);
   }
@@ -487,7 +231,6 @@
   .bg-loss-muted {
     background-color: var(--loss-muted);
   }
-
   .bg-warn {
     background-color: var(--warn);
   }
@@ -501,7 +244,6 @@
     background-color: var(--warn-muted);
   }
 
-  /* Border colors */
   .border-gain {
     border-color: var(--gain);
   }
@@ -511,7 +253,6 @@
   .border-gain-dark {
     border-color: var(--gain-dark);
   }
-
   .border-loss {
     border-color: var(--loss);
   }
@@ -521,7 +262,6 @@
   .border-loss-dark {
     border-color: var(--loss-dark);
   }
-
   .border-warn {
     border-color: var(--warn);
   }
@@ -532,28 +272,13 @@
     border-color: var(--warn-dark);
   }
 
-  /* Fluid Container Utility */
   .container-fluid {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    max-width: 100%;
-  }
-
-  @media (min-width: 640px) {
-    .container-fluid {
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .container-fluid {
-      padding-left: 2rem;
-      padding-right: 2rem;
-    }
+    padding-left: 2rem;
+    padding-right: 2rem;
+    gap: 2rem;
   }
 
   @media (min-width: 1920px) {
@@ -564,41 +289,6 @@
     }
   }
 
-  /* ===== PWA TOUCH TARGET UTILITIES ===== */
-  .touch-target-44 {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* ===== PWA MOBILE INTERACTION FEEDBACK ===== */
-  .tap-highlight {
-    -webkit-tap-highlight-color: transparent;
-    user-select: none; /* Prevent accidental text selection on tap */
-  }
-
-  .tap-highlight:active {
-    opacity: 0.88;
-    transform: scale(0.98);
-    transition: all 0.1s ease-out;
-  }
-
-  .interactive-toggle {
-    outline: none;
-    transition: all 0.2s ease;
-  }
-
-  .interactive-toggle:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 1px;
-    border-radius: var(--radius-sm);
-  }
-
-  .interactive-toggle:hover {
-    background-color: var(--muted);
-  }
-
-  /* ===== MONOCHROME TYPOGRAPHY UTILITIES ===== */
-  /* slashed-zero: prevents O/0 confusion in tickers, addresses, hashes — critical for fund safety */
   .font-mono-slashed {
     font-family: var(--font-mono);
     font-variant-numeric: slashed-zero tabular-nums;
@@ -606,13 +296,10 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* ===== PWA OVERSCROLL CONTROL ===== */
-  /* Disables pull-to-refresh on interactive containers — prevents conflict with chart pan and orderbook scroll */
   .overscroll-none {
     overscroll-behavior: none;
   }
 
-  /* ===== LOADING STATES ===== */
   .loading-shimmer {
     background: linear-gradient(90deg, var(--muted) 0%, var(--secondary) 50%, var(--muted) 100%);
     background-size: 200% 100%;
@@ -643,7 +330,6 @@
   }
 }
 
-/* ===== REDUCED MOTION SUPPORT ===== */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -653,12 +339,10 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-
   .loading-shimmer {
     animation: none;
     background: var(--muted);
   }
-
   .computing-pulse {
     animation: none;
   }

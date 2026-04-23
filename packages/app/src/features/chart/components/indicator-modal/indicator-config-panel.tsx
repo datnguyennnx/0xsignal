@@ -85,13 +85,13 @@ export function IndicatorConfigPanel({
       <div className="p-6">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">
+            <h3 className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest text-muted-foreground/30">
               Inspector
             </h3>
             <p className="text-xs font-bold mt-1">Settings</p>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter opacity-30">
+            <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground font-bold uppercase tracking-tighter opacity-30">
               Active
             </p>
             <p className="text-sm font-black tabular-nums leading-none">{activeCount}</p>
@@ -103,7 +103,7 @@ export function IndicatorConfigPanel({
         <div className="space-y-6">
           {activeIndicators.length > 0 && (
             <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/40">
+              <label className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-wider text-muted-foreground/40">
                 Configurations
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -113,7 +113,7 @@ export function IndicatorConfigPanel({
                     type="button"
                     onClick={() => handleSelectExisting(inst)}
                     className={cn(
-                      "px-3 py-2 rounded text-[10px] font-mono transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
+                      "px-3 py-2 rounded text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                       selectedInstanceId === inst.instanceId
                         ? "bg-foreground text-background font-bold shadow-sm"
                         : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -126,7 +126,7 @@ export function IndicatorConfigPanel({
                   type="button"
                   onClick={handleResetToDefault}
                   className={cn(
-                    "px-3 py-2 rounded text-[10px] font-mono transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
+                    "px-3 py-2 rounded text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                     !selectedInstanceId
                       ? "bg-foreground/10 text-foreground font-bold"
                       : "bg-muted/50 text-muted-foreground/60 hover:text-foreground hover:bg-muted"
@@ -153,7 +153,7 @@ export function IndicatorConfigPanel({
               ))}
             </div>
           ) : (
-            <div className="flex items-center justify-center min-h-[200px]">
+            <div className="flex items-center justify-center min-h-[clamp(10rem,30dvh,14rem)]">
               <ContentUnavailable
                 variant="empty"
                 title="Fixed Model"
@@ -169,7 +169,7 @@ export function IndicatorConfigPanel({
           <Button
             variant="ghost"
             size="sm"
-            className="h-9 min-h-[44px] text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring/25"
+            className="h-9 min-h-[44px] text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring/25"
             onClick={() =>
               matchingActiveInstance && onRemoveInstance(matchingActiveInstance.instanceId)
             }
@@ -181,7 +181,7 @@ export function IndicatorConfigPanel({
 
           <Button
             size="sm"
-            className="h-9 min-h-[44px] text-[10px] font-bold uppercase tracking-widest bg-foreground text-background hover:bg-foreground/85 focus-visible:ring-ring/30 rounded"
+            className="h-9 min-h-[44px] text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest bg-foreground text-background hover:bg-foreground/85 focus-visible:ring-ring/30 rounded"
             onClick={handleApply}
           >
             <Plus className="w-3 h-3 mr-2" />

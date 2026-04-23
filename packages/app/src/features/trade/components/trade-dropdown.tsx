@@ -83,7 +83,7 @@ const MarketHeader = ({
   sortDesc: boolean;
   onSort: (field: "name" | "change") => void;
 }) => (
-  <div className="hidden sm:grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
+  <div className="grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
     <button
       type="button"
       onClick={() => onSort("name")}
@@ -105,64 +105,13 @@ const MarketHeader = ({
   </div>
 );
 
-const MarketHeaderMobile = ({
-  sortBy,
-  sortDesc,
-  onSort,
-}: {
-  sortBy: "name" | "change";
-  sortDesc: boolean;
-  onSort: (field: "name" | "change") => void;
-}) => (
-  <div className="sm:hidden grid min-w-0 grid-cols-[1fr_80px_80px] gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
-    <button
-      type="button"
-      onClick={() => onSort("name")}
-      className="text-left hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none min-h-[44px] px-1"
-    >
-      Market
-      <SortIcon sortBy={sortBy} sortField="name" sortDesc={sortDesc} />
-    </button>
-    <span className="text-right tabular-nums font-mono">Price</span>
-    <button
-      type="button"
-      onClick={() => onSort("change")}
-      className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1 cursor-pointer bg-transparent border-none min-h-[44px] px-1"
-    >
-      24h
-      <SortIcon sortBy={sortBy} sortField="change" sortDesc={sortDesc} />
-    </button>
-  </div>
-);
-
-const MarketRowDesktop = ({ item }: { item: FormattedTrade }) => (
-  <div className="hidden sm:grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-3">
+const MarketRow = ({ item }: { item: FormattedTrade }) => (
+  <div className="grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-3">
     <div className="flex flex-col justify-center min-w-0">
       <span className="font-mono font-medium text-sm tabular-nums truncate">{item.coin}</span>
-      <span className="text-[10px] text-muted-foreground">{item.displayCategory}</span>
-    </div>
-    <span className="font-mono text-sm text-right flex items-center justify-end text-foreground tabular-nums">
-      {formatPrice(Number(item.markPx))}
-    </span>
-    <span
-      className={cn(
-        "font-mono text-sm text-right flex items-center justify-end tabular-nums",
-        item.changeValue >= 0 ? "text-gain" : "text-loss"
-      )}
-    >
-      {item.changeFormatted}
-    </span>
-    <span className="font-mono text-xs text-muted-foreground text-right flex items-center justify-end tabular-nums">
-      {item.oiFormatted}
-    </span>
-  </div>
-);
-
-const MarketRowMobile = ({ item }: { item: FormattedTrade }) => (
-  <div className="sm:hidden grid min-w-0 grid-cols-[1fr_80px_80px] gap-2 px-3 py-3">
-    <div className="flex flex-col justify-center min-w-0">
-      <span className="font-mono font-medium text-sm tabular-nums truncate">{item.coin}</span>
-      <span className="text-[9px] text-muted-foreground">{item.displayCategory}</span>
+      <span className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground">
+        {item.displayCategory}
+      </span>
     </div>
     <span className="font-mono text-sm text-right flex items-center justify-end text-foreground tabular-nums">
       {formatPrice(Number(item.markPx))}
@@ -178,20 +127,12 @@ const MarketRowMobile = ({ item }: { item: FormattedTrade }) => (
   </div>
 );
 
-const MarketRowSkeletonDesktop = () => (
-  <div className="hidden sm:grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-3">
+const MarketRowSkeleton = () => (
+  <div className="grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-3">
     <Skeleton className="h-4 w-16" />
     <Skeleton className="h-4 w-14 ml-auto" />
     <Skeleton className="h-4 w-12 ml-auto" />
     <Skeleton className="h-4 w-14 ml-auto" />
-  </div>
-);
-
-const MarketRowSkeletonMobile = () => (
-  <div className="sm:hidden grid min-w-0 grid-cols-[1fr_80px_80px] gap-2 px-3 py-3">
-    <Skeleton className="h-4 w-14" />
-    <Skeleton className="h-4 w-12 ml-auto" />
-    <Skeleton className="h-4 w-10 ml-auto" />
   </div>
 );
 
@@ -385,7 +326,7 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
           role="dialog"
           aria-modal="false"
           aria-label="Market selector"
-          className="fixed z-50 w-[calc(100vw-16px)] sm:w-[440px] bg-background border-border/30 rounded-xl shadow-2xl"
+          className="fixed z-50 w-[calc(100vw-16px)] sm:w-[clamp(22rem,80vw,27.5rem)] bg-background border-border/30 rounded-xl shadow-2xl"
           style={{ top: position.top, left: position.left }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -429,7 +370,7 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
                 {categoryCounts[tab.key] !== undefined && (
                   <span
                     className={cn(
-                      "text-[10px]",
+                      "text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)]",
                       category === tab.key
                         ? "text-primary-foreground/70"
                         : "text-muted-foreground/60"
@@ -443,15 +384,13 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
           </div>
 
           <MarketHeader sortBy={sortBy} sortDesc={sortDesc} onSort={handleSort} />
-          <MarketHeaderMobile sortBy={sortBy} sortDesc={sortDesc} onSort={handleSort} />
 
-          <div className="max-h-[360px] sm:max-h-[400px] overflow-y-auto overscroll-none flex flex-col">
+          <div className="max-h-[clamp(22rem,60dvh,34rem)] overflow-y-auto overscroll-none flex flex-col">
             {isLoading ? (
               <div className="divide-y divide-border/30">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className="divide-y divide-border/30">
-                    <MarketRowSkeletonDesktop />
-                    <MarketRowSkeletonMobile />
+                    <MarketRowSkeleton />
                   </div>
                 ))}
               </div>
@@ -480,8 +419,7 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
                     )}
                     aria-current={item.isActive ? "true" : undefined}
                   >
-                    <MarketRowDesktop item={item} />
-                    <MarketRowMobile item={item} />
+                    <MarketRow item={item} />
                   </button>
                 ))}
               </div>

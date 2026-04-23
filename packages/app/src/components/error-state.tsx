@@ -54,7 +54,7 @@ export const ErrorState = memo(function ErrorState({
           variant="outline"
           onClick={retryAction}
           size="sm"
-          className="min-w-[120px] h-9 min-h-[44px]"
+          className="min-w-[clamp(7rem,10vw,7.5rem)] h-9 min-h-[44px]"
         >
           {isRateLimit ? "Reconnect" : "Retry"}
         </Button>

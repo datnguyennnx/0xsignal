@@ -101,7 +101,9 @@ export const ICTControls = memo(function ICTControls({
               <span className={cn("w-2 h-2 rounded-full shrink-0", feature.color)} />
               <div className="flex flex-col items-start">
                 <span className="text-xs font-medium">{feature.label}</span>
-                <span className="text-[10px] text-muted-foreground">{feature.description}</span>
+                <span className="text-[clamp(0.5625rem,0.5rem+0.15vw,0.6875rem)] text-muted-foreground">
+                  {feature.description}
+                </span>
               </div>
             </div>
           </Button>
@@ -109,8 +111,12 @@ export const ICTControls = memo(function ICTControls({
       </div>
 
       <div className="px-4 py-2 bg-muted/25 border-t border-border/30">
-        <p className="text-[10px] text-muted-foreground">Best on 15m, 1H, 4H timeframes</p>
-        <p className="text-[9px] text-muted-foreground/60 mt-0.5">ICT by Michael J. Huddleston</p>
+        <p className="text-[clamp(0.5625rem,0.5rem+0.15vw,0.6875rem)] text-muted-foreground">
+          Best on 15m, 1H, 4H timeframes
+        </p>
+        <p className="text-[clamp(0.5rem,0.45rem+0.12vw,0.5625rem)] text-muted-foreground/60 mt-0.5">
+          ICT by Michael J. Huddleston
+        </p>
       </div>
     </div>
   );

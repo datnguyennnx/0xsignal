@@ -103,7 +103,9 @@ export const WyckoffButton = memo(function WyckoffButton({
       >
         <span>Wyckoff</span>
         {activeCount > 0 && (
-          <span className="text-[10px] text-muted-foreground">{activeCount}</span>
+          <span className="text-[clamp(0.5625rem,0.5rem+0.15vw,0.6875rem)] text-muted-foreground">
+            {activeCount}
+          </span>
         )}
       </Button>
 
@@ -138,7 +140,9 @@ export const WyckoffButton = memo(function WyckoffButton({
                   <span className={cn("w-2 h-2 rounded-full shrink-0", feature.color)} />
                   <div className="flex flex-col items-start">
                     <span className="text-xs font-medium">{feature.label}</span>
-                    <span className="text-[10px] text-muted-foreground">{feature.description}</span>
+                    <span className="text-[clamp(0.5625rem,0.5rem+0.15vw,0.6875rem)] text-muted-foreground">
+                      {feature.description}
+                    </span>
                   </div>
                 </div>
               </Button>
@@ -146,8 +150,10 @@ export const WyckoffButton = memo(function WyckoffButton({
           </div>
 
           <div className="px-4 py-2 bg-muted/25 border-t border-border/30">
-            <p className="text-[10px] text-muted-foreground">Best on 1H, 4H, Daily timeframes</p>
-            <p className="text-[9px] text-muted-foreground/60 mt-0.5">
+            <p className="text-[clamp(0.5625rem,0.5rem+0.15vw,0.6875rem)] text-muted-foreground">
+              Best on 1H, 4H, Daily timeframes
+            </p>
+            <p className="text-[clamp(0.5rem,0.45rem+0.12vw,0.5625rem)] text-muted-foreground/60 mt-0.5">
               Wyckoff Method by Richard D. Wyckoff
             </p>
           </div>

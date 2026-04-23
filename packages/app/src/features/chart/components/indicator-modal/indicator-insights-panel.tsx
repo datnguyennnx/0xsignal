@@ -18,11 +18,11 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
     <div className={cn("flex flex-col h-full overflow-hidden bg-background", className)}>
       <div className="p-6">
         <div className="flex items-center gap-2 mb-2">
-          <span className="px-1.5 py-0.5 rounded-xl bg-muted text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
+          <span className="px-1.5 py-0.5 rounded-xl bg-muted text-muted-foreground text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-wider">
             Overlay
           </span>
           {indicator.overlayOnPrice && (
-            <span className="px-1.5 py-0.5 rounded-xl bg-muted text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
+            <span className="px-1.5 py-0.5 rounded-xl bg-muted text-muted-foreground text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-wider">
               Overlay
             </span>
           )}
@@ -38,7 +38,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
           <div className="grid gap-6">
             {indicator.usage.formula ? (
               <div className="space-y-3">
-                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60">
+                <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
                   Mathematical Engine
                 </p>
                 <IndicatorFormula value={indicator.usage.formula} />
@@ -47,7 +47,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
 
             {indicator.usage.mathematicalWeaknesses ? (
               <div className="space-y-1.5 pt-2 border-t border-muted/20">
-                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60">
+                <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
                   Structural Weaknesses
                 </p>
                 <p className="text-sm leading-relaxed">{indicator.usage.mathematicalWeaknesses}</p>
@@ -56,7 +56,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
 
             {indicator.usage.regimePerformance ? (
               <div className="space-y-1.5 pt-2 border-t border-muted/20">
-                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60">
+                <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
                   Regime Robustness
                 </p>
                 <p className="text-sm leading-relaxed">{indicator.usage.regimePerformance}</p>
@@ -65,7 +65,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
 
             {indicator.usage.tips?.length ? (
               <div className="space-y-3 pt-2 border-t border-muted/20">
-                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60">
+                <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
                   Pro Tips
                 </p>
                 <ul className="space-y-1.5">
@@ -83,7 +83,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
 
             {indicator.usage.pitfalls?.length ? (
               <div className="space-y-3 pt-2 border-t border-muted/20">
-                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60">
+                <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
                   Execution Pitfalls
                 </p>
                 <ul className="space-y-1.5">
@@ -103,7 +103,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
               <div className="pt-6 space-y-5">
                 {indicator.usage.comparisons && (
                   <div className="space-y-1.5">
-                    <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60">
+                    <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
                       Institutional Comparison
                     </p>
                     <p className="text-sm text-muted-foreground italic leading-relaxed">
@@ -113,7 +113,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
                 )}
                 {indicator.usage.upgrades && (
                   <div className="space-y-1.5">
-                    <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60">
+                    <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
                       Architectural Upgrades
                     </p>
                     <p className="text-sm text-muted-foreground leading-relaxed">
@@ -126,7 +126,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
 
             {indicator.implementationNotesForDev && (
               <div className="mt-4 p-3 rounded-xl bg-muted/10 border border-border/30">
-                <p className="text-[9px] uppercase font-mono font-bold text-muted-foreground/40 mb-1">
+                <p className="text-[clamp(0.525rem,0.55rem+0.4vw,0.5625rem)] uppercase font-mono font-bold text-muted-foreground/40 mb-1">
                   Implementation Spec
                 </p>
                 <p className="text-xs font-mono text-muted-foreground/60 leading-tight">

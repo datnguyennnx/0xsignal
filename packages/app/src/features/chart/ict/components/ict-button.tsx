@@ -64,7 +64,9 @@ export const ICTButton = memo(function ICTButton({
       >
         <span>ICT</span>
         {activeCount > 0 && (
-          <span className="text-[10px] text-muted-foreground">{activeCount}</span>
+          <span className="text-[clamp(0.5625rem,0.5rem+0.15vw,0.6875rem)] text-muted-foreground">
+            {activeCount}
+          </span>
         )}
       </Button>
       <ICTControls

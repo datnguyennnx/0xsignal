@@ -3,28 +3,10 @@
  *
  * A high-performance financial chart based on Lightweight Charts (TradingView).
  * Supports technical indicators (Wyckoff, ICT), multiple timeframes, and real-time streaming.
- *
- * @mechanism
- * - Integrates Lightweight Charts library for canvas-based rendering
- * - Uses custom primitives for advanced indicators (ICT, Wyckoff)
- * - Automatically handles resolution changes and historical data loading
- *
- * @performance
- * - Throttles crosshair and price updates to 60fps
- * - Uses a Worker (in hooks) for heavy indicator calculations to keep UI responsive
- * - Consumes candle data from CandleDataProvider via ref to avoid memo invalidation
- *   from new array references on every candle tick
- *
- * @composition
- * - useChartEngine: Creates/manages chart instance
- * - useChartData: Handles data updates to series
- * - useICTOverlay: ICT analysis visualization
- * - useWyckoffOverlay: Wyckoff analysis visualization
  */
 import { useRef, useState, useCallback, useMemo, memo } from "react";
 import { useTheme } from "@/core/providers/theme-provider";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
-import { useChartConfig } from "@/hooks/use-breakpoint";
 import { useCandleData } from "@/features/trade/contexts/candle-data-context";
 
 import {
@@ -43,13 +25,10 @@ import {
 } from "../wyckoff";
 
 import { ChartHeader } from "./chart-header";
-import { ChartHeaderMobile } from "./chart-header-mobile";
 import { ChartControls } from "./chart-controls";
-import { OrientationWarning } from "./orientation-warning";
 import { IndicatorChips } from "./indicator-chips";
 import {
   usePriceFormat,
-  useOrientationWarning,
   useChartEngine,
   useChartData,
   useFullscreen,
@@ -60,6 +39,10 @@ import { INTERVAL_RESTORE_DELAY } from "./constants";
 import { ChartOhlcOverlay } from "./chart-ohlc-overlay";
 import { HoverProvider, useHoverActions } from "./contexts/hover-context";
 
+const DESKTOP_CONFIG = {
+  visibleCandles: 250,
+};
+
 interface TradingChartProps {
   symbol: string;
   interval: string;
@@ -69,15 +52,12 @@ interface TradingChartProps {
 const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartProps) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
-  const chartConfig = useChartConfig();
   const { getPrecision } = useHyperliquidMeta();
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const { setHoveredCandle } = useHoverActions();
-  // Use data (state) for render-phase access, not dataRef
   const { data, loadMore, hasMore, isFetching } = useCandleData();
   const shouldShowLoadMoreIndicator = isFetching && data.length > 0;
 
-  const chartSymbol = symbol.toUpperCase();
   const [ictVisibility, setIctVisibility] = useState<ICTVisibility>(DEFAULT_ICT_VISIBILITY);
   const [wyckoffVisibility, setWyckoffVisibility] = useState<WyckoffVisibility>(
     DEFAULT_WYCKOFF_VISIBILITY
@@ -85,7 +65,6 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   const [pendingInterval, setPendingInterval] = useState<string | null>(null);
 
   const { isFullscreen, toggleFullscreen, fullscreenContainerRef } = useFullscreen();
-  const showOrientationWarning = useOrientationWarning(isFullscreen);
 
   const ictEnabled = useMemo(() => Object.values(ictVisibility).some(Boolean), [ictVisibility]);
   const wyckoffEnabled = useMemo(
@@ -117,8 +96,8 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   } = useIndicators({ data });
 
   const handleLoadMore = useCallback(() => {
-    return loadMore?.(chartConfig.loadMoreCandles);
-  }, [loadMore, chartConfig.loadMoreCandles]);
+    return loadMore?.(300);
+  }, [loadMore]);
 
   const { chart, candlestickSeries, volumeSeries } = useChartEngine({
     containerRef: chartContainerRef,
@@ -135,8 +114,9 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     candlestickSeries,
     volumeSeries,
     chart,
-    visibleCandles: chartConfig.visibleCandles,
+    visibleCandles: DESKTOP_CONFIG.visibleCandles,
     enabled: true,
+    resetKey: interval, // Force reset on interval change
   });
 
   useICTOverlay({
@@ -179,18 +159,22 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   const handleIntervalChange = useCallback(
     (newInterval: string) => {
       if (newInterval === interval) return;
+      // Instant feedback - set loading state before data fetch
       setPendingInterval(newInterval);
-      const wasFullscreen = isFullscreen;
+      // Trigger parent to fetch new data
       onIntervalChange(newInterval);
-      if (wasFullscreen) {
+      // Fullscreen handling
+      if (isFullscreen) {
         setTimeout(() => toggleFullscreen(), INTERVAL_RESTORE_DELAY);
       }
     },
-    [onIntervalChange, interval, isFullscreen, toggleFullscreen]
+    [interval, onIntervalChange, isFullscreen, toggleFullscreen]
   );
 
-  const isIntervalSwitching =
-    pendingInterval !== null && (interval !== pendingInterval || data.length === 0);
+  const isIntervalSwitching = pendingInterval !== null && pendingInterval !== interval;
+
+  // Show loading overlay when switching intervals
+  const showLoadingOverlay = isIntervalSwitching || shouldShowLoadMoreIndicator;
 
   const chartContent = (
     <>
@@ -216,51 +200,19 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
         />
       </ChartHeader>
 
-      <ChartHeaderMobile
-        symbol={chartSymbol}
-        interval={interval}
-        isFullscreen={isFullscreen}
-        onIntervalChange={handleIntervalChange}
-        onToggleFullscreen={toggleFullscreen}
-        isIntervalSwitching={isIntervalSwitching}
-      />
-
-      <div className="flex-1 relative bg-card overscroll-none">
-        <div ref={chartContainerRef} className="absolute inset-0" />
-        {shouldShowLoadMoreIndicator && (
+      <div className="flex-1 relative bg-card overflow-hidden">
+        <div ref={chartContainerRef} className="absolute inset-0 will-change-transform" />
+        {showLoadingOverlay && (
           <div className="pointer-events-none absolute left-3 top-3 z-20">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/85 px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-sm backdrop-blur">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/90 px-2 py-1 text-[clamp(0.5625rem,0.5rem+0.15vw,0.6875rem)] font-medium text-muted-foreground backdrop-blur">
               <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-              Loading older candles
+              Loading
             </div>
           </div>
         )}
         <IndicatorChips indicators={activeIndicators} />
         <ChartOhlcOverlay data={data} precision={precision.pxDecimals} />
       </div>
-
-      {isFullscreen && (
-        <div className="sm:hidden">
-          <ChartControls
-            ictVisibility={ictVisibility}
-            ictLoading={ictLoading}
-            onToggleICT={handleToggleICT}
-            wyckoffVisibility={wyckoffVisibility}
-            wyckoffLoading={wyckoffLoading}
-            onToggleWyckoff={handleToggleWyckoff}
-            activeIndicators={activeIndicators}
-            onAddIndicator={handleAddIndicator}
-            onRemoveIndicator={handleRemoveIndicator}
-            hasActiveOverlays={hasActiveOverlays}
-            onResetAll={handleResetAll}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={toggleFullscreen}
-            variant="mobile"
-          />
-        </div>
-      )}
-
-      {showOrientationWarning && <OrientationWarning />}
     </>
   );
 
@@ -268,7 +220,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     return (
       <div
         ref={fullscreenContainerRef}
-        className="fixed inset-0 z-50 bg-background flex flex-col overscroll-none"
+        className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden"
       >
         <div className="w-full h-full max-w-8xl mx-auto flex flex-col">{chartContent}</div>
       </div>

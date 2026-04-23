@@ -76,7 +76,7 @@ export const ContentUnavailable = memo(function ContentUnavailable({
         {title ?? config.title}
       </h3>
       {(description ?? config.description) && (
-        <p className="text-xs text-muted-foreground/50 max-w-[280px] leading-relaxed">
+        <p className="text-xs text-muted-foreground/50 max-w-[clamp(17rem,70vw,17.5rem)] leading-relaxed">
           {description ?? config.description}
         </p>
       )}

@@ -69,10 +69,10 @@ const OrderbookToolbar = memo(
     scalingOptions: TickSizeOption[];
     showSyncing: boolean;
   }) => (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-border/20 flex-shrink-0 bg-muted/10">
+    <div className="flex items-center justify-between px-[clamp(0.5rem,1.5vw,0.75rem)] py-2 border-b border-border/20 flex-shrink-0 bg-muted/10">
       <div
         className={cn(
-          "flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.02em] text-muted-foreground transition-opacity duration-150",
+          "flex items-center gap-1.5 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono uppercase tracking-[0.02em] text-muted-foreground transition-opacity duration-300",
           showSyncing ? "opacity-100" : "opacity-0"
         )}
         aria-live="polite"
@@ -87,7 +87,7 @@ const OrderbookToolbar = memo(
           value={priceScaling.toString()}
           onChange={(e) => onPriceScalingChange(Number(e.target.value))}
           wrapperClassName="min-w-fit"
-          className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[11px] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
+          className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
         >
           {scalingOptions.map((opt) => (
             <NativeSelectOption key={opt.value} value={opt.value.toString()}>
@@ -151,7 +151,7 @@ const OrderRow = memo(
       <div
         ref={rowRef}
         className={cn(
-          "relative flex items-center px-3 cursor-pointer tabular-nums select-none flex-shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset",
+          "relative flex items-center px-3 cursor-pointer tabular-nums select-none flex-shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset transition-colors duration-100",
           isHovered ? "bg-muted/50" : "hover:bg-muted/30"
         )}
         style={ORDER_ROW_STYLE}
@@ -193,7 +193,7 @@ const OrderRow = memo(
         )}
         <span
           className={cn(
-            "relative z-10 flex-1 text-xs font-mono font-medium",
+            "relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono font-medium",
             level.price === 0
               ? "text-muted-foreground/30"
               : side === "bid"
@@ -205,7 +205,7 @@ const OrderRow = memo(
         </span>
         <span
           className={cn(
-            "relative z-10 flex-1 text-right text-xs font-mono",
+            "relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono",
             level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground"
           )}
         >
@@ -213,7 +213,7 @@ const OrderRow = memo(
         </span>
         <span
           className={cn(
-            "relative z-10 flex-1 text-right text-xs font-mono",
+            "relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono",
             level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
           )}
         >
@@ -519,7 +519,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   }
 
   return (
-    <div ref={widgetRef} className="flex flex-col bg-card border-border/30 rounded-xl p-2">
+    <div ref={widgetRef} className="h-full flex flex-col bg-card border-border/30 rounded-xl p-2">
       <OrderbookToolbar
         priceScaling={effectivePriceScaling}
         onPriceScalingChange={handlePriceScalingChange}
@@ -527,14 +527,14 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         showSyncing={showSyncing}
       />
 
-      <div className="flex items-center px-3 py-1.5 text-[10px] font-mono uppercase text-muted-foreground border-b border-border/20 flex-shrink-0">
+      <div className="flex items-center px-[clamp(0.5rem,1.5vw,0.75rem)] py-1.5 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono uppercase text-muted-foreground border-b border-border/20 flex-shrink-0">
         <span className="flex-1">Price</span>
         <span className="flex-1 text-right">Size</span>
         <span className="flex-1 text-right">Total</span>
       </div>
 
-      <div className="flex flex-col min-h-0 overscroll-none">
-        <div className="flex flex-col-reverse relative overscroll-none">
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse overscroll-none">
           {visibleAsks.map((level, index) => (
             <OrderRow
               key={priceKey("ask", level.price)}
@@ -550,17 +550,19 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
           ))}
         </div>
 
-        <div className="flex items-center justify-center gap-6 py-1.5 border-y border-border/10 bg-muted/20 flex-shrink-0">
-          <span className="text-xs font-mono font-medium text-muted-foreground/80">Spread</span>
-          <span className="text-xs font-mono text-muted-foreground/80">
+        <div className="flex items-center justify-center gap-[clamp(0.75rem,2vw,1.5rem)] py-1.5 border-y border-border/10 bg-muted/20 flex-shrink-0">
+          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono font-medium text-muted-foreground/80">
+            Spread
+          </span>
+          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground/80">
             {formatPriceWithScaling(spread, effectivePriceScaling)}
           </span>
-          <span className="text-xs font-mono text-muted-foreground/80">
+          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground/80">
             {spreadPercent.toFixed(3)}%
           </span>
         </div>
 
-        <div className="flex flex-col relative overscroll-none">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col relative overscroll-none">
           {visibleBids.map((level, index) => (
             <OrderRow
               key={priceKey("bid", level.price)}
@@ -612,7 +614,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
             {popupData.cumulativeSize && popupData.cumulativeSize > popupData.size && (
               <>
                 <div className="border-t border-border/20 my-2" />
-                <div className="text-[10px] text-muted-foreground uppercase mb-1">
+                <div className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground uppercase mb-1">
                   To Best Price
                 </div>
                 <div className="flex justify-between">

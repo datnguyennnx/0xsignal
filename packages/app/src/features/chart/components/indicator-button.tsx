@@ -49,7 +49,7 @@ export const IndicatorButton = memo(function IndicatorButton({
           <Badge
             variant={isOpen ? "secondary" : "default"}
             className={cn(
-              "px-1 sm:px-1.5 py-0 text-[10px] h-4 min-w-[16px] tabular-nums select-none",
+              "px-1 sm:px-1.5 py-0 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] h-4 min-w-[1rem] tabular-nums select-none",
               isOpen && "bg-background/20 text-background"
             )}
           >

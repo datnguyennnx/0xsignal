@@ -25,6 +25,7 @@ interface UseChartDataProps {
   chart: import("lightweight-charts").IChartApi | null;
   visibleCandles: number;
   enabled?: boolean;
+  resetKey?: string; // Force reset when this changes
 }
 
 const toTime = (time: number): Time => time as Time;
@@ -53,6 +54,7 @@ export const useChartData = ({
   chart,
   visibleCandles,
   enabled = true,
+  resetKey,
 }: UseChartDataProps) => {
   const initialDataLoadedRef = useRef(false);
   const prevDataLenRef = useRef(0);
@@ -61,6 +63,13 @@ export const useChartData = ({
   const prevLastCandleRef = useRef<ChartDataPoint | null>(null);
   const prevIsDarkRef = useRef(isDark);
   const prevEnabledRef = useRef(enabled);
+  const prevResetKeyRef = useRef<string | undefined>(undefined);
+
+  // Force reset cache when resetKey changes (e.g., interval switch)
+  if (resetKey !== undefined && resetKey !== prevResetKeyRef.current) {
+    initialDataLoadedRef.current = false;
+    prevResetKeyRef.current = resetKey;
+  }
 
   useEffect(() => {
     if (!candlestickSeries || !volumeSeries || data.length === 0) return;

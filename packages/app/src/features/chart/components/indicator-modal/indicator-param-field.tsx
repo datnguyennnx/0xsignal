@@ -45,10 +45,10 @@ export function IndicatorParamField({
     <div className="group/param flex flex-col gap-1.5 transition-all">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex flex-col gap-0.5">
-          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 group-hover/param:text-foreground transition-colors leading-none">
+          <label className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest text-muted-foreground/50 group-hover/param:text-foreground transition-colors leading-none">
             {definition.label}
           </label>
-          <p className="text-[10px] text-muted-foreground font-mono leading-none opacity-30">
+          <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground font-mono leading-none opacity-30">
             {definition.min} {"->"} {definition.max}
           </p>
         </div>
@@ -84,7 +84,7 @@ export function IndicatorParamField({
       </div>
 
       {definition.description && (
-        <p className="text-[10px] text-muted-foreground leading-tight max-w-[90%] opacity-50 group-hover/param:opacity-100 transition-opacity">
+        <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground leading-tight max-w-[90%] opacity-50 group-hover/param:opacity-100 transition-opacity">
           {definition.description}
         </p>
       )}

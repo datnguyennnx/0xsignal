@@ -24,6 +24,6 @@ export const ALL_INTERVALS = [
   { value: "1w", label: "1W" },
 ] as const;
 
-export const MOBILE_BREAKPOINT = 768;
 export const VOLUME_PANE_HEIGHT = 100;
+
 export const INTERVAL_RESTORE_DELAY = 100;

@@ -43,9 +43,9 @@ export const ChartHeader = memo(function ChartHeader({
   );
 
   return (
-    <div className="hidden sm:flex items-center justify-between gap-4 px-4 py-2.5 bg-card">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1">
+    <div className="flex items-center justify-between gap-[clamp(0.75rem,2vw,1rem)] px-[clamp(0.75rem,2vw,1rem)] py-[clamp(0.375rem,1vw,0.625rem)] bg-card">
+      <div className="flex items-center gap-[clamp(0.75rem,2vw,1rem)]">
+        <div className="flex items-center gap-[clamp(0.125rem,0.5vw,0.25rem)]">
           {DEFAULT_INTERVALS.map((int) => (
             <Button
               key={int.value}
@@ -53,9 +53,9 @@ export const ChartHeader = memo(function ChartHeader({
               size="sm"
               onClick={() => handleIntervalChange(int.value)}
               className={cn(
-                "relative h-8 rounded-xl border px-2.5 py-1 text-[11px] font-mono tabular-nums tracking-[0.01em] transition-all duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/25",
+                "relative h-8 rounded-xl border px-2.5 py-1 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-mono tabular-nums tracking-[0.01em] transition-all duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/25",
                 interval === int.value
-                  ? "border-border/60 bg-muted/70 text-foreground scale-[1.02] shadow-sm"
+                  ? "border-border/60 bg-muted/70 text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
               )}
             >
@@ -76,9 +76,9 @@ export const ChartHeader = memo(function ChartHeader({
               onChange={(e) => {
                 if (e.target.value) handleIntervalChange(e.target.value);
               }}
-              wrapperClassName="min-w-[4.5rem] max-w-[4.5rem]"
+              wrapperClassName="min-w-[clamp(4.5rem,12vw,6rem)] max-w-[clamp(4.5rem,12vw,6rem)]"
               className={cn(
-                "h-8 w-full min-w-0 border border-border/50 bg-background/75 px-2.5 pr-7 text-[11px] font-mono tabular-nums tracking-[0.01em] cursor-pointer transition-[background-color,border-color,color,box-shadow] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/25",
+                "h-8 w-full min-w-0 border border-border/50 bg-background/75 px-2.5 pr-7 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-mono tabular-nums tracking-[0.01em] cursor-pointer transition-[background-color,border-color,color,box-shadow] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/25",
                 isDefaultInterval
                   ? "text-muted-foreground hover:text-foreground"
                   : "border-border/60 bg-muted/70 text-foreground"

@@ -104,15 +104,15 @@ export function IndicatorModal({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[98vw] xl:max-w-[1600px] w-fit h-[90vh] p-0 gap-0 overflow-hidden bg-background border-border/40 shadow-xl rounded-lg"
+        className="max-w-[98vw] xl:max-w-[clamp(90rem,100vw,100rem)] w-fit h-[clamp(18rem,80dvh,60rem)] p-0 gap-0 overflow-hidden bg-background border-border/40 shadow-xl rounded-lg"
       >
         <DialogTitle className="sr-only">Indicator Settings</DialogTitle>
 
         <div className="flex flex-col sm:flex-row h-full divide-y sm:divide-y-0 sm:divide-x divide-border/50 min-h-0 bg-background">
           {/* Column 1: Indicators Sidebar */}
-          <div className="w-full sm:w-[180px] flex flex-col shrink-0 min-h-0 sm:max-h-[90vh]">
+          <div className="w-full sm:w-[clamp(11.25rem,20vw,15rem)] flex flex-col shrink-0 min-h-0 sm:max-h-[clamp(18rem,80dvh,60rem)]">
             <div className="p-4 sm:p-6 flex items-center justify-between sm:justify-start gap-2">
-              <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/30">
+              <h2 className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest text-muted-foreground/30">
                 Indicators
               </h2>
               <button
@@ -152,7 +152,7 @@ export function IndicatorModal({
                     <span className="flex-1 text-left truncate">{cat.label}</span>
                     <span
                       className={cn(
-                        "text-[10px] px-1 rounded tabular-nums font-bold",
+                        "text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] px-1 rounded tabular-nums font-bold",
                         category === cat.id
                           ? "bg-background/20 opacity-60"
                           : "bg-muted text-muted-foreground/60"
@@ -167,7 +167,7 @@ export function IndicatorModal({
           </div>
 
           {/* Column 2: Indicator Explorer */}
-          <div className="w-full sm:w-[280px] max-h-[40vh] sm:max-h-[90vh] flex flex-col shrink-0 min-h-0">
+          <div className="w-full sm:w-[clamp(14rem,24vw,17.5rem)] max-h-[clamp(12rem,40dvh,20rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col shrink-0 min-h-0">
             {!(category === "active" && activeIndicatorConfigs.length === 0) && (
               <div className="p-4">
                 <Input
@@ -206,7 +206,7 @@ export function IndicatorModal({
                         />
                         <span className="flex-1 text-left truncate">{indicator.name}</span>
                         {activeCount > 0 ? (
-                          <span className="text-[10px] font-bold text-muted-foreground/40 px-1">
+                          <span className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold text-muted-foreground/40 px-1">
                             {activeCount}
                           </span>
                         ) : null}
@@ -231,7 +231,7 @@ export function IndicatorModal({
           </div>
 
           {/* Column 3: Insight Content */}
-          <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background/30 max-h-[50vh] sm:max-h-none">
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background/30 max-h-[clamp(12rem,50dvh,20rem)] sm:max-h-none">
             {selectedIndicator ? (
               <IndicatorInsightsPanel
                 key={`${selectedIndicator.id}-insights`}
@@ -248,7 +248,7 @@ export function IndicatorModal({
           </div>
 
           {/* Column 4: Inspector Sidepan */}
-          <div className="w-full sm:w-[350px] lg:w-[400px] max-h-[50vh] sm:max-h-[90vh] flex flex-col shrink-0 min-h-0 shadow-[-1px_0_0_0_rgba(0,0,0,0.02)]">
+          <div className="w-full sm:w-[clamp(21.875rem,30vw,25rem)] lg:w-[clamp(21.875rem,30vw,28rem)] max-h-[clamp(12rem,50dvh,20rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col shrink-0 min-h-0 shadow-[-1px_0_0_0_rgba(0,0,0,0.02)]">
             {selectedIndicator ? (
               <IndicatorConfigPanel
                 key={`${selectedIndicator.id}-config`}

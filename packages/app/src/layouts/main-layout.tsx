@@ -1,28 +1,21 @@
 /**
  * @overview Main Layout Component
  *
- * Defines the primary shell for the application with separate desktop and mobile navigators.
- * Uses the useBreakpoint hook for conditional rendering — no mobile DOM on desktop and vice versa.
+ * Defines the primary shell for the application (desktop-only).
  */
 import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";
 import { cn } from "@/core/utils/cn";
-import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { LineChart, Settings } from "lucide-react";
+import { LineChart } from "lucide-react";
 
-const DESKTOP_NAV_ITEMS = [{ path: "/trade", label: "Trade" }] as const;
+const NAV_ITEMS = [{ path: "/trade", label: "Trade", icon: LineChart }] as const;
 
-const MOBILE_NAV_ITEMS = [
-  { path: "/trade", label: "Trade", icon: LineChart },
-  { path: "/settings", label: "Settings", icon: Settings },
-] as const;
-
-function DesktopShell({ children }: { children: ReactNode }) {
+export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   return (
-    <>
+    <div className="flex flex-col h-fit bg-background overflow-hidden">
       <header className="shrink-0 z-50 bg-background/80 backdrop-blur-md">
         <div className="container-fluid">
           <div className="flex items-center justify-between h-12">
@@ -31,7 +24,7 @@ function DesktopShell({ children }: { children: ReactNode }) {
             </Link>
 
             <nav className="flex items-center gap-6">
-              {DESKTOP_NAV_ITEMS.map((item) => {
+              {NAV_ITEMS.map((item) => {
                 const isActive = location.pathname.startsWith(item.path);
                 return (
                   <Link
@@ -55,67 +48,7 @@ function DesktopShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">{children}</main>
-    </>
-  );
-}
-
-function MobileShell({ children }: { children: ReactNode }) {
-  const location = useLocation();
-
-  return (
-    <>
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden pb-[calc(clamp(3.5rem,9vw,4rem)+env(safe-area-inset-bottom,0px))] relative">
-        {children}
-      </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-sm border-t border-border/40 safe-area-pb">
-        <div className="flex items-center justify-around h-[clamp(3.5rem,9vw,4rem)] px-1">
-          {MOBILE_NAV_ITEMS.map((item) => {
-            const isActive = location.pathname.startsWith(item.path);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="flex-1 flex flex-col items-center justify-center h-full gap-[clamp(0.1rem,0.5vw,0.2rem)] tap-highlight"
-              >
-                <Icon
-                  className={cn(
-                    "size-[clamp(1rem,4.5vw,1.25rem)]",
-                    isActive ? "text-foreground" : "text-muted-foreground"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "text-[clamp(0.6rem,2.6vw,0.72rem)] font-medium",
-                    isActive ? "text-foreground" : "text-muted-foreground"
-                  )}
-                >
-                  {item.label}
-                </span>
-                <div
-                  className={cn(
-                    "absolute bottom-0 w-[clamp(1.5rem,8vw,2rem)] h-0.5 rounded-full transition-colors",
-                    isActive ? "bg-foreground" : "bg-transparent"
-                  )}
-                />
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
-    </>
-  );
-}
-
-export function Layout({ children }: { children: ReactNode }) {
-  const bp = useBreakpoint();
-  const isMobile = bp === "mobile";
-
-  return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
-      {isMobile ? <MobileShell>{children}</MobileShell> : <DesktopShell>{children}</DesktopShell>}
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">{children}</main>
     </div>
   );
 }
