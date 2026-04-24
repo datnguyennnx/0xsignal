@@ -28,16 +28,17 @@ interface TradeDropdownProps {
 }
 
 interface FormattedTrade {
-  coin: string;
-  category: string;
-  displayCategory: string;
-  markPx: string;
-  prevDayPx: string;
-  openInterest: string;
-  changeValue: number;
-  changeFormatted: string;
-  oiFormatted: string;
-  isActive: boolean;
+  readonly coin: string;
+  readonly name: string;
+  readonly category: string;
+  readonly displayCategory: string;
+  readonly markPx: string;
+  readonly prevDayPx: string;
+  readonly openInterest: string;
+  readonly changeValue: number;
+  readonly changeFormatted: string;
+  readonly oiFormatted: string;
+  readonly isActive: boolean;
 }
 
 type CategoryTab = "all" | "crypto" | "stocks" | "commodities" | "fx" | "indices" | "preipo";
@@ -108,8 +109,10 @@ const MarketHeader = ({
 const MarketRow = ({ item }: { item: FormattedTrade }) => (
   <div className="grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-3">
     <div className="flex flex-col justify-center min-w-0">
-      <span className="font-mono font-medium text-sm tabular-nums truncate">{item.coin}</span>
-      <span className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground">
+      <span className="font-mono font-medium text-sm tabular-nums truncate">
+        {item.name || item.coin}
+      </span>
+      <span className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground uppercase opacity-70">
         {item.displayCategory}
       </span>
     </div>
@@ -123,6 +126,9 @@ const MarketRow = ({ item }: { item: FormattedTrade }) => (
       )}
     >
       {item.changeFormatted}
+    </span>
+    <span className="font-mono text-xs text-right flex items-center justify-end text-muted-foreground tabular-nums">
+      {item.oiFormatted}
     </span>
   </div>
 );
@@ -284,6 +290,7 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
       const oi = Number(item.openInterest);
       return {
         coin: item.coin,
+        name: item.name,
         category: item.category,
         displayCategory: item.displayCategory,
         markPx: item.markPx,

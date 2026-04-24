@@ -8,7 +8,13 @@ import type { PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
 import { HyperliquidError } from "./errors";
 import { HyperliquidProvider } from "./types";
 import type { MarketsSnapshot, TickerPayload, OrderBookPayload, TickerSnapshot } from "./types";
-import { mapTickerFromSnapshot, getMarketsSnapshot, getTickerSnapshot } from "./mapping";
+import {
+  mapTickerFromSnapshot,
+  getMarketsSnapshotEffect,
+  getTickerSnapshotEffect,
+  resolveInternalSymbol,
+  isPerpSymbol,
+} from "./mapping";
 import { resolveWithCache, type CacheSlot } from "./cache";
 
 type HyperliquidClientService = Context.Tag.Service<typeof HyperliquidClient>;
@@ -21,11 +27,13 @@ export const getCandleSnapshot = (
 ): Effect.Effect<Candle[], HyperliquidError, HyperliquidClient> =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
+    const snapshot = yield* getTickerSnapshotEffect(info);
+    const internalSymbol = resolveInternalSymbol(snapshot, coin);
 
     return yield* Effect.tryPromise({
       try: async () => {
         const candles = await info.candleSnapshot({
-          coin,
+          coin: internalSymbol,
           interval: toHlInterval(interval),
           startTime,
           endTime,
@@ -64,17 +72,7 @@ export const getMetadata = (): Effect.Effect<
 > =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
-    return yield* Effect.tryPromise({
-      try: () => getMarketsSnapshot(info),
-      catch: (cause) =>
-        cause instanceof HyperliquidError
-          ? cause
-          : new HyperliquidError({
-              message: "Failed to fetch Hyperliquid metadata",
-              kind: "UPSTREAM",
-              cause,
-            }),
-    });
+    return yield* getMarketsSnapshotEffect(info);
   });
 
 export const getTicker = (
@@ -82,28 +80,8 @@ export const getTicker = (
 ): Effect.Effect<TickerPayload, HyperliquidError, HyperliquidClient> =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
-    return yield* Effect.tryPromise({
-      try: async () => {
-        const normalizedSymbol = normalizeSymbol(symbol);
-        if (!normalizedSymbol) {
-          throw new HyperliquidError({
-            message: "Symbol is required",
-            kind: "BAD_REQUEST",
-          });
-        }
-
-        const snapshot = await getTickerSnapshot(info);
-        return mapTickerFromSnapshot(snapshot, normalizedSymbol);
-      },
-      catch: (cause) =>
-        cause instanceof HyperliquidError
-          ? cause
-          : new HyperliquidError({
-              message: `Failed to fetch ticker for ${symbol}`,
-              kind: "UPSTREAM",
-              cause,
-            }),
-    });
+    const snapshot = yield* getTickerSnapshotEffect(info);
+    return mapTickerFromSnapshot(snapshot, symbol);
   });
 
 export const getOrderBook = (
@@ -112,28 +90,30 @@ export const getOrderBook = (
 ): Effect.Effect<OrderBookPayload, HyperliquidError, HyperliquidClient> =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
+    const snapshot = yield* getTickerSnapshotEffect(info);
+    const internalSymbol = resolveInternalSymbol(snapshot, symbol);
+
+    const parsedDepth = depth === undefined ? undefined : Math.trunc(depth);
+    const nSigFigs: 2 | 3 | 4 | 5 | undefined =
+      parsedDepth === 2 || parsedDepth === 3 || parsedDepth === 4 || parsedDepth === 5
+        ? parsedDepth
+        : undefined;
+
     return yield* Effect.tryPromise({
       try: async () => {
-        const normalizedSymbol = normalizeSymbol(symbol);
-        const parsedDepth = depth === undefined ? undefined : Math.trunc(depth);
-        const nSigFigs: 2 | 3 | 4 | 5 | undefined =
-          parsedDepth === 2 || parsedDepth === 3 || parsedDepth === 4 || parsedDepth === 5
-            ? parsedDepth
-            : undefined;
-
         const orderbook = await info.l2Book({
-          coin: normalizedSymbol,
+          coin: internalSymbol,
           nSigFigs,
         });
         if (!orderbook) {
           throw new HyperliquidError({
-            message: `Orderbook not available for ${normalizedSymbol}`,
+            message: `Orderbook not available for ${internalSymbol}`,
             kind: "NOT_FOUND",
           });
         }
 
         return {
-          symbol: normalizedSymbol,
+          symbol: normalizeSymbol(symbol),
           nSigFigs,
           orderbook,
         };
@@ -156,12 +136,22 @@ export const getTradeAnnotation = (
 > =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
+    const snapshot = yield* getTickerSnapshotEffect(info);
+    const internalSymbol = resolveInternalSymbol(snapshot, symbol);
+    const isPerp = isPerpSymbol(snapshot, symbol);
+
+    if (!isPerp) {
+      throw new HyperliquidError({
+        message: `Asset not supported or not found in perpetuals universe: ${symbol}`,
+        kind: "NOT_FOUND",
+      });
+    }
+
     return yield* Effect.tryPromise({
       try: async () => {
-        const normalizedSymbol = normalizeSymbol(symbol);
-        const annotation = await info.perpAnnotation({ coin: normalizedSymbol });
+        const annotation = await info.perpAnnotation({ coin: internalSymbol });
         return {
-          symbol: normalizedSymbol,
+          symbol: normalizeSymbol(symbol),
           annotation,
         };
       },
@@ -188,25 +178,30 @@ export const HyperliquidProviderLive = (client: HyperliquidClientService) => {
   >();
 
   const getCachedMarkets = () =>
-    resolveWithCache(metadataCache, MARKETS_TTL_MS, () => getMarketsSnapshot(client.info));
+    resolveWithCache(metadataCache, MARKETS_TTL_MS, () =>
+      Effect.runPromise(getMarketsSnapshotEffect(client.info))
+    );
   const getCachedTickerSnapshot = () =>
     resolveWithCache(tickerSnapshotCache, TICKER_SNAPSHOT_TTL_MS, () =>
-      getTickerSnapshot(client.info)
+      Effect.runPromise(getTickerSnapshotEffect(client.info))
     );
 
   const getCachedCandleSnapshot = (
-    coin: string,
+    symbol: string,
     interval: MarketTimeframe,
     startTime: number,
     endTime: number
   ) => {
-    const cacheKey = `${coin}|${interval}|${startTime}|${endTime}`;
+    const cacheKey = `${symbol}|${interval}|${startTime}|${endTime}`;
     const slot = candleSnapshotCache.get(cacheKey) ?? { expiresAt: 0 };
     candleSnapshotCache.set(cacheKey, slot);
 
     return resolveWithCache(slot, CANDLE_SNAPSHOT_TTL_MS, async () => {
+      const snapshot = await getCachedTickerSnapshot();
+      const internalSymbol = resolveInternalSymbol(snapshot, symbol);
+
       const candles = await client.info.candleSnapshot({
-        coin,
+        coin: internalSymbol,
         interval: toHlInterval(interval),
         startTime,
         endTime,
@@ -217,14 +212,24 @@ export const HyperliquidProviderLive = (client: HyperliquidClientService) => {
   };
 
   const getCachedTradeAnnotation = (symbol: string) => {
-    const normalizedSymbol = normalizeSymbol(symbol);
-    const slot = tradeAnnotationCache.get(normalizedSymbol) ?? { expiresAt: 0 };
-    tradeAnnotationCache.set(normalizedSymbol, slot);
+    const slot = tradeAnnotationCache.get(symbol) ?? { expiresAt: 0 };
+    tradeAnnotationCache.set(symbol, slot);
 
     return resolveWithCache(slot, TRADE_ANNOTATION_TTL_MS, async () => {
-      const annotation = await client.info.perpAnnotation({ coin: normalizedSymbol });
+      const snapshot = await getCachedTickerSnapshot();
+      const internalSymbol = resolveInternalSymbol(snapshot, symbol);
+      const isPerp = isPerpSymbol(snapshot, symbol);
+
+      if (!isPerp) {
+        throw new HyperliquidError({
+          message: `Asset not supported or not found in perpetuals universe: ${symbol}`,
+          kind: "NOT_FOUND",
+        });
+      }
+
+      const annotation = await client.info.perpAnnotation({ coin: internalSymbol });
       return {
-        symbol: normalizedSymbol,
+        symbol: normalizeSymbol(symbol),
         annotation,
       };
     });

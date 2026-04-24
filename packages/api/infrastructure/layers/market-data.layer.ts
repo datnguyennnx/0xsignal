@@ -47,7 +47,7 @@ const MarketPortsLayer = Layer.mergeAll(
 
 export const MarketDataPortsLive = MarketPortsLayer.pipe(
   Layer.provide(CandleRepositoryLayer),
-  Layer.provide(HyperliquidProviderLayer),
+  Layer.provideMerge(HyperliquidProviderLayer),
   Layer.provide(QuestDBClientLayer),
-  Layer.provide(HyperliquidClientLive)
+  Layer.provideMerge(HyperliquidClientLive)
 );

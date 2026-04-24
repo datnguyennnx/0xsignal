@@ -7,7 +7,10 @@ describe("research service", () => {
   it("appendResearchNote persists note with created_at", async () => {
     const repo: ResearchRepository = {
       insertNote: vi.fn(async (note) => note),
+      getNotesBySession: vi.fn(),
+      getNotesByStrategy: vi.fn(),
       insertArtifact: vi.fn(async (artifact) => artifact),
+      getArtifactsByRun: vi.fn(),
     };
     const service = makeResearchService(repo);
 
@@ -30,9 +33,12 @@ describe("research service", () => {
   it("createArtifact maps repository errors to domain validation errors", async () => {
     const repo: ResearchRepository = {
       insertNote: vi.fn(async (note) => note),
+      getNotesBySession: vi.fn(),
+      getNotesByStrategy: vi.fn(),
       insertArtifact: vi.fn(async () => {
         throw new Error("db down");
       }),
+      getArtifactsByRun: vi.fn(),
     };
     const service = makeResearchService(repo);
 

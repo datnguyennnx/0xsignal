@@ -17,7 +17,6 @@
  * @precision-formula
  * Per Hyperliquid spec (llm/hyperliquid/tick-and-slot-size.md):
  * - Perps: pxDecimals = min(5, 6 - szDecimals)
- * - Spot:  pxDecimals = min(5, 8 - szDecimals)
  * This ensures price decimals never exceed MAX_DECIMALS - szDecimals constraint.
  *
  * @role frontend render-local precision adapter for UI formatting.
@@ -30,7 +29,6 @@ import { queryKeys } from "@/lib/query/query-keys";
 import { parseSymbol } from "../lib/symbol";
 
 const MAX_DECIMALS_PERP = 6;
-const MAX_DECIMALS_SPOT = 8;
 const MAX_SIG_FIGS = 5;
 
 export interface AssetPrecision {
@@ -43,9 +41,8 @@ const DEFAULT: AssetPrecision = {
   szDecimals: 4,
 };
 
-export function calculatePxDecimals(szDecimals: number, isSpot = false): number {
-  const maxDecimals = isSpot ? MAX_DECIMALS_SPOT : MAX_DECIMALS_PERP;
-  return Math.min(MAX_SIG_FIGS, maxDecimals - szDecimals);
+export function calculatePxDecimals(szDecimals: number): number {
+  return Math.min(MAX_SIG_FIGS, MAX_DECIMALS_PERP - szDecimals);
 }
 
 export function useHyperliquidMeta() {
@@ -62,7 +59,7 @@ export function useHyperliquidMeta() {
     if (!data?.universe) return map;
     for (const asset of data.universe) {
       const sz = asset.szDecimals ?? 4;
-      const pxDec = calculatePxDecimals(sz, false);
+      const pxDec = calculatePxDecimals(sz);
       const key = asset.name.includes(":") ? asset.name : asset.name.toUpperCase();
       map.set(key, {
         pxDecimals: pxDec,

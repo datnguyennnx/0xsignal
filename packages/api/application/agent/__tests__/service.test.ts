@@ -9,7 +9,9 @@ describe("agent service", () => {
       insertSession: vi.fn(async (session) => session),
       getSession: vi.fn(async () => null),
       insertPlan: vi.fn(async (plan) => plan),
+      getPlansBySession: vi.fn(),
       insertAction: vi.fn(async (action) => action),
+      getActionsBySession: vi.fn(),
     };
 
     const service = makeAgentService(repo);
@@ -38,7 +40,9 @@ describe("agent service", () => {
       insertSession: vi.fn(async (session) => session),
       getSession: vi.fn(async () => null),
       insertPlan: vi.fn(async (plan) => plan),
+      getPlansBySession: vi.fn(),
       insertAction: vi.fn(async (action) => action),
+      getActionsBySession: vi.fn(),
     };
 
     const service = makeAgentService(repo);

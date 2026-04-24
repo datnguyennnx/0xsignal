@@ -4,12 +4,15 @@ import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 import type { L2BookResponse, PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
 import type { HyperliquidError } from "./errors";
 
-export type MarketUniverseItem = {
+export interface MarketUniverseItem {
   readonly name: string;
   readonly szDecimals?: number;
   readonly maxLeverage?: number;
   readonly isDelisted?: boolean;
-};
+  readonly dexIndex?: number;
+  readonly displayName?: string;
+  readonly tokens?: [number, number];
+}
 
 export type MarketAssetCtxItem = {
   readonly prevDayPx?: string;

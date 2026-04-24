@@ -1,4 +1,4 @@
-export type AssetKind = "perp" | "builderPerp" | "spot";
+export type AssetKind = "perp" | "builderPerp";
 
 export interface NormalizedAsset {
   kind: AssetKind;
@@ -8,26 +8,28 @@ export interface NormalizedAsset {
 
 export function parseSymbol(symbol: string): NormalizedAsset {
   const trimmed = symbol.trim();
-  if (trimmed.startsWith("@")) {
-    return { kind: "spot", coin: trimmed };
-  }
 
   const upper = trimmed.toUpperCase();
-  const clean = upper.replace(/[^A-Z0-9:]/g, "");
 
-  if (clean.includes(":")) {
-    const [dex, ...rest] = clean.split(":");
-    let coinPart = rest.join(":");
-    coinPart = coinPart.replace(/USDT?$/, "").replace(/USDC?$/, "");
+  // Helper to strip stablecoin suffixes
+  const stripStables = (s: string) => s.replace(/[-_]?(USDT?|USDC?)$/, "");
+
+  // Handle builder perps with colon (dex:COIN)
+  if (trimmed.includes(":")) {
+    const [dex, ...rest] = trimmed.split(":");
+    const assetPart = stripStables(rest.join(":").toUpperCase());
+    const normalizedCoin = `${dex.toLowerCase()}:${assetPart}`;
     return {
       kind: "builderPerp",
-      coin: `${dex.toLowerCase()}:${coinPart}`,
+      coin: normalizedCoin,
       dex: dex.toLowerCase(),
     };
   }
 
-  let cleaned = clean;
-  cleaned = cleaned.replace(/USDT?$/, "").replace(/USDC?$/, "");
+  // Handle standard perps, prefixed perps, and outcome tokens
+  // We want to keep hyphens, @, #, + but remove other noise
+  let cleaned = stripStables(upper.replace(/[^A-Z0-9-@#+]/g, ""));
+
   return { kind: "perp", coin: cleaned };
 }
 

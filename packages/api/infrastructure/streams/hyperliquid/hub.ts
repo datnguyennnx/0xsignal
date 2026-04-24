@@ -4,6 +4,10 @@ import type { ServerWebSocket } from "bun";
 import type { MarketWsSubscription } from "../../../schemas/market-data/ws";
 import { marketWsLog } from "./logging";
 import { buildMarketWsBucketKey } from "./bucket-key";
+import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
+import { resolveInternalSymbol } from "../../data-sources/hyperliquid/mapping";
+import { HyperliquidProvider } from "../../data-sources/hyperliquid/types";
+import { Effect } from "effect";
 import {
   normalizeAllMidsData,
   normalizeCandleData,
@@ -45,12 +49,21 @@ export class HyperliquidMarketStreamHub {
 
   private shuttingDown = false;
 
+  constructor(private readonly provider?: typeof HyperliquidProvider.Service) {}
+
   createConnectionData(subscription: MarketWsSubscription): MarketWsConnectionData {
     this.connectionSeq += 1;
+
+    // Normalize symbol if present
+    const normalizedSubscription = { ...subscription };
+    if (normalizedSubscription.symbol) {
+      normalizedSubscription.symbol = normalizeSymbol(normalizedSubscription.symbol);
+    }
+
     return {
       id: String(this.connectionSeq),
-      bucketKey: buildMarketWsBucketKey(subscription),
-      subscription,
+      bucketKey: buildMarketWsBucketKey(normalizedSubscription),
+      subscription: normalizedSubscription,
     };
   }
 
@@ -196,11 +209,28 @@ export class HyperliquidMarketStreamHub {
   private async subscribeUpstream(bucket: Bucket): Promise<ISubscription> {
     const { subscription } = bucket;
 
+    let internalSymbol = subscription.symbol;
+    if (this.provider && subscription.symbol) {
+      try {
+        const snapshot = await Effect.runPromise(this.provider.getMetadata());
+        internalSymbol = resolveInternalSymbol(snapshot, subscription.symbol);
+      } catch (error) {
+        marketWsLog(
+          "symbol_resolution_failed",
+          {
+            symbol: subscription.symbol,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          "warn"
+        );
+      }
+    }
+
     switch (subscription.channel) {
       case "candle":
         return this.subscriptionClient.candle(
           {
-            coin: subscription.symbol!,
+            coin: internalSymbol!,
             interval: subscription.interval!,
           },
           (event) => {
@@ -216,7 +246,7 @@ export class HyperliquidMarketStreamHub {
       case "l2Book":
         return this.subscriptionClient.l2Book(
           {
-            coin: subscription.symbol!,
+            coin: internalSymbol!,
             nSigFigs: subscription.nSigFigs,
           },
           (event) => {
@@ -232,7 +262,7 @@ export class HyperliquidMarketStreamHub {
       case "trades":
         return this.subscriptionClient.trades(
           {
-            coin: subscription.symbol!,
+            coin: internalSymbol!,
           },
           (event) => {
             this.broadcast(bucket, {

@@ -48,7 +48,9 @@ describe("MCP Tool Input Validation", () => {
       .mockReturnValue(Effect.succeed({ id: "test-session-id", status: "pending" })),
     getSession: vi.fn(),
     savePlan: vi.fn(),
+    getPlansBySession: vi.fn(),
     recordAction: vi.fn(),
+    getActionsBySession: vi.fn(),
   };
 
   const mockMarketDataServices = {

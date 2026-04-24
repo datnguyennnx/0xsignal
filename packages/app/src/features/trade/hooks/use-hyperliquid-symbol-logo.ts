@@ -43,11 +43,6 @@ export function getHyperliquidSymbolLogoCandidates(symbol: string): string[] {
     }
   }
 
-  if (clean.endsWith("_SPOT")) {
-    addCandidate(clean.replace(/_SPOT$/, "_spot"));
-    return candidates;
-  }
-
   addCandidate(clean);
 
   const quoteTrimmed = clean

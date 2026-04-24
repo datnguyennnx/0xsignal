@@ -1,37 +1,105 @@
-import { describe, expect, it } from "vitest";
-import { getMarketsSnapshot, mapTickerFromSnapshot } from "../mapping";
+import { describe, it, expect, vi } from "vitest";
+import { Effect } from "effect";
+import {
+  getTickerSnapshotEffect,
+  getMarketsSnapshotEffect,
+  mapTickerFromSnapshot,
+  resolveInternalSymbol,
+} from "../mapping";
 
-describe("hyperliquid mapping", () => {
-  it("merges perp categories with fallback universe symbols", async () => {
-    const info = {
-      metaAndAssetCtxs: async () =>
-        [
-          { universe: [{ name: "BTC" }, { name: "ETH" }] },
-          [{ midPx: "100" }, { midPx: "200" }],
-        ] as [unknown, unknown],
-      allMids: async () => ({ BTC: "100", ETH: "200" }),
-      perpCategories: async () => [["BTC", "major"]],
-    };
+describe("Hyperliquid Mapping", () => {
+  const mockInfo = {
+    metaAndAssetCtxs: vi.fn().mockResolvedValue([null, null]),
+    allMids: vi.fn().mockResolvedValue({}),
+    perpCategories: vi.fn().mockResolvedValue([]),
+    perpDexs: vi.fn().mockResolvedValue([]),
+  } as any;
 
-    const snapshot = await getMarketsSnapshot(info);
-    expect(snapshot.perpCategories).toEqual([
-      ["BTC", "major"],
-      ["ETH", "crypto"],
-    ]);
+  describe("mapTickerFromSnapshot", () => {
+    const mockSnapshot = {
+      universe: [{ name: "BTC", maxLeverage: 50 }],
+      assetCtxs: [{ midPx: "50000", markPx: "50005" }],
+      allMids: { BTC: "50000" },
+    } as any;
+
+    it("should map standard perp ticker correctly", () => {
+      const result = mapTickerFromSnapshot(mockSnapshot, "BTC");
+      expect(result.symbol).toBe("BTC");
+      expect(result.mid).toBe(50000);
+      expect(result.markPx).toBe(50005);
+    });
+
+    it("should throw NOT_FOUND for unknown symbol", () => {
+      expect(() => mapTickerFromSnapshot(mockSnapshot, "UNKNOWN")).toThrow(/Symbol not found/);
+    });
   });
 
-  it("maps ticker using normalized symbol and allMids fallback", () => {
-    const ticker = mapTickerFromSnapshot(
-      {
-        universe: [{ name: "BTC" }],
-        assetCtxs: [],
-        allMids: { BTC: "101.5" },
-      },
-      "btc"
-    );
+  describe("resolveInternalSymbol", () => {
+    const mockSnapshot = {
+      universe: [{ name: "para:BTCD" }],
+    } as any;
 
-    expect(ticker.symbol).toBe("BTC");
-    expect(ticker.mid).toBe(101.5);
-    expect(ticker.markPx).toBe(101.5);
+    it("should resolve builder perp", () => {
+      expect(resolveInternalSymbol(mockSnapshot, "PARA:BTCD")).toBe("para:BTCD");
+    });
+
+    it("should return same symbol for unknown", () => {
+      expect(resolveInternalSymbol(mockSnapshot, "ETH")).toBe("ETH");
+    });
+  });
+
+  describe("Aggregation", () => {
+    it("should aggregate main and builder DEX perps", async () => {
+      mockInfo.perpDexs.mockResolvedValue([{ name: "xyz" }]);
+      mockInfo.metaAndAssetCtxs
+        .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
+        .mockResolvedValueOnce([{ universe: [{ name: "xyz:EUR" }] }, [{ midPx: "1.1" }]]); // xyz
+
+      const program = getTickerSnapshotEffect(mockInfo);
+      const result = await Effect.runPromise(program);
+
+      expect(result.universe).toHaveLength(2);
+      expect(result.universe[0].name).toBe("BTC");
+      expect(result.universe[1].name).toBe("xyz:EUR");
+      expect(result.universe[1].dexIndex).toBe(1);
+    });
+
+    it("should handle partial DEX failures", async () => {
+      mockInfo.perpDexs.mockResolvedValue([{ name: "offline" }]);
+      mockInfo.metaAndAssetCtxs
+        .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
+        .mockRejectedValueOnce(new Error("DEX Offline"));
+
+      const program = getTickerSnapshotEffect(mockInfo);
+      const result = await Effect.runPromise(program);
+
+      expect(result.universe).toHaveLength(1); // Only main DEX succeeded
+      expect(result.universe[0].name).toBe("BTC");
+    });
+  });
+
+  describe("resolveInternalSymbol with normalization", () => {
+    const mockSnapshot = {
+      universe: [{ name: "para:BTCD" }],
+    } as any;
+
+    it("should resolve with different casing and suffix", () => {
+      // PARA:BTCD-USDT should normalize to para:BTCD and match
+      expect(resolveInternalSymbol(mockSnapshot, "PARA:BTCD-USDT")).toBe("para:BTCD");
+    });
+  });
+
+  describe("getMarketsSnapshotEffect", () => {
+    it("should include categories in the snapshot", async () => {
+      mockInfo.perpDexs.mockResolvedValue([]);
+      mockInfo.metaAndAssetCtxs.mockResolvedValue([{ universe: [] }, []]);
+      mockInfo.perpCategories.mockResolvedValue([["BTC", "crypto"]]);
+
+      const program = getMarketsSnapshotEffect(mockInfo);
+      const result = await Effect.runPromise(program);
+
+      expect(result.perpCategories).toBeDefined();
+      expect(result.perpCategories?.[0]).toEqual(["BTC", "crypto"]);
+    });
   });
 });

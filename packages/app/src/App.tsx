@@ -17,6 +17,10 @@ import { MarketStreamProvider } from "@/features/trade/contexts/market-stream-co
 import { Layout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 
+import { queryKeys } from "@/lib/query/query-keys";
+import { queryClient } from "@/lib/query/client";
+import { api } from "@/services/api";
+
 const AssetDetail = lazy(() =>
   import("@/pages/asset-detail").then((m) => ({ default: m.AssetDetail }))
 );
@@ -26,6 +30,13 @@ const NotFoundPage = lazy(() =>
 
 const usePreloadRoutes = () => {
   useEffect(() => {
+    // Prefetch critical market data
+    queryClient.prefetchQuery({
+      queryKey: queryKeys.marketData.markets(),
+      queryFn: () => api.getMarkets(),
+      staleTime: 5 * 60 * 1000,
+    });
+
     const preloadTimer = setTimeout(() => {
       import("@/pages/asset-detail");
       import("@/features/chart/trading-chart");

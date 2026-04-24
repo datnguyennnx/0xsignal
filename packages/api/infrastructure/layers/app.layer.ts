@@ -8,12 +8,15 @@ import { RepositoriesLive } from "./repositories.layer";
 import { AppServicesLive } from "./services.layer";
 import { EngineLive } from "./engine.layer";
 
+import { HyperliquidClientLive } from "../data-sources/hyperliquid/client";
+
 const Core = Layer.mergeAll(DevLoggerLive, BunContext.layer, FetchHttpClient.layer);
 const Infrastructure = Layer.mergeAll(
   MarketDataPortsLive,
   HealthServicesLive,
   RepositoriesLive,
-  EngineLive
+  EngineLive,
+  HyperliquidClientLive
 );
 
 export const AppLayer = AppServicesLive.pipe(

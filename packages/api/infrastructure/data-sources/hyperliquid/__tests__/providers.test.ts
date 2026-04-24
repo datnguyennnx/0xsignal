@@ -177,6 +177,7 @@ describe("Hyperliquid Providers", () => {
   });
 
   it("getTradeAnnotation should call perpAnnotation", async () => {
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValueOnce([{ universe: [{ name: "SOL" }] }, []]);
     mockInfoClient.perpAnnotation.mockResolvedValueOnce({
       category: "major",
       description: "Major market",
@@ -195,6 +196,7 @@ describe("Hyperliquid Providers", () => {
   });
 
   it("getTradeAnnotation should preserve builder-perp canonical symbol", async () => {
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValueOnce([{ universe: [{ name: "dex:CL" }] }, []]);
     mockInfoClient.perpAnnotation.mockResolvedValueOnce({ category: "major" });
 
     const result = await Effect.runPromise(

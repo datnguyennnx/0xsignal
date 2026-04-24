@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { normalizeSymbol } from "./symbol";
 import { HyperliquidError } from "./errors";
 import type {
@@ -9,9 +10,10 @@ import type {
 } from "./types";
 
 type HyperliquidInfoClient = {
-  readonly metaAndAssetCtxs: () => Promise<[unknown, unknown]>;
+  readonly metaAndAssetCtxs: (params?: { dex?: string }) => Promise<[unknown, unknown]>;
   readonly allMids: () => Promise<Record<string, string>>;
   readonly perpCategories?: () => Promise<unknown>;
+  readonly perpDexs?: () => Promise<any[]>;
 };
 
 const toNumberOrNull = (value: unknown): number | null => {
@@ -94,35 +96,100 @@ const getPerpCategories = async (
   }
 };
 
-export const getTickerSnapshot = (info: HyperliquidInfoClient): Promise<TickerSnapshot> =>
-  Promise.all([
-    info.metaAndAssetCtxs(),
-    info.allMids().catch(() => ({}) as Record<string, string>),
-  ]).then(([[meta, assetCtxs], allMids]) => ({
-    universe: Array.isArray((meta as { universe?: unknown })?.universe)
-      ? ((meta as { universe: unknown[] }).universe as ReadonlyArray<MarketUniverseItem>)
-      : [],
-    assetCtxs: Array.isArray(assetCtxs) ? (assetCtxs as ReadonlyArray<MarketAssetCtxItem>) : [],
-    allMids,
-  }));
-
-export const getMarketsSnapshot = (info: HyperliquidInfoClient): Promise<MarketsSnapshot> =>
-  Promise.all([info.metaAndAssetCtxs(), info.allMids()]).then(
-    async ([[meta, assetCtxs], allMids]) => {
-      const universe = Array.isArray((meta as { universe?: unknown })?.universe)
-        ? ((meta as { universe: unknown[] }).universe as ReadonlyArray<MarketUniverseItem>)
-        : [];
-
-      const categories = await getPerpCategories(info, universe);
-
-      return {
-        universe,
-        assetCtxs: Array.isArray(assetCtxs) ? (assetCtxs as ReadonlyArray<MarketAssetCtxItem>) : [],
-        allMids,
-        perpCategories: categories,
-      };
-    }
+const fetchBaseSnapshot = (info: HyperliquidInfoClient) =>
+  Effect.all(
+    [
+      Effect.tryPromise({
+        try: () => info.perpDexs?.() ?? Promise.resolve([]),
+        catch: (cause) =>
+          new HyperliquidError({ message: "Failed to fetch perp DEXs", kind: "UPSTREAM", cause }),
+      }).pipe(Effect.catchAll(() => Effect.succeed([]))),
+      Effect.tryPromise({
+        try: () => info.allMids(),
+        catch: (cause) =>
+          new HyperliquidError({ message: "Failed to fetch mids", kind: "UPSTREAM", cause }),
+      }).pipe(Effect.catchAll(() => Effect.succeed({} as Record<string, string>))),
+    ],
+    { concurrency: "unbounded" }
   );
+
+const processMetaResults = (metaResults: [unknown, unknown][]) => {
+  const flattenedUniverse: MarketUniverseItem[] = [];
+  const flattenedAssetCtxs: MarketAssetCtxItem[] = [];
+
+  metaResults.forEach((res, idx) => {
+    if (!res || !Array.isArray(res)) return;
+    const [meta, assetCtxs] = res;
+    if (meta && typeof meta === "object" && "universe" in meta && Array.isArray(meta.universe)) {
+      const universe = meta.universe as MarketUniverseItem[];
+      flattenedUniverse.push(
+        ...universe.map((item) => ({
+          ...item,
+          dexIndex: idx,
+        }))
+      );
+    }
+    if (Array.isArray(assetCtxs)) {
+      flattenedAssetCtxs.push(...(assetCtxs as MarketAssetCtxItem[]));
+    }
+  });
+
+  return { flattenedUniverse, flattenedAssetCtxs };
+};
+
+export const getTickerSnapshotEffect = (
+  info: HyperliquidInfoClient
+): Effect.Effect<TickerSnapshot, HyperliquidError> =>
+  Effect.gen(function* () {
+    const [perpDexs, allMids] = yield* fetchBaseSnapshot(info);
+
+    const dexNames = [
+      "",
+      ...(perpDexs?.filter((d: any) => d !== null).map((d: any) => d.name) || []),
+    ];
+
+    const metaResults = yield* Effect.all(
+      dexNames.map((dex) =>
+        Effect.tryPromise({
+          try: () => info.metaAndAssetCtxs(dex ? { dex } : undefined),
+          catch: (cause) =>
+            new HyperliquidError({
+              message: `Failed to fetch meta for ${dex || "main"}`,
+              kind: "UPSTREAM",
+              cause,
+            }),
+        }).pipe(Effect.catchAll(() => Effect.succeed([null, null] as [unknown, unknown])))
+      ),
+      { concurrency: "unbounded" }
+    );
+
+    const { flattenedUniverse, flattenedAssetCtxs } = processMetaResults(
+      metaResults as [unknown, unknown][]
+    );
+
+    return {
+      universe: flattenedUniverse,
+      assetCtxs: flattenedAssetCtxs,
+      allMids,
+    };
+  });
+
+export const getMarketsSnapshotEffect = (
+  info: HyperliquidInfoClient
+): Effect.Effect<MarketsSnapshot, HyperliquidError> =>
+  Effect.gen(function* () {
+    const snapshot = yield* getTickerSnapshotEffect(info);
+    const categories = yield* Effect.tryPromise({
+      try: () => getPerpCategories(info, snapshot.universe),
+      catch: (cause) =>
+        new HyperliquidError({ message: "Failed to fetch categories", kind: "UPSTREAM", cause }),
+    });
+
+    return {
+      ...snapshot,
+      perpCategories: categories,
+    };
+  });
 
 export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string): TickerPayload => {
   const normalizedSymbol = normalizeSymbol(symbol);
@@ -133,20 +200,28 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
     });
   }
 
-  const marketIndex = snapshot.universe.findIndex(
-    (item) => normalizeSymbol(item.name) === normalizedSymbol
+  // Check Perps
+  let marketIndex = snapshot.universe.findIndex(
+    (item) => normalizeSymbol(item.name) === normalizedSymbol || item.name === symbol
   );
-  const hasAllMidsSymbol = typeof snapshot.allMids[normalizedSymbol] === "string";
+  let ctx: MarketAssetCtxItem | undefined;
 
-  if (marketIndex < 0 && !hasAllMidsSymbol) {
+  if (marketIndex >= 0) {
+    ctx = snapshot.assetCtxs[marketIndex];
+  }
+
+  const hasAllMidsSymbol =
+    typeof snapshot.allMids[symbol] === "string" ||
+    typeof snapshot.allMids[normalizedSymbol] === "string";
+
+  if (!ctx && !hasAllMidsSymbol) {
     throw new HyperliquidError({
-      message: `Symbol not found: ${normalizedSymbol}`,
+      message: `Symbol not found: ${symbol}`,
       kind: "NOT_FOUND",
     });
   }
 
-  const ctx = marketIndex >= 0 ? snapshot.assetCtxs[marketIndex] : undefined;
-  const fallbackMid = snapshot.allMids[normalizedSymbol];
+  const fallbackMid = snapshot.allMids[symbol] ?? snapshot.allMids[normalizedSymbol];
   const mid =
     toNumberOrNull(ctx?.midPx) ?? toNumberOrNull(ctx?.markPx) ?? toNumberOrNull(fallbackMid);
 
@@ -157,7 +232,26 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
     midPx: toNumberOrNull(ctx?.midPx) ?? mid,
     prevDayPx: toNumberOrNull(ctx?.prevDayPx),
     dayNtlVlm: toNumberOrNull(ctx?.dayNtlVlm),
-    openInterest: toNumberOrNull(ctx?.openInterest),
-    funding: toNumberOrNull(ctx?.funding),
+    openInterest: toNumberOrNull(ctx?.openInterest) ?? 0,
+    funding: toNumberOrNull(ctx?.funding) ?? 0,
   };
+};
+
+export const isPerpSymbol = (snapshot: TickerSnapshot, symbol: string): boolean => {
+  const normalized = normalizeSymbol(symbol);
+  return snapshot.universe.some(
+    (u) => u.name === symbol || normalizeSymbol(u.name) === normalized || u.name === normalized
+  );
+};
+
+export const resolveInternalSymbol = (snapshot: TickerSnapshot, symbol: string): string => {
+  const normalized = normalizeSymbol(symbol);
+
+  // 1. Check if it's already an internal perp name or builder perp
+  const perp = snapshot.universe.find(
+    (u) => u.name === symbol || normalizeSymbol(u.name) === normalized || u.name === normalized
+  );
+  if (perp) return perp.name;
+
+  return normalized;
 };

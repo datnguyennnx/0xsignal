@@ -37,6 +37,7 @@ interface TradeAssetUniverseLike {
   name?: string;
   maxLeverage?: number;
   isDelisted?: boolean;
+  dexIndex?: number;
 }
 
 interface BackendMarketsPayload {
@@ -62,8 +63,11 @@ export interface TradeListData {
 
 function calculateAssetId(dexIndex: number, assetIndex: number): number {
   if (dexIndex === 0) {
+    // Standard perps
     return assetIndex;
   }
+  // Builder-deployed perps: 100000 + perp_dex_index * 10000 + index_in_meta
+  // Assuming dexIndex is the perp_dex_index (starting from 1)
   return 100000 + dexIndex * 10000 + assetIndex;
 }
 
@@ -92,6 +96,7 @@ function toTradeAssets(payload: BackendMarketsPayload): TradeAsset[] {
 
   const assets: TradeAsset[] = [];
 
+  // Process Perps
   for (let i = 0; i < universe.length; i++) {
     const market = universe[i];
     const rawName = market?.name;
@@ -100,21 +105,23 @@ function toTradeAssets(payload: BackendMarketsPayload): TradeAsset[] {
     const normalized = normalizeSymbol(rawName);
     const ctx = assetCtxs[i] ?? {};
     const category = categoryMap.get(normalized) ?? "crypto";
+    const displayCategory = getDisplayCategory(category);
+    const dexIndex = market.dexIndex ?? 0;
 
     assets.push({
-      coin: normalized,
-      name: normalized,
+      coin: rawName, // Keep original name for display and matching
+      name: rawName,
       funding: ctx.funding ?? "0",
       openInterest: ctx.openInterest ?? "0",
       prevDayPx: ctx.prevDayPx ?? "0",
       dayNtlVlm: ctx.dayNtlVlm ?? "0",
       premium: ctx.premium ?? "",
-      markPx: allMids[normalized] ?? ctx.markPx ?? "0",
+      markPx: allMids[rawName] ?? allMids[normalized] ?? ctx.markPx ?? "0",
       maxLeverage: market.maxLeverage || 10,
       category,
-      displayCategory: getDisplayCategory(category),
+      displayCategory,
       dex: "HYPERLIQUID",
-      assetId: calculateAssetId(0, i),
+      assetId: calculateAssetId(dexIndex, i),
     });
   }
 
@@ -127,7 +134,7 @@ export function useTradeList() {
     queryKey: queryKeys.marketData.markets(),
     queryFn: async () => (await api.getMarkets()) as BackendMarketsPayload,
     select: (payload) => ({ assets: toTradeAssets(payload) }),
-    staleTime: 30_000,
+    staleTime: 60_000,
     gcTime: 300_000,
   });
 }
