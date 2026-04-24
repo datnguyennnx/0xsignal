@@ -24,10 +24,12 @@ describe("executeBacktestRun", () => {
     const repo: BacktestRepository = {
       createRunWithInput: vi.fn(),
       getRun: vi.fn(),
+      getRunInput: vi.fn(),
       insertRunInput: vi.fn(),
       insertMetric,
       getMetricsByRun: vi.fn(),
       insertEvent,
+      getEventsByRun: vi.fn(),
       getEventCount: vi.fn(),
       updateRunStatus,
     };
@@ -74,10 +76,12 @@ describe("executeBacktestRun", () => {
     const repo: BacktestRepository = {
       createRunWithInput: vi.fn(),
       getRun: vi.fn(),
+      getRunInput: vi.fn(),
       insertRunInput: vi.fn(),
       insertMetric: vi.fn(),
       getMetricsByRun: vi.fn(),
       insertEvent,
+      getEventsByRun: vi.fn(),
       getEventCount: vi.fn(),
       updateRunStatus,
     };

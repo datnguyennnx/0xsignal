@@ -75,7 +75,9 @@ describe("MCP E2E Compliance Smoke Test", () => {
       })
     ),
     savePlan: vi.fn(),
+    getPlansBySession: vi.fn(),
     recordAction: vi.fn(),
+    getActionsBySession: vi.fn(),
   };
 
   const mockDeps: McpServerDependencies = {
@@ -234,7 +236,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
         expect.objectContaining({
           name: "open_session",
           interaction_type: "tool_call",
-          status: "running",
+          status: "pending",
         })
       );
 
@@ -261,7 +263,7 @@ describe("MCP E2E Compliance Smoke Test", () => {
       // Verify interaction tracking recorded the failure
       expect(mockMcpRepo.updateInteractionStatus).toHaveBeenCalledWith(
         expect.any(String),
-        "failed",
+        "error",
         expect.objectContaining({ error: "Simulated failure" })
       );
     });

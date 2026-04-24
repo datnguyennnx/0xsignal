@@ -10,7 +10,7 @@ import {
   ListResourceTemplatesRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { runMcpEffect } from "./server";
+import { McpServerDependencies, createRuntimeFromDeps, McpRuntime } from "./server";
 
 import { ALL_TOOLS } from "./registry";
 import { McpServices } from "../../application/mcp/service";
@@ -80,7 +80,9 @@ const RESOURCE_TEMPLATES = [
 ] as const;
 
 export class McpServer extends Server {
-  constructor() {
+  private runtime: { runPromise: <A, E>(effect: Effect.Effect<A, E, any>) => Promise<A> };
+
+  constructor(deps?: McpServerDependencies) {
     super(
       {
         name: "0xsignal-mcp",
@@ -94,6 +96,8 @@ export class McpServer extends Server {
         },
       }
     );
+
+    this.runtime = deps ? createRuntimeFromDeps(deps) : McpRuntime;
 
     this.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
@@ -136,18 +140,20 @@ export class McpServer extends Server {
             : undefined;
 
       // Start interaction tracking via Effect
-      await runMcpEffect(
-        Effect.gen(function* () {
-          const mcp = yield* McpServices;
-          yield* mcp.trackInteraction({
-            id: interactionId,
-            session_id: sessionId,
-            interaction_type: "tool_call",
-            name: toolName,
-            input_payload: args,
-          });
-        })
-      ).catch((err) => console.warn("Failed to start MCP interaction tracking:", err));
+      await this.runtime
+        .runPromise(
+          Effect.gen(function* () {
+            const mcp = yield* McpServices;
+            yield* mcp.trackInteraction({
+              id: interactionId,
+              session_id: sessionId,
+              interaction_type: "tool_call",
+              name: toolName,
+              input_payload: args,
+            });
+          })
+        )
+        .catch((err) => console.warn("Failed to start MCP interaction tracking:", err));
 
       try {
         // Inject tracing metadata into tool arguments
@@ -158,15 +164,17 @@ export class McpServer extends Server {
         };
 
         const resultEffect = tool.execute(enrichedArgs as never) as Effect.Effect<unknown, unknown>;
-        const result = await runMcpEffect(resultEffect);
+        const result = await this.runtime.runPromise(resultEffect);
 
         // Update interaction status
-        await runMcpEffect(
-          Effect.gen(function* () {
-            const mcp = yield* McpServices;
-            yield* mcp.updateStatus(interactionId, "completed", result);
-          })
-        ).catch((err) => console.warn("Failed to record MCP interaction completion:", err));
+        await this.runtime
+          .runPromise(
+            Effect.gen(function* () {
+              const mcp = yield* McpServices;
+              yield* mcp.updateStatus(interactionId, "completed", result);
+            })
+          )
+          .catch((err) => console.warn("Failed to record MCP interaction completion:", err));
 
         return {
           content: [
@@ -180,14 +188,16 @@ export class McpServer extends Server {
         const errorMessage = formatToolErrorMessage(error);
 
         // Record failure
-        await runMcpEffect(
-          Effect.gen(function* () {
-            const mcp = yield* McpServices;
-            yield* mcp.updateStatus(interactionId, "error", {
-              error: errorMessage,
-            });
-          })
-        ).catch((err) => console.warn("Failed to record MCP interaction failure:", err));
+        await this.runtime
+          .runPromise(
+            Effect.gen(function* () {
+              const mcp = yield* McpServices;
+              yield* mcp.updateStatus(interactionId, "error", {
+                error: errorMessage,
+              });
+            })
+          )
+          .catch((err) => console.warn("Failed to record MCP interaction failure:", err));
 
         return {
           content: [
@@ -301,18 +311,18 @@ export class McpServer extends Server {
       const uri = request.params.uri;
       let result: ResourceReadResult | undefined;
       if (uri === "system://architecture") {
-        result = await runMcpEffect(getSystemArchitecture());
+        result = await this.runtime.runPromise(getSystemArchitecture());
       } else if (uri === "system://strategy-schema") {
-        result = await runMcpEffect(getStrategySchema());
+        result = await this.runtime.runPromise(getStrategySchema());
       } else if (uri.startsWith("session://") && uri.endsWith("/context")) {
         const sessionId = uri.split("/")[2];
-        result = await runMcpEffect(getSessionContext(sessionId));
+        result = await this.runtime.runPromise(getSessionContext(sessionId));
       } else if (uri.startsWith("backtest://") && uri.endsWith("/summary")) {
         const runId = uri.split("/")[2];
-        result = await runMcpEffect(getRunSummaryResource(runId));
+        result = await this.runtime.runPromise(getRunSummaryResource(runId));
       } else if (uri.startsWith("strategy://") && uri.endsWith("/history")) {
         const strategyId = uri.split("/")[2];
-        result = await runMcpEffect(getStrategyHistory(strategyId));
+        result = await this.runtime.runPromise(getStrategyHistory(strategyId));
       }
 
       if (!result) {
