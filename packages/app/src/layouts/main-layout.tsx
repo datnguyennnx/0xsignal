@@ -15,7 +15,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   return (
-    <div className="flex flex-col h-fit bg-background overflow-hidden">
+    <div className="flex flex-col max-h-screen pb-12 bg-background overflow-hidden">
       <header className="shrink-0 z-50 bg-background/80 backdrop-blur-md">
         <div className="container-fluid">
           <div className="flex items-center justify-between h-12">

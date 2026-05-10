@@ -5,6 +5,7 @@ import { BacktestServicesLive } from "../../application/backtest/service";
 import { ResearchServicesLive } from "../../application/research/service";
 import { MarketDataServicesLive } from "../../application/market-data/service";
 import { McpServicesLive } from "../../application/mcp/service";
+import { UserDataServicesLive } from "../../application/user-data/service";
 
 export const AppServicesLive = Layer.mergeAll(
   AgentServicesLive,
@@ -12,5 +13,6 @@ export const AppServicesLive = Layer.mergeAll(
   BacktestServicesLive,
   ResearchServicesLive,
   MarketDataServicesLive,
-  McpServicesLive
+  McpServicesLive,
+  UserDataServicesLive
 );

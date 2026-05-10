@@ -24,6 +24,15 @@ export const queryKeys = {
     bySymbol: (symbol: string) => [...queryKeys.asset.all, symbol] as const,
   },
 
+  // User data domain
+  userData: {
+    all: ["userData"] as const,
+    clearinghouseState: () => [...queryKeys.userData.all, "clearinghouseState"] as const,
+    openOrders: () => [...queryKeys.userData.all, "openOrders"] as const,
+    historicalOrders: () => [...queryKeys.userData.all, "historicalOrders"] as const,
+    fills: () => [...queryKeys.userData.all, "fills"] as const,
+  },
+
   // Hyperliquid domain
   hyperliquid: {
     all: ["hyperliquid"] as const,

@@ -203,6 +203,83 @@ export interface BackendTradeAnnotationResponse {
   annotation?: TradeAnnotation | null;
 }
 
+// User data response types from Hyperliquid SDK
+export interface ClearinghouseStateResponse {
+  marginSummary: {
+    accountValue: string;
+    totalNtlPos: string;
+    totalRawUsd: string;
+    totalMarginUsed: string;
+  };
+  crossMarginSummary: {
+    accountValue: string;
+    totalNtlPos: string;
+    totalRawUsd: string;
+    totalMarginUsed: string;
+  };
+  crossMaintenanceMarginUsed: string;
+  withdrawable: string;
+  assetPositions: Array<{
+    type: "oneWay";
+    position: {
+      coin: string;
+      szi: string;
+      leverage:
+        | { type: "isolated"; value: number; rawUsd: string }
+        | { type: "cross"; value: number };
+      entryPx: string;
+      positionValue: string;
+      unrealizedPnl: string;
+      returnOnEquity: string;
+      liquidationPx: string | null;
+      marginUsed: string;
+      maxLeverage: number;
+      cumFunding: { allTime: string; sinceOpen: string; sinceChange: string };
+    };
+  }>;
+  time: number;
+}
+
+export interface OpenOrderSchema {
+  coin: string;
+  side: "A" | "B";
+  sz: string;
+  limitPx: string;
+  oid: number;
+  timestamp: number;
+  origSz?: string;
+  orderType?: Record<string, unknown>;
+  triggerCondition?: string;
+  triggerPx?: string;
+  isTrigger?: boolean;
+  reduceOnly?: boolean;
+  cloid?: string;
+  tif?: string | null;
+}
+
+export type OpenOrdersResponse = OpenOrderSchema[];
+
+export interface HistoricalOrderEntry {
+  order: OpenOrderSchema;
+  status: "filled" | "canceled";
+  statusTimestamp: number;
+}
+
+export type HistoricalOrdersResponse = HistoricalOrderEntry[];
+
+export interface UserFillSchema {
+  coin: string;
+  side: "A" | "B";
+  sz: string;
+  px: string;
+  fee: string;
+  hash: string;
+  time: number;
+  closedPnl?: string;
+}
+
+export type UserFillsResponse = UserFillSchema[];
+
 export const api = {
   health: () => fetchJson(`${API_BASE}/health`),
 
@@ -282,6 +359,16 @@ export const api = {
     fetchJson<BackendTradeAnnotationResponse>(
       `${API_BASE}/trade-annotation?symbol=${encodeURIComponent(normalizeSymbol(symbol))}`
     ),
+
+  getUserClearinghouseState: () =>
+    fetchJson<ClearinghouseStateResponse>(`${API_BASE}/user/clearinghouse-state`),
+
+  getUserOpenOrders: () => fetchJson<OpenOrdersResponse>(`${API_BASE}/user/open-orders`),
+
+  getUserHistoricalOrders: () =>
+    fetchJson<HistoricalOrdersResponse>(`${API_BASE}/user/historical-orders`),
+
+  getUserFills: () => fetchJson<UserFillsResponse>(`${API_BASE}/user/fills`),
 
   getFuturesPrice: async (symbol: string): Promise<FuturesPrice> => {
     const normalizedSymbol = normalizeSymbol(symbol);

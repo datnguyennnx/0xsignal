@@ -3,13 +3,22 @@
 import { Effect } from "effect";
 import { HealthServices } from "../../application/health";
 import { MarketDataServices } from "../../application/market-data/contracts";
+import { UserDataServices } from "../../application/user-data/contracts";
 import { DomainError } from "../../application/errors";
 import { healthRoute } from "./routes/health.routes";
 import { buildMarketDataRoutes } from "./routes/market-data.routes";
+import { buildUserDataRoutes } from "./routes/user-data.routes";
 
 type HttpError = {
   readonly status: number;
   readonly message: string;
+};
+
+type UserDataHttpService = {
+  readonly getClearinghouseState: (typeof UserDataServices.Service)["getClearinghouseState"];
+  readonly getOpenOrders: (typeof UserDataServices.Service)["getOpenOrders"];
+  readonly getHistoricalOrders: (typeof UserDataServices.Service)["getHistoricalOrders"];
+  readonly getUserFills: (typeof UserDataServices.Service)["getUserFills"];
 };
 
 type MarketDataHttpService = {
@@ -28,7 +37,8 @@ type RouteHandler = (
   request: Request,
   url: URL,
   marketData: MarketDataHttpService,
-  health: HealthHttpService
+  health: HealthHttpService,
+  userData: UserDataHttpService
 ) => Effect.Effect<Response, HttpError>;
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -100,8 +110,23 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
       request: Request,
       url: URL,
       marketData: MarketDataHttpService,
-      _health: HealthHttpService
+      _health: HealthHttpService,
+      _userData: UserDataHttpService
     ) => route.handler(request, url, marketData),
+  })),
+  ...buildUserDataRoutes({
+    json,
+    mapServiceError,
+  }).map((route) => ({
+    method: route.method,
+    path: route.path,
+    handler: (
+      request: Request,
+      url: URL,
+      _marketData: MarketDataHttpService,
+      _health: HealthHttpService,
+      userData: UserDataHttpService
+    ) => route.handler(request, url, userData),
   })),
 ];
 
@@ -124,6 +149,7 @@ export const handleRequest = (request: Request) => {
 
     const marketData = yield* MarketDataServices;
     const health = yield* HealthServices;
-    return yield* route.handler(request, url, marketData, health);
+    const userData = yield* UserDataServices;
+    return yield* route.handler(request, url, marketData, health, userData);
   });
 };

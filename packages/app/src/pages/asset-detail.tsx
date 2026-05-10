@@ -21,6 +21,7 @@ import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta"
 import { queryKeys } from "@/lib/query/query-keys";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
 import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
+import { PositionManagement } from "@/features/trade/components/position-management";
 import { L2BookNSigFigsProvider } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { CandleDataProvider } from "@/features/trade/contexts/candle-data-context";
 import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
@@ -169,14 +170,15 @@ const AssetContent = memo(function AssetContent({
   const description = annotation?.description;
 
   return (
-    <div className="container-fluid flex flex-col py-[clamp(0.5rem,2vw,1rem)] animate-in fade-in slide-in-from-bottom-1 duration-300 ease-premium min-h-0 overflow-hidden select-none">
+    <div className="container-fluid h-screen flex flex-col py-[clamp(0.25rem,0.8vw,0.5rem)] px-[clamp(0.5rem,1.5vw,1rem)] select-none overflow-hidden">
+      {/* Header — fixed height, no scroll */}
       <header className="shrink-0">
-        <div className="w-fit max-w-full flex items-center gap-[clamp(0.25rem,1.2vw,0.5rem)] min-w-0 pb-[clamp(0.375rem,1.5vw,0.625rem)]">
+        <div className="w-fit max-w-full flex items-center gap-[clamp(0.25rem,1.2vw,0.5rem)] min-w-0 pb-[clamp(0.25rem,1vw,0.375rem)]">
           {logoUrl && (
             <img
               src={logoUrl}
               alt={`${displayName} logo`}
-              className="size-[clamp(1.5rem,6vw,2rem)] rounded-full shrink-0"
+              className="size-[clamp(1.25rem,4vw,1.5rem)] rounded-full shrink-0"
               loading="eager"
               decoding="async"
             />
@@ -196,14 +198,15 @@ const AssetContent = memo(function AssetContent({
           />
         </div>
         {description && (
-          <p className="mt-2 text-xs text-muted-foreground leading-relaxed max-w-2xl line-clamp-2">
+          <p className="text-[clamp(0.55rem,1.2vw,0.65rem)] text-muted-foreground leading-relaxed max-w-2xl line-clamp-1 pb-[clamp(0.15rem,0.5vw,0.25rem)]">
             {description}
           </p>
         )}
       </header>
 
       <L2BookNSigFigsProvider key={symbol}>
-        <div className="flex-1 min-h-0 grid grid-cols-6 gap-[clamp(0.5rem,1.5vw,1rem)] items-stretch">
+        {/* Top section: Chart + Orderbook — ~70% */}
+        <div className="flex-7 min-h-0 grid grid-cols-6 gap-[clamp(0.25rem,0.8vw,0.5rem)] items-stretch">
           <div className="col-span-5 flex flex-col min-h-0 h-full">
             {showChartSkeleton ? (
               <Skeleton className="h-full w-full rounded-sm" />
@@ -218,9 +221,14 @@ const AssetContent = memo(function AssetContent({
             )}
           </div>
 
-          <div className="col-span-1 ">
+          <div className="col-span-1 flex flex-col min-h-0">
             <OrderbookWidget key={symbol} symbol={symbol} />
           </div>
+        </div>
+
+        {/* Bottom section: Position Management — ~30% */}
+        <div className="flex-3 min-h-0 flex flex-col pt-[clamp(0.15rem,0.5vw,0.25rem)]">
+          <PositionManagement />
         </div>
       </L2BookNSigFigsProvider>
     </div>

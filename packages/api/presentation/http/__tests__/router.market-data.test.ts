@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer, Context } from "effect";
 import { MarketDataServices } from "../../../application/market-data/contracts";
 import { HealthServices } from "../../../application/health";
+import { UserDataServices } from "../../../application/user-data/contracts";
 import { notFoundError, domainError } from "../../../application/errors";
 import { handleRequest } from "../router";
 
@@ -33,10 +34,19 @@ const TestHealthLayer = Layer.succeed(HealthServices, {
     }),
 });
 
+const mockUserDataServices: Context.Tag.Service<typeof UserDataServices> = {
+  getClearinghouseState: vi.fn(),
+  getOpenOrders: vi.fn(),
+  getHistoricalOrders: vi.fn(),
+  getUserFills: vi.fn(),
+};
+
+const TestUserDataLayer = Layer.succeed(UserDataServices, mockUserDataServices);
+
 const runRequest = (path: string, method = "GET") =>
   Effect.runPromise(
     handleRequest(new Request(`http://localhost${path}`, { method })).pipe(
-      Effect.provide(Layer.mergeAll(TestMarketDataLayer, TestHealthLayer))
+      Effect.provide(Layer.mergeAll(TestMarketDataLayer, TestHealthLayer, TestUserDataLayer))
     )
   );
 
