@@ -127,6 +127,8 @@ export function useHyperliquidCandles({
 
   const hlInterval = useMemo(() => mapToHLInterval(interval), [interval]);
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
+  const currentCoinRef = useRef(coin);
+  currentCoinRef.current = coin;
 
   const subscription = useMemo(
     () => (enabled && coin ? { type: "candle" as const, coin, interval: hlInterval } : null),
@@ -195,9 +197,15 @@ export function useHyperliquidCandles({
   }, []);
 
   const handleMessage = useCallback(
-    (rawData: unknown, channel: string, meta?: { nSigFigs?: number; interval?: string }) => {
+    (
+      rawData: unknown,
+      channel: string,
+      meta?: { nSigFigs?: number; interval?: string; coin?: string }
+    ) => {
       if (channel !== "candle") return;
       if (meta?.interval !== undefined && meta.interval !== hlInterval) return;
+      // Symbol guard: reject candle data for a different coin
+      if (meta?.coin !== undefined && meta.coin !== currentCoinRef.current) return;
       const payloads = extractWsCandlePayloads(rawData);
       const converted: ChartDataPoint[] = [];
 

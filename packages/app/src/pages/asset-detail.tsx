@@ -214,6 +214,7 @@ const AssetContent = memo(function AssetContent({
             ) : (
               <Suspense fallback={<ChartSkeleton />}>
                 <TradingChart
+                  key={chartSymbol}
                   symbol={chartSymbol}
                   interval={interval}
                   onIntervalChange={onIntervalChange}

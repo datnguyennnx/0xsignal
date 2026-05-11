@@ -4,7 +4,7 @@
  * It uses TanStack Query to fetch historical OHLCV data from backend candle APIs.
  * Frontend stays transport/render-local while backend owns canonical storage and coverage.
  */
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
 import { normalizeSymbol } from "../lib/symbol";
@@ -48,7 +48,16 @@ export function useCandleHistory(
     queryKey: queryKeys.chart.candles(normalizedSymbol, hlInterval, limit),
     queryFn: () => fetchHistorical(normalizedSymbol, hlInterval, limit),
     enabled: enabled && !!symbol,
-    placeholderData: keepPreviousData,
+    placeholderData: (previousData, previousQuery) => {
+      if (!previousData || !previousQuery) return undefined;
+      // queryKey shape: ["chart", "candles", symbol, interval, limit]
+      const prevKey = previousQuery.queryKey as unknown as string[];
+      // Only use placeholder when symbol AND interval match (identity unchanged)
+      if (prevKey[2] !== normalizedSymbol || prevKey[3] !== hlInterval) {
+        return undefined; // identity changed → no stale data
+      }
+      return previousData;
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes (historical data is relatively static)
     gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
   });

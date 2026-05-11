@@ -22,11 +22,13 @@ interface MarketEnvelope {
   message?: unknown;
   nSigFigs?: unknown;
   interval?: unknown;
+  coin?: unknown;
 }
 
 export interface MarketStreamMeta {
   nSigFigs?: number;
   interval?: string;
+  coin?: string;
 }
 
 type DecodedMessage =
@@ -195,12 +197,19 @@ export function decodeMarketWsMessage(
       ? envelope.nSigFigs
       : undefined;
   const envelopeInterval = typeof envelope?.interval === "string" ? envelope.interval : undefined;
+  const envelopeCoin = typeof envelope?.coin === "string" ? envelope.coin : undefined;
   const rootPayload = unwrapMarketPayload(parsed);
 
   if (channel === "candle") {
     const candlePayload = extractCandlePayload(rootPayload);
     if (candlePayload === null) return { kind: "ignore" };
-    const meta = envelopeInterval === undefined ? undefined : { interval: envelopeInterval };
+    const meta: MarketStreamMeta | undefined =
+      envelopeInterval !== undefined || envelopeCoin !== undefined
+        ? {
+            ...(envelopeInterval !== undefined && { interval: envelopeInterval }),
+            ...(envelopeCoin !== undefined && { coin: envelopeCoin }),
+          }
+        : undefined;
     return {
       kind: "market",
       channel,
