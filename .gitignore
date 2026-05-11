@@ -25,12 +25,9 @@ dist-ssr
 *.sw?
 
 .nx/*
-.kiro/*
-.agent/*
 
 # Environment files
 .env
 .env.local
 .env.*.local
 !.env.example
-.gitnexus
