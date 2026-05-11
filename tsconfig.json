@@ -1,15 +1,5 @@
 {
   "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@0xsignal/api": ["packages/api/index.ts"],
-      "@0xsignal/api/*": ["packages/api/*"],
-      "@0xsignal/app": ["packages/app/src/index.ts"],
-      "@0xsignal/app/*": ["packages/app/src/*"],
-      "@0xsignal/shared": ["packages/shared/index.ts"],
-      "@0xsignal/shared/*": ["packages/shared/*"]
-    }
-  },
-  "references": [{ "path": "packages/api" }, { "path": "packages/shared" }]
+  "files": [],
+  "references": [{ "path": "packages/shared" }, { "path": "packages/api" }]
 }

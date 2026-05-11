@@ -1,0 +1,65 @@
+{
+  "name": "api",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/api",
+  "projectType": "application",
+  "implicitDependencies": ["shared"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -b tsconfig.json && bun build ./presentation/http/server.ts --target=bun --minify --outdir=./dist",
+        "cwd": "packages/api"
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun --watch presentation/http/server.ts",
+        "cwd": "packages/api"
+      }
+    },
+    "dev:mcp": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun run presentation/mcp/index.ts",
+        "cwd": "packages/api"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -b tsconfig.json",
+        "cwd": "packages/api"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "eslint . --ext .ts",
+        "cwd": "packages/api"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run",
+        "cwd": "packages/api"
+      }
+    },
+    "test:integration": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run --config vitest.integration.config.ts",
+        "cwd": "packages/api"
+      }
+    },
+    "clean": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rm -rf dist tsconfig.tsbuildinfo",
+        "cwd": "packages/api"
+      }
+    }
+  }
+}
