@@ -107,15 +107,18 @@ export function useHyperliquidOrderbook(
 
   const adaptiveDirectionRef = useRef<"out" | "in" | null>(null);
   const adaptiveDirectionCountRef = useRef(0);
-  const [snapshotsBySigFigs, setSnapshotsBySigFigs] = useState<Map<number, OrderbookData>>(
-    new Map()
-  );
+  const [snapshotsBySigFigs] = useState<Map<number, OrderbookData>>(new Map());
   const snapshotsRef = useRef<Map<number, OrderbookData>>(new Map());
 
   const pending = useRef<OrderbookData | null>(null);
   const raf = useRef(0);
 
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
+
+  const coinRef = useRef(coin);
+  useEffect(() => {
+    coinRef.current = coin;
+  }, [coin]);
 
   const subscription = useMemo(
     () => (enabled && coin ? { type: "l2Book" as const, coin, nSigFigs: activeSigFigs } : null),
@@ -129,21 +132,30 @@ export function useHyperliquidOrderbook(
     raf.current = requestAnimationFrame(() => {
       if (pending.current) {
         setFineBook(pending.current);
-        setSnapshotsBySigFigs(new Map(snapshotsRef.current));
+        // NOTE: snapshotsRef is kept in sync for future depth chart use
+        // snapshotsBySigFigs state removed to eliminate 60 Map allocs/sec
       }
       raf.current = 0;
     });
   }, []);
 
   const handleMsg = useCallback(
-    (data: unknown, ch: string, meta?: { nSigFigs?: number; interval?: string }) => {
+    (data: unknown, ch: string, meta?: { nSigFigs?: number; interval?: string; coin?: string }) => {
       if (ch !== "l2Book") return;
       if (meta?.nSigFigs !== undefined && meta.nSigFigs !== activeSigFigsRef.current) {
         return;
       }
+      // Coin guard: reject data for a different coin
+      if (meta?.coin !== undefined && meta.coin !== coinRef.current) {
+        return;
+      }
       const book = data as { levels: [L2BookLevel[], L2BookLevel[]] };
-      if (book?.levels)
-        schedule(processRawL2Levels(book.levels[0], book.levels[1]), activeSigFigsRef.current);
+      if (book?.levels) {
+        const MAX_DEPTH = 15; // buffer above VISIBLE_ROWS=11 for scroll/expand headroom
+        const bids = book.levels[0]?.slice(0, MAX_DEPTH) ?? [];
+        const asks = book.levels[1]?.slice(0, MAX_DEPTH) ?? [];
+        schedule(processRawL2Levels(bids, asks), activeSigFigsRef.current);
+      }
     },
     [schedule]
   );

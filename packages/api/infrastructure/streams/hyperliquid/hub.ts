@@ -250,11 +250,20 @@ export class HyperliquidMarketStreamHub {
             nSigFigs: subscription.nSigFigs,
           },
           (event) => {
+            const normalized = normalizeL2BookData(event);
+            const levels = normalized.levels as unknown[];
+            const maxDepth = (subscription as any).depth ?? 30;
+            const sliced = {
+              levels: [
+                (levels?.[0] as unknown[])?.slice(0, maxDepth) ?? [],
+                (levels?.[1] as unknown[])?.slice(0, maxDepth) ?? [],
+              ],
+            };
             this.broadcast(bucket, {
               type: "market",
               channel: "l2Book",
               nSigFigs: subscription.nSigFigs,
-              data: normalizeL2BookData(event),
+              data: sliced,
             });
           }
         );

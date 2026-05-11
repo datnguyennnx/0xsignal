@@ -77,7 +77,7 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
 
     const nSigFigs = parseOptionalSigFigsParam(params, "nSigFigs");
     const depth = parseOptionalSigFigsParam(params, "depth");
-    if (nSigFigs === null || depth === null) {
+    if (nSigFigs === null && depth === null) {
       return {
         ok: false,
         status: 400,
@@ -90,7 +90,7 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
       data: {
         channel,
         symbol: normalized,
-        nSigFigs: nSigFigs ?? depth,
+        nSigFigs: nSigFigs ?? depth ?? undefined,
       },
     };
   }
