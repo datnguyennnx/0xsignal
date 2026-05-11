@@ -10,9 +10,9 @@ COPY packages/api/package.json ./packages/api/
 COPY packages/app/package.json ./packages/app/
 COPY packages/shared/package.json ./packages/shared/
 
-# Install dependencies with cache mount
+# Install dependencies with cache mount (frozen lockfile for reproducibility)
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install
+    bun install --frozen-lockfile
 
 # Stage 2: Builder
 FROM oven/bun:1-alpine AS builder
@@ -46,10 +46,8 @@ ENV BUN_ENV=production
 
 # Copy only production artifacts
 COPY --from=builder --chown=app:app /app/dist/api ./dist/api
-COPY --from=builder --chown=app:app /app/packages/api/infrastructure/db/postgres/migrations ./packages/api/infrastructure/db/postgres/migrations
+# Runtime SQL migrations (loaded via __dirname in bundled server.js)
 COPY --from=builder --chown=app:app /app/packages/api/infrastructure/db/postgres/migrations ./dist/api/
-COPY --from=builder --chown=app:app /app/packages/shared ./packages/shared
-COPY --from=builder --chown=app:app /app/package.json ./
 
 # Install only production deps (minimal)
 COPY --from=deps /app/node_modules ./node_modules
