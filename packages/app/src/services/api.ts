@@ -248,16 +248,45 @@ export interface OpenOrderSchema {
   oid: number;
   timestamp: number;
   origSz?: string;
-  orderType?: Record<string, unknown>;
+  /** Legacy: nested object e.g. { limit: { tif } } or { trigger: { isMarket, triggerPx, tpsl } }.
+   *  FrontendOpenOrderSchema: string e.g. "Limit", "Stop Market", "Take Profit Market". */
+  orderType?: string | Record<string, unknown>;
   triggerCondition?: string;
   triggerPx?: string;
   isTrigger?: boolean;
+  isPositionTpsl?: boolean;
   reduceOnly?: boolean;
-  cloid?: string;
+  cloid?: string | null;
   tif?: string | null;
 }
 
 export type OpenOrdersResponse = OpenOrderSchema[];
+
+/**
+ * Richer order shape returned by Hyperliquid's `frontendOpenOrders` endpoint.
+ * Contains `orderType` as a native string, top-level trigger fields,
+ * and `children` array for TP/SL parent-child relationships.
+ */
+export interface FrontendOpenOrderSchema {
+  coin: string;
+  side: "A" | "B";
+  sz: string;
+  limitPx: string;
+  oid: number;
+  timestamp: number;
+  origSz: string;
+  orderType: string;
+  triggerCondition: string;
+  triggerPx: string;
+  isTrigger: boolean;
+  isPositionTpsl: boolean;
+  reduceOnly: boolean;
+  children: FrontendOpenOrderSchema[];
+  cloid: `0x${string}` | null;
+  tif: "Gtc" | "Ioc" | "Alo" | "FrontendMarket" | "LiquidationMarket" | null;
+}
+
+export type FrontendOpenOrdersResponse = FrontendOpenOrderSchema[];
 
 export interface HistoricalOrderEntry {
   order: OpenOrderSchema;
@@ -279,6 +308,47 @@ export interface UserFillSchema {
 }
 
 export type UserFillsResponse = UserFillSchema[];
+
+// Spot clearinghouse state (source of truth for USDC balance)
+export interface SpotClearinghouseStateResponse {
+  balances: Array<{
+    coin: string;
+    token: number;
+    total: string;
+    hold: string;
+    entryNtl: string;
+  }>;
+  evmEscrows?: Array<{
+    coin: string;
+    token: number;
+    total: string;
+  }>;
+}
+
+// Exchange API types
+export interface PlaceOrderRequest {
+  orders: Array<{
+    a: number;
+    b: boolean;
+    p: string;
+    s: string;
+    r: boolean;
+    t:
+      | { limit: { tif: "Gtc" | "Ioc" | "Alo" | "FrontendMarket" } }
+      | { trigger: { isMarket: boolean; triggerPx: string; tpsl: "tp" | "sl" } };
+  }>;
+  grouping?: "na" | "normalTpsl" | "positionTpsl";
+}
+
+export interface UpdateLeverageRequest {
+  asset: number;
+  isCross: boolean;
+  leverage: number;
+}
+
+export interface CancelOrdersRequest {
+  cancels: Array<{ coin: string; o: number }>;
+}
 
 export const api = {
   health: () => fetchJson(`${API_BASE}/health`),
@@ -363,12 +433,39 @@ export const api = {
   getUserClearinghouseState: () =>
     fetchJson<ClearinghouseStateResponse>(`${API_BASE}/user/clearinghouse-state`),
 
+  getUserSpotClearinghouseState: () =>
+    fetchJson<SpotClearinghouseStateResponse>(`${API_BASE}/user/spot-clearinghouse-state`),
+
   getUserOpenOrders: () => fetchJson<OpenOrdersResponse>(`${API_BASE}/user/open-orders`),
+
+  getUserFrontendOpenOrders: () =>
+    fetchJson<FrontendOpenOrdersResponse>(`${API_BASE}/user/frontend-open-orders`),
 
   getUserHistoricalOrders: () =>
     fetchJson<HistoricalOrdersResponse>(`${API_BASE}/user/historical-orders`),
 
   getUserFills: () => fetchJson<UserFillsResponse>(`${API_BASE}/user/fills`),
+
+  placeOrder: (params: PlaceOrderRequest) =>
+    fetchJson(`${API_BASE}/exchange/order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }),
+
+  updateLeverage: (params: UpdateLeverageRequest) =>
+    fetchJson(`${API_BASE}/exchange/leverage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }),
+
+  cancelOrders: (params: CancelOrdersRequest) =>
+    fetchJson(`${API_BASE}/exchange/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }),
 
   getFuturesPrice: async (symbol: string): Promise<FuturesPrice> => {
     const normalizedSymbol = normalizeSymbol(symbol);

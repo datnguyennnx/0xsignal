@@ -28,9 +28,17 @@ export const queryKeys = {
   userData: {
     all: ["userData"] as const,
     clearinghouseState: () => [...queryKeys.userData.all, "clearinghouseState"] as const,
+    spotClearinghouseState: () => [...queryKeys.userData.all, "spotClearinghouseState"] as const,
     openOrders: () => [...queryKeys.userData.all, "openOrders"] as const,
     historicalOrders: () => [...queryKeys.userData.all, "historicalOrders"] as const,
     fills: () => [...queryKeys.userData.all, "fills"] as const,
+  },
+
+  // Exchange domain (order placement, leverage)
+  exchange: {
+    all: ["exchange"] as const,
+    order: () => [...queryKeys.exchange.all, "order"] as const,
+    leverage: () => [...queryKeys.exchange.all, "leverage"] as const,
   },
 
   // Hyperliquid domain

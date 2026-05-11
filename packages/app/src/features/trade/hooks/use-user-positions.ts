@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
 
@@ -12,10 +12,20 @@ export function useClearinghouseState(enabled: boolean = true) {
   });
 }
 
+export function useSpotClearinghouseState(enabled: boolean = true) {
+  return useQuery({
+    queryKey: queryKeys.userData.spotClearinghouseState(),
+    queryFn: () => api.getUserSpotClearinghouseState(),
+    enabled,
+    staleTime: 10 * 1000,
+    refetchOnWindowFocus: true,
+  });
+}
+
 export function useOpenOrders(enabled: boolean = true) {
   return useQuery({
     queryKey: queryKeys.userData.openOrders(),
-    queryFn: () => api.getUserOpenOrders(),
+    queryFn: () => api.getUserFrontendOpenOrders(),
     enabled,
     staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
@@ -39,5 +49,16 @@ export function useUserFills(enabled: boolean = true) {
     enabled,
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: true,
+  });
+}
+
+export function useCancelOrdersMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params: Parameters<typeof api.cancelOrders>[0]) => api.cancelOrders(params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.userData.openOrders() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.userData.clearinghouseState() });
+    },
   });
 }

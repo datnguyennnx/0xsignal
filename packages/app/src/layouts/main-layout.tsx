@@ -7,15 +7,13 @@ import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";
 import { cn } from "@/core/utils/cn";
-import { LineChart } from "lucide-react";
-
-const NAV_ITEMS = [{ path: "/trade", label: "Trade", icon: LineChart }] as const;
+const NAV_ITEMS = [{ path: "/trade", label: "Trade" }] as const;
 
 export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   return (
-    <div className="flex flex-col max-h-screen pb-12 bg-background overflow-hidden">
+    <div className="flex flex-col max-h-screen pt-4 pb-12 bg-background overflow-hidden">
       <header className="shrink-0 z-50 bg-background/80 backdrop-blur-md">
         <div className="container-fluid">
           <div className="flex items-center justify-between h-12">

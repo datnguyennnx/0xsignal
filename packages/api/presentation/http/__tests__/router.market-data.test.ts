@@ -3,6 +3,7 @@ import { Effect, Layer, Context } from "effect";
 import { MarketDataServices } from "../../../application/market-data/contracts";
 import { HealthServices } from "../../../application/health";
 import { UserDataServices } from "../../../application/user-data/contracts";
+import { ExchangeServices } from "../../../application/exchange/contracts";
 import { notFoundError, domainError } from "../../../application/errors";
 import { handleRequest } from "../router";
 
@@ -36,17 +37,30 @@ const TestHealthLayer = Layer.succeed(HealthServices, {
 
 const mockUserDataServices: Context.Tag.Service<typeof UserDataServices> = {
   getClearinghouseState: vi.fn(),
+  getSpotClearinghouseState: vi.fn(),
   getOpenOrders: vi.fn(),
+  getFrontendOpenOrders: vi.fn(),
+  getMeta: vi.fn(),
   getHistoricalOrders: vi.fn(),
   getUserFills: vi.fn(),
 };
 
 const TestUserDataLayer = Layer.succeed(UserDataServices, mockUserDataServices);
 
+// Exchange layer is required by router.ts handleRequest but unused in market-data tests
+const mockExchangeServices: Context.Tag.Service<typeof ExchangeServices> = {
+  placeOrder: vi.fn(),
+  updateLeverageAndMargin: vi.fn(),
+  cancelOrders: vi.fn(),
+};
+const TestExchangeLayer = Layer.succeed(ExchangeServices, mockExchangeServices);
+
 const runRequest = (path: string, method = "GET") =>
   Effect.runPromise(
     handleRequest(new Request(`http://localhost${path}`, { method })).pipe(
-      Effect.provide(Layer.mergeAll(TestMarketDataLayer, TestHealthLayer, TestUserDataLayer))
+      Effect.provide(
+        Layer.mergeAll(TestMarketDataLayer, TestHealthLayer, TestUserDataLayer, TestExchangeLayer)
+      )
     )
   );
 
@@ -54,27 +68,25 @@ const expectHttpFailure = async (
   promise: Promise<unknown>,
   expected: { status: number; message: string }
 ) => {
-  try {
-    await promise;
-    throw new Error("Expected request to fail");
-  } catch (error) {
-    let payload: { status: number; message: string } | null = null;
+  const result = await promise;
 
-    if (typeof error === "object" && error !== null) {
-      const candidate = error as { status?: unknown; message?: unknown };
-      if (typeof candidate.status === "number" && typeof candidate.message === "string") {
-        payload = { status: candidate.status, message: candidate.message };
-      } else if (typeof candidate.message === "string") {
-        try {
-          payload = JSON.parse(candidate.message) as { status: number; message: string };
-        } catch {
-          payload = null;
-        }
-      }
-    }
-
-    expect(payload).toEqual(expected);
+  // handleRequest returns Response objects for all outcomes (including errors)
+  if (result instanceof Response) {
+    const body = await result.json();
+    expect({ status: result.status, message: body.error ?? "Unknown error" }).toEqual(expected);
+    return;
   }
+
+  // Fallback: check for thrown errors
+  if (result && typeof result === "object") {
+    const candidate = result as { status?: unknown; message?: unknown };
+    if (typeof candidate.status === "number" && typeof candidate.message === "string") {
+      expect({ status: candidate.status, message: candidate.message }).toEqual(expected);
+      return;
+    }
+  }
+
+  throw new Error(`Expected HTTP error but got: ${JSON.stringify(result)}`);
 };
 
 describe("HTTP Market Data Router", () => {

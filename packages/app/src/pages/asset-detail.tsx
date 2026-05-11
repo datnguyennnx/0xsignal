@@ -22,6 +22,7 @@ import { queryKeys } from "@/lib/query/query-keys";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
 import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
 import { PositionManagement } from "@/features/trade/components/position-management";
+import { OrderForm } from "@/features/trade/components/order-form";
 import { L2BookNSigFigsProvider } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { CandleDataProvider } from "@/features/trade/contexts/candle-data-context";
 import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
@@ -206,8 +207,8 @@ const AssetContent = memo(function AssetContent({
 
       <L2BookNSigFigsProvider key={symbol}>
         {/* Top section: Chart + Orderbook — ~70% */}
-        <div className="flex-7 min-h-0 grid grid-cols-6 gap-[clamp(0.25rem,0.8vw,0.5rem)] items-stretch">
-          <div className="col-span-5 flex flex-col min-h-0 h-full">
+        <div className="flex-8 min-h-0 grid grid-cols-6 gap-[clamp(0.15rem,0.5vw,0.3rem)] items-stretch">
+          <div className="col-span-4 flex flex-col min-h-0 h-full">
             {showChartSkeleton ? (
               <Skeleton className="h-full w-full rounded-sm" />
             ) : (
@@ -224,10 +225,21 @@ const AssetContent = memo(function AssetContent({
           <div className="col-span-1 flex flex-col min-h-0">
             <OrderbookWidget key={symbol} symbol={symbol} />
           </div>
+
+          <div className="col-span-1 flex flex-col min-h-0">
+            {showChartSkeleton ? (
+              <Skeleton className="h-full w-full rounded-sm" />
+            ) : (
+              <OrderForm
+                symbol={symbol}
+                markPrice={asset.price?.markPx || asset.price?.price || 0}
+              />
+            )}
+          </div>
         </div>
 
-        {/* Bottom section: Position Management — ~30% */}
-        <div className="flex-3 min-h-0 flex flex-col pt-[clamp(0.15rem,0.5vw,0.25rem)]">
+        {/* Bottom section: Position Management — ~20% */}
+        <div className="flex-2 min-h-0 flex flex-col pt-[clamp(0.15rem,0.5vw,0.25rem)]">
           <PositionManagement />
         </div>
       </L2BookNSigFigsProvider>
@@ -283,13 +295,9 @@ export function AssetDetail() {
     retry: 1,
   });
 
-  const asset: AssetViewModel | null = useMemo(() => {
-    if (!fetchedAsset) return null;
-    return {
-      symbol: fetchedAsset.symbol,
-      price: fetchedAsset,
-    };
-  }, [fetchedAsset]);
+  const asset: AssetViewModel | null = fetchedAsset
+    ? { symbol: fetchedAsset.symbol, price: fetchedAsset }
+    : null;
 
   const {
     data: candleData,

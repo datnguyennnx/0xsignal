@@ -101,6 +101,91 @@ const mockUserFills = [
   },
 ];
 
+const mockFrontendOpenOrders = [
+  {
+    coin: "BTC",
+    side: "B" as const,
+    sz: "1.0",
+    limitPx: "60000",
+    oid: 2001,
+    timestamp: Date.now() - 30000,
+    origSz: "1.0",
+    orderType: "Limit",
+    triggerCondition: "",
+    triggerPx: "",
+    isTrigger: false,
+    isPositionTpsl: false,
+    reduceOnly: false,
+    children: [
+      {
+        coin: "BTC",
+        side: "A" as const,
+        sz: "1.0",
+        limitPx: "65000",
+        oid: 2002,
+        timestamp: Date.now() - 30000,
+        origSz: "1.0",
+        orderType: "Stop Market",
+        triggerCondition: "above",
+        triggerPx: "65000",
+        isTrigger: true,
+        isPositionTpsl: false,
+        reduceOnly: true,
+        children: [],
+        tif: null,
+        cloid: null,
+      },
+      {
+        coin: "BTC",
+        side: "A" as const,
+        sz: "1.0",
+        limitPx: "55000",
+        oid: 2003,
+        timestamp: Date.now() - 30000,
+        origSz: "1.0",
+        orderType: "Stop Market",
+        triggerCondition: "below",
+        triggerPx: "55000",
+        isTrigger: true,
+        isPositionTpsl: false,
+        reduceOnly: true,
+        children: [],
+        tif: null,
+        cloid: null,
+      },
+    ],
+    tif: "Gtc" as const,
+    cloid: null,
+  },
+];
+
+const mockSpotClearinghouseState = {
+  balances: [
+    {
+      coin: "USDC",
+      token: 0,
+      total: "10000.00",
+      hold: "500.00",
+      entryNtl: "0",
+    },
+    {
+      coin: "ETH",
+      token: 1,
+      total: "2.5",
+      hold: "0",
+      entryNtl: "5000",
+    },
+  ],
+};
+
+const mockMeta = {
+  universe: [
+    { name: "BTC", szDecimals: 5, maxLeverage: 50 },
+    { name: "ETH", szDecimals: 4, maxLeverage: 50 },
+    { name: "SOL", szDecimals: 3, maxLeverage: 30 },
+  ],
+};
+
 /* ─── Mock HyperliquidClient ─── */
 
 const makeMockLayer = (
@@ -109,6 +194,9 @@ const makeMockLayer = (
     openOrders: () => Promise<unknown>;
     historicalOrders: () => Promise<unknown>;
     userFills: () => Promise<unknown>;
+    frontendOpenOrders: () => Promise<unknown>;
+    spotClearinghouseState: () => Promise<unknown>;
+    meta: () => Promise<unknown>;
   }>
 ) => {
   const client = HyperliquidClient.of({
@@ -129,6 +217,17 @@ const makeMockLayer = (
       userFills: vi
         .fn()
         .mockImplementation(overrides?.userFills ?? (() => Promise.resolve(mockUserFills))),
+      frontendOpenOrders: vi
+        .fn()
+        .mockImplementation(
+          overrides?.frontendOpenOrders ?? (() => Promise.resolve(mockFrontendOpenOrders))
+        ),
+      spotClearinghouseState: vi
+        .fn()
+        .mockImplementation(
+          overrides?.spotClearinghouseState ?? (() => Promise.resolve(mockSpotClearinghouseState))
+        ),
+      meta: vi.fn().mockImplementation(overrides?.meta ?? (() => Promise.resolve(mockMeta))),
     } as unknown as (typeof HyperliquidClient.Service)["info"],
   });
   return Layer.succeed(HyperliquidClient, client);
@@ -242,6 +341,128 @@ describe("UserDataServices", () => {
       expect(fills[0].coin).toBe("BTC");
       expect(fills[0].side).toBe("B");
       expect(fills[0].closedPnl).toBe("150");
+    });
+  });
+
+  describe("getFrontendOpenOrders", () => {
+    it("returns frontend open orders with children array", async () => {
+      const layer = makeTestLayer({
+        frontendOpenOrders: () => Promise.resolve(mockFrontendOpenOrders),
+      });
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* UserDataServices;
+          return yield* svc.getFrontendOpenOrders();
+        }).pipe(Effect.provide(layer))
+      );
+
+      const orders = result as typeof mockFrontendOpenOrders;
+      expect(orders).toHaveLength(1);
+      expect(orders[0].oid).toBe(2001);
+      expect(orders[0].children).toHaveLength(2);
+      expect(orders[0].children[0].oid).toBe(2002);
+      expect(orders[0].children[0].reduceOnly).toBe(true);
+      expect(orders[0].children[1].oid).toBe(2003);
+      expect(orders[0].children[1].reduceOnly).toBe(true);
+    });
+
+    it("returns typed error when SDK call fails", async () => {
+      const errorLayer = makeTestLayer({
+        frontendOpenOrders: () => Promise.reject(new Error("API error")),
+      });
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* UserDataServices;
+          return yield* svc.getFrontendOpenOrders();
+        })
+          .pipe(Effect.provide(errorLayer))
+          .pipe(Effect.flip)
+      );
+
+      expect(result).toHaveProperty("code", "INTERNAL_ERROR");
+      expect(result).toHaveProperty("message", "Failed to fetch frontend open orders");
+    });
+  });
+
+  describe("getSpotClearinghouseState", () => {
+    it("returns balances with USDC balance for order form fallback", async () => {
+      const layer = makeTestLayer({
+        spotClearinghouseState: () => Promise.resolve(mockSpotClearinghouseState),
+      });
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* UserDataServices;
+          return yield* svc.getSpotClearinghouseState();
+        }).pipe(Effect.provide(layer))
+      );
+
+      const data = result as typeof mockSpotClearinghouseState;
+      expect(data.balances).toHaveLength(2);
+
+      const usdc = data.balances.find((b: { coin: string }) => b.coin === "USDC");
+      expect(usdc).toBeDefined();
+      expect(usdc?.total).toBe("10000.00");
+      expect(usdc?.hold).toBe("500.00");
+    });
+
+    it("returns typed error when SDK call fails", async () => {
+      const errorLayer = makeTestLayer({
+        spotClearinghouseState: () => Promise.reject(new Error("Network error")),
+      });
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* UserDataServices;
+          return yield* svc.getSpotClearinghouseState();
+        })
+          .pipe(Effect.provide(errorLayer))
+          .pipe(Effect.flip)
+      );
+
+      expect(result).toHaveProperty("code", "INTERNAL_ERROR");
+      expect(result).toHaveProperty("message", "Failed to fetch spot clearinghouse state");
+    });
+  });
+
+  describe("getMeta", () => {
+    it("returns universe with szDecimals and maxLeverage for size truncation", async () => {
+      const layer = makeTestLayer({
+        meta: () => Promise.resolve(mockMeta),
+      });
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* UserDataServices;
+          return yield* svc.getMeta();
+        }).pipe(Effect.provide(layer))
+      );
+
+      const data = result as typeof mockMeta;
+      expect(data.universe).toHaveLength(3);
+      expect(data.universe[0].name).toBe("BTC");
+      expect(data.universe[0].szDecimals).toBe(5);
+      expect(data.universe[0].maxLeverage).toBe(50);
+    });
+
+    it("returns typed error when SDK call fails", async () => {
+      const errorLayer = makeTestLayer({
+        meta: () => Promise.reject(new Error("Failed to fetch")),
+      });
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* UserDataServices;
+          return yield* svc.getMeta();
+        })
+          .pipe(Effect.provide(errorLayer))
+          .pipe(Effect.flip)
+      );
+
+      expect(result).toHaveProperty("code", "INTERNAL_ERROR");
+      expect(result).toHaveProperty("message", "Failed to fetch meta");
     });
   });
 });

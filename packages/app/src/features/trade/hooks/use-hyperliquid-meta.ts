@@ -34,11 +34,13 @@ const MAX_SIG_FIGS = 5;
 export interface AssetPrecision {
   pxDecimals: number;
   szDecimals: number;
+  maxLeverage: number;
 }
 
 const DEFAULT: AssetPrecision = {
   pxDecimals: Math.min(MAX_SIG_FIGS, MAX_DECIMALS_PERP - 4),
   szDecimals: 4,
+  maxLeverage: 50,
 };
 
 export function calculatePxDecimals(szDecimals: number): number {
@@ -60,10 +62,12 @@ export function useHyperliquidMeta() {
     for (const asset of data.universe) {
       const sz = asset.szDecimals ?? 4;
       const pxDec = calculatePxDecimals(sz);
+      const ml = asset.maxLeverage ?? 50;
       const key = asset.name.includes(":") ? asset.name : asset.name.toUpperCase();
       map.set(key, {
         pxDecimals: pxDec,
         szDecimals: sz,
+        maxLeverage: ml,
       });
     }
     return map;

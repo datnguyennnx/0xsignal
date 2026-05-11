@@ -165,6 +165,17 @@
   *::-webkit-scrollbar {
     display: none;
   }
+
+  /* Hide number input spinners — styled as regular text fields */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 }
 
 @layer utilities {

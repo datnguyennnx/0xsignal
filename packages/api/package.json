@@ -16,13 +16,14 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@nktkas/hyperliquid": "^0.32.1",
     "@0xsignal/shared": "workspace:*",
     "@effect/platform": "^0.93.5",
     "@effect/platform-bun": "^0.85.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@nktkas/hyperliquid": "^0.32.1",
     "effect": "^3.19.5",
     "pg": "^8.11.3",
+    "viem": "^2.47.6",
     "zod": "^4.3.6"
   },
   "devDependencies": {
