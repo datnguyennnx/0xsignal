@@ -65,11 +65,12 @@ export const useChartData = ({
   const prevEnabledRef = useRef(enabled);
   const prevResetKeyRef = useRef<string | undefined>(undefined);
 
-  // Force reset cache when resetKey changes (e.g., interval switch)
-  if (resetKey !== undefined && resetKey !== prevResetKeyRef.current) {
-    initialDataLoadedRef.current = false;
+  useEffect(() => {
+    if (resetKey !== undefined) {
+      initialDataLoadedRef.current = false;
+    }
     prevResetKeyRef.current = resetKey;
-  }
+  }, [resetKey]);
 
   useEffect(() => {
     if (!candlestickSeries || !volumeSeries || data.length === 0) return;

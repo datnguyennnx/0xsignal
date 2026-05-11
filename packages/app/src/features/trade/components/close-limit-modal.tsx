@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -41,15 +41,6 @@ export function CloseLimitModal({
   const [size, setSize] = useState("");
   const [sliderPercent, setSliderPercent] = useState(0);
 
-  /* ─── Reset state when dialog opens ─── */
-  useEffect(() => {
-    if (isOpen) {
-      setPrice("");
-      setSize("");
-      setSliderPercent(0);
-    }
-  }, [isOpen]);
-
   /* ─── Slider handler: compute size from percentage ─── */
   const handleSliderChange = useCallback(
     (values: number[]) => {
@@ -88,6 +79,11 @@ export function CloseLimitModal({
     <Dialog
       open={isOpen}
       onOpenChange={(open) => {
+        if (open) {
+          setPrice("");
+          setSize("");
+          setSliderPercent(0);
+        }
         if (!open) onClose();
       }}
     >

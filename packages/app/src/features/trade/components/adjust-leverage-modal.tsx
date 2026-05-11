@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -42,14 +42,6 @@ export function AdjustLeverageModal({
   const [leverage, setLeverage] = useState(currentLeverage);
   const queryClient = useQueryClient();
 
-  // Reset internal state to fresh chain-derived values whenever dialog opens
-  // (Radix Dialog keeps content mounted, so useState doesn't reinitialize on reopen)
-  useEffect(() => {
-    if (open) {
-      setLeverage(currentLeverage);
-    }
-  }, [open]);
-
   const isDecreasingLeverage = hasPosition && leverage < currentLeverage;
 
   const mutation = useMutation({
@@ -60,6 +52,13 @@ export function AdjustLeverageModal({
       onOpenChange(false);
     },
   });
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (newOpen) {
+      setLeverage(currentLeverage);
+    }
+    onOpenChange(newOpen);
+  };
 
   const handleSliderCommit = (values: number[]) => {
     setLeverage(values[0] ?? 1);
@@ -77,7 +76,7 @@ export function AdjustLeverageModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[480px] bg-card border-border/30 p-0 gap-0 overflow-hidden">
         {/* ─── Header ─── */}
         <div className="px-5 pt-4 pb-2 border-b border-border/20">

@@ -28,7 +28,7 @@ export function parseSymbol(symbol: string): NormalizedAsset {
 
   // Handle standard perps, prefixed perps, and outcome tokens
   // We want to keep hyphens, @, #, + but remove other noise
-  let cleaned = stripStables(upper.replace(/[^A-Z0-9-@#+]/g, ""));
+  const cleaned = stripStables(upper.replace(/[^A-Z0-9-@#+]/g, ""));
 
   return { kind: "perp", coin: cleaned };
 }

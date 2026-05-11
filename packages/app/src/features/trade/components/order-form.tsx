@@ -50,8 +50,10 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   /* ─── Core state (init from chain, updated via modals) ─── */
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
-  const [marginMode, setMarginMode] = useState<"cross" | "isolated">(currentMarginTypeFromChain);
-  const [leverage, setLeverage] = useState(currentLeverageFromChain);
+  const [overrideLeverage, setOverrideLeverage] = useState<number | null>(null);
+  const [overrideMarginMode, setOverrideMarginMode] = useState<"cross" | "isolated" | null>(null);
+  const effectiveLeverage = overrideLeverage ?? currentLeverageFromChain;
+  const effectiveMarginMode = overrideMarginMode ?? currentMarginTypeFromChain;
   const [size, setSize] = useState("");
   const [sliderPercent, setSliderPercent] = useState(0);
   const [price, setPrice] = useState("");
@@ -64,16 +66,10 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   const [adjustLeverageOpen, setAdjustLeverageOpen] = useState(false);
   const [marginModeOpen, setMarginModeOpen] = useState(false);
 
-  // Sync leverage/margin state when switching assets
-  useEffect(() => {
-    setLeverage(currentLeverageFromChain);
-    setMarginMode(currentMarginTypeFromChain);
-  }, [currentLeverageFromChain, currentMarginTypeFromChain]);
-
   /* ─── Derived values ─── */
   const currentPrice = markPrice || Number(price) || 0;
   const orderValue = Number(size) || 0;
-  const marginRequired = leverage > 0 ? orderValue / leverage : 0;
+  const marginRequired = effectiveLeverage > 0 ? orderValue / effectiveLeverage : 0;
   const showTpSl = tpSlEnabled && !reduceOnly;
   const isLong = side === "buy";
   const entryPrice = orderType === "limit" ? Number(price) || 0 : markPrice || 0;
@@ -91,15 +87,15 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   const effectiveAvailableBalance = accountValue > 0 ? perpsWithdrawable : spotUsdc;
 
   // Max notional = balance × leverage (what the user can open)
-  const maxNotional = effectiveAvailableBalance * leverage * MARGIN_BUFFER;
+  const maxNotional = effectiveAvailableBalance * effectiveLeverage * MARGIN_BUFFER;
 
   /** Compute the size in USDC for a given percentage of maxNotional. */
   const sizeFromPct = useCallback(
     (pct: number): string => {
-      if (effectiveAvailableBalance <= 0 || leverage <= 0) return "0.00";
+      if (effectiveAvailableBalance <= 0 || effectiveLeverage <= 0) return "0.00";
       return ((maxNotional * pct) / 100).toFixed(2);
     },
-    [maxNotional, effectiveAvailableBalance, leverage]
+    [maxNotional, effectiveAvailableBalance, effectiveLeverage]
   );
 
   const handleSliderCommit = useCallback(
@@ -147,22 +143,22 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       setTpPercent(raw);
       tpPercentRef.current = raw;
       const pct = Number(raw);
-      if (entryPrice > 0 && leverage > 0 && pct > 0) {
-        const price = tpPriceFromPercent(entryPrice, pct, leverage, isLong);
+      if (entryPrice > 0 && effectiveLeverage > 0 && pct > 0) {
+        const price = tpPriceFromPercent(entryPrice, pct, effectiveLeverage, isLong);
         setTpPrice(fmtPrice(price));
       } else {
         setTpPrice("");
       }
     },
-    [entryPrice, leverage, isLong]
+    [entryPrice, effectiveLeverage, isLong]
   );
 
   const handleTpPriceChange = useCallback(
     (raw: string) => {
       setTpPrice(raw);
       const px = Number(raw);
-      if (entryPrice > 0 && leverage > 0 && px > 0) {
-        const pct = gainPercentFromPrice(entryPrice, px, leverage, isLong);
+      if (entryPrice > 0 && effectiveLeverage > 0 && px > 0) {
+        const pct = gainPercentFromPrice(entryPrice, px, effectiveLeverage, isLong);
         const formatted = fmtPct(pct);
         setTpPercent(formatted);
         tpPercentRef.current = formatted;
@@ -171,7 +167,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
         tpPercentRef.current = "";
       }
     },
-    [entryPrice, leverage, isLong]
+    [entryPrice, effectiveLeverage, isLong]
   );
 
   const handleSlPercentChange = useCallback(
@@ -179,22 +175,22 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       setSlPercent(raw);
       slPercentRef.current = raw;
       const pct = Number(raw);
-      if (entryPrice > 0 && leverage > 0 && pct > 0) {
-        const price = slPriceFromPercent(entryPrice, pct, leverage, isLong);
+      if (entryPrice > 0 && effectiveLeverage > 0 && pct > 0) {
+        const price = slPriceFromPercent(entryPrice, pct, effectiveLeverage, isLong);
         setSlPrice(fmtPrice(price));
       } else {
         setSlPrice("");
       }
     },
-    [entryPrice, leverage, isLong]
+    [entryPrice, effectiveLeverage, isLong]
   );
 
   const handleSlPriceChange = useCallback(
     (raw: string) => {
       setSlPrice(raw);
       const px = Number(raw);
-      if (entryPrice > 0 && leverage > 0 && px > 0) {
-        const pct = lossPercentFromPrice(entryPrice, px, leverage, isLong);
+      if (entryPrice > 0 && effectiveLeverage > 0 && px > 0) {
+        const pct = lossPercentFromPrice(entryPrice, px, effectiveLeverage, isLong);
         const formatted = fmtPct(pct);
         setSlPercent(formatted);
         slPercentRef.current = formatted;
@@ -203,22 +199,22 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
         slPercentRef.current = "";
       }
     },
-    [entryPrice, leverage, isLong]
+    [entryPrice, effectiveLeverage, isLong]
   );
 
   /* ─── Re-sync prices when environment changes (side/leverage/entryPrice) ─── */
   useEffect(() => {
-    if (entryPrice > 0 && leverage > 0) {
+    if (entryPrice > 0 && effectiveLeverage > 0) {
       const tpPct = Number(tpPercentRef.current);
       if (tpPercentRef.current && tpPct > 0) {
-        setTpPrice(fmtPrice(tpPriceFromPercent(entryPrice, tpPct, leverage, isLong)));
+        setTpPrice(fmtPrice(tpPriceFromPercent(entryPrice, tpPct, effectiveLeverage, isLong)));
       }
       const slPct = Number(slPercentRef.current);
       if (slPercentRef.current && slPct > 0) {
-        setSlPrice(fmtPrice(slPriceFromPercent(entryPrice, slPct, leverage, isLong)));
+        setSlPrice(fmtPrice(slPriceFromPercent(entryPrice, slPct, effectiveLeverage, isLong)));
       }
     }
-  }, [isLong, leverage, entryPrice]);
+  }, [isLong, effectiveLeverage, entryPrice]);
 
   /* ─── Place order mutation ─── */
   const placeOrderMutation = useMutation({
@@ -307,13 +303,13 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             onClick={() => setMarginModeOpen(true)}
             className="flex-1 h-9 px-2 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors truncate"
           >
-            {marginMode === "cross" ? "Cross" : "Isolated"}
+            {effectiveMarginMode === "cross" ? "Cross" : "Isolated"}
           </button>
           <button
             onClick={() => setAdjustLeverageOpen(true)}
             className="flex-1 h-9 px-2 text-xs font-mono tabular-nums text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors"
           >
-            {leverage}x
+            {effectiveLeverage}x
           </button>
           <button
             disabled
@@ -618,7 +614,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
         isCross={currentMarginTypeFromChain === "cross"}
         symbol={symbol}
         hasPosition={currentAssetPosition !== undefined}
-        onConfirm={(newLev) => setLeverage(newLev)}
+        onConfirm={(newLev) => setOverrideLeverage(newLev)}
       />
       <MarginModeModal
         open={marginModeOpen}
@@ -627,7 +623,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
         assetIndex={assetIndex}
         currentLeverage={currentLeverageFromChain}
         symbol={symbol}
-        onConfirm={(newMode) => setMarginMode(newMode)}
+        onConfirm={(newMode) => setOverrideMarginMode(newMode)}
       />
     </>
   );

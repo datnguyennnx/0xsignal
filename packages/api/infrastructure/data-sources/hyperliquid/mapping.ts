@@ -201,7 +201,7 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
   }
 
   // Check Perps
-  let marketIndex = snapshot.universe.findIndex(
+  const marketIndex = snapshot.universe.findIndex(
     (item) => normalizeSymbol(item.name) === normalizedSymbol || item.name === symbol
   );
   let ctx: MarketAssetCtxItem | undefined;

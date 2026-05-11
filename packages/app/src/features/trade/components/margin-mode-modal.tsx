@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -47,14 +47,6 @@ export function MarginModeModal({
   const [mode, setMode] = useState<"cross" | "isolated">(currentMode);
   const queryClient = useQueryClient();
 
-  // Reset internal state to fresh chain-derived values whenever dialog opens
-  // (Radix Dialog keeps content mounted, so useState doesn't reinitialize on reopen)
-  useEffect(() => {
-    if (open) {
-      setMode(currentMode);
-    }
-  }, [open]);
-
   const mutation = useMutation({
     mutationFn: (params: UpdateLeverageRequest) => api.updateLeverage(params),
     onSuccess: () => {
@@ -64,12 +56,19 @@ export function MarginModeModal({
     },
   });
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (newOpen) {
+      setMode(currentMode);
+    }
+    onOpenChange(newOpen);
+  };
+
   const handleConfirm = () => {
     mutation.mutate({ asset: assetIndex, isCross: mode === "cross", leverage: currentLeverage });
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[520px] bg-card border-border/30 p-0 gap-0 overflow-hidden">
         {/* ─── Header ─── */}
         <div className="px-5 pt-4 pb-2 border-b border-border/20">
