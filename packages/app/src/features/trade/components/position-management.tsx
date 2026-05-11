@@ -192,13 +192,13 @@ export function PositionManagement() {
         className="h-full flex flex-col overflow-hidden"
       >
         <TabsList className="shrink-0 flex gap-0 h-auto bg-transparent border-b border-border/40 rounded-none p-0">
-          <TabTrigger value="balance" count={balanceCount}>
+          <TabTrigger value="balance" count={!chLoading ? balanceCount : undefined}>
             Balance
           </TabTrigger>
-          <TabTrigger value="positions" count={positionsCount}>
+          <TabTrigger value="positions" count={!chLoading ? positionsCount : undefined}>
             Positions
           </TabTrigger>
-          <TabTrigger value="open-orders" count={openOrdersCount}>
+          <TabTrigger value="open-orders" count={!ooLoading ? openOrdersCount : undefined}>
             Open Orders
           </TabTrigger>
           <TabTrigger value="trade-history">Trade History</TabTrigger>

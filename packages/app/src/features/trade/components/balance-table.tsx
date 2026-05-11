@@ -7,7 +7,8 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { formatCompactUsd } from "@/core/utils/formatters";
-import { TableSkeleton, PnLDisplay } from "./shared-table-utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PnLDisplay } from "./shared-table-utils";
 
 /* ─── Styling constants ─── */
 
@@ -55,10 +56,6 @@ export function BalanceTable({
   effectiveAccountTotal,
   effectiveAvailableBalance,
 }: BalanceTableProps) {
-  if (chLoading) {
-    return <TableSkeleton rows={3} cols={9} />;
-  }
-
   return (
     <div className="w-full overflow-x-auto">
       <Table>
@@ -76,7 +73,47 @@ export function BalanceTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {marginSummary ? (
+          {chLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-12 rounded-sm" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-24 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-10 rounded-sm" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-12 rounded-sm" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-10 rounded-sm" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-12 rounded-sm" />
+                </TableCell>
+              </TableRow>
+            ))
+          ) : !marginSummary ? (
+            <TableRow>
+              <TableCell colSpan={9} className="text-center py-6">
+                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                  No balance data
+                </span>
+              </TableCell>
+            </TableRow>
+          ) : (
             <>
               {/* USDC row */}
               <TableRow className="border-b border-border/20">
@@ -99,7 +136,7 @@ export function BalanceTable({
                 <TableCell className={c}>—</TableCell>
               </TableRow>
 
-              {/* Account Value row — uses effective values with perps-aware fallback */}
+              {/* Account Value row */}
               <TableRow className="border-b border-border/20">
                 <TableCell className={`${c} font-medium`}>Account</TableCell>
                 <TableCell className={cNum}>{formatCompactUsd(effectiveAccountTotal)}</TableCell>
@@ -146,12 +183,6 @@ export function BalanceTable({
                 );
               })}
             </>
-          ) : (
-            <TableRow>
-              <TableCell colSpan={9} className="text-center text-muted-foreground py-4 text-xs">
-                No balance data yet
-              </TableCell>
-            </TableRow>
           )}
         </TableBody>
       </Table>

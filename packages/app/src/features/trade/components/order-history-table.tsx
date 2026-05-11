@@ -6,15 +6,9 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatCompactUsd } from "@/core/utils/formatters";
-import {
-  TableSkeleton,
-  formatTime,
-  fmtNum,
-  SideLabel,
-  DirLabel,
-  formatStatus,
-} from "./shared-table-utils";
+import { formatTime, fmtNum, SideLabel, DirLabel, formatStatus } from "./shared-table-utils";
 import { getOrderType, getTriggerLabel, formatOrderValue } from "../utils/trigger-utils";
 import type { UserFillSchema, HistoricalOrderEntry } from "@/services/api";
 
@@ -42,10 +36,6 @@ interface HistoryOrderTableProps {
 /* ─── Trade History (fills) ─── */
 
 export function TradeHistoryTable({ fills, fillsLoading }: TradeHistoryTableProps) {
-  if (fillsLoading) {
-    return <TableSkeleton cols={8} />;
-  }
-
   return (
     <Table>
       <TableHeader>
@@ -61,7 +51,44 @@ export function TradeHistoryTable({ fills, fillsLoading }: TradeHistoryTableProp
         </TableRow>
       </TableHeader>
       <TableBody>
-        {fills && fills.length > 0 ? (
+        {fillsLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <TableRow key={i}>
+              <TableCell className={c}>
+                <Skeleton className="h-3 w-28 rounded-sm" />
+              </TableCell>
+              <TableCell className={c}>
+                <Skeleton className="h-3 w-12 rounded-sm" />
+              </TableCell>
+              <TableCell className={c}>
+                <Skeleton className="h-3 w-14 rounded-sm" />
+              </TableCell>
+              <TableCell className={cNum}>
+                <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
+              </TableCell>
+              <TableCell className={cNum}>
+                <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+              </TableCell>
+              <TableCell className={cNum}>
+                <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
+              </TableCell>
+              <TableCell className={cNum}>
+                <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+              </TableCell>
+              <TableCell className={cNum}>
+                <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
+              </TableCell>
+            </TableRow>
+          ))
+        ) : !fills || fills.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={8} className="text-center py-6">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                No trade history
+              </span>
+            </TableCell>
+          </TableRow>
+        ) : (
           fills.map((fill) => {
             const sz = Number(fill.sz);
             const px = Number(fill.px);
@@ -91,12 +118,6 @@ export function TradeHistoryTable({ fills, fillsLoading }: TradeHistoryTableProp
               </TableRow>
             );
           })
-        ) : (
-          <TableRow>
-            <TableCell colSpan={8} className="text-center text-muted-foreground py-4 text-xs">
-              No trade history yet
-            </TableCell>
-          </TableRow>
         )}
       </TableBody>
     </Table>
@@ -106,10 +127,6 @@ export function TradeHistoryTable({ fills, fillsLoading }: TradeHistoryTableProp
 /* ─── Order History (historical orders) ─── */
 
 export function HistoryOrderTable({ histOrders, histLoading }: HistoryOrderTableProps) {
-  if (histLoading) {
-    return <TableSkeleton cols={13} />;
-  }
-
   return (
     <Table>
       <TableHeader>
@@ -130,7 +147,59 @@ export function HistoryOrderTable({ histOrders, histLoading }: HistoryOrderTable
         </TableRow>
       </TableHeader>
       <TableBody>
-        {histOrders && histOrders.length > 0 ? (
+        {histLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <TableRow key={i}>
+              <TableCell className={c}>
+                <Skeleton className="h-3 w-28 rounded-sm" />
+              </TableCell>
+              <TableCell className={c}>
+                <Skeleton className="h-3 w-14 rounded-sm" />
+              </TableCell>
+              <TableCell className={c}>
+                <Skeleton className="h-3 w-12 rounded-sm" />
+              </TableCell>
+              <TableCell className={c}>
+                <Skeleton className="h-3 w-14 rounded-sm" />
+              </TableCell>
+              <TableCell className={cNum}>
+                <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+              </TableCell>
+              <TableCell className={cNum}>
+                <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+              </TableCell>
+              <TableCell className={cNum}>
+                <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
+              </TableCell>
+              <TableCell className={cNum}>
+                <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
+              </TableCell>
+              <TableCell className={c}>
+                <Skeleton className="h-3 w-14 rounded-sm" />
+              </TableCell>
+              <TableCell className={c}>
+                <Skeleton className="h-3 w-20 rounded-sm" />
+              </TableCell>
+              <TableCell className={c}>
+                <Skeleton className="h-3 w-12 rounded-sm" />
+              </TableCell>
+              <TableCell className={c}>
+                <Skeleton className="h-3 w-14 rounded-sm" />
+              </TableCell>
+              <TableCell className={cNum}>
+                <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+              </TableCell>
+            </TableRow>
+          ))
+        ) : !histOrders || histOrders.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={13} className="text-center py-6">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                No order history
+              </span>
+            </TableCell>
+          </TableRow>
+        ) : (
           histOrders.map((entry, idx) => {
             const o = entry.order;
             const ot = getOrderType(o);
@@ -182,12 +251,6 @@ export function HistoryOrderTable({ histOrders, histLoading }: HistoryOrderTable
               </TableRow>
             );
           })
-        ) : (
-          <TableRow>
-            <TableCell colSpan={13} className="text-center text-muted-foreground py-4 text-xs">
-              No order history yet
-            </TableCell>
-          </TableRow>
         )}
       </TableBody>
     </Table>

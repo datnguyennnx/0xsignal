@@ -15,7 +15,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
 import { api, type FuturesPrice } from "@/services/api";
-import { cn } from "@/core/utils/cn";
 import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-candles";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { queryKeys } from "@/lib/query/query-keys";
@@ -63,20 +62,18 @@ const MetricBlock = memo(function MetricBlock({
 }) {
   return (
     <div className="flex-none min-w-[clamp(5.5rem,10vw+1rem,9rem)] px-[clamp(0.25rem,1vw,0.625rem)] py-0.5">
-      <p className="text-[clamp(0.5rem,1.7vw,0.625rem)] uppercase tracking-[0.06em] text-muted-foreground/75 leading-none">
+      <p className="text-[clamp(0.5rem,1.7vw,0.625rem)] uppercase tracking-[0.06em] text-muted-foreground/75 leading-none tabular-nums">
         {label}
       </p>
       <p
-        className={cn(
-          "mt-1 text-[clamp(0.72rem,2.8vw,0.86rem)] font-mono-slashed leading-none whitespace-nowrap",
-          tone === "positive" && "text-gain",
-          tone === "negative" && "text-loss"
-        )}
+        className={`mt-1 text-[clamp(0.72rem,2.8vw,0.86rem)] font-mono-slashed tabular-nums leading-none whitespace-nowrap${
+          tone === "positive" ? " text-gain" : tone === "negative" ? " text-loss" : ""
+        }`}
       >
         {value}
       </p>
       {secondary ? (
-        <p className="mt-1 text-[clamp(0.56rem,1.9vw,0.66rem)] font-mono-slashed text-muted-foreground leading-none whitespace-nowrap">
+        <p className="mt-1 text-[clamp(0.56rem,1.9vw,0.66rem)] font-mono-slashed tabular-nums text-muted-foreground leading-none whitespace-nowrap">
           {secondary}
         </p>
       ) : null}
@@ -107,7 +104,7 @@ const MarketTerminalHeader = memo(function MarketTerminalHeader({
   const fundingTone = fundingRate >= 0 ? "positive" : "negative";
 
   return (
-    <div className="flex-none max-w-full overflow-x-auto scrollbar-hide" aria-live="polite">
+    <div className="flex-none max-w-full overflow-x-auto scrollbar-hide">
       <div className="inline-flex items-center gap-[clamp(0.125rem,0.8vw,0.5rem)] min-w-max">
         <MetricBlock label="Mark" value={formatPrice(markPrice)} />
         <MetricBlock label="Oracle" value={formatPrice(oraclePrice)} />
@@ -250,17 +247,18 @@ const AssetContent = memo(function AssetContent({
 
 function AssetDetailSkeleton() {
   return (
-    <div className="container-fluid h-full overflow-y-auto py-[clamp(0.75rem,1.5vw,1.5rem)] space-y-[clamp(1.25rem,3vw,1.5rem)] overscroll-none">
-      <header className="flex items-center gap-3">
+    <div className="container-fluid h-full overflow-y-auto py-[clamp(0.75rem,1.5vw,1.5rem)] overscroll-none">
+      <header className="flex items-center gap-3 pb-[clamp(0.25rem,1vw,0.375rem)]">
         <Skeleton className="w-7 h-7 rounded-full" />
         <div>
-          <Skeleton className="h-6 w-32 mb-1" />
-          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-4 w-32 mb-1" />
+          <Skeleton className="h-3 w-48" />
         </div>
       </header>
-      <div className="grid grid-cols-5 gap-[clamp(1rem,2.5vw,1.25rem)]">
-        <Skeleton className="col-span-4 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-xl" />
-        <Skeleton className="col-span-1 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-xl" />
+      <div className="flex-8 min-h-0 grid grid-cols-6 gap-[clamp(0.15rem,0.5vw,0.3rem)] items-stretch">
+        <Skeleton className="col-span-4 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-sm" />
+        <Skeleton className="col-span-1 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-sm" />
+        <Skeleton className="col-span-1 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-sm" />
       </div>
     </div>
   );
@@ -322,7 +320,7 @@ export function AssetDetail() {
   }, [candleData]);
 
   const showSkeleton = !asset && assetLoading;
-  const showChartSkeleton = chartLoading && candleData.length === 0;
+  const showChartSkeleton = chartLoading || candleData.length === 0;
 
   const documentTitle = useMemo(() => {
     if (!asset?.price && !latestPrice) return "";

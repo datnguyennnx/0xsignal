@@ -31,6 +31,11 @@ export default defineConfig({
       "/api": { target: "http://localhost:9006", changeOrigin: true, ws: true },
     },
   },
+  preview: {
+    proxy: {
+      "/api": { target: "http://localhost:9006", changeOrigin: true, ws: true },
+    },
+  },
   build: {
     target: "esnext",
     sourcemap: false,

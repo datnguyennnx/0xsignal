@@ -4,7 +4,7 @@
  * Implements a pure monochrome, high-contrast quantitative aesthetic.
  * Uses OKLCH for perceptually uniform colors.
  */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap");
+/* Fonts loaded asynchronously via <link rel="preload"> in index.html — not via @import to avoid render-blocking */
 @import "tailwindcss";
 @import "tw-animate-css";
 

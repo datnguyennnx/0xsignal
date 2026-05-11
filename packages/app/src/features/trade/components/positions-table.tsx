@@ -7,7 +7,8 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
-import { TableSkeleton, PosDirLabel, PnLDisplay } from "./shared-table-utils";
+import { PosDirLabel, PnLDisplay } from "./shared-table-utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /* ─── Styling constants ─── */
 
@@ -52,10 +53,6 @@ export function PositionsTable({
   onViewTpSl,
   mids,
 }: PositionsTableProps) {
-  if (chLoading) {
-    return <TableSkeleton cols={11} />;
-  }
-
   return (
     <div className="w-full overflow-x-auto">
       <Table>
@@ -75,7 +72,53 @@ export function PositionsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {positions.length > 0 ? (
+          {chLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-12 rounded-sm" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-24 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-14 rounded-sm" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-10 rounded-sm" />
+                </TableCell>
+              </TableRow>
+            ))
+          ) : positions.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={11} className="text-center py-6">
+                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                  No open positions
+                </span>
+              </TableCell>
+            </TableRow>
+          ) : (
             positions.map(({ position }) => {
               const signedSz = Number(position.szi);
               const sz = Math.abs(signedSz);
@@ -139,12 +182,6 @@ export function PositionsTable({
                 </TableRow>
               );
             })
-          ) : (
-            <TableRow>
-              <TableCell colSpan={11} className="text-center text-muted-foreground py-4 text-xs">
-                No open positions yet
-              </TableCell>
-            </TableRow>
           )}
         </TableBody>
       </Table>

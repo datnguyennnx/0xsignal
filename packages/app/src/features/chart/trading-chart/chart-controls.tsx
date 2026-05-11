@@ -84,6 +84,7 @@ export const ChartControls = memo(function ChartControls({
         variant="outline"
         size="sm"
         onClick={onToggleFullscreen}
+        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
         className="px-3 border-border/50 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25"
       >
         {isFullscreen ? (

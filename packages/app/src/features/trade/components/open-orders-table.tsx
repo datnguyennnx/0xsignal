@@ -6,7 +6,8 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { TableSkeleton, formatTime, fmtNum, DirLabel } from "./shared-table-utils";
+import { formatTime, fmtNum, DirLabel } from "./shared-table-utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   getOrderType,
   getTriggerLabel,
@@ -47,10 +48,6 @@ export function OpenOrdersTable({
   isCancelPending,
   orderCount,
 }: OpenOrdersTableProps) {
-  if (ooLoading) {
-    return <TableSkeleton cols={12} />;
-  }
-
   return (
     <div className="w-full overflow-x-auto">
       <Table>
@@ -79,7 +76,59 @@ export function OpenOrdersTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {openOrders && openOrders.length > 0 ? (
+          {ooLoading ? (
+            // Skeleton rows — 3 rows with approximate column widths
+            Array.from({ length: 3 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-28 rounded-sm" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-14 rounded-sm" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-12 rounded-sm" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-14 rounded-sm" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-14 rounded-sm" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-20 rounded-sm" />
+                </TableCell>
+                <TableCell className={c}>
+                  <Skeleton className="h-3 w-12 rounded-sm" />
+                </TableCell>
+                <TableCell className={cNum}>
+                  <Skeleton className="h-3 w-14 rounded-sm ml-auto" />
+                </TableCell>
+              </TableRow>
+            ))
+          ) : !openOrders || openOrders.length === 0 ? (
+            // Empty state — minimalist single row
+            <TableRow>
+              <TableCell colSpan={12} className="text-center py-6">
+                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                  No open orders
+                </span>
+              </TableCell>
+            </TableRow>
+          ) : (
+            // Data rows — keep existing map
             openOrders.map((order) => {
               const sz = Number(order.sz);
               const origSz = order.origSz ? Number(order.origSz) : sz;
@@ -122,12 +171,6 @@ export function OpenOrdersTable({
                 </TableRow>
               );
             })
-          ) : (
-            <TableRow>
-              <TableCell colSpan={12} className="text-center text-muted-foreground py-4 text-xs">
-                No open orders yet
-              </TableCell>
-            </TableRow>
           )}
         </TableBody>
       </Table>

@@ -5,7 +5,6 @@
  * Provides clear user messaging and a reconnection logic.
  */
 import { memo } from "react";
-import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/core/utils/cn";
 
@@ -29,21 +28,15 @@ export const ErrorState = memo(function ErrorState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center text-center min-h-[50dvh] animate-in fade-in duration-300",
+        "flex flex-col items-center justify-center text-center min-h-[50dvh]",
         className
       )}
     >
-      <AlertCircle
-        size={28}
-        strokeWidth={1.5}
-        className="text-muted-foreground/40 mb-4"
-        aria-hidden="true"
-      />
       <h3 className="text-sm font-semibold tracking-tight mb-3">
         {isRateLimit ? "System Cooling Down" : title}
       </h3>
 
-      <p className="text-sm text-muted-foreground max-w-md mb-8 leading-relaxed">
+      <p className="text-xs text-muted-foreground/60 max-w-md mb-6 leading-relaxed">
         {isRateLimit
           ? "High data velocity detected. The stream has been temporarily paused to preserve integrity."
           : description}

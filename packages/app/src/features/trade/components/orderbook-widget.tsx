@@ -33,7 +33,6 @@ import {
 import { type OrderbookLevel, priceKey } from "@/core/utils/hyperliquid";
 import { useOptionalL2BookNSigFigs } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { cn } from "@/core/utils/cn";
-import { Loader2 } from "lucide-react";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 const EMPTY_ORDERBOOK_OPTIONS = {} as const;
@@ -54,7 +53,6 @@ interface PopupData {
 const ROW_HEIGHT = 30;
 const VISIBLE_ROWS = 20;
 
-const DEPTH_BAR_TRANSITION = "width 150ms ease-out";
 const PRECISION_RESUBSCRIBE_DEBOUNCE_MS = 160;
 
 import { formatPriceWithScaling, formatSize } from "@/core/utils/formatters";
@@ -122,9 +120,6 @@ interface OrderRowProps {
   transitionsEnabled: boolean;
 }
 
-const ORDER_ROW_STYLE = { height: ROW_HEIGHT };
-const DEPTH_BAR_BASE = "absolute top-0 bottom-0 right-0 opacity-20 pointer-events-none";
-
 const OrderRow = memo(
   ({
     level,
@@ -136,27 +131,43 @@ const OrderRow = memo(
     maxTotal,
     transitionsEnabled,
   }: OrderRowProps) => {
-    const rowRef = useRef<HTMLDivElement>(null);
     const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
 
-    const handleMouseEnter = useCallback(() => {
-      onHover(
-        { price: level.price, size: level.size, total: level.total, side },
-        rowRef.current,
-        index
-      );
-    }, [onHover, level.price, level.size, level.total, side, index]);
+    const handleMouseEnter = useCallback(
+      (e: React.MouseEvent<HTMLDivElement> | React.FocusEvent<HTMLDivElement>) => {
+        const dataset = e.currentTarget.dataset;
+        if (dataset.price === undefined) return;
+        onHover(
+          {
+            price: Number(dataset.price),
+            size: Number(dataset.size),
+            total: Number(dataset.total),
+            side: dataset.side as "bid" | "ask",
+          },
+          e.currentTarget,
+          Number(dataset.index)
+        );
+      },
+      [onHover]
+    );
 
     const handleMouseLeave = useCallback(() => onHover(null, null), [onHover]);
 
     return (
       <div
-        ref={rowRef}
-        className={cn(
-          "relative flex items-center px-3 cursor-pointer tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset transition-colors duration-100",
+        data-price={level.price}
+        data-size={level.size}
+        data-total={level.total}
+        data-side={side}
+        data-index={index}
+        onMouseEnter={level.price > 0 ? handleMouseEnter : undefined}
+        onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
+        onFocus={level.price > 0 ? handleMouseEnter : undefined}
+        onBlur={level.price > 0 ? handleMouseLeave : undefined}
+        className={`relative flex items-center px-3 cursor-pointer tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset ${
           isHovered ? "bg-muted/50" : "hover:bg-muted/30"
-        )}
-        style={ORDER_ROW_STYLE}
+        }`}
+        style={{ height: ROW_HEIGHT }}
         tabIndex={level.price > 0 ? 0 : -1}
         aria-label={
           level.price > 0
@@ -164,60 +175,50 @@ const OrderRow = memo(
             : undefined
         }
         aria-describedby={level.price > 0 && isHovered ? "orderbook-depth-details" : undefined}
-        onMouseEnter={level.price > 0 ? handleMouseEnter : undefined}
-        onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
-        onFocus={level.price > 0 ? handleMouseEnter : undefined}
-        onBlur={level.price > 0 ? handleMouseLeave : undefined}
       >
         {isInRange && (
           <div
-            className={cn(
-              "absolute inset-0 z-[5] pointer-events-none",
-              "bg-foreground/5 dark:bg-foreground/10",
-              isHovered && side === "ask" && "border-b border-dashed border-foreground/30",
-              isHovered && side === "bid" && "border-t border-dashed border-foreground/30"
-            )}
+            className={`absolute inset-0 z-[5] pointer-events-none bg-foreground/5 dark:bg-foreground/10 ${
+              isHovered && side === "ask" ? "border-b border-dashed border-foreground/30" : ""
+            } ${isHovered && side === "bid" ? "border-t border-dashed border-foreground/30" : ""}`}
           />
         )}
         {level.price > 0 && (
           <div
-            className={cn(DEPTH_BAR_BASE, side === "bid" ? "bg-gain" : "bg-loss")}
-            style={
-              {
-                "--depth-width": `${Math.min(depthPercent, 100)}%`,
-                width: `var(--depth-width)`,
-                transform: "translateZ(0)",
-                willChange: "width",
-                transition: transitionsEnabled ? DEPTH_BAR_TRANSITION : "none",
-              } as React.CSSProperties
-            }
+            className={`absolute inset-y-0 right-0 z-0 opacity-20 pointer-events-none ${
+              side === "bid" ? "bg-gain" : "bg-loss"
+            }`}
+            style={{
+              width: "100%",
+              transform: `scaleX(${Math.min(depthPercent, 100) / 100})`,
+              transformOrigin: "right center",
+              willChange: "transform",
+              transition: transitionsEnabled ? "transform 150ms ease-out" : "none",
+            }}
           />
         )}
         <span
-          className={cn(
-            "relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono font-medium",
+          className={`relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono font-medium ${
             level.price === 0
               ? "text-muted-foreground/30"
               : side === "bid"
                 ? "text-gain"
                 : "text-loss"
-          )}
+          }`}
         >
           {level.formattedPrice}
         </span>
         <span
-          className={cn(
-            "relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono",
+          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono ${
             level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground"
-          )}
+          }`}
         >
           {level.formattedSize}
         </span>
         <span
-          className={cn(
-            "relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono",
+          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono ${
             level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
-          )}
+          }`}
         >
           {level.formattedTotal}
         </span>
@@ -260,7 +261,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     return EMPTY_ORDERBOOK_OPTIONS;
   }, [l2BookSig]);
 
-  const { orderbook, isConnected, error, resubscribe } = useHyperliquidOrderbook(
+  const { orderbook, isConnected, error, resubscribe, activeSigFigs } = useHyperliquidOrderbook(
     symbol,
     true,
     orderbookHookOptions
@@ -503,8 +504,16 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   if (error) {
     return (
-      <div className="h-full flex items-center justify-center text-destructive text-sm">
-        {error}
+      <div className="h-full flex flex-col items-center justify-center gap-3">
+        <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+          Book unavailable
+        </span>
+        <button
+          onClick={() => resubscribe(activeSigFigs)}
+          className="text-xs text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -514,8 +523,10 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   if (!hasBookData) {
     return (
-      <div className="h-full flex items-center justify-center opacity-50">
-        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      <div className="h-full flex flex-col items-center justify-center">
+        <span className="text-xs text-muted-foreground/40 uppercase tracking-wider font-mono">
+          Loading book
+        </span>
       </div>
     );
   }
@@ -553,13 +564,13 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         </div>
 
         <div className="flex items-center justify-center gap-[clamp(0.75rem,2vw,1.5rem)] py-1.5 border-y border-border/10 bg-muted/20 shrink-0">
-          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono font-medium text-muted-foreground/80">
+          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono font-medium text-muted-foreground">
             Spread
           </span>
-          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground/80">
+          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground">
             {formatPriceWithScaling(spread, effectivePriceScaling)}
           </span>
-          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground/80">
+          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground">
             {spreadPercent.toFixed(3)}%
           </span>
         </div>

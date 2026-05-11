@@ -11,6 +11,8 @@
     "test:integration:api": "bun run --filter @0xsignal/api test:integration",
     "dev": "bun run --filter '*' dev",
     "build": "bun run --filter '*' build",
+    "start": "docker compose build && docker compose up -d",
+    "down": "docker compose down",
     "lint": "bun run --filter '*' lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",

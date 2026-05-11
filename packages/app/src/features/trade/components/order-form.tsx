@@ -350,8 +350,10 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               {/* Sliding indicator */}
               <div
                 className={cn(
-                  "absolute inset-y-0.5 w-1/2 rounded-[5px] transition-all duration-500 ease-premium",
-                  side === "buy" ? "left-0.5 bg-gain" : "left-[calc(50%-0.125rem)] bg-loss"
+                  "absolute inset-y-0.5 w-[calc(50%-0.25rem)] rounded-[5px] transition-transform duration-500 ease-premium",
+                  side === "buy"
+                    ? "translate-x-0.5 bg-gain"
+                    : "translate-x-[calc(100%+0.5rem)] bg-loss"
                 )}
               />
               <button
@@ -411,6 +413,8 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                   min={0}
                   max={100}
                   step={1}
+                  aria-label="Order size"
+                  title="Order size"
                   className="flex-1 [&_[data-slot=slider-thumb]]:hover:ring-4 [&_[data-slot=slider-thumb]]:hover:ring-ring/40 [&_[data-slot=slider-track]]:hover:bg-muted/40 [&_[data-slot=slider-range]]:hover:brightness-110"
                 />
                 <Input
@@ -419,6 +423,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                   max={100}
                   value={sliderPercent}
                   onChange={handlePctInputChange}
+                  aria-label="Size percentage"
                   className="w-16 h-8 text-xs text-center tabular-nums bg-background/70 border-border/30 px-1 shrink-0"
                 />
                 <span className="text-xs text-muted-foreground">%</span>
@@ -435,7 +440,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                       "text-xs px-2 py-1 rounded transition-colors cursor-pointer",
                       sliderPercent === pct
                         ? "text-foreground font-medium bg-muted/20"
-                        : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/10"
+                        : "text-muted-foreground/80 hover:text-muted-foreground hover:bg-muted/10"
                     )}
                   >
                     {pct}%
@@ -590,7 +595,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             <Button
               onClick={handlePlaceOrder}
               disabled={!canPlace || placeOrderMutation.isPending}
-              className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-all duration-150 bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
+              className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,transform] duration-150 bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
             >
               {placeOrderMutation.isPending ? "Placing Order..." : "Place Order"}
             </Button>
