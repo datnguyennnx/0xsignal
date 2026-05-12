@@ -1,17 +1,6 @@
 /**
- * @overview Trade Market Selector Dropdown
- *
- * Data flow: useTradeList → React Query → filtered/sorted list → navigate(/trade/:symbol)
- *
- * A searchable, sortable dropdown for switching between perpetual markets.
- * Shows real-time price, 24h change, and open interest per market.
- *
- * Mechanism:
- * - Fetches market list via useTradeList (30s stale time)
- * - Client-side filtering by category + search query
- * - Sorting by name (A-Z) or 24h change (highest first)
- * - Adaptive viewport positioning to avoid overflow
- * - Navigates to /trade/:symbol on selection
+ * Market selector dropdown. Searchable, sortable, category-filtered.
+ * Fetches via useTradeList, navigates to /trade/:rawCoin on select.
  */
 import { memo, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -20,37 +9,70 @@ import { ContentUnavailable } from "@/components/content-unavailable";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
+import { calculatePxDecimals } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatSize } from "@/core/utils/formatters";
 
 interface TradeDropdownProps {
   currentSymbol: string;
+  logoUrl?: string;
+  displaySymbol?: string;
+  currentDisplayName?: string;
 }
 
 interface FormattedTrade {
   readonly coin: string;
-  readonly name: string;
-  readonly category: string;
+  readonly rawCoin: string;
+  readonly marketType: "perp" | "spot" | "outcome";
+  readonly displaySymbol: string;
   readonly displayCategory: string;
   readonly markPx: string;
   readonly prevDayPx: string;
   readonly openInterest: string;
+  readonly dayNtlVlm: string;
+  readonly isHip3: boolean;
+  readonly category: string;
+  readonly dexPrefix: string | null;
   readonly changeValue: number;
   readonly changeFormatted: string;
   readonly oiFormatted: string;
   readonly isActive: boolean;
+  readonly pxDecimals: number;
 }
 
-type CategoryTab = "all" | "crypto" | "stocks" | "commodities" | "fx" | "indices" | "preipo";
+const TAB_ORDER = [
+  "All",
+  "Perps",
+  "Spot",
+  "Outcome",
+  "Crypto",
+  "Tradfi",
+  "HIP-3",
+  "Trending",
+  "Pre-launch",
+] as const;
+type CategoryTab =
+  | "all"
+  | "perps"
+  | "spot"
+  | "outcome"
+  | "crypto"
+  | "tradfi"
+  | "hip3"
+  | "trending"
+  | "prelaunch";
 
-const CATEGORY_TABS: { key: CategoryTab; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "crypto", label: "Crypto" },
-  { key: "stocks", label: "Stocks" },
-  { key: "commodities", label: "Commodities" },
-  { key: "fx", label: "Forex" },
-  { key: "indices", label: "Indices" },
-];
+const TAB_TO_CATEGORY: Record<string, CategoryTab> = {
+  All: "all",
+  Perps: "perps",
+  Spot: "spot",
+  Outcome: "outcome",
+  Crypto: "crypto",
+  Tradfi: "tradfi",
+  "HIP-3": "hip3",
+  Trending: "trending",
+  "Pre-launch": "prelaunch",
+};
 
 const SortIcon = ({
   sortBy,
@@ -110,14 +132,14 @@ const MarketRow = ({ item }: { item: FormattedTrade }) => (
   <div className="grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-3">
     <div className="flex flex-col justify-center min-w-0">
       <span className="font-mono font-medium text-sm tabular-nums truncate">
-        {item.name || item.coin}
+        {item.displaySymbol}
       </span>
       <span className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground uppercase opacity-70">
         {item.displayCategory}
       </span>
     </div>
     <span className="font-mono text-sm text-right flex items-center justify-end text-foreground tabular-nums">
-      {formatPrice(Number(item.markPx))}
+      {formatPrice(Number(item.markPx), item.pxDecimals)}
     </span>
     <span
       className={cn(
@@ -142,29 +164,27 @@ const MarketRowSkeleton = () => (
   </div>
 );
 
-export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: TradeDropdownProps) {
+export const TradeDropdown = memo(function TradeDropdown({
+  currentSymbol,
+  logoUrl,
+  displaySymbol,
+  currentDisplayName,
+}: TradeDropdownProps) {
   const dropdownContentId = "trade-market-dropdown-content";
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryTab>("all");
   const [sortBy, setSortBy] = useState<"name" | "change">("name");
-  const [sortDesc, setSortDesc] = useState(true);
+  const [sortDesc, setSortDesc] = useState(false); // default A-Z
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { data, isLoading, error } = useTradeList();
 
-  const trades = data?.assets;
+  const displayLabel = currentDisplayName || displaySymbol || currentSymbol;
 
-  const categoryCounts = useMemo(() => {
-    if (!trades) return {};
-    const counts: Record<string, number> = { all: trades.length };
-    trades.forEach((p) => {
-      counts[p.category] = (counts[p.category] || 0) + 1;
-    });
-    return counts;
-  }, [trades]);
+  const trades = data?.assets;
 
   const filteredTrades = useMemo(() => {
     if (!trades) return [];
@@ -172,12 +192,32 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
     let filtered = trades;
 
     if (category !== "all") {
-      filtered = filtered.filter((f) => f.category === category);
+      if (category === "perps") {
+        filtered = filtered.filter((f) => f.marketType === "perp");
+      } else if (category === "spot") {
+        filtered = filtered.filter((f) => f.marketType === "spot");
+      } else if (category === "outcome") {
+        filtered = filtered.filter((f) => f.marketType === "outcome");
+      } else if (category === "tradfi") {
+        filtered = filtered.filter((f) =>
+          ["stocks", "forex", "commodities", "indices"].includes(f.category)
+        );
+      } else if (category === "hip3") {
+        filtered = filtered.filter((f) => f.isHip3);
+      } else if (category === "trending") {
+        filtered = [...filtered]
+          .sort((a, b) => Number(b.dayNtlVlm) - Number(a.dayNtlVlm))
+          .slice(0, 10);
+      } else {
+        filtered = filtered.filter((f) => f.category === category);
+      }
     }
 
     if (query) {
       const q = query.toLowerCase();
-      filtered = filtered.filter((f) => f.coin.toLowerCase().includes(q));
+      filtered = filtered.filter(
+        (f) => f.coin.toLowerCase().includes(q) || f.displaySymbol.toLowerCase().includes(q)
+      );
     }
 
     filtered = [...filtered].sort((a, b) => {
@@ -232,8 +272,8 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
   }, []);
 
   const handleSelect = useCallback(
-    (coin: string) => {
-      navigate(`/trade/${coin.toLowerCase()}`);
+    (asset: { rawCoin: string }) => {
+      navigate(`/trade/${asset.rawCoin}`);
       handleClose();
     },
     [navigate, handleClose]
@@ -282,24 +322,31 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
 
   const formattedTrades = useMemo(() => {
     if (!filteredTrades) return [];
-    const symbolLower = currentSymbol.toLowerCase();
+    const currentRawCoinLower = currentSymbol.toLowerCase();
     return filteredTrades.map((item) => {
       const prevPx = Number(item.prevDayPx);
       const markPx = Number(item.markPx);
       const change = prevPx > 0 ? ((markPx - prevPx) / prevPx) * 100 : 0;
       const oi = Number(item.openInterest);
+      const pxDec = calculatePxDecimals(item.szDecimals ?? 4);
       return {
         coin: item.coin,
-        name: item.name,
-        category: item.category,
+        rawCoin: item.rawCoin,
+        marketType: item.marketType,
+        displaySymbol: item.displaySymbol,
         displayCategory: item.displayCategory,
         markPx: item.markPx,
         prevDayPx: item.prevDayPx,
         openInterest: item.openInterest,
+        dayNtlVlm: item.dayNtlVlm,
+        isHip3: item.isHip3,
+        category: item.category,
+        dexPrefix: item.dexPrefix,
         changeValue: change,
         changeFormatted: `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`,
         oiFormatted: formatSize(oi),
-        isActive: item.coin.toLowerCase() === symbolLower,
+        isActive: item.rawCoin.toLowerCase() === currentRawCoinLower,
+        pxDecimals: pxDec,
       };
     });
   }, [filteredTrades, currentSymbol]);
@@ -309,19 +356,39 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
       <button
         type="button"
         ref={triggerRef}
-        className="flex items-center gap-1 cursor-pointer min-h-[44px] px-2 py-1"
+        className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded transition-colors hover:bg-muted/30"
         onClick={open ? handleClose : handleOpen}
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={dropdownContentId}
-        aria-label={`Select market, current ${currentSymbol}`}
+        aria-label={`Select market, current ${displayLabel}`}
       >
-        <span className="text-lg sm:text-xl font-mono font-semibold text-foreground tabular-nums font-mono-slashed">
-          {currentSymbol}
-        </span>
+        {logoUrl && (
+          <img
+            src={logoUrl}
+            alt=""
+            className="w-5 h-5 rounded-full shrink-0"
+            loading="eager"
+            decoding="async"
+          />
+        )}
+        {displaySymbol ? (
+          <div className="flex items-baseline gap-0">
+            <span className="text-lg sm:text-xl font-mono font-semibold text-foreground tabular-nums">
+              {displaySymbol.split("-")[0]}
+            </span>
+            <span className="text-lg sm:text-xl font-mono font-medium text-foreground/70">
+              -{displaySymbol.split("-").slice(1).join("-")}
+            </span>
+          </div>
+        ) : (
+          <span className="text-lg sm:text-xl font-mono font-semibold text-foreground tabular-nums">
+            {displayLabel}
+          </span>
+        )}
         <ChevronDown
           className={cn(
-            "w-3.5 h-3.5 text-muted-foreground transition-transform",
+            "w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0",
             open && "rotate-180"
           )}
         />
@@ -337,7 +404,7 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
           style={{ top: position.top, left: position.left }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="p-3 border-b border-border/20">
+          <div className="p-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
               <Input
@@ -360,34 +427,26 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
             </div>
           </div>
 
-          <div className="flex gap-1 px-3 py-2 border-b border-border/20 overflow-x-auto scrollbar-hide">
-            {CATEGORY_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setCategory(tab.key)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-full whitespace-nowrap transition-colors cursor-pointer min-h-[44px]",
-                  category === tab.key
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                {tab.label}
-                {categoryCounts[tab.key] !== undefined && (
-                  <span
-                    className={cn(
-                      "text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)]",
-                      category === tab.key
-                        ? "text-primary-foreground/70"
-                        : "text-muted-foreground/60"
-                    )}
-                  >
-                    {categoryCounts[tab.key]}
-                  </span>
-                )}
-              </button>
-            ))}
+          <div className="flex px-2 overflow-x-auto border-b border-border/20 scrollbar-hide">
+            {TAB_ORDER.map((tab) => {
+              const catKey = TAB_TO_CATEGORY[tab];
+              const isActive = category === catKey;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setCategory(catKey)}
+                  className={cn(
+                    "px-3 py-2 text-[clamp(0.6875rem,0.7rem+0.4vw,0.75rem)] font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none border-b-2 -mb-px",
+                    isActive
+                      ? "text-foreground border-foreground"
+                      : "text-muted-foreground/50 hover:text-muted-foreground border-transparent"
+                  )}
+                >
+                  {tab}
+                </button>
+              );
+            })}
           </div>
 
           <MarketHeader sortBy={sortBy} sortDesc={sortDesc} onSort={handleSort} />
@@ -417,9 +476,9 @@ export const TradeDropdown = memo(function TradeDropdown({ currentSymbol }: Trad
               <div className="divide-y divide-border/30">
                 {formattedTrades.map((item) => (
                   <button
-                    key={item.coin}
+                    key={`${item.coin}-${item.dexPrefix ?? "main"}-${item.marketType}`}
                     type="button"
-                    onClick={() => handleSelect(item.coin)}
+                    onClick={() => handleSelect(item)}
                     className={cn(
                       "w-full text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset cursor-pointer select-none tap-highlight",
                       item.isActive && "bg-muted/60"

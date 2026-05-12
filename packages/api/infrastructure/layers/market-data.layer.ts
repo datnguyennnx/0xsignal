@@ -27,7 +27,9 @@ const MarketPortsLayer = Layer.mergeAll(
       return MarketRemoteProvider.of({
         getCandleSnapshot: (symbol, timeframe, startTime, endTime) =>
           provider.getCandleSnapshot(symbol, timeframe, startTime, endTime),
-        getMetadata: () => provider.getMetadata(),
+        // Boundary mapping: HyperliquidProvider returns AggregatedTradeAsset[] → AggregatedMarket[]
+        // Structurally compatible; mapping happens at the layer boundary.
+        getAggregatedMarkets: () => provider.getAggregatedMarkets(),
         getTicker:
           typeof provider.getTicker === "function"
             ? (symbol) => provider.getTicker(symbol)

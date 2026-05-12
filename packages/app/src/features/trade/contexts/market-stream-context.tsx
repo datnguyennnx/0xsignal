@@ -220,7 +220,7 @@ const MarketStreamContext = createContext<MarketStreamClient | null>(null);
 
 export function MarketStreamProvider({ children }: { children: ReactNode }) {
   const client = useMemo(() => createMarketStreamClient(), []);
-  return <MarketStreamContext.Provider value={client}>{children}</MarketStreamContext.Provider>;
+  return <MarketStreamContext value={client}>{children}</MarketStreamContext>;
 }
 
 export function useMarketStreamClient(): MarketStreamClient {

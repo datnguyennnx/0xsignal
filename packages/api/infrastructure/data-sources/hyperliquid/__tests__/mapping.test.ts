@@ -1,11 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { Effect } from "effect";
-import {
-  getTickerSnapshotEffect,
-  getMarketsSnapshotEffect,
-  mapTickerFromSnapshot,
-  resolveInternalSymbol,
-} from "../mapping";
+import { getTickerSnapshotEffect, mapTickerFromSnapshot, resolveInternalSymbol } from "../mapping";
 
 describe("Hyperliquid Mapping", () => {
   const mockInfo = {
@@ -86,20 +81,6 @@ describe("Hyperliquid Mapping", () => {
     it("should resolve with different casing and suffix", () => {
       // PARA:BTCD-USDT should normalize to para:BTCD and match
       expect(resolveInternalSymbol(mockSnapshot, "PARA:BTCD-USDT")).toBe("para:BTCD");
-    });
-  });
-
-  describe("getMarketsSnapshotEffect", () => {
-    it("should include categories in the snapshot", async () => {
-      mockInfo.perpDexs.mockResolvedValue([]);
-      mockInfo.metaAndAssetCtxs.mockResolvedValue([{ universe: [] }, []]);
-      mockInfo.perpCategories.mockResolvedValue([["BTC", "crypto"]]);
-
-      const program = getMarketsSnapshotEffect(mockInfo);
-      const result = await Effect.runPromise(program);
-
-      expect(result.perpCategories).toBeDefined();
-      expect(result.perpCategories?.[0]).toEqual(["BTC", "crypto"]);
     });
   });
 });

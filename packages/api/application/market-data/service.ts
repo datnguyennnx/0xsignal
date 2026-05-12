@@ -1,5 +1,5 @@
-import { Effect, Layer } from "effect";
-import { validationError, notFoundError } from "../errors";
+import { Config, Effect, Layer } from "effect";
+import { DomainError } from "../errors";
 import type { CoverageResult } from "../../schemas/market-data";
 import { MarketDataRepository } from "../ports/market-data-repository";
 import { MarketCandleStore, MarketDataServices, MarketRemoteProvider } from "./contracts";
@@ -16,12 +16,17 @@ import {
 import { mapMarketInfraError } from "./error-mapping";
 import { createCoverageRefresh, createGapFillWorkflow } from "./coverage-workflows";
 
-const CANDLE_TIMING_LOGS_ENABLED = process.env.MODE === "dev";
+const isDevMode: Effect.Effect<string, never> = Config.string("MODE").pipe(
+  Effect.catchAll(() => Effect.succeed("production"))
+);
 
 const logCandleServiceTiming = (payload: Record<string, unknown>) =>
-  CANDLE_TIMING_LOGS_ENABLED
-    ? Effect.logInfo(JSON.stringify({ event: "candle_service_timing", ...payload }))
-    : Effect.succeed(undefined);
+  Effect.gen(function* () {
+    const mode = yield* isDevMode;
+    if (mode === "dev") {
+      yield* Effect.logInfo(JSON.stringify({ event: "candle_service_timing", ...payload }));
+    }
+  });
 
 export const makeMarketDataService = (repo: MarketDataRepository) =>
   Effect.gen(function* () {
@@ -37,22 +42,40 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
         Effect.tryPromise({
           try: () =>
             repo.insertCandlestickRequest({ ...input, created_at: new Date().toISOString() }),
-          catch: (e) => validationError("Failed to request candlesticks", e),
+          catch: (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to request candlesticks",
+              cause: e,
+            }),
         }),
 
       createDatasetSnapshot: (input) =>
         Effect.tryPromise({
           try: () => repo.insertDatasetSnapshot({ ...input, created_at: new Date().toISOString() }),
-          catch: (e) => validationError("Failed to create dataset snapshot", e),
+          catch: (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to create dataset snapshot",
+              cause: e,
+            }),
         }),
 
       getDatasetSnapshot: (id) =>
         Effect.gen(function* () {
           const snapshot = yield* Effect.tryPromise({
             try: () => repo.getDatasetSnapshot(id),
-            catch: (e) => validationError("Failed to get dataset snapshot", e),
+            catch: (e) =>
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Failed to get dataset snapshot",
+                cause: e,
+              }),
           });
-          if (!snapshot) return yield* Effect.fail(notFoundError(`Snapshot ${id} not found`));
+          if (!snapshot)
+            return yield* Effect.fail(
+              new DomainError({ code: "NOT_FOUND", message: `Snapshot ${id} not found` })
+            );
           return snapshot;
         }),
 
@@ -68,7 +91,12 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
           );
 
           if (startTime.getTime() > endTime.getTime()) {
-            return yield* Effect.fail(validationError("Start time must be before end time"));
+            return yield* Effect.fail(
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Start time must be before end time",
+              })
+            );
           }
 
           const requestedRangeCount =
@@ -77,9 +105,10 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
             ) + 1;
           if (requestedRangeCount > MAX_RANGE_CANDLES) {
             return yield* Effect.fail(
-              validationError(
-                `Requested range is too large (${requestedRangeCount} candles). Maximum is ${MAX_RANGE_CANDLES}.`
-              )
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: `Requested range is too large (${requestedRangeCount} candles). Maximum is ${MAX_RANGE_CANDLES}.`,
+              })
             );
           }
 
@@ -139,21 +168,28 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
           const exchange = query.exchange ?? "Hyperliquid";
           if (exchange.toLowerCase() !== "hyperliquid") {
             return yield* Effect.fail(
-              validationError(
-                "Recent candle snapshots are currently supported only for Hyperliquid"
-              )
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Recent candle snapshots are currently supported only for Hyperliquid",
+              })
             );
           }
 
           const requestedLimit = query.limit ?? DEFAULT_RECENT_CANDLES;
           if (!Number.isFinite(requestedLimit) || requestedLimit <= 0) {
-            return yield* Effect.fail(validationError("limit must be a positive integer"));
+            return yield* Effect.fail(
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "limit must be a positive integer",
+              })
+            );
           }
           if (requestedLimit > MAX_RECENT_CANDLES) {
             return yield* Effect.fail(
-              validationError(
-                `limit is too large (${requestedLimit}). Maximum is ${MAX_RECENT_CANDLES}.`
-              )
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: `limit is too large (${requestedLimit}). Maximum is ${MAX_RECENT_CANDLES}.`,
+              })
             );
           }
 
@@ -209,7 +245,7 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
 
       discoverMarkets: () =>
         remoteProvider
-          .getMetadata()
+          .getAggregatedMarkets()
           .pipe(Effect.mapError(mapMarketInfraError("Failed to discover markets"))),
 
       inspectCoverage: (query) =>
@@ -228,21 +264,36 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
           ? remoteProvider
               .getTicker(symbol)
               .pipe(Effect.mapError(mapMarketInfraError("Failed to get ticker")))
-          : Effect.fail(validationError("Ticker is not available in this runtime")),
+          : Effect.fail(
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Ticker is not available in this runtime",
+              })
+            ),
 
       getOrderBook: (symbol, depth) =>
         typeof remoteProvider.getOrderBook === "function"
           ? remoteProvider
               .getOrderBook(symbol, depth)
               .pipe(Effect.mapError(mapMarketInfraError("Failed to get orderbook")))
-          : Effect.fail(validationError("Orderbook is not available in this runtime")),
+          : Effect.fail(
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Orderbook is not available in this runtime",
+              })
+            ),
 
       getTradeAnnotation: (symbol) =>
         typeof remoteProvider.getTradeAnnotation === "function"
           ? remoteProvider
               .getTradeAnnotation(symbol)
               .pipe(Effect.mapError(mapMarketInfraError("Failed to get trade annotation")))
-          : Effect.fail(validationError("Trade annotation is not available in this runtime")),
+          : Effect.fail(
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Trade annotation is not available in this runtime",
+              })
+            ),
     });
   });
 

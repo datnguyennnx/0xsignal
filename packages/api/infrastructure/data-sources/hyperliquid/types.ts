@@ -4,6 +4,69 @@ import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 import type { L2BookResponse, PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
 import type { HyperliquidError } from "./errors";
 
+// ─── Market Type Discriminated Union ────────────────────────────────────────
+
+export type MarketType = "perp" | "spot" | "outcome";
+
+/** Base fields shared by ALL market types. */
+interface BaseTradeAsset {
+  readonly coin: string;
+  readonly rawCoin: string;
+  readonly displaySymbol: string;
+  readonly dexPrefix: string | null;
+  readonly isHip3: boolean;
+  readonly quoteCurrency: string;
+  readonly name: string;
+  readonly category: string;
+  readonly displayCategory: string;
+  readonly isDelisted: boolean;
+  readonly dex: "HYPERLIQUID";
+  readonly assetId: number;
+  readonly marketType: MarketType;
+}
+
+/** Perpetual market (HIP-1 main or HIP-3 builder). Has funding, OI, leverage. */
+export interface PerpTradeAsset extends BaseTradeAsset {
+  readonly marketType: "perp";
+  readonly markPx: string;
+  readonly prevDayPx: string;
+  readonly openInterest: string;
+  readonly funding: string;
+  readonly dayNtlVlm: string;
+  readonly maxLeverage: number;
+  readonly szDecimals: number;
+}
+
+/** Spot market. No funding/OI, 1x leverage. */
+export interface SpotTradeAsset extends BaseTradeAsset {
+  readonly marketType: "spot";
+  readonly markPx: string;
+  readonly prevDayPx: string;
+  readonly dayNtlVlm: string;
+  readonly dayBaseVlm: string;
+  readonly circulatingSupply?: string;
+  readonly totalSupply?: string;
+  readonly maxLeverage: 1;
+  readonly szDecimals: number;
+  /** Spot markets always have zero funding with no open interest. */
+  readonly openInterest: "0";
+  readonly funding: "0";
+}
+
+/** Outcome / prediction market. Placeholder pricing. */
+export interface OutcomeTradeAsset extends BaseTradeAsset {
+  readonly marketType: "outcome";
+  readonly markPx: "0";
+  readonly prevDayPx: "0";
+  readonly dayNtlVlm: "0";
+  readonly maxLeverage: 1;
+  readonly szDecimals: 0;
+  readonly openInterest: "0";
+  readonly funding: "0";
+}
+
+export type AggregatedTradeAsset = PerpTradeAsset | SpotTradeAsset | OutcomeTradeAsset;
+
 export interface MarketUniverseItem {
   readonly name: string;
   readonly szDecimals?: number;
@@ -24,13 +87,6 @@ export type MarketAssetCtxItem = {
   readonly premium?: string | null;
 };
 
-export type MarketsSnapshot = {
-  readonly universe: ReadonlyArray<MarketUniverseItem>;
-  readonly assetCtxs: ReadonlyArray<MarketAssetCtxItem>;
-  readonly allMids: Readonly<Record<string, string>>;
-  readonly perpCategories: ReadonlyArray<readonly [string, string]>;
-};
-
 export type TickerPayload = {
   readonly symbol: string;
   readonly mid: number | null;
@@ -48,7 +104,11 @@ export type OrderBookPayload = {
   readonly orderbook: L2BookResponse;
 };
 
-export type TickerSnapshot = Pick<MarketsSnapshot, "universe" | "assetCtxs" | "allMids">;
+export type TickerSnapshot = {
+  readonly universe: ReadonlyArray<MarketUniverseItem>;
+  readonly assetCtxs: ReadonlyArray<MarketAssetCtxItem>;
+  readonly allMids: Readonly<Record<string, string>>;
+};
 
 export class HyperliquidProvider extends Context.Tag("HyperliquidProvider")<
   HyperliquidProvider,
@@ -60,7 +120,10 @@ export class HyperliquidProvider extends Context.Tag("HyperliquidProvider")<
       endTime: number
     ) => Effect.Effect<Candle[], HyperliquidError>;
     readonly getAllMids: () => Effect.Effect<Record<string, string>, HyperliquidError>;
-    readonly getMetadata: () => Effect.Effect<MarketsSnapshot, HyperliquidError>;
+    readonly getAggregatedMarkets: () => Effect.Effect<
+      readonly AggregatedTradeAsset[],
+      HyperliquidError
+    >;
     readonly getTicker: (symbol: string) => Effect.Effect<TickerPayload, HyperliquidError>;
     readonly getOrderBook: (
       symbol: string,

@@ -72,3 +72,28 @@ export type CreateDatasetSnapshotInput = {
   span_id?: string;
   correlation_id?: string;
 };
+
+export type MarketTypeCategory = "perp" | "spot" | "outcome";
+
+export type AggregatedMarket = {
+  readonly coin: string;
+  readonly rawCoin: string;
+  readonly displaySymbol: string;
+  readonly dexPrefix: string | null;
+  readonly isHip3: boolean;
+  readonly quoteCurrency: string;
+  readonly name: string;
+  readonly category: string;
+  readonly displayCategory: string;
+  readonly isDelisted: boolean;
+  readonly dex: string;
+  readonly assetId: number;
+  readonly marketType: MarketTypeCategory;
+  readonly markPx: string;
+  readonly prevDayPx: string;
+  readonly openInterest: string;
+  readonly funding: string;
+  readonly dayNtlVlm: string;
+  readonly maxLeverage: number;
+  readonly szDecimals: number;
+};

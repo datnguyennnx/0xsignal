@@ -130,9 +130,8 @@ export function PositionManagement() {
   /* ─── Market close handler ─── */
   const handleCloseMarket = useCallback(
     (coin: string, size: string, isLong: boolean) => {
-      const meta = metaData?.universe ?? [];
-      const idx = meta.findIndex((a) => a.name === coin);
-      const assetIndex = idx >= 0 ? idx : 0;
+      const assetEntry = (Array.isArray(metaData) ? metaData : []).find((a) => a.coin === coin);
+      const assetIndex = assetEntry?.assetId ?? 0;
       const { szDecimals } = getPrecision(coin);
       const absSz = Math.abs(Number(size));
       const formattedSz = formatOrderSize(absSz, szDecimals);
@@ -158,9 +157,8 @@ export function PositionManagement() {
     ({ price, size }: { price: string; size: string }) => {
       if (!closeLimitPosition) return;
       const { coin, isLong } = closeLimitPosition;
-      const meta = metaData?.universe ?? [];
-      const idx = meta.findIndex((a) => a.name === coin);
-      const assetIndex = idx >= 0 ? idx : 0;
+      const assetEntry = (Array.isArray(metaData) ? metaData : []).find((a) => a.coin === coin);
+      const assetIndex = assetEntry?.assetId ?? 0;
       placeOrderMutation.mutate({
         orders: [
           {

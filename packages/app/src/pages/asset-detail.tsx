@@ -10,7 +10,8 @@
  * 7. Renders: TradingChart (5/6 cols) + OrderbookWidget (1/6 col)
  */
 import { useState, lazy, Suspense, useMemo, memo, useCallback, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { normalizeSymbol } from "@/features/trade/lib/symbol";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
@@ -35,6 +36,7 @@ const TradeDropdown = lazy(() =>
   import("@/features/trade/components/trade-dropdown").then((m) => ({ default: m.TradeDropdown }))
 );
 
+import { cn } from "@/core/utils/cn";
 import {
   formatSignedUsd,
   formatFundingPercent,
@@ -42,6 +44,8 @@ import {
   getNextFundingMs,
 } from "./asset-detail.utils";
 import { formatCompactUsd, formatPrice, formatSignedPercent } from "@/core/utils/formatters";
+import { useTradeList } from "@/features/trade/hooks/use-trade-list";
+import { useAllMids } from "@/features/trade/hooks/use-all-mids";
 
 const DESKTOP_CONFIG = {
   initialCandles: 350,
@@ -49,34 +53,32 @@ const DESKTOP_CONFIG = {
   visibleCandles: 250,
 };
 
-const MetricBlock = memo(function MetricBlock({
+const MetricItem = memo(function MetricItem({
   label,
   value,
-  secondary,
   tone = "neutral",
+  hideable,
 }: {
   label: string;
   value: string;
-  secondary?: string;
   tone?: "neutral" | "positive" | "negative";
+  hideable?: boolean;
 }) {
   return (
-    <div className="flex-none min-w-[clamp(5.5rem,10vw+1rem,9rem)] px-[clamp(0.25rem,1vw,0.625rem)] py-0.5">
-      <p className="text-[clamp(0.5rem,1.7vw,0.625rem)] uppercase tracking-[0.06em] text-muted-foreground/75 leading-none tabular-nums">
+    <div className={cn("flex flex-col", hideable && "hidden lg:block")}>
+      <span className="text-[10px] tracking-wider text-muted-foreground/60 font-medium uppercase leading-none mb-1">
         {label}
-      </p>
-      <p
-        className={`mt-1 text-[clamp(0.72rem,2.8vw,0.86rem)] font-mono-slashed tabular-nums leading-none whitespace-nowrap${
-          tone === "positive" ? " text-gain" : tone === "negative" ? " text-loss" : ""
-        }`}
+      </span>
+      <span
+        className={cn(
+          "text-sm font-semibold tabular-nums leading-none whitespace-nowrap",
+          tone === "positive" && "text-gain",
+          tone === "negative" && "text-loss",
+          tone === "neutral" && "text-foreground"
+        )}
       >
         {value}
-      </p>
-      {secondary ? (
-        <p className="mt-1 text-[clamp(0.56rem,1.9vw,0.66rem)] font-mono-slashed tabular-nums text-muted-foreground leading-none whitespace-nowrap">
-          {secondary}
-        </p>
-      ) : null}
+      </span>
     </div>
   );
 });
@@ -104,22 +106,35 @@ const MarketTerminalHeader = memo(function MarketTerminalHeader({
   const fundingTone = fundingRate >= 0 ? "positive" : "negative";
 
   return (
-    <div className="flex-none max-w-full overflow-x-auto scrollbar-hide">
-      <div className="inline-flex items-center gap-[clamp(0.125rem,0.8vw,0.5rem)] min-w-max">
-        <MetricBlock label="Mark" value={formatPrice(markPrice)} />
-        <MetricBlock label="Oracle" value={formatPrice(oraclePrice)} />
-        <MetricBlock
-          label="24h Change"
-          value={`${formatSignedUsd(change24hAbs)} / ${formatSignedPercent(change24hPct)}`}
-          tone={changeTone}
-        />
-        <MetricBlock label="24h Volume" value={formatCompactUsd(volume24h)} />
-        <MetricBlock label="Open Interest" value={formatCompactUsd(openInterest)} />
-        <MetricBlock
-          label="Funding / Countdown"
-          value={`${formatFundingPercent(fundingRate)} / ${fundingCountdown}`}
-          tone={fundingTone}
-        />
+    <div className="flex items-center gap-6 flex-1 min-w-0 overflow-x-auto scrollbar-hide">
+      <MetricItem label="Mark" value={formatPrice(markPrice)} />
+      <MetricItem label="Oracle" value={formatPrice(oraclePrice)} />
+      <MetricItem
+        label="24h Change"
+        value={`${formatSignedUsd(change24hAbs)} / ${formatSignedPercent(change24hPct)}`}
+        tone={changeTone}
+      />
+      <MetricItem label="24h Volume" value={formatCompactUsd(volume24h)} />
+      <MetricItem label="Open Interest" value={formatCompactUsd(openInterest)} />
+      <div className="flex flex-col shrink-0">
+        <span className="text-[10px] tracking-wider text-muted-foreground/60 font-medium uppercase leading-none mb-1">
+          Funding / Countdown
+        </span>
+        <div className="flex items-baseline gap-1 text-sm leading-none">
+          <span
+            className={cn(
+              "font-semibold tabular-nums",
+              fundingTone === "positive" && "text-gain",
+              fundingTone === "negative" && "text-loss"
+            )}
+          >
+            {formatFundingPercent(fundingRate)}
+          </span>
+          <span className="text-muted-foreground/50 font-normal">/</span>
+          <span className="text-muted-foreground/70 font-mono tabular-nums">
+            {fundingCountdown}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -162,30 +177,56 @@ const AssetContent = memo(function AssetContent({
     return () => window.clearInterval(id);
   }, []);
 
+  // `symbol` prop is now the rawCoin from URL (perp: "BTC", spot: "PURR/USDC", HIP-3: "xyz:TSLA")
   const { data: annotation } = useTradeAnnotation(symbol);
   const { data: logoUrl } = useHyperliquidSymbolLogo(symbol);
-  const displayName = annotation?.displayName || asset.symbol.toUpperCase();
+  const { data: tradeList } = useTradeList();
+  const displayName = annotation?.displayName || symbol.toUpperCase();
   const description = annotation?.description;
+
+  // Resolve trade asset from aggregated list by matching rawCoin (case-insensitive)
+  const tradeAsset = useMemo(() => {
+    if (!tradeList?.assets) return undefined;
+    return tradeList.assets.find((a) => a.rawCoin.toLowerCase() === symbol.toLowerCase());
+  }, [tradeList, symbol]);
+  const displaySymbol = tradeAsset?.displaySymbol;
+  const isHip3 = tradeAsset?.isHip3 ?? false;
+  const dexPrefix = tradeAsset?.dexPrefix;
+
+  // Real-time mark price from WebSocket (allMids channel)
+  const allMids = useAllMids(!!symbol);
+  const liveMarkPrice = useMemo(() => {
+    // 1. WebSocket allMids real-time stream (handles perp "xyz:TSLA" and spot "PURR/USDC")
+    if (allMids[symbol]) return Number(allMids[symbol]);
+    // Fall back to normalized uppercase for backward compat
+    const upper = symbol.toUpperCase();
+    if (allMids[upper]) return Number(allMids[upper]);
+    // 2. Aggregated markets list — spot prices from spotMetaAndAssetCtxs
+    //    This is the authoritative source for spot mark prices when WebSocket
+    //    hasn't delivered data yet (cold load) or allMids doesn't include spot pairs.
+    if (tradeAsset?.markPx) return Number(tradeAsset.markPx);
+    // 3. REST API ticker (last resort — returns zeros for spots without allMids data)
+    return price?.markPx || price?.price || 0;
+  }, [allMids, symbol, price, tradeAsset]);
 
   return (
     <div className="container-fluid h-screen flex flex-col py-[clamp(0.25rem,0.8vw,0.5rem)] px-[clamp(0.5rem,1.5vw,1rem)] select-none overflow-hidden">
       {/* Header — fixed height, no scroll */}
       <header className="shrink-0">
-        <div className="w-fit max-w-full flex items-center gap-[clamp(0.25rem,1.2vw,0.5rem)] min-w-0 pb-[clamp(0.25rem,1vw,0.375rem)]">
-          {logoUrl && (
-            <img
-              src={logoUrl}
-              alt={`${displayName} logo`}
-              className="size-[clamp(1.25rem,4vw,1.5rem)] rounded-full shrink-0"
-              loading="eager"
-              decoding="async"
-            />
+        <div className="flex items-center w-full min-w-0 pb-[clamp(0.25rem,1vw,0.375rem)]">
+          <TradeDropdown
+            currentSymbol={symbol}
+            logoUrl={logoUrl ?? undefined}
+            displaySymbol={displaySymbol}
+            currentDisplayName={displayName}
+          />
+          {isHip3 && dexPrefix && (
+            <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0 leading-none">
+              {dexPrefix}
+            </span>
           )}
-          <div className="shrink-0 pr-1">
-            <TradeDropdown currentSymbol={displayName} />
-          </div>
           <MarketTerminalHeader
-            markPrice={price?.markPx || price?.price || 0}
+            markPrice={liveMarkPrice}
             oraclePrice={price?.midPx || price?.markPx || 0}
             change24hAbs={(price?.markPx || price?.price || 0) - (price?.prevDayPx || 0)}
             change24hPct={price?.change24h || 0}
@@ -196,9 +237,11 @@ const AssetContent = memo(function AssetContent({
           />
         </div>
         {description && (
-          <p className="text-[clamp(0.55rem,1.2vw,0.65rem)] text-muted-foreground leading-relaxed max-w-2xl line-clamp-1 pb-[clamp(0.15rem,0.5vw,0.25rem)]">
-            {description}
-          </p>
+          <div className="pb-[clamp(0.15rem,0.5vw,0.25rem)]">
+            <p className="text-xs text-muted-foreground/70 leading-relaxed max-w-2xl">
+              {description}
+            </p>
+          </div>
         )}
       </header>
 
@@ -265,7 +308,22 @@ function AssetDetailSkeleton() {
 }
 
 export function AssetDetail() {
-  const { symbol } = useParams<{ symbol: string }>();
+  const { symbol, base, quote } = useParams<{ symbol: string; base: string; quote: string }>();
+  const navigate = useNavigate();
+  // rawCoin = exact Hyperliquid API identifier from URL.
+  // Perp route /:symbol → rawCoin = symbol (e.g., "BTC", "xyz:TSLA")
+  // Spot route /:base/:quote → rawCoin = "base/quote" (e.g., "PURR/USDC")
+  const rawCoin = (quote ? `${base}/${quote}` : symbol) ?? "";
+
+  // Redirect lowercase URLs (/trade/btc → /trade/BTC)
+  const normalizedRoute = normalizeSymbol(rawCoin);
+  useEffect(() => {
+    if (rawCoin && rawCoin !== normalizedRoute) {
+      const path = normalizedRoute;
+      navigate(`/trade/${path}`, { replace: true });
+    }
+  }, [rawCoin, normalizedRoute, navigate]);
+
   const [interval, setInterval] = useState("1h");
 
   const handleIntervalChange = useCallback((newInterval: string) => {
@@ -276,19 +334,33 @@ export function AssetDetail() {
     window.location.reload();
   }, []);
 
-  const normalizedSymbol = symbol?.toUpperCase() || "";
-  const chartSymbol = normalizedSymbol.endsWith("USDT")
-    ? normalizedSymbol
-    : `${normalizedSymbol}USDT`;
+  const normalizedSymbol = rawCoin.toUpperCase();
+  // Perps use {COIN}USDT for TradingView mapping; spots use the raw pair name.
+  const isSpotUrl = rawCoin.includes("/");
+  const chartSymbol = isSpotUrl
+    ? rawCoin
+    : normalizedSymbol.endsWith("USDT")
+      ? normalizedSymbol
+      : `${normalizedSymbol}USDT`;
+
+  // Only perp assets support WS subscriptions; spot/outcome would send invalid coins → Hyperliquid drops the connection.
+  const { data: tradeListData } = useTradeList();
+  const currentAsset = useMemo(() => {
+    if (!tradeListData?.assets) return null;
+    return tradeListData.assets.find((a) => a.rawCoin.toLowerCase() === rawCoin.toLowerCase());
+  }, [tradeListData, rawCoin]);
+  // Use discriminated union: only "perp" marketType enables WS.
+  // Fail closed: if asset not yet loaded (null), WS stays disabled.
+  const enableWsRealtime = currentAsset?.marketType === "perp";
 
   const {
     data: fetchedAsset,
     isLoading: assetLoading,
     error: assetError,
   } = useQuery({
-    queryKey: queryKeys.asset.bySymbol(symbol || ""),
-    queryFn: () => api.getFuturesPrice(symbol || ""),
-    enabled: !!symbol,
+    queryKey: queryKeys.asset.bySymbol(rawCoin),
+    queryFn: () => api.getFuturesPrice(rawCoin),
+    enabled: !!rawCoin,
     staleTime: 60 * 1000,
     refetchOnMount: true,
     retry: 1,
@@ -309,7 +381,7 @@ export function AssetDetail() {
     symbol: chartSymbol,
     interval,
     limit: DESKTOP_CONFIG.initialCandles,
-    enabled: !!chartSymbol,
+    enabled: enableWsRealtime,
   });
 
   const { getPrecision } = useHyperliquidMeta();
@@ -369,7 +441,7 @@ export function AssetDetail() {
     >
       <AssetContent
         asset={asset}
-        symbol={symbol || ""}
+        symbol={rawCoin}
         interval={interval}
         onIntervalChange={handleIntervalChange}
         showChartSkeleton={showChartSkeleton}

@@ -23,7 +23,6 @@ describe("Market Data Coverage Semantics", () => {
   const mockHLProvider = {
     getCandleSnapshot: vi.fn(),
     getAllMids: vi.fn(),
-    getMetadata: vi.fn(),
   };
 
   const TestContext = Layer.mergeAll(

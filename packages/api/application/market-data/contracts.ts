@@ -16,6 +16,7 @@ import type {
   CreateDatasetSnapshotInput,
 } from "./types";
 import type { MarketTimeframe } from "../../domain/market-data/timeframe";
+import type { AggregatedMarket } from "./types";
 
 export interface MarketCandleStorePort {
   readonly getCandles: (query: CandleQuery) => Effect.Effect<Candle[], unknown>;
@@ -41,7 +42,7 @@ export interface MarketRemoteProviderPort {
     startTime: number,
     endTime: number
   ) => Effect.Effect<Candle[], unknown>;
-  readonly getMetadata: () => Effect.Effect<unknown, unknown>;
+  readonly getAggregatedMarkets: () => Effect.Effect<readonly AggregatedMarket[], unknown>;
   readonly getTicker?: (symbol: string) => Effect.Effect<MarketTicker, unknown>;
   readonly getOrderBook?: (
     symbol: string,

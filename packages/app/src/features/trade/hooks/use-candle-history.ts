@@ -1,8 +1,6 @@
 /**
  * @overview Candle History Fetching Hook
- *
- * It uses TanStack Query to fetch historical OHLCV data from backend candle APIs.
- * Frontend stays transport/render-local while backend owns canonical storage and coverage.
+ * Uses TanStack Query to fetch historical OHLCV data from backend candle APIs.
  */
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
@@ -11,12 +9,18 @@ import { normalizeSymbol } from "../lib/symbol";
 import { mapToHLInterval, type HLInterval } from "@/core/utils/hyperliquid";
 
 async function fetchHistorical(symbol: string, interval: HLInterval, limit: number) {
-  const candles = await api.getRecentChartLane({
-    symbol,
-    interval,
-    limit,
-  });
-  return candles.slice(-limit);
+  try {
+    const candles = await api.getRecentChartLane({
+      symbol,
+      interval,
+      limit,
+    });
+    return candles.slice(-limit);
+  } catch (err) {
+    // Gracefully handle errors (e.g., builder perps not in main perp universe)
+    console.warn("Candle history fetch failed, returning empty:", symbol, interval, limit, err);
+    return [];
+  }
 }
 
 /**
@@ -28,12 +32,17 @@ export async function fetchByRange(
   startTime: number,
   endTime: number
 ) {
-  return api.getCandles({
-    symbol,
-    interval,
-    startTime,
-    endTime,
-  });
+  try {
+    return await api.getCandles({
+      symbol,
+      interval,
+      startTime,
+      endTime,
+    });
+  } catch (err) {
+    console.warn("Candle range fetch failed, returning empty:", symbol, interval, err);
+    return [];
+  }
 }
 
 export function useCandleHistory(
@@ -50,11 +59,9 @@ export function useCandleHistory(
     enabled: enabled && !!symbol,
     placeholderData: (previousData, previousQuery) => {
       if (!previousData || !previousQuery) return undefined;
-      // queryKey shape: ["chart", "candles", symbol, interval, limit]
       const prevKey = previousQuery.queryKey as unknown as string[];
-      // Only use placeholder when symbol AND interval match (identity unchanged)
       if (prevKey[2] !== normalizedSymbol || prevKey[3] !== hlInterval) {
-        return undefined; // identity changed → no stale data
+        return undefined;
       }
       return previousData;
     },

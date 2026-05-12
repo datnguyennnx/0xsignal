@@ -58,13 +58,14 @@ export function useHyperliquidMeta() {
 
   const precisionMap = useMemo(() => {
     const map = new Map<string, AssetPrecision>();
-    if (!data?.universe) return map;
-    for (const asset of data.universe) {
+    if (!Array.isArray(data)) return map;
+    for (const asset of data) {
+      if (asset.isDelisted) continue;
       const sz = asset.szDecimals ?? 4;
       const pxDec = calculatePxDecimals(sz);
       const ml = asset.maxLeverage ?? 50;
-      const key = asset.name.includes(":") ? asset.name : asset.name.toUpperCase();
-      map.set(key, {
+      // Use coin (normalized) as key
+      map.set(asset.coin.toUpperCase(), {
         pxDecimals: pxDec,
         szDecimals: sz,
         maxLeverage: ml,

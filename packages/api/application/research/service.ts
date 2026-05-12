@@ -1,5 +1,5 @@
 import { Effect, Context, Layer } from "effect";
-import { validationError, DomainError } from "../errors";
+import { DomainError } from "../errors";
 import type { ResearchNote, Artifact } from "../../schemas/research";
 import { ResearchRepository } from "../ports/research-repository";
 
@@ -64,19 +64,34 @@ export const makeResearchService = (repo: ResearchRepository): ResearchServices 
           correlation_id: input.correlation_id,
           created_at: new Date().toISOString(),
         }),
-      catch: (e) => validationError("Failed to append research note", e),
+      catch: (e) =>
+        new DomainError({
+          code: "VALIDATION_ERROR",
+          message: "Failed to append research note",
+          cause: e,
+        }),
     }),
 
   getNotesBySession: (sessionId: string): Effect.Effect<ResearchNote[], DomainError, never> =>
     Effect.tryPromise({
       try: () => repo.getNotesBySession(sessionId),
-      catch: (e) => validationError("Failed to load research notes for session", e),
+      catch: (e) =>
+        new DomainError({
+          code: "VALIDATION_ERROR",
+          message: "Failed to load research notes for session",
+          cause: e,
+        }),
     }),
 
   getNotesByStrategy: (strategyId: string): Effect.Effect<ResearchNote[], DomainError, never> =>
     Effect.tryPromise({
       try: () => repo.getNotesByStrategy(strategyId),
-      catch: (e) => validationError("Failed to load research notes for strategy", e),
+      catch: (e) =>
+        new DomainError({
+          code: "VALIDATION_ERROR",
+          message: "Failed to load research notes for strategy",
+          cause: e,
+        }),
     }),
 
   createArtifact: (input: CreateArtifactInput): Effect.Effect<Artifact, DomainError, never> =>
@@ -96,13 +111,23 @@ export const makeResearchService = (repo: ResearchRepository): ResearchServices 
           correlation_id: input.correlation_id,
           created_at: new Date().toISOString(),
         }),
-      catch: (e) => validationError("Failed to create artifact", e),
+      catch: (e) =>
+        new DomainError({
+          code: "VALIDATION_ERROR",
+          message: "Failed to create artifact",
+          cause: e,
+        }),
     }),
 
   getArtifactsByRun: (runId: string): Effect.Effect<Artifact[], DomainError, never> =>
     Effect.tryPromise({
       try: () => repo.getArtifactsByRun(runId),
-      catch: (e) => validationError("Failed to load artifacts for run", e),
+      catch: (e) =>
+        new DomainError({
+          code: "VALIDATION_ERROR",
+          message: "Failed to load artifacts for run",
+          cause: e,
+        }),
     }),
 });
 

@@ -3,7 +3,6 @@ import { Effect, Layer } from "effect";
 import type { InfoClient } from "@nktkas/hyperliquid";
 import {
   getCandleSnapshot,
-  getMetadata,
   getAllMids,
   getTicker,
   getOrderBook,
@@ -51,54 +50,6 @@ describe("Hyperliquid Providers", () => {
     });
     expect(result).toHaveLength(1);
     expect(result[0].open).toBe(1);
-  });
-
-  it("getMetadata should call SDK and return data", async () => {
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValueOnce([
-      { universe: [{ name: "BTC", maxLeverage: 40 }] },
-      [
-        {
-          prevDayPx: "100",
-          dayNtlVlm: "12345",
-          markPx: "101",
-          midPx: "101.5",
-          funding: "0.0001",
-          openInterest: "999",
-        },
-      ],
-    ]);
-    mockInfoClient.allMids.mockResolvedValueOnce({ BTC: "101.5" });
-    mockInfoClient.perpCategories.mockResolvedValueOnce([["BTC", "crypto"]]);
-
-    const program = getMetadata();
-    const result = await Effect.runPromise(program.pipe(Effect.provide(TestHLClientLive)));
-
-    expect(mockInfoClient.metaAndAssetCtxs).toHaveBeenCalled();
-    expect(mockInfoClient.allMids).toHaveBeenCalled();
-    expect(mockInfoClient.perpCategories).toHaveBeenCalled();
-    expect(mockInfoClient.perpAnnotation).not.toHaveBeenCalled();
-    expect(result.universe).toHaveLength(1);
-    expect(result.assetCtxs).toHaveLength(1);
-    expect(result.allMids).toEqual({ BTC: "101.5" });
-    expect(result.perpCategories).toEqual([["BTC", "crypto"]]);
-  });
-
-  it("getMetadata should gracefully fallback category when perpCategories fails", async () => {
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValueOnce([
-      { universe: [{ name: "ETH", maxLeverage: 30 }] },
-      [
-        {
-          markPx: "3200",
-          midPx: "3201",
-        },
-      ],
-    ]);
-    mockInfoClient.allMids.mockResolvedValueOnce({ ETH: "3201" });
-    mockInfoClient.perpCategories.mockRejectedValueOnce(new Error("timeout"));
-
-    const result = await Effect.runPromise(getMetadata().pipe(Effect.provide(TestHLClientLive)));
-
-    expect(result.perpCategories).toEqual([["ETH", "crypto"]]);
   });
 
   it("should wrap HL SDK errors into HyperliquidError", async () => {

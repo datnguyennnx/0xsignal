@@ -84,24 +84,20 @@ export function useHyperliquidCandles({
   const intervalRef = useRef(interval);
   const historyIdentityRef = useRef<{ symbol: string; interval: string } | null>(null);
 
-  // Keep refs in sync
   symbolRef.current = symbol;
   intervalRef.current = interval;
   useEffect(() => {
     hasMoreRef.current = hasMore;
   }, [hasMore]);
 
-  // Use the new decomposed history hook
   const historical = useCandleHistory(symbol, interval, limit, enabled);
   const { data: historyData, isLoading: historyLoading, error: historyError } = historical;
 
-  // Sync history error
   useEffect(() => {
     if (historyError) setError(historyError as Error);
   }, [historyError]);
 
-  // Sync historical data to state
-  // We reset dataRef and state whenever historyData changes (e.g. symbol/interval change)
+  // Reset dataRef/data whenever historyData changes (e.g. symbol/interval change)
   useEffect(() => {
     const previousIdentity = historyIdentityRef.current;
     const identityChanged =
@@ -135,10 +131,7 @@ export function useHyperliquidCandles({
     [enabled, coin, hlInterval]
   );
 
-  /**
-   * RAF-throttled buffer flush
-   * Batches high-frequency WS updates to max 60fps
-   */
+  // RAF-throttled buffer flush — batches high-frequency WS updates to max 60fps
   const scheduleUpdate = useCallback(() => {
     if (rafRef.current) return;
     const now = performance.now();
@@ -248,9 +241,7 @@ export function useHyperliquidCandles({
     onError: handleError,
   });
 
-  /**
-   * Loads older candles for infinite scroll
-   */
+  // Loads older candles for infinite scroll
   const loadMore = useCallback(
     async (count: number = 200) => {
       if (isFetchingRef.current || !hasMoreRef.current) return;
@@ -273,7 +264,7 @@ export function useHyperliquidCandles({
       try {
         const older = await fetchByRange(targetSymbol, hlInt, startTime, endTime);
 
-        // Verification: Ensure we haven't switched symbols/intervals while fetching
+        // Guard: ensure symbol/interval hasn't changed mid-fetch
         if (targetSymbol !== symbolRef.current || targetInterval !== intervalRef.current) {
           return;
         }

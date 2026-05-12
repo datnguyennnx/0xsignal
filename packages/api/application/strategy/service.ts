@@ -1,5 +1,5 @@
 import { Effect, Context, Layer } from "effect";
-import { validationError, notFoundError, domainError, DomainError } from "../errors";
+import { DomainError } from "../errors";
 import type {
   StrategyDefinition,
   StrategyVersion,
@@ -82,10 +82,18 @@ export const makeStrategyService = (repo: StrategyRepository) =>
             "code" in e &&
             (e as { code?: string }).code === "23505"
           ) {
-            return domainError("ALREADY_EXISTS", `Strategy slug '${input.slug}' already exists`, e);
+            return new DomainError({
+              code: "ALREADY_EXISTS",
+              message: `Strategy slug '${input.slug}' already exists`,
+              cause: e,
+            });
           }
 
-          return validationError("Failed to create strategy definition", e);
+          return new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to create strategy definition",
+            cause: e,
+          });
         },
       }),
 
@@ -106,7 +114,12 @@ export const makeStrategyService = (repo: StrategyRepository) =>
             correlation_id: input.correlation_id,
             created_at: new Date().toISOString(),
           }),
-        catch: (e) => validationError("Failed to create strategy version", e),
+        catch: (e) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to create strategy version",
+            cause: e,
+          }),
       }),
 
     recordStrategyChange: (input: RecordStrategyChangeInput) =>
@@ -125,17 +138,29 @@ export const makeStrategyService = (repo: StrategyRepository) =>
             correlation_id: input.correlation_id,
             created_at: new Date().toISOString(),
           }),
-        catch: (e) => validationError("Failed to record strategy change", e),
+        catch: (e) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to record strategy change",
+            cause: e,
+          }),
       }),
 
     getStrategyHistory: (id: string) =>
       Effect.gen(function* () {
         const history = yield* Effect.tryPromise({
           try: () => repo.getHistory(id),
-          catch: (e) => validationError("Failed to get strategy history", e),
+          catch: (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to get strategy history",
+              cause: e,
+            }),
         });
         if (!history) {
-          return yield* Effect.fail(notFoundError(`Strategy ${id} not found`));
+          return yield* Effect.fail(
+            new DomainError({ code: "NOT_FOUND", message: `Strategy ${id} not found` })
+          );
         }
         return history;
       }),

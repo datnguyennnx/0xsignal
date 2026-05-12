@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import type { BacktestRun } from "../../schemas/backtest";
-import { validationError, type DomainError } from "../errors";
+import { DomainError } from "../errors";
 import type { BacktestRepository } from "../ports/backtest-repository";
 import type { EngineInput, EngineOutput } from "../../domain/backtest/engine";
 import { normalizeEventType } from "./policies";
@@ -17,7 +17,12 @@ export const executeBacktestRun = (
   Effect.gen(function* () {
     yield* Effect.tryPromise({
       try: () => repo.updateRunStatus(run.id, "running"),
-      catch: (e) => validationError("Failed to set run to running", e),
+      catch: (e) =>
+        new DomainError({
+          code: "VALIDATION_ERROR",
+          message: "Failed to set run to running",
+          cause: e,
+        }),
     });
 
     yield* Effect.tryPromise({
@@ -30,7 +35,12 @@ export const executeBacktestRun = (
           level: "info",
           created_at: new Date().toISOString(),
         }),
-      catch: (e) => validationError("Failed to insert start event", e),
+      catch: (e) =>
+        new DomainError({
+          code: "VALIDATION_ERROR",
+          message: "Failed to insert start event",
+          cause: e,
+        }),
     });
 
     const output = yield* executor
@@ -43,7 +53,16 @@ export const executeBacktestRun = (
         },
         schema_version: "1.0.0",
       })
-      .pipe(Effect.mapError((error) => validationError("Backtest engine execution failed", error)));
+      .pipe(
+        Effect.mapError(
+          (error) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Backtest engine execution failed",
+              cause: error,
+            })
+        )
+      );
 
     yield* Effect.forEach(Object.entries(output.metrics), ([metricKey, metricValue]) =>
       Effect.tryPromise({
@@ -55,7 +74,12 @@ export const executeBacktestRun = (
             metric_group: "performance",
             created_at: new Date().toISOString(),
           }),
-        catch: (e) => validationError("Failed to persist metric", e),
+        catch: (e) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to persist metric",
+            cause: e,
+          }),
       })
     );
 
@@ -70,13 +94,23 @@ export const executeBacktestRun = (
             level: event.level,
             created_at: event.timestamp,
           }),
-        catch: (e) => validationError("Failed to persist event", e),
+        catch: (e) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to persist event",
+            cause: e,
+          }),
       })
     );
 
     yield* Effect.tryPromise({
       try: () => repo.updateRunStatus(run.id, output.status),
-      catch: (e) => validationError("Failed to update final run status", e),
+      catch: (e) =>
+        new DomainError({
+          code: "VALIDATION_ERROR",
+          message: "Failed to update final run status",
+          cause: e,
+        }),
     });
 
     yield* Effect.tryPromise({
@@ -89,7 +123,12 @@ export const executeBacktestRun = (
           level: "info",
           created_at: new Date().toISOString(),
         }),
-      catch: (e) => validationError("Failed to insert completion event", e),
+      catch: (e) =>
+        new DomainError({
+          code: "VALIDATION_ERROR",
+          message: "Failed to insert completion event",
+          cause: e,
+        }),
     });
   }).pipe(
     Effect.catchAll((err: DomainError) => {

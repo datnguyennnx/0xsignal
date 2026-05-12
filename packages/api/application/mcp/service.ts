@@ -1,5 +1,5 @@
 import { Effect, Context, Layer } from "effect";
-import { validationError, DomainError } from "../errors";
+import { DomainError } from "../errors";
 import { MCPRepository } from "../ports/mcp-repository";
 import type { McpInteraction } from "../../schemas/mcp";
 
@@ -36,13 +36,23 @@ export const McpServicesLive = Layer.effect(
               status: "pending",
               created_at: new Date().toISOString(),
             }),
-          catch: (e) => validationError("Failed to track MCP interaction", e),
+          catch: (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to track MCP interaction",
+              cause: e,
+            }),
         }),
 
       updateStatus: (id, status, output) =>
         Effect.tryPromise({
           try: () => repo.updateInteractionStatus(id, status, output),
-          catch: (e) => validationError("Failed to update MCP interaction status", e),
+          catch: (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to update MCP interaction status",
+              cause: e,
+            }),
         }),
     });
   })

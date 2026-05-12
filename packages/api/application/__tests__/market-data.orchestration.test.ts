@@ -30,7 +30,6 @@ describe("MarketDataServices Orchestration", () => {
 
   const mockHLProvider = {
     getCandleSnapshot: vi.fn(),
-    getMetadata: vi.fn(),
     getTicker: vi.fn(),
   };
 

@@ -1,5 +1,5 @@
 import { Effect, Context, Layer } from "effect";
-import { validationError, notFoundError, DomainError } from "../errors";
+import { DomainError } from "../errors";
 import type { AgentSession, AgentPlan, AgentAction } from "../../schemas/agent";
 import { AgentRepository } from "../ports/agent-repository";
 
@@ -81,17 +81,29 @@ export const makeAgentService = (repo: AgentRepository) =>
             request_id: input.request_id,
             started_at: new Date().toISOString(),
           }),
-        catch: (e) => validationError("Failed to create session", e),
+        catch: (e) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to create session",
+            cause: e,
+          }),
       }),
 
     getSession: (id: string) =>
       Effect.gen(function* () {
         const session = yield* Effect.tryPromise({
           try: () => repo.getSession(id),
-          catch: (err) => validationError("Failed to get session", err),
+          catch: (err) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to get session",
+              cause: err,
+            }),
         });
         if (!session) {
-          return yield* Effect.fail(notFoundError(`Session ${id} not found`));
+          return yield* Effect.fail(
+            new DomainError({ code: "NOT_FOUND", message: `Session ${id} not found` })
+          );
         }
         return session;
       }),
@@ -112,13 +124,19 @@ export const makeAgentService = (repo: AgentRepository) =>
             request_id: input.request_id,
             created_at: new Date().toISOString(),
           }),
-        catch: (e) => validationError("Failed to save plan", e),
+        catch: (e) =>
+          new DomainError({ code: "VALIDATION_ERROR", message: "Failed to save plan", cause: e }),
       }),
 
     getPlansBySession: (sessionId: string) =>
       Effect.tryPromise({
         try: () => repo.getPlansBySession(sessionId),
-        catch: (err) => validationError("Failed to get plans for session", err),
+        catch: (err) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to get plans for session",
+            cause: err,
+          }),
       }),
 
     recordAction: (input: RecordActionInput) =>
@@ -143,13 +161,23 @@ export const makeAgentService = (repo: AgentRepository) =>
             parent_span_id: input.parent_span_id,
             created_at: new Date().toISOString(),
           }),
-        catch: (e) => validationError("Failed to record action", e),
+        catch: (e) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to record action",
+            cause: e,
+          }),
       }),
 
     getActionsBySession: (sessionId: string) =>
       Effect.tryPromise({
         try: () => repo.getActionsBySession(sessionId),
-        catch: (err) => validationError("Failed to get actions for session", err),
+        catch: (err) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to get actions for session",
+            cause: err,
+          }),
       }),
   });
 

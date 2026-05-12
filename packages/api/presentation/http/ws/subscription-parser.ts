@@ -34,11 +34,13 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
     };
   }
 
-  const symbol = params.get("symbol") ?? params.get("coin") ?? "";
+  const rawSymbol = params.get("symbol") ?? params.get("coin") ?? "";
+  // normalizeSymbol handles all types natively (spot, perp, builderPerp).
+  // Spots like "PURR/USDC" pass through unchanged; perps like "BTCUSDT" get normalized.
+  const symbol = normalizeSymbol(rawSymbol);
 
   if (channel === "candle") {
-    const normalized = normalizeSymbol(symbol);
-    if (!normalized) {
+    if (!symbol) {
       return {
         ok: false,
         status: 400,
@@ -59,15 +61,14 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
       ok: true,
       data: {
         channel,
-        symbol: normalized,
+        symbol,
         interval: interval as MarketWsInterval,
       },
     };
   }
 
   if (channel === "l2Book") {
-    const normalized = normalizeSymbol(symbol);
-    if (!normalized) {
+    if (!symbol) {
       return {
         ok: false,
         status: 400,
@@ -89,15 +90,14 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
       ok: true,
       data: {
         channel,
-        symbol: normalized,
+        symbol,
         nSigFigs: nSigFigs ?? depth ?? undefined,
       },
     };
   }
 
   if (channel === "trades") {
-    const normalized = normalizeSymbol(symbol);
-    if (!normalized) {
+    if (!symbol) {
       return {
         ok: false,
         status: 400,
@@ -109,7 +109,7 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
       ok: true,
       data: {
         channel,
-        symbol: normalized,
+        symbol,
       },
     };
   }

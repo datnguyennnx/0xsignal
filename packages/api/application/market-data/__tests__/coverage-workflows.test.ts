@@ -51,7 +51,6 @@ describe("coverage workflows", () => {
     };
     const remoteProvider: MarketRemoteProviderPort = {
       getCandleSnapshot,
-      getMetadata: vi.fn(),
     };
     const workflow = createGapFillWorkflow(candleRepo, remoteProvider, mapMarketInfraError);
     const query: CandleQuery = { ...baseQuery, exchange: "other" };
@@ -82,7 +81,6 @@ describe("coverage workflows", () => {
     };
     const remoteProvider: MarketRemoteProviderPort = {
       getCandleSnapshot,
-      getMetadata: vi.fn(),
     };
     const workflow = createGapFillWorkflow(candleRepo, remoteProvider, mapMarketInfraError);
     const out = await Effect.runPromise(

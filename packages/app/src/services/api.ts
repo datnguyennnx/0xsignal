@@ -14,6 +14,13 @@ import type { ChartDataPoint } from "@0xsignal/shared";
 import { resolveApiBase } from "@/lib/api-base";
 import { normalizeSymbol } from "@/features/trade/lib/symbol";
 
+/**
+ * normalizeSymbol handles all types:
+ *   perps: "BTCUSDT" → "BTC"
+ *   builder perps: "XYZ:YEETI" → "xyz:YEETI"
+ *   spot: "PURR/USDC" → "PURR/USDC" (passes through)
+ */
+
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const API_BASE = resolveApiBase(configuredApiUrl, import.meta.env.DEV);
 
@@ -164,16 +171,63 @@ export interface FuturesPrice {
   readonly timestamp: Date;
 }
 
-export interface BackendMarketAsset {
-  name: string;
-  szDecimals?: number;
-  maxLeverage?: number;
-  isDelisted?: boolean;
+// Backend AggregatedTradeAsset (discriminated union)
+
+export type BackendMarketType = "perp" | "spot" | "outcome";
+
+interface BackendBaseAsset {
+  readonly coin: string;
+  readonly rawCoin: string;
+  readonly displaySymbol: string;
+  readonly dexPrefix: string | null;
+  readonly isHip3: boolean;
+  readonly quoteCurrency: string;
+  readonly name: string;
+  readonly category: string;
+  readonly displayCategory: string;
+  readonly isDelisted: boolean;
+  readonly dex: string;
+  readonly assetId: number;
+  readonly marketType: BackendMarketType;
 }
 
-export interface BackendMarketsResponse {
-  universe?: BackendMarketAsset[];
+export interface BackendPerpAsset extends BackendBaseAsset {
+  readonly marketType: "perp";
+  readonly markPx: string;
+  readonly prevDayPx: string;
+  readonly openInterest: string;
+  readonly funding: string;
+  readonly dayNtlVlm: string;
+  readonly maxLeverage: number;
+  readonly szDecimals: number;
 }
+
+export interface BackendSpotAsset extends BackendBaseAsset {
+  readonly marketType: "spot";
+  readonly markPx: string;
+  readonly prevDayPx: string;
+  readonly dayNtlVlm: string;
+  readonly dayBaseVlm: string;
+  readonly circulatingSupply?: string;
+  readonly totalSupply?: string;
+  readonly maxLeverage: 1;
+  readonly szDecimals: number;
+  readonly openInterest: "0";
+  readonly funding: "0";
+}
+
+export interface BackendOutcomeAsset extends BackendBaseAsset {
+  readonly marketType: "outcome";
+  readonly markPx: "0";
+  readonly prevDayPx: "0";
+  readonly dayNtlVlm: "0";
+  readonly maxLeverage: 1;
+  readonly szDecimals: 0;
+  readonly openInterest: "0";
+  readonly funding: "0";
+}
+
+export type BackendTradeAsset = BackendPerpAsset | BackendSpotAsset | BackendOutcomeAsset;
 
 export interface BackendTickerResponse {
   symbol?: string;
@@ -263,9 +317,8 @@ export interface OpenOrderSchema {
 export type OpenOrdersResponse = OpenOrderSchema[];
 
 /**
- * Richer order shape returned by Hyperliquid's `frontendOpenOrders` endpoint.
- * Contains `orderType` as a native string, top-level trigger fields,
- * and `children` array for TP/SL parent-child relationships.
+ * Order shape from Hyperliquid's `frontendOpenOrders` endpoint.
+ * Includes `orderType` as a native string and `children` for TP/SL relationships.
  */
 export interface FrontendOpenOrderSchema {
   coin: string;
@@ -353,7 +406,7 @@ export interface CancelOrdersRequest {
 export const api = {
   health: () => fetchJson(`${API_BASE}/health`),
 
-  getMarkets: () => fetchJson<BackendMarketsResponse>(`${API_BASE}/markets`),
+  getMarkets: () => fetchJson<BackendTradeAsset[]>(`${API_BASE}/markets`),
 
   getCandles: async (params: {
     symbol: string;
@@ -366,6 +419,7 @@ export const api = {
       symbol: normalizeSymbol(params.symbol),
       interval: params.interval,
     });
+
     if (params.startTime !== undefined) {
       query.set("start_time", new Date(params.startTime).toISOString());
     }
@@ -469,26 +523,43 @@ export const api = {
 
   getFuturesPrice: async (symbol: string): Promise<FuturesPrice> => {
     const normalizedSymbol = normalizeSymbol(symbol);
-    const ticker = await api.getTicker(normalizedSymbol);
+    let markPx = 0;
+    let midPx = 0;
+    let prevDayPx = 0;
+    let volume24h = 0;
+    let openInterest = 0;
+    let funding = 0;
+    let resolvedSymbol = normalizedSymbol;
 
-    const mid = toNumberOrNull(ticker.mid ?? ticker.midPx ?? ticker.markPx) ?? 0;
-    const markPx = toNumberOrNull(ticker.markPx) ?? mid;
-    const midPx = toNumberOrNull(ticker.midPx) ?? mid;
-    const prevDayPx = toNumberOrNull(ticker.prevDayPx) ?? markPx;
+    try {
+      const ticker = await api.getTicker(normalizedSymbol);
+
+      const mid = toNumberOrNull(ticker.mid ?? ticker.midPx ?? ticker.markPx) ?? 0;
+      markPx = toNumberOrNull(ticker.markPx) ?? mid;
+      midPx = toNumberOrNull(ticker.midPx) ?? mid;
+      prevDayPx = toNumberOrNull(ticker.prevDayPx) ?? markPx;
+      volume24h = toNumberOrNull(ticker.dayNtlVlm) ?? 0;
+      openInterest = toNumberOrNull(ticker.openInterest) ?? 0;
+      funding = toNumberOrNull(ticker.funding) ?? 0;
+      resolvedSymbol =
+        typeof ticker.symbol === "string" && ticker.symbol.trim().length > 0
+          ? ticker.symbol
+          : normalizedSymbol;
+    } catch (err) {
+      // Gracefully handle 404/errors — return fallback data (e.g., builder perps not in main perp universe)
+      console.warn("Ticker fetch failed for", normalizedSymbol, err);
+    }
+
     const price = markPx || midPx;
     const change24h = prevDayPx > 0 ? ((price - prevDayPx) / prevDayPx) * 100 : 0;
-    const resolvedSymbol =
-      typeof ticker.symbol === "string" && ticker.symbol.trim().length > 0
-        ? ticker.symbol
-        : normalizedSymbol;
 
     return {
       symbol: resolvedSymbol,
       price,
       change24h,
-      volume24h: toNumberOrNull(ticker.dayNtlVlm) ?? 0,
-      openInterest: toNumberOrNull(ticker.openInterest) ?? 0,
-      funding: toNumberOrNull(ticker.funding) ?? 0,
+      volume24h,
+      openInterest,
+      funding,
       markPx,
       midPx,
       prevDayPx,

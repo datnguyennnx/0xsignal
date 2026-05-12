@@ -1,5 +1,5 @@
 import { Effect, Context, Layer } from "effect";
-import { validationError, notFoundError, DomainError } from "../errors";
+import { DomainError } from "../errors";
 import type {
   BacktestRun,
   BacktestMetric,
@@ -76,7 +76,12 @@ export const makeBacktestService = (repo: BacktestRepository) =>
                   created_at: new Date().toISOString(),
                 }
               ),
-            catch: (e) => validationError("Failed to create backtest run", e),
+            catch: (e) =>
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Failed to create backtest run",
+                cause: e,
+              }),
           });
 
           const executeRun = executeBacktestRun(repo, executor, run);
@@ -96,23 +101,40 @@ export const makeBacktestService = (repo: BacktestRepository) =>
               schema_version: input.schema_version,
               created_at: new Date().toISOString(),
             }),
-          catch: (e) => validationError("Failed to save run input", e),
+          catch: (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to save run input",
+              cause: e,
+            }),
         }),
 
       getRunSummary: (id: string): Effect.Effect<RunSummary, DomainError> =>
         Effect.gen(function* () {
           const run = yield* Effect.tryPromise({
             try: () => repo.getRun(id),
-            catch: (e) => validationError("Failed to load backtest run", e),
+            catch: (e) =>
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Failed to load backtest run",
+                cause: e,
+              }),
           });
 
           if (!run) {
-            return yield* Effect.fail(notFoundError(`Run ${id} not found`));
+            return yield* Effect.fail(
+              new DomainError({ code: "NOT_FOUND", message: `Run ${id} not found` })
+            );
           }
 
           const [metrics, eventCount] = yield* Effect.tryPromise({
             try: () => Promise.all([repo.getMetricsByRun(id), repo.getEventCount(id)]),
-            catch: (e) => validationError("Failed to load backtest run summary", e),
+            catch: (e) =>
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Failed to load backtest run summary",
+                cause: e,
+              }),
           });
 
           return { run, metrics, eventCount };
@@ -122,11 +144,18 @@ export const makeBacktestService = (repo: BacktestRepository) =>
         Effect.gen(function* () {
           const input = yield* Effect.tryPromise({
             try: () => repo.getRunInput(id),
-            catch: (e) => validationError("Failed to load backtest run input", e),
+            catch: (e) =>
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Failed to load backtest run input",
+                cause: e,
+              }),
           });
 
           if (!input) {
-            return yield* Effect.fail(notFoundError(`Input for run ${id} not found`));
+            return yield* Effect.fail(
+              new DomainError({ code: "NOT_FOUND", message: `Input for run ${id} not found` })
+            );
           }
 
           return input;
@@ -135,7 +164,12 @@ export const makeBacktestService = (repo: BacktestRepository) =>
       getRunEvents: (id: string): Effect.Effect<BacktestEvent[], DomainError> =>
         Effect.tryPromise({
           try: () => repo.getEventsByRun(id),
-          catch: (e) => validationError("Failed to load backtest run events", e),
+          catch: (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to load backtest run events",
+              cause: e,
+            }),
         }),
 
       appendRunEvent: (input: AppendRunEventInput): Effect.Effect<BacktestEvent, DomainError> =>
@@ -153,7 +187,12 @@ export const makeBacktestService = (repo: BacktestRepository) =>
               parent_span_id: input.parent_span_id,
               created_at: new Date().toISOString(),
             }),
-          catch: (e) => validationError("Failed to append run event", e),
+          catch: (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to append run event",
+              cause: e,
+            }),
         }),
 
       recordMetric: (input: RecordMetricInput): Effect.Effect<BacktestMetric, DomainError> =>
@@ -166,7 +205,12 @@ export const makeBacktestService = (repo: BacktestRepository) =>
               metric_group: input.metric_group,
               created_at: new Date().toISOString(),
             }),
-          catch: (e) => validationError("Failed to record metric", e),
+          catch: (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to record metric",
+              cause: e,
+            }),
         }),
     });
   });

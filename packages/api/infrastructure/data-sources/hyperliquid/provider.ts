@@ -7,15 +7,21 @@ import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 import type { PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
 import { HyperliquidError } from "./errors";
 import { HyperliquidProvider } from "./types";
-import type { MarketsSnapshot, TickerPayload, OrderBookPayload, TickerSnapshot } from "./types";
+import type {
+  TickerPayload,
+  OrderBookPayload,
+  TickerSnapshot,
+  AggregatedTradeAsset,
+} from "./types";
 import {
   mapTickerFromSnapshot,
-  getMarketsSnapshotEffect,
   getTickerSnapshotEffect,
+  getAggregatedMarketsSnapshot,
+  getSpotTokens,
   resolveInternalSymbol,
   isPerpSymbol,
 } from "./mapping";
-import { resolveWithCache, type CacheSlot } from "./cache";
+import { resolveWithCache, MARKET_SCHEMA_VERSION, type CacheSlot } from "./cache";
 
 type HyperliquidClientService = Context.Tag.Service<typeof HyperliquidClient>;
 
@@ -63,16 +69,6 @@ export const getAllMids = (): Effect.Effect<
           cause,
         }),
     });
-  });
-
-export const getMetadata = (): Effect.Effect<
-  MarketsSnapshot,
-  HyperliquidError,
-  HyperliquidClient
-> =>
-  Effect.gen(function* () {
-    const { info } = yield* HyperliquidClient;
-    return yield* getMarketsSnapshotEffect(info);
   });
 
 export const getTicker = (
@@ -164,27 +160,92 @@ export const getTradeAnnotation = (
   });
 
 export const HyperliquidProviderLive = (client: HyperliquidClientService) => {
-  const MARKETS_TTL_MS = 15_000;
-  const TICKER_SNAPSHOT_TTL_MS = 1_000;
-  const CANDLE_SNAPSHOT_TTL_MS = 1_000;
+  // ── TTLs ─────────────────────────────────────────────────────────
+  // Aggregated market list is cached with eager background refresh so
+  // the cache is ALWAYS warm — users never wait for Hyperliquid API calls.
+  // Sub-dependencies have longer TTLs (market list rarely changes).
+  const AGGREGATED_MARKETS_TTL_MS = 60_000;
+  const TICKER_SNAPSHOT_TTL_MS = 30_000;
+  const CANDLE_SNAPSHOT_TTL_MS = 10_000;
   const TRADE_ANNOTATION_TTL_MS = 6 * 60 * 60 * 1000;
+  const SPOT_META_TTL_MS = 120_000;
+  const SPOT_META_AND_ASSET_CTXS_TTL_MS = 60_000;
+  const OUTCOME_META_TTL_MS = 120_000;
 
-  const metadataCache: CacheSlot<MarketsSnapshot> = { expiresAt: 0 };
+  const aggregatedMarketsCache: CacheSlot<readonly AggregatedTradeAsset[]> = { expiresAt: 0 };
   const tickerSnapshotCache: CacheSlot<TickerSnapshot> = { expiresAt: 0 };
+  const spotMetaCache: CacheSlot<string[]> = { expiresAt: 0 };
+  const spotMetaAndAssetCtxsCache: CacheSlot<unknown> = { expiresAt: 0 };
+  const outcomeMetaCache: CacheSlot<unknown> = { expiresAt: 0 };
   const candleSnapshotCache = new Map<string, CacheSlot<Candle[]>>();
   const tradeAnnotationCache = new Map<
     string,
     CacheSlot<{ symbol: string; annotation: PerpAnnotationResponse }>
   >();
 
-  const getCachedMarkets = () =>
-    resolveWithCache(metadataCache, MARKETS_TTL_MS, () =>
-      Effect.runPromise(getMarketsSnapshotEffect(client.info))
+  // ── Background refresh timers ───────────────────────────────────
+  // Eager refresh keeps caches warm: after a successful fetch, the next
+  // refresh fires at 80% of TTL so the cache NEVER expires under load.
+  let aggregatedRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  let tickerRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  // Used by closure timers below — declare to satisfy noUnusedLocals
+  void aggregatedRefreshTimer;
+  void tickerRefreshTimer;
+
+  const loadAggregatedMarkets = async (): Promise<readonly AggregatedTradeAsset[]> => {
+    const [tokens, spotRaw, outcomeRaw] = await Promise.all([
+      getCachedSpotTokens(),
+      getCachedSpotMetaAndAssetCtxs(),
+      getCachedOutcomeMeta(),
+    ]);
+    const result = await Effect.runPromise(
+      getAggregatedMarketsSnapshot(client.info, {
+        spotTokens: tokens,
+        spotMetaAndAssetCtxs: spotRaw,
+        outcomeMeta: outcomeRaw,
+      })
     );
+    // Schedule next refresh before cache expires
+    aggregatedRefreshTimer = setTimeout(() => {
+      loadAggregatedMarkets().catch((err) => {
+        console.error("[Hyperliquid] Aggregated refresh failed, retrying in 30s", err);
+        aggregatedRefreshTimer = setTimeout(loadAggregatedMarkets, 30_000);
+      });
+    }, AGGREGATED_MARKETS_TTL_MS * 0.8);
+    return result;
+  };
+
+  const loadTickerSnapshot = async (): Promise<TickerSnapshot> => {
+    const result = await Effect.runPromise(getTickerSnapshotEffect(client.info));
+    tickerRefreshTimer = setTimeout(() => {
+      loadTickerSnapshot().catch((err) => {
+        console.error("[Hyperliquid] Ticker refresh failed, retrying in 30s", err);
+        tickerRefreshTimer = setTimeout(loadTickerSnapshot, 30_000);
+      });
+    }, TICKER_SNAPSHOT_TTL_MS * 0.8);
+    return result;
+  };
+
+  // ── Cached sub-loaders ───────────────────────────────────────────
   const getCachedTickerSnapshot = () =>
-    resolveWithCache(tickerSnapshotCache, TICKER_SNAPSHOT_TTL_MS, () =>
-      Effect.runPromise(getTickerSnapshotEffect(client.info))
+    resolveWithCache(tickerSnapshotCache, TICKER_SNAPSHOT_TTL_MS, loadTickerSnapshot);
+
+  const getCachedSpotTokens = () =>
+    resolveWithCache(spotMetaCache, SPOT_META_TTL_MS, () =>
+      Effect.runPromise(getSpotTokens(client.info))
     );
+
+  const getCachedSpotMetaAndAssetCtxs = () =>
+    resolveWithCache(spotMetaAndAssetCtxsCache, SPOT_META_AND_ASSET_CTXS_TTL_MS, () => {
+      if (typeof client.info.spotMetaAndAssetCtxs !== "function") return Promise.resolve(null);
+      return client.info.spotMetaAndAssetCtxs() as Promise<unknown>;
+    });
+
+  const getCachedOutcomeMeta = () =>
+    resolveWithCache(outcomeMetaCache, OUTCOME_META_TTL_MS, () => {
+      if (typeof client.info.outcomeMeta !== "function") return Promise.resolve(null);
+      return client.info.outcomeMeta() as Promise<unknown>;
+    });
 
   const getCachedCandleSnapshot = (
     symbol: string,
@@ -199,14 +260,12 @@ export const HyperliquidProviderLive = (client: HyperliquidClientService) => {
     return resolveWithCache(slot, CANDLE_SNAPSHOT_TTL_MS, async () => {
       const snapshot = await getCachedTickerSnapshot();
       const internalSymbol = resolveInternalSymbol(snapshot, symbol);
-
       const candles = await client.info.candleSnapshot({
         coin: internalSymbol,
         interval: toHlInterval(interval),
         startTime,
         endTime,
       });
-
       return normalizeCandles(parseHlRawCandles(candles));
     });
   };
@@ -219,19 +278,14 @@ export const HyperliquidProviderLive = (client: HyperliquidClientService) => {
       const snapshot = await getCachedTickerSnapshot();
       const internalSymbol = resolveInternalSymbol(snapshot, symbol);
       const isPerp = isPerpSymbol(snapshot, symbol);
-
       if (!isPerp) {
         throw new HyperliquidError({
-          message: `Asset not supported or not found in perpetuals universe: ${symbol}`,
+          message: `Asset not found in perpetuals universe: ${symbol}`,
           kind: "NOT_FOUND",
         });
       }
-
       const annotation = await client.info.perpAnnotation({ coin: internalSymbol });
-      return {
-        symbol: normalizeSymbol(symbol),
-        annotation,
-      };
+      return { symbol: normalizeSymbol(symbol), annotation };
     });
   };
 
@@ -249,14 +303,22 @@ export const HyperliquidProviderLive = (client: HyperliquidClientService) => {
               }),
       }),
     getAllMids: () => getAllMids().pipe(Effect.provideService(HyperliquidClient, client)),
-    getMetadata: () =>
+    getAggregatedMarkets: () =>
       Effect.tryPromise({
-        try: () => getCachedMarkets(),
+        // resolveWithCache is a Promise bridge — cleaner than nesting
+        // Effect.runPromise inside an async tryPromise callback.
+        try: () =>
+          resolveWithCache(
+            aggregatedMarketsCache,
+            AGGREGATED_MARKETS_TTL_MS,
+            loadAggregatedMarkets,
+            MARKET_SCHEMA_VERSION
+          ),
         catch: (cause) =>
           cause instanceof HyperliquidError
             ? cause
             : new HyperliquidError({
-                message: "Failed to fetch Hyperliquid metadata",
+                message: "Failed to fetch aggregated markets",
                 kind: "UPSTREAM",
                 cause,
               }),

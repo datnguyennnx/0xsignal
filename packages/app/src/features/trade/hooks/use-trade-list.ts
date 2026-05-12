@@ -1,140 +1,25 @@
-/**
- * @overview Trade Asset Listing Hook
- *
- * Data flow: Backend API → React Query cache → TradeDropdown component
- *
- * Fetches all available perpetual markets from backend /api/markets.
- * The payload can include either a simple universe array or richer metadata.
- * The hook normalizes both shapes while preserving prior UI sort/display behavior.
- *
- * Caching: 30s stale time, 5min gc time
- * Consumers: TradeDropdown (market selector)
- */
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
-import { normalizeSymbol } from "../lib/symbol";
-
-export type TradeCategory =
-  | "crypto"
-  | "stocks"
-  | "commodities"
-  | "fx"
-  | "indices"
-  | "preipo"
-  | string;
-
-interface TradeAssetCtxLike {
-  funding?: string;
-  openInterest?: string;
-  prevDayPx?: string;
-  dayNtlVlm?: string;
-  premium?: string;
-  markPx?: string;
-}
-
-interface TradeAssetUniverseLike {
-  name?: string;
-  maxLeverage?: number;
-  isDelisted?: boolean;
-  dexIndex?: number;
-}
-
-interface BackendMarketsPayload {
-  universe?: TradeAssetUniverseLike[];
-  assetCtxs?: TradeAssetCtxLike[];
-  allMids?: Record<string, string>;
-  perpCategories?: Array<[string, string]>;
-}
-
-export interface TradeAsset extends Required<TradeAssetCtxLike> {
-  coin: string;
-  maxLeverage: number;
-  category: TradeCategory;
-  displayCategory: string;
-  name: string;
-  dex: string;
-  assetId: number;
-}
+import type { BackendTradeAsset } from "@/services/api";
 
 export interface TradeListData {
-  assets: TradeAsset[];
+  assets: BackendTradeAsset[];
 }
 
-function calculateAssetId(dexIndex: number, assetIndex: number): number {
-  if (dexIndex === 0) {
-    // Standard perps
-    return assetIndex;
-  }
-  // Builder-deployed perps: 100000 + perp_dex_index * 10000 + index_in_meta
-  // Assuming dexIndex is the perp_dex_index (starting from 1)
-  return 100000 + dexIndex * 10000 + assetIndex;
-}
-
-const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
-  crypto: "Crypto",
-  stocks: "Stocks",
-  commodities: "Commodities",
-  fx: "Forex",
-  indices: "Indices",
-  preipo: "Pre-IPO",
-};
-
-function getDisplayCategory(category: string): string {
-  return CATEGORY_DISPLAY_NAMES[category] || category.charAt(0).toUpperCase() + category.slice(1);
-}
-
-function toTradeAssets(payload: BackendMarketsPayload): TradeAsset[] {
-  const universe = Array.isArray(payload.universe) ? payload.universe : [];
-  const assetCtxs = Array.isArray(payload.assetCtxs) ? payload.assetCtxs : [];
-  const allMids = payload.allMids ?? {};
-
-  const categoryMap = new Map<string, string>();
-  for (const [coin, category] of payload.perpCategories ?? []) {
-    categoryMap.set(normalizeSymbol(coin), category);
-  }
-
-  const assets: TradeAsset[] = [];
-
-  // Process Perps
-  for (let i = 0; i < universe.length; i++) {
-    const market = universe[i];
-    const rawName = market?.name;
-    if (!rawName || market?.isDelisted) continue;
-
-    const normalized = normalizeSymbol(rawName);
-    const ctx = assetCtxs[i] ?? {};
-    const category = categoryMap.get(normalized) ?? "crypto";
-    const displayCategory = getDisplayCategory(category);
-    const dexIndex = market.dexIndex ?? 0;
-
-    assets.push({
-      coin: rawName, // Keep original name for display and matching
-      name: rawName,
-      funding: ctx.funding ?? "0",
-      openInterest: ctx.openInterest ?? "0",
-      prevDayPx: ctx.prevDayPx ?? "0",
-      dayNtlVlm: ctx.dayNtlVlm ?? "0",
-      premium: ctx.premium ?? "",
-      markPx: allMids[rawName] ?? allMids[normalized] ?? ctx.markPx ?? "0",
-      maxLeverage: market.maxLeverage || 10,
-      category,
-      displayCategory,
-      dex: "HYPERLIQUID",
-      assetId: calculateAssetId(dexIndex, i),
-    });
-  }
-
-  assets.sort((a, b) => Number(b.openInterest) - Number(a.openInterest));
-  return assets;
-}
-
+/**
+ * Fetches the unified market list from backend /api/markets.
+ * Backend has eager background refresh (60s TTL); frontend refetches every 30s.
+ */
 export function useTradeList() {
-  return useQuery<BackendMarketsPayload, Error, TradeListData>({
+  return useQuery<BackendTradeAsset[], Error, TradeListData>({
     queryKey: queryKeys.marketData.markets(),
-    queryFn: async () => (await api.getMarkets()) as BackendMarketsPayload,
-    select: (payload) => ({ assets: toTradeAssets(payload) }),
-    staleTime: 60_000,
+    queryFn: () => api.getMarkets() as Promise<BackendTradeAsset[]>,
+    select: (payload) => ({
+      assets: payload.filter((a) => !a.isDelisted),
+    }),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
     gcTime: 300_000,
   });
 }

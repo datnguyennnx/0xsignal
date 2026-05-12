@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DomainError, validationError } from "../../errors";
+import { DomainError } from "../../errors";
 import { mapMarketInfraError } from "../error-mapping";
 
 describe("mapMarketInfraError", () => {
   it("passes through DomainError unchanged", () => {
-    const original = validationError("already domain");
+    const original = new DomainError({ code: "VALIDATION_ERROR", message: "already domain" });
     expect(mapMarketInfraError("fallback")(original)).toBe(original);
   });
 
@@ -41,7 +41,7 @@ describe("mapMarketInfraError", () => {
   });
 
   it("treats DomainError instance check before object branch", () => {
-    const de = new DomainError("NOT_FOUND", "nope");
+    const de = new DomainError({ code: "NOT_FOUND", message: "nope" });
     expect(mapMarketInfraError("x")(de)).toBe(de);
   });
 });

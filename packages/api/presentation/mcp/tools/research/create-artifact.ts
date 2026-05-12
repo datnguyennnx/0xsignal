@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { ResearchServicesTag } from "../../../../application/research/service";
-import { validationError } from "../../../../application/errors";
+import { DomainError } from "../../../../application/errors";
 
 export const createArtifactTool = {
   name: "create_artifact",
@@ -33,9 +33,10 @@ export const createArtifactTool = {
   }) => {
     if (!input.run_id && !input.strategy_version_id) {
       return Effect.fail(
-        validationError(
-          "create_artifact requires at least one anchor: run_id or strategy_version_id"
-        )
+        new DomainError({
+          code: "VALIDATION_ERROR",
+          message: "create_artifact requires at least one anchor: run_id or strategy_version_id",
+        })
       );
     }
 

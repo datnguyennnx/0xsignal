@@ -1,8 +1,6 @@
 /**
  * @overview Main App Component
- *
- * Sets up routing, theme, and backend market-stream context for the frontend shell.
- * Frontend consumes backend HTTP/WS market data while keeping render-local state in UI hooks.
+ * Sets up routing, theme, and backend market-stream context.
  *
  * @performance
  * - Lazy loads heavy routes (AssetDetail, TradingChart)
@@ -28,9 +26,24 @@ const NotFoundPage = lazy(() =>
   import("@/pages/not-found").then((m) => ({ default: m.NotFoundPage }))
 );
 
+/** Keep in sync with backend MARKET_SCHEMA_VERSION (cache.ts). Bump when payload shape changes. */
+const FRONTEND_MARKET_SCHEMA_VERSION = 2;
+const MARKET_SCHEMA_KEY = "0xsignal_market_schema_version";
+
+const useSchemaVersionGuard = () => {
+  useEffect(() => {
+    const stored = localStorage.getItem(MARKET_SCHEMA_KEY);
+    if (stored !== String(FRONTEND_MARKET_SCHEMA_VERSION)) {
+      queryClient.removeQueries({ queryKey: queryKeys.marketData.all });
+      queryClient.removeQueries({ queryKey: queryKeys.chart.all });
+      queryClient.invalidateQueries();
+      localStorage.setItem(MARKET_SCHEMA_KEY, String(FRONTEND_MARKET_SCHEMA_VERSION));
+    }
+  }, []);
+};
+
 const usePreloadRoutes = () => {
   useEffect(() => {
-    // Prefetch critical market data
     queryClient.prefetchQuery({
       queryKey: queryKeys.marketData.markets(),
       queryFn: () => api.getMarkets(),
@@ -53,7 +66,22 @@ function PageLoader() {
   );
 }
 
+function RouteErrorFallback() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[clamp(20rem,50dvh,40rem)] gap-4">
+      <p className="text-destructive">Something went wrong loading this page.</p>
+      <button
+        onClick={() => window.location.reload()}
+        className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
+      >
+        Reload
+      </button>
+    </div>
+  );
+}
+
 function App() {
+  useSchemaVersionGuard();
   usePreloadRoutes();
   return (
     <ErrorBoundary>
@@ -63,12 +91,15 @@ function App() {
             <BrowserRouter>
               <Layout>
                 <Suspense fallback={<PageLoader />}>
-                  <Routes>
-                    <Route path="/" element={<Navigate to="/trade/btc" replace />} />
-                    <Route path="/trade" element={<Navigate to="/trade/btc" replace />} />
-                    <Route path="/trade/:symbol" element={<AssetDetail />} />
-                    <Route path="*" element={<NotFoundPage />} />
-                  </Routes>
+                  <ErrorBoundary fallback={<RouteErrorFallback />}>
+                    <Routes>
+                      <Route path="/" element={<Navigate to="/trade/BTC" replace />} />
+                      <Route path="/trade" element={<Navigate to="/trade/BTC" replace />} />
+                      <Route path="/trade/:base/:quote" element={<AssetDetail />} />
+                      <Route path="/trade/:symbol" element={<AssetDetail />} />
+                      <Route path="*" element={<NotFoundPage />} />
+                    </Routes>
+                  </ErrorBoundary>
                 </Suspense>
               </Layout>
             </BrowserRouter>

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { getClient, query, type PoolClient } from "../client";
 
@@ -98,6 +99,32 @@ async function isMigrationApplied(
   return result.rows.length > 0;
 }
 
+/**
+ * Resolve migration file path across runtime environments.
+ *
+ * Development (bun source):  `__dirname` = source dir → `join(__dirname, filename)` works.
+ * Production (bun build):    Bun preserves source `__dirname`. In Docker the SQL files
+ *                            are copied to `/app/dist/api/` alongside the bundle.
+ *                            We probe likely locations and return the first hit.
+ */
+function resolveMigrationPath(filename: string): string {
+  const candidates = [
+    // Docker: migrations copied alongside bundle at /app/dist/api/
+    join(process.cwd(), "dist/api", filename),
+    // Development: source directory
+    join(__dirname, filename),
+    // Fallback: /app/migrations/ (if Dockerfile changes)
+    join(process.cwd(), "migrations", filename),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+
+  // Last resort (will throw ENOENT with a clear path)
+  return join(__dirname, filename);
+}
+
 async function getMigrationData(filepath: string, filename: string): Promise<MigrationData> {
   const content = await readFile(filepath, "utf-8");
   const sections = extractMigrationSections(content);
@@ -167,7 +194,7 @@ export async function runMigrations(direction: "up" | "down" = "up"): Promise<vo
     const files = direction === "up" ? MIGRATION_FILES : [...MIGRATION_FILES].reverse();
 
     for (const filename of files) {
-      const filepath = join(__dirname, filename);
+      const filepath = resolveMigrationPath(filename);
       const migration = await getMigrationData(filepath, filename);
 
       if (direction === "up") {

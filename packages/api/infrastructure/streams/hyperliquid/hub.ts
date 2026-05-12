@@ -5,9 +5,9 @@ import type { MarketWsSubscription } from "../../../schemas/market-data/ws";
 import { marketWsLog } from "./logging";
 import { buildMarketWsBucketKey } from "./bucket-key";
 import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
-import { resolveInternalSymbol } from "../../data-sources/hyperliquid/mapping";
 import { HyperliquidProvider } from "../../data-sources/hyperliquid/types";
-import { Effect } from "effect";
+import type { AggregatedTradeAsset } from "../../data-sources/hyperliquid/types";
+import { Data, Effect } from "effect";
 import {
   normalizeAllMidsData,
   normalizeCandleData,
@@ -21,6 +21,13 @@ export type MarketWsConnectionData = {
   readonly subscription: MarketWsSubscription;
 };
 
+export class WebSocketSubscribeError extends Data.TaggedError("WebSocketSubscribeError")<{
+  readonly message: string;
+  readonly symbol?: string;
+}> {}
+
+const MAX_RESTART_RETRIES = 3;
+
 type Bucket = {
   readonly key: string;
   readonly subscription: MarketWsSubscription;
@@ -29,6 +36,7 @@ type Bucket = {
   restarting: boolean;
   restartTimer?: ReturnType<typeof setTimeout>;
   firstMarketBroadcastLogged: boolean;
+  retryCount: number;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -54,7 +62,7 @@ export class HyperliquidMarketStreamHub {
   createConnectionData(subscription: MarketWsSubscription): MarketWsConnectionData {
     this.connectionSeq += 1;
 
-    // Normalize symbol if present
+    // normalizeSymbol handles perp ("BTCUSDT" → "BTC"), builder perp ("XYZ:YEETI"), spot ("PURR/USDC")
     const normalizedSubscription = { ...subscription };
     if (normalizedSubscription.symbol) {
       normalizedSubscription.symbol = normalizeSymbol(normalizedSubscription.symbol);
@@ -75,6 +83,7 @@ export class HyperliquidMarketStreamHub {
       clients: new Set(),
       restarting: false,
       firstMarketBroadcastLogged: false,
+      retryCount: 0,
     };
 
     bucket.clients.add(ws);
@@ -126,6 +135,8 @@ export class HyperliquidMarketStreamHub {
 
     try {
       bucket.upstream = await this.subscribeUpstream(bucket);
+      // Reset retry count on success
+      bucket.retryCount = 0;
       marketWsLog("upstream_subscribe_success", {
         bucketKey: bucket.key,
         channel: bucket.subscription.channel,
@@ -177,7 +188,32 @@ export class HyperliquidMarketStreamHub {
       return;
     }
 
+    // Limit retries to prevent infinite restart cascade and API flooding
+    if (bucket.retryCount >= MAX_RESTART_RETRIES) {
+      marketWsLog(
+        "upstream_max_retries_exceeded",
+        {
+          bucketKey: bucket.key,
+          channel: bucket.subscription.channel,
+          retryCount: bucket.retryCount,
+        },
+        "error"
+      );
+      this.broadcast(bucket, {
+        type: "error",
+        code: "max_retries_exceeded",
+        message: `Max retries (${MAX_RESTART_RETRIES}) exceeded for ${bucket.key}`,
+        timestamp: Date.now(),
+      });
+      // Bucket cleaned up on detach when no clients remain
+      for (const client of [...bucket.clients]) {
+        this.detach(client);
+      }
+      return;
+    }
+
     bucket.restarting = true;
+    bucket.retryCount++;
 
     if (bucket.upstream) {
       try {
@@ -210,19 +246,53 @@ export class HyperliquidMarketStreamHub {
     const { subscription } = bucket;
 
     let internalSymbol = subscription.symbol;
-    if (this.provider && subscription.symbol) {
+    // Validate against unified aggregated markets (same source as REST /markets).
+    const subSymbol = subscription.symbol;
+    if (this.provider && subSymbol) {
       try {
-        const snapshot = await Effect.runPromise(this.provider.getMetadata());
-        internalSymbol = resolveInternalSymbol(snapshot, subscription.symbol);
+        const markets = await Effect.runPromise(this.provider.getAggregatedMarkets());
+        const subUpper = subSymbol.toUpperCase();
+        const asset: AggregatedTradeAsset | undefined = markets.find(
+          (m) => m.rawCoin === subSymbol || m.rawCoin.toUpperCase() === subUpper
+        );
+
+        if (!asset) {
+          throw new WebSocketSubscribeError({
+            message: `Cannot subscribe to WebSocket for "${subSymbol}": not found in any market universe (perp, spot, or outcome).`,
+            symbol: subSymbol,
+          });
+        }
+
+        // Only perp assets support real-time subscriptions; spot assets lack WS feeds.
+        // Subscribing an unsupported coin can close the ENTIRE WebSocket connection.
+        if (asset.marketType !== "perp") {
+          marketWsLog(
+            "symbol_validation_failed",
+            {
+              symbol: subSymbol,
+              marketType: asset.marketType,
+              channel: subscription.channel,
+            },
+            "warn"
+          );
+          throw new WebSocketSubscribeError({
+            message: `Cannot subscribe to WebSocket for "${subSymbol}": market type is "${asset.marketType}". Only perpetual (perp) assets support real-time candle, order book, and trades subscriptions.`,
+            symbol: subSymbol,
+          });
+        }
+
+        // Use rawCoin as internal symbol (e.g., "BTC" for main, "xyz:YEETI" for builder)
+        internalSymbol = asset.rawCoin;
       } catch (error) {
         marketWsLog(
           "symbol_resolution_failed",
           {
-            symbol: subscription.symbol,
+            symbol: subSymbol,
             error: error instanceof Error ? error.message : String(error),
           },
           "warn"
         );
+        throw error;
       }
     }
 
@@ -318,8 +388,8 @@ export class HyperliquidMarketStreamHub {
       bucket.restartTimer = undefined;
     }
     if (bucket.upstream) {
-      void bucket.upstream.unsubscribe().catch(() => {
-        // Ignore unsubscribe errors during cleanup.
+      void bucket.upstream.unsubscribe().catch((err) => {
+        marketWsLog("unsubscribe_error", { bucketKey: bucket.key, error: String(err) }, "warn");
       });
     }
   }
@@ -332,8 +402,8 @@ export class HyperliquidMarketStreamHub {
         bucket.restartTimer = undefined;
       }
       if (bucket.upstream) {
-        void bucket.upstream.unsubscribe().catch(() => {
-          // Ignore unsubscribe errors during shutdown.
+        void bucket.upstream.unsubscribe().catch((err) => {
+          marketWsLog("unsubscribe_error", { bucketKey: bucket.key, error: String(err) }, "warn");
         });
         bucket.upstream = undefined;
       }

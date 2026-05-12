@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { MarketDataServices } from "../../../../application/market-data/contracts";
 import { isCoverageCompleteStrict } from "../../../../application/market-data/policies";
-import { validationError } from "../../../../application/errors";
+import { DomainError } from "../../../../application/errors";
 
 const TIMEFRAME_ENUM = [
   "1m",
@@ -21,7 +21,12 @@ const TIMEFRAME_ENUM = [
 const parseIsoDate = (value: string, fieldName: "start_time" | "end_time") => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return Effect.fail(validationError(`Invalid date for ${fieldName}: ${value}`));
+    return Effect.fail(
+      new DomainError({
+        code: "VALIDATION_ERROR",
+        message: `Invalid date for ${fieldName}: ${value}`,
+      })
+    );
   }
   return Effect.succeed(parsed);
 };
@@ -60,7 +65,10 @@ export const createDatasetSnapshotTool = {
 
       if (startTime.getTime() > endTime.getTime()) {
         return yield* Effect.fail(
-          validationError("start_time must be less than or equal to end_time")
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "start_time must be less than or equal to end_time",
+          })
         );
       }
 
@@ -76,9 +84,10 @@ export const createDatasetSnapshotTool = {
 
       if (!strictComplete) {
         return yield* Effect.fail(
-          validationError(
-            `Cannot create snapshot: Incomplete strict coverage in QuestDB (${coverage.rowCount}/${coverage.expectedCount} rows, missing windows: ${coverage.missingWindows.length}). Use ensure_candle_coverage first.`
-          )
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: `Cannot create snapshot: Incomplete strict coverage in QuestDB (${coverage.rowCount}/${coverage.expectedCount} rows, missing windows: ${coverage.missingWindows.length}). Use ensure_candle_coverage first.`,
+          })
         );
       }
 

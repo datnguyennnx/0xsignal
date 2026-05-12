@@ -1,3 +1,5 @@
+import { Data } from "effect";
+
 export type DomainErrorCode =
   | "NOT_FOUND"
   | "ALREADY_EXISTS"
@@ -7,23 +9,8 @@ export type DomainErrorCode =
   | "CONFLICT"
   | "FORBIDDEN";
 
-export class DomainError {
+export class DomainError extends Data.TaggedError("DomainError")<{
   readonly code: DomainErrorCode;
   readonly message: string;
   readonly cause?: unknown;
-
-  constructor(code: DomainErrorCode, message: string, cause?: unknown) {
-    this.code = code;
-    this.message = message;
-    this.cause = cause;
-  }
-}
-
-export const domainError = (code: DomainErrorCode, message: string, cause?: unknown) =>
-  new DomainError(code, message, cause);
-
-export const notFoundError = (message: string, cause?: unknown) =>
-  domainError("NOT_FOUND", message, cause);
-
-export const validationError = (message: string, cause?: unknown) =>
-  domainError("VALIDATION_ERROR", message, cause);
+}> {}

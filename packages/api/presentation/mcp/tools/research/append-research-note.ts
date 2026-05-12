@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { ResearchServicesTag } from "../../../../application/research/service";
-import { validationError } from "../../../../application/errors";
+import { DomainError } from "../../../../application/errors";
 
 export const appendResearchNoteTool = {
   name: "append_research_note",
@@ -27,9 +27,11 @@ export const appendResearchNoteTool = {
   }) => {
     if (!input.session_id && !input.run_id && !input.strategy_version_id) {
       return Effect.fail(
-        validationError(
-          "append_research_note requires at least one anchor: session_id, run_id, or strategy_version_id"
-        )
+        new DomainError({
+          code: "VALIDATION_ERROR",
+          message:
+            "append_research_note requires at least one anchor: session_id, run_id, or strategy_version_id",
+        })
       );
     }
 

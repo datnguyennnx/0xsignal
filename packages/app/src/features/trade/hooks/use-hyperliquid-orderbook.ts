@@ -107,7 +107,6 @@ export function useHyperliquidOrderbook(
 
   const adaptiveDirectionRef = useRef<"out" | "in" | null>(null);
   const adaptiveDirectionCountRef = useRef(0);
-  const [snapshotsBySigFigs] = useState<Map<number, OrderbookData>>(new Map());
   const snapshotsRef = useRef<Map<number, OrderbookData>>(new Map());
 
   const pending = useRef<OrderbookData | null>(null);
@@ -240,8 +239,8 @@ export function useHyperliquidOrderbook(
   ]);
 
   const coarseBookBySigFigs = useMemo(
-    () => getCoarseBooksBySigFigs(snapshotsBySigFigs, activeSigFigs),
-    [activeSigFigs, snapshotsBySigFigs]
+    () => getCoarseBooksBySigFigs(snapshotsRef.current, activeSigFigs),
+    [activeSigFigs]
   );
   const orderbook = fineBook;
 

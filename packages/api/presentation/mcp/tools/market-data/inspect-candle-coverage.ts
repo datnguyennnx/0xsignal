@@ -1,12 +1,17 @@
 import { Effect } from "effect";
 import { MarketDataServices } from "../../../../application/market-data/contracts";
 import { isCoverageCompleteStrict } from "../../../../application/market-data/policies";
-import { validationError } from "../../../../application/errors";
+import { DomainError } from "../../../../application/errors";
 
 const parseIsoDate = (value: string, fieldName: "start_time" | "end_time") => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return Effect.fail(validationError(`Invalid date for ${fieldName}: ${value}`));
+    return Effect.fail(
+      new DomainError({
+        code: "VALIDATION_ERROR",
+        message: `Invalid date for ${fieldName}: ${value}`,
+      })
+    );
   }
   return Effect.succeed(parsed);
 };

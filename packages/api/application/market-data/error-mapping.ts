@@ -1,4 +1,4 @@
-import { DomainError, domainError, notFoundError, validationError } from "../errors";
+import { DomainError } from "../errors";
 
 export const mapMarketInfraError =
   (fallbackMessage: string) =>
@@ -15,19 +15,19 @@ export const mapMarketInfraError =
       const message = typeof candidate.message === "string" ? candidate.message : fallbackMessage;
 
       if (candidate.kind === "BAD_REQUEST") {
-        return validationError(message, error);
+        return new DomainError({ code: "VALIDATION_ERROR", message, cause: error });
       }
 
       if (candidate.kind === "NOT_FOUND") {
-        return notFoundError(message, error);
+        return new DomainError({ code: "NOT_FOUND", message, cause: error });
       }
 
       if (candidate.kind === "UPSTREAM") {
-        return domainError("INTERNAL_ERROR", message, error);
+        return new DomainError({ code: "INTERNAL_ERROR", message, cause: error });
       }
 
-      return validationError(message, error);
+      return new DomainError({ code: "VALIDATION_ERROR", message, cause: error });
     }
 
-    return validationError(fallbackMessage, error);
+    return new DomainError({ code: "VALIDATION_ERROR", message: fallbackMessage, cause: error });
   };
