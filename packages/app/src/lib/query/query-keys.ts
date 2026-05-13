@@ -41,6 +41,11 @@ export const queryKeys = {
     leverage: () => [...queryKeys.exchange.all, "leverage"] as const,
   },
 
+  // Orderbook domain (REST seed)
+  orderbook: {
+    snapshot: (symbol: string) => ["orderbook", "snapshot", symbol] as const,
+  },
+
   // Hyperliquid domain
   hyperliquid: {
     all: ["hyperliquid"] as const,

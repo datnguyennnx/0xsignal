@@ -1,19 +1,19 @@
 /**
- * @overview Hyperliquid Orderbook Hook
- * @audit 2026-04-03
- *   - Snapshot versioning uses useState counter instead of new Map() per RAF tick
- *     Eliminates per-frame GC pressure from Map allocation at 60fps
- *   - Adaptive effect guarded by cooldown; fineBook dependency is necessary for coverage calc
- * @data-flow backend WS l2Book payload → processRawL2Levels → schedule() → RAF
- *   → setFineBook + snapshot cache for render/local interaction state
- * @perf RAF batches high-frequency WS messages into single render frame; snapshot Map avoids
- *   re-subscribing when switching sigFigs (coarse books available immediately from cache)
+ * Orderbook hook — REST seed + WS streaming with RAF-throttled render.
+ *
+ * @data-flow
+ *   mount: useQuery REST snapshot (stale-forever, oneshot) → seeds fineBook
+ *          → l2Book WS channel → handleMessage → processRawL2Levels → RAF → setState
+ *   reconnect: fetchRestSnapshot → schedule → RAF
+ *   adaptive: guarded by options.adaptiveNSigFigs, cooldown-gated
  */
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useHyperliquidWs } from "./use-hyperliquid-ws";
 import { normalizeSymbol } from "../lib/symbol";
 import { api } from "@/services/api";
+import { queryKeys } from "@/lib/query/query-keys";
 import { processRawL2Levels, type OrderbookData, type L2BookLevel } from "@/core/utils/hyperliquid";
 
 export interface TickSizeOption {
@@ -25,10 +25,8 @@ export interface TickSizeOption {
 
 export function generateTickSizeOptions(price: number): TickSizeOption[] {
   if (!price || price <= 0) return [];
-
   const mag = Math.floor(Math.log10(price));
   const opts: TickSizeOption[] = [];
-
   for (const sig of [5, 4, 3, 2]) {
     const step = Number(Math.pow(10, mag - sig + 1).toPrecision(10));
     const label =
@@ -37,7 +35,6 @@ export function generateTickSizeOptions(price: number): TickSizeOption[] {
         : step >= 1
           ? String(step)
           : step.toFixed(Math.max(0, -Math.floor(Math.log10(step))));
-
     opts.push({ value: step, label, nSigFigs: sig, mantissa: null });
   }
   return opts;
@@ -47,42 +44,37 @@ const DEFAULT_N_SIG_FIGS = 5;
 const MIN_N_SIG_FIGS = 2;
 const MAX_N_SIG_FIGS = 5;
 const RESUBSCRIBE_COOLDOWN_MS = 3200;
+const MAX_DEPTH = 15;
 
 interface UseHyperliquidOrderbookOptions {
   adaptiveNSigFigs?: boolean;
   targetHalfSpan?: number | null;
   centerPrice?: number | null;
-  /**
-   * When set (e.g. from `L2BookNSigFigsProvider`), subscription `nSigFigs` tracks this value.
-   * Use with `adaptiveNSigFigs: false` so Depth chart matches Orderbook dropdown.
-   */
   controlledNSigFigs?: number;
+}
+
+/** Fast ref-based equality: skip setState when top-of-book hasn't moved. */
+function topOfBookChanged(a: OrderbookData | null, b: OrderbookData): boolean {
+  if (!a) return true;
+  return (
+    a.midPrice !== b.midPrice ||
+    a.bids[0]?.price !== b.bids[0]?.price ||
+    a.asks[0]?.price !== b.asks[0]?.price
+  );
 }
 
 function computeCoverageHalfSpan(
   book: OrderbookData | null,
   centerPrice: number | null
 ): number | null {
-  if (!book || !centerPrice || centerPrice <= 0 || !book.bids.length || !book.asks.length) {
+  if (!book || !centerPrice || centerPrice <= 0 || !book.bids.length || !book.asks.length)
     return null;
-  }
   const farBid = book.bids[book.bids.length - 1]?.price ?? centerPrice;
   const farAsk = book.asks[book.asks.length - 1]?.price ?? centerPrice;
   return Math.max(0, Math.min(centerPrice - farBid, farAsk - centerPrice));
 }
 
-function getCoarseBooksBySigFigs(
-  snapshots: Map<number, OrderbookData>,
-  activeSigFigs: number
-): Record<number, OrderbookData> {
-  const result: Record<number, OrderbookData> = {};
-  for (const [sigFigs, book] of snapshots.entries()) {
-    if (sigFigs < activeSigFigs && book.bids.length > 0 && book.asks.length > 0) {
-      result[sigFigs] = book;
-    }
-  }
-  return result;
-}
+/* ─── Hook ──────────────────────────────────────────────────────────────── */
 
 export function useHyperliquidOrderbook(
   symbol: string,
@@ -90,99 +82,119 @@ export function useHyperliquidOrderbook(
   options: UseHyperliquidOrderbookOptions = {}
 ) {
   const [fineBook, setFineBook] = useState<OrderbookData | null>(null);
-  const [snapshotsForRender, setSnapshotsForRender] = useState<Map<number, OrderbookData>>(
-    new Map()
-  );
   const [error, setError] = useState<string | null>(null);
 
   const isControlled = options.controlledNSigFigs !== undefined;
   const [uncontrolledSigFigs, setUncontrolledSigFigs] = useState(DEFAULT_N_SIG_FIGS);
-
   const activeSigFigs = isControlled
     ? Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, options.controlledNSigFigs!))
     : uncontrolledSigFigs;
 
+  // ── Mutable refs ─────────────────────────────────────────────────
   const activeSigFigsRef = useRef(activeSigFigs);
-  const lastResubscribeAtRef = useRef(0);
-
   useEffect(() => {
     activeSigFigsRef.current = activeSigFigs;
   }, [activeSigFigs]);
 
-  const adaptiveDirectionRef = useRef<"out" | "in" | null>(null);
-  const adaptiveDirectionCountRef = useRef(0);
-  const snapshotsRef = useRef<Map<number, OrderbookData>>(new Map());
-
+  const fineBookRef = useRef<OrderbookData | null>(null);
   const pending = useRef<OrderbookData | null>(null);
   const raf = useRef(0);
-
+  const wsHasReceivedData = useRef(false);
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
-
   const coinRef = useRef(coin);
   useEffect(() => {
     coinRef.current = coin;
   }, [coin]);
+
+  // ── RAF-throttled flush (single setState, skip unchanged) ───────
+  const schedule = useCallback((data: OrderbookData) => {
+    pending.current = data;
+    if (raf.current) return;
+    raf.current = requestAnimationFrame(() => {
+      if (pending.current) {
+        if (topOfBookChanged(fineBookRef.current, pending.current)) {
+          fineBookRef.current = pending.current;
+          setFineBook(pending.current);
+        }
+      }
+      raf.current = 0;
+    });
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  REST SEED — oneshot snapshot, discarded once WS starts streaming
+  // ═══════════════════════════════════════════════════════════════════
+
+  const { data: restSnapshot } = useQuery({
+    queryKey: queryKeys.orderbook.snapshot(symbol),
+    queryFn: () => api.getOrderbook(symbol, activeSigFigsRef.current),
+    enabled: enabled && !!symbol,
+    staleTime: Infinity,
+    gcTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!restSnapshot || wsHasReceivedData.current) return;
+    const raw = restSnapshot as {
+      orderbook?: { levels?: [L2BookLevel[], L2BookLevel[]] };
+      levels?: [L2BookLevel[], L2BookLevel[]];
+    };
+    const levels = raw?.orderbook?.levels ?? raw?.levels;
+    if (levels && Array.isArray(levels) && levels.length === 2) {
+      schedule(
+        processRawL2Levels(
+          (levels[0] ?? []).slice(0, MAX_DEPTH),
+          (levels[1] ?? []).slice(0, MAX_DEPTH)
+        )
+      );
+    }
+  }, [restSnapshot, schedule]);
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  WS STREAMING
+  // ═══════════════════════════════════════════════════════════════════
 
   const subscription = useMemo(
     () => (enabled && coin ? { type: "l2Book" as const, coin, nSigFigs: activeSigFigs } : null),
     [enabled, coin, activeSigFigs]
   );
 
-  const schedule = useCallback((data: OrderbookData, sourceSigFigs: number) => {
-    snapshotsRef.current.set(sourceSigFigs, data);
-    pending.current = data;
-    if (raf.current) return;
-    raf.current = requestAnimationFrame(() => {
-      if (pending.current) {
-        setFineBook(pending.current);
-        setSnapshotsForRender(new Map(snapshotsRef.current));
-        // NOTE: snapshotsRef is kept in sync for future depth chart use
-        // snapshotsBySigFigs state removed to eliminate 60 Map allocs/sec
-      }
-      raf.current = 0;
-    });
-  }, []);
-
   const handleMessage = useCallback(
     (data: unknown, ch: string, meta?: { nSigFigs?: number; interval?: string; coin?: string }) => {
       if (ch !== "l2Book") return;
-      if (meta?.nSigFigs !== undefined && meta.nSigFigs !== activeSigFigsRef.current) {
-        return;
-      }
-      // Coin guard: reject data for a different coin
-      if (meta?.coin !== undefined && meta.coin !== coinRef.current) {
-        return;
-      }
+      if (meta?.nSigFigs !== undefined && meta.nSigFigs !== activeSigFigsRef.current) return;
+      if (meta?.coin !== undefined && meta.coin !== coinRef.current) return;
       const book = data as { levels: [L2BookLevel[], L2BookLevel[]] };
-      if (book?.levels) {
-        const MAX_DEPTH = 15; // buffer above VISIBLE_ROWS=11 for scroll/expand headroom
-        const bids = book.levels[0]?.slice(0, MAX_DEPTH) ?? [];
-        const asks = book.levels[1]?.slice(0, MAX_DEPTH) ?? [];
-        schedule(processRawL2Levels(bids, asks), activeSigFigsRef.current);
-      }
+      if (!book?.levels) return;
+
+      wsHasReceivedData.current = true;
+      const bids = book.levels[0]?.slice(0, MAX_DEPTH) ?? [];
+      const asks = book.levels[1]?.slice(0, MAX_DEPTH) ?? [];
+      schedule(processRawL2Levels(bids, asks));
     },
     [schedule]
   );
 
-  // On WS reconnect, fetch a fresh REST orderbook snapshot to avoid stale data.
-  // The snapshot is injected into the RAF render pipeline via schedule().
   const fetchRestSnapshot = useCallback(async () => {
     try {
-      const coin = coinRef.current;
-      const sigFigs = activeSigFigsRef.current;
-      if (!coin) return;
-
-      const raw = await api.getOrderbook(coin, sigFigs);
-      const book = raw as { orderbook?: { levels?: [L2BookLevel[], L2BookLevel[]] } };
-      const levels = book?.orderbook?.levels ?? book?.["levels" as keyof typeof book];
+      const c = coinRef.current;
+      if (!c) return;
+      const raw = await api.getOrderbook(c, activeSigFigsRef.current);
+      const book = raw as {
+        orderbook?: { levels?: [L2BookLevel[], L2BookLevel[]] };
+        levels?: [L2BookLevel[], L2BookLevel[]];
+      };
+      const levels = book?.orderbook?.levels ?? book?.levels;
       if (levels && Array.isArray(levels) && levels.length === 2) {
-        const MAX_DEPTH = 15;
-        const bids = levels[0]?.slice(0, MAX_DEPTH) ?? [];
-        const asks = levels[1]?.slice(0, MAX_DEPTH) ?? [];
-        schedule(processRawL2Levels(bids, asks), sigFigs);
+        schedule(
+          processRawL2Levels(
+            (levels[0] ?? []).slice(0, MAX_DEPTH),
+            (levels[1] ?? []).slice(0, MAX_DEPTH)
+          )
+        );
       }
     } catch {
-      // Silently fail — WS updates will fill in shortly
+      /* silent */
     }
   }, [schedule]);
 
@@ -194,26 +206,31 @@ export function useHyperliquidOrderbook(
     onReconnect: fetchRestSnapshot,
   });
 
+  // ── Resubscribe (precision change) ──────────────────────────────
   const resubscribe = useCallback(
     (nSigFigs: number) => {
       const next = Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, nSigFigs));
       if (!coin || !ws.resubscribe || next === activeSigFigsRef.current) return;
       ws.resubscribe({ type: "l2Book", coin, nSigFigs: next });
-      if (!isControlled) {
-        setUncontrolledSigFigs(next);
-      }
+      if (!isControlled) setUncontrolledSigFigs(next);
     },
     [coin, ws, isControlled]
   );
 
+  // ═══════════════════════════════════════════════════════════════════
+  //  ADAPTIVE SIGFIGS (cooldown-gated, fully guarded)
+  // ═══════════════════════════════════════════════════════════════════
+
+  const lastResubscribeAtRef = useRef(0);
+  const adaptiveDirectionRef = useRef<"out" | "in" | null>(null);
+  const adaptiveDirectionCountRef = useRef(0);
+
   useEffect(() => {
-    if (isControlled || !enabled || !options.adaptiveNSigFigs || !fineBook) {
-      return;
-    }
+    if (!options.adaptiveNSigFigs) return;
+    if (isControlled || !enabled || !fineBook) return;
+
     const now = Date.now();
-    if (now - lastResubscribeAtRef.current < RESUBSCRIBE_COOLDOWN_MS) {
-      return;
-    }
+    if (now - lastResubscribeAtRef.current < RESUBSCRIBE_COOLDOWN_MS) return;
 
     const centerPrice = options.centerPrice ?? fineBook.midPrice ?? null;
     const coverageHalfSpan = computeCoverageHalfSpan(fineBook, centerPrice);
@@ -243,9 +260,7 @@ export function useHyperliquidOrderbook(
       adaptiveDirectionRef.current = direction;
       adaptiveDirectionCountRef.current = 1;
     }
-    if (adaptiveDirectionCountRef.current < 2) {
-      return;
-    }
+    if (adaptiveDirectionCountRef.current < 2) return;
 
     adaptiveDirectionRef.current = null;
     if (direction === "out" && activeSigFigs > MIN_N_SIG_FIGS) {
@@ -266,16 +281,9 @@ export function useHyperliquidOrderbook(
     resubscribe,
   ]);
 
-  const coarseBookBySigFigs = useMemo(
-    () => getCoarseBooksBySigFigs(snapshotsForRender, activeSigFigs),
-    [activeSigFigs, snapshotsForRender]
-  );
-  const orderbook = fineBook;
-
   return {
-    orderbook,
+    orderbook: fineBook,
     fineBook,
-    coarseBookBySigFigs,
     isConnected: ws.isConnected,
     error,
     resubscribe,

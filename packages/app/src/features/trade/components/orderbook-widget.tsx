@@ -50,7 +50,7 @@ interface PopupData {
   cumulativeSize?: number;
 }
 
-const ROW_HEIGHT = 30;
+const ROW_HEIGHT = 28;
 const VISIBLE_ROWS = 20;
 
 const PRECISION_RESUBSCRIBE_DEBOUNCE_MS = 160;
