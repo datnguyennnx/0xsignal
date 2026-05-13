@@ -15,14 +15,14 @@ import {
   DEFAULT_ICT_VISIBILITY,
   type ICTVisibility,
   type ICTFeature,
-} from "../ict";
+} from "../analysis/ict";
 import {
   useWyckoffOverlay,
   useWyckoffWorker,
   DEFAULT_WYCKOFF_VISIBILITY,
   type WyckoffVisibility,
   type WyckoffFeature,
-} from "../wyckoff";
+} from "../analysis/wyckoff";
 
 import { ChartHeader } from "./chart-header";
 import { ChartControls } from "./chart-controls";

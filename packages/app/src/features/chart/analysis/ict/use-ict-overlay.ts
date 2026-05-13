@@ -1,23 +1,16 @@
 /**
- * @overview ICT (Inner Circle Trader) Chart Overlay Hook
+ * @overview ICT Chart Overlay Hook
  *
- * It renders complex ICT market primitives (FVGs, Order Blocks, Liquidity, OTE)
- * using custom LW-Charts primitives (Zone, Band) and standard Line series.
- *
- * @mechanism
- * - utilizes ZonePrimitive for FVG and OB shaded areas.
- * - utilizes BandPrimitive for layered OTE fib levels and Golden Pocket shading.
- * - utilizes LineSeries for Market Structure pivots (HH, LL) and trend breaks (BOS, ChoCH).
- * - implements an efficient 150ms-throttled worker orchestration via the parent component.
+ * Renders ICT primitives (FVGs, Order Blocks, Liquidity, OTE, Market Structure)
+ * using shared ZonePrimitive, BandPrimitive, and lightweight-charts LineSeries.
  */
 import { useEffect, useRef, useCallback } from "react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
 import type { ICTAnalysis } from "@0xsignal/shared";
-import type { ICTVisibility } from "../types";
-import { ZonePrimitive } from "../primitives";
-import { BandPrimitive } from "../primitives";
-import { getICTColors } from "../utils";
+import type { ICTVisibility } from "./types";
+import { ZonePrimitive, BandPrimitive } from "../shared";
+import { getICTColors } from "./colors";
 import { ensureUniqueAscending } from "../../utils/ensure-unique-ascending";
 
 interface ICTOverlayProps {
@@ -111,11 +104,9 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
   const renderMarketStructure = useCallback(() => {
     if (!chart || !analysis?.marketStructure) return;
     const { swings, events } = analysis.marketStructure;
-
     const key = `ms-${swings.length}-${events.length}-${lastTime}`;
     if (appliedKeysRef.current.marketStructure === key) return;
 
-    // Remove old lines before adding new ones
     refs.current.swingLines.forEach((l) => {
       try {
         chart.removeSeries(l);
@@ -134,7 +125,6 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
       crosshairMarkerVisible: false,
       title: "MS",
     });
-
     const lineData = ensureUniqueAscending(swings.map((s) => ({ time: s.time, value: s.price })));
     if (lineData.length >= 2) {
       swingLine.setData(lineData);
@@ -149,7 +139,6 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
           ? colors.structure.choch.bullish
           : colors.structure.choch.bearish
         : colors.structure.bos;
-
       const eventLine = chart.addSeries(LineSeries, {
         color,
         lineWidth: isChoCH ? 2 : 1,
@@ -159,12 +148,10 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
         crosshairMarkerVisible: true,
         title: `${event.type} ${isBullish ? "+" : "-"}`,
       });
-
       const eventData = ensureUniqueAscending([
         { time: event.time, value: event.price },
         { time: lastTime, value: event.price },
       ]);
-
       if (eventData.length >= 2) {
         eventLine.setData(eventData);
         lines.push(eventLine);
@@ -175,7 +162,6 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
     appliedKeysRef.current.marketStructure = key;
   }, [chart, analysis, lastTime]);
 
-  // Similar key-based skip for other renderers
   const renderFVGs = useCallback(() => {
     if (!chart || !analysis?.fvgs.length || !seriesRef.current) return;
     const key = `fvg-${analysis.fvgs.length}-${lastTime}`;
@@ -190,11 +176,8 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
 
     const colors = getICTColors();
     const primitives: ZonePrimitive[] = [];
-    const recentFVGs = analysis.fvgs.filter((f) => !f.filled).slice(-6);
-
-    for (const fvg of recentFVGs) {
-      const isBullish = fvg.type === "bullish";
-      const palette = isBullish ? colors.fvgBullish : colors.fvgBearish;
+    for (const fvg of analysis.fvgs.filter((f) => !f.filled).slice(-6)) {
+      const palette = fvg.type === "bullish" ? colors.fvgBullish : colors.fvgBearish;
       const primitive = new ZonePrimitive({
         startTime: fvg.startTime,
         endTime: lastTime,
@@ -203,7 +186,7 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
         fillColor: palette.fill,
         borderColor: palette.border,
         borderWidth: 1,
-        label: isBullish ? "FVG+" : "FVG-",
+        label: fvg.type === "bullish" ? "FVG+" : "FVG-",
         showMidline: true,
         midlineColor: palette.mid,
       });
@@ -228,11 +211,8 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
 
     const colors = getICTColors();
     const primitives: ZonePrimitive[] = [];
-    const activeOBs = analysis.orderBlocks.filter((ob) => !ob.mitigated).slice(-4);
-
-    for (const ob of activeOBs) {
-      const isBullish = ob.type === "bullish";
-      const palette = isBullish ? colors.obBullish : colors.obBearish;
+    for (const ob of analysis.orderBlocks.filter((ob) => !ob.mitigated).slice(-4)) {
+      const palette = ob.type === "bullish" ? colors.obBullish : colors.obBearish;
       const primitive = new ZonePrimitive({
         startTime: ob.time,
         endTime: lastTime,
@@ -241,7 +221,7 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
         fillColor: palette.fill,
         borderColor: palette.border,
         borderWidth: 2,
-        label: isBullish ? "OB+" : "OB-",
+        label: ob.type === "bullish" ? "OB+" : "OB-",
       });
       s.attachPrimitive(primitive);
       primitives.push(primitive);
@@ -263,11 +243,8 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
 
     const colors = getICTColors();
     const lines: ISeriesApi<"Line">[] = [];
-    const activeZones = analysis.liquidityZones.filter((z) => !z.swept).slice(-4);
-
-    for (const zone of activeZones) {
-      const isBSL = zone.type === "BSL";
-      const color = isBSL ? colors.liquidity.bsl : colors.liquidity.ssl;
+    for (const zone of analysis.liquidityZones.filter((z) => !z.swept).slice(-4)) {
+      const color = zone.type === "BSL" ? colors.liquidity.bsl : colors.liquidity.ssl;
       const line = chart.addSeries(LineSeries, {
         color,
         lineWidth: 1,
@@ -304,9 +281,7 @@ export function useICTOverlay({ chart, series, analysis, visibility, lastTime }:
 
     const colors = getICTColors();
     const primitives: BandPrimitive[] = [];
-    const recentOTEs = analysis.oteZones.slice(-2);
-
-    for (const ote of recentOTEs) {
+    for (const ote of analysis.oteZones.slice(-2)) {
       const primitive = new BandPrimitive({
         startTime: ote.startTime,
         endTime: ote.endTime,

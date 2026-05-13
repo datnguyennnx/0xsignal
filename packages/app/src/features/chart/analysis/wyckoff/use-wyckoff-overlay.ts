@@ -1,21 +1,15 @@
 /**
  * @overview Wyckoff Method Chart Overlay Hook
  *
- * Manages the rendering of Wyckoff Method annotations (Phases, Trading Ranges, Efforts, Events)
- * using a combination of LW-Charts Series (Line) and custom Primitives (Zone).
- *
- * @mechanism
- * - utilizes ZonePrimitive to render shaded background areas for Phases and Ranges.
- * - utilizes LineSeries to render horizontal price levels for SC/BC and Effort/Result divergences.
- * - implements a strict cleanup cycle (attach/detach/removeSeries) to prevent memory leaks and ghost primitives.
+ * Renders Wyckoff annotations using shared ZonePrimitive and lightweight-charts LineSeries.
  */
 import { useEffect, useRef, useCallback } from "react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { LineSeries } from "lightweight-charts";
 import type { WyckoffAnalysis } from "@0xsignal/shared";
-import type { WyckoffVisibility } from "../types";
-import { ZonePrimitive } from "../../ict/primitives";
-import { getWyckoffColors } from "../utils";
+import type { WyckoffVisibility } from "./types";
+import { ZonePrimitive } from "../shared";
+import { getWyckoffColors } from "./colors";
 import { ensureUniqueAscending } from "../../utils/ensure-unique-ascending";
 
 interface WyckoffOverlayProps {
@@ -59,9 +53,7 @@ export function useWyckoffOverlay({
     climaxLines: [],
     eventLines: [],
   });
-
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-
   useEffect(() => {
     seriesRef.current = series ?? null;
   }, [series]);
@@ -77,7 +69,6 @@ export function useWyckoffOverlay({
   const cleanup = useCallback(() => {
     if (!chart) return;
     const r = refs.current;
-
     r.effortLines.forEach((s) => {
       try {
         chart.removeSeries(s);
@@ -93,12 +84,11 @@ export function useWyckoffOverlay({
         chart.removeSeries(s);
       } catch {}
     });
-
     const s = seriesRef.current;
     if (s) {
-      r.phasePrimitives.forEach((primitive) => {
+      r.phasePrimitives.forEach((p) => {
         try {
-          s.detachPrimitive(primitive);
+          s.detachPrimitive(p);
         } catch {}
       });
       if (r.rangePrimitive) {
@@ -107,52 +97,39 @@ export function useWyckoffOverlay({
         } catch {}
       }
     }
-
     r.rangePrimitive = null;
     r.phasePrimitives = [];
     r.effortLines = [];
     r.climaxLines = [];
     r.eventLines = [];
-
-    appliedKeysRef.current = {
-      phases: "",
-      effort: "",
-      tradingRange: "",
-      climaxes: "",
-      events: "",
-    };
+    appliedKeysRef.current = { phases: "", effort: "", tradingRange: "", climaxes: "", events: "" };
   }, [chart]);
 
   const renderPhases = useCallback(() => {
     if (!chart || !analysis?.phases.length || !seriesRef.current) return;
     const key = `phases-${analysis.phases.length}-${lastTime}`;
     if (appliedKeysRef.current.phases === key) return;
-
     const s = seriesRef.current;
     refs.current.phasePrimitives.forEach((p) => {
       try {
         s.detachPrimitive(p);
       } catch {}
     });
-
     const primitives: ZonePrimitive[] = [];
     for (const phase of analysis.phases) {
-      const phaseColors = getPhaseColor(phase.phase);
-      const cycleLabel = phase.cycle.charAt(0).toUpperCase() + phase.cycle.slice(1).slice(0, 4);
-
+      const pc = getPhaseColor(phase.phase);
       const primitive = new ZonePrimitive({
         startTime: phase.startTime,
         endTime:
           phase.endIndex > 0 ? (analysis.events[phase.endIndex]?.time ?? lastTime) : lastTime,
         highPrice: 0,
         lowPrice: 0,
-        fillColor: phaseColors.fill,
-        borderColor: phaseColors.border,
+        fillColor: pc.fill,
+        borderColor: pc.border,
         borderWidth: 2,
-        label: `Phase ${phase.phase} (${cycleLabel})`,
+        label: `Phase ${phase.phase}`,
         showMidline: false,
       });
-
       s.attachPrimitive(primitive);
       primitives.push(primitive);
     }
@@ -164,74 +141,37 @@ export function useWyckoffOverlay({
     if (!chart || !analysis?.effortResults.length) return;
     const key = `effort-${analysis.effortResults.length}-${lastTime}`;
     if (appliedKeysRef.current.effort === key) return;
-
     refs.current.effortLines.forEach((l) => {
       try {
         chart.removeSeries(l);
       } catch {}
     });
-
     const colors = getWyckoffColors();
     const lines: ISeriesApi<"Line">[] = [];
-
     for (const effort of analysis.effortResults.slice(-6)) {
-      let color: string;
-      let label: string;
-
-      switch (effort.divergence) {
-        case "bullish":
-          color = colors.effort?.bullish ?? "var(--effort-bullish)";
-          label = "Effort+";
-          break;
-        case "bearish":
-          color = colors.effort?.bearish ?? "var(--effort-bearish)";
-          label = "Effort-";
-          break;
-        default:
-          color = colors.effort?.neutral ?? "var(--effort-neutral)";
-          label = "Effort~";
-      }
-
-      const lineWidth = effort.divergence === "neutral" ? 1 : 2;
-      const lineStyle = effort.divergence === "neutral" ? 2 : 0;
-
+      const isBullish = effort.divergence === "bullish";
+      const isBearish = effort.divergence === "bearish";
+      const color = isBullish
+        ? colors.effort.bullish
+        : isBearish
+          ? colors.effort.bearish
+          : colors.effort.neutral;
       const line = chart.addSeries(LineSeries, {
         color,
-        lineWidth,
-        lineStyle,
+        lineWidth: isBearish || isBullish ? 2 : 1,
+        lineStyle: isBearish || isBullish ? 0 : 2,
         lastValueVisible: true,
         priceLineVisible: false,
         crosshairMarkerVisible: true,
-        title: label,
+        title: isBullish ? "Effort+" : isBearish ? "Effort-" : "Effort~",
       });
-
       const lineData = ensureUniqueAscending([
         { time: effort.time, value: effort.effort },
         { time: lastTime, value: effort.effort },
       ]);
-
       if (lineData.length >= 2) {
         line.setData(lineData);
         lines.push(line);
-      }
-
-      if (Math.abs(effort.effort - effort.result) > effort.effort * 0.1) {
-        const resultLine = chart.addSeries(LineSeries, {
-          color: colors.effort?.result ?? "var(--effort-result)",
-          lineWidth: 1,
-          lineStyle: 3,
-          lastValueVisible: false,
-          priceLineVisible: false,
-          title: `${label} Result`,
-        });
-        const resultData = ensureUniqueAscending([
-          { time: effort.time, value: effort.result },
-          { time: lastTime, value: effort.result },
-        ]);
-        if (resultData.length >= 2) {
-          resultLine.setData(resultData);
-          lines.push(resultLine);
-        }
       }
     }
     refs.current.effortLines = lines;
@@ -242,17 +182,14 @@ export function useWyckoffOverlay({
     if (!chart || !analysis?.tradingRange || !seriesRef.current) return;
     const key = `tr-${analysis.tradingRange.startTime}-${analysis.tradingRange.high}-${lastTime}`;
     if (appliedKeysRef.current.tradingRange === key) return;
-
     const s = seriesRef.current;
     if (refs.current.rangePrimitive) {
       try {
         s.detachPrimitive(refs.current.rangePrimitive);
       } catch {}
     }
-
     const colors = getWyckoffColors();
     const tr = analysis.tradingRange;
-
     const primitive = new ZonePrimitive({
       startTime: tr.startTime,
       endTime: lastTime,
@@ -265,7 +202,6 @@ export function useWyckoffOverlay({
       showMidline: true,
       midlineColor: colors.tradingRange.border,
     });
-
     s.attachPrimitive(primitive);
     refs.current.rangePrimitive = primitive;
     appliedKeysRef.current.tradingRange = key;
@@ -275,19 +211,15 @@ export function useWyckoffOverlay({
     if (!chart || !analysis?.climaxes.length) return;
     const key = `climax-${analysis.climaxes.length}-${lastTime}`;
     if (appliedKeysRef.current.climaxes === key) return;
-
     refs.current.climaxLines.forEach((l) => {
       try {
         chart.removeSeries(l);
       } catch {}
     });
-
     const colors = getWyckoffColors();
     const lines: ISeriesApi<"Line">[] = [];
-
     for (const climax of analysis.climaxes) {
       const color = climax.type === "SC" ? colors.climax.sc : colors.climax.bc;
-      const label = climax.type === "SC" ? "SC" : "BC";
       const line = chart.addSeries(LineSeries, {
         color,
         lineWidth: 2,
@@ -295,7 +227,7 @@ export function useWyckoffOverlay({
         lastValueVisible: true,
         priceLineVisible: false,
         crosshairMarkerVisible: true,
-        title: label,
+        title: climax.type,
       });
       const lineData = ensureUniqueAscending([
         { time: climax.time, value: climax.price },
@@ -314,47 +246,19 @@ export function useWyckoffOverlay({
     if (!chart || !analysis?.events.length) return;
     const key = `events-${analysis.events.length}-${lastTime}`;
     if (appliedKeysRef.current.events === key) return;
-
     refs.current.eventLines.forEach((l) => {
       try {
         chart.removeSeries(l);
       } catch {}
     });
-
     const colors = getWyckoffColors();
     const lines: ISeriesApi<"Line">[] = [];
-
     for (const event of analysis.events.slice(-8)) {
-      let color: string;
-      switch (event.type) {
-        case "spring":
-          color = colors.event.spring;
-          break;
-        case "upthrust":
-          color = colors.event.upthrust;
-          break;
-        case "LPS":
-          color = colors.event.lps;
-          break;
-        case "LPSY":
-          color = colors.event.lpsy;
-          break;
-        case "SOS":
-          color = colors.event.sos;
-          break;
-        case "SOW":
-          color = colors.event.sow;
-          break;
-        default:
-          color = colors.event.st;
-      }
-
-      const lineWidth = event.significance === "high" ? 2 : 1;
-      const lineStyle = event.type === "ST" ? 2 : 0;
+      const color = colors.event[event.type as keyof typeof colors.event] ?? colors.event.st;
       const line = chart.addSeries(LineSeries, {
         color,
-        lineWidth,
-        lineStyle,
+        lineWidth: event.significance === "high" ? 2 : 1,
+        lineStyle: event.type === "ST" ? 2 : 0,
         lastValueVisible: true,
         priceLineVisible: false,
         crosshairMarkerVisible: true,
@@ -449,5 +353,6 @@ export function useWyckoffOverlay({
     renderEvents,
     cleanup,
   ]);
+
   return { cleanup };
 }

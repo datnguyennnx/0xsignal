@@ -1,71 +1,44 @@
 /**
- * @overview Wyckoff Analysis Toggle Button
+ * @overview Generic analysis toggle button with dropdown controls.
  *
- * Renders a dropdown menu for enabling/disabling specific Wyckoff Method features
- * (Trading Range, Climaxes, Springs, Phase analysis).
+ * Replaces ICTButton/ICTControls/WyckoffButton — the same dropdown pattern
+ * with different feature configs and footer text.
  */
 import { memo, useState, useCallback, useRef, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/core/utils/cn";
-import type { WyckoffVisibility, WyckoffFeature } from "../types";
 
-interface WyckoffButtonProps {
-  visibility: WyckoffVisibility;
-  onToggle: (feature: WyckoffFeature) => void;
-  isLoading?: boolean;
-  className?: string;
-}
-
-interface FeatureConfig {
-  id: WyckoffFeature;
+export interface AnalysisFeature {
+  id: string;
   label: string;
   description: string;
   color: string;
 }
 
-const FEATURES: FeatureConfig[] = [
-  {
-    id: "tradingRange",
-    label: "Trading Range",
-    description: "Accumulation/Distribution range",
-    color: "bg-foreground/80",
-  },
-  {
-    id: "climaxes",
-    label: "Climaxes",
-    description: "SC/BC volume spikes",
-    color: "bg-foreground/50",
-  },
-  {
-    id: "springs",
-    label: "Springs/Upthrusts",
-    description: "False breakouts and tests",
-    color: "bg-foreground/30",
-  },
-  {
-    id: "effortResult",
-    label: "Effort vs Result",
-    description: "Volume divergences",
-    color: "bg-foreground/60",
-  },
-  {
-    id: "phases",
-    label: "Phases",
-    description: "Wyckoff phase markers",
-    color: "bg-foreground/40",
-  },
-];
+interface AnalysisButtonProps {
+  label: string;
+  features: readonly AnalysisFeature[];
+  visibility: Record<string, boolean>;
+  onToggle: (feature: string) => void;
+  isLoading?: boolean;
+  footerText?: string;
+  footerSubtext?: string;
+  className?: string;
+}
 
-export const WyckoffButton = memo(function WyckoffButton({
+export const AnalysisButton = memo(function AnalysisButton({
+  label,
+  features,
   visibility,
   onToggle,
   isLoading = false,
+  footerText,
+  footerSubtext,
   className,
-}: WyckoffButtonProps) {
+}: AnalysisButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const activeCount = Object.values(visibility).filter(Boolean).length;
 
   const handleToggle = useCallback(() => setIsOpen((prev) => !prev), []);
   const handleClose = useCallback(() => setIsOpen(false), []);
@@ -75,18 +48,18 @@ export const WyckoffButton = memo(function WyckoffButton({
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) handleClose();
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen, handleClose]);
-
-  useEffect(() => {
-    if (!isOpen) return;
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") handleClose();
     };
+    document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, [isOpen, handleClose]);
+
+  const activeCount = features.filter((f) => visibility[f.id]).length;
 
   return (
     <div ref={containerRef} className={cn("relative", className)}>
@@ -101,7 +74,7 @@ export const WyckoffButton = memo(function WyckoffButton({
           isLoading && "computing-pulse"
         )}
       >
-        <span>Wyckoff</span>
+        <span>{label}</span>
         {activeCount > 0 && (
           <span className="text-[clamp(0.5625rem,0.5rem+0.15vw,0.6875rem)] text-muted-foreground">
             {activeCount}
@@ -112,7 +85,7 @@ export const WyckoffButton = memo(function WyckoffButton({
       {isOpen && (
         <div className="absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-16px)] bg-popover text-popover-foreground border border-border/40 rounded-xl shadow-lg z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <span className="text-sm font-medium">Wyckoff Analysis</span>
+            <span className="text-sm font-medium">{label} Analysis</span>
             <Button
               variant="ghost"
               size="icon"
@@ -124,7 +97,7 @@ export const WyckoffButton = memo(function WyckoffButton({
           </div>
 
           <div className="p-3 space-y-1">
-            {FEATURES.map((feature) => (
+            {features.map((feature) => (
               <Button
                 key={feature.id}
                 variant="ghost"
@@ -149,14 +122,20 @@ export const WyckoffButton = memo(function WyckoffButton({
             ))}
           </div>
 
-          <div className="px-4 py-2 bg-muted/25 border-t border-border/30">
-            <p className="text-[clamp(0.5625rem,0.5rem+0.15vw,0.6875rem)] text-muted-foreground">
-              Best on 1H, 4H, Daily timeframes
-            </p>
-            <p className="text-[clamp(0.5rem,0.45rem+0.12vw,0.5625rem)] text-muted-foreground/60 mt-0.5">
-              Wyckoff Method by Richard D. Wyckoff
-            </p>
-          </div>
+          {(footerText || footerSubtext) && (
+            <div className="px-4 py-2 bg-muted/25 border-t border-border/30">
+              {footerText && (
+                <p className="text-[clamp(0.5625rem,0.5rem+0.15vw,0.6875rem)] text-muted-foreground">
+                  {footerText}
+                </p>
+              )}
+              {footerSubtext && (
+                <p className="text-[clamp(0.5rem,0.45rem+0.12vw,0.5625rem)] text-muted-foreground/60 mt-0.5">
+                  {footerSubtext}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@
  * @overview Inner Circle Trader (ICT) Analysis Shared Types
  */
 import type { Time } from "lightweight-charts";
+import type { AnalysisFeature } from "../shared";
 
 export type SwingType = "HH" | "HL" | "LH" | "LL";
 export type TrendDirection = "bullish" | "bearish" | "neutral";
@@ -98,34 +99,6 @@ export interface ICTAnalysis {
   readonly displacements: Displacement[];
 }
 
-export interface ICTConfig {
-  readonly showMarketStructure: boolean;
-  readonly showFVG: boolean;
-  readonly showOrderBlocks: boolean;
-  readonly showLiquidity: boolean;
-  readonly showOTE: boolean;
-  readonly showDisplacement: boolean;
-  readonly swingThreshold: number;
-  readonly fvgMinSize: number;
-  readonly obLookback: number;
-  readonly liquidityTolerance: number;
-  readonly displacementMultiple: number;
-}
-
-export const DEFAULT_ICT_CONFIG: ICTConfig = {
-  showMarketStructure: true,
-  showFVG: true,
-  showOrderBlocks: true,
-  showLiquidity: false,
-  showOTE: false,
-  showDisplacement: false,
-  swingThreshold: 0.5,
-  fvgMinSize: 0.1,
-  obLookback: 10,
-  liquidityTolerance: 0.1,
-  displacementMultiple: 1.5,
-};
-
 export type ICTFeature =
   | "marketStructure"
   | "fvg"
@@ -151,3 +124,50 @@ export const DEFAULT_ICT_VISIBILITY: ICTVisibility = {
   ote: false,
   displacement: false,
 };
+
+// Shared UI config for AnalysisButton
+export const ICT_LABEL = "ICT";
+
+export const ICT_FEATURES: readonly AnalysisFeature[] = [
+  {
+    id: "marketStructure",
+    label: "Market Structure",
+    description: "HH/HL/LH/LL swings, BOS & ChoCH",
+    color: "bg-foreground/80",
+  },
+  {
+    id: "fvg",
+    label: "Fair Value Gaps",
+    description: "Imbalance zones",
+    color: "bg-foreground/50",
+  },
+  {
+    id: "orderBlocks",
+    label: "Order Blocks",
+    description: "Supply/demand zones",
+    color: "bg-foreground/30",
+  },
+  {
+    id: "liquidity",
+    label: "Liquidity Zones",
+    description: "BSL/SSL clusters",
+    color: "bg-foreground/60",
+  },
+  {
+    id: "ote",
+    label: "OTE Zones",
+    description: "61.8%-78.6% Fibonacci",
+    color: "bg-foreground/40",
+  },
+  {
+    id: "displacement",
+    label: "Displacement",
+    description: "Strong momentum candles",
+    color: "bg-foreground/20",
+  },
+];
+
+export const ICT_FOOTER = {
+  text: "Best on 15m, 1H, 4H timeframes",
+  subtext: "ICT by Michael J. Huddleston",
+} as const;

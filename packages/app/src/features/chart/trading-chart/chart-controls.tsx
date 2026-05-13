@@ -5,8 +5,8 @@
  * Features support for full-screen mode toggling.
  *
  * @mechanism
- * - utilizes sub-components (ICTButton, WyckoffButton, IndicatorButton) for modularity.
- * - provides a clean, unified interface for all chart-level interactions.
+ * - utilizes shared AnalysisButton for ICT/Wyckoff toggle panels.
+ * - IndicatorButton handles technical indicator overlay management.
  */
 import { memo } from "react";
 import type { ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
@@ -14,8 +14,21 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Maximize2, Minimize2, RefreshCcw } from "lucide-react";
 import { IndicatorButton } from "../components/indicator-button";
-import { ICTButton, type ICTVisibility, type ICTFeature } from "../ict";
-import { WyckoffButton, type WyckoffVisibility, type WyckoffFeature } from "../wyckoff";
+import { AnalysisButton } from "../analysis/shared";
+import {
+  ICT_FEATURES,
+  ICT_LABEL,
+  ICT_FOOTER,
+  type ICTVisibility,
+  type ICTFeature,
+} from "../analysis/ict";
+import {
+  WYCKOFF_FEATURES,
+  WYCKOFF_LABEL,
+  WYCKOFF_FOOTER,
+  type WyckoffVisibility,
+  type WyckoffFeature,
+} from "../analysis/wyckoff";
 
 interface ChartControlsProps {
   ictVisibility: ICTVisibility;
@@ -50,11 +63,23 @@ export const ChartControls = memo(function ChartControls({
 }: ChartControlsProps) {
   return (
     <div className="flex items-center gap-2">
-      <ICTButton visibility={ictVisibility} onToggle={onToggleICT} isLoading={ictLoading} />
-      <WyckoffButton
-        visibility={wyckoffVisibility}
-        onToggle={onToggleWyckoff}
+      <AnalysisButton
+        label={ICT_LABEL}
+        features={ICT_FEATURES}
+        visibility={ictVisibility as unknown as Record<string, boolean>}
+        onToggle={(f) => onToggleICT(f as ICTFeature)}
+        isLoading={ictLoading}
+        footerText={ICT_FOOTER.text}
+        footerSubtext={ICT_FOOTER.subtext}
+      />
+      <AnalysisButton
+        label={WYCKOFF_LABEL}
+        features={WYCKOFF_FEATURES}
+        visibility={wyckoffVisibility as unknown as Record<string, boolean>}
+        onToggle={(f) => onToggleWyckoff(f as WyckoffFeature)}
         isLoading={wyckoffLoading}
+        footerText={WYCKOFF_FOOTER.text}
+        footerSubtext={WYCKOFF_FOOTER.subtext}
       />
 
       <div className="hidden xl:flex">
