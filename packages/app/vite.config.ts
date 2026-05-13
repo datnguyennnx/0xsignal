@@ -42,5 +42,15 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
     cssCodeSplit: true,
     reportCompressedSize: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes("lightweight-charts")) return "vendor-lightweight-charts";
+          if (id.includes("node_modules/viem") || id.includes("node_modules/wagmi"))
+            return "vendor-viem-wagmi";
+          if (id.includes("node_modules/react")) return "vendor-react";
+        },
+      },
+    },
   },
 });
