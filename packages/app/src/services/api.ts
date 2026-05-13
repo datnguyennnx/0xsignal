@@ -7,7 +7,7 @@
  * @mechanism
  * - Uses native fetch for stateless HTTP requests
  * - Custom error classes (ApiError, NetworkError) for consistent error handling
- * - Maps backend payloads into app-friendly DTOs for render-local state (e.g. FuturesPrice)
+ * - Maps backend payloads into app-friendly DTOs for render-local state (e.g. MarketPrice)
  */
 // API Client - Simple async functions
 import type { ChartDataPoint } from "@0xsignal/shared";
@@ -156,7 +156,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   }
 }
 
-export interface FuturesPrice {
+export interface MarketPrice {
   readonly symbol: string;
   readonly price: number;
   readonly change24h: number;
@@ -521,7 +521,7 @@ export const api = {
       body: JSON.stringify(params),
     }),
 
-  getFuturesPrice: async (symbol: string): Promise<FuturesPrice> => {
+  getMarketPrice: async (symbol: string): Promise<MarketPrice> => {
     const normalizedSymbol = normalizeSymbol(symbol);
     let markPx = 0;
     let midPx = 0;

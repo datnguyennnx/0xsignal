@@ -1,4 +1,4 @@
-import { useQuery, type QueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/query-keys";
 
 const HYPERLIQUID_COIN_ICON_BASE = "https://app.hyperliquid.xyz/coins";
@@ -15,7 +15,7 @@ function normalizeSymbol(rawSymbol: string): string {
   return rawSymbol.trim().toUpperCase();
 }
 
-export function getHyperliquidSymbolLogoCandidates(symbol: string): string[] {
+function getHyperliquidSymbolLogoCandidates(symbol: string): string[] {
   const normalized = normalizeSymbol(symbol);
   if (!normalized) return [];
 
@@ -145,19 +145,4 @@ export function useHyperliquidSymbolLogo(symbol: string) {
   });
 }
 
-export async function prefetchHyperliquidSymbolLogos(
-  queryClient: QueryClient,
-  symbols: string[]
-): Promise<void> {
-  const uniqueSymbols = [...new Set(symbols.map((symbol) => symbol.trim()).filter(Boolean))];
-  await Promise.allSettled(
-    uniqueSymbols.map((symbol) =>
-      queryClient.prefetchQuery({
-        queryKey: queryKeys.hyperliquid.symbolLogo(symbol),
-        queryFn: () => resolveHyperliquidSymbolLogo(symbol),
-        staleTime: LOGO_STALE_TIME,
-        gcTime: LOGO_GC_TIME,
-      })
-    )
-  );
-}
+/* prefetchHyperliquidSymbolLogos removed — unused dead code */

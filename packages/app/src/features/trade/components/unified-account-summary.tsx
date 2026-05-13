@@ -1,4 +1,4 @@
-import { useClearinghouseState } from "../hooks/use-user-positions";
+import { useClearinghouseState } from "../hooks/use-user-data";
 import { formatCompactUsd } from "@/core/utils/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/core/utils/cn";

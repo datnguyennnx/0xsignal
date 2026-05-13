@@ -15,7 +15,7 @@ import { normalizeSymbol } from "@/features/trade/lib/symbol";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
-import { api, type FuturesPrice } from "@/services/api";
+import { api, type MarketPrice } from "@/services/api";
 import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-candles";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { queryKeys } from "@/lib/query/query-keys";
@@ -148,7 +148,7 @@ const ChartSkeleton = () => (
 
 interface AssetViewModel {
   readonly symbol: string;
-  readonly price: FuturesPrice;
+  readonly price: MarketPrice;
 }
 
 interface AssetContentProps {
@@ -359,16 +359,17 @@ export function AssetDetail() {
     error: assetError,
   } = useQuery({
     queryKey: queryKeys.asset.bySymbol(rawCoin),
-    queryFn: () => api.getFuturesPrice(rawCoin),
+    queryFn: () => api.getMarketPrice(rawCoin),
     enabled: !!rawCoin,
     staleTime: 60 * 1000,
     refetchOnMount: true,
     retry: 1,
   });
 
-  const asset: AssetViewModel | null = fetchedAsset
-    ? { symbol: fetchedAsset.symbol, price: fetchedAsset }
-    : null;
+  const asset = useMemo<AssetViewModel | null>(
+    () => (fetchedAsset ? { symbol: fetchedAsset.symbol, price: fetchedAsset } : null),
+    [fetchedAsset]
+  );
 
   const {
     data: candleData,

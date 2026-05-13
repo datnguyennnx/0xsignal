@@ -15,7 +15,7 @@ import {
   getIndicatorBaseId,
   normalizeIndicatorParams,
 } from "@0xsignal/shared";
-import { useIndicatorData } from "./use-chart-data";
+import { useIndicatorData } from "./use-indicator-data";
 import type { IndicatorRenderEntry } from "./indicator-data.types";
 
 interface UseIndicatorsProps {

@@ -6,7 +6,8 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { formatTime, fmtNum, DirLabel } from "./shared-table-utils";
+import { formatTime, fmtNum } from "./shared-table-utils";
+import { DirLabel } from "./shared-table-components";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   getOrderType,

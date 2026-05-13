@@ -4,9 +4,8 @@
  *   - processRawL2Levels: reduced allocations from 4+ intermediate arrays to 2 (bids + asks only)
  *     Time: O(n log n) dominated by sort (Ω(n log n) lower bound for comparison sort — optimal)
  *     Space: O(n) for output arrays only, no temporary sorted copies
- *   - groupOrderbookLevels: replaced Number(p.toFixed(d)) with Math.round(p*m)/m
- *     Avoids O(d) string conversion per level; pure O(1) floating-point arithmetic
- * @data-flow backend WS/HTTP payloads → UI adapters → processRawL2Levels/groupOrderbookLevels
+ *   - groupOrderbookLevels: removed (was dead code)
+ * @data-flow backend WS/HTTP payloads → UI adapters → processRawL2Levels
  *   → RAF batch/local state → chart + orderbook rendering
  */
 
@@ -134,54 +133,4 @@ export function processRawL2Levels(rawBids: L2BookLevel[], rawAsks: L2BookLevel[
   };
 }
 
-/**
- * Client-side grouping: floor bids, ceil asks based on specified tick step.
- *
- * Algorithm:
- *   1. Group by tick boundary: O(n) using Map
- *   2. Sort groups: O(m log m) where m = unique groups (m <= n)
- *   3. Single-pass cumulative + depth: O(m)
- *   Total time: O(n + m log m), Space: O(m) for the Map
- */
-export function groupOrderbookLevels(
-  levels: OrderbookLevel[],
-  step: number,
-  side: "bids" | "asks"
-): OrderbookLevel[] {
-  if (!levels.length || step <= 0) return levels;
-
-  const grouped = new Map<number, number>();
-  const inv = 1 / step;
-  const logStep = Math.max(0, -Math.floor(Math.log10(step)));
-  const multiplier = Math.pow(10, Math.min(logStep, 15));
-
-  for (let i = 0; i < levels.length; i++) {
-    const l = levels[i];
-    const rawP = side === "bids" ? Math.floor(l.price * inv) / inv : Math.ceil(l.price * inv) / inv;
-    const key = Math.round(rawP * multiplier) / multiplier;
-    grouped.set(key, (grouped.get(key) || 0) + l.size);
-  }
-
-  const sorted = [...grouped.entries()].sort((a, b) =>
-    side === "bids" ? b[0] - a[0] : a[0] - b[0]
-  );
-
-  let total = 0;
-  let totalSize = 0;
-  for (let i = 0; i < sorted.length; i++) {
-    totalSize += sorted[i][1];
-  }
-
-  const result: OrderbookLevel[] = new Array(sorted.length);
-  for (let i = 0; i < sorted.length; i++) {
-    const [price, size] = sorted[i];
-    total += size;
-    result[i] = {
-      price,
-      size,
-      total,
-      depth: totalSize ? (total / totalSize) * 100 : 0,
-    };
-  }
-  return result;
-}
+/* groupOrderbookLevels removed — unused dead code */

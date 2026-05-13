@@ -42,9 +42,9 @@ export function generateTickSizeOptions(price: number): TickSizeOption[] {
   return opts;
 }
 
-const DEFAULT_SIGFIGS = 5;
-const MIN_SIGFIGS = 2;
-const MAX_SIGFIGS = 5;
+const DEFAULT_N_SIG_FIGS = 5;
+const MIN_N_SIG_FIGS = 2;
+const MAX_N_SIG_FIGS = 5;
 const RESUBSCRIBE_COOLDOWN_MS = 3200;
 
 interface UseHyperliquidOrderbookOptions {
@@ -89,13 +89,16 @@ export function useHyperliquidOrderbook(
   options: UseHyperliquidOrderbookOptions = {}
 ) {
   const [fineBook, setFineBook] = useState<OrderbookData | null>(null);
+  const [snapshotsForRender, setSnapshotsForRender] = useState<Map<number, OrderbookData>>(
+    new Map()
+  );
   const [error, setError] = useState<string | null>(null);
 
   const isControlled = options.controlledNSigFigs !== undefined;
-  const [uncontrolledSigFigs, setUncontrolledSigFigs] = useState(DEFAULT_SIGFIGS);
+  const [uncontrolledSigFigs, setUncontrolledSigFigs] = useState(DEFAULT_N_SIG_FIGS);
 
   const activeSigFigs = isControlled
-    ? Math.max(MIN_SIGFIGS, Math.min(MAX_SIGFIGS, options.controlledNSigFigs!))
+    ? Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, options.controlledNSigFigs!))
     : uncontrolledSigFigs;
 
   const activeSigFigsRef = useRef(activeSigFigs);
@@ -131,6 +134,7 @@ export function useHyperliquidOrderbook(
     raf.current = requestAnimationFrame(() => {
       if (pending.current) {
         setFineBook(pending.current);
+        setSnapshotsForRender(new Map(snapshotsRef.current));
         // NOTE: snapshotsRef is kept in sync for future depth chart use
         // snapshotsBySigFigs state removed to eliminate 60 Map allocs/sec
       }
@@ -138,7 +142,7 @@ export function useHyperliquidOrderbook(
     });
   }, []);
 
-  const handleMsg = useCallback(
+  const handleMessage = useCallback(
     (data: unknown, ch: string, meta?: { nSigFigs?: number; interval?: string; coin?: string }) => {
       if (ch !== "l2Book") return;
       if (meta?.nSigFigs !== undefined && meta.nSigFigs !== activeSigFigsRef.current) {
@@ -161,14 +165,14 @@ export function useHyperliquidOrderbook(
 
   const ws = useHyperliquidWs({
     subscription,
-    onMessage: handleMsg,
+    onMessage: handleMessage,
     enabled: enabled && !!symbol,
     onError: (e) => setError(e.message),
   });
 
   const resubscribe = useCallback(
     (nSigFigs: number) => {
-      const next = Math.max(MIN_SIGFIGS, Math.min(MAX_SIGFIGS, nSigFigs));
+      const next = Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, nSigFigs));
       if (!coin || !ws.resubscribe || next === activeSigFigsRef.current) return;
       ws.resubscribe({ type: "l2Book", coin, nSigFigs: next });
       if (!isControlled) {
@@ -220,11 +224,11 @@ export function useHyperliquidOrderbook(
     }
 
     adaptiveDirectionRef.current = null;
-    if (direction === "out" && activeSigFigs > MIN_SIGFIGS) {
+    if (direction === "out" && activeSigFigs > MIN_N_SIG_FIGS) {
       queueMicrotask(() => resubscribe(activeSigFigs - 1));
       return;
     }
-    if (direction === "in" && activeSigFigs < MAX_SIGFIGS) {
+    if (direction === "in" && activeSigFigs < MAX_N_SIG_FIGS) {
       queueMicrotask(() => resubscribe(activeSigFigs + 1));
     }
   }, [
@@ -239,8 +243,8 @@ export function useHyperliquidOrderbook(
   ]);
 
   const coarseBookBySigFigs = useMemo(
-    () => getCoarseBooksBySigFigs(snapshotsRef.current, activeSigFigs),
-    [activeSigFigs]
+    () => getCoarseBooksBySigFigs(snapshotsForRender, activeSigFigs),
+    [activeSigFigs, snapshotsForRender]
   );
   const orderbook = fineBook;
 

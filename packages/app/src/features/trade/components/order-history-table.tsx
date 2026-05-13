@@ -8,7 +8,8 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatCompactUsd } from "@/core/utils/formatters";
-import { formatTime, fmtNum, SideLabel, DirLabel, formatStatus } from "./shared-table-utils";
+import { formatTime, fmtNum, formatStatus } from "./shared-table-utils";
+import { SideLabel, DirLabel } from "./shared-table-components";
 import { getOrderType, getTriggerLabel, formatOrderValue } from "../utils/trigger-utils";
 import type { UserFillSchema, HistoricalOrderEntry } from "@/services/api";
 

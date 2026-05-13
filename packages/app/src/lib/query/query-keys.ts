@@ -50,6 +50,3 @@ export const queryKeys = {
       [...queryKeys.hyperliquid.all, "symbolLogo", symbol.toUpperCase()] as const,
   },
 } as const;
-
-// Type-safe query key builder
-export type QueryKeys = typeof queryKeys;

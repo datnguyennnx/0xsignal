@@ -8,7 +8,7 @@ import { api, type PlaceOrderRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/core/utils/cn";
 import { CheckIcon } from "lucide-react";
-import { useClearinghouseState, useSpotClearinghouseState } from "../hooks/use-user-positions";
+import { useClearinghouseState, useSpotClearinghouseState } from "../hooks/use-user-data";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
 import { AdjustLeverageModal } from "./adjust-leverage-modal";
 import { MarginModeModal } from "./margin-mode-modal";
@@ -19,8 +19,8 @@ import {
   slPriceFromPercent,
   gainPercentFromPrice,
   lossPercentFromPrice,
-  fmtPrice,
-  fmtPct,
+  formatPriceFixed,
+  formatPctFixed,
   formatOrderSize,
 } from "../utils/trade-math";
 
@@ -145,7 +145,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       const pct = Number(raw);
       if (entryPrice > 0 && effectiveLeverage > 0 && pct > 0) {
         const price = tpPriceFromPercent(entryPrice, pct, effectiveLeverage, isLong);
-        setTpPrice(fmtPrice(price));
+        setTpPrice(formatPriceFixed(price));
       } else {
         setTpPrice("");
       }
@@ -159,7 +159,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       const px = Number(raw);
       if (entryPrice > 0 && effectiveLeverage > 0 && px > 0) {
         const pct = gainPercentFromPrice(entryPrice, px, effectiveLeverage, isLong);
-        const formatted = fmtPct(pct);
+        const formatted = formatPctFixed(pct);
         setTpPercent(formatted);
         tpPercentRef.current = formatted;
       } else {
@@ -177,7 +177,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       const pct = Number(raw);
       if (entryPrice > 0 && effectiveLeverage > 0 && pct > 0) {
         const price = slPriceFromPercent(entryPrice, pct, effectiveLeverage, isLong);
-        setSlPrice(fmtPrice(price));
+        setSlPrice(formatPriceFixed(price));
       } else {
         setSlPrice("");
       }
@@ -191,7 +191,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       const px = Number(raw);
       if (entryPrice > 0 && effectiveLeverage > 0 && px > 0) {
         const pct = lossPercentFromPrice(entryPrice, px, effectiveLeverage, isLong);
-        const formatted = fmtPct(pct);
+        const formatted = formatPctFixed(pct);
         setSlPercent(formatted);
         slPercentRef.current = formatted;
       } else {
@@ -207,11 +207,15 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     if (entryPrice > 0 && effectiveLeverage > 0) {
       const tpPct = Number(tpPercentRef.current);
       if (tpPercentRef.current && tpPct > 0) {
-        setTpPrice(fmtPrice(tpPriceFromPercent(entryPrice, tpPct, effectiveLeverage, isLong)));
+        setTpPrice(
+          formatPriceFixed(tpPriceFromPercent(entryPrice, tpPct, effectiveLeverage, isLong))
+        );
       }
       const slPct = Number(slPercentRef.current);
       if (slPercentRef.current && slPct > 0) {
-        setSlPrice(fmtPrice(slPriceFromPercent(entryPrice, slPct, effectiveLeverage, isLong)));
+        setSlPrice(
+          formatPriceFixed(slPriceFromPercent(entryPrice, slPct, effectiveLeverage, isLong))
+        );
       }
     }
   }, [isLong, effectiveLeverage, entryPrice]);

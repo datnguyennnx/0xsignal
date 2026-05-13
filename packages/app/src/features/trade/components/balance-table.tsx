@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table";
 import { formatCompactUsd } from "@/core/utils/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PnLDisplay } from "./shared-table-utils";
+import { PnLDisplay } from "./shared-table-components";
 
 /* ─── Styling constants ─── */
 

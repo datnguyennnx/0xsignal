@@ -137,11 +137,11 @@ export function formatOrderSize(size: number, szDecimals: number): string {
  * @returns Formatted price string (e.g., "105.00") or ""
  *
  * @example
- * fmtPrice(105.5)  // → "105.50"
- * fmtPrice(0)      // → ""
- * fmtPrice(NaN)    // → ""
+ * formatPriceFixed(105.5)  // → "105.50"
+ * formatPriceFixed(0)      // → ""
+ * formatPriceFixed(NaN)    // → ""
  */
-export function fmtPrice(value: number): string {
+export function formatPriceFixed(value: number): string {
   return Number.isFinite(value) && value > 0 ? value.toFixed(2) : "";
 }
 
@@ -153,11 +153,11 @@ export function fmtPrice(value: number): string {
  * @returns Formatted percentage string (e.g., "10.00") or ""
  *
  * @example
- * fmtPct(10.5)  // → "10.50"
- * fmtPct(-1)    // → ""
- * fmtPct(NaN)   // → ""
+ * formatPctFixed(10.5)  // → "10.50"
+ * formatPctFixed(-1)    // → ""
+ * formatPctFixed(NaN)   // → ""
  */
-export function fmtPct(value: number): string {
+export function formatPctFixed(value: number): string {
   return Number.isFinite(value) && value >= 0 ? value.toFixed(2) : "";
 }
 

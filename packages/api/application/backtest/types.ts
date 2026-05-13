@@ -14,7 +14,7 @@ export type CreateBacktestRunInput = {
   correlation_id?: string;
 };
 
-export type SaveRunInputInput = {
+export type SaveRunInput = {
   run_id: string;
   strategy_snapshot: string | unknown;
   dataset_snapshot_ref: string | unknown;

@@ -19,15 +19,16 @@ import {
   useUserFills,
   useHistoricalOrders,
   useCancelOrdersMutation,
-} from "../hooks/use-user-positions";
+} from "../hooks/use-user-data";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
 import { useAllMids } from "../hooks/use-all-mids";
-import { TabTrigger } from "./shared-table-utils";
+import { TabTrigger } from "./shared-table-components";
 import { BalanceTable } from "./balance-table";
 import { PositionsTable } from "./positions-table";
 import { OpenOrdersTable } from "./open-orders-table";
 import { TradeHistoryTable, HistoryOrderTable } from "./order-history-table";
-import { TpSlViewModal, toTpSlDisplay } from "./tp-sl-view-modal";
+import { TpSlViewModal } from "./tp-sl-view-modal";
+import { toTpSlDisplay } from "./tp-sl-view-utils";
 import { CloseLimitModal } from "./close-limit-modal";
 import { formatOrderSize } from "../utils/trade-math";
 

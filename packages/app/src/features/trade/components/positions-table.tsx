@@ -7,7 +7,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
-import { PosDirLabel, PnLDisplay } from "./shared-table-utils";
+import { PosDirLabel, PnLDisplay } from "./shared-table-components";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /* ─── Styling constants ─── */

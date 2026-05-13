@@ -11,7 +11,7 @@ import { BacktestRepository } from "../ports/backtest-repository";
 import { EngineExecutor } from "../../domain/backtest/engine";
 import type {
   CreateBacktestRunInput,
-  SaveRunInputInput,
+  SaveRunInput,
   AppendRunEventInput,
   RecordMetricInput,
 } from "./types";
@@ -23,9 +23,7 @@ export class BacktestServices extends Context.Tag("BacktestServices")<
     readonly createBacktestRun: (
       input: CreateBacktestRunInput
     ) => Effect.Effect<BacktestRun, DomainError>;
-    readonly saveRunInput: (
-      input: SaveRunInputInput
-    ) => Effect.Effect<BacktestRunInputs, DomainError>;
+    readonly saveRunInput: (input: SaveRunInput) => Effect.Effect<BacktestRunInputs, DomainError>;
     readonly getRunSummary: (id: string) => Effect.Effect<RunSummary, DomainError>;
     readonly getRunInput: (id: string) => Effect.Effect<BacktestRunInputs, DomainError>;
     readonly getRunEvents: (id: string) => Effect.Effect<BacktestEvent[], DomainError>;
@@ -90,7 +88,7 @@ export const makeBacktestService = (repo: BacktestRepository) =>
           return run;
         }),
 
-      saveRunInput: (input: SaveRunInputInput): Effect.Effect<BacktestRunInputs, DomainError> =>
+      saveRunInput: (input: SaveRunInput): Effect.Effect<BacktestRunInputs, DomainError> =>
         Effect.tryPromise({
           try: () =>
             repo.insertRunInput({
