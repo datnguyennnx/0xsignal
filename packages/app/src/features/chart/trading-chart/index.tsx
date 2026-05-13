@@ -2,27 +2,13 @@
  * @overview Trading Chart Component
  *
  * A high-performance financial chart based on Lightweight Charts (TradingView).
- * Supports technical indicators (Wyckoff, ICT), multiple timeframes, and real-time streaming.
+ * Supports technical indicators, multiple timeframes, and real-time streaming.
+ * ICT/Wyckoff pattern analysis has been removed.
  */
-import { useRef, useState, useCallback, useMemo, memo } from "react";
+import { useRef, useCallback, useMemo, memo } from "react";
 import { useTheme } from "@/core/providers/theme-provider";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { useCandleData } from "@/features/trade/contexts/candle-data-context";
-
-import {
-  useICTOverlay,
-  useICTWorker,
-  DEFAULT_ICT_VISIBILITY,
-  type ICTVisibility,
-  type ICTFeature,
-} from "../analysis/ict";
-import {
-  useWyckoffOverlay,
-  useWyckoffWorker,
-  DEFAULT_WYCKOFF_VISIBILITY,
-  type WyckoffVisibility,
-  type WyckoffFeature,
-} from "../analysis/wyckoff";
 
 import { ChartHeader } from "./chart-header";
 import { ChartControls } from "./chart-controls";
@@ -55,33 +41,9 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   const { getPrecision } = useHyperliquidMeta();
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const { setHoveredCandle } = useHoverActions();
-  const { data, loadMore, hasMore, isFetching } = useCandleData();
-  const shouldShowLoadMoreIndicator = isFetching && data.length > 0;
-
-  const [ictVisibility, setIctVisibility] = useState<ICTVisibility>(DEFAULT_ICT_VISIBILITY);
-  const [wyckoffVisibility, setWyckoffVisibility] = useState<WyckoffVisibility>(
-    DEFAULT_WYCKOFF_VISIBILITY
-  );
-  const [pendingInterval, setPendingInterval] = useState<string | null>(null);
+  const { data, loadMore, hasMore } = useCandleData();
 
   const { isFullscreen, toggleFullscreen, fullscreenContainerRef } = useFullscreen();
-
-  const ictEnabled = useMemo(() => Object.values(ictVisibility).some(Boolean), [ictVisibility]);
-  const wyckoffEnabled = useMemo(
-    () => Object.values(wyckoffVisibility).some(Boolean),
-    [wyckoffVisibility]
-  );
-
-  const { analysis: ictAnalysis, isLoading: ictLoading } = useICTWorker({
-    data,
-    enabled: ictEnabled,
-  });
-  const { analysis: wyckoffAnalysis, isLoading: wyckoffLoading } = useWyckoffWorker({
-    data,
-    enabled: wyckoffEnabled,
-  });
-
-  const lastTime = useMemo(() => (data.length > 0 ? data[data.length - 1].time : 0), [data]);
 
   const precision = useMemo(() => getPrecision(symbol), [symbol, getPrecision]);
   const priceFormat = usePriceFormat(precision.pxDecimals);
@@ -91,7 +53,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     indicatorData,
     handleAddIndicator,
     handleRemoveIndicator,
-    handleResetAll: resetIndicators,
+    handleResetAll,
     hasActiveOverlays,
   } = useIndicators({ data });
 
@@ -116,23 +78,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     chart,
     visibleCandles: DESKTOP_CONFIG.visibleCandles,
     enabled: true,
-    resetKey: interval, // Force reset on interval change
-  });
-
-  useICTOverlay({
-    chart,
-    series: candlestickSeries,
-    analysis: ictAnalysis,
-    visibility: ictVisibility,
-    lastTime,
-  });
-
-  useWyckoffOverlay({
-    chart,
-    series: candlestickSeries,
-    analysis: wyckoffAnalysis,
-    visibility: wyckoffVisibility,
-    lastTime,
+    resetKey: interval,
   });
 
   useIndicatorOverlay({
@@ -142,28 +88,10 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     indicatorData,
   });
 
-  const handleToggleICT = useCallback((feature: ICTFeature) => {
-    setIctVisibility((prev) => ({ ...prev, [feature]: !prev[feature] }));
-  }, []);
-
-  const handleToggleWyckoff = useCallback((feature: WyckoffFeature) => {
-    setWyckoffVisibility((prev) => ({ ...prev, [feature]: !prev[feature] }));
-  }, []);
-
-  const handleResetAll = useCallback(() => {
-    setIctVisibility(DEFAULT_ICT_VISIBILITY);
-    setWyckoffVisibility(DEFAULT_WYCKOFF_VISIBILITY);
-    resetIndicators();
-  }, [resetIndicators]);
-
   const handleIntervalChange = useCallback(
     (newInterval: string) => {
       if (newInterval === interval) return;
-      // Instant feedback - set loading state before data fetch
-      setPendingInterval(newInterval);
-      // Trigger parent to fetch new data
       onIntervalChange(newInterval);
-      // Fullscreen handling
       if (isFullscreen) {
         setTimeout(() => toggleFullscreen(), INTERVAL_RESTORE_DELAY);
       }
@@ -171,25 +99,10 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     [interval, onIntervalChange, isFullscreen, toggleFullscreen]
   );
 
-  const isIntervalSwitching = pendingInterval !== null && pendingInterval !== interval;
-
-  // Show loading overlay when switching intervals
-  const showLoadingOverlay = isIntervalSwitching || shouldShowLoadMoreIndicator;
-
   const chartContent = (
     <>
-      <ChartHeader
-        interval={interval}
-        onIntervalChange={handleIntervalChange}
-        isIntervalSwitching={isIntervalSwitching}
-      >
+      <ChartHeader interval={interval} onIntervalChange={handleIntervalChange}>
         <ChartControls
-          ictVisibility={ictVisibility}
-          ictLoading={ictLoading}
-          onToggleICT={handleToggleICT}
-          wyckoffVisibility={wyckoffVisibility}
-          wyckoffLoading={wyckoffLoading}
-          onToggleWyckoff={handleToggleWyckoff}
           activeIndicators={activeIndicators}
           onAddIndicator={handleAddIndicator}
           onRemoveIndicator={handleRemoveIndicator}
@@ -202,14 +115,6 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
 
       <div className="flex-1 relative bg-card overflow-hidden">
         <div ref={chartContainerRef} className="absolute inset-0 will-change-transform" />
-        {showLoadingOverlay && (
-          <div className="pointer-events-none absolute left-3 top-3 z-20">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/90 px-2 py-1 text-[clamp(0.5625rem,0.5rem+0.15vw,0.6875rem)] font-medium text-muted-foreground backdrop-blur">
-              <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-              Loading
-            </div>
-          </div>
-        )}
         <IndicatorChips indicators={activeIndicators} />
         <ChartOhlcOverlay data={data} precision={precision.pxDecimals} />
       </div>

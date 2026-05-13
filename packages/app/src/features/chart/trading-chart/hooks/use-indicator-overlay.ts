@@ -20,7 +20,7 @@ import {
   isBandIndicator,
   isHistogramIndicator,
 } from "@0xsignal/shared";
-import { BandPrimitive } from "../../analysis/shared";
+import { BandPrimitive } from "../../primitives";
 import type { IndicatorRenderEntry } from "./indicator-data.types";
 
 interface UseIndicatorOverlayProps {

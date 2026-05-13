@@ -47,16 +47,6 @@ export {
 // Indicator metadata
 export { BAND_INDICATOR_IDS, HISTOGRAM_INDICATOR_IDS } from "./indicators/metadata";
 
-// Patterns
-export type { TradingSignal, PatternAnalysis, PatternName, PatternConfig } from "./patterns/types";
-export { analyzeICT, type ICTAnalysis, type ICTConfig, DEFAULT_ICT_CONFIG } from "./patterns/ict";
-export {
-  analyzeWyckoff,
-  type WyckoffAnalysis,
-  type WyckoffConfig,
-  DEFAULT_WYCKOFF_CONFIG,
-} from "./patterns/wyckoff";
-
 // ─── API Boundary Schemas (pure TypeScript types, no runtime deps) ────────────
 export type { ApiEnvelope } from "./schemas/envelope";
 export type { ApiErrorBody } from "./schemas/errors";
