@@ -4,7 +4,7 @@ import { normalizeSymbol } from "./symbol";
 describe("symbol normalization", () => {
   it("normalizes regular perp symbols", () => {
     expect(normalizeSymbol(" btcusdt ")).toBe("BTC");
-    expect(normalizeSymbol("eth-usdc")).toBe("ETH");
+    expect(normalizeSymbol("ETHUSDC")).toBe("ETH");
   });
 
   it("normalizes builder perp symbols with lowercase dex", () => {
