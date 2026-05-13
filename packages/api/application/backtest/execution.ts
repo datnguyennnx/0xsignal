@@ -15,33 +15,36 @@ export const executeBacktestRun = (
   run: BacktestRun
 ): Effect.Effect<void, DomainError> =>
   Effect.gen(function* () {
-    yield* Effect.tryPromise({
-      try: () => repo.updateRunStatus(run.id, "running"),
-      catch: (e) =>
-        new DomainError({
-          code: "VALIDATION_ERROR",
-          message: "Failed to set run to running",
-          cause: e,
-        }),
-    });
+    yield* repo.updateRunStatus(run.id, "running").pipe(
+      Effect.mapError(
+        (e) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to set run to running",
+            cause: e,
+          })
+      )
+    );
 
-    yield* Effect.tryPromise({
-      try: () =>
-        repo.insertEvent({
-          id: crypto.randomUUID(),
-          run_id: run.id,
-          event_type: "info",
-          payload: { message: "Starting backtest execution" },
-          level: "info",
-          created_at: new Date().toISOString(),
-        }),
-      catch: (e) =>
-        new DomainError({
-          code: "VALIDATION_ERROR",
-          message: "Failed to insert start event",
-          cause: e,
-        }),
-    });
+    yield* repo
+      .insertEvent({
+        id: crypto.randomUUID(),
+        run_id: run.id,
+        event_type: "info",
+        payload: { message: "Starting backtest execution" },
+        level: "info",
+        created_at: new Date().toISOString(),
+      })
+      .pipe(
+        Effect.mapError(
+          (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to insert start event",
+              cause: e,
+            })
+        )
+      );
 
     const output = yield* executor
       .runEngine({
@@ -64,88 +67,102 @@ export const executeBacktestRun = (
         )
       );
 
-    yield* Effect.forEach(Object.entries(output.metrics), ([metricKey, metricValue]) =>
-      Effect.tryPromise({
-        try: () =>
-          repo.insertMetric({
+    yield* Effect.forEach(
+      Object.entries(output.metrics),
+      ([metricKey, metricValue]) =>
+        repo
+          .insertMetric({
             run_id: run.id,
             metric_key: metricKey,
             metric_value: metricValue,
             metric_group: "performance",
             created_at: new Date().toISOString(),
-          }),
-        catch: (e) =>
-          new DomainError({
-            code: "VALIDATION_ERROR",
-            message: "Failed to persist metric",
-            cause: e,
-          }),
-      })
+          })
+          .pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to persist metric",
+                  cause: e,
+                })
+            )
+          ),
+      { concurrency: 10 }
     );
 
-    yield* Effect.forEach(output.events, (event) =>
-      Effect.tryPromise({
-        try: () =>
-          repo.insertEvent({
+    yield* Effect.forEach(
+      output.events,
+      (event) =>
+        repo
+          .insertEvent({
             id: crypto.randomUUID(),
             run_id: run.id,
             event_type: normalizeEventType(event.event_type),
             payload: event.payload,
             level: event.level,
             created_at: event.timestamp,
-          }),
-        catch: (e) =>
-          new DomainError({
-            code: "VALIDATION_ERROR",
-            message: "Failed to persist event",
-            cause: e,
-          }),
-      })
+          })
+          .pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to persist event",
+                  cause: e,
+                })
+            )
+          ),
+      { concurrency: 10 }
     );
 
-    yield* Effect.tryPromise({
-      try: () => repo.updateRunStatus(run.id, output.status),
-      catch: (e) =>
-        new DomainError({
-          code: "VALIDATION_ERROR",
-          message: "Failed to update final run status",
-          cause: e,
-        }),
-    });
+    yield* repo.updateRunStatus(run.id, output.status).pipe(
+      Effect.mapError(
+        (e) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to update final run status",
+            cause: e,
+          })
+      )
+    );
 
-    yield* Effect.tryPromise({
-      try: () =>
-        repo.insertEvent({
-          id: crypto.randomUUID(),
-          run_id: run.id,
-          event_type: "info",
-          payload: { message: `Backtest completed with status: ${output.status}` },
-          level: "info",
-          created_at: new Date().toISOString(),
-        }),
-      catch: (e) =>
-        new DomainError({
-          code: "VALIDATION_ERROR",
-          message: "Failed to insert completion event",
-          cause: e,
-        }),
-    });
+    yield* repo
+      .insertEvent({
+        id: crypto.randomUUID(),
+        run_id: run.id,
+        event_type: "info",
+        payload: { message: `Backtest completed with status: ${output.status}` },
+        level: "info",
+        created_at: new Date().toISOString(),
+      })
+      .pipe(
+        Effect.mapError(
+          (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to insert completion event",
+              cause: e,
+            })
+        )
+      );
   }).pipe(
-    Effect.catchAll((err: DomainError) => {
-      const errorMessage = err.message;
-      return Effect.tryPromise({
-        try: async () => {
-          await repo.updateRunStatus(run.id, "failed");
-          await repo.insertEvent({
+    Effect.catchAll((err: DomainError) =>
+      Effect.gen(function* () {
+        yield* repo
+          .updateRunStatus(run.id, "failed")
+          .pipe(Effect.catchAll((e) => Effect.logWarning("Failed to set run to failed", e)));
+        yield* repo
+          .insertEvent({
             id: crypto.randomUUID(),
             run_id: run.id,
             event_type: "error",
-            payload: { message: errorMessage },
+            payload: { message: err.message },
             level: "error",
             created_at: new Date().toISOString(),
-          });
-        },
-        catch: () => err,
-      }).pipe(Effect.zipRight(Effect.logError(`Engine execution failed: ${errorMessage}`)));
-    })
+          })
+          .pipe(Effect.catchAll((e) => Effect.logWarning("Failed to insert error event", e)));
+        yield* Effect.logError(`Engine execution failed: ${err.message}`);
+      })
+    )
   );
