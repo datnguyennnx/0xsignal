@@ -21,6 +21,7 @@ import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta"
 import { queryKeys } from "@/lib/query/query-keys";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
 import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { PositionManagement } from "@/features/trade/components/position-management";
 import { OrderForm } from "@/features/trade/components/order-form";
 import { L2BookNSigFigsProvider } from "@/features/trade/contexts/l2-book-nsig-figs-context";
@@ -177,7 +178,7 @@ const AssetContent = memo(function AssetContent({
     return () => window.clearInterval(id);
   }, []);
 
-  // `symbol` prop is now the rawCoin from URL (perp: "BTC", spot: "PURR/USDC", HIP-3: "xyz:TSLA")
+  // `symbol` is the rawCoin from URL (perp: "BTC", spot: "PURR/USDC", HIP-3: "xyz:TSLA")
   const { data: annotation } = useTradeAnnotation(symbol);
   const { data: logoUrl } = useHyperliquidSymbolLogo(symbol);
   const { data: tradeList } = useTradeList();
@@ -253,18 +254,22 @@ const AssetContent = memo(function AssetContent({
               <Skeleton className="h-full w-full rounded-sm" />
             ) : (
               <Suspense fallback={<ChartSkeleton />}>
-                <TradingChart
-                  key={chartSymbol}
-                  symbol={chartSymbol}
-                  interval={interval}
-                  onIntervalChange={onIntervalChange}
-                />
+                <ErrorBoundary>
+                  <TradingChart
+                    key={chartSymbol}
+                    symbol={chartSymbol}
+                    interval={interval}
+                    onIntervalChange={onIntervalChange}
+                  />
+                </ErrorBoundary>
               </Suspense>
             )}
           </div>
 
           <div className="col-span-1 flex flex-col min-h-0">
-            <OrderbookWidget key={symbol} symbol={symbol} />
+            <ErrorBoundary>
+              <OrderbookWidget key={symbol} symbol={symbol} />
+            </ErrorBoundary>
           </div>
 
           <div className="col-span-1 flex flex-col min-h-0">
