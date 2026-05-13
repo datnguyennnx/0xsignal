@@ -8,7 +8,7 @@
  * 1. Initial Load: Fetch candle history via backend REST hooks (React Query)
  * 2. Streaming: Subscribe to backend-proxied realtime candles via useHyperliquidWs
  * 3. Throttling: Buffer rapid WebSocket updates and flush to state at 60fps using RAF
- * 4. Merging: Combine history + stream with O(1) deduplication by timestamp
+ * 4. Merging: O(n) sorted two-pointer merge with dedup
  *
  * @performance
  * - Throttled updates prevent React re-render storms during high volatility
@@ -131,18 +131,44 @@ export function useHyperliquidCandles({
     [enabled, coin, hlInterval]
   );
 
-  // RAF-throttled buffer flush — batches high-frequency WS updates to max 60fps
+  // RAF-throttled buffer flush — O(n) merge of sorted arrays at max 60fps
   const scheduleUpdate = useCallback(() => {
     if (rafRef.current) return;
     const now = performance.now();
     const elapsed = now - lastUpdateRef.current;
 
     const flush = () => {
-      if (bufferRef.current.length > 0) {
-        const sorted = normalizeChartDataPoints([...dataRef.current, ...bufferRef.current]);
+      const buffer = bufferRef.current;
+      if (buffer.length > 0) {
         bufferRef.current = [];
-        dataRef.current = sorted;
-        setData(sorted);
+
+        const existing = dataRef.current;
+        const result: ChartDataPoint[] = [];
+        let i = 0; // index in existing
+        let j = 0; // index in buffer
+
+        // Both arrays are sorted by time ascending — O(n) merge
+        while (i < existing.length && j < buffer.length) {
+          if (existing[i].time < buffer[j].time) {
+            result.push(existing[i]);
+            i++;
+          } else if (existing[i].time > buffer[j].time) {
+            result.push(buffer[j]);
+            j++;
+          } else {
+            // Same timestamp — buffer wins (most recent data)
+            result.push(buffer[j]);
+            i++;
+            j++;
+          }
+        }
+        // Append remaining (skip duplicates against last result entry)
+        const lastTime = () => result[result.length - 1]?.time;
+        while (i < existing.length && existing[i].time !== lastTime()) result.push(existing[i++]);
+        while (j < buffer.length && buffer[j].time !== lastTime()) result.push(buffer[j++]);
+
+        dataRef.current = result;
+        setData(result);
         lastUpdateRef.current = performance.now();
       }
       rafRef.current = null;
@@ -290,7 +316,27 @@ export function useHyperliquidCandles({
           return;
         }
 
-        const merged = normalizeChartDataPoints([...filtered, ...dataRef.current]);
+        // Both filtered (older) and dataRef.current are sorted by time ascending — O(n) merge
+        const merged: ChartDataPoint[] = [];
+        let i = 0;
+        let j = 0;
+        while (i < filtered.length && j < dataRef.current.length) {
+          if (filtered[i].time < dataRef.current[j].time) {
+            merged.push(filtered[i++]);
+          } else if (filtered[i].time > dataRef.current[j].time) {
+            merged.push(dataRef.current[j++]);
+          } else {
+            // filtered wins (older data is authoritative; no conflict expected)
+            merged.push(filtered[i++]);
+            j++;
+          }
+        }
+        // Append remaining (skip duplicates against last merged entry)
+        const lastMerged = () => merged[merged.length - 1]?.time;
+        while (i < filtered.length && filtered[i].time !== lastMerged()) merged.push(filtered[i++]);
+        while (j < dataRef.current.length && dataRef.current[j].time !== lastMerged())
+          merged.push(dataRef.current[j++]);
+
         dataRef.current = merged;
         setData(merged);
       } catch (err) {
