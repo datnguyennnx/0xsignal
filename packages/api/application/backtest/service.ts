@@ -41,46 +41,48 @@ export const makeBacktestService = (repo: BacktestRepository) =>
     return BacktestServices.of({
       createBacktestRun: (input: CreateBacktestRunInput) =>
         Effect.gen(function* () {
-          const run = yield* Effect.tryPromise({
-            try: () =>
-              repo.createRunWithInput(
-                {
-                  id: input.id,
-                  session_id: input.session_id,
-                  strategy_version_id: input.strategy_version_id,
-                  dataset_snapshot_id: input.dataset_snapshot_id,
-                  status: input.status,
-                  engine_version: input.engine_version,
-                  run_mode: input.run_mode,
+          const run = yield* repo
+            .createRunWithInput(
+              {
+                id: input.id,
+                session_id: input.session_id,
+                strategy_version_id: input.strategy_version_id,
+                dataset_snapshot_id: input.dataset_snapshot_id,
+                status: input.status,
+                engine_version: input.engine_version,
+                run_mode: input.run_mode,
+                initial_capital: input.initial_capital,
+                base_currency: input.base_currency,
+                created_by_action_id: input.created_by_action_id,
+                trace_id: input.trace_id,
+                span_id: input.span_id,
+                correlation_id: input.correlation_id,
+                started_at: new Date().toISOString(),
+              },
+              {
+                run_id: input.id,
+                strategy_snapshot: { id: input.strategy_version_id },
+                dataset_snapshot_ref: { id: input.dataset_snapshot_id },
+                execution_options: {
                   initial_capital: input.initial_capital,
                   base_currency: input.base_currency,
-                  created_by_action_id: input.created_by_action_id,
-                  trace_id: input.trace_id,
-                  span_id: input.span_id,
-                  correlation_id: input.correlation_id,
-                  started_at: new Date().toISOString(),
+                  run_mode: input.run_mode,
+                  engine_version: input.engine_version,
                 },
-                {
-                  run_id: input.id,
-                  strategy_snapshot: { id: input.strategy_version_id },
-                  dataset_snapshot_ref: { id: input.dataset_snapshot_id },
-                  execution_options: {
-                    initial_capital: input.initial_capital,
-                    base_currency: input.base_currency,
-                    run_mode: input.run_mode,
-                    engine_version: input.engine_version,
-                  },
-                  schema_version: "1.0.0",
-                  created_at: new Date().toISOString(),
-                }
-              ),
-            catch: (e) =>
-              new DomainError({
-                code: "VALIDATION_ERROR",
-                message: "Failed to create backtest run",
-                cause: e,
-              }),
-          });
+                schema_version: "1.0.0",
+                created_at: new Date().toISOString(),
+              }
+            )
+            .pipe(
+              Effect.mapError(
+                (e) =>
+                  new DomainError({
+                    code: "VALIDATION_ERROR",
+                    message: "Failed to create backtest run",
+                    cause: e,
+                  })
+              )
+            );
 
           const executeRun = executeBacktestRun(repo, executor, run);
 
@@ -89,35 +91,38 @@ export const makeBacktestService = (repo: BacktestRepository) =>
         }),
 
       saveRunInput: (input: SaveRunInput): Effect.Effect<BacktestRunInputs, DomainError> =>
-        Effect.tryPromise({
-          try: () =>
-            repo.insertRunInput({
-              run_id: input.run_id,
-              strategy_snapshot: input.strategy_snapshot,
-              dataset_snapshot_ref: input.dataset_snapshot_ref,
-              execution_options: input.execution_options,
-              schema_version: input.schema_version,
-              created_at: new Date().toISOString(),
-            }),
-          catch: (e) =>
-            new DomainError({
-              code: "VALIDATION_ERROR",
-              message: "Failed to save run input",
-              cause: e,
-            }),
-        }),
+        repo
+          .insertRunInput({
+            run_id: input.run_id,
+            strategy_snapshot: input.strategy_snapshot,
+            dataset_snapshot_ref: input.dataset_snapshot_ref,
+            execution_options: input.execution_options,
+            schema_version: input.schema_version,
+            created_at: new Date().toISOString(),
+          })
+          .pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to save run input",
+                  cause: e,
+                })
+            )
+          ),
 
       getRunSummary: (id: string): Effect.Effect<RunSummary, DomainError> =>
         Effect.gen(function* () {
-          const run = yield* Effect.tryPromise({
-            try: () => repo.getRun(id),
-            catch: (e) =>
-              new DomainError({
-                code: "VALIDATION_ERROR",
-                message: "Failed to load backtest run",
-                cause: e,
-              }),
-          });
+          const run = yield* repo.getRun(id).pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to load backtest run",
+                  cause: e,
+                })
+            )
+          );
 
           if (!run) {
             return yield* Effect.fail(
@@ -125,30 +130,42 @@ export const makeBacktestService = (repo: BacktestRepository) =>
             );
           }
 
-          const [metrics, eventCount] = yield* Effect.tryPromise({
-            try: () => Promise.all([repo.getMetricsByRun(id), repo.getEventCount(id)]),
-            catch: (e) =>
-              new DomainError({
-                code: "VALIDATION_ERROR",
-                message: "Failed to load backtest run summary",
-                cause: e,
-              }),
-          });
+          const metrics = yield* repo.getMetricsByRun(id).pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to load backtest run summary",
+                  cause: e,
+                })
+            )
+          );
+          const eventCount = yield* repo.getEventCount(id).pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to load backtest run summary",
+                  cause: e,
+                })
+            )
+          );
 
           return { run, metrics, eventCount };
         }),
 
       getRunInput: (id: string): Effect.Effect<BacktestRunInputs, DomainError> =>
         Effect.gen(function* () {
-          const input = yield* Effect.tryPromise({
-            try: () => repo.getRunInput(id),
-            catch: (e) =>
-              new DomainError({
-                code: "VALIDATION_ERROR",
-                message: "Failed to load backtest run input",
-                cause: e,
-              }),
-          });
+          const input = yield* repo.getRunInput(id).pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to load backtest run input",
+                  cause: e,
+                })
+            )
+          );
 
           if (!input) {
             return yield* Effect.fail(
@@ -160,56 +177,61 @@ export const makeBacktestService = (repo: BacktestRepository) =>
         }),
 
       getRunEvents: (id: string): Effect.Effect<BacktestEvent[], DomainError> =>
-        Effect.tryPromise({
-          try: () => repo.getEventsByRun(id),
-          catch: (e) =>
-            new DomainError({
-              code: "VALIDATION_ERROR",
-              message: "Failed to load backtest run events",
-              cause: e,
-            }),
-        }),
+        repo.getEventsByRun(id).pipe(
+          Effect.mapError(
+            (e) =>
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Failed to load backtest run events",
+                cause: e,
+              })
+          )
+        ),
 
       appendRunEvent: (input: AppendRunEventInput): Effect.Effect<BacktestEvent, DomainError> =>
-        Effect.tryPromise({
-          try: () =>
-            repo.insertEvent({
-              id: input.id,
-              run_id: input.run_id,
-              event_type: input.event_type,
-              payload: input.payload,
-              level: input.level,
-              trace_id: input.trace_id,
-              span_id: input.span_id,
-              correlation_id: input.correlation_id,
-              parent_span_id: input.parent_span_id,
-              created_at: new Date().toISOString(),
-            }),
-          catch: (e) =>
-            new DomainError({
-              code: "VALIDATION_ERROR",
-              message: "Failed to append run event",
-              cause: e,
-            }),
-        }),
+        repo
+          .insertEvent({
+            id: input.id,
+            run_id: input.run_id,
+            event_type: input.event_type,
+            payload: input.payload,
+            level: input.level,
+            trace_id: input.trace_id,
+            span_id: input.span_id,
+            correlation_id: input.correlation_id,
+            parent_span_id: input.parent_span_id,
+            created_at: new Date().toISOString(),
+          })
+          .pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to append run event",
+                  cause: e,
+                })
+            )
+          ),
 
       recordMetric: (input: RecordMetricInput): Effect.Effect<BacktestMetric, DomainError> =>
-        Effect.tryPromise({
-          try: () =>
-            repo.insertMetric({
-              run_id: input.run_id,
-              metric_key: input.metric_key,
-              metric_value: input.metric_value,
-              metric_group: input.metric_group,
-              created_at: new Date().toISOString(),
-            }),
-          catch: (e) =>
-            new DomainError({
-              code: "VALIDATION_ERROR",
-              message: "Failed to record metric",
-              cause: e,
-            }),
-        }),
+        repo
+          .insertMetric({
+            run_id: input.run_id,
+            metric_key: input.metric_key,
+            metric_value: input.metric_value,
+            metric_group: input.metric_group,
+            created_at: new Date().toISOString(),
+          })
+          .pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to record metric",
+                  cause: e,
+                })
+            )
+          ),
     });
   });
 

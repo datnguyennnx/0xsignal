@@ -39,39 +39,41 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
 
     return MarketDataServices.of({
       requestCandlesticks: (input) =>
-        Effect.tryPromise({
-          try: () =>
-            repo.insertCandlestickRequest({ ...input, created_at: new Date().toISOString() }),
-          catch: (e) =>
-            new DomainError({
-              code: "VALIDATION_ERROR",
-              message: "Failed to request candlesticks",
-              cause: e,
-            }),
-        }),
+        repo.insertCandlestickRequest({ ...input, created_at: new Date().toISOString() }).pipe(
+          Effect.mapError(
+            (e) =>
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Failed to request candlesticks",
+                cause: e,
+              })
+          )
+        ),
 
       createDatasetSnapshot: (input) =>
-        Effect.tryPromise({
-          try: () => repo.insertDatasetSnapshot({ ...input, created_at: new Date().toISOString() }),
-          catch: (e) =>
-            new DomainError({
-              code: "VALIDATION_ERROR",
-              message: "Failed to create dataset snapshot",
-              cause: e,
-            }),
-        }),
+        repo.insertDatasetSnapshot({ ...input, created_at: new Date().toISOString() }).pipe(
+          Effect.mapError(
+            (e) =>
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Failed to create dataset snapshot",
+                cause: e,
+              })
+          )
+        ),
 
       getDatasetSnapshot: (id) =>
         Effect.gen(function* () {
-          const snapshot = yield* Effect.tryPromise({
-            try: () => repo.getDatasetSnapshot(id),
-            catch: (e) =>
-              new DomainError({
-                code: "VALIDATION_ERROR",
-                message: "Failed to get dataset snapshot",
-                cause: e,
-              }),
-          });
+          const snapshot = yield* repo.getDatasetSnapshot(id).pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to get dataset snapshot",
+                  cause: e,
+                })
+            )
+          );
           if (!snapshot)
             return yield* Effect.fail(
               new DomainError({ code: "NOT_FOUND", message: `Snapshot ${id} not found` })

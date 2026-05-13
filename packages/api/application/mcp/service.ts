@@ -29,31 +29,34 @@ export const McpServicesLive = Layer.effect(
 
     return McpServices.of({
       trackInteraction: (input) =>
-        Effect.tryPromise({
-          try: () =>
-            repo.insertInteraction({
-              ...input,
-              status: "pending",
-              created_at: new Date().toISOString(),
-            }),
-          catch: (e) =>
-            new DomainError({
-              code: "VALIDATION_ERROR",
-              message: "Failed to track MCP interaction",
-              cause: e,
-            }),
-        }),
+        repo
+          .insertInteraction({
+            ...input,
+            status: "pending",
+            created_at: new Date().toISOString(),
+          })
+          .pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to track MCP interaction",
+                  cause: e,
+                })
+            )
+          ),
 
       updateStatus: (id, status, output) =>
-        Effect.tryPromise({
-          try: () => repo.updateInteractionStatus(id, status, output),
-          catch: (e) =>
-            new DomainError({
-              code: "VALIDATION_ERROR",
-              message: "Failed to update MCP interaction status",
-              cause: e,
-            }),
-        }),
+        repo.updateInteractionStatus(id, status, output).pipe(
+          Effect.mapError(
+            (e) =>
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Failed to update MCP interaction status",
+                cause: e,
+              })
+          )
+        ),
     });
   })
 );

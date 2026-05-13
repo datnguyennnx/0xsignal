@@ -49,86 +49,93 @@ export const makeResearchService = (repo: ResearchRepository): ResearchServices 
   appendResearchNote: (
     input: AppendResearchNoteInput
   ): Effect.Effect<ResearchNote, DomainError, never> =>
-    Effect.tryPromise({
-      try: () =>
-        repo.insertNote({
-          id: input.id,
-          session_id: input.session_id,
-          run_id: input.run_id,
-          strategy_version_id: input.strategy_version_id,
-          title: input.title,
-          content_markdown: input.content_markdown,
-          tags: input.tags,
-          trace_id: input.trace_id,
-          span_id: input.span_id,
-          correlation_id: input.correlation_id,
-          created_at: new Date().toISOString(),
-        }),
-      catch: (e) =>
-        new DomainError({
-          code: "VALIDATION_ERROR",
-          message: "Failed to append research note",
-          cause: e,
-        }),
-    }),
+    repo
+      .insertNote({
+        id: input.id,
+        session_id: input.session_id,
+        run_id: input.run_id,
+        strategy_version_id: input.strategy_version_id,
+        title: input.title,
+        content_markdown: input.content_markdown,
+        tags: input.tags,
+        trace_id: input.trace_id,
+        span_id: input.span_id,
+        correlation_id: input.correlation_id,
+        created_at: new Date().toISOString(),
+      })
+      .pipe(
+        Effect.mapError(
+          (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to append research note",
+              cause: e,
+            })
+        )
+      ),
 
   getNotesBySession: (sessionId: string): Effect.Effect<ResearchNote[], DomainError, never> =>
-    Effect.tryPromise({
-      try: () => repo.getNotesBySession(sessionId),
-      catch: (e) =>
-        new DomainError({
-          code: "VALIDATION_ERROR",
-          message: "Failed to load research notes for session",
-          cause: e,
-        }),
-    }),
+    repo.getNotesBySession(sessionId).pipe(
+      Effect.mapError(
+        (e) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to load research notes for session",
+            cause: e,
+          })
+      )
+    ),
 
   getNotesByStrategy: (strategyId: string): Effect.Effect<ResearchNote[], DomainError, never> =>
-    Effect.tryPromise({
-      try: () => repo.getNotesByStrategy(strategyId),
-      catch: (e) =>
-        new DomainError({
-          code: "VALIDATION_ERROR",
-          message: "Failed to load research notes for strategy",
-          cause: e,
-        }),
-    }),
+    repo.getNotesByStrategy(strategyId).pipe(
+      Effect.mapError(
+        (e) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to load research notes for strategy",
+            cause: e,
+          })
+      )
+    ),
 
   createArtifact: (input: CreateArtifactInput): Effect.Effect<Artifact, DomainError, never> =>
-    Effect.tryPromise({
-      try: () =>
-        repo.insertArtifact({
-          id: input.id,
-          run_id: input.run_id,
-          strategy_version_id: input.strategy_version_id,
-          artifact_type: input.artifact_type,
-          storage_path: input.storage_path,
-          content_type: input.content_type,
-          size_bytes: input.size_bytes,
-          metadata: input.metadata,
-          trace_id: input.trace_id,
-          span_id: input.span_id,
-          correlation_id: input.correlation_id,
-          created_at: new Date().toISOString(),
-        }),
-      catch: (e) =>
-        new DomainError({
-          code: "VALIDATION_ERROR",
-          message: "Failed to create artifact",
-          cause: e,
-        }),
-    }),
+    repo
+      .insertArtifact({
+        id: input.id,
+        run_id: input.run_id,
+        strategy_version_id: input.strategy_version_id,
+        artifact_type: input.artifact_type,
+        storage_path: input.storage_path,
+        content_type: input.content_type,
+        size_bytes: input.size_bytes,
+        metadata: input.metadata,
+        trace_id: input.trace_id,
+        span_id: input.span_id,
+        correlation_id: input.correlation_id,
+        created_at: new Date().toISOString(),
+      })
+      .pipe(
+        Effect.mapError(
+          (e) =>
+            new DomainError({
+              code: "VALIDATION_ERROR",
+              message: "Failed to create artifact",
+              cause: e,
+            })
+        )
+      ),
 
   getArtifactsByRun: (runId: string): Effect.Effect<Artifact[], DomainError, never> =>
-    Effect.tryPromise({
-      try: () => repo.getArtifactsByRun(runId),
-      catch: (e) =>
-        new DomainError({
-          code: "VALIDATION_ERROR",
-          message: "Failed to load artifacts for run",
-          cause: e,
-        }),
-    }),
+    repo.getArtifactsByRun(runId).pipe(
+      Effect.mapError(
+        (e) =>
+          new DomainError({
+            code: "VALIDATION_ERROR",
+            message: "Failed to load artifacts for run",
+            cause: e,
+          })
+      )
+    ),
 });
 
 export const ResearchServicesLive = Layer.effect(
