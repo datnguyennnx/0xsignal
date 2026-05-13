@@ -3,15 +3,17 @@ import { Effect } from "effect";
 import type { AgentRepository } from "../../ports/agent-repository";
 import { makeAgentService } from "../service";
 
+const succeed = <T>(val: T) => Effect.succeed(val);
+
 describe("agent service", () => {
   it("openSession persists pending session with generated timestamp", async () => {
     const repo: AgentRepository = {
-      insertSession: vi.fn(async (session) => session),
-      getSession: vi.fn(async () => null),
-      insertPlan: vi.fn(async (plan) => plan),
-      getPlansBySession: vi.fn(),
-      insertAction: vi.fn(async (action) => action),
-      getActionsBySession: vi.fn(),
+      insertSession: vi.fn().mockImplementation((session) => succeed(session)),
+      getSession: vi.fn().mockReturnValue(succeed(null)),
+      insertPlan: vi.fn().mockImplementation((plan) => succeed(plan)),
+      getPlansBySession: vi.fn().mockReturnValue(succeed([])),
+      insertAction: vi.fn().mockImplementation((action) => succeed(action)),
+      getActionsBySession: vi.fn().mockReturnValue(succeed([])),
     };
 
     const service = makeAgentService(repo);
@@ -37,12 +39,12 @@ describe("agent service", () => {
 
   it("getSession fails with not found error", async () => {
     const repo: AgentRepository = {
-      insertSession: vi.fn(async (session) => session),
-      getSession: vi.fn(async () => null),
-      insertPlan: vi.fn(async (plan) => plan),
-      getPlansBySession: vi.fn(),
-      insertAction: vi.fn(async (action) => action),
-      getActionsBySession: vi.fn(),
+      insertSession: vi.fn().mockImplementation((session) => succeed(session)),
+      getSession: vi.fn().mockReturnValue(succeed(null)),
+      insertPlan: vi.fn().mockImplementation((plan) => succeed(plan)),
+      getPlansBySession: vi.fn().mockReturnValue(succeed([])),
+      insertAction: vi.fn().mockImplementation((action) => succeed(action)),
+      getActionsBySession: vi.fn().mockReturnValue(succeed([])),
     };
 
     const service = makeAgentService(repo);

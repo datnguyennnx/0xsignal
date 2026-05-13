@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Effect } from "effect";
 import type { BacktestRun } from "../../../schemas/backtest";
 import type { BacktestRepository } from "../../ports/backtest-repository";
+import { DomainError } from "../../errors";
 import { executeBacktestRun } from "../execution";
 
 const minimalRun: BacktestRun = {
@@ -15,22 +16,24 @@ const minimalRun: BacktestRun = {
   base_currency: "USD",
 };
 
+const succeed = <T>(val: T) => Effect.succeed(val);
+
 describe("executeBacktestRun", () => {
   it("runs engine, persists metrics and events, then completes", async () => {
-    const updateRunStatus = vi.fn().mockResolvedValue(null);
-    const insertEvent = vi.fn().mockResolvedValue({});
-    const insertMetric = vi.fn().mockResolvedValue({});
+    const updateRunStatus = vi.fn().mockReturnValue(succeed(null));
+    const insertEvent = vi.fn().mockReturnValue(succeed({}));
+    const insertMetric = vi.fn().mockReturnValue(succeed({}));
 
     const repo: BacktestRepository = {
-      createRunWithInput: vi.fn(),
-      getRun: vi.fn(),
-      getRunInput: vi.fn(),
-      insertRunInput: vi.fn(),
+      createRunWithInput: vi.fn().mockReturnValue(succeed(minimalRun)),
+      getRun: vi.fn().mockReturnValue(succeed(null)),
+      getRunInput: vi.fn().mockReturnValue(succeed(null)),
+      insertRunInput: vi.fn().mockReturnValue(succeed(null as any)),
       insertMetric,
-      getMetricsByRun: vi.fn(),
+      getMetricsByRun: vi.fn().mockReturnValue(succeed([])),
       insertEvent,
-      getEventsByRun: vi.fn(),
-      getEventCount: vi.fn(),
+      getEventsByRun: vi.fn().mockReturnValue(succeed([])),
+      getEventCount: vi.fn().mockReturnValue(succeed(0)),
       updateRunStatus,
     };
 
@@ -70,23 +73,27 @@ describe("executeBacktestRun", () => {
   });
 
   it("on failure marks run failed and records error event", async () => {
-    const updateRunStatus = vi.fn().mockResolvedValue(null);
-    const insertEvent = vi.fn().mockResolvedValue({});
+    const updateRunStatus = vi.fn().mockReturnValue(succeed(null));
+    const insertEvent = vi.fn().mockReturnValue(succeed({}));
 
     const repo: BacktestRepository = {
-      createRunWithInput: vi.fn(),
-      getRun: vi.fn(),
-      getRunInput: vi.fn(),
-      insertRunInput: vi.fn(),
-      insertMetric: vi.fn(),
-      getMetricsByRun: vi.fn(),
+      createRunWithInput: vi.fn().mockReturnValue(succeed(minimalRun)),
+      getRun: vi.fn().mockReturnValue(succeed(null)),
+      getRunInput: vi.fn().mockReturnValue(succeed(null)),
+      insertRunInput: vi.fn().mockReturnValue(succeed(null as any)),
+      insertMetric: vi.fn().mockReturnValue(succeed(null as any)),
+      getMetricsByRun: vi.fn().mockReturnValue(succeed([])),
       insertEvent,
-      getEventsByRun: vi.fn(),
-      getEventCount: vi.fn(),
+      getEventsByRun: vi.fn().mockReturnValue(succeed([])),
+      getEventCount: vi.fn().mockReturnValue(succeed(0)),
       updateRunStatus,
     };
 
-    const runEngine = vi.fn().mockReturnValue(Effect.fail(new Error("engine boom")));
+    const runEngine = vi
+      .fn()
+      .mockReturnValue(
+        Effect.fail(new DomainError({ code: "INTERNAL_ERROR", message: "engine boom" }))
+      );
 
     await Effect.runPromise(executeBacktestRun(repo, { runEngine }, minimalRun));
 

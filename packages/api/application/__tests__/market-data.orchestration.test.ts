@@ -11,6 +11,7 @@ import {
 } from "../market-data/contracts";
 import type { Candle } from "../../schemas/market-data";
 import type { MarketDataRepository } from "../ports/market-data-repository";
+import { DomainError } from "../errors";
 
 const mkCandle = (timestamp: Date, price: number): Candle => ({
   timestamp,
@@ -293,7 +294,9 @@ describe("MarketDataServices Orchestration", () => {
       Effect.provide(MarketDataServicesTest)
     );
 
-    await expect(Effect.runPromise(program)).rejects.toThrow('"code":"NOT_FOUND"');
+    const err = await Effect.runPromise(program.pipe(Effect.flip));
+    expect(err).toBeInstanceOf(DomainError);
+    expect((err as DomainError).code).toBe("NOT_FOUND");
   });
 
   it("getCandles should fill gaps when coverage is inconsistent", async () => {

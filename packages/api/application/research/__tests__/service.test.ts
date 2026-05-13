@@ -2,15 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 import { Effect } from "effect";
 import type { ResearchRepository } from "../../ports/research-repository";
 import { makeResearchService } from "../service";
+import { DomainError } from "../../errors";
+
+const succeed = <T>(val: T) => Effect.succeed(val);
+const fail = (err: unknown) =>
+  Effect.fail(new DomainError({ code: "INTERNAL_ERROR", message: String(err), cause: err }));
 
 describe("research service", () => {
   it("appendResearchNote persists note with created_at", async () => {
     const repo: ResearchRepository = {
-      insertNote: vi.fn(async (note) => note),
-      getNotesBySession: vi.fn(),
-      getNotesByStrategy: vi.fn(),
-      insertArtifact: vi.fn(async (artifact) => artifact),
-      getArtifactsByRun: vi.fn(),
+      insertNote: vi.fn().mockImplementation((note) => succeed(note)),
+      getNotesBySession: vi.fn().mockReturnValue(succeed([])),
+      getNotesByStrategy: vi.fn().mockReturnValue(succeed([])),
+      insertArtifact: vi.fn().mockImplementation((artifact) => succeed(artifact)),
+      getArtifactsByRun: vi.fn().mockReturnValue(succeed([])),
     };
     const service = makeResearchService(repo);
 
@@ -32,13 +37,11 @@ describe("research service", () => {
 
   it("createArtifact maps repository errors to domain validation errors", async () => {
     const repo: ResearchRepository = {
-      insertNote: vi.fn(async (note) => note),
-      getNotesBySession: vi.fn(),
-      getNotesByStrategy: vi.fn(),
-      insertArtifact: vi.fn(async () => {
-        throw new Error("db down");
-      }),
-      getArtifactsByRun: vi.fn(),
+      insertNote: vi.fn().mockImplementation((note) => succeed(note)),
+      getNotesBySession: vi.fn().mockReturnValue(succeed([])),
+      getNotesByStrategy: vi.fn().mockReturnValue(succeed([])),
+      insertArtifact: vi.fn().mockReturnValue(fail(new Error("db down"))),
+      getArtifactsByRun: vi.fn().mockReturnValue(succeed([])),
     };
     const service = makeResearchService(repo);
 

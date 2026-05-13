@@ -23,12 +23,12 @@ describe("Backtest Execution Flow", () => {
   it("should trigger background worker and update row status when backtest is started", async () => {
     // We mock the repo dependencies to verify execution flow
     const mockRepo = {
-      insertRun: vi.fn().mockImplementation((run) => Promise.resolve(run)),
-      createRunWithInput: vi.fn().mockImplementation((run) => Promise.resolve(run)),
-      updateRunStatus: vi.fn().mockImplementation((_id, _status) => Promise.resolve()),
-      insertEvent: vi.fn().mockImplementation((event) => Promise.resolve(event)),
+      insertRun: vi.fn().mockImplementation((run) => Effect.succeed(run)),
+      createRunWithInput: vi.fn().mockImplementation((run) => Effect.succeed(run)),
+      updateRunStatus: vi.fn().mockImplementation((_id, _status) => Effect.succeed(undefined)),
+      insertEvent: vi.fn().mockImplementation((event) => Effect.succeed(event)),
       getRun: vi.fn().mockImplementation((id) =>
-        Promise.resolve({
+        Effect.succeed({
           id,
           initial_capital: 10000,
           base_currency: "USD",
@@ -36,7 +36,7 @@ describe("Backtest Execution Flow", () => {
           dataset_snapshot_id: "data-1",
         })
       ),
-      insertMetric: vi.fn().mockImplementation((m) => Promise.resolve(m)),
+      insertMetric: vi.fn().mockImplementation((m) => Effect.succeed(m)),
       insertRunInput: vi.fn(),
       getRunInput: vi.fn(),
       getMetricsByRun: vi.fn(),

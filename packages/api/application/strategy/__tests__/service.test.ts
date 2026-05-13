@@ -2,16 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import { Effect } from "effect";
 import type { StrategyRepository } from "../../ports/strategy-repository";
 import { makeStrategyService } from "../service";
+import { DomainError } from "../../errors";
+
+const succeed = <T>(val: T) => Effect.succeed(val);
+const fail = (err: unknown) =>
+  Effect.fail(new DomainError({ code: "INTERNAL_ERROR", message: String(err), cause: err }));
 
 describe("strategy service", () => {
   it("maps postgres unique violation to already exists domain error", async () => {
     const repo: StrategyRepository = {
-      insertDefinition: vi.fn(async () => {
-        throw { code: "23505" };
-      }),
-      insertVersion: vi.fn(async (version) => version),
-      insertChangeRecord: vi.fn(async (record) => record),
-      getHistory: vi.fn(async () => null),
+      insertDefinition: vi.fn().mockReturnValue(fail({ code: "23505" })),
+      insertVersion: vi.fn().mockImplementation((version) => succeed(version)),
+      insertChangeRecord: vi.fn().mockImplementation((record) => succeed(record)),
+      getHistory: vi.fn().mockReturnValue(succeed(null)),
     };
 
     const service = makeStrategyService(repo);
@@ -34,10 +37,10 @@ describe("strategy service", () => {
 
   it("getStrategyHistory returns not found when missing", async () => {
     const repo: StrategyRepository = {
-      insertDefinition: vi.fn(async (definition) => definition),
-      insertVersion: vi.fn(async (version) => version),
-      insertChangeRecord: vi.fn(async (record) => record),
-      getHistory: vi.fn(async () => null),
+      insertDefinition: vi.fn().mockImplementation((definition) => succeed(definition)),
+      insertVersion: vi.fn().mockImplementation((version) => succeed(version)),
+      insertChangeRecord: vi.fn().mockImplementation((record) => succeed(record)),
+      getHistory: vi.fn().mockReturnValue(succeed(null)),
     };
 
     const service = makeStrategyService(repo);
