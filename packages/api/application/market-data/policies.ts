@@ -10,20 +10,22 @@ export const isCoverageCompleteStrict = (coverage: CoverageResult): boolean =>
   coverage.rowCount >= coverage.expectedCount;
 
 export const normalizeCandles = (candles: Candle[]): Candle[] => {
-  const hasOnlyValidTimestamps = candles.every(
-    (candle) => candle.timestamp instanceof Date && Number.isFinite(candle.timestamp.getTime())
-  );
-
-  if (!hasOnlyValidTimestamps) {
-    return candles;
-  }
-
+  // Single pass: filter valid timestamps + deduplicate by timestamp (last-write-wins)
   const byTimestamp = new Map<number, Candle>();
   for (const candle of candles) {
-    byTimestamp.set(candle.timestamp.getTime(), candle);
+    if (candle.timestamp instanceof Date && Number.isFinite(candle.timestamp.getTime())) {
+      byTimestamp.set(candle.timestamp.getTime(), candle);
+    }
   }
-
-  return Array.from(byTimestamp.entries())
-    .sort(([left], [right]) => left - right)
-    .map(([, candle]) => candle);
+  // If nothing survived dedup, return first candle as-is (preserves original behavior)
+  if (byTimestamp.size === 0) {
+    return candles.length > 0 &&
+      (!(candles[0].timestamp instanceof Date) || !Number.isFinite(candles[0].timestamp.getTime()))
+      ? candles
+      : [];
+  }
+  // Sort by timestamp once
+  return Array.from(byTimestamp.values()).sort(
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+  );
 };
