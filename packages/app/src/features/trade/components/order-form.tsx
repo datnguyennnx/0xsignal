@@ -54,15 +54,14 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   const [adjustLeverageOpen, setAdjustLeverageOpen] = useState(false);
   const [marginModeOpen, setMarginModeOpen] = useState(false);
 
-  /** Sizing mode: "quote" → enter USDC amount, "asset" → enter coin quantity. */
-  type SizeMode = "quote" | "asset";
-  const [sizeMode, setSizeMode] = useState<SizeMode>("quote");
+  /** Sizing asset — dynamic from user's balances + perps USDC. */
+  const [sizeAsset, setSizeAsset] = useState("USDC");
 
   /* ─── Derived values ─── */
   const currentPrice = markPrice || Number(price) || 0;
   const usablePrice = currentPrice > 0 ? currentPrice : orderType === "limit" ? Number(price) : 0;
-  const orderNotional = sizeMode === "asset" ? Number(size) * usablePrice : Number(size) || 0;
-  const marginRequired = effectiveLeverage > 0 ? orderNotional / effectiveLeverage : 0;
+  const orderValue = Number(size) || 0;
+  const marginRequired = effectiveLeverage > 0 ? orderValue / effectiveLeverage : 0;
   const isLong = side === "buy";
   const entryPrice = orderType === "limit" ? Number(price) || 0 : markPrice || 0;
 
@@ -84,51 +83,56 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
   /* ─── Size / Slider sync — leverage-aware, falls back to Spot USDC ─── */
 
-  // Derive effective available balance:
-  // Use perps accountValue to detect if the perps account is initialized.
-  // - accountValue > 0 (even if fully locked in positions) → use perps withdrawable
-  // - accountValue === 0 (new user, no perps activity) → fall back to Spot USDC total
+  // Derive available balances:
+  // - Perps USDC (from clearinghouse withdrawable)
+  // - Spot tokens (from spotClearinghouseState)
   const marginSummary = chData?.marginSummary;
   const accountValue = Number(marginSummary?.accountValue || 0);
-  const perpsWithdrawable = Number(chData?.withdrawable || 0);
+  const perpsUsdc = Number(chData?.withdrawable || 0);
   const spotUsdc = Number(spotData?.balances?.find((b) => b.coin === "USDC")?.total || 0);
-  const effectiveAvailableBalance = accountValue > 0 ? perpsWithdrawable : spotUsdc;
 
-  // Max notional = balance × leverage (what the user can open, in USDC)
-  const maxNotional = effectiveAvailableBalance * effectiveLeverage * MARGIN_BUFFER;
-  // In asset mode, max quantity = maxNotional / price
-  const maxAssetQty = usablePrice > 0 ? maxNotional / usablePrice : 0;
-
-  const sizeModeOptions: Array<{ value: SizeMode; label: string }> = useMemo(
-    () => [
-      { value: "quote", label: "USDC" },
-      { value: "asset", label: normalizedSymbol },
-    ],
-    [normalizedSymbol]
-  );
-
-  // Derived asset-quantity display: reverse of whatever mode we're in
-  const assetQuantityDisplay = useMemo(() => {
-    if (!usablePrice || !Number(size)) return null;
-    if (sizeMode === "asset") {
-      // Show dollar value of the asset quantity
-      return `$${(Number(size) * usablePrice).toFixed(2)}`;
+  // Build options: perps USDC (priority) then all non-zero spot balances
+  const sizeAssetOptions: Array<{ value: string; label: string; balance: number }> = useMemo(() => {
+    const map = new Map<string, number>();
+    // Perps USDC is always the first option if account is active
+    if (accountValue > 0) map.set("USDC", perpsUsdc);
+    // Spot balances for all tokens user holds
+    for (const b of spotData?.balances ?? []) {
+      const bal = Number(b.total);
+      if (bal > 0) map.set(b.coin, bal);
     }
-    // Show asset quantity from dollar amount
+    // If no perps account, use spot USDC as default USDC
+    if (!map.has("USDC") && spotUsdc > 0) map.set("USDC", spotUsdc);
+    return Array.from(map.entries()).map(([coin, bal]) => ({
+      value: coin,
+      label: coin,
+      balance: bal,
+    }));
+  }, [accountValue, perpsUsdc, spotUsdc, spotData]);
+
+  // Default to first option if current selection is no longer available
+  const safeSizeAsset = sizeAssetOptions.some((o) => o.value === sizeAsset)
+    ? sizeAsset
+    : (sizeAssetOptions[0]?.value ?? "USDC");
+  const effectiveBalance = sizeAssetOptions.find((o) => o.value === safeSizeAsset)?.balance ?? 0;
+
+  // Max notional = balance × leverage (what the user can open)
+  const maxNotional = effectiveBalance * effectiveLeverage * MARGIN_BUFFER;
+
+  // Show converted asset quantity below the size input
+  const assetQtyDisplay = useMemo(() => {
+    if (!usablePrice || !Number(size)) return null;
     const qty = Number(size) / usablePrice;
     return `${formatOrderSize(qty, szDecimals)} ${normalizedSymbol}`;
-  }, [size, sizeMode, usablePrice, szDecimals, normalizedSymbol]);
+  }, [size, usablePrice, szDecimals, normalizedSymbol]);
 
-  /** Compute the size in the active unit for a given percentage of max. */
+  /** Compute the size in the selected asset for a given percentage of max. */
   const sizeFromPct = useCallback(
     (pct: number): string => {
-      if (effectiveAvailableBalance <= 0 || effectiveLeverage <= 0) return "0.00";
-      if (sizeMode === "asset" && maxAssetQty > 0) {
-        return ((maxAssetQty * pct) / 100).toFixed(szDecimals);
-      }
+      if (effectiveBalance <= 0 || effectiveLeverage <= 0) return "0.00";
       return ((maxNotional * pct) / 100).toFixed(2);
     },
-    [maxNotional, maxAssetQty, sizeMode, szDecimals, effectiveAvailableBalance, effectiveLeverage]
+    [maxNotional, effectiveBalance, effectiveLeverage]
   );
 
   const handleSliderCommit = useCallback(
@@ -155,14 +159,13 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       const val = e.target.value;
       setSize(val);
       const numVal = Number(val);
-      const cap = sizeMode === "asset" ? maxAssetQty : maxNotional;
-      if (numVal > 0 && cap > 0) {
-        setSliderPercent(Math.min(100, Math.round((numVal / cap) * 100)));
+      if (numVal > 0 && maxNotional > 0) {
+        setSliderPercent(Math.min(100, Math.round((numVal / maxNotional) * 100)));
       } else {
         setSliderPercent(0);
       }
     },
-    [maxNotional, maxAssetQty, sizeMode]
+    [maxNotional]
   );
 
   /* ─── Place order mutation ─── */
@@ -178,7 +181,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     const entryPrice = usablePrice;
     if (entryPrice <= 0 || !Number(size) || Number(size) <= 0) return;
 
-    const rawSz = sizeMode === "asset" ? Number(size) : Number(size) / entryPrice;
+    const rawSz = Number(size) / entryPrice;
     const formattedSz = formatOrderSize(rawSz, szDecimals);
     if (formattedSz === "0") return;
 
@@ -232,7 +235,6 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     orderType,
     price,
     size,
-    sizeMode,
     usablePrice,
     showTpSl,
     tpPrice,
@@ -244,7 +246,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
   const canPlace = Boolean(
     Number(size) > 0 &&
-    (sizeMode === "asset" ? true : usablePrice > 0) &&
+    usablePrice > 0 &&
     !(orderType === "limit" && (!price || Number(price) <= 0))
   );
 
@@ -340,26 +342,28 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               </div>
             )}
 
-            {/* ─── Size Input with Mode Selector ─── */}
+            {/* ─── Size Input with Asset Selector ─── */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
-                  Size
+                  Size ({safeSizeAsset})
                 </Label>
-                <NativeSelect
-                  size="sm"
-                  aria-label="Size mode"
-                  value={sizeMode}
-                  onChange={(e) => setSizeMode(e.target.value as SizeMode)}
-                  wrapperClassName="min-w-0"
-                  className="h-6 w-20 text-[10px] border-border/30 bg-background/70 text-muted-foreground tabular-nums"
-                >
-                  {sizeModeOptions.map((opt) => (
-                    <NativeSelectOption key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                {sizeAssetOptions.length > 1 && (
+                  <NativeSelect
+                    size="sm"
+                    aria-label="Size asset"
+                    value={safeSizeAsset}
+                    onChange={(e) => setSizeAsset(e.target.value)}
+                    wrapperClassName="min-w-0"
+                    className="h-6 w-20 text-[10px] border-border/30 bg-background/70 text-muted-foreground tabular-nums"
+                  >
+                    {sizeAssetOptions.map((opt) => (
+                      <NativeSelectOption key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                )}
               </div>
               <Input
                 type="number"
@@ -368,9 +372,9 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                 placeholder="0.00"
                 className="h-9 w-full text-xs tabular-nums bg-background/70 border-border/30 hover:border-border/60 transition-colors"
               />
-              {assetQuantityDisplay && (
+              {assetQtyDisplay && (
                 <p className="text-[10px] text-muted-foreground/60 tabular-nums text-right">
-                  → {assetQuantityDisplay}
+                  → {assetQtyDisplay}
                 </p>
               )}
             </div>
@@ -424,9 +428,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             <div className="flex items-center justify-between pt-1">
               <span className="text-xs text-muted-foreground">Available to Trade</span>
               <span className="text-xs font-mono tabular-nums text-foreground">
-                {sizeMode === "asset" && usablePrice > 0
-                  ? `${formatOrderSize(maxAssetQty, szDecimals)} ${normalizedSymbol}`
-                  : `$${effectiveAvailableBalance.toFixed(2)} USDC`}
+                ${effectiveBalance.toFixed(2)} {safeSizeAsset}
               </span>
             </div>
 
@@ -539,15 +541,9 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             {/* ─── Order Summary ─── */}
             <div className="space-y-2 pt-2 border-t border-border/20">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {sizeMode === "asset" ? "Asset Qty" : "Order Value"}
-                </span>
+                <span className="text-xs text-muted-foreground">Order Value</span>
                 <span className="text-xs font-mono tabular-nums text-foreground">
-                  {Number(size) > 0
-                    ? sizeMode === "asset"
-                      ? `${formatOrderSize(Number(size), szDecimals)} ${normalizedSymbol}`
-                      : `$${orderNotional.toFixed(2)}`
-                    : "—"}
+                  {orderValue > 0 ? `$${orderValue.toFixed(2)} ${safeSizeAsset}` : "—"}
                 </span>
               </div>
               <div className="flex items-center justify-between">

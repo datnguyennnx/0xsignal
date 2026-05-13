@@ -53,16 +53,6 @@ interface UseHyperliquidOrderbookOptions {
   controlledNSigFigs?: number;
 }
 
-/** Fast ref-based equality: skip setState when top-of-book hasn't moved. */
-function topOfBookChanged(a: OrderbookData | null, b: OrderbookData): boolean {
-  if (!a) return true;
-  return (
-    a.midPrice !== b.midPrice ||
-    a.bids[0]?.price !== b.bids[0]?.price ||
-    a.asks[0]?.price !== b.asks[0]?.price
-  );
-}
-
 function computeCoverageHalfSpan(
   book: OrderbookData | null,
   centerPrice: number | null
@@ -96,7 +86,6 @@ export function useHyperliquidOrderbook(
     activeSigFigsRef.current = activeSigFigs;
   }, [activeSigFigs]);
 
-  const fineBookRef = useRef<OrderbookData | null>(null);
   const pending = useRef<OrderbookData | null>(null);
   const raf = useRef(0);
   const wsHasReceivedData = useRef(false);
@@ -106,17 +95,12 @@ export function useHyperliquidOrderbook(
     coinRef.current = coin;
   }, [coin]);
 
-  // ── RAF-throttled flush (single setState, skip unchanged) ───────
+  // ── RAF-throttled flush — always sets state, RAF caps at 60fps ──
   const schedule = useCallback((data: OrderbookData) => {
     pending.current = data;
     if (raf.current) return;
     raf.current = requestAnimationFrame(() => {
-      if (pending.current) {
-        if (topOfBookChanged(fineBookRef.current, pending.current)) {
-          fineBookRef.current = pending.current;
-          setFineBook(pending.current);
-        }
-      }
+      if (pending.current) setFineBook(pending.current);
       raf.current = 0;
     });
   }, []);

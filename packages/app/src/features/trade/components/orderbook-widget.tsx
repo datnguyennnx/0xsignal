@@ -26,12 +26,12 @@ import {
 } from "@/features/trade/hooks/use-hyperliquid-orderbook";
 import {
   getEffectivePriceScaling,
-  mapVisibleOrderbookLevels,
   shouldApplyInitialPrecisionSync,
   type PriceScalingState,
 } from "./orderbook-widget.shared";
 import { type OrderbookLevel, priceKey } from "@/core/utils/hyperliquid";
 import { useOptionalL2BookNSigFigs } from "@/features/trade/contexts/l2-book-nsig-figs-context";
+import { parseSymbol } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
@@ -59,17 +59,37 @@ import { formatPriceWithScaling, formatSize } from "@/core/utils/formatters";
 
 const OrderbookToolbar = memo(
   ({
+    symbol,
+    coinOptions,
+    onSymbolChange,
     priceScaling,
     onPriceScalingChange,
     scalingOptions,
     showSyncing,
   }: {
+    symbol: string;
+    coinOptions: Array<{ value: string; label: string }>;
+    onSymbolChange: (s: string) => void;
     priceScaling: number;
     onPriceScalingChange: (s: number) => void;
     scalingOptions: TickSizeOption[];
     showSyncing: boolean;
   }) => (
-    <div className="flex items-center justify-between px-[clamp(0.5rem,1.5vw,0.75rem)] py-2 shrink-0 bg-muted/10">
+    <div className="flex items-center justify-between gap-1 px-[clamp(0.5rem,1.5vw,0.75rem)] py-2 shrink-0 bg-muted/10">
+      <NativeSelect
+        size="sm"
+        aria-label="Coin"
+        value={symbol}
+        onChange={(e) => onSymbolChange(e.target.value)}
+        wrapperClassName="min-w-[4rem] max-w-[6rem]"
+        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-mono font-semibold tracking-[0.01em] truncate"
+      >
+        {coinOptions.map((opt) => (
+          <NativeSelectOption key={opt.value} value={opt.value}>
+            {opt.label}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
       <div
         className={cn(
           "flex items-center gap-1.5 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono uppercase tracking-[0.02em] text-muted-foreground transition-opacity duration-300",
@@ -80,25 +100,26 @@ const OrderbookToolbar = memo(
         <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/70 animate-pulse" />
         Syncing
       </div>
-      <div className="min-w-fit">
-        <NativeSelect
-          size="sm"
-          aria-label="Price precision"
-          value={priceScaling.toString()}
-          onChange={(e) => onPriceScalingChange(Number(e.target.value))}
-          wrapperClassName="min-w-fit"
-          className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
-        >
-          {scalingOptions.map((opt) => (
-            <NativeSelectOption key={opt.value} value={opt.value.toString()}>
-              {opt.label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </div>
+      <NativeSelect
+        size="sm"
+        aria-label="Price precision"
+        value={priceScaling.toString()}
+        onChange={(e) => onPriceScalingChange(Number(e.target.value))}
+        wrapperClassName="min-w-fit"
+        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
+      >
+        {scalingOptions.map((opt) => (
+          <NativeSelectOption key={opt.value} value={opt.value.toString()}>
+            {opt.label}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
     </div>
   ),
-  (prev, next) => prev.priceScaling === next.priceScaling && prev.showSyncing === next.showSyncing
+  (prev, next) =>
+    prev.symbol === next.symbol &&
+    prev.priceScaling === next.priceScaling &&
+    prev.showSyncing === next.showSyncing
 );
 
 OrderbookToolbar.displayName = "OrderbookToolbar";
@@ -247,12 +268,32 @@ function formatLevel(level: OrderbookLevel, scaling: number): FormattedLevel {
   };
 }
 
+/** Convert size/total to quote denomination. Rounds to 2 decimals to prevent float jitter. */
+function toQuoteDenom(level: OrderbookLevel): OrderbookLevel {
+  const size = Math.round(level.price * level.size * 100) / 100;
+  const total = Math.round(level.price * level.total * 100) / 100;
+  return { ...level, size, total };
+}
+
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const l2BookSig = useOptionalL2BookNSigFigs();
   const l2BookSigRef = useRef(l2BookSig);
   useEffect(() => {
     l2BookSigRef.current = l2BookSig;
   }, [l2BookSig]);
+
+  // Base/quote denomination toggle. Resets on mount via key={symbol} in parent.
+  const [pairFocus, setPairFocus] = useState("base");
+
+  const pairOptions = useMemo(() => {
+    const parsed = parseSymbol(symbol);
+    const base = parsed.coin.toUpperCase();
+    const quote = parsed.kind === "spot" ? (parsed.quote ?? "USDC") : "USDC";
+    return [
+      { value: "base", label: base },
+      { value: "quote", label: quote },
+    ];
+  }, [symbol]);
 
   const orderbookHookOptions = useMemo(() => {
     if (l2BookSig != null) {
@@ -424,41 +465,49 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     [scalingOptions, resubscribe, symbol]
   );
 
-  // Server aggregates at the requested nSigFigs.
-  const groupedOrderbook = orderbook;
+  // Convert to selected denomination, format, and compute maxTotal.
+  const { visibleAsks, visibleBids, maxTotal } = useMemo(() => {
+    if (!orderbook)
+      return {
+        visibleAsks: [] as FormattedLevel[],
+        visibleBids: [] as FormattedLevel[],
+        maxTotal: 0,
+      };
 
-  const { visibleAsks, visibleBids, maxTotal } = useMemo(
-    (): {
-      visibleAsks: FormattedLevel[];
-      visibleBids: FormattedLevel[];
-      maxTotal: number;
-    } =>
-      mapVisibleOrderbookLevels(groupedOrderbook, VISIBLE_ROWS, (level) =>
-        formatLevel(level, effectivePriceScaling)
-      ),
-    [groupedOrderbook, effectivePriceScaling]
-  );
+    const convert = pairFocus === "quote" ? toQuoteDenom : (l: OrderbookLevel) => l;
+    const convAsks = orderbook.asks.slice(0, VISIBLE_ROWS).map(convert);
+    const convBids = orderbook.bids.slice(0, VISIBLE_ROWS).map(convert);
+
+    let maxTotal = 0;
+    for (let i = 0; i < convAsks.length; i++) maxTotal = Math.max(maxTotal, convAsks[i].total);
+    for (let i = 0; i < convBids.length; i++) maxTotal = Math.max(maxTotal, convBids[i].total);
+    maxTotal = Math.round(maxTotal * 100) / 100; // stabilize depth bars
+
+    return {
+      visibleAsks: convAsks.map((l) => formatLevel(l, effectivePriceScaling)),
+      visibleBids: convBids.map((l) => formatLevel(l, effectivePriceScaling)),
+      maxTotal,
+    };
+  }, [orderbook, effectivePriceScaling, pairFocus]);
 
   const { spread, spreadPercent } = useMemo(() => {
-    if (
-      !groupedOrderbook ||
-      groupedOrderbook.asks.length === 0 ||
-      groupedOrderbook.bids.length === 0
-    ) {
+    if (!orderbook || orderbook.asks.length === 0 || orderbook.bids.length === 0) {
       return { spread: 0, spreadPercent: 0 };
     }
-    const bestAsk = groupedOrderbook.asks[0]?.price || 0;
-    const bestBid = groupedOrderbook.bids[0]?.price || 0;
+    const bestAsk = orderbook.asks[0]?.price || 0;
+    const bestBid = orderbook.bids[0]?.price || 0;
     const s = bestAsk - bestBid;
     const sp = bestBid > 0 ? (s / bestBid) * 100 : 0;
     return { spread: s, spreadPercent: sp };
-  }, [groupedOrderbook]);
+  }, [orderbook]);
 
   const popupData = useMemo((): PopupData | null => {
-    if (!hoverTarget || !groupedOrderbook) return null;
-    const levels = hoverTarget.side === "ask" ? groupedOrderbook.asks : groupedOrderbook.bids;
-    const targetIndex = levels.findIndex((l) => Math.abs(l.price - hoverTarget.price) < 1e-8);
+    if (!hoverTarget || !orderbook) return null;
+    const rawLevels = hoverTarget.side === "ask" ? orderbook.asks : orderbook.bids;
+    const targetIndex = rawLevels.findIndex((l) => Math.abs(l.price - hoverTarget.price) < 1e-8);
     if (targetIndex === -1) return { ...hoverTarget };
+
+    const levels = pairFocus === "quote" ? rawLevels.map(toQuoteDenom) : rawLevels;
 
     let totalSize = 0;
     let weightedPriceSum = 0;
@@ -472,7 +521,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       avgPrice: totalSize > 0 ? weightedPriceSum / totalSize : 0,
       cumulativeSize: totalSize,
     };
-  }, [hoverTarget, groupedOrderbook]);
+  }, [hoverTarget, orderbook, pairFocus]);
 
   const handleHover = useCallback(
     (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => {
@@ -534,6 +583,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   return (
     <div ref={widgetRef} className="h-full flex flex-col bg-card border-border/30 rounded-xl p-2">
       <OrderbookToolbar
+        symbol={pairFocus}
+        coinOptions={pairOptions}
+        onSymbolChange={setPairFocus}
         priceScaling={effectivePriceScaling}
         onPriceScalingChange={handlePriceScalingChange}
         scalingOptions={scalingOptions}
@@ -542,8 +594,8 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
       <div className="flex items-center px-[clamp(0.5rem,1.5vw,0.75rem)] py-1.5 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono uppercase text-muted-foreground shrink-0">
         <span className="flex-1">Price</span>
-        <span className="flex-1 text-right">Size</span>
-        <span className="flex-1 text-right">Total</span>
+        <span className="flex-1 text-right">{pairFocus === "quote" ? "Value" : "Size"}</span>
+        <span className="flex-1 text-right">{pairFocus === "quote" ? "Total Val" : "Total"}</span>
       </div>
 
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -617,11 +669,15 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-xs text-muted-foreground">Size</span>
+              <span className="text-xs text-muted-foreground">
+                {pairFocus === "quote" ? "Value" : "Size"}
+              </span>
               <span className="text-sm font-mono">{formatSize(popupData.size)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-xs text-muted-foreground">Total</span>
+              <span className="text-xs text-muted-foreground">
+                {pairFocus === "quote" ? "Total Val" : "Total"}
+              </span>
               <span className="text-sm font-mono font-medium">{formatSize(popupData.total)}</span>
             </div>
             {popupData.cumulativeSize && popupData.cumulativeSize > popupData.size && (
