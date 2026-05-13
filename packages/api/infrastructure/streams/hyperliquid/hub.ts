@@ -33,6 +33,7 @@ type Bucket = {
   readonly subscription: MarketWsSubscription;
   readonly clients: Set<ServerWebSocket<MarketWsConnectionData>>;
   upstream?: ISubscription;
+  subscribing?: Promise<void>; // Promise-based mutex lock for ensureUpstream
   restarting: boolean;
   restartTimer?: ReturnType<typeof setTimeout>;
   firstMarketBroadcastLogged: boolean;
@@ -133,53 +134,74 @@ export class HyperliquidMarketStreamHub {
       return;
     }
 
-    try {
-      bucket.upstream = await this.subscribeUpstream(bucket);
-      // Reset retry count on success
-      bucket.retryCount = 0;
-      marketWsLog("upstream_subscribe_success", {
-        bucketKey: bucket.key,
-        channel: bucket.subscription.channel,
-        clientsInBucket: bucket.clients.size,
-      });
-      this.broadcast(bucket, {
-        type: "ready",
-        subscription: bucket.subscription,
-        timestamp: Date.now(),
-      });
-      bucket.upstream.failureSignal.addEventListener(
-        "abort",
-        () => {
+    // If already subscribing, wait for that subscription to complete
+    if (bucket.subscribing) {
+      try {
+        await bucket.subscribing;
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
+    // Acquire mutex lock — store the promise so concurrent calls await the same subscription
+    const subscribePromise = this.subscribeUpstream(bucket)
+      .then(
+        (sub) => {
+          bucket.upstream = sub;
+          // Reset retry count on success
+          bucket.retryCount = 0;
+          marketWsLog("upstream_subscribe_success", {
+            bucketKey: bucket.key,
+            channel: bucket.subscription.channel,
+            clientsInBucket: bucket.clients.size,
+          });
+          this.broadcast(bucket, {
+            type: "ready",
+            subscription: bucket.subscription,
+            timestamp: Date.now(),
+          });
+          sub.failureSignal.addEventListener(
+            "abort",
+            () => {
+              marketWsLog(
+                "upstream_failure_signal",
+                {
+                  bucketKey: bucket.key,
+                  channel: bucket.subscription.channel,
+                },
+                "warn"
+              );
+              void this.restartBucket(bucket.key, "upstream_subscription_failed");
+            },
+            { once: true }
+          );
+        },
+        (error) => {
           marketWsLog(
-            "upstream_failure_signal",
+            "upstream_subscribe_failed",
             {
               bucketKey: bucket.key,
               channel: bucket.subscription.channel,
+              error: error instanceof Error ? error.message : String(error),
             },
-            "warn"
+            "error"
           );
-          void this.restartBucket(bucket.key, "upstream_subscription_failed");
-        },
-        { once: true }
-      );
-    } catch (error) {
-      marketWsLog(
-        "upstream_subscribe_failed",
-        {
-          bucketKey: bucket.key,
-          channel: bucket.subscription.channel,
-          error: error instanceof Error ? error.message : String(error),
-        },
-        "error"
-      );
-      this.broadcast(bucket, {
-        type: "error",
-        code: "upstream_subscribe_failed",
-        message: error instanceof Error ? error.message : String(error),
-        timestamp: Date.now(),
+          this.broadcast(bucket, {
+            type: "error",
+            code: "upstream_subscribe_failed",
+            message: error instanceof Error ? error.message : String(error),
+            timestamp: Date.now(),
+          });
+          void this.restartBucket(bucket.key, "upstream_subscribe_failed");
+        }
+      )
+      .finally(() => {
+        bucket.subscribing = undefined;
       });
-      void this.restartBucket(bucket.key, "upstream_subscribe_failed");
-    }
+
+    bucket.subscribing = subscribePromise;
+    await subscribePromise;
   }
 
   private async restartBucket(key: string, reason: string): Promise<void> {
