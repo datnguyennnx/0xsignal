@@ -1,16 +1,21 @@
-import { Context } from "effect";
+import { Context, Effect } from "effect";
 import type {
   StrategyChangeRecord,
   StrategyDefinition,
   StrategyHistory,
   StrategyVersion,
 } from "../../schemas/strategy";
+import { DomainError } from "../errors";
 
 export interface StrategyRepository {
-  readonly insertDefinition: (def: StrategyDefinition) => Promise<StrategyDefinition>;
-  readonly insertVersion: (version: StrategyVersion) => Promise<StrategyVersion>;
-  readonly insertChangeRecord: (record: StrategyChangeRecord) => Promise<StrategyChangeRecord>;
-  readonly getHistory: (id: string) => Promise<StrategyHistory | null>;
+  readonly insertDefinition: (
+    def: StrategyDefinition
+  ) => Effect.Effect<StrategyDefinition, DomainError>;
+  readonly insertVersion: (version: StrategyVersion) => Effect.Effect<StrategyVersion, DomainError>;
+  readonly insertChangeRecord: (
+    record: StrategyChangeRecord
+  ) => Effect.Effect<StrategyChangeRecord, DomainError>;
+  readonly getHistory: (id: string) => Effect.Effect<StrategyHistory | null, DomainError>;
 }
 
 export const StrategyRepository = Context.GenericTag<StrategyRepository>(

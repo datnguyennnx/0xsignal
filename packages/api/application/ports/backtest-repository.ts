@@ -1,22 +1,31 @@
-import { Context } from "effect";
+import { Context, Effect } from "effect";
 import type {
   BacktestEvent,
   BacktestMetric,
   BacktestRun,
   BacktestRunInput as BacktestRunInputs,
 } from "../../schemas/backtest";
+import { DomainError } from "../errors";
 
 export interface BacktestRepository {
-  readonly createRunWithInput: (run: BacktestRun, input: BacktestRunInputs) => Promise<BacktestRun>;
-  readonly getRun: (id: string) => Promise<BacktestRun | null>;
-  readonly getRunInput: (runId: string) => Promise<BacktestRunInputs | null>;
-  readonly insertRunInput: (input: BacktestRunInputs) => Promise<BacktestRunInputs>;
-  readonly insertMetric: (metric: BacktestMetric) => Promise<BacktestMetric>;
-  readonly getMetricsByRun: (runId: string) => Promise<BacktestMetric[]>;
-  readonly insertEvent: (event: BacktestEvent) => Promise<BacktestEvent>;
-  readonly getEventsByRun: (runId: string) => Promise<BacktestEvent[]>;
-  readonly getEventCount: (runId: string) => Promise<number>;
-  readonly updateRunStatus: (id: string, status: string) => Promise<BacktestRun | null>;
+  readonly createRunWithInput: (
+    run: BacktestRun,
+    input: BacktestRunInputs
+  ) => Effect.Effect<BacktestRun, DomainError>;
+  readonly getRun: (id: string) => Effect.Effect<BacktestRun | null, DomainError>;
+  readonly getRunInput: (runId: string) => Effect.Effect<BacktestRunInputs | null, DomainError>;
+  readonly insertRunInput: (
+    input: BacktestRunInputs
+  ) => Effect.Effect<BacktestRunInputs, DomainError>;
+  readonly insertMetric: (metric: BacktestMetric) => Effect.Effect<BacktestMetric, DomainError>;
+  readonly getMetricsByRun: (runId: string) => Effect.Effect<BacktestMetric[], DomainError>;
+  readonly insertEvent: (event: BacktestEvent) => Effect.Effect<BacktestEvent, DomainError>;
+  readonly getEventsByRun: (runId: string) => Effect.Effect<BacktestEvent[], DomainError>;
+  readonly getEventCount: (runId: string) => Effect.Effect<number, DomainError>;
+  readonly updateRunStatus: (
+    id: string,
+    status: string
+  ) => Effect.Effect<BacktestRun | null, DomainError>;
 }
 
 export const BacktestRepository = Context.GenericTag<BacktestRepository>(
