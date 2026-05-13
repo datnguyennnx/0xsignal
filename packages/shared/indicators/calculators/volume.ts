@@ -69,6 +69,8 @@ export const calculateNVI = (data: ChartDataPoint[]): IndicatorDataPoint[] => {
 
 export const calculateMFI = (data: ChartDataPoint[], period: number): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
+  if (data.length <= period) return result;
+
   const typicalPrices: number[] = [];
   const rawMoneyFlow: number[] = [];
 
@@ -78,16 +80,29 @@ export const calculateMFI = (data: ChartDataPoint[], period: number): IndicatorD
     rawMoneyFlow.push(tp * data[i].volume);
   }
 
-  for (let i = period; i < data.length; i++) {
-    let positiveFlow = 0;
-    let negativeFlow = 0;
+  let positiveFlow = 0;
+  let negativeFlow = 0;
 
-    for (let j = i - period + 1; j <= i; j++) {
-      if (typicalPrices[j] > typicalPrices[j - 1]) positiveFlow += rawMoneyFlow[j];
-      else if (typicalPrices[j] < typicalPrices[j - 1]) negativeFlow += rawMoneyFlow[j];
+  for (let j = 1; j <= period; j++) {
+    if (typicalPrices[j] > typicalPrices[j - 1]) positiveFlow += rawMoneyFlow[j];
+    else if (typicalPrices[j] < typicalPrices[j - 1]) negativeFlow += rawMoneyFlow[j];
+  }
+
+  let ratio = negativeFlow === 0 ? 100 : positiveFlow / negativeFlow;
+  result.push({ time: data[period].time, value: 100 - 100 / (1 + ratio) });
+
+  for (let i = period + 1; i < data.length; i++) {
+    const outgoingIdx = i - period;
+    if (typicalPrices[outgoingIdx] > typicalPrices[outgoingIdx - 1]) {
+      positiveFlow -= rawMoneyFlow[outgoingIdx];
+    } else if (typicalPrices[outgoingIdx] < typicalPrices[outgoingIdx - 1]) {
+      negativeFlow -= rawMoneyFlow[outgoingIdx];
     }
 
-    const ratio = negativeFlow === 0 ? 100 : positiveFlow / negativeFlow;
+    if (typicalPrices[i] > typicalPrices[i - 1]) positiveFlow += rawMoneyFlow[i];
+    else if (typicalPrices[i] < typicalPrices[i - 1]) negativeFlow += rawMoneyFlow[i];
+
+    ratio = negativeFlow === 0 ? 100 : positiveFlow / negativeFlow;
     result.push({ time: data[i].time, value: 100 - 100 / (1 + ratio) });
   }
   return result;
@@ -97,17 +112,31 @@ export const calculateCMF = (data: ChartDataPoint[], period: number): IndicatorD
   const result: IndicatorDataPoint[] = [];
   if (data.length < period) return result;
 
-  for (let i = period - 1; i < data.length; i++) {
-    const slice = data.slice(i - period + 1, i + 1);
-    let sumMFV = 0;
-    let sumVolume = 0;
+  let sumMFV = 0;
+  let sumVolume = 0;
+  for (let i = 0; i < period; i++) {
+    const range = data[i].high - data[i].low;
+    const mfMultiplier =
+      range === 0 ? 0 : (data[i].close - data[i].low - (data[i].high - data[i].close)) / range;
+    sumMFV += mfMultiplier * data[i].volume;
+    sumVolume += data[i].volume;
+  }
+  result.push({ time: data[period - 1].time, value: sumVolume === 0 ? 0 : sumMFV / sumVolume });
 
-    for (const bar of slice) {
-      const range = bar.high - bar.low;
-      const mfMultiplier = range === 0 ? 0 : (bar.close - bar.low - (bar.high - bar.close)) / range;
-      sumMFV += mfMultiplier * bar.volume;
-      sumVolume += bar.volume;
-    }
+  for (let i = period; i < data.length; i++) {
+    const rangeIn = data[i].high - data[i].low;
+    const mfIn =
+      rangeIn === 0 ? 0 : (data[i].close - data[i].low - (data[i].high - data[i].close)) / rangeIn;
+    const rangeOut = data[i - period].high - data[i - period].low;
+    const mfOut =
+      rangeOut === 0
+        ? 0
+        : (data[i - period].close -
+            data[i - period].low -
+            (data[i - period].high - data[i - period].close)) /
+          rangeOut;
+    sumMFV += mfIn * data[i].volume - mfOut * data[i - period].volume;
+    sumVolume += data[i].volume - data[i - period].volume;
     result.push({ time: data[i].time, value: sumVolume === 0 ? 0 : sumMFV / sumVolume });
   }
   return result;

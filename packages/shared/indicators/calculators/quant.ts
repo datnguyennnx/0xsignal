@@ -93,16 +93,23 @@ export const calculateStochRSI = (
 
   const rawStoch: number[] = [];
   const rawTimes: number[] = [];
+  const minDeque: number[] = [];
+  const maxDeque: number[] = [];
 
-  for (let i = rsiPeriod + stochPeriod - 1; i < data.length; i++) {
-    let min = Number.POSITIVE_INFINITY;
-    let max = Number.NEGATIVE_INFINITY;
-    for (let j = i - stochPeriod + 1; j <= i; j++) {
-      const value = rsiValues[j];
-      if (Number.isNaN(value)) continue;
-      min = Math.min(min, value);
-      max = Math.max(max, value);
-    }
+  for (let i = 0; i < rsiValues.length; i++) {
+    if (Number.isNaN(rsiValues[i])) continue;
+    while (maxDeque.length && rsiValues[maxDeque[maxDeque.length - 1]] <= rsiValues[i])
+      maxDeque.pop();
+    while (minDeque.length && rsiValues[minDeque[minDeque.length - 1]] >= rsiValues[i])
+      minDeque.pop();
+    maxDeque.push(i);
+    minDeque.push(i);
+    const left = i - stochPeriod + 1;
+    while (maxDeque.length && maxDeque[0] < left) maxDeque.shift();
+    while (minDeque.length && minDeque[0] < left) minDeque.shift();
+    if (i < rsiPeriod + stochPeriod - 1) continue;
+    const min = rsiValues[minDeque[0]];
+    const max = rsiValues[maxDeque[0]];
     const range = max - min;
     const current = rsiValues[i];
     const stoch = range <= 0 ? 50 : ((current - min) / range) * 100;
@@ -205,17 +212,20 @@ export const calculateHistoricalVolatility = (
   }
 
   const result: IndicatorDataPoint[] = [];
-  for (let i = period - 1; i < logReturns.length; i++) {
-    let sum = 0;
-    for (let j = i - period + 1; j <= i; j++) sum += logReturns[j];
-    const mean = sum / period;
+  let sum = 0;
+  let sumSq = 0;
+  for (let i = 0; i < period; i++) {
+    sum += logReturns[i];
+    sumSq += logReturns[i] * logReturns[i];
+  }
 
-    let variance = 0;
-    for (let j = i - period + 1; j <= i; j++) {
-      const diff = logReturns[j] - mean;
-      variance += diff * diff;
+  for (let i = period - 1; i < logReturns.length; i++) {
+    if (i > period - 1) {
+      sum += logReturns[i] - logReturns[i - period];
+      sumSq += logReturns[i] * logReturns[i] - logReturns[i - period] * logReturns[i - period];
     }
-    variance /= period;
+    const mean = sum / period;
+    const variance = Math.max(0, sumSq / period - mean * mean);
     result.push({
       time: times[i],
       value: Math.sqrt(variance) * Math.sqrt(annualization) * 100,
@@ -230,15 +240,23 @@ export const calculateAroonOscillator = (
 ): IndicatorDataPoint[] => {
   if (data.length < period) return [];
   const result: IndicatorDataPoint[] = [];
+  const maxDeque: number[] = [];
+  const minDeque: number[] = [];
 
-  for (let i = period - 1; i < data.length; i++) {
-    let highestIndex = i - period + 1;
-    let lowestIndex = i - period + 1;
-    for (let j = i - period + 1; j <= i; j++) {
-      if (data[j].high >= data[highestIndex].high) highestIndex = j;
-      if (data[j].low <= data[lowestIndex].low) lowestIndex = j;
-    }
+  for (let i = 0; i < data.length; i++) {
+    while (maxDeque.length && data[maxDeque[maxDeque.length - 1]].high <= data[i].high)
+      maxDeque.pop();
+    while (minDeque.length && data[minDeque[minDeque.length - 1]].low >= data[i].low)
+      minDeque.pop();
+    maxDeque.push(i);
+    minDeque.push(i);
+    const left = i - period + 1;
+    while (maxDeque.length && maxDeque[0] < left) maxDeque.shift();
+    while (minDeque.length && minDeque[0] < left) minDeque.shift();
+    if (i < period - 1) continue;
 
+    const highestIndex = maxDeque[0];
+    const lowestIndex = minDeque[0];
     const aroonUp = ((period - (i - highestIndex)) / period) * 100;
     const aroonDown = ((period - (i - lowestIndex)) / period) * 100;
     result.push({ time: data[i].time, value: aroonUp - aroonDown });

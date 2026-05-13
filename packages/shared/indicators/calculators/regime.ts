@@ -37,17 +37,28 @@ export const calculateChoppiness = (
     );
   }
 
-  for (let i = period; i < data.length; i++) {
-    let trSum = 0;
-    let hh = Number.NEGATIVE_INFINITY;
-    let ll = Number.POSITIVE_INFINITY;
+  let trSum = 0;
+  const maxDeque: number[] = [];
+  const minDeque: number[] = [];
 
-    for (let j = i - period + 1; j <= i; j++) {
-      trSum += tr[j - 1] ?? 0;
-      hh = Math.max(hh, data[j].high);
-      ll = Math.min(ll, data[j].low);
-    }
+  for (let i = 1; i < data.length; i++) {
+    trSum += tr[i - 1];
+    if (i > period) trSum -= tr[i - period - 1];
 
+    while (maxDeque.length && data[maxDeque[maxDeque.length - 1]].high <= data[i].high)
+      maxDeque.pop();
+    while (minDeque.length && data[minDeque[minDeque.length - 1]].low >= data[i].low)
+      minDeque.pop();
+    maxDeque.push(i);
+    minDeque.push(i);
+
+    const left = i - period + 1;
+    while (maxDeque.length && maxDeque[0] < left) maxDeque.shift();
+    while (minDeque.length && minDeque[0] < left) minDeque.shift();
+
+    if (i < period) continue;
+    const hh = data[maxDeque[0]].high;
+    const ll = data[minDeque[0]].low;
     const range = hh - ll;
     const value =
       range <= 0 || trSum <= 0 ? 50 : (100 * Math.log10(trSum / range)) / Math.log10(period);
@@ -64,13 +75,20 @@ export const calculateEfficiencyRatio = (
   const result: IndicatorDataPoint[] = [];
   if (data.length <= period) return result;
 
+  const absChanges: number[] = [];
+  for (let i = 1; i < data.length; i++) {
+    absChanges.push(Math.abs(data[i].close - data[i - 1].close));
+  }
+
+  let rollingTotal = 0;
+  for (let i = 0; i < period; i++) rollingTotal += absChanges[i];
+
   for (let i = period; i < data.length; i++) {
     const net = Math.abs(data[i].close - data[i - period].close);
-    let total = 0;
-    for (let j = i - period + 1; j <= i; j++) {
-      total += Math.abs(data[j].close - data[j - 1].close);
+    result.push({ time: data[i].time, value: rollingTotal === 0 ? 0 : net / rollingTotal });
+    if (i < data.length - 1) {
+      rollingTotal += absChanges[i] - absChanges[i - period];
     }
-    result.push({ time: data[i].time, value: total === 0 ? 0 : net / total });
   }
 
   return result;

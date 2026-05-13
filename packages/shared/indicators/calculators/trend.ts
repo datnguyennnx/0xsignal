@@ -6,16 +6,20 @@ import { getTrueRange } from "../math";
 export const calculateVWMA = (data: ChartDataPoint[], period: number): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   if (data.length < period) return result;
-
-  for (let i = period - 1; i < data.length; i++) {
-    const slice = data.slice(i - period + 1, i + 1);
-    let sumPriceVolume = 0;
-    let sumVolume = 0;
-
-    for (const bar of slice) {
-      sumPriceVolume += bar.close * bar.volume;
-      sumVolume += bar.volume;
-    }
+  let sumPriceVolume = 0;
+  let sumVolume = 0;
+  for (let i = 0; i < period; i++) {
+    sumPriceVolume += data[i].close * data[i].volume;
+    sumVolume += data[i].volume;
+  }
+  result.push({
+    time: data[period - 1].time,
+    value: sumVolume === 0 ? data[period - 1].close : sumPriceVolume / sumVolume,
+  });
+  for (let i = period; i < data.length; i++) {
+    sumPriceVolume +=
+      data[i].close * data[i].volume - data[i - period].close * data[i - period].volume;
+    sumVolume += data[i].volume - data[i - period].volume;
     result.push({
       time: data[i].time,
       value: sumVolume === 0 ? data[i].close : sumPriceVolume / sumVolume,
@@ -87,12 +91,17 @@ export const calculateWMA = (data: ChartDataPoint[], period: number): IndicatorD
   if (data.length < period) return result;
 
   const weightSum = (period * (period + 1)) / 2;
+  let weighted = 0;
+  let windowSum = 0;
+  for (let i = 0; i < period; i++) {
+    weighted += data[i].close * (i + 1);
+    windowSum += data[i].close;
+  }
+  result.push({ time: data[period - 1].time, value: weighted / weightSum });
 
-  for (let i = period - 1; i < data.length; i++) {
-    let weighted = 0;
-    for (let w = 1; w <= period; w++) {
-      weighted += data[i - period + w].close * w;
-    }
+  for (let i = period; i < data.length; i++) {
+    weighted = weighted - windowSum + data[i].close * period;
+    windowSum = windowSum - data[i - period].close + data[i].close;
     result.push({ time: data[i].time, value: weighted / weightSum });
   }
 

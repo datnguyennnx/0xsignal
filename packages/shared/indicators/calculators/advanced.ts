@@ -163,17 +163,22 @@ export const calculateVortexSpread = (
     );
   }
 
-  for (let i = period - 1; i < vmPlus.length; i++) {
-    let sumPlus = 0;
-    let sumMinus = 0;
-    let sumTr = 0;
-    for (let j = i - period + 1; j <= i; j++) {
-      sumPlus += vmPlus[j];
-      sumMinus += vmMinus[j];
-      sumTr += tr[j];
-    }
+  let sumPlus = 0,
+    sumMinus = 0,
+    sumTr = 0;
+  for (let i = 0; i < period; i++) {
+    sumPlus += vmPlus[i];
+    sumMinus += vmMinus[i];
+    sumTr += tr[i];
+  }
+  let value = sumTr === 0 ? 0 : sumPlus / sumTr - sumMinus / sumTr;
+  result.push({ time: data[period].time, value });
 
-    const value = sumTr === 0 ? 0 : sumPlus / sumTr - sumMinus / sumTr;
+  for (let i = period; i < vmPlus.length; i++) {
+    sumPlus += vmPlus[i] - vmPlus[i - period];
+    sumMinus += vmMinus[i] - vmMinus[i - period];
+    sumTr += tr[i] - tr[i - period];
+    value = sumTr === 0 ? 0 : sumPlus / sumTr - sumMinus / sumTr;
     result.push({ time: data[i + 1].time, value });
   }
 

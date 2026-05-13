@@ -152,25 +152,42 @@ export const calculateUltimateOscillator = (
     tr.push(maxHigh - minLow);
   }
 
-  const sumWindow = (values: number[], end: number, length: number): number => {
-    let sum = 0;
-    for (let i = end - length + 1; i <= end; i++) {
-      sum += values[i] ?? 0;
-    }
-    return sum;
-  };
+  let shortBP = 0,
+    medBP = 0,
+    longBP = 0;
+  let shortTR = 0,
+    medTR = 0,
+    longTR = 0;
+
+  for (let i = 0; i < shortPeriod && i < bp.length; i++) {
+    shortBP += bp[i];
+    shortTR += tr[i];
+  }
+  for (let i = 0; i < mediumPeriod && i < bp.length; i++) {
+    medBP += bp[i];
+    medTR += tr[i];
+  }
+  for (let i = 0; i < longPeriod && i < bp.length; i++) {
+    longBP += bp[i];
+    longTR += tr[i];
+  }
 
   const start = Math.max(shortPeriod, mediumPeriod, longPeriod) - 1;
   for (let i = start; i < bp.length; i++) {
-    const avg7Den = sumWindow(tr, i, shortPeriod);
-    const avg14Den = sumWindow(tr, i, mediumPeriod);
-    const avg28Den = sumWindow(tr, i, longPeriod);
-    if (avg7Den === 0 || avg14Den === 0 || avg28Den === 0) continue;
+    if (i > start) {
+      const prevIdx = i - 1;
+      shortBP += bp[i] - (prevIdx - shortPeriod + 1 >= 0 ? bp[prevIdx - shortPeriod + 1] : 0);
+      shortTR += tr[i] - (prevIdx - shortPeriod + 1 >= 0 ? tr[prevIdx - shortPeriod + 1] : 0);
+      medBP += bp[i] - (prevIdx - mediumPeriod + 1 >= 0 ? bp[prevIdx - mediumPeriod + 1] : 0);
+      medTR += tr[i] - (prevIdx - mediumPeriod + 1 >= 0 ? tr[prevIdx - mediumPeriod + 1] : 0);
+      longBP += bp[i] - (prevIdx - longPeriod + 1 >= 0 ? bp[prevIdx - longPeriod + 1] : 0);
+      longTR += tr[i] - (prevIdx - longPeriod + 1 >= 0 ? tr[prevIdx - longPeriod + 1] : 0);
+    }
 
-    const avg7 = sumWindow(bp, i, shortPeriod) / avg7Den;
-    const avg14 = sumWindow(bp, i, mediumPeriod) / avg14Den;
-    const avg28 = sumWindow(bp, i, longPeriod) / avg28Den;
-
+    if (shortTR === 0 || medTR === 0 || longTR === 0) continue;
+    const avg7 = shortBP / shortTR;
+    const avg14 = medBP / medTR;
+    const avg28 = longBP / longTR;
     const value = 100 * ((4 * avg7 + 2 * avg14 + avg28) / 7);
     result.push({ time: data[i + 1].time, value });
   }
@@ -212,21 +229,28 @@ export const calculateWilliamsR = (
   return result;
 };
 
-import { mean } from "../math";
-
 export const calculateCCI = (data: ChartDataPoint[], period: number): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
+  if (data.length < period) return result;
   const typicalPrices: number[] = [];
 
   for (let i = 0; i < data.length; i++) {
     typicalPrices.push((data[i].high + data[i].low + data[i].close) / 3);
   }
 
+  let rollingSum = 0;
+  for (let i = 0; i < period; i++) rollingSum += typicalPrices[i];
   for (let i = period - 1; i < data.length; i++) {
-    const window = typicalPrices.slice(i - period + 1, i + 1);
-    const sma = mean(window);
-    const deviations = window.map((tp) => Math.abs(tp - sma));
-    const meanDeviation = mean(deviations);
+    if (i > period - 1) {
+      rollingSum += typicalPrices[i] - typicalPrices[i - period];
+    }
+    const sma = rollingSum / period;
+    let sumAbsDev = 0;
+    const left = i - period + 1;
+    for (let j = left; j <= i; j++) {
+      sumAbsDev += Math.abs(typicalPrices[j] - sma);
+    }
+    const meanDeviation = sumAbsDev / period;
     const cci = meanDeviation === 0 ? 0 : (typicalPrices[i] - sma) / (0.015 * meanDeviation);
     result.push({ time: data[i].time, value: cci });
   }

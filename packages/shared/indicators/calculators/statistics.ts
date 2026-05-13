@@ -75,15 +75,21 @@ export const calculateRegressionSlope = (
   const denominator = n * sumXX - sumX * sumX;
   if (denominator === 0) return result;
 
-  for (let i = period - 1; i < data.length; i++) {
-    let sumY = 0;
-    let sumXY = 0;
-    for (let j = 0; j < period; j++) {
-      const y = data[i - period + 1 + j].close;
-      sumY += y;
-      sumXY += j * y;
-    }
+  let sumY = 0;
+  let sumXY = 0;
+  for (let j = 0; j < period; j++) {
+    const y = data[j].close;
+    sumY += y;
+    sumXY += j * y;
+  }
 
+  for (let i = period - 1; i < data.length; i++) {
+    if (i > period - 1) {
+      const incoming = data[i].close;
+      const outgoing = data[i - period].close;
+      sumXY = sumXY - sumY + outgoing + (period - 1) * incoming;
+      sumY = sumY - outgoing + incoming;
+    }
     const slope = (n * sumXY - sumX * sumY) / denominator;
     result.push({ time: data[i].time, value: slope });
   }
