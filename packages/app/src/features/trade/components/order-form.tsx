@@ -252,7 +252,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
   return (
     <>
-      <div className="flex flex-col bg-card border border-border/30 rounded-xl overflow-hidden h-full">
+      <div className="flex flex-col bg-card border border-border/30 rounded-xl overflow-hidden h-full animate-in fade-in duration-200 ease-premium">
         {/* ════════════════ TOP CONTROLS: margin mode / leverage / classic ════════════════ */}
         <div className="flex items-center gap-1.5 px-4 py-3 border-b border-border/20 shrink-0">
           <button

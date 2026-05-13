@@ -251,18 +251,20 @@ const AssetContent = memo(function AssetContent({
         <div className="flex-8 min-h-0 grid grid-cols-6 gap-[clamp(0.15rem,0.5vw,0.3rem)] items-stretch">
           <div className="col-span-4 flex flex-col min-h-0 h-full">
             {showChartSkeleton ? (
-              <Skeleton className="h-full w-full rounded-sm" />
+              <Skeleton className="h-full w-full rounded-lg" />
             ) : (
-              <Suspense fallback={<ChartSkeleton />}>
-                <ErrorBoundary>
-                  <TradingChart
-                    key={chartSymbol}
-                    symbol={chartSymbol}
-                    interval={interval}
-                    onIntervalChange={onIntervalChange}
-                  />
-                </ErrorBoundary>
-              </Suspense>
+              <div className="animate-in fade-in duration-200 ease-premium h-full">
+                <Suspense fallback={<ChartSkeleton />}>
+                  <ErrorBoundary>
+                    <TradingChart
+                      key={chartSymbol}
+                      symbol={chartSymbol}
+                      interval={interval}
+                      onIntervalChange={onIntervalChange}
+                    />
+                  </ErrorBoundary>
+                </Suspense>
+              </div>
             )}
           </div>
 
@@ -273,14 +275,7 @@ const AssetContent = memo(function AssetContent({
           </div>
 
           <div className="col-span-1 flex flex-col min-h-0">
-            {showChartSkeleton ? (
-              <Skeleton className="h-full w-full rounded-sm" />
-            ) : (
-              <OrderForm
-                symbol={symbol}
-                markPrice={asset.price?.markPx || asset.price?.price || 0}
-              />
-            )}
+            <OrderForm symbol={symbol} markPrice={asset.price?.markPx || asset.price?.price || 0} />
           </div>
         </div>
 
@@ -304,9 +299,9 @@ function AssetDetailSkeleton() {
         </div>
       </header>
       <div className="flex-8 min-h-0 grid grid-cols-6 gap-[clamp(0.15rem,0.5vw,0.3rem)] items-stretch">
-        <Skeleton className="col-span-4 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-sm" />
-        <Skeleton className="col-span-1 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-sm" />
-        <Skeleton className="col-span-1 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-sm" />
+        <Skeleton className="col-span-4 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-lg" />
+        <Skeleton className="col-span-1 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-xl" />
+        <Skeleton className="col-span-1 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-xl" />
       </div>
     </div>
   );
@@ -397,8 +392,10 @@ export function AssetDetail() {
     return candleData[candleData.length - 1].close;
   }, [candleData]);
 
+  // Only show full-page skeleton during initial asset fetch.
+  // Widgets handle their own loading states independently.
   const showSkeleton = !asset && assetLoading;
-  const showChartSkeleton = chartLoading || candleData.length === 0;
+  const showChartSkeleton = chartLoading;
 
   const documentTitle = useMemo(() => {
     if (!asset?.price && !latestPrice) return "";

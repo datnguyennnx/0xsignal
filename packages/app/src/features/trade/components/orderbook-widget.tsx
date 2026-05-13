@@ -33,6 +33,7 @@ import { type OrderbookLevel, priceKey } from "@/core/utils/hyperliquid";
 import { useOptionalL2BookNSigFigs } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { parseSymbol } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
+import { Skeleton } from "@/components/ui/skeleton";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 const EMPTY_ORDERBOOK_OPTIONS = {} as const;
@@ -302,7 +303,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     return EMPTY_ORDERBOOK_OPTIONS;
   }, [l2BookSig]);
 
-  const { orderbook, isConnected, error, resubscribe, activeSigFigs } = useHyperliquidOrderbook(
+  const { orderbook, isConnected, resubscribe } = useHyperliquidOrderbook(
     symbol,
     true,
     orderbookHookOptions
@@ -551,37 +552,18 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     [hoveredIndex]
   );
 
-  if (error) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-3">
-        <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
-          Book unavailable
-        </span>
-        <button
-          onClick={() => resubscribe(activeSigFigs)}
-          className="text-xs text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
   const hasBookData = !!orderbook && orderbook.asks.length > 0 && orderbook.bids.length > 0;
   const showSyncing = !isConnected && hasBookData;
 
   if (!hasBookData) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center">
-        <span className="text-xs text-muted-foreground/40 uppercase tracking-wider font-mono">
-          Loading book
-        </span>
-      </div>
-    );
+    return <Skeleton className="h-full w-full rounded-xl" />;
   }
 
   return (
-    <div ref={widgetRef} className="h-full flex flex-col bg-card border-border/30 rounded-xl p-2">
+    <div
+      ref={widgetRef}
+      className="h-full flex flex-col bg-card border-border/30 rounded-xl p-2 animate-in fade-in duration-200 ease-premium"
+    >
       <OrderbookToolbar
         symbol={pairFocus}
         coinOptions={pairOptions}
