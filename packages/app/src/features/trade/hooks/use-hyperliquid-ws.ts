@@ -18,6 +18,8 @@ export interface UseHyperliquidWsOptions {
   enabled?: boolean;
   onConnectionChange?: (connected: boolean) => void;
   onError?: (error: Error) => void;
+  /** Fires when the WebSocket successfully reconnects after a disconnect. */
+  onReconnect?: () => void;
 }
 
 interface WsSubscription {
@@ -30,6 +32,7 @@ export function useHyperliquidWs({
   enabled = true,
   onConnectionChange,
   onError,
+  onReconnect,
 }: UseHyperliquidWsOptions) {
   const client = useMarketStreamClient();
   const [isConnected, setIsConnected] = useState(false);
@@ -40,11 +43,13 @@ export function useHyperliquidWs({
   const onMessageRef = useRef(onMessage);
   const onConnectionChangeRef = useRef(onConnectionChange);
   const onErrorRef = useRef(onError);
+  const onReconnectRef = useRef(onReconnect);
 
   useEffect(() => {
     onMessageRef.current = onMessage;
     onConnectionChangeRef.current = onConnectionChange;
     onErrorRef.current = onError;
+    onReconnectRef.current = onReconnect;
   });
 
   useEffect(() => {
@@ -97,6 +102,11 @@ export function useHyperliquidWs({
                 setIsConnected(false);
                 onConnectionChangeRef.current?.(false);
                 onErrorRef.current?.(err);
+              }
+            },
+            onReconnect: () => {
+              if (!ignore && isMountedRef.current && generationRef.current === generation) {
+                onReconnectRef.current?.();
               }
             },
           }
@@ -168,6 +178,11 @@ export function useHyperliquidWs({
               setIsConnected(false);
               onConnectionChangeRef.current?.(false);
               onErrorRef.current?.(err);
+            },
+            onReconnect: () => {
+              if (isMountedRef.current && generationRef.current === generation) {
+                onReconnectRef.current?.();
+              }
             },
           }
         );

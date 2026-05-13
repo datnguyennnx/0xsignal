@@ -1,5 +1,5 @@
 import { formatPrice } from "@/core/utils/formatters";
-import type { OpenOrderSchema } from "@/services/api";
+import type { OpenOrder } from "@0xsignal/shared";
 
 /* ─── Nested extraction ─── */
 
@@ -8,7 +8,7 @@ import type { OpenOrderSchema } from "@/services/api";
  * FrontendOpenOrderSchema: read from top-level `triggerPx`.
  * Legacy OpenOrderSchema: fallback to nested `orderType.trigger.triggerPx`.
  */
-export function extractTriggerPx(order: OpenOrderSchema): string | undefined {
+export function extractTriggerPx(order: OpenOrder): string | undefined {
   if (order.triggerPx) return order.triggerPx;
   // Legacy: check nested object format
   if (order.orderType && typeof order.orderType === "object") {
@@ -36,7 +36,7 @@ export function extractTriggerPx(order: OpenOrderSchema): string | undefined {
  *   Sell (A) + Stop Market        → "below"
  *   Sell (A) + Take Profit Market → "above"
  */
-export function resolveTriggerCondition(order: OpenOrderSchema): string | undefined {
+export function resolveTriggerCondition(order: OpenOrder): string | undefined {
   // FrontendOpenOrderSchema: triggerCondition may be "above", "below",
   // or the full string like "Price above 80250". Normalize to keyword only.
   if (order.triggerCondition) {
@@ -56,7 +56,7 @@ export function resolveTriggerCondition(order: OpenOrderSchema): string | undefi
 
 /* ─── Order type (Stop Market / Take Profit Market / Limit) ─── */
 
-export function getOrderType(order: OpenOrderSchema): string {
+export function getOrderType(order: OpenOrder): string {
   // FrontendOpenOrderSchema: orderType is a native string
   if (typeof order.orderType === "string") {
     return order.orderType;
@@ -89,7 +89,7 @@ export function getOrderType(order: OpenOrderSchema): string {
 
 /* ─── Trigger label for TRIGGER CONDITIONS column ─── */
 
-export function getTriggerLabel(order: OpenOrderSchema): string {
+export function getTriggerLabel(order: OpenOrder): string {
   const ot = getOrderType(order);
   if (ot !== "Stop Market" && ot !== "Take Profit Market") return "—";
 
@@ -108,7 +108,7 @@ export function getTriggerLabel(order: OpenOrderSchema): string {
  * Returns "Market" for trigger orders, or the exact value formatted
  * with commas + " USDC" suffix for Limit orders.
  */
-export function formatOrderValue(order: OpenOrderSchema, sz: number, limitPx: number): string {
+export function formatOrderValue(order: OpenOrder, sz: number, limitPx: number): string {
   const ot = getOrderType(order);
   if (ot === "Stop Market" || ot === "Take Profit Market") return "Market";
   const value = sz * limitPx;
@@ -121,7 +121,7 @@ export function formatOrderValue(order: OpenOrderSchema, sz: number, limitPx: nu
 /**
  * Returns "Market" for trigger orders, or formatPrice() for Limit orders.
  */
-export function formatOrderPrice(order: OpenOrderSchema, limitPx: number): string {
+export function formatOrderPrice(order: OpenOrder, limitPx: number): string {
   const ot = getOrderType(order);
   if (ot === "Stop Market" || ot === "Take Profit Market") return "Market";
   return formatPrice(limitPx);

@@ -13,6 +13,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useHyperliquidWs } from "./use-hyperliquid-ws";
 import { normalizeSymbol } from "../lib/symbol";
+import { api } from "@/services/api";
 import { processRawL2Levels, type OrderbookData, type L2BookLevel } from "@/core/utils/hyperliquid";
 
 export interface TickSizeOption {
@@ -163,11 +164,34 @@ export function useHyperliquidOrderbook(
     [schedule]
   );
 
+  // On WS reconnect, fetch a fresh REST orderbook snapshot to avoid stale data.
+  // The snapshot is injected into the RAF render pipeline via schedule().
+  const fetchRestSnapshot = useCallback(async () => {
+    try {
+      const coin = coinRef.current;
+      const sigFigs = activeSigFigsRef.current;
+      if (!coin) return;
+
+      const raw = await api.getOrderbook(coin, sigFigs);
+      const book = raw as { orderbook?: { levels?: [L2BookLevel[], L2BookLevel[]] } };
+      const levels = book?.orderbook?.levels ?? book?.["levels" as keyof typeof book];
+      if (levels && Array.isArray(levels) && levels.length === 2) {
+        const MAX_DEPTH = 15;
+        const bids = levels[0]?.slice(0, MAX_DEPTH) ?? [];
+        const asks = levels[1]?.slice(0, MAX_DEPTH) ?? [];
+        schedule(processRawL2Levels(bids, asks), sigFigs);
+      }
+    } catch {
+      // Silently fail — WS updates will fill in shortly
+    }
+  }, [schedule]);
+
   const ws = useHyperliquidWs({
     subscription,
     onMessage: handleMessage,
     enabled: enabled && !!symbol,
     onError: (e) => setError(e.message),
+    onReconnect: fetchRestSnapshot,
   });
 
   const resubscribe = useCallback(

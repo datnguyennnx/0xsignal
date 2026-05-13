@@ -48,7 +48,7 @@ export const buildMarketDataRoutes = ({
     handler: (_request, _url, marketData) =>
       Effect.gen(function* () {
         const payload = yield* marketData.discoverMarkets().pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -74,7 +74,7 @@ export const buildMarketDataRoutes = ({
           })
           .pipe(Effect.mapError(mapServiceError));
 
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -98,7 +98,7 @@ export const buildMarketDataRoutes = ({
           })
           .pipe(Effect.mapError(mapServiceError));
 
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -129,7 +129,7 @@ export const buildMarketDataRoutes = ({
           })
           .pipe(Effect.mapError(mapServiceError));
 
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -139,7 +139,7 @@ export const buildMarketDataRoutes = ({
       Effect.gen(function* () {
         const symbol = yield* parseRequiredString(url.searchParams, "symbol");
         const payload = yield* marketData.getTicker(symbol).pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -154,7 +154,7 @@ export const buildMarketDataRoutes = ({
         const payload = yield* marketData
           .getOrderBook(symbol, precision)
           .pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -166,7 +166,7 @@ export const buildMarketDataRoutes = ({
         const payload = yield* marketData
           .getTradeAnnotation(symbol)
           .pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
 ];

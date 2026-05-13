@@ -10,7 +10,21 @@
  * - Maps backend payloads into app-friendly DTOs for render-local state (e.g. MarketPrice)
  */
 // API Client - Simple async functions
-import type { ChartDataPoint } from "@0xsignal/shared";
+import type {
+  ChartDataPoint,
+  AggregatedMarket,
+  MarketTicker,
+  ApiEnvelope,
+  ClearinghouseState,
+  SpotClearinghouseState,
+  OpenOrder,
+  FrontendOpenOrder,
+  HistoricalOrderEntry,
+  UserFill,
+  PlaceOrderRequest,
+  UpdateLeverageRequest,
+  CancelOrdersRequest,
+} from "@0xsignal/shared";
 import { resolveApiBase } from "@/lib/api-base";
 import { normalizeSymbol } from "@/features/trade/lib/symbol";
 
@@ -24,13 +38,28 @@ import { normalizeSymbol } from "@/features/trade/lib/symbol";
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const API_BASE = resolveApiBase(configuredApiUrl, import.meta.env.DEV);
 
-export type { ChartDataPoint };
+// Re-export shared boundary types for consumers that import from this module.
+export type { ChartDataPoint, AggregatedMarket, MarketTicker } from "@0xsignal/shared";
+export type {
+  ClearinghouseState,
+  SpotClearinghouseState,
+  OpenOrder,
+  FrontendOpenOrder,
+  HistoricalOrderEntry,
+  UserFill,
+} from "@0xsignal/shared";
+export type {
+  PlaceOrderRequest,
+  UpdateLeverageRequest,
+  CancelOrdersRequest,
+} from "@0xsignal/shared";
 
 export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status?: number,
-    public readonly statusText?: string
+    public readonly statusText?: string,
+    public readonly code?: string
   ) {
     super(message);
     this.name = "ApiError";
@@ -137,25 +166,60 @@ function extractCandles(payload: ApiCandlePayload | ApiCandle[]): ApiCandle[] {
   return [];
 }
 
+/** Shape of backend error responses */
+interface ApiErrorBody {
+  readonly error?: string;
+  readonly code?: string;
+  readonly status?: number;
+}
+
+async function parseErrorBody(response: Response): Promise<ApiErrorBody | null> {
+  try {
+    const body = (await response.json()) as ApiErrorBody;
+    return body;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Unwrap API envelope: backend returns `{ data: T, meta?: ... }`.
+ * For backward compat, if the response has no `data` field, return it as-is.
+ */
+function unwrapEnvelope<T>(json: unknown): T {
+  if (json && typeof json === "object" && "data" in json) {
+    return (json as ApiEnvelope<T>).data;
+  }
+  return json as T;
+}
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   try {
     const response = await fetch(url, options);
 
     if (!response.ok) {
+      const errorBody = await parseErrorBody(response);
       throw new ApiError(
-        `API request failed: ${response.statusText}`,
+        errorBody?.error ?? `API request failed: ${response.statusText}`,
         response.status,
-        response.statusText
+        response.statusText,
+        errorBody?.code
       );
     }
 
-    return await response.json();
+    const body = await response.json();
+    return unwrapEnvelope<T>(body);
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new NetworkError(error instanceof Error ? error.message : "Network request failed");
   }
 }
 
+/**
+ * MarketPrice — frontend-specific computed DTO.
+ * Derived from ticker data + additional rendering logic.
+ * This is NOT a backend response type; it's assembled locally.
+ */
 export interface MarketPrice {
   readonly symbol: string;
   readonly price: number;
@@ -171,242 +235,10 @@ export interface MarketPrice {
   readonly timestamp: Date;
 }
 
-// Backend AggregatedTradeAsset (discriminated union)
-
-export type BackendMarketType = "perp" | "spot" | "outcome";
-
-interface BackendBaseAsset {
-  readonly coin: string;
-  readonly rawCoin: string;
-  readonly displaySymbol: string;
-  readonly dexPrefix: string | null;
-  readonly isHip3: boolean;
-  readonly quoteCurrency: string;
-  readonly name: string;
-  readonly category: string;
-  readonly displayCategory: string;
-  readonly isDelisted: boolean;
-  readonly dex: string;
-  readonly assetId: number;
-  readonly marketType: BackendMarketType;
-}
-
-export interface BackendPerpAsset extends BackendBaseAsset {
-  readonly marketType: "perp";
-  readonly markPx: string;
-  readonly prevDayPx: string;
-  readonly openInterest: string;
-  readonly funding: string;
-  readonly dayNtlVlm: string;
-  readonly maxLeverage: number;
-  readonly szDecimals: number;
-}
-
-export interface BackendSpotAsset extends BackendBaseAsset {
-  readonly marketType: "spot";
-  readonly markPx: string;
-  readonly prevDayPx: string;
-  readonly dayNtlVlm: string;
-  readonly dayBaseVlm: string;
-  readonly circulatingSupply?: string;
-  readonly totalSupply?: string;
-  readonly maxLeverage: 1;
-  readonly szDecimals: number;
-  readonly openInterest: "0";
-  readonly funding: "0";
-}
-
-export interface BackendOutcomeAsset extends BackendBaseAsset {
-  readonly marketType: "outcome";
-  readonly markPx: "0";
-  readonly prevDayPx: "0";
-  readonly dayNtlVlm: "0";
-  readonly maxLeverage: 1;
-  readonly szDecimals: 0;
-  readonly openInterest: "0";
-  readonly funding: "0";
-}
-
-export type BackendTradeAsset = BackendPerpAsset | BackendSpotAsset | BackendOutcomeAsset;
-
-export interface BackendTickerResponse {
-  symbol?: string;
-  mid?: number | string | null;
-  markPx?: number | string | null;
-  midPx?: number | string | null;
-  prevDayPx?: number | string | null;
-  dayNtlVlm?: number | string | null;
-  openInterest?: number | string | null;
-  funding?: number | string | null;
-}
-
-export interface BackendOrderbookResponse {
-  symbol?: string;
-  orderbook?: unknown;
-}
-
-export interface TradeAnnotation {
-  category?: string;
-  description?: string;
-  displayName?: string;
-  keywords?: string[];
-}
-
-export interface BackendTradeAnnotationResponse {
-  symbol?: string;
-  annotation?: TradeAnnotation | null;
-}
-
-// User data response types from Hyperliquid SDK
-export interface ClearinghouseStateResponse {
-  marginSummary: {
-    accountValue: string;
-    totalNtlPos: string;
-    totalRawUsd: string;
-    totalMarginUsed: string;
-  };
-  crossMarginSummary: {
-    accountValue: string;
-    totalNtlPos: string;
-    totalRawUsd: string;
-    totalMarginUsed: string;
-  };
-  crossMaintenanceMarginUsed: string;
-  withdrawable: string;
-  assetPositions: Array<{
-    type: "oneWay";
-    position: {
-      coin: string;
-      szi: string;
-      leverage:
-        | { type: "isolated"; value: number; rawUsd: string }
-        | { type: "cross"; value: number };
-      entryPx: string;
-      positionValue: string;
-      unrealizedPnl: string;
-      returnOnEquity: string;
-      liquidationPx: string | null;
-      marginUsed: string;
-      maxLeverage: number;
-      cumFunding: { allTime: string; sinceOpen: string; sinceChange: string };
-    };
-  }>;
-  time: number;
-}
-
-export interface OpenOrderSchema {
-  coin: string;
-  side: "A" | "B";
-  sz: string;
-  limitPx: string;
-  oid: number;
-  timestamp: number;
-  origSz?: string;
-  /** Legacy: nested object e.g. { limit: { tif } } or { trigger: { isMarket, triggerPx, tpsl } }.
-   *  FrontendOpenOrderSchema: string e.g. "Limit", "Stop Market", "Take Profit Market". */
-  orderType?: string | Record<string, unknown>;
-  triggerCondition?: string;
-  triggerPx?: string;
-  isTrigger?: boolean;
-  isPositionTpsl?: boolean;
-  reduceOnly?: boolean;
-  cloid?: string | null;
-  tif?: string | null;
-}
-
-export type OpenOrdersResponse = OpenOrderSchema[];
-
-/**
- * Order shape from Hyperliquid's `frontendOpenOrders` endpoint.
- * Includes `orderType` as a native string and `children` for TP/SL relationships.
- */
-export interface FrontendOpenOrderSchema {
-  coin: string;
-  side: "A" | "B";
-  sz: string;
-  limitPx: string;
-  oid: number;
-  timestamp: number;
-  origSz: string;
-  orderType: string;
-  triggerCondition: string;
-  triggerPx: string;
-  isTrigger: boolean;
-  isPositionTpsl: boolean;
-  reduceOnly: boolean;
-  children: FrontendOpenOrderSchema[];
-  cloid: `0x${string}` | null;
-  tif: "Gtc" | "Ioc" | "Alo" | "FrontendMarket" | "LiquidationMarket" | null;
-}
-
-export type FrontendOpenOrdersResponse = FrontendOpenOrderSchema[];
-
-export interface HistoricalOrderEntry {
-  order: OpenOrderSchema;
-  status: "filled" | "canceled";
-  statusTimestamp: number;
-}
-
-export type HistoricalOrdersResponse = HistoricalOrderEntry[];
-
-export interface UserFillSchema {
-  coin: string;
-  side: "A" | "B";
-  sz: string;
-  px: string;
-  fee: string;
-  hash: string;
-  time: number;
-  closedPnl?: string;
-}
-
-export type UserFillsResponse = UserFillSchema[];
-
-// Spot clearinghouse state (source of truth for USDC balance)
-export interface SpotClearinghouseStateResponse {
-  balances: Array<{
-    coin: string;
-    token: number;
-    total: string;
-    hold: string;
-    entryNtl: string;
-  }>;
-  evmEscrows?: Array<{
-    coin: string;
-    token: number;
-    total: string;
-  }>;
-}
-
-// Exchange API types
-export interface PlaceOrderRequest {
-  orders: Array<{
-    a: number;
-    b: boolean;
-    p: string;
-    s: string;
-    r: boolean;
-    t:
-      | { limit: { tif: "Gtc" | "Ioc" | "Alo" | "FrontendMarket" } }
-      | { trigger: { isMarket: boolean; triggerPx: string; tpsl: "tp" | "sl" } };
-  }>;
-  grouping?: "na" | "normalTpsl" | "positionTpsl";
-}
-
-export interface UpdateLeverageRequest {
-  asset: number;
-  isCross: boolean;
-  leverage: number;
-}
-
-export interface CancelOrdersRequest {
-  cancels: Array<{ coin: string; o: number }>;
-}
-
 export const api = {
   health: () => fetchJson(`${API_BASE}/health`),
 
-  getMarkets: () => fetchJson<BackendTradeAsset[]>(`${API_BASE}/markets`),
+  getMarkets: () => fetchJson<AggregatedMarket[]>(`${API_BASE}/markets`),
 
   getCandles: async (params: {
     symbol: string;
@@ -469,36 +301,42 @@ export const api = {
   },
 
   getTicker: (symbol: string) =>
-    fetchJson<BackendTickerResponse>(
+    fetchJson<MarketTicker>(
       `${API_BASE}/ticker?symbol=${encodeURIComponent(normalizeSymbol(symbol))}`
     ),
 
   getOrderbook: (symbol: string, depth?: number) => {
     const query = new URLSearchParams({ symbol: normalizeSymbol(symbol) });
     if (depth !== undefined) query.set("depth", String(depth));
-    return fetchJson<BackendOrderbookResponse>(`${API_BASE}/orderbook?${query.toString()}`);
+    return fetchJson(`${API_BASE}/orderbook?${query.toString()}`);
   },
 
   getTradeAnnotation: (symbol: string) =>
-    fetchJson<BackendTradeAnnotationResponse>(
-      `${API_BASE}/trade-annotation?symbol=${encodeURIComponent(normalizeSymbol(symbol))}`
-    ),
+    fetchJson<{
+      symbol: string;
+      annotation?: {
+        category?: string;
+        description?: string;
+        displayName?: string;
+        keywords?: string[];
+      } | null;
+    }>(`${API_BASE}/trade-annotation?symbol=${encodeURIComponent(normalizeSymbol(symbol))}`),
 
   getUserClearinghouseState: () =>
-    fetchJson<ClearinghouseStateResponse>(`${API_BASE}/user/clearinghouse-state`),
+    fetchJson<ClearinghouseState>(`${API_BASE}/user/clearinghouse-state`),
 
   getUserSpotClearinghouseState: () =>
-    fetchJson<SpotClearinghouseStateResponse>(`${API_BASE}/user/spot-clearinghouse-state`),
+    fetchJson<SpotClearinghouseState>(`${API_BASE}/user/spot-clearinghouse-state`),
 
-  getUserOpenOrders: () => fetchJson<OpenOrdersResponse>(`${API_BASE}/user/open-orders`),
+  getUserOpenOrders: () => fetchJson<OpenOrder[]>(`${API_BASE}/user/open-orders`),
 
   getUserFrontendOpenOrders: () =>
-    fetchJson<FrontendOpenOrdersResponse>(`${API_BASE}/user/frontend-open-orders`),
+    fetchJson<FrontendOpenOrder[]>(`${API_BASE}/user/frontend-open-orders`),
 
   getUserHistoricalOrders: () =>
-    fetchJson<HistoricalOrdersResponse>(`${API_BASE}/user/historical-orders`),
+    fetchJson<HistoricalOrderEntry[]>(`${API_BASE}/user/historical-orders`),
 
-  getUserFills: () => fetchJson<UserFillsResponse>(`${API_BASE}/user/fills`),
+  getUserFills: () => fetchJson<UserFill[]>(`${API_BASE}/user/fills`),
 
   placeOrder: (params: PlaceOrderRequest) =>
     fetchJson(`${API_BASE}/exchange/order`, {

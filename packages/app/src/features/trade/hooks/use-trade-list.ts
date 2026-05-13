@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
-import type { BackendTradeAsset } from "@/services/api";
+import type { AggregatedMarket } from "@0xsignal/shared";
 
 export interface TradeListData {
-  assets: BackendTradeAsset[];
+  assets: AggregatedMarket[];
 }
 
 /**
@@ -12,9 +12,9 @@ export interface TradeListData {
  * Backend has eager background refresh (60s TTL); frontend refetches every 30s.
  */
 export function useTradeList() {
-  return useQuery<BackendTradeAsset[], Error, TradeListData>({
+  return useQuery<AggregatedMarket[], Error, TradeListData>({
     queryKey: queryKeys.marketData.markets(),
-    queryFn: () => api.getMarkets() as Promise<BackendTradeAsset[]>,
+    queryFn: () => api.getMarkets() as Promise<AggregatedMarket[]>,
     select: (payload) => ({
       assets: payload.filter((a) => !a.isDelisted),
     }),

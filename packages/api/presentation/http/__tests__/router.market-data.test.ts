@@ -167,7 +167,7 @@ describe("HTTP Market Data Router", () => {
     const response = await runRequest("/api/markets");
     expect(response.status).toBe(200);
     expect(mockMarketDataServices.discoverMarkets).toHaveBeenCalledTimes(1);
-    await expect(response.json()).resolves.toEqual({ universe: [] });
+    await expect(response.json()).resolves.toEqual({ data: { universe: [] } });
   });
 
   it("routes /api/health preserving status payload shape", async () => {
@@ -175,10 +175,12 @@ describe("HTTP Market Data Router", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      status: "ok",
-      timestamp: "2026-01-01T00:00:00.000Z",
-      uptime: 123,
-      postgres: true,
+      data: {
+        status: "ok",
+        timestamp: "2026-01-01T00:00:00.000Z",
+        uptime: 123,
+        postgres: true,
+      },
     });
   });
 
@@ -226,14 +228,16 @@ describe("HTTP Market Data Router", () => {
     expect(response.status).toBe(200);
     expect(mockMarketDataServices.getTicker).toHaveBeenCalledWith("BTC");
     await expect(response.json()).resolves.toEqual({
-      symbol: "BTC",
-      mid: 100000,
-      markPx: 100100,
-      midPx: 100000,
-      prevDayPx: 98000,
-      dayNtlVlm: 12345,
-      openInterest: 500000,
-      funding: 0.0001,
+      data: {
+        symbol: "BTC",
+        mid: 100000,
+        markPx: 100100,
+        midPx: 100000,
+        prevDayPx: 98000,
+        dayNtlVlm: 12345,
+        openInterest: 500000,
+        funding: 0.0001,
+      },
     });
   });
 

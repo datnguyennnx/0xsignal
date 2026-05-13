@@ -14,6 +14,7 @@ import { buildExchangeRoutes } from "./routes/exchange.routes";
 type HttpError = {
   readonly status: number;
   readonly message: string;
+  readonly code?: string;
 };
 
 type UserDataHttpService = {
@@ -81,33 +82,52 @@ const mapDomainCodeToHttpStatus = (code: DomainError["code"]): number => {
   }
 };
 
+/** Normalize an error tag into a canonical error code string for the API response. */
+const toErrorCode = (tag: string): string => {
+  switch (tag) {
+    case "DomainError":
+      return "DOMAIN_ERROR";
+    case "HyperliquidValidationError":
+      return "VALIDATION_ERROR";
+    case "InsufficientMarginError":
+      return "INSUFFICIENT_MARGIN";
+    case "HyperliquidInternalError":
+      return "INTERNAL_ERROR";
+    default:
+      return tag;
+  }
+};
+
 const mapServiceError = (error: unknown): HttpError => {
   if (error instanceof DomainError) {
     return {
       status: mapDomainCodeToHttpStatus(error.code),
       message: error.message,
+      code: toErrorCode(error._tag),
     };
   }
 
   if (error && typeof error === "object" && "_tag" in error) {
     const tagged = error as { _tag: string; message: string };
+    const code = toErrorCode(tagged._tag);
     switch (tagged._tag) {
       case "HyperliquidValidationError":
       case "InsufficientMarginError":
-        return { status: 400, message: tagged.message };
+        return { status: 400, message: tagged.message, code };
       case "HyperliquidInternalError":
-        return { status: 502, message: tagged.message };
+        return { status: 502, message: tagged.message, code };
       default:
-        return { status: 500, message: tagged.message };
+        return { status: 500, message: tagged.message, code };
     }
   }
 
   if (typeof error === "object" && error !== null) {
-    const candidate = error as { status?: unknown; message?: unknown };
+    const candidate = error as { status?: unknown; message?: unknown; code?: unknown };
     if (typeof candidate.status === "number" && typeof candidate.message === "string") {
       return {
         status: candidate.status,
         message: candidate.message,
+        code: typeof candidate.code === "string" ? candidate.code : undefined,
       };
     }
     if (typeof candidate.message === "string") {
@@ -123,7 +143,7 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
     method: "GET",
     path: "/api/health",
     handler: (_request, _url, _marketData, health, _userData, _exchange) =>
-      healthRoute(health).pipe(Effect.map((body) => json(body))),
+      healthRoute(health).pipe(Effect.map((body) => json({ data: body }))),
   },
   ...buildMarketDataRoutes({
     json,
@@ -195,8 +215,12 @@ export const handleRequest = (request: Request) => {
     const exchange = yield* ExchangeServices;
     return yield* route.handler(request, url, marketData, health, userData, exchange);
   }).pipe(
-    Effect.catchAll((error: HttpError) =>
-      Effect.succeed(json({ error: error.message }, error.status))
-    )
+    Effect.catchAll((error: HttpError) => {
+      const body: Record<string, unknown> = { error: error.message };
+      if (error.code) {
+        body.code = error.code;
+      }
+      return Effect.succeed(json(body, error.status));
+    })
   );
 };

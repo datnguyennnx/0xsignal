@@ -56,3 +56,34 @@ export {
   type WyckoffConfig,
   DEFAULT_WYCKOFF_CONFIG,
 } from "./patterns/wyckoff";
+
+// ─── API Boundary Schemas (pure TypeScript types, no runtime deps) ────────────
+export type { ApiEnvelope } from "./schemas/envelope";
+export type { ApiErrorBody } from "./schemas/errors";
+export type {
+  Candle,
+  MarketTicker,
+  OrderBookLevel,
+  OrderBook,
+  TradeAnnotation,
+  MarketTypeCategory,
+  AggregatedMarket,
+  CoverageWindow,
+  CoverageResult,
+  CandleResponse,
+  RecentCandleResponse,
+  HealthStatus,
+} from "./schemas/market-data";
+export type {
+  ClearinghouseState,
+  SpotClearinghouseState,
+  OpenOrder,
+  FrontendOpenOrder,
+  HistoricalOrderEntry,
+  UserFill,
+} from "./schemas/user-data";
+export type {
+  PlaceOrderRequest,
+  UpdateLeverageRequest,
+  CancelOrdersRequest,
+} from "./schemas/exchange";

@@ -43,7 +43,7 @@ export const buildUserDataRoutes = ({
         const payload = yield* userData
           .getClearinghouseState()
           .pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -54,7 +54,7 @@ export const buildUserDataRoutes = ({
         const payload = yield* userData
           .getSpotClearinghouseState()
           .pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -63,7 +63,7 @@ export const buildUserDataRoutes = ({
     handler: (_request, _url, userData) =>
       Effect.gen(function* () {
         const payload = yield* userData.getOpenOrders().pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -74,7 +74,7 @@ export const buildUserDataRoutes = ({
         const payload = yield* userData
           .getFrontendOpenOrders()
           .pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -83,7 +83,7 @@ export const buildUserDataRoutes = ({
     handler: (_request, _url, userData) =>
       Effect.gen(function* () {
         const payload = yield* userData.getMeta().pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -94,7 +94,7 @@ export const buildUserDataRoutes = ({
         const payload = yield* userData
           .getHistoricalOrders()
           .pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -103,7 +103,7 @@ export const buildUserDataRoutes = ({
     handler: (_request, _url, userData) =>
       Effect.gen(function* () {
         const payload = yield* userData.getUserFills().pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
 ];

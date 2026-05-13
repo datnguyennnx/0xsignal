@@ -273,10 +273,10 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       });
     }
 
-    const payload: PlaceOrderRequest = { orders };
-    if (showTpSl && tpPrice && slPrice) {
-      payload.grouping = "normalTpsl";
-    }
+    const payload: PlaceOrderRequest = {
+      orders,
+      ...(showTpSl && tpPrice && slPrice ? { grouping: "normalTpsl" as const } : {}),
+    };
 
     placeOrderMutation.mutate(payload);
   }, [

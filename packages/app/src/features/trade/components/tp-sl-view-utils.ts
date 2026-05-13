@@ -3,7 +3,7 @@
  */
 
 import { formatPrice } from "@/core/utils/formatters";
-import type { OpenOrderSchema } from "@/services/api";
+import type { OpenOrder } from "@0xsignal/shared";
 import { getOrderType, extractTriggerPx, resolveTriggerCondition } from "../utils/trigger-utils";
 
 export interface TpSlOrderDisplay {
@@ -16,7 +16,7 @@ export interface TpSlOrderDisplay {
   isMarket?: boolean;
 }
 
-export function toTpSlDisplay(order: OpenOrderSchema): TpSlOrderDisplay {
+export function toTpSlDisplay(order: OpenOrder): TpSlOrderDisplay {
   const ot = getOrderType(order);
   const isTrigger = ot === "Stop Market" || ot === "Take Profit Market";
   const triggerPx = extractTriggerPx(order);

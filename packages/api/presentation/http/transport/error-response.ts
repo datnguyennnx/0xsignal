@@ -3,6 +3,7 @@ import { CORS_HEADERS } from "./cors";
 export type HttpError = {
   readonly message?: string;
   readonly status?: number;
+  readonly code?: string;
 };
 
 export const toHttpError = (error: unknown): HttpError =>
@@ -41,8 +42,14 @@ export const errorResponse = (error: unknown): Response => {
   const message =
     extractErrorMessage(httpError.message) || extractErrorMessage(error) || "Internal server error";
   const status = httpError.status ?? 500;
+  const code = httpError.code;
 
-  return new Response(JSON.stringify({ error: message, status }), {
+  const body: Record<string, unknown> = { error: message, status };
+  if (code) {
+    body.code = code;
+  }
+
+  return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json", ...CORS_HEADERS },
   });

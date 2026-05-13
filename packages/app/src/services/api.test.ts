@@ -29,11 +29,21 @@ describe("api candle payload contracts", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
-        lane: [
-          { t: 1716000120000, o: "12", h: "15", l: "10", c: "14", v: "100" },
-          { t: 1716000000000, o: "10", h: "13", l: "9", c: "12", v: "90" },
-          { t: 1716000120000, o: "12", h: "16", l: "10", c: "15", v: "120" },
-        ],
+        data: {
+          candles: [
+            { t: 1716000120000, o: "12", h: "15", l: "10", c: "14", v: "100" },
+            { t: 1716000000000, o: "10", h: "13", l: "9", c: "12", v: "90" },
+            { t: 1716000120000, o: "12", h: "16", l: "10", c: "15", v: "120" },
+          ],
+          provenance: "hyperliquid",
+          coverage: {
+            hasData: true,
+            rowCount: 3,
+            expectedCount: 3,
+            fullCoverage: true,
+            missingWindows: [],
+          },
+        },
       }),
     } as Response);
 
@@ -51,11 +61,21 @@ describe("api candle payload contracts", () => {
     ]);
   });
 
-  it("getCandles accepts legacy candles payload shape", async () => {
+  it("getCandles accepts candles payload shape", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
-        candles: [{ t: 1716000000000, o: "1", h: "2", l: "1", c: "2", v: "5" }],
+        data: {
+          candles: [{ t: 1716000000000, o: "1", h: "2", l: "1", c: "2", v: "5" }],
+          provenance: "hyperliquid",
+          coverage: {
+            hasData: true,
+            rowCount: 1,
+            expectedCount: 1,
+            fullCoverage: true,
+            missingWindows: [],
+          },
+        },
       }),
     } as Response);
 

@@ -79,6 +79,8 @@ interface MarketStreamCallbacks {
   onMessage: (data: unknown, channel: string, meta?: MarketStreamMeta) => void;
   onConnectionChange?: (connected: boolean) => void;
   onError?: (error: Error) => void;
+  /** Fires when the WebSocket successfully reconnects after a disconnect. */
+  onReconnect?: () => void;
 }
 
 interface MarketStreamClient {
@@ -120,8 +122,12 @@ const createWebSocketSubscription = (
     socket = new WebSocket(streamUrl);
 
     socket.addEventListener("open", () => {
+      const isReconnect = reconnectAttempt > 0;
       reconnectAttempt = 0;
       callbacks.onConnectionChange?.(true);
+      if (isReconnect) {
+        callbacks.onReconnect?.();
+      }
     });
 
     socket.addEventListener("message", (event) => {

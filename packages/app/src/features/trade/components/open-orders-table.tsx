@@ -15,7 +15,7 @@ import {
   formatOrderValue,
   formatOrderPrice,
 } from "../utils/trigger-utils";
-import type { FrontendOpenOrderSchema } from "@/services/api";
+import type { FrontendOpenOrder } from "@0xsignal/shared";
 
 /* ─── Styling constants ─── */
 
@@ -30,9 +30,9 @@ const cHeadNum =
 
 interface OpenOrdersTableProps {
   ooLoading: boolean;
-  openOrders: FrontendOpenOrderSchema[] | undefined;
+  openOrders: FrontendOpenOrder[] | undefined;
   onCancelOrder: (coin: string, oid: number) => void;
-  onViewTpSl: (order: FrontendOpenOrderSchema) => void;
+  onViewTpSl: (order: FrontendOpenOrder) => void;
   onCancelAll: () => void;
   isCancelPending: boolean;
   orderCount: number;

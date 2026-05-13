@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { api, type PlaceOrderRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
-import type { FrontendOpenOrderSchema } from "@/services/api";
+import type { FrontendOpenOrder } from "@0xsignal/shared";
 import {
   useClearinghouseState,
   useSpotClearinghouseState,
@@ -67,7 +67,7 @@ export function PositionManagement() {
   } | null>(null);
 
   /* ─── TP/SL modal state ─── */
-  const [tpSlModalOrder, setTpSlModalOrder] = useState<FrontendOpenOrderSchema | null>(null);
+  const [tpSlModalOrder, setTpSlModalOrder] = useState<FrontendOpenOrder | null>(null);
 
   /* ─── TP/SL modal computed display values ─── */
   const tpSlModalProps = useMemo(() => {

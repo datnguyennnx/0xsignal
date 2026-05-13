@@ -11,7 +11,7 @@ import { formatPrice, formatCompactUsd } from "@/core/utils/formatters";
 import { formatTime, fmtNum, formatStatus } from "./shared-table-utils";
 import { SideLabel, DirLabel } from "./shared-table-components";
 import { getOrderType, getTriggerLabel, formatOrderValue } from "../utils/trigger-utils";
-import type { UserFillSchema, HistoricalOrderEntry } from "@/services/api";
+import type { UserFill, HistoricalOrderEntry } from "@0xsignal/shared";
 
 /* ─── Styling constants ─── */
 
@@ -25,7 +25,7 @@ const cHeadNum =
 /* ─── Types ─── */
 
 interface TradeHistoryTableProps {
-  fills?: UserFillSchema[];
+  fills?: UserFill[];
   fillsLoading: boolean;
 }
 

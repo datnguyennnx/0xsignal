@@ -45,7 +45,7 @@ export const buildExchangeRoutes = ({
         }).pipe(Effect.mapError(() => ({ status: 400, message: "Invalid request body" })));
 
         const payload = yield* exchange.placeOrder(body).pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -66,7 +66,7 @@ export const buildExchangeRoutes = ({
         const payload = yield* exchange
           .updateLeverageAndMargin(body)
           .pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
   {
@@ -83,7 +83,7 @@ export const buildExchangeRoutes = ({
         }).pipe(Effect.mapError(() => ({ status: 400, message: "Invalid request body" })));
 
         const payload = yield* exchange.cancelOrders(body).pipe(Effect.mapError(mapServiceError));
-        return json(payload);
+        return json({ data: payload });
       }),
   },
 ];
