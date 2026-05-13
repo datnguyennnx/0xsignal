@@ -22,6 +22,7 @@ import {
   isPerpSymbol,
 } from "./mapping";
 import { resolveWithCache, MARKET_SCHEMA_VERSION, type CacheSlot } from "./cache";
+import { createLruCache } from "./cache-lru";
 
 type HyperliquidClientService = Context.Tag.Service<typeof HyperliquidClient>;
 
@@ -177,11 +178,9 @@ export const HyperliquidProviderLive = (client: HyperliquidClientService) => {
   const spotMetaCache: CacheSlot<string[]> = { expiresAt: 0 };
   const spotMetaAndAssetCtxsCache: CacheSlot<unknown> = { expiresAt: 0 };
   const outcomeMetaCache: CacheSlot<unknown> = { expiresAt: 0 };
-  const candleSnapshotCache = new Map<string, CacheSlot<Candle[]>>();
-  const tradeAnnotationCache = new Map<
-    string,
-    CacheSlot<{ symbol: string; annotation: PerpAnnotationResponse }>
-  >();
+  const candleSnapshotCache = createLruCache<CacheSlot<Candle[]>>(1000);
+  const tradeAnnotationCache =
+    createLruCache<CacheSlot<{ symbol: string; annotation: PerpAnnotationResponse }>>(1000);
 
   // ── Background refresh timers ───────────────────────────────────
   // Eager refresh keeps caches warm: after a successful fetch, the next
