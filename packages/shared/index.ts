@@ -1,7 +1,3 @@
-// ============================================================================
-// Shared Types - Used by both API and Frontend
-// ============================================================================
-
 // Chart types
 export type { ChartDataPoint } from "./types/chart";
 
@@ -13,7 +9,10 @@ export {
   type NormalizedAsset,
 } from "./utils/market-symbol";
 
-// Indicators
+// Candle normalizer
+export { normalizeCandle } from "./utils/normalizeCandle";
+
+// Indicator types
 export type {
   IndicatorCategory,
   IndicatorOutputType,
@@ -25,6 +24,8 @@ export type {
   IndicatorDataPoint,
   BandIndicatorDataPoint,
 } from "./indicators/types";
+
+// Indicator config utilities
 export {
   AVAILABLE_INDICATORS,
   getIndicatorBaseId,
@@ -32,44 +33,18 @@ export {
   normalizeIndicatorParams,
   createIndicatorInstanceId,
 } from "./indicators/config";
-export {
-  calculateSMA,
-  calculateEMA,
-  calculateWMAIndicator,
-  calculateHMAIndicator,
-  calculateRSI,
-  calculateMACDLine,
-  calculateBollingerBands,
-  calculateATR,
-  calculateDonchianChannels,
-  calculateVWAP,
-  calculateOBV,
-  calculateStochasticK,
-  calculateWilliamsR,
-  calculateAO,
-  calculateCCI,
-  calculateROC,
-  calculateMomentum,
-  calculateTSI,
-  calculateMFI,
-  calculateCMF,
-  calculateADLine,
-  calculateZScoreIndicator,
-  calculateStdDevIndicator,
-  calculateLinRegSlopeIndicator,
-  calculateATRPIndicator,
-  calculateChoppinessIndicator,
-  calculateEfficiencyRatioIndicator,
-  calculateSuperTrend,
-  calculateParabolicSAR,
-  calculateADX,
-} from "./indicators/calculations";
+
+// Indicator dispatcher
 export {
   calculateLineIndicator,
   calculateBandIndicator,
   isBandIndicator,
   isHistogramIndicator,
+  LINE_INDICATOR_MAP,
+  BAND_INDICATOR_MAP,
 } from "./indicators/dispatcher";
+
+// Indicator metadata
 export { BAND_INDICATOR_IDS, HISTOGRAM_INDICATOR_IDS } from "./indicators/metadata";
 
 // Patterns

@@ -1,14 +1,94 @@
 // Indicator types
-export * from "./types";
+export type {
+  IndicatorCategory,
+  IndicatorOutputType,
+  IndicatorParamControl,
+  IndicatorParamDefinition,
+  IndicatorUsageInfo,
+  IndicatorConfig,
+  ActiveIndicator,
+  IndicatorDataPoint,
+  BandIndicatorDataPoint,
+} from "./types";
 
-// Indicator configurations
-export * from "./config";
+// Indicator config
+export {
+  AVAILABLE_INDICATORS,
+  getIndicatorBaseId,
+  getIndicatorConfigById,
+  normalizeIndicatorParams,
+  createIndicatorInstanceId,
+} from "./config";
 
 // Indicator calculations
-export * from "./calculations";
+export {
+  calculateSMA,
+  calculateEMA,
+  calculateWMAIndicator,
+  calculateHMAIndicator,
+  calculateADX,
+  calculateParabolicSAR,
+  calculateSuperTrend,
+  calculateVWMA,
+  calculateBollingerBands,
+  calculateATR,
+  calculateDonchianChannels,
+  calculateKeltnerChannels,
+  calculateRSI,
+  calculateMACDLine,
+  calculateStochasticK,
+  calculateWilliamsR,
+  calculateAO,
+  calculateUO,
+  calculateCCI,
+  calculateROC,
+  calculateMomentum,
+  calculateTSI,
+  calculateVWAP,
+  calculateOBV,
+  calculatePVT,
+  calculateNVI,
+  calculateMFI,
+  calculateCMF,
+  calculateADLine,
+  calculateZScoreIndicator,
+  calculateStdDevIndicator,
+  calculateLinRegSlopeIndicator,
+  calculateATRPIndicator,
+  calculateChoppinessIndicator,
+  calculateEfficiencyRatioIndicator,
+  calculateSTCIndicator,
+  calculateDVOIndicator,
+  calculateKRIIndicator,
+  calculateVZOIndicator,
+  calculateVortexIndicator,
+  calculatePPOIndicator,
+  calculateTRIXIndicator,
+  calculateStochRSIIndicator,
+  calculateVolumeOscillatorIndicator,
+  calculateChaikinOscillatorIndicator,
+  calculateEOMIndicator,
+  calculateHistoricalVolatilityIndicator,
+  calculateAroonOscillatorIndicator,
+} from "./calculations";
 
-// Indicator metadata (presets, formulas, colors)
-export * from "./metadata";
+// Indicator metadata
+export {
+  BAND_INDICATOR_IDS,
+  HISTOGRAM_INDICATOR_IDS,
+  isBandIndicator,
+  isHistogramIndicator,
+} from "./metadata";
 
-// Indicator dispatcher (for chart components)
-export * from "./dispatcher";
+// Indicator dispatcher
+export {
+  calculateLineIndicator,
+  calculateBandIndicator,
+  LINE_INDICATOR_MAP,
+  BAND_INDICATOR_MAP,
+  type LineCalculator,
+  type BandCalculator,
+} from "./dispatcher";
+
+// Constants
+export { INDICATOR_TYPE, INDICATOR_OUTPUT } from "./constants";
