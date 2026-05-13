@@ -186,7 +186,7 @@ describe("Hyperliquid Providers", () => {
     expect(mockInfoClient.metaAndAssetCtxs).toHaveBeenCalledTimes(1);
     expect(mockInfoClient.allMids).toHaveBeenCalledTimes(1);
 
-    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:01.500Z").getTime());
+    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:31.000Z").getTime());
 
     const third = Effect.flatMap(HyperliquidProvider, (svc) => svc.getTicker("BTC")).pipe(
       Effect.provide(layer)
@@ -259,7 +259,7 @@ describe("Hyperliquid Providers", () => {
 
     expect(mockInfoClient.candleSnapshot).toHaveBeenCalledTimes(1);
 
-    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:01.500Z").getTime());
+    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:11.000Z").getTime());
 
     const third = Effect.flatMap(HyperliquidProvider, (svc) =>
       svc.getCandleSnapshot("BTC", "1m", 0, 60000)
