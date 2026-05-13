@@ -15,5 +15,5 @@
     "plugins": []
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist", "src/**/*.test.tsx", "src/test"]
+  "exclude": ["node_modules", "dist"]
 }
