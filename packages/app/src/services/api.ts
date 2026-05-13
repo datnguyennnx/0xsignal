@@ -25,6 +25,7 @@ import type {
   UpdateLeverageRequest,
   CancelOrdersRequest,
 } from "@0xsignal/shared";
+import { normalizeCandle, normalizeChartDataPoints } from "@0xsignal/shared";
 import { resolveApiBase } from "@/lib/api-base";
 import { normalizeSymbol } from "@/features/trade/lib/symbol";
 
@@ -73,96 +74,24 @@ export class NetworkError extends Error {
   }
 }
 
-interface ApiCandle {
-  timestamp?: string | number;
-  time?: string | number;
-  t?: number;
-  open?: string | number;
-  high?: string | number;
-  low?: string | number;
-  close?: string | number;
-  volume?: string | number;
-  o?: string | number;
-  h?: string | number;
-  l?: string | number;
-  c?: string | number;
-  v?: string | number;
-}
-
-interface ApiCandlePayload {
-  candles?: ApiCandle[];
-  lane?: ApiCandle[];
-  data?: ApiCandle[];
-}
-
-export function normalizeChartDataPoints(points: readonly ChartDataPoint[]): ChartDataPoint[] {
-  const dedupedByTime = new Map<number, ChartDataPoint>();
-
-  for (const point of points) {
-    if (Number.isFinite(point.time)) {
-      dedupedByTime.set(point.time, point);
-    }
-  }
-
-  return Array.from(dedupedByTime.values()).sort((a, b) => a.time - b.time);
-}
-
-function toNumericTimestampMs(value: string | number | undefined): number | null {
-  if (typeof value === "number") {
-    if (Number.isFinite(value)) {
-      return value > 1_000_000_000_000 ? value : value * 1000;
-    }
-    return null;
-  }
-  if (typeof value !== "string") return null;
-  const num = Number(value);
-  if (Number.isFinite(num)) {
-    return num > 1_000_000_000_000 ? num : num * 1000;
-  }
-  const dateMs = Date.parse(value);
-  return Number.isFinite(dateMs) ? dateMs : null;
-}
-
+/**
+ * Safely coerce a value to a finite number, returning null for invalid inputs.
+ */
 function toNumberOrNull(value: unknown): number | null {
   const parsed =
     typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function mapCandleToChartDataPoint(candle: ApiCandle): ChartDataPoint | null {
-  const tsMs = toNumericTimestampMs(candle.timestamp ?? candle.time ?? candle.t);
-  const open = toNumberOrNull(candle.open ?? candle.o);
-  const high = toNumberOrNull(candle.high ?? candle.h);
-  const low = toNumberOrNull(candle.low ?? candle.l);
-  const close = toNumberOrNull(candle.close ?? candle.c);
-  const volume = toNumberOrNull(candle.volume ?? candle.v);
-
-  if (
-    tsMs === null ||
-    open === null ||
-    high === null ||
-    low === null ||
-    close === null ||
-    volume === null
-  ) {
-    return null;
+/** Extract candle-like items from response shapes: array, { candles }, { lane }, { data }. */
+function extractRawCandlePayload(payload: unknown): Record<string, unknown>[] {
+  if (Array.isArray(payload)) return payload as Record<string, unknown>[];
+  if (payload && typeof payload === "object") {
+    const obj = payload as Record<string, unknown>;
+    if (Array.isArray(obj.candles)) return obj.candles as Record<string, unknown>[];
+    if (Array.isArray(obj.lane)) return obj.lane as Record<string, unknown>[];
+    if (Array.isArray(obj.data)) return obj.data as Record<string, unknown>[];
   }
-
-  return {
-    time: Math.floor(tsMs / 1000),
-    open,
-    high,
-    low,
-    close,
-    volume,
-  };
-}
-
-function extractCandles(payload: ApiCandlePayload | ApiCandle[]): ApiCandle[] {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload.candles)) return payload.candles;
-  if (Array.isArray(payload.lane)) return payload.lane;
-  if (Array.isArray(payload.data)) return payload.data;
   return [];
 }
 
@@ -262,12 +191,10 @@ export const api = {
       query.set("limit", String(params.limit));
     }
 
-    const payload = await fetchJson<ApiCandlePayload>(`${API_BASE}/candles?${query.toString()}`);
-    const candles = extractCandles(payload);
+    const payload = await fetchJson(`${API_BASE}/candles?${query.toString()}`);
+    const rawItems = extractRawCandlePayload(payload);
     return normalizeChartDataPoints(
-      candles
-        .map((candle) => mapCandleToChartDataPoint(candle))
-        .filter((point): point is ChartDataPoint => point !== null)
+      rawItems.map((item) => normalizeCandle(item)).filter((p): p is ChartDataPoint => p !== null)
     );
   },
 
@@ -289,14 +216,10 @@ export const api = {
       query.set("end_time", new Date(params.endTime).toISOString());
     }
 
-    const payload = await fetchJson<ApiCandlePayload>(
-      `${API_BASE}/candles/recent?${query.toString()}`
-    );
-    const candles = extractCandles(payload);
+    const payload = await fetchJson(`${API_BASE}/candles/recent?${query.toString()}`);
+    const rawItems = extractRawCandlePayload(payload);
     return normalizeChartDataPoints(
-      candles
-        .map((candle) => mapCandleToChartDataPoint(candle))
-        .filter((point): point is ChartDataPoint => point !== null)
+      rawItems.map((item) => normalizeCandle(item)).filter((p): p is ChartDataPoint => p !== null)
     );
   },
 

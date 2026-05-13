@@ -10,7 +10,7 @@ export {
 } from "./utils/market-symbol";
 
 // Candle normalizer
-export { normalizeCandle } from "./utils/normalizeCandle";
+export { normalizeCandle, normalizeChartDataPoints } from "./utils/normalizeCandle";
 
 // Indicator types
 export type {

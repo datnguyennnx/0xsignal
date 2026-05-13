@@ -60,3 +60,19 @@ export function normalizeCandle(input: CandleInput): ChartDataPoint | null {
   }
   return { time: Math.floor(tsMs / 1000), open, high, low, close, volume };
 }
+
+/**
+ * Deduplicate and sort chart data points by time ascending.
+ * When multiple points share the same timestamp, the last one wins.
+ */
+export function normalizeChartDataPoints(points: readonly ChartDataPoint[]): ChartDataPoint[] {
+  const dedupedByTime = new Map<number, ChartDataPoint>();
+
+  for (const point of points) {
+    if (Number.isFinite(point.time)) {
+      dedupedByTime.set(point.time, point);
+    }
+  }
+
+  return Array.from(dedupedByTime.values()).sort((a, b) => a.time - b.time);
+}

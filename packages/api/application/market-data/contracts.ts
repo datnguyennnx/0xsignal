@@ -6,6 +6,7 @@ import type {
   CoverageResult,
 } from "../../schemas/market-data";
 import type { DomainError } from "../errors";
+import type { AggregatedMarket } from "@0xsignal/shared";
 import type {
   CandleQuery,
   RecentCandleQuery,
@@ -16,7 +17,6 @@ import type {
   CreateDatasetSnapshotInput,
 } from "./types";
 import type { MarketTimeframe } from "../../domain/market-data/timeframe";
-import type { AggregatedMarket } from "./types";
 
 export interface MarketCandleStorePort {
   readonly getCandles: (query: CandleQuery) => Effect.Effect<Candle[], unknown>;

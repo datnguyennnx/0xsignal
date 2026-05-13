@@ -1,15 +1,7 @@
 import type { MarketTimeframe } from "../../domain/market-data/timeframe";
+import type { MarketTicker, AggregatedMarket, MarketTypeCategory } from "@0xsignal/shared";
 
-export type MarketTicker = {
-  readonly symbol: string;
-  readonly mid: number | null;
-  readonly markPx: number | null;
-  readonly midPx: number | null;
-  readonly prevDayPx: number | null;
-  readonly dayNtlVlm: number | null;
-  readonly openInterest: number | null;
-  readonly funding: number | null;
-};
+// ─── Transport types (no shared equivalent) ──────────────────────────────
 
 export type MarketOrderBook = {
   readonly symbol: string;
@@ -21,6 +13,8 @@ export type MarketTradeAnnotation = {
   readonly symbol: string;
   readonly annotation: unknown;
 };
+
+// ─── Query / input types (internal to application layer) ─────────────────
 
 export type CandleQuery = {
   readonly symbol: string;
@@ -73,27 +67,4 @@ export type CreateDatasetSnapshotInput = {
   correlation_id?: string;
 };
 
-export type MarketTypeCategory = "perp" | "spot" | "outcome";
-
-export type AggregatedMarket = {
-  readonly coin: string;
-  readonly rawCoin: string;
-  readonly displaySymbol: string;
-  readonly dexPrefix: string | null;
-  readonly isHip3: boolean;
-  readonly quoteCurrency: string;
-  readonly name: string;
-  readonly category: string;
-  readonly displayCategory: string;
-  readonly isDelisted: boolean;
-  readonly dex: string;
-  readonly assetId: number;
-  readonly marketType: MarketTypeCategory;
-  readonly markPx: string;
-  readonly prevDayPx: string;
-  readonly openInterest: string;
-  readonly funding: string;
-  readonly dayNtlVlm: string;
-  readonly maxLeverage: number;
-  readonly szDecimals: number;
-};
+export type { MarketTicker, AggregatedMarket, MarketTypeCategory };

@@ -1,9 +1,6 @@
 /**
- * Shared boundary types for market-data domain.
- *
- * Single source of truth for API contract types.
- * Backend validates against these shapes (via Effect Schema internally).
- * Frontend imports these types directly — no runtime dependency.
+ * Market-data API contract types.
+ * Single source of truth — no runtime deps.
  */
 
 // ─── Candle ───────────────────────────────────────────────────────────────────

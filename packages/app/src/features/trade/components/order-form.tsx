@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,19 +10,11 @@ import { cn } from "@/core/utils/cn";
 import { CheckIcon } from "lucide-react";
 import { useClearinghouseState, useSpotClearinghouseState } from "../hooks/use-user-data";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
+import { useTakeProfitStopLoss } from "../hooks/use-take-profit-stop-loss";
 import { AdjustLeverageModal } from "./adjust-leverage-modal";
 import { MarginModeModal } from "./margin-mode-modal";
 import { UnifiedAccountSummary } from "./unified-account-summary";
-import {
-  MARGIN_BUFFER,
-  tpPriceFromPercent,
-  slPriceFromPercent,
-  gainPercentFromPrice,
-  lossPercentFromPrice,
-  formatPriceFixed,
-  formatPctFixed,
-  formatOrderSize,
-} from "../utils/trade-math";
+import { MARGIN_BUFFER, formatOrderSize } from "../utils/trade-math";
 
 interface OrderFormProps {
   symbol: string;
@@ -58,11 +50,6 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   const [sliderPercent, setSliderPercent] = useState(0);
   const [price, setPrice] = useState("");
   const [reduceOnly, setReduceOnly] = useState(false);
-  const [tpSlEnabled, setTpSlEnabled] = useState(false);
-  const [tpPrice, setTpPrice] = useState("");
-  const [tpPercent, setTpPercent] = useState("");
-  const [slPrice, setSlPrice] = useState("");
-  const [slPercent, setSlPercent] = useState("");
   const [adjustLeverageOpen, setAdjustLeverageOpen] = useState(false);
   const [marginModeOpen, setMarginModeOpen] = useState(false);
 
@@ -70,9 +57,24 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   const currentPrice = markPrice || Number(price) || 0;
   const orderValue = Number(size) || 0;
   const marginRequired = effectiveLeverage > 0 ? orderValue / effectiveLeverage : 0;
-  const showTpSl = tpSlEnabled && !reduceOnly;
   const isLong = side === "buy";
   const entryPrice = orderType === "limit" ? Number(price) || 0 : markPrice || 0;
+
+  /* ─── TP/SL state orchestration ─── */
+  const {
+    tpSlEnabled,
+    setTpSlEnabled,
+    tpPrice,
+    tpPercent,
+    slPrice,
+    slPercent,
+    handleTpPercentChange,
+    handleTpPriceChange,
+    handleSlPercentChange,
+    handleSlPriceChange,
+  } = useTakeProfitStopLoss({ entryPrice, effectiveLeverage, isLong });
+
+  const showTpSl = tpSlEnabled && !reduceOnly;
 
   /* ─── Size / Slider sync — leverage-aware, falls back to Spot USDC ─── */
 
@@ -131,94 +133,6 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     },
     [maxNotional]
   );
-
-  /* ─── TP/SL two-way binding handlers ─── */
-
-  // Track whether user actively typed in percent (to re-sync price on env change)
-  const tpPercentRef = useRef("");
-  const slPercentRef = useRef("");
-
-  const handleTpPercentChange = useCallback(
-    (raw: string) => {
-      setTpPercent(raw);
-      tpPercentRef.current = raw;
-      const pct = Number(raw);
-      if (entryPrice > 0 && effectiveLeverage > 0 && pct > 0) {
-        const price = tpPriceFromPercent(entryPrice, pct, effectiveLeverage, isLong);
-        setTpPrice(formatPriceFixed(price));
-      } else {
-        setTpPrice("");
-      }
-    },
-    [entryPrice, effectiveLeverage, isLong]
-  );
-
-  const handleTpPriceChange = useCallback(
-    (raw: string) => {
-      setTpPrice(raw);
-      const px = Number(raw);
-      if (entryPrice > 0 && effectiveLeverage > 0 && px > 0) {
-        const pct = gainPercentFromPrice(entryPrice, px, effectiveLeverage, isLong);
-        const formatted = formatPctFixed(pct);
-        setTpPercent(formatted);
-        tpPercentRef.current = formatted;
-      } else {
-        setTpPercent("");
-        tpPercentRef.current = "";
-      }
-    },
-    [entryPrice, effectiveLeverage, isLong]
-  );
-
-  const handleSlPercentChange = useCallback(
-    (raw: string) => {
-      setSlPercent(raw);
-      slPercentRef.current = raw;
-      const pct = Number(raw);
-      if (entryPrice > 0 && effectiveLeverage > 0 && pct > 0) {
-        const price = slPriceFromPercent(entryPrice, pct, effectiveLeverage, isLong);
-        setSlPrice(formatPriceFixed(price));
-      } else {
-        setSlPrice("");
-      }
-    },
-    [entryPrice, effectiveLeverage, isLong]
-  );
-
-  const handleSlPriceChange = useCallback(
-    (raw: string) => {
-      setSlPrice(raw);
-      const px = Number(raw);
-      if (entryPrice > 0 && effectiveLeverage > 0 && px > 0) {
-        const pct = lossPercentFromPrice(entryPrice, px, effectiveLeverage, isLong);
-        const formatted = formatPctFixed(pct);
-        setSlPercent(formatted);
-        slPercentRef.current = formatted;
-      } else {
-        setSlPercent("");
-        slPercentRef.current = "";
-      }
-    },
-    [entryPrice, effectiveLeverage, isLong]
-  );
-
-  /* ─── Re-sync prices when environment changes (side/leverage/entryPrice) ─── */
-  useEffect(() => {
-    if (entryPrice > 0 && effectiveLeverage > 0) {
-      const tpPct = Number(tpPercentRef.current);
-      if (tpPercentRef.current && tpPct > 0) {
-        setTpPrice(
-          formatPriceFixed(tpPriceFromPercent(entryPrice, tpPct, effectiveLeverage, isLong))
-        );
-      }
-      const slPct = Number(slPercentRef.current);
-      if (slPercentRef.current && slPct > 0) {
-        setSlPrice(
-          formatPriceFixed(slPriceFromPercent(entryPrice, slPct, effectiveLeverage, isLong))
-        );
-      }
-    }
-  }, [isLong, effectiveLeverage, entryPrice]);
 
   /* ─── Place order mutation ─── */
   const placeOrderMutation = useMutation({

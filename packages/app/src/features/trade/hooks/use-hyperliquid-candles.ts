@@ -16,43 +16,17 @@
  */
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
+import { normalizeChartDataPoints } from "@0xsignal/shared";
 import { useHyperliquidWs } from "./use-hyperliquid-ws";
 import { useCandleHistory, fetchByRange } from "./use-candle-history";
-import { normalizeChartDataPoints } from "@/services/api";
 import { normalizeSymbol } from "../lib/symbol";
-import { mapToHLInterval, getIntervalMs, toFiniteNumber } from "@/core/utils/hyperliquid";
+import { mapToHLInterval, getIntervalMs } from "@/core/utils/hyperliquid";
 
 interface UseHyperliquidCandlesOptions {
   symbol: string;
   interval: string;
   limit?: number;
   enabled?: boolean;
-}
-
-interface WsCandlePayload {
-  t: number;
-  T: number;
-  s: string;
-  i: string;
-  o: unknown;
-  c: unknown;
-  h: unknown;
-  l: unknown;
-  v: unknown;
-  V: unknown;
-  n: number;
-}
-
-/**
- * Extracts candle payloads from various Hyperliquid WS message formats.
- */
-function extractWsCandlePayloads(rawData: unknown): WsCandlePayload[] {
-  if (typeof rawData !== "object" || rawData === null) return [];
-  const data = rawData as { data?: unknown };
-  if (Array.isArray(data)) return data as WsCandlePayload[];
-  if (data.data && Array.isArray(data.data)) return data.data as WsCandlePayload[];
-  if (data.data) return [data.data as WsCandlePayload];
-  return [data as WsCandlePayload];
 }
 
 const LOAD_MORE_COOLDOWN = 1000;
@@ -131,51 +105,49 @@ export function useHyperliquidCandles({
     [enabled, coin, hlInterval]
   );
 
-  // RAF-throttled buffer flush — O(n) merge of sorted arrays at max 60fps
+  // RAF-throttled buffer flush — O(n) merge of sorted arrays at max 60fps.
+  // Uses requestAnimationFrame's native timestamp for delta-time checks,
+  // eliminating the nested setTimeout pattern.
   const scheduleUpdate = useCallback(() => {
     if (rafRef.current) return;
-    const now = performance.now();
-    const elapsed = now - lastUpdateRef.current;
-
-    const flush = () => {
-      const buffer = bufferRef.current;
-      if (buffer.length > 0) {
-        bufferRef.current = [];
-
-        const existing = dataRef.current;
-        const result: ChartDataPoint[] = [];
-        let i = 0; // index in existing
-        let j = 0; // index in buffer
-
-        // Both arrays are sorted by time ascending — O(n) merge
-        while (i < existing.length && j < buffer.length) {
-          if (existing[i].time < buffer[j].time) {
-            result.push(existing[i]);
-            i++;
-          } else if (existing[i].time > buffer[j].time) {
-            result.push(buffer[j]);
-            j++;
-          } else {
-            // Same timestamp — buffer wins (most recent data)
-            result.push(buffer[j]);
-            i++;
-            j++;
-          }
-        }
-        // Append remaining (skip duplicates against last result entry)
-        const lastTime = () => result[result.length - 1]?.time;
-        while (i < existing.length && existing[i].time !== lastTime()) result.push(existing[i++]);
-        while (j < buffer.length && buffer[j].time !== lastTime()) result.push(buffer[j++]);
-
-        dataRef.current = result;
-        setData(result);
-        lastUpdateRef.current = performance.now();
-      }
+    rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
-    };
+      const now = performance.now();
+      if (now - lastUpdateRef.current < 16) return; // maintain ~60fps cap
 
-    if (elapsed >= 16) flush();
-    else rafRef.current = requestAnimationFrame(() => setTimeout(flush, 16 - elapsed));
+      const buffer = bufferRef.current;
+      if (buffer.length === 0) return;
+      bufferRef.current = [];
+
+      const existing = dataRef.current;
+      const result: ChartDataPoint[] = [];
+      let i = 0; // index in existing
+      let j = 0; // index in buffer
+
+      // Both arrays are sorted by time ascending — O(n) merge
+      while (i < existing.length && j < buffer.length) {
+        if (existing[i].time < buffer[j].time) {
+          result.push(existing[i]);
+          i++;
+        } else if (existing[i].time > buffer[j].time) {
+          result.push(buffer[j]);
+          j++;
+        } else {
+          // Same timestamp — buffer wins (most recent data)
+          result.push(buffer[j]);
+          i++;
+          j++;
+        }
+      }
+      // Append remaining (skip duplicates against last result entry)
+      const lastTime = () => result[result.length - 1]?.time;
+      while (i < existing.length && existing[i].time !== lastTime()) result.push(existing[i++]);
+      while (j < buffer.length && buffer[j].time !== lastTime()) result.push(buffer[j++]);
+
+      dataRef.current = result;
+      setData(result);
+      lastUpdateRef.current = now;
+    });
   }, []);
 
   useEffect(() => {
@@ -215,6 +187,10 @@ export function useHyperliquidCandles({
     }, remaining);
   }, []);
 
+  /**
+   * Handle incoming WS candle messages.
+   * `rawData` is already `ChartDataPoint[]` from `convertToCandlePayload` in the decoder.
+   */
   const handleMessage = useCallback(
     (
       rawData: unknown,
@@ -225,28 +201,8 @@ export function useHyperliquidCandles({
       if (meta?.interval !== undefined && meta.interval !== hlInterval) return;
       // Symbol guard: reject candle data for a different coin
       if (meta?.coin !== undefined && meta.coin !== currentCoinRef.current) return;
-      const payloads = extractWsCandlePayloads(rawData);
-      const converted: ChartDataPoint[] = [];
 
-      for (const p of payloads) {
-        const open = toFiniteNumber(p.o);
-        const high = toFiniteNumber(p.h);
-        const low = toFiniteNumber(p.l);
-        const close = toFiniteNumber(p.c);
-        const volume = toFiniteNumber(p.v);
-
-        if (open !== null && high !== null && low !== null && close !== null && volume !== null) {
-          converted.push({
-            time: Math.floor(p.t / 1000),
-            open,
-            high,
-            low,
-            close,
-            volume,
-          });
-        }
-      }
-
+      const converted = rawData as ChartDataPoint[];
       if (converted.length > 0) {
         bufferRef.current.push(...converted);
         scheduleUpdate();
