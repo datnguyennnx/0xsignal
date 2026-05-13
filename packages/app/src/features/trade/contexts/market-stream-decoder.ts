@@ -70,25 +70,23 @@ const getControlType = (value: unknown): "ready" | "pong" | "reconnecting" | "er
 };
 
 const findChannel = (value: unknown): MarketChannel | null => {
-  const queue: unknown[] = [value];
-  const seen = new Set<unknown>();
+  if (typeof value !== "object" || value === null) return null;
+  const obj = value as Record<string, unknown>;
 
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current || seen.has(current)) continue;
-    seen.add(current);
+  // Direct access: { channel: "candle", data: {...}, ... }
+  if (typeof obj.channel === "string" && CHANNELS.includes(obj.channel as MarketChannel)) {
+    return obj.channel as MarketChannel;
+  }
 
-    if (!isRecord(current)) continue;
-
+  // { payload: { channel: "...", data: {...} } }
+  if (typeof obj.payload === "object" && obj.payload !== null) {
+    const payload = obj.payload as Record<string, unknown>;
     if (
-      typeof current.channel === "string" &&
-      CHANNELS.includes(current.channel as MarketChannel)
+      typeof payload.channel === "string" &&
+      CHANNELS.includes(payload.channel as MarketChannel)
     ) {
-      return current.channel as MarketChannel;
+      return payload.channel as MarketChannel;
     }
-
-    if (current.data !== undefined) queue.push(current.data);
-    if (current.payload !== undefined) queue.push(current.payload);
   }
 
   return null;
@@ -102,62 +100,69 @@ const hasCandleShape = (value: Record<string, unknown>): boolean =>
   value.c !== undefined;
 
 const extractCandlePayload = (value: unknown): unknown => {
-  const queue: unknown[] = [value];
-  const seen = new Set<unknown>();
+  if (typeof value !== "object" || value === null) return null;
 
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (current === undefined || current === null || seen.has(current)) continue;
-    seen.add(current);
+  if (Array.isArray(value)) return value;
 
-    if (Array.isArray(current)) {
-      return current;
-    }
+  const obj = value as Record<string, unknown>;
 
-    if (!isRecord(current)) {
-      continue;
-    }
+  if (Array.isArray(obj.data)) return obj.data;
+  if (Array.isArray(obj.candles)) return obj.candles;
+  if (Array.isArray(obj.candle)) return obj.candle;
+  if (hasCandleShape(obj)) return value;
 
-    if (Array.isArray(current.candles)) return current.candles;
-    if (Array.isArray(current.candle)) return current.candle;
-    if (hasCandleShape(current)) return current;
-
-    if (current.data !== undefined) queue.push(current.data);
-    if (current.payload !== undefined) queue.push(current.payload);
-    if (current.candles !== undefined) queue.push(current.candles);
-    if (current.candle !== undefined) queue.push(current.candle);
+  // Single candle object nested in data/candle field
+  if (
+    obj.data &&
+    typeof obj.data === "object" &&
+    hasCandleShape(obj.data as Record<string, unknown>)
+  ) {
+    return obj.data;
+  }
+  if (
+    obj.candle &&
+    typeof obj.candle === "object" &&
+    hasCandleShape(obj.candle as Record<string, unknown>)
+  ) {
+    return obj.candle;
   }
 
   return null;
 };
 
 const extractOrderbookPayload = (value: unknown): L2BookPayload | null => {
-  const queue: unknown[] = [value];
-  const seen = new Set<unknown>();
+  if (typeof value !== "object" || value === null) return null;
+  const obj = value as Record<string, unknown>;
 
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (current === undefined || current === null || seen.has(current)) continue;
-    seen.add(current);
+  // Walk nested data/orderbook/levels path up to 4 levels deep
+  const walkLevels = (node: Record<string, unknown>, depth: number): L2BookPayload | null => {
+    if (depth > 4) return null;
 
-    if (!isRecord(current)) continue;
+    // Direct levels array found
+    if (Array.isArray(node.levels)) {
+      return { levels: node.levels };
+    }
+    if (Array.isArray(node.data)) return { levels: node.data };
 
-    if (Array.isArray(current.levels)) {
-      const nSigFigs =
-        typeof current.nSigFigs === "number" && Number.isFinite(current.nSigFigs)
-          ? current.nSigFigs
-          : undefined;
-      return { levels: current.levels, nSigFigs };
+    // Check known wrapper fields (levels is checked at top — skip to avoid redundant recursion)
+    for (const key of ["data", "payload", "orderbook", "l2Book", "book", "result"] as const) {
+      const child = node[key];
+      if (typeof child === "object" && child !== null && !Array.isArray(child)) {
+        const result = walkLevels(child as Record<string, unknown>, depth + 1);
+        if (result) return result;
+      }
     }
 
-    if (current.data !== undefined) queue.push(current.data);
-    if (current.payload !== undefined) queue.push(current.payload);
-    if (current.l2Book !== undefined) queue.push(current.l2Book);
-    if (current.book !== undefined) queue.push(current.book);
-    if (current.orderbook !== undefined) queue.push(current.orderbook);
-  }
+    return null;
+  };
 
-  return null;
+  const result = walkLevels(obj, 0);
+  if (!result) return null;
+
+  // Extract nSigFigs from the outermost level
+  const nSigFigs =
+    typeof obj.nSigFigs === "number" && Number.isFinite(obj.nSigFigs) ? obj.nSigFigs : undefined;
+  return nSigFigs !== undefined ? { levels: result.levels, nSigFigs } : result;
 };
 
 const unwrapMarketPayload = (value: unknown): unknown => {
