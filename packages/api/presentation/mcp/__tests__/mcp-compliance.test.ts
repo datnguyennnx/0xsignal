@@ -10,6 +10,7 @@ import { StrategyServices } from "../../../application/strategy/service";
 import { BacktestServices } from "../../../application/backtest/service";
 import { MarketDataServices } from "../../../application/market-data/contracts";
 import { ResearchServicesTag } from "../../../application/research/service";
+import { DomainError } from "../../../application/errors";
 
 describe("MCP E2E Compliance Smoke Test", () => {
   const readTextBlock = (content: unknown): string => {
@@ -50,8 +51,8 @@ describe("MCP E2E Compliance Smoke Test", () => {
   };
 
   const mockMcpRepo = {
-    insertInteraction: vi.fn().mockResolvedValue({}),
-    updateInteractionStatus: vi.fn().mockResolvedValue({}),
+    insertInteraction: vi.fn().mockReturnValue(Effect.succeed({})),
+    updateInteractionStatus: vi.fn().mockReturnValue(Effect.succeed({})),
     getInteraction: vi.fn(),
     getInteractionsBySession: vi.fn(),
     getInteractionsByCorrelation: vi.fn(),
@@ -269,7 +270,9 @@ describe("MCP E2E Compliance Smoke Test", () => {
     });
 
     it("should still return success when completion tracking fails", async () => {
-      mockMcpRepo.updateInteractionStatus.mockRejectedValueOnce(new Error("completed-update-fail"));
+      mockMcpRepo.updateInteractionStatus.mockReturnValueOnce(
+        Effect.fail(new DomainError({ code: "INTERNAL_ERROR", message: "completed-update-fail" }))
+      );
 
       const result = await client.callTool({
         name: "open_session",
@@ -286,7 +289,9 @@ describe("MCP E2E Compliance Smoke Test", () => {
 
     it("should still return tool error when failure tracking fails", async () => {
       mockAgentServices.openSession.mockReturnValue(Effect.fail(new Error("Simulated failure")));
-      mockMcpRepo.updateInteractionStatus.mockRejectedValueOnce(new Error("failed-update-fail"));
+      mockMcpRepo.updateInteractionStatus.mockReturnValueOnce(
+        Effect.fail(new DomainError({ code: "INTERNAL_ERROR", message: "failed-update-fail" }))
+      );
 
       const result = await client.callTool({
         name: "open_session",

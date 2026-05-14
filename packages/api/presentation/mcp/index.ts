@@ -31,6 +31,7 @@ import { getStrategyHistory } from "./resources/strategy/strategy-history";
 import { PROMPTS } from "./prompts/index";
 import { MCP_AGENT_INSTRUCTION_MODULES, MCP_AGENT_SYSTEM_PROMPT } from "./harness-guidance";
 import { Effect } from "effect";
+import { BunRuntime } from "@effect/platform-bun";
 import { formatToolErrorMessage, validateToolArguments } from "./tool-argument-validation";
 import type { JsonSchema } from "./tool-argument-validation";
 
@@ -115,7 +116,10 @@ export class McpServer extends Server {
 
       const tool = TOOLS.find((t) => t.name === toolName);
       if (!tool) {
-        throw new Error(`Tool "${toolName}" not found`);
+        return {
+          content: [{ type: "text", text: `Error: Tool "${toolName}" not found` }],
+          isError: true,
+        };
       }
 
       const interactionId = crypto.randomUUID();
@@ -139,76 +143,93 @@ export class McpServer extends Server {
             ? validatedInput.value.sessionId
             : undefined;
 
-      // Start interaction tracking via Effect
-      await this.runtime
-        .runPromise(
-          Effect.gen(function* () {
-            const mcp = yield* McpServices;
-            yield* mcp.trackInteraction({
+      const enrichedArgs = {
+        ...validatedInput.value,
+        _interactionId: interactionId,
+        _sessionId: sessionId,
+      };
+
+      const result = await this.runtime.runPromise(
+        Effect.gen(function* () {
+          const mcp = yield* McpServices;
+
+          // Track interaction start (fire-and-forget, best effort)
+          yield* mcp
+            .trackInteraction({
               id: interactionId,
               session_id: sessionId,
               interaction_type: "tool_call",
               name: toolName,
               input_payload: args,
-            });
-          })
+            })
+            .pipe(
+              Effect.catchAllCause((cause) =>
+                Effect.sync(() => console.warn("Failed to start MCP interaction tracking:", cause))
+              )
+            );
+
+          // Execute tool with typed error handling
+          const execResult = yield* (
+            tool.execute(enrichedArgs as never) as Effect.Effect<unknown, unknown>
+          ).pipe(
+            Effect.catchAll((error) => {
+              const errorMessage = formatToolErrorMessage(error);
+              return Effect.succeed({ _mcpError: true, message: errorMessage } as never);
+            })
+          );
+
+          // Track completion/error (fire-and-forget, best effort)
+          if (execResult && typeof execResult === "object" && "_mcpError" in (execResult as any)) {
+            yield* mcp
+              .updateStatus(interactionId, "error", {
+                error: (execResult as any).message,
+              })
+              .pipe(
+                Effect.catchAllCause((cause) =>
+                  Effect.sync(() =>
+                    console.warn("Failed to record MCP interaction tracking:", cause)
+                  )
+                )
+              );
+            return execResult;
+          } else {
+            yield* mcp
+              .updateStatus(interactionId, "completed", execResult)
+              .pipe(
+                Effect.catchAllCause((cause) =>
+                  Effect.sync(() =>
+                    console.warn("Failed to record MCP interaction completion:", cause)
+                  )
+                )
+              );
+            return execResult;
+          }
+        }).pipe(
+          Effect.catchAllDefect((defect) =>
+            Effect.succeed({
+              _mcpError: true,
+              message: `Unexpected error: ${String(defect)}`,
+            } as never)
+          )
         )
-        .catch((err) => console.warn("Failed to start MCP interaction tracking:", err));
+      );
 
-      try {
-        // Inject tracing metadata into tool arguments
-        const enrichedArgs = {
-          ...validatedInput.value,
-          _interactionId: interactionId,
-          _sessionId: sessionId,
-        };
-
-        const resultEffect = tool.execute(enrichedArgs as never) as Effect.Effect<unknown, unknown>;
-        const result = await this.runtime.runPromise(resultEffect);
-
-        // Update interaction status
-        await this.runtime
-          .runPromise(
-            Effect.gen(function* () {
-              const mcp = yield* McpServices;
-              yield* mcp.updateStatus(interactionId, "completed", result);
-            })
-          )
-          .catch((err) => console.warn("Failed to record MCP interaction completion:", err));
-
+      // Convert result to MCP response
+      if (result && typeof result === "object" && "_mcpError" in (result as any)) {
         return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      } catch (error) {
-        const errorMessage = formatToolErrorMessage(error);
-
-        // Record failure
-        await this.runtime
-          .runPromise(
-            Effect.gen(function* () {
-              const mcp = yield* McpServices;
-              yield* mcp.updateStatus(interactionId, "error", {
-                error: errorMessage,
-              });
-            })
-          )
-          .catch((err) => console.warn("Failed to record MCP interaction failure:", err));
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: ${errorMessage}`,
-            },
-          ],
+          content: [{ type: "text", text: `Error: ${(result as any).message}` }],
           isError: true,
         };
       }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
     });
 
     this.setRequestHandler(ListResourcesRequestSchema, async () => {
@@ -310,23 +331,38 @@ export class McpServer extends Server {
     this.setRequestHandler(ReadResourceRequestSchema, async (request) => {
       const uri = request.params.uri;
       let result: ResourceReadResult | undefined;
+
       if (uri === "system://architecture") {
         result = await this.runtime.runPromise(getSystemArchitecture());
       } else if (uri === "system://strategy-schema") {
         result = await this.runtime.runPromise(getStrategySchema());
       } else if (uri.startsWith("session://") && uri.endsWith("/context")) {
         const sessionId = uri.split("/")[2];
-        result = await this.runtime.runPromise(getSessionContext(sessionId));
+        result = await this.runtime.runPromise(
+          getSessionContext(sessionId).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
+        );
       } else if (uri.startsWith("backtest://") && uri.endsWith("/summary")) {
         const runId = uri.split("/")[2];
-        result = await this.runtime.runPromise(getRunSummaryResource(runId));
+        result = await this.runtime.runPromise(
+          getRunSummaryResource(runId).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
+        );
       } else if (uri.startsWith("strategy://") && uri.endsWith("/history")) {
         const strategyId = uri.split("/")[2];
-        result = await this.runtime.runPromise(getStrategyHistory(strategyId));
+        result = await this.runtime.runPromise(
+          getStrategyHistory(strategyId).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
+        );
       }
 
       if (!result) {
-        throw new Error(`Resource "${uri}" not found`);
+        return {
+          contents: [
+            {
+              uri,
+              mimeType: "text/plain",
+              text: `Error: Resource "${uri}" not found`,
+            },
+          ],
+        };
       }
 
       return {
@@ -342,16 +378,17 @@ export class McpServer extends Server {
   }
 }
 
-export async function main() {
-  const transport = new StdioServerTransport();
-  const server = new McpServer();
+const McpProgram = Effect.scoped(
+  Effect.gen(function* () {
+    const server = yield* Effect.acquireRelease(
+      Effect.sync(() => new McpServer()),
+      (s) => Effect.promise(() => s.close())
+    );
+    const transport = new StdioServerTransport();
+    yield* Effect.promise(() => server.connect(transport));
+    console.error("MCP server running on stdio");
+    yield* Effect.never;
+  })
+);
 
-  await server.connect(transport);
-}
-
-if (import.meta.main) {
-  main().catch((error) => {
-    console.error("MCP server error:", error);
-    process.exit(1);
-  });
-}
+BunRuntime.runMain(McpProgram);
