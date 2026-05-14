@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { Effect } from "effect";
+import { Deferred, Effect, Ref } from "effect";
 import { getTickerSnapshotEffect, mapTickerFromSnapshot, resolveInternalSymbol } from "../mapping";
+import { HyperliquidRateLimiter } from "../rate-limiter";
+import { HyperliquidDeduplicationRegistry } from "../dedup";
 
 describe("Hyperliquid Mapping", () => {
   const mockInfo = {
@@ -50,7 +52,14 @@ describe("Hyperliquid Mapping", () => {
         .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
         .mockResolvedValueOnce([{ universe: [{ name: "xyz:EUR" }] }, [{ midPx: "1.1" }]]); // xyz
 
-      const program = getTickerSnapshotEffect(mockInfo);
+      const semaphore = Effect.unsafeMakeSemaphore(6);
+      const dedupRef = Ref.unsafeMake(new Map<string, Deferred.Deferred<any, unknown>>());
+      const program = getTickerSnapshotEffect(mockInfo).pipe(
+        Effect.provideService(HyperliquidRateLimiter, { semaphore }),
+        Effect.provideService(HyperliquidDeduplicationRegistry, {
+          registryRef: dedupRef,
+        })
+      );
       const result = await Effect.runPromise(program);
 
       expect(result.universe).toHaveLength(2);
@@ -65,7 +74,14 @@ describe("Hyperliquid Mapping", () => {
         .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
         .mockRejectedValueOnce(new Error("DEX Offline"));
 
-      const program = getTickerSnapshotEffect(mockInfo);
+      const semaphore = Effect.unsafeMakeSemaphore(6);
+      const dedupRef = Ref.unsafeMake(new Map<string, Deferred.Deferred<any, unknown>>());
+      const program = getTickerSnapshotEffect(mockInfo).pipe(
+        Effect.provideService(HyperliquidRateLimiter, { semaphore }),
+        Effect.provideService(HyperliquidDeduplicationRegistry, {
+          registryRef: dedupRef,
+        })
+      );
       const result = await Effect.runPromise(program);
 
       expect(result.universe).toHaveLength(1); // Only main DEX succeeded

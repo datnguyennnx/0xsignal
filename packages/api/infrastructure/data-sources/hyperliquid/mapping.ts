@@ -1,6 +1,8 @@
-import { Effect } from "effect";
+import { Deferred, Effect, Ref, Schedule } from "effect";
 import { normalizeSymbol, parseSymbol } from "./symbol";
-import { HyperliquidError } from "./errors";
+import { HyperliquidError, isRateLimitedCause } from "./errors";
+import { HyperliquidRateLimiter } from "./rate-limiter";
+import { HyperliquidDeduplicationRegistry } from "./dedup";
 import type {
   MarketUniverseItem,
   MarketAssetCtxItem,
@@ -22,6 +24,74 @@ export type HyperliquidInfoClient = {
   readonly outcomeMeta?: () => unknown;
 };
 
+// ─── Rate-limited + deduplicated API call helper ───────────────────────────
+//
+//  1. Dedup check: if an in-flight request for `key` exists, await it.
+//  2. Semaphore permit acquisition (bounded concurrency — 6 permits).
+//  3. Effect.retry with exponential backoff for RATE_LIMITED errors only.
+//  4. Deferred completion on success / failure so concurrent waiters resolve.
+//  5. Registry cleanup in finalizer so a retry attempt creates a fresh call.
+
+const deduplicatedApiCall = <T>(
+  key: string,
+  call: () => Promise<T>,
+  errorMessage: string
+): Effect.Effect<T, HyperliquidError, HyperliquidRateLimiter | HyperliquidDeduplicationRegistry> =>
+  Effect.gen(function* () {
+    const rateLimiter = yield* HyperliquidRateLimiter;
+    const dedup = yield* HyperliquidDeduplicationRegistry;
+
+    // ── Check for in-flight request ─────────────────────────────────
+    const registry = yield* Ref.get(dedup.registryRef);
+    const existing = registry.get(key);
+    if (existing) {
+      return yield* Deferred.await(existing);
+    }
+
+    // ── Create Deferred (success = T, error = HyperliquidError) ─────
+    const deferred = yield* Deferred.make<T, HyperliquidError>();
+    yield* Ref.update(dedup.registryRef, (map) => new Map(map).set(key, deferred));
+
+    // ── Rate-limited + retried API call ─────────────────────────────
+    const apiCall = rateLimiter.semaphore.withPermits(1)(
+      Effect.tryPromise({
+        try: call,
+        catch: (cause) =>
+          new HyperliquidError({
+            message: errorMessage,
+            kind: isRateLimitedCause(cause) ? "RATE_LIMITED" : "UPSTREAM",
+            cause,
+          }),
+      }).pipe(
+        Effect.retry({
+          schedule: Schedule.exponential("1 second").pipe(Schedule.upTo("16 seconds")),
+          while: (err) => err.kind === "RATE_LIMITED",
+        })
+      )
+    );
+
+    // Complete the Deferred on success, clean up registry in finalizer
+    const result = yield* apiCall.pipe(
+      Effect.tap((value) => Deferred.completeWith(deferred, Effect.succeed(value))),
+      Effect.catchAll((error) =>
+        Deferred.completeWith(deferred, Effect.fail(error)).pipe(
+          Effect.flatMap(() => Effect.fail(error))
+        )
+      ),
+      Effect.ensuring(
+        Ref.update(dedup.registryRef, (map) => {
+          const newMap = new Map(map);
+          newMap.delete(key);
+          return newMap;
+        })
+      )
+    );
+
+    return result;
+  });
+
+// ─── Base fetchers ────────────────────────────────────────────────────────
+
 /** Extract token names from spotMeta response `tokens` array. */
 export function extractSpotTokens(raw: unknown): string[] {
   if (!raw || typeof raw !== "object") return [];
@@ -41,19 +111,23 @@ const toNumberOrNull = (value: unknown): number | null => {
   return null;
 };
 
-const fetchBaseSnapshot = (info: HyperliquidInfoClient) =>
+const fetchBaseSnapshot = (
+  info: HyperliquidInfoClient
+): Effect.Effect<
+  [Array<null | { name: string }>, Record<string, string>],
+  never,
+  HyperliquidRateLimiter | HyperliquidDeduplicationRegistry
+> =>
   Effect.all(
     [
-      Effect.tryPromise({
-        try: () => info.perpDexs?.() ?? Promise.resolve([]),
-        catch: (cause) =>
-          new HyperliquidError({ message: "Failed to fetch perp DEXs", kind: "UPSTREAM", cause }),
-      }).pipe(Effect.catchAll(() => Effect.succeed([]))),
-      Effect.tryPromise({
-        try: () => info.allMids(),
-        catch: (cause) =>
-          new HyperliquidError({ message: "Failed to fetch mids", kind: "UPSTREAM", cause }),
-      }).pipe(Effect.catchAll(() => Effect.succeed({} as Record<string, string>))),
+      deduplicatedApiCall(
+        "perpDexs",
+        () => info.perpDexs?.() ?? Promise.resolve([]),
+        "Failed to fetch perp DEXs"
+      ).pipe(Effect.catchAll(() => Effect.succeed([] as Array<null | { name: string }>))),
+      deduplicatedApiCall("allMids", () => info.allMids(), "Failed to fetch mids").pipe(
+        Effect.catchAll(() => Effect.succeed({} as Record<string, string>))
+      ),
     ],
     { concurrency: 3 }
   );
@@ -84,7 +158,11 @@ const processMetaResults = (metaResults: [unknown, unknown][]) => {
 
 export const getTickerSnapshotEffect = (
   info: HyperliquidInfoClient
-): Effect.Effect<TickerSnapshot, HyperliquidError> =>
+): Effect.Effect<
+  TickerSnapshot,
+  HyperliquidError,
+  HyperliquidRateLimiter | HyperliquidDeduplicationRegistry
+> =>
   Effect.gen(function* () {
     const [perpDexs, allMids] = yield* fetchBaseSnapshot(info);
 
@@ -95,15 +173,11 @@ export const getTickerSnapshotEffect = (
 
     const metaResults = yield* Effect.all(
       dexNames.map((dex) =>
-        Effect.tryPromise({
-          try: () => info.metaAndAssetCtxs(dex ? { dex } : undefined),
-          catch: (cause) =>
-            new HyperliquidError({
-              message: `Failed to fetch meta for ${dex || "main"}`,
-              kind: "UPSTREAM",
-              cause,
-            }),
-        }).pipe(Effect.catchAll(() => Effect.succeed([null, null] as [unknown, unknown])))
+        deduplicatedApiCall(
+          `metaAndAssetCtxs:${dex || "main"}`,
+          () => info.metaAndAssetCtxs(dex ? { dex } : undefined) as Promise<[unknown, unknown]>,
+          `Failed to fetch meta for ${dex || "main"}`
+        ).pipe(Effect.catchAll(() => Effect.succeed([null, null] as [unknown, unknown])))
       ),
       { concurrency: 3 }
     );
@@ -278,20 +352,20 @@ export function getQuoteCurrency(
  */
 export function getSpotTokens(
   info: HyperliquidInfoClient
-): Effect.Effect<string[], HyperliquidError> {
-  return Effect.tryPromise({
-    try: async () => {
+): Effect.Effect<
+  string[],
+  HyperliquidError,
+  HyperliquidRateLimiter | HyperliquidDeduplicationRegistry
+> {
+  return deduplicatedApiCall(
+    "spotMeta",
+    async () => {
       if (typeof info.spotMeta !== "function") return [];
       const raw = await info.spotMeta();
       return extractSpotTokens(raw);
     },
-    catch: (cause) =>
-      new HyperliquidError({
-        message: "Failed to fetch spot meta",
-        kind: "UPSTREAM",
-        cause,
-      }),
-  }).pipe(Effect.catchAll(() => Effect.succeed([] as string[])));
+    "Failed to fetch spot meta"
+  ).pipe(Effect.catchAll(() => Effect.succeed([] as string[])));
 }
 
 const CATEGORY_DISPLAY: Record<string, string> = {
@@ -662,22 +736,22 @@ export function sortAndDedupeAssets(
 const fetchAllDexMetas = (
   info: HyperliquidInfoClient,
   dexNames: string[]
-): Effect.Effect<Array<unknown>, HyperliquidError> =>
+): Effect.Effect<
+  Array<unknown>,
+  HyperliquidError,
+  HyperliquidRateLimiter | HyperliquidDeduplicationRegistry
+> =>
   Effect.forEach(
     dexNames,
     (dexName) =>
-      Effect.tryPromise({
-        try: () =>
+      deduplicatedApiCall(
+        `metaAndAssetCtxs:${dexName || "main"}`,
+        () =>
           info.metaAndAssetCtxs(dexName ? { dex: dexName } : undefined) as Promise<
             [unknown, unknown]
           >,
-        catch: (cause) =>
-          new HyperliquidError({
-            message: `Failed to fetch meta for dex "${dexName || "main"}"`,
-            kind: "UPSTREAM",
-            cause,
-          }),
-      }).pipe(
+        `Failed to fetch meta for dex "${dexName || "main"}"`
+      ).pipe(
         Effect.catchAll((err) => {
           // Main DEX failure is fatal — all perp data comes from it
           if (dexName === "") {
@@ -705,22 +779,28 @@ const fetchOptionalData = (
   info: HyperliquidInfoClient,
   preFetchedSpot: unknown | undefined,
   preFetchedOutcome: unknown | undefined
-): Effect.Effect<{ spotRaw: unknown; outcomeRaw: unknown }, never> =>
+): Effect.Effect<
+  { spotRaw: unknown; outcomeRaw: unknown },
+  never,
+  HyperliquidRateLimiter | HyperliquidDeduplicationRegistry
+> =>
   Effect.all({
     spotRaw:
       preFetchedSpot !== undefined
         ? Effect.succeed(preFetchedSpot)
-        : Effect.tryPromise({
-            try: () => (info.spotMetaAndAssetCtxs?.() ?? Promise.resolve(null)) as Promise<unknown>,
-            catch: (unknown) => unknown,
-          }).pipe(Effect.catchAll(() => Effect.succeed(null))),
+        : deduplicatedApiCall(
+            "spotMetaAndAssetCtxs",
+            () => (info.spotMetaAndAssetCtxs?.() ?? Promise.resolve(null)) as Promise<unknown>,
+            "Failed to fetch spot meta and asset ctxs"
+          ).pipe(Effect.catchAll(() => Effect.succeed(null))),
     outcomeRaw:
       preFetchedOutcome !== undefined
         ? Effect.succeed(preFetchedOutcome)
-        : Effect.tryPromise({
-            try: () => (info.outcomeMeta?.() ?? Promise.resolve(null)) as Promise<unknown>,
-            catch: (unknown) => unknown,
-          }).pipe(Effect.catchAll(() => Effect.succeed(null))),
+        : deduplicatedApiCall(
+            "outcomeMeta",
+            () => (info.outcomeMeta?.() ?? Promise.resolve(null)) as Promise<unknown>,
+            "Failed to fetch outcome meta"
+          ).pipe(Effect.catchAll(() => Effect.succeed(null))),
   });
 
 /**
@@ -739,7 +819,11 @@ export function getAggregatedMarketsSnapshot(
     spotMetaAndAssetCtxs?: unknown;
     outcomeMeta?: unknown;
   }
-): Effect.Effect<readonly AggregatedTradeAsset[], HyperliquidError> {
+): Effect.Effect<
+  readonly AggregatedTradeAsset[],
+  HyperliquidError,
+  HyperliquidRateLimiter | HyperliquidDeduplicationRegistry
+> {
   return Effect.gen(function* () {
     const {
       spotTokens: preFetchedTokens,
@@ -754,36 +838,22 @@ export function getAggregatedMarketsSnapshot(
     // Fetch perp base data + optional data in parallel
     const allResult = yield* Effect.all(
       {
-        dexNamesResult: Effect.tryPromise({
-          try: () => info.perpDexs?.() ?? Promise.resolve([]),
-          catch: (cause) =>
-            new HyperliquidError({
-              message: "Failed to fetch perp DEXs",
-              kind: "UPSTREAM",
-              cause,
-            }),
-        }).pipe(Effect.catchAll(() => Effect.succeed([] as Array<null | { name: string }>))),
+        dexNamesResult: deduplicatedApiCall(
+          "perpDexs",
+          () => info.perpDexs?.() ?? Promise.resolve([]),
+          "Failed to fetch perp DEXs"
+        ).pipe(Effect.catchAll(() => Effect.succeed([] as Array<null | { name: string }>))),
 
-        rawPerpCats: Effect.tryPromise({
-          try: () =>
+        rawPerpCats: deduplicatedApiCall(
+          "perpCategories",
+          () =>
             (info.perpCategories?.() ?? Promise.resolve([])) as Promise<Array<[string, string]>>,
-          catch: (cause) =>
-            new HyperliquidError({
-              message: "Failed to fetch categories",
-              kind: "UPSTREAM",
-              cause,
-            }),
-        }).pipe(Effect.catchAll(() => Effect.succeed([] as Array<[string, string]>))),
+          "Failed to fetch categories"
+        ).pipe(Effect.catchAll(() => Effect.succeed([] as Array<[string, string]>))),
 
-        allMids: Effect.tryPromise({
-          try: () => info.allMids(),
-          catch: (cause) =>
-            new HyperliquidError({
-              message: "Failed to fetch mids",
-              kind: "UPSTREAM",
-              cause,
-            }),
-        }).pipe(Effect.catchAll(() => Effect.succeed({} as Record<string, string>))),
+        allMids: deduplicatedApiCall("allMids", () => info.allMids(), "Failed to fetch mids").pipe(
+          Effect.catchAll(() => Effect.succeed({} as Record<string, string>))
+        ),
 
         optionalData: fetchOptionalData(info, preFetchedSpot, preFetchedOutcome),
       },

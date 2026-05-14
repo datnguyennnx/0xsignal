@@ -1,6 +1,8 @@
 export type CacheSlot<T> = {
   value?: T;
   expiresAt: number;
+  /** Max age before we MUST re-fetch (stale-while-revalidate window). Defaults to 2× TTL. */
+  maxAgeMs?: number;
   inFlight?: Promise<T>;
   /** Schema version of the cached value. Mismatch forces re-fetch. */
   schemaVersion?: number;
