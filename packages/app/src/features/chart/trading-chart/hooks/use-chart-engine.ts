@@ -125,6 +125,10 @@ export const useChartEngine = ({
         borderColor: c.border,
         rightOffset: 12,
         barSpacing: 6,
+        // LWC v5.1: auto-merge invisible data points when zoomed out
+        enableConflation: true,
+        conflationThresholdFactor: 2.0,
+        precomputeConflationOnInit: false,
       },
       handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
       handleScroll: {

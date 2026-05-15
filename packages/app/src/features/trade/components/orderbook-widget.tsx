@@ -155,6 +155,19 @@ const OrderRow = memo(
     transitionsEnabled,
   }: OrderRowProps) => {
     const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
+    // Round to 1 decimal to avoid false cache busts from floating point drift
+    const stableDepthPercent = Math.round(depthPercent * 10) / 10;
+
+    const depthStyle = useMemo(
+      () => ({
+        width: "100%",
+        transform: `scaleX(${Math.min(depthPercent, 100) / 100})`,
+        transformOrigin: "right center",
+        willChange: depthPercent < 100 ? "transform" : "auto",
+        transition: transitionsEnabled ? "transform 150ms ease-out" : "none",
+      }),
+      [stableDepthPercent, transitionsEnabled]
+    );
 
     const handleMouseEnter = useCallback(
       (e: React.MouseEvent<HTMLDivElement> | React.FocusEvent<HTMLDivElement>) => {
@@ -211,13 +224,7 @@ const OrderRow = memo(
             className={`absolute inset-y-0 right-0 z-0 opacity-20 pointer-events-none ${
               side === "bid" ? "bg-gain" : "bg-loss"
             }`}
-            style={{
-              width: "100%",
-              transform: `scaleX(${Math.min(depthPercent, 100) / 100})`,
-              transformOrigin: "right center",
-              willChange: "transform",
-              transition: transitionsEnabled ? "transform 150ms ease-out" : "none",
-            }}
+            style={depthStyle}
           />
         )}
         <span

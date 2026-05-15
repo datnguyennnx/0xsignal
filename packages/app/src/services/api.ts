@@ -1,15 +1,6 @@
 /**
- * @overview API Client Services
- *
- * Provides a central frontend client for backend-owned market data APIs.
- * It does not connect directly to Hyperliquid for canonical market data flows.
- *
- * @mechanism
- * - Uses native fetch for stateless HTTP requests
- * - Custom error classes (ApiError, NetworkError) for consistent error handling
- * - Maps backend payloads into app-friendly DTOs for render-local state (e.g. MarketPrice)
+ * Frontend HTTP client for backend market data APIs.
  */
-// API Client - Simple async functions
 import type {
   ChartDataPoint,
   AggregatedMarket,
@@ -74,16 +65,12 @@ export class NetworkError extends Error {
   }
 }
 
-/**
- * Safely coerce a value to a finite number, returning null for invalid inputs.
- */
 function toNumberOrNull(value: unknown): number | null {
   const parsed =
     typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Extract candle-like items from response shapes: array, { candles }, { lane }, { data }. */
 function extractRawCandlePayload(payload: unknown): Record<string, unknown>[] {
   if (Array.isArray(payload)) return payload as Record<string, unknown>[];
   if (payload && typeof payload === "object") {
@@ -106,10 +93,6 @@ async function parseErrorBody(response: Response): Promise<ApiErrorBody | null> 
   }
 }
 
-/**
- * Unwrap API envelope: backend returns `{ data: T, meta?: ... }`.
- * For backward compat, if the response has no `data` field, return it as-is.
- */
 function unwrapEnvelope<T>(json: unknown): T {
   if (json && typeof json === "object" && "data" in json) {
     return (json as ApiEnvelope<T>).data;

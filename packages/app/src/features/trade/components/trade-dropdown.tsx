@@ -18,6 +18,8 @@ interface TradeDropdownProps {
   logoUrl?: string;
   displaySymbol?: string;
   currentDisplayName?: string;
+  /** Called when user shows intent to open dropdown (hover) — triggers lazy markets fetch. */
+  onPrefetchMarkets?: () => void;
 }
 
 interface FormattedTrade {
@@ -169,6 +171,7 @@ export const TradeDropdown = memo(function TradeDropdown({
   logoUrl,
   displaySymbol,
   currentDisplayName,
+  onPrefetchMarkets,
 }: TradeDropdownProps) {
   const dropdownContentId = "trade-market-dropdown-content";
   const navigate = useNavigate();
@@ -358,6 +361,8 @@ export const TradeDropdown = memo(function TradeDropdown({
         ref={triggerRef}
         className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded transition-colors hover:bg-muted/30"
         onClick={isOpen ? handleClose : handleOpen}
+        onMouseEnter={onPrefetchMarkets}
+        onFocus={onPrefetchMarkets}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
         aria-controls={dropdownContentId}

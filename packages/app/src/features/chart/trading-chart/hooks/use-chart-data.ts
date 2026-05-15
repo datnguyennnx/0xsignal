@@ -1,14 +1,5 @@
 /**
- * @overview Chart Data Sync Hook — syncs React data state to Lightweight Charts instance
- * @file use-chart-data.ts
- *
- * Handles efficient synchronization between the React data state and the Lightweight Charts instance.
- * It manages different update strategies (Initial, Prepend, Update, Append) to minimize re-renders.
- *
- * @mechanism
- * - utilizes setData for full history or historical prepending.
- * - utilizes update() for real-time OHLC/Volume ticks.
- * - implements a "shiftVisibleRangeOnNewBar" flag to maintain user focus during playback.
+ * Syncs React candle data to Lightweight Charts via setData/update strategies.
  */
 import { useEffect, useRef } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
@@ -65,6 +56,13 @@ export const useChartData = ({
   const prevIsDarkRef = useRef(isDark);
   const prevEnabledRef = useRef(enabled);
   const prevResetKeyRef = useRef<string | undefined>(undefined);
+  // Fast-path: skip full comparison when data identity is unchanged
+  const stableIdentityRef = useRef<{
+    len: number;
+    firstTime: number;
+    lastTime: number;
+    lastClose: number;
+  } | null>(null);
 
   useEffect(() => {
     if (resetKey !== undefined) {
@@ -81,6 +79,28 @@ export const useChartData = ({
       return;
     }
 
+    const currentFirstTime = data[0].time;
+    const currentLastTime = data[data.length - 1].time;
+    const currentLastCandle = data[data.length - 1];
+
+    // Fast-path: skip full comparison when identity is unchanged
+    const identity = stableIdentityRef.current;
+    if (
+      identity &&
+      identity.len === data.length &&
+      identity.firstTime === currentFirstTime &&
+      identity.lastTime === currentLastTime &&
+      identity.lastClose === currentLastCandle.close
+    ) {
+      return;
+    }
+    stableIdentityRef.current = {
+      len: data.length,
+      firstTime: currentFirstTime,
+      lastTime: currentLastTime,
+      lastClose: currentLastCandle.close,
+    };
+
     const themeChanged = prevIsDarkRef.current !== isDark;
     const resumedFromDisabled = !prevEnabledRef.current;
 
@@ -90,9 +110,6 @@ export const useChartData = ({
       prevEnabledRef.current = true;
     }
 
-    const currentFirstTime = data[0].time;
-    const currentLastTime = data[data.length - 1].time;
-    const currentLastCandle = data[data.length - 1];
     const prevFirstTime = prevFirstTimeRef.current;
     const prevLastTime = prevLastTimeRef.current;
 
@@ -116,7 +133,8 @@ export const useChartData = ({
     // Case 2: Historical data prepended (loadMore)
     if (prevFirstTime !== null && currentFirstTime < prevFirstTime) {
       const timeScale = chart?.timeScale();
-      const visibleRange = timeScale?.getVisibleLogicalRange();
+      // Use time-based range — survives data prepend without index shifting
+      const visibleRange = timeScale?.getVisibleRange();
 
       timeScale?.applyOptions({ shiftVisibleRangeOnNewBar: false });
 
@@ -124,11 +142,7 @@ export const useChartData = ({
       volumeSeries.setData(toVolumeHistogramData(data, isDark));
 
       if (visibleRange && timeScale) {
-        const barsDiff = data.length - prevDataLenRef.current;
-        timeScale.setVisibleLogicalRange({
-          from: visibleRange.from + barsDiff,
-          to: visibleRange.to + barsDiff,
-        });
+        timeScale.setVisibleRange(visibleRange);
       }
 
       timeScale?.applyOptions({ shiftVisibleRangeOnNewBar: true });

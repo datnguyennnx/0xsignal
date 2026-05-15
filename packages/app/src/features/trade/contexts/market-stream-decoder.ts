@@ -1,9 +1,5 @@
 /**
- * @overview Market Stream Decoder
- *
- * Decodes backend market-stream WS envelopes into channel-specific payloads for
- * frontend rendering hooks. This is transport-local adaptation logic, not a
- * canonical market-data authority.
+ * Decodes backend market-stream WS envelopes into typed payloads per channel.
  */
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { normalizeCandle } from "@0xsignal/shared";

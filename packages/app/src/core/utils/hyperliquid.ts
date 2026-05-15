@@ -89,13 +89,19 @@ export interface L2BookLevel {
  *   Total time: O(n log n), Space: O(n) for output only (no intermediate arrays)
  */
 export function processRawL2Levels(rawBids: L2BookLevel[], rawAsks: L2BookLevel[]): OrderbookData {
-  const bids = rawBids
-    .map((l) => ({ price: parseFloat(l.px), size: parseFloat(l.sz), total: 0, depth: 0 }))
-    .sort((a, b) => b.price - a.price);
-
-  const asks = rawAsks
-    .map((l) => ({ price: parseFloat(l.px), size: parseFloat(l.sz), total: 0, depth: 0 }))
-    .sort((a, b) => a.price - b.price);
+  // HL WS delivers levels sorted: bids descending, asks ascending — no sort needed.
+  const bids = rawBids.map((l) => ({
+    price: parseFloat(l.px),
+    size: parseFloat(l.sz),
+    total: 0,
+    depth: 0,
+  }));
+  const asks = rawAsks.map((l) => ({
+    price: parseFloat(l.px),
+    size: parseFloat(l.sz),
+    total: 0,
+    depth: 0,
+  }));
 
   let bidTotal = 0;
   for (let i = 0; i < bids.length; i++) {

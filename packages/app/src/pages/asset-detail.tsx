@@ -1,13 +1,5 @@
 /**
- * @overview Asset Detail Page (Trade View)
- * Data flow:
- * 1. URL params → symbol (from /trade/:symbol route)
- * 2. React Query → asset metadata (price, volume, leverage)
- * 3. useHyperliquidCandles → real-time candlestick data (WS + history)
- * 4. CandleDataProvider → shares candle data via ref to avoid memo invalidation
- * 5. useHyperliquidMeta → price precision from exchange
- * 6. L2BookNSigFigsProvider → syncs orderbook + depth chart precision
- * 7. Renders: TradingChart (5/6 cols) + OrderbookWidget (1/6 col)
+ * Trade view page: chart + orderbook + position management per symbol.
  */
 import { useState, lazy, Suspense, useMemo, memo, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -17,7 +9,6 @@ import { ErrorState } from "@/components/error-state";
 import { useQuery } from "@tanstack/react-query";
 import { api, type MarketPrice } from "@/services/api";
 import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-candles";
-import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { queryKeys } from "@/lib/query/query-keys";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
 import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
@@ -45,8 +36,8 @@ import {
   getNextFundingMs,
 } from "./asset-detail.utils";
 import { formatCompactUsd, formatPrice, formatSignedPercent } from "@/core/utils/formatters";
-import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { useAllMids } from "@/features/trade/hooks/use-all-mids";
+import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 
 const DESKTOP_CONFIG = {
   initialCandles: 350,
@@ -181,7 +172,11 @@ const AssetContent = memo(function AssetContent({
   // `symbol` is the rawCoin from URL (perp: "BTC", spot: "PURR/USDC", HIP-3: "xyz:TSLA")
   const { data: annotation } = useTradeAnnotation(symbol);
   const { data: logoUrl } = useHyperliquidSymbolLogo(symbol);
-  const { data: tradeList } = useTradeList();
+
+  // Markets list is intent-driven: only fetch when user interacts with trade dropdown.
+  // This removes 166kB from the initial render critical path.
+  const [marketsIntent, setMarketsIntent] = useState(false);
+  const { data: tradeList } = useTradeList(marketsIntent);
   const displayName = annotation?.displayName || symbol.toUpperCase();
   const description = annotation?.description;
 
@@ -220,6 +215,7 @@ const AssetContent = memo(function AssetContent({
             logoUrl={logoUrl ?? undefined}
             displaySymbol={displaySymbol}
             currentDisplayName={displayName}
+            onPrefetchMarkets={() => setMarketsIntent(true)}
           />
           {isHip3 && dexPrefix && (
             <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0 leading-none">
@@ -290,18 +286,19 @@ const AssetContent = memo(function AssetContent({
 
 function AssetDetailSkeleton() {
   return (
-    <div className="container-fluid h-full overflow-y-auto py-[clamp(0.75rem,1.5vw,1.5rem)] overscroll-none">
-      <header className="flex items-center gap-3 pb-[clamp(0.25rem,1vw,0.375rem)]">
-        <Skeleton className="w-7 h-7 rounded-full" />
-        <div>
-          <Skeleton className="h-4 w-32 mb-1" />
-          <Skeleton className="h-3 w-48" />
-        </div>
+    <div className="container-fluid h-screen flex flex-col pt-3 pb-2 px-4 select-none overflow-hidden">
+      <header className="flex items-center gap-3 shrink-0 pb-1.5">
+        <Skeleton className="size-7 rounded-full" />
+        <Skeleton className="h-4 w-48" />
       </header>
-      <div className="flex-8 min-h-0 grid grid-cols-6 gap-[clamp(0.15rem,0.5vw,0.3rem)] items-stretch">
-        <Skeleton className="col-span-4 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-lg" />
-        <Skeleton className="col-span-1 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-xl" />
-        <Skeleton className="col-span-1 h-[clamp(20rem,20rem+1.25vw,31.25rem)] rounded-xl" />
+      {/* Chart + Orderbook + OrderForm skeleton rows — matches flex-8 grid in AssetContent */}
+      <div className="flex-8 min-h-0 grid grid-cols-6 gap-0.5 items-stretch">
+        <Skeleton className="col-span-4 rounded-lg" />
+        <Skeleton className="col-span-2 rounded-lg" />
+      </div>
+      {/* Position management skeleton — matches flex-2 area */}
+      <div className="flex-2 min-h-0 pt-0.5 flex flex-col">
+        <Skeleton className="h-full w-full rounded-lg" />
       </div>
     </div>
   );
@@ -343,15 +340,9 @@ export function AssetDetail() {
       ? normalizedSymbol
       : `${normalizedSymbol}USDT`;
 
-  // Only perp assets support WS subscriptions; spot/outcome would send invalid coins → Hyperliquid drops the connection.
-  const { data: tradeListData } = useTradeList();
-  const currentAsset = useMemo(() => {
-    if (!tradeListData?.assets) return null;
-    return tradeListData.assets.find((a) => a.rawCoin.toLowerCase() === rawCoin.toLowerCase());
-  }, [tradeListData, rawCoin]);
-  // Use discriminated union: only "perp" marketType enables WS.
-  // Fail closed: if asset not yet loaded (null), WS stays disabled.
-  const enableWsRealtime = currentAsset?.marketType === "perp";
+  // WS enabled by default — backend validates perp-only server-side (rejects spot/outcome).
+  // Markets list is loaded lazily (trade dropdown intent), not needed for above-the-fold render.
+  const enableWsRealtime = true;
 
   const {
     data: fetchedAsset,
@@ -364,6 +355,8 @@ export function AssetDetail() {
     staleTime: 60 * 1000,
     refetchOnMount: true,
     retry: 1,
+    // Show previous price data while loading next symbol
+    placeholderData: (prev) => prev,
   });
 
   const asset = useMemo<AssetViewModel | null>(
@@ -385,8 +378,6 @@ export function AssetDetail() {
     enabled: enableWsRealtime,
   });
 
-  const { getPrecision } = useHyperliquidMeta();
-
   const latestPrice = useMemo(() => {
     if (!candleData || candleData.length === 0) return null;
     return candleData[candleData.length - 1].close;
@@ -400,13 +391,9 @@ export function AssetDetail() {
   const documentTitle = useMemo(() => {
     if (!asset?.price && !latestPrice) return "";
     const price = latestPrice || asset?.price?.price || 0;
-    const precision = getPrecision(symbol || "").pxDecimals;
-    return formatPerpTitle(
-      asset?.symbol.toUpperCase() || symbol?.toUpperCase() || "",
-      price,
-      precision
-    );
-  }, [asset, symbol, latestPrice, getPrecision]);
+    // Use default precision (4) — markets list is lazy-loaded, precision cosmetics are non-critical
+    return formatPerpTitle(asset?.symbol.toUpperCase() || symbol?.toUpperCase() || "", price, 4);
+  }, [asset, symbol, latestPrice]);
 
   useDocumentTitle({ title: documentTitle });
 

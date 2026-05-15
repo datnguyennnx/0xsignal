@@ -40,11 +40,9 @@ export function PositionManagement() {
   const { data: histOrders, isLoading: isHistLoading } = useHistoricalOrders();
   const cancelOrdersMutation = useCancelOrdersMutation();
 
-  /* ─── Place order mutation ─── */
   const queryClient = useQueryClient();
   const { meta: metaData, getPrecision } = useHyperliquidMeta();
 
-  /* ─── Real-time mid prices from WebSocket ─── */
   const mids = useAllMids();
 
   const placeOrderMutation = useMutation({
@@ -55,10 +53,8 @@ export function PositionManagement() {
     },
   });
 
-  /* ─── Active tab state ─── */
   const [activeTab, setActiveTab] = useState("balance");
 
-  /* ─── Limit close modal state ─── */
   const [closeLimitPosition, setCloseLimitPosition] = useState<{
     coin: string;
     sz: number;
@@ -66,10 +62,8 @@ export function PositionManagement() {
     markPx: number;
   } | null>(null);
 
-  /* ─── TP/SL modal state ─── */
   const [tpSlModalOrder, setTpSlModalOrder] = useState<FrontendOpenOrder | null>(null);
 
-  /* ─── TP/SL modal computed display values ─── */
   const tpSlModalProps = useMemo(() => {
     if (!tpSlModalOrder) return null;
     const kids = tpSlModalOrder.children;
@@ -84,7 +78,6 @@ export function PositionManagement() {
   const marginSummary = chData?.marginSummary;
   const withdrawable = chData?.withdrawable;
 
-  /* ─── Spot USDC balance ─── */
   const spotUsdc = spotData?.balances?.find((b) => b.coin === "USDC");
   const spotUsdcTotal = spotUsdc ? Number(spotUsdc.total) : null;
   const spotUsdcHold = spotUsdc ? Number(spotUsdc.hold) : null;
@@ -96,27 +89,22 @@ export function PositionManagement() {
       ? spotUsdcTotal - spotUsdcHold
       : Number(withdrawable ?? usdcTotalBalance);
 
-  /* ─── Effective values for Account row (perps-aware, falls back to Spot) ─── */
   const accountValue = marginSummary ? Number(marginSummary.accountValue) : 0;
   const effectiveAccountTotal = accountValue > 0 ? accountValue : usdcTotalBalance;
   const perpsWithdrawable = Number(withdrawable ?? 0);
   const effectiveAvailableBalance = accountValue > 0 ? perpsWithdrawable : usdcAvailableBalance;
 
-  /* ─── Counts for tab badges ─── */
   const balanceCount = marginSummary ? 2 + positions.length : 0;
   const positionsCount = positions.length;
   const openOrdersCount = openOrders?.length ?? 0;
 
-  /* ─── Aggregate PnL ─── */
   const totalUnrealizedPnl = positions.reduce(
     (sum, p) => sum + Number(p.position.unrealizedPnl),
     0
   );
 
-  /* ─── Cancel confirmation dialog state ─── */
   const [cancelAllDialogOpen, setCancelAllDialogOpen] = useState(false);
 
-  /* ─── Cancel order helpers ─── */
   const handleCancelOrder = (coin: string, oid: number) => {
     cancelOrdersMutation.mutate({ cancels: [{ coin, o: oid }] });
   };
@@ -128,7 +116,6 @@ export function PositionManagement() {
     setCancelAllDialogOpen(false);
   };
 
-  /* ─── Market close handler ─── */
   const handleCloseMarket = useCallback(
     (coin: string, size: string, isLong: boolean) => {
       const assetEntry = (Array.isArray(metaData) ? metaData : []).find((a) => a.coin === coin);
@@ -153,7 +140,6 @@ export function PositionManagement() {
     [metaData, getPrecision, placeOrderMutation]
   );
 
-  /* ─── Limit close handler ─── */
   const handleCloseLimitConfirm = useCallback(
     ({ price, size }: { price: string; size: string }) => {
       if (!closeLimitPosition) return;
@@ -178,7 +164,6 @@ export function PositionManagement() {
     [closeLimitPosition, metaData, placeOrderMutation]
   );
 
-  /* ─── Close limit modal computed values ─── */
   const closeLimitSzDecimals = closeLimitPosition
     ? getPrecision(closeLimitPosition.coin).szDecimals
     : 4;

@@ -1,9 +1,5 @@
 /**
- * @overview User Data Queries & Mutations
- *
- * Aggregates all user-data React Query hooks: clearinghouse state (positions, margin),
- * spot state, open orders, historical orders, fills, and order cancellation mutation.
- * @file use-user-data.ts
+ * React Query hooks for user account data and order mutations.
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
