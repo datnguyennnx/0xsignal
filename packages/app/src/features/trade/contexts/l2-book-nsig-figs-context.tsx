@@ -36,7 +36,7 @@ export function L2BookNSigFigsProvider({ children }: { children: ReactNode }) {
     [nSigFigs, setNSigFigs]
   );
 
-  return <L2BookNSigFigsContext.Provider value={value}>{children}</L2BookNSigFigsContext.Provider>;
+  return <L2BookNSigFigsContext value={value}>{children}</L2BookNSigFigsContext>;
 }
 
 /** Returns null when no provider (e.g. orderbook-only page) — callers use autonomous book mode. */

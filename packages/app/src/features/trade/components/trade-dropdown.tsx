@@ -172,7 +172,7 @@ export const TradeDropdown = memo(function TradeDropdown({
 }: TradeDropdownProps) {
   const dropdownContentId = "trade-market-dropdown-content";
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryTab>("all");
   const [sortBy, setSortBy] = useState<"name" | "change">("name");
@@ -237,7 +237,7 @@ export const TradeDropdown = memo(function TradeDropdown({
   }, [trades, category, query, sortBy, sortDesc]);
 
   const handleClose = useCallback(() => {
-    setOpen(false);
+    setIsOpen(false);
     setQuery("");
     triggerRef.current?.focus();
   }, []);
@@ -268,7 +268,7 @@ export const TradeDropdown = memo(function TradeDropdown({
 
       setPosition({ top, left });
     }
-    setOpen(true);
+    setIsOpen(true);
   }, []);
 
   const handleSelect = useCallback(
@@ -292,14 +292,14 @@ export const TradeDropdown = memo(function TradeDropdown({
   );
 
   useEffect(() => {
-    if (open && inputRef.current) {
+    if (isOpen && inputRef.current) {
       const timeout = setTimeout(() => inputRef.current?.focus(), 100);
       return () => clearTimeout(timeout);
     }
-  }, [open]);
+  }, [isOpen]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
       if (!(e.target as Element).closest("[data-trade-dropdown]")) {
@@ -318,7 +318,7 @@ export const TradeDropdown = memo(function TradeDropdown({
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, handleClose]);
+  }, [isOpen, handleClose]);
 
   const formattedTrades = useMemo(() => {
     if (!filteredTrades) return [];
@@ -357,8 +357,8 @@ export const TradeDropdown = memo(function TradeDropdown({
         type="button"
         ref={triggerRef}
         className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded transition-colors hover:bg-muted/30"
-        onClick={open ? handleClose : handleOpen}
-        aria-expanded={open}
+        onClick={isOpen ? handleClose : handleOpen}
+        aria-expanded={isOpen}
         aria-haspopup="dialog"
         aria-controls={dropdownContentId}
         aria-label={`Select market, current ${displayLabel}`}
@@ -389,12 +389,12 @@ export const TradeDropdown = memo(function TradeDropdown({
         <ChevronDown
           className={cn(
             "w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0",
-            open && "rotate-180"
+            isOpen && "rotate-180"
           )}
         />
       </button>
 
-      {open && (
+      {isOpen && (
         <div
           id={dropdownContentId}
           role="dialog"

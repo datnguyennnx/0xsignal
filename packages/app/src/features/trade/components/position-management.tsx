@@ -33,11 +33,11 @@ import { CloseLimitModal } from "./close-limit-modal";
 import { formatOrderSize } from "../utils/trade-math";
 
 export function PositionManagement() {
-  const { data: chData, isLoading: chLoading } = useClearinghouseState();
+  const { data: chData, isLoading: isChLoading } = useClearinghouseState();
   const { data: spotData } = useSpotClearinghouseState();
-  const { data: openOrders, isLoading: ooLoading } = useOpenOrders();
-  const { data: fills, isLoading: fillsLoading } = useUserFills();
-  const { data: histOrders, isLoading: histLoading } = useHistoricalOrders();
+  const { data: openOrders, isLoading: isOoLoading } = useOpenOrders();
+  const { data: fills, isLoading: isFillsLoading } = useUserFills();
+  const { data: histOrders, isLoading: isHistLoading } = useHistoricalOrders();
   const cancelOrdersMutation = useCancelOrdersMutation();
 
   /* ─── Place order mutation ─── */
@@ -191,13 +191,13 @@ export function PositionManagement() {
         className="h-full flex flex-col overflow-hidden"
       >
         <TabsList className="shrink-0 flex gap-0 h-auto bg-transparent border-b border-border/40 rounded-none p-0">
-          <TabTrigger value="balance" count={!chLoading ? balanceCount : undefined}>
+          <TabTrigger value="balance" count={!isChLoading ? balanceCount : undefined}>
             Balance
           </TabTrigger>
-          <TabTrigger value="positions" count={!chLoading ? positionsCount : undefined}>
+          <TabTrigger value="positions" count={!isChLoading ? positionsCount : undefined}>
             Positions
           </TabTrigger>
-          <TabTrigger value="open-orders" count={!ooLoading ? openOrdersCount : undefined}>
+          <TabTrigger value="open-orders" count={!isOoLoading ? openOrdersCount : undefined}>
             Open Orders
           </TabTrigger>
           <TabTrigger value="trade-history">Trade History</TabTrigger>
@@ -209,7 +209,7 @@ export function PositionManagement() {
           className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col overflow-hidden"
         >
           <BalanceTable
-            chLoading={chLoading}
+            isChLoading={isChLoading}
             marginSummary={marginSummary}
             positions={positions}
             usdcTotalBalance={usdcTotalBalance}
@@ -225,7 +225,7 @@ export function PositionManagement() {
           className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col overflow-hidden"
         >
           <PositionsTable
-            chLoading={chLoading}
+            isChLoading={isChLoading}
             positions={positions}
             mids={mids}
             onCloseMarket={handleCloseMarket}
@@ -239,7 +239,7 @@ export function PositionManagement() {
           className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col overflow-hidden"
         >
           <OpenOrdersTable
-            ooLoading={ooLoading}
+            isOoLoading={isOoLoading}
             openOrders={openOrders}
             onCancelOrder={handleCancelOrder}
             onViewTpSl={(order) => setTpSlModalOrder(order)}
@@ -253,14 +253,14 @@ export function PositionManagement() {
           value="trade-history"
           className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <TradeHistoryTable fills={fills} fillsLoading={fillsLoading} />
+          <TradeHistoryTable fills={fills} isFillsLoading={isFillsLoading} />
         </TabsContent>
 
         <TabsContent
           value="order-history"
           className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <HistoryOrderTable histOrders={histOrders} histLoading={histLoading} />
+          <HistoryOrderTable histOrders={histOrders} isHistLoading={isHistLoading} />
         </TabsContent>
       </Tabs>
 

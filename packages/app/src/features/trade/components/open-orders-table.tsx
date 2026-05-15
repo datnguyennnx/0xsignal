@@ -15,21 +15,25 @@ import {
   formatOrderValue,
   formatOrderPrice,
 } from "../utils/trigger-utils";
+import {
+  CELL_CLASS,
+  CELL_NUM_CLASS,
+  CELL_HEAD_CLASS,
+  CELL_HEAD_NUM_CLASS,
+} from "./orderbook-table-classes";
 import type { FrontendOpenOrder } from "@0xsignal/shared";
 
 /* ─── Styling constants ─── */
 
-const c = "px-4 py-2 text-xs whitespace-nowrap";
-const cNum = "px-4 py-2 text-xs text-right tabular-nums whitespace-nowrap";
-const cHead =
-  "px-4 py-2 text-[0.65rem] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap";
-const cHeadNum =
-  "px-4 py-2 text-[0.65rem] font-medium text-muted-foreground uppercase tracking-wider text-right whitespace-nowrap";
+const c = CELL_CLASS;
+const cNum = CELL_NUM_CLASS;
+const cHead = CELL_HEAD_CLASS;
+const cHeadNum = CELL_HEAD_NUM_CLASS;
 
 /* ─── Types ─── */
 
 interface OpenOrdersTableProps {
-  ooLoading: boolean;
+  isOoLoading: boolean;
   openOrders: FrontendOpenOrder[] | undefined;
   onCancelOrder: (coin: string, oid: number) => void;
   onViewTpSl: (order: FrontendOpenOrder) => void;
@@ -41,7 +45,7 @@ interface OpenOrdersTableProps {
 /* ─── Component ─── */
 
 export function OpenOrdersTable({
-  ooLoading,
+  isOoLoading,
   openOrders,
   onCancelOrder,
   onViewTpSl,
@@ -77,7 +81,7 @@ export function OpenOrdersTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {ooLoading ? (
+          {isOoLoading ? (
             // Skeleton rows — 3 rows with approximate column widths
             Array.from({ length: 3 }).map((_, i) => (
               <TableRow key={i}>

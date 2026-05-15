@@ -95,12 +95,7 @@ function extractRawCandlePayload(payload: unknown): Record<string, unknown>[] {
   return [];
 }
 
-/** Shape of backend error responses */
-interface ApiErrorBody {
-  readonly error?: string;
-  readonly code?: string;
-  readonly status?: number;
-}
+import type { ApiErrorBody } from "@0xsignal/shared";
 
 async function parseErrorBody(response: Response): Promise<ApiErrorBody | null> {
   try {

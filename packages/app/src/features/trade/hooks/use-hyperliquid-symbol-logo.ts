@@ -2,12 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/query-keys";
 
 const HYPERLIQUID_COIN_ICON_BASE = "https://app.hyperliquid.xyz/coins";
-const logoResultCache = new Map<string, string | null>();
-const logoResolvePromiseCache = new Map<string, Promise<string | null>>();
-const imageProbeCache = new Map<string, Promise<boolean>>();
+const LOGO_RESULT_CACHE = new Map<string, string | null>();
+const LOGO_RESOLVE_PROMISE_CACHE = new Map<string, Promise<string | null>>();
+const IMAGE_PROBE_CACHE = new Map<string, Promise<boolean>>();
 const MAX_PARALLEL_IMAGE_PROBES = 6;
-let activeImageProbes = 0;
-const imageProbeQueue: Array<() => void> = [];
+let ACTIVE_IMAGE_PROBES = 0;
+const IMAGE_PROBE_QUEUE: Array<() => void> = [];
 const LOGO_STALE_TIME = 24 * 60 * 60 * 1000;
 const LOGO_GC_TIME = 24 * 60 * 60 * 1000;
 
@@ -57,48 +57,48 @@ function getHyperliquidSymbolLogoCandidates(symbol: string): string[] {
 }
 
 function probeImage(url: string): Promise<boolean> {
-  const cachedProbe = imageProbeCache.get(url);
+  const cachedProbe = IMAGE_PROBE_CACHE.get(url);
   if (cachedProbe) return cachedProbe;
 
   const probePromise = new Promise<boolean>((resolve) => {
     const execute = () => {
-      activeImageProbes += 1;
+      ACTIVE_IMAGE_PROBES += 1;
 
       const image = new Image();
       const timeout = window.setTimeout(() => {
         image.onload = null;
         image.onerror = null;
-        activeImageProbes -= 1;
-        imageProbeQueue.shift()?.();
+        ACTIVE_IMAGE_PROBES -= 1;
+        IMAGE_PROBE_QUEUE.shift()?.();
         resolve(false);
       }, 4000);
 
       image.onload = () => {
         window.clearTimeout(timeout);
-        activeImageProbes -= 1;
-        imageProbeQueue.shift()?.();
+        ACTIVE_IMAGE_PROBES -= 1;
+        IMAGE_PROBE_QUEUE.shift()?.();
         resolve(true);
       };
 
       image.onerror = () => {
         window.clearTimeout(timeout);
-        activeImageProbes -= 1;
-        imageProbeQueue.shift()?.();
+        ACTIVE_IMAGE_PROBES -= 1;
+        IMAGE_PROBE_QUEUE.shift()?.();
         resolve(false);
       };
 
       image.src = url;
     };
 
-    if (activeImageProbes < MAX_PARALLEL_IMAGE_PROBES) {
+    if (ACTIVE_IMAGE_PROBES < MAX_PARALLEL_IMAGE_PROBES) {
       execute();
       return;
     }
 
-    imageProbeQueue.push(execute);
+    IMAGE_PROBE_QUEUE.push(execute);
   });
 
-  imageProbeCache.set(url, probePromise);
+  IMAGE_PROBE_CACHE.set(url, probePromise);
   return probePromise;
 }
 
@@ -106,30 +106,30 @@ async function resolveHyperliquidSymbolLogo(symbol: string): Promise<string | nu
   const cacheKey = normalizeSymbol(symbol);
   if (!cacheKey) return null;
 
-  const cachedResult = logoResultCache.get(cacheKey);
+  const cachedResult = LOGO_RESULT_CACHE.get(cacheKey);
   if (cachedResult !== undefined) return cachedResult;
 
-  const cachedPromise = logoResolvePromiseCache.get(cacheKey);
+  const cachedPromise = LOGO_RESOLVE_PROMISE_CACHE.get(cacheKey);
   if (cachedPromise) return cachedPromise;
 
   const resolvePromise = (async () => {
     const candidates = getHyperliquidSymbolLogoCandidates(symbol);
     for (const candidate of candidates) {
       if (await probeImage(candidate)) {
-        logoResultCache.set(cacheKey, candidate);
+        LOGO_RESULT_CACHE.set(cacheKey, candidate);
         return candidate;
       }
     }
 
-    logoResultCache.set(cacheKey, null);
+    LOGO_RESULT_CACHE.set(cacheKey, null);
     return null;
   })();
 
-  logoResolvePromiseCache.set(cacheKey, resolvePromise);
+  LOGO_RESOLVE_PROMISE_CACHE.set(cacheKey, resolvePromise);
   try {
     return await resolvePromise;
   } finally {
-    logoResolvePromiseCache.delete(cacheKey);
+    LOGO_RESOLVE_PROMISE_CACHE.delete(cacheKey);
   }
 }
 
@@ -144,5 +144,3 @@ export function useHyperliquidSymbolLogo(symbol: string) {
     retry: false,
   });
 }
-
-/* prefetchHyperliquidSymbolLogos removed — unused dead code */

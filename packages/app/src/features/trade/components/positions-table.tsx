@@ -7,22 +7,26 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
+import {
+  CELL_CLASS,
+  CELL_NUM_CLASS,
+  CELL_HEAD_CLASS,
+  CELL_HEAD_NUM_CLASS,
+} from "./orderbook-table-classes";
 import { PosDirLabel, PnLDisplay } from "./shared-table-components";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /* ─── Styling constants ─── */
 
-const c = "px-4 py-2 text-xs whitespace-nowrap";
-const cNum = "px-4 py-2 text-xs text-right tabular-nums whitespace-nowrap";
-const cHead =
-  "px-4 py-2 text-[0.65rem] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap";
-const cHeadNum =
-  "px-4 py-2 text-[0.65rem] font-medium text-muted-foreground uppercase tracking-wider text-right whitespace-nowrap";
+const c = CELL_CLASS;
+const cNum = CELL_NUM_CLASS;
+const cHead = CELL_HEAD_CLASS;
+const cHeadNum = CELL_HEAD_NUM_CLASS;
 
 /* ─── Types ─── */
 
 interface PositionsTableProps {
-  chLoading: boolean;
+  isChLoading: boolean;
   positions: Array<{
     position: {
       coin: string;
@@ -46,7 +50,7 @@ interface PositionsTableProps {
 /* ─── Component ─── */
 
 export function PositionsTable({
-  chLoading,
+  isChLoading,
   positions,
   onCloseMarket,
   onCloseLimit,
@@ -72,7 +76,7 @@ export function PositionsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {chLoading ? (
+          {isChLoading ? (
             Array.from({ length: 3 }).map((_, i) => (
               <TableRow key={i}>
                 <TableCell className={c}>

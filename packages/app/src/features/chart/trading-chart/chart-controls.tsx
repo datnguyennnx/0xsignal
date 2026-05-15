@@ -2,7 +2,6 @@
  * @overview Trading Chart Controls
  *
  * Technical indicator management, reset, and fullscreen toggle.
- * ICT/Wyckoff pattern analysis has been removed.
  */
 import { memo } from "react";
 import type { ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";

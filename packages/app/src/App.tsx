@@ -12,7 +12,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/core/providers/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MarketStreamProvider } from "@/features/trade/contexts/market-stream-context";
-import { Layout } from "@/layouts/main-layout";
+import { MainLayout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 
 import { queryKeys } from "@/lib/query/query-keys";
@@ -89,7 +89,7 @@ function App() {
         <MarketStreamProvider>
           <TooltipProvider>
             <BrowserRouter>
-              <Layout>
+              <MainLayout>
                 <Suspense fallback={<PageLoader />}>
                   <ErrorBoundary fallback={<RouteErrorFallback />}>
                     <Routes>
@@ -101,7 +101,7 @@ function App() {
                     </Routes>
                   </ErrorBoundary>
                 </Suspense>
-              </Layout>
+              </MainLayout>
             </BrowserRouter>
           </TooltipProvider>
         </MarketStreamProvider>

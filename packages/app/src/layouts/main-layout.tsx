@@ -9,7 +9,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { cn } from "@/core/utils/cn";
 const NAV_ITEMS = [{ path: "/trade", label: "Trade" }] as const;
 
-export function Layout({ children }: { children: ReactNode }) {
+export function MainLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   return (

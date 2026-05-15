@@ -9,7 +9,6 @@
     ".": "./index.ts",
     "./types/*": "./types/*",
     "./indicators/*": "./indicators/*",
-    "./patterns/*": "./patterns/*",
     "./schemas/*": "./schemas/*"
   },
   "scripts": {

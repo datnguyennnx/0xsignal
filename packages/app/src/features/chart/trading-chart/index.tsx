@@ -3,7 +3,6 @@
  *
  * A high-performance financial chart based on Lightweight Charts (TradingView).
  * Supports technical indicators, multiple timeframes, and real-time streaming.
- * ICT/Wyckoff pattern analysis has been removed.
  */
 import { useRef, useCallback, useMemo, memo } from "react";
 import { useTheme } from "@/core/providers/theme-provider";

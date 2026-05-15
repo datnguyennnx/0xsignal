@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -41,6 +41,11 @@ export function AdjustLeverageModal({
 }: AdjustLeverageModalProps) {
   const [leverage, setLeverage] = useState(currentLeverage);
   const queryClient = useQueryClient();
+
+  // Sync state when prop changes (e.g. modal opened for a different asset)
+  useEffect(() => {
+    setLeverage(currentLeverage);
+  }, [currentLeverage]);
 
   const isDecreasingLeverage = hasPosition && leverage < currentLeverage;
 

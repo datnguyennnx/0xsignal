@@ -11,32 +11,36 @@ import { formatPrice, formatCompactUsd } from "@/core/utils/formatters";
 import { formatTime, fmtNum, formatStatus } from "./shared-table-utils";
 import { SideLabel, DirLabel } from "./shared-table-components";
 import { getOrderType, getTriggerLabel, formatOrderValue } from "../utils/trigger-utils";
+import {
+  CELL_CLASS,
+  CELL_NUM_CLASS,
+  CELL_HEAD_CLASS,
+  CELL_HEAD_NUM_CLASS,
+} from "./orderbook-table-classes";
 import type { UserFill, HistoricalOrderEntry } from "@0xsignal/shared";
 
 /* ─── Styling constants ─── */
 
-const c = "px-4 py-2 text-xs whitespace-nowrap";
-const cNum = "px-4 py-2 text-xs text-right tabular-nums whitespace-nowrap";
-const cHead =
-  "px-4 py-2 text-[0.65rem] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap";
-const cHeadNum =
-  "px-4 py-2 text-[0.65rem] font-medium text-muted-foreground uppercase tracking-wider text-right whitespace-nowrap";
+const c = CELL_CLASS;
+const cNum = CELL_NUM_CLASS;
+const cHead = CELL_HEAD_CLASS;
+const cHeadNum = CELL_HEAD_NUM_CLASS;
 
 /* ─── Types ─── */
 
 interface TradeHistoryTableProps {
   fills?: UserFill[];
-  fillsLoading: boolean;
+  isFillsLoading: boolean;
 }
 
 interface HistoryOrderTableProps {
   histOrders?: HistoricalOrderEntry[];
-  histLoading: boolean;
+  isHistLoading: boolean;
 }
 
 /* ─── Trade History (fills) ─── */
 
-export function TradeHistoryTable({ fills, fillsLoading }: TradeHistoryTableProps) {
+export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -52,7 +56,7 @@ export function TradeHistoryTable({ fills, fillsLoading }: TradeHistoryTableProp
         </TableRow>
       </TableHeader>
       <TableBody>
-        {fillsLoading ? (
+        {isFillsLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <TableRow key={i}>
               <TableCell className={c}>
@@ -127,7 +131,7 @@ export function TradeHistoryTable({ fills, fillsLoading }: TradeHistoryTableProp
 
 /* ─── Order History (historical orders) ─── */
 
-export function HistoryOrderTable({ histOrders, histLoading }: HistoryOrderTableProps) {
+export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -148,7 +152,7 @@ export function HistoryOrderTable({ histOrders, histLoading }: HistoryOrderTable
         </TableRow>
       </TableHeader>
       <TableBody>
-        {histLoading ? (
+        {isHistLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <TableRow key={i}>
               <TableCell className={c}>

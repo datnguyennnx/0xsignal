@@ -52,6 +52,7 @@ interface PopupData {
 }
 
 const ROW_HEIGHT = 28;
+const ROW_STYLE = { height: ROW_HEIGHT };
 const VISIBLE_ROWS = 20;
 
 const PRECISION_RESUBSCRIBE_DEBOUNCE_MS = 160;
@@ -189,7 +190,7 @@ const OrderRow = memo(
         className={`relative flex items-center px-3 cursor-pointer tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset ${
           isHovered ? "bg-muted/50" : "hover:bg-muted/30"
         }`}
-        style={{ height: ROW_HEIGHT }}
+        style={ROW_STYLE}
         tabIndex={level.price > 0 ? 0 : -1}
         aria-label={
           level.price > 0

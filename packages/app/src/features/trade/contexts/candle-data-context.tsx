@@ -45,9 +45,9 @@ export function CandleDataProvider({
   children: ReactNode;
 }) {
   return (
-    <CandleDataContext.Provider value={{ data, dataRef, isLoading, loadMore, hasMore, isFetching }}>
+    <CandleDataContext value={{ data, dataRef, isLoading, loadMore, hasMore, isFetching }}>
       {children}
-    </CandleDataContext.Provider>
+    </CandleDataContext>
   );
 }
 

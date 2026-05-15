@@ -1,10 +1,5 @@
 /**
  * @overview Market Data UI Utilities
- * @audit 2026-04-03
- *   - processRawL2Levels: reduced allocations from 4+ intermediate arrays to 2 (bids + asks only)
- *     Time: O(n log n) dominated by sort (Ω(n log n) lower bound for comparison sort — optimal)
- *     Space: O(n) for output arrays only, no temporary sorted copies
- *   - groupOrderbookLevels: removed (was dead code)
  * @data-flow backend WS/HTTP payloads → UI adapters → processRawL2Levels
  *   → RAF batch/local state → chart + orderbook rendering
  */
@@ -132,5 +127,3 @@ export function processRawL2Levels(rawBids: L2BookLevel[], rawAsks: L2BookLevel[
     midPrice: bestBid && bestAsk ? (bestBid + bestAsk) / 2 : 0,
   };
 }
-
-/* groupOrderbookLevels removed — unused dead code */

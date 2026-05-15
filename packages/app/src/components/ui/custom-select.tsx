@@ -26,32 +26,32 @@ export function CustomSelect<T extends string>({
   onChange,
   className,
 }: CustomSelectProps<T>) {
-  const [open, setOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const selected = options.find((o) => o.value === value);
 
-  const handleToggle = useCallback(() => setOpen((p) => !p), []);
+  const handleToggle = useCallback(() => setIsOpen((p) => !p), []);
 
   const handleSelect = useCallback(
     (v: T) => {
       onChange(v);
-      setOpen(false);
+      setIsOpen(false);
     },
     [onChange]
   );
 
   /* Close on outside click */
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
+        setIsOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  }, [isOpen]);
 
   return (
     <div ref={ref} className={cn("relative inline-flex", className)}>
@@ -64,10 +64,10 @@ export function CustomSelect<T extends string>({
         )}
       >
         {selected?.label ?? value}
-        <ChevronDownIcon className={cn("size-2.5 transition-transform", open && "rotate-180")} />
+        <ChevronDownIcon className={cn("size-2.5 transition-transform", isOpen && "rotate-180")} />
       </button>
 
-      {open && (
+      {isOpen && (
         <div
           className={cn(
             "absolute right-0 top-full z-50 mt-1 min-w-[5rem]",

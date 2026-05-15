@@ -23,9 +23,9 @@ export function HoverProvider({ children }: { children: ReactNode }) {
   const actionValue = useMemo(() => ({ setHoveredCandle }), [setHoveredCandle]);
 
   return (
-    <HoverStateContext.Provider value={stateValue}>
-      <HoverActionsContext.Provider value={actionValue}>{children}</HoverActionsContext.Provider>
-    </HoverStateContext.Provider>
+    <HoverStateContext value={stateValue}>
+      <HoverActionsContext value={actionValue}>{children}</HoverActionsContext>
+    </HoverStateContext>
   );
 }
 
