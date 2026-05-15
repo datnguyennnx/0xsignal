@@ -8,6 +8,7 @@ import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
 import { HyperliquidProvider } from "../../data-sources/hyperliquid/types";
 import type { AggregatedTradeAsset } from "../../data-sources/hyperliquid/types";
 import { Data, Effect } from "effect";
+import type { ManagedRuntime } from "effect";
 import {
   normalizeAllMidsData,
   normalizeCandleData,
@@ -35,7 +36,6 @@ type Bucket = {
   upstream?: ISubscription;
   subscribing?: Promise<void>; // Promise-based mutex lock for ensureUpstream
   restarting: boolean;
-  restartTimer?: ReturnType<typeof setTimeout>;
   firstMarketBroadcastLogged: boolean;
   retryCount: number;
 };
@@ -44,6 +44,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
 export class HyperliquidMarketStreamHub {
+  // Class-level mutable state is intentional: event-driven WebSocket manager.
   private readonly transport = new WebSocketTransport({
     resubscribe: true,
   });
@@ -54,11 +55,17 @@ export class HyperliquidMarketStreamHub {
 
   private readonly buckets = new Map<string, Bucket>();
 
+  private runtime?: ManagedRuntime.ManagedRuntime<any, any>;
+
   private connectionSeq = 0;
 
   private shuttingDown = false;
 
   constructor(private readonly provider?: typeof HyperliquidProvider.Service) {}
+
+  setRuntime(runtime: ManagedRuntime.ManagedRuntime<any, any>): void {
+    this.runtime = runtime;
+  }
 
   createConnectionData(subscription: MarketWsSubscription): MarketWsConnectionData {
     this.connectionSeq += 1;
@@ -253,15 +260,18 @@ export class HyperliquidMarketStreamHub {
       timestamp: Date.now(),
     });
 
-    bucket.restartTimer = setTimeout(() => {
-      const current = this.buckets.get(key);
-      if (!current) {
-        return;
-      }
-      current.restartTimer = undefined;
-      current.restarting = false;
-      void this.ensureUpstream(key);
-    }, 500);
+    this.runtime?.runPromise(
+      Effect.sleep("500 millis").pipe(
+        Effect.flatMap(() => {
+          const current = this.buckets.get(key);
+          if (!current) {
+            return Effect.void;
+          }
+          current.restarting = false;
+          return Effect.sync(() => this.ensureUpstream(key));
+        })
+      )
+    );
   }
 
   private async subscribeUpstream(bucket: Bucket): Promise<ISubscription> {
@@ -272,7 +282,9 @@ export class HyperliquidMarketStreamHub {
     const subSymbol = subscription.symbol;
     if (this.provider && subSymbol) {
       try {
-        const markets = await Effect.runPromise(this.provider.getAggregatedMarkets());
+        const markets: readonly AggregatedTradeAsset[] = await this.runtime!.runPromise(
+          this.provider.getAggregatedMarkets()
+        );
         const subUpper = subSymbol.toUpperCase();
         const asset: AggregatedTradeAsset | undefined = markets.find(
           (m) => m.rawCoin === subSymbol || m.rawCoin.toUpperCase() === subUpper
@@ -405,10 +417,6 @@ export class HyperliquidMarketStreamHub {
     }
 
     this.buckets.delete(bucket.key);
-    if (bucket.restartTimer) {
-      clearTimeout(bucket.restartTimer);
-      bucket.restartTimer = undefined;
-    }
     if (bucket.upstream) {
       void bucket.upstream.unsubscribe().catch((err) => {
         marketWsLog("unsubscribe_error", { bucketKey: bucket.key, error: String(err) }, "warn");
@@ -419,10 +427,6 @@ export class HyperliquidMarketStreamHub {
   shutdown() {
     this.shuttingDown = true;
     for (const bucket of this.buckets.values()) {
-      if (bucket.restartTimer) {
-        clearTimeout(bucket.restartTimer);
-        bucket.restartTimer = undefined;
-      }
       if (bucket.upstream) {
         void bucket.upstream.unsubscribe().catch((err) => {
           marketWsLog("unsubscribe_error", { bucketKey: bucket.key, error: String(err) }, "warn");

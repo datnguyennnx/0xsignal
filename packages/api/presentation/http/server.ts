@@ -4,7 +4,6 @@ import { AppLayer } from "../../infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
 import { runMigrations } from "../../infrastructure/db/postgres/migrations/migration";
 import { runQuestDBMigrations } from "../../infrastructure/db/questdb/migrations/migration";
-import { QuestDBClientLayer } from "../../infrastructure/db/questdb/client";
 import { type MarketWsConnectionData } from "../../infrastructure/streams/hyperliquid/hub";
 import { MarketStreamHub, MarketStreamHubLayer } from "./ws/market-stream-hub.layer";
 import { parseMarketWsSubscription } from "./ws/subscription-parser";
@@ -44,6 +43,7 @@ const migrateAction = Effect.gen(function* () {
 const serverProgram = Effect.gen(function* () {
   yield* migrateAction;
   const marketStreamHub = yield* MarketStreamHub;
+  marketStreamHub.setRuntime(runtime);
 
   // Use Effect's acquireRelease for the server lifecycle
   yield* Effect.acquireRelease(
@@ -139,10 +139,5 @@ const serverProgram = Effect.gen(function* () {
 
 // Run with Bun-optimized runtime
 BunRuntime.runMain(
-  serverProgram.pipe(
-    Effect.provide(MarketStreamHubLayer),
-    Effect.provide(QuestDBClientLayer),
-    Effect.provide(AppLayer),
-    Effect.scoped
-  )
+  serverProgram.pipe(Effect.provide(MarketStreamHubLayer), Effect.provide(AppLayer), Effect.scoped)
 );
