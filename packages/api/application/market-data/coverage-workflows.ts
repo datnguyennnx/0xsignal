@@ -51,6 +51,7 @@ export const createGapFillWorkflow = (
 ) => {
   return (query: CandleQuery, coverage: CoverageResult, startTime: Date, endTime: Date) =>
     Effect.gen(function* () {
+      const insertErrors: string[] = [];
       if (isCoverageCompleteStrict(coverage) || query.exchange.toLowerCase() !== "hyperliquid") {
         return coverage;
       }
@@ -79,11 +80,11 @@ export const createGapFillWorkflow = (
           yield* candleRepo
             .insertCandles(query.symbol, query.exchange, query.timeframe, remoteCandles)
             .pipe(
-              Effect.catchAll((error) =>
-                Effect.logWarning(
-                  `Failed to cache candles: ${error instanceof Error ? error.message : String(error)}`
-                )
-              )
+              Effect.catchAll((error) => {
+                const msg = error instanceof Error ? error.message : String(error);
+                insertErrors.push(msg);
+                return Effect.logWarning(`Failed to cache candles: ${msg}`);
+              })
             );
 
           const lastCandleTime = remoteCandles[remoteCandles.length - 1].timestamp.getTime();
@@ -94,8 +95,17 @@ export const createGapFillWorkflow = (
         }
       }
 
-      return yield* candleRepo
+      const finalCoverage = yield* candleRepo
         .checkCoverage(query.symbol, query.exchange, query.timeframe, startTime, endTime)
         .pipe(Effect.catchAll(() => Effect.succeed(coverage)));
+
+      if (insertErrors.length > 0) {
+        yield* Effect.logWarning(
+          `Partial gap fill for ${query.symbol} (${query.timeframe}): ${insertErrors.length} batch(es) failed`,
+          insertErrors
+        );
+      }
+
+      return finalCoverage;
     });
 };
