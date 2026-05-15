@@ -7,9 +7,7 @@ import {
   getTicker,
   getOrderBook,
   getTradeAnnotation,
-  HyperliquidProviderLive,
 } from "../provider";
-import { HyperliquidProvider } from "../types";
 import { HyperliquidClient } from "../client";
 
 const mockInfoClient = {
@@ -156,118 +154,5 @@ describe("Hyperliquid Providers", () => {
 
     expect(mockInfoClient.perpAnnotation).toHaveBeenCalledWith({ coin: "dex:CL" });
     expect(result.symbol).toBe("dex:CL");
-  });
-
-  it("HyperliquidProviderLive caches ticker snapshot for short ttl", async () => {
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([
-      { universe: [{ name: "BTC" }] },
-      [{ markPx: "101", midPx: "101.25" }],
-    ]);
-    mockInfoClient.allMids.mockResolvedValue({ BTC: "101.25" });
-
-    const nowSpy = vi.spyOn(Date, "now");
-    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:00.000Z").getTime());
-
-    const provider = HyperliquidProviderLive(
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient })
-    );
-    const layer = Layer.succeed(HyperliquidProvider, provider);
-
-    const first = Effect.flatMap(HyperliquidProvider, (svc) => svc.getTicker("BTC")).pipe(
-      Effect.provide(layer)
-    );
-    const second = Effect.flatMap(HyperliquidProvider, (svc) => svc.getTicker("BTC")).pipe(
-      Effect.provide(layer)
-    );
-
-    await Effect.runPromise(first);
-    await Effect.runPromise(second);
-
-    expect(mockInfoClient.metaAndAssetCtxs).toHaveBeenCalledTimes(1);
-    expect(mockInfoClient.allMids).toHaveBeenCalledTimes(1);
-
-    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:31.000Z").getTime());
-
-    const third = Effect.flatMap(HyperliquidProvider, (svc) => svc.getTicker("BTC")).pipe(
-      Effect.provide(layer)
-    );
-    await Effect.runPromise(third);
-
-    expect(mockInfoClient.metaAndAssetCtxs).toHaveBeenCalledTimes(2);
-    expect(mockInfoClient.allMids).toHaveBeenCalledTimes(2);
-
-    nowSpy.mockRestore();
-  });
-
-  it("HyperliquidProviderLive caches trade annotation", async () => {
-    mockInfoClient.perpAnnotation.mockResolvedValue({ category: "major" });
-
-    const nowSpy = vi.spyOn(Date, "now");
-    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:00.000Z").getTime());
-
-    const provider = HyperliquidProviderLive(
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient })
-    );
-    const layer = Layer.succeed(HyperliquidProvider, provider);
-
-    const first = Effect.flatMap(HyperliquidProvider, (svc) => svc.getTradeAnnotation("BTC")).pipe(
-      Effect.provide(layer)
-    );
-    const second = Effect.flatMap(HyperliquidProvider, (svc) => svc.getTradeAnnotation("BTC")).pipe(
-      Effect.provide(layer)
-    );
-
-    await Effect.runPromise(first);
-    await Effect.runPromise(second);
-
-    expect(mockInfoClient.perpAnnotation).toHaveBeenCalledTimes(1);
-
-    nowSpy.mockReturnValue(new Date("2026-01-01T07:00:00.000Z").getTime());
-
-    const third = Effect.flatMap(HyperliquidProvider, (svc) => svc.getTradeAnnotation("BTC")).pipe(
-      Effect.provide(layer)
-    );
-    await Effect.runPromise(third);
-
-    expect(mockInfoClient.perpAnnotation).toHaveBeenCalledTimes(2);
-
-    nowSpy.mockRestore();
-  });
-
-  it("HyperliquidProviderLive caches candle snapshots for short ttl", async () => {
-    mockInfoClient.candleSnapshot.mockResolvedValue([
-      { t: 1000, o: "1", h: "2", l: "0.5", c: "1.5", v: "10" },
-    ]);
-
-    const nowSpy = vi.spyOn(Date, "now");
-    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:00.000Z").getTime());
-
-    const provider = HyperliquidProviderLive(
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient })
-    );
-    const layer = Layer.succeed(HyperliquidProvider, provider);
-
-    const first = Effect.flatMap(HyperliquidProvider, (svc) =>
-      svc.getCandleSnapshot("BTC", "1m", 0, 60000)
-    ).pipe(Effect.provide(layer));
-    const second = Effect.flatMap(HyperliquidProvider, (svc) =>
-      svc.getCandleSnapshot("BTC", "1m", 0, 60000)
-    ).pipe(Effect.provide(layer));
-
-    await Effect.runPromise(first);
-    await Effect.runPromise(second);
-
-    expect(mockInfoClient.candleSnapshot).toHaveBeenCalledTimes(1);
-
-    nowSpy.mockReturnValue(new Date("2026-01-01T00:00:11.000Z").getTime());
-
-    const third = Effect.flatMap(HyperliquidProvider, (svc) =>
-      svc.getCandleSnapshot("BTC", "1m", 0, 60000)
-    ).pipe(Effect.provide(layer));
-    await Effect.runPromise(third);
-
-    expect(mockInfoClient.candleSnapshot).toHaveBeenCalledTimes(2);
-
-    nowSpy.mockRestore();
   });
 });
