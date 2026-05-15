@@ -1,4 +1,5 @@
 import { Layer } from "effect";
+import { PostgresConnectionPoolLive } from "../db/postgres/client";
 import { AgentRepositoryLive } from "../db/postgres/repositories/agent.repository";
 import { BacktestRepositoryLive } from "../db/postgres/repositories/backtest.repository";
 import { MarketDataRepositoryLive } from "../db/postgres/repositories/market-data.repository";
@@ -13,4 +14,4 @@ export const RepositoriesLive = Layer.mergeAll(
   MCPRepositoryLive,
   ResearchRepositoryLive,
   StrategyRepositoryLive
-);
+).pipe(Layer.provideMerge(PostgresConnectionPoolLive));

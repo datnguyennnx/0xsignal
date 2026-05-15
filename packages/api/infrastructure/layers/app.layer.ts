@@ -7,7 +7,7 @@ import { HealthServicesLive } from "./health.layer";
 import { RepositoriesLive } from "./repositories.layer";
 import { AppServicesLive } from "./services.layer";
 import { EngineLive } from "./engine.layer";
-
+import { PostgresConnectionPoolLive } from "../db/postgres/client";
 import { HyperliquidClientLive } from "../data-sources/hyperliquid/client";
 
 const Core = Layer.mergeAll(DevLoggerLive, BunContext.layer, FetchHttpClient.layer);
@@ -17,7 +17,7 @@ const Infrastructure = Layer.mergeAll(
   RepositoriesLive,
   EngineLive,
   HyperliquidClientLive
-);
+).pipe(Layer.provideMerge(PostgresConnectionPoolLive));
 
 export const AppLayer = AppServicesLive.pipe(
   Layer.provideMerge(Infrastructure),

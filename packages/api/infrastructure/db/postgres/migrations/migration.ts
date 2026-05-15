@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { getClient, query, type PoolClient } from "../client";
+import { getMigrationClient, migrationQuery, type PoolClient } from "../client";
 
 const MIGRATION_FILES = [
   "001_agent_core.sql",
@@ -178,7 +178,7 @@ export async function runMigrations(direction: "up" | "down" = "up"): Promise<vo
 
   try {
     console.log(`Running ${direction} migrations...`);
-    client = await getClient();
+    client = await getMigrationClient();
     await client.query("BEGIN");
 
     const lockResult = await client.query("SELECT pg_try_advisory_lock($1) as acquired", [
@@ -223,7 +223,7 @@ export async function rollbackMigration(filename: string): Promise<void> {
   let client: PoolClient | null = null;
 
   try {
-    client = await getClient();
+    client = await getMigrationClient();
     await client.query("BEGIN");
 
     const lockResult = await client.query("SELECT pg_try_advisory_lock($1) as acquired", [
@@ -256,7 +256,9 @@ export async function rollbackMigration(filename: string): Promise<void> {
 export async function getMigrationStatus(): Promise<
   Array<{ filename: string; applied: boolean; executedAt: string | null }>
 > {
-  const result = await query("SELECT filename, executed_at FROM schema_migrations ORDER BY id");
+  const result = await migrationQuery(
+    "SELECT filename, executed_at FROM schema_migrations ORDER BY id"
+  );
 
   return MIGRATION_FILES.map((filename) => {
     const applied = result.rows.find((r) => r.filename === filename);
