@@ -1,4 +1,4 @@
-import { Effect, Context, Layer } from "effect";
+import { Clock, Effect, Context, Layer } from "effect";
 import { DomainError } from "../errors";
 import type { ResearchNote, Artifact } from "../../schemas/research";
 import { ResearchRepository } from "../ports/research-repository";
@@ -49,30 +49,33 @@ export const makeResearchService = (repo: ResearchRepository): ResearchServices 
   appendResearchNote: (
     input: AppendResearchNoteInput
   ): Effect.Effect<ResearchNote, DomainError, never> =>
-    repo
-      .insertNote({
-        id: input.id,
-        session_id: input.session_id,
-        run_id: input.run_id,
-        strategy_version_id: input.strategy_version_id,
-        title: input.title,
-        content_markdown: input.content_markdown,
-        tags: input.tags,
-        trace_id: input.trace_id,
-        span_id: input.span_id,
-        correlation_id: input.correlation_id,
-        created_at: new Date().toISOString(),
-      })
-      .pipe(
-        Effect.mapError(
-          (e) =>
-            new DomainError({
-              code: "VALIDATION_ERROR",
-              message: "Failed to append research note",
-              cause: e,
-            })
-        )
-      ),
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      return yield* repo
+        .insertNote({
+          id: input.id,
+          session_id: input.session_id,
+          run_id: input.run_id,
+          strategy_version_id: input.strategy_version_id,
+          title: input.title,
+          content_markdown: input.content_markdown,
+          tags: input.tags,
+          trace_id: input.trace_id,
+          span_id: input.span_id,
+          correlation_id: input.correlation_id,
+          created_at: new Date(now).toISOString(),
+        })
+        .pipe(
+          Effect.mapError(
+            (e) =>
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Failed to append research note",
+                cause: e,
+              })
+          )
+        );
+    }),
 
   getNotesBySession: (sessionId: string): Effect.Effect<ResearchNote[], DomainError, never> =>
     repo.getNotesBySession(sessionId).pipe(
@@ -99,31 +102,34 @@ export const makeResearchService = (repo: ResearchRepository): ResearchServices 
     ),
 
   createArtifact: (input: CreateArtifactInput): Effect.Effect<Artifact, DomainError, never> =>
-    repo
-      .insertArtifact({
-        id: input.id,
-        run_id: input.run_id,
-        strategy_version_id: input.strategy_version_id,
-        artifact_type: input.artifact_type,
-        storage_path: input.storage_path,
-        content_type: input.content_type,
-        size_bytes: input.size_bytes,
-        metadata: input.metadata,
-        trace_id: input.trace_id,
-        span_id: input.span_id,
-        correlation_id: input.correlation_id,
-        created_at: new Date().toISOString(),
-      })
-      .pipe(
-        Effect.mapError(
-          (e) =>
-            new DomainError({
-              code: "VALIDATION_ERROR",
-              message: "Failed to create artifact",
-              cause: e,
-            })
-        )
-      ),
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      return yield* repo
+        .insertArtifact({
+          id: input.id,
+          run_id: input.run_id,
+          strategy_version_id: input.strategy_version_id,
+          artifact_type: input.artifact_type,
+          storage_path: input.storage_path,
+          content_type: input.content_type,
+          size_bytes: input.size_bytes,
+          metadata: input.metadata,
+          trace_id: input.trace_id,
+          span_id: input.span_id,
+          correlation_id: input.correlation_id,
+          created_at: new Date(now).toISOString(),
+        })
+        .pipe(
+          Effect.mapError(
+            (e) =>
+              new DomainError({
+                code: "VALIDATION_ERROR",
+                message: "Failed to create artifact",
+                cause: e,
+              })
+          )
+        );
+    }),
 
   getArtifactsByRun: (runId: string): Effect.Effect<Artifact[], DomainError, never> =>
     repo.getArtifactsByRun(runId).pipe(

@@ -1,4 +1,4 @@
-import { Effect, Context, Layer } from "effect";
+import { Clock, Effect, Context, Layer } from "effect";
 import { DomainError } from "../errors";
 import { MCPRepository } from "../ports/mcp-repository";
 import type { McpInteraction } from "../../schemas/mcp";
@@ -29,22 +29,25 @@ export const McpServicesLive = Layer.effect(
 
     return McpServices.of({
       trackInteraction: (input) =>
-        repo
-          .insertInteraction({
-            ...input,
-            status: "pending",
-            created_at: new Date().toISOString(),
-          })
-          .pipe(
-            Effect.mapError(
-              (e) =>
-                new DomainError({
-                  code: "VALIDATION_ERROR",
-                  message: "Failed to track MCP interaction",
-                  cause: e,
-                })
-            )
-          ),
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis;
+          return yield* repo
+            .insertInteraction({
+              ...input,
+              status: "pending",
+              created_at: new Date(now).toISOString(),
+            })
+            .pipe(
+              Effect.mapError(
+                (e) =>
+                  new DomainError({
+                    code: "VALIDATION_ERROR",
+                    message: "Failed to track MCP interaction",
+                    cause: e,
+                  })
+              )
+            );
+        }),
 
       updateStatus: (id, status, output) =>
         repo.updateInteractionStatus(id, status, output).pipe(

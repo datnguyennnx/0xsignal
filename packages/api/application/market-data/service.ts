@@ -1,4 +1,4 @@
-import { Config, Effect, Layer } from "effect";
+import { Clock, Config, Effect, Layer } from "effect";
 import { DomainError } from "../errors";
 import type { CoverageResult } from "../../schemas/market-data";
 import { MarketDataRepository } from "../ports/market-data-repository";
@@ -39,28 +39,38 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
 
     return MarketDataServices.of({
       requestCandlesticks: (input) =>
-        repo.insertCandlestickRequest({ ...input, created_at: new Date().toISOString() }).pipe(
-          Effect.mapError(
-            (e) =>
-              new DomainError({
-                code: "VALIDATION_ERROR",
-                message: "Failed to request candlesticks",
-                cause: e,
-              })
-          )
-        ),
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis;
+          return yield* repo
+            .insertCandlestickRequest({ ...input, created_at: new Date(now).toISOString() })
+            .pipe(
+              Effect.mapError(
+                (e) =>
+                  new DomainError({
+                    code: "VALIDATION_ERROR",
+                    message: "Failed to request candlesticks",
+                    cause: e,
+                  })
+              )
+            );
+        }),
 
       createDatasetSnapshot: (input) =>
-        repo.insertDatasetSnapshot({ ...input, created_at: new Date().toISOString() }).pipe(
-          Effect.mapError(
-            (e) =>
-              new DomainError({
-                code: "VALIDATION_ERROR",
-                message: "Failed to create dataset snapshot",
-                cause: e,
-              })
-          )
-        ),
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis;
+          return yield* repo
+            .insertDatasetSnapshot({ ...input, created_at: new Date(now).toISOString() })
+            .pipe(
+              Effect.mapError(
+                (e) =>
+                  new DomainError({
+                    code: "VALIDATION_ERROR",
+                    message: "Failed to create dataset snapshot",
+                    cause: e,
+                  })
+              )
+            );
+        }),
 
       getDatasetSnapshot: (id) =>
         Effect.gen(function* () {
@@ -83,9 +93,9 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
 
       getCandles: (query) =>
         Effect.gen(function* () {
-          const startedAt = Date.now();
-          const requestedStartTime = query.startTime ?? new Date(Date.now() - 24 * 60 * 60 * 1000);
-          const requestedEndTime = query.endTime ?? new Date();
+          const startedAt = yield* Clock.currentTimeMillis;
+          const requestedStartTime = query.startTime ?? new Date(startedAt - 24 * 60 * 60 * 1000);
+          const requestedEndTime = query.endTime ?? new Date(startedAt);
           const { startTime, endTime } = alignRangeToTimeframe(
             query.timeframe,
             requestedStartTime,
@@ -117,15 +127,15 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
           let coverage = yield* candleRepo
             .checkCoverage(query.symbol, query.exchange, query.timeframe, startTime, endTime)
             .pipe(Effect.mapError(mapMarketInfraError("QuestDB coverage check failed")));
-          const initialCoverageAt = Date.now();
+          const initialCoverageAt = yield* Clock.currentTimeMillis;
 
           coverage = yield* fillGaps(query, coverage, startTime, endTime);
-          const fillGapsAt = Date.now();
+          const fillGapsAt = yield* Clock.currentTimeMillis;
 
           if (!isCoverageComplete(coverage) && query.exchange.toLowerCase() === "hyperliquid") {
             coverage = yield* refreshCoverage(query, startTime, endTime);
           }
-          const refreshedCoverageAt = Date.now();
+          const refreshedCoverageAt = yield* Clock.currentTimeMillis;
 
           const candles = yield* candleRepo
             .getCandles({
@@ -135,10 +145,10 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
               disableLimitForRange: Boolean(query.startTime && query.endTime),
             })
             .pipe(Effect.mapError(mapMarketInfraError("Failed to load candles")));
-          const storeFetchAt = Date.now();
+          const storeFetchAt = yield* Clock.currentTimeMillis;
 
           const normalizedCandles = normalizeCandles(candles);
-          const normalizedAt = Date.now();
+          const normalizedAt = yield* Clock.currentTimeMillis;
 
           const provenance = isCoverageComplete(coverage)
             ? "QuestDB (Fully Covered)"
@@ -166,7 +176,7 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
 
       getRecentCandles: (query: RecentCandleQuery) =>
         Effect.gen(function* () {
-          const startedAt = Date.now();
+          const startedAt = yield* Clock.currentTimeMillis;
           const exchange = query.exchange ?? "Hyperliquid";
           if (exchange.toLowerCase() !== "hyperliquid") {
             return yield* Effect.fail(
@@ -195,7 +205,7 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
             );
           }
 
-          const endTime = query.endTime ?? new Date();
+          const endTime = query.endTime ?? new Date(startedAt);
           const expectedCount = Math.trunc(requestedLimit);
           const startTime = new Date(
             endTime.getTime() - (expectedCount - 1) * getTimeframeMs(query.timeframe)
@@ -209,10 +219,10 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
               endTime.getTime()
             )
             .pipe(Effect.mapError(mapMarketInfraError("Failed to fetch recent candle snapshot")));
-          const remoteAt = Date.now();
+          const remoteAt = yield* Clock.currentTimeMillis;
 
           const normalizedCandles = normalizeCandles(snapshotCandles).slice(-expectedCount);
-          const normalizedAt = Date.now();
+          const normalizedAt = yield* Clock.currentTimeMillis;
           const coverage: CoverageResult = {
             hasData: normalizedCandles.length > 0,
             rowCount: normalizedCandles.length,
@@ -251,15 +261,18 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
           .pipe(Effect.mapError(mapMarketInfraError("Failed to discover markets"))),
 
       inspectCoverage: (query) =>
-        candleRepo
-          .checkCoverage(
-            query.symbol,
-            query.exchange,
-            query.timeframe,
-            query.startTime ?? new Date(0),
-            query.endTime ?? new Date()
-          )
-          .pipe(Effect.mapError(mapMarketInfraError("Failed to inspect coverage"))),
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis;
+          return yield* candleRepo
+            .checkCoverage(
+              query.symbol,
+              query.exchange,
+              query.timeframe,
+              query.startTime ?? new Date(0),
+              query.endTime ?? new Date(now)
+            )
+            .pipe(Effect.mapError(mapMarketInfraError("Failed to inspect coverage")));
+        }),
 
       getTicker: (symbol) =>
         typeof remoteProvider.getTicker === "function"

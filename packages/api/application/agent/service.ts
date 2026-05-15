@@ -1,4 +1,4 @@
-import { Effect, Context, Layer } from "effect";
+import { Clock, Effect, Context, Layer } from "effect";
 import { DomainError } from "../errors";
 import type { AgentSession, AgentPlan, AgentAction } from "../../schemas/agent";
 import { AgentRepository } from "../ports/agent-repository";
@@ -64,32 +64,35 @@ export class AgentServices extends Context.Tag("AgentServices")<
 export const makeAgentService = (repo: AgentRepository) =>
   AgentServices.of({
     openSession: (input: OpenSessionInput) =>
-      repo
-        .insertSession({
-          id: input.id,
-          source: input.source,
-          objective: input.objective,
-          status: "pending",
-          context_scope: input.context_scope,
-          actor_kind: input.actor_kind,
-          actor_name: input.actor_name,
-          source_system: input.source_system,
-          trace_id: input.trace_id,
-          span_id: input.span_id,
-          correlation_id: input.correlation_id,
-          request_id: input.request_id,
-          started_at: new Date().toISOString(),
-        })
-        .pipe(
-          Effect.mapError(
-            (e) =>
-              new DomainError({
-                code: "VALIDATION_ERROR",
-                message: "Failed to create session",
-                cause: e,
-              })
-          )
-        ),
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis;
+        return yield* repo
+          .insertSession({
+            id: input.id,
+            source: input.source,
+            objective: input.objective,
+            status: "pending",
+            context_scope: input.context_scope,
+            actor_kind: input.actor_kind,
+            actor_name: input.actor_name,
+            source_system: input.source_system,
+            trace_id: input.trace_id,
+            span_id: input.span_id,
+            correlation_id: input.correlation_id,
+            request_id: input.request_id,
+            started_at: new Date(now).toISOString(),
+          })
+          .pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to create session",
+                  cause: e,
+                })
+            )
+          );
+      }),
 
     getSession: (id: string) =>
       Effect.gen(function* () {
@@ -112,30 +115,33 @@ export const makeAgentService = (repo: AgentRepository) =>
       }),
 
     savePlan: (input: SavePlanInput) =>
-      repo
-        .insertPlan({
-          id: input.id,
-          session_id: input.session_id,
-          version: input.version,
-          title: input.title,
-          content_markdown: input.content_markdown,
-          structured_plan: input.structured_plan,
-          trace_id: input.trace_id,
-          span_id: input.span_id,
-          correlation_id: input.correlation_id,
-          request_id: input.request_id,
-          created_at: new Date().toISOString(),
-        })
-        .pipe(
-          Effect.mapError(
-            (e) =>
-              new DomainError({
-                code: "VALIDATION_ERROR",
-                message: "Failed to save plan",
-                cause: e,
-              })
-          )
-        ),
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis;
+        return yield* repo
+          .insertPlan({
+            id: input.id,
+            session_id: input.session_id,
+            version: input.version,
+            title: input.title,
+            content_markdown: input.content_markdown,
+            structured_plan: input.structured_plan,
+            trace_id: input.trace_id,
+            span_id: input.span_id,
+            correlation_id: input.correlation_id,
+            request_id: input.request_id,
+            created_at: new Date(now).toISOString(),
+          })
+          .pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to save plan",
+                  cause: e,
+                })
+            )
+          );
+      }),
 
     getPlansBySession: (sessionId: string) =>
       repo.getPlansBySession(sessionId).pipe(
@@ -150,36 +156,39 @@ export const makeAgentService = (repo: AgentRepository) =>
       ),
 
     recordAction: (input: RecordActionInput) =>
-      repo
-        .insertAction({
-          id: input.id,
-          session_id: input.session_id,
-          plan_id: input.plan_id,
-          action_type: input.action_type,
-          target_type: input.target_type,
-          target_id: input.target_id,
-          input_payload: input.input_payload,
-          result_payload: input.result_payload,
-          status: input.status,
-          error_code: input.error_code,
-          error_message: input.error_message,
-          trace_id: input.trace_id,
-          span_id: input.span_id,
-          correlation_id: input.correlation_id,
-          request_id: input.request_id,
-          parent_span_id: input.parent_span_id,
-          created_at: new Date().toISOString(),
-        })
-        .pipe(
-          Effect.mapError(
-            (e) =>
-              new DomainError({
-                code: "VALIDATION_ERROR",
-                message: "Failed to record action",
-                cause: e,
-              })
-          )
-        ),
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis;
+        return yield* repo
+          .insertAction({
+            id: input.id,
+            session_id: input.session_id,
+            plan_id: input.plan_id,
+            action_type: input.action_type,
+            target_type: input.target_type,
+            target_id: input.target_id,
+            input_payload: input.input_payload,
+            result_payload: input.result_payload,
+            status: input.status,
+            error_code: input.error_code,
+            error_message: input.error_message,
+            trace_id: input.trace_id,
+            span_id: input.span_id,
+            correlation_id: input.correlation_id,
+            request_id: input.request_id,
+            parent_span_id: input.parent_span_id,
+            created_at: new Date(now).toISOString(),
+          })
+          .pipe(
+            Effect.mapError(
+              (e) =>
+                new DomainError({
+                  code: "VALIDATION_ERROR",
+                  message: "Failed to record action",
+                  cause: e,
+                })
+            )
+          );
+      }),
 
     getActionsBySession: (sessionId: string) =>
       repo.getActionsBySession(sessionId).pipe(

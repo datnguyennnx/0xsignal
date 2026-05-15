@@ -1,4 +1,4 @@
-import { Effect, Layer } from "effect";
+import { Clock, Effect, Layer } from "effect";
 import { EngineExecutor, EngineOutput } from "../../domain/backtest/engine";
 
 export const StubEngineExecutor = Layer.succeed(
@@ -19,7 +19,7 @@ export const StubEngineExecutor = Layer.succeed(
           },
           events: [
             {
-              timestamp: new Date().toISOString(),
+              timestamp: new Date(yield* Clock.currentTimeMillis).toISOString(),
               event_type: "info",
               level: "info",
               payload: { message: "Stub engine finished" },

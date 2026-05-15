@@ -1,4 +1,4 @@
-import { Context, Deferred, Effect, Fiber, Layer, Ref, Schedule } from "effect";
+import { Clock, Deferred, Effect, Fiber, Layer, Ref, Schedule } from "effect";
 import { normalizeCandles, parseHlRawCandles, toHlInterval } from "./normalizer";
 import { normalizeSymbol } from "./symbol";
 import { type Candle } from "../../../schemas/market-data";
@@ -22,32 +22,33 @@ import {
   isPerpSymbol,
 } from "./mapping";
 import { type CacheSlot } from "./cache";
-import { createLruCache } from "./cache-lru";
 import { HyperliquidRateLimiter } from "./rate-limiter";
 import { HyperliquidDeduplicationRegistry } from "./dedup";
 
-type HyperliquidClientService = Context.Tag.Service<typeof HyperliquidClient>;
-
 // Service shape types – used to avoid Context.Tag type inference issues
-type RateLimiterService = { readonly semaphore: Effect.Semaphore };
-type DedupRegistryService = {
+type RateLimiterSvc = { readonly semaphore: Effect.Semaphore };
+type DedupRegistrySvc = {
   readonly registryRef: Ref.Ref<Map<string, Deferred.Deferred<any, HyperliquidError>>>;
 };
 
-// ─── Standalone provider functions (backward-compat, used by tests) ────────
+// ─── Standalone provider functions (used by tests) ─────────────────────────
 // These get HyperliquidClient from Context and perform a single operation.
-// They create their own semaphore (no cross-call dedup) for rate limiting.
+// Rate limiting uses optional shared semaphore; defaults to a local one if unset.
 
 const standaloneProvide = <A, E>(
-  effect: Effect.Effect<A, E, HyperliquidRateLimiter | HyperliquidDeduplicationRegistry>
+  effect: Effect.Effect<A, E, HyperliquidRateLimiter | HyperliquidDeduplicationRegistry>,
+  semaphore?: Effect.Semaphore,
+  dedupRef?: Ref.Ref<Map<string, Deferred.Deferred<any, HyperliquidError>>>
 ): Effect.Effect<A, E> => {
-  const semaphore = Effect.unsafeMakeSemaphore(6);
-  const dedupRef = Ref.unsafeMake(new Map<string, Deferred.Deferred<any, HyperliquidError>>());
+  const rs: RateLimiterSvc = semaphore
+    ? { semaphore }
+    : { semaphore: Effect.unsafeMakeSemaphore(6) };
+  const ds: DedupRegistrySvc = dedupRef
+    ? { registryRef: dedupRef }
+    : { registryRef: Ref.unsafeMake(new Map()) };
   return effect.pipe(
-    Effect.provideService(HyperliquidRateLimiter, { semaphore }),
-    Effect.provideService(HyperliquidDeduplicationRegistry, {
-      registryRef: dedupRef,
-    })
+    Effect.provideService(HyperliquidRateLimiter, rs),
+    Effect.provideService(HyperliquidDeduplicationRegistry, ds)
   );
 };
 
@@ -129,20 +130,17 @@ export const getOrderBook = (
         ? parsedDepth
         : undefined;
 
-    const semaphore = Effect.unsafeMakeSemaphore(6);
-    const orderbook = yield* semaphore.withPermits(1)(
-      Effect.tryPromise({
-        try: () => info.l2Book({ coin: internalSymbol, nSigFigs }),
-        catch: (cause) =>
-          cause instanceof HyperliquidError
-            ? cause
-            : new HyperliquidError({
-                message: `Failed to fetch orderbook for ${symbol}`,
-                kind: "UPSTREAM",
-                cause,
-              }),
-      })
-    );
+    const orderbook = yield* Effect.tryPromise({
+      try: () => info.l2Book({ coin: internalSymbol, nSigFigs }),
+      catch: (cause) =>
+        cause instanceof HyperliquidError
+          ? cause
+          : new HyperliquidError({
+              message: `Failed to fetch orderbook for ${symbol}`,
+              kind: "UPSTREAM",
+              cause,
+            }),
+    });
     if (!orderbook) {
       return yield* Effect.fail(
         new HyperliquidError({
@@ -175,28 +173,22 @@ export const getTradeAnnotation = (
         })
       );
     }
-    const semaphore = Effect.unsafeMakeSemaphore(6);
-    const annotation = yield* semaphore.withPermits(1)(
-      Effect.tryPromise({
-        try: () => info.perpAnnotation({ coin: internalSymbol }),
-        catch: (cause) =>
-          cause instanceof HyperliquidError
-            ? cause
-            : new HyperliquidError({
-                message: `Failed to fetch trade annotation for ${symbol}`,
-                cause,
-              }),
-      })
-    );
+    const annotation = yield* Effect.tryPromise({
+      try: () => info.perpAnnotation({ coin: internalSymbol }),
+      catch: (cause) =>
+        cause instanceof HyperliquidError
+          ? cause
+          : new HyperliquidError({
+              message: `Failed to fetch trade annotation for ${symbol}`,
+              cause,
+            }),
+    });
     return { symbol: normalizeSymbol(symbol), annotation };
   });
 
 // ── TTL Constants ──────────────────────────────────────────────────────────
 const AGGREGATED_MARKETS_TTL_MS = 60_000;
 const TICKER_SNAPSHOT_TTL_MS = 30_000;
-const CANDLE_SNAPSHOT_TTL_MS = 10_000;
-const TRADE_ANNOTATION_TTL_MS = 6 * 60 * 60 * 1000;
-
 // ─── Context-wiring helper ─────────────────────────────────────────────────
 
 /**
@@ -204,7 +196,7 @@ const TRADE_ANNOTATION_TTL_MS = 6 * 60 * 60 * 1000;
  * to an effect that requires them.
  */
 const provideServicesFor =
-  (rateLimiter: RateLimiterService, dedup: DedupRegistryService) =>
+  (rateLimiter: RateLimiterSvc, dedup: DedupRegistrySvc) =>
   <A, E>(
     effect: Effect.Effect<A, E, HyperliquidRateLimiter | HyperliquidDeduplicationRegistry>
   ): Effect.Effect<A, E> =>
@@ -212,218 +204,6 @@ const provideServicesFor =
       Effect.provideService(HyperliquidRateLimiter, rateLimiter),
       Effect.provideService(HyperliquidDeduplicationRegistry, dedup)
     );
-
-// ─── Shared on-demand fetch helpers ────────────────────────────────────────
-
-/**
- * Read the ticker snapshot cache; on miss or expiry, call the API on-demand,
- * refresh the cache, and return the snapshot.  Used by provider methods that
- * depend on the ticker snapshot for symbol resolution.
- */
-const ensureTickerSnapshot = (
-  info: HyperliquidInfoClient,
-  provide: ReturnType<typeof provideServicesFor>,
-  tickerCache: {
-    value: TickerSnapshot | undefined;
-    expiresAt: number;
-  }
-): Effect.Effect<TickerSnapshot, HyperliquidError> =>
-  Effect.gen(function* () {
-    const now = Date.now();
-    if (tickerCache.value !== undefined && tickerCache.expiresAt > now) {
-      return tickerCache.value;
-    }
-    const snapshot = yield* provide(getTickerSnapshotEffect(info));
-    tickerCache.value = snapshot;
-    tickerCache.expiresAt = now + TICKER_SNAPSHOT_TTL_MS;
-    return snapshot;
-  });
-
-// ─── HyperliquidProviderLive (backward-compat factory) ─────────────────────
-//
-// Used by unit tests.  Creates an in-process provider without a background
-// refresh fiber.  Caching is on-demand: the first call fetches from the API
-// (respecting rate-limiting and dedup), subsequent calls within the TTL
-// return the cached value.
-
-export const HyperliquidProviderLive = (client: HyperliquidClientService) => {
-  const semaphore = Effect.unsafeMakeSemaphore(6);
-  const dedupRegRef = Ref.unsafeMake(new Map<string, Deferred.Deferred<any, HyperliquidError>>());
-
-  const rateLimiterSvc: RateLimiterService = { semaphore };
-  const dedupSvc: DedupRegistryService = { registryRef: dedupRegRef };
-  const provide = provideServicesFor(rateLimiterSvc, dedupSvc);
-
-  // Mutable cache slots (plain objects – not Refs – for test simplicity)
-  let aggregatedMarketsCache: CacheSlot<readonly AggregatedTradeAsset[]> = {
-    expiresAt: 0,
-  };
-  const tickerCache: {
-    value: TickerSnapshot | undefined;
-    expiresAt: number;
-  } = { value: undefined, expiresAt: 0 };
-  const candleSnapshotCache = createLruCache<CacheSlot<Candle[]>>(1000);
-  const tradeAnnotationCache =
-    createLruCache<CacheSlot<{ symbol: string; annotation: PerpAnnotationResponse }>>(1000);
-
-  const hlInfo = client.info as unknown as HyperliquidInfoClient;
-
-  return HyperliquidProvider.of({
-    // ── getCandleSnapshot ───────────────────────────────────────────
-    getCandleSnapshot: (coin, interval, start, end) =>
-      Effect.gen(function* () {
-        const cacheKey = `${coin}|${interval}|${start}|${end}`;
-        const slot = candleSnapshotCache.get(cacheKey) ?? { expiresAt: 0 };
-        candleSnapshotCache.set(cacheKey, slot);
-
-        const now = Date.now();
-        if (slot.value !== undefined && slot.expiresAt > now) {
-          return slot.value;
-        }
-
-        const snapshot = yield* ensureTickerSnapshot(hlInfo, provide, tickerCache);
-        const internalSymbol = resolveInternalSymbol(snapshot, coin);
-
-        const candles = yield* semaphore.withPermits(1)(
-          Effect.tryPromise({
-            try: () =>
-              client.info.candleSnapshot({
-                coin: internalSymbol,
-                interval: toHlInterval(interval),
-                startTime: start,
-                endTime: end,
-              }),
-            catch: (cause) =>
-              new HyperliquidError({
-                message: `Failed to fetch candles for ${coin} (${interval})`,
-                cause,
-              }),
-          })
-        );
-
-        const normalized = normalizeCandles(parseHlRawCandles(candles));
-        slot.value = normalized;
-        slot.expiresAt = Date.now() + CANDLE_SNAPSHOT_TTL_MS;
-        return normalized;
-      }),
-
-    // ── getAllMids ──────────────────────────────────────────────────
-    getAllMids: () =>
-      Effect.gen(function* () {
-        const snapshot = yield* ensureTickerSnapshot(hlInfo, provide, tickerCache);
-        return snapshot.allMids;
-      }),
-
-    // ── getAggregatedMarkets ────────────────────────────────────────
-    getAggregatedMarkets: () =>
-      Effect.gen(function* () {
-        const now = Date.now();
-        if (aggregatedMarketsCache.value !== undefined && aggregatedMarketsCache.expiresAt > now) {
-          return aggregatedMarketsCache.value;
-        }
-        const markets = yield* provide(getAggregatedMarketsSnapshot(hlInfo));
-        aggregatedMarketsCache.value = markets;
-        aggregatedMarketsCache.expiresAt = now + AGGREGATED_MARKETS_TTL_MS;
-        return markets;
-      }),
-
-    // ── getTicker ───────────────────────────────────────────────────
-    getTicker: (symbol) =>
-      Effect.gen(function* () {
-        const snapshot = yield* ensureTickerSnapshot(hlInfo, provide, tickerCache);
-        return mapTickerFromSnapshot(snapshot, symbol);
-      }),
-
-    // ── getOrderBook ────────────────────────────────────────────────
-    getOrderBook: (symbol, depth) =>
-      Effect.gen(function* () {
-        const snapshot = yield* ensureTickerSnapshot(hlInfo, provide, tickerCache);
-        const internalSymbol = resolveInternalSymbol(snapshot, symbol);
-
-        const parsedDepth = depth === undefined ? undefined : Math.trunc(depth);
-        const nSigFigs: 2 | 3 | 4 | 5 | undefined =
-          parsedDepth === 2 || parsedDepth === 3 || parsedDepth === 4 || parsedDepth === 5
-            ? parsedDepth
-            : undefined;
-
-        const orderbook = yield* semaphore.withPermits(1)(
-          Effect.tryPromise({
-            try: () =>
-              client.info.l2Book({
-                coin: internalSymbol,
-                nSigFigs,
-              }),
-            catch: (cause) =>
-              new HyperliquidError({
-                message: `Failed to fetch orderbook for ${symbol}`,
-                kind: "UPSTREAM",
-                cause,
-              }),
-          })
-        );
-
-        if (!orderbook) {
-          return yield* Effect.fail(
-            new HyperliquidError({
-              message: `Orderbook not available for ${internalSymbol}`,
-              kind: "NOT_FOUND",
-            })
-          );
-        }
-
-        return {
-          symbol: normalizeSymbol(symbol),
-          nSigFigs,
-          orderbook,
-        };
-      }),
-
-    // ── getTradeAnnotation ──────────────────────────────────────────
-    getTradeAnnotation: (symbol) =>
-      Effect.gen(function* () {
-        const cacheKey = symbol.toLowerCase();
-        const slot = tradeAnnotationCache.get(cacheKey) ?? { expiresAt: 0 };
-        tradeAnnotationCache.set(cacheKey, slot);
-
-        const now = Date.now();
-        if (slot.value !== undefined && slot.expiresAt > now) {
-          return slot.value;
-        }
-
-        const snapshot = yield* ensureTickerSnapshot(hlInfo, provide, tickerCache);
-        const internalSymbol = resolveInternalSymbol(snapshot, symbol);
-        const isPerp = isPerpSymbol(snapshot, symbol);
-
-        if (!isPerp) {
-          return yield* Effect.fail(
-            new HyperliquidError({
-              message: `Asset not supported or not found in perpetuals universe: ${symbol}`,
-              kind: "NOT_FOUND",
-            })
-          );
-        }
-
-        const annotation = yield* semaphore.withPermits(1)(
-          Effect.tryPromise({
-            try: () => client.info.perpAnnotation({ coin: internalSymbol }),
-            catch: (cause) =>
-              new HyperliquidError({
-                message: `Failed to fetch trade annotation for ${symbol}`,
-                cause,
-              }),
-          })
-        );
-
-        const result = {
-          symbol: normalizeSymbol(symbol),
-          annotation,
-        };
-        slot.value = result;
-        slot.expiresAt = Date.now() + TRADE_ANNOTATION_TTL_MS;
-        return result;
-      }),
-  }) as unknown as HyperliquidProvider;
-};
 
 // ─── Unified refresh pipeline (used by Layer.scoped) ───────────────────────
 //
@@ -447,7 +227,7 @@ const makeRefreshPipeline = (
     );
 
     // Update caches
-    const now = Date.now();
+    const now = yield* Clock.currentTimeMillis;
     yield* Ref.set(tickerSlot, {
       value: tickerSnapshot,
       expiresAt: now + TICKER_SNAPSHOT_TTL_MS,
@@ -476,8 +256,8 @@ export const HyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
         const innerDedupRef = Ref.unsafeMake(
           new Map<string, Deferred.Deferred<any, HyperliquidError>>()
         );
-        const rateLimiterSvc: RateLimiterService = { semaphore: innerSemaphore };
-        const dedupSvc: DedupRegistryService = { registryRef: innerDedupRef };
+        const rateLimiterSvc: RateLimiterSvc = { semaphore: innerSemaphore };
+        const dedupSvc: DedupRegistrySvc = { registryRef: innerDedupRef };
         const provide = provideServicesFor(rateLimiterSvc, dedupSvc);
 
         const hlInfo = client.info as unknown as HyperliquidInfoClient;
@@ -498,7 +278,7 @@ export const HyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
         ): Effect.Effect<T, HyperliquidError> =>
           Effect.gen(function* () {
             const cached = yield* Ref.get(slot);
-            const now = Date.now();
+            const now = yield* Clock.currentTimeMillis;
             if (cached.value !== undefined && cached.expiresAt > now) {
               return cached.value;
             }

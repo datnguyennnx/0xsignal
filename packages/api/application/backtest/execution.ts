@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 import type { BacktestRun } from "../../schemas/backtest";
 import { DomainError } from "../errors";
 import type { BacktestRepository } from "../ports/backtest-repository";
@@ -28,12 +28,12 @@ export const executeBacktestRun = (
 
     yield* repo
       .insertEvent({
-        id: crypto.randomUUID(),
+        id: yield* Effect.sync(() => crypto.randomUUID()),
         run_id: run.id,
         event_type: "info",
         payload: { message: "Starting backtest execution" },
         level: "info",
-        created_at: new Date().toISOString(),
+        created_at: new Date(yield* Clock.currentTimeMillis).toISOString(),
       })
       .pipe(
         Effect.mapError(
@@ -70,49 +70,55 @@ export const executeBacktestRun = (
     yield* Effect.forEach(
       Object.entries(output.metrics),
       ([metricKey, metricValue]) =>
-        repo
-          .insertMetric({
-            run_id: run.id,
-            metric_key: metricKey,
-            metric_value: metricValue,
-            metric_group: "performance",
-            created_at: new Date().toISOString(),
-          })
-          .pipe(
-            Effect.mapError(
-              (e) =>
-                new DomainError({
-                  code: "VALIDATION_ERROR",
-                  message: "Failed to persist metric",
-                  cause: e,
-                })
-            )
-          ),
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis;
+          return yield* repo
+            .insertMetric({
+              run_id: run.id,
+              metric_key: metricKey,
+              metric_value: metricValue,
+              metric_group: "performance",
+              created_at: new Date(now).toISOString(),
+            })
+            .pipe(
+              Effect.mapError(
+                (e) =>
+                  new DomainError({
+                    code: "VALIDATION_ERROR",
+                    message: "Failed to persist metric",
+                    cause: e,
+                  })
+              )
+            );
+        }),
       { concurrency: 10 }
     );
 
     yield* Effect.forEach(
       output.events,
       (event) =>
-        repo
-          .insertEvent({
-            id: crypto.randomUUID(),
-            run_id: run.id,
-            event_type: normalizeEventType(event.event_type),
-            payload: event.payload,
-            level: event.level,
-            created_at: event.timestamp,
-          })
-          .pipe(
-            Effect.mapError(
-              (e) =>
-                new DomainError({
-                  code: "VALIDATION_ERROR",
-                  message: "Failed to persist event",
-                  cause: e,
-                })
-            )
-          ),
+        Effect.gen(function* () {
+          const id = yield* Effect.sync(() => crypto.randomUUID());
+          return yield* repo
+            .insertEvent({
+              id,
+              run_id: run.id,
+              event_type: normalizeEventType(event.event_type),
+              payload: event.payload,
+              level: event.level,
+              created_at: event.timestamp,
+            })
+            .pipe(
+              Effect.mapError(
+                (e) =>
+                  new DomainError({
+                    code: "VALIDATION_ERROR",
+                    message: "Failed to persist event",
+                    cause: e,
+                  })
+              )
+            );
+        }),
       { concurrency: 10 }
     );
 
@@ -129,12 +135,12 @@ export const executeBacktestRun = (
 
     yield* repo
       .insertEvent({
-        id: crypto.randomUUID(),
+        id: yield* Effect.sync(() => crypto.randomUUID()),
         run_id: run.id,
         event_type: "info",
         payload: { message: `Backtest completed with status: ${output.status}` },
         level: "info",
-        created_at: new Date().toISOString(),
+        created_at: new Date(yield* Clock.currentTimeMillis).toISOString(),
       })
       .pipe(
         Effect.mapError(
@@ -154,12 +160,12 @@ export const executeBacktestRun = (
           .pipe(Effect.catchAll((e) => Effect.logWarning("Failed to set run to failed", e)));
         yield* repo
           .insertEvent({
-            id: crypto.randomUUID(),
+            id: yield* Effect.sync(() => crypto.randomUUID()),
             run_id: run.id,
             event_type: "error",
             payload: { message: err.message },
             level: "error",
-            created_at: new Date().toISOString(),
+            created_at: new Date(yield* Clock.currentTimeMillis).toISOString(),
           })
           .pipe(Effect.catchAll((e) => Effect.logWarning("Failed to insert error event", e)));
         yield* Effect.logError(`Engine execution failed: ${err.message}`);

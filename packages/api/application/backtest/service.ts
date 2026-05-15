@@ -1,4 +1,4 @@
-import { Effect, Context, Layer } from "effect";
+import { Clock, Effect, Context, Layer } from "effect";
 import { DomainError } from "../errors";
 import type {
   BacktestRun,
@@ -41,6 +41,7 @@ export const makeBacktestService = (repo: BacktestRepository) =>
     return BacktestServices.of({
       createBacktestRun: (input: CreateBacktestRunInput) =>
         Effect.gen(function* () {
+          const runNow = yield* Clock.currentTimeMillis;
           const run = yield* repo
             .createRunWithInput(
               {
@@ -57,7 +58,7 @@ export const makeBacktestService = (repo: BacktestRepository) =>
                 trace_id: input.trace_id,
                 span_id: input.span_id,
                 correlation_id: input.correlation_id,
-                started_at: new Date().toISOString(),
+                started_at: new Date(runNow).toISOString(),
               },
               {
                 run_id: input.id,
@@ -70,7 +71,7 @@ export const makeBacktestService = (repo: BacktestRepository) =>
                   engine_version: input.engine_version,
                 },
                 schema_version: "1.0.0",
-                created_at: new Date().toISOString(),
+                created_at: new Date(runNow).toISOString(),
               }
             )
             .pipe(
@@ -91,25 +92,28 @@ export const makeBacktestService = (repo: BacktestRepository) =>
         }),
 
       saveRunInput: (input: SaveRunInput): Effect.Effect<BacktestRunInputs, DomainError> =>
-        repo
-          .insertRunInput({
-            run_id: input.run_id,
-            strategy_snapshot: input.strategy_snapshot,
-            dataset_snapshot_ref: input.dataset_snapshot_ref,
-            execution_options: input.execution_options,
-            schema_version: input.schema_version,
-            created_at: new Date().toISOString(),
-          })
-          .pipe(
-            Effect.mapError(
-              (e) =>
-                new DomainError({
-                  code: "VALIDATION_ERROR",
-                  message: "Failed to save run input",
-                  cause: e,
-                })
-            )
-          ),
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis;
+          return yield* repo
+            .insertRunInput({
+              run_id: input.run_id,
+              strategy_snapshot: input.strategy_snapshot,
+              dataset_snapshot_ref: input.dataset_snapshot_ref,
+              execution_options: input.execution_options,
+              schema_version: input.schema_version,
+              created_at: new Date(now).toISOString(),
+            })
+            .pipe(
+              Effect.mapError(
+                (e) =>
+                  new DomainError({
+                    code: "VALIDATION_ERROR",
+                    message: "Failed to save run input",
+                    cause: e,
+                  })
+              )
+            );
+        }),
 
       getRunSummary: (id: string): Effect.Effect<RunSummary, DomainError> =>
         Effect.gen(function* () {
@@ -189,49 +193,55 @@ export const makeBacktestService = (repo: BacktestRepository) =>
         ),
 
       appendRunEvent: (input: AppendRunEventInput): Effect.Effect<BacktestEvent, DomainError> =>
-        repo
-          .insertEvent({
-            id: input.id,
-            run_id: input.run_id,
-            event_type: input.event_type,
-            payload: input.payload,
-            level: input.level,
-            trace_id: input.trace_id,
-            span_id: input.span_id,
-            correlation_id: input.correlation_id,
-            parent_span_id: input.parent_span_id,
-            created_at: new Date().toISOString(),
-          })
-          .pipe(
-            Effect.mapError(
-              (e) =>
-                new DomainError({
-                  code: "VALIDATION_ERROR",
-                  message: "Failed to append run event",
-                  cause: e,
-                })
-            )
-          ),
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis;
+          return yield* repo
+            .insertEvent({
+              id: input.id,
+              run_id: input.run_id,
+              event_type: input.event_type,
+              payload: input.payload,
+              level: input.level,
+              trace_id: input.trace_id,
+              span_id: input.span_id,
+              correlation_id: input.correlation_id,
+              parent_span_id: input.parent_span_id,
+              created_at: new Date(now).toISOString(),
+            })
+            .pipe(
+              Effect.mapError(
+                (e) =>
+                  new DomainError({
+                    code: "VALIDATION_ERROR",
+                    message: "Failed to append run event",
+                    cause: e,
+                  })
+              )
+            );
+        }),
 
       recordMetric: (input: RecordMetricInput): Effect.Effect<BacktestMetric, DomainError> =>
-        repo
-          .insertMetric({
-            run_id: input.run_id,
-            metric_key: input.metric_key,
-            metric_value: input.metric_value,
-            metric_group: input.metric_group,
-            created_at: new Date().toISOString(),
-          })
-          .pipe(
-            Effect.mapError(
-              (e) =>
-                new DomainError({
-                  code: "VALIDATION_ERROR",
-                  message: "Failed to record metric",
-                  cause: e,
-                })
-            )
-          ),
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis;
+          return yield* repo
+            .insertMetric({
+              run_id: input.run_id,
+              metric_key: input.metric_key,
+              metric_value: input.metric_value,
+              metric_group: input.metric_group,
+              created_at: new Date(now).toISOString(),
+            })
+            .pipe(
+              Effect.mapError(
+                (e) =>
+                  new DomainError({
+                    code: "VALIDATION_ERROR",
+                    message: "Failed to record metric",
+                    cause: e,
+                  })
+              )
+            );
+        }),
     });
   });
 
