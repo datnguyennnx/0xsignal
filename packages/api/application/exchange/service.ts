@@ -1,4 +1,4 @@
-import { Effect, Layer } from "effect";
+import { Config, Effect, Layer, Option } from "effect";
 import {
   ExchangeClient,
   HttpTransport,
@@ -17,25 +17,24 @@ import {
   InsufficientMarginError,
 } from "../../domain/errors";
 
-const resolvePrivateKey = (): `0x${string}` | null => {
-  const raw = (process.env.HYPERLIQUID_PRIVATE_KEY ?? "").trim();
-
-  if (!raw) {
-    console.error("[exchange] HYPERLIQUID_PRIVATE_KEY is not configured");
-    return null;
-  }
-
-  // Ensure 0x prefix and correct length (0x + 64 hex chars = 66)
-  const key = raw.startsWith("0x") ? raw : `0x${raw}`;
-  const hex = key.startsWith("0x") ? key.slice(2) : key;
-
-  if (hex.length !== 64 || !/^[0-9a-fA-F]+$/.test(hex)) {
-    console.error("[exchange] HYPERLIQUID_PRIVATE_KEY is invalid (expected 64 hex chars)");
-    return null;
-  }
-
-  return key as `0x${string}`;
-};
+const resolvePrivateKey = () =>
+  Config.option(Config.string("HYPERLIQUID_PRIVATE_KEY")).pipe(
+    Config.map((maybeKey) => {
+      const raw = Option.getOrElse(maybeKey, () => "").trim();
+      if (!raw) {
+        console.error("[exchange] HYPERLIQUID_PRIVATE_KEY is not configured");
+        return null;
+      }
+      // Ensure 0x prefix and correct length (0x + 64 hex chars = 66)
+      const key = raw.startsWith("0x") ? raw : `0x${raw}`;
+      const hex = key.startsWith("0x") ? key.slice(2) : key;
+      if (hex.length !== 64 || !/^[0-9a-fA-F]+$/.test(hex)) {
+        console.error("[exchange] HYPERLIQUID_PRIVATE_KEY is invalid (expected 64 hex chars)");
+        return null;
+      }
+      return key as `0x${string}`;
+    })
+  );
 
 const makeExchangeClient = (privateKey: `0x${string}`): ExchangeClient => {
   const wallet = privateKeyToAccount(privateKey);
@@ -83,7 +82,7 @@ const classifyExchangeError = (
 export const ExchangeServicesLive = Layer.effect(
   ExchangeServices,
   Effect.gen(function* () {
-    const privateKey = resolvePrivateKey();
+    const privateKey = yield* resolvePrivateKey();
     const { info } = yield* HyperliquidClient;
 
     if (!privateKey) {

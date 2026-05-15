@@ -1,1 +1,5 @@
-export const IS_DEV_MODE = process.env.MODE === "dev";
+import { Config } from "effect";
+
+export const isDevMode: Config.Config<boolean> = Config.string("MODE").pipe(
+  Config.map((mode) => mode === "dev")
+);

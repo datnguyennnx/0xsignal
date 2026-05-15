@@ -1,6 +1,5 @@
-import { IS_DEV_MODE } from "../../config/mode";
-
-const MARKET_WS_DEBUG_LOGS_ENABLED = IS_DEV_MODE;
+// Build-time config flag — read at module scope, not a runtime dependency.
+const MARKET_WS_DEBUG_LOGS_ENABLED = process.env.MODE === "dev";
 
 export const marketWsLog = (
   event: string,

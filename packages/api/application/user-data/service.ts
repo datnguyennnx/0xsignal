@@ -1,20 +1,18 @@
-import { Effect, Layer } from "effect";
+import { Config, Effect, Layer } from "effect";
 import { HyperliquidClient } from "../../infrastructure/data-sources/hyperliquid/client";
 import { DomainError } from "../errors";
 import { UserDataServices } from "./contracts";
 
-const getWalletAddress = (): Effect.Effect<string, DomainError> => {
-  const address = process.env.HYPERLIQUID_WALLET_ADDRESS;
-  if (!address) {
-    return Effect.fail(
-      new DomainError({
-        code: "INTERNAL_ERROR",
-        message: "HYPERLIQUID_WALLET_ADDRESS environment variable is not set",
-      })
-    );
-  }
-  return Effect.succeed(address);
-};
+const getWalletAddress = (): Effect.Effect<string, DomainError> =>
+  Config.string("HYPERLIQUID_WALLET_ADDRESS").pipe(
+    Effect.mapError(
+      () =>
+        new DomainError({
+          code: "INTERNAL_ERROR",
+          message: "HYPERLIQUID_WALLET_ADDRESS environment variable is not set",
+        })
+    )
+  );
 
 export const UserDataServicesLive = Layer.effect(
   UserDataServices,
