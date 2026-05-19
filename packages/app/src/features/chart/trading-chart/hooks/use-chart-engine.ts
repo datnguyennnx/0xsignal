@@ -223,14 +223,7 @@ export const useChartEngine = ({
 
     chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
 
-    // Resize observer
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (!chartRef.current || !entries[0]) return;
-      const { width, height } = entries[0].contentRect;
-      chartRef.current.applyOptions({ width, height });
-    });
-
-    resizeObserver.observe(containerRef.current);
+    // autoSize handles resize — no manual ResizeObserver (causes disposed errors).
 
     // Crosshair move
     const handleCrosshairMove: MouseEventHandler<Time> = (param) => {
@@ -256,7 +249,6 @@ export const useChartEngine = ({
     return () => {
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
       chart.unsubscribeCrosshairMove(handleCrosshairMove);
-      resizeObserver.disconnect();
       chart.remove();
       chartRef.current = null;
       candlestickSeriesRef.current = null;

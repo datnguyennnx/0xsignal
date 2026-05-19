@@ -5,3 +5,4 @@ export { useChartData } from "./use-chart-data";
 export { useFullscreen } from "./use-fullscreen";
 export { useIndicators } from "./use-indicators";
 export { useIndicatorOverlay } from "./use-indicator-overlay";
+export { useTradeMarkers } from "./use-trade-markers";

@@ -3,11 +3,13 @@
  *
  * A high-performance financial chart based on Lightweight Charts (TradingView).
  * Supports technical indicators, multiple timeframes, and real-time streaming.
+ * Renders trade markers (B/S circles) via an HTML overlay on top of the chart.
  */
 import { useRef, useCallback, useMemo, memo } from "react";
 import { useTheme } from "@/core/providers/theme-provider";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { useCandleData } from "@/features/trade/contexts/candle-data-context";
+import { useUserFills } from "@/features/trade/hooks/use-user-data";
 
 import { ChartHeader } from "./chart-header";
 import { ChartControls } from "./chart-controls";
@@ -20,9 +22,13 @@ import {
   useIndicators,
 } from "./hooks";
 import { useIndicatorOverlay } from "./hooks/use-indicator-overlay";
+import { useTradeMarkers } from "./hooks/use-trade-markers";
+import { intervalToSeconds } from "@/features/trade/utils/trade-markers";
 import { INTERVAL_RESTORE_DELAY } from "./constants";
 import { ChartOhlcOverlay } from "./chart-ohlc-overlay";
 import { HoverProvider, useHoverActions } from "./contexts/hover-context";
+import type { HyperliquidFill } from "@/features/trade/utils/trade-markers";
+import { TradeMarkersOverlay } from "./trade-markers-overlay";
 
 const DESKTOP_CONFIG = {
   visibleCandles: 250,
@@ -87,6 +93,19 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     indicatorData,
   });
 
+  // ─── Trade markers: HTML overlay (B/S circles) ──────────────────────────
+  const { data: rawFills } = useUserFills();
+  const fills = rawFills as HyperliquidFill[] | undefined;
+
+  const timeframeSec = useMemo(() => intervalToSeconds(interval), [interval]);
+
+  const { markers } = useTradeMarkers({
+    fills: fills ?? [],
+    timeframeSec,
+    currentCoin: symbol,
+    candles: data,
+  });
+
   const handleIntervalChange = useCallback(
     (newInterval: string) => {
       if (newInterval === interval) return;
@@ -114,6 +133,12 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
 
       <div className="flex-1 relative bg-card overflow-hidden">
         <div ref={chartContainerRef} className="absolute inset-0 will-change-transform" />
+        <TradeMarkersOverlay
+          chart={chart}
+          series={candlestickSeries}
+          markers={markers}
+          candles={data}
+        />
         <IndicatorChips indicators={activeIndicators} />
         <ChartOhlcOverlay data={data} precision={precision.pxDecimals} />
       </div>
