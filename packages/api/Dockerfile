@@ -46,9 +46,6 @@ ENV BUN_ENV=production
 
 # Copy only production artifacts
 COPY --from=builder --chown=app:app /app/dist/api ./dist/api
-# Runtime SQL migrations (loaded via __dirname in bundled server.js)
-COPY --from=builder --chown=app:app /app/packages/api/infrastructure/db/postgres/migrations ./dist/api/
-
 # Install only production deps (minimal)
 COPY --from=deps /app/node_modules ./node_modules
 

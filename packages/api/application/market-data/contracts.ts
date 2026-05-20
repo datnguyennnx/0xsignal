@@ -1,10 +1,5 @@
 import { Context, type Effect } from "effect";
-import type {
-  CandlestickRequest,
-  DatasetSnapshot,
-  Candle,
-  CoverageResult,
-} from "../../schemas/market-data";
+import type { Candle, CoverageResult } from "../../schemas/market-data";
 import type { DomainError } from "../errors";
 import type { AggregatedMarket } from "@0xsignal/shared";
 import type {
@@ -13,8 +8,6 @@ import type {
   MarketTicker,
   MarketOrderBook,
   MarketTradeAnnotation,
-  RequestCandlesticksInput,
-  CreateDatasetSnapshotInput,
 } from "./types";
 import type { MarketTimeframe } from "../../domain/market-data/timeframe";
 
@@ -64,13 +57,6 @@ export class MarketRemoteProvider extends Context.Tag("MarketRemoteProvider")<
 export class MarketDataServices extends Context.Tag("MarketDataServices")<
   MarketDataServices,
   {
-    readonly requestCandlesticks: (
-      input: RequestCandlesticksInput
-    ) => Effect.Effect<CandlestickRequest, DomainError>;
-    readonly createDatasetSnapshot: (
-      input: CreateDatasetSnapshotInput
-    ) => Effect.Effect<DatasetSnapshot, DomainError>;
-    readonly getDatasetSnapshot: (id: string) => Effect.Effect<DatasetSnapshot, DomainError>;
     readonly getCandles: (
       query: CandleQuery
     ) => Effect.Effect<

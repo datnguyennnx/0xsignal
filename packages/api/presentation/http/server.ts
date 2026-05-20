@@ -2,8 +2,6 @@ import { Effect, ManagedRuntime } from "effect";
 import { BunRuntime } from "@effect/platform-bun";
 import { AppLayer } from "../../infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
-import { runMigrations } from "../../infrastructure/db/postgres/migrations/migration";
-import { runQuestDBMigrations } from "../../infrastructure/db/questdb/migrations/migration";
 import { type MarketWsConnectionData } from "../../infrastructure/streams/hyperliquid/hub";
 import { MarketStreamHub, MarketStreamHubLayer } from "./ws/market-stream-hub.layer";
 import { parseMarketWsSubscription } from "./ws/subscription-parser";
@@ -15,33 +13,8 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
 // Create a managed runtime for bridging non-Effect code
 const runtime = ManagedRuntime.make(AppLayer);
 
-// Run migrations on startup
-const migrateAction = Effect.gen(function* () {
-  yield* Effect.logInfo("Running database migrations...");
-
-  // Postgres migrations
-  yield* Effect.tryPromise({
-    try: () => runMigrations(),
-    catch: (error) => {
-      console.error("Postgres migration failed:", error);
-      return error;
-    },
-  });
-
-  // QuestDB migrations
-  yield* runQuestDBMigrations().pipe(
-    Effect.catchAll((error) => {
-      console.error("QuestDB migration failed:", error);
-      return Effect.succeed(error);
-    })
-  );
-
-  yield* Effect.logInfo("Migrations complete");
-});
-
 // App Program
 const serverProgram = Effect.gen(function* () {
-  yield* migrateAction;
   const marketStreamHub = yield* MarketStreamHub;
   marketStreamHub.setRuntime(runtime);
 

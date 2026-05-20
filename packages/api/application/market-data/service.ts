@@ -1,7 +1,6 @@
 import { Clock, Config, Effect, Layer } from "effect";
 import { DomainError } from "../errors";
 import type { CoverageResult } from "../../schemas/market-data";
-import { MarketDataRepository } from "../ports/market-data-repository";
 import { MarketCandleStore, MarketDataServices, MarketRemoteProvider } from "./contracts";
 import type { RecentCandleQuery } from "./types";
 import { alignRangeToTimeframe } from "./range-alignment";
@@ -28,7 +27,7 @@ const logCandleServiceTiming = (payload: Record<string, unknown>) =>
     }
   });
 
-export const makeMarketDataService = (repo: MarketDataRepository) =>
+export const makeMarketDataService = () =>
   Effect.gen(function* () {
     const candleRepo = yield* MarketCandleStore;
     const remoteProvider = yield* MarketRemoteProvider;
@@ -38,59 +37,6 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
     const fillGaps = createGapFillWorkflow(candleRepo, remoteProvider, mapMarketInfraError);
 
     return MarketDataServices.of({
-      requestCandlesticks: (input) =>
-        Effect.gen(function* () {
-          const now = yield* Clock.currentTimeMillis;
-          return yield* repo
-            .insertCandlestickRequest({ ...input, created_at: new Date(now).toISOString() })
-            .pipe(
-              Effect.mapError(
-                (e) =>
-                  new DomainError({
-                    code: "VALIDATION_ERROR",
-                    message: "Failed to request candlesticks",
-                    cause: e,
-                  })
-              )
-            );
-        }),
-
-      createDatasetSnapshot: (input) =>
-        Effect.gen(function* () {
-          const now = yield* Clock.currentTimeMillis;
-          return yield* repo
-            .insertDatasetSnapshot({ ...input, created_at: new Date(now).toISOString() })
-            .pipe(
-              Effect.mapError(
-                (e) =>
-                  new DomainError({
-                    code: "VALIDATION_ERROR",
-                    message: "Failed to create dataset snapshot",
-                    cause: e,
-                  })
-              )
-            );
-        }),
-
-      getDatasetSnapshot: (id) =>
-        Effect.gen(function* () {
-          const snapshot = yield* repo.getDatasetSnapshot(id).pipe(
-            Effect.mapError(
-              (e) =>
-                new DomainError({
-                  code: "VALIDATION_ERROR",
-                  message: "Failed to get dataset snapshot",
-                  cause: e,
-                })
-            )
-          );
-          if (!snapshot)
-            return yield* Effect.fail(
-              new DomainError({ code: "NOT_FOUND", message: `Snapshot ${id} not found` })
-            );
-          return snapshot;
-        }),
-
       getCandles: (query) =>
         Effect.gen(function* () {
           const startedAt = yield* Clock.currentTimeMillis;
@@ -315,7 +261,6 @@ export const makeMarketDataService = (repo: MarketDataRepository) =>
 export const MarketDataServicesLive = Layer.effect(
   MarketDataServices,
   Effect.gen(function* () {
-    const repo = yield* MarketDataRepository;
-    return yield* makeMarketDataService(repo);
+    return yield* makeMarketDataService();
   })
 );

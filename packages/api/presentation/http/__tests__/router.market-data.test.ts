@@ -8,9 +8,6 @@ import { DomainError } from "../../../application/errors";
 import { handleRequest } from "../router";
 
 const mockMarketDataServices = {
-  requestCandlesticks: vi.fn(),
-  createDatasetSnapshot: vi.fn(),
-  getDatasetSnapshot: vi.fn(),
   getCandles: vi.fn(),
   getRecentCandles: vi.fn(),
   discoverMarkets: vi.fn(),

@@ -19,13 +19,6 @@
         "cwd": "packages/api"
       }
     },
-    "dev:mcp": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "bun run presentation/mcp/index.ts",
-        "cwd": "packages/api"
-      }
-    },
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
@@ -44,13 +37,6 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "vitest run",
-        "cwd": "packages/api"
-      }
-    },
-    "test:integration": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "vitest run --config vitest.integration.config.ts",
         "cwd": "packages/api"
       }
     },
