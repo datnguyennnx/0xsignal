@@ -368,7 +368,7 @@ export function AssetDetail() {
       ? normalizedSymbol
       : `${normalizedSymbol}USDT`;
 
-  // WS enabled by default — backend validates perp-only server-side (rejects spot/outcome).
+  // WS enabled by default — backend validates perp-only server-side (rejects spot).
   // Markets list is loaded lazily (trade dropdown intent), not needed for above-the-fold render.
   const enableWsRealtime = true;
 
