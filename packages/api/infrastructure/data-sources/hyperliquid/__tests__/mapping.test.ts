@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { Deferred, Effect, Ref } from "effect";
 import { getTickerSnapshotEffect } from "../mapping";
-import { mapTickerFromSnapshot, resolveInternalSymbol } from "../mapping.pure";
+import {
+  mapTickerFromSnapshot,
+  resolveInternalSymbol,
+  parseSpotAssets,
+  extractSpotTokens,
+  sortAndDedupeAssets,
+} from "../mapping.pure";
 import { HyperliquidRateLimiter } from "../rate-limiter";
 import { HyperliquidDeduplicationRegistry } from "../dedup";
 
@@ -98,6 +104,177 @@ describe("Hyperliquid Mapping", () => {
     it("should resolve with different casing and suffix", () => {
       // PARA:BTCD-USDT should normalize to para:BTCD and match
       expect(resolveInternalSymbol(mockSnapshot, "PARA:BTCD-USDT")).toBe("para:BTCD");
+    });
+  });
+
+  describe("parseSpotAssets", () => {
+    const spotTokens = [
+      { name: "USDC", index: 0, szDecimals: 2 },
+      { name: "PURR", index: 1, szDecimals: 2 },
+      { name: "HFUN", index: 2, szDecimals: 2 },
+      { name: "LICK", index: 3, szDecimals: 0 },
+    ];
+
+    const spotUniverse = [
+      { tokens: [1, 0], name: "PURR/USDC", index: 0, isCanonical: true },
+      { tokens: [2, 0], name: "@1", index: 1, isCanonical: false },
+      { tokens: [3, 0], name: "@2", index: 2, isCanonical: false },
+    ];
+
+    const assetCtxs = [
+      {
+        prevDayPx: "0.08",
+        dayNtlVlm: "1000",
+        markPx: "0.09",
+        midPx: "0.089",
+        circulatingSupply: "500000",
+        coin: "PURR/USDC",
+        totalSupply: "500000",
+        dayBaseVlm: "10000",
+      },
+      {
+        prevDayPx: "10.0",
+        dayNtlVlm: "500",
+        markPx: "10.05",
+        midPx: "10.03",
+        circulatingSupply: "1000000",
+        coin: "@1",
+        totalSupply: "1000000",
+        dayBaseVlm: "5000",
+      },
+      {
+        prevDayPx: "0.00005",
+        dayNtlVlm: "0",
+        markPx: "0.00005",
+        midPx: "0.00005",
+        circulatingSupply: "1e9",
+        coin: "@2",
+        totalSupply: "1e9",
+        dayBaseVlm: "0",
+      },
+    ];
+
+    const allMids: Record<string, string> = {
+      "PURR/USDC": "0.0895",
+      "@1": "10.05",
+      "@2": "0.00005",
+    };
+
+    it("includes all spot pairs (canonical + non-canonical)", () => {
+      const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
+      const result = parseSpotAssets(raw, allMids, 0);
+      // Should include PURR/USDC, HFUN/USDC, LICK/USDC — no filters
+      expect(result).toHaveLength(3);
+      expect(result[0].coin).toBe("PURR");
+      expect(result[1].coin).toBe("HFUN");
+      expect(result[2].coin).toBe("LICK");
+    });
+
+    it("resolves token names and quote currency correctly", () => {
+      const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
+      const result = parseSpotAssets(raw, allMids, 0);
+
+      const hfun = result.find((a) => a.coin === "HFUN")!;
+      expect(hfun.rawCoin).toBe("HFUN/USDC");
+      expect(hfun.displaySymbol).toBe("HFUN-USDC");
+      expect(hfun.quoteCurrency).toBe("USDC");
+      expect(hfun.marketType).toBe("spot");
+    });
+
+    it("reads prices from allMids using entry.name", () => {
+      const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
+      const result = parseSpotAssets(raw, allMids, 0);
+
+      const purr = result.find((a) => a.coin === "PURR")!;
+      expect(purr.markPx).toBe("0.0895"); // from allMids["PURR/USDC"]
+
+      const hfun = result.find((a) => a.coin === "HFUN")!;
+      expect(hfun.markPx).toBe("10.05"); // from allMids["@1"]
+    });
+
+    it("falls back to ctx fields when allMids missing", () => {
+      const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
+      const result = parseSpotAssets(raw, {}, 0);
+
+      const purr = result.find((a) => a.coin === "PURR")!;
+      expect(purr.markPx).toBe("0.09"); // from ctx.markPx
+    });
+
+    it("returns empty for invalid input", () => {
+      expect(parseSpotAssets(null, {}, 0)).toEqual([]);
+      expect(parseSpotAssets("bad", {}, 0)).toEqual([]);
+      expect(parseSpotAssets([], {}, 0)).toEqual([]);
+    });
+  });
+
+  describe("extractSpotTokens", () => {
+    it("extracts token names from spotMeta", () => {
+      const raw = {
+        tokens: [
+          { name: "USDC", index: 0 },
+          { name: "PURR", index: 1 },
+          { name: "HFUN", index: 2 },
+        ],
+      };
+      expect(extractSpotTokens(raw)).toEqual(["USDC", "PURR", "HFUN"]);
+    });
+
+    it("returns empty for invalid input", () => {
+      expect(extractSpotTokens(null)).toEqual([]);
+      expect(extractSpotTokens("bad")).toEqual([]);
+      expect(extractSpotTokens({})).toEqual([]);
+    });
+  });
+
+  describe("sortAndDedupeAssets", () => {
+    const makePerp = (
+      coin: string,
+      rawCoin: string,
+      dexPrefix: string | null,
+      dayNtlVlm: string,
+      isDelisted = false
+    ) => ({ coin, rawCoin, dexPrefix, dayNtlVlm, isDelisted, marketType: "perp" as const }) as any;
+
+    const makeSpot = (coin: string, rawCoin: string, dayNtlVlm: string) =>
+      ({
+        coin,
+        rawCoin,
+        dexPrefix: null,
+        dayNtlVlm,
+        isDelisted: false,
+        marketType: "spot" as const,
+      }) as any;
+
+    it("orders perps before spot", () => {
+      const perp = makePerp("BTC", "BTC", null, "100");
+      const spot = makeSpot("PURR", "PURR/USDC", "50");
+      const result = sortAndDedupeAssets([perp], [spot]);
+      expect(result[0].marketType).toBe("perp");
+      expect(result[1].marketType).toBe("spot");
+    });
+
+    it("puts delisted items last", () => {
+      const active = makePerp("BTC", "BTC", null, "100");
+      const delisted = makePerp("OLD", "OLD", null, "0", true);
+      const result = sortAndDedupeAssets([delisted, active], []);
+      expect(result[0].rawCoin).toBe("BTC");
+      expect(result[1].rawCoin).toBe("OLD");
+    });
+
+    it("prefers main dex (null) over builder for same rawCoin+type", () => {
+      const builder = makePerp("YEETI", "xyz:YEETI", "xyz", "500");
+      const main = makePerp("YEETI", "xyz:YEETI", null, "100");
+      const result = sortAndDedupeAssets([builder, main], []);
+      expect(result).toHaveLength(1);
+      expect(result[0].dexPrefix).toBeNull();
+    });
+
+    it("sorts by volume descending within same marketType", () => {
+      const high = makePerp("BTC", "BTC", null, "1000");
+      const low = makePerp("ETH", "ETH", null, "100");
+      const result = sortAndDedupeAssets([low, high], []);
+      expect(result[0].rawCoin).toBe("BTC");
+      expect(result[1].rawCoin).toBe("ETH");
     });
   });
 });
