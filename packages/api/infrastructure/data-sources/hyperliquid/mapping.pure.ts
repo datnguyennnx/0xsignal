@@ -54,7 +54,8 @@ export const processMetaResults = (metaResults: [unknown, unknown][]) => {
 };
 
 export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string): TickerPayload => {
-  // Spot symbols not in perp universe. Use allMids price or zero.
+  // Spot symbols not in perp universe. Return mid price from allMids,
+  // set prevDayPx/dayNtlVlm to null (unknown) rather than 0 (misleading).
   if (parseSymbol(symbol).kind === "spot") {
     const spotMid = snapshot.allMids[symbol];
     const midPx = toNumberOrNull(spotMid) ?? 0;
@@ -63,8 +64,8 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
       mid: midPx,
       markPx: midPx,
       midPx: midPx,
-      prevDayPx: 0,
-      dayNtlVlm: 0,
+      prevDayPx: null,
+      dayNtlVlm: null,
       openInterest: 0,
       funding: 0,
     };
@@ -87,7 +88,6 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
     lookupSymbols.push(bare);
   }
 
-  // Check Perps
   const marketIndex = snapshot.universe.findIndex(
     (item) =>
       lookupSymbols.includes(item.name) || lookupSymbols.includes(normalizeSymbol(item.name))
@@ -352,6 +352,7 @@ export function parseSpotAssets(
       szDecimals?: number;
       weiDecimals?: number;
       index?: number;
+      evmContract?: { address?: string; evm_extra_wei_decimals?: number } | null;
     }>;
   };
 
@@ -396,6 +397,7 @@ export function parseSpotAssets(
       typeof ctx.circulatingSupply === "string" ? ctx.circulatingSupply : undefined;
     const totalSupply = typeof ctx.totalSupply === "string" ? ctx.totalSupply : undefined;
     const szDecimals = baseToken?.szDecimals ?? 4;
+    const evmContract = baseToken?.evmContract?.address ? baseToken.evmContract.address : undefined;
 
     assets.push({
       coin,
@@ -411,6 +413,7 @@ export function parseSpotAssets(
       dayBaseVlm,
       circulatingSupply,
       totalSupply,
+      evmContract,
       category: "spot",
       displayCategory: "Spot",
       maxLeverage: 1,

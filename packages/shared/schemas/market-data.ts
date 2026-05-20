@@ -44,7 +44,7 @@ export interface TradeAnnotation {
   readonly annotation: unknown;
 }
 
-// ─── Market Type (Perp / Spot / Outcome) ──────────────────────────────────────
+// ─── Market Type (Perp / Spot) ────────────────────────────────────────────────
 
 export type MarketTypeCategory = "perp" | "spot";
 
@@ -71,6 +71,10 @@ export interface AggregatedMarket {
   readonly dayNtlVlm: string;
   readonly maxLeverage: number;
   readonly szDecimals: number;
+  /** Spot-specific: circulating supply for market cap calculation. */
+  readonly circulatingSupply?: string;
+  /** Spot-specific: EVM contract address. */
+  readonly evmContract?: string;
 }
 
 // ─── Coverage ─────────────────────────────────────────────────────────────────

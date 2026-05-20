@@ -1,189 +1,42 @@
 /**
  * Market selector dropdown. Searchable, sortable, category-filtered.
- * Fetches via useTradeList, navigates to /trade/:rawCoin on select.
+ * Column layout adapts to active tab:
+ *   - Non-spot (perp, crypto, tradfi, hip-3): Symbol | Price | 24h | Funding | Volume | OI
+ *   - Spot: Symbol | Price | 24h | Volume | Market Cap
  */
 import { memo, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ChevronDown, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Search, ChevronDown, X } from "lucide-react";
 import { ContentUnavailable } from "@/components/content-unavailable";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { calculatePxDecimals } from "@/features/trade/hooks/use-hyperliquid-meta";
-import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice, formatSize } from "@/core/utils/formatters";
+import { formatSize, formatCompactUsd } from "@/core/utils/formatters";
+import { MarketHeader, MarketRow, MarketRowSkeleton, getColumns } from "./trade-dropdown.columns";
+import type { CategoryTab, FormattedTrade } from "./trade-dropdown.types";
+import { TAB_ORDER, TAB_TO_CATEGORY } from "./trade-dropdown.types";
 
-interface TradeDropdownProps {
-  currentSymbol: string;
-  logoUrl?: string;
-  displaySymbol?: string;
-  currentDisplayName?: string;
-  /** Called when user shows intent to open dropdown (hover) — triggers lazy markets fetch. */
-  onPrefetchMarkets?: () => void;
-}
-
-interface FormattedTrade {
-  readonly coin: string;
-  readonly rawCoin: string;
-  readonly marketType: "perp" | "spot";
-  readonly displaySymbol: string;
-  readonly displayCategory: string;
-  readonly markPx: string;
-  readonly prevDayPx: string;
-  readonly openInterest: string;
-  readonly dayNtlVlm: string;
-  readonly isHip3: boolean;
-  readonly category: string;
-  readonly dexPrefix: string | null;
-  readonly changeValue: number;
-  readonly changeFormatted: string;
-  readonly oiFormatted: string;
-  readonly isActive: boolean;
-  readonly pxDecimals: number;
-}
-
-const TAB_ORDER = [
-  "All",
-  "Perps",
-  "Spot",
-  "Crypto",
-  "Tradfi",
-  "HIP-3",
-  "Trending",
-  "Pre-launch",
-] as const;
-type CategoryTab =
-  | "all"
-  | "perps"
-  | "spot"
-  | "crypto"
-  | "tradfi"
-  | "hip3"
-  | "trending"
-  | "prelaunch";
-
-const TAB_TO_CATEGORY: Record<string, CategoryTab> = {
-  All: "all",
-  Perps: "perps",
-  Spot: "spot",
-  Crypto: "crypto",
-  Tradfi: "tradfi",
-  "HIP-3": "hip3",
-  Trending: "trending",
-  "Pre-launch": "prelaunch",
-};
-
-const SortIcon = ({
-  sortBy,
-  sortField,
-  sortDesc,
-}: {
-  sortBy: "name" | "change";
-  sortField: "name" | "change";
-  sortDesc: boolean;
-}) => {
-  const isActive = sortBy === sortField;
-  if (sortField === "change" && isActive) {
-    return sortDesc ? (
-      <ArrowDown className="w-3 h-3 text-gain" />
-    ) : (
-      <ArrowUp className="w-3 h-3 text-loss" />
-    );
-  }
-  if (isActive) {
-    return sortDesc ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />;
-  }
-  return <ArrowUpDown className="w-3 h-3 opacity-50" />;
-};
-
-const MarketHeader = ({
-  sortBy,
-  sortDesc,
-  onSort,
-}: {
-  sortBy: "name" | "change";
-  sortDesc: boolean;
-  onSort: (field: "name" | "change") => void;
-}) => (
-  <div className="grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30">
-    <button
-      type="button"
-      onClick={() => onSort("name")}
-      className="text-left hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
-    >
-      Market
-      <SortIcon sortBy={sortBy} sortField="name" sortDesc={sortDesc} />
-    </button>
-    <span className="text-right tabular-nums font-mono">Price</span>
-    <button
-      type="button"
-      onClick={() => onSort("change")}
-      className="text-right hover:text-foreground transition-colors flex items-center justify-end gap-1 cursor-pointer bg-transparent border-none p-0"
-    >
-      24h
-      <SortIcon sortBy={sortBy} sortField="change" sortDesc={sortDesc} />
-    </button>
-    <span className="text-right tabular-nums font-mono">OI</span>
-  </div>
-);
-
-const MarketRow = ({ item }: { item: FormattedTrade }) => (
-  <div className="grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-3">
-    <div className="flex flex-col justify-center min-w-0">
-      <span className="font-mono font-medium text-sm tabular-nums truncate">
-        {item.displaySymbol}
-      </span>
-      <span className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground uppercase opacity-70">
-        {item.displayCategory}
-      </span>
-    </div>
-    <span className="font-mono text-sm text-right flex items-center justify-end text-foreground tabular-nums">
-      {formatPrice(Number(item.markPx), item.pxDecimals)}
-    </span>
-    <span
-      className={cn(
-        "font-mono text-sm text-right flex items-center justify-end tabular-nums",
-        item.changeValue >= 0 ? "text-gain" : "text-loss"
-      )}
-    >
-      {item.changeFormatted}
-    </span>
-    <span className="font-mono text-xs text-right flex items-center justify-end text-muted-foreground tabular-nums">
-      {item.oiFormatted}
-    </span>
-  </div>
-);
-
-const MarketRowSkeleton = () => (
-  <div className="grid min-w-0 grid-cols-[1fr_100px_80px_80px] gap-2 px-4 py-3">
-    <Skeleton className="h-4 w-16" />
-    <Skeleton className="h-4 w-14 ml-auto" />
-    <Skeleton className="h-4 w-12 ml-auto" />
-    <Skeleton className="h-4 w-14 ml-auto" />
-  </div>
-);
-
-export const TradeDropdown = memo(function TradeDropdown({
+const TradeDropdownFn = ({
   currentSymbol,
   logoUrl,
   displaySymbol,
   currentDisplayName,
   onPrefetchMarkets,
-}: TradeDropdownProps) {
+}: import("./trade-dropdown.types").TradeDropdownProps) => {
   const dropdownContentId = "trade-market-dropdown-content";
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryTab>("all");
   const [sortBy, setSortBy] = useState<"name" | "change">("name");
-  const [sortDesc, setSortDesc] = useState(false); // default A-Z
+  const [sortDesc, setSortDesc] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { data, isLoading, error } = useTradeList();
 
   const displayLabel = currentDisplayName || displaySymbol || currentSymbol;
-
   const trades = data?.assets;
 
   const filteredTrades = useMemo(() => {
@@ -251,8 +104,8 @@ export const TradeDropdown = memo(function TradeDropdown({
 
       if (viewportWidth >= 640) {
         left = Math.max(8, rect.left);
-        if (left + 440 > viewportWidth) {
-          left = viewportWidth - 450;
+        if (left + 700 > viewportWidth) {
+          left = Math.max(8, viewportWidth - 710);
         }
       }
 
@@ -318,7 +171,9 @@ export const TradeDropdown = memo(function TradeDropdown({
     };
   }, [isOpen, handleClose]);
 
-  const formattedTrades = useMemo(() => {
+  const columns = useMemo(() => getColumns(category), [category]);
+
+  const formattedTrades: FormattedTrade[] = useMemo(() => {
     if (!filteredTrades) return [];
     const currentRawCoinLower = currentSymbol.toLowerCase();
     return filteredTrades.map((item) => {
@@ -326,6 +181,12 @@ export const TradeDropdown = memo(function TradeDropdown({
       const markPx = Number(item.markPx);
       const change = prevPx > 0 ? ((markPx - prevPx) / prevPx) * 100 : 0;
       const oi = Number(item.openInterest);
+      const volume = Number(item.dayNtlVlm);
+      const funding = Number(item.funding);
+      const marketCap =
+        item.marketType === "spot" && "circulatingSupply" in item
+          ? markPx * Number((item as any).circulatingSupply ?? 0)
+          : 0;
       const pxDec = calculatePxDecimals(item.szDecimals ?? 4);
       return {
         coin: item.coin,
@@ -337,12 +198,16 @@ export const TradeDropdown = memo(function TradeDropdown({
         prevDayPx: item.prevDayPx,
         openInterest: item.openInterest,
         dayNtlVlm: item.dayNtlVlm,
+        funding: item.funding,
         isHip3: item.isHip3,
         category: item.category,
         dexPrefix: item.dexPrefix,
         changeValue: change,
         changeFormatted: `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`,
         oiFormatted: formatSize(oi),
+        volumeFormatted: formatCompactUsd(volume),
+        fundingFormatted: `${funding >= 0 ? "+" : ""}${(funding * 100).toFixed(4)}%`,
+        marketCapFormatted: marketCap > 0 ? formatCompactUsd(marketCap) : "--",
         isActive: item.rawCoin.toLowerCase() === currentRawCoinLower,
         pxDecimals: pxDec,
       };
@@ -400,7 +265,7 @@ export const TradeDropdown = memo(function TradeDropdown({
           role="dialog"
           aria-modal="false"
           aria-label="Market selector"
-          className="fixed z-50 w-[calc(100vw-16px)] sm:w-[clamp(22rem,80vw,27.5rem)] bg-background border-border/30 rounded-xl shadow-2xl"
+          className="fixed z-50 w-[calc(100vw-16px)] sm:w-[90vw] max-w-[56rem] bg-background border-border/30 rounded-xl shadow-2xl"
           style={{ top: position.top, left: position.left }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -449,14 +314,14 @@ export const TradeDropdown = memo(function TradeDropdown({
             })}
           </div>
 
-          <MarketHeader sortBy={sortBy} sortDesc={sortDesc} onSort={handleSort} />
+          <MarketHeader columns={columns} sortBy={sortBy} sortDesc={sortDesc} onSort={handleSort} />
 
           <div className="max-h-[clamp(22rem,60dvh,34rem)] overflow-y-auto overscroll-none flex flex-col">
             {isLoading ? (
               <div className="divide-y divide-border/30">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className="divide-y divide-border/30">
-                    <MarketRowSkeleton />
+                    <MarketRowSkeleton columns={columns} />
                   </div>
                 ))}
               </div>
@@ -485,7 +350,7 @@ export const TradeDropdown = memo(function TradeDropdown({
                     )}
                     aria-current={item.isActive ? "true" : undefined}
                   >
-                    <MarketRow item={item} />
+                    <MarketRow item={item} columns={columns} />
                   </button>
                 ))}
               </div>
@@ -495,4 +360,6 @@ export const TradeDropdown = memo(function TradeDropdown({
       )}
     </div>
   );
-});
+};
+
+export const TradeDropdown = memo(TradeDropdownFn);

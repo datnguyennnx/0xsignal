@@ -84,6 +84,9 @@ const MarketTerminalHeader = memo(function MarketTerminalHeader({
   openInterest,
   fundingRate,
   fundingCountdown,
+  marketType,
+  marketCap,
+  contractAddress,
 }: {
   markPrice: number;
   oraclePrice: number;
@@ -93,41 +96,56 @@ const MarketTerminalHeader = memo(function MarketTerminalHeader({
   openInterest: number;
   fundingRate: number;
   fundingCountdown: string;
+  marketType?: "perp" | "spot";
+  marketCap?: number;
+  contractAddress?: string;
 }) {
   const changeTone = change24hPct >= 0 ? "positive" : "negative";
   const fundingTone = fundingRate >= 0 ? "positive" : "negative";
+  const isSpot = marketType === "spot";
 
   return (
     <div className="flex items-center gap-6 flex-1 min-w-0 overflow-x-auto scrollbar-hide">
-      <MetricItem label="Mark" value={formatPrice(markPrice)} />
-      <MetricItem label="Oracle" value={formatPrice(oraclePrice)} />
+      <MetricItem label={isSpot ? "Price" : "Mark"} value={formatPrice(markPrice)} />
+      {!isSpot && <MetricItem label="Oracle" value={formatPrice(oraclePrice)} />}
       <MetricItem
         label="24h Change"
         value={`${formatSignedUsd(change24hAbs)} / ${formatSignedPercent(change24hPct)}`}
         tone={changeTone}
       />
       <MetricItem label="24h Volume" value={formatCompactUsd(volume24h)} />
-      <MetricItem label="Open Interest" value={formatCompactUsd(openInterest)} />
-      <div className="flex flex-col shrink-0">
-        <span className="text-[10px] tracking-wider text-muted-foreground/60 font-medium uppercase leading-none mb-1">
-          Funding / Countdown
-        </span>
-        <div className="flex items-baseline gap-1 text-sm leading-none">
-          <span
-            className={cn(
-              "font-semibold tabular-nums",
-              fundingTone === "positive" && "text-gain",
-              fundingTone === "negative" && "text-loss"
-            )}
-          >
-            {formatFundingPercent(fundingRate)}
+      {!isSpot && <MetricItem label="Open Interest" value={formatCompactUsd(openInterest)} />}
+      {!isSpot && (
+        <div className="flex flex-col shrink-0">
+          <span className="text-[10px] tracking-wider text-muted-foreground/60 font-medium uppercase leading-none mb-1">
+            Funding / Countdown
           </span>
-          <span className="text-muted-foreground/50 font-normal">/</span>
-          <span className="text-muted-foreground/70 font-mono tabular-nums">
-            {fundingCountdown}
-          </span>
+          <div className="flex items-baseline gap-1 text-sm leading-none">
+            <span
+              className={cn(
+                "font-semibold tabular-nums",
+                fundingTone === "positive" && "text-gain",
+                fundingTone === "negative" && "text-loss"
+              )}
+            >
+              {formatFundingPercent(fundingRate)}
+            </span>
+            <span className="text-muted-foreground/50 font-normal">/</span>
+            <span className="text-muted-foreground/70 font-mono tabular-nums">
+              {fundingCountdown}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
+      {isSpot && marketCap !== undefined && (
+        <MetricItem label="Market Cap" value={formatCompactUsd(marketCap)} />
+      )}
+      {isSpot && contractAddress && (
+        <MetricItem
+          label="Contract"
+          value={contractAddress.slice(0, 12) + "..." + contractAddress.slice(-4)}
+        />
+      )}
     </div>
   );
 });
@@ -187,8 +205,6 @@ const AssetContent = memo(function AssetContent({
     return tradeList.assets.find((a) => a.rawCoin.toLowerCase() === symbol.toLowerCase());
   }, [tradeList, symbol]);
   const displaySymbol = tradeAsset?.displaySymbol;
-  const isHip3 = tradeAsset?.isHip3 ?? false;
-  const dexPrefix = tradeAsset?.dexPrefix;
 
   // Real-time mark price from WebSocket (allMids channel)
   const allMids = useAllMids(!!symbol);
@@ -218,20 +234,31 @@ const AssetContent = memo(function AssetContent({
             currentDisplayName={displayName}
             onPrefetchMarkets={() => setMarketsIntent(true)}
           />
-          {isHip3 && dexPrefix && (
-            <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0 leading-none">
-              {dexPrefix}
-            </span>
-          )}
           <MarketTerminalHeader
             markPrice={liveMarkPrice}
             oraclePrice={price?.midPx || price?.markPx || 0}
-            change24hAbs={(price?.markPx || price?.price || 0) - (price?.prevDayPx || 0)}
-            change24hPct={price?.change24h || 0}
-            volume24h={price?.volume24h || 0}
+            change24hAbs={
+              isSpot && tradeAsset?.prevDayPx
+                ? liveMarkPrice - Number(tradeAsset.prevDayPx)
+                : (price?.markPx || price?.price || 0) - (price?.prevDayPx || 0)
+            }
+            change24hPct={
+              isSpot && tradeAsset?.prevDayPx && Number(tradeAsset.prevDayPx) > 0
+                ? ((liveMarkPrice - Number(tradeAsset.prevDayPx)) / Number(tradeAsset.prevDayPx)) *
+                  100
+                : price?.change24h || 0
+            }
+            volume24h={isSpot ? Number(tradeAsset?.dayNtlVlm ?? 0) : price?.volume24h || 0}
             openInterest={price?.openInterest || 0}
             fundingRate={price?.funding || 0}
             fundingCountdown={fundingCountdown}
+            marketType={tradeAsset?.marketType}
+            marketCap={
+              isSpot && tradeAsset?.circulatingSupply
+                ? liveMarkPrice * Number(tradeAsset.circulatingSupply)
+                : undefined
+            }
+            contractAddress={isSpot ? tradeAsset?.evmContract : undefined}
           />
         </div>
         {description && (

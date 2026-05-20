@@ -46,6 +46,7 @@ export interface SpotTradeAsset extends BaseTradeAsset {
   readonly dayBaseVlm: string;
   readonly circulatingSupply?: string;
   readonly totalSupply?: string;
+  readonly evmContract?: string;
   readonly maxLeverage: 1;
   readonly szDecimals: number;
   /** Spot markets always have zero funding with no open interest. */
