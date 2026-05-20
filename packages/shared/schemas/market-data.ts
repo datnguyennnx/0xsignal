@@ -46,7 +46,7 @@ export interface TradeAnnotation {
 
 // ─── Market Type (Perp / Spot / Outcome) ──────────────────────────────────────
 
-export type MarketTypeCategory = "perp" | "spot" | "outcome";
+export type MarketTypeCategory = "perp" | "spot";
 
 // ─── Aggregated Market (trade list / discover-markets) ────────────────────────
 

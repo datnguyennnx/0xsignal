@@ -6,7 +6,7 @@ import type { HyperliquidError } from "./errors";
 
 // ─── Market Type Discriminated Union ────────────────────────────────────────
 
-export type MarketType = "perp" | "spot" | "outcome";
+export type MarketType = "perp" | "spot";
 
 /** Base fields shared by ALL market types. */
 interface BaseTradeAsset {
@@ -53,19 +53,7 @@ export interface SpotTradeAsset extends BaseTradeAsset {
   readonly funding: "0";
 }
 
-/** Outcome / prediction market. Placeholder pricing. */
-export interface OutcomeTradeAsset extends BaseTradeAsset {
-  readonly marketType: "outcome";
-  readonly markPx: "0";
-  readonly prevDayPx: "0";
-  readonly dayNtlVlm: "0";
-  readonly maxLeverage: 1;
-  readonly szDecimals: 0;
-  readonly openInterest: "0";
-  readonly funding: "0";
-}
-
-export type AggregatedTradeAsset = PerpTradeAsset | SpotTradeAsset | OutcomeTradeAsset;
+export type AggregatedTradeAsset = PerpTradeAsset | SpotTradeAsset;
 
 export interface MarketUniverseItem {
   readonly name: string;

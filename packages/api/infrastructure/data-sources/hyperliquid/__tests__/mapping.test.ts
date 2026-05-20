@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { Deferred, Effect, Ref } from "effect";
-import { getTickerSnapshotEffect, mapTickerFromSnapshot, resolveInternalSymbol } from "../mapping";
+import { getTickerSnapshotEffect } from "../mapping";
+import { mapTickerFromSnapshot, resolveInternalSymbol } from "../mapping.pure";
 import { HyperliquidRateLimiter } from "../rate-limiter";
 import { HyperliquidDeduplicationRegistry } from "../dedup";
 

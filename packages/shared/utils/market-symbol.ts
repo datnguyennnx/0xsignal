@@ -1,4 +1,4 @@
-export type AssetKind = "perp" | "builderPerp" | "spot" | "outcome";
+export type AssetKind = "perp" | "builderPerp" | "spot";
 
 export interface NormalizedAsset {
   kind: AssetKind;
