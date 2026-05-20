@@ -133,6 +133,11 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
 
       <div className="flex-1 relative bg-card overflow-hidden">
         <div ref={chartContainerRef} className="absolute inset-0 will-change-transform" />
+        {data.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground/50 pointer-events-none">
+            No recent data
+          </div>
+        )}
         <TradeMarkersOverlay
           chart={chart}
           series={candlestickSeries}

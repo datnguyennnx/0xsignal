@@ -179,7 +179,9 @@ export const makeMarketDataService = () =>
 
           const provenance = coverage.fullCoverage
             ? "Hyperliquid Snapshot (Recent via Backend)"
-            : `Hyperliquid Snapshot (Recent Partial: ${coverage.rowCount}/${coverage.expectedCount} rows)`;
+            : coverage.hasData
+              ? `Hyperliquid Snapshot (Recent Partial: ${coverage.rowCount}/${coverage.expectedCount} rows)`
+              : "No recent data available";
 
           yield* logCandleServiceTiming({
             route: "getRecentCandles",
