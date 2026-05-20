@@ -390,6 +390,8 @@ export function parseSpotAssets(
     const prevDayPx = typeof ctx.prevDayPx === "string" ? ctx.prevDayPx : "0";
     const dayNtlVlm = typeof ctx.dayNtlVlm === "string" ? ctx.dayNtlVlm : "0";
     const dayBaseVlm = typeof ctx.dayBaseVlm === "string" ? ctx.dayBaseVlm : "0";
+    // Skip pairs with zero trading volume — they are dead listings with no trades
+    if (Number(dayNtlVlm) === 0) continue;
     const circulatingSupply =
       typeof ctx.circulatingSupply === "string" ? ctx.circulatingSupply : undefined;
     const totalSupply = typeof ctx.totalSupply === "string" ? ctx.totalSupply : undefined;

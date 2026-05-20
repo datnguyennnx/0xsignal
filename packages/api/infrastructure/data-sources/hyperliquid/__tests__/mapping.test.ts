@@ -160,14 +160,13 @@ describe("Hyperliquid Mapping", () => {
       "@2": "0.00005",
     };
 
-    it("includes all spot pairs (canonical + non-canonical)", () => {
+    it("skips zero-volume pairs, includes active canonical + non-canonical", () => {
       const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
       const result = parseSpotAssets(raw, allMids, 0);
-      // Should include PURR/USDC, HFUN/USDC, LICK/USDC — no filters
-      expect(result).toHaveLength(3);
+      // PURR (vol=1000) and HFUN (vol=500) included; LICK (vol=0) filtered
+      expect(result).toHaveLength(2);
       expect(result[0].coin).toBe("PURR");
       expect(result[1].coin).toBe("HFUN");
-      expect(result[2].coin).toBe("LICK");
     });
 
     it("resolves token names and quote currency correctly", () => {
@@ -198,6 +197,15 @@ describe("Hyperliquid Mapping", () => {
 
       const purr = result.find((a) => a.coin === "PURR")!;
       expect(purr.markPx).toBe("0.09"); // from ctx.markPx
+    });
+
+    it("filters zero-volume dead pairs", () => {
+      const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
+      const result = parseSpotAssets(raw, allMids, 0);
+      // LICK has dayNtlVlm=0 → filtered out
+      expect(result.find((a) => a.coin === "LICK")).toBeUndefined();
+      // PURR has dayNtlVlm=1000 → included
+      expect(result.find((a) => a.coin === "PURR")).toBeDefined();
     });
 
     it("returns empty for invalid input", () => {
