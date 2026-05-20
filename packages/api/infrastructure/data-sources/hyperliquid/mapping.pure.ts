@@ -352,6 +352,7 @@ export function parseSpotAssets(
       szDecimals?: number;
       weiDecimals?: number;
       index?: number;
+      tokenId?: string;
       evmContract?: { address?: string; evm_extra_wei_decimals?: number } | null;
     }>;
   };
@@ -397,7 +398,7 @@ export function parseSpotAssets(
       typeof ctx.circulatingSupply === "string" ? ctx.circulatingSupply : undefined;
     const totalSupply = typeof ctx.totalSupply === "string" ? ctx.totalSupply : undefined;
     const szDecimals = baseToken?.szDecimals ?? 4;
-    const evmContract = baseToken?.evmContract?.address ? baseToken.evmContract.address : undefined;
+    const evmContract = baseToken?.tokenId ? baseToken.tokenId : undefined;
 
     assets.push({
       coin,

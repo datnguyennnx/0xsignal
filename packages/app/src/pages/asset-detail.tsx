@@ -141,10 +141,19 @@ const MarketTerminalHeader = memo(function MarketTerminalHeader({
         <MetricItem label="Market Cap" value={formatCompactUsd(marketCap)} />
       )}
       {isSpot && contractAddress && (
-        <MetricItem
-          label="Contract"
-          value={contractAddress.slice(0, 12) + "..." + contractAddress.slice(-4)}
-        />
+        <div className="flex flex-col shrink-0">
+          <span className="text-[10px] tracking-wider text-muted-foreground/60 font-medium uppercase leading-none mb-1">
+            Contract
+          </span>
+          <a
+            href={`https://app.hyperliquid.xyz/explorer/token/${contractAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-mono font-semibold tabular-nums leading-none text-primary hover:underline truncate max-w-[12rem]"
+          >
+            {contractAddress}
+          </a>
+        </div>
       )}
     </div>
   );
