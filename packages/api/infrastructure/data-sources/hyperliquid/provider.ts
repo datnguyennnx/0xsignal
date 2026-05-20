@@ -21,9 +21,13 @@ import {
   resolveInternalSymbol,
   isPerpSymbol,
 } from "./mapping";
-import { type CacheSlot } from "./cache";
 import { HyperliquidRateLimiter } from "./rate-limiter";
 import { HyperliquidDeduplicationRegistry } from "./dedup";
+
+type CacheSlot<T> = {
+  readonly value?: T;
+  readonly expiresAt: number;
+};
 
 // Service shape types – used to avoid Context.Tag type inference issues
 type RateLimiterSvc = { readonly semaphore: Effect.Semaphore };
