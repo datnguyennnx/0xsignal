@@ -170,7 +170,8 @@ const AssetContent = memo(function AssetContent({
   }, []);
 
   // `symbol` is the rawCoin from URL (perp: "BTC", spot: "PURR/USDC", HIP-3: "xyz:TSLA")
-  const { data: annotation } = useTradeAnnotation(symbol);
+  const isSpot = symbol.includes("/");
+  const { data: annotation } = useTradeAnnotation(isSpot ? "" : symbol);
   const { data: logoUrl } = useHyperliquidSymbolLogo(symbol);
 
   // Markets list is intent-driven: only fetch when user interacts with trade dropdown.

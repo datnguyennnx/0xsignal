@@ -309,3 +309,95 @@ describe("Market WS emitter contract", () => {
     });
   });
 });
+
+describe("Market WS backpressure handling", () => {
+  it("disconnects slow clients and detaches them when backpressure exceeds 1MB", () => {
+    const hub = new HyperliquidMarketStreamHub();
+    const closedCalls: [number, string][] = [];
+    const sentMessages: string[] = [];
+
+    const mockWs = {
+      data: {
+        id: "conn-slow-123",
+        bucketKey: "candle:BTC:1m",
+        subscription: {
+          channel: "candle",
+          symbol: "BTC",
+          interval: "1m",
+        },
+      },
+      backpressure: 1.5 * 1024 * 1024, // 1.5MB (> 1MB)
+      close(code: number, reason: string) {
+        closedCalls.push([code, reason]);
+      },
+      send(data: string) {
+        sentMessages.push(data);
+      },
+    };
+
+    const bucket = {
+      key: "candle:BTC:1m",
+      subscription: { channel: "candle", symbol: "BTC", interval: "1m" },
+      clients: new Set([mockWs]),
+      restarting: false,
+      firstMarketBroadcastLogged: false,
+      retryCount: 0,
+    };
+
+    // Store the bucket in the private Map
+    (hub as any).buckets.set(bucket.key, bucket);
+
+    // Trigger broadcast
+    (hub as any).broadcast(bucket, { type: "market", channel: "candle", data: [] });
+
+    // Validate behavior
+    expect(closedCalls).toEqual([[1011, "High backpressure - slow client"]]);
+    expect(bucket.clients.has(mockWs as any)).toBe(false);
+    expect(sentMessages).toEqual([]); // Message dropped
+    expect((hub as any).buckets.has(bucket.key)).toBe(false); // Detaching the last client removes the bucket
+  });
+
+  it("sends message successfully and retains clients when backpressure is under 1MB", () => {
+    const hub = new HyperliquidMarketStreamHub();
+    const closedCalls: [number, string][] = [];
+    const sentMessages: string[] = [];
+
+    const mockWs = {
+      data: {
+        id: "conn-fast-123",
+        bucketKey: "candle:BTC:1m",
+        subscription: {
+          channel: "candle",
+          symbol: "BTC",
+          interval: "1m",
+        },
+      },
+      backpressure: 500 * 1024, // 500KB (< 1MB)
+      close(code: number, reason: string) {
+        closedCalls.push([code, reason]);
+      },
+      send(data: string) {
+        sentMessages.push(data);
+      },
+    };
+
+    const bucket = {
+      key: "candle:BTC:1m",
+      subscription: { channel: "candle", symbol: "BTC", interval: "1m" },
+      clients: new Set([mockWs]),
+      restarting: false,
+      firstMarketBroadcastLogged: false,
+      retryCount: 0,
+    };
+
+    (hub as any).buckets.set(bucket.key, bucket);
+
+    const payload = { type: "market", channel: "candle", data: [] };
+    (hub as any).broadcast(bucket, payload);
+
+    expect(closedCalls).toEqual([]);
+    expect(bucket.clients.has(mockWs as any)).toBe(true);
+    expect(sentMessages).toEqual([JSON.stringify(payload)]);
+    expect((hub as any).buckets.has(bucket.key)).toBe(true);
+  });
+});

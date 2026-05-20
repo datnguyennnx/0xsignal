@@ -180,8 +180,13 @@ const createWebSocketSubscription = (
       callbacks.onError?.(new Error("Market WebSocket connection failed"));
     });
 
-    socket.addEventListener("close", () => {
+    socket.addEventListener("close", (event) => {
       callbacks.onConnectionChange?.(false);
+      if (event.code === 1011) {
+        console.warn(
+          `[MarketStream] Connection closed due to server-side backpressure (status 1011): "${event.reason || "Slow client detected"}". Retrying connection with exponential backoff.`
+        );
+      }
       scheduleReconnect();
     });
   };

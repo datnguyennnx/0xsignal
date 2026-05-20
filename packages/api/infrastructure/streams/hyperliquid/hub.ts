@@ -297,26 +297,11 @@ export class HyperliquidMarketStreamHub {
           });
         }
 
-        // Only perp assets support real-time subscriptions; spot assets lack WS feeds.
-        // Subscribing an unsupported coin can close the ENTIRE WebSocket connection.
-        if (asset.marketType !== "perp") {
-          marketWsLog(
-            "symbol_validation_failed",
-            {
-              symbol: subSymbol,
-              marketType: asset.marketType,
-              channel: subscription.channel,
-            },
-            "warn"
-          );
-          throw new WebSocketSubscribeError({
-            message: `Cannot subscribe to WebSocket for "${subSymbol}": market type is "${asset.marketType}". Only perpetual (perp) assets support real-time candle, order book, and trades subscriptions.`,
-            symbol: subSymbol,
-          });
-        }
-
-        // Use rawCoin as internal symbol (e.g., "BTC" for main, "xyz:YEETI" for builder)
-        internalSymbol = asset.rawCoin;
+        // Resolve the API-level coin identifier:
+        //   - Perps: rawCoin (e.g., "BTC", "xyz:YEETI")
+        //   - Spot:  name field (e.g., "@227", "PURR/USDC")
+        //     because the Hyperliquid WS API requires @index format for spot.
+        internalSymbol = asset.marketType === "spot" ? asset.name : asset.rawCoin;
       } catch (error) {
         marketWsLog(
           "symbol_resolution_failed",
@@ -450,8 +435,28 @@ export class HyperliquidMarketStreamHub {
     }
 
     const encoded = JSON.stringify(payload);
+    const MAX_BACKPRESSURE_BYTES = 1024 * 1024; // 1MB threshold
+
     for (const client of bucket.clients) {
       try {
+        // Guard against backpressure / slow clients.
+        // If client queue grows beyond 1MB, disconnect them to avoid server memory bloat.
+        const backpressure = (client as any).backpressure ?? 0;
+        if (backpressure > MAX_BACKPRESSURE_BYTES) {
+          marketWsLog(
+            "backpressure_exceeded",
+            {
+              connectionId: client.data.id,
+              bucketKey: bucket.key,
+              backpressure,
+            },
+            "warn"
+          );
+          client.close(1011, "High backpressure - slow client");
+          this.detach(client);
+          continue;
+        }
+
         client.send(encoded);
       } catch {
         this.detach(client);

@@ -25,7 +25,7 @@ interface TradeDropdownProps {
 interface FormattedTrade {
   readonly coin: string;
   readonly rawCoin: string;
-  readonly marketType: "perp" | "spot" | "outcome";
+  readonly marketType: "perp" | "spot";
   readonly displaySymbol: string;
   readonly displayCategory: string;
   readonly markPx: string;
@@ -46,7 +46,6 @@ const TAB_ORDER = [
   "All",
   "Perps",
   "Spot",
-  "Outcome",
   "Crypto",
   "Tradfi",
   "HIP-3",
@@ -57,7 +56,6 @@ type CategoryTab =
   | "all"
   | "perps"
   | "spot"
-  | "outcome"
   | "crypto"
   | "tradfi"
   | "hip3"
@@ -68,7 +66,6 @@ const TAB_TO_CATEGORY: Record<string, CategoryTab> = {
   All: "all",
   Perps: "perps",
   Spot: "spot",
-  Outcome: "outcome",
   Crypto: "crypto",
   Tradfi: "tradfi",
   "HIP-3": "hip3",
@@ -199,8 +196,6 @@ export const TradeDropdown = memo(function TradeDropdown({
         filtered = filtered.filter((f) => f.marketType === "perp");
       } else if (category === "spot") {
         filtered = filtered.filter((f) => f.marketType === "spot");
-      } else if (category === "outcome") {
-        filtered = filtered.filter((f) => f.marketType === "outcome");
       } else if (category === "tradfi") {
         filtered = filtered.filter((f) =>
           ["stocks", "forex", "commodities", "indices"].includes(f.category)
@@ -481,7 +476,7 @@ export const TradeDropdown = memo(function TradeDropdown({
               <div className="divide-y divide-border/30">
                 {formattedTrades.map((item) => (
                   <button
-                    key={`${item.coin}-${item.dexPrefix ?? "main"}-${item.marketType}`}
+                    key={`${item.rawCoin}-${item.dexPrefix ?? "main"}-${item.marketType}`}
                     type="button"
                     onClick={() => handleSelect(item)}
                     className={cn(
