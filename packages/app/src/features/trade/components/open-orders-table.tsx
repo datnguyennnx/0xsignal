@@ -73,7 +73,7 @@ export function OpenOrdersTable({
               <button
                 onClick={onCancelAll}
                 disabled={orderCount === 0 || isCancelPending}
-                className="text-[0.65rem] font-medium uppercase tracking-wider transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="text-xs font-medium uppercase tracking-wider transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Cancel All
               </button>
@@ -127,7 +127,7 @@ export function OpenOrdersTable({
             // Empty state — minimalist single row
             <TableRow>
               <TableCell colSpan={12} className="text-center py-6">
-                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                <span className="text-sm text-muted-foreground/50 uppercase tracking-wider font-mono">
                   No open orders
                 </span>
               </TableCell>
@@ -139,7 +139,7 @@ export function OpenOrdersTable({
               const origSz = order.origSz ? Number(order.origSz) : sz;
               const limitPx = Number(order.limitPx);
               return (
-                <TableRow key={order.oid} className="border-b border-border/20">
+                <TableRow key={order.oid}>
                   <TableCell className={c}>{formatTime(order.timestamp)}</TableCell>
                   <TableCell className={c}>{getOrderType(order)}</TableCell>
                   <TableCell className={`${c} font-medium`}>{order.coin}</TableCell>
@@ -156,7 +156,7 @@ export function OpenOrdersTable({
                     {order.children?.length > 0 ? (
                       <button
                         onClick={() => onViewTpSl(order)}
-                        className="text-gain hover:text-gain-light text-xs font-medium transition-colors"
+                        className="text-gain hover:text-gain-light text-sm font-medium transition-colors"
                       >
                         View
                       </button>
@@ -168,7 +168,7 @@ export function OpenOrdersTable({
                     <button
                       onClick={() => onCancelOrder(order.coin, order.oid)}
                       disabled={isCancelPending}
-                      className="text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Cancel
                     </button>

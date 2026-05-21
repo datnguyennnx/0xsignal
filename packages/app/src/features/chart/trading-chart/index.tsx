@@ -131,7 +131,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
         />
       </ChartHeader>
 
-      <div className="flex-1 relative bg-card overflow-hidden">
+      <div className="flex-1 relative overflow-hidden rounded-lg">
         <div ref={chartContainerRef} className="absolute inset-0 will-change-transform" />
         {data.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground/50 pointer-events-none">
@@ -162,7 +162,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   }
 
   return (
-    <div className="h-full rounded-lg bg-card overflow-hidden flex flex-col">
+    <div className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]">
       <div className="relative flex-1 flex flex-col">{chartContent}</div>
     </div>
   );

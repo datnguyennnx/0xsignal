@@ -24,9 +24,7 @@ const TradingChart = lazy(() =>
   import("@/features/chart/trading-chart").then((m) => ({ default: m.TradingChart }))
 );
 
-const TradeDropdown = lazy(() =>
-  import("@/features/trade/components/trade-dropdown").then((m) => ({ default: m.TradeDropdown }))
-);
+import { TradeDropdown } from "@/features/trade/components/trade-dropdown";
 
 import { cn } from "@/core/utils/cn";
 import {
@@ -160,8 +158,8 @@ const MarketTerminalHeader = memo(function MarketTerminalHeader({
 });
 
 const ChartSkeleton = () => (
-  <div className="h-full w-full flex items-center justify-center bg-card/50 rounded-xl">
-    <Skeleton className="h-full w-full rounded-xl" />
+  <div className="h-full w-full flex items-center justify-center bg-card rounded-xl border border-border/20">
+    <Skeleton className="h-full w-full rounded-xl bg-muted/50" />
   </div>
 );
 
@@ -190,10 +188,10 @@ const AssetContent = memo(function AssetContent({
   const [fundingCountdown, setFundingCountdown] = useState(() => toCountdown(getNextFundingMs()));
 
   useEffect(() => {
-    const id = window.setInterval(() => {
+    const id = setInterval(() => {
       setFundingCountdown(toCountdown(getNextFundingMs()));
     }, 1000);
-    return () => window.clearInterval(id);
+    return () => clearInterval(id);
   }, []);
 
   // `symbol` is the rawCoin from URL (perp: "BTC", spot: "PURR/USDC", HIP-3: "xyz:TSLA")
@@ -232,7 +230,7 @@ const AssetContent = memo(function AssetContent({
   }, [allMids, symbol, price, tradeAsset]);
 
   return (
-    <div className="container-fluid h-screen flex flex-col py-[clamp(0.25rem,0.8vw,0.5rem)] px-[clamp(0.5rem,1.5vw,1rem)] select-none overflow-hidden">
+    <div className="container-fluid h-screen flex flex-col py-[clamp(0.5rem,1.2vw,0.75rem)] px-[clamp(0.5rem,1.5vw,1rem)] select-none overflow-hidden animate-in fade-in duration-200 ease-premium">
       {/* Header — fixed height, no scroll */}
       <header className="shrink-0">
         <div className="flex items-center w-full min-w-0 pb-[clamp(0.25rem,1vw,0.375rem)]">
@@ -281,7 +279,7 @@ const AssetContent = memo(function AssetContent({
 
       <L2BookNSigFigsProvider key={symbol}>
         {/* Top section: Chart + Orderbook — ~70% */}
-        <div className="flex-8 min-h-0 grid grid-cols-6 gap-[clamp(0.15rem,0.5vw,0.3rem)] items-stretch">
+        <div className="flex-8 min-h-0 grid grid-cols-6 gap-[clamp(0.3rem,0.6vw,0.5rem)] items-stretch">
           <div className="col-span-4 flex flex-col min-h-0 h-full">
             {showChartSkeleton ? (
               <Skeleton className="h-full w-full rounded-lg" />
@@ -308,13 +306,22 @@ const AssetContent = memo(function AssetContent({
           </div>
 
           <div className="col-span-1 flex flex-col min-h-0">
-            <OrderForm symbol={symbol} markPrice={asset.price?.markPx || asset.price?.price || 0} />
+            <ErrorBoundary>
+              <OrderForm
+                symbol={symbol}
+                markPrice={asset.price?.markPx || asset.price?.price || 0}
+              />
+            </ErrorBoundary>
           </div>
         </div>
 
         {/* Bottom section: Position Management — ~20% */}
-        <div className="flex-2 min-h-0 flex flex-col pt-[clamp(0.15rem,0.5vw,0.25rem)]">
-          <PositionManagement />
+        <div className="flex-2 min-h-0 flex flex-col pt-[clamp(0.3rem,0.6vw,0.5rem)]">
+          <div className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-4">
+            <ErrorBoundary>
+              <PositionManagement />
+            </ErrorBoundary>
+          </div>
         </div>
       </L2BookNSigFigsProvider>
     </div>
@@ -323,19 +330,21 @@ const AssetContent = memo(function AssetContent({
 
 function AssetDetailSkeleton() {
   return (
-    <div className="container-fluid h-screen flex flex-col pt-3 pb-2 px-4 select-none overflow-hidden">
-      <header className="flex items-center gap-3 shrink-0 pb-1.5">
+    <div className="container-fluid h-screen flex flex-col pt-3 pb-3 px-4 select-none overflow-hidden gap-[clamp(0.5rem,1vw,1rem)] animate-in fade-in duration-200 ease-premium">
+      <header className="flex items-center gap-3 shrink-0">
         <Skeleton className="size-7 rounded-full" />
         <Skeleton className="h-4 w-48" />
       </header>
       {/* Chart + Orderbook + OrderForm skeleton rows — matches flex-8 grid in AssetContent */}
-      <div className="flex-8 min-h-0 grid grid-cols-6 gap-0.5 items-stretch">
+      <div className="flex-8 min-h-0 grid grid-cols-6 gap-1 items-stretch">
         <Skeleton className="col-span-4 rounded-lg" />
         <Skeleton className="col-span-2 rounded-lg" />
       </div>
       {/* Position management skeleton — matches flex-2 area */}
-      <div className="flex-2 min-h-0 pt-0.5 flex flex-col">
-        <Skeleton className="h-full w-full rounded-lg" />
+      <div className="flex-2 min-h-0 flex flex-col">
+        <div className="h-full flex flex-col rounded-xl border border-border/20 bg-card overflow-hidden">
+          <Skeleton className="h-full w-full rounded-lg bg-muted/50" />
+        </div>
       </div>
     </div>
   );
@@ -438,7 +447,7 @@ export function AssetDetail() {
 
   if (assetError || (!fetchedAsset && !assetLoading)) {
     return (
-      <div className="container-fluid h-full overflow-y-auto py-6 overscroll-none">
+      <div className="container-fluid h-full overflow-y-auto py-6 overscroll-none animate-in fade-in duration-200 ease-premium">
         <ErrorState
           title={
             assetError ? `Error: ${assetError.message}` : `No data for ${symbol?.toUpperCase()}`
@@ -451,28 +460,30 @@ export function AssetDetail() {
 
   if (!asset) {
     return (
-      <div className="container-fluid h-full overflow-y-auto py-6 overscroll-none">
+      <div className="container-fluid h-full overflow-y-auto py-6 overscroll-none animate-in fade-in duration-200 ease-premium">
         <ErrorState title={`No data for ${symbol?.toUpperCase()}`} retryAction={handleRetry} />
       </div>
     );
   }
 
   return (
-    <CandleDataProvider
-      data={candleData}
-      dataRef={candleDataRef}
-      isLoading={chartLoading}
-      loadMore={loadMoreCandles}
-      hasMore={hasMoreCandles}
-      isFetching={chartFetching}
-    >
-      <AssetContent
-        asset={asset}
-        symbol={rawCoin}
-        interval={interval}
-        onIntervalChange={handleIntervalChange}
-        showChartSkeleton={showChartSkeleton}
-      />
-    </CandleDataProvider>
+    <ErrorBoundary>
+      <CandleDataProvider
+        data={candleData}
+        dataRef={candleDataRef}
+        isLoading={chartLoading}
+        loadMore={loadMoreCandles}
+        hasMore={hasMoreCandles}
+        isFetching={chartFetching}
+      >
+        <AssetContent
+          asset={asset}
+          symbol={rawCoin}
+          interval={interval}
+          onIntervalChange={handleIntervalChange}
+          showChartSkeleton={showChartSkeleton}
+        />
+      </CandleDataProvider>
+    </ErrorBoundary>
   );
 }

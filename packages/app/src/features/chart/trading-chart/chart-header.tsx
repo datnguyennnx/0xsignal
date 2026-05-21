@@ -43,7 +43,7 @@ export const ChartHeader = memo(function ChartHeader({
   );
 
   return (
-    <div className="flex items-center justify-between gap-[clamp(0.75rem,2vw,1rem)] px-[clamp(0.75rem,2vw,1rem)] py-[clamp(0.375rem,1vw,0.625rem)] bg-card">
+    <div className="flex items-center justify-between gap-[clamp(0.75rem,2vw,1rem)]">
       <div className="flex items-center gap-[clamp(0.75rem,2vw,1rem)]">
         <div className="flex items-center gap-[clamp(0.125rem,0.5vw,0.25rem)]">
           {DEFAULT_INTERVALS.map((int) => (
@@ -53,7 +53,7 @@ export const ChartHeader = memo(function ChartHeader({
               size="sm"
               onClick={() => handleIntervalChange(int.value)}
               className={cn(
-                "relative h-8 rounded-xl border px-2.5 py-1 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-mono tabular-nums tracking-[0.01em] transition-all duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/25",
+                "relative h-8 rounded-xl border px-2.5 py-4 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-mono tabular-nums tracking-[0.01em] transition-all duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/25",
                 interval === int.value
                   ? "border-border/60 bg-muted/70 text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -98,7 +98,7 @@ export const ChartHeader = memo(function ChartHeader({
           )}
         </div>
       </div>
-      <div className="flex items-center gap-2">{children}</div>
+      <div className="flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">{children}</div>
     </div>
   );
 });

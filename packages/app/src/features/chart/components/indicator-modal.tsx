@@ -111,12 +111,12 @@ export function IndicatorModal({
         <div className="flex flex-col sm:flex-row h-full divide-y sm:divide-y-0 sm:divide-x divide-border/50 min-h-0 bg-background">
           {/* Column 1: Indicators Sidebar */}
           <div className="w-full sm:w-[clamp(11.25rem,20vw,15rem)] flex flex-col shrink-0 min-h-0 sm:max-h-[clamp(18rem,80dvh,60rem)]">
-            <div className="p-4 sm:p-6 flex items-center justify-between sm:justify-start gap-2">
+            <div className="p-4 sm:p-6 flex items-center justify-between sm:justify-start gap-[clamp(0.25rem,0.5vw,0.5rem)]">
               <h2 className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest text-muted-foreground/30">
                 Indicators
               </h2>
               <button
-                onClick={() => onOpenChange(false)}
+                onClick={handleClose}
                 className="sm:hidden p-2 min-w-[44px] min-h-[44px] flex items-center justify-center tap-highlight rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
               >
                 <X className="w-4 h-4" />
@@ -142,7 +142,7 @@ export function IndicatorModal({
                       setSelectedId(null);
                     }}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-3 sm:py-2 rounded text-xs transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
+                      "w-full flex items-center gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-3 sm:py-2 rounded text-xs transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                       category === cat.id
                         ? "bg-foreground text-background font-bold shadow-sm"
                         : "hover:bg-muted/60 text-muted-foreground hover:text-foreground font-medium"
@@ -191,7 +191,7 @@ export function IndicatorModal({
                         key={indicator.id}
                         onClick={() => setSelectedId(indicator.id)}
                         className={cn(
-                          "w-full flex items-center gap-2 px-3 py-3 sm:py-2 rounded text-xs transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
+                          "w-full flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-3 sm:py-2 rounded text-xs transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                           isSelected
                             ? "bg-muted/70 text-foreground font-bold shadow-inner"
                             : "hover:bg-muted/40 text-muted-foreground/80 hover:text-foreground font-medium"

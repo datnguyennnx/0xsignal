@@ -75,7 +75,7 @@ export function TabTrigger({
   return (
     <TabsTrigger
       value={value}
-      className="relative flex-none px-3 py-1.5 text-xs font-medium
+      className="relative flex-none px-3 py-2 text-[length:var(--text-compact)] font-medium
         bg-transparent dark:bg-transparent border-0 rounded-none shadow-none
         data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent
         data-[state=active]:shadow-none
@@ -83,11 +83,13 @@ export function TabTrigger({
         data-[state=active]:text-foreground dark:data-[state=active]:text-foreground
         data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0
         data-[state=active]:after:right-0 data-[state=active]:after:h-[2px] data-[state=active]:after:bg-foreground
-        transition-colors cursor-pointer"
+        transition-colors cursor-pointer gap-[clamp(0.15rem,0.3vw,0.25rem)]"
     >
       {children}
       {count !== undefined && count > 0 && (
-        <span className="text-xs text-muted-foreground font-normal">({count})</span>
+        <span className="text-[length:var(--text-data)] text-muted-foreground font-normal">
+          ({count})
+        </span>
       )}
     </TabsTrigger>
   );

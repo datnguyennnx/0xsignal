@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog";
 import { formatCompactUsd } from "@/core/utils/formatters";
 import { type TpSlOrderDisplay } from "./tp-sl-view-utils";
@@ -49,8 +50,8 @@ function OrderDetailBox({ order }: { order: TpSlOrderDisplay }) {
 
 /* ─── Decision-tree label ─── */
 
-function TreeNodeLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-center text-muted-foreground mb-1.5">{children}</p>;
+function TreeNodeLabel({ children }: { children: ReactNode }) {
+  return <p className="text-xs text-center text-muted-foreground">{children}</p>;
 }
 
 /* ─── Main Component ─── */
@@ -65,52 +66,46 @@ export function TpSlViewModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl bg-card border-border/30 p-0 gap-0 overflow-hidden">
-        <div className="px-6 pt-5 pb-3 border-b border-border/20">
+        <div className="px-6 pt-5 pb-3 space-y-1">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium text-foreground">
               Take Profit / Stop Loss
             </DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground/70 mt-1 leading-relaxed">
+          <p className="text-xs text-muted-foreground/70 leading-relaxed">
             If order A is filled, orders B and C will be placed
           </p>
         </div>
 
-        <div className="px-6 py-5 space-y-0">
+        <div className="px-6 py-5 space-y-2">
           <TreeNodeLabel>Order A</TreeNodeLabel>
           <div className="max-w-sm mx-auto">
             <OrderDetailBox order={parentOrder} />
           </div>
 
-          <div className="h-8 w-px bg-border/40 mx-auto my-2" />
-
           {tpOrder || slOrder ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+            <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
+              <div className="space-y-1.5">
                 {slOrder ? (
                   <>
                     <TreeNodeLabel>If order B filled, cancel order C</TreeNodeLabel>
                     <TreeNodeLabel>Order B</TreeNodeLabel>
                     <OrderDetailBox order={slOrder} />
                   </>
-                ) : (
-                  <div />
-                )}
+                ) : null}
               </div>
-              <div>
+              <div className="space-y-1.5">
                 {tpOrder ? (
                   <>
                     <TreeNodeLabel>If order C filled, cancel order B</TreeNodeLabel>
                     <TreeNodeLabel>Order C</TreeNodeLabel>
                     <OrderDetailBox order={tpOrder} />
                   </>
-                ) : (
-                  <div />
-                )}
+                ) : null}
               </div>
             </div>
           ) : (
-            <div className="rounded-lg border border-border/30 bg-background/40 px-3.5 py-3 mt-3">
+            <div className="rounded-lg border border-border/30 bg-background/40 px-3.5 py-3">
               <p className="text-xs text-muted-foreground/60 text-center">
                 No TP/SL orders attached
               </p>

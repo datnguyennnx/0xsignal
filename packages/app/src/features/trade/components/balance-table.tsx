@@ -112,7 +112,7 @@ export function BalanceTable({
           ) : !marginSummary ? (
             <TableRow>
               <TableCell colSpan={9} className="text-center py-6">
-                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                <span className="text-sm text-muted-foreground/50 uppercase tracking-wider font-mono">
                   No balance data
                 </span>
               </TableCell>
@@ -120,7 +120,7 @@ export function BalanceTable({
           ) : (
             <>
               {/* USDC row */}
-              <TableRow className="border-b border-border/20">
+              <TableRow>
                 <TableCell className={`${c} font-medium`}>USDC</TableCell>
                 <TableCell className={cNum}>{usdcTotalBalance.toFixed(2)}</TableCell>
                 <TableCell className={cNum}>{usdcAvailableBalance.toFixed(2)}</TableCell>
@@ -141,7 +141,7 @@ export function BalanceTable({
               </TableRow>
 
               {/* Account Value row */}
-              <TableRow className="border-b border-border/20">
+              <TableRow>
                 <TableCell className={`${c} font-medium`}>Account</TableCell>
                 <TableCell className={cNum}>{formatCompactUsd(effectiveAccountTotal)}</TableCell>
                 <TableCell className={cNum}>
@@ -171,7 +171,7 @@ export function BalanceTable({
                 const upnl = Number(position.unrealizedPnl);
                 const roe = Number(position.returnOnEquity);
                 return (
-                  <TableRow key={position.coin} className="border-b border-border/20">
+                  <TableRow key={position.coin}>
                     <TableCell className={`${c} font-medium`}>{position.coin}</TableCell>
                     <TableCell className={cNum}>{formatCompactUsd(posValue + upnl)}</TableCell>
                     <TableCell className={cNum}>—</TableCell>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, type ChangeEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +41,6 @@ export function CloseLimitModal({
   const [size, setSize] = useState("");
   const [sliderPercent, setSliderPercent] = useState(0);
 
-  /* ─── Slider handler: compute size from percentage ─── */
   const handleSliderChange = useCallback(
     (values: number[]) => {
       const pct = values[0] ?? 0;
@@ -54,9 +53,8 @@ export function CloseLimitModal({
     [position, szDecimals]
   );
 
-  /* ─── Size input handler: sync slider ─── */
   const handleSizeChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value;
       setSize(val);
       if (position && Number(val) > 0) {
@@ -69,7 +67,6 @@ export function CloseLimitModal({
     [position]
   );
 
-  /* ─── Confirm handler ─── */
   const handleConfirm = useCallback(() => {
     onConfirmLimitClose({ price, size });
   }, [onConfirmLimitClose, price, size]);
@@ -87,19 +84,19 @@ export function CloseLimitModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-[420px] bg-card border-border/30 p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[420px] bg-card border-border/30 p-5 gap-[clamp(0.5rem,1vw,1rem)] overflow-hidden">
         {/* ─── Header ─── */}
-        <DialogHeader className="px-5 pt-4 pb-3 border-b border-border/20">
+        <DialogHeader className="p-0">
           <DialogTitle className="text-sm font-medium text-foreground">Limit Close</DialogTitle>
-          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             This will send an order to close your position at the limit price.
           </p>
         </DialogHeader>
 
         {/* ─── Body ─── */}
-        <div className="px-5 py-4 space-y-4">
+        <div className="space-y-4">
           {/* Price Input */}
-          <div className="space-y-1.5">
+          <div className="space-y-4">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
               Price (USDC)
             </Label>
@@ -121,7 +118,7 @@ export function CloseLimitModal({
           </div>
 
           {/* Size Input */}
-          <div className="space-y-1.5">
+          <div className="space-y-4">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
               Size {position ? `(${position.coin})` : ""}
             </Label>
@@ -135,19 +132,17 @@ export function CloseLimitModal({
           </div>
 
           {/* Slider */}
-          <div className="pt-1">
-            <Slider
-              value={[sliderPercent]}
-              onValueChange={handleSliderChange}
-              min={0}
-              max={100}
-              step={1}
-              className="[&_[data-slot=slider-thumb]]:hover:ring-4 [&_[data-slot=slider-thumb]]:hover:ring-ring/40 [&_[data-slot=slider-track]]:hover:bg-muted/40 [&_[data-slot=slider-range]]:hover:brightness-110"
-            />
-          </div>
+          <Slider
+            value={[sliderPercent]}
+            onValueChange={handleSliderChange}
+            min={0}
+            max={100}
+            step={1}
+            className="[&_[data-slot=slider-thumb]]:hover:ring-4 [&_[data-slot=slider-thumb]]:hover:ring-ring/40 [&_[data-slot=slider-track]]:hover:bg-muted/40 [&_[data-slot=slider-range]]:hover:brightness-110"
+          />
 
           {/* Info rows */}
-          <div className="space-y-2 pt-1">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Closing</span>
               <span className="text-xs font-mono tabular-nums text-foreground">
@@ -164,7 +159,7 @@ export function CloseLimitModal({
         </div>
 
         {/* ─── Footer ─── */}
-        <DialogFooter className="px-5 py-3 border-t border-border/20">
+        <DialogFooter className="p-0">
           <Button
             onClick={handleConfirm}
             disabled={!canConfirm || isPending}

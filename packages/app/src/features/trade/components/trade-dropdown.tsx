@@ -219,7 +219,7 @@ const TradeDropdownFn = ({
       <button
         type="button"
         ref={triggerRef}
-        className="flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded transition-colors hover:bg-muted/30"
+        className="flex items-center gap-[clamp(0.2rem,0.4vw,0.375rem)] cursor-pointer px-2 py-1 rounded transition-colors hover:bg-muted/30"
         onClick={isOpen ? handleClose : handleOpen}
         onMouseEnter={onPrefetchMarkets}
         onFocus={onPrefetchMarkets}
@@ -292,7 +292,7 @@ const TradeDropdownFn = ({
             </div>
           </div>
 
-          <div className="flex px-2 overflow-x-auto border-b border-border/20 scrollbar-hide">
+          <div className="flex px-2 overflow-x-auto scrollbar-hide">
             {TAB_ORDER.map((tab) => {
               const catKey = TAB_TO_CATEGORY[tab];
               const isActive = category === catKey;
@@ -302,9 +302,9 @@ const TradeDropdownFn = ({
                   type="button"
                   onClick={() => setCategory(catKey)}
                   className={cn(
-                    "px-3 py-2 text-[clamp(0.6875rem,0.7rem+0.4vw,0.75rem)] font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none border-b-2 -mb-px",
+                    "px-3 py-2 text-[clamp(0.6875rem,0.7rem+0.4vw,0.75rem)] font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none -mb-px",
                     isActive
-                      ? "text-foreground border-foreground"
+                      ? "text-foreground border-b-2 border-foreground"
                       : "text-muted-foreground/50 hover:text-muted-foreground border-transparent"
                   )}
                 >

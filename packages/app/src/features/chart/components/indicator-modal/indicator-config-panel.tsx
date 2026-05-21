@@ -83,12 +83,12 @@ export function IndicatorConfigPanel({
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
       <div className="p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
+        <div className="flex items-center justify-between gap-[clamp(0.5rem,1vw,1rem)]">
+          <div className="min-w-0 space-y-1">
             <h3 className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest text-muted-foreground/30">
               Inspector
             </h3>
-            <p className="text-xs font-bold mt-1">Settings</p>
+            <p className="text-xs font-bold">Settings</p>
           </div>
           <div className="text-right shrink-0">
             <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground font-bold uppercase tracking-tighter opacity-30">
@@ -106,7 +106,7 @@ export function IndicatorConfigPanel({
               <label className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-wider text-muted-foreground/40">
                 Configurations
               </label>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-[clamp(0.2rem,0.4vw,0.375rem)]">
                 {activeIndicators.map((inst) => (
                   <button
                     key={inst.instanceId}
@@ -165,7 +165,7 @@ export function IndicatorConfigPanel({
       </div>
 
       <div className="p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-[clamp(0.25rem,0.5vw,0.5rem)]">
           <Button
             variant="ghost"
             size="sm"
@@ -175,7 +175,7 @@ export function IndicatorConfigPanel({
             }
             disabled={!matchingActiveInstance}
           >
-            <Minus className="w-3 h-3 mr-2" />
+            <Minus className="w-3 h-3" />
             Delete
           </Button>
 
@@ -184,7 +184,7 @@ export function IndicatorConfigPanel({
             className="h-9 min-h-[44px] text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest bg-foreground text-background hover:bg-foreground/85 focus-visible:ring-ring/30 rounded"
             onClick={handleApply}
           >
-            <Plus className="w-3 h-3 mr-2" />
+            <Plus className="w-3 h-3" />
             {matchingActiveInstance ? "Update" : "Add"}
           </Button>
         </div>

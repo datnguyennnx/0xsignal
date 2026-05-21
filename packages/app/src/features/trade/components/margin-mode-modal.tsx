@@ -69,16 +69,16 @@ export function MarginModeModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[520px] bg-card border-border/30 p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[520px] bg-card border-border/30 p-5 gap-[clamp(0.5rem,1vw,1rem)] overflow-hidden">
         {/* ─── Header ─── */}
-        <div className="px-5 pt-4 pb-2 border-b border-border/20">
+        <div className="p-0">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium text-foreground">Margin Mode</DialogTitle>
           </DialogHeader>
         </div>
 
         {/* ─── Body ─── */}
-        <div className="px-5 py-4 space-y-3">
+        <div className="space-y-3">
           {/* Isolated block — first, with Recommended */}
           <button
             onClick={() => setMode("isolated")}
@@ -90,8 +90,8 @@ export function MarginModeModal({
             )}
           >
             <div className="flex items-start justify-between">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
+              <div className="space-y-4">
+                <div className="flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
                   <span
                     className={cn(
                       "text-sm font-medium",
@@ -129,7 +129,7 @@ export function MarginModeModal({
             )}
           >
             <div className="flex items-start justify-between">
-              <div className="space-y-1.5">
+              <div className="space-y-4">
                 <span
                   className={cn(
                     "text-sm font-medium",
@@ -155,7 +155,7 @@ export function MarginModeModal({
         </div>
 
         {/* ─── Footer ─── */}
-        <DialogFooter className="px-5 py-3 border-t border-border/20">
+        <DialogFooter className="p-0">
           <Button
             size="sm"
             onClick={handleConfirm}

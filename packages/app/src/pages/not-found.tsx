@@ -4,14 +4,18 @@
  * Displays a clean error page when a user navigates to a non-existent route.
  * Provides a clear path back to the trade page.
  */
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
 export const NotFoundPage = memo(function NotFoundPage() {
+  useEffect(() => {
+    document.title = "Not Found | 0xsignal";
+  }, []);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[clamp(30rem,70dvh,50rem)] px-4 text-center">
+    <div className="flex flex-col items-center justify-center min-h-[clamp(30rem,70dvh,50rem)] px-4 text-center animate-in fade-in duration-200 ease-premium">
       <div className="space-y-6 max-w-md">
         <div className="space-y-2">
           <h1 className="font-mono text-7xl sm:text-8xl font-bold tracking-tighter text-foreground/20">

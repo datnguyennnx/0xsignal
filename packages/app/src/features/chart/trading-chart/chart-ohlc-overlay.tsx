@@ -25,7 +25,7 @@ export const ChartOhlcOverlay = memo(({ data, precision }: ChartOhlcOverlayProps
 
   return (
     <div className="absolute top-2 left-2 right-2 z-30 px-2.5 py-1.5 bg-card/90 backdrop-blur-sm rounded-lg text-[clamp(0.625rem,0.5rem+0.2vw,0.75rem)] font-mono select-none overflow-x-auto scrollbar-hide w-fit">
-      <div className="flex items-center gap-3 min-w-fit">
+      <div className="flex items-center gap-[clamp(0.4rem,0.7vw,0.75rem)] min-w-fit">
         <span className="text-muted-foreground">
           O{" "}
           <span className="text-foreground tabular-nums">

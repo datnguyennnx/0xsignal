@@ -38,7 +38,7 @@ export const IndicatorButton = memo(function IndicatorButton({
         size="sm"
         onClick={handleToggle}
         className={cn(
-          "gap-1.5 px-2 sm:px-3 border-border/50 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25",
+          "gap-[clamp(0.2rem,0.4vw,0.375rem)] px-2 sm:px-3 border-border/50 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25",
           isOpen && "bg-foreground text-background hover:bg-foreground/90",
           className
         )}

@@ -117,7 +117,7 @@ export function PositionsTable({
           ) : positions.length === 0 ? (
             <TableRow>
               <TableCell colSpan={11} className="text-center py-6">
-                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                <span className="text-sm text-muted-foreground/50 uppercase tracking-wider font-mono">
                   No open positions
                 </span>
               </TableCell>
@@ -137,9 +137,9 @@ export function PositionsTable({
               const markPx = mids?.[position.coin] ?? computedMarkPx;
 
               return (
-                <TableRow key={position.coin} className="border-b border-border/20">
+                <TableRow key={position.coin}>
                   <TableCell className={`${c} font-medium`}>
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-[clamp(0.2rem,0.4vw,0.375rem)]">
                       {position.coin}
                       <PosDirLabel szi={position.szi} />
                     </span>
@@ -157,10 +157,10 @@ export function PositionsTable({
                     {formatCompactUsd(Math.abs(cumFunding))}
                   </TableCell>
                   <TableCell className={c}>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)]">
                       <button
                         onClick={() => onCloseMarket?.(position.coin, position.szi, signedSz >= 0)}
-                        className="text-xs font-medium text-foreground hover:text-foreground/70 transition-colors"
+                        className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
                       >
                         Market
                       </button>
@@ -169,7 +169,7 @@ export function PositionsTable({
                         onClick={() =>
                           onCloseLimit?.({ coin: position.coin, sz, isLong: signedSz >= 0, markPx })
                         }
-                        className="text-xs font-medium text-foreground hover:text-foreground/70 transition-colors"
+                        className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
                       >
                         Limit
                       </button>

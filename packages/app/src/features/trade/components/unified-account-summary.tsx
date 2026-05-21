@@ -44,16 +44,16 @@ export function UnifiedAccountSummary() {
   const pnlClass = pnlPos ? "text-gain" : "text-loss";
 
   return (
-    <div className="divide-y divide-border/20">
+    <div className="flex flex-col gap-[clamp(0.5rem,1vw,1rem)]">
       {/* Title */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
+      <div className="flex items-center justify-between">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Unified Account
         </span>
       </div>
 
       {/* Portfolio Value */}
-      <div className="flex items-center justify-between px-4 py-2">
+      <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Portfolio Value</span>
         <span className="text-xs font-mono tabular-nums text-foreground">
           {formatCompactUsd(accountValue)}
@@ -61,7 +61,7 @@ export function UnifiedAccountSummary() {
       </div>
 
       {/* Unrealized PNL */}
-      <div className="flex items-center justify-between px-4 py-2">
+      <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Unrealized PNL</span>
         <span className={cn("text-xs font-mono tabular-nums", pnlClass)}>
           {formatCompactUsd(totalUnrealizedPnl)}
@@ -69,7 +69,7 @@ export function UnifiedAccountSummary() {
       </div>
 
       {/* Account Ratio */}
-      <div className="flex items-center justify-between px-4 py-2">
+      <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Account Ratio</span>
         <span className="text-xs font-mono tabular-nums text-foreground">
           {accountRatio.toFixed(2)}%
@@ -77,7 +77,7 @@ export function UnifiedAccountSummary() {
       </div>
 
       {/* Account Leverage */}
-      <div className="flex items-center justify-between px-4 py-2">
+      <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Account Leverage</span>
         <span className="text-xs font-mono tabular-nums text-foreground">
           {accountLeverage.toFixed(2)}x

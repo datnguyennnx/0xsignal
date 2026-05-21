@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, type ChangeEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -145,7 +145,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   );
 
   const handlePctInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value;
       const pct = Math.min(100, Math.max(0, Number(raw) || 0));
       setSliderPercent(pct);
@@ -155,7 +155,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   );
 
   const handleSizeChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value;
       setSize(val);
       const numVal = Number(val);
@@ -178,10 +178,10 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   });
 
   const handlePlaceOrder = useCallback(() => {
-    const entryPrice = usablePrice;
-    if (entryPrice <= 0 || !Number(size) || Number(size) <= 0) return;
+    const effectiveEntryPrice = usablePrice;
+    if (effectiveEntryPrice <= 0 || !Number(size) || Number(size) <= 0) return;
 
-    const rawSz = Number(size) / entryPrice;
+    const rawSz = Number(size) / effectiveEntryPrice;
     const formattedSz = formatOrderSize(rawSz, szDecimals);
     if (formattedSz === "0") return;
 
@@ -195,7 +195,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     orders.push({
       a: assetIndex,
       b: side === "buy",
-      p: orderType === "market" ? String(entryPrice) : price || "1",
+      p: orderType === "market" ? String(effectiveEntryPrice) : price || "1",
       s: formattedSz,
       r: reduceOnly,
       t: orderTypeConfig,
@@ -252,9 +252,9 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
   return (
     <>
-      <div className="flex flex-col bg-card border border-border/30 rounded-xl overflow-hidden h-full animate-in fade-in duration-200 ease-premium">
-        {/* ════════════════ TOP CONTROLS: margin mode / leverage / classic ════════════════ */}
-        <div className="flex items-center gap-1.5 px-4 py-3 border-b border-border/20 shrink-0">
+      <div className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]">
+        {/* Top controls */}
+        <div className="flex items-center gap-[clamp(0.2rem,0.4vw,0.375rem)] shrink-0">
           <button
             onClick={() => setMarginModeOpen(true)}
             className="flex-1 h-9 px-2 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors truncate"
@@ -275,17 +275,16 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           </button>
         </div>
 
-        {/* ════════════════ ORDER TYPE TABS: MARKET / LIMIT ════════════════ */}
-        <div className="flex shrink-0 px-4 pt-3 border-b border-border/20">
+        {/* Order type tabs */}
+        <div className="flex shrink-0">
           {(["market", "limit"] as const).map((type) => (
             <button
               key={type}
               onClick={() => setOrderType(type)}
               className={cn(
                 "flex-1 pb-1.5 text-xs font-medium uppercase tracking-wider transition-colors",
-                "border-b-2",
                 orderType === type
-                  ? "border-foreground text-foreground"
+                  ? "border-b-2 border-foreground text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground/70"
               )}
             >
@@ -294,55 +293,56 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           ))}
         </div>
 
-        {/* ════════════════ SCROLLABLE FORM BODY ════════════════ */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="px-4 py-3 space-y-4">
-            {/* ─── Buy / Sell Toggle — linked sliding pill ─── */}
-            <div className="relative flex h-10 rounded-md bg-muted/10 p-0.5">
-              {/* Sliding indicator */}
-              <div
-                className={cn(
-                  "absolute inset-y-0.5 w-[calc(50%-0.25rem)] rounded-[5px] transition-transform duration-500 ease-premium",
-                  side === "buy"
-                    ? "translate-x-0.5 bg-gain"
-                    : "translate-x-[calc(100%+0.5rem)] bg-loss"
-                )}
+        {/* Scrollable form body */}
+        <div className="flex-1 overflow-y-auto flex flex-col gap-[clamp(1rem,2vw,2rem)]">
+          {/* ─── Buy / Sell Toggle — linked sliding pill ─── */}
+          <div className="relative flex h-10 rounded-md bg-muted/10 p-0.5">
+            {/* Sliding indicator */}
+            <div
+              className={cn(
+                "absolute inset-y-0.5 w-[calc(50%-0.25rem)] rounded-[5px] transition-transform duration-500 ease-premium",
+                side === "buy"
+                  ? "translate-x-0.5 bg-gain"
+                  : "translate-x-[calc(100%+0.5rem)] bg-loss"
+              )}
+            />
+            <button
+              onClick={() => setSide("buy")}
+              className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer"
+            >
+              <span className={side === "buy" ? "text-white" : "text-muted-foreground"}>
+                Buy / Long
+              </span>
+            </button>
+            <button
+              onClick={() => setSide("sell")}
+              className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer"
+            >
+              <span className={side === "sell" ? "text-white" : "text-muted-foreground"}>
+                Sell / Short
+              </span>
+            </button>
+          </div>
+
+          {/* ─── Price Input (limit only) ─── */}
+          {orderType === "limit" && (
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
+                Price
+              </Label>
+              <Input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="0.00"
+                className="h-9 text-xs tabular-nums bg-background/70 border-border/30"
               />
-              <button
-                onClick={() => setSide("buy")}
-                className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer"
-              >
-                <span className={side === "buy" ? "text-white" : "text-muted-foreground"}>
-                  Buy / Long
-                </span>
-              </button>
-              <button
-                onClick={() => setSide("sell")}
-                className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer"
-              >
-                <span className={side === "sell" ? "text-white" : "text-muted-foreground"}>
-                  Sell / Short
-                </span>
-              </button>
             </div>
+          )}
 
-            {/* ─── Price Input (limit only) ─── */}
-            {orderType === "limit" && (
-              <div className="space-y-1.5">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
-                  Price
-                </Label>
-                <Input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="0.00"
-                  className="h-9 text-xs tabular-nums bg-background/70 border-border/30"
-                />
-              </div>
-            )}
-
-            {/* ─── Size Input with Asset Selector ─── */}
+          {/* ─── Order Entry: Size + Slider + Available ─── */}
+          <div className="flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+            {/* Size Input with Asset Selector */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
@@ -379,9 +379,9 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               )}
             </div>
 
-            {/* ─── Size Percentage Slider ─── */}
-            <div className="pt-1 space-y-2">
-              <div className="flex items-center gap-3">
+            {/* Size Percentage Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-[clamp(0.4rem,0.7vw,0.75rem)]">
                 <Slider
                   value={[sliderPercent]}
                   onValueChange={handleSliderCommit}
@@ -403,38 +403,46 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                 />
                 <span className="text-xs text-muted-foreground">%</span>
               </div>
-              <div className="flex justify-between">
-                {[0, 25, 50, 75, 100].map((pct) => (
-                  <button
-                    key={pct}
-                    onClick={() => {
-                      setSliderPercent(pct);
-                      setSize(sizeFromPct(pct));
-                    }}
-                    className={cn(
-                      "text-xs px-2 py-1 rounded transition-colors cursor-pointer",
-                      sliderPercent === pct
-                        ? "text-foreground font-medium bg-muted/20"
-                        : "text-muted-foreground/80 hover:text-muted-foreground hover:bg-muted/10"
-                    )}
-                  >
-                    {pct}%
-                  </button>
-                ))}
-              </div>
             </div>
 
-            {/* ─── Available to Trade ─── */}
-            <div className="flex items-center justify-between pt-1">
+            {/* Available to Trade */}
+            <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Available to Trade</span>
               <span className="text-xs font-mono tabular-nums text-foreground">
                 ${effectiveBalance.toFixed(2)} {safeSizeAsset}
               </span>
             </div>
+          </div>
 
-            {/* ─── TP/SL ─── */}
-            <div className="space-y-3 pt-2 border-t border-border/20">
-              <label className="relative flex items-center gap-2 cursor-pointer select-none group">
+          {/* ─── Order Options: Reduce Only + TP/SL ─── */}
+          <div className="flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+            {/* Reduce Only */}
+            <label className="relative flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] cursor-pointer select-none group">
+              <input
+                type="checkbox"
+                checked={reduceOnly}
+                onChange={(e) => {
+                  setReduceOnly(e.target.checked);
+                  if (e.target.checked) setTpSlEnabled(false);
+                }}
+                className="sr-only peer"
+              />
+              <div
+                className={cn(
+                  "size-3.5 rounded border flex items-center justify-center transition-colors group-hover:border-border/60",
+                  reduceOnly ? "bg-foreground border-foreground" : "border-border/30 bg-transparent"
+                )}
+              >
+                {reduceOnly && <CheckIcon className="size-2.5 text-background" />}
+              </div>
+              <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                Reduce Only
+              </span>
+            </label>
+
+            {/* TP/SL */}
+            <div className="space-y-3">
+              <label className="relative flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] cursor-pointer select-none group">
                 <input
                   type="checkbox"
                   checked={tpSlEnabled}
@@ -460,9 +468,8 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               </label>
 
               {showTpSl && (
-                <div className="space-y-2 pl-5">
-                  {/* Row 1: TP Price + Gain % */}
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)] pl-5">
+                  <div className="flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
                     <div className="flex-1">
                       <Input
                         type="number"
@@ -472,7 +479,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                         className="h-8 text-xs tabular-nums bg-background/70 border-border/30"
                       />
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)]">
                       <Input
                         type="number"
                         value={tpPercent}
@@ -484,8 +491,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                     </div>
                   </div>
 
-                  {/* Row 2: SL Price + Loss % */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
                     <div className="flex-1">
                       <Input
                         type="number"
@@ -495,7 +501,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                         className="h-8 text-xs tabular-nums bg-background/70 border-border/30"
                       />
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)]">
                       <Input
                         type="number"
                         value={slPercent}
@@ -509,76 +515,46 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                 </div>
               )}
             </div>
+          </div>
 
-            {/* ─── Reduce Only ─── */}
-            <div className={cn(tpSlEnabled && showTpSl ? "pt-0" : "pt-1")}>
-              <label className="relative flex items-center gap-2 cursor-pointer select-none group">
-                <input
-                  type="checkbox"
-                  checked={reduceOnly}
-                  onChange={(e) => {
-                    setReduceOnly(e.target.checked);
-                    if (e.target.checked) setTpSlEnabled(false);
-                  }}
-                  className="sr-only peer"
-                />
-                <div
-                  className={cn(
-                    "size-3.5 rounded border flex items-center justify-center transition-colors group-hover:border-border/60",
-                    reduceOnly
-                      ? "bg-foreground border-foreground"
-                      : "border-border/30 bg-transparent"
-                  )}
-                >
-                  {reduceOnly && <CheckIcon className="size-2.5 text-background" />}
-                </div>
-                <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Reduce Only
-                </span>
-              </label>
+          {/* ─── Order Summary ─── */}
+          <div className="flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Order Value</span>
+              <span className="text-xs font-mono tabular-nums text-foreground">
+                {orderValue > 0 ? `$${orderValue.toFixed(2)} ${safeSizeAsset}` : "—"}
+              </span>
             </div>
-
-            {/* ─── Order Summary ─── */}
-            <div className="space-y-2 pt-2 border-t border-border/20">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Order Value</span>
-                <span className="text-xs font-mono tabular-nums text-foreground">
-                  {orderValue > 0 ? `$${orderValue.toFixed(2)} ${safeSizeAsset}` : "—"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Margin Required</span>
-                <span className="text-xs font-mono tabular-nums text-foreground">
-                  {marginRequired > 0 ? `$${marginRequired.toFixed(2)}` : "—"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Fees (Maker / Taker)</span>
-                <span className="text-xs font-mono tabular-nums text-muted-foreground">
-                  0.0100% / 0.0350%
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Liquidation Price</span>
-                <span className="text-xs font-mono tabular-nums text-muted-foreground">N/A</span>
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Margin Required</span>
+              <span className="text-xs font-mono tabular-nums text-foreground">
+                {marginRequired > 0 ? `$${marginRequired.toFixed(2)}` : "—"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Fees (Maker / Taker)</span>
+              <span className="text-xs font-mono tabular-nums text-muted-foreground">
+                0.0100% / 0.0350%
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Liquidation Price</span>
+              <span className="text-xs font-mono tabular-nums text-muted-foreground">N/A</span>
             </div>
           </div>
 
           {/* ─── Place Order Button ─── */}
-          <div className="px-4 pb-3 pt-2">
-            <Button
-              onClick={handlePlaceOrder}
-              disabled={!canPlace || placeOrderMutation.isPending}
-              className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,transform] duration-150 bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
-            >
-              {placeOrderMutation.isPending ? "Placing Order..." : "Place Order"}
-            </Button>
-          </div>
+          <Button
+            onClick={handlePlaceOrder}
+            disabled={!canPlace || placeOrderMutation.isPending}
+            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,transform] duration-150 bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
+          >
+            {placeOrderMutation.isPending ? "Placing Order..." : "Place Order"}
+          </Button>
         </div>
 
         {/* ════════════════ FIXED BOTTOM: Unified Account Summary ════════════════ */}
-        <div className="shrink-0 border-t border-border/20">
+        <div className="shrink-0">
           <UnifiedAccountSummary />
         </div>
       </div>

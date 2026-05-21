@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -59,9 +59,6 @@ export function AdjustLeverageModal({
   });
 
   const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen) {
-      setLeverage(currentLeverage);
-    }
     onOpenChange(newOpen);
   };
 
@@ -69,7 +66,7 @@ export function AdjustLeverageModal({
     setLeverage(values[0] ?? 1);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
     if (!isNaN(val) && val >= 1 && val <= maxLeverage) {
       setLeverage(val);
@@ -82,18 +79,14 @@ export function AdjustLeverageModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[480px] bg-card border-border/30 p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[480px] bg-card border-border/30 p-5 gap-[clamp(0.5rem,1vw,1rem)] overflow-hidden">
         {/* ─── Header ─── */}
-        <div className="px-5 pt-4 pb-2 border-b border-border/20">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-medium text-foreground">
-              Adjust Leverage
-            </DialogTitle>
-          </DialogHeader>
-        </div>
+        <DialogHeader>
+          <DialogTitle className="text-sm font-medium text-foreground">Adjust Leverage</DialogTitle>
+        </DialogHeader>
 
         {/* ─── Body ─── */}
-        <div className="px-5 py-4 space-y-4">
+        <div className="space-y-4">
           {/* Descriptive text */}
           <p className="text-xs text-muted-foreground leading-relaxed">
             Control the leverage used for{" "}
@@ -118,7 +111,7 @@ export function AdjustLeverageModal({
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-[clamp(0.4rem,0.7vw,0.75rem)]">
               <Slider
                 value={[leverage]}
                 onValueChange={handleSliderCommit}
@@ -153,8 +146,8 @@ export function AdjustLeverageModal({
           </p>
 
           {/* Warning box: context-aware */}
-          <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-md bg-loss-muted/20 border border-loss/20">
-            <AlertTriangleIcon className="size-3.5 text-warn shrink-0 mt-0.5" />
+          <div className="flex items-start gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-2.5 rounded-md bg-loss-muted/20 border border-loss/20">
+            <AlertTriangleIcon className="size-3.5 text-warn shrink-0" />
             <p className="text-[0.65rem] text-muted-foreground leading-relaxed">
               {isDecreasingLeverage
                 ? "Decreasing leverage requires additional margin. Ensure you have sufficient available balance."
@@ -164,7 +157,7 @@ export function AdjustLeverageModal({
         </div>
 
         {/* ─── Footer ─── */}
-        <DialogFooter className="px-5 py-3 border-t border-border/20">
+        <DialogFooter className="p-0">
           <Button
             size="sm"
             onClick={handleConfirm}

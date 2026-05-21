@@ -101,7 +101,7 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
             const fee = Number(fill.fee);
             const cpnl = fill.closedPnl ? Number(fill.closedPnl) : null;
             return (
-              <TableRow key={fill.hash} className="border-b border-border/30">
+              <TableRow key={fill.hash}>
                 <TableCell className={c}>{formatTime(fill.time)}</TableCell>
                 <TableCell className={`${c} font-medium`}>{fill.coin}</TableCell>
                 <TableCell className={c}>
@@ -205,7 +205,7 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
             </TableCell>
           </TableRow>
         ) : (
-          histOrders.map((entry, idx) => {
+          histOrders.map((entry) => {
             const o = entry.order;
             const ot = getOrderType(o);
             const isTrigger = ot === "Stop Market" || ot === "Take Profit Market";
@@ -237,7 +237,7 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
             }
 
             return (
-              <TableRow key={`${o.oid}-${idx}`} className="border-b border-border/30">
+              <TableRow key={o.oid}>
                 <TableCell className={c}>{formatTime(entry.statusTimestamp)}</TableCell>
                 <TableCell className={c}>{ot}</TableCell>
                 <TableCell className={`${c} font-medium`}>{o.coin}</TableCell>

@@ -18,7 +18,17 @@
  * - Persistent scroll/resize listeners via refs (no add/remove on every hover)
  * - Debounced popup position calculation via rAF (avoids synchronous layout thrashing)
  */
-import { memo, useState, useCallback, useEffect, useRef, useMemo, startTransition } from "react";
+import {
+  memo,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+  startTransition,
+  type MouseEvent,
+  type FocusEvent,
+} from "react";
 import {
   useHyperliquidOrderbook,
   generateTickSizeOptions,
@@ -32,9 +42,9 @@ import {
 import { type OrderbookLevel, priceKey } from "@/core/utils/hyperliquid";
 import { useOptionalL2BookNSigFigs } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { parseSymbol } from "@0xsignal/shared";
-import { cn } from "@/core/utils/cn";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { formatPriceWithScaling, formatSize } from "@/core/utils/formatters";
 
 const EMPTY_ORDERBOOK_OPTIONS = {} as const;
 
@@ -57,8 +67,6 @@ const VISIBLE_ROWS = 20;
 
 const PRECISION_RESUBSCRIBE_DEBOUNCE_MS = 160;
 
-import { formatPriceWithScaling, formatSize } from "@/core/utils/formatters";
-
 const OrderbookToolbar = memo(
   ({
     symbol,
@@ -67,7 +75,6 @@ const OrderbookToolbar = memo(
     priceScaling,
     onPriceScalingChange,
     scalingOptions,
-    showSyncing,
   }: {
     symbol: string;
     coinOptions: Array<{ value: string; label: string }>;
@@ -75,16 +82,15 @@ const OrderbookToolbar = memo(
     priceScaling: number;
     onPriceScalingChange: (s: number) => void;
     scalingOptions: TickSizeOption[];
-    showSyncing: boolean;
   }) => (
-    <div className="flex items-center justify-between gap-1 px-[clamp(0.5rem,1.5vw,0.75rem)] py-2 shrink-0 bg-muted/10">
+    <div className="flex items-center justify-between gap-[clamp(0.15rem,0.3vw,0.25rem)] shrink-0">
       <NativeSelect
         size="sm"
         aria-label="Coin"
         value={symbol}
         onChange={(e) => onSymbolChange(e.target.value)}
         wrapperClassName="min-w-[4rem] max-w-[6rem]"
-        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-mono font-semibold tracking-[0.01em] truncate"
+        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-mono font-semibold tracking-[0.01em]"
       >
         {coinOptions.map((opt) => (
           <NativeSelectOption key={opt.value} value={opt.value}>
@@ -92,16 +98,6 @@ const OrderbookToolbar = memo(
           </NativeSelectOption>
         ))}
       </NativeSelect>
-      <div
-        className={cn(
-          "flex items-center gap-1.5 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono uppercase tracking-[0.02em] text-muted-foreground transition-opacity duration-300",
-          showSyncing ? "opacity-100" : "opacity-0"
-        )}
-        aria-live="polite"
-      >
-        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/70 animate-pulse" />
-        Syncing
-      </div>
       <NativeSelect
         size="sm"
         aria-label="Price precision"
@@ -118,10 +114,7 @@ const OrderbookToolbar = memo(
       </NativeSelect>
     </div>
   ),
-  (prev, next) =>
-    prev.symbol === next.symbol &&
-    prev.priceScaling === next.priceScaling &&
-    prev.showSyncing === next.showSyncing
+  (prev, next) => prev.symbol === next.symbol && prev.priceScaling === next.priceScaling
 );
 
 OrderbookToolbar.displayName = "OrderbookToolbar";
@@ -170,7 +163,7 @@ const OrderRow = memo(
     );
 
     const handleMouseEnter = useCallback(
-      (e: React.MouseEvent<HTMLDivElement> | React.FocusEvent<HTMLDivElement>) => {
+      (e: MouseEvent<HTMLDivElement> | FocusEvent<HTMLDivElement>) => {
         const dataset = e.currentTarget.dataset;
         if (dataset.price === undefined) return;
         onHover(
@@ -200,7 +193,7 @@ const OrderRow = memo(
         onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
         onFocus={level.price > 0 ? handleMouseEnter : undefined}
         onBlur={level.price > 0 ? handleMouseLeave : undefined}
-        className={`relative flex items-center px-3 cursor-pointer tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset ${
+        className={`relative flex items-center cursor-pointer tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset ${
           isHovered ? "bg-muted/50" : "hover:bg-muted/30"
         }`}
         style={ROW_STYLE}
@@ -311,11 +304,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     return EMPTY_ORDERBOOK_OPTIONS;
   }, [l2BookSig]);
 
-  const { orderbook, isConnected, resubscribe } = useHyperliquidOrderbook(
-    symbol,
-    true,
-    orderbookHookOptions
-  );
+  const { orderbook, resubscribe } = useHyperliquidOrderbook(symbol, true, orderbookHookOptions);
 
   const [userPriceScaling, setUserPriceScaling] = useState<PriceScalingState | null>(null);
   const [hoverTarget, setHoverTarget] = useState<{
@@ -561,7 +550,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   );
 
   const hasBookData = !!orderbook && orderbook.asks.length > 0 && orderbook.bids.length > 0;
-  const showSyncing = !isConnected && hasBookData;
 
   if (!hasBookData) {
     return <Skeleton className="h-full w-full rounded-xl" />;
@@ -570,7 +558,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   return (
     <div
       ref={widgetRef}
-      className="h-full flex flex-col bg-card border-border/30 rounded-xl p-2 animate-in fade-in duration-200 ease-premium"
+      className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]"
     >
       <OrderbookToolbar
         symbol={pairFocus}
@@ -579,10 +567,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         priceScaling={effectivePriceScaling}
         onPriceScalingChange={handlePriceScalingChange}
         scalingOptions={scalingOptions}
-        showSyncing={showSyncing}
       />
 
-      <div className="flex items-center px-[clamp(0.5rem,1.5vw,0.75rem)] py-1.5 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono uppercase text-muted-foreground shrink-0">
+      <div className="flex items-center text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono uppercase text-muted-foreground shrink-0">
         <span className="flex-1">Price</span>
         <span className="flex-1 text-right">{pairFocus === "quote" ? "Value" : "Size"}</span>
         <span className="flex-1 text-right">{pairFocus === "quote" ? "Total Val" : "Total"}</span>
@@ -605,7 +592,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
           ))}
         </div>
 
-        <div className="flex items-center justify-center gap-[clamp(0.75rem,2vw,1.5rem)] py-1.5 border-y border-border/10 bg-muted/20 shrink-0">
+        <div className="flex items-center justify-center gap-[clamp(0.75rem,2vw,1.5rem)] py-4 shrink-0">
           <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono font-medium text-muted-foreground">
             Spread
           </span>
@@ -637,7 +624,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       {popupData && popupPosition && (
         <div
           id="orderbook-depth-details"
-          className="fixed bg-card/95 border border-border/30 rounded-xl p-3 shadow-xl z-50 w-64 pointer-events-none"
+          className="fixed bg-card/95 border border-border/30 rounded-xl p-3 shadow-xl z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]"
           style={{
             top: popupPosition.top,
             left: popupPosition.left,
@@ -645,7 +632,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
             transform: "translateY(-50%)",
           }}
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground uppercase">
               {popupData.side === "ask" ? "Ask" : "Bid"}
             </span>
@@ -672,8 +659,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
             </div>
             {popupData.cumulativeSize && popupData.cumulativeSize > popupData.size && (
               <>
-                <div className="border-t border-border/20 my-2" />
-                <div className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground uppercase mb-1">
+                <div className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground uppercase">
                   To Best Price
                 </div>
                 <div className="flex justify-between">

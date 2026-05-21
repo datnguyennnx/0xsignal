@@ -115,7 +115,7 @@ function HeaderCell({
         type="button"
         onClick={() => onSort(sortField)}
         className={cn(
-          "hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 w-full whitespace-nowrap",
+          "hover:text-foreground transition-colors flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)] cursor-pointer bg-transparent border-none p-0 w-full whitespace-nowrap",
           col.align === "right" && "justify-end"
         )}
       >
@@ -147,7 +147,7 @@ export const MarketHeader = memo(function MarketHeader({
 }) {
   return (
     <div
-      className="grid min-w-0 gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border/30"
+      className="grid min-w-0 gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"
       style={{ gridTemplateColumns: gridTemplate(columns) }}
     >
       {columns.map((col) => (
@@ -168,7 +168,7 @@ export const MarketRow = memo(function MarketRow({
 }) {
   return (
     <div
-      className="grid min-w-0 gap-2 px-3 py-2.5"
+      className="grid min-w-0 gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-2.5"
       style={{ gridTemplateColumns: gridTemplate(columns) }}
     >
       {columns.map((col) => (
@@ -205,7 +205,7 @@ export const MarketRowSkeleton = memo(function MarketRowSkeleton({
 }) {
   return (
     <div
-      className="grid min-w-0 gap-2 px-3 py-2.5"
+      className="grid min-w-0 gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-2.5"
       style={{ gridTemplateColumns: gridTemplate(columns) }}
     >
       {columns.map((col) => (
