@@ -2,6 +2,7 @@
  * Frontend HTTP client for backend market data APIs.
  */
 import type {
+  ApiErrorBody,
   ChartDataPoint,
   AggregatedMarket,
   MarketTicker,
@@ -46,6 +47,62 @@ export type {
   CancelOrdersRequest,
 } from "@0xsignal/shared";
 
+// ─── Portfolio & Vault API types ───────────────────────────────────────────────
+
+/** Single portfolio period metrics */
+export interface PortfolioPeriod {
+  readonly accountValueHistory: [number, string][];
+  readonly pnlHistory: [number, string][];
+  readonly vlm: string;
+}
+
+/** Portfolio response period key */
+export type PortfolioPeriodKey =
+  | "day"
+  | "week"
+  | "month"
+  | "allTime"
+  | "perpDay"
+  | "perpWeek"
+  | "perpMonth"
+  | "perpAllTime";
+
+/** Portfolio response: 8-tuple of [periodKey, periodData] — matches Hyperliquid API shape */
+export type PortfolioResponse = readonly [
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+];
+
+/** User vault deposit */
+export interface UserVaultEquity {
+  readonly vaultAddress: string;
+  readonly equity: string;
+  readonly lockedUntilTimestamp: number;
+}
+
+/** Funding payment delta */
+export interface UserFundingDelta {
+  readonly type: "funding";
+  readonly coin: string;
+  readonly usdc: string;
+  readonly szi: string;
+  readonly fundingRate: string;
+  readonly nSamples: number;
+}
+
+/** Single funding history entry */
+export interface UserFundingEntry {
+  readonly time: number;
+  readonly hash: string;
+  readonly delta: UserFundingDelta;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -81,8 +138,6 @@ function extractRawCandlePayload(payload: unknown): Record<string, unknown>[] {
   }
   return [];
 }
-
-import type { ApiErrorBody } from "@0xsignal/shared";
 
 async function parseErrorBody(response: Response): Promise<ApiErrorBody | null> {
   try {
@@ -238,6 +293,18 @@ export const api = {
     fetchJson<HistoricalOrderEntry[]>(`${API_BASE}/user/historical-orders`),
 
   getUserFills: () => fetchJson<UserFill[]>(`${API_BASE}/user/fills`),
+
+  getPortfolio: () => fetchJson<PortfolioResponse>(`${API_BASE}/user/portfolio`),
+
+  getUserVaultEquities: () => fetchJson<UserVaultEquity[]>(`${API_BASE}/user/vault-equities`),
+
+  getUserFunding: (startTime?: number, endTime?: number) => {
+    const query = new URLSearchParams();
+    if (startTime !== undefined) query.set("startTime", String(startTime));
+    if (endTime !== undefined) query.set("endTime", String(endTime));
+    const qs = query.toString();
+    return fetchJson<UserFundingEntry[]>(`${API_BASE}/user/funding${qs ? `?${qs}` : ""}`);
+  },
 
   placeOrder: (params: PlaceOrderRequest) =>
     fetchJson(`${API_BASE}/exchange/order`, {

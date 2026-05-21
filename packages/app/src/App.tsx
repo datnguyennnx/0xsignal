@@ -25,6 +25,9 @@ const AssetDetail = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("@/pages/not-found").then((m) => ({ default: m.NotFoundPage }))
 );
+const PortfolioPage = lazy(() =>
+  import("@/pages/portfolio").then((m) => ({ default: m.PortfolioPage }))
+);
 
 /** Keep in sync with backend MARKET_SCHEMA_VERSION (cache.ts). Bump when payload shape changes. */
 const FRONTEND_MARKET_SCHEMA_VERSION = 2;
@@ -52,6 +55,7 @@ const usePreloadRoutes = () => {
 
     const preloadTimer = setTimeout(() => {
       import("@/pages/asset-detail");
+      import("@/pages/portfolio");
       import("@/features/chart/trading-chart");
     }, 2000);
     return () => clearTimeout(preloadTimer);
@@ -68,8 +72,8 @@ function PageLoader() {
 
 function RouteErrorFallback() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[clamp(20rem,50dvh,40rem)] gap-4">
-      <p className="text-destructive">Something went wrong loading this page.</p>
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+      <p className="text-foreground">Something went wrong loading this page.</p>
       <button
         onClick={() => window.location.reload()}
         className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
@@ -97,6 +101,7 @@ function App() {
                       <Route path="/trade" element={<Navigate to="/trade/BTC" replace />} />
                       <Route path="/trade/:base/:quote" element={<AssetDetail />} />
                       <Route path="/trade/:symbol" element={<AssetDetail />} />
+                      <Route path="/portfolio" element={<PortfolioPage />} />
                       <Route path="*" element={<NotFoundPage />} />
                     </Routes>
                   </ErrorBoundary>

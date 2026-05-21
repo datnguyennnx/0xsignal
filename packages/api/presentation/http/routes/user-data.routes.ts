@@ -14,6 +14,9 @@ type UserDataHttpService = {
   readonly getMeta: (typeof UserDataServices.Service)["getMeta"];
   readonly getHistoricalOrders: (typeof UserDataServices.Service)["getHistoricalOrders"];
   readonly getUserFills: (typeof UserDataServices.Service)["getUserFills"];
+  readonly getPortfolio: (typeof UserDataServices.Service)["getPortfolio"];
+  readonly getUserVaultEquities: (typeof UserDataServices.Service)["getUserVaultEquities"];
+  readonly getUserFunding: (typeof UserDataServices.Service)["getUserFunding"];
 };
 
 type RouteHandler = (
@@ -103,6 +106,42 @@ export const buildUserDataRoutes = ({
     handler: (_request, _url, userData) =>
       Effect.gen(function* () {
         const payload = yield* userData.getUserFills().pipe(Effect.mapError(mapServiceError));
+        return json({ data: payload });
+      }),
+  },
+  {
+    method: "GET",
+    path: "/api/user/portfolio",
+    handler: (_request, _url, userData) =>
+      Effect.gen(function* () {
+        const payload = yield* userData.getPortfolio().pipe(Effect.mapError(mapServiceError));
+        return json({ data: payload });
+      }),
+  },
+  {
+    method: "GET",
+    path: "/api/user/vault-equities",
+    handler: (_request, _url, userData) =>
+      Effect.gen(function* () {
+        const payload = yield* userData
+          .getUserVaultEquities()
+          .pipe(Effect.mapError(mapServiceError));
+        return json({ data: payload });
+      }),
+  },
+  {
+    method: "GET",
+    path: "/api/user/funding",
+    handler: (_request, url, userData) =>
+      Effect.gen(function* () {
+        const startTime = url.searchParams.get("startTime");
+        const endTime = url.searchParams.get("endTime");
+        const payload = yield* userData
+          .getUserFunding(
+            startTime ? Number(startTime) : undefined,
+            endTime ? Number(endTime) : undefined
+          )
+          .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),
   },

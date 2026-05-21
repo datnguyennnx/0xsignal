@@ -93,6 +93,46 @@ export const UserDataServicesLive = Layer.effect(
               cause,
             }),
         }),
+
+      getPortfolio: () =>
+        Effect.tryPromise({
+          try: () => info.portfolio({ user: walletAddress }),
+          catch: (cause) =>
+            new DomainError({
+              code: "INTERNAL_ERROR",
+              message: "Failed to fetch portfolio",
+              cause,
+            }),
+        }),
+
+      getUserVaultEquities: () =>
+        Effect.tryPromise({
+          try: () => info.userVaultEquities({ user: walletAddress }),
+          catch: (cause) =>
+            new DomainError({
+              code: "INTERNAL_ERROR",
+              message: "Failed to fetch user vault equities",
+              cause,
+            }),
+        }),
+
+      getUserFunding: (startTime?: number, endTime?: number) =>
+        Effect.tryPromise({
+          try: () => {
+            const params: { user: string; startTime?: number; endTime?: number } = {
+              user: walletAddress,
+            };
+            if (startTime !== undefined) params.startTime = startTime;
+            if (endTime !== undefined) params.endTime = endTime;
+            return info.userFunding(params);
+          },
+          catch: (cause) =>
+            new DomainError({
+              code: "INTERNAL_ERROR",
+              message: "Failed to fetch user funding",
+              cause,
+            }),
+        }),
     });
   })
 );

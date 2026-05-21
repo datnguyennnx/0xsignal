@@ -25,6 +25,9 @@ type UserDataHttpService = {
   readonly getMeta: (typeof UserDataServices.Service)["getMeta"];
   readonly getHistoricalOrders: (typeof UserDataServices.Service)["getHistoricalOrders"];
   readonly getUserFills: (typeof UserDataServices.Service)["getUserFills"];
+  readonly getPortfolio: (typeof UserDataServices.Service)["getPortfolio"];
+  readonly getUserVaultEquities: (typeof UserDataServices.Service)["getUserVaultEquities"];
+  readonly getUserFunding: (typeof UserDataServices.Service)["getUserFunding"];
 };
 
 type ExchangeHttpService = {

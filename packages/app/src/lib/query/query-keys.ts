@@ -32,6 +32,9 @@ export const queryKeys = {
     openOrders: () => [...queryKeys.userData.all, "openOrders"] as const,
     historicalOrders: () => [...queryKeys.userData.all, "historicalOrders"] as const,
     fills: () => [...queryKeys.userData.all, "fills"] as const,
+    portfolio: () => [...queryKeys.userData.all, "portfolio"] as const,
+    vaultEquities: () => [...queryKeys.userData.all, "vaultEquities"] as const,
+    userFunding: () => [...queryKeys.userData.all, "userFunding"] as const,
   },
 
   // Exchange domain (order placement, leverage)

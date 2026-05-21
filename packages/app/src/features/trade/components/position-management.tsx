@@ -13,13 +13,13 @@ import { api, type PlaceOrderRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
 import type { FrontendOpenOrder } from "@0xsignal/shared";
 import {
-  useClearinghouseState,
-  useSpotClearinghouseState,
   useOpenOrders,
   useUserFills,
   useHistoricalOrders,
   useCancelOrdersMutation,
 } from "../hooks/use-user-data";
+import { useUserBalances } from "../hooks/use-user-balances";
+import { FundingHistoryTable } from "./funding-history-table";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
 import { useAllMids } from "../hooks/use-all-mids";
 import { TabTrigger } from "./shared-table-components";
@@ -33,8 +33,18 @@ import { CloseLimitModal } from "./close-limit-modal";
 import { formatOrderSize } from "../utils/trade-math";
 
 export function PositionManagement() {
-  const { data: chData, isLoading: isChLoading } = useClearinghouseState();
-  const { data: spotData } = useSpotClearinghouseState();
+  const {
+    positions,
+    marginSummary,
+    usdcTotalBalance,
+    usdcAvailableBalance,
+    totalUnrealizedPnl,
+    effectiveAccountTotal,
+    effectiveAvailableBalance,
+    balanceCount,
+    positionsCount,
+    isChLoading,
+  } = useUserBalances();
   const { data: openOrders, isLoading: isOoLoading } = useOpenOrders();
   const { data: fills, isLoading: isFillsLoading } = useUserFills();
   const { data: histOrders, isLoading: isHistLoading } = useHistoricalOrders();
@@ -74,34 +84,7 @@ export function PositionManagement() {
     };
   }, [tpSlModalOrder]);
 
-  const positions = chData?.assetPositions ?? [];
-  const marginSummary = chData?.marginSummary;
-  const withdrawable = chData?.withdrawable;
-
-  const spotUsdc = spotData?.balances?.find((b) => b.coin === "USDC");
-  const spotUsdcTotal = spotUsdc ? Number(spotUsdc.total) : null;
-  const spotUsdcHold = spotUsdc ? Number(spotUsdc.hold) : null;
-
-  const usdcTotalBalance =
-    spotUsdcTotal !== null ? spotUsdcTotal : Number(marginSummary?.totalRawUsd ?? 0);
-  const usdcAvailableBalance =
-    spotUsdcTotal !== null && spotUsdcHold !== null
-      ? spotUsdcTotal - spotUsdcHold
-      : Number(withdrawable ?? usdcTotalBalance);
-
-  const accountValue = marginSummary ? Number(marginSummary.accountValue) : 0;
-  const effectiveAccountTotal = accountValue > 0 ? accountValue : usdcTotalBalance;
-  const perpsWithdrawable = Number(withdrawable ?? 0);
-  const effectiveAvailableBalance = accountValue > 0 ? perpsWithdrawable : usdcAvailableBalance;
-
-  const balanceCount = marginSummary ? 2 + positions.length : 0;
-  const positionsCount = positions.length;
   const openOrdersCount = openOrders?.length ?? 0;
-
-  const totalUnrealizedPnl = positions.reduce(
-    (sum, p) => sum + Number(p.position.unrealizedPnl),
-    0
-  );
 
   const [cancelAllDialogOpen, setCancelAllDialogOpen] = useState(false);
 
@@ -173,9 +156,9 @@ export function PositionManagement() {
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
-        className="h-full flex flex-col overflow-hidden"
+        className="h-full flex flex-col overflow-hidden gap-[clamp(0.25rem,0.5vw,0.5rem)]"
       >
-        <TabsList className="shrink-0 flex gap-0 h-auto bg-transparent border-b border-border/40 rounded-none p-0">
+        <TabsList className="shrink-0 flex gap-[clamp(0.25rem,0.5vw,0.5rem)] h-auto bg-transparent rounded-none p-0">
           <TabTrigger value="balance" count={!isChLoading ? balanceCount : undefined}>
             Balance
           </TabTrigger>
@@ -185,6 +168,7 @@ export function PositionManagement() {
           <TabTrigger value="open-orders" count={!isOoLoading ? openOrdersCount : undefined}>
             Open Orders
           </TabTrigger>
+          <TabTrigger value="funding-history">Funding History</TabTrigger>
           <TabTrigger value="trade-history">Trade History</TabTrigger>
           <TabTrigger value="order-history">Order History</TabTrigger>
         </TabsList>
@@ -235,6 +219,13 @@ export function PositionManagement() {
         </TabsContent>
 
         <TabsContent
+          value="funding-history"
+          className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col"
+        >
+          <FundingHistoryTable />
+        </TabsContent>
+
+        <TabsContent
           value="trade-history"
           className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
@@ -264,19 +255,19 @@ export function PositionManagement() {
 
       {/* ─── Cancel All Confirmation Dialog ─── */}
       <Dialog open={cancelAllDialogOpen} onOpenChange={setCancelAllDialogOpen}>
-        <DialogContent className="sm:max-w-[360px] bg-card border-border/30 p-0 gap-0 overflow-hidden">
-          <div className="px-5 pt-4 pb-3 border-b border-border/20">
+        <DialogContent className="sm:max-w-[360px] bg-card border-border/30 p-5 gap-[clamp(0.5rem,1vw,1rem)] overflow-hidden">
+          <div className="p-0">
             <DialogHeader>
               <DialogTitle className="text-sm font-medium text-foreground">
                 Cancel All Orders
               </DialogTitle>
             </DialogHeader>
-            <p className="text-xs text-muted-foreground/70 mt-1 leading-relaxed">
+            <p className="text-xs text-muted-foreground/70 leading-relaxed">
               Are you sure you want to cancel all {openOrders?.length ?? 0} open order
               {openOrders?.length !== 1 ? "s" : ""}?
             </p>
           </div>
-          <div className="flex items-center justify-end gap-2 px-5 py-3">
+          <div className="flex items-center justify-end gap-[clamp(0.25rem,0.5vw,0.5rem)] p-0">
             <DialogClose asChild>
               <Button variant="outline" className="h-8 px-3 text-xs font-medium">
                 Keep Orders

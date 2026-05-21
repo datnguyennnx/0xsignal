@@ -7,14 +7,17 @@ import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ModeToggle } from "@/components/mode-toggle";
 import { cn } from "@/core/utils/cn";
-const NAV_ITEMS = [{ path: "/trade", label: "Trade" }] as const;
+const NAV_ITEMS = [
+  { path: "/trade", label: "Trade" },
+  { path: "/portfolio", label: "Portfolio" },
+] as const;
 
 export function MainLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   return (
     <div className="flex flex-col max-h-screen pt-4 pb-12 bg-background overflow-hidden">
-      <header className="shrink-0 z-50 bg-background/80 backdrop-blur-md">
+      <header className="shrink-0 z-50 bg-background/60 backdrop-blur-md">
         <div className="container-fluid">
           <div className="flex items-center justify-between h-12">
             <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
@@ -46,7 +49,9 @@ export function MainLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">{children}</main>
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden animate-in fade-in duration-200 ease-premium">
+        {children}
+      </main>
     </div>
   );
 }

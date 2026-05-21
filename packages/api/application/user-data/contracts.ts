@@ -11,5 +11,11 @@ export class UserDataServices extends Context.Tag("UserDataServices")<
     readonly getMeta: () => Effect.Effect<unknown, DomainError>;
     readonly getHistoricalOrders: () => Effect.Effect<unknown, DomainError>;
     readonly getUserFills: () => Effect.Effect<unknown, DomainError>;
+    readonly getPortfolio: () => Effect.Effect<unknown, DomainError>;
+    readonly getUserVaultEquities: () => Effect.Effect<unknown, DomainError>;
+    readonly getUserFunding: (
+      startTime?: number,
+      endTime?: number
+    ) => Effect.Effect<unknown, DomainError>;
   }
 >() {}
