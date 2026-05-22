@@ -1,16 +1,18 @@
 import { Effect, ManagedRuntime } from "effect";
-import { BunRuntime } from "@effect/platform-bun";
 import { AppLayer } from "../../infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
 import { type MarketWsConnectionData } from "../../infrastructure/streams/hyperliquid/hub";
 import { MarketStreamHub, MarketStreamHubLayer } from "./ws/market-stream-hub.layer";
 import { parseMarketWsSubscription } from "./ws/subscription-parser";
-import { CORS_HEADERS, withCorsHeaders } from "./transport/cors";
-import { errorResponse } from "./transport/error-response";
+import { CORS_HEADERS, withCorsHeaders } from "./cors";
+import { errorResponse } from "./error-response";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
 
 // Create a managed runtime for bridging non-Effect code
+// NOTE: AppLayer is NOT provided again below — ManagedRuntime.make already
+// memoizes it. Providing AppLayer again via Effect.provide would create a
+// second independent instance (duplicate pools, fibers, etc.).
 const runtime = ManagedRuntime.make(AppLayer);
 
 // App Program
@@ -106,11 +108,35 @@ const serverProgram = Effect.gen(function* () {
   console.log(`Server: http://localhost:${PORT}`);
   console.log(`Health: http://localhost:${PORT}/api/health`);
 
-  // Keep the program alive until SIGTERM/SIGINT (handled by BunRuntime.runMain)
+  // Keep the program alive until SIGTERM/SIGINT
   yield* Effect.never;
 });
 
-// Run with Bun-optimized runtime
-BunRuntime.runMain(
-  serverProgram.pipe(Effect.provide(MarketStreamHubLayer), Effect.provide(AppLayer), Effect.scoped)
-);
+// MarketStreamHubLayer is program-scoped, not part of AppLayer.
+// Other deps (HyperliquidProvider, Postgres pool) come from the
+// ManagedRuntime's single memoized AppLayer instance.
+
+const abortController = new AbortController();
+
+const shutdown = () => {
+  abortController.abort();
+};
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+
+runtime
+  .runPromise(serverProgram.pipe(Effect.provide(MarketStreamHubLayer), Effect.scoped), {
+    signal: abortController.signal,
+  })
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((cause) => {
+    // If we were shutting down, the interruption is expected
+    if (abortController.signal.aborted) {
+      process.exit(0);
+    }
+    console.error("Fatal error:", cause);
+    process.exit(1);
+  });

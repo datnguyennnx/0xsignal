@@ -1,4 +1,4 @@
-import { type Candle } from "../../../schemas/market-data";
+import { type Candle } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 
 export type HlInterval =

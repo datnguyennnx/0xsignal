@@ -1,7 +1,7 @@
 import { Clock, Deferred, Effect, Fiber, Layer, Ref, Schedule } from "effect";
 import { normalizeCandles, parseHlRawCandles, toHlInterval } from "./normalizer";
 import { normalizeSymbol } from "./symbol";
-import { type Candle } from "../../../schemas/market-data";
+import { type Candle } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 import { HyperliquidClient } from "./client";
 import type { PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
@@ -11,7 +11,7 @@ import type {
   TickerPayload,
   OrderBookPayload,
   TickerSnapshot,
-  AggregatedTradeAsset,
+  HyperliquidAggregatedAsset,
 } from "./types";
 import type { HyperliquidInfoClient } from "./mapping";
 import { getTickerSnapshotEffect, getAggregatedMarketsSnapshot } from "./mapping";
@@ -30,9 +30,7 @@ type DedupRegistrySvc = {
   readonly registryRef: Ref.Ref<Map<string, Deferred.Deferred<any, HyperliquidError>>>;
 };
 
-// ─── Standalone provider functions (used by tests) ─────────────────────────
-// These get HyperliquidClient from Context and perform a single operation.
-// Rate limiting uses optional shared semaphore; defaults to a local one if unset.
+// Standalone provider functions get HyperliquidClient from Context.
 
 const standaloneProvide = <A, E>(
   effect: Effect.Effect<A, E, HyperliquidRateLimiter | HyperliquidDeduplicationRegistry>,
@@ -185,11 +183,9 @@ export const getTradeAnnotation = (
     return { symbol: normalizeSymbol(symbol), annotation };
   });
 
-// ── TTL Constants ──────────────────────────────────────────────────────────
+// TTL constants
 const AGGREGATED_MARKETS_TTL_MS = 60_000;
 const TICKER_SNAPSHOT_TTL_MS = 30_000;
-// ─── Context-wiring helper ─────────────────────────────────────────────────
-
 /**
  * Returns a function that provides both the rate limiter and dedup registry
  * to an effect that requires them.
@@ -204,16 +200,12 @@ const provideServicesFor =
       Effect.provideService(HyperliquidDeduplicationRegistry, dedup)
     );
 
-// ─── Unified refresh pipeline (used by Layer.scoped) ───────────────────────
-//
-// Runs every 24 seconds as a daemon fiber.  Fetches ticker + aggregated
-// markets in a single concurrent pass.  Dedup ensures shared API calls
-// (perpDexs, allMids, metaAndAssetCtxs) are made only once per refresh.
+// Runs every 24s as a daemon fiber. Fetches ticker + aggregated markets.
 
 const makeRefreshPipeline = (
   info: HyperliquidInfoClient,
   provide: ReturnType<typeof provideServicesFor>,
-  aggregatedSlot: Ref.Ref<CacheSlot<readonly AggregatedTradeAsset[]>>,
+  aggregatedSlot: Ref.Ref<CacheSlot<readonly HyperliquidAggregatedAsset[]>>,
   spotIndexRef: Ref.Ref<Record<string, string>>
 ): Effect.Effect<void, HyperliquidError> =>
   Effect.gen(function* () {
@@ -237,13 +229,9 @@ const makeRefreshPipeline = (
     });
   });
 
-// ─── HyperliquidProviderLayer (production Layer) ──────────────────────────
-//
-// Uses Layer.effect with Effect.scoped to manage the daemon refresh fiber.
-// Creates rate limiter and dedup services inline (self-contained).
-// Only requires HyperliquidClient from Context.
+// Uses Layer.effect with Effect.scoped for daemon refresh fiber lifecycle.
 
-export const HyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, HyperliquidClient> =
+export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, HyperliquidClient> =
   Layer.effect(
     HyperliquidProvider,
     Effect.scoped(
@@ -261,16 +249,16 @@ export const HyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
 
         const hlInfo = client.info as unknown as HyperliquidInfoClient;
 
-        // ── Ref-based cache slots ───────────────────────────────────
+        // Ref-based cache slots
         const tickerSlots = yield* Ref.make<Map<string, CacheSlot<TickerSnapshot>>>(new Map());
-        const aggregatedSlot = yield* Ref.make<CacheSlot<readonly AggregatedTradeAsset[]>>({
+        const aggregatedSlot = yield* Ref.make<CacheSlot<readonly HyperliquidAggregatedAsset[]>>({
           expiresAt: 0,
         });
         // Maps spot display pair "AAVE0/USDC" → API identifier "@1"
         const spotIndexRef = yield* Ref.make<Record<string, string>>({});
 
-        // ── Scoped helper: read with on-demand fallback ─────────────
-        const readOrFetch = <T>(
+        // Read cached value or fetch on miss
+        const fetchWithCache = <T>(
           slot: Ref.Ref<CacheSlot<T>>,
           ttlMs: number,
           fetch: Effect.Effect<T, HyperliquidError>
@@ -289,8 +277,8 @@ export const HyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
             return value;
           });
 
-        // ── Symbol-targeted DEX meta read helper ────────────────────
-        const readOrFetchTickerForSymbol = (
+        // Symbol-targeted DEX ticker read with per-dex cache
+        const fetchTickerWithCache = (
           symbol: string
         ): Effect.Effect<TickerSnapshot, HyperliquidError> =>
           Effect.gen(function* () {
@@ -316,7 +304,7 @@ export const HyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
             return value;
           });
 
-        // ── Daemon background refresh fiber ─────────────────────────
+        // Daemon background refresh fiber
         const pipeline = makeRefreshPipeline(hlInfo, provide, aggregatedSlot, spotIndexRef);
 
         const refreshFiber = yield* Effect.forkDaemon(
@@ -334,10 +322,9 @@ export const HyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
         yield* Effect.addFinalizer(() => Fiber.interrupt(refreshFiber));
 
         return HyperliquidProvider.of({
-          // ── getCandleSnapshot ─────────────────────────────────
           getCandleSnapshot: (coin, interval, start, end) =>
             Effect.gen(function* () {
-              const ticker = yield* readOrFetchTickerForSymbol(coin);
+              const ticker = yield* fetchTickerWithCache(coin);
 
               // Resolve the API-level coin identifier:
               //   - Perps: resolved via perp universe (resolveInternalSymbol)
@@ -347,7 +334,7 @@ export const HyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
               //     aggregated markets — eagerly trigger it if not yet cached.
               let internalSymbol: string;
               if (coin.includes("/")) {
-                yield* readOrFetch(
+                yield* fetchWithCache(
                   aggregatedSlot,
                   AGGREGATED_MARKETS_TTL_MS,
                   provide(getAggregatedMarketsSnapshot(hlInfo))
@@ -376,12 +363,10 @@ export const HyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
 
               return normalizeCandles(parseHlRawCandles(candles));
             }),
-          // ── getAllMids ────────────────────────────────────────
-          getAllMids: () => readOrFetchTickerForSymbol("BTC").pipe(Effect.map((s) => s.allMids)),
+          getAllMids: () => fetchTickerWithCache("BTC").pipe(Effect.map((s) => s.allMids)),
 
-          // ── getAggregatedMarkets ──────────────────────────────
           getAggregatedMarkets: () =>
-            readOrFetch(
+            fetchWithCache(
               aggregatedSlot,
               AGGREGATED_MARKETS_TTL_MS,
               provide(getAggregatedMarketsSnapshot(hlInfo))
@@ -397,23 +382,19 @@ export const HyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
               })
             ),
 
-          // ── getTicker ─────────────────────────────────────────
           getTicker: (symbol) =>
-            readOrFetchTickerForSymbol(symbol).pipe(
-              Effect.map((s) => mapTickerFromSnapshot(s, symbol))
-            ),
+            fetchTickerWithCache(symbol).pipe(Effect.map((s) => mapTickerFromSnapshot(s, symbol))),
 
-          // ── getOrderBook ──────────────────────────────────────
           getOrderBook: (symbol, depth) =>
             Effect.gen(function* () {
-              const ticker = yield* readOrFetchTickerForSymbol(symbol);
+              const ticker = yield* fetchTickerWithCache(symbol);
 
               // Resolve the API-level coin identifier (same as candleSnapshot):
               //   - Perps: via perp universe (resolveInternalSymbol)
               //   - Spot:  via spotIndex (e.g., "AAVE0/USDC" → "@227")
               let internalSymbol: string;
               if (symbol.includes("/")) {
-                yield* readOrFetch(
+                yield* fetchWithCache(
                   aggregatedSlot,
                   AGGREGATED_MARKETS_TTL_MS,
                   provide(getAggregatedMarketsSnapshot(hlInfo))
@@ -461,10 +442,9 @@ export const HyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
               };
             }),
 
-          // ── getTradeAnnotation ────────────────────────────────
           getTradeAnnotation: (symbol) =>
             Effect.gen(function* () {
-              const ticker = yield* readOrFetchTickerForSymbol(symbol);
+              const ticker = yield* fetchTickerWithCache(symbol);
               const internalSymbol = resolveInternalSymbol(ticker, symbol);
               const isPerp = isPerpSymbol(ticker, symbol);
 
