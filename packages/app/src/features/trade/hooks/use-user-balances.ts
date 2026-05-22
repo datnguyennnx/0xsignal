@@ -41,7 +41,7 @@ export function useUserBalances(): UserBalances {
   const { data: chData, isLoading: isChLoading } = useClearinghouseState();
   const { data: spotData } = useSpotClearinghouseState();
 
-  const positions = chData?.assetPositions ?? [];
+  const positions = chData?.assetPositions;
   const marginSummary = chData?.marginSummary;
   const withdrawable = chData?.withdrawable;
 
@@ -61,17 +61,17 @@ export function useUserBalances(): UserBalances {
   const perpsWithdrawable = Number(withdrawable ?? 0);
   const effectiveAvailableBalance = accountValue > 0 ? perpsWithdrawable : usdcAvailableBalance;
 
-  const totalUnrealizedPnl = positions.reduce(
+  const totalUnrealizedPnl = (positions ?? []).reduce(
     (sum, p) => sum + Number(p.position.unrealizedPnl),
     0
   );
 
-  const balanceCount = marginSummary ? 2 + positions.length : 0;
-  const positionsCount = positions.length;
+  const balanceCount = marginSummary ? 2 + (positions?.length ?? 0) : 0;
+  const positionsCount = positions?.length ?? 0;
 
   return useMemo(
     () => ({
-      positions,
+      positions: positions ?? [],
       marginSummary,
       usdcTotalBalance,
       usdcAvailableBalance,

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, type ChangeEvent } from "react";
+import { useState, useMemo, type ChangeEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { api, type PlaceOrderRequest } from "@/services/api";
+import type { PlaceOrderEntry } from "@0xsignal/shared";
 import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/core/utils/cn";
 import { CheckIcon } from "lucide-react";
@@ -120,53 +121,42 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   const maxNotional = effectiveBalance * effectiveLeverage * MARGIN_BUFFER;
 
   // Show converted asset quantity below the size input
-  const assetQtyDisplay = useMemo(() => {
-    if (!usablePrice || !Number(size)) return null;
-    const qty = Number(size) / usablePrice;
-    return `${formatOrderSize(qty, szDecimals)} ${normalizedSymbol}`;
-  }, [size, usablePrice, szDecimals, normalizedSymbol]);
+  const assetQtyDisplay =
+    !usablePrice || !Number(size)
+      ? null
+      : `${formatOrderSize(Number(size) / usablePrice, szDecimals)} ${normalizedSymbol}`;
 
-  /** Compute the size in the selected asset for a given percentage of max. */
-  const sizeFromPct = useCallback(
-    (pct: number): string => {
-      if (effectiveBalance <= 0 || effectiveLeverage <= 0) return "0.00";
-      return ((maxNotional * pct) / 100).toFixed(2);
-    },
-    [maxNotional, effectiveBalance, effectiveLeverage]
-  );
+  const handleSliderCommit = (values: number[]) => {
+    const pct = values[0] ?? 0;
+    setSliderPercent(pct);
+    if (effectiveBalance <= 0 || effectiveLeverage <= 0) {
+      setSize("0.00");
+    } else {
+      setSize(((maxNotional * pct) / 100).toFixed(2));
+    }
+  };
 
-  const handleSliderCommit = useCallback(
-    (values: number[]) => {
-      const pct = values[0] ?? 0;
-      setSliderPercent(pct);
-      setSize(sizeFromPct(pct));
-    },
-    [sizeFromPct]
-  );
+  const handlePctInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const pct = Math.min(100, Math.max(0, Number(raw) || 0));
+    setSliderPercent(pct);
+    if (effectiveBalance <= 0 || effectiveLeverage <= 0) {
+      setSize("0.00");
+    } else {
+      setSize(((maxNotional * pct) / 100).toFixed(2));
+    }
+  };
 
-  const handlePctInputChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      const raw = e.target.value;
-      const pct = Math.min(100, Math.max(0, Number(raw) || 0));
-      setSliderPercent(pct);
-      setSize(sizeFromPct(pct));
-    },
-    [sizeFromPct]
-  );
-
-  const handleSizeChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      const val = e.target.value;
-      setSize(val);
-      const numVal = Number(val);
-      if (numVal > 0 && maxNotional > 0) {
-        setSliderPercent(Math.min(100, Math.round((numVal / maxNotional) * 100)));
-      } else {
-        setSliderPercent(0);
-      }
-    },
-    [maxNotional]
-  );
+  const handleSizeChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSize(val);
+    const numVal = Number(val);
+    if (numVal > 0 && maxNotional > 0) {
+      setSliderPercent(Math.min(100, Math.round((numVal / maxNotional) * 100)));
+    } else {
+      setSliderPercent(0);
+    }
+  };
 
   /* ─── Place order mutation ─── */
   const placeOrderMutation = useMutation({
@@ -177,7 +167,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     },
   });
 
-  const handlePlaceOrder = useCallback(() => {
+  const handlePlaceOrder = () => {
     const effectiveEntryPrice = usablePrice;
     if (effectiveEntryPrice <= 0 || !Number(size) || Number(size) <= 0) return;
 
@@ -187,39 +177,39 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
     const orders: PlaceOrderRequest["orders"] = [];
 
-    const orderTypeConfig =
+    const orderTypeConfig: PlaceOrderEntry["orderType"] =
       orderType === "market"
-        ? ({ limit: { tif: "FrontendMarket" as const } } as const)
-        : ({ limit: { tif: "Gtc" as const } } as const);
+        ? { kind: "limit", timeInForce: "FrontendMarket" }
+        : { kind: "limit", timeInForce: "GTC" };
 
     orders.push({
-      a: assetIndex,
-      b: side === "buy",
-      p: orderType === "market" ? String(effectiveEntryPrice) : price || "1",
-      s: formattedSz,
-      r: reduceOnly,
-      t: orderTypeConfig,
+      symbol,
+      side,
+      quantity: formattedSz,
+      price: orderType === "market" ? String(effectiveEntryPrice) : price || "1",
+      reduceOnly,
+      orderType: orderTypeConfig,
     });
 
     if (showTpSl && tpPrice) {
       orders.push({
-        a: assetIndex,
-        b: side !== "buy",
-        p: tpPrice,
-        s: formattedSz,
-        r: true,
-        t: { trigger: { isMarket: true, triggerPx: tpPrice, tpsl: "tp" as const } },
+        symbol,
+        side: side === "buy" ? "sell" : "buy",
+        quantity: formattedSz,
+        price: tpPrice,
+        reduceOnly: true,
+        orderType: { kind: "trigger", isMarket: true, triggerPrice: tpPrice, tpsl: "tp" },
       });
     }
 
     if (showTpSl && slPrice) {
       orders.push({
-        a: assetIndex,
-        b: side !== "buy",
-        p: slPrice,
-        s: formattedSz,
-        r: true,
-        t: { trigger: { isMarket: true, triggerPx: slPrice, tpsl: "sl" as const } },
+        symbol,
+        side: side === "buy" ? "sell" : "buy",
+        quantity: formattedSz,
+        price: slPrice,
+        reduceOnly: true,
+        orderType: { kind: "trigger", isMarket: true, triggerPrice: slPrice, tpsl: "sl" },
       });
     }
 
@@ -229,20 +219,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     };
 
     placeOrderMutation.mutate(payload);
-  }, [
-    assetIndex,
-    side,
-    orderType,
-    price,
-    size,
-    usablePrice,
-    showTpSl,
-    tpPrice,
-    slPrice,
-    reduceOnly,
-    placeOrderMutation,
-    szDecimals,
-  ]);
+  };
 
   const canPlace = Boolean(
     Number(size) > 0 &&

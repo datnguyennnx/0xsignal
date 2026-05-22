@@ -13,7 +13,9 @@ import { cn } from "@/core/utils/cn";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { calculatePxDecimals } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { formatSize, formatCompactUsd } from "@/core/utils/formatters";
-import { MarketHeader, MarketRow, MarketRowSkeleton, getColumns } from "./trade-dropdown.columns";
+import { MarketHeader, MarketRow, MarketRowSkeleton } from "./trade-dropdown.columns";
+import { getColumns } from "./trade-dropdown.columns.helpers";
+import type { AggregatedMarket } from "@0xsignal/shared";
 import type { CategoryTab, FormattedTrade } from "./trade-dropdown.types";
 import { TAB_ORDER, TAB_TO_CATEGORY } from "./trade-dropdown.types";
 
@@ -185,7 +187,7 @@ const TradeDropdownFn = ({
       const funding = Number(item.funding);
       const marketCap =
         item.marketType === "spot" && "circulatingSupply" in item
-          ? markPx * Number((item as any).circulatingSupply ?? 0)
+          ? markPx * Number((item as AggregatedMarket).circulatingSupply ?? 0)
           : 0;
       const pxDec = calculatePxDecimals(item.szDecimals ?? 4);
       return {

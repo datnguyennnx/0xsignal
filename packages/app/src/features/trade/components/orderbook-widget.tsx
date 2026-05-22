@@ -154,9 +154,9 @@ const OrderRow = memo(
     const depthStyle = useMemo(
       () => ({
         width: "100%",
-        transform: `scaleX(${Math.min(depthPercent, 100) / 100})`,
+        transform: `scaleX(${Math.min(stableDepthPercent, 100) / 100})`,
         transformOrigin: "right center",
-        willChange: depthPercent < 100 ? "transform" : "auto",
+        willChange: stableDepthPercent < 100 ? "transform" : "auto",
         transition: transitionsEnabled ? "transform 150ms ease-out" : "none",
       }),
       [stableDepthPercent, transitionsEnabled]
