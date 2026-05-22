@@ -1,8 +1,10 @@
 import { Effect } from "effect";
-import { ExchangeServices } from "../../../application/exchange/contracts";
-
-/** Derived from ExchangeServices contract to avoid `any` in route body parsing. */
-type PlaceOrderBody = Parameters<(typeof ExchangeServices.Service)["placeOrder"]>[0];
+import { ExchangeService } from "../../../application/exchange/contracts";
+import type {
+  PlaceOrderRequest,
+  UpdateLeverageRequest,
+  CancelOrdersRequest,
+} from "../../../application/exchange/types";
 
 type HttpError = {
   readonly status: number;
@@ -10,9 +12,9 @@ type HttpError = {
 };
 
 type ExchangeHttpService = {
-  readonly placeOrder: (typeof ExchangeServices.Service)["placeOrder"];
-  readonly updateLeverageAndMargin: (typeof ExchangeServices.Service)["updateLeverageAndMargin"];
-  readonly cancelOrders: (typeof ExchangeServices.Service)["cancelOrders"];
+  readonly placeOrder: (typeof ExchangeService.Service)["placeOrder"];
+  readonly updateLeverageAndMargin: (typeof ExchangeService.Service)["updateLeverageAndMargin"];
+  readonly cancelOrders: (typeof ExchangeService.Service)["cancelOrders"];
 };
 
 type RouteHandler = (
@@ -40,7 +42,7 @@ export const buildExchangeRoutes = ({
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService) =>
       Effect.gen(function* () {
         const body = yield* Effect.tryPromise({
-          try: () => request.json() as Promise<PlaceOrderBody>,
+          try: () => request.json() as Promise<PlaceOrderRequest>,
           catch: () => ({ error: "Invalid JSON body" }),
         }).pipe(Effect.mapError(() => ({ status: 400, message: "Invalid request body" })));
 
@@ -54,12 +56,7 @@ export const buildExchangeRoutes = ({
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService) =>
       Effect.gen(function* () {
         const body = yield* Effect.tryPromise({
-          try: () =>
-            request.json() as Promise<{
-              asset: number;
-              isCross: boolean;
-              leverage: number;
-            }>,
+          try: () => request.json() as Promise<UpdateLeverageRequest>,
           catch: () => ({ error: "Invalid JSON body" }),
         }).pipe(Effect.mapError(() => ({ status: 400, message: "Invalid request body" })));
 
@@ -75,10 +72,7 @@ export const buildExchangeRoutes = ({
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService) =>
       Effect.gen(function* () {
         const body = yield* Effect.tryPromise({
-          try: () =>
-            request.json() as Promise<{
-              cancels: Array<{ coin: string; o: number }>;
-            }>,
+          try: () => request.json() as Promise<CancelOrdersRequest>,
           catch: () => ({ error: "Invalid JSON body" }),
         }).pipe(Effect.mapError(() => ({ status: 400, message: "Invalid request body" })));
 

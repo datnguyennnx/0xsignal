@@ -32,8 +32,8 @@ import { ValiError } from "valibot";
 import type { InfoClient } from "@nktkas/hyperliquid";
 import { ApiRequestError } from "@nktkas/hyperliquid/api/exchange";
 import { HyperliquidClient } from "../../../infrastructure/data-sources/hyperliquid/client";
-import { ExchangeServices } from "../contracts";
-import { ExchangeServicesLive } from "../service";
+import { ExchangeService } from "../contracts";
+import { exchangeServiceLayer } from "../service";
 import {
   HyperliquidValidationError,
   InsufficientMarginError,
@@ -58,11 +58,11 @@ const makeMockHLClient = () =>
     })
   );
 
-const makeTestLayer = () => ExchangeServicesLive.pipe(Layer.provideMerge(makeMockHLClient()));
+const makeTestLayer = () => exchangeServiceLayer.pipe(Layer.provideMerge(makeMockHLClient()));
 
 /* ─── Tests ─── */
 
-describe("ExchangeServices", () => {
+describe("ExchangeService", () => {
   beforeAll(() => {
     process.env.HYPERLIQUID_PRIVATE_KEY = VALID_PRIVATE_KEY;
   });
@@ -72,21 +72,22 @@ describe("ExchangeServices", () => {
   });
 
   describe("placeOrder", () => {
-    it("coerces payload types before calling SDK", async () => {
+    it("builds correct HL payload from generic input", async () => {
+      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
       mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* ExchangeServices;
+          const svc = yield* ExchangeService;
           return yield* svc.placeOrder({
             orders: [
               {
-                a: "1" as unknown as number,
-                b: 1 as unknown as boolean,
-                p: 100 as unknown as string,
-                s: 0.5 as unknown as string,
-                r: 0 as unknown as boolean,
-                t: { limit: { tif: "Gtc" as const } },
+                symbol: "BTC",
+                side: "buy",
+                price: "100",
+                quantity: "0.5",
+                reduceOnly: false,
+                orderType: { kind: "limit", timeInForce: "GTC" },
               },
             ],
           });
@@ -94,7 +95,7 @@ describe("ExchangeServices", () => {
       );
 
       const callArg = mockExchangeInstance.order.mock.calls[0][0];
-      expect(callArg.orders[0].a).toBe(1);
+      expect(callArg.orders[0].a).toBe(0);
       expect(callArg.orders[0].b).toBe(true);
       expect(callArg.orders[0].p).toBe("100");
       expect(callArg.orders[0].s).toBe("0.5");
@@ -103,9 +104,7 @@ describe("ExchangeServices", () => {
     });
 
     it("maps insufficient margin ApiRequestError to InsufficientMarginError", async () => {
-      // ApiRequestError constructor takes a raw API response object.
-      // { status: "err", response: "..." } matches the hasErrorStatus duck-type check
-      // and extractErrorMessage returns response.response as the message.
+      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
       const error = new ApiRequestError({
         status: "err",
         response: "insufficient margin for order",
@@ -114,16 +113,16 @@ describe("ExchangeServices", () => {
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* ExchangeServices;
+          const svc = yield* ExchangeService;
           return yield* svc.placeOrder({
             orders: [
               {
-                a: 1,
-                b: true,
-                p: "100",
-                s: "0.5",
-                r: false,
-                t: { limit: { tif: "Gtc" as const } },
+                symbol: "BTC",
+                side: "buy",
+                price: "100",
+                quantity: "0.5",
+                reduceOnly: false,
+                orderType: { kind: "limit", timeInForce: "GTC" },
               },
             ],
           });
@@ -137,6 +136,7 @@ describe("ExchangeServices", () => {
     });
 
     it("maps ValiError to HyperliquidValidationError", async () => {
+      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
       const error = new ValiError([
         {
           kind: "schema",
@@ -151,16 +151,16 @@ describe("ExchangeServices", () => {
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* ExchangeServices;
+          const svc = yield* ExchangeService;
           return yield* svc.placeOrder({
             orders: [
               {
-                a: 1,
-                b: true,
-                p: "100",
-                s: "0.5",
-                r: false,
-                t: { limit: { tif: "Gtc" as const } },
+                symbol: "BTC",
+                side: "buy",
+                price: "100",
+                quantity: "0.5",
+                reduceOnly: false,
+                orderType: { kind: "limit", timeInForce: "GTC" },
               },
             ],
           });
@@ -174,36 +174,37 @@ describe("ExchangeServices", () => {
     });
 
     it("sends TP/SL child orders with r:true and opposite b direction", async () => {
+      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
       mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* ExchangeServices;
+          const svc = yield* ExchangeService;
           return yield* svc.placeOrder({
             orders: [
               {
-                a: 1,
-                b: true,
-                p: "100",
-                s: "0.5",
-                r: false,
-                t: { limit: { tif: "Gtc" as const } },
+                symbol: "BTC",
+                side: "buy",
+                price: "100",
+                quantity: "0.5",
+                reduceOnly: false,
+                orderType: { kind: "limit", timeInForce: "GTC" },
               },
               {
-                a: 1,
-                b: false,
-                p: "110",
-                s: "0.5",
-                r: true,
-                t: { trigger: { isMarket: true, triggerPx: "110", tpsl: "tp" as const } },
+                symbol: "BTC",
+                side: "sell",
+                price: "110",
+                quantity: "0.5",
+                reduceOnly: true,
+                orderType: { kind: "trigger", isMarket: true, triggerPrice: "110", tpsl: "tp" },
               },
               {
-                a: 1,
-                b: false,
-                p: "90",
-                s: "0.5",
-                r: true,
-                t: { trigger: { isMarket: true, triggerPx: "90", tpsl: "sl" as const } },
+                symbol: "BTC",
+                side: "sell",
+                price: "90",
+                quantity: "0.5",
+                reduceOnly: true,
+                orderType: { kind: "trigger", isMarket: true, triggerPrice: "90", tpsl: "sl" },
               },
             ],
             grouping: "normalTpsl",
@@ -227,20 +228,21 @@ describe("ExchangeServices", () => {
     });
 
     it("enforces reduceOnly true for close position orders", async () => {
+      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
       mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* ExchangeServices;
+          const svc = yield* ExchangeService;
           return yield* svc.placeOrder({
             orders: [
               {
-                a: 1,
-                b: false,
-                p: "0",
-                s: "0.5",
-                r: true,
-                t: { limit: { tif: "FrontendMarket" as const } },
+                symbol: "BTC",
+                side: "sell",
+                price: "0",
+                quantity: "0.5",
+                reduceOnly: true,
+                orderType: { kind: "limit", timeInForce: "FrontendMarket" },
               },
             ],
             grouping: "na",
@@ -255,12 +257,19 @@ describe("ExchangeServices", () => {
 
   describe("updateLeverageAndMargin", () => {
     it("sends isCross and leverage for cross margin mode", async () => {
+      mockInfoInstance.meta.mockResolvedValueOnce({
+        universe: [{ name: "BTC" }, { name: "ETH" }],
+      });
       mockExchangeInstance.updateLeverage.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* ExchangeServices;
-          return yield* svc.updateLeverageAndMargin({ asset: 1, isCross: true, leverage: 10 });
+          const svc = yield* ExchangeService;
+          return yield* svc.updateLeverageAndMargin({
+            symbol: "ETH",
+            isCross: true,
+            leverage: 10,
+          });
         }).pipe(Effect.provide(makeTestLayer()))
       );
 
@@ -272,12 +281,19 @@ describe("ExchangeServices", () => {
     });
 
     it("sends isCross and leverage for isolated margin mode", async () => {
+      mockInfoInstance.meta.mockResolvedValueOnce({
+        universe: [{ name: "BTC" }, { name: "ETH" }, { name: "SOL" }],
+      });
       mockExchangeInstance.updateLeverage.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* ExchangeServices;
-          return yield* svc.updateLeverageAndMargin({ asset: 2, isCross: false, leverage: 5 });
+          const svc = yield* ExchangeService;
+          return yield* svc.updateLeverageAndMargin({
+            symbol: "SOL",
+            isCross: false,
+            leverage: 5,
+          });
         }).pipe(Effect.provide(makeTestLayer()))
       );
 
@@ -290,14 +306,14 @@ describe("ExchangeServices", () => {
   });
 
   describe("cancelOrders", () => {
-    it("cancels a single order by coin and oid", async () => {
+    it("cancels a single order by symbol and orderId", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }, { name: "ETH" }] });
       mockExchangeInstance.cancel.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* ExchangeServices;
-          return yield* svc.cancelOrders({ cancels: [{ coin: "BTC", o: 12345 }] });
+          const svc = yield* ExchangeService;
+          return yield* svc.cancelOrders({ cancels: [{ symbol: "BTC", orderId: 12345 }] });
         }).pipe(Effect.provide(makeTestLayer()))
       );
 
@@ -307,7 +323,7 @@ describe("ExchangeServices", () => {
       });
     });
 
-    it("cancels multiple orders across different coins", async () => {
+    it("cancels multiple orders across different symbols", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce({
         universe: [{ name: "BTC" }, { name: "ETH" }, { name: "SOL" }],
       });
@@ -315,11 +331,11 @@ describe("ExchangeServices", () => {
 
       await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* ExchangeServices;
+          const svc = yield* ExchangeService;
           return yield* svc.cancelOrders({
             cancels: [
-              { coin: "ETH", o: 111 },
-              { coin: "SOL", o: 222 },
+              { symbol: "ETH", orderId: 111 },
+              { symbol: "SOL", orderId: 222 },
             ],
           });
         }).pipe(Effect.provide(makeTestLayer()))
@@ -333,13 +349,13 @@ describe("ExchangeServices", () => {
       });
     });
 
-    it("fails with HyperliquidInternalError for unknown coin", async () => {
+    it("fails with HyperliquidInternalError for unknown symbol", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* ExchangeServices;
-          return yield* svc.cancelOrders({ cancels: [{ coin: "UNKNOWN", o: 1 }] });
+          const svc = yield* ExchangeService;
+          return yield* svc.cancelOrders({ cancels: [{ symbol: "UNKNOWN", orderId: 1 }] });
         })
           .pipe(Effect.provide(makeTestLayer()))
           .pipe(Effect.flip)
@@ -355,11 +371,11 @@ describe("ExchangeServices", () => {
       const originalKey = process.env.HYPERLIQUID_PRIVATE_KEY;
       process.env.HYPERLIQUID_PRIVATE_KEY = "";
 
-      const NoKeyTestLayer = ExchangeServicesLive.pipe(Layer.provideMerge(makeMockHLClient()));
+      const NoKeyTestLayer = exchangeServiceLayer.pipe(Layer.provideMerge(makeMockHLClient()));
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* ExchangeServices;
+          const svc = yield* ExchangeService;
           return yield* svc.placeOrder({ orders: [] });
         })
           .pipe(Effect.provide(NoKeyTestLayer))

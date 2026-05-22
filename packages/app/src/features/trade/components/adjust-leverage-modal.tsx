@@ -33,7 +33,6 @@ export function AdjustLeverageModal({
   onOpenChange,
   currentLeverage,
   maxLeverage,
-  assetIndex,
   isCross,
   symbol = "this asset",
   hasPosition = false,
@@ -74,7 +73,7 @@ export function AdjustLeverageModal({
   };
 
   const handleConfirm = () => {
-    mutation.mutate({ asset: assetIndex, isCross, leverage });
+    mutation.mutate({ symbol, isCross, leverage });
   };
 
   return (

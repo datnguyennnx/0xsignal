@@ -51,7 +51,7 @@ export function PositionManagement() {
   const cancelOrdersMutation = useCancelOrdersMutation();
 
   const queryClient = useQueryClient();
-  const { meta: metaData, getPrecision } = useHyperliquidMeta();
+  const { getPrecision } = useHyperliquidMeta();
 
   const mids = useAllMids();
 
@@ -89,62 +89,58 @@ export function PositionManagement() {
   const [cancelAllDialogOpen, setCancelAllDialogOpen] = useState(false);
 
   const handleCancelOrder = (coin: string, oid: number) => {
-    cancelOrdersMutation.mutate({ cancels: [{ coin, o: oid }] });
+    cancelOrdersMutation.mutate({ cancels: [{ symbol: coin, orderId: oid }] });
   };
 
   const handleCancelAllConfirm = () => {
     if (!openOrders || openOrders.length === 0) return;
-    const cancels = openOrders.map((o) => ({ coin: o.coin, o: o.oid }));
+    const cancels = openOrders.map((o) => ({ symbol: o.coin, orderId: o.oid }));
     cancelOrdersMutation.mutate({ cancels });
     setCancelAllDialogOpen(false);
   };
 
   const handleCloseMarket = useCallback(
     (coin: string, size: string, isLong: boolean) => {
-      const assetEntry = (Array.isArray(metaData) ? metaData : []).find((a) => a.coin === coin);
-      const assetIndex = assetEntry?.assetId ?? 0;
       const { szDecimals } = getPrecision(coin);
       const absSz = Math.abs(Number(size));
       const formattedSz = formatOrderSize(absSz, szDecimals);
       placeOrderMutation.mutate({
         orders: [
           {
-            a: assetIndex,
-            b: !isLong,
-            p: "0",
-            s: formattedSz,
-            r: true,
-            t: { limit: { tif: "FrontendMarket" as const } },
+            symbol: coin,
+            side: isLong ? "sell" : "buy",
+            quantity: formattedSz,
+            price: "0",
+            reduceOnly: true,
+            orderType: { kind: "limit", timeInForce: "FrontendMarket" },
           },
         ],
         grouping: "na",
       });
     },
-    [metaData, getPrecision, placeOrderMutation]
+    [getPrecision, placeOrderMutation]
   );
 
   const handleCloseLimitConfirm = useCallback(
     ({ price, size }: { price: string; size: string }) => {
       if (!closeLimitPosition) return;
       const { coin, isLong } = closeLimitPosition;
-      const assetEntry = (Array.isArray(metaData) ? metaData : []).find((a) => a.coin === coin);
-      const assetIndex = assetEntry?.assetId ?? 0;
       placeOrderMutation.mutate({
         orders: [
           {
-            a: assetIndex,
-            b: !isLong,
-            p: price,
-            s: size,
-            r: true,
-            t: { limit: { tif: "Gtc" as const } },
+            symbol: coin,
+            side: isLong ? "sell" : "buy",
+            quantity: size,
+            price,
+            reduceOnly: true,
+            orderType: { kind: "limit", timeInForce: "GTC" },
           },
         ],
         grouping: "na",
       });
       setCloseLimitPosition(null);
     },
-    [closeLimitPosition, metaData, placeOrderMutation]
+    [closeLimitPosition, placeOrderMutation]
   );
 
   const closeLimitSzDecimals = closeLimitPosition

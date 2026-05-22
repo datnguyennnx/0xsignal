@@ -39,7 +39,6 @@ export function MarginModeModal({
   open,
   onOpenChange,
   currentMode,
-  assetIndex,
   currentLeverage,
   symbol = "this asset",
   onConfirm,
@@ -64,7 +63,7 @@ export function MarginModeModal({
   };
 
   const handleConfirm = () => {
-    mutation.mutate({ asset: assetIndex, isCross: mode === "cross", leverage: currentLeverage });
+    mutation.mutate({ symbol, isCross: mode === "cross", leverage: currentLeverage });
   };
 
   return (
