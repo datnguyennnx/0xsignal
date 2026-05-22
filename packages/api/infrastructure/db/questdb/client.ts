@@ -25,7 +25,7 @@ export class QuestDBClient extends Context.Tag("QuestDBClient")<QuestDBClient, Q
 const normalizeCause = (cause: unknown): unknown =>
   cause instanceof Error ? cause.message : cause;
 
-const QuestDBConfigLive = Layer.effect(
+export const questDbClientLayer = Layer.effect(
   QuestDBClient,
   Effect.gen(function* () {
     const httpUrl = yield* Config.string("QUESTDB_HTTP_URL").pipe(
@@ -34,8 +34,6 @@ const QuestDBConfigLive = Layer.effect(
     return { httpUrl };
   })
 );
-
-export const QuestDBClientLayer = QuestDBConfigLive;
 
 /**
  * Execute a SQL query (SELECT) and expect a JSON response.

@@ -6,7 +6,7 @@ import { marketWsLog } from "./logging";
 import { buildMarketWsBucketKey } from "./bucket-key";
 import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
 import { HyperliquidProvider } from "../../data-sources/hyperliquid/types";
-import type { AggregatedTradeAsset } from "../../data-sources/hyperliquid/types";
+import type { HyperliquidAggregatedAsset } from "../../data-sources/hyperliquid/types";
 import { Data, Effect } from "effect";
 import type { ManagedRuntime } from "effect";
 import {
@@ -282,11 +282,11 @@ export class HyperliquidMarketStreamHub {
     const subSymbol = subscription.symbol;
     if (this.provider && subSymbol) {
       try {
-        const markets: readonly AggregatedTradeAsset[] = await this.runtime!.runPromise(
+        const markets: readonly HyperliquidAggregatedAsset[] = await this.runtime!.runPromise(
           this.provider.getAggregatedMarkets()
         );
         const subUpper = subSymbol.toUpperCase();
-        const asset: AggregatedTradeAsset | undefined = markets.find(
+        const asset: HyperliquidAggregatedAsset | undefined = markets.find(
           (m) => m.rawCoin === subSymbol || m.rawCoin.toUpperCase() === subUpper
         );
 

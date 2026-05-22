@@ -1,21 +1,21 @@
 import { Layer } from "effect";
-import { DevLoggerLive } from "../logging/logger";
+import { devLoggerLayer } from "../logging/logger";
 import { FetchHttpClient } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
-import { MarketDataPortsLive } from "./market-data.layer";
-import { HealthServicesLive } from "./health.layer";
-import { AppServicesLive } from "./services.layer";
-import { PostgresConnectionPoolLive } from "../db/postgres/client";
-import { HyperliquidClientLive } from "../data-sources/hyperliquid/client";
+import { marketDataInfrastructureLayer } from "./market-data.layer";
+import { healthServiceLayer } from "./health.layer";
+import { applicationServiceLayer } from "./services.layer";
+import { postgresConnectionPoolLayer } from "../db/postgres/client";
+import { hyperliquidClientLayer } from "../data-sources/hyperliquid/client";
 
-const Core = Layer.mergeAll(DevLoggerLive, BunContext.layer, FetchHttpClient.layer);
+const Core = Layer.mergeAll(devLoggerLayer, BunContext.layer, FetchHttpClient.layer);
 const Infrastructure = Layer.mergeAll(
-  MarketDataPortsLive,
-  HealthServicesLive,
-  HyperliquidClientLive
-).pipe(Layer.provideMerge(PostgresConnectionPoolLive));
+  marketDataInfrastructureLayer,
+  healthServiceLayer,
+  hyperliquidClientLayer
+).pipe(Layer.provideMerge(postgresConnectionPoolLayer));
 
-export const AppLayer = AppServicesLive.pipe(
+export const AppLayer = applicationServiceLayer.pipe(
   Layer.provideMerge(Infrastructure),
   Layer.provideMerge(Core)
 );

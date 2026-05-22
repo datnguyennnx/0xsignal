@@ -8,7 +8,7 @@ export class HyperliquidClient extends Context.Tag("HyperliquidClient")<
   }
 >() {}
 
-export const HyperliquidClientLive = Layer.effect(
+export const hyperliquidClientLayer = Layer.effect(
   HyperliquidClient,
   Effect.sync(() =>
     HyperliquidClient.of({

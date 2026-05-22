@@ -1,10 +1,10 @@
 /** HTTP Router - Route matching with functional patterns */
 
 import { Effect } from "effect";
-import { HealthServices } from "../../application/health";
-import { MarketDataServices } from "../../application/market-data/contracts";
-import { UserDataServices } from "../../application/user-data/contracts";
-import { ExchangeServices } from "../../application/exchange/contracts";
+import { HealthService } from "../../application/health";
+import { MarketDataService } from "../../application/market-data/contracts";
+import { UserDataService } from "../../application/user-data/contracts";
+import { ExchangeService } from "../../application/exchange/contracts";
 import { DomainError } from "../../application/errors";
 import { healthRoute } from "./routes/health.routes";
 import { buildMarketDataRoutes } from "./routes/market-data.routes";
@@ -18,32 +18,31 @@ type HttpError = {
 };
 
 type UserDataHttpService = {
-  readonly getClearinghouseState: (typeof UserDataServices.Service)["getClearinghouseState"];
-  readonly getSpotClearinghouseState: (typeof UserDataServices.Service)["getSpotClearinghouseState"];
-  readonly getOpenOrders: (typeof UserDataServices.Service)["getOpenOrders"];
-  readonly getFrontendOpenOrders: (typeof UserDataServices.Service)["getFrontendOpenOrders"];
-  readonly getMeta: (typeof UserDataServices.Service)["getMeta"];
-  readonly getHistoricalOrders: (typeof UserDataServices.Service)["getHistoricalOrders"];
-  readonly getUserFills: (typeof UserDataServices.Service)["getUserFills"];
-  readonly getPortfolio: (typeof UserDataServices.Service)["getPortfolio"];
-  readonly getUserVaultEquities: (typeof UserDataServices.Service)["getUserVaultEquities"];
-  readonly getUserFunding: (typeof UserDataServices.Service)["getUserFunding"];
+  readonly getClearinghouseState: (typeof UserDataService.Service)["getClearinghouseState"];
+  readonly getSpotClearinghouseState: (typeof UserDataService.Service)["getSpotClearinghouseState"];
+  readonly getOpenOrders: (typeof UserDataService.Service)["getOpenOrders"];
+  readonly getFrontendOpenOrders: (typeof UserDataService.Service)["getFrontendOpenOrders"];
+  readonly getMeta: (typeof UserDataService.Service)["getMeta"];
+  readonly getHistoricalOrders: (typeof UserDataService.Service)["getHistoricalOrders"];
+  readonly getUserFills: (typeof UserDataService.Service)["getUserFills"];
+  readonly getPortfolio: (typeof UserDataService.Service)["getPortfolio"];
+  readonly getUserVaultEquities: (typeof UserDataService.Service)["getUserVaultEquities"];
+  readonly getUserFunding: (typeof UserDataService.Service)["getUserFunding"];
 };
 
 type ExchangeHttpService = {
-  readonly placeOrder: (typeof ExchangeServices.Service)["placeOrder"];
-  readonly updateLeverageAndMargin: (typeof ExchangeServices.Service)["updateLeverageAndMargin"];
-  readonly cancelOrders: (typeof ExchangeServices.Service)["cancelOrders"];
+  readonly placeOrder: (typeof ExchangeService.Service)["placeOrder"];
+  readonly updateLeverageAndMargin: (typeof ExchangeService.Service)["updateLeverageAndMargin"];
+  readonly cancelOrders: (typeof ExchangeService.Service)["cancelOrders"];
 };
 
 type MarketDataHttpService = {
-  readonly discoverMarkets: (typeof MarketDataServices.Service)["discoverMarkets"];
-  readonly getCandles: (typeof MarketDataServices.Service)["getCandles"];
-  readonly getRecentCandles: (typeof MarketDataServices.Service)["getRecentCandles"];
-  readonly inspectCoverage: (typeof MarketDataServices.Service)["inspectCoverage"];
-  readonly getTicker: (typeof MarketDataServices.Service)["getTicker"];
-  readonly getOrderBook: (typeof MarketDataServices.Service)["getOrderBook"];
-  readonly getTradeAnnotation: (typeof MarketDataServices.Service)["getTradeAnnotation"];
+  readonly discoverMarkets: (typeof MarketDataService.Service)["discoverMarkets"];
+  readonly getCandles: (typeof MarketDataService.Service)["getCandles"];
+  readonly getRecentCandles: (typeof MarketDataService.Service)["getRecentCandles"];
+  readonly getTicker: (typeof MarketDataService.Service)["getTicker"];
+  readonly getOrderBook: (typeof MarketDataService.Service)["getOrderBook"];
+  readonly getTradeAnnotation: (typeof MarketDataService.Service)["getTradeAnnotation"];
 };
 
 type HealthHttpService = Parameters<typeof healthRoute>[0];
@@ -212,10 +211,10 @@ export const handleRequest = (request: Request) => {
       return json({ error: "Not found" }, 404);
     }
 
-    const marketData = yield* MarketDataServices;
-    const health = yield* HealthServices;
-    const userData = yield* UserDataServices;
-    const exchange = yield* ExchangeServices;
+    const marketData = yield* MarketDataService;
+    const health = yield* HealthService;
+    const userData = yield* UserDataService;
+    const exchange = yield* ExchangeService;
     return yield* route.handler(request, url, marketData, health, userData, exchange);
   }).pipe(
     Effect.catchAll((error: HttpError) => {

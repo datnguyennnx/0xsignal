@@ -3,7 +3,7 @@ import { normalizeSymbol } from "./symbol";
 import { HyperliquidError, isRateLimitedCause } from "./errors";
 import { HyperliquidRateLimiter } from "./rate-limiter";
 import { HyperliquidDeduplicationRegistry } from "./dedup";
-import type { TickerSnapshot, AggregatedTradeAsset, PerpTradeAsset } from "./types";
+import type { TickerSnapshot, HyperliquidAggregatedAsset, PerpTradeAsset } from "./types";
 import {
   extractSpotTokens,
   processMetaResults,
@@ -21,7 +21,7 @@ export type HyperliquidInfoClient = {
   readonly spotMetaAndAssetCtxs?: () => Promise<unknown>;
 };
 
-// ─── Rate-limited + deduplicated API call helper ───────────────────────────
+// Rate-limited + deduplicated API call helper
 const deduplicatedApiCall = <T>(
   key: string,
   call: () => Promise<T>,
@@ -76,7 +76,7 @@ const deduplicatedApiCall = <T>(
     return result;
   });
 
-// ─── Base fetchers ────────────────────────────────────────────────────────
+// Base fetchers
 
 const fetchBaseSnapshot = (
   info: HyperliquidInfoClient,
@@ -244,7 +244,7 @@ export function getAggregatedMarketsSnapshot(
     spotMetaAndAssetCtxs?: unknown;
   }
 ): Effect.Effect<
-  readonly AggregatedTradeAsset[],
+  readonly HyperliquidAggregatedAsset[],
   HyperliquidError,
   HyperliquidRateLimiter | HyperliquidDeduplicationRegistry
 > {

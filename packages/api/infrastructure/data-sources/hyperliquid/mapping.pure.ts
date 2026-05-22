@@ -5,7 +5,7 @@ import type {
   MarketAssetCtxItem,
   TickerPayload,
   TickerSnapshot,
-  AggregatedTradeAsset,
+  HyperliquidAggregatedAsset,
   PerpTradeAsset,
   SpotTradeAsset,
 } from "./types";
@@ -439,8 +439,8 @@ const MARKET_TYPE_ORDER: Record<string, number> = { perp: 0, spot: 1 };
 export function sortAndDedupeAssets(
   perpAssets: PerpTradeAsset[],
   spotAssets: SpotTradeAsset[]
-): AggregatedTradeAsset[] {
-  const combined: AggregatedTradeAsset[] = [...perpAssets, ...spotAssets];
+): HyperliquidAggregatedAsset[] {
+  const combined: HyperliquidAggregatedAsset[] = [...perpAssets, ...spotAssets];
 
   const sorted = [...combined].sort((a, b) => {
     if (a.isDelisted !== b.isDelisted) return a.isDelisted ? 1 : -1;
@@ -450,7 +450,7 @@ export function sortAndDedupeAssets(
     return Number(b.dayNtlVlm) - Number(a.dayNtlVlm);
   });
 
-  const seen = new Map<string, AggregatedTradeAsset>();
+  const seen = new Map<string, HyperliquidAggregatedAsset>();
   for (const asset of sorted) {
     const key = `${asset.rawCoin}-${asset.marketType}`;
     const existing = seen.get(key);

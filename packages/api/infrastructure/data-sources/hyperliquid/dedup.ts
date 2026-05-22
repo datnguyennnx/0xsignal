@@ -1,4 +1,4 @@
-import { Context, Deferred, Effect, Layer, Ref } from "effect";
+import { Context, Deferred, Ref } from "effect";
 import { HyperliquidError } from "./errors";
 
 export class HyperliquidDeduplicationRegistry extends Context.Tag(
@@ -10,12 +10,6 @@ export class HyperliquidDeduplicationRegistry extends Context.Tag(
   }
 >() {}
 
-export const HyperliquidDeduplicationRegistryLive = Layer.effect(
-  HyperliquidDeduplicationRegistry,
-  Effect.gen(function* () {
-    const ref = yield* Ref.make(new Map<string, Deferred.Deferred<any, HyperliquidError>>());
-    return HyperliquidDeduplicationRegistry.of({
-      registryRef: ref,
-    });
-  })
-);
+// Note: The inline Layer that provides HyperliquidDeduplicationRegistry lives in
+// provider.ts (inside hyperliquidProviderLayer). This module exports only the
+// Context.Tag for dependency injection wiring.

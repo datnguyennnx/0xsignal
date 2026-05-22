@@ -1,10 +1,10 @@
 import { Context, type Effect } from "effect";
-import type { Candle } from "../../../schemas/market-data";
+import type { Candle } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 import type { L2BookResponse, PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
 import type { HyperliquidError } from "./errors";
 
-// ─── Market Type Discriminated Union ────────────────────────────────────────
+// Perp/spot discriminated union types
 
 export type MarketType = "perp" | "spot";
 
@@ -54,7 +54,7 @@ export interface SpotTradeAsset extends BaseTradeAsset {
   readonly funding: "0";
 }
 
-export type AggregatedTradeAsset = PerpTradeAsset | SpotTradeAsset;
+export type HyperliquidAggregatedAsset = PerpTradeAsset | SpotTradeAsset;
 
 export interface MarketUniverseItem {
   readonly name: string;
@@ -110,7 +110,7 @@ export class HyperliquidProvider extends Context.Tag("HyperliquidProvider")<
     ) => Effect.Effect<Candle[], HyperliquidError>;
     readonly getAllMids: () => Effect.Effect<Record<string, string>, HyperliquidError>;
     readonly getAggregatedMarkets: () => Effect.Effect<
-      readonly AggregatedTradeAsset[],
+      readonly HyperliquidAggregatedAsset[],
       HyperliquidError
     >;
     readonly getTicker: (symbol: string) => Effect.Effect<TickerPayload, HyperliquidError>;

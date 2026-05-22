@@ -1,10 +1,10 @@
 import { Layer } from "effect";
-import { MarketDataServicesLive } from "../../application/market-data/service";
-import { UserDataServicesLive } from "../../application/user-data/service";
-import { ExchangeServicesLive } from "../../application/exchange/service";
+import { marketDataServiceLayer } from "../../application/market-data/service";
+import { userDataServiceLayer } from "../../application/user-data/service";
+import { exchangeServiceLayer } from "../../application/exchange/service";
 
-export const AppServicesLive = Layer.mergeAll(
-  MarketDataServicesLive,
-  UserDataServicesLive,
-  ExchangeServicesLive
+export const applicationServiceLayer = Layer.mergeAll(
+  marketDataServiceLayer,
+  userDataServiceLayer,
+  exchangeServiceLayer
 );

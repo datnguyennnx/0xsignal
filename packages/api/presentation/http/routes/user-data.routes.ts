@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { UserDataServices } from "../../../application/user-data/contracts";
+import { UserDataService } from "../../../application/user-data/contracts";
 
 type HttpError = {
   readonly status: number;
@@ -7,16 +7,16 @@ type HttpError = {
 };
 
 type UserDataHttpService = {
-  readonly getClearinghouseState: (typeof UserDataServices.Service)["getClearinghouseState"];
-  readonly getSpotClearinghouseState: (typeof UserDataServices.Service)["getSpotClearinghouseState"];
-  readonly getOpenOrders: (typeof UserDataServices.Service)["getOpenOrders"];
-  readonly getFrontendOpenOrders: (typeof UserDataServices.Service)["getFrontendOpenOrders"];
-  readonly getMeta: (typeof UserDataServices.Service)["getMeta"];
-  readonly getHistoricalOrders: (typeof UserDataServices.Service)["getHistoricalOrders"];
-  readonly getUserFills: (typeof UserDataServices.Service)["getUserFills"];
-  readonly getPortfolio: (typeof UserDataServices.Service)["getPortfolio"];
-  readonly getUserVaultEquities: (typeof UserDataServices.Service)["getUserVaultEquities"];
-  readonly getUserFunding: (typeof UserDataServices.Service)["getUserFunding"];
+  readonly getClearinghouseState: (typeof UserDataService.Service)["getClearinghouseState"];
+  readonly getSpotClearinghouseState: (typeof UserDataService.Service)["getSpotClearinghouseState"];
+  readonly getOpenOrders: (typeof UserDataService.Service)["getOpenOrders"];
+  readonly getFrontendOpenOrders: (typeof UserDataService.Service)["getFrontendOpenOrders"];
+  readonly getMeta: (typeof UserDataService.Service)["getMeta"];
+  readonly getHistoricalOrders: (typeof UserDataService.Service)["getHistoricalOrders"];
+  readonly getUserFills: (typeof UserDataService.Service)["getUserFills"];
+  readonly getPortfolio: (typeof UserDataService.Service)["getPortfolio"];
+  readonly getUserVaultEquities: (typeof UserDataService.Service)["getUserVaultEquities"];
+  readonly getUserFunding: (typeof UserDataService.Service)["getUserFunding"];
 };
 
 type RouteHandler = (

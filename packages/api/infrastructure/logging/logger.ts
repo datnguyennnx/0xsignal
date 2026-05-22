@@ -16,4 +16,4 @@ const toEffectLogLevel = Match.type<AppLogLevel>().pipe(
 export const withLogLevel = (level: AppLogLevel) => Logger.minimumLogLevel(toEffectLogLevel(level));
 
 // Development: pretty + INFO
-export const DevLoggerLive = Layer.mergeAll(Logger.pretty, withLogLevel("INFO"));
+export const devLoggerLayer = Layer.mergeAll(Logger.pretty, withLogLevel("INFO"));

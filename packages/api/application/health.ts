@@ -16,7 +16,7 @@ export interface HealthServicePort {
   readonly check: () => Effect.Effect<HealthStatus, HealthError>;
 }
 
-export class HealthServices extends Context.Tag("HealthServices")<
-  HealthServices,
+export class HealthService extends Context.Tag("HealthService")<
+  HealthService,
   HealthServicePort
 >() {}
