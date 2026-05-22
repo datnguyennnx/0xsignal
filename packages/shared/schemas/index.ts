@@ -37,9 +37,8 @@ export type {
 } from "./user-data";
 
 export type {
-  LimitInstruction,
-  TriggerInstruction,
-  OrderInstruction,
+  OrderSide,
+  OrderType,
   PlaceOrderEntry,
   PlaceOrderRequest,
   UpdateLeverageRequest,

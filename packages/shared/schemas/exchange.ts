@@ -4,31 +4,33 @@
  * Replaces duplicated frontend manual types and backend ad-hoc body shapes.
  */
 
+// ─── Order Side ───────────────────────────────────────────────────────────────
+
+export type OrderSide = "buy" | "sell";
+
+// ─── Order Type ───────────────────────────────────────────────────────────────
+
+export type OrderType =
+  | {
+      readonly kind: "limit";
+      readonly timeInForce: "GTC" | "IOC" | "FOK" | "Alo" | "FrontendMarket";
+    }
+  | {
+      readonly kind: "trigger";
+      readonly isMarket: boolean;
+      readonly triggerPrice: string;
+      readonly tpsl: "tp" | "sl";
+    };
+
 // ─── Place Order ──────────────────────────────────────────────────────────────
 
-export interface LimitInstruction {
-  readonly limit: {
-    readonly tif: "Gtc" | "Ioc" | "Alo" | "FrontendMarket";
-  };
-}
-
-export interface TriggerInstruction {
-  readonly trigger: {
-    readonly isMarket: boolean;
-    readonly triggerPx: string;
-    readonly tpsl: "tp" | "sl";
-  };
-}
-
-export type OrderInstruction = LimitInstruction | TriggerInstruction;
-
 export interface PlaceOrderEntry {
-  readonly a: number;
-  readonly b: boolean;
-  readonly p: string;
-  readonly s: string;
-  readonly r: boolean;
-  readonly t: OrderInstruction;
+  readonly symbol: string;
+  readonly side: OrderSide;
+  readonly quantity: string;
+  readonly price: string;
+  readonly reduceOnly: boolean;
+  readonly orderType: OrderType;
 }
 
 export interface PlaceOrderRequest {
@@ -39,7 +41,7 @@ export interface PlaceOrderRequest {
 // ─── Update Leverage ──────────────────────────────────────────────────────────
 
 export interface UpdateLeverageRequest {
-  readonly asset: number;
+  readonly symbol: string;
   readonly isCross: boolean;
   readonly leverage: number;
 }
@@ -47,8 +49,8 @@ export interface UpdateLeverageRequest {
 // ─── Cancel Orders ────────────────────────────────────────────────────────────
 
 export interface CancelEntry {
-  readonly coin: string;
-  readonly o: number;
+  readonly symbol: string;
+  readonly orderId: number;
 }
 
 export interface CancelOrdersRequest {

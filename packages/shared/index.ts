@@ -73,7 +73,11 @@ export type {
   UserFill,
 } from "./schemas/user-data";
 export type {
+  OrderSide,
+  OrderType,
+  PlaceOrderEntry,
   PlaceOrderRequest,
   UpdateLeverageRequest,
+  CancelEntry,
   CancelOrdersRequest,
 } from "./schemas/exchange";
