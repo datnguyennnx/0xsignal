@@ -1,9 +1,9 @@
 import { Clock, Effect, Layer } from "effect";
-import { HealthServices } from "../../application/health";
+import { HealthService } from "../../application/health";
 import { PostgresConnectionPool } from "../db/postgres/client";
 
-export const HealthServicesLive = Layer.effect(
-  HealthServices,
+export const healthServiceLayer = Layer.effect(
+  HealthService,
   Effect.gen(function* () {
     const pool = yield* PostgresConnectionPool;
 
@@ -11,6 +11,16 @@ export const HealthServicesLive = Layer.effect(
       check: () =>
         Effect.gen(function* () {
           const now = yield* Clock.currentTimeMillis;
+
+          if (pool === null) {
+            return {
+              status: "ok" as const,
+              timestamp: new Date(now),
+              uptime: process.uptime(),
+              postgres: false,
+            };
+          }
+
           return yield* Effect.tryPromise({
             try: async () => {
               const result = await pool.query("SELECT 1 as health");

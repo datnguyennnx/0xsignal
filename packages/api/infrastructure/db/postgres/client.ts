@@ -1,25 +1,30 @@
-import { Config, Context, Effect, Layer } from "effect";
+import { Config, Context, Effect, Layer, Option } from "effect";
 import pg, { type PoolClient } from "pg";
 
 export type { PoolClient };
 
-// Context Tag for the Postgres connection pool
+// Context Tag for the optional Postgres connection pool
 export class PostgresConnectionPool extends Context.Tag("PostgresConnectionPool")<
   PostgresConnectionPool,
-  pg.Pool
+  pg.Pool | null
 >() {}
 
-// Layer that creates the pool via acquireRelease
-export const PostgresConnectionPoolLive = Layer.scoped(
+// Layer that creates the pool via acquireRelease (optional — null if unconfigured)
+export const postgresConnectionPoolLayer = Layer.scoped(
   PostgresConnectionPool,
   Effect.acquireRelease(
     Effect.gen(function* () {
-      const connectionString = yield* Config.string("DATABASE_URL").pipe(
-        Config.orElse(() => Config.string("POSTGRES_URL"))
+      const maybeUrl = yield* Config.option(
+        Config.string("DATABASE_URL").pipe(Config.orElse(() => Config.string("POSTGRES_URL")))
       );
 
+      if (Option.isNone(maybeUrl)) {
+        yield* Effect.logWarning("No DATABASE_URL or POSTGRES_URL set — Postgres pool disabled");
+        return null;
+      }
+
       const pool = new pg.Pool({
-        connectionString,
+        connectionString: maybeUrl.value,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000,
       });
@@ -32,8 +37,10 @@ export const PostgresConnectionPoolLive = Layer.scoped(
     }),
     (pool) =>
       Effect.sync(() => {
-        console.log("Closing PostgreSQL pool...");
-        pool.end().catch((err) => console.error("Error closing pool:", err));
+        if (pool !== null) {
+          console.log("Closing PostgreSQL pool...");
+          pool.end().catch((err) => console.error("Error closing pool:", err));
+        }
       })
   )
 );

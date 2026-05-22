@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeAll } from "vitest";
 import { Effect, Layer } from "effect";
 import { HyperliquidClient } from "../../../infrastructure/data-sources/hyperliquid/client";
-import { UserDataServices } from "../contracts";
-import { UserDataServicesLive } from "../service";
+import { UserDataService } from "../contracts";
+import { userDataServiceLayer } from "../service";
 
 /* ─── Fixtures ─── */
 
@@ -234,11 +234,11 @@ const makeMockLayer = (
 };
 
 const makeTestLayer = (mockOverrides?: Parameters<typeof makeMockLayer>[0]) =>
-  UserDataServicesLive.pipe(Layer.provideMerge(makeMockLayer(mockOverrides)));
+  userDataServiceLayer.pipe(Layer.provideMerge(makeMockLayer(mockOverrides)));
 
 /* ─── Tests ─── */
 
-describe("UserDataServices", () => {
+describe("UserDataService", () => {
   beforeAll(() => {
     process.env.HYPERLIQUID_WALLET_ADDRESS = WALLET;
   });
@@ -247,7 +247,7 @@ describe("UserDataServices", () => {
     it("returns clearinghouse state with margin summary and positions", async () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getClearinghouseState();
         }).pipe(Effect.provide(makeTestLayer()))
       );
@@ -265,7 +265,7 @@ describe("UserDataServices", () => {
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getClearinghouseState();
         })
           .pipe(Effect.provide(errorLayer))
@@ -281,7 +281,7 @@ describe("UserDataServices", () => {
     it("returns open orders array", async () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getOpenOrders();
         }).pipe(Effect.provide(makeTestLayer()))
       );
@@ -299,7 +299,7 @@ describe("UserDataServices", () => {
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getOpenOrders();
         })
           .pipe(Effect.provide(errorLayer))
@@ -315,7 +315,7 @@ describe("UserDataServices", () => {
     it("returns historical orders with status", async () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getHistoricalOrders();
         }).pipe(Effect.provide(makeTestLayer()))
       );
@@ -331,7 +331,7 @@ describe("UserDataServices", () => {
     it("returns user fills (trade history)", async () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getUserFills();
         }).pipe(Effect.provide(makeTestLayer()))
       );
@@ -352,7 +352,7 @@ describe("UserDataServices", () => {
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getFrontendOpenOrders();
         }).pipe(Effect.provide(layer))
       );
@@ -374,7 +374,7 @@ describe("UserDataServices", () => {
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getFrontendOpenOrders();
         })
           .pipe(Effect.provide(errorLayer))
@@ -394,7 +394,7 @@ describe("UserDataServices", () => {
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getSpotClearinghouseState();
         }).pipe(Effect.provide(layer))
       );
@@ -415,7 +415,7 @@ describe("UserDataServices", () => {
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getSpotClearinghouseState();
         })
           .pipe(Effect.provide(errorLayer))
@@ -435,7 +435,7 @@ describe("UserDataServices", () => {
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getMeta();
         }).pipe(Effect.provide(layer))
       );
@@ -454,7 +454,7 @@ describe("UserDataServices", () => {
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
-          const svc = yield* UserDataServices;
+          const svc = yield* UserDataService;
           return yield* svc.getMeta();
         })
           .pipe(Effect.provide(errorLayer))
