@@ -1,13 +1,8 @@
-import type { Candle, CoverageResult } from "../../schemas/market-data";
+import type { Candle } from "@0xsignal/shared";
 
 export const MAX_RANGE_CANDLES = 10_000;
 export const MAX_RECENT_CANDLES = 5000;
 export const DEFAULT_RECENT_CANDLES = 300;
-
-export const isCoverageCompleteStrict = (coverage: CoverageResult): boolean =>
-  coverage.fullCoverage &&
-  coverage.missingWindows.length === 0 &&
-  coverage.rowCount >= coverage.expectedCount;
 
 export const normalizeCandles = (candles: Candle[]): Candle[] => {
   // Single pass: filter valid timestamps + deduplicate by timestamp (last-write-wins)

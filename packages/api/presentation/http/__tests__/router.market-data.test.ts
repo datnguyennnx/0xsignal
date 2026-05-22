@@ -1,28 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Layer, Context } from "effect";
-import { MarketDataServices } from "../../../application/market-data/contracts";
-import { HealthServices } from "../../../application/health";
-import { UserDataServices } from "../../../application/user-data/contracts";
-import { ExchangeServices } from "../../../application/exchange/contracts";
+import { MarketDataService } from "../../../application/market-data/contracts";
+import { HealthService } from "../../../application/health";
+import { UserDataService } from "../../../application/user-data/contracts";
+import { ExchangeService } from "../../../application/exchange/contracts";
 import { DomainError } from "../../../application/errors";
 import { handleRequest } from "../router";
 
-const mockMarketDataServices = {
+const mockMarketDataService = {
   getCandles: vi.fn(),
   getRecentCandles: vi.fn(),
   discoverMarkets: vi.fn(),
-  inspectCoverage: vi.fn(),
   getTicker: vi.fn(),
   getOrderBook: vi.fn(),
   getTradeAnnotation: vi.fn(),
 };
 
 const TestMarketDataLayer = Layer.succeed(
-  MarketDataServices,
-  mockMarketDataServices as unknown as Context.Tag.Service<typeof MarketDataServices>
+  MarketDataService,
+  mockMarketDataService as unknown as Context.Tag.Service<typeof MarketDataService>
 );
 
-const TestHealthLayer = Layer.succeed(HealthServices, {
+const TestHealthLayer = Layer.succeed(HealthService, {
   check: () =>
     Effect.succeed({
       status: "ok" as const,
@@ -32,7 +31,7 @@ const TestHealthLayer = Layer.succeed(HealthServices, {
     }),
 });
 
-const mockUserDataServices: Context.Tag.Service<typeof UserDataServices> = {
+const mockUserDataService: Context.Tag.Service<typeof UserDataService> = {
   getClearinghouseState: vi.fn(),
   getSpotClearinghouseState: vi.fn(),
   getOpenOrders: vi.fn(),
@@ -42,15 +41,15 @@ const mockUserDataServices: Context.Tag.Service<typeof UserDataServices> = {
   getUserFills: vi.fn(),
 };
 
-const TestUserDataLayer = Layer.succeed(UserDataServices, mockUserDataServices);
+const TestUserDataLayer = Layer.succeed(UserDataService, mockUserDataService);
 
 // Exchange layer is required by router.ts handleRequest but unused in market-data tests
-const mockExchangeServices: Context.Tag.Service<typeof ExchangeServices> = {
+const mockExchangeService: Context.Tag.Service<typeof ExchangeService> = {
   placeOrder: vi.fn(),
   updateLeverageAndMargin: vi.fn(),
   cancelOrders: vi.fn(),
 };
-const TestExchangeLayer = Layer.succeed(ExchangeServices, mockExchangeServices);
+const TestExchangeLayer = Layer.succeed(ExchangeService, mockExchangeService);
 
 const runRequest = (path: string, method = "GET") =>
   Effect.runPromise(
@@ -90,8 +89,8 @@ describe("HTTP Market Data Router", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockMarketDataServices.discoverMarkets.mockReturnValue(Effect.succeed({ universe: [] }));
-    mockMarketDataServices.getCandles.mockReturnValue(
+    mockMarketDataService.discoverMarkets.mockReturnValue(Effect.succeed({ universe: [] }));
+    mockMarketDataService.getCandles.mockReturnValue(
       Effect.succeed({
         candles: [],
         provenance: "QuestDB",
@@ -104,7 +103,7 @@ describe("HTTP Market Data Router", () => {
         },
       })
     );
-    mockMarketDataServices.getRecentCandles.mockReturnValue(
+    mockMarketDataService.getRecentCandles.mockReturnValue(
       Effect.succeed({
         candles: [],
         provenance: "Hyperliquid Snapshot (Recent via Backend)",
@@ -117,16 +116,7 @@ describe("HTTP Market Data Router", () => {
         },
       })
     );
-    mockMarketDataServices.inspectCoverage.mockReturnValue(
-      Effect.succeed({
-        hasData: true,
-        rowCount: 10,
-        expectedCount: 10,
-        fullCoverage: true,
-        missingWindows: [],
-      })
-    );
-    mockMarketDataServices.getTicker.mockReturnValue(
+    mockMarketDataService.getTicker.mockReturnValue(
       Effect.succeed({
         symbol: "BTC",
         mid: 100000,
@@ -138,10 +128,10 @@ describe("HTTP Market Data Router", () => {
         funding: 0.0001,
       })
     );
-    mockMarketDataServices.getOrderBook.mockReturnValue(
+    mockMarketDataService.getOrderBook.mockReturnValue(
       Effect.succeed({ symbol: "BTC", orderbook: null })
     );
-    mockMarketDataServices.getTradeAnnotation.mockReturnValue(
+    mockMarketDataService.getTradeAnnotation.mockReturnValue(
       Effect.succeed({ symbol: "BTC", annotation: null })
     );
   });
@@ -163,7 +153,7 @@ describe("HTTP Market Data Router", () => {
   it("routes /api/markets to discoverMarkets", async () => {
     const response = await runRequest("/api/markets");
     expect(response.status).toBe(200);
-    expect(mockMarketDataServices.discoverMarkets).toHaveBeenCalledTimes(1);
+    expect(mockMarketDataService.discoverMarkets).toHaveBeenCalledTimes(1);
     await expect(response.json()).resolves.toEqual({ data: { universe: [] } });
   });
 
@@ -184,7 +174,7 @@ describe("HTTP Market Data Router", () => {
   it("accepts app interval set on /api/candles", async () => {
     const response = await runRequest("/api/candles?symbol=BTC&interval=3m&limit=50");
     expect(response.status).toBe(200);
-    expect(mockMarketDataServices.getCandles).toHaveBeenCalledWith(
+    expect(mockMarketDataService.getCandles).toHaveBeenCalledWith(
       expect.objectContaining({
         symbol: "BTC",
         timeframe: "3m",
@@ -203,7 +193,7 @@ describe("HTTP Market Data Router", () => {
   it("routes /api/candles/recent to recent snapshot lane", async () => {
     const response = await runRequest("/api/candles/recent?symbol=BTC&interval=1m&limit=200");
     expect(response.status).toBe(200);
-    expect(mockMarketDataServices.getRecentCandles).toHaveBeenCalledWith(
+    expect(mockMarketDataService.getRecentCandles).toHaveBeenCalledWith(
       expect.objectContaining({
         symbol: "BTC",
         timeframe: "1m",
@@ -223,7 +213,7 @@ describe("HTTP Market Data Router", () => {
     const response = await runRequest("/api/ticker?symbol=BTC");
 
     expect(response.status).toBe(200);
-    expect(mockMarketDataServices.getTicker).toHaveBeenCalledWith("BTC");
+    expect(mockMarketDataService.getTicker).toHaveBeenCalledWith("BTC");
     await expect(response.json()).resolves.toEqual({
       data: {
         symbol: "BTC",
@@ -242,7 +232,7 @@ describe("HTTP Market Data Router", () => {
     const response = await runRequest("/api/orderbook?symbol=BTC&nSigFigs=4");
 
     expect(response.status).toBe(200);
-    expect(mockMarketDataServices.getOrderBook).toHaveBeenCalledWith("BTC", 4);
+    expect(mockMarketDataService.getOrderBook).toHaveBeenCalledWith("BTC", 4);
   });
 
   it("rejects unsupported orderbook precision values", async () => {
@@ -259,15 +249,8 @@ describe("HTTP Market Data Router", () => {
     });
   });
 
-  it("requires coverage time window", async () => {
-    await expectHttpFailure(runRequest("/api/candles/coverage?symbol=BTC&interval=1m"), {
-      status: 400,
-      message: "start_time and end_time are required",
-    });
-  });
-
   it("maps ticker not found errors to 404", async () => {
-    mockMarketDataServices.getTicker.mockReturnValue(
+    mockMarketDataService.getTicker.mockReturnValue(
       Effect.fail(new DomainError({ code: "NOT_FOUND", message: "Symbol not found: XRP" }))
     );
 
@@ -278,7 +261,7 @@ describe("HTTP Market Data Router", () => {
   });
 
   it("maps upstream ticker failures to 502", async () => {
-    mockMarketDataServices.getTicker.mockReturnValue(
+    mockMarketDataService.getTicker.mockReturnValue(
       Effect.fail(
         new DomainError({ code: "INTERNAL_ERROR", message: "Upstream provider unavailable" })
       )

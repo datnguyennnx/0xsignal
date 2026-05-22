@@ -1,11 +1,10 @@
 import { Effect, Layer } from "effect";
 import { MarketCandleStore, MarketRemoteProvider } from "../../application/market-data/contracts";
-import { HyperliquidProviderLayer } from "../data-sources/hyperliquid/provider";
+import { hyperliquidProviderLayer } from "../data-sources/hyperliquid/provider";
 import { HyperliquidProvider } from "../data-sources/hyperliquid/types";
-import { QuestDBClientLayer } from "../db/questdb/client";
-import { HyperliquidClientLive } from "../data-sources/hyperliquid/client";
+import { hyperliquidClientLayer } from "../data-sources/hyperliquid/client";
 
-const MarketRemoteProviderLive = Layer.effect(
+const marketRemoteProviderLayer = Layer.effect(
   MarketRemoteProvider,
   Effect.gen(function* () {
     const provider = yield* HyperliquidProvider;
@@ -29,7 +28,7 @@ const MarketRemoteProviderLive = Layer.effect(
   })
 );
 
-const MarketCandleStoreLive = Layer.effect(
+const marketCandleStoreLayer = Layer.effect(
   MarketCandleStore,
   Effect.gen(function* () {
     const provider = yield* MarketRemoteProvider;
@@ -52,13 +51,12 @@ const MarketCandleStoreLive = Layer.effect(
   })
 );
 
-const MarketPortsLayer = Layer.merge(
-  MarketRemoteProviderLive,
-  MarketCandleStoreLive.pipe(Layer.provide(MarketRemoteProviderLive))
+const mergedMarketLayers = Layer.merge(
+  marketRemoteProviderLayer,
+  marketCandleStoreLayer.pipe(Layer.provide(marketRemoteProviderLayer))
 );
 
-export const MarketDataPortsLive = MarketPortsLayer.pipe(
-  Layer.provideMerge(HyperliquidProviderLayer),
-  Layer.provideMerge(QuestDBClientLayer),
-  Layer.provideMerge(HyperliquidClientLive)
+export const marketDataInfrastructureLayer = mergedMarketLayers.pipe(
+  Layer.provideMerge(hyperliquidProviderLayer),
+  Layer.provideMerge(hyperliquidClientLayer)
 );

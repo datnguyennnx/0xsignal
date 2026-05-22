@@ -1,7 +1,7 @@
-import { Clock, Config, Effect, Layer } from "effect";
+import { Clock, Effect, Layer } from "effect";
 import { DomainError } from "../errors";
-import type { CoverageResult } from "../../schemas/market-data";
-import { MarketCandleStore, MarketDataServices, MarketRemoteProvider } from "./contracts";
+import type { CoverageResult } from "@0xsignal/shared";
+import { MarketCandleStore, MarketDataService, MarketRemoteProvider } from "./contracts";
 import type { RecentCandleQuery } from "./types";
 import { alignRangeToTimeframe } from "./range-alignment";
 import { getTimeframeMs } from "../../domain/market-data/timeframe";
@@ -9,34 +9,16 @@ import {
   DEFAULT_RECENT_CANDLES,
   MAX_RANGE_CANDLES,
   MAX_RECENT_CANDLES,
-  isCoverageCompleteStrict,
   normalizeCandles,
 } from "./policies";
 import { mapMarketInfraError } from "./error-mapping";
-import { createCoverageRefresh, createGapFillWorkflow } from "./coverage-workflows";
-
-const isDevMode: Effect.Effect<string, never> = Config.string("MODE").pipe(
-  Effect.catchAll(() => Effect.succeed("production"))
-);
-
-const logCandleServiceTiming = (payload: Record<string, unknown>) =>
-  Effect.gen(function* () {
-    const mode = yield* isDevMode;
-    if (mode === "dev") {
-      yield* Effect.logInfo(JSON.stringify({ event: "candle_service_timing", ...payload }));
-    }
-  });
 
 export const makeMarketDataService = () =>
   Effect.gen(function* () {
     const candleRepo = yield* MarketCandleStore;
     const remoteProvider = yield* MarketRemoteProvider;
-    const isCoverageComplete = (coverage: CoverageResult): boolean =>
-      isCoverageCompleteStrict(coverage);
-    const refreshCoverage = createCoverageRefresh(candleRepo);
-    const fillGaps = createGapFillWorkflow(candleRepo, remoteProvider, mapMarketInfraError);
 
-    return MarketDataServices.of({
+    return MarketDataService.of({
       getCandles: (query) =>
         Effect.gen(function* () {
           const startedAt = yield* Clock.currentTimeMillis;
@@ -70,19 +52,6 @@ export const makeMarketDataService = () =>
             );
           }
 
-          let coverage = yield* candleRepo
-            .checkCoverage(query.symbol, query.exchange, query.timeframe, startTime, endTime)
-            .pipe(Effect.mapError(mapMarketInfraError("QuestDB coverage check failed")));
-          const initialCoverageAt = yield* Clock.currentTimeMillis;
-
-          coverage = yield* fillGaps(query, coverage, startTime, endTime);
-          const fillGapsAt = yield* Clock.currentTimeMillis;
-
-          if (!isCoverageComplete(coverage) && query.exchange.toLowerCase() === "hyperliquid") {
-            coverage = yield* refreshCoverage(query, startTime, endTime);
-          }
-          const refreshedCoverageAt = yield* Clock.currentTimeMillis;
-
           const candles = yield* candleRepo
             .getCandles({
               ...query,
@@ -91,33 +60,18 @@ export const makeMarketDataService = () =>
               disableLimitForRange: Boolean(query.startTime && query.endTime),
             })
             .pipe(Effect.mapError(mapMarketInfraError("Failed to load candles")));
-          const storeFetchAt = yield* Clock.currentTimeMillis;
 
           const normalizedCandles = normalizeCandles(candles);
-          const normalizedAt = yield* Clock.currentTimeMillis;
 
-          const provenance = isCoverageComplete(coverage)
-            ? "QuestDB (Fully Covered)"
-            : `QuestDB (Partial: ${normalizedCandles.length}/${coverage.expectedCount} rows)`;
+          const coverage: CoverageResult = {
+            hasData: normalizedCandles.length > 0,
+            rowCount: normalizedCandles.length,
+            expectedCount: requestedRangeCount,
+            fullCoverage: normalizedCandles.length >= requestedRangeCount,
+            missingWindows: [],
+          };
 
-          yield* logCandleServiceTiming({
-            route: "getCandles",
-            symbol: query.symbol,
-            exchange: query.exchange,
-            timeframe: query.timeframe,
-            initial_coverage_ms: initialCoverageAt - startedAt,
-            fill_gaps_ms: fillGapsAt - initialCoverageAt,
-            refresh_coverage_ms: refreshedCoverageAt - fillGapsAt,
-            store_fetch_ms: storeFetchAt - refreshedCoverageAt,
-            normalize_ms: normalizedAt - storeFetchAt,
-            total_ms: normalizedAt - startedAt,
-            row_count: normalizedCandles.length,
-            expected_count: coverage.expectedCount,
-            full_coverage: coverage.fullCoverage,
-            missing_windows: coverage.missingWindows.length,
-          });
-
-          return { candles: normalizedCandles, provenance, coverage };
+          return { candles: normalizedCandles, provenance: "QuestDB", coverage };
         }),
 
       getRecentCandles: (query: RecentCandleQuery) =>
@@ -165,10 +119,8 @@ export const makeMarketDataService = () =>
               endTime.getTime()
             )
             .pipe(Effect.mapError(mapMarketInfraError("Failed to fetch recent candle snapshot")));
-          const remoteAt = yield* Clock.currentTimeMillis;
 
           const normalizedCandles = normalizeCandles(snapshotCandles).slice(-expectedCount);
-          const normalizedAt = yield* Clock.currentTimeMillis;
           const coverage: CoverageResult = {
             hasData: normalizedCandles.length > 0,
             rowCount: normalizedCandles.length,
@@ -183,19 +135,6 @@ export const makeMarketDataService = () =>
               ? `Hyperliquid Snapshot (Recent Partial: ${coverage.rowCount}/${coverage.expectedCount} rows)`
               : "No recent data available";
 
-          yield* logCandleServiceTiming({
-            route: "getRecentCandles",
-            symbol: query.symbol,
-            exchange,
-            timeframe: query.timeframe,
-            remote_fetch_ms: remoteAt - startedAt,
-            normalize_ms: normalizedAt - remoteAt,
-            total_ms: normalizedAt - startedAt,
-            row_count: normalizedCandles.length,
-            expected_count: expectedCount,
-            full_coverage: coverage.fullCoverage,
-          });
-
           return {
             candles: normalizedCandles,
             provenance,
@@ -208,20 +147,6 @@ export const makeMarketDataService = () =>
           .getAggregatedMarkets()
           .pipe(Effect.mapError(mapMarketInfraError("Failed to discover markets"))),
 
-      inspectCoverage: (query) =>
-        Effect.gen(function* () {
-          const now = yield* Clock.currentTimeMillis;
-          return yield* candleRepo
-            .checkCoverage(
-              query.symbol,
-              query.exchange,
-              query.timeframe,
-              query.startTime ?? new Date(0),
-              query.endTime ?? new Date(now)
-            )
-            .pipe(Effect.mapError(mapMarketInfraError("Failed to inspect coverage")));
-        }),
-
       getTicker: (symbol) =>
         typeof remoteProvider.getTicker === "function"
           ? remoteProvider
@@ -229,7 +154,7 @@ export const makeMarketDataService = () =>
               .pipe(Effect.mapError(mapMarketInfraError("Failed to get ticker")))
           : Effect.fail(
               new DomainError({
-                code: "VALIDATION_ERROR",
+                code: "NOT_FOUND",
                 message: "Ticker is not available in this runtime",
               })
             ),
@@ -241,7 +166,7 @@ export const makeMarketDataService = () =>
               .pipe(Effect.mapError(mapMarketInfraError("Failed to get orderbook")))
           : Effect.fail(
               new DomainError({
-                code: "VALIDATION_ERROR",
+                code: "NOT_FOUND",
                 message: "Orderbook is not available in this runtime",
               })
             ),
@@ -253,15 +178,15 @@ export const makeMarketDataService = () =>
               .pipe(Effect.mapError(mapMarketInfraError("Failed to get trade annotation")))
           : Effect.fail(
               new DomainError({
-                code: "VALIDATION_ERROR",
+                code: "NOT_FOUND",
                 message: "Trade annotation is not available in this runtime",
               })
             ),
     });
   });
 
-export const MarketDataServicesLive = Layer.effect(
-  MarketDataServices,
+export const marketDataServiceLayer = Layer.effect(
+  MarketDataService,
   Effect.gen(function* () {
     return yield* makeMarketDataService();
   })

@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { MarketDataServices } from "../../../application/market-data/contracts";
+import { MarketDataService } from "../../../application/market-data/contracts";
 import {
   parseInterval,
   parseOptionalDate,
@@ -14,13 +14,12 @@ type HttpError = {
 };
 
 type MarketDataHttpService = {
-  readonly discoverMarkets: (typeof MarketDataServices.Service)["discoverMarkets"];
-  readonly getCandles: (typeof MarketDataServices.Service)["getCandles"];
-  readonly getRecentCandles: (typeof MarketDataServices.Service)["getRecentCandles"];
-  readonly inspectCoverage: (typeof MarketDataServices.Service)["inspectCoverage"];
-  readonly getTicker: (typeof MarketDataServices.Service)["getTicker"];
-  readonly getOrderBook: (typeof MarketDataServices.Service)["getOrderBook"];
-  readonly getTradeAnnotation: (typeof MarketDataServices.Service)["getTradeAnnotation"];
+  readonly discoverMarkets: (typeof MarketDataService.Service)["discoverMarkets"];
+  readonly getCandles: (typeof MarketDataService.Service)["getCandles"];
+  readonly getRecentCandles: (typeof MarketDataService.Service)["getRecentCandles"];
+  readonly getTicker: (typeof MarketDataService.Service)["getTicker"];
+  readonly getOrderBook: (typeof MarketDataService.Service)["getOrderBook"];
+  readonly getTradeAnnotation: (typeof MarketDataService.Service)["getTradeAnnotation"];
 };
 
 type RouteHandler = (
@@ -95,37 +94,6 @@ export const buildMarketDataRoutes = ({
             timeframe: interval,
             endTime,
             limit,
-          })
-          .pipe(Effect.mapError(mapServiceError));
-
-        return json({ data: payload });
-      }),
-  },
-  {
-    method: "GET",
-    path: "/api/candles/coverage",
-    handler: (_request, url, marketData) =>
-      Effect.gen(function* () {
-        const symbol = yield* parseRequiredString(url.searchParams, "symbol");
-        const interval = yield* parseInterval(url.searchParams);
-        const exchange = url.searchParams.get("exchange")?.trim() || "Hyperliquid";
-        const startTime = yield* parseOptionalDate(url.searchParams, "start_time");
-        const endTime = yield* parseOptionalDate(url.searchParams, "end_time");
-
-        if (!startTime || !endTime) {
-          return yield* Effect.fail({
-            status: 400,
-            message: "start_time and end_time are required",
-          });
-        }
-
-        const payload = yield* marketData
-          .inspectCoverage({
-            symbol,
-            exchange,
-            timeframe: interval,
-            startTime,
-            endTime,
           })
           .pipe(Effect.mapError(mapServiceError));
 

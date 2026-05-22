@@ -1,5 +1,5 @@
 import { Context, type Effect } from "effect";
-import type { Candle, CoverageResult } from "../../schemas/market-data";
+import type { Candle, CoverageResult } from "@0xsignal/shared";
 import type { DomainError } from "../errors";
 import type { AggregatedMarket } from "@0xsignal/shared";
 import type {
@@ -54,8 +54,8 @@ export class MarketRemoteProvider extends Context.Tag("MarketRemoteProvider")<
   MarketRemoteProviderPort
 >() {}
 
-export class MarketDataServices extends Context.Tag("MarketDataServices")<
-  MarketDataServices,
+export class MarketDataService extends Context.Tag("MarketDataService")<
+  MarketDataService,
   {
     readonly getCandles: (
       query: CandleQuery
@@ -70,7 +70,6 @@ export class MarketDataServices extends Context.Tag("MarketDataServices")<
       DomainError
     >;
     readonly discoverMarkets: () => Effect.Effect<unknown, DomainError>;
-    readonly inspectCoverage: (query: CandleQuery) => Effect.Effect<CoverageResult, DomainError>;
     readonly getTicker: (symbol: string) => Effect.Effect<MarketTicker, DomainError>;
     readonly getOrderBook: (
       symbol: string,
