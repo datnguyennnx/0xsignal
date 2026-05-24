@@ -13,15 +13,49 @@ import {
   CELL_HEAD_CLASS,
   CELL_HEAD_NUM_CLASS,
 } from "./orderbook-table-classes";
-import { PosDirLabel, PnLDisplay } from "./shared-table-components";
+import { PnLDisplay } from "./shared-table-components";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
+import { getNextFundingMs } from "@/pages/asset-detail.utils";
 
 /* ─── Styling constants ─── */
+
+const FUNDING_INTERVAL_MS = 3_600_000;
 
 const c = CELL_CLASS;
 const cNum = CELL_NUM_CLASS;
 const cHead = CELL_HEAD_CLASS;
 const cHeadNum = CELL_HEAD_NUM_CLASS;
+
+/* ─── Funding math (pure) ─── */
+
+function computeAccruedFunding(
+  settledFunding: number,
+  positionValue: number,
+  fundingRate: number | undefined,
+  isLong: boolean
+): number {
+  if (!fundingRate || !Number.isFinite(fundingRate)) return settledFunding;
+  const msToNext = getNextFundingMs();
+  const elapsedMs = FUNDING_INTERVAL_MS - Math.min(msToNext, FUNDING_INTERVAL_MS);
+  const elapsedFraction = elapsedMs / FUNDING_INTERVAL_MS;
+  // Sign: positive funding rate → longs pay (−), shorts receive (+)
+  const signAdj = isLong ? -1 : 1;
+  const unsettled = positionValue * fundingRate * elapsedFraction * signAdj;
+  return settledFunding + unsettled;
+}
+
+/* ─── TP/SL cell sub-component ─── */
+
+function TpSlCell({ tpSl }: { tpSl: { tp: string | null; sl: string | null } | undefined }) {
+  if (!tpSl || (!tpSl.tp && !tpSl.sl)) {
+    return <span className="text-muted-foreground/40">—</span>;
+  }
+  const parts: string[] = [];
+  if (tpSl.tp) parts.push(`TP ${tpSl.tp}`);
+  if (tpSl.sl) parts.push(`SL ${tpSl.sl}`);
+  return <span className="text-xs font-medium text-foreground">{parts.join(" / ")}</span>;
+}
 
 /* ─── Types ─── */
 
@@ -40,9 +74,10 @@ interface PositionsTableProps {
       cumFunding: { sinceOpen: string };
     };
   }>;
+  fundingRates?: Record<string, number>;
+  tpSlByCoin?: Record<string, { tp: string | null; sl: string | null }>;
   onCloseMarket?: (coin: string, size: string, isLong: boolean) => void;
   onCloseLimit?: (position: { coin: string; sz: number; isLong: boolean; markPx: number }) => void;
-  onViewTpSl?: () => void;
   /** Real-time mid prices from WebSocket, keyed by coin name */
   mids?: Record<string, number>;
 }
@@ -54,9 +89,11 @@ export function PositionsTable({
   positions,
   onCloseMarket,
   onCloseLimit,
-  onViewTpSl,
   mids,
+  tpSlByCoin,
+  fundingRates,
 }: PositionsTableProps) {
+  const navigate = useNavigate();
   return (
     <div className="w-full overflow-x-auto">
       <Table>
@@ -131,20 +168,46 @@ export function PositionsTable({
               const liqPx = Number(position.liquidationPx);
               const marginUsed = Number(position.marginUsed);
               const unrealizedPnl = Number(position.unrealizedPnl);
-              const roe = Number(position.returnOnEquity);
-              const cumFunding = Number(position.cumFunding.sinceOpen);
+              const roe = Number(position.returnOnEquity) * 100;
+              const settledFunding = Number(position.cumFunding.sinceOpen);
+              const fundingRate = fundingRates?.[position.coin] ?? 0;
+              const isLong = signedSz >= 0;
+              const totalFunding = computeAccruedFunding(
+                settledFunding,
+                posValue,
+                fundingRate,
+                isLong
+              );
               const computedMarkPx = signedSz !== 0 ? entryPx + unrealizedPnl / signedSz : entryPx;
               const markPx = mids?.[position.coin] ?? computedMarkPx;
 
               return (
                 <TableRow key={position.coin}>
                   <TableCell className={`${c} font-medium`}>
-                    <span className="flex items-center gap-[clamp(0.2rem,0.4vw,0.375rem)]">
-                      {position.coin}
-                      <PosDirLabel szi={position.szi} />
-                    </span>
+                    <button
+                      onClick={() => navigate(`/trade/${position.coin}`)}
+                      className="relative overflow-hidden flex items-center w-full text-left cursor-pointer transition-colors hover:text-foreground rounded px-1 -mx-1"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-0 rounded pointer-events-none"
+                        style={{
+                          background: `linear-gradient(to right, var(${
+                            signedSz >= 0 ? "--gain-muted" : "--loss-muted"
+                          }), transparent)`,
+                        }}
+                      />
+                      <span
+                        className={`relative z-10 ${signedSz >= 0 ? "text-gain" : "text-loss"}`}
+                      >
+                        {position.coin}
+                      </span>
+                    </button>
                   </TableCell>
-                  <TableCell className={cNum}>{formatSize(sz)}</TableCell>
+                  <TableCell className={cNum}>
+                    <span>{formatSize(sz)}</span>
+                    <span className="text-muted-foreground ml-1">{position.coin}</span>
+                  </TableCell>
                   <TableCell className={cNum}>{formatCompactUsd(posValue)}</TableCell>
                   <TableCell className={cNum}>{formatPrice(entryPx)}</TableCell>
                   <TableCell className={cNum}>{formatPrice(markPx)}</TableCell>
@@ -153,8 +216,8 @@ export function PositionsTable({
                   </TableCell>
                   <TableCell className={cNum}>{liqPx > 0 ? formatPrice(liqPx) : "—"}</TableCell>
                   <TableCell className={cNum}>{formatCompactUsd(marginUsed)}</TableCell>
-                  <TableCell className={`${cNum} ${cumFunding >= 0 ? "text-gain" : "text-loss"}`}>
-                    {formatCompactUsd(Math.abs(cumFunding))}
+                  <TableCell className={`${cNum} ${totalFunding >= 0 ? "text-gain" : "text-loss"}`}>
+                    {formatCompactUsd(totalFunding)}
                   </TableCell>
                   <TableCell className={c}>
                     <div className="flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)]">
@@ -176,12 +239,7 @@ export function PositionsTable({
                     </div>
                   </TableCell>
                   <TableCell className={c}>
-                    <button
-                      onClick={onViewTpSl}
-                      className="text-xs font-medium text-foreground hover:text-foreground/70 transition-colors"
-                    >
-                      View
-                    </button>
+                    <TpSlCell tpSl={tpSlByCoin?.[position.coin]} />
                   </TableCell>
                 </TableRow>
               );

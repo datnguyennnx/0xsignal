@@ -128,7 +128,7 @@ export function BalanceTable({
                 <TableCell className={cNum}>
                   {totalUnrealizedPnl !== 0 ? (
                     <span className={totalUnrealizedPnl >= 0 ? "text-gain" : "text-loss"}>
-                      {formatCompactUsd(Math.abs(totalUnrealizedPnl))}
+                      {formatCompactUsd(totalUnrealizedPnl)}
                     </span>
                   ) : (
                     "—"
@@ -153,7 +153,7 @@ export function BalanceTable({
                 <TableCell className={cNum}>
                   {totalUnrealizedPnl !== 0 ? (
                     <span className={totalUnrealizedPnl >= 0 ? "text-gain" : "text-loss"}>
-                      {formatCompactUsd(Math.abs(totalUnrealizedPnl))}
+                      {formatCompactUsd(totalUnrealizedPnl)}
                     </span>
                   ) : (
                     "—"
@@ -169,7 +169,7 @@ export function BalanceTable({
               {positions.map(({ position }) => {
                 const posValue = Number(position.positionValue);
                 const upnl = Number(position.unrealizedPnl);
-                const roe = Number(position.returnOnEquity);
+                const roe = Number(position.returnOnEquity) * 100;
                 return (
                   <TableRow key={position.coin}>
                     <TableCell className={`${c} font-medium`}>{position.coin}</TableCell>

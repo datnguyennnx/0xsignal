@@ -31,6 +31,8 @@ import { TpSlViewModal } from "./tp-sl-view-modal";
 import { toTpSlDisplay } from "./tp-sl-view-utils";
 import { CloseLimitModal } from "./close-limit-modal";
 import { formatOrderSize } from "../utils/trade-math";
+import { getOrderType } from "../utils/trigger-utils";
+import { formatPrice } from "@/core/utils/formatters";
 
 export function PositionManagement() {
   const {
@@ -51,9 +53,45 @@ export function PositionManagement() {
   const cancelOrdersMutation = useCancelOrdersMutation();
 
   const queryClient = useQueryClient();
-  const { getPrecision } = useHyperliquidMeta();
+  const { meta, getPrecision } = useHyperliquidMeta();
 
   const mids = useAllMids();
+
+  const fundingRates = useMemo(() => {
+    if (!meta) return {};
+    const map: Record<string, number> = {};
+    for (const market of meta) {
+      if (market.marketType !== "perp") continue;
+      const rate = Number(market.funding);
+      if (Number.isFinite(rate) && rate !== 0) {
+        map[market.coin.toUpperCase()] = rate;
+      }
+    }
+    return map;
+  }, [meta]);
+
+  const tpSlByCoin = useMemo(() => {
+    if (!openOrders) return {};
+    const map: Record<string, { tp: string | null; sl: string | null }> = {};
+    for (const order of openOrders) {
+      if (!order.children?.length) continue;
+      let tp: string | null = null;
+      let sl: string | null = null;
+      for (const child of order.children) {
+        const ot = getOrderType(child);
+        const limitVal = Number(child.limitPx);
+        const triggerVal = Number(child.triggerPx);
+        const priceNum = limitVal > 0 ? limitVal : triggerVal > 0 ? triggerVal : 0;
+        const px = formatPrice(priceNum);
+        if (ot.includes("Take Profit")) tp = px;
+        else if (ot.includes("Stop")) sl = px;
+      }
+      if (tp || sl) {
+        map[order.coin.toUpperCase()] = { tp, sl };
+      }
+    }
+    return map;
+  }, [openOrders]);
 
   const placeOrderMutation = useMutation({
     mutationFn: (params: PlaceOrderRequest) => api.placeOrder(params),
@@ -88,9 +126,12 @@ export function PositionManagement() {
 
   const [cancelAllDialogOpen, setCancelAllDialogOpen] = useState(false);
 
-  const handleCancelOrder = (coin: string, oid: number) => {
-    cancelOrdersMutation.mutate({ cancels: [{ symbol: coin, orderId: oid }] });
-  };
+  const handleCancelOrder = useCallback(
+    (coin: string, oid: number) => {
+      cancelOrdersMutation.mutate({ cancels: [{ symbol: coin, orderId: oid }] });
+    },
+    [cancelOrdersMutation]
+  );
 
   const handleCancelAllConfirm = () => {
     if (!openOrders || openOrders.length === 0) return;
@@ -193,9 +234,10 @@ export function PositionManagement() {
             isChLoading={isChLoading}
             positions={positions}
             mids={mids}
+            fundingRates={fundingRates}
+            tpSlByCoin={tpSlByCoin}
             onCloseMarket={handleCloseMarket}
             onCloseLimit={(pos) => setCloseLimitPosition(pos)}
-            onViewTpSl={() => setActiveTab("open-orders")}
           />
         </TabsContent>
 
