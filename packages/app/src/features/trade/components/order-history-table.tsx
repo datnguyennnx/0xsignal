@@ -6,7 +6,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+
 import { formatPrice, formatCompactUsd } from "@/core/utils/formatters";
 import { formatTime, fmtNum, formatStatus } from "./shared-table-utils";
 import { SideLabel, DirLabel } from "./shared-table-components";
@@ -57,34 +57,13 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
       </TableHeader>
       <TableBody>
         {isFillsLoading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <TableRow key={i}>
-              <TableCell className={c}>
-                <Skeleton className="h-3 w-28 rounded-sm" />
-              </TableCell>
-              <TableCell className={c}>
-                <Skeleton className="h-3 w-12 rounded-sm" />
-              </TableCell>
-              <TableCell className={c}>
-                <Skeleton className="h-3 w-14 rounded-sm" />
-              </TableCell>
-              <TableCell className={cNum}>
-                <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
-              </TableCell>
-              <TableCell className={cNum}>
-                <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
-              </TableCell>
-              <TableCell className={cNum}>
-                <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
-              </TableCell>
-              <TableCell className={cNum}>
-                <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
-              </TableCell>
-              <TableCell className={cNum}>
-                <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
-              </TableCell>
-            </TableRow>
-          ))
+          <TableRow>
+            <TableCell colSpan={8} className="text-center py-6">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                Loading...
+              </span>
+            </TableCell>
+          </TableRow>
         ) : !fills || fills.length === 0 ? (
           <TableRow>
             <TableCell colSpan={8} className="text-center py-6">
@@ -101,7 +80,7 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
             const fee = Number(fill.fee);
             const cpnl = fill.closedPnl ? Number(fill.closedPnl) : null;
             return (
-              <TableRow key={fill.hash}>
+              <TableRow key={`${fill.hash}-${fill.time}`}>
                 <TableCell className={c}>{formatTime(fill.time)}</TableCell>
                 <TableCell className={`${c} font-medium`}>{fill.coin}</TableCell>
                 <TableCell className={c}>
@@ -153,49 +132,13 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
       </TableHeader>
       <TableBody>
         {isHistLoading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <TableRow key={i}>
-              <TableCell className={c}>
-                <Skeleton className="h-3 w-28 rounded-sm" />
-              </TableCell>
-              <TableCell className={c}>
-                <Skeleton className="h-3 w-14 rounded-sm" />
-              </TableCell>
-              <TableCell className={c}>
-                <Skeleton className="h-3 w-12 rounded-sm" />
-              </TableCell>
-              <TableCell className={c}>
-                <Skeleton className="h-3 w-14 rounded-sm" />
-              </TableCell>
-              <TableCell className={cNum}>
-                <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
-              </TableCell>
-              <TableCell className={cNum}>
-                <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
-              </TableCell>
-              <TableCell className={cNum}>
-                <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
-              </TableCell>
-              <TableCell className={cNum}>
-                <Skeleton className="h-3 w-20 rounded-sm ml-auto" />
-              </TableCell>
-              <TableCell className={c}>
-                <Skeleton className="h-3 w-14 rounded-sm" />
-              </TableCell>
-              <TableCell className={c}>
-                <Skeleton className="h-3 w-20 rounded-sm" />
-              </TableCell>
-              <TableCell className={c}>
-                <Skeleton className="h-3 w-12 rounded-sm" />
-              </TableCell>
-              <TableCell className={c}>
-                <Skeleton className="h-3 w-14 rounded-sm" />
-              </TableCell>
-              <TableCell className={cNum}>
-                <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
-              </TableCell>
-            </TableRow>
-          ))
+          <TableRow>
+            <TableCell colSpan={13} className="text-center py-6">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                Loading...
+              </span>
+            </TableCell>
+          </TableRow>
         ) : !histOrders || histOrders.length === 0 ? (
           <TableRow>
             <TableCell colSpan={13} className="text-center py-6">
@@ -237,7 +180,7 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
             }
 
             return (
-              <TableRow key={o.oid}>
+              <TableRow key={`${o.oid}-${entry.status}-${entry.statusTimestamp}`}>
                 <TableCell className={c}>{formatTime(entry.statusTimestamp)}</TableCell>
                 <TableCell className={c}>{ot}</TableCell>
                 <TableCell className={`${c} font-medium`}>{o.coin}</TableCell>

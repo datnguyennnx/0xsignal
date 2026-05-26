@@ -36,6 +36,7 @@ import {
 import { formatCompactUsd, formatPrice, formatSignedPercent } from "@/core/utils/formatters";
 import { useAllMids } from "@/features/trade/hooks/use-all-mids";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
+import { useIsDesktop } from "@/hooks/use-breakpoint";
 
 const DESKTOP_CONFIG = {
   initialCandles: 350,
@@ -213,6 +214,8 @@ const AssetContent = memo(function AssetContent({
   }, [tradeList, symbol]);
   const displaySymbol = tradeAsset?.displaySymbol;
 
+  const isDesktop = useIsDesktop();
+
   // Real-time mark price from WebSocket (allMids channel)
   const allMids = useAllMids(!!symbol);
   const liveMarkPrice = useMemo(() => {
@@ -230,10 +233,9 @@ const AssetContent = memo(function AssetContent({
   }, [allMids, symbol, price, tradeAsset]);
 
   return (
-    <div className="container-fluid h-screen flex flex-col py-[clamp(0.5rem,1.2vw,0.75rem)] px-[clamp(0.5rem,1.5vw,1rem)] select-none overflow-hidden animate-in fade-in duration-200 ease-premium">
-      {/* Header — fixed height, no scroll */}
-      <header className="shrink-0">
-        <div className="flex items-center w-full min-w-0 pb-[clamp(0.25rem,1vw,0.375rem)]">
+    <div className="container-fluid flex-1 min-h-0 flex flex-col py-[clamp(0.75rem,1.2vw,1rem)] px-[clamp(0.75rem,1.5vw,1.25rem)] animate-in fade-in duration-200 ease-premium">
+      <header>
+        <div className="flex items-center w-full min-w-0 pb-[clamp(0.375rem,1vw,0.5rem)]">
           <TradeDropdown
             currentSymbol={symbol}
             logoUrl={logoUrl ?? undefined}
@@ -269,7 +271,7 @@ const AssetContent = memo(function AssetContent({
           />
         </div>
         {description && (
-          <div className="pb-[clamp(0.15rem,0.5vw,0.25rem)]">
+          <div className="pb-[clamp(0.25rem,0.5vw,0.375rem)]">
             <p className="text-xs text-muted-foreground/70 leading-relaxed max-w-2xl">
               {description}
             </p>
@@ -278,50 +280,100 @@ const AssetContent = memo(function AssetContent({
       </header>
 
       <L2BookNSigFigsProvider key={symbol}>
-        {/* Top section: Chart + Orderbook — ~70% */}
-        <div className="flex-8 min-h-0 grid grid-cols-6 gap-[clamp(0.3rem,0.6vw,0.5rem)] items-stretch">
-          <div className="col-span-4 flex flex-col min-h-0 h-full">
-            {showChartSkeleton ? (
-              <Skeleton className="h-full w-full rounded-lg" />
-            ) : (
-              <div className="animate-in fade-in duration-200 ease-premium h-full">
-                <Suspense fallback={<ChartSkeleton />}>
+        <div className="flex-1 min-h-0 flex flex-col gap-[clamp(0.75rem,1vw,1rem)]">
+          {/* ===== DESKTOP (≥1440px): 4-1-1 CSS Grid ===== */}
+          {isDesktop ? (
+            <>
+              {/* Row 1 (60%): Chart + Orderbook + OrderForm */}
+              <div className="flex-[6] min-h-0 grid grid-cols-6 gap-[clamp(0.75rem,1vw,1rem)] items-stretch">
+                <div className="col-span-4 flex flex-col min-h-0 h-full">
+                  {showChartSkeleton ? (
+                    <Skeleton className="h-full w-full rounded-lg" />
+                  ) : (
+                    <div className="animate-in fade-in duration-200 ease-premium h-full">
+                      <Suspense fallback={<ChartSkeleton />}>
+                        <ErrorBoundary>
+                          <TradingChart
+                            key={chartSymbol}
+                            symbol={chartSymbol}
+                            interval={interval}
+                            onIntervalChange={onIntervalChange}
+                          />
+                        </ErrorBoundary>
+                      </Suspense>
+                    </div>
+                  )}
+                </div>
+
+                <div className="col-span-1 flex flex-col min-h-0">
                   <ErrorBoundary>
-                    <TradingChart
-                      key={chartSymbol}
-                      symbol={chartSymbol}
-                      interval={interval}
-                      onIntervalChange={onIntervalChange}
+                    <OrderbookWidget key={symbol} symbol={symbol} />
+                  </ErrorBoundary>
+                </div>
+
+                <div className="col-span-1 flex flex-col min-h-0">
+                  <ErrorBoundary>
+                    <OrderForm
+                      symbol={symbol}
+                      markPrice={asset.price?.markPx || asset.price?.price || 0}
                     />
                   </ErrorBoundary>
-                </Suspense>
+                </div>
               </div>
-            )}
-          </div>
 
-          <div className="col-span-1 flex flex-col min-h-0">
-            <ErrorBoundary>
-              <OrderbookWidget key={symbol} symbol={symbol} />
-            </ErrorBoundary>
-          </div>
+              {/* Row 2 (40%): Position Management */}
+              <div className="flex-[4] flex flex-col min-h-0">
+                <ErrorBoundary>
+                  <PositionManagement />
+                </ErrorBoundary>
+              </div>
+            </>
+          ) : (
+            /* ===== NARROW (<1440px): 2×2 Grid ===== */
+            <div className="flex-1 min-h-0 grid grid-cols-[7fr_3fr] grid-rows-[auto_auto] gap-[clamp(0.75rem,1vw,1rem)]">
+              {/* Row 1 */}
+              <div className="min-w-0 self-stretch">
+                {showChartSkeleton ? (
+                  <Skeleton className="h-full w-full rounded-lg" />
+                ) : (
+                  <Suspense fallback={<ChartSkeleton />}>
+                    <ErrorBoundary>
+                      <div className="h-full">
+                        <TradingChart
+                          key={chartSymbol}
+                          symbol={chartSymbol}
+                          interval={interval}
+                          onIntervalChange={onIntervalChange}
+                        />
+                      </div>
+                    </ErrorBoundary>
+                  </Suspense>
+                )}
+              </div>
 
-          <div className="col-span-1 flex flex-col min-h-0">
-            <ErrorBoundary>
-              <OrderForm
-                symbol={symbol}
-                markPrice={asset.price?.markPx || asset.price?.price || 0}
-              />
-            </ErrorBoundary>
-          </div>
-        </div>
+              <div className="flex flex-col h-fit min-w-0">
+                <ErrorBoundary>
+                  <OrderbookWidget key={symbol} symbol={symbol} />
+                </ErrorBoundary>
+              </div>
 
-        {/* Bottom section: Position Management — ~20% */}
-        <div className="flex-2 min-h-0 flex flex-col pt-[clamp(0.3rem,0.6vw,0.5rem)]">
-          <div className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-4">
-            <ErrorBoundary>
-              <PositionManagement />
-            </ErrorBoundary>
-          </div>
+              {/* Row 2 */}
+              <div className="flex flex-col h-fit min-w-0">
+                <ErrorBoundary>
+                  <PositionManagement />
+                </ErrorBoundary>
+              </div>
+
+              <div className="flex flex-col h-fit min-w-0">
+                <ErrorBoundary>
+                  <OrderForm
+                    symbol={symbol}
+                    markPrice={asset.price?.markPx || asset.price?.price || 0}
+                  />
+                </ErrorBoundary>
+              </div>
+            </div>
+          )}
         </div>
       </L2BookNSigFigsProvider>
     </div>
@@ -329,22 +381,36 @@ const AssetContent = memo(function AssetContent({
 });
 
 function AssetDetailSkeleton() {
+  const isDesktop = useIsDesktop();
   return (
-    <div className="container-fluid h-screen flex flex-col pt-3 pb-3 px-4 select-none overflow-hidden gap-[clamp(0.5rem,1vw,1rem)] animate-in fade-in duration-200 ease-premium">
+    <div className="container-fluid flex-1 min-h-0 flex flex-col pt-3 pb-3 px-4 select-none overflow-hidden gap-[clamp(0.75rem,1.25vw,1.25rem)] animate-in fade-in duration-200 ease-premium">
       <header className="flex items-center gap-3 shrink-0">
         <Skeleton className="size-7 rounded-full" />
         <Skeleton className="h-4 w-48" />
       </header>
-      {/* Chart + Orderbook + OrderForm skeleton rows — matches flex-8 grid in AssetContent */}
-      <div className="flex-8 min-h-0 grid grid-cols-6 gap-1 items-stretch">
-        <Skeleton className="col-span-4 rounded-lg" />
-        <Skeleton className="col-span-2 rounded-lg" />
-      </div>
-      {/* Position management skeleton — matches flex-2 area */}
-      <div className="flex-2 min-h-0 flex flex-col">
-        <div className="h-full flex flex-col rounded-xl border border-border/20 bg-card overflow-hidden">
-          <Skeleton className="h-full w-full rounded-lg bg-muted/50" />
-        </div>
+      <div className="flex-1 min-h-0 flex flex-col gap-1">
+        {isDesktop ? (
+          <>
+            <div className="flex-[6] min-h-0 grid grid-cols-6 gap-1 items-stretch">
+              <Skeleton className="col-span-4 rounded-lg" />
+              <Skeleton className="col-span-1 rounded-lg" />
+              <Skeleton className="col-span-1 rounded-lg" />
+            </div>
+            <div className="flex-[4] min-h-0">
+              <Skeleton className="h-full w-full rounded-lg bg-muted/50" />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Narrow skeleton: grid structure matching AssetContent */}
+            <div className="flex-1 min-h-0 grid grid-cols-[1fr_30%] grid-rows-[1fr_minmax(0,1fr)] gap-1">
+              <Skeleton className="min-h-0 rounded-lg" />
+              <Skeleton className="min-h-0 rounded-lg" />
+              <Skeleton className="min-h-0 rounded-lg" />
+              <Skeleton className="min-h-0 rounded-lg" />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -447,7 +513,7 @@ export function AssetDetail() {
 
   if (assetError || (!fetchedAsset && !assetLoading)) {
     return (
-      <div className="container-fluid h-full overflow-y-auto py-6 overscroll-none animate-in fade-in duration-200 ease-premium">
+      <div className="container-fluid h-full py-6 overscroll-none animate-in fade-in duration-200 ease-premium">
         <ErrorState
           title={
             assetError ? `Error: ${assetError.message}` : `No data for ${symbol?.toUpperCase()}`
@@ -460,7 +526,7 @@ export function AssetDetail() {
 
   if (!asset) {
     return (
-      <div className="container-fluid h-full overflow-y-auto py-6 overscroll-none animate-in fade-in duration-200 ease-premium">
+      <div className="container-fluid h-full py-6 overscroll-none animate-in fade-in duration-200 ease-premium">
         <ErrorState title={`No data for ${symbol?.toUpperCase()}`} retryAction={handleRetry} />
       </div>
     );

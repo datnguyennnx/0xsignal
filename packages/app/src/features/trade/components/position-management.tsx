@@ -9,6 +9,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { api, type PlaceOrderRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
 import type { FrontendOpenOrder } from "@0xsignal/shared";
@@ -22,6 +23,7 @@ import { useUserBalances } from "../hooks/use-user-balances";
 import { FundingHistoryTable } from "./funding-history-table";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
 import { useAllMids } from "../hooks/use-all-mids";
+import { usePagination } from "@/hooks/use-pagination";
 import { TabTrigger } from "./shared-table-components";
 import { BalanceTable } from "./balance-table";
 import { PositionsTable } from "./positions-table";
@@ -56,6 +58,10 @@ export function PositionManagement() {
   const { meta, getPrecision } = useHyperliquidMeta();
 
   const mids = useAllMids();
+
+  const paginatedFills = usePagination(fills ?? [], 20);
+  const paginatedHistOrders = usePagination(histOrders ?? [], 20);
+  const paginatedOpenOrders = usePagination(openOrders ?? [], 20);
 
   const fundingRates = useMemo(() => {
     if (!meta) return {};
@@ -189,13 +195,13 @@ export function PositionManagement() {
     : 4;
 
   return (
-    <>
+    <div className="rounded-xl border border-border/20 p-4 bg-card gap-4">
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
-        className="h-full flex flex-col overflow-hidden gap-[clamp(0.25rem,0.5vw,0.5rem)]"
+        className="flex-1 min-h-0 flex flex-col overflow-hidden gap-[clamp(0.5rem,0.8vw,0.75rem)]"
       >
-        <TabsList className="shrink-0 flex gap-[clamp(0.25rem,0.5vw,0.5rem)] h-auto bg-transparent rounded-none p-0">
+        <TabsList className="shrink-0 flex gap-[clamp(0.5rem,0.8vw,0.75rem)] h-auto bg-transparent rounded-none p-0">
           <TabTrigger value="balance" count={!isChLoading ? balanceCount : undefined}>
             Balance
           </TabTrigger>
@@ -212,7 +218,7 @@ export function PositionManagement() {
 
         <TabsContent
           value="balance"
-          className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col overflow-hidden"
+          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
           <BalanceTable
             isChLoading={isChLoading}
@@ -228,7 +234,7 @@ export function PositionManagement() {
 
         <TabsContent
           value="positions"
-          className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col overflow-hidden"
+          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
           <PositionsTable
             isChLoading={isChLoading}
@@ -243,38 +249,65 @@ export function PositionManagement() {
 
         <TabsContent
           value="open-orders"
-          className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col overflow-hidden"
+          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
           <OpenOrdersTable
             isOoLoading={isOoLoading}
-            openOrders={openOrders}
+            openOrders={paginatedOpenOrders.pageData}
             onCancelOrder={handleCancelOrder}
             onViewTpSl={(order) => setTpSlModalOrder(order)}
             onCancelAll={() => setCancelAllDialogOpen(true)}
             isCancelPending={cancelOrdersMutation.isPending}
             orderCount={openOrdersCount}
           />
+          <Pagination
+            currentPage={paginatedOpenOrders.currentPage}
+            totalPages={paginatedOpenOrders.totalPages}
+            totalItems={paginatedOpenOrders.totalItems}
+            pageSize={paginatedOpenOrders.pageSize}
+            onPageChange={paginatedOpenOrders.setPage}
+            onPageSizeChange={paginatedOpenOrders.setPageSize}
+          />
         </TabsContent>
 
         <TabsContent
           value="funding-history"
-          className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col"
+          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
           <FundingHistoryTable />
         </TabsContent>
 
         <TabsContent
           value="trade-history"
-          className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col"
+          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <TradeHistoryTable fills={fills} isFillsLoading={isFillsLoading} />
+          <TradeHistoryTable fills={paginatedFills.pageData} isFillsLoading={isFillsLoading} />
+          <Pagination
+            currentPage={paginatedFills.currentPage}
+            totalPages={paginatedFills.totalPages}
+            totalItems={paginatedFills.totalItems}
+            pageSize={paginatedFills.pageSize}
+            onPageChange={paginatedFills.setPage}
+            onPageSizeChange={paginatedFills.setPageSize}
+          />
         </TabsContent>
 
         <TabsContent
           value="order-history"
-          className="flex-1 min-h-0 mt-0 data-[state=active]:flex data-[state=active]:flex-col"
+          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <HistoryOrderTable histOrders={histOrders} isHistLoading={isHistLoading} />
+          <HistoryOrderTable
+            histOrders={paginatedHistOrders.pageData}
+            isHistLoading={isHistLoading}
+          />
+          <Pagination
+            currentPage={paginatedHistOrders.currentPage}
+            totalPages={paginatedHistOrders.totalPages}
+            totalItems={paginatedHistOrders.totalItems}
+            pageSize={paginatedHistOrders.pageSize}
+            onPageChange={paginatedHistOrders.setPage}
+            onPageSizeChange={paginatedHistOrders.setPageSize}
+          />
         </TabsContent>
       </Tabs>
 
@@ -293,7 +326,7 @@ export function PositionManagement() {
 
       {/* ─── Cancel All Confirmation Dialog ─── */}
       <Dialog open={cancelAllDialogOpen} onOpenChange={setCancelAllDialogOpen}>
-        <DialogContent className="sm:max-w-[360px] bg-card border-border/30 p-5 gap-[clamp(0.5rem,1vw,1rem)] overflow-hidden">
+        <DialogContent className="sm:max-w-[360px] bg-card border-border/30 p-5 gap-[clamp(0.75rem,1.25vw,1.25rem)] overflow-hidden">
           <div className="p-0">
             <DialogHeader>
               <DialogTitle className="text-sm font-medium text-foreground">
@@ -305,7 +338,7 @@ export function PositionManagement() {
               {openOrders?.length !== 1 ? "s" : ""}?
             </p>
           </div>
-          <div className="flex items-center justify-end gap-[clamp(0.25rem,0.5vw,0.5rem)] p-0">
+          <div className="flex items-center justify-end gap-[clamp(0.5rem,0.8vw,0.75rem)] p-0">
             <DialogClose asChild>
               <Button variant="outline" className="h-8 px-3 text-xs font-medium">
                 Keep Orders
@@ -330,6 +363,6 @@ export function PositionManagement() {
         onConfirmLimitClose={handleCloseLimitConfirm}
         isPending={placeOrderMutation.isPending}
       />
-    </>
+    </div>
   );
 }

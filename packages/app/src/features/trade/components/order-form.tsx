@@ -229,9 +229,9 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
   return (
     <>
-      <div className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]">
+      <div className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.75rem,1.25vw,1.25rem)]">
         {/* Top controls */}
-        <div className="flex items-center gap-[clamp(0.2rem,0.4vw,0.375rem)] shrink-0">
+        <div className="flex items-center gap-[clamp(0.75rem,1vw,1rem)] shrink-0">
           <button
             onClick={() => setMarginModeOpen(true)}
             className="flex-1 h-9 px-2 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors truncate"
@@ -270,8 +270,8 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           ))}
         </div>
 
-        {/* Scrollable form body */}
-        <div className="flex-1 overflow-y-auto flex flex-col gap-[clamp(1rem,2vw,2rem)]">
+        {/* Form body — takes remaining flex space, no internal scroll */}
+        <div className="flex-1 flex flex-col gap-[clamp(1.5rem,3vw,3rem)]">
           {/* ─── Buy / Sell Toggle — linked sliding pill ─── */}
           <div className="relative flex h-10 rounded-md bg-muted/10 p-0.5">
             {/* Sliding indicator */}
@@ -318,7 +318,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           )}
 
           {/* ─── Order Entry: Size + Slider + Available ─── */}
-          <div className="flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+          <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]">
             {/* Size Input with Asset Selector */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -358,7 +358,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
             {/* Size Percentage Slider */}
             <div className="space-y-2">
-              <div className="flex items-center gap-[clamp(0.4rem,0.7vw,0.75rem)]">
+              <div className="flex items-center gap-[clamp(0.75rem,1vw,1rem)]">
                 <Slider
                   value={[sliderPercent]}
                   onValueChange={handleSliderCommit}
@@ -392,9 +392,9 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           </div>
 
           {/* ─── Order Options: Reduce Only + TP/SL ─── */}
-          <div className="flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+          <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]">
             {/* Reduce Only */}
-            <label className="relative flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] cursor-pointer select-none group">
+            <label className="relative flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)] cursor-pointer select-none group">
               <input
                 type="checkbox"
                 checked={reduceOnly}
@@ -419,7 +419,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
             {/* TP/SL */}
             <div className="space-y-3">
-              <label className="relative flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] cursor-pointer select-none group">
+              <label className="relative flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)] cursor-pointer select-none group">
                 <input
                   type="checkbox"
                   checked={tpSlEnabled}
@@ -445,8 +445,8 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               </label>
 
               {showTpSl && (
-                <div className="flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)] pl-5">
-                  <div className="flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+                <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)] pl-5">
+                  <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
                     <div className="flex-1">
                       <Input
                         type="number"
@@ -456,7 +456,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                         className="h-8 text-xs tabular-nums bg-background/70 border-border/30"
                       />
                     </div>
-                    <div className="flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)]">
+                    <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
                       <Input
                         type="number"
                         value={tpPercent}
@@ -468,7 +468,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+                  <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
                     <div className="flex-1">
                       <Input
                         type="number"
@@ -478,7 +478,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                         className="h-8 text-xs tabular-nums bg-background/70 border-border/30"
                       />
                     </div>
-                    <div className="flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)]">
+                    <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
                       <Input
                         type="number"
                         value={slPercent}
@@ -495,7 +495,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           </div>
 
           {/* ─── Order Summary ─── */}
-          <div className="flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+          <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Order Value</span>
               <span className="text-xs font-mono tabular-nums text-foreground">

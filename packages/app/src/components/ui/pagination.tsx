@@ -1,8 +1,7 @@
 import { memo } from "react";
-import { Button } from "@/components/ui/button";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/core/utils/cn";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 interface PaginationProps {
   currentPage: number;
@@ -17,22 +16,17 @@ interface PaginationProps {
 
 const buildPageNumbers = (currentPage: number, totalPages: number) => {
   const pages: (number | string)[] = [];
-
   if (totalPages <= 7) {
     for (let i = 1; i <= totalPages; i++) pages.push(i);
   } else {
     pages.push(1);
     if (currentPage > 3) pages.push("...");
-
     const start = Math.max(2, currentPage - 1);
     const end = Math.min(totalPages - 1, currentPage + 1);
-
     for (let i = start; i <= end; i++) pages.push(i);
-
     if (currentPage < totalPages - 2) pages.push("...");
     pages.push(totalPages);
   }
-
   return pages;
 };
 
@@ -53,91 +47,85 @@ export const Pagination = memo(function Pagination({
   return (
     <div
       className={cn(
-        "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 border-t border-border bg-muted/30",
+        "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3",
         className
       )}
     >
-      <div className="flex items-center gap-x-4 justify-between sm:hidden">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="h-9 min-h-[44px] flex-1 gap-1.5"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Prev
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className="h-9 min-h-[44px] flex-1 gap-1.5"
-        >
-          Next
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-
-      <span className="hidden sm:block text-sm text-muted-foreground font-mono order-1">
-        Showing {start.toLocaleString()} to {end.toLocaleString()} of {totalItems.toLocaleString()}{" "}
-        results
+      {/* Results count */}
+      <span className="text-xs text-muted-foreground font-mono tabular-nums order-1">
+        {start.toLocaleString()}–{end.toLocaleString()} of {totalItems.toLocaleString()}
       </span>
 
-      <div className="hidden sm:flex items-center gap-1 order-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Previous page"
+      {/* Page controls */}
+      <div className="flex items-center gap-0.5 order-2">
+        {/* Previous */}
+        <button
+          type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="h-8 w-8"
+          aria-label="Previous page"
+          className={cn(
+            "inline-flex items-center justify-center h-7 w-7 rounded text-xs transition-colors",
+            "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+            "disabled:pointer-events-none disabled:opacity-30"
+          )}
         >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+          <ChevronLeft className="size-3.5" />
+        </button>
 
+        {/* Page numbers */}
         {pageNumbers.map((page, i) =>
           typeof page === "number" ? (
-            <Button
+            <button
               key={i}
-              variant={currentPage === page ? "default" : "ghost"}
-              size="icon"
+              type="button"
               onClick={() => onPageChange(page)}
-              className="h-8 w-8 font-mono"
+              className={cn(
+                "inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded text-xs font-mono tabular-nums transition-colors",
+                currentPage === page
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+              )}
             >
               {page}
-            </Button>
+            </button>
           ) : (
-            <span key={i} className="px-1 text-muted-foreground">
+            <span
+              key={i}
+              className="inline-flex items-center justify-center h-7 w-5 text-xs text-muted-foreground/50 select-none"
+            >
               ...
             </span>
           )
         )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Next page"
+        {/* Next */}
+        <button
+          type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="h-8 w-8"
+          aria-label="Next page"
+          className={cn(
+            "inline-flex items-center justify-center h-7 w-7 rounded text-xs transition-colors",
+            "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+            "disabled:pointer-events-none disabled:opacity-30"
+          )}
         >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+          <ChevronRight className="size-3.5" />
+        </button>
       </div>
 
+      {/* Page size selector */}
       {onPageSizeChange && (
-        <div className="hidden sm:flex items-center gap-2 order-3 sm:order-4">
-          <span className="text-sm text-muted-foreground">Rows</span>
+        <div className="flex items-center gap-2 order-3">
+          <span className="text-xs text-muted-foreground font-mono tabular-nums">Show</span>
           <NativeSelect
             size="sm"
             aria-label="Rows per page"
             value={pageSize.toString()}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            wrapperClassName="min-w-[5.25rem] max-w-[5.25rem]"
-            className="h-8 w-full min-w-0 border-border/60 bg-background/80 px-2 pr-7 text-[12px] tracking-[0.01em] hover:bg-muted/35 focus-visible:ring-[2px] focus-visible:ring-ring/40"
+            wrapperClassName="min-w-[4rem] max-w-[4rem]"
+            className="h-7 text-xs text-center px-1"
           >
             {pageSizeOptions.map((size) => (
               <NativeSelectOption key={size} value={size.toString()}>

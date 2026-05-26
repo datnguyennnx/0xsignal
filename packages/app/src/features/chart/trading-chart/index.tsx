@@ -162,8 +162,8 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   }
 
   return (
-    <div className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]">
-      <div className="relative flex-1 flex flex-col">{chartContent}</div>
+    <div className="flex flex-1 h-full flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium">
+      <div className="relative flex-1 flex flex-col gap-[clamp(1rem,1vw,1rem)]">{chartContent}</div>
     </div>
   );
 };

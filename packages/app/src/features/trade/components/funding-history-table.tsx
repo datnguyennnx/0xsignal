@@ -10,7 +10,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+
 import { useUserFunding } from "@/features/portfolio/hooks/use-portfolio-data";
 import { formatTime } from "@/features/trade/components/shared-table-utils";
 import { formatCompactUsd } from "@/core/utils/formatters";
@@ -34,86 +34,66 @@ export function FundingHistoryTable() {
   const { data: funding, isLoading, isError } = useUserFunding();
 
   return (
-    <div className="w-full overflow-x-auto">
-      <Table>
-        <TableHeader>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className={cHead}>Time</TableHead>
+          <TableHead className={cHead}>Coin</TableHead>
+          <TableHead className={cHeadNum}>USDC</TableHead>
+          <TableHead className={cHeadNum}>Size</TableHead>
+          <TableHead className={cHeadNum}>Rate</TableHead>
+          <TableHead className={cHeadNum}>Samples</TableHead>
+          <TableHead className={cHead}>Hash</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {isLoading ? (
           <TableRow>
-            <TableHead className={cHead}>Time</TableHead>
-            <TableHead className={cHead}>Coin</TableHead>
-            <TableHead className={cHeadNum}>USDC</TableHead>
-            <TableHead className={cHeadNum}>Size</TableHead>
-            <TableHead className={cHeadNum}>Rate</TableHead>
-            <TableHead className={cHeadNum}>Samples</TableHead>
-            <TableHead className={cHead}>Hash</TableHead>
+            <TableCell colSpan={7} className="text-center py-6">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                Loading...
+              </span>
+            </TableCell>
           </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <TableRow key={i}>
-                <TableCell className={c}>
-                  <Skeleton className="h-3 w-28 rounded-sm" />
+        ) : isError ? (
+          <TableRow>
+            <TableCell colSpan={7} className="text-center py-6">
+              <span className="text-xs text-destructive/70 uppercase tracking-wider font-mono">
+                Unable to load funding history
+              </span>
+            </TableCell>
+          </TableRow>
+        ) : !funding || funding.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={7} className="text-center py-6">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                No funding history
+              </span>
+            </TableCell>
+          </TableRow>
+        ) : (
+          funding.map((entry) => {
+            const usdc = Number(entry.delta.usdc);
+            return (
+              <TableRow key={`${entry.hash}-${entry.time}`}>
+                <TableCell className={c}>{formatTime(entry.time)}</TableCell>
+                <TableCell className={`${c} font-medium`}>{entry.delta.coin}</TableCell>
+                <TableCell className={`${cNum} ${usdc >= 0 ? "text-gain" : "text-loss"}`}>
+                  {formatCompactUsd(Math.abs(usdc))}
                 </TableCell>
-                <TableCell className={c}>
-                  <Skeleton className="h-3 w-12 rounded-sm" />
-                </TableCell>
+                <TableCell className={cNum}>{entry.delta.szi}</TableCell>
                 <TableCell className={cNum}>
-                  <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
+                  {(Number(entry.delta.fundingRate) * 100).toFixed(6)}%
                 </TableCell>
-                <TableCell className={cNum}>
-                  <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
-                </TableCell>
-                <TableCell className={cNum}>
-                  <Skeleton className="h-3 w-16 rounded-sm ml-auto" />
-                </TableCell>
-                <TableCell className={cNum}>
-                  <Skeleton className="h-3 w-12 rounded-sm ml-auto" />
-                </TableCell>
-                <TableCell className={c}>
-                  <Skeleton className="h-3 w-20 rounded-sm" />
+                <TableCell className={cNum}>{entry.delta.nSamples}</TableCell>
+                <TableCell className={`${c} font-mono text-xs`}>
+                  {entry.hash.slice(0, 10)}...
                 </TableCell>
               </TableRow>
-            ))
-          ) : isError ? (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-6">
-                <span className="text-sm text-muted-foreground/50 uppercase tracking-wider font-mono">
-                  Unable to load funding history
-                </span>
-              </TableCell>
-            </TableRow>
-          ) : !funding || funding.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-6">
-                <span className="text-sm text-muted-foreground/50 uppercase tracking-wider font-mono">
-                  No funding history
-                </span>
-              </TableCell>
-            </TableRow>
-          ) : (
-            funding.map((entry) => {
-              const usdc = Number(entry.delta.usdc);
-              return (
-                <TableRow key={entry.hash}>
-                  <TableCell className={c}>{formatTime(entry.time)}</TableCell>
-                  <TableCell className={`${c} font-medium`}>{entry.delta.coin}</TableCell>
-                  <TableCell className={`${cNum} ${usdc >= 0 ? "text-gain" : "text-loss"}`}>
-                    {formatCompactUsd(Math.abs(usdc))}
-                  </TableCell>
-                  <TableCell className={cNum}>{entry.delta.szi}</TableCell>
-                  <TableCell className={cNum}>
-                    {(Number(entry.delta.fundingRate) * 100).toFixed(6)}%
-                  </TableCell>
-                  <TableCell className={cNum}>{entry.delta.nSamples}</TableCell>
-                  <TableCell className={`${c} font-mono text-xs`}>
-                    {entry.hash.slice(0, 10)}...
-                  </TableCell>
-                </TableRow>
-              );
-            })
-          )}
-        </TableBody>
-      </Table>
-    </div>
+            );
+          })
+        )}
+      </TableBody>
+    </Table>
   );
 }

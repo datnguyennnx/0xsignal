@@ -83,7 +83,7 @@ export function TabTrigger({
         data-[state=active]:text-foreground dark:data-[state=active]:text-foreground
         data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0
         data-[state=active]:after:right-0 data-[state=active]:after:h-[2px] data-[state=active]:after:bg-foreground
-        transition-colors cursor-pointer gap-[clamp(0.15rem,0.3vw,0.25rem)]"
+        transition-colors cursor-pointer gap-[clamp(0.375rem,0.6vw,0.625rem)]"
     >
       {children}
       {count !== undefined && count > 0 && (

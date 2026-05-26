@@ -83,7 +83,7 @@ const OrderbookToolbar = memo(
     onPriceScalingChange: (s: number) => void;
     scalingOptions: TickSizeOption[];
   }) => (
-    <div className="flex items-center justify-between gap-[clamp(0.15rem,0.3vw,0.25rem)] shrink-0">
+    <div className="flex items-center justify-between gap-[clamp(0.375rem,0.6vw,0.625rem)] shrink-0">
       <NativeSelect
         size="sm"
         aria-label="Coin"
@@ -592,7 +592,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
           ))}
         </div>
 
-        <div className="flex items-center justify-center gap-[clamp(0.75rem,2vw,1.5rem)] py-4 shrink-0">
+        <div className="flex items-center justify-center gap-[clamp(1.25rem,3vw,2.5rem)] py-4 shrink-0">
           <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono font-medium text-muted-foreground">
             Spread
           </span>
@@ -624,7 +624,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       {popupData && popupPosition && (
         <div
           id="orderbook-depth-details"
-          className="fixed bg-card/95 border border-border/30 rounded-xl p-3 shadow-xl z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]"
+          className="fixed bg-card/95 border border-border/30 rounded-xl p-3 shadow-xl z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]"
           style={{
             top: popupPosition.top,
             left: popupPosition.left,
