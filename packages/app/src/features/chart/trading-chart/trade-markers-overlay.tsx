@@ -149,9 +149,9 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
   return (
     <div className="pointer-events-none absolute inset-0 z-10" aria-hidden="true">
       {/* Markers — pointer-events enabled for hover */}
-      {points.map((p) => (
+      {points.map((p, idx) => (
         <div
-          key={p.id}
+          key={`${p.id}-${idx}`}
           style={{
             position: "absolute",
             left: p.x,

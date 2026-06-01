@@ -73,14 +73,14 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
             </TableCell>
           </TableRow>
         ) : (
-          fills.map((fill) => {
+          fills.map((fill, idx) => {
             const sz = Number(fill.sz);
             const px = Number(fill.px);
             const tradeValue = sz * px;
             const fee = Number(fill.fee);
             const cpnl = fill.closedPnl ? Number(fill.closedPnl) : null;
             return (
-              <TableRow key={`${fill.hash}-${fill.time}`}>
+              <TableRow key={`${fill.hash}-${fill.time}-${idx}`}>
                 <TableCell className={c}>{formatTime(fill.time)}</TableCell>
                 <TableCell className={`${c} font-medium`}>{fill.coin}</TableCell>
                 <TableCell className={c}>

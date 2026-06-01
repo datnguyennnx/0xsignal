@@ -71,10 +71,10 @@ export function FundingHistoryTable() {
               </TableCell>
             </TableRow>
           ) : (
-            paginated.pageData.map((entry) => {
+            paginated.pageData.map((entry, idx) => {
               const usdc = Number(entry.delta.usdc);
               return (
-                <TableRow key={`${entry.hash}-${entry.time}`}>
+                <TableRow key={`${entry.hash}-${entry.time}-${idx}`}>
                   <TableCell className={c}>{formatTime(entry.time)}</TableCell>
                   <TableCell className={`${c} font-medium`}>{entry.delta.coin}</TableCell>
                   <TableCell className={cNum}>{fmtNum(Number(entry.delta.szi))}</TableCell>
