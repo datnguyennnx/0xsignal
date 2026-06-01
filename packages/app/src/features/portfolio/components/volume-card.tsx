@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompactUsd } from "@/core/utils/formatters";
 import { usePortfolio } from "../hooks/use-portfolio-data";
-import { VolumeHistoryDialog } from "./VolumeHistoryDialog";
+import { VolumeHistoryDialog } from "./volume-history-dialog";
 
 export function VolumeCard() {
   const { data: portfolio, isLoading, isError } = usePortfolio();

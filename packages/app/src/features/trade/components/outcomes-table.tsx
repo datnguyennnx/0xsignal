@@ -13,15 +13,8 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import {
-  CELL_CLASS,
-  CELL_NUM_CLASS,
-  CELL_HEAD_CLASS,
-  CELL_HEAD_NUM_CLASS,
-} from "./orderbook-table-classes";
+import { CELL_HEAD_CLASS, CELL_HEAD_NUM_CLASS } from "./orderbook-table-classes";
 
-const c = CELL_CLASS;
-const cNum = CELL_NUM_CLASS;
 const cHead = CELL_HEAD_CLASS;
 const cHeadNum = CELL_HEAD_NUM_CLASS;
 

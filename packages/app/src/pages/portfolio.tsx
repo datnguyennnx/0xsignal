@@ -8,8 +8,8 @@
  * Bottom: PositionManagement (shared with /trade page)
  */
 import { useEffect } from "react";
-import { PortfolioSummaryCard } from "@/features/portfolio/components/PortfolioSummaryCard";
-import { PortfolioPnLChart } from "@/features/portfolio/components/PortfolioPnLChart";
+import { PortfolioSummaryCard } from "@/features/portfolio/components/portfolio-summary-card";
+import { PortfolioPnLChart } from "@/features/portfolio/components/portfolio-pnl-chart";
 import { PositionManagement } from "@/features/trade/components/position-management";
 import { ErrorBoundary } from "@/components/error-boundary";
 
