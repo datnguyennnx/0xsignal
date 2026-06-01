@@ -1,12 +1,13 @@
-import { Context, Effect } from "effect";
+import { Context } from "effect";
+import type { Semaphore } from "effect/Semaphore";
 
-export class HyperliquidRateLimiter extends Context.Tag("HyperliquidRateLimiter")<
+export class HyperliquidRateLimiter extends Context.Service<
   HyperliquidRateLimiter,
   {
-    readonly semaphore: Effect.Semaphore;
+    readonly semaphore: Semaphore;
   }
->() {}
+>()("HyperliquidRateLimiter") {}
 
 // Note: The inline Layer that provides HyperliquidRateLimiter lives in
 // provider.ts (inside hyperliquidProviderLayer). This module exports only the
-// Context.Tag for dependency injection wiring.
+// Context.Service for dependency injection wiring.

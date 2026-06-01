@@ -4,13 +4,13 @@ import pg, { type PoolClient } from "pg";
 export type { PoolClient };
 
 // Context Tag for the optional Postgres connection pool
-export class PostgresConnectionPool extends Context.Tag("PostgresConnectionPool")<
+export class PostgresConnectionPool extends Context.Service<
   PostgresConnectionPool,
   pg.Pool | null
->() {}
+>()("PostgresConnectionPool") {}
 
 // Layer that creates the pool via acquireRelease (optional — null if unconfigured)
-export const postgresConnectionPoolLayer = Layer.scoped(
+export const postgresConnectionPoolLayer = Layer.effect(
   PostgresConnectionPool,
   Effect.acquireRelease(
     Effect.gen(function* () {

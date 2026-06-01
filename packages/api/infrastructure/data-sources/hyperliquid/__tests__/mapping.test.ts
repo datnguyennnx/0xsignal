@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { Deferred, Effect, Ref } from "effect";
+import { makeUnsafe as makeSemaphoreUnsafe } from "effect/Semaphore";
 import { getTickerSnapshotEffect } from "../mapping";
 import {
   mapTickerFromSnapshot,
@@ -59,8 +60,8 @@ describe("Hyperliquid Mapping", () => {
         .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
         .mockResolvedValueOnce([{ universe: [{ name: "xyz:EUR" }] }, [{ midPx: "1.1" }]]); // xyz
 
-      const semaphore = Effect.unsafeMakeSemaphore(6);
-      const dedupRef = Ref.unsafeMake(new Map<string, Deferred.Deferred<any, unknown>>());
+      const semaphore = makeSemaphoreUnsafe(6);
+      const dedupRef = Ref.makeUnsafe(new Map<string, Deferred.Deferred<any, unknown>>());
       const program = getTickerSnapshotEffect(mockInfo).pipe(
         Effect.provideService(HyperliquidRateLimiter, { semaphore }),
         Effect.provideService(HyperliquidDeduplicationRegistry, {
@@ -81,8 +82,8 @@ describe("Hyperliquid Mapping", () => {
         .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
         .mockRejectedValueOnce(new Error("DEX Offline"));
 
-      const semaphore = Effect.unsafeMakeSemaphore(6);
-      const dedupRef = Ref.unsafeMake(new Map<string, Deferred.Deferred<any, unknown>>());
+      const semaphore = makeSemaphoreUnsafe(6);
+      const dedupRef = Ref.makeUnsafe(new Map<string, Deferred.Deferred<any, unknown>>());
       const program = getTickerSnapshotEffect(mockInfo).pipe(
         Effect.provideService(HyperliquidRateLimiter, { semaphore }),
         Effect.provideService(HyperliquidDeduplicationRegistry, {

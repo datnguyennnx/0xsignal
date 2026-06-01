@@ -8,7 +8,7 @@ import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
 import { HyperliquidProvider } from "../../data-sources/hyperliquid/types";
 import type { HyperliquidAggregatedAsset } from "../../data-sources/hyperliquid/types";
 import { Data, Effect } from "effect";
-import type { ManagedRuntime } from "effect";
+import type { ManagedRuntime } from "effect/ManagedRuntime";
 import {
   normalizeAllMidsData,
   normalizeCandleData,
@@ -44,7 +44,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
 export class HyperliquidMarketStreamHub {
-  // Class-level mutable state is intentional: event-driven WebSocket manager.
+  // Event-driven WebSocket hub
   private readonly transport = new WebSocketTransport({
     resubscribe: true,
   });
@@ -55,7 +55,7 @@ export class HyperliquidMarketStreamHub {
 
   private readonly buckets = new Map<string, Bucket>();
 
-  private runtime?: ManagedRuntime.ManagedRuntime<any, any>;
+  private runtime?: ManagedRuntime<any, any>;
 
   private connectionSeq = 0;
 
@@ -63,14 +63,14 @@ export class HyperliquidMarketStreamHub {
 
   constructor(private readonly provider?: typeof HyperliquidProvider.Service) {}
 
-  setRuntime(runtime: ManagedRuntime.ManagedRuntime<any, any>): void {
+  setRuntime(runtime: ManagedRuntime<any, any>): void {
     this.runtime = runtime;
   }
 
   createConnectionData(subscription: MarketWsSubscription): MarketWsConnectionData {
     this.connectionSeq += 1;
 
-    // normalizeSymbol handles perp ("BTCUSDT" → "BTC"), builder perp ("XYZ:YEETI"), spot ("PURR/USDC")
+    // Normalize symbol to resolve API-level identifier
     const normalizedSubscription = { ...subscription };
     if (normalizedSubscription.symbol) {
       normalizedSubscription.symbol = normalizeSymbol(normalizedSubscription.symbol);
@@ -111,7 +111,16 @@ export class HyperliquidMarketStreamHub {
       timestamp: Date.now(),
     });
 
-    void this.ensureUpstream(bucket.key);
+    this.ensureUpstream(bucket.key).catch((err) => {
+      marketWsLog(
+        "ensure_upstream_error",
+        {
+          bucketKey: bucket.key,
+          error: err instanceof Error ? err.message : String(err),
+        },
+        "error"
+      );
+    });
   }
 
   handleClose(ws: ServerWebSocket<MarketWsConnectionData>) {
@@ -141,7 +150,7 @@ export class HyperliquidMarketStreamHub {
       return;
     }
 
-    // If already subscribing, wait for that subscription to complete
+    // Deduplicate concurrent subscribe calls
     if (bucket.subscribing) {
       try {
         await bucket.subscribing;
@@ -151,12 +160,11 @@ export class HyperliquidMarketStreamHub {
       return;
     }
 
-    // Acquire mutex lock — store the promise so concurrent calls await the same subscription
+    // Mutex: single subscription per bucket
     const subscribePromise = this.subscribeUpstream(bucket)
       .then(
         (sub) => {
           bucket.upstream = sub;
-          // Reset retry count on success
           bucket.retryCount = 0;
           marketWsLog("upstream_subscribe_success", {
             bucketKey: bucket.key,
@@ -217,7 +225,7 @@ export class HyperliquidMarketStreamHub {
       return;
     }
 
-    // Limit retries to prevent infinite restart cascade and API flooding
+    // Bounded retries to prevent API flooding
     if (bucket.retryCount >= MAX_RESTART_RETRIES) {
       marketWsLog(
         "upstream_max_retries_exceeded",
@@ -234,7 +242,6 @@ export class HyperliquidMarketStreamHub {
         message: `Max retries (${MAX_RESTART_RETRIES}) exceeded for ${bucket.key}`,
         timestamp: Date.now(),
       });
-      // Bucket cleaned up on detach when no clients remain
       for (const client of [...bucket.clients]) {
         this.detach(client);
       }
@@ -248,7 +255,6 @@ export class HyperliquidMarketStreamHub {
       try {
         await bucket.upstream.unsubscribe();
       } catch {
-        // Ignore unsubscribe errors during restart.
       } finally {
         bucket.upstream = undefined;
       }
@@ -260,7 +266,7 @@ export class HyperliquidMarketStreamHub {
       timestamp: Date.now(),
     });
 
-    this.runtime?.runPromise(
+    const promise = this.runtime?.runPromise(
       Effect.sleep("500 millis").pipe(
         Effect.flatMap(() => {
           const current = this.buckets.get(key);
@@ -272,15 +278,27 @@ export class HyperliquidMarketStreamHub {
         })
       )
     );
+    if (promise) {
+      promise.catch((err) => {
+        marketWsLog(
+          "restart_error",
+          {
+            bucketKey: key,
+            error: err instanceof Error ? err.message : String(err),
+          },
+          "error"
+        );
+      });
+    }
   }
 
   private async subscribeUpstream(bucket: Bucket): Promise<ISubscription> {
     const { subscription } = bucket;
 
     let internalSymbol = subscription.symbol;
-    // Validate against unified aggregated markets (same source as REST /markets).
+    // Validate against remote market universe
     const subSymbol = subscription.symbol;
-    if (this.provider && subSymbol) {
+    if (this.provider && this.runtime && subSymbol) {
       try {
         const markets: readonly HyperliquidAggregatedAsset[] = await this.runtime!.runPromise(
           this.provider.getAggregatedMarkets()
@@ -297,10 +315,7 @@ export class HyperliquidMarketStreamHub {
           });
         }
 
-        // Resolve the API-level coin identifier:
-        //   - Perps: rawCoin (e.g., "BTC", "xyz:YEETI")
-        //   - Spot:  name field (e.g., "@227", "PURR/USDC")
-        //     because the Hyperliquid WS API requires @index format for spot.
+        // Resolve coin to API-level identifier (perp rawCoin / spot @index)
         internalSymbol = asset.marketType === "spot" ? asset.name : asset.rawCoin;
       } catch (error) {
         marketWsLog(
@@ -439,8 +454,7 @@ export class HyperliquidMarketStreamHub {
 
     for (const client of bucket.clients) {
       try {
-        // Guard against backpressure / slow clients.
-        // If client queue grows beyond 1MB, disconnect them to avoid server memory bloat.
+        // Disconnect slow clients to prevent server memory bloat
         const backpressure = (client as any).backpressure ?? 0;
         if (backpressure > MAX_BACKPRESSURE_BYTES) {
           marketWsLog(

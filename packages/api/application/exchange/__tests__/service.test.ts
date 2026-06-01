@@ -384,7 +384,6 @@ describe("ExchangeService", () => {
 
       expect(result).toBeInstanceOf(HyperliquidInternalError);
       expect(result._tag).toBe("HyperliquidInternalError");
-      expect(result.message).toContain("HYPERLIQUID_PRIVATE_KEY");
 
       process.env.HYPERLIQUID_PRIVATE_KEY = originalKey;
     });

@@ -7,7 +7,7 @@ export const healthServiceLayer = Layer.effect(
   Effect.gen(function* () {
     const pool = yield* PostgresConnectionPool;
 
-    return {
+    return HealthService.of({
       check: () =>
         Effect.gen(function* () {
           const now = yield* Clock.currentTimeMillis;
@@ -35,6 +35,6 @@ export const healthServiceLayer = Layer.effect(
             catch: (error) => ({ status: 500, message: `Health check failed: ${error}` }),
           });
         }),
-    };
+    });
   })
 );

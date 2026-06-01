@@ -20,7 +20,9 @@ export interface QuestDBConfig {
   readonly httpUrl: string;
 }
 
-export class QuestDBClient extends Context.Tag("QuestDBClient")<QuestDBClient, QuestDBConfig>() {}
+export class QuestDBClient extends Context.Service<QuestDBClient, QuestDBConfig>()(
+  "QuestDBClient"
+) {}
 
 const normalizeCause = (cause: unknown): unknown =>
   cause instanceof Error ? cause.message : cause;

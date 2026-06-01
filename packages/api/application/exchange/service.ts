@@ -18,6 +18,9 @@ const validatePrivateKey = (raw: string): `0x${string}` | null => {
   return key as `0x${string}`;
 };
 
+const buildCoinToAsset = (meta: { universe: Array<{ name: string }> }): Map<string, number> =>
+  new Map(meta.universe.map((u: { name: string }, i: number) => [u.name, i]));
+
 const makeExchangeClient = (privateKey: `0x${string}`): ExchangeClient => {
   const wallet = privateKeyToAccount(privateKey);
   const transport = new HttpTransport();
@@ -37,7 +40,6 @@ export const exchangeServiceLayer = Layer.effect(
       yield* Effect.logError("[exchange] HYPERLIQUID_PRIVATE_KEY is not configured or invalid");
       const err = new HyperliquidInternalError({
         message: "HYPERLIQUID_PRIVATE_KEY is not configured",
-        cause: null,
       });
       return ExchangeService.of({
         placeOrder: () => Effect.fail(err),
@@ -60,33 +62,35 @@ export const exchangeServiceLayer = Layer.effect(
               }),
           });
 
-          const coinToAsset = new Map<string, number>(
-            meta.universe.map((u: { name: string }, i: number) => [u.name, i])
-          );
+          const coinToAsset = buildCoinToAsset(meta);
 
-          const hlOrders = params.orders.map((o) => {
-            const a = coinToAsset.get(o.symbol);
-            if (a === undefined) {
-              throw new HyperliquidInternalError({ message: `Unknown coin: ${o.symbol}` });
-            }
-            return {
-              a,
-              b: o.side === "buy",
-              p: o.price,
-              s: o.quantity,
-              r: o.reduceOnly,
-              t:
-                o.orderType.kind === "limit"
-                  ? ({ limit: { tif: toHlTif(o.orderType.timeInForce) } } as const)
-                  : ({
-                      trigger: {
-                        isMarket: o.orderType.isMarket,
-                        triggerPx: o.orderType.triggerPrice,
-                        tpsl: o.orderType.tpsl,
-                      },
-                    } as const),
-            };
-          });
+          const hlOrders = yield* Effect.forEach(params.orders, (o) =>
+            Effect.gen(function* () {
+              const a = coinToAsset.get(o.symbol);
+              if (a === undefined) {
+                return yield* Effect.fail(
+                  new HyperliquidInternalError({ message: `Unknown coin: ${o.symbol}` })
+                );
+              }
+              return {
+                a,
+                b: o.side === "buy",
+                p: o.price,
+                s: o.quantity,
+                r: o.reduceOnly,
+                t:
+                  o.orderType.kind === "limit"
+                    ? ({ limit: { tif: toHlTif(o.orderType.timeInForce) } } as const)
+                    : ({
+                        trigger: {
+                          isMarket: o.orderType.isMarket,
+                          triggerPx: o.orderType.triggerPrice,
+                          tpsl: o.orderType.tpsl,
+                        },
+                      } as const),
+              };
+            })
+          );
 
           return yield* Effect.tryPromise({
             try: () => exchange.order({ orders: hlOrders, grouping: params.grouping ?? "na" }),
@@ -105,9 +109,7 @@ export const exchangeServiceLayer = Layer.effect(
               }),
           });
 
-          const coinToAsset = new Map<string, number>(
-            meta.universe.map((u: { name: string }, i: number) => [u.name, i])
-          );
+          const coinToAsset = buildCoinToAsset(meta);
 
           const assetIndex = coinToAsset.get(params.symbol);
           if (assetIndex === undefined) {
@@ -138,9 +140,7 @@ export const exchangeServiceLayer = Layer.effect(
               }),
           });
 
-          const coinToAsset = new Map<string, number>(
-            meta.universe.map((u: { name: string }, i: number) => [u.name, i])
-          );
+          const coinToAsset = buildCoinToAsset(meta);
 
           const cancels: Array<{ a: number; o: number }> = [];
           for (const c of params.cancels) {

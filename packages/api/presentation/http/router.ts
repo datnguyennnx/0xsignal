@@ -1,5 +1,3 @@
-/** HTTP Router - Route matching with functional patterns */
-
 import { Effect } from "effect";
 import { HealthService } from "../../application/health";
 import { MarketDataService } from "../../application/market-data/contracts";
@@ -84,7 +82,7 @@ const mapDomainCodeToHttpStatus = (code: DomainError["code"]): number => {
   }
 };
 
-/** Normalize an error tag into a canonical error code string for the API response. */
+// Normalize error tag to response code string
 const toErrorCode = (tag: string): string => {
   switch (tag) {
     case "DomainError":
@@ -194,7 +192,6 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
   })),
 ];
 
-// Main router - returns Response with all errors handled internally
 export const handleRequest = (request: Request) => {
   return Effect.gen(function* () {
     const url = new URL(request.url);
@@ -217,7 +214,7 @@ export const handleRequest = (request: Request) => {
     const exchange = yield* ExchangeService;
     return yield* route.handler(request, url, marketData, health, userData, exchange);
   }).pipe(
-    Effect.catchAll((error: HttpError) => {
+    Effect.catch((error: HttpError) => {
       const body: Record<string, unknown> = { error: error.message };
       if (error.code) {
         body.code = error.code;

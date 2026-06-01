@@ -1,19 +1,28 @@
 /** Effect-native Logging */
 
-import { Logger, LogLevel, Layer, Match } from "effect";
+import { Layer, Logger } from "effect";
+import { MinimumLogLevel } from "effect/References";
 
 export type AppLogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR";
 
-// Log level mapping using pattern matching
-const toEffectLogLevel = Match.type<AppLogLevel>().pipe(
-  Match.when("DEBUG", () => LogLevel.Debug),
-  Match.when("INFO", () => LogLevel.Info),
-  Match.when("WARN", () => LogLevel.Warning),
-  Match.when("ERROR", () => LogLevel.Error),
-  Match.exhaustive
-);
+const toEffectLogLevel = (level: AppLogLevel): "Debug" | "Info" | "Warn" | "Error" => {
+  switch (level) {
+    case "DEBUG":
+      return "Debug";
+    case "INFO":
+      return "Info";
+    case "WARN":
+      return "Warn";
+    case "ERROR":
+      return "Error";
+  }
+};
 
-export const withLogLevel = (level: AppLogLevel) => Logger.minimumLogLevel(toEffectLogLevel(level));
+export const withLogLevel = (level: AppLogLevel) =>
+  Layer.succeed(MinimumLogLevel, toEffectLogLevel(level));
 
 // Development: pretty + INFO
-export const devLoggerLayer = Layer.mergeAll(Logger.pretty, withLogLevel("INFO"));
+export const devLoggerLayer = Layer.mergeAll(
+  Logger.layer([Logger.consolePretty()]),
+  withLogLevel("INFO")
+);

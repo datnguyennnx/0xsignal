@@ -18,7 +18,7 @@ const mockMarketDataService = {
 
 const TestMarketDataLayer = Layer.succeed(
   MarketDataService,
-  mockMarketDataService as unknown as Context.Tag.Service<typeof MarketDataService>
+  mockMarketDataService as unknown as Context.Service.Shape<typeof MarketDataService>
 );
 
 const TestHealthLayer = Layer.succeed(HealthService, {
@@ -31,7 +31,7 @@ const TestHealthLayer = Layer.succeed(HealthService, {
     }),
 });
 
-const mockUserDataService: Context.Tag.Service<typeof UserDataService> = {
+const mockUserDataService: Context.Service.Shape<typeof UserDataService> = {
   getClearinghouseState: vi.fn(),
   getSpotClearinghouseState: vi.fn(),
   getOpenOrders: vi.fn(),
@@ -44,7 +44,7 @@ const mockUserDataService: Context.Tag.Service<typeof UserDataService> = {
 const TestUserDataLayer = Layer.succeed(UserDataService, mockUserDataService);
 
 // Exchange layer is required by router.ts handleRequest but unused in market-data tests
-const mockExchangeService: Context.Tag.Service<typeof ExchangeService> = {
+const mockExchangeService: Context.Service.Shape<typeof ExchangeService> = {
   placeOrder: vi.fn(),
   updateLeverageAndMargin: vi.fn(),
   cancelOrders: vi.fn(),

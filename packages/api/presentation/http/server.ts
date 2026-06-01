@@ -1,4 +1,6 @@
-import { Effect, ManagedRuntime } from "effect";
+import { Effect } from "effect";
+import { make as makeRuntime } from "effect/ManagedRuntime";
+
 import { AppLayer } from "../../infrastructure/layers/app.layer";
 import { handleRequest } from "./router";
 import { type MarketWsConnectionData } from "../../infrastructure/streams/hyperliquid/hub";
@@ -10,10 +12,10 @@ import { errorResponse } from "./error-response";
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
 
 // Create a managed runtime for bridging non-Effect code
-// NOTE: AppLayer is NOT provided again below — ManagedRuntime.make already
+// NOTE: AppLayer is NOT provided again below — makeRuntime already
 // memoizes it. Providing AppLayer again via Effect.provide would create a
 // second independent instance (duplicate pools, fibers, etc.).
-const runtime = ManagedRuntime.make(AppLayer);
+const runtime = makeRuntime(AppLayer);
 
 // App Program
 const serverProgram = Effect.gen(function* () {
@@ -98,15 +100,15 @@ const serverProgram = Effect.gen(function* () {
       })
     ),
     (s) =>
-      Effect.sync(() => {
-        console.log("Shutting down server...");
-        s.stop();
+      Effect.gen(function* () {
+        yield* Effect.logInfo("Shutting down server...");
+        yield* Effect.sync(() => s.stop());
       })
   );
 
-  console.log(`0xSignal API Server`);
-  console.log(`Server: http://localhost:${PORT}`);
-  console.log(`Health: http://localhost:${PORT}/api/health`);
+  yield* Effect.logInfo(`0xSignal API Server`);
+  yield* Effect.logInfo(`Server: http://localhost:${PORT}`);
+  yield* Effect.logInfo(`Health: http://localhost:${PORT}/api/health`);
 
   // Keep the program alive until SIGTERM/SIGINT
   yield* Effect.never;
@@ -132,7 +134,7 @@ runtime
   .then(() => {
     process.exit(0);
   })
-  .catch((cause) => {
+  .catch((cause: unknown) => {
     // If we were shutting down, the interruption is expected
     if (abortController.signal.aborted) {
       process.exit(0);

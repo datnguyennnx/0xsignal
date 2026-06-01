@@ -44,17 +44,16 @@ export interface MarketRemoteProviderPort {
   readonly getTradeAnnotation?: (symbol: string) => Effect.Effect<MarketTradeAnnotation, unknown>;
 }
 
-export class MarketCandleStore extends Context.Tag("MarketCandleStore")<
-  MarketCandleStore,
-  MarketCandleStorePort
->() {}
+export class MarketCandleStore extends Context.Service<MarketCandleStore, MarketCandleStorePort>()(
+  "MarketCandleStore"
+) {}
 
-export class MarketRemoteProvider extends Context.Tag("MarketRemoteProvider")<
+export class MarketRemoteProvider extends Context.Service<
   MarketRemoteProvider,
   MarketRemoteProviderPort
->() {}
+>()("MarketRemoteProvider") {}
 
-export class MarketDataService extends Context.Tag("MarketDataService")<
+export class MarketDataService extends Context.Service<
   MarketDataService,
   {
     readonly getCandles: (
@@ -79,4 +78,4 @@ export class MarketDataService extends Context.Tag("MarketDataService")<
       symbol: string
     ) => Effect.Effect<MarketTradeAnnotation, DomainError>;
   }
->() {}
+>()("MarketDataService") {}

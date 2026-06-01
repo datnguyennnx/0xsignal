@@ -6,10 +6,10 @@ export type HttpError = {
   readonly code?: string;
 };
 
-export const toHttpError = (error: unknown): HttpError =>
+const toHttpError = (error: unknown): HttpError =>
   typeof error === "object" && error !== null ? (error as HttpError) : {};
 
-export const extractErrorMessage = (value: unknown): string | undefined => {
+const extractErrorMessage = (value: unknown): string | undefined => {
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (trimmed.startsWith("{") && trimmed.endsWith("}")) {

@@ -1,8 +1,7 @@
-import { Effect, Layer } from "effect";
+import { Clock, Effect, Layer } from "effect";
 import { MarketCandleStore, MarketRemoteProvider } from "../../application/market-data/contracts";
 import { hyperliquidProviderLayer } from "../data-sources/hyperliquid/provider";
 import { HyperliquidProvider } from "../data-sources/hyperliquid/types";
-import { hyperliquidClientLayer } from "../data-sources/hyperliquid/client";
 
 const marketRemoteProviderLayer = Layer.effect(
   MarketRemoteProvider,
@@ -33,11 +32,18 @@ const marketCandleStoreLayer = Layer.effect(
   Effect.gen(function* () {
     const provider = yield* MarketRemoteProvider;
     return MarketCandleStore.of({
-      getCandles: (query) => {
-        const startTime = query.startTime?.getTime() ?? Date.now() - 24 * 60 * 60 * 1000;
-        const endTime = query.endTime?.getTime() ?? Date.now();
-        return provider.getCandleSnapshot(query.symbol, query.timeframe, startTime, endTime);
-      },
+      getCandles: (query) =>
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis;
+          const startTime = query.startTime?.getTime() ?? now - 24 * 60 * 60 * 1000;
+          const endTime = query.endTime?.getTime() ?? now;
+          return yield* provider.getCandleSnapshot(
+            query.symbol,
+            query.timeframe,
+            startTime,
+            endTime
+          );
+        }),
       checkCoverage: () =>
         Effect.succeed({
           hasData: true,
@@ -57,6 +63,5 @@ const mergedMarketLayers = Layer.merge(
 );
 
 export const marketDataInfrastructureLayer = mergedMarketLayers.pipe(
-  Layer.provideMerge(hyperliquidProviderLayer),
-  Layer.provideMerge(hyperliquidClientLayer)
+  Layer.provideMerge(hyperliquidProviderLayer)
 );

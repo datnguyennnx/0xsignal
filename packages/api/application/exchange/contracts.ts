@@ -16,7 +16,7 @@ export type ExchangeSimpleError =
   | InsufficientMarginError
   | HyperliquidInternalError;
 
-export class ExchangeService extends Context.Tag("ExchangeService")<
+export class ExchangeService extends Context.Service<
   ExchangeService,
   {
     readonly placeOrder: (
@@ -29,4 +29,4 @@ export class ExchangeService extends Context.Tag("ExchangeService")<
       params: CancelOrdersRequest
     ) => Effect.Effect<unknown, ExchangeSimpleError>;
   }
->() {}
+>()("ExchangeService") {}

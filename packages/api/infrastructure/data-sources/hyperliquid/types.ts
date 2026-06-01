@@ -99,7 +99,7 @@ export type TickerSnapshot = {
   readonly allMids: Readonly<Record<string, string>>;
 };
 
-export class HyperliquidProvider extends Context.Tag("HyperliquidProvider")<
+export class HyperliquidProvider extends Context.Service<
   HyperliquidProvider,
   {
     readonly getCandleSnapshot: (
@@ -122,4 +122,4 @@ export class HyperliquidProvider extends Context.Tag("HyperliquidProvider")<
       symbol: string
     ) => Effect.Effect<{ symbol: string; annotation: PerpAnnotationResponse }, HyperliquidError>;
   }
->() {}
+>()("HyperliquidProvider") {}

@@ -1,7 +1,7 @@
 import { Context, type Effect } from "effect";
 import type { DomainError } from "../errors";
 
-export class UserDataService extends Context.Tag("UserDataService")<
+export class UserDataService extends Context.Service<
   UserDataService,
   {
     readonly getClearinghouseState: () => Effect.Effect<unknown, DomainError>;
@@ -18,4 +18,4 @@ export class UserDataService extends Context.Tag("UserDataService")<
       endTime?: number
     ) => Effect.Effect<unknown, DomainError>;
   }
->() {}
+>()("UserDataService") {}

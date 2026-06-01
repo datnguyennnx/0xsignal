@@ -18,7 +18,7 @@ export function extractSpotTokens(raw: unknown): string[] {
   return resp.tokens.map((t) => (typeof t.name === "string" ? t.name : ""));
 }
 
-export const toNumberOrNull = (value: unknown): number | null => {
+const toNumberOrNull = (value: unknown): number | null => {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
   }
@@ -178,7 +178,7 @@ export const resolveInternalSymbol = (snapshot: TickerSnapshot, symbol: string):
 /**
  * Strip HIP-3 prefix: "xyz:TSLA" → "TSLA", main dex "BTC" → "BTC"
  */
-export function normalizeCoinName(rawName: string): string {
+function normalizeCoinName(rawName: string): string {
   if (rawName.includes(":")) {
     return rawName.split(":").slice(1).join(":");
   }
@@ -189,10 +189,7 @@ export function normalizeCoinName(rawName: string): string {
  * Resolve quote currency from spot meta tokens using collateralToken index.
  * Falls back to "USDC" if the index is invalid or spotTokens is empty.
  */
-export function getQuoteCurrency(
-  collateralToken: number | undefined,
-  spotTokens: string[]
-): string {
+function getQuoteCurrency(collateralToken: number | undefined, spotTokens: string[]): string {
   if (
     typeof collateralToken === "number" &&
     collateralToken >= 0 &&
@@ -213,14 +210,14 @@ const CATEGORY_DISPLAY: Record<string, string> = {
   preipo: "Pre-launch",
 };
 
-export function getDisplayCategory(category: string): string {
+function getDisplayCategory(category: string): string {
   return CATEGORY_DISPLAY[category] || category.charAt(0).toUpperCase() + category.slice(1);
 }
 
 // Pure Parsers
 
 // Per-DEX metaAndAssetCtxs result — avoids `as any` casts
-export interface DexMetaResult {
+interface DexMetaResult {
   readonly meta: {
     readonly universe: ReadonlyArray<Record<string, unknown>>;
     readonly collateralToken?: number;
@@ -228,7 +225,7 @@ export interface DexMetaResult {
   readonly assetCtxs: ReadonlyArray<Record<string, string | undefined>>;
 }
 
-export function extractDexMetaResult(raw: unknown): DexMetaResult | null {
+function extractDexMetaResult(raw: unknown): DexMetaResult | null {
   if (!Array.isArray(raw) || raw.length < 2) return null;
   const [meta, assetCtxs] = raw;
   if (

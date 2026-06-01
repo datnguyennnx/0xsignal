@@ -185,9 +185,4 @@ export const makeMarketDataService = () =>
     });
   });
 
-export const marketDataServiceLayer = Layer.effect(
-  MarketDataService,
-  Effect.gen(function* () {
-    return yield* makeMarketDataService();
-  })
-);
+export const marketDataServiceLayer = Layer.effect(MarketDataService, makeMarketDataService());

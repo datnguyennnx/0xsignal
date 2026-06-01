@@ -1,4 +1,5 @@
 import { Clock, Deferred, Effect, Fiber, Layer, Ref, Schedule } from "effect";
+import { type Semaphore, makeUnsafe as makeSemaphoreUnsafe } from "effect/Semaphore";
 import { normalizeCandles, parseHlRawCandles, toHlInterval } from "./normalizer";
 import { normalizeSymbol } from "./symbol";
 import { type Candle } from "@0xsignal/shared";
@@ -24,8 +25,7 @@ type CacheSlot<T> = {
   readonly expiresAt: number;
 };
 
-// Service shape types – used to avoid Context.Tag type inference issues
-type RateLimiterSvc = { readonly semaphore: Effect.Semaphore };
+type RateLimiterSvc = { readonly semaphore: Semaphore };
 type DedupRegistrySvc = {
   readonly registryRef: Ref.Ref<Map<string, Deferred.Deferred<any, HyperliquidError>>>;
 };
@@ -34,15 +34,13 @@ type DedupRegistrySvc = {
 
 const standaloneProvide = <A, E>(
   effect: Effect.Effect<A, E, HyperliquidRateLimiter | HyperliquidDeduplicationRegistry>,
-  semaphore?: Effect.Semaphore,
+  semaphore?: Semaphore,
   dedupRef?: Ref.Ref<Map<string, Deferred.Deferred<any, HyperliquidError>>>
 ): Effect.Effect<A, E> => {
-  const rs: RateLimiterSvc = semaphore
-    ? { semaphore }
-    : { semaphore: Effect.unsafeMakeSemaphore(6) };
+  const rs: RateLimiterSvc = semaphore ? { semaphore } : { semaphore: makeSemaphoreUnsafe(6) };
   const ds: DedupRegistrySvc = dedupRef
     ? { registryRef: dedupRef }
-    : { registryRef: Ref.unsafeMake(new Map()) };
+    : { registryRef: Ref.makeUnsafe(new Map()) };
   return effect.pipe(
     Effect.provideService(HyperliquidRateLimiter, rs),
     Effect.provideService(HyperliquidDeduplicationRegistry, ds)
@@ -229,8 +227,6 @@ const makeRefreshPipeline = (
     });
   });
 
-// Uses Layer.effect with Effect.scoped for daemon refresh fiber lifecycle.
-
 export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, HyperliquidClient> =
   Layer.effect(
     HyperliquidProvider,
@@ -239,8 +235,8 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
         const client = yield* HyperliquidClient;
 
         // Create rate limiter and dedup services inline (self-contained)
-        const innerSemaphore = Effect.unsafeMakeSemaphore(6);
-        const innerDedupRef = Ref.unsafeMake(
+        const innerSemaphore = makeSemaphoreUnsafe(6);
+        const innerDedupRef = Ref.makeUnsafe(
           new Map<string, Deferred.Deferred<any, HyperliquidError>>()
         );
         const rateLimiterSvc: RateLimiterSvc = { semaphore: innerSemaphore };
@@ -307,14 +303,14 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
         // Daemon background refresh fiber
         const pipeline = makeRefreshPipeline(hlInfo, provide, aggregatedSlot, spotIndexRef);
 
-        const refreshFiber = yield* Effect.forkDaemon(
+        const refreshFiber = yield* Effect.forkDetach(
           pipeline.pipe(
-            Effect.repeat(Schedule.spaced("24 seconds")),
-            Effect.catchAll((err) =>
+            Effect.catch((err) =>
               Effect.logError(
                 `[Hyperliquid] Unified refresh failed: ${(err as HyperliquidError).message}`
               )
-            )
+            ),
+            Effect.repeat(Schedule.spaced("24 seconds"))
           )
         );
 

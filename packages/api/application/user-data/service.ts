@@ -3,7 +3,7 @@ import { HyperliquidClient } from "../../infrastructure/data-sources/hyperliquid
 import { DomainError } from "../errors";
 import { UserDataService } from "./contracts";
 
-// Lazy wallet address reader — does NOT fail at Layer construction
+// Lazy: wallet address read deferred from layer construction
 const walletAddress: Effect.Effect<string, DomainError> = Config.option(
   Config.string("HYPERLIQUID_WALLET_ADDRESS")
 ).pipe(
