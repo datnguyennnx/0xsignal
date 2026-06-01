@@ -5,15 +5,12 @@
  *   col-span-5: PortfolioSummaryCard  — Perps / Spot / Vaults tabbed metrics
  *   col-span-7: PortfolioPnLChart     — step chart with timeframe + view controls
  *
- * VolumeCard is surfaced as a compact inline stat inside the summary card header
- * rather than its own full panel. The VolumeHistoryDialog is still accessible.
- *
- * Bottom: PortfolioTables
+ * Bottom: PositionManagement (shared with /trade page)
  */
 import { useEffect } from "react";
 import { PortfolioSummaryCard } from "@/features/portfolio/components/PortfolioSummaryCard";
 import { PortfolioPnLChart } from "@/features/portfolio/components/PortfolioPnLChart";
-import { PortfolioTables } from "@/features/portfolio/components/PortfolioTables";
+import { PositionManagement } from "@/features/trade/components/position-management";
 import { ErrorBoundary } from "@/components/error-boundary";
 
 export type PortfolioScope = "perps" | "spot" | "vaults";
@@ -41,9 +38,9 @@ export function PortfolioPage() {
         </div>
       </div>
 
-      {/* ── Tables ── */}
+      {/* ── Tables (shared PositionManagement) ── */}
       <ErrorBoundary>
-        <PortfolioTables />
+        <PositionManagement />
       </ErrorBoundary>
     </div>
   );

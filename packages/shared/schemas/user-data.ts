@@ -84,6 +84,7 @@ export interface SpotClearinghouseState {
 export interface OpenOrder {
   readonly coin: string;
   readonly side: "A" | "B";
+  readonly dir?: string;
   readonly sz: string;
   readonly limitPx: string;
   readonly oid: number;
@@ -133,6 +134,8 @@ export interface HistoricalOrderEntry {
 export interface UserFill {
   readonly coin: string;
   readonly side: "A" | "B";
+  readonly dir?: string;
+  readonly startPosition?: string;
   readonly sz: string;
   readonly px: string;
   readonly fee: string;

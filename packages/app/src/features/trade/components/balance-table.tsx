@@ -66,7 +66,7 @@ export function BalanceTable({
           <TableHead className={cHead}>Coin</TableHead>
           <TableHead className={cHeadNum}>Total Balance</TableHead>
           <TableHead className={cHeadNum}>Available Balance</TableHead>
-          <TableHead className={cHeadNum}>USD Value</TableHead>
+          <TableHead className={cHeadNum}>USDC Value</TableHead>
           <TableHead className={cHeadNum}>PNL (ROE %)</TableHead>
           <TableHead className={cHead}>Send</TableHead>
           <TableHead className={cHead}>Transfer</TableHead>

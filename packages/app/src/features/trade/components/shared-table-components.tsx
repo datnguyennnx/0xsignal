@@ -8,18 +8,6 @@ import { TabsTrigger } from "@/components/ui/tabs";
 import type { ReactNode } from "react";
 
 /**
- * Renders a Long/Short label with gain/loss color based on the
- * Hyperliquid side encoding ("A" = Sell/Short, "B" = Buy/Long).
- */
-export function SideLabel({ side }: { side: "A" | "B" }) {
-  return (
-    <span className={side === "B" ? "text-gain" : "text-loss"}>
-      {side === "B" ? "Long" : "Short"}
-    </span>
-  );
-}
-
-/**
  * Renders a directional label accounting for reduce-only orders.
  * Shows "Close Short" / "Close Long" when reduceOnly is true.
  */
@@ -45,6 +33,17 @@ export function DirLabel({ side, reduceOnly }: { side: "A" | "B"; reduceOnly?: b
 export function PosDirLabel({ szi }: { szi: string }) {
   const n = Number(szi);
   return <span className={n >= 0 ? "text-gain" : "text-loss"}>{n >= 0 ? "Long" : "Short"}</span>;
+}
+
+/**
+ * Renders a direction label from the Hyperliquid API `dir` field.
+ * The API provides semantic strings like "Open Long", "Close Short", "Long > Short", etc.
+ * Colors: green for long-oriented, red for short-oriented.
+ */
+export function DirDisplay({ dir }: { dir?: string | null }) {
+  if (!dir) return <span className="text-muted-foreground/40">—</span>;
+  const isLong = dir.toLowerCase().includes("long");
+  return <span className={isLong ? "text-gain" : "text-loss"}>{dir}</span>;
 }
 
 /**

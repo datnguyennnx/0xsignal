@@ -21,6 +21,10 @@ import {
 } from "../hooks/use-user-data";
 import { useUserBalances } from "../hooks/use-user-balances";
 import { FundingHistoryTable } from "./funding-history-table";
+import { OutcomesTable } from "./outcomes-table";
+import { TwapActiveTable } from "./twap-active-table";
+import { TwapHistoryTable } from "./twap-history-table";
+import { TwapFillHistoryTable } from "./twap-fill-history-table";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
 import { useAllMids } from "../hooks/use-all-mids";
 import { usePagination } from "@/hooks/use-pagination";
@@ -35,6 +39,15 @@ import { CloseLimitModal } from "./close-limit-modal";
 import { formatOrderSize } from "../utils/trade-math";
 import { getOrderType } from "../utils/trigger-utils";
 import { formatPrice } from "@/core/utils/formatters";
+import { cn } from "@/core/utils/cn";
+
+type TwapSubTab = "active" | "history" | "fill-history";
+
+const TWAP_SUB_TABS: { value: TwapSubTab; label: string }[] = [
+  { value: "active", label: "Active" },
+  { value: "history", label: "History" },
+  { value: "fill-history", label: "Fill History" },
+];
 
 export function PositionManagement() {
   const {
@@ -107,7 +120,8 @@ export function PositionManagement() {
     },
   });
 
-  const [activeTab, setActiveTab] = useState("balance");
+  const [activeTab, setActiveTab] = useState("balances");
+  const [twapSubTab, setTwapSubTab] = useState<TwapSubTab>("active");
 
   const [closeLimitPosition, setCloseLimitPosition] = useState<{
     coin: string;
@@ -194,6 +208,17 @@ export function PositionManagement() {
     ? getPrecision(closeLimitPosition.coin).szDecimals
     : 4;
 
+  const renderTwapSubTabContent = () => {
+    switch (twapSubTab) {
+      case "active":
+        return <TwapActiveTable />;
+      case "history":
+        return <TwapHistoryTable />;
+      case "fill-history":
+        return <TwapFillHistoryTable />;
+    }
+  };
+
   return (
     <div className="rounded-xl border border-border/20 p-4 bg-card gap-4">
       <Tabs
@@ -202,22 +227,46 @@ export function PositionManagement() {
         className="flex-1 min-h-0 flex flex-col overflow-hidden gap-[clamp(0.5rem,0.8vw,0.75rem)]"
       >
         <TabsList className="shrink-0 flex gap-[clamp(0.5rem,0.8vw,0.75rem)] h-auto bg-transparent rounded-none p-0">
-          <TabTrigger value="balance" count={!isChLoading ? balanceCount : undefined}>
-            Balance
+          <TabTrigger value="balances" count={!isChLoading ? balanceCount : undefined}>
+            Balances
           </TabTrigger>
           <TabTrigger value="positions" count={!isChLoading ? positionsCount : undefined}>
             Positions
           </TabTrigger>
+          <TabTrigger value="outcomes">Outcomes</TabTrigger>
           <TabTrigger value="open-orders" count={!isOoLoading ? openOrdersCount : undefined}>
             Open Orders
           </TabTrigger>
-          <TabTrigger value="funding-history">Funding History</TabTrigger>
+          <TabTrigger value="twap">TWAP</TabTrigger>
           <TabTrigger value="trade-history">Trade History</TabTrigger>
+          <TabTrigger value="funding-history">Funding History</TabTrigger>
           <TabTrigger value="order-history">Order History</TabTrigger>
         </TabsList>
 
+        {/* ─── TWAP Sub-Navigation ─── */}
+        {activeTab === "twap" && (
+          <div className="shrink-0 pt-1.5">
+            <div className="flex items-center gap-1">
+              {TWAP_SUB_TABS.map((sub) => (
+                <button
+                  key={sub.value}
+                  onClick={() => setTwapSubTab(sub.value)}
+                  className={cn(
+                    "px-3 py-1 text-xs font-medium rounded-sm transition-colors",
+                    twapSubTab === sub.value
+                      ? "text-foreground bg-foreground/5"
+                      : "text-muted-foreground/60 hover:text-muted-foreground"
+                  )}
+                >
+                  {sub.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <TabsContent
-          value="balance"
+          value="balances"
           className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
           <BalanceTable
@@ -248,6 +297,13 @@ export function PositionManagement() {
         </TabsContent>
 
         <TabsContent
+          value="outcomes"
+          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+        >
+          <OutcomesTable />
+        </TabsContent>
+
+        <TabsContent
           value="open-orders"
           className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
@@ -271,10 +327,10 @@ export function PositionManagement() {
         </TabsContent>
 
         <TabsContent
-          value="funding-history"
+          value="twap"
           className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <FundingHistoryTable />
+          {renderTwapSubTabContent()}
         </TabsContent>
 
         <TabsContent
@@ -290,6 +346,13 @@ export function PositionManagement() {
             onPageChange={paginatedFills.setPage}
             onPageSizeChange={paginatedFills.setPageSize}
           />
+        </TabsContent>
+
+        <TabsContent
+          value="funding-history"
+          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+        >
+          <FundingHistoryTable />
         </TabsContent>
 
         <TabsContent

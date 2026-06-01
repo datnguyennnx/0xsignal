@@ -9,7 +9,7 @@ import {
 
 import { formatPrice, formatCompactUsd } from "@/core/utils/formatters";
 import { formatTime, fmtNum, formatStatus } from "./shared-table-utils";
-import { SideLabel, DirLabel } from "./shared-table-components";
+import { DirLabel, DirDisplay } from "./shared-table-components";
 import { getOrderType, getTriggerLabel, formatOrderValue } from "../utils/trigger-utils";
 import {
   CELL_CLASS,
@@ -84,7 +84,7 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
                 <TableCell className={c}>{formatTime(fill.time)}</TableCell>
                 <TableCell className={`${c} font-medium`}>{fill.coin}</TableCell>
                 <TableCell className={c}>
-                  <SideLabel side={fill.side} />
+                  <DirDisplay dir={fill.dir} />
                 </TableCell>
                 <TableCell className={cNum}>{formatPrice(px)}</TableCell>
                 <TableCell className={cNum}>{fmtNum(sz)}</TableCell>
@@ -120,7 +120,7 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
           <TableHead className={cHead}>COIN</TableHead>
           <TableHead className={cHead}>DIRECTION</TableHead>
           <TableHead className={cHeadNum}>SIZE</TableHead>
-          <TableHead className={cHeadNum}>ORIGINAL SIZE</TableHead>
+          <TableHead className={cHeadNum}>FILLED SIZE</TableHead>
           <TableHead className={cHeadNum}>ORDER VALUE</TableHead>
           <TableHead className={cHeadNum}>PRICE</TableHead>
           <TableHead className={cHead}>REDUCE ONLY</TableHead>
@@ -185,7 +185,11 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
                 <TableCell className={c}>{ot}</TableCell>
                 <TableCell className={`${c} font-medium`}>{o.coin}</TableCell>
                 <TableCell className={c}>
-                  <DirLabel side={o.side} reduceOnly={o.reduceOnly} />
+                  {o.dir ? (
+                    <DirDisplay dir={o.dir} />
+                  ) : (
+                    <DirLabel side={o.side} reduceOnly={o.reduceOnly} />
+                  )}
                 </TableCell>
                 <TableCell className={cNum}>{sizeDisplay}</TableCell>
                 <TableCell className={cNum}>{origSizeDisplay}</TableCell>

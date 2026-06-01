@@ -1,6 +1,6 @@
 /**
  * Shared hook that computes derived balance values from clearinghouse + spot state.
- * Used by both PositionManagement and PortfolioTables.
+ * Used by both PositionManagement (trade page) and PositionManagement (portfolio page).
  */
 import { useMemo } from "react";
 import { useClearinghouseState, useSpotClearinghouseState } from "./use-user-data";
