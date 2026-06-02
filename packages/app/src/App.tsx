@@ -7,9 +7,10 @@
  * - Preloads critical routes 2s after mount to not block initial render
  * - Uses Suspense for streaming SSR-like experience
  */
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/core/providers/theme-provider";
+import { AuthProvider } from "@/core/providers/auth-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MarketStreamProvider } from "@/features/trade/contexts/market-stream-context";
 import { MainLayout } from "@/layouts/main-layout";
@@ -27,6 +28,13 @@ const NotFoundPage = lazy(() =>
 );
 const PortfolioPage = lazy(() =>
   import("@/pages/portfolio").then((m) => ({ default: m.PortfolioPage }))
+);
+const SettingsPage = lazy(() =>
+  import("@/pages/settings").then((m) => ({ default: m.SettingsPage }))
+);
+const LoginPage = lazy(() => import("@/pages/login").then((m) => ({ default: m.LoginPage })));
+const AuthCallbackPage = lazy(() =>
+  import("@/pages/auth-callback").then((m) => ({ default: m.AuthCallbackPage }))
 );
 
 /** Keep in sync with backend MARKET_SCHEMA_VERSION (cache.ts). Bump when payload shape changes. */
@@ -62,12 +70,36 @@ const usePreloadRoutes = () => {
   }, []);
 };
 
+import { useAuth } from "@/core/providers/auth-context";
+
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[clamp(20rem,50dvh,40rem)]">
       <div className="h-6 w-6 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
     </div>
   );
+}
+
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) {
+    return <PageLoader />;
+  }
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+}
+
+function PublicRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) {
+    return <PageLoader />;
+  }
+  if (isAuthenticated) {
+    return <Navigate to="/trade/BTC" replace />;
+  }
+  return <>{children}</>;
 }
 
 function RouteErrorFallback() {
@@ -90,26 +122,65 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <MarketStreamProvider>
-          <TooltipProvider>
-            <BrowserRouter>
-              <MainLayout>
-                <Suspense fallback={<PageLoader />}>
-                  <ErrorBoundary fallback={<RouteErrorFallback />}>
-                    <Routes>
-                      <Route path="/" element={<Navigate to="/trade/BTC" replace />} />
-                      <Route path="/trade" element={<Navigate to="/trade/BTC" replace />} />
-                      <Route path="/trade/:base/:quote" element={<AssetDetail />} />
-                      <Route path="/trade/:symbol" element={<AssetDetail />} />
-                      <Route path="/portfolio" element={<PortfolioPage />} />
-                      <Route path="*" element={<NotFoundPage />} />
-                    </Routes>
-                  </ErrorBoundary>
-                </Suspense>
-              </MainLayout>
-            </BrowserRouter>
-          </TooltipProvider>
-        </MarketStreamProvider>
+        <AuthProvider>
+          <MarketStreamProvider>
+            <TooltipProvider>
+              <BrowserRouter>
+                <Routes>
+                  {/* Public routes — no app chrome */}
+                  <Route
+                    path="/login"
+                    element={
+                      <PublicRoute>
+                        <Suspense fallback={<PageLoader />}>
+                          <ErrorBoundary fallback={<RouteErrorFallback />}>
+                            <LoginPage />
+                          </ErrorBoundary>
+                        </Suspense>
+                      </PublicRoute>
+                    }
+                  />
+                  <Route
+                    path="/auth/callback"
+                    element={
+                      <PublicRoute>
+                        <Suspense fallback={<PageLoader />}>
+                          <AuthCallbackPage />
+                        </Suspense>
+                      </PublicRoute>
+                    }
+                  />
+                  {/* Authenticated routes — inside MainLayout */}
+                  <Route
+                    path="/*"
+                    element={
+                      <ProtectedRoute>
+                        <MainLayout>
+                          <Suspense fallback={<PageLoader />}>
+                            <ErrorBoundary fallback={<RouteErrorFallback />}>
+                              <Routes>
+                                <Route path="/" element={<Navigate to="/trade/BTC" replace />} />
+                                <Route
+                                  path="/trade"
+                                  element={<Navigate to="/trade/BTC" replace />}
+                                />
+                                <Route path="/trade/:base/:quote" element={<AssetDetail />} />
+                                <Route path="/trade/:symbol" element={<AssetDetail />} />
+                                <Route path="/portfolio" element={<PortfolioPage />} />
+                                <Route path="/settings" element={<SettingsPage />} />
+                                <Route path="*" element={<NotFoundPage />} />
+                              </Routes>
+                            </ErrorBoundary>
+                          </Suspense>
+                        </MainLayout>
+                      </ProtectedRoute>
+                    }
+                  />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </MarketStreamProvider>
+        </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

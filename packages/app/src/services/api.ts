@@ -31,6 +31,16 @@ import { normalizeSymbol } from "@/features/trade/lib/symbol";
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const API_BASE = resolveApiBase(configuredApiUrl, import.meta.env.DEV);
 
+let inMemoryToken: string | null = null;
+
+export function setAuthToken(token: string | null): void {
+  inMemoryToken = token;
+}
+
+function getAuthToken(): string | null {
+  return inMemoryToken;
+}
+
 // Re-export shared boundary types for consumers that import from this module.
 export type { ChartDataPoint, AggregatedMarket, MarketTicker } from "@0xsignal/shared";
 export type {
@@ -155,11 +165,61 @@ function unwrapEnvelope<T>(json: unknown): T {
   return json as T;
 }
 
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+let activeRefreshPromise: Promise<boolean> | null = null;
+
+async function attemptSilentRefresh(): Promise<boolean> {
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
+  activeRefreshPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        const body = await res.json();
+        const data = body && typeof body === "object" && "data" in body ? (body as any).data : body;
+        if (data && data.accessToken) {
+          setAuthToken(data.accessToken);
+          return true;
+        }
+      }
+      return false;
+    } catch {
+      return false;
+    } finally {
+      activeRefreshPromise = null;
+    }
+  })();
+
+  return activeRefreshPromise;
+}
+
+async function fetchJson<T>(url: string, options?: RequestInit, isRetry = false): Promise<T> {
   try {
-    const response = await fetch(url, options);
+    const headers = new Headers(options?.headers);
+    const token = getAuthToken();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    const response = await fetch(url, {
+      credentials: "include",
+      ...options,
+      headers,
+    });
 
     if (!response.ok) {
+      if (response.status === 401 && !isRetry) {
+        const refreshed = await attemptSilentRefresh();
+        if (refreshed) {
+          return fetchJson<T>(url, options, true);
+        } else {
+          setAuthToken(null);
+        }
+      }
+
       const errorBody = await parseErrorBody(response);
       throw new ApiError(
         errorBody?.error ?? `API request failed: ${response.statusText}`,
@@ -374,4 +434,37 @@ export const api = {
       timestamp: new Date(),
     };
   },
+
+  /** Check current auth session — returns user info if authenticated, throws 401 if not */
+  getAuthMe: () =>
+    fetchJson<{
+      userId: string;
+      provider: string;
+      avatarUrl: string | null;
+      displayName: string | null;
+    }>(`${API_BASE}/auth/me`),
+
+  /** Logout — revoke refresh token on server */
+  logout: () =>
+    fetchJson(`${API_BASE}/auth/logout`, {
+      method: "POST",
+    }),
+
+  exchangeCode: (code: string) =>
+    fetchJson<{ accessToken: string; tokenType: "Bearer"; expiresIn: number }>(
+      `${API_BASE}/auth/token`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      }
+    ),
+
+  refreshToken: () =>
+    fetchJson<{ accessToken: string; tokenType: "Bearer"; expiresIn: number }>(
+      `${API_BASE}/auth/refresh`,
+      {
+        method: "POST",
+      }
+    ),
 };

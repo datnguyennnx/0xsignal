@@ -15,6 +15,8 @@ import { api, type UpdateLeverageRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/core/utils/cn";
 import { AlertTriangleIcon } from "lucide-react";
+import { useAuth } from "@/core/providers/auth-context";
+import { useNavigate } from "react-router-dom";
 
 interface AdjustLeverageModalProps {
   open: boolean;
@@ -39,6 +41,8 @@ export function AdjustLeverageModal({
   onConfirm,
 }: AdjustLeverageModalProps) {
   const [leverage, setLeverage] = useState(currentLeverage);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Sync state when prop changes (e.g. modal opened for a different asset)
@@ -73,6 +77,10 @@ export function AdjustLeverageModal({
   };
 
   const handleConfirm = () => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
     mutation.mutate({ symbol, isCross, leverage });
   };
 
@@ -105,7 +113,7 @@ export function AdjustLeverageModal({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground font-normal">Leverage</Label>
-              <span className="text-lg font-mono tabular-nums font-semibold text-foreground">
+              <span className="text-lg font-mono tabular-nums font-semibold text-foreground transition-all duration-200">
                 {leverage}x
               </span>
             </div>
@@ -117,7 +125,7 @@ export function AdjustLeverageModal({
                 min={1}
                 max={maxLeverage}
                 step={1}
-                className="flex-1"
+                className="flex-1 transition-all duration-200"
               />
               <Input
                 type="number"
@@ -162,8 +170,8 @@ export function AdjustLeverageModal({
             onClick={handleConfirm}
             disabled={mutation.isPending}
             className={cn(
-              "w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0",
-              "bg-foreground text-background hover:bg-foreground/90"
+              "w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-all duration-150 ease-premium",
+              "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
             )}
           >
             {mutation.isPending ? "Confirming..." : "Confirm"}

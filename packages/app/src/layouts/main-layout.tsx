@@ -5,7 +5,7 @@
  */
 import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ModeToggle } from "@/components/mode-toggle";
+import { UserNav } from "@/components/user-nav";
 import { cn } from "@/core/utils/cn";
 const NAV_ITEMS = [
   { path: "/trade", label: "Trade" },
@@ -16,7 +16,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   return (
-    <div className="flex flex-col min-h-screen pt-4 pb-12 bg-background">
+    <div className="flex flex-col min-h-screen p-4 gap-4 bg-background">
       <header className="shrink-0 z-50 bg-background/60 backdrop-blur-md">
         <div className="container-fluid">
           <div className="flex items-center justify-between h-12">
@@ -42,8 +42,8 @@ export function MainLayout({ children }: { children: ReactNode }) {
               })}
             </nav>
 
-            <div className="flex items-center">
-              <ModeToggle />
+            <div className="flex items-center gap-3">
+              <UserNav />
             </div>
           </div>
         </div>

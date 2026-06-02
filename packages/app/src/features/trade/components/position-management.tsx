@@ -40,6 +40,7 @@ import { formatOrderSize } from "../utils/trade-math";
 import { getOrderType } from "../utils/trigger-utils";
 import { formatPrice } from "@/core/utils/formatters";
 import { cn } from "@/core/utils/cn";
+import { useAuth } from "@/core/providers/auth-context";
 
 type TwapSubTab = "active" | "history" | "fill-history";
 
@@ -50,6 +51,7 @@ const TWAP_SUB_TABS: { value: TwapSubTab; label: string }[] = [
 ];
 
 export function PositionManagement() {
+  const { isAuthenticated } = useAuth();
   const {
     positions,
     marginSummary,
@@ -148,12 +150,14 @@ export function PositionManagement() {
 
   const handleCancelOrder = useCallback(
     (coin: string, oid: number) => {
+      if (!isAuthenticated) return;
       cancelOrdersMutation.mutate({ cancels: [{ symbol: coin, orderId: oid }] });
     },
-    [cancelOrdersMutation]
+    [isAuthenticated, cancelOrdersMutation]
   );
 
   const handleCancelAllConfirm = () => {
+    if (!isAuthenticated) return;
     if (!openOrders || openOrders.length === 0) return;
     const cancels = openOrders.map((o) => ({ symbol: o.coin, orderId: o.oid }));
     cancelOrdersMutation.mutate({ cancels });
@@ -162,6 +166,7 @@ export function PositionManagement() {
 
   const handleCloseMarket = useCallback(
     (coin: string, size: string, isLong: boolean) => {
+      if (!isAuthenticated) return;
       const { szDecimals } = getPrecision(coin);
       const absSz = Math.abs(Number(size));
       const formattedSz = formatOrderSize(absSz, szDecimals);
@@ -179,11 +184,12 @@ export function PositionManagement() {
         grouping: "na",
       });
     },
-    [getPrecision, placeOrderMutation]
+    [isAuthenticated, getPrecision, placeOrderMutation]
   );
 
   const handleCloseLimitConfirm = useCallback(
     ({ price, size }: { price: string; size: string }) => {
+      if (!isAuthenticated) return;
       if (!closeLimitPosition) return;
       const { coin, isLong } = closeLimitPosition;
       placeOrderMutation.mutate({
@@ -201,7 +207,7 @@ export function PositionManagement() {
       });
       setCloseLimitPosition(null);
     },
-    [closeLimitPosition, placeOrderMutation]
+    [isAuthenticated, closeLimitPosition, placeOrderMutation]
   );
 
   const closeLimitSzDecimals = closeLimitPosition

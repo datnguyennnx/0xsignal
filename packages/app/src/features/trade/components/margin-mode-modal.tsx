@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { api, type UpdateLeverageRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/core/utils/cn";
+import { useAuth } from "@/core/providers/auth-context";
+import { useNavigate } from "react-router-dom";
 
 interface MarginModeModalProps {
   open: boolean;
@@ -44,6 +46,8 @@ export function MarginModeModal({
   onConfirm,
 }: MarginModeModalProps) {
   const [mode, setMode] = useState<"cross" | "isolated">(currentMode);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
@@ -63,6 +67,10 @@ export function MarginModeModal({
   };
 
   const handleConfirm = () => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
     mutation.mutate({ symbol, isCross: mode === "cross", leverage: currentLeverage });
   };
 
@@ -82,7 +90,7 @@ export function MarginModeModal({
           <button
             onClick={() => setMode("isolated")}
             className={cn(
-              "w-full text-left px-4 py-3 rounded-lg border transition-all",
+              "w-full text-left px-4 py-3 rounded-lg border transition-all active:brightness-90",
               mode === "isolated"
                 ? "border-foreground bg-foreground/5"
                 : "border-border/30 bg-transparent hover:border-border"
@@ -121,7 +129,7 @@ export function MarginModeModal({
           <button
             onClick={() => setMode("cross")}
             className={cn(
-              "w-full text-left px-4 py-3 rounded-lg border transition-all",
+              "w-full text-left px-4 py-3 rounded-lg border transition-all active:brightness-90",
               mode === "cross"
                 ? "border-foreground bg-foreground/5"
                 : "border-border/30 bg-transparent hover:border-border"
@@ -159,7 +167,7 @@ export function MarginModeModal({
             size="sm"
             onClick={handleConfirm}
             disabled={mutation.isPending}
-            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 bg-foreground text-background hover:bg-foreground/90"
+            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-all duration-150 ease-premium bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
           >
             {mutation.isPending ? "Confirming..." : "Confirm"}
           </Button>

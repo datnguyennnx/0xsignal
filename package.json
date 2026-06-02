@@ -40,5 +40,8 @@
     "*.{ts,tsx,js,jsx,json,md,css}": [
       "prettier --write"
     ]
+  },
+  "dependencies": {
+    "@effect/sql-pg": "4.0.0-beta.74"
   }
 }

@@ -17,6 +17,8 @@ import { AdjustLeverageModal } from "./adjust-leverage-modal";
 import { MarginModeModal } from "./margin-mode-modal";
 import { UnifiedAccountSummary } from "./unified-account-summary";
 import { MARGIN_BUFFER, formatOrderSize } from "../utils/trade-math";
+import { useAuth } from "@/core/providers/auth-context";
+import { useNavigate } from "react-router-dom";
 
 interface OrderFormProps {
   symbol: string;
@@ -25,6 +27,8 @@ interface OrderFormProps {
 }
 
 export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormProps) {
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: chData } = useClearinghouseState();
   const { data: spotData } = useSpotClearinghouseState();
@@ -168,6 +172,10 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   });
 
   const handlePlaceOrder = () => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
     const effectiveEntryPrice = usablePrice;
     if (effectiveEntryPrice <= 0 || !Number(size) || Number(size) <= 0) return;
 
@@ -234,13 +242,13 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
         <div className="flex items-center gap-[clamp(0.75rem,1vw,1rem)] shrink-0">
           <button
             onClick={() => setMarginModeOpen(true)}
-            className="flex-1 h-9 px-2 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors truncate"
+            className="flex-1 h-9 px-2 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors truncate active:scale-[0.97]"
           >
             {effectiveMarginMode === "cross" ? "Cross" : "Isolated"}
           </button>
           <button
             onClick={() => setAdjustLeverageOpen(true)}
-            className="flex-1 h-9 px-2 text-xs font-mono tabular-nums text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors"
+            className="flex-1 h-9 px-2 text-xs font-mono tabular-nums text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors active:scale-[0.97]"
           >
             {effectiveLeverage}x
           </button>
@@ -285,7 +293,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             />
             <button
               onClick={() => setSide("buy")}
-              className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer"
+              className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer active:brightness-90"
             >
               <span className={side === "buy" ? "text-white" : "text-muted-foreground"}>
                 Buy / Long
@@ -293,7 +301,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             </button>
             <button
               onClick={() => setSide("sell")}
-              className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer"
+              className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer active:brightness-90"
             >
               <span className={side === "sell" ? "text-white" : "text-muted-foreground"}>
                 Sell / Short
@@ -524,7 +532,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           <Button
             onClick={handlePlaceOrder}
             disabled={!canPlace || placeOrderMutation.isPending}
-            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,transform] duration-150 bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
+            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-all duration-150 ease-premium bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
           >
             {placeOrderMutation.isPending ? "Placing Order..." : "Place Order"}
           </Button>
