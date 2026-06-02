@@ -8,6 +8,7 @@ COPY package.json bun.lock ./
 COPY packages/api/package.json ./packages/api/
 COPY packages/app/package.json ./packages/app/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/auth/package.json ./packages/auth/
 
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile

@@ -1,3 +1,5 @@
+name: 0xsignal
+
 services:
   postgres:
     image: postgres:18.3-alpine
@@ -53,11 +55,11 @@ services:
 
   api:
     build:
-      context: .
+      context: ..
       dockerfile: packages/api/Dockerfile
     image: 0xsignal-api:latest
     container_name: 0xsignal-api
-    env_file: ./packages/api/.env
+    env_file: ../packages/api/.env
     ports:
       - "9006:9006"
     environment:
@@ -117,7 +119,7 @@ services:
 
   app:
     build:
-      context: .
+      context: ..
       dockerfile: packages/app/Dockerfile
     image: 0xsignal-app:latest
     container_name: 0xsignal-app
