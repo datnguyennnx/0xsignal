@@ -1,13 +1,9 @@
-import { Config, Context, Effect, Layer, Option } from "effect";
+import { Config, Effect, Layer, Option } from "effect";
 import pg, { type PoolClient } from "pg";
 
-export type { PoolClient };
+import { PostgresConnectionPool } from "@0xsignal/shared/db/postgres";
 
-// Context Tag for the optional Postgres connection pool
-export class PostgresConnectionPool extends Context.Service<
-  PostgresConnectionPool,
-  pg.Pool | null
->()("PostgresConnectionPool") {}
+export type { PoolClient };
 
 // Layer that creates the pool via acquireRelease (optional — null if unconfigured)
 export const postgresConnectionPoolLayer = Layer.effect(

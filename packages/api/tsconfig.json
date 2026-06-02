@@ -11,5 +11,5 @@
   },
   "include": ["./**/*.ts"],
   "exclude": ["node_modules", "dist", "**/__tests__/**", "**/*.test.ts"],
-  "references": [{ "path": "../shared" }]
+  "references": [{ "path": "../auth" }, { "path": "../shared" }]
 }

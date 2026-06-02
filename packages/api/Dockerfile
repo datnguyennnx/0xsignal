@@ -8,6 +8,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY packages/api/package.json ./packages/api/
 COPY packages/app/package.json ./packages/app/
+COPY packages/auth/package.json ./packages/auth/
 COPY packages/shared/package.json ./packages/shared/
 
 # Install dependencies with cache mount (frozen lockfile for reproducibility)
@@ -24,6 +25,7 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source files
 COPY package.json tsconfig.json tsconfig.base.json ./
 COPY packages/api ./packages/api
+COPY packages/auth ./packages/auth
 COPY packages/shared ./packages/shared
 
 # Build with minification

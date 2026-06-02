@@ -6,7 +6,7 @@ import { handleRequest } from "./router";
 import { type MarketWsConnectionData } from "../../infrastructure/streams/hyperliquid/hub";
 import { MarketStreamHub, MarketStreamHubLayer } from "./ws/market-stream-hub.layer";
 import { parseMarketWsSubscription } from "./ws/subscription-parser";
-import { CORS_HEADERS, withCorsHeaders } from "./cors";
+import { CorsService } from "./cors";
 import { errorResponse } from "./error-response";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
@@ -21,6 +21,12 @@ const runtime = makeRuntime(AppLayer);
 const serverProgram = Effect.gen(function* () {
   const marketStreamHub = yield* MarketStreamHub;
   marketStreamHub.setRuntime(runtime);
+
+  // Initialize CORS configuration from Effect Config at startup
+  const cors = yield* CorsService;
+  const corsHeaders = cors.headers;
+  const applyCors = cors.applyTo;
+  const corsPreflight = cors.preflight;
 
   // Use Effect's acquireRelease for the server lifecycle
   yield* Effect.acquireRelease(
@@ -37,7 +43,7 @@ const serverProgram = Effect.gen(function* () {
                 JSON.stringify({ error: parsed.message, status: parsed.status }),
                 {
                   status: parsed.status,
-                  headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+                  headers: { "Content-Type": "application/json", ...corsHeaders },
                 }
               );
             }
@@ -54,14 +60,14 @@ const serverProgram = Effect.gen(function* () {
               JSON.stringify({ error: "WebSocket upgrade failed", status: 400 }),
               {
                 status: 400,
-                headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+                headers: { "Content-Type": "application/json", ...corsHeaders },
               }
             );
           }
 
           // CORS preflight
           if (req.method === "OPTIONS") {
-            return new Response(null, { status: 204, headers: CORS_HEADERS });
+            return corsPreflight;
           }
 
           try {
@@ -72,16 +78,15 @@ const serverProgram = Effect.gen(function* () {
               })
             );
 
-            const headers = withCorsHeaders(new Headers(response.headers));
+            const headers = applyCors(new Headers(response.headers));
 
             return new Response(response.body, {
               status: response.status,
               headers,
             });
           } catch (error) {
-            // Enhanced error logging
             console.error("[Request Error]:", error);
-            return errorResponse(error);
+            return errorResponse(error, corsHeaders);
           }
         },
         reusePort: true,
@@ -110,7 +115,6 @@ const serverProgram = Effect.gen(function* () {
   yield* Effect.logInfo(`Server: http://localhost:${PORT}`);
   yield* Effect.logInfo(`Health: http://localhost:${PORT}/api/health`);
 
-  // Keep the program alive until SIGTERM/SIGINT
   yield* Effect.never;
 });
 

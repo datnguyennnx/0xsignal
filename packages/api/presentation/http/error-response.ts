@@ -1,5 +1,3 @@
-import { CORS_HEADERS } from "./cors";
-
 export type HttpError = {
   readonly message?: string;
   readonly status?: number;
@@ -36,7 +34,7 @@ const extractErrorMessage = (value: unknown): string | undefined => {
   return undefined;
 };
 
-export const errorResponse = (error: unknown): Response => {
+export const errorResponse = (error: unknown, corsHeaders: Record<string, string>): Response => {
   const httpError = toHttpError(error);
 
   const message =
@@ -51,6 +49,6 @@ export const errorResponse = (error: unknown): Response => {
 
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+    headers: { "Content-Type": "application/json", ...corsHeaders },
   });
 };

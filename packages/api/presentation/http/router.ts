@@ -3,11 +3,13 @@ import { HealthService } from "../../application/health";
 import { MarketDataService } from "../../application/market-data/contracts";
 import { UserDataService } from "../../application/user-data/contracts";
 import { ExchangeService } from "../../application/exchange/contracts";
+
 import { DomainError } from "../../application/errors";
 import { healthRoute } from "./routes/health.routes";
 import { buildMarketDataRoutes } from "./routes/market-data.routes";
 import { buildUserDataRoutes } from "./routes/user-data.routes";
 import { buildExchangeRoutes } from "./routes/exchange.routes";
+import { buildAuthRoutes } from "@0xsignal/auth";
 
 type HttpError = {
   readonly status: number;
@@ -52,7 +54,7 @@ type RouteHandler = (
   health: HealthHttpService,
   userData: UserDataHttpService,
   exchange: ExchangeHttpService
-) => Effect.Effect<Response, HttpError>;
+) => Effect.Effect<Response, HttpError, any>;
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), {
@@ -82,7 +84,6 @@ const mapDomainCodeToHttpStatus = (code: DomainError["code"]): number => {
   }
 };
 
-// Normalize error tag to response code string
 const toErrorCode = (tag: string): string => {
   switch (tag) {
     case "DomainError":
@@ -138,6 +139,37 @@ const mapServiceError = (error: unknown): HttpError => {
   return { status: 500, message: "Internal server error" };
 };
 
+// Typed adapter for auth routes — they handle their own errors internally and always
+// return a Response. AuthService is provided by the runtime's AppLayer.
+const adaptAuthRoute =
+  (
+    handler: (
+      request: Request
+    ) => Effect.Effect<Response, never, import("@0xsignal/auth").AuthService>
+  ): RouteHandler =>
+  (_request, _url, _marketData, _health, _userData, _exchange) =>
+    handler(_request).pipe(
+      Effect.catchCause(() =>
+        Effect.succeed(
+          new Response(JSON.stringify({ error: "Internal server error" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          })
+        )
+      )
+    );
+
+const matchPath = (pattern: string, path: string): boolean => {
+  if (pattern === path) return true;
+
+  if (pattern.includes(":")) {
+    const regexStr = pattern.replace(/:([^/]+)/g, "([^/]+)");
+    return new RegExp(`^${regexStr}$`).test(path);
+  }
+
+  return false;
+};
+
 const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
   {
     method: "GET",
@@ -190,6 +222,12 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
       exchange: ExchangeHttpService
     ) => route.handler(request, url, exchange),
   })),
+  // Auth routes — wrapped through typed adapter
+  ...buildAuthRoutes().map((route) => ({
+    method: route.method,
+    path: route.path,
+    handler: adaptAuthRoute(route.handler),
+  })),
 ];
 
 export const handleRequest = (request: Request) => {
@@ -199,10 +237,10 @@ export const handleRequest = (request: Request) => {
     const method = request.method.toUpperCase();
 
     const route = routes.find(
-      (candidate) => candidate.path === path && candidate.method === method
+      (candidate) => matchPath(candidate.path, path) && candidate.method === method
     );
     if (!route) {
-      if (routes.some((candidate) => candidate.path === path)) {
+      if (routes.some((candidate) => matchPath(candidate.path, path))) {
         return json({ error: `Method ${method} not allowed` }, 405);
       }
       return json({ error: "Not found" }, 404);

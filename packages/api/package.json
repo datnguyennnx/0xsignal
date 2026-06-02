@@ -14,6 +14,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@0xsignal/auth": "workspace:*",
     "@0xsignal/shared": "workspace:*",
     "@effect/platform-bun": "4.0.0-beta.74",
     "@nktkas/hyperliquid": "^0.32.1",
