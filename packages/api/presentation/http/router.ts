@@ -9,7 +9,7 @@ import { healthRoute } from "./routes/health.routes";
 import { buildMarketDataRoutes } from "./routes/market-data.routes";
 import { buildUserDataRoutes } from "./routes/user-data.routes";
 import { buildExchangeRoutes } from "./routes/exchange.routes";
-import { buildAuthRoutes } from "@0xsignal/auth";
+import { buildAuthRoutes, withAuth } from "@0xsignal/auth";
 
 type HttpError = {
   readonly status: number;
@@ -159,6 +159,24 @@ const adaptAuthRoute =
       )
     );
 
+// Wraps a RouteHandler to require a valid auth session before executing.
+// Uses withAuth to validate the Authorization header and attach a Session.
+const requireAuth =
+  (routeHandler: RouteHandler): RouteHandler =>
+  (request, url, marketData, health, userData, exchange) =>
+    withAuth((_session) => routeHandler(request, url, marketData, health, userData, exchange))(
+      request
+    ).pipe(
+      Effect.catchCause(() =>
+        Effect.succeed(
+          new Response(JSON.stringify({ error: "Internal server error" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          })
+        )
+      )
+    );
+
 const matchPath = (pattern: string, path: string): boolean => {
   if (pattern === path) return true;
 
@@ -198,14 +216,16 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
   }).map((route) => ({
     method: route.method,
     path: route.path,
-    handler: (
-      request: Request,
-      url: URL,
-      _marketData: MarketDataHttpService,
-      _health: HealthHttpService,
-      userData: UserDataHttpService,
-      _exchange: ExchangeHttpService
-    ) => route.handler(request, url, userData),
+    handler: requireAuth(
+      (
+        request: Request,
+        url: URL,
+        _marketData: MarketDataHttpService,
+        _health: HealthHttpService,
+        userData: UserDataHttpService,
+        _exchange: ExchangeHttpService
+      ) => route.handler(request, url, userData)
+    ),
   })),
   ...buildExchangeRoutes({
     json,
@@ -213,14 +233,16 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
   }).map((route) => ({
     method: route.method,
     path: route.path,
-    handler: (
-      request: Request,
-      url: URL,
-      _marketData: MarketDataHttpService,
-      _health: HealthHttpService,
-      _userData: UserDataHttpService,
-      exchange: ExchangeHttpService
-    ) => route.handler(request, url, exchange),
+    handler: requireAuth(
+      (
+        request: Request,
+        url: URL,
+        _marketData: MarketDataHttpService,
+        _health: HealthHttpService,
+        _userData: UserDataHttpService,
+        exchange: ExchangeHttpService
+      ) => route.handler(request, url, exchange)
+    ),
   })),
   // Auth routes — wrapped through typed adapter
   ...buildAuthRoutes().map((route) => ({

@@ -55,6 +55,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   const [size, setSize] = useState("");
   const [sliderPercent, setSliderPercent] = useState(0);
   const [price, setPrice] = useState("");
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [reduceOnly, setReduceOnly] = useState(false);
   const [adjustLeverageOpen, setAdjustLeverageOpen] = useState(false);
   const [marginModeOpen, setMarginModeOpen] = useState(false);
@@ -176,6 +177,11 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       navigate("/login");
       return;
     }
+    if (orderType === "limit" && (!price || Number(price) <= 0)) {
+      setPriceError("Please enter a valid limit price");
+      return;
+    }
+
     const effectiveEntryPrice = usablePrice;
     if (effectiveEntryPrice <= 0 || !Number(size) || Number(size) <= 0) return;
 
@@ -194,7 +200,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       symbol,
       side,
       quantity: formattedSz,
-      price: orderType === "market" ? String(effectiveEntryPrice) : price || "1",
+      price: orderType === "market" ? String(effectiveEntryPrice) : price,
       reduceOnly,
       orderType: orderTypeConfig,
     });
@@ -318,10 +324,15 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               <Input
                 type="number"
                 value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                onChange={(e) => {
+                  setPrice(e.target.value);
+                  setPriceError(null);
+                }}
                 placeholder="0.00"
                 className="h-9 text-xs tabular-nums bg-background/70 border-border/30"
+                aria-invalid={!!priceError}
               />
+              {priceError && <p className="text-[10px] text-destructive/80 mt-1">{priceError}</p>}
             </div>
           )}
 

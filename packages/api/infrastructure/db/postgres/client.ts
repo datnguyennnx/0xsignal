@@ -1,9 +1,14 @@
-import { Config, Effect, Layer, Option } from "effect";
+import { Config, Data, Effect, Layer, Option } from "effect";
 import pg, { type PoolClient } from "pg";
 
 import { PostgresConnectionPool } from "@0xsignal/shared/db/postgres";
 
 export type { PoolClient };
+
+export class PostgresConnectionError extends Data.TaggedError("PostgresConnectionError")<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}
 
 // Layer that creates the pool via acquireRelease (optional — null if unconfigured)
 export const postgresConnectionPoolLayer = Layer.effect(
@@ -26,17 +31,19 @@ export const postgresConnectionPoolLayer = Layer.effect(
       });
 
       pool.on("error", (err: Error) => {
-        console.error("Unexpected PostgreSQL pool error:", err);
+        Effect.runSync(Effect.logError(`Unexpected PostgreSQL pool error: ${err.message}`));
       });
 
       return pool;
     }),
     (pool) =>
-      Effect.sync(() => {
-        if (pool !== null) {
-          console.log("Closing PostgreSQL pool...");
-          pool.end().catch((err) => console.error("Error closing pool:", err));
-        }
+      Effect.gen(function* () {
+        if (pool === null) return;
+        yield* Effect.logInfo("Closing PostgreSQL pool...");
+        yield* Effect.tryPromise({
+          try: () => pool.end(),
+          catch: (error) => new PostgresConnectionError({ message: String(error), cause: error }),
+        }).pipe(Effect.catch((err) => Effect.logError(`Error closing pool: ${err.message}`)));
       })
   )
 );

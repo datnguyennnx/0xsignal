@@ -7,9 +7,7 @@ export const withAuth =
   (request: Request): Effect.Effect<Response, never, AuthService> =>
     Effect.gen(function* () {
       const authService = yield* AuthService;
-      const token =
-        request.headers.get("Authorization")?.replace("Bearer ", "") ??
-        parseCookie(request.headers.get("cookie") ?? "", "access_token");
+      const token = request.headers.get("Authorization")?.replace(/^Bearer\s+/, "");
 
       if (!token) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -54,11 +52,3 @@ export const withAuth =
         )
       );
     });
-
-function parseCookie(cookieHeader: string, name: string): string | undefined {
-  return cookieHeader
-    .split(";")
-    .find((c) => c.trim().startsWith(`${name}=`))
-    ?.split("=")[1]
-    ?.trim();
-}

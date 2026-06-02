@@ -1,6 +1,14 @@
 import { type Candle } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 
+class NormalizationError extends Error {
+  readonly _tag = "NormalizationError";
+  constructor(message: string) {
+    super(message);
+    this.name = "NormalizationError";
+  }
+}
+
 export type HlInterval =
   | "1m"
   | "3m"
@@ -45,13 +53,13 @@ const isHlRawCandle = (value: unknown): value is HlRawCandle => {
 
 export function parseHlRawCandles(payload: unknown): HlRawCandle[] {
   if (!Array.isArray(payload)) {
-    throw new TypeError("Hyperliquid candle payload must be an array");
+    throw new NormalizationError("Hyperliquid candle payload must be an array");
   }
 
   const parsed: HlRawCandle[] = [];
   for (const item of payload) {
     if (!isHlRawCandle(item)) {
-      throw new TypeError("Hyperliquid candle item has invalid shape");
+      throw new NormalizationError("Hyperliquid candle item has invalid shape");
     }
     parsed.push(item);
   }

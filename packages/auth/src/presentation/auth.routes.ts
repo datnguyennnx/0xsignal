@@ -118,7 +118,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         const isDev =
           normalizedFrontend.includes("localhost") || normalizedFrontend.includes("127.0.0.1");
         const secureFlag = isDev ? "" : " Secure;";
-        const cookie = `refresh_token=${tokens.refreshToken}; HttpOnly;${secureFlag} SameSite=Strict; Path=/api/auth/refresh; Max-Age=2592000`;
+        const cookie = `refresh_token=${tokens.refreshToken}; HttpOnly;${secureFlag} SameSite=Strict; Path=/api/auth; Max-Age=2592000`;
 
         return json(
           {
@@ -152,7 +152,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         const isDev =
           normalizedFrontend.includes("localhost") || normalizedFrontend.includes("127.0.0.1");
         const secureFlag = isDev ? "" : " Secure;";
-        const cookie = `refresh_token=${tokens.refreshToken}; HttpOnly;${secureFlag} SameSite=Strict; Path=/api/auth/refresh; Max-Age=2592000`;
+        const cookie = `refresh_token=${tokens.refreshToken}; HttpOnly;${secureFlag} SameSite=Strict; Path=/api/auth; Max-Age=2592000`;
 
         return json(
           {
@@ -165,7 +165,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         );
       }).pipe(
         Effect.catch(() => {
-          const cookie = `refresh_token=; HttpOnly; SameSite=Strict; Path=/api/auth/refresh; Max-Age=0`;
+          const cookie = `refresh_token=; HttpOnly; SameSite=Strict; Path=/api/auth; Max-Age=0`;
           return Effect.succeed(json({ error: "Session expired" }, 401, { "Set-Cookie": cookie }));
         })
       ),
@@ -181,7 +181,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         if (refreshToken) {
           yield* Effect.catch(authService.logout(refreshToken), () => Effect.succeed(undefined));
         }
-        const cookie = `refresh_token=; HttpOnly; SameSite=Strict; Path=/api/auth/refresh; Max-Age=0`;
+        const cookie = `refresh_token=; HttpOnly; SameSite=Strict; Path=/api/auth; Max-Age=0`;
         return json({ message: "Logged out" }, 200, { "Set-Cookie": cookie });
       }),
   },

@@ -1,10 +1,6 @@
 import { Effect } from "effect";
+import { z } from "zod";
 import { ExchangeService } from "../../../application/exchange/contracts";
-import type {
-  PlaceOrderRequest,
-  UpdateLeverageRequest,
-  CancelOrdersRequest,
-} from "../../../application/exchange/types";
 
 type HttpError = {
   readonly status: number;
@@ -28,6 +24,50 @@ type BuildExchangeRoutesParams = {
   readonly mapServiceError: (error: unknown) => HttpError;
 };
 
+const OrderTypeSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("limit"),
+    timeInForce: z.enum(["GTC", "IOC", "FOK", "Alo", "FrontendMarket"]),
+  }),
+  z.object({
+    kind: z.literal("trigger"),
+    isMarket: z.boolean(),
+    triggerPrice: z.string(),
+    tpsl: z.enum(["tp", "sl"]),
+  }),
+]);
+
+const PlaceOrderEntrySchema = z.object({
+  symbol: z.string(),
+  side: z.enum(["buy", "sell"]),
+  quantity: z.string(),
+  price: z.string(),
+  reduceOnly: z.boolean(),
+  orderType: OrderTypeSchema,
+});
+
+const PlaceOrderRequestSchema = z.object({
+  orders: z.array(PlaceOrderEntrySchema),
+  grouping: z.enum(["na", "normalTpsl", "positionTpsl"]).optional(),
+});
+
+const UpdateLeverageRequestSchema = z.object({
+  symbol: z.string(),
+  isCross: z.boolean(),
+  leverage: z.number().positive(),
+});
+
+const CancelEntrySchema = z.object({
+  symbol: z.string(),
+  orderId: z.number(),
+});
+
+const CancelOrdersRequestSchema = z.object({
+  cancels: z.array(CancelEntrySchema),
+});
+
+const asHttpError = (status: number, message: string): HttpError => ({ status, message });
+
 export const buildExchangeRoutes = ({
   json,
   mapServiceError,
@@ -41,12 +81,21 @@ export const buildExchangeRoutes = ({
     path: "/api/exchange/order",
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService) =>
       Effect.gen(function* () {
-        const body = yield* Effect.tryPromise({
-          try: () => request.json() as Promise<PlaceOrderRequest>,
-          catch: () => ({ error: "Invalid JSON body" }),
-        }).pipe(Effect.mapError(() => ({ status: 400, message: "Invalid request body" })));
+        const raw = yield* Effect.tryPromise({
+          try: () => request.json(),
+          catch: () => asHttpError(400, "Invalid request body"),
+        });
 
-        const payload = yield* exchange.placeOrder(body).pipe(Effect.mapError(mapServiceError));
+        const parsed = PlaceOrderRequestSchema.safeParse(raw);
+        if (!parsed.success) {
+          return yield* Effect.fail(
+            asHttpError(400, `Invalid request body: ${parsed.error.message}`)
+          );
+        }
+
+        const payload = yield* exchange
+          .placeOrder(parsed.data)
+          .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),
   },
@@ -55,13 +104,20 @@ export const buildExchangeRoutes = ({
     path: "/api/exchange/leverage",
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService) =>
       Effect.gen(function* () {
-        const body = yield* Effect.tryPromise({
-          try: () => request.json() as Promise<UpdateLeverageRequest>,
-          catch: () => ({ error: "Invalid JSON body" }),
-        }).pipe(Effect.mapError(() => ({ status: 400, message: "Invalid request body" })));
+        const raw = yield* Effect.tryPromise({
+          try: () => request.json(),
+          catch: () => asHttpError(400, "Invalid request body"),
+        });
+
+        const parsed = UpdateLeverageRequestSchema.safeParse(raw);
+        if (!parsed.success) {
+          return yield* Effect.fail(
+            asHttpError(400, `Invalid request body: ${parsed.error.message}`)
+          );
+        }
 
         const payload = yield* exchange
-          .updateLeverageAndMargin(body)
+          .updateLeverageAndMargin(parsed.data)
           .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),
@@ -71,12 +127,21 @@ export const buildExchangeRoutes = ({
     path: "/api/exchange/cancel",
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService) =>
       Effect.gen(function* () {
-        const body = yield* Effect.tryPromise({
-          try: () => request.json() as Promise<CancelOrdersRequest>,
-          catch: () => ({ error: "Invalid JSON body" }),
-        }).pipe(Effect.mapError(() => ({ status: 400, message: "Invalid request body" })));
+        const raw = yield* Effect.tryPromise({
+          try: () => request.json(),
+          catch: () => asHttpError(400, "Invalid request body"),
+        });
 
-        const payload = yield* exchange.cancelOrders(body).pipe(Effect.mapError(mapServiceError));
+        const parsed = CancelOrdersRequestSchema.safeParse(raw);
+        if (!parsed.success) {
+          return yield* Effect.fail(
+            asHttpError(400, `Invalid request body: ${parsed.error.message}`)
+          );
+        }
+
+        const payload = yield* exchange
+          .cancelOrders(parsed.data)
+          .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),
   },

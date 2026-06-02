@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Config, Effect } from "effect";
 import { make as makeRuntime } from "effect/ManagedRuntime";
 
 import { AppLayer } from "../../infrastructure/layers/app.layer";
@@ -9,8 +9,6 @@ import { parseMarketWsSubscription } from "./ws/subscription-parser";
 import { CorsService } from "./cors";
 import { errorResponse } from "./error-response";
 
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 9006;
-
 // Create a managed runtime for bridging non-Effect code
 // NOTE: AppLayer is NOT provided again below — makeRuntime already
 // memoizes it. Providing AppLayer again via Effect.provide would create a
@@ -19,6 +17,7 @@ const runtime = makeRuntime(AppLayer);
 
 // App Program
 const serverProgram = Effect.gen(function* () {
+  const PORT = yield* Config.int("PORT").pipe(Config.withDefault(9006));
   const marketStreamHub = yield* MarketStreamHub;
   marketStreamHub.setRuntime(runtime);
 

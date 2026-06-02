@@ -26,8 +26,8 @@ export const mapMarketInfraError =
         return new DomainError({ code: "INTERNAL_ERROR", message, cause: error });
       }
 
-      return new DomainError({ code: "VALIDATION_ERROR", message, cause: error });
+      return new DomainError({ code: "INTERNAL_ERROR", message, cause: error });
     }
 
-    return new DomainError({ code: "VALIDATION_ERROR", message: fallbackMessage, cause: error });
+    return new DomainError({ code: "INTERNAL_ERROR", message: fallbackMessage, cause: error });
   };

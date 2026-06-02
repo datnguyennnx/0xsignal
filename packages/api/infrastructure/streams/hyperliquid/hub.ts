@@ -7,7 +7,7 @@ import { buildMarketWsBucketKey } from "./bucket-key";
 import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
 import { HyperliquidProvider } from "../../data-sources/hyperliquid/types";
 import type { HyperliquidAggregatedAsset } from "../../data-sources/hyperliquid/types";
-import { Data, Effect } from "effect";
+import { Clock, Data, Effect, Fiber } from "effect";
 import type { ManagedRuntime } from "effect/ManagedRuntime";
 import {
   normalizeAllMidsData,
@@ -35,6 +35,8 @@ type Bucket = {
   readonly clients: Set<ServerWebSocket<MarketWsConnectionData>>;
   upstream?: ISubscription;
   subscribing?: Promise<void>; // Promise-based mutex lock for ensureUpstream
+  /** Cleanup handle for the old subscription's failureSignal abort listener */
+  failureSignalAbortHandler?: () => void;
   restarting: boolean;
   firstMarketBroadcastLogged: boolean;
   retryCount: number;
@@ -42,6 +44,11 @@ type Bucket = {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
+
+// Extend ServerWebSocket with the runtime backpressure property not exposed in bun types
+interface ServerWebSocketWithBackpressure<T = undefined> extends ServerWebSocket<T> {
+  readonly backpressure: number;
+}
 
 export class HyperliquidMarketStreamHub {
   // Event-driven WebSocket hub
@@ -61,10 +68,18 @@ export class HyperliquidMarketStreamHub {
 
   private shuttingDown = false;
 
+  private aggregatedMarketsPromise?: Promise<readonly HyperliquidAggregatedAsset[]>;
+
+  private readonly restartFibers = new Set<Fiber.Fiber<unknown, unknown>>();
+
   constructor(private readonly provider?: typeof HyperliquidProvider.Service) {}
 
   setRuntime(runtime: ManagedRuntime<any, any>): void {
     this.runtime = runtime;
+    // Pre-fetch aggregated markets once at startup; resolves from provider's cache
+    if (this.provider) {
+      this.aggregatedMarketsPromise = runtime.runPromise(this.provider.getAggregatedMarkets());
+    }
   }
 
   createConnectionData(subscription: MarketWsSubscription): MarketWsConnectionData {
@@ -108,7 +123,7 @@ export class HyperliquidMarketStreamHub {
       type: "ready",
       subscription: bucket.subscription,
       connectionId: ws.data.id,
-      timestamp: Date.now(),
+      timestamp: Effect.runSync(Clock.currentTimeMillis),
     });
 
     this.ensureUpstream(bucket.key).catch((err) => {
@@ -130,7 +145,7 @@ export class HyperliquidMarketStreamHub {
   handleMessage(ws: ServerWebSocket<MarketWsConnectionData>, raw: string | Buffer | Uint8Array) {
     const payload = this.toText(raw).trim();
     if (payload === "ping") {
-      this.send(ws, { type: "pong", timestamp: Date.now() });
+      this.send(ws, { type: "pong", timestamp: Effect.runSync(Clock.currentTimeMillis) });
       return;
     }
 
@@ -139,7 +154,7 @@ export class HyperliquidMarketStreamHub {
         type: "error",
         code: "unsupported_message",
         message: "Only ping messages are supported on this endpoint.",
-        timestamp: Date.now(),
+        timestamp: Effect.runSync(Clock.currentTimeMillis),
       });
     }
   }
@@ -174,23 +189,22 @@ export class HyperliquidMarketStreamHub {
           this.broadcast(bucket, {
             type: "ready",
             subscription: bucket.subscription,
-            timestamp: Date.now(),
+            timestamp: Effect.runSync(Clock.currentTimeMillis),
           });
-          sub.failureSignal.addEventListener(
-            "abort",
-            () => {
-              marketWsLog(
-                "upstream_failure_signal",
-                {
-                  bucketKey: bucket.key,
-                  channel: bucket.subscription.channel,
-                },
-                "warn"
-              );
-              void this.restartBucket(bucket.key, "upstream_subscription_failed");
-            },
-            { once: true }
-          );
+          const abortHandler = () => {
+            marketWsLog(
+              "upstream_failure_signal",
+              {
+                bucketKey: bucket.key,
+                channel: bucket.subscription.channel,
+              },
+              "warn"
+            );
+            bucket.failureSignalAbortHandler = undefined;
+            void this.restartBucket(bucket.key, "upstream_subscription_failed");
+          };
+          sub.failureSignal.addEventListener("abort", abortHandler, { once: true });
+          bucket.failureSignalAbortHandler = abortHandler;
         },
         (error) => {
           marketWsLog(
@@ -206,7 +220,7 @@ export class HyperliquidMarketStreamHub {
             type: "error",
             code: "upstream_subscribe_failed",
             message: error instanceof Error ? error.message : String(error),
-            timestamp: Date.now(),
+            timestamp: Effect.runSync(Clock.currentTimeMillis),
           });
           void this.restartBucket(bucket.key, "upstream_subscribe_failed");
         }
@@ -240,7 +254,7 @@ export class HyperliquidMarketStreamHub {
         type: "error",
         code: "max_retries_exceeded",
         message: `Max retries (${MAX_RESTART_RETRIES}) exceeded for ${bucket.key}`,
-        timestamp: Date.now(),
+        timestamp: Effect.runSync(Clock.currentTimeMillis),
       });
       for (const client of [...bucket.clients]) {
         this.detach(client);
@@ -252,6 +266,14 @@ export class HyperliquidMarketStreamHub {
     bucket.retryCount++;
 
     if (bucket.upstream) {
+      // Remove old failure signal listener to prevent stale restarts
+      if (bucket.failureSignalAbortHandler) {
+        bucket.upstream.failureSignal.removeEventListener(
+          "abort",
+          bucket.failureSignalAbortHandler
+        );
+        bucket.failureSignalAbortHandler = undefined;
+      }
       try {
         await bucket.upstream.unsubscribe();
       } catch {
@@ -263,32 +285,42 @@ export class HyperliquidMarketStreamHub {
     this.broadcast(bucket, {
       type: "reconnecting",
       reason,
-      timestamp: Date.now(),
+      timestamp: Effect.runSync(Clock.currentTimeMillis),
     });
 
-    const promise = this.runtime?.runPromise(
-      Effect.sleep("500 millis").pipe(
-        Effect.flatMap(() => {
-          const current = this.buckets.get(key);
-          if (!current) {
-            return Effect.void;
-          }
-          current.restarting = false;
-          return Effect.sync(() => this.ensureUpstream(key));
+    if (this.runtime) {
+      const fiberPromise = this.runtime.runPromise(
+        Effect.forkDetach(
+          Effect.sleep("500 millis").pipe(
+            Effect.flatMap(() => {
+              const current = this.buckets.get(key);
+              if (!current) {
+                return Effect.void;
+              }
+              current.restarting = false;
+              return Effect.sync(() => this.ensureUpstream(key));
+            })
+          )
+        )
+      );
+
+      fiberPromise
+        .then((fiber) => {
+          this.restartFibers.add(fiber);
+          fiber.addObserver(() => {
+            this.restartFibers.delete(fiber);
+          });
         })
-      )
-    );
-    if (promise) {
-      promise.catch((err) => {
-        marketWsLog(
-          "restart_error",
-          {
-            bucketKey: key,
-            error: err instanceof Error ? err.message : String(err),
-          },
-          "error"
-        );
-      });
+        .catch((err) => {
+          marketWsLog(
+            "restart_error",
+            {
+              bucketKey: key,
+              error: err instanceof Error ? err.message : String(err),
+            },
+            "error"
+          );
+        });
     }
   }
 
@@ -298,25 +330,25 @@ export class HyperliquidMarketStreamHub {
     let internalSymbol = subscription.symbol;
     // Validate against remote market universe
     const subSymbol = subscription.symbol;
-    if (this.provider && this.runtime && subSymbol) {
+    if (this.aggregatedMarketsPromise && subSymbol) {
       try {
-        const markets: readonly HyperliquidAggregatedAsset[] = await this.runtime!.runPromise(
-          this.provider.getAggregatedMarkets()
-        );
-        const subUpper = subSymbol.toUpperCase();
-        const asset: HyperliquidAggregatedAsset | undefined = markets.find(
-          (m) => m.rawCoin === subSymbol || m.rawCoin.toUpperCase() === subUpper
-        );
+        const markets = await this.aggregatedMarketsPromise;
+        if (markets) {
+          const subUpper = subSymbol.toUpperCase();
+          const asset: HyperliquidAggregatedAsset | undefined = markets.find(
+            (m) => m.rawCoin === subSymbol || m.rawCoin.toUpperCase() === subUpper
+          );
 
-        if (!asset) {
-          throw new WebSocketSubscribeError({
-            message: `Cannot subscribe to WebSocket for "${subSymbol}": not found in any market universe (perp, spot, or outcome).`,
-            symbol: subSymbol,
-          });
+          if (!asset) {
+            throw new WebSocketSubscribeError({
+              message: `Cannot subscribe to WebSocket for "${subSymbol}": not found in any market universe (perp, spot, or outcome).`,
+              symbol: subSymbol,
+            });
+          }
+
+          // Resolve coin to API-level identifier (perp rawCoin / spot @index)
+          internalSymbol = asset.marketType === "spot" ? asset.name : asset.rawCoin;
         }
-
-        // Resolve coin to API-level identifier (perp rawCoin / spot @index)
-        internalSymbol = asset.marketType === "spot" ? asset.name : asset.rawCoin;
       } catch (error) {
         marketWsLog(
           "symbol_resolution_failed",
@@ -418,6 +450,13 @@ export class HyperliquidMarketStreamHub {
 
     this.buckets.delete(bucket.key);
     if (bucket.upstream) {
+      if (bucket.failureSignalAbortHandler) {
+        bucket.upstream.failureSignal.removeEventListener(
+          "abort",
+          bucket.failureSignalAbortHandler
+        );
+        bucket.failureSignalAbortHandler = undefined;
+      }
       void bucket.upstream.unsubscribe().catch((err) => {
         marketWsLog("unsubscribe_error", { bucketKey: bucket.key, error: String(err) }, "warn");
       });
@@ -426,8 +465,22 @@ export class HyperliquidMarketStreamHub {
 
   shutdown() {
     this.shuttingDown = true;
+
+    // Interrupt all tracked restart fibers to prevent post-shutdown effects
+    for (const fiber of this.restartFibers) {
+      fiber.interruptUnsafe();
+    }
+    this.restartFibers.clear();
+
     for (const bucket of this.buckets.values()) {
       if (bucket.upstream) {
+        if (bucket.failureSignalAbortHandler) {
+          bucket.upstream.failureSignal.removeEventListener(
+            "abort",
+            bucket.failureSignalAbortHandler
+          );
+          bucket.failureSignalAbortHandler = undefined;
+        }
         void bucket.upstream.unsubscribe().catch((err) => {
           marketWsLog("unsubscribe_error", { bucketKey: bucket.key, error: String(err) }, "warn");
         });
@@ -455,7 +508,8 @@ export class HyperliquidMarketStreamHub {
     for (const client of bucket.clients) {
       try {
         // Disconnect slow clients to prevent server memory bloat
-        const backpressure = (client as any).backpressure ?? 0;
+        const backpressure =
+          (client as unknown as ServerWebSocketWithBackpressure).backpressure ?? 0;
         if (backpressure > MAX_BACKPRESSURE_BYTES) {
           marketWsLog(
             "backpressure_exceeded",
