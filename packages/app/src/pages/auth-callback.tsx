@@ -7,7 +7,8 @@
  * stores the access token in-memory, and redirects to the trading page.
  */
 import { useEffect } from "react";
-import { api, setAuthToken } from "@/services/api";
+import { api } from "@/services/api";
+import { setAuthToken } from "@/lib/api-base";
 
 export function AuthCallbackPage() {
   useEffect(() => {

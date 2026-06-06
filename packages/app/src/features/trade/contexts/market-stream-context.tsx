@@ -1,10 +1,3 @@
-/**
- * @overview Market Stream Context
- *
- * Manages the frontend WebSocket connection to the backend `/api/ws/market` stream.
- * It does not connect directly to Hyperliquid; it consumes backend-proxied realtime
- * updates and adapts payloads into render-friendly callbacks for trade/chart UI.
- */
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { mapToHLInterval } from "@/core/utils/hyperliquid";
 import { resolveApiBase } from "@/lib/api-base";

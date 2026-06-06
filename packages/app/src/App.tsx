@@ -1,20 +1,12 @@
-/**
- * @overview Main App Component
- * Sets up routing, theme, and backend market-stream context.
- *
- * @performance
- * - Lazy loads heavy routes (AssetDetail, TradingChart)
- * - Preloads critical routes 2s after mount to not block initial render
- * - Uses Suspense for streaming SSR-like experience
- */
-import { lazy, Suspense, useEffect, type ReactNode } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { ThemeProvider } from "@/core/providers/theme-provider";
 import { AuthProvider } from "@/core/providers/auth-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MarketStreamProvider } from "@/features/trade/contexts/market-stream-context";
 import { MainLayout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Toaster } from "@/components/ui/sonner";
 
 import { queryKeys } from "@/lib/query/query-keys";
 import { queryClient } from "@/lib/query/client";
@@ -70,36 +62,12 @@ const usePreloadRoutes = () => {
   }, []);
 };
 
-import { useAuth } from "@/core/providers/auth-context";
-
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[clamp(20rem,50dvh,40rem)]">
       <div className="h-6 w-6 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
     </div>
   );
-}
-
-function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) {
-    return <PageLoader />;
-  }
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  return <>{children}</>;
-}
-
-function PublicRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
-  if (isLoading) {
-    return <PageLoader />;
-  }
-  if (isAuthenticated) {
-    return <Navigate to="/trade/BTC" replace />;
-  }
-  return <>{children}</>;
 }
 
 function RouteErrorFallback() {
@@ -127,56 +95,46 @@ function App() {
             <TooltipProvider>
               <BrowserRouter>
                 <Routes>
-                  {/* Public routes — no app chrome */}
+                  {/* All routes are public. Auth enforced only at POST /exchange/* request boundary. */}
                   <Route
                     path="/login"
                     element={
-                      <PublicRoute>
-                        <Suspense fallback={<PageLoader />}>
-                          <ErrorBoundary fallback={<RouteErrorFallback />}>
-                            <LoginPage />
-                          </ErrorBoundary>
-                        </Suspense>
-                      </PublicRoute>
+                      <Suspense fallback={<PageLoader />}>
+                        <ErrorBoundary fallback={<RouteErrorFallback />}>
+                          <LoginPage />
+                        </ErrorBoundary>
+                      </Suspense>
                     }
                   />
                   <Route
                     path="/auth/callback"
                     element={
-                      <PublicRoute>
-                        <Suspense fallback={<PageLoader />}>
-                          <AuthCallbackPage />
-                        </Suspense>
-                      </PublicRoute>
+                      <Suspense fallback={<PageLoader />}>
+                        <AuthCallbackPage />
+                      </Suspense>
                     }
                   />
-                  {/* Authenticated routes — inside MainLayout */}
                   <Route
-                    path="/*"
                     element={
-                      <ProtectedRoute>
-                        <MainLayout>
-                          <Suspense fallback={<PageLoader />}>
-                            <ErrorBoundary fallback={<RouteErrorFallback />}>
-                              <Routes>
-                                <Route path="/" element={<Navigate to="/trade/BTC" replace />} />
-                                <Route
-                                  path="/trade"
-                                  element={<Navigate to="/trade/BTC" replace />}
-                                />
-                                <Route path="/trade/:base/:quote" element={<AssetDetail />} />
-                                <Route path="/trade/:symbol" element={<AssetDetail />} />
-                                <Route path="/portfolio" element={<PortfolioPage />} />
-                                <Route path="/settings" element={<SettingsPage />} />
-                                <Route path="*" element={<NotFoundPage />} />
-                              </Routes>
-                            </ErrorBoundary>
-                          </Suspense>
-                        </MainLayout>
-                      </ProtectedRoute>
+                      <MainLayout>
+                        <Suspense fallback={<PageLoader />}>
+                          <ErrorBoundary fallback={<RouteErrorFallback />}>
+                            <Outlet />
+                          </ErrorBoundary>
+                        </Suspense>
+                      </MainLayout>
                     }
-                  />
+                  >
+                    <Route path="/" element={<Navigate to="/trade/BTC" replace />} />
+                    <Route path="/trade" element={<Navigate to="/trade/BTC" replace />} />
+                    <Route path="/trade/:base/:quote" element={<AssetDetail />} />
+                    <Route path="/trade/:symbol" element={<AssetDetail />} />
+                    <Route path="/portfolio" element={<PortfolioPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Route>
                 </Routes>
+                <Toaster />
               </BrowserRouter>
             </TooltipProvider>
           </MarketStreamProvider>

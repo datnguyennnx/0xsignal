@@ -1,37 +1,18 @@
-/**
- * @overview Web3 Connection Config
- *
- * Configures Wagmi/Viem providers and connectors for EVM-based functionality.
- * Supports Arbitrum (Hyperliquid target) and Ethereum Mainnet.
- */
 import { http, createConfig } from "wagmi";
 import { mainnet, arbitrum } from "wagmi/chains";
-import { injected, walletConnect } from "wagmi/connectors";
-
-const WALLET_CONNECT_PROJECT_ID = import.meta.env.VITE_WALLET_CONNECT_PROJECT_ID as
-  | string
-  | undefined;
+import { metaMask, coinbaseWallet } from "wagmi/connectors";
 
 export const config = createConfig({
   chains: [mainnet, arbitrum],
   connectors: [
-    injected({
-      shimDisconnect: true,
+    metaMask({
+      dappMetadata: {
+        name: "0xsignal",
+        url: typeof window !== "undefined" ? window.location.origin : "https://0xsignal.app",
+      },
+      extensionOnly: true,
     }),
-    ...(WALLET_CONNECT_PROJECT_ID
-      ? [
-          walletConnect({
-            projectId: WALLET_CONNECT_PROJECT_ID,
-            showQrModal: true,
-            metadata: {
-              name: "0xSignal",
-              description: "Advanced crypto trading signals",
-              url: typeof window !== "undefined" ? window.location.origin : "",
-              icons: [typeof window !== "undefined" ? `${window.location.origin}/logo.png` : ""],
-            },
-          }),
-        ]
-      : []),
+    coinbaseWallet({}),
   ],
   transports: {
     [mainnet.id]: http(),

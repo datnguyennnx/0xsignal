@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { api, type UpdateLeverageRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/core/utils/cn";
-import { useAuth } from "@/core/providers/auth-context";
-import { useNavigate } from "react-router-dom";
+import { UnauthenticatedError } from "@/lib/api-base";
+import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
 
 interface MarginModeModalProps {
   open: boolean;
@@ -46,9 +46,8 @@ export function MarginModeModal({
   onConfirm,
 }: MarginModeModalProps) {
   const [mode, setMode] = useState<"cross" | "isolated">(currentMode);
-  const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { open: openConnectWallet, ConnectWalletSheet } = useConnectWalletPrompt();
 
   const mutation = useMutation({
     mutationFn: (params: UpdateLeverageRequest) => api.updateLeverage(params),
@@ -56,6 +55,11 @@ export function MarginModeModal({
       queryClient.invalidateQueries({ queryKey: queryKeys.userData.clearinghouseState() });
       onConfirm?.(mode);
       onOpenChange(false);
+    },
+    onError: (err) => {
+      if (err instanceof UnauthenticatedError) {
+        openConnectWallet();
+      }
     },
   });
 
@@ -67,10 +71,6 @@ export function MarginModeModal({
   };
 
   const handleConfirm = () => {
-    if (!isAuthenticated) {
-      navigate("/login");
-      return;
-    }
     mutation.mutate({ symbol, isCross: mode === "cross", leverage: currentLeverage });
   };
 
@@ -172,6 +172,7 @@ export function MarginModeModal({
             {mutation.isPending ? "Confirming..." : "Confirm"}
           </Button>
         </DialogFooter>
+        {ConnectWalletSheet}
       </DialogContent>
     </Dialog>
   );

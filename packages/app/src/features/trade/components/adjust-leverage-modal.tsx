@@ -15,8 +15,8 @@ import { api, type UpdateLeverageRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/core/utils/cn";
 import { AlertTriangleIcon } from "lucide-react";
-import { useAuth } from "@/core/providers/auth-context";
-import { useNavigate } from "react-router-dom";
+import { UnauthenticatedError } from "@/lib/api-base";
+import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
 
 interface AdjustLeverageModalProps {
   open: boolean;
@@ -41,9 +41,8 @@ export function AdjustLeverageModal({
   onConfirm,
 }: AdjustLeverageModalProps) {
   const [leverage, setLeverage] = useState(currentLeverage);
-  const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { open: openConnectWallet, ConnectWalletSheet } = useConnectWalletPrompt();
 
   // Sync state when prop changes (e.g. modal opened for a different asset)
   useEffect(() => {
@@ -58,6 +57,11 @@ export function AdjustLeverageModal({
       queryClient.invalidateQueries({ queryKey: queryKeys.userData.clearinghouseState() });
       onConfirm?.(leverage);
       onOpenChange(false);
+    },
+    onError: (err) => {
+      if (err instanceof UnauthenticatedError) {
+        openConnectWallet();
+      }
     },
   });
 
@@ -77,10 +81,6 @@ export function AdjustLeverageModal({
   };
 
   const handleConfirm = () => {
-    if (!isAuthenticated) {
-      navigate("/login");
-      return;
-    }
     mutation.mutate({ symbol, isCross, leverage });
   };
 
@@ -177,6 +177,7 @@ export function AdjustLeverageModal({
             {mutation.isPending ? "Confirming..." : "Confirm"}
           </Button>
         </DialogFooter>
+        {ConnectWalletSheet}
       </DialogContent>
     </Dialog>
   );

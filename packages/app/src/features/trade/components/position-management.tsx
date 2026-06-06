@@ -40,7 +40,8 @@ import { formatOrderSize } from "../utils/trade-math";
 import { getOrderType } from "../utils/trigger-utils";
 import { formatPrice } from "@/core/utils/formatters";
 import { cn } from "@/core/utils/cn";
-import { useAuth } from "@/core/providers/auth-context";
+import { UnauthenticatedError } from "@/lib/api-base";
+import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
 
 type TwapSubTab = "active" | "history" | "fill-history";
 
@@ -51,7 +52,7 @@ const TWAP_SUB_TABS: { value: TwapSubTab; label: string }[] = [
 ];
 
 export function PositionManagement() {
-  const { isAuthenticated } = useAuth();
+  const { open: openConnectWallet, ConnectWalletSheet } = useConnectWalletPrompt();
   const {
     positions,
     marginSummary,
@@ -120,6 +121,11 @@ export function PositionManagement() {
       queryClient.invalidateQueries({ queryKey: queryKeys.userData.clearinghouseState() });
       queryClient.invalidateQueries({ queryKey: queryKeys.userData.openOrders() });
     },
+    onError: (err) => {
+      if (err instanceof UnauthenticatedError) {
+        openConnectWallet();
+      }
+    },
   });
 
   const [activeTab, setActiveTab] = useState("balances");
@@ -150,23 +156,38 @@ export function PositionManagement() {
 
   const handleCancelOrder = useCallback(
     (coin: string, oid: number) => {
-      if (!isAuthenticated) return;
-      cancelOrdersMutation.mutate({ cancels: [{ symbol: coin, orderId: oid }] });
+      cancelOrdersMutation.mutate(
+        { cancels: [{ symbol: coin, orderId: oid }] },
+        {
+          onError: (err) => {
+            if (err instanceof UnauthenticatedError) {
+              openConnectWallet();
+            }
+          },
+        }
+      );
     },
-    [isAuthenticated, cancelOrdersMutation]
+    [cancelOrdersMutation, openConnectWallet]
   );
 
   const handleCancelAllConfirm = () => {
-    if (!isAuthenticated) return;
     if (!openOrders || openOrders.length === 0) return;
     const cancels = openOrders.map((o) => ({ symbol: o.coin, orderId: o.oid }));
-    cancelOrdersMutation.mutate({ cancels });
+    cancelOrdersMutation.mutate(
+      { cancels },
+      {
+        onError: (err) => {
+          if (err instanceof UnauthenticatedError) {
+            openConnectWallet();
+          }
+        },
+      }
+    );
     setCancelAllDialogOpen(false);
   };
 
   const handleCloseMarket = useCallback(
     (coin: string, size: string, isLong: boolean) => {
-      if (!isAuthenticated) return;
       const { szDecimals } = getPrecision(coin);
       const absSz = Math.abs(Number(size));
       const formattedSz = formatOrderSize(absSz, szDecimals);
@@ -184,12 +205,11 @@ export function PositionManagement() {
         grouping: "na",
       });
     },
-    [isAuthenticated, getPrecision, placeOrderMutation]
+    [getPrecision, placeOrderMutation]
   );
 
   const handleCloseLimitConfirm = useCallback(
     ({ price, size }: { price: string; size: string }) => {
-      if (!isAuthenticated) return;
       if (!closeLimitPosition) return;
       const { coin, isLong } = closeLimitPosition;
       placeOrderMutation.mutate({
@@ -207,7 +227,7 @@ export function PositionManagement() {
       });
       setCloseLimitPosition(null);
     },
-    [isAuthenticated, closeLimitPosition, placeOrderMutation]
+    [closeLimitPosition, placeOrderMutation]
   );
 
   const closeLimitSzDecimals = closeLimitPosition
@@ -432,6 +452,7 @@ export function PositionManagement() {
         onConfirmLimitClose={handleCloseLimitConfirm}
         isPending={placeOrderMutation.isPending}
       />
+      {ConnectWalletSheet}
     </div>
   );
 }

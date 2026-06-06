@@ -1,9 +1,3 @@
-/**
- * @overview Auth Context Provider
- *
- * Manages in-memory access token storage and handles silent session
- * refreshing via secure HTTP-only cookies.
- */
 import {
   createContext,
   useContext,
@@ -13,7 +7,9 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
-import { api, setAuthToken } from "@/services/api";
+import { toast } from "sonner";
+import { api, ApiError } from "@/services/api";
+import { setAuthToken } from "@/lib/api-base";
 
 export interface AuthUser {
   readonly userId: string;
@@ -29,6 +25,10 @@ type AuthState = {
   readonly isLoading: boolean;
   /** Authenticated user info (null when not authenticated) */
   readonly user: AuthUser | null;
+  /** Whether the user has linked a wallet to their account */
+  readonly hasLinkedWallet: boolean;
+  /** Re-fetch wallet status and update hasLinkedWallet */
+  readonly refreshWalletStatus: () => Promise<void>;
   /** Clear session and reset state */
   readonly signOut: () => void;
 };
@@ -39,19 +39,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [hasLinkedWallet, setHasLinkedWallet] = useState(false);
+
+  const refreshWalletStatus = useCallback(async () => {
+    try {
+      const wallets = await api.listWallets();
+      setHasLinkedWallet(wallets.length > 0);
+    } catch {
+      // Wallet fetch is non-critical; don't block auth
+      setHasLinkedWallet(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function checkAuth() {
-      // Skip silent refresh if on callback or login landing pages to optimize load times
+      // Skip refresh on callback/login pages
       if (window.location.pathname === "/auth/callback" || window.location.pathname === "/login") {
         setIsLoading(false);
         return;
       }
 
       try {
-        // Perform a silent refresh to exchange httpOnly cookie for in-memory access token
         const data = await api.refreshToken();
 
         if (cancelled) return;
@@ -70,17 +80,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               avatarUrl: profileData.avatarUrl,
               displayName: profileData.displayName,
             });
+
+            // Non-critical wallet check — don't block auth
+            try {
+              const wallets = await api.listWallets();
+              if (!cancelled) {
+                setHasLinkedWallet(wallets.length > 0);
+              }
+            } catch {
+              if (!cancelled) {
+                setHasLinkedWallet(false);
+              }
+            }
           }
         } else {
           setIsAuthenticated(false);
           setUser(null);
           setAuthToken(null);
+          setHasLinkedWallet(false);
         }
-      } catch (error) {
+      } catch (err) {
         if (cancelled) return;
+
+        // Show a toast for 403 (account suspended/deleted)
+        if (err instanceof ApiError && err.status === 403) {
+          toast.error("Account unavailable", {
+            description: "Your account may be suspended or inactive. Please contact support.",
+          });
+        }
+
         setIsAuthenticated(false);
         setUser(null);
         setAuthToken(null);
+        setHasLinkedWallet(false);
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -102,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthToken(null);
     setIsAuthenticated(false);
     setUser(null);
+    setHasLinkedWallet(false);
   }, []);
 
   const value = useMemo<AuthState>(
@@ -109,9 +142,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       isLoading,
       user,
+      hasLinkedWallet,
+      refreshWalletStatus,
       signOut,
     }),
-    [isAuthenticated, isLoading, user, signOut]
+    [isAuthenticated, isLoading, user, hasLinkedWallet, refreshWalletStatus, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

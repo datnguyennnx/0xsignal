@@ -105,9 +105,7 @@ export function useHyperliquidOrderbook(
     });
   }, []);
 
-  // ═══════════════════════════════════════════════════════════════════
   //  REST SEED — oneshot snapshot, discarded once WS starts streaming
-  // ═══════════════════════════════════════════════════════════════════
 
   const { data: restSnapshot } = useQuery({
     queryKey: queryKeys.orderbook.snapshot(symbol),
@@ -134,9 +132,7 @@ export function useHyperliquidOrderbook(
     }
   }, [restSnapshot, schedule]);
 
-  // ═══════════════════════════════════════════════════════════════════
   //  WS STREAMING
-  // ═══════════════════════════════════════════════════════════════════
 
   const subscription = useMemo(
     () => (enabled && coin ? { type: "l2Book" as const, coin, nSigFigs: activeSigFigs } : null),
@@ -201,9 +197,7 @@ export function useHyperliquidOrderbook(
     [coin, ws, isControlled]
   );
 
-  // ═══════════════════════════════════════════════════════════════════
   //  ADAPTIVE SIGFIGS (cooldown-gated, fully guarded)
-  // ═══════════════════════════════════════════════════════════════════
 
   const lastResubscribeAtRef = useRef(0);
   const adaptiveDirectionRef = useRef<"out" | "in" | null>(null);

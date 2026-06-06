@@ -17,8 +17,8 @@ import { AdjustLeverageModal } from "./adjust-leverage-modal";
 import { MarginModeModal } from "./margin-mode-modal";
 import { UnifiedAccountSummary } from "./unified-account-summary";
 import { MARGIN_BUFFER, formatOrderSize } from "../utils/trade-math";
-import { useAuth } from "@/core/providers/auth-context";
-import { useNavigate } from "react-router-dom";
+import { UnauthenticatedError } from "@/lib/api-base";
+import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
 
 interface OrderFormProps {
   symbol: string;
@@ -27,9 +27,8 @@ interface OrderFormProps {
 }
 
 export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormProps) {
-  const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { open: openConnectWallet, ConnectWalletSheet } = useConnectWalletPrompt();
   const { data: chData } = useClearinghouseState();
   const { data: spotData } = useSpotClearinghouseState();
   const { getPrecision } = useHyperliquidMeta();
@@ -170,13 +169,14 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       queryClient.invalidateQueries({ queryKey: queryKeys.userData.clearinghouseState() });
       queryClient.invalidateQueries({ queryKey: queryKeys.userData.openOrders() });
     },
+    onError: (err) => {
+      if (err instanceof UnauthenticatedError) {
+        openConnectWallet();
+      }
+    },
   });
 
   const handlePlaceOrder = () => {
-    if (!isAuthenticated) {
-      navigate("/login");
-      return;
-    }
     if (orderType === "limit" && (!price || Number(price) <= 0)) {
       setPriceError("Please enter a valid limit price");
       return;
@@ -576,6 +576,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
         symbol={symbol}
         onConfirm={(newMode) => setOverrideMarginMode(newMode)}
       />
+      {ConnectWalletSheet}
     </>
   );
 }

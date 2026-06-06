@@ -18,30 +18,13 @@ import type {
   CancelOrdersRequest,
 } from "@0xsignal/shared";
 import { normalizeCandle, normalizeChartDataPoints } from "@0xsignal/shared";
-import { resolveApiBase } from "@/lib/api-base";
+import { resolveApiBase, setAuthToken, apiFetch, UnauthenticatedError } from "@/lib/api-base";
 import { normalizeSymbol } from "@/features/trade/lib/symbol";
-
-/**
- * normalizeSymbol handles all types:
- *   perps: "BTCUSDT" → "BTC"
- *   builder perps: "XYZ:YEETI" → "xyz:YEETI"
- *   spot: "PURR/USDC" → "PURR/USDC" (passes through)
- */
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const API_BASE = resolveApiBase(configuredApiUrl, import.meta.env.DEV);
 
-let inMemoryToken: string | null = null;
-
-export function setAuthToken(token: string | null): void {
-  inMemoryToken = token;
-}
-
-function getAuthToken(): string | null {
-  return inMemoryToken;
-}
-
-// Re-export shared boundary types for consumers that import from this module.
+// Re-export boundary types for consumers of this module.
 export type { ChartDataPoint, AggregatedMarket, MarketTicker } from "@0xsignal/shared";
 export type {
   ClearinghouseState,
@@ -57,16 +40,14 @@ export type {
   CancelOrdersRequest,
 } from "@0xsignal/shared";
 
-// ─── Portfolio & Vault API types ───────────────────────────────────────────────
+// Portfolio & Vault API types
 
-/** Single portfolio period metrics */
 export interface PortfolioPeriod {
   readonly accountValueHistory: [number, string][];
   readonly pnlHistory: [number, string][];
   readonly vlm: string;
 }
 
-/** Portfolio response period key */
 export type PortfolioPeriodKey =
   | "day"
   | "week"
@@ -77,7 +58,7 @@ export type PortfolioPeriodKey =
   | "perpMonth"
   | "perpAllTime";
 
-/** Portfolio response: 8-tuple of [periodKey, periodData] — matches Hyperliquid API shape */
+/** 8-tuple matching Hyperliquid API shape: [periodKey, periodData] */
 export type PortfolioResponse = readonly [
   readonly [PortfolioPeriodKey, PortfolioPeriod],
   readonly [PortfolioPeriodKey, PortfolioPeriod],
@@ -89,14 +70,12 @@ export type PortfolioResponse = readonly [
   readonly [PortfolioPeriodKey, PortfolioPeriod],
 ];
 
-/** User vault deposit */
 export interface UserVaultEquity {
   readonly vaultAddress: string;
   readonly equity: string;
   readonly lockedUntilTimestamp: number;
 }
 
-/** Funding payment delta */
 export interface UserFundingDelta {
   readonly type: "funding";
   readonly coin: string;
@@ -106,7 +85,6 @@ export interface UserFundingDelta {
   readonly nSamples: number;
 }
 
-/** Single funding history entry */
 export interface UserFundingEntry {
   readonly time: number;
   readonly hash: string;
@@ -199,15 +177,9 @@ async function attemptSilentRefresh(): Promise<boolean> {
 
 async function fetchJson<T>(url: string, options?: RequestInit, isRetry = false): Promise<T> {
   try {
-    const headers = new Headers(options?.headers);
-    const token = getAuthToken();
-    if (token) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       credentials: "include",
       ...options,
-      headers,
     });
 
     if (!response.ok) {
@@ -232,16 +204,12 @@ async function fetchJson<T>(url: string, options?: RequestInit, isRetry = false)
     const body = await response.json();
     return unwrapEnvelope<T>(body);
   } catch (error) {
-    if (error instanceof ApiError) throw error;
+    if (error instanceof ApiError || error instanceof UnauthenticatedError) throw error;
     throw new NetworkError(error instanceof Error ? error.message : "Network request failed");
   }
 }
 
-/**
- * MarketPrice — frontend-specific computed DTO.
- * Derived from ticker data + additional rendering logic.
- * This is NOT a backend response type; it's assembled locally.
- */
+/** Frontend-specific DTO assembled locally from ticker data. */
 export interface MarketPrice {
   readonly symbol: string;
   readonly price: number;
@@ -338,32 +306,52 @@ export const api = {
       } | null;
     }>(`${API_BASE}/trade-annotation?symbol=${encodeURIComponent(normalizeSymbol(symbol))}`),
 
-  getUserClearinghouseState: () =>
-    fetchJson<ClearinghouseState>(`${API_BASE}/user/clearinghouse-state`),
+  getUserClearinghouseState: (walletAddress: string) =>
+    fetchJson<ClearinghouseState>(
+      `${API_BASE}/user/clearinghouse-state?walletAddress=${encodeURIComponent(walletAddress)}`
+    ),
 
-  getUserSpotClearinghouseState: () =>
-    fetchJson<SpotClearinghouseState>(`${API_BASE}/user/spot-clearinghouse-state`),
+  getUserSpotClearinghouseState: (walletAddress: string) =>
+    fetchJson<SpotClearinghouseState>(
+      `${API_BASE}/user/spot-clearinghouse-state?walletAddress=${encodeURIComponent(walletAddress)}`
+    ),
 
-  getUserOpenOrders: () => fetchJson<OpenOrder[]>(`${API_BASE}/user/open-orders`),
+  getUserOpenOrders: (walletAddress: string) =>
+    fetchJson<OpenOrder[]>(
+      `${API_BASE}/user/open-orders?walletAddress=${encodeURIComponent(walletAddress)}`
+    ),
 
-  getUserFrontendOpenOrders: () =>
-    fetchJson<FrontendOpenOrder[]>(`${API_BASE}/user/frontend-open-orders`),
+  getUserFrontendOpenOrders: (walletAddress: string) =>
+    fetchJson<FrontendOpenOrder[]>(
+      `${API_BASE}/user/frontend-open-orders?walletAddress=${encodeURIComponent(walletAddress)}`
+    ),
 
-  getUserHistoricalOrders: () =>
-    fetchJson<HistoricalOrderEntry[]>(`${API_BASE}/user/historical-orders`),
+  getUserHistoricalOrders: (walletAddress: string) =>
+    fetchJson<HistoricalOrderEntry[]>(
+      `${API_BASE}/user/historical-orders?walletAddress=${encodeURIComponent(walletAddress)}`
+    ),
 
-  getUserFills: () => fetchJson<UserFill[]>(`${API_BASE}/user/fills`),
+  getUserFills: (walletAddress: string) =>
+    fetchJson<UserFill[]>(
+      `${API_BASE}/user/fills?walletAddress=${encodeURIComponent(walletAddress)}`
+    ),
 
-  getPortfolio: () => fetchJson<PortfolioResponse>(`${API_BASE}/user/portfolio`),
+  getPortfolio: (walletAddress: string) =>
+    fetchJson<PortfolioResponse>(
+      `${API_BASE}/user/portfolio?walletAddress=${encodeURIComponent(walletAddress)}`
+    ),
 
-  getUserVaultEquities: () => fetchJson<UserVaultEquity[]>(`${API_BASE}/user/vault-equities`),
+  getUserVaultEquities: (walletAddress: string) =>
+    fetchJson<UserVaultEquity[]>(
+      `${API_BASE}/user/vault-equities?walletAddress=${encodeURIComponent(walletAddress)}`
+    ),
 
-  getUserFunding: (startTime?: number, endTime?: number) => {
-    const query = new URLSearchParams();
+  getUserFunding: (walletAddress: string, startTime?: number, endTime?: number) => {
+    const query = new URLSearchParams({ walletAddress });
     if (startTime !== undefined) query.set("startTime", String(startTime));
     if (endTime !== undefined) query.set("endTime", String(endTime));
     const qs = query.toString();
-    return fetchJson<UserFundingEntry[]>(`${API_BASE}/user/funding${qs ? `?${qs}` : ""}`);
+    return fetchJson<UserFundingEntry[]>(`${API_BASE}/user/funding?${qs}`);
   },
 
   placeOrder: (params: PlaceOrderRequest) =>
@@ -412,7 +400,7 @@ export const api = {
           ? ticker.symbol
           : normalizedSymbol;
     } catch (err) {
-      // Gracefully handle 404/errors — return fallback data (e.g., builder perps not in main perp universe)
+      // Graceful fallback for builder perps not in main perp universe
       console.warn("Ticker fetch failed for", normalizedSymbol, err);
     }
 
@@ -450,6 +438,21 @@ export const api = {
       method: "POST",
     }),
 
+  /** Update the current user's profile. */
+  updateProfile: (params: { displayName: string }) =>
+    fetchJson<{
+      data: {
+        userId: string;
+        provider: string;
+        avatarUrl: string | null;
+        displayName: string | null;
+      };
+    }>(`${API_BASE}/auth/me/profile`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }),
+
   exchangeCode: (code: string) =>
     fetchJson<{ accessToken: string; tokenType: "Bearer"; expiresIn: number }>(
       `${API_BASE}/auth/token`,
@@ -465,6 +468,87 @@ export const api = {
       `${API_BASE}/auth/refresh`,
       {
         method: "POST",
+      }
+    ),
+
+  // Exchange Credentials API
+
+  /** Create a key credential for an exchange wallet. */
+  createCredential: (params: {
+    accountId: string;
+    agentAddress: string;
+    agentPrivateKey: string;
+    label?: string;
+  }) =>
+    fetchJson<{ credentialId: string; agentAddress: string; isVerified: boolean }>(
+      `${API_BASE}/wallets/${params.accountId}/keys`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentAddress: params.agentAddress,
+          agentPrivateKey: params.agentPrivateKey,
+          label: params.label,
+        }),
+      }
+    ),
+
+  /** List credentials for a wallet. */
+  listCredentials: (accountId: string) =>
+    fetchJson<
+      Array<{
+        id: string;
+        label: string;
+        agentAddress: string;
+        permissions: string[];
+        isVerified: boolean;
+        verifiedAt: string | null;
+        createdAt: string;
+        expiresAt: string | null;
+        isRevoked: boolean;
+      }>
+    >(`${API_BASE}/wallets/${accountId}/keys`),
+
+  /** Revoke / delete a credential by ID. */
+  revokeCredential: (accountId: string, credentialId: string) =>
+    fetchJson<void>(`${API_BASE}/wallets/${accountId}/keys/${credentialId}`, {
+      method: "DELETE",
+    }),
+
+  /** Verify credential connectivity with the exchange. */
+  verifyCredential: (accountId: string, credentialId: string) =>
+    fetchJson<{ isVerified: boolean; verifiedAt: string }>(
+      `${API_BASE}/wallets/${accountId}/keys/${credentialId}/verify`,
+      {
+        method: "POST",
+      }
+    ),
+
+  // Wallet Linking API
+
+  /** List wallets linked to the current user's account. */
+  listWallets: () =>
+    fetchJson<
+      Array<{
+        id: string;
+        walletAddress: string;
+        label: string;
+        isPrimary: boolean;
+      }>
+    >(`${API_BASE}/wallets`),
+
+  /** Link a wallet address to the current user's account. */
+  createWallet: (params: { walletAddress: string; label?: string }) =>
+    fetchJson<{ accountId: string; walletAddress: string; isPrimary: boolean }>(
+      `${API_BASE}/wallets`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          exchangeSlug: "hyperliquid",
+          walletAddress: params.walletAddress,
+          label: params.label,
+        }),
       }
     ),
 };
