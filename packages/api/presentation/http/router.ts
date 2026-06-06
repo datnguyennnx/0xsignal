@@ -9,7 +9,13 @@ import { healthRoute } from "./routes/health.routes";
 import { buildMarketDataRoutes } from "./routes/market-data.routes";
 import { buildUserDataRoutes } from "./routes/user-data.routes";
 import { buildExchangeRoutes } from "./routes/exchange.routes";
-import { buildAuthRoutes, withAuth } from "@0xsignal/auth";
+import { buildCredentialRoutes } from "./routes/credentials.routes";
+import {
+  buildAuthRoutes,
+  withAuth,
+  ExchangeAccountRepo,
+  ExchangeCredentialRepo,
+} from "@0xsignal/auth";
 
 type HttpError = {
   readonly status: number;
@@ -53,7 +59,8 @@ type RouteHandler = (
   marketData: MarketDataHttpService,
   health: HealthHttpService,
   userData: UserDataHttpService,
-  exchange: ExchangeHttpService
+  exchange: ExchangeHttpService,
+  userId?: string
 ) => Effect.Effect<Response, HttpError, any>;
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -117,6 +124,18 @@ const mapServiceError = (error: unknown): HttpError => {
         return { status: 400, message: tagged.message, code };
       case "HyperliquidInternalError":
         return { status: 502, message: tagged.message, code };
+      case "CredentialNotFound":
+        return { status: 404, message: "Credential not found", code };
+      case "CredentialRevoked":
+        return { status: 403, message: "Credential revoked", code };
+      case "CredentialExpired":
+        return { status: 403, message: "Credential expired", code };
+      case "CredentialUnverified":
+        return { status: 403, message: "Credential not verified", code };
+      case "AccountNotFound":
+        return { status: 404, message: "Account not found", code };
+      case "AccountNodeTypeMismatch":
+        return { status: 400, message: "Invalid account type for operation", code };
       default:
         return { status: 500, message: tagged.message, code };
     }
@@ -139,16 +158,15 @@ const mapServiceError = (error: unknown): HttpError => {
   return { status: 500, message: "Internal server error" };
 };
 
-// Typed adapter for auth routes — they handle their own errors internally and always
-// return a Response. AuthService is provided by the runtime's AppLayer.
+// Auth routes handle their own errors internally; always returns a Response
 const adaptAuthRoute =
   (
     handler: (
       request: Request
     ) => Effect.Effect<Response, never, import("@0xsignal/auth").AuthService>
   ): RouteHandler =>
-  (_request, _url, _marketData, _health, _userData, _exchange) =>
-    handler(_request).pipe(
+  (request) =>
+    handler(request).pipe(
       Effect.catchCause(() =>
         Effect.succeed(
           new Response(JSON.stringify({ error: "Internal server error" }), {
@@ -159,14 +177,13 @@ const adaptAuthRoute =
       )
     );
 
-// Wraps a RouteHandler to require a valid auth session before executing.
-// Uses withAuth to validate the Authorization header and attach a Session.
+// Requires a valid auth session before executing
 const requireAuth =
   (routeHandler: RouteHandler): RouteHandler =>
   (request, url, marketData, health, userData, exchange) =>
-    withAuth((_session) => routeHandler(request, url, marketData, health, userData, exchange))(
-      request
-    ).pipe(
+    withAuth((session) =>
+      routeHandler(request, url, marketData, health, userData, exchange, session.userId)
+    )(request).pipe(
       Effect.catchCause(() =>
         Effect.succeed(
           new Response(JSON.stringify({ error: "Internal server error" }), {
@@ -192,7 +209,7 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
   {
     method: "GET",
     path: "/api/health",
-    handler: (_request, _url, _marketData, health, _userData, _exchange) =>
+    handler: (_request, _url, _marketData, health) =>
       healthRoute(health).pipe(Effect.map((body) => json({ data: body }))),
   },
   ...buildMarketDataRoutes({
@@ -201,14 +218,8 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
   }).map((route) => ({
     method: route.method,
     path: route.path,
-    handler: (
-      request: Request,
-      url: URL,
-      marketData: MarketDataHttpService,
-      _health: HealthHttpService,
-      _userData: UserDataHttpService,
-      _exchange: ExchangeHttpService
-    ) => route.handler(request, url, marketData),
+    handler: (request: Request, url: URL, marketData: MarketDataHttpService) =>
+      route.handler(request, url, marketData),
   })),
   ...buildUserDataRoutes({
     json,
@@ -216,16 +227,13 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
   }).map((route) => ({
     method: route.method,
     path: route.path,
-    handler: requireAuth(
-      (
-        request: Request,
-        url: URL,
-        _marketData: MarketDataHttpService,
-        _health: HealthHttpService,
-        userData: UserDataHttpService,
-        _exchange: ExchangeHttpService
-      ) => route.handler(request, url, userData)
-    ),
+    handler: (
+      request: Request,
+      url: URL,
+      _marketData: MarketDataHttpService,
+      _health: HealthHttpService,
+      userData: UserDataHttpService
+    ) => route.handler(request, url, userData),
   })),
   ...buildExchangeRoutes({
     json,
@@ -240,11 +248,34 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
         _marketData: MarketDataHttpService,
         _health: HealthHttpService,
         _userData: UserDataHttpService,
-        exchange: ExchangeHttpService
-      ) => route.handler(request, url, exchange)
+        exchange: ExchangeHttpService,
+        userId?: string
+      ) => route.handler(request, url, exchange, userId)
     ),
   })),
-  // Auth routes — wrapped through typed adapter
+  ...buildCredentialRoutes({
+    json,
+    mapServiceError,
+  }).map((route) => ({
+    method: route.method,
+    path: route.path,
+    handler: requireAuth(
+      (
+        request: Request,
+        url: URL,
+        _marketData: MarketDataHttpService,
+        _health: HealthHttpService,
+        _userData: UserDataHttpService,
+        _exchange: ExchangeHttpService,
+        userId?: string
+      ) =>
+        Effect.gen(function* () {
+          const accountRepo = yield* ExchangeAccountRepo;
+          const credentialRepo = yield* ExchangeCredentialRepo;
+          return yield* route.handler(request, url, accountRepo, credentialRepo, userId);
+        })
+    ),
+  })),
   ...buildAuthRoutes().map((route) => ({
     method: route.method,
     path: route.path,

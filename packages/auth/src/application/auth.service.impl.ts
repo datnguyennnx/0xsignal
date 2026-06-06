@@ -149,6 +149,26 @@ export const AuthServiceLayer: Layer.Layer<
             displayName: account.displayName,
           };
         }),
+
+      updateProfile: (userId, params) =>
+        Effect.gen(function* () {
+          yield* oauthAccountRepo.updateDisplayName(UserId(userId), params.displayName);
+          const account = yield* oauthAccountRepo.findByUserId(UserId(userId));
+          if (!account) {
+            return {
+              userId,
+              provider: "google" as const,
+              avatarUrl: null,
+              displayName: null,
+            };
+          }
+          return {
+            userId: account.userId,
+            provider: account.provider,
+            avatarUrl: account.avatarUrl,
+            displayName: account.displayName,
+          };
+        }),
     });
   })
 );

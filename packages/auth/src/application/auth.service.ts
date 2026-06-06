@@ -33,5 +33,10 @@ export class AuthService extends Context.Service<
     readonly logout: (refreshToken: string) => Effect.Effect<void, AuthError>;
 
     readonly getProfile: (userId: string) => Effect.Effect<UserProfile | null>;
+
+    readonly updateProfile: (
+      userId: string,
+      params: { displayName: string }
+    ) => Effect.Effect<UserProfile>;
   }
 >()("AuthService") {}

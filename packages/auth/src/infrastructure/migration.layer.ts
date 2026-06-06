@@ -3,64 +3,48 @@ import { FileSystem } from "effect/FileSystem";
 import { Path } from "effect/Path";
 import * as Reactivity from "effect/unstable/reactivity/Reactivity";
 import { SqlClient } from "effect/unstable/sql/SqlClient";
-import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import * as PgClientModule from "@effect/sql-pg/PgClient";
-import * as PgMigrator from "@effect/sql-pg/PgMigrator";
 import { PostgresConnectionPool } from "@0xsignal/shared/db/postgres";
-import { migrations } from "./migrations";
+import { runSqlMigrations } from "./migrations/sql-migration.runner";
 
-const { PgClient } = PgClientModule;
+export const MigrationLayer: Layer.Layer<never, never, PostgresConnectionPool | FileSystem | Path> =
+  Layer.effectDiscard(
+    Effect.gen(function* () {
+      const pool = yield* PostgresConnectionPool;
+      if (pool === null) {
+        yield* Effect.logInfo("No DATABASE_URL configured — skipping auth migrations");
+        return;
+      }
 
-export const MigrationLayer: Layer.Layer<
-  never,
-  never,
-  PostgresConnectionPool | ChildProcessSpawner | FileSystem | Path
-> = Layer.effectDiscard(
-  Effect.gen(function* () {
-    const pool = yield* PostgresConnectionPool;
-    if (pool === null) {
-      yield* Effect.logInfo("No DATABASE_URL configured — skipping auth migrations");
-      return;
-    }
-
-    const pgClient = yield* PgClientModule.fromPool({
-      acquire: Effect.succeed(pool),
-      spanAttributes: { "db.operation": "auth-migration" },
-    });
-
-    const result = yield* PgMigrator.run({
-      loader: migrations,
-      table: "auth_migrations",
-    }).pipe(Effect.provideService(PgClient, pgClient), Effect.provideService(SqlClient, pgClient));
-
-    yield* Effect.logInfo(
-      `Auth migrations applied: ${result.map(([id, name]) => `${id}_${name}`).join(", ")}`
-    );
-
-    const runCleanup = (sql: any) =>
-      Effect.gen(function* () {
-        yield* Effect.logInfo(
-          "[Cleanup] Running expired states, auth codes, and blocklist cleanup..."
-        );
-        yield* Effect.tryPromise(() =>
-          sql.query("DELETE FROM oauth_states WHERE expires_at < NOW()")
-        ).pipe(Effect.orDie);
-        yield* Effect.tryPromise(() =>
-          sql.query("DELETE FROM auth_codes WHERE expires_at < NOW()")
-        ).pipe(Effect.orDie);
-        yield* Effect.tryPromise(() =>
-          sql.query("DELETE FROM refresh_token_blocklist WHERE expires_at < NOW()")
-        ).pipe(Effect.orDie);
+      const pgClient = yield* PgClientModule.fromPool({
+        acquire: Effect.succeed(pool),
+        spanAttributes: { "db.operation": "auth-migration" },
       });
 
-    // Run once at startup
-    yield* runCleanup(pool);
+      const result = yield* runSqlMigrations.pipe(Effect.provideService(SqlClient, pgClient));
 
-    // Repeat every 1 hour in background daemon
-    yield* Effect.forkDetach(
-      Effect.repeat(runCleanup(pool), Schedule.fixed("1 hour")).pipe(
-        Effect.catch(() => Effect.void)
-      )
-    );
-  }).pipe(Effect.provide(Reactivity.layer), Effect.scoped, Effect.orDie)
-);
+      yield* Effect.logInfo(
+        `Auth SQL migrations applied: ${result.map(([id, name]) => `${id}_${name}`).join(", ")}`
+      );
+
+      const runCleanup = (pool: import("pg").Pool) =>
+        Effect.tryPromise(async () => {
+          await pool.query("BEGIN");
+          try {
+            await pool.query("DELETE FROM oauth_states WHERE expires_at < NOW()");
+            await pool.query("DELETE FROM auth_codes WHERE expires_at < NOW()");
+            await pool.query("DELETE FROM refresh_token_blocklist WHERE expires_at < NOW()");
+            await pool.query("COMMIT");
+          } catch (e) {
+            await pool.query("ROLLBACK");
+            throw e;
+          }
+        }).pipe(Effect.orDie);
+
+      yield* runCleanup(pool);
+
+      yield* Effect.forkDetach(
+        Effect.repeat(runCleanup(pool), Schedule.fixed("1 hour")).pipe(Effect.ignore)
+      );
+    }).pipe(Effect.provide(Reactivity.layer), Effect.scoped, Effect.orDie)
+  );

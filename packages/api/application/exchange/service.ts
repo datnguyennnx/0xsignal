@@ -1,4 +1,4 @@
-import { Clock, Config, Effect, Layer, Option, Ref } from "effect";
+import { Clock, Effect, Layer, Ref, Redacted } from "effect";
 import { ExchangeClient, HttpTransport } from "@nktkas/hyperliquid";
 import { privateKeyToAccount } from "viem/accounts";
 import { HyperliquidClient } from "../../infrastructure/data-sources/hyperliquid/client";
@@ -8,6 +8,8 @@ import {
   classifyExchangeError,
   toHlTif,
 } from "../../infrastructure/data-sources/hyperliquid/exchange-adapter";
+import { ExchangeAccountRepo } from "@0xsignal/auth";
+import { ExchangeCredentialRepo } from "@0xsignal/auth";
 
 const validatePrivateKey = (raw: string): `0x${string}` | null => {
   const trimmed = raw.trim();
@@ -30,27 +32,11 @@ const makeExchangeClient = (privateKey: `0x${string}`): ExchangeClient => {
 export const exchangeServiceLayer = Layer.effect(
   ExchangeService,
   Effect.gen(function* () {
-    const maybeKey = yield* Config.option(Config.string("HYPERLIQUID_PRIVATE_KEY"));
     const { info } = yield* HyperliquidClient;
+    const accountRepo = yield* ExchangeAccountRepo;
+    const credentialRepo = yield* ExchangeCredentialRepo;
 
-    const rawKey = Option.getOrElse(maybeKey, () => "");
-    const privateKey = validatePrivateKey(rawKey);
-
-    if (!privateKey) {
-      yield* Effect.logError("[exchange] HYPERLIQUID_PRIVATE_KEY is not configured or invalid");
-      const err = new HyperliquidInternalError({
-        message: "HYPERLIQUID_PRIVATE_KEY is not configured",
-      });
-      return ExchangeService.of({
-        placeOrder: () => Effect.fail(err),
-        updateLeverageAndMargin: () => Effect.fail(err),
-        cancelOrders: () => Effect.fail(err),
-      });
-    }
-
-    const exchange = makeExchangeClient(privateKey);
-
-    // TTL-based cache for info.meta() (5 min TTL)
+    // 5 min TTL cache
     const metaCache = yield* Ref.make<{
       readonly value?: { universe: Array<{ name: string }> };
       readonly expiresAt: number;
@@ -82,10 +68,24 @@ export const exchangeServiceLayer = Layer.effect(
       });
 
     return ExchangeService.of({
-      placeOrder: (params) =>
+      placeOrder: (params, userId) =>
         Effect.gen(function* () {
-          const meta = yield* getCachedMeta();
+          const account = yield* accountRepo.findPrimary(userId, "hyperliquid");
+          const credential = yield* credentialRepo.getActiveForAccount(account.id, "agent");
+          const decrypted = yield* credentialRepo.getDecryptedAgent(credential.id, userId);
 
+          const rawKey = Redacted.value(decrypted.privateKey);
+          const privateKey = validatePrivateKey(rawKey);
+          if (!privateKey) {
+            return yield* Effect.fail(
+              new HyperliquidInternalError({
+                message: "Invalid decrypted private key from credential store",
+              })
+            );
+          }
+          const exchange = makeExchangeClient(privateKey);
+
+          const meta = yield* getCachedMeta();
           const coinToAsset = buildCoinToAsset(meta);
 
           const hlOrders = yield* Effect.forEach(params.orders, (o) =>
@@ -116,8 +116,10 @@ export const exchangeServiceLayer = Layer.effect(
             })
           );
 
+          const orderOpts = decrypted.vaultAddress ? { vaultAddress: decrypted.vaultAddress } : {};
           return yield* Effect.tryPromise({
-            try: () => exchange.order({ orders: hlOrders, grouping: params.grouping ?? "na" }),
+            try: () =>
+              exchange.order({ orders: hlOrders, grouping: params.grouping ?? "na" }, orderOpts),
             catch: classifyExchangeError,
           }).pipe(
             Effect.timeout("30 seconds"),
@@ -127,10 +129,23 @@ export const exchangeServiceLayer = Layer.effect(
           );
         }),
 
-      updateLeverageAndMargin: (params) =>
+      updateLeverageAndMargin: (params, userId) =>
         Effect.gen(function* () {
-          const meta = yield* getCachedMeta();
+          const account = yield* accountRepo.findPrimary(userId, "hyperliquid");
+          const credential = yield* credentialRepo.getActiveForAccount(account.id, "agent");
+          const decrypted = yield* credentialRepo.getDecryptedAgent(credential.id, userId);
+          const rawKey = Redacted.value(decrypted.privateKey);
+          const privateKey = validatePrivateKey(rawKey);
+          if (!privateKey) {
+            return yield* Effect.fail(
+              new HyperliquidInternalError({
+                message: "Invalid decrypted private key from credential store",
+              })
+            );
+          }
+          const exchange = makeExchangeClient(privateKey);
 
+          const meta = yield* getCachedMeta();
           const coinToAsset = buildCoinToAsset(meta);
 
           const assetIndex = coinToAsset.get(params.symbol);
@@ -140,13 +155,19 @@ export const exchangeServiceLayer = Layer.effect(
             );
           }
 
+          const leverageOpts = decrypted.vaultAddress
+            ? { vaultAddress: decrypted.vaultAddress }
+            : {};
           return yield* Effect.tryPromise({
             try: () =>
-              exchange.updateLeverage({
-                asset: assetIndex,
-                isCross: params.isCross,
-                leverage: params.leverage,
-              }),
+              exchange.updateLeverage(
+                {
+                  asset: assetIndex,
+                  isCross: params.isCross,
+                  leverage: params.leverage,
+                },
+                leverageOpts
+              ),
             catch: classifyExchangeError,
           }).pipe(
             Effect.timeout("30 seconds"),
@@ -158,10 +179,23 @@ export const exchangeServiceLayer = Layer.effect(
           );
         }),
 
-      cancelOrders: (params) =>
+      cancelOrders: (params, userId) =>
         Effect.gen(function* () {
-          const meta = yield* getCachedMeta();
+          const account = yield* accountRepo.findPrimary(userId, "hyperliquid");
+          const credential = yield* credentialRepo.getActiveForAccount(account.id, "agent");
+          const decrypted = yield* credentialRepo.getDecryptedAgent(credential.id, userId);
+          const rawKey = Redacted.value(decrypted.privateKey);
+          const privateKey = validatePrivateKey(rawKey);
+          if (!privateKey) {
+            return yield* Effect.fail(
+              new HyperliquidInternalError({
+                message: "Invalid decrypted private key from credential store",
+              })
+            );
+          }
+          const exchange = makeExchangeClient(privateKey);
 
+          const meta = yield* getCachedMeta();
           const coinToAsset = buildCoinToAsset(meta);
 
           const cancels: Array<{ a: number; o: number }> = [];
@@ -175,8 +209,9 @@ export const exchangeServiceLayer = Layer.effect(
             cancels.push({ a, o: c.orderId });
           }
 
+          const cancelOpts = decrypted.vaultAddress ? { vaultAddress: decrypted.vaultAddress } : {};
           return yield* Effect.tryPromise({
-            try: () => exchange.cancel({ cancels }),
+            try: () => exchange.cancel({ cancels }, cancelOpts),
             catch: (e) =>
               new HyperliquidInternalError({ message: "Failed to cancel orders", cause: e }),
           }).pipe(

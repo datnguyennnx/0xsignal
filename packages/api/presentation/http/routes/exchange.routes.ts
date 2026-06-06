@@ -16,7 +16,8 @@ type ExchangeHttpService = {
 type RouteHandler = (
   request: Request,
   url: URL,
-  exchange: ExchangeHttpService
+  exchange: ExchangeHttpService,
+  userId?: string
 ) => Effect.Effect<Response, HttpError>;
 
 type BuildExchangeRoutesParams = {
@@ -79,8 +80,12 @@ export const buildExchangeRoutes = ({
   {
     method: "POST",
     path: "/api/exchange/order",
-    handler: (request: Request, _url: URL, exchange: ExchangeHttpService) =>
+    handler: (request: Request, _url: URL, exchange: ExchangeHttpService, userId?: string) =>
       Effect.gen(function* () {
+        if (!userId) {
+          return yield* Effect.fail(asHttpError(401, "Authentication required"));
+        }
+
         const raw = yield* Effect.tryPromise({
           try: () => request.json(),
           catch: () => asHttpError(400, "Invalid request body"),
@@ -94,7 +99,7 @@ export const buildExchangeRoutes = ({
         }
 
         const payload = yield* exchange
-          .placeOrder(parsed.data)
+          .placeOrder(parsed.data, userId)
           .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),
@@ -102,8 +107,12 @@ export const buildExchangeRoutes = ({
   {
     method: "POST",
     path: "/api/exchange/leverage",
-    handler: (request: Request, _url: URL, exchange: ExchangeHttpService) =>
+    handler: (request: Request, _url: URL, exchange: ExchangeHttpService, userId?: string) =>
       Effect.gen(function* () {
+        if (!userId) {
+          return yield* Effect.fail(asHttpError(401, "Authentication required"));
+        }
+
         const raw = yield* Effect.tryPromise({
           try: () => request.json(),
           catch: () => asHttpError(400, "Invalid request body"),
@@ -117,7 +126,7 @@ export const buildExchangeRoutes = ({
         }
 
         const payload = yield* exchange
-          .updateLeverageAndMargin(parsed.data)
+          .updateLeverageAndMargin(parsed.data, userId)
           .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),
@@ -125,8 +134,12 @@ export const buildExchangeRoutes = ({
   {
     method: "POST",
     path: "/api/exchange/cancel",
-    handler: (request: Request, _url: URL, exchange: ExchangeHttpService) =>
+    handler: (request: Request, _url: URL, exchange: ExchangeHttpService, userId?: string) =>
       Effect.gen(function* () {
+        if (!userId) {
+          return yield* Effect.fail(asHttpError(401, "Authentication required"));
+        }
+
         const raw = yield* Effect.tryPromise({
           try: () => request.json(),
           catch: () => asHttpError(400, "Invalid request body"),
@@ -140,7 +153,7 @@ export const buildExchangeRoutes = ({
         }
 
         const payload = yield* exchange
-          .cancelOrders(parsed.data)
+          .cancelOrders(parsed.data, userId)
           .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),

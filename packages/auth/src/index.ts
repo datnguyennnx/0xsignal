@@ -11,13 +11,23 @@ export {
   TokenInvalid,
   TokenRevoked,
   UserSuspended,
+  AccountNotFound,
+  DuplicateLabel,
+  CredentialNotFound,
+  CredentialRevoked,
+  CredentialExpired,
+  CredentialUnverified,
+  EncryptionFailed,
 } from "./domain/errors";
 
 export { AuthService } from "./application/auth.service";
 
-export { authLayer } from "./auth.layer";
+export { authLayer, AuthInfraLayer } from "./auth.layer";
 
 export { withAuth } from "./presentation/require-auth";
 export { buildAuthRoutes } from "./presentation/auth.routes";
 
 export { MigrationLayer } from "./infrastructure/migration.layer";
+
+export { ExchangeAccountRepo } from "./infrastructure/repos/exchange-account.repo";
+export { ExchangeCredentialRepo } from "./infrastructure/repos/exchange-credential.repo";

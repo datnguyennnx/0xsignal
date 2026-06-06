@@ -5,28 +5,40 @@ import type {
   InsufficientMarginError,
 } from "../../domain/errors";
 import type { PlaceOrderRequest, UpdateLeverageRequest, CancelOrdersRequest } from "./types";
+import type {
+  AccountNotFound,
+  CredentialNotFound,
+  CredentialRevoked,
+  CredentialExpired,
+  CredentialUnverified,
+  EncryptionFailed,
+} from "@0xsignal/auth";
 
-export type ExchangePlaceOrderError =
+export type ExchangeError =
   | HyperliquidValidationError
   | InsufficientMarginError
-  | HyperliquidInternalError;
-
-export type ExchangeSimpleError =
-  | HyperliquidValidationError
-  | InsufficientMarginError
-  | HyperliquidInternalError;
+  | HyperliquidInternalError
+  | AccountNotFound
+  | CredentialNotFound
+  | CredentialRevoked
+  | CredentialExpired
+  | CredentialUnverified
+  | EncryptionFailed;
 
 export class ExchangeService extends Context.Service<
   ExchangeService,
   {
     readonly placeOrder: (
-      params: PlaceOrderRequest
-    ) => Effect.Effect<unknown, ExchangePlaceOrderError>;
+      params: PlaceOrderRequest,
+      userId: string
+    ) => Effect.Effect<unknown, ExchangeError>;
     readonly updateLeverageAndMargin: (
-      params: UpdateLeverageRequest
-    ) => Effect.Effect<unknown, ExchangeSimpleError>;
+      params: UpdateLeverageRequest,
+      userId: string
+    ) => Effect.Effect<unknown, ExchangeError>;
     readonly cancelOrders: (
-      params: CancelOrdersRequest
-    ) => Effect.Effect<unknown, ExchangeSimpleError>;
+      params: CancelOrdersRequest,
+      userId: string
+    ) => Effect.Effect<unknown, ExchangeError>;
   }
 >()("ExchangeService") {}

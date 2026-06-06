@@ -1,10 +1,8 @@
-import { describe, expect, it, vi, beforeAll } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import { HyperliquidClient } from "../../../infrastructure/data-sources/hyperliquid/client";
 import { UserDataService } from "../contracts";
 import { userDataServiceLayer } from "../service";
-
-/* ─── Fixtures ─── */
 
 const WALLET = "0xabc123";
 
@@ -186,8 +184,6 @@ const mockMeta = {
   ],
 };
 
-/* ─── Mock HyperliquidClient ─── */
-
 const makeMockLayer = (
   overrides?: Partial<{
     clearinghouseState: () => Promise<unknown>;
@@ -197,6 +193,9 @@ const makeMockLayer = (
     frontendOpenOrders: () => Promise<unknown>;
     spotClearinghouseState: () => Promise<unknown>;
     meta: () => Promise<unknown>;
+    portfolio: () => Promise<unknown>;
+    userVaultEquities: () => Promise<unknown>;
+    userFunding: () => Promise<unknown>;
   }>
 ) => {
   const client = HyperliquidClient.of({
@@ -228,7 +227,14 @@ const makeMockLayer = (
           overrides?.spotClearinghouseState ?? (() => Promise.resolve(mockSpotClearinghouseState))
         ),
       meta: vi.fn().mockImplementation(overrides?.meta ?? (() => Promise.resolve(mockMeta))),
-    } as unknown as (typeof HyperliquidClient.Service)["info"],
+      portfolio: vi.fn().mockImplementation(overrides?.portfolio ?? (() => Promise.resolve({}))),
+      userVaultEquities: vi
+        .fn()
+        .mockImplementation(overrides?.userVaultEquities ?? (() => Promise.resolve({}))),
+      userFunding: vi
+        .fn()
+        .mockImplementation(overrides?.userFunding ?? (() => Promise.resolve({}))),
+    } as any,
   });
   return Layer.succeed(HyperliquidClient, client);
 };
@@ -236,11 +242,9 @@ const makeMockLayer = (
 const makeTestLayer = (mockOverrides?: Parameters<typeof makeMockLayer>[0]) =>
   userDataServiceLayer.pipe(Layer.provideMerge(makeMockLayer(mockOverrides)));
 
-/* ─── Tests ─── */
-
 describe("UserDataService", () => {
-  beforeAll(() => {
-    process.env.HYPERLIQUID_WALLET_ADDRESS = WALLET;
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   describe("getClearinghouseState", () => {
@@ -248,7 +252,7 @@ describe("UserDataService", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const svc = yield* UserDataService;
-          return yield* svc.getClearinghouseState();
+          return yield* svc.getClearinghouseState(WALLET);
         }).pipe(Effect.provide(makeTestLayer()))
       );
 
@@ -266,7 +270,7 @@ describe("UserDataService", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const svc = yield* UserDataService;
-          return yield* svc.getClearinghouseState();
+          return yield* svc.getClearinghouseState(WALLET);
         })
           .pipe(Effect.provide(errorLayer))
           .pipe(Effect.flip)
@@ -282,7 +286,7 @@ describe("UserDataService", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const svc = yield* UserDataService;
-          return yield* svc.getOpenOrders();
+          return yield* svc.getOpenOrders(WALLET);
         }).pipe(Effect.provide(makeTestLayer()))
       );
 
@@ -300,7 +304,7 @@ describe("UserDataService", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const svc = yield* UserDataService;
-          return yield* svc.getOpenOrders();
+          return yield* svc.getOpenOrders(WALLET);
         })
           .pipe(Effect.provide(errorLayer))
           .pipe(Effect.flip)
@@ -316,7 +320,7 @@ describe("UserDataService", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const svc = yield* UserDataService;
-          return yield* svc.getHistoricalOrders();
+          return yield* svc.getHistoricalOrders(WALLET);
         }).pipe(Effect.provide(makeTestLayer()))
       );
 
@@ -332,7 +336,7 @@ describe("UserDataService", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const svc = yield* UserDataService;
-          return yield* svc.getUserFills();
+          return yield* svc.getUserFills(WALLET);
         }).pipe(Effect.provide(makeTestLayer()))
       );
 
@@ -353,7 +357,7 @@ describe("UserDataService", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const svc = yield* UserDataService;
-          return yield* svc.getFrontendOpenOrders();
+          return yield* svc.getFrontendOpenOrders(WALLET);
         }).pipe(Effect.provide(layer))
       );
 
@@ -375,7 +379,7 @@ describe("UserDataService", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const svc = yield* UserDataService;
-          return yield* svc.getFrontendOpenOrders();
+          return yield* svc.getFrontendOpenOrders(WALLET);
         })
           .pipe(Effect.provide(errorLayer))
           .pipe(Effect.flip)
@@ -395,7 +399,7 @@ describe("UserDataService", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const svc = yield* UserDataService;
-          return yield* svc.getSpotClearinghouseState();
+          return yield* svc.getSpotClearinghouseState(WALLET);
         }).pipe(Effect.provide(layer))
       );
 
@@ -416,7 +420,7 @@ describe("UserDataService", () => {
       const result = await Effect.runPromise(
         Effect.gen(function* () {
           const svc = yield* UserDataService;
-          return yield* svc.getSpotClearinghouseState();
+          return yield* svc.getSpotClearinghouseState(WALLET);
         })
           .pipe(Effect.provide(errorLayer))
           .pipe(Effect.flip)
@@ -463,6 +467,99 @@ describe("UserDataService", () => {
 
       expect(result).toHaveProperty("code", "INTERNAL_ERROR");
       expect(result).toHaveProperty("message", "Failed to fetch meta");
+    });
+  });
+
+  describe("getPortfolio", () => {
+    it("fetches portfolio using wallet address", async () => {
+      const mockPortfolio = { portfolio: "data" };
+      const layer = makeTestLayer({
+        meta: () => Promise.resolve(mockMeta),
+        portfolio: () => Promise.resolve(mockPortfolio),
+      });
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* UserDataService;
+          return yield* svc.getPortfolio(WALLET);
+        }).pipe(Effect.provide(layer))
+      );
+
+      expect(result).toEqual(mockPortfolio);
+    });
+  });
+
+  describe("getUserVaultEquities", () => {
+    it("fetches vault equities using wallet address", async () => {
+      const mockEquities = { equities: [] };
+      const layer = makeTestLayer({
+        userVaultEquities: () => Promise.resolve(mockEquities),
+      });
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* UserDataService;
+          return yield* svc.getUserVaultEquities(WALLET);
+        }).pipe(Effect.provide(layer))
+      );
+
+      expect(result).toEqual(mockEquities);
+    });
+  });
+
+  describe("getUserFunding", () => {
+    it("fetches funding with optional time range", async () => {
+      const mockFunding = { funding: [] };
+      const layer = makeTestLayer({
+        userFunding: () => Promise.resolve(mockFunding),
+      });
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* UserDataService;
+          return yield* svc.getUserFunding(WALLET, 1000, 2000);
+        }).pipe(Effect.provide(layer))
+      );
+
+      expect(result).toEqual(mockFunding);
+    });
+  });
+
+  describe("wallet address propagation", () => {
+    it("passes wallet address to HyperliquidClient info API", async () => {
+      const spy = vi.fn();
+      const testWallet = "0xINFO_WALLET";
+
+      const customClient = HyperliquidClient.of({
+        info: {
+          clearinghouseState: vi.fn((params: { user: string }) => {
+            spy(params.user);
+            return Promise.resolve(mockClearinghouseState);
+          }),
+          openOrders: vi.fn(),
+          historicalOrders: vi.fn(),
+          userFills: vi.fn(),
+          frontendOpenOrders: vi.fn(),
+          spotClearinghouseState: vi.fn(),
+          meta: vi.fn().mockResolvedValue(mockMeta),
+          portfolio: vi.fn(),
+          userVaultEquities: vi.fn(),
+          userFunding: vi.fn(),
+        } as any,
+      });
+
+      const testLayer = userDataServiceLayer.pipe(
+        Layer.provideMerge(Layer.succeed(HyperliquidClient, customClient))
+      );
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* UserDataService;
+          return yield* svc.getClearinghouseState(testWallet);
+        }).pipe(Effect.provide(testLayer))
+      );
+
+      expect(spy).toHaveBeenCalledWith(testWallet);
     });
   });
 });

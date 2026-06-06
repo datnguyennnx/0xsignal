@@ -11,6 +11,7 @@ export interface OAuthAccountRepoPort {
   readonly findByUserId: (userId: UserId) => Effect.Effect<OAuthAccount | null>;
   readonly upsert: (profile: OAuthProfile, userId: UserId) => Effect.Effect<OAuthAccount>;
   readonly createWithUser: (profile: OAuthProfile) => Effect.Effect<{ userId: string }>;
+  readonly updateDisplayName: (userId: UserId, displayName: string) => Effect.Effect<void>;
 }
 
 export class OAuthAccountRepo extends Context.Service<OAuthAccountRepo, OAuthAccountRepoPort>()(
@@ -101,6 +102,20 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
               memoryAccounts.set(key, newAccount);
               return { userId };
             }),
+
+          updateDisplayName: (userId, displayName) =>
+            Effect.sync(() => {
+              for (const [key, account] of memoryAccounts) {
+                if (account.userId === userId) {
+                  memoryAccounts.set(key, {
+                    ...account,
+                    displayName,
+                    updatedAt: new Date(),
+                  });
+                  return;
+                }
+              }
+            }),
         });
       }
 
@@ -190,6 +205,14 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
               ]
             );
             return { userId: result.rows[0].user_id };
+          }).pipe(Effect.orDie),
+
+        updateDisplayName: (userId, displayName) =>
+          Effect.tryPromise(async () => {
+            await pg!.query("UPDATE oauth_accounts SET display_name = $1 WHERE user_id = $2", [
+              displayName,
+              userId,
+            ]);
           }).pipe(Effect.orDie),
       });
     })

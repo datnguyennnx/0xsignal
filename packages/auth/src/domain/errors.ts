@@ -15,6 +15,30 @@ export class ServiceUnavailable extends Data.TaggedError("ServiceUnavailable")<{
   readonly reason: string;
 }> {}
 
+export class CredentialNotFound extends Data.TaggedError("CredentialNotFound")<{
+  readonly credentialId: string;
+}> {}
+export class CredentialRevoked extends Data.TaggedError("CredentialRevoked")<{
+  readonly credentialId: string;
+}> {}
+export class CredentialExpired extends Data.TaggedError("CredentialExpired")<{
+  readonly credentialId: string;
+}> {}
+export class CredentialUnverified extends Data.TaggedError("CredentialUnverified")<{
+  readonly credentialId: string;
+}> {}
+export class AccountNotFound extends Data.TaggedError("AccountNotFound")<{
+  readonly accountId: string;
+}> {}
+export class AccountNodeTypeMismatch extends Data.TaggedError("AccountNodeTypeMismatch")<{
+  readonly accountId: string;
+  readonly expected: string;
+  readonly actual: string;
+}> {}
+export class DuplicateLabel extends Data.TaggedError("DuplicateLabel")<{
+  readonly label: string;
+}> {}
+
 export type AuthError =
   | OAuthStateMismatch
   | OAuthStateExpired
@@ -24,4 +48,11 @@ export type AuthError =
   | TokenRevoked
   | UserSuspended
   | EncryptionFailed
-  | ServiceUnavailable;
+  | ServiceUnavailable
+  | CredentialNotFound
+  | CredentialRevoked
+  | CredentialExpired
+  | CredentialUnverified
+  | AccountNotFound
+  | AccountNodeTypeMismatch
+  | DuplicateLabel;

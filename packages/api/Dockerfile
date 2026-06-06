@@ -34,6 +34,9 @@ RUN bun build packages/api/presentation/http/server.ts \
     --minify \
     --outdir=./dist/api
 
+# Copy SQL migration files into the bundle output so the runner can find them
+RUN mkdir -p ./dist/api/sql && cp -r packages/auth/src/infrastructure/migrations/sql/. ./dist/api/sql/
+
 # Stage 3: Production (minimal image)
 FROM oven/bun:1-alpine AS runner
 

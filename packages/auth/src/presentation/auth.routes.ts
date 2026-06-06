@@ -202,6 +202,28 @@ export const buildAuthRoutes = (): readonly Route[] => [
         })
       )(request),
   },
+  {
+    method: "POST",
+    path: "/api/auth/me/profile",
+    handler: (request) =>
+      withAuth((session) =>
+        Effect.gen(function* () {
+          const authService = yield* AuthService;
+          const body = yield* Effect.tryPromise(() => request.json()).pipe(
+            Effect.catch(() => Effect.succeed({} as any))
+          );
+          const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+          if (!displayName) {
+            return json({ error: "Display name is required" }, 400);
+          }
+          if (displayName.length > 100) {
+            return json({ error: "Display name must be 100 characters or fewer" }, 400);
+          }
+          const profile = yield* authService.updateProfile(session.userId, { displayName });
+          return json({ data: profile });
+        })
+      )(request),
+  },
 ];
 
 function parseCookie(cookieHeader: string, name: string): string | undefined {

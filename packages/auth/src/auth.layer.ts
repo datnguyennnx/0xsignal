@@ -1,5 +1,4 @@
 import { Layer } from "effect";
-import { AuthService } from "./application/auth.service";
 import { AuthServiceLayer } from "./application/auth.service.impl";
 import { GoogleProviderLayer } from "./infrastructure/providers/google.provider";
 import { GitHubProviderLayer } from "./infrastructure/providers/github.provider";
@@ -8,9 +7,10 @@ import { OAuthStateStoreLayer, AuthCodeStoreLayer } from "./infrastructure/state
 import { EncryptionServiceLayer } from "./infrastructure/encryption.service";
 import { UserRepoLayer } from "./infrastructure/repos/user.repo";
 import { OAuthAccountRepoLayer } from "./infrastructure/repos/oauth-account.repo";
-import { PostgresConnectionPool } from "@0xsignal/shared/db/postgres";
+import { ExchangeAccountRepoLayer } from "./infrastructure/repos/exchange-account.repo";
+import { ExchangeCredentialRepoLayer } from "./infrastructure/repos/exchange-credential.repo";
 
-const AuthInfraLayer = Layer.mergeAll(
+export const AuthInfraLayer = Layer.mergeAll(
   GoogleProviderLayer,
   GitHubProviderLayer,
   JwtServiceLayer,
@@ -18,8 +18,10 @@ const AuthInfraLayer = Layer.mergeAll(
   AuthCodeStoreLayer,
   EncryptionServiceLayer,
   UserRepoLayer,
-  OAuthAccountRepoLayer
+  OAuthAccountRepoLayer,
+  ExchangeAccountRepoLayer,
+  ExchangeCredentialRepoLayer.pipe(Layer.provideMerge(EncryptionServiceLayer))
 );
 
-export const authLayer: Layer.Layer<AuthService, never, PostgresConnectionPool> =
-  AuthServiceLayer.pipe(Layer.provide(AuthInfraLayer));
+/* AuthInfraLayer is provided at AppLayer level for cross-layer access. */
+export const authLayer = AuthServiceLayer;
