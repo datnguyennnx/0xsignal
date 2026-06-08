@@ -7,76 +7,31 @@ import { buildMarketWsBucketKey } from "./bucket-key";
 import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
 import { HyperliquidProvider } from "../../data-sources/hyperliquid/types";
 import type { HyperliquidAggregatedAsset } from "../../data-sources/hyperliquid/types";
-import { Clock, Data, Effect, Fiber } from "effect";
+import { Clock, Effect, Fiber } from "effect";
 import type { ManagedRuntime } from "effect/ManagedRuntime";
-import {
-  normalizeAllMidsData,
-  normalizeCandleData,
-  normalizeL2BookData,
-  normalizeTradesData,
-} from "./normalizers";
-
-export type MarketWsConnectionData = {
-  readonly id: string;
-  readonly bucketKey: string;
-  readonly subscription: MarketWsSubscription;
-};
-
-export class WebSocketSubscribeError extends Data.TaggedError("WebSocketSubscribeError")<{
-  readonly message: string;
-  readonly symbol?: string;
-}> {}
+import { subscribeUpstream } from "./hub-subscription";
+import { broadcast, send, toText } from "./hub-broadcast";
+import { type MarketWsConnectionData, WebSocketSubscribeError, type Bucket } from "./hub-types";
 
 const MAX_RESTART_RETRIES = 3;
 
-type Bucket = {
-  readonly key: string;
-  readonly subscription: MarketWsSubscription;
-  readonly clients: Set<ServerWebSocket<MarketWsConnectionData>>;
-  upstream?: ISubscription;
-  subscribing?: Promise<void>; // Promise-based mutex lock for ensureUpstream
-  /** Cleanup handle for the old subscription's failureSignal abort listener */
-  failureSignalAbortHandler?: () => void;
-  restarting: boolean;
-  firstMarketBroadcastLogged: boolean;
-  retryCount: number;
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-// Extend ServerWebSocket with the runtime backpressure property not exposed in bun types
-interface ServerWebSocketWithBackpressure<T = undefined> extends ServerWebSocket<T> {
-  readonly backpressure: number;
-}
+export type { MarketWsConnectionData };
+export { WebSocketSubscribeError };
 
 export class HyperliquidMarketStreamHub {
-  // Event-driven WebSocket hub
-  private readonly transport = new WebSocketTransport({
-    resubscribe: true,
-  });
-
-  private readonly subscriptionClient = new SubscriptionClient({
-    transport: this.transport,
-  });
-
+  private readonly transport = new WebSocketTransport({ resubscribe: true });
+  private readonly subscriptionClient = new SubscriptionClient({ transport: this.transport });
   private readonly buckets = new Map<string, Bucket>();
-
   private runtime?: ManagedRuntime<any, any>;
-
   private connectionSeq = 0;
-
   private shuttingDown = false;
-
   private aggregatedMarketsPromise?: Promise<readonly HyperliquidAggregatedAsset[]>;
-
   private readonly restartFibers = new Set<Fiber.Fiber<unknown, unknown>>();
 
   constructor(private readonly provider?: typeof HyperliquidProvider.Service) {}
 
   setRuntime(runtime: ManagedRuntime<any, any>): void {
     this.runtime = runtime;
-    // Pre-fetch aggregated markets once at startup; resolves from provider's cache
     if (this.provider) {
       this.aggregatedMarketsPromise = runtime.runPromise(this.provider.getAggregatedMarkets());
     }
@@ -84,13 +39,10 @@ export class HyperliquidMarketStreamHub {
 
   createConnectionData(subscription: MarketWsSubscription): MarketWsConnectionData {
     this.connectionSeq += 1;
-
-    // Normalize symbol to resolve API-level identifier
     const normalizedSubscription = { ...subscription };
     if (normalizedSubscription.symbol) {
       normalizedSubscription.symbol = normalizeSymbol(normalizedSubscription.symbol);
     }
-
     return {
       id: String(this.connectionSeq),
       bucketKey: buildMarketWsBucketKey(normalizedSubscription),
@@ -119,7 +71,7 @@ export class HyperliquidMarketStreamHub {
       clientsInBucket: bucket.clients.size,
     });
 
-    this.send(ws, {
+    send(ws, {
       type: "ready",
       subscription: bucket.subscription,
       connectionId: ws.data.id,
@@ -143,14 +95,13 @@ export class HyperliquidMarketStreamHub {
   }
 
   handleMessage(ws: ServerWebSocket<MarketWsConnectionData>, raw: string | Buffer | Uint8Array) {
-    const payload = this.toText(raw).trim();
+    const payload = toText(raw).trim();
     if (payload === "ping") {
-      this.send(ws, { type: "pong", timestamp: Effect.runSync(Clock.currentTimeMillis) });
+      send(ws, { type: "pong", timestamp: Effect.runSync(Clock.currentTimeMillis) });
       return;
     }
-
     if (payload.length > 0) {
-      this.send(ws, {
+      send(ws, {
         type: "error",
         code: "unsupported_message",
         message: "Only ping messages are supported on this endpoint.",
@@ -161,11 +112,8 @@ export class HyperliquidMarketStreamHub {
 
   private async ensureUpstream(key: string): Promise<void> {
     const bucket = this.buckets.get(key);
-    if (!bucket || bucket.upstream || bucket.clients.size === 0 || this.shuttingDown) {
-      return;
-    }
+    if (!bucket || bucket.upstream || bucket.clients.size === 0 || this.shuttingDown) return;
 
-    // Deduplicate concurrent subscribe calls
     if (bucket.subscribing) {
       try {
         await bucket.subscribing;
@@ -175,7 +123,6 @@ export class HyperliquidMarketStreamHub {
       return;
     }
 
-    // Mutex: single subscription per bucket
     const subscribePromise = this.subscribeUpstream(bucket)
       .then(
         (sub) => {
@@ -186,11 +133,15 @@ export class HyperliquidMarketStreamHub {
             channel: bucket.subscription.channel,
             clientsInBucket: bucket.clients.size,
           });
-          this.broadcast(bucket, {
-            type: "ready",
-            subscription: bucket.subscription,
-            timestamp: Effect.runSync(Clock.currentTimeMillis),
-          });
+          broadcast(
+            bucket,
+            {
+              type: "ready",
+              subscription: bucket.subscription,
+              timestamp: Effect.runSync(Clock.currentTimeMillis),
+            },
+            (ws) => this.detach(ws)
+          );
           const abortHandler = () => {
             marketWsLog(
               "upstream_failure_signal",
@@ -216,12 +167,16 @@ export class HyperliquidMarketStreamHub {
             },
             "error"
           );
-          this.broadcast(bucket, {
-            type: "error",
-            code: "upstream_subscribe_failed",
-            message: error instanceof Error ? error.message : String(error),
-            timestamp: Effect.runSync(Clock.currentTimeMillis),
-          });
+          broadcast(
+            bucket,
+            {
+              type: "error",
+              code: "upstream_subscribe_failed",
+              message: error instanceof Error ? error.message : String(error),
+              timestamp: Effect.runSync(Clock.currentTimeMillis),
+            },
+            (ws) => this.detach(ws)
+          );
           void this.restartBucket(bucket.key, "upstream_subscribe_failed");
         }
       )
@@ -233,13 +188,16 @@ export class HyperliquidMarketStreamHub {
     await subscribePromise;
   }
 
+  private async subscribeUpstream(bucket: Bucket): Promise<ISubscription> {
+    return subscribeUpstream(bucket, this.subscriptionClient, this.aggregatedMarketsPromise, (ws) =>
+      this.detach(ws)
+    );
+  }
+
   private async restartBucket(key: string, reason: string): Promise<void> {
     const bucket = this.buckets.get(key);
-    if (!bucket || bucket.restarting || bucket.clients.size === 0) {
-      return;
-    }
+    if (!bucket || bucket.restarting || bucket.clients.size === 0) return;
 
-    // Bounded retries to prevent API flooding
     if (bucket.retryCount >= MAX_RESTART_RETRIES) {
       marketWsLog(
         "upstream_max_retries_exceeded",
@@ -250,15 +208,17 @@ export class HyperliquidMarketStreamHub {
         },
         "error"
       );
-      this.broadcast(bucket, {
-        type: "error",
-        code: "max_retries_exceeded",
-        message: `Max retries (${MAX_RESTART_RETRIES}) exceeded for ${bucket.key}`,
-        timestamp: Effect.runSync(Clock.currentTimeMillis),
-      });
-      for (const client of [...bucket.clients]) {
-        this.detach(client);
-      }
+      broadcast(
+        bucket,
+        {
+          type: "error",
+          code: "max_retries_exceeded",
+          message: `Max retries (${MAX_RESTART_RETRIES}) exceeded for ${bucket.key}`,
+          timestamp: Effect.runSync(Clock.currentTimeMillis),
+        },
+        (ws) => this.detach(ws)
+      );
+      for (const client of [...bucket.clients]) this.detach(client);
       return;
     }
 
@@ -266,7 +226,6 @@ export class HyperliquidMarketStreamHub {
     bucket.retryCount++;
 
     if (bucket.upstream) {
-      // Remove old failure signal listener to prevent stale restarts
       if (bucket.failureSignalAbortHandler) {
         bucket.upstream.failureSignal.removeEventListener(
           "abort",
@@ -277,16 +236,20 @@ export class HyperliquidMarketStreamHub {
       try {
         await bucket.upstream.unsubscribe();
       } catch {
-      } finally {
-        bucket.upstream = undefined;
+        /* ignore */
       }
+      bucket.upstream = undefined;
     }
 
-    this.broadcast(bucket, {
-      type: "reconnecting",
-      reason,
-      timestamp: Effect.runSync(Clock.currentTimeMillis),
-    });
+    broadcast(
+      bucket,
+      {
+        type: "reconnecting",
+        reason,
+        timestamp: Effect.runSync(Clock.currentTimeMillis),
+      },
+      (ws) => this.detach(ws)
+    );
 
     if (this.runtime) {
       const fiberPromise = this.runtime.runPromise(
@@ -294,9 +257,7 @@ export class HyperliquidMarketStreamHub {
           Effect.sleep("500 millis").pipe(
             Effect.flatMap(() => {
               const current = this.buckets.get(key);
-              if (!current) {
-                return Effect.void;
-              }
+              if (!current) return Effect.void;
               current.restarting = false;
               return Effect.sync(() => this.ensureUpstream(key));
             })
@@ -324,129 +285,11 @@ export class HyperliquidMarketStreamHub {
     }
   }
 
-  private async subscribeUpstream(bucket: Bucket): Promise<ISubscription> {
-    const { subscription } = bucket;
-
-    let internalSymbol = subscription.symbol;
-    // Validate against remote market universe
-    const subSymbol = subscription.symbol;
-    if (this.aggregatedMarketsPromise && subSymbol) {
-      try {
-        const markets = await this.aggregatedMarketsPromise;
-        if (markets) {
-          const subUpper = subSymbol.toUpperCase();
-          const asset: HyperliquidAggregatedAsset | undefined = markets.find(
-            (m) => m.rawCoin === subSymbol || m.rawCoin.toUpperCase() === subUpper
-          );
-
-          if (!asset) {
-            throw new WebSocketSubscribeError({
-              message: `Cannot subscribe to WebSocket for "${subSymbol}": not found in any market universe (perp, spot, or outcome).`,
-              symbol: subSymbol,
-            });
-          }
-
-          // Resolve coin to API-level identifier (perp rawCoin / spot @index)
-          internalSymbol = asset.marketType === "spot" ? asset.name : asset.rawCoin;
-        }
-      } catch (error) {
-        marketWsLog(
-          "symbol_resolution_failed",
-          {
-            symbol: subSymbol,
-            error: error instanceof Error ? error.message : String(error),
-          },
-          "warn"
-        );
-        throw error;
-      }
-    }
-
-    switch (subscription.channel) {
-      case "candle":
-        return this.subscriptionClient.candle(
-          {
-            coin: internalSymbol!,
-            interval: subscription.interval!,
-          },
-          (event) => {
-            this.broadcast(bucket, {
-              type: "market",
-              channel: "candle",
-              interval: subscription.interval,
-              data: normalizeCandleData(event),
-            });
-          }
-        );
-
-      case "l2Book":
-        return this.subscriptionClient.l2Book(
-          {
-            coin: internalSymbol!,
-            nSigFigs: subscription.nSigFigs,
-          },
-          (event) => {
-            const normalized = normalizeL2BookData(event);
-            const levels = normalized.levels as unknown[];
-            const maxDepth = (subscription as any).depth ?? 30;
-            const sliced = {
-              levels: [
-                (levels?.[0] as unknown[])?.slice(0, maxDepth) ?? [],
-                (levels?.[1] as unknown[])?.slice(0, maxDepth) ?? [],
-              ],
-            };
-            this.broadcast(bucket, {
-              type: "market",
-              channel: "l2Book",
-              nSigFigs: subscription.nSigFigs,
-              data: sliced,
-            });
-          }
-        );
-
-      case "trades":
-        return this.subscriptionClient.trades(
-          {
-            coin: internalSymbol!,
-          },
-          (event) => {
-            this.broadcast(bucket, {
-              type: "market",
-              channel: "trades",
-              data: normalizeTradesData(event),
-            });
-          }
-        );
-
-      case "allMids":
-        return subscription.dex
-          ? this.subscriptionClient.allMids({ dex: subscription.dex }, (event) => {
-              this.broadcast(bucket, {
-                type: "market",
-                channel: "allMids",
-                data: normalizeAllMidsData(event),
-              });
-            })
-          : this.subscriptionClient.allMids((event) => {
-              this.broadcast(bucket, {
-                type: "market",
-                channel: "allMids",
-                data: normalizeAllMidsData(event),
-              });
-            });
-    }
-  }
-
   private detach(ws: ServerWebSocket<MarketWsConnectionData>) {
     const bucket = this.buckets.get(ws.data.bucketKey);
-    if (!bucket) {
-      return;
-    }
-
+    if (!bucket) return;
     bucket.clients.delete(ws);
-    if (bucket.clients.size > 0) {
-      return;
-    }
+    if (bucket.clients.size > 0) return;
 
     this.buckets.delete(bucket.key);
     if (bucket.upstream) {
@@ -465,13 +308,8 @@ export class HyperliquidMarketStreamHub {
 
   shutdown() {
     this.shuttingDown = true;
-
-    // Interrupt all tracked restart fibers to prevent post-shutdown effects
-    for (const fiber of this.restartFibers) {
-      fiber.interruptUnsafe();
-    }
+    for (const fiber of this.restartFibers) fiber.interruptUnsafe();
     this.restartFibers.clear();
-
     for (const bucket of this.buckets.values()) {
       if (bucket.upstream) {
         if (bucket.failureSignalAbortHandler) {
@@ -490,56 +328,5 @@ export class HyperliquidMarketStreamHub {
       bucket.clients.clear();
     }
     this.buckets.clear();
-  }
-
-  private broadcast(bucket: Bucket, payload: unknown) {
-    if (!bucket.firstMarketBroadcastLogged && isRecord(payload) && payload.type === "market") {
-      bucket.firstMarketBroadcastLogged = true;
-      marketWsLog("first_market_broadcast", {
-        bucketKey: bucket.key,
-        channel: bucket.subscription.channel,
-        clientsInBucket: bucket.clients.size,
-      });
-    }
-
-    const encoded = JSON.stringify(payload);
-    const MAX_BACKPRESSURE_BYTES = 1024 * 1024; // 1MB threshold
-
-    for (const client of bucket.clients) {
-      try {
-        // Disconnect slow clients to prevent server memory bloat
-        const backpressure =
-          (client as unknown as ServerWebSocketWithBackpressure).backpressure ?? 0;
-        if (backpressure > MAX_BACKPRESSURE_BYTES) {
-          marketWsLog(
-            "backpressure_exceeded",
-            {
-              connectionId: client.data.id,
-              bucketKey: bucket.key,
-              backpressure,
-            },
-            "warn"
-          );
-          client.close(1011, "High backpressure - slow client");
-          this.detach(client);
-          continue;
-        }
-
-        client.send(encoded);
-      } catch {
-        this.detach(client);
-      }
-    }
-  }
-
-  private send(ws: ServerWebSocket<MarketWsConnectionData>, payload: unknown) {
-    ws.send(JSON.stringify(payload));
-  }
-
-  private toText(raw: string | Buffer | Uint8Array): string {
-    if (typeof raw === "string") {
-      return raw;
-    }
-    return Buffer.from(raw).toString("utf8");
   }
 }

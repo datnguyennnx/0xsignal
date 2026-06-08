@@ -9,25 +9,18 @@ import { parseMarketWsSubscription } from "./ws/subscription-parser";
 import { CorsService } from "./cors";
 import { errorResponse } from "./error-response";
 
-// Create a managed runtime for bridging non-Effect code
-// NOTE: AppLayer is NOT provided again below — makeRuntime already
-// memoizes it. Providing AppLayer again via Effect.provide would create a
-// second independent instance (duplicate pools, fibers, etc.).
 const runtime = makeRuntime(AppLayer);
 
-// App Program
 const serverProgram = Effect.gen(function* () {
   const PORT = yield* Config.int("PORT").pipe(Config.withDefault(9006));
   const marketStreamHub = yield* MarketStreamHub;
   marketStreamHub.setRuntime(runtime);
 
-  // Initialize CORS configuration from Effect Config at startup
   const cors = yield* CorsService;
   const corsHeaders = cors.headers;
   const applyCors = cors.applyTo;
   const corsPreflight = cors.preflight;
 
-  // Use Effect's acquireRelease for the server lifecycle
   yield* Effect.acquireRelease(
     Effect.sync(() =>
       Bun.serve<MarketWsConnectionData>({
@@ -51,9 +44,7 @@ const serverProgram = Effect.gen(function* () {
               data: marketStreamHub.createConnectionData(parsed.data),
             });
 
-            if (upgraded) {
-              return undefined;
-            }
+            if (upgraded) return undefined;
 
             return new Response(
               JSON.stringify({ error: "WebSocket upgrade failed", status: 400 }),
@@ -64,10 +55,7 @@ const serverProgram = Effect.gen(function* () {
             );
           }
 
-          // CORS preflight
-          if (req.method === "OPTIONS") {
-            return corsPreflight;
-          }
+          if (req.method === "OPTIONS") return corsPreflight;
 
           try {
             const response = await runtime.runPromise(
@@ -78,11 +66,7 @@ const serverProgram = Effect.gen(function* () {
             );
 
             const headers = applyCors(new Headers(response.headers));
-
-            return new Response(response.body, {
-              status: response.status,
-              headers,
-            });
+            return new Response(response.body, { status: response.status, headers });
           } catch (error) {
             console.error("[Request Error]:", error);
             return errorResponse(error, corsHeaders);
@@ -117,15 +101,8 @@ const serverProgram = Effect.gen(function* () {
   yield* Effect.never;
 });
 
-// MarketStreamHubLayer is program-scoped, not part of AppLayer.
-// Other deps (HyperliquidProvider, Postgres pool) come from the
-// ManagedRuntime's single memoized AppLayer instance.
-
 const abortController = new AbortController();
-
-const shutdown = () => {
-  abortController.abort();
-};
+const shutdown = () => abortController.abort();
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
@@ -134,14 +111,9 @@ runtime
   .runPromise(serverProgram.pipe(Effect.provide(MarketStreamHubLayer), Effect.scoped), {
     signal: abortController.signal,
   })
-  .then(() => {
-    process.exit(0);
-  })
+  .then(() => process.exit(0))
   .catch((cause: unknown) => {
-    // If we were shutting down, the interruption is expected
-    if (abortController.signal.aborted) {
-      process.exit(0);
-    }
+    if (abortController.signal.aborted) process.exit(0);
     console.error("Fatal error:", cause);
     process.exit(1);
   });

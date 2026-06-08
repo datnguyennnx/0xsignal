@@ -25,36 +25,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  questdb:
-    image: questdb/questdb:latest
-    container_name: 0xsignal-questdb
-    environment:
-      - QGUEST_HPW=${QUESTDB_PASSWORD:-change-me-in-production}
-      - JAVA_OPTS=-XX:MaxRAMPercentage=70 -Djava.security.policy=file:///etc/questdb/security.policy -Dquestdb.security.allow.insecure=true
-    volumes:
-      - questdb-data:/var/lib/questdb
-    ports:
-      - "8812:8812"
-      - "9000:9000"
-    networks:
-      - oxsignal-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "(echo > /dev/tcp/localhost/9000) >/dev/null 2>&1 || exit 1"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
 networks:
   oxsignal-network:
     driver: bridge
 
 volumes:
   postgres-data:
-  questdb-data:

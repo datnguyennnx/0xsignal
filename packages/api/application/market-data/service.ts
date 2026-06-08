@@ -71,7 +71,7 @@ export const makeMarketDataService = () =>
             missingWindows: [],
           };
 
-          return { candles: normalizedCandles, provenance: "QuestDB", coverage };
+          return { candles: normalizedCandles, provenance: "Candle Store", coverage };
         }),
 
       getRecentCandles: (query: RecentCandleQuery) =>

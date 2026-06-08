@@ -1,3 +1,4 @@
+import { Match } from "effect";
 import { type Candle } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 
@@ -36,10 +37,7 @@ const isNumberOrString = (value: unknown): value is number | string =>
   typeof value === "number" || typeof value === "string";
 
 const isHlRawCandle = (value: unknown): value is HlRawCandle => {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
+  if (typeof value !== "object" || value === null) return false;
   const candle = value as Record<string, unknown>;
   return (
     isNumberOrString(candle.t) &&
@@ -55,7 +53,6 @@ export function parseHlRawCandles(payload: unknown): HlRawCandle[] {
   if (!Array.isArray(payload)) {
     throw new NormalizationError("Hyperliquid candle payload must be an array");
   }
-
   const parsed: HlRawCandle[] = [];
   for (const item of payload) {
     if (!isHlRawCandle(item)) {
@@ -63,46 +60,27 @@ export function parseHlRawCandles(payload: unknown): HlRawCandle[] {
     }
     parsed.push(item);
   }
-
   return parsed;
 }
 
-/**
- * Maps internal timeframe to Hyperliquid SDK interval strings.
- */
 export function toHlInterval(timeframe: MarketTimeframe): HlInterval {
-  switch (timeframe) {
-    case "1m":
-      return "1m";
-    case "5m":
-      return "5m";
-    case "3m":
-      return "3m";
-    case "15m":
-      return "15m";
-    case "30m":
-      return "30m";
-    case "1h":
-      return "1h";
-    case "2h":
-      return "2h";
-    case "4h":
-      return "4h";
-    case "8h":
-      return "8h";
-    case "12h":
-      return "12h";
-    case "1d":
-      return "1d";
-    case "1w":
-      return "1w";
-  }
+  return Match.value(timeframe).pipe(
+    Match.when("1m", () => "1m" as const),
+    Match.when("3m", () => "3m" as const),
+    Match.when("5m", () => "5m" as const),
+    Match.when("15m", () => "15m" as const),
+    Match.when("30m", () => "30m" as const),
+    Match.when("1h", () => "1h" as const),
+    Match.when("2h", () => "2h" as const),
+    Match.when("4h", () => "4h" as const),
+    Match.when("8h", () => "8h" as const),
+    Match.when("12h", () => "12h" as const),
+    Match.when("1d", () => "1d" as const),
+    Match.when("1w", () => "1w" as const),
+    Match.exhaustive
+  );
 }
 
-/**
- * Normalizes Hyperliquid candle response to internal Candle format.
- * Hyperliquid returns: [t, o, h, l, c, v] where o, h, l, c, v are strings.
- */
 export function normalizeCandle(hlCandle: HlRawCandle): Candle {
   return {
     timestamp: new Date(hlCandle.t),

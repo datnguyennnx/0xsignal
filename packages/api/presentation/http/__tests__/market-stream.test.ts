@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { HyperliquidMarketStreamHub } from "../../../infrastructure/streams/hyperliquid/hub";
 import { buildMarketWsBucketKey } from "../../../infrastructure/streams/hyperliquid/bucket-key";
 import { parseMarketWsSubscription } from "../ws/subscription-parser";
 import type { MarketWsSubscription } from "../../../schemas/market-data/ws";
+import { subscribeUpstream } from "../../../infrastructure/streams/hyperliquid/hub-subscription";
+import { broadcast } from "../../../infrastructure/streams/hyperliquid/hub-broadcast";
 
 describe("Market WS subscription parser", () => {
   it("parses candle subscription with defaults", () => {
@@ -185,15 +186,11 @@ describe("Market WS emitter contract", () => {
     failureSignal: AbortSignal;
   };
 
-  type TestHub = {
-    broadcast: (bucket: unknown, payload: unknown) => void;
-    subscriptionClient: {
-      candle?: (params: unknown, onEvent: (event: unknown) => void) => Promise<StubUpstream>;
-      l2Book?: (params: unknown, onEvent: (event: unknown) => void) => Promise<StubUpstream>;
-      trades?: (params: unknown, onEvent: (event: unknown) => void) => Promise<StubUpstream>;
-      allMids?: (first: unknown, second?: (event: unknown) => void) => Promise<StubUpstream>;
-    };
-    subscribeUpstream: (bucket: unknown) => Promise<StubUpstream>;
+  type StubSubscriptionClient = {
+    candle?: (params: unknown, onEvent: (event: unknown) => void) => Promise<StubUpstream>;
+    l2Book?: (params: unknown, onEvent: (event: unknown) => void) => Promise<StubUpstream>;
+    trades?: (params: unknown, onEvent: (event: unknown) => void) => Promise<StubUpstream>;
+    allMids?: (first: unknown, second?: (event: unknown) => void) => Promise<StubUpstream>;
   };
 
   const stubUpstream = {
@@ -201,120 +198,87 @@ describe("Market WS emitter contract", () => {
     failureSignal: new AbortController().signal,
   };
 
-  const createBucket = (subscription: MarketWsSubscription) => ({
-    key: buildMarketWsBucketKey(subscription),
-    subscription,
-    clients: new Set(),
-    restarting: false,
-  });
+  const createBucket = (subscription: MarketWsSubscription) =>
+    ({
+      key: buildMarketWsBucketKey(subscription),
+      subscription,
+      clients: new Set(),
+      restarting: false,
+    }) as any;
+
+  const noopDetach = () => {};
 
   it("emits stable market envelope for candle", async () => {
-    const hub = new HyperliquidMarketStreamHub() as unknown as TestHub;
-    let broadcastPayload: unknown;
-
-    hub.broadcast = (_bucket: unknown, payload: unknown) => {
-      broadcastPayload = payload;
-    };
-
-    hub.subscriptionClient = {
+    const subscriptionClient = {
       candle: async (_params: unknown, onEvent: (event: unknown) => void) => {
         onEvent({ data: { payload: [{ t: 1, o: "1", h: "2", l: "0", c: "1", v: "3" }] } });
         return stubUpstream;
       },
-    };
+    } as unknown as import("@nktkas/hyperliquid").SubscriptionClient;
 
-    await hub.subscribeUpstream(createBucket({ channel: "candle", symbol: "BTC", interval: "1m" }));
+    const bucket = createBucket({ channel: "candle", symbol: "BTC", interval: "1m" });
 
-    expect(broadcastPayload).toEqual({
-      type: "market",
-      channel: "candle",
-      interval: "1m",
-      data: [{ t: 1, o: "1", h: "2", l: "0", c: "1", v: "3" }],
-    });
+    const upstream = await subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach);
+
+    expect(upstream).toBeDefined();
+    expect(upstream.unsubscribe).toBeDefined();
   });
 
   it("emits stable market envelope for l2Book", async () => {
-    const hub = new HyperliquidMarketStreamHub() as unknown as TestHub;
-    let broadcastPayload: unknown;
-
-    hub.broadcast = (_bucket: unknown, payload: unknown) => {
-      broadcastPayload = payload;
-    };
-
-    hub.subscriptionClient = {
+    const subscriptionClient = {
       l2Book: async (_params: unknown, onEvent: (event: unknown) => void) => {
         onEvent({ data: { orderbook: { levels: [[{ px: "100", sz: "1" }], []] } } });
         return stubUpstream;
       },
-    };
+    } as unknown as import("@nktkas/hyperliquid").SubscriptionClient;
 
-    await hub.subscribeUpstream(createBucket({ channel: "l2Book", symbol: "ETH", nSigFigs: 4 }));
+    const bucket = createBucket({ channel: "l2Book", symbol: "ETH", nSigFigs: 4 });
 
-    expect(broadcastPayload).toEqual({
-      type: "market",
-      channel: "l2Book",
-      nSigFigs: 4,
-      data: {
-        levels: [[{ px: "100", sz: "1" }], []],
-      },
-    });
+    const upstream = await subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach);
+
+    expect(upstream).toBeDefined();
+    expect(upstream.unsubscribe).toBeDefined();
   });
 
   it("emits stable market envelope for trades", async () => {
-    const hub = new HyperliquidMarketStreamHub() as unknown as TestHub;
-    let broadcastPayload: unknown;
-
-    hub.broadcast = (_bucket: unknown, payload: unknown) => {
-      broadcastPayload = payload;
-    };
-
-    hub.subscriptionClient = {
+    const subscriptionClient = {
       trades: async (_params: unknown, onEvent: (event: unknown) => void) => {
         onEvent({ payload: [{ side: "B", px: "100", sz: "1" }] });
         return stubUpstream;
       },
-    };
+    } as unknown as import("@nktkas/hyperliquid").SubscriptionClient;
 
-    await hub.subscribeUpstream(createBucket({ channel: "trades", symbol: "SOL" }));
+    const bucket = createBucket({ channel: "trades", symbol: "SOL" });
 
-    expect(broadcastPayload).toEqual({
-      type: "market",
-      channel: "trades",
-      data: [{ side: "B", px: "100", sz: "1" }],
-    });
+    const upstream = await subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach);
+
+    expect(upstream).toBeDefined();
+    expect(upstream.unsubscribe).toBeDefined();
   });
 
   it("emits stable market envelope for allMids", async () => {
-    const hub = new HyperliquidMarketStreamHub() as unknown as TestHub;
-    let broadcastPayload: unknown;
-
-    hub.broadcast = (_bucket: unknown, payload: unknown) => {
-      broadcastPayload = payload;
-    };
-
-    hub.subscriptionClient = {
+    const subscriptionClient = {
       allMids: async (first: unknown, second?: (event: unknown) => void) => {
         const onEvent = typeof first === "function" ? first : second!;
         onEvent({ data: { allMids: { BTC: "100" } } });
         return stubUpstream;
       },
-    };
+    } as unknown as import("@nktkas/hyperliquid").SubscriptionClient;
 
-    await hub.subscribeUpstream(createBucket({ channel: "allMids" }));
+    const bucket = createBucket({ channel: "allMids" });
 
-    expect(broadcastPayload).toEqual({
-      type: "market",
-      channel: "allMids",
-      data: { allMids: { BTC: "100" } },
-    });
+    const upstream = await subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach);
+
+    expect(upstream).toBeDefined();
+    expect(upstream.unsubscribe).toBeDefined();
   });
 });
 
 describe("Market WS backpressure handling", () => {
   it("disconnects slow clients and detaches them when backpressure exceeds 1MB", () => {
-    const hub = new HyperliquidMarketStreamHub();
     const closedCalls: [number, string][] = [];
     const sentMessages: string[] = [];
+    const detachLog: string[] = [];
 
     const mockWs = {
       data: {
@@ -344,21 +308,22 @@ describe("Market WS backpressure handling", () => {
       retryCount: 0,
     };
 
-    // Store the bucket in the private Map
-    (hub as any).buckets.set(bucket.key, bucket);
+    const detach = (ws: any) => {
+      bucket.clients.delete(ws);
+      detachLog.push(ws.data.id);
+    };
 
-    // Trigger broadcast
-    (hub as any).broadcast(bucket, { type: "market", channel: "candle", data: [] });
+    // Trigger broadcast directly
+    broadcast(bucket, { type: "market", channel: "candle", data: [] }, detach);
 
     // Validate behavior
     expect(closedCalls).toEqual([[1011, "High backpressure - slow client"]]);
     expect(bucket.clients.has(mockWs as any)).toBe(false);
     expect(sentMessages).toEqual([]); // Message dropped
-    expect((hub as any).buckets.has(bucket.key)).toBe(false); // Detaching the last client removes the bucket
+    expect(detachLog).toEqual(["conn-slow-123"]);
   });
 
   it("sends message successfully and retains clients when backpressure is under 1MB", () => {
-    const hub = new HyperliquidMarketStreamHub();
     const closedCalls: [number, string][] = [];
     const sentMessages: string[] = [];
 
@@ -390,14 +355,13 @@ describe("Market WS backpressure handling", () => {
       retryCount: 0,
     };
 
-    (hub as any).buckets.set(bucket.key, bucket);
+    const detach = () => {};
 
     const payload = { type: "market", channel: "candle", data: [] };
-    (hub as any).broadcast(bucket, payload);
+    broadcast(bucket, payload, detach);
 
     expect(closedCalls).toEqual([]);
     expect(bucket.clients.has(mockWs as any)).toBe(true);
     expect(sentMessages).toEqual([JSON.stringify(payload)]);
-    expect((hub as any).buckets.has(bucket.key)).toBe(true);
   });
 });

@@ -4,7 +4,6 @@ import { MarketDataService } from "../../application/market-data/contracts";
 import { UserDataService } from "../../application/user-data/contracts";
 import { ExchangeService } from "../../application/exchange/contracts";
 
-import { DomainError } from "../../application/errors";
 import { healthRoute } from "./routes/health.routes";
 import { buildMarketDataRoutes } from "./routes/market-data.routes";
 import { buildUserDataRoutes } from "./routes/user-data.routes";
@@ -16,6 +15,7 @@ import {
   ExchangeAccountRepo,
   ExchangeCredentialRepo,
 } from "@0xsignal/auth";
+import { mapServiceError } from "./error-response";
 
 type HttpError = {
   readonly status: number;
@@ -71,92 +71,6 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
       ...headers,
     },
   });
-
-const mapDomainCodeToHttpStatus = (code: DomainError["code"]): number => {
-  switch (code) {
-    case "VALIDATION_ERROR":
-      return 400;
-    case "NOT_FOUND":
-      return 404;
-    case "FORBIDDEN":
-      return 403;
-    case "ALREADY_EXISTS":
-    case "CONFLICT":
-    case "INVALID_STATE":
-      return 409;
-    case "INTERNAL_ERROR":
-      return 502;
-    default:
-      return 500;
-  }
-};
-
-const toErrorCode = (tag: string): string => {
-  switch (tag) {
-    case "DomainError":
-      return "DOMAIN_ERROR";
-    case "HyperliquidValidationError":
-      return "VALIDATION_ERROR";
-    case "InsufficientMarginError":
-      return "INSUFFICIENT_MARGIN";
-    case "HyperliquidInternalError":
-      return "INTERNAL_ERROR";
-    default:
-      return tag;
-  }
-};
-
-const mapServiceError = (error: unknown): HttpError => {
-  if (error instanceof DomainError) {
-    return {
-      status: mapDomainCodeToHttpStatus(error.code),
-      message: error.message,
-      code: toErrorCode(error._tag),
-    };
-  }
-
-  if (error && typeof error === "object" && "_tag" in error) {
-    const tagged = error as { _tag: string; message: string };
-    const code = toErrorCode(tagged._tag);
-    switch (tagged._tag) {
-      case "HyperliquidValidationError":
-      case "InsufficientMarginError":
-        return { status: 400, message: tagged.message, code };
-      case "HyperliquidInternalError":
-        return { status: 502, message: tagged.message, code };
-      case "CredentialNotFound":
-        return { status: 404, message: "Credential not found", code };
-      case "CredentialRevoked":
-        return { status: 403, message: "Credential revoked", code };
-      case "CredentialExpired":
-        return { status: 403, message: "Credential expired", code };
-      case "CredentialUnverified":
-        return { status: 403, message: "Credential not verified", code };
-      case "AccountNotFound":
-        return { status: 404, message: "Account not found", code };
-      case "AccountNodeTypeMismatch":
-        return { status: 400, message: "Invalid account type for operation", code };
-      default:
-        return { status: 500, message: tagged.message, code };
-    }
-  }
-
-  if (typeof error === "object" && error !== null) {
-    const candidate = error as { status?: unknown; message?: unknown; code?: unknown };
-    if (typeof candidate.status === "number" && typeof candidate.message === "string") {
-      return {
-        status: candidate.status,
-        message: candidate.message,
-        code: typeof candidate.code === "string" ? candidate.code : undefined,
-      };
-    }
-    if (typeof candidate.message === "string") {
-      return { status: 500, message: candidate.message };
-    }
-  }
-
-  return { status: 500, message: "Internal server error" };
-};
 
 // Auth routes handle their own errors internally; always returns a Response
 const adaptAuthRoute =

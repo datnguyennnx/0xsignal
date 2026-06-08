@@ -18,7 +18,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "db:up": "docker compose -f deploy/dev/docker-compose.yml up -d",
     "db:down": "docker compose -f deploy/dev/docker-compose.yml down",
-    "db:logs": "docker compose -f deploy/dev/docker-compose.yml logs -f postgres questdb",
+    "db:logs": "docker compose -f deploy/dev/docker-compose.yml logs -f postgres",
     "clean:all": "rm -rf node_modules packages/*/node_modules packages/*/dist",
     "prepare": "husky"
   },
