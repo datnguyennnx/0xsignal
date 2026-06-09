@@ -3,6 +3,21 @@ import { HyperliquidClient } from "../../infrastructure/data-sources/hyperliquid
 import { DomainError } from "../errors";
 import { UserDataService } from "./contracts";
 
+// ── Helper ────────────────────────────────────────────────────────────
+// Extracts the repeated Effect.tryPromise + DomainError pattern used by all
+// Hyperliquid info API calls below. Reduces 10 nearly-identical blocks to
+// one-liners.
+const callInfoApi = <A>(label: string, fn: () => Promise<A>): Effect.Effect<A, DomainError> =>
+  Effect.tryPromise({
+    try: fn,
+    catch: (cause) =>
+      new DomainError({
+        code: "INTERNAL_ERROR",
+        message: `${label} failed`,
+        cause,
+      }),
+  });
+
 export const userDataServiceLayer = Layer.effect(
   UserDataService,
   Effect.gen(function* () {
@@ -10,116 +25,41 @@ export const userDataServiceLayer = Layer.effect(
 
     return UserDataService.of({
       getClearinghouseState: (walletAddress) =>
-        Effect.tryPromise({
-          try: () => info.clearinghouseState({ user: walletAddress }),
-          catch: (cause) =>
-            new DomainError({
-              code: "INTERNAL_ERROR",
-              message: "Failed to fetch clearinghouse state",
-              cause,
-            }),
-        }),
+        callInfoApi("clearinghouseState", () => info.clearinghouseState({ user: walletAddress })),
 
       getSpotClearinghouseState: (walletAddress) =>
-        Effect.tryPromise({
-          try: () => info.spotClearinghouseState({ user: walletAddress }),
-          catch: (cause) =>
-            new DomainError({
-              code: "INTERNAL_ERROR",
-              message: "Failed to fetch spot clearinghouse state",
-              cause,
-            }),
-        }),
+        callInfoApi("spotClearinghouseState", () =>
+          info.spotClearinghouseState({ user: walletAddress })
+        ),
 
       getOpenOrders: (walletAddress) =>
-        Effect.tryPromise({
-          try: () => info.openOrders({ user: walletAddress }),
-          catch: (cause) =>
-            new DomainError({
-              code: "INTERNAL_ERROR",
-              message: "Failed to fetch open orders",
-              cause,
-            }),
-        }),
+        callInfoApi("openOrders", () => info.openOrders({ user: walletAddress })),
 
       getFrontendOpenOrders: (walletAddress) =>
-        Effect.tryPromise({
-          try: () => info.frontendOpenOrders({ user: walletAddress }),
-          catch: (cause) =>
-            new DomainError({
-              code: "INTERNAL_ERROR",
-              message: "Failed to fetch frontend open orders",
-              cause,
-            }),
-        }),
+        callInfoApi("frontendOpenOrders", () => info.frontendOpenOrders({ user: walletAddress })),
 
-      getMeta: () =>
-        Effect.tryPromise({
-          try: () => info.meta(),
-          catch: (cause) =>
-            new DomainError({ code: "INTERNAL_ERROR", message: "Failed to fetch meta", cause }),
-        }),
+      getMeta: () => callInfoApi("meta", () => info.meta()),
 
       getHistoricalOrders: (walletAddress) =>
-        Effect.tryPromise({
-          try: () => info.historicalOrders({ user: walletAddress }),
-          catch: (cause) =>
-            new DomainError({
-              code: "INTERNAL_ERROR",
-              message: "Failed to fetch historical orders",
-              cause,
-            }),
-        }),
+        callInfoApi("historicalOrders", () => info.historicalOrders({ user: walletAddress })),
 
       getUserFills: (walletAddress) =>
-        Effect.tryPromise({
-          try: () => info.userFills({ user: walletAddress }),
-          catch: (cause) =>
-            new DomainError({
-              code: "INTERNAL_ERROR",
-              message: "Failed to fetch user fills",
-              cause,
-            }),
-        }),
+        callInfoApi("userFills", () => info.userFills({ user: walletAddress })),
 
       getPortfolio: (walletAddress) =>
-        Effect.tryPromise({
-          try: () => info.portfolio({ user: walletAddress }),
-          catch: (cause) =>
-            new DomainError({
-              code: "INTERNAL_ERROR",
-              message: "Failed to fetch portfolio",
-              cause,
-            }),
-        }),
+        callInfoApi("portfolio", () => info.portfolio({ user: walletAddress })),
 
       getUserVaultEquities: (walletAddress) =>
-        Effect.tryPromise({
-          try: () => info.userVaultEquities({ user: walletAddress }),
-          catch: (cause) =>
-            new DomainError({
-              code: "INTERNAL_ERROR",
-              message: "Failed to fetch user vault equities",
-              cause,
-            }),
-        }),
+        callInfoApi("userVaultEquities", () => info.userVaultEquities({ user: walletAddress })),
 
       getUserFunding: (walletAddress, startTime?: number, endTime?: number) =>
-        Effect.tryPromise({
-          try: () => {
-            const params: { user: string; startTime?: number; endTime?: number } = {
-              user: walletAddress,
-            };
-            if (startTime !== undefined) params.startTime = startTime;
-            if (endTime !== undefined) params.endTime = endTime;
-            return info.userFunding(params);
-          },
-          catch: (cause) =>
-            new DomainError({
-              code: "INTERNAL_ERROR",
-              message: "Failed to fetch user funding",
-              cause,
-            }),
+        callInfoApi("userFunding", () => {
+          const params: { user: string; startTime?: number; endTime?: number } = {
+            user: walletAddress,
+          };
+          if (startTime !== undefined) params.startTime = startTime;
+          if (endTime !== undefined) params.endTime = endTime;
+          return info.userFunding(params);
         }),
     });
   })

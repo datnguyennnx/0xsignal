@@ -77,6 +77,23 @@ const fetchAllDexMetas = (
     { concurrency: 3 }
   );
 
+// Extract DEX names from raw perpDexs result, prepending the main (empty) DEX.
+const fetchDexNames = (
+  dexNamesResult: ReadonlyArray<null | { readonly name: string }> | undefined
+): string[] => {
+  const raw: ReadonlyArray<null | { readonly name: string }> = dexNamesResult ?? [];
+  return ["", ...raw.filter((d): d is { readonly name: string } => d !== null).map((d) => d.name)];
+};
+
+// Build a category map from raw perpCategories pairs.
+const buildCategoryMap = (rawPerpCats: Array<[string, string]>): Map<string, string> => {
+  const map = new Map<string, string>();
+  for (const [coin, cat] of rawPerpCats) {
+    map.set(normalizeSymbol(coin), cat);
+  }
+  return map;
+};
+
 // Fetch optional spot data with graceful fallback
 const fetchOptionalData = (
   info: HyperliquidInfoClient,
@@ -142,16 +159,8 @@ export function getAggregatedMarketsSnapshot(
     const { dexNamesResult, rawPerpCats, allMids, optionalData } = allResult;
     const { spotRaw } = optionalData;
 
-    const dexNamesRaw: ReadonlyArray<null | { readonly name: string }> = dexNamesResult ?? [];
-    const dexNames = [
-      "",
-      ...dexNamesRaw.filter((d): d is { readonly name: string } => d !== null).map((d) => d.name),
-    ];
-
-    const categoryMap = new Map<string, string>();
-    for (const [coin, cat] of rawPerpCats) {
-      categoryMap.set(normalizeSymbol(coin), cat);
-    }
+    const dexNames = fetchDexNames(dexNamesResult);
+    const categoryMap = buildCategoryMap(rawPerpCats);
 
     const rawMetas = yield* fetchAllDexMetas(info, dexNames);
 

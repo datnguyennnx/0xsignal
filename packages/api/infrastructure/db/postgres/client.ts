@@ -30,6 +30,11 @@ export const postgresConnectionPoolLayer = Layer.effect(
         connectionTimeoutMillis: 10000,
       });
 
+      // ── Bridge Pattern: Effect.runSync in 3rd-party event callback ──
+      // pg.Pool emits "error" events from a non-Effect context (Node event
+      // emitter). We cannot yield* inside this callback. Effect.runSync is
+      // the correct way to log an Effect within a synchronous event handler.
+      // This is an acceptable bridge pattern — documented as such.
       pool.on("error", (err: Error) => {
         Effect.runSync(Effect.logError(`Unexpected PostgreSQL pool error: ${err.message}`));
       });

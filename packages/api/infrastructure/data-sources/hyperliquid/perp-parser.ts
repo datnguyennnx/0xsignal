@@ -57,6 +57,68 @@ function normalizeCoinName(rawName: string): string {
   return rawName;
 }
 
+// Build a single PerpTradeAsset from a universe entry at index i.
+const buildPerpAsset = (
+  market: Record<string, unknown>,
+  i: number,
+  dexIdx: number,
+  isMainDex: boolean,
+  dexPrefix: string | null,
+  assetCtxs: ReadonlyArray<Record<string, string | undefined>>,
+  allMids: Record<string, string>,
+  categoryMap: ReadonlyMap<string, string>,
+  quoteCurrency: string,
+  globalIndex: number
+): PerpTradeAsset | null => {
+  const rawName = typeof market.name === "string" ? market.name : "";
+  if (!rawName) return null;
+
+  const coin = normalizeCoinName(rawName);
+  const isDelisted = market.isDelisted === true;
+  const szDecimals = typeof market.szDecimals === "number" ? market.szDecimals : 4;
+  const maxLeverage = typeof market.maxLeverage === "number" ? market.maxLeverage : 10;
+
+  const assetId = isMainDex ? globalIndex : 100000 + dexIdx * 10000 + i;
+  const rawCoin = dexPrefix ? `${dexPrefix}:${coin}` : coin;
+
+  const category =
+    categoryMap.get(normalizeSymbol(rawCoin)) ??
+    categoryMap.get(normalizeSymbol(rawName)) ??
+    categoryMap.get(normalizeSymbol(coin)) ??
+    "crypto";
+  const displayCategory = getDisplayCategory(category);
+
+  const ctx = assetCtxs[i] ?? {};
+  const markPx = allMids[rawCoin] ?? allMids[rawName] ?? allMids[coin] ?? ctx.markPx ?? "0";
+  const prevDayPx = ctx.prevDayPx ?? "0";
+  const openInterest = ctx.openInterest ?? "0";
+  const funding = ctx.funding ?? "0";
+  const dayNtlVlm = ctx.dayNtlVlm ?? "0";
+
+  return {
+    coin,
+    rawCoin,
+    displaySymbol: `${coin}-${quoteCurrency}`,
+    dexPrefix,
+    isHip3: dexPrefix !== null,
+    quoteCurrency,
+    name: rawName,
+    markPx,
+    prevDayPx,
+    openInterest,
+    funding,
+    dayNtlVlm,
+    category,
+    displayCategory,
+    maxLeverage,
+    szDecimals,
+    assetId,
+    isDelisted,
+    dex: "HYPERLIQUID",
+    marketType: "perp",
+  };
+};
+
 export function parsePerpAssets(
   dexName: string,
   dexIdx: number,
@@ -73,62 +135,26 @@ export function parsePerpAssets(
   const universe = meta.universe;
   const isMainDex = dexName === "";
   const dexPrefix = isMainDex ? null : dexName;
-  const isHip3 = dexPrefix !== null;
   const quoteCurrency = getQuoteCurrency(meta.collateralToken, resolvedTokens);
 
   let globalIndex = startIndex;
   const assets: PerpTradeAsset[] = [];
 
   for (let i = 0; i < universe.length; i++) {
-    const market = universe[i];
-    const rawName = typeof market.name === "string" ? market.name : "";
-    if (!rawName) continue;
-
-    const coin = normalizeCoinName(rawName);
-    const isDelisted = market.isDelisted === true;
-    const szDecimals = typeof market.szDecimals === "number" ? market.szDecimals : 4;
-    const maxLeverage = typeof market.maxLeverage === "number" ? market.maxLeverage : 10;
-
-    const assetId = isMainDex ? globalIndex : 100000 + dexIdx * 10000 + i;
-    const rawCoin = dexPrefix ? `${dexPrefix}:${coin}` : coin;
-
-    const category =
-      categoryMap.get(normalizeSymbol(rawCoin)) ??
-      categoryMap.get(normalizeSymbol(rawName)) ??
-      categoryMap.get(normalizeSymbol(coin)) ??
-      "crypto";
-    const displayCategory = getDisplayCategory(category);
-
-    const ctx = assetCtxs[i] ?? {};
-    const markPx = allMids[rawCoin] ?? allMids[rawName] ?? allMids[coin] ?? ctx.markPx ?? "0";
-    const prevDayPx = ctx.prevDayPx ?? "0";
-    const openInterest = ctx.openInterest ?? "0";
-    const funding = ctx.funding ?? "0";
-    const dayNtlVlm = ctx.dayNtlVlm ?? "0";
-
-    assets.push({
-      coin,
-      rawCoin,
-      displaySymbol: `${coin}-${quoteCurrency}`,
+    const asset = buildPerpAsset(
+      universe[i],
+      i,
+      dexIdx,
+      isMainDex,
       dexPrefix,
-      isHip3,
+      assetCtxs,
+      allMids,
+      categoryMap,
       quoteCurrency,
-      name: rawName,
-      markPx,
-      prevDayPx,
-      openInterest,
-      funding,
-      dayNtlVlm,
-      category,
-      displayCategory,
-      maxLeverage,
-      szDecimals,
-      assetId,
-      isDelisted,
-      dex: "HYPERLIQUID",
-      marketType: "perp",
-    });
-
+      globalIndex
+    );
+    if (asset === null) continue;
+    assets.push(asset);
     globalIndex++;
   }
 

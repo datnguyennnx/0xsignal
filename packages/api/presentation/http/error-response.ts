@@ -112,17 +112,26 @@ const mapTaggedError = (tagged: { _tag: string; message: string }) =>
       message: "Account not found",
       code: toErrorCode(tagged._tag),
     })),
-    Match.when("AccountNodeTypeMismatch", () => ({
-      status: 400 as const,
-      message: "Invalid account type for operation",
-      code: toErrorCode(tagged._tag),
-    })),
     Match.orElse(() => ({
       status: 500 as const,
       message: tagged.message,
       code: toErrorCode(tagged._tag),
     }))
   );
+
+const mapUnknownError = (
+  error: unknown
+): {
+  readonly status: number;
+  readonly message: string;
+  readonly code?: string;
+} => {
+  if (error && typeof error === "object" && "_tag" in error) {
+    return mapTaggedError(error as { _tag: string; message: string });
+  }
+  if (typeof error === "object" && error !== null) return mapPlainError(error);
+  return { status: 500, message: "Internal server error" };
+};
 
 const mapPlainError = (error: object) => {
   const candidate = error as { status?: unknown; message?: unknown; code?: unknown };
@@ -145,11 +154,8 @@ export const mapServiceError = (
   readonly status: number;
   readonly message: string;
   readonly code?: string;
-} => {
-  if (error instanceof DomainError) return mapDomainError(error);
-  if (error && typeof error === "object" && "_tag" in error) {
-    return mapTaggedError(error as { _tag: string; message: string });
-  }
-  if (typeof error === "object" && error !== null) return mapPlainError(error);
-  return { status: 500, message: "Internal server error" };
-};
+} =>
+  Match.type<unknown>().pipe(
+    Match.when(Match.instanceOf(DomainError), mapDomainError),
+    Match.orElse(mapUnknownError)
+  )(error);

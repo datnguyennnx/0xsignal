@@ -14,7 +14,6 @@ const runtime = makeRuntime(AppLayer);
 const serverProgram = Effect.gen(function* () {
   const PORT = yield* Config.int("PORT").pipe(Config.withDefault(9006));
   const marketStreamHub = yield* MarketStreamHub;
-  marketStreamHub.setRuntime(runtime);
 
   const cors = yield* CorsService;
   const corsHeaders = cors.headers;
@@ -76,13 +75,19 @@ const serverProgram = Effect.gen(function* () {
         idleTimeout: 30,
         websocket: {
           open(ws) {
-            marketStreamHub.handleOpen(ws);
+            Effect.runPromise(marketStreamHub.handleOpen(ws)).catch((err) => {
+              console.error("[WS Open Error]:", err);
+            });
           },
           message(ws, message) {
-            marketStreamHub.handleMessage(ws, message);
+            Effect.runPromise(marketStreamHub.handleMessage(ws, message)).catch((err) => {
+              console.error("[WS Message Error]:", err);
+            });
           },
           close(ws) {
-            marketStreamHub.handleClose(ws);
+            Effect.runPromise(marketStreamHub.handleClose(ws)).catch((err) => {
+              console.error("[WS Close Error]:", err);
+            });
           },
         },
       })

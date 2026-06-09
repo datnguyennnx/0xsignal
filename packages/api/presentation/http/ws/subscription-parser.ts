@@ -1,3 +1,4 @@
+import { Match } from "effect";
 import { normalizeSymbol } from "../../../infrastructure/data-sources/hyperliquid/symbol";
 import {
   MARKET_WS_INTERVALS,
@@ -21,17 +22,22 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
     };
   }
 
-  if (
-    channel !== "candle" &&
-    channel !== "l2Book" &&
-    channel !== "trades" &&
-    channel !== "allMids"
-  ) {
-    return {
-      ok: false,
-      status: 400,
-      message: `Unsupported channel: ${channel}`,
-    };
+  const validatedChannel = Match.value(channel).pipe(
+    Match.when("candle", () => "candle" as const),
+    Match.when("l2Book", () => "l2Book" as const),
+    Match.when("trades", () => "trades" as const),
+    Match.when("allMids", () => "allMids" as const),
+    Match.orElse(() => {
+      return {
+        ok: false as const,
+        status: 400,
+        message: `Unsupported channel: ${channel}`,
+      };
+    })
+  );
+
+  if (typeof validatedChannel !== "string") {
+    return validatedChannel;
   }
 
   const rawSymbol = params.get("symbol") ?? params.get("coin") ?? "";

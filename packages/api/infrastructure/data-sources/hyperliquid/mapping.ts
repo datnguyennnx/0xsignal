@@ -34,8 +34,18 @@ const fetchBaseSnapshot = (
             "perpDexs",
             () => info.perpDexs?.() ?? Promise.resolve([]),
             "Failed to fetch perp DEXs"
-          ).pipe(Effect.catch(() => Effect.succeed([] as Array<null | { name: string }>))),
+          ).pipe(
+            Effect.tapError((e) =>
+              Effect.logWarning(
+                `[mapping] perpDexs fetch failed, falling back to empty: ${String(e)}`
+              )
+            ),
+            Effect.catch(() => Effect.succeed([] as Array<null | { name: string }>))
+          ),
       deduplicatedApiCall("allMids", () => info.allMids(), "Failed to fetch mids").pipe(
+        Effect.tapError((e) =>
+          Effect.logWarning(`[mapping] allMids fetch failed, falling back to empty: ${String(e)}`)
+        ),
         Effect.catch(() => Effect.succeed({} as Record<string, string>))
       ),
     ],
