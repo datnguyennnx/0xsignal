@@ -8,7 +8,7 @@ import { marketWsLog } from "./logging";
 import { buildMarketWsBucketKey } from "./bucket-key";
 import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
 import { HyperliquidProvider } from "../../data-sources/hyperliquid/types";
-import { subscribeUpstreamEffect } from "./hub-subscription";
+import { subscribeUpstream } from "./hub-subscription";
 import { send, toText } from "./hub-broadcast";
 import {
   type MarketWsConnectionData,
@@ -43,7 +43,7 @@ export class MarketStreamHub extends Context.Service<MarketStreamHub, MarketStre
 
 // ── Layer ────────────────────────────────────────────────────────────
 
-export const MarketStreamHubLive: Layer.Layer<MarketStreamHub, never, HyperliquidProvider> =
+export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, HyperliquidProvider> =
   Layer.effect(
     MarketStreamHub,
     Effect.acquireRelease(
@@ -217,7 +217,7 @@ const resolveAndSubscribe = (
 
   if (!subSymbol) {
     // No symbol means allMids or similar — subscribe directly
-    return subscribeUpstreamEffect(bucket, subscriptionClient, undefined, detach);
+    return subscribeUpstream(bucket, subscriptionClient, undefined, detach);
   }
 
   return Effect.gen(function* () {
@@ -230,12 +230,7 @@ const resolveAndSubscribe = (
           })
       )
     );
-    return yield* subscribeUpstreamEffect(
-      bucket,
-      subscriptionClient,
-      Promise.resolve(markets),
-      detach
-    );
+    return yield* subscribeUpstream(bucket, subscriptionClient, Promise.resolve(markets), detach);
   });
 };
 

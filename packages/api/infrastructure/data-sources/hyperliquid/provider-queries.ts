@@ -9,7 +9,7 @@ import type { PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
 import { HyperliquidError, isRateLimitedCause } from "./errors";
 import type { TickerPayload, OrderBookPayload, TickerSnapshot } from "./types";
 import type { HyperliquidInfoClient } from "./mapping";
-import { getTickerSnapshotEffect } from "./mapping";
+import { getTickerSnapshot } from "./mapping";
 import { mapTickerFromSnapshot, resolveInternalSymbol, isPerpSymbol } from "./mapping.pure";
 import { HyperliquidRateLimiter } from "./rate-limiter";
 import { HyperliquidDeduplicationRegistry } from "./dedup";
@@ -45,7 +45,7 @@ export const getCandleSnapshot = (
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
     const hlInfo = info as unknown as HyperliquidInfoClient;
-    const snapshot = yield* standaloneProvide(getTickerSnapshotEffect(hlInfo, coin));
+    const snapshot = yield* standaloneProvide(getTickerSnapshot(hlInfo, coin));
     const internalSymbol = resolveInternalSymbol(snapshot, coin);
     return yield* standaloneProvide(
       Effect.tryPromise({
@@ -85,8 +85,7 @@ export const getAllMids = (): Effect.Effect<
 
 const fetchTickerOnce = (
   hlInfo: HyperliquidInfoClient
-): Effect.Effect<TickerSnapshot, HyperliquidError> =>
-  standaloneProvide(getTickerSnapshotEffect(hlInfo));
+): Effect.Effect<TickerSnapshot, HyperliquidError> => standaloneProvide(getTickerSnapshot(hlInfo));
 
 export const getTicker = (
   symbol: string

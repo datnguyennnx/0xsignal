@@ -7,7 +7,7 @@ import { HyperliquidError } from "./errors";
 import { HyperliquidProvider } from "./types";
 import type { TickerSnapshot, HyperliquidAggregatedAsset } from "./types";
 import type { HyperliquidInfoClient } from "./mapping";
-import { getTickerSnapshotEffect, getAggregatedMarketsSnapshot } from "./mapping";
+import { getTickerSnapshot, getAggregatedMarketsSnapshot } from "./mapping";
 import { mapTickerFromSnapshot, resolveInternalSymbol, isPerpSymbol } from "./mapping.pure";
 import {
   CacheSlot,
@@ -108,7 +108,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
               return cached.value;
             }
 
-            const value = yield* provide(getTickerSnapshotEffect(hlInfo, symbol));
+            const value = yield* provide(getTickerSnapshot(hlInfo, symbol));
             yield* Ref.update(tickerSlots, (map) => {
               const newMap = new Map(map);
               newMap.set(dex, { value, expiresAt: now + TICKER_SNAPSHOT_TTL_MS });

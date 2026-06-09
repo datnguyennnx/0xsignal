@@ -1,4 +1,4 @@
 export {
   MarketStreamHub,
-  MarketStreamHubLive as MarketStreamHubLayer,
+  MarketStreamHubLayer,
 } from "../../../infrastructure/streams/hyperliquid/hub";

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { Deferred, Effect, Ref } from "effect";
 import { makeUnsafe as makeSemaphoreUnsafe } from "effect/Semaphore";
-import { getTickerSnapshotEffect } from "../mapping";
+import { getTickerSnapshot } from "../mapping";
 import {
   mapTickerFromSnapshot,
   resolveInternalSymbol,
@@ -62,7 +62,7 @@ describe("Hyperliquid Mapping", () => {
 
       const semaphore = makeSemaphoreUnsafe(6);
       const dedupRef = Ref.makeUnsafe(new Map<string, Deferred.Deferred<any, unknown>>());
-      const program = getTickerSnapshotEffect(mockInfo).pipe(
+      const program = getTickerSnapshot(mockInfo).pipe(
         Effect.provideService(HyperliquidRateLimiter, { semaphore }),
         Effect.provideService(HyperliquidDeduplicationRegistry, {
           registryRef: dedupRef,
@@ -84,7 +84,7 @@ describe("Hyperliquid Mapping", () => {
 
       const semaphore = makeSemaphoreUnsafe(6);
       const dedupRef = Ref.makeUnsafe(new Map<string, Deferred.Deferred<any, unknown>>());
-      const program = getTickerSnapshotEffect(mockInfo).pipe(
+      const program = getTickerSnapshot(mockInfo).pipe(
         Effect.provideService(HyperliquidRateLimiter, { semaphore }),
         Effect.provideService(HyperliquidDeduplicationRegistry, {
           registryRef: dedupRef,

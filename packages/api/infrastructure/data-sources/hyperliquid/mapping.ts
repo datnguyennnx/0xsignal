@@ -52,7 +52,7 @@ const fetchBaseSnapshot = (
     { concurrency: 3 }
   );
 
-export const getTickerSnapshotEffect = (
+export const getTickerSnapshot = (
   info: HyperliquidInfoClient,
   symbol?: string
 ): Effect.Effect<

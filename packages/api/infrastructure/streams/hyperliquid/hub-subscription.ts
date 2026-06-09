@@ -186,5 +186,3 @@ export function subscribeUpstream(
     )
   );
 }
-
-export { subscribeUpstream as subscribeUpstreamEffect };
