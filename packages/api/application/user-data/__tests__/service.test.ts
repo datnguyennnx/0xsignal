@@ -277,7 +277,7 @@ describe("UserDataService", () => {
       );
 
       expect(result).toHaveProperty("code", "INTERNAL_ERROR");
-      expect(result).toHaveProperty("message", "Failed to fetch clearinghouse state");
+      expect(result).toHaveProperty("message", "clearinghouseState failed");
     });
   });
 
@@ -311,7 +311,7 @@ describe("UserDataService", () => {
       );
 
       expect(result).toHaveProperty("code", "INTERNAL_ERROR");
-      expect(result).toHaveProperty("message", "Failed to fetch open orders");
+      expect(result).toHaveProperty("message", "openOrders failed");
     });
   });
 
@@ -386,7 +386,7 @@ describe("UserDataService", () => {
       );
 
       expect(result).toHaveProperty("code", "INTERNAL_ERROR");
-      expect(result).toHaveProperty("message", "Failed to fetch frontend open orders");
+      expect(result).toHaveProperty("message", "frontendOpenOrders failed");
     });
   });
 
@@ -427,7 +427,7 @@ describe("UserDataService", () => {
       );
 
       expect(result).toHaveProperty("code", "INTERNAL_ERROR");
-      expect(result).toHaveProperty("message", "Failed to fetch spot clearinghouse state");
+      expect(result).toHaveProperty("message", "spotClearinghouseState failed");
     });
   });
 
@@ -466,7 +466,7 @@ describe("UserDataService", () => {
       );
 
       expect(result).toHaveProperty("code", "INTERNAL_ERROR");
-      expect(result).toHaveProperty("message", "Failed to fetch meta");
+      expect(result).toHaveProperty("message", "meta failed");
     });
   });
 

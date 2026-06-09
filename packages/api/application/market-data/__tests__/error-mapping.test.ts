@@ -27,7 +27,7 @@ describe("mapMarketInfraError", () => {
   it("uses message string from arbitrary object shapes when present", () => {
     const map = mapMarketInfraError("fallback");
     expect(map({ message: "custom" })).toMatchObject({
-      code: "VALIDATION_ERROR",
+      code: "INTERNAL_ERROR",
       message: "custom",
     });
   });
@@ -35,7 +35,7 @@ describe("mapMarketInfraError", () => {
   it("falls back to fallbackMessage for primitives", () => {
     const map = mapMarketInfraError("fallback");
     expect(map("oops")).toMatchObject({
-      code: "VALIDATION_ERROR",
+      code: "INTERNAL_ERROR",
       message: "fallback",
     });
   });

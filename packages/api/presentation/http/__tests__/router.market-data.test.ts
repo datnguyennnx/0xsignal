@@ -93,7 +93,7 @@ describe("HTTP Market Data Router", () => {
     mockMarketDataService.getCandles.mockReturnValue(
       Effect.succeed({
         candles: [],
-        provenance: "QuestDB",
+        provenance: "",
         coverage: {
           hasData: true,
           rowCount: 1,

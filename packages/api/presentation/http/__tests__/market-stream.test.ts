@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Effect } from "effect";
 import { buildMarketWsBucketKey } from "../../../infrastructure/streams/hyperliquid/bucket-key";
 import { parseMarketWsSubscription } from "../ws/subscription-parser";
 import type { MarketWsSubscription } from "../../../schemas/market-data/ws";
@@ -121,7 +122,7 @@ describe("Market WS subscription parser", () => {
     });
   });
 
-  it("rejects unsupported long intervals not backed by HTTP/QuestDB", () => {
+  it("rejects unsupported long intervals not backed by HTTP/", () => {
     const threeDay = parseMarketWsSubscription(
       new URLSearchParams({ channel: "candle", symbol: "BTC", interval: "3d" })
     );
@@ -218,7 +219,9 @@ describe("Market WS emitter contract", () => {
 
     const bucket = createBucket({ channel: "candle", symbol: "BTC", interval: "1m" });
 
-    const upstream = await subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach);
+    const upstream = await Effect.runPromise(
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach)
+    );
 
     expect(upstream).toBeDefined();
     expect(upstream.unsubscribe).toBeDefined();
@@ -234,7 +237,9 @@ describe("Market WS emitter contract", () => {
 
     const bucket = createBucket({ channel: "l2Book", symbol: "ETH", nSigFigs: 4 });
 
-    const upstream = await subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach);
+    const upstream = await Effect.runPromise(
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach)
+    );
 
     expect(upstream).toBeDefined();
     expect(upstream.unsubscribe).toBeDefined();
@@ -250,7 +255,9 @@ describe("Market WS emitter contract", () => {
 
     const bucket = createBucket({ channel: "trades", symbol: "SOL" });
 
-    const upstream = await subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach);
+    const upstream = await Effect.runPromise(
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach)
+    );
 
     expect(upstream).toBeDefined();
     expect(upstream.unsubscribe).toBeDefined();
@@ -267,7 +274,9 @@ describe("Market WS emitter contract", () => {
 
     const bucket = createBucket({ channel: "allMids" });
 
-    const upstream = await subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach);
+    const upstream = await Effect.runPromise(
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach)
+    );
 
     expect(upstream).toBeDefined();
     expect(upstream.unsubscribe).toBeDefined();
