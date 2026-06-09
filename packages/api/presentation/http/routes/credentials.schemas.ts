@@ -1,15 +1,15 @@
-import { z } from "zod";
+import { Schema } from "effect";
 
-export const CreateWalletSchema = z.object({
-  exchangeSlug: z.string().min(1),
-  walletAddress: z.string().min(1),
-  label: z.string().optional(),
+export const CreateWalletSchema = Schema.Struct({
+  exchangeSlug: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  walletAddress: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  label: Schema.optional(Schema.String),
 });
 
-export const CreateKeySchema = z.object({
-  agentAddress: z.string().min(1),
-  agentPrivateKey: z.string().min(1),
-  label: z.string().optional(),
+export const CreateKeySchema = Schema.Struct({
+  agentAddress: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  agentPrivateKey: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  label: Schema.optional(Schema.String),
 });
 
 // Wallet address validation

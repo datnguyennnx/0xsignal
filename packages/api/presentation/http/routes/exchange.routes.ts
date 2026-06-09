@@ -1,5 +1,4 @@
-import { Effect } from "effect";
-import { z } from "zod";
+import { Effect, Schema } from "effect";
 import { ExchangeService } from "../../../application/exchange/contracts";
 
 type HttpError = {
@@ -25,46 +24,46 @@ type BuildExchangeRoutesParams = {
   readonly mapServiceError: (error: unknown) => HttpError;
 };
 
-const OrderTypeSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("limit"),
-    timeInForce: z.enum(["GTC", "IOC", "FOK", "Alo", "FrontendMarket"]),
+const OrderTypeSchema = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("limit"),
+    timeInForce: Schema.Literals(["GTC", "IOC", "FOK", "Alo", "FrontendMarket"]),
   }),
-  z.object({
-    kind: z.literal("trigger"),
-    isMarket: z.boolean(),
-    triggerPrice: z.string(),
-    tpsl: z.enum(["tp", "sl"]),
+  Schema.Struct({
+    kind: Schema.Literal("trigger"),
+    isMarket: Schema.Boolean,
+    triggerPrice: Schema.String,
+    tpsl: Schema.Literals(["tp", "sl"]),
   }),
-]);
+]).pipe(Schema.toTaggedUnion("kind"));
 
-const PlaceOrderEntrySchema = z.object({
-  symbol: z.string(),
-  side: z.enum(["buy", "sell"]),
-  quantity: z.string(),
-  price: z.string(),
-  reduceOnly: z.boolean(),
+const PlaceOrderEntrySchema = Schema.Struct({
+  symbol: Schema.String,
+  side: Schema.Literals(["buy", "sell"]),
+  quantity: Schema.String,
+  price: Schema.String,
+  reduceOnly: Schema.Boolean,
   orderType: OrderTypeSchema,
 });
 
-const PlaceOrderRequestSchema = z.object({
-  orders: z.array(PlaceOrderEntrySchema),
-  grouping: z.enum(["na", "normalTpsl", "positionTpsl"]).optional(),
+const PlaceOrderRequestSchema = Schema.Struct({
+  orders: Schema.Array(PlaceOrderEntrySchema).pipe(Schema.mutable),
+  grouping: Schema.optional(Schema.Literals(["na", "normalTpsl", "positionTpsl"])),
 });
 
-const UpdateLeverageRequestSchema = z.object({
-  symbol: z.string(),
-  isCross: z.boolean(),
-  leverage: z.number().positive(),
+const UpdateLeverageRequestSchema = Schema.Struct({
+  symbol: Schema.String,
+  isCross: Schema.Boolean,
+  leverage: Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))),
 });
 
-const CancelEntrySchema = z.object({
-  symbol: z.string(),
-  orderId: z.number(),
+const CancelEntrySchema = Schema.Struct({
+  symbol: Schema.String,
+  orderId: Schema.Number,
 });
 
-const CancelOrdersRequestSchema = z.object({
-  cancels: z.array(CancelEntrySchema),
+const CancelOrdersRequestSchema = Schema.Struct({
+  cancels: Schema.Array(CancelEntrySchema).pipe(Schema.mutable),
 });
 
 const asHttpError = (status: number, message: string): HttpError => ({ status, message });
@@ -91,16 +90,12 @@ export const buildExchangeRoutes = ({
           catch: () => asHttpError(400, "Invalid request body"),
         });
 
-        const parsed = PlaceOrderRequestSchema.safeParse(raw);
-        if (!parsed.success) {
-          return yield* Effect.fail(
-            asHttpError(400, `Invalid request body: ${parsed.error.message}`)
-          );
-        }
-
-        const payload = yield* exchange
-          .placeOrder(parsed.data, userId)
-          .pipe(Effect.mapError(mapServiceError));
+        const payload = yield* Schema.decodeUnknownEffect(PlaceOrderRequestSchema)(raw).pipe(
+          Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`)),
+          Effect.flatMap((body) =>
+            exchange.placeOrder(body, userId).pipe(Effect.mapError(mapServiceError))
+          )
+        );
         return json({ data: payload });
       }),
   },
@@ -118,16 +113,12 @@ export const buildExchangeRoutes = ({
           catch: () => asHttpError(400, "Invalid request body"),
         });
 
-        const parsed = UpdateLeverageRequestSchema.safeParse(raw);
-        if (!parsed.success) {
-          return yield* Effect.fail(
-            asHttpError(400, `Invalid request body: ${parsed.error.message}`)
-          );
-        }
-
-        const payload = yield* exchange
-          .updateLeverageAndMargin(parsed.data, userId)
-          .pipe(Effect.mapError(mapServiceError));
+        const payload = yield* Schema.decodeUnknownEffect(UpdateLeverageRequestSchema)(raw).pipe(
+          Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`)),
+          Effect.flatMap((body) =>
+            exchange.updateLeverageAndMargin(body, userId).pipe(Effect.mapError(mapServiceError))
+          )
+        );
         return json({ data: payload });
       }),
   },
@@ -145,16 +136,12 @@ export const buildExchangeRoutes = ({
           catch: () => asHttpError(400, "Invalid request body"),
         });
 
-        const parsed = CancelOrdersRequestSchema.safeParse(raw);
-        if (!parsed.success) {
-          return yield* Effect.fail(
-            asHttpError(400, `Invalid request body: ${parsed.error.message}`)
-          );
-        }
-
-        const payload = yield* exchange
-          .cancelOrders(parsed.data, userId)
-          .pipe(Effect.mapError(mapServiceError));
+        const payload = yield* Schema.decodeUnknownEffect(CancelOrdersRequestSchema)(raw).pipe(
+          Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`)),
+          Effect.flatMap((body) =>
+            exchange.cancelOrders(body, userId).pipe(Effect.mapError(mapServiceError))
+          )
+        );
         return json({ data: payload });
       }),
   },

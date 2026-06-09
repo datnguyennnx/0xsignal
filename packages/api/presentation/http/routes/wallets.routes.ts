@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
 import { CreateWalletSchema, validateWalletAddress } from "./credentials.schemas";
 
@@ -49,14 +49,11 @@ export const buildWalletRoutes = ({
           catch: () => asHttpError(400, "Invalid request body"),
         });
 
-        const parsed = CreateWalletSchema.safeParse(raw);
-        if (!parsed.success) {
-          return yield* Effect.fail(
-            asHttpError(400, `Invalid request body: ${parsed.error.message}`)
-          );
-        }
-
-        const { exchangeSlug, walletAddress, label } = parsed.data;
+        const { exchangeSlug, walletAddress, label } = yield* Schema.decodeUnknownEffect(
+          CreateWalletSchema
+        )(raw).pipe(
+          Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`))
+        );
 
         const validationErr = validateWalletAddress(walletAddress, exchangeSlug);
         if (validationErr) {
