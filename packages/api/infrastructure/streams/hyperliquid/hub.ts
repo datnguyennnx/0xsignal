@@ -3,7 +3,7 @@ import { Clock, Fiber } from "effect";
 import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
 import type { ISubscription } from "@nktkas/hyperliquid";
 import type { ServerWebSocket } from "bun";
-import type { MarketWsSubscription } from "../../../schemas/market-data/ws";
+import type { MarketWsSubscription } from "./hub-types";
 import { marketWsLog } from "./logging";
 import { buildMarketWsBucketKey } from "./bucket-key";
 import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
@@ -19,13 +19,8 @@ import {
 
 const MAX_RESTART_RETRIES = 3;
 
-// Module-level counter for connection IDs (called from sync context only)
-let _connectionSeq = 0;
-
 export type { MarketWsConnectionData };
 export { WebSocketSubscribeError };
-
-// ── Service Tag ──────────────────────────────────────────────────────
 
 export interface MarketStreamHubPort {
   readonly createConnectionData: (subscription: MarketWsSubscription) => MarketWsConnectionData;
@@ -41,8 +36,6 @@ export class MarketStreamHub extends Context.Service<MarketStreamHub, MarketStre
   "MarketStreamHub"
 ) {}
 
-// ── Layer ────────────────────────────────────────────────────────────
-
 export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, HyperliquidProvider> =
   Layer.effect(
     MarketStreamHub,
@@ -55,15 +48,17 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
           HashMap.empty<string, Bucket>()
         );
 
+        const _connectionSeq: Ref.Ref<number> = yield* Ref.make(0);
+
         const service = MarketStreamHub.of({
           createConnectionData: (subscription) => {
-            _connectionSeq += 1;
+            const nextSeq = Effect.runSync(Ref.updateAndGet(_connectionSeq, (n) => n + 1));
             const normalized = { ...subscription };
             if (normalized.symbol) {
               normalized.symbol = normalizeSymbol(normalized.symbol);
             }
             return {
-              id: String(_connectionSeq),
+              id: String(nextSeq),
               bucketKey: buildMarketWsBucketKey(normalized),
               subscription: normalized,
             };
@@ -93,7 +88,6 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
                 return;
               }
 
-              // Create new bucket entry
               const bucket: Bucket = {
                 key,
                 subscription: ws.data.subscription,
@@ -140,7 +134,6 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
               newClients.delete(ws);
 
               if (newClients.size === 0) {
-                // Interrupt any running restart fibers
                 for (const f of bucket.restartFibers) {
                   yield* Fiber.interrupt(f);
                 }
@@ -200,12 +193,6 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
     ).pipe(Effect.map(({ service }) => service))
   );
 
-// ── Helpers ──────────────────────────────────────────────────────────
-
-/**
- * Resolve the internal symbol from the aggregated markets and subscribe
- * upstream via the subscription client.
- */
 const resolveAndSubscribe = (
   subscription: MarketWsSubscription,
   subscriptionClient: SubscriptionClient,
@@ -234,10 +221,6 @@ const resolveAndSubscribe = (
   });
 };
 
-/**
- * Ensure an upstream subscription exists for the given bucket entry.
- * If already subscribed or currently subscribing, this is a no-op.
- */
 const ensureUpstream = (
   subscriptionClient: SubscriptionClient,
   provider: typeof HyperliquidProvider.Service,
@@ -318,7 +301,6 @@ const ensureUpstream = (
             "error"
           );
 
-          // Reset state to idle and increment retry count
           yield* Ref.update(buckets, (m) => {
             const current = HashMap.get(m, key);
             if (Option.isNone(current)) return m;
@@ -336,11 +318,9 @@ const ensureUpstream = (
             Option.isSome(updatedExisting) &&
             updatedExisting.value.retryCount < MAX_RESTART_RETRIES
           ) {
-            // Schedule a restart with delay
             yield* Effect.sleep("1 second");
             yield* ensureUpstream(subscriptionClient, provider, buckets, key);
           } else if (Option.isSome(updatedExisting)) {
-            // Max retries exceeded — remove bucket
             yield* Effect.logError(`Max retries (${MAX_RESTART_RETRIES}) exceeded for ${key}`);
             const now = yield* Clock.currentTimeMillis;
             for (const client of updatedExisting.value.clients) {
@@ -358,9 +338,6 @@ const ensureUpstream = (
     );
   });
 
-/**
- * Restart a bucket's upstream subscription after a failure.
- */
 const restartBucket = (
   subscriptionClient: SubscriptionClient,
   provider: typeof HyperliquidProvider.Service,
@@ -375,12 +352,10 @@ const restartBucket = (
     const bucket = existing.value;
     if (bucket.state._tag === "idle") return;
 
-    // Interrupt any existing restart fiber
     for (const f of bucket.restartFibers) {
       yield* Fiber.interrupt(f);
     }
 
-    // Clean up old upstream
     if (Option.isSome(bucket.upstream)) {
       const sub = bucket.upstream.value;
       yield* Effect.sync(() => {
@@ -388,7 +363,6 @@ const restartBucket = (
       });
     }
 
-    // Notify clients
     const now = yield* Clock.currentTimeMillis;
     for (const client of bucket.clients) {
       send(client, {
@@ -407,7 +381,6 @@ const restartBucket = (
       })
     );
 
-    // Schedule reconnection
     const fiber = yield* Effect.forkDetach(
       Effect.sleep("500 millis").pipe(
         Effect.flatMap(() => ensureUpstream(subscriptionClient, provider, buckets, key))

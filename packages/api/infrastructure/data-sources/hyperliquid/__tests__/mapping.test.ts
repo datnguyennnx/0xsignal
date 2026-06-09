@@ -8,7 +8,7 @@ import {
   parseSpotAssets,
   extractSpotTokens,
   sortAndDedupeAssets,
-} from "../mapping.pure";
+} from "../market-aggregation";
 import { HyperliquidRateLimiter } from "../rate-limiter";
 import { HyperliquidDeduplicationRegistry } from "../dedup";
 

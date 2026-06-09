@@ -1,5 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Ref } from "effect";
+import { makeUnsafe as makeSemaphoreUnsafe } from "effect/Semaphore";
 import type { InfoClient } from "@nktkas/hyperliquid";
 import {
   getCandleSnapshot,
@@ -9,6 +10,8 @@ import {
   getTradeAnnotation,
 } from "../provider";
 import { HyperliquidClient } from "../client";
+import { HyperliquidRateLimiter } from "../rate-limiter";
+import { HyperliquidDeduplicationRegistry } from "../dedup";
 
 const mockInfoClient = {
   candleSnapshot: vi.fn(),
@@ -27,6 +30,20 @@ const TestHLClientLayer = Layer.succeed(
   })
 );
 
+const TestRateLimiterLayer = Layer.succeed(
+  HyperliquidRateLimiter,
+  HyperliquidRateLimiter.of({ semaphore: makeSemaphoreUnsafe(6) })
+);
+
+const TestDedupLayer = Layer.succeed(
+  HyperliquidDeduplicationRegistry,
+  HyperliquidDeduplicationRegistry.of({
+    registryRef: Ref.makeUnsafe(new Map()),
+  })
+);
+
+const TestLayer = Layer.mergeAll(TestHLClientLayer, TestRateLimiterLayer, TestDedupLayer);
+
 describe("Hyperliquid Providers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -38,7 +55,7 @@ describe("Hyperliquid Providers", () => {
     ]);
 
     const program = getCandleSnapshot("BTC", "1m", 0, 2000);
-    const result = await Effect.runPromise(program.pipe(Effect.provide(TestHLClientLayer)));
+    const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer)));
 
     expect(mockInfoClient.candleSnapshot).toHaveBeenCalledWith({
       coin: "BTC",
@@ -53,7 +70,7 @@ describe("Hyperliquid Providers", () => {
   it("should wrap HL SDK errors into HyperliquidError", async () => {
     mockInfoClient.allMids.mockRejectedValueOnce(new Error("Rate Limit"));
 
-    const program = getAllMids().pipe(Effect.provide(TestHLClientLayer));
+    const program = getAllMids().pipe(Effect.provide(TestLayer));
 
     await expect(Effect.runPromise(program)).rejects.toThrow("Failed to fetch all mids");
   });
@@ -74,9 +91,7 @@ describe("Hyperliquid Providers", () => {
     ]);
     mockInfoClient.allMids.mockResolvedValueOnce({ BTC: "101.25" });
 
-    const result = await Effect.runPromise(
-      getTicker("btc").pipe(Effect.provide(TestHLClientLayer))
-    );
+    const result = await Effect.runPromise(getTicker("btc").pipe(Effect.provide(TestLayer)));
 
     expect(result).toEqual({
       symbol: "BTC",
@@ -95,7 +110,7 @@ describe("Hyperliquid Providers", () => {
     mockInfoClient.allMids.mockResolvedValueOnce({ BTC: "101.25" });
 
     await expect(
-      Effect.runPromise(getTicker("XRP").pipe(Effect.provide(TestHLClientLayer)))
+      Effect.runPromise(getTicker("XRP").pipe(Effect.provide(TestLayer)))
     ).rejects.toThrow("Symbol not found: XRP");
   });
 
@@ -106,9 +121,7 @@ describe("Hyperliquid Providers", () => {
       levels: [[], []],
     });
 
-    const result = await Effect.runPromise(
-      getOrderBook("eth", 3).pipe(Effect.provide(TestHLClientLayer))
-    );
+    const result = await Effect.runPromise(getOrderBook("eth", 3).pipe(Effect.provide(TestLayer)));
 
     expect(mockInfoClient.l2Book).toHaveBeenCalledWith({ coin: "ETH", nSigFigs: 3 });
     expect(result.symbol).toBe("ETH");
@@ -122,7 +135,7 @@ describe("Hyperliquid Providers", () => {
       levels: [[], []],
     });
 
-    await Effect.runPromise(getOrderBook("DEX:clusdt", 4).pipe(Effect.provide(TestHLClientLayer)));
+    await Effect.runPromise(getOrderBook("DEX:clusdt", 4).pipe(Effect.provide(TestLayer)));
 
     expect(mockInfoClient.l2Book).toHaveBeenCalledWith({ coin: "dex:CL", nSigFigs: 4 });
   });
@@ -135,7 +148,7 @@ describe("Hyperliquid Providers", () => {
     });
 
     const result = await Effect.runPromise(
-      getTradeAnnotation("sol").pipe(Effect.provide(TestHLClientLayer))
+      getTradeAnnotation("sol").pipe(Effect.provide(TestLayer))
     );
 
     expect(mockInfoClient.perpAnnotation).toHaveBeenCalledWith({ coin: "SOL" });
@@ -151,7 +164,7 @@ describe("Hyperliquid Providers", () => {
     mockInfoClient.perpAnnotation.mockResolvedValueOnce({ category: "major" });
 
     const result = await Effect.runPromise(
-      getTradeAnnotation("DEX:clusdt").pipe(Effect.provide(TestHLClientLayer))
+      getTradeAnnotation("DEX:clusdt").pipe(Effect.provide(TestLayer))
     );
 
     expect(mockInfoClient.perpAnnotation).toHaveBeenCalledWith({ coin: "dex:CL" });

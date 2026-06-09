@@ -1,5 +1,5 @@
 import { Match } from "effect";
-import type { MarketWsSubscription } from "../../../schemas/market-data/ws";
+import type { MarketWsSubscription } from "./hub-types";
 
 export const buildMarketWsBucketKey = (subscription: MarketWsSubscription): string =>
   Match.value(subscription.channel).pipe(

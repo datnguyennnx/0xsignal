@@ -100,12 +100,12 @@ export function subscribeUpstream(
                 { coin: internalSymbol!, nSigFigs: subscription.nSigFigs },
                 (event) => {
                   const normalized = normalizeL2BookData(event);
-                  const levels = normalized.levels as unknown[];
-                  const maxDepth = (subscription as any).depth ?? 30;
+                  const maxDepth = subscription.depth ?? 30;
+                  const rawLevels = normalized.levels;
                   const sliced = {
                     levels: [
-                      (levels?.[0] as unknown[])?.slice(0, maxDepth) ?? [],
-                      (levels?.[1] as unknown[])?.slice(0, maxDepth) ?? [],
+                      (Array.isArray(rawLevels?.[0]) ? rawLevels[0] : []).slice(0, maxDepth),
+                      (Array.isArray(rawLevels?.[1]) ? rawLevels[1] : []).slice(0, maxDepth),
                     ],
                   };
                   broadcast(

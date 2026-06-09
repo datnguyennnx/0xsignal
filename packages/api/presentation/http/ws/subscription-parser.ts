@@ -5,7 +5,7 @@ import {
   type MarketWsChannel,
   type MarketWsInterval,
   type MarketWsSubscription,
-} from "../../../schemas/market-data/ws";
+} from "../../../infrastructure/streams/hyperliquid/hub-types";
 import { parseOptionalSigFigsParam } from "../utils/param-parsers";
 
 export type ParseResult =

@@ -1,4 +1,4 @@
-// ── Bridge Pattern: Module-scope config ────────────────────────────────
+// Bridge Pattern: Module-scope config
 // process.env.MODE is read at module scope because marketWsLog must be a
 // plain synchronous function (used in non-Effect callbacks from
 // WebSocket/event-emitter contexts). A proper Config-based approach would
@@ -13,7 +13,7 @@ export const marketWsLog = (
   fields: Record<string, unknown>,
   level: "info" | "warn" | "error" = "info"
 ) => {
-  // ── Bridge Pattern: new Date() in sync context ──────────────────────
+  // Bridge Pattern: new Date() in sync context
   // marketWsLog is a plain sync function used in non-Effect callbacks
   // (WebSocket event handlers, pool event listeners). Clock.currentTimeMillis
   // would require Effect-based execution. For a debug-level logging function,

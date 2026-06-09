@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Effect } from "effect";
 import { buildMarketWsBucketKey } from "../../../infrastructure/streams/hyperliquid/bucket-key";
 import { parseMarketWsSubscription } from "../ws/subscription-parser";
-import type { MarketWsSubscription } from "../../../schemas/market-data/ws";
+import type { MarketWsSubscription } from "../../../infrastructure/streams/hyperliquid/hub-types";
 import { subscribeUpstream } from "../../../infrastructure/streams/hyperliquid/hub-subscription";
 import { broadcast } from "../../../infrastructure/streams/hyperliquid/hub-broadcast";
 
