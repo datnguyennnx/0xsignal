@@ -13,19 +13,6 @@ import type { MarketTimeframe } from "../../domain/market-data/timeframe";
 
 export interface MarketCandleStorePort {
   readonly getCandles: (query: CandleQuery) => Effect.Effect<Candle[], unknown>;
-  readonly checkCoverage: (
-    symbol: string,
-    exchange: string,
-    timeframe: MarketTimeframe,
-    startTime: Date,
-    endTime: Date
-  ) => Effect.Effect<CoverageResult, unknown>;
-  readonly insertCandles: (
-    symbol: string,
-    exchange: string,
-    timeframe: MarketTimeframe,
-    candles: Candle[]
-  ) => Effect.Effect<void, unknown>;
 }
 
 export interface MarketRemoteProviderPort {
