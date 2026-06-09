@@ -76,17 +76,14 @@ export const AuthServiceLayer: Layer.Layer<
             yield* Effect.fail(new OAuthStateMismatch());
           }
           const p = getProvider(provider);
-          // Pass the stored codeVerifier to Google (PKCE) — GitHub doesn't use it
           const profile = yield* p
             .fetchProfile(code, storedState.codeVerifier)
             .pipe(Effect.mapError((cause) => new OAuthCallbackFailed({ cause })));
-          // Wrap user + oauth_account creation/linking in a single CTE database query (Fix 7)
           const linked = yield* oauthAccountRepo.createWithUser(profile);
           const user = yield* userRepo.findById(UserId(linked.userId));
           if (!user || user.status !== "active") {
             yield* Effect.fail(new UserSuspended({ userId: linked.userId }));
           }
-          // Generate a cryptographically random one-time code (Fix 2)
           const oneTimeCode = crypto.randomUUID();
           yield* authCodeStore.save({ code: oneTimeCode, userId: linked.userId, provider });
           return { code: oneTimeCode };
@@ -103,7 +100,6 @@ export const AuthServiceLayer: Layer.Layer<
           const payload = yield* jwtService.verify(accessToken, "access");
           const user = yield* userRepo.findById(payload.sub);
           if (!user || user.status !== "active") {
-            // Note: This check adds a DB round-trip per request. Candidate for short TTL in-memory cache later.
             yield* Effect.fail(new UserSuspended({ userId: payload.sub }));
           }
           return {

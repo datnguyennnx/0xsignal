@@ -1,4 +1,4 @@
-import { Config, Context, Effect, Layer, Option } from "effect";
+import { Config, Context, Effect, Layer, Match, Option } from "effect";
 import { EncryptionFailed } from "../domain/errors";
 
 export interface EncryptionServicePort {
@@ -57,39 +57,39 @@ export const EncryptionServiceLayer: Layer.Layer<EncryptionService, never, never
           ),
       })
     );
-    if (result._tag === "fail") {
-      return disabledEncryptionService;
-    }
-    const key = result.key;
-
-    return EncryptionService.of({
-      encrypt: (plaintext) =>
-        Effect.tryPromise({
-          try: async () => {
-            const iv = crypto.getRandomValues(new Uint8Array(12));
-            const encrypted = await crypto.subtle.encrypt(
-              { name: ALGORITHM, iv },
-              key,
-              new TextEncoder().encode(plaintext)
-            );
-            const combined = new Uint8Array(iv.length + encrypted.byteLength);
-            combined.set(iv);
-            combined.set(new Uint8Array(encrypted), iv.length);
-            return btoa(String.fromCharCode(...combined));
-          },
-          catch: (cause) => new EncryptionFailed({ cause }),
-        }),
-      decrypt: (ciphertext) =>
-        Effect.tryPromise({
-          try: async () => {
-            const combined = Uint8Array.from(atob(ciphertext), (c) => c.charCodeAt(0));
-            const iv = combined.slice(0, 12);
-            const data = combined.slice(12);
-            const decrypted = await crypto.subtle.decrypt({ name: ALGORITHM, iv }, key, data);
-            return new TextDecoder().decode(decrypted);
-          },
-          catch: (cause) => new EncryptionFailed({ cause }),
-        }),
-    });
+    return Match.value(result).pipe(
+      Match.when({ _tag: "fail" }, () => disabledEncryptionService),
+      Match.orElse(({ key }) =>
+        EncryptionService.of({
+          encrypt: (plaintext) =>
+            Effect.tryPromise({
+              try: async () => {
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                const encrypted = await crypto.subtle.encrypt(
+                  { name: ALGORITHM, iv },
+                  key,
+                  new TextEncoder().encode(plaintext)
+                );
+                const combined = new Uint8Array(iv.length + encrypted.byteLength);
+                combined.set(iv);
+                combined.set(new Uint8Array(encrypted), iv.length);
+                return btoa(String.fromCharCode(...combined));
+              },
+              catch: (cause) => new EncryptionFailed({ cause }),
+            }),
+          decrypt: (ciphertext) =>
+            Effect.tryPromise({
+              try: async () => {
+                const combined = Uint8Array.from(atob(ciphertext), (c) => c.charCodeAt(0));
+                const iv = combined.slice(0, 12);
+                const data = combined.slice(12);
+                const decrypted = await crypto.subtle.decrypt({ name: ALGORITHM, iv }, key, data);
+                return new TextDecoder().decode(decrypted);
+              },
+              catch: (cause) => new EncryptionFailed({ cause }),
+            }),
+        })
+      )
+    );
   })
 );

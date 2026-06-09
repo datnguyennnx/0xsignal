@@ -1,13 +1,7 @@
-import { Config, Effect } from "effect";
+import { Config, Effect, Match } from "effect";
 import { AuthService } from "../application/auth.service";
 import type { OAuthProvider } from "../domain/oauth-account";
 import { withAuth } from "./require-auth";
-import {
-  OAuthCallbackFailed,
-  OAuthStateMismatch,
-  OAuthStateExpired,
-  UserSuspended,
-} from "../domain/errors";
 
 type Route = {
   readonly method: "GET" | "POST";
@@ -63,7 +57,6 @@ export const buildAuthRoutes = (): readonly Route[] => [
           return json({ error: "Missing required parameters" }, 400);
         }
 
-        // Effect.catch receives the original error type, not a Cause wrapper
         const result = yield* authService.handleCallback({ provider, code, state });
 
         const frontendUrl = yield* Config.string("FRONTEND_URL").pipe(
@@ -79,21 +72,23 @@ export const buildAuthRoutes = (): readonly Route[] => [
           },
         });
       }).pipe(
-        Effect.catch((error) => {
-          if (error instanceof OAuthCallbackFailed) {
-            return Effect.succeed(json({ error: "OAuth provider error" }, 502));
-          }
-          if (error instanceof OAuthStateMismatch) {
-            return Effect.succeed(json({ error: "State mismatch" }, 400));
-          }
-          if (error instanceof OAuthStateExpired) {
-            return Effect.succeed(json({ error: "State expired" }, 400));
-          }
-          if (error instanceof UserSuspended) {
-            return Effect.succeed(json({ error: "Account suspended" }, 403));
-          }
-          return Effect.succeed(json({ error: "Authentication failed" }, 500));
-        })
+        Effect.catch((error) =>
+          Match.value(error).pipe(
+            Match.when({ _tag: "OAuthCallbackFailed" }, () =>
+              Effect.succeed(json({ error: "OAuth provider error" }, 502))
+            ),
+            Match.when({ _tag: "OAuthStateMismatch" }, () =>
+              Effect.succeed(json({ error: "State mismatch" }, 400))
+            ),
+            Match.when({ _tag: "OAuthStateExpired" }, () =>
+              Effect.succeed(json({ error: "State expired" }, 400))
+            ),
+            Match.when({ _tag: "UserSuspended" }, () =>
+              Effect.succeed(json({ error: "Account suspended" }, 403))
+            ),
+            Match.orElse(() => Effect.succeed(json({ error: "Authentication failed" }, 500)))
+          )
+        )
       ),
   },
   {

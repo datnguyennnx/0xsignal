@@ -12,32 +12,6 @@ export type AccountNodeType = Schema.Schema.Type<typeof AccountNodeType>;
 export const CredentialSubtype = Schema.Literals(["agent", "eoa", "hardware"] as const);
 export type CredentialSubtype = Schema.Schema.Type<typeof CredentialSubtype>;
 
-export const AuditAction = Schema.Literals([
-  "created",
-  "updated",
-  "deleted",
-  "read",
-  "exported",
-  "verified",
-  "verification_failed",
-  "revoked",
-  "reactivated",
-  "expired",
-  "rotated",
-  "permission_updated",
-  "label_updated",
-  "ip_whitelist_updated",
-  "credential_type_updated",
-  "login_success",
-  "login_failed",
-  "suspended",
-  "unsuspended",
-] as const);
-export type AuditAction = Schema.Schema.Type<typeof AuditAction>;
-
-export const AuditActorType = Schema.Literals(["user", "system", "admin"] as const);
-export type AuditActorType = Schema.Schema.Type<typeof AuditActorType>;
-
 const RedactedString: Schema.Schema<Redacted> = Schema.String.pipe(
   Schema.decodeTo(
     Schema.declare((u): u is Redacted => RedactedNs.isRedacted(u), { identifier: "Redacted" }),
