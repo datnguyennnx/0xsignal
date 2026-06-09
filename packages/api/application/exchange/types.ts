@@ -1,5 +1,3 @@
-/** Provider-agnostic exchange execution types */
-
 export type OrderSide = "buy" | "sell";
 
 export type OrderType =

@@ -1,8 +1,5 @@
 import type { SpotTradeAsset } from "./types";
 
-/**
- * Parse spotMetaAndAssetCtxs response into SpotTradeAsset[].
- */
 export function parseSpotAssets(
   raw: unknown,
   allMids: Record<string, string>,

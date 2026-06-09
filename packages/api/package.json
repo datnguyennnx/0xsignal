@@ -20,8 +20,7 @@
     "@nktkas/hyperliquid": "^0.32.1",
     "effect": "4.0.0-beta.74",
     "pg": "^8.11.3",
-    "viem": "^2.47.6",
-    "zod": "^4.3.6"
+    "viem": "^2.47.6"
   },
   "devDependencies": {
     "@effect/language-service": "^0.86.2",

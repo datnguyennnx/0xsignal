@@ -1,5 +1,17 @@
 import { Match } from "effect";
 import { DomainError } from "../../application/errors";
+import {
+  HyperliquidValidationError,
+  InsufficientMarginError,
+  HyperliquidInternalError,
+} from "../../domain/errors";
+import {
+  CredentialNotFound,
+  CredentialRevoked,
+  CredentialExpired,
+  CredentialUnverified,
+  AccountNotFound,
+} from "@0xsignal/auth";
 
 export type HttpError = {
   readonly message?: string;
@@ -7,41 +19,15 @@ export type HttpError = {
   readonly code?: string;
 };
 
-const toHttpError = (error: unknown): HttpError =>
-  typeof error === "object" && error !== null ? (error as HttpError) : {};
-
-const extractErrorMessage = (value: unknown): string | undefined => {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-      try {
-        const parsed = JSON.parse(trimmed) as { message?: unknown };
-        if (typeof parsed.message === "string") return parsed.message;
-      } catch {
-        return value;
-      }
-    }
-    return value;
-  }
-  if (typeof value === "object" && value !== null) {
-    const candidate = value as { message?: unknown };
-    if (typeof candidate.message === "string") return extractErrorMessage(candidate.message);
-  }
-  return undefined;
-};
-
-export const errorResponse = (error: unknown, corsHeaders: Record<string, string>): Response => {
-  const httpError = toHttpError(error);
-  const message =
-    extractErrorMessage(httpError.message) || extractErrorMessage(error) || "Internal server error";
-  const status = httpError.status ?? 500;
-  const code = httpError.code;
-  const body: Record<string, unknown> = { error: message, status, ...(code ? { code } : {}) };
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", ...corsHeaders },
-  });
-};
+const asHttpError = (
+  status: number,
+  message: string,
+  code?: string
+): { readonly status: number; readonly message: string; readonly code?: string } => ({
+  status,
+  message,
+  code,
+});
 
 const mapDomainCodeToHttpStatus = (code: DomainError["code"]): number =>
   Match.value(code).pipe(
@@ -64,88 +50,17 @@ const toErrorCode = (tag: string): string =>
     Match.orElse((t) => t)
   );
 
-const mapDomainError = (error: DomainError) => ({
-  status: mapDomainCodeToHttpStatus(error.code),
-  message: error.message,
-  code: toErrorCode(error._tag),
-});
-
-const mapTaggedError = (tagged: { _tag: string; message: string }) =>
-  Match.value(tagged._tag).pipe(
-    Match.when("HyperliquidValidationError", () => ({
-      status: 400 as const,
-      message: tagged.message,
-      code: toErrorCode(tagged._tag),
-    })),
-    Match.when("InsufficientMarginError", () => ({
-      status: 400 as const,
-      message: tagged.message,
-      code: toErrorCode(tagged._tag),
-    })),
-    Match.when("HyperliquidInternalError", () => ({
-      status: 502 as const,
-      message: tagged.message,
-      code: toErrorCode(tagged._tag),
-    })),
-    Match.when("CredentialNotFound", () => ({
-      status: 404 as const,
-      message: "Credential not found",
-      code: toErrorCode(tagged._tag),
-    })),
-    Match.when("CredentialRevoked", () => ({
-      status: 403 as const,
-      message: "Credential revoked",
-      code: toErrorCode(tagged._tag),
-    })),
-    Match.when("CredentialExpired", () => ({
-      status: 403 as const,
-      message: "Credential expired",
-      code: toErrorCode(tagged._tag),
-    })),
-    Match.when("CredentialUnverified", () => ({
-      status: 403 as const,
-      message: "Credential not verified",
-      code: toErrorCode(tagged._tag),
-    })),
-    Match.when("AccountNotFound", () => ({
-      status: 404 as const,
-      message: "Account not found",
-      code: toErrorCode(tagged._tag),
-    })),
-    Match.orElse(() => ({
-      status: 500 as const,
-      message: tagged.message,
-      code: toErrorCode(tagged._tag),
-    }))
-  );
-
-const mapUnknownError = (
-  error: unknown
-): {
-  readonly status: number;
-  readonly message: string;
-  readonly code?: string;
-} => {
-  if (error && typeof error === "object" && "_tag" in error) {
-    return mapTaggedError(error as { _tag: string; message: string });
-  }
-  if (typeof error === "object" && error !== null) return mapPlainError(error);
-  return { status: 500, message: "Internal server error" };
-};
-
-const mapPlainError = (error: object) => {
-  const candidate = error as { status?: unknown; message?: unknown; code?: unknown };
-  if (typeof candidate.status === "number" && typeof candidate.message === "string") {
-    return {
-      status: candidate.status,
-      message: candidate.message,
-      code: typeof candidate.code === "string" ? candidate.code : undefined,
-    };
-  }
-  if (typeof candidate.message === "string") {
-    return { status: 500 as const, message: candidate.message };
-  }
-  return { status: 500 as const, message: "Internal server error" };
+export const errorResponse = (error: unknown, corsHeaders: Record<string, string>): Response => {
+  const httpError = mapServiceError(error);
+  const body: Record<string, unknown> = {
+    error: httpError.message || "Internal server error",
+    status: httpError.status,
+    ...(httpError.code ? { code: httpError.code } : {}),
+  };
+  return new Response(JSON.stringify(body), {
+    status: httpError.status,
+    headers: { "Content-Type": "application/json", ...corsHeaders },
+  });
 };
 
 export const mapServiceError = (
@@ -155,7 +70,47 @@ export const mapServiceError = (
   readonly message: string;
   readonly code?: string;
 } =>
-  Match.type<unknown>().pipe(
-    Match.when(Match.instanceOf(DomainError), mapDomainError),
-    Match.orElse(mapUnknownError)
-  )(error);
+  Match.value(error).pipe(
+    // Application-level DomainError (carries a DomainErrorCode for status mapping)
+    Match.when(Match.instanceOf(DomainError), (e) =>
+      asHttpError(mapDomainCodeToHttpStatus(e.code), e.message, toErrorCode(e._tag))
+    ),
+
+    // Domain-layer tagged errors
+    Match.when(Match.instanceOf(HyperliquidValidationError), (e) =>
+      asHttpError(400, e.message, toErrorCode(e._tag))
+    ),
+    Match.when(Match.instanceOf(InsufficientMarginError), (e) =>
+      asHttpError(400, e.message, toErrorCode(e._tag))
+    ),
+    Match.when(Match.instanceOf(HyperliquidInternalError), (e) =>
+      asHttpError(502, e.message, toErrorCode(e._tag))
+    ),
+
+    // Auth-package tagged errors (use hardcoded messages)
+    Match.when(Match.instanceOf(CredentialNotFound), () =>
+      asHttpError(404, "Credential not found", "CredentialNotFound")
+    ),
+    Match.when(Match.instanceOf(CredentialRevoked), () =>
+      asHttpError(403, "Credential revoked", "CredentialRevoked")
+    ),
+    Match.when(Match.instanceOf(CredentialExpired), () =>
+      asHttpError(403, "Credential expired", "CredentialExpired")
+    ),
+    Match.when(Match.instanceOf(CredentialUnverified), () =>
+      asHttpError(403, "Credential not verified", "CredentialUnverified")
+    ),
+    Match.when(Match.instanceOf(AccountNotFound), () =>
+      asHttpError(404, "Account not found", "AccountNotFound")
+    ),
+
+    // Plain objects with a message field
+    Match.when(
+      (e: unknown): e is { message: string; status?: number; code?: string } =>
+        typeof e === "object" && e !== null && "message" in e,
+      (e) => asHttpError(e.status ?? 500, String(e.message), e.code ?? undefined)
+    ),
+
+    // Fallback for primitives, null, etc.
+    Match.orElse((e) => asHttpError(500, String(e), "InternalError"))
+  );
