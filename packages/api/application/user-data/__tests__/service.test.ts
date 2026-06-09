@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { HyperliquidClient } from "../../../infrastructure/data-sources/hyperliquid/client";
+import { HyperliquidClient } from "../../hyperliquid/contracts";
 import { UserDataService } from "../contracts";
 import { userDataServiceLayer } from "../service";
 

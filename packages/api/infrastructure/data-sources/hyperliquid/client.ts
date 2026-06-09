@@ -1,12 +1,8 @@
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
-import { Context, Effect, Layer } from "effect";
+import { Effect, Layer } from "effect";
+import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
 
-export class HyperliquidClient extends Context.Service<
-  HyperliquidClient,
-  {
-    readonly info: InfoClient;
-  }
->()("HyperliquidClient") {}
+export { HyperliquidClient };
 
 export const hyperliquidClientLayer = Layer.effect(
   HyperliquidClient,

@@ -123,3 +123,19 @@ export class HyperliquidProvider extends Context.Service<
     ) => Effect.Effect<{ symbol: string; annotation: PerpAnnotationResponse }, HyperliquidError>;
   }
 >()("HyperliquidProvider") {}
+
+/**
+ * Subset of InfoClient methods used by the mapping/service layer.
+ *
+ * InfoClient from the library has a larger interface, but this type narrows
+ * it to only the methods actually consumed. Casts are required because
+ * TypeScript cannot verify structural compatibility with the external type.
+ */
+export type HyperliquidInfoClient = {
+  readonly metaAndAssetCtxs: (params?: { dex?: string }) => Promise<[unknown, unknown]>;
+  readonly allMids: () => Promise<Record<string, string>>;
+  readonly perpCategories?: () => Promise<unknown>;
+  readonly perpDexs?: () => Promise<Array<null | { name: string }>>;
+  readonly spotMeta?: () => Promise<unknown>;
+  readonly spotMetaAndAssetCtxs?: () => Promise<unknown>;
+};

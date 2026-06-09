@@ -1,20 +1,16 @@
 import { Clock, Effect, Layer, Ref } from "effect";
 import type { ExchangeClient, InfoClient } from "@nktkas/hyperliquid";
-import { HyperliquidClient } from "../../infrastructure/data-sources/hyperliquid/client";
+import { HyperliquidClient } from "../hyperliquid/contracts";
 import { ExchangeService, type ExchangeError } from "./contracts";
 import { HyperliquidInternalError } from "../../domain/errors";
-import {
-  classifyExchangeError,
-  toHlTif,
-} from "../../infrastructure/data-sources/hyperliquid/exchange-adapter";
+import { classifyExchangeError, toHlTif } from "./error-classification";
 import { ExchangeAccountRepo } from "@0xsignal/auth";
 import { ExchangeCredentialRepo } from "@0xsignal/auth";
-import { buildCoinToAsset, resolveExchangeCredentials } from "./exchange-credentials";
+import {
+  buildCoinToAsset,
+  resolveExchangeCredentials,
+} from "../../infrastructure/data-sources/hyperliquid/exchange-credentials";
 
-// ── Helper: Resolve credentials + meta + coinToAsset ──────────────────
-// Extracts the repeated pattern: resolve credentials → get cached meta →
-// build coin-to-asset map. Used by placeOrder, updateLeverageAndMargin,
-// cancelOrders.
 const withExchangeClient = <A>(
   userId: string,
   accountRepo: typeof ExchangeAccountRepo.Service,
@@ -71,8 +67,6 @@ const getCachedMetaInner = (
     return value;
   });
 
-// ── Layer ─────────────────────────────────────────────────────────────
-
 export const exchangeServiceLayer = Layer.effect(
   ExchangeService,
   Effect.gen(function* () {
@@ -80,7 +74,6 @@ export const exchangeServiceLayer = Layer.effect(
     const accountRepo = yield* ExchangeAccountRepo;
     const credentialRepo = yield* ExchangeCredentialRepo;
 
-    // 5 min TTL cache
     const metaCache = yield* Ref.make<{
       readonly value?: { universe: Array<{ name: string }> };
       readonly expiresAt: number;

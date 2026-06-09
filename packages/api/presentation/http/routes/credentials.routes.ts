@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
-import { HyperliquidClient } from "../../../infrastructure/data-sources/hyperliquid/client";
+import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
 import { buildWalletRoutes } from "./wallets.routes";
 import { buildKeyRoutes } from "./keys.routes";
 

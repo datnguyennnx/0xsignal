@@ -9,18 +9,9 @@ import {
   parsePerpAssets,
   parseSpotAssets,
   sortAndDedupeAssets,
-} from "./mapping.pure";
-import type { HyperliquidAggregatedAsset, PerpTradeAsset } from "./types";
-export type HyperliquidInfoClient = {
-  readonly metaAndAssetCtxs: (params?: { dex?: string }) => Promise<[unknown, unknown]>;
-  readonly allMids: () => Promise<Record<string, string>>;
-  readonly perpCategories?: () => Promise<unknown>;
-  readonly perpDexs?: () => Promise<Array<null | { name: string }>>;
-  readonly spotMeta?: () => Promise<unknown>;
-  readonly spotMetaAndAssetCtxs?: () => Promise<unknown>;
-};
+} from "./market-aggregation";
+import type { HyperliquidAggregatedAsset, PerpTradeAsset, HyperliquidInfoClient } from "./types";
 
-// Fetch spot tokens from HL spotMeta
 export function getSpotTokens(
   info: HyperliquidInfoClient
 ): Effect.Effect<
@@ -39,7 +30,6 @@ export function getSpotTokens(
   ).pipe(Effect.catch(() => Effect.succeed([] as string[])));
 }
 
-// Fetch perp metadata for each DEX
 const fetchAllDexMetas = (
   info: HyperliquidInfoClient,
   dexNames: string[]
@@ -77,7 +67,6 @@ const fetchAllDexMetas = (
     { concurrency: 3 }
   );
 
-// Extract DEX names from raw perpDexs result, prepending the main (empty) DEX.
 const fetchDexNames = (
   dexNamesResult: ReadonlyArray<null | { readonly name: string }> | undefined
 ): string[] => {
@@ -85,7 +74,6 @@ const fetchDexNames = (
   return ["", ...raw.filter((d): d is { readonly name: string } => d !== null).map((d) => d.name)];
 };
 
-// Build a category map from raw perpCategories pairs.
 const buildCategoryMap = (rawPerpCats: Array<[string, string]>): Map<string, string> => {
   const map = new Map<string, string>();
   for (const [coin, cat] of rawPerpCats) {
@@ -94,7 +82,6 @@ const buildCategoryMap = (rawPerpCats: Array<[string, string]>): Map<string, str
   return map;
 };
 
-// Fetch optional spot data with graceful fallback
 const fetchOptionalData = (
   info: HyperliquidInfoClient,
   preFetchedSpot: unknown | undefined
@@ -114,7 +101,6 @@ const fetchOptionalData = (
           ).pipe(Effect.catch(() => Effect.succeed(null))),
   });
 
-// Parallel market aggregator: fetch → parse → deduplicate
 export function getAggregatedMarketsSnapshot(
   info: HyperliquidInfoClient,
   options?: {

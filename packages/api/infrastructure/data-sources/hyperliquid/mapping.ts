@@ -1,20 +1,24 @@
 import { Effect } from "effect";
+import type { InfoClient } from "@nktkas/hyperliquid";
 import { normalizeSymbol } from "./symbol";
 import { HyperliquidError } from "./errors";
 import { HyperliquidRateLimiter } from "./rate-limiter";
 import { HyperliquidDeduplicationRegistry } from "./dedup";
 import { deduplicatedApiCall } from "./dedup-call";
-import { processMetaResults } from "./mapping.pure";
+import { processMetaResults } from "./market-aggregation";
 import type { TickerSnapshot } from "./types";
+import type { HyperliquidInfoClient } from "./types";
 
-export type HyperliquidInfoClient = {
-  readonly metaAndAssetCtxs: (params?: { dex?: string }) => Promise<[unknown, unknown]>;
-  readonly allMids: () => Promise<Record<string, string>>;
-  readonly perpCategories?: () => Promise<unknown>;
-  readonly perpDexs?: () => Promise<Array<null | { name: string }>>;
-  readonly spotMeta?: () => Promise<unknown>;
-  readonly spotMetaAndAssetCtxs?: () => Promise<unknown>;
-};
+/**
+ * Narrow an InfoClient (from @nktkas/hyperliquid) to HyperliquidInfoClient.
+ *
+ * The InfoClient type from the library has a larger interface, but the subset of
+ * methods used by the mapping layer matches HyperliquidInfoClient structurally.
+ * A cast is required here because TypeScript cannot verify the compatibility
+ * between the external library's type definition and our local interface.
+ */
+export const toHyperliquidInfoClient = (info: InfoClient): HyperliquidInfoClient =>
+  info as HyperliquidInfoClient;
 
 export { getAggregatedMarketsSnapshot, getSpotTokens } from "./aggregated-markets";
 

@@ -6,7 +6,7 @@ import {
   HyperliquidInternalError,
   HyperliquidValidationError,
   InsufficientMarginError,
-} from "../../../domain/errors";
+} from "../../domain/errors";
 
 export const toHlTif = (tif: string): "Gtc" | "Ioc" | "Alo" | "FrontendMarket" => {
   const map: Record<string, "Gtc" | "Ioc" | "Alo" | "FrontendMarket"> = {

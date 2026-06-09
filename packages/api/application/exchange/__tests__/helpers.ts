@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import { Effect, Layer, Redacted } from "effect";
 import type { InfoClient } from "@nktkas/hyperliquid";
-import { HyperliquidClient } from "../../../infrastructure/data-sources/hyperliquid/client";
+import { HyperliquidClient } from "../../hyperliquid/contracts";
 import { ExchangeService } from "../contracts";
 import { exchangeServiceLayer } from "../service";
 import {

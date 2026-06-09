@@ -1,6 +1,6 @@
-import { Effect, Redacted } from "effect";
+import { Effect, Redacted, Schema } from "effect";
 import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
-import { HyperliquidClient } from "../../../infrastructure/data-sources/hyperliquid/client";
+import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
 import { CreateKeySchema } from "./credentials.schemas";
 
 type HttpError = {
@@ -52,14 +52,11 @@ export const buildKeyRoutes = ({
           catch: () => asHttpError(400, "Invalid request body"),
         });
 
-        const parsed = CreateKeySchema.safeParse(raw);
-        if (!parsed.success) {
-          return yield* Effect.fail(
-            asHttpError(400, `Invalid request body: ${parsed.error.message}`)
-          );
-        }
-
-        const { agentAddress, agentPrivateKey, label } = parsed.data;
+        const { agentAddress, agentPrivateKey, label } = yield* Schema.decodeUnknownEffect(
+          CreateKeySchema
+        )(raw).pipe(
+          Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`))
+        );
 
         // agentPrivateKey is sensitive — wrap in Redacted before passing to repo
         const agentKeyRedacted = Redacted.make(agentPrivateKey);

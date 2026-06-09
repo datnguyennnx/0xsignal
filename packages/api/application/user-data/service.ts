@@ -1,12 +1,8 @@
 import { Effect, Layer } from "effect";
-import { HyperliquidClient } from "../../infrastructure/data-sources/hyperliquid/client";
+import { HyperliquidClient } from "../hyperliquid/contracts";
 import { DomainError } from "../errors";
 import { UserDataService } from "./contracts";
 
-// ── Helper ────────────────────────────────────────────────────────────
-// Extracts the repeated Effect.tryPromise + DomainError pattern used by all
-// Hyperliquid info API calls below. Reduces 10 nearly-identical blocks to
-// one-liners.
 const callInfoApi = <A>(label: string, fn: () => Promise<A>): Effect.Effect<A, DomainError> =>
   Effect.tryPromise({
     try: fn,
