@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, LogOut } from "lucide-react";
+import { User, LogOut, Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,11 @@ import { useAuth } from "@/core/providers/auth-context";
 import { api } from "@/services/api";
 import { SaveBar } from "@/components/save-bar";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
+import { useNavigate } from "react-router-dom";
 
 export function ProfileSettings() {
   const { user, isLoading, signOut } = useAuth();
+  const navigate = useNavigate();
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -78,7 +80,18 @@ export function ProfileSettings() {
           </p>
         </div>
         <div className="border-t border-border/10" />
-        <p className="text-sm text-muted-foreground">Sign in to manage your profile.</p>
+        <div className="flex flex-col items-center gap-4 py-8 text-center">
+          <Lock className="size-8 text-muted-foreground" />
+          <div className="space-y-1">
+            <p className="font-medium">Sign in to manage your profile</p>
+            <p className="text-sm text-muted-foreground">
+              Sign in to manage your avatar, display name, and account.
+            </p>
+          </div>
+          <Button type="button" variant="outline" onClick={() => navigate("/login")}>
+            Sign In
+          </Button>
+        </div>
       </div>
     );
   }

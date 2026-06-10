@@ -11,6 +11,7 @@ import { api } from "@/services/api";
 import { privateKeyToAccount } from "viem/accounts";
 import { SaveBar } from "@/components/save-bar";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
+import { useNavigate } from "react-router-dom";
 
 function truncateAddress(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -20,12 +21,16 @@ export function ApiConsole() {
   const { open: openConnectPrompt, ConnectWalletSheet } = useConnectWalletPrompt();
   const { address, isConnected } = useAccount();
   const { isAuthenticated, isLoading, hasLinkedWallet, refreshWalletStatus } = useAuth();
+  const navigate = useNavigate();
 
   const [agentPrivateKey, setAgentPrivateKey] = useState("");
   const [label, setLabel] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const hasChanges = agentPrivateKey.trim().length > 0 || label.trim().length > 0;
+  const [initialAgentPrivateKey] = useState("");
+  const [initialLabel] = useState("");
+
+  const hasChanges = agentPrivateKey !== initialAgentPrivateKey || label !== initialLabel;
   useUnsavedChanges(hasChanges);
 
   const handleSave = async () => {
@@ -122,13 +127,7 @@ export function ApiConsole() {
               <p className="font-medium">Sign in to manage API keys</p>
               <p className="text-sm text-muted-foreground">Sign in to add Hyperliquid API keys.</p>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                window.location.href = "/login";
-              }}
-            >
+            <Button type="button" variant="outline" onClick={() => navigate("/login")}>
               Sign In
             </Button>
           </div>

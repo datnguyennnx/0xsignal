@@ -427,6 +427,10 @@
   .computing-pulse {
     animation: none;
   }
+
+  .t-page-slide .t-page {
+    transition: none !important;
+  }
 }
 
 /* ─── Trade markers overlay ────────────────────────────────────────────── */
@@ -472,4 +476,23 @@
     0 0 0 1px rgba(0, 0, 0, 0.06);
   pointer-events: none;
   line-height: 1.4;
+}
+
+/* Tab transition */
+.t-page-slide {
+  position: relative;
+  display: grid;
+}
+
+.t-page-slide > .t-page {
+  grid-area: 1 / 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--page-fade-dur) var(--page-fade-ease);
+  will-change: opacity;
+}
+
+.t-page-slide > .t-page[data-active] {
+  opacity: 1;
+  pointer-events: auto;
 }

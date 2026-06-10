@@ -10,7 +10,7 @@
  */
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { User, Palette, Key } from "lucide-react";
+import { User, Palette, Terminal } from "lucide-react";
 import { cn } from "@/core/utils/cn";
 import { ApiConsole } from "@/features/settings/api-console";
 import { AppearanceSettings } from "@/features/settings/appearance";
@@ -21,25 +21,21 @@ type SettingsTab = "profile" | "api-console" | "appearance";
 const SIDEBAR_ITEMS: Array<{
   value: SettingsTab;
   label: string;
-  description: string;
   icon: React.ReactNode;
 }> = [
   {
     value: "profile",
     label: "Profile",
-    description: "Avatar, display name & sign out",
     icon: <User className="size-4 shrink-0" />,
   },
   {
     value: "api-console",
     label: "API Console",
-    description: "Exchange credentials & keys",
-    icon: <Key className="size-4 shrink-0" />,
+    icon: <Terminal className="size-4 shrink-0" />,
   },
   {
     value: "appearance",
     label: "Appearance & Theme",
-    description: "Interface visual styling",
     icon: <Palette className="size-4 shrink-0" />,
   },
 ];
@@ -52,7 +48,6 @@ export function SettingsPage() {
     if (tab === "appearance") return "appearance";
     return "profile";
   });
-
   // Dynamic document title
   useEffect(() => {
     document.title = "Settings | 0xsignal";
@@ -102,21 +97,36 @@ export function SettingsPage() {
                   <span className="text-[clamp(0.6875rem,0.8vw,0.8125rem)] tracking-tight">
                     {item.label}
                   </span>
-                  <span className="text-[clamp(0.5625rem,0.65vw,0.6875rem)] text-muted-foreground/80 truncate">
-                    {item.description}
-                  </span>
                 </div>
               </button>
             ))}
           </div>
 
-          {/* Right Column: Active Tab Content */}
-          <div className="col-span-1 md:col-span-9 py-[clamp(1rem,1.5vw,1.5rem)] pl-[clamp(1rem,1.5vw,1.5rem)] md:pl-[clamp(1.5rem,2.5vw,2rem)] flex flex-col gap-5">
-            {activeTab === "profile" && <ProfileSettings />}
-
-            {activeTab === "api-console" && <ApiConsole />}
-
-            {activeTab === "appearance" && <AppearanceSettings />}
+          {/* Tab Content */}
+          <div className="col-span-1 md:col-span-9 py-[clamp(1rem,1.5vw,1.5rem)] pl-[clamp(1rem,1.5vw,1.5rem)] md:pl-[clamp(1.5rem,2.5vw,2rem)]">
+            <div className="t-page-slide">
+              <section
+                className="t-page flex flex-col gap-5"
+                data-active={activeTab === "profile" || undefined}
+                key="profile"
+              >
+                <ProfileSettings />
+              </section>
+              <section
+                className="t-page flex flex-col gap-5"
+                data-active={activeTab === "api-console" || undefined}
+                key="api-console"
+              >
+                <ApiConsole />
+              </section>
+              <section
+                className="t-page flex flex-col gap-5"
+                data-active={activeTab === "appearance" || undefined}
+                key="appearance"
+              >
+                <AppearanceSettings />
+              </section>
+            </div>
           </div>
         </div>
       </div>
