@@ -241,15 +241,15 @@ const TradeDropdownFn = ({
         )}
         {displaySymbol ? (
           <div className="flex items-baseline gap-0">
-            <span className="text-lg sm:text-xl font-mono font-semibold text-foreground tabular-nums">
+            <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
               {displaySymbol.split("-")[0]}
             </span>
-            <span className="text-lg sm:text-xl font-mono font-medium text-foreground/70">
+            <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
               -{displaySymbol.split("-").slice(1).join("-")}
             </span>
           </div>
         ) : (
-          <span className="text-lg sm:text-xl font-mono font-semibold text-foreground tabular-nums">
+          <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
             {displayLabel}
           </span>
         )}

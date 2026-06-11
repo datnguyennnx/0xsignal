@@ -115,7 +115,7 @@ export function PositionsTable({
         {isChLoading ? (
           <TableRow>
             <TableCell colSpan={11} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
                 Loading...
               </span>
             </TableCell>
@@ -123,7 +123,7 @@ export function PositionsTable({
         ) : positions.length === 0 ? (
           <TableRow>
             <TableCell colSpan={11} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
                 No open positions
               </span>
             </TableCell>

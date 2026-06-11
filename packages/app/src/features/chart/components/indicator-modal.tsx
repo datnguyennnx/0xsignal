@@ -11,7 +11,7 @@
  */
 import { useState, useCallback, useMemo } from "react";
 import { AVAILABLE_INDICATORS, type ActiveIndicator, type IndicatorConfig } from "@0xsignal/shared";
-import { Layers, Activity, Sparkles, X } from "lucide-react";
+import { Layers, Activity, Search, Sparkles, X } from "lucide-react";
 import { cn } from "@/core/utils/cn";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -104,17 +104,15 @@ export function IndicatorModal({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[98vw] xl:max-w-[clamp(90rem,100vw,100rem)] w-fit h-[clamp(18rem,80dvh,60rem)] p-0 gap-0 overflow-hidden bg-background border-border/40 shadow-xl rounded-lg"
+        className="max-w-[98vw] xl:max-w-[clamp(90rem,100vw,100rem)] w-fit h-[clamp(18rem,80dvh,60rem)] p-0 gap-0 overflow-hidden bg-background border-border/40 shadow-xl rounded-lg animate-in fade-in duration-200 ease-premium"
       >
         <DialogTitle className="sr-only">Indicator Settings</DialogTitle>
 
-        <div className="flex flex-col sm:flex-row h-full divide-y sm:divide-y-0 sm:divide-x divide-border/50 min-h-0 bg-background">
+        <div className="flex flex-col sm:flex-row h-full min-h-0 bg-background">
           {/* Column 1: Indicators Sidebar */}
-          <div className="w-full sm:w-[clamp(11.25rem,20vw,15rem)] flex flex-col shrink-0 min-h-0 sm:max-h-[clamp(18rem,80dvh,60rem)]">
+          <div className="flex-[2] min-w-[clamp(10rem,15vw,14rem)] flex flex-col min-h-0 sm:max-h-[clamp(18rem,80dvh,60rem)]">
             <div className="p-4 sm:p-6 flex items-center justify-between sm:justify-start gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-              <h2 className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest text-muted-foreground/30">
-                Indicators
-              </h2>
+              <h2 className="text-xs font-semibold text-muted-foreground">Indicators</h2>
               <button
                 onClick={handleClose}
                 className="sm:hidden p-2 min-w-[44px] min-h-[44px] flex items-center justify-center tap-highlight rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
@@ -142,13 +140,15 @@ export function IndicatorModal({
                       setSelectedId(null);
                     }}
                     className={cn(
-                      "w-full flex items-center gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-3 sm:py-2 rounded text-xs transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
+                      "w-full flex items-center gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-3 sm:py-2 rounded text-xs transition-all duration-150 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                       category === cat.id
-                        ? "bg-foreground text-background font-bold shadow-sm"
-                        : "hover:bg-muted/60 text-muted-foreground hover:text-foreground font-medium"
+                        ? "bg-accent text-foreground font-semibold"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent/50 font-medium"
                     )}
                   >
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <Icon
+                      className={cn("w-3.5 h-3.5 shrink-0", category === cat.id && "text-primary")}
+                    />
                     <span className="flex-1 text-left truncate">{cat.label}</span>
                     <span
                       className={cn(
@@ -167,15 +167,32 @@ export function IndicatorModal({
           </div>
 
           {/* Column 2: Indicator Explorer */}
-          <div className="w-full sm:w-[clamp(14rem,24vw,17.5rem)] max-h-[clamp(12rem,40dvh,20rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col shrink-0 min-h-0">
+          <div className="flex-[2] min-w-[clamp(12rem,18vw,16rem)] max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col min-h-0">
             {!(category === "active" && activeIndicatorConfigs.length === 0) && (
               <div className="p-4">
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Find indicator..."
-                  className="h-10 text-xs bg-muted/20 border-border/50 focus-visible:ring-offset-0 focus-visible:ring-ring/25 placeholder:opacity-45 rounded px-3"
-                />
+                <div className="relative">
+                  {/* Search icon */}
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/50 pointer-events-none" />
+
+                  <Input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Find indicator..."
+                    className="pl-9 pr-8 bg-muted/30 border-border h-10 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-offset-0 text-secondary"
+                  />
+
+                  {/* Clear button — only visible when query is non-empty */}
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      aria-label="Clear search"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 size-8 flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -193,8 +210,8 @@ export function IndicatorModal({
                         className={cn(
                           "w-full flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-3 sm:py-2 rounded text-xs transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                           isSelected
-                            ? "bg-muted/70 text-foreground font-bold shadow-inner"
-                            : "hover:bg-muted/40 text-muted-foreground/80 hover:text-foreground font-medium"
+                            ? "bg-accent text-foreground font-semibold"
+                            : "hover:bg-accent/50 text-muted-foreground hover:text-foreground font-medium transition-all duration-150"
                         )}
                       >
                         <div
@@ -231,7 +248,7 @@ export function IndicatorModal({
           </div>
 
           {/* Column 3: Insight Content */}
-          <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-background/30 max-h-[clamp(12rem,50dvh,20rem)] sm:max-h-none">
+          <div className="flex-[4] min-w-[clamp(18rem,30vw,28rem)] min-h-0 flex flex-col bg-background/30 max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-none">
             {selectedIndicator ? (
               <IndicatorInsightsPanel
                 key={`${selectedIndicator.id}-insights`}
@@ -248,7 +265,7 @@ export function IndicatorModal({
           </div>
 
           {/* Column 4: Inspector Sidepan */}
-          <div className="w-full sm:w-[clamp(21.875rem,30vw,25rem)] lg:w-[clamp(21.875rem,30vw,28rem)] max-h-[clamp(12rem,50dvh,20rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col shrink-0 min-h-0 shadow-[-1px_0_0_0_rgba(0,0,0,0.02)]">
+          <div className="flex-[1] min-w-[clamp(14rem,16vw,18rem)] max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col min-h-0 shadow-[-1px_0_0_0_rgba(0,0,0,0.02)]">
             {selectedIndicator ? (
               <IndicatorConfigPanel
                 key={`${selectedIndicator.id}-config`}

@@ -17,21 +17,22 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
   return (
     <div className={cn("flex flex-col h-full overflow-hidden bg-background", className)}>
       <div className="p-6 flex flex-col gap-[clamp(0.75rem,1vw,1.5rem)]">
-        <div className="flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-          <span className="px-1.5 py-0.5 rounded-xl bg-muted text-muted-foreground text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-wider">
-            {indicator.overlayOnPrice ? "Overlay" : "Oscillator"}
-          </span>
+        <div className="space-y-1">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            {indicator.name}
+          </h3>
+          <p className="text-xs text-muted-foreground/70 leading-relaxed">
+            {indicator.description}
+          </p>
         </div>
-        <h3 className="text-xl font-bold">{indicator.name}</h3>
-        <p className="text-sm text-muted-foreground leading-relaxed">{indicator.description}</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8 overscroll-none">
-        <div className="space-y-6">
+      <div className="flex-1 overflow-y-auto p-[clamp(1rem,2vw,1.5rem)] space-y-[clamp(1.5rem,3vw,2.5rem)] overscroll-none">
+        <div className="space-y-[clamp(1rem,1.5vw,1.5rem)]">
           <div className="grid gap-[clamp(0.75rem,1.5vw,1.5rem)]">
             {indicator.usage.formula ? (
               <div className="space-y-3">
-                <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
+                <p className="text-xs font-semibold text-muted-foreground/70">
                   Mathematical Engine
                 </p>
                 <IndicatorFormula value={indicator.usage.formula} />
@@ -39,8 +40,8 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {indicator.usage.mathematicalWeaknesses ? (
-              <div className="space-y-1.5 pt-2">
-                <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-muted-foreground/70">
                   Structural Weaknesses
                 </p>
                 <p className="text-sm leading-relaxed">{indicator.usage.mathematicalWeaknesses}</p>
@@ -48,19 +49,15 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {indicator.usage.regimePerformance ? (
-              <div className="space-y-1.5 pt-2">
-                <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
-                  Regime Robustness
-                </p>
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-muted-foreground/70">Regime Robustness</p>
                 <p className="text-sm leading-relaxed">{indicator.usage.regimePerformance}</p>
               </div>
             ) : null}
 
             {indicator.usage.tips?.length ? (
-              <div className="space-y-3 pt-2">
-                <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
-                  Pro Tips
-                </p>
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground/70">Pro Tips</p>
                 <ul className="space-y-1.5">
                   {indicator.usage.tips.map((tip, idx) => (
                     <li
@@ -75,10 +72,8 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {indicator.usage.pitfalls?.length ? (
-              <div className="space-y-3 pt-2">
-                <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
-                  Execution Pitfalls
-                </p>
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground/70">Execution Pitfalls</p>
                 <ul className="space-y-1.5">
                   {indicator.usage.pitfalls.map((pitfall, idx) => (
                     <li
@@ -93,10 +88,10 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {indicator.usage.comparisons || indicator.usage.upgrades ? (
-              <div className="pt-6 space-y-5">
+              <div className="space-y-5">
                 {indicator.usage.comparisons && (
                   <div className="space-y-1.5">
-                    <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
+                    <p className="text-xs font-semibold text-muted-foreground/70">
                       Institutional Comparison
                     </p>
                     <p className="text-sm text-muted-foreground italic leading-relaxed">
@@ -106,7 +101,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
                 )}
                 {indicator.usage.upgrades && (
                   <div className="space-y-1.5">
-                    <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase font-bold tracking-wider text-muted-foreground/60">
+                    <p className="text-xs font-semibold text-muted-foreground/70">
                       Architectural Upgrades
                     </p>
                     <p className="text-sm text-muted-foreground leading-relaxed">
@@ -118,11 +113,11 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {indicator.implementationNotesForDev && (
-              <div className="p-3 rounded-xl bg-muted/10 border border-border/30">
-                <p className="text-[clamp(0.525rem,0.55rem+0.4vw,0.5625rem)] uppercase font-mono font-bold text-muted-foreground/40 mb-1">
+              <div className="p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl bg-card/50">
+                <p className="text-xs font-semibold text-muted-foreground/70 mb-1">
                   Implementation Spec
                 </p>
-                <p className="text-xs font-mono text-muted-foreground/60 leading-tight">
+                <p className="text-xs text-muted-foreground/60 leading-tight">
                   {indicator.implementationNotesForDev}
                 </p>
               </div>

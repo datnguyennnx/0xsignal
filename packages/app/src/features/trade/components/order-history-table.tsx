@@ -59,7 +59,7 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
         {isFillsLoading ? (
           <TableRow>
             <TableCell colSpan={8} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
                 Loading...
               </span>
             </TableCell>
@@ -67,7 +67,7 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
         ) : !fills || fills.length === 0 ? (
           <TableRow>
             <TableCell colSpan={8} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
                 No trade history
               </span>
             </TableCell>
@@ -134,7 +134,7 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
         {isHistLoading ? (
           <TableRow>
             <TableCell colSpan={13} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
                 Loading...
               </span>
             </TableCell>
@@ -142,7 +142,7 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
         ) : !histOrders || histOrders.length === 0 ? (
           <TableRow>
             <TableCell colSpan={13} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
                 No order history
               </span>
             </TableCell>

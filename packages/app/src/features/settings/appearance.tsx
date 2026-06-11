@@ -24,11 +24,6 @@ const ThemeCard = ({ value, label, theme, handleThemeChange, children }: ThemeCa
       )}
     >
       {children}
-      {theme === value && (
-        <span className="absolute -bottom-1 -right-1 size-5 rounded-full bg-foreground text-background flex items-center justify-center ring-2 ring-background">
-          <Check className="size-3" />
-        </span>
-      )}
     </div>
     <span
       className={cn(
@@ -85,8 +80,8 @@ export function AppearanceSettings() {
           theme={theme}
           handleThemeChange={handleThemeChange}
         >
-          <div className="h-full w-full bg-[#1a1a2e]">
-            <div className="h-4 bg-[#151528] flex items-center gap-1 px-2 border-b border-[#252538]">
+          <div className="h-full w-full bg-black">
+            <div className="h-4 bg-black flex items-center gap-1 px-2 border-b">
               <span className="size-1.5 rounded-full bg-red-500/70" />
               <span className="size-1.5 rounded-full bg-yellow-500/70" />
               <span className="size-1.5 rounded-full bg-green-500/70" />
@@ -114,8 +109,8 @@ export function AppearanceSettings() {
                 <span className="text-sm font-bold text-gray-800/90 font-display">Aa</span>
               </div>
             </div>
-            <div className="flex-1 bg-[#1a1a2e]">
-              <div className="h-4 bg-[#151528] flex items-center gap-1 px-1.5 border-b border-[#252538]">
+            <div className="flex-1 bg-black">
+              <div className="h-4 bg-black flex items-center gap-1 px-1.5 border-b">
                 <span className="size-1.5 rounded-full bg-red-500/70" />
                 <span className="size-1.5 rounded-full bg-yellow-500/70" />
                 <span className="size-1.5 rounded-full bg-green-500/70" />

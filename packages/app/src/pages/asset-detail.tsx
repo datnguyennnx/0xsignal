@@ -130,9 +130,7 @@ const MarketTerminalHeader = memo(function MarketTerminalHeader({
               {formatFundingPercent(fundingRate)}
             </span>
             <span className="text-muted-foreground/50 font-normal">/</span>
-            <span className="text-muted-foreground/70 font-mono tabular-nums">
-              {fundingCountdown}
-            </span>
+            <span className="text-muted-foreground/70 tabular-nums">{fundingCountdown}</span>
           </div>
         </div>
       )}
@@ -148,7 +146,7 @@ const MarketTerminalHeader = memo(function MarketTerminalHeader({
             href={`https://app.hyperliquid.xyz/explorer/token/${contractAddress}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm font-mono font-semibold tabular-nums leading-none text-primary hover:underline truncate max-w-[12rem]"
+            className="text-sm font-semibold tabular-nums leading-none text-primary hover:underline truncate max-w-[12rem]"
           >
             {contractAddress}
           </a>

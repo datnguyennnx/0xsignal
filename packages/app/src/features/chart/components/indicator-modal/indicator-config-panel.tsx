@@ -4,7 +4,7 @@
  * It manages the form state for updating or adding specific indicator instances.
  * It handles the reconciliation between form inputs and existing active indicators (to detect "Update" vs "Add" actions).
  */
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import {
   createIndicatorInstanceId,
   normalizeIndicatorParams,
@@ -15,8 +15,7 @@ import { Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ContentUnavailable } from "@/components/content-unavailable";
 import { IndicatorParamField } from "./indicator-param-field";
-import { cn } from "@/core/utils/cn";
-import { parseFormValues, toFormValues, getInstanceLabel } from "./utils";
+import { parseFormValues, toFormValues } from "./utils";
 
 interface IndicatorConfigPanelProps {
   indicator: IndicatorConfig;
@@ -39,6 +38,9 @@ export function IndicatorConfigPanel({
     return null;
   });
 
+  // Track local edits when user manually changes form fields
+  const [localEdits, setLocalEdits] = useState<Record<string, string> | null>(null);
+
   // Derive form values from selected instance or defaults - no effect needed
   const selectedInstance = useMemo(
     () => activeIndicators.find((i) => i.instanceId === selectedInstanceId) ?? null,
@@ -50,6 +52,12 @@ export function IndicatorConfigPanel({
       selectedInstance ? toFormValues(indicator, selectedInstance.params) : toFormValues(indicator),
     [indicator, selectedInstance]
   );
+
+  // Merge local edits (if any) on top of memoized formValues so keystrokes are reflected
+  const effectiveValues = useMemo(() => {
+    if (!localEdits) return formValues;
+    return { ...formValues, ...localEdits };
+  }, [formValues, localEdits]);
 
   const parsedParamsForCurrentForm = useMemo(
     () => parseFormValues(indicator, formValues),
@@ -67,85 +75,54 @@ export function IndicatorConfigPanel({
   );
 
   const handleApply = useCallback(() => {
-    onApply(normalizeIndicatorParams(indicator, parsedParamsForCurrentForm));
-  }, [indicator, parsedParamsForCurrentForm, onApply]);
+    const parsed = parseFormValues(indicator, effectiveValues);
+    onApply(normalizeIndicatorParams(indicator, parsed));
+  }, [indicator, effectiveValues, onApply]);
 
-  const handleSelectExisting = useCallback((instance: ActiveIndicator) => {
-    setSelectedInstanceId(instance.instanceId);
-  }, []);
-
-  const handleResetToDefault = useCallback(() => {
-    setSelectedInstanceId(null);
-  }, []);
+  // Reset local edits only when indicator changes (not on selectedInstanceId change,
+  // because onValueChange also calls setSelectedInstanceId(null) and the effect
+  // would silently discard the user's first keystroke)
+  useEffect(() => {
+    setLocalEdits(null);
+  }, [indicator.id]);
 
   const activeCount = activeIndicators.length;
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
-      <div className="p-6">
-        <div className="flex items-center justify-between gap-[clamp(0.5rem,1vw,1rem)]">
-          <div className="min-w-0 space-y-1">
-            <h3 className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest text-muted-foreground/30">
-              Inspector
+      <div className="p-[clamp(1rem,2vw,1.5rem)]">
+        <div className="flex items-start justify-between gap-[clamp(0.5rem,1vw,1rem)]">
+          <div className="space-y-1">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              Indicator Settings
             </h3>
-            <p className="text-xs font-bold">Settings</p>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground font-bold uppercase tracking-tighter opacity-30">
-              Active
+            <p className="text-xs text-muted-foreground/70 leading-relaxed">
+              Configure parameters for this technical indicator.
             </p>
-            <p className="text-sm font-black tabular-nums leading-none">{activeCount}</p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-xs text-muted-foreground/70 font-medium">
+              {activeCount} active
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-2 scrollbar-none overscroll-none">
+      <div className="flex-1 overflow-y-auto px-[clamp(1rem,2vw,1.5rem)] py-[clamp(0.75rem,1vw,1rem)] scrollbar-none overscroll-none">
         <div className="space-y-6">
-          {activeIndicators.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-wider text-muted-foreground/40">
-                Configurations
-              </label>
-              <div className="flex flex-wrap gap-[clamp(0.2rem,0.4vw,0.375rem)]">
-                {activeIndicators.map((inst) => (
-                  <button
-                    key={inst.instanceId}
-                    type="button"
-                    onClick={() => handleSelectExisting(inst)}
-                    className={cn(
-                      "px-3 py-2 rounded text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
-                      selectedInstanceId === inst.instanceId
-                        ? "bg-foreground text-background font-bold shadow-sm"
-                        : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
-                    )}
-                  >
-                    {getInstanceLabel(inst)}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={handleResetToDefault}
-                  className={cn(
-                    "px-3 py-2 rounded text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
-                    !selectedInstanceId
-                      ? "bg-foreground/10 text-foreground font-bold"
-                      : "bg-muted/50 text-muted-foreground/60 hover:text-foreground hover:bg-muted"
-                  )}
-                >
-                  + New
-                </button>
-              </div>
-            </div>
-          )}
-
           {indicator.params.length > 0 ? (
-            <div className="space-y-8 pt-2">
+            <div className="flex flex-col gap-4">
               {indicator.params.map((paramDef) => (
                 <IndicatorParamField
                   key={paramDef.key}
                   definition={paramDef}
-                  value={formValues[paramDef.key] ?? ""}
-                  onValueChange={() => {
+                  value={effectiveValues[paramDef.key] ?? ""}
+                  onValueChange={(next) => {
+                    // Capture user edits into local state so form reflects keystrokes
+                    setLocalEdits((prev) => {
+                      const merged = { ...(prev ?? formValues), [paramDef.key]: next };
+                      return merged;
+                    });
                     // When user edits a field, switch to "new" mode since params no longer match any instance
                     if (selectedInstanceId) setSelectedInstanceId(null);
                   }}
@@ -164,27 +141,27 @@ export function IndicatorConfigPanel({
         </div>
       </div>
 
-      <div className="p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+      <div className="p-[clamp(1rem,2vw,1.5rem)]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Button
             variant="ghost"
             size="sm"
-            className="h-9 min-h-[44px] text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring/25"
+            className="min-h-[clamp(2.5rem,5vh,3rem)] text-xs font-semibold rounded-lg active:scale-[0.97]"
             onClick={() =>
               matchingActiveInstance && onRemoveInstance(matchingActiveInstance.instanceId)
             }
             disabled={!matchingActiveInstance}
           >
-            <Minus className="w-3 h-3" />
+            <Minus className="size-3.5" />
             Delete
           </Button>
 
           <Button
             size="sm"
-            className="h-9 min-h-[44px] text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest bg-foreground text-background hover:bg-foreground/85 focus-visible:ring-ring/30 rounded"
+            className="min-h-[clamp(2.5rem,5vh,3rem)] text-xs font-semibold rounded-lg active:scale-[0.97] bg-foreground text-background hover:bg-foreground/85"
             onClick={handleApply}
           >
-            <Plus className="w-3 h-3" />
+            <Plus className="size-3.5" />
             {matchingActiveInstance ? "Update" : "Add"}
           </Button>
         </div>

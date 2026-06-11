@@ -21,7 +21,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
         <div className="container-fluid">
           <div className="flex items-center justify-between h-12">
             <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <p className="font-display text-base font-semibold tracking-tight">0xsignal</p>
+              <p className="text-base font-semibold tracking-tight">0xsignal</p>
             </Link>
 
             <nav className="flex items-center gap-6">

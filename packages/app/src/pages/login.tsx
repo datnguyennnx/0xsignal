@@ -16,7 +16,7 @@ export const LoginPage = memo(function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center pb-[clamp(4rem,8vw,6rem)] bg-background px-4 animate-in fade-in duration-200 ease-premium">
       <div className="flex w-full max-w-sm flex-col items-center gap-[clamp(1.5rem,3vw,2.5rem)]">
         {/* Brand mark */}
-        <span className="font-display text-[clamp(1.25rem,2.5vw,2rem)] font-bold tracking-tight text-foreground">
+        <span className="text-[clamp(1.25rem,2.5vw,2rem)] font-bold tracking-tight text-foreground">
           0xsignal
         </span>
 

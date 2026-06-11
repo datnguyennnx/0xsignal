@@ -83,7 +83,7 @@ export function OpenOrdersTable({
         {isOoLoading ? (
           <TableRow>
             <TableCell colSpan={12} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
                 Loading...
               </span>
             </TableCell>
@@ -91,7 +91,7 @@ export function OpenOrdersTable({
         ) : !openOrders || openOrders.length === 0 ? (
           <TableRow>
             <TableCell colSpan={12} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
                 No open orders
               </span>
             </TableCell>

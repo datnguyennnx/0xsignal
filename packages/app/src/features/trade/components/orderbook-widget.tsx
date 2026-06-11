@@ -90,7 +90,7 @@ const OrderbookToolbar = memo(
         value={symbol}
         onChange={(e) => onSymbolChange(e.target.value)}
         wrapperClassName="min-w-[4rem] max-w-[6rem]"
-        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-mono font-semibold tracking-[0.01em]"
+        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-semibold tracking-[0.01em]"
       >
         {coinOptions.map((opt) => (
           <NativeSelectOption key={opt.value} value={opt.value}>
@@ -221,7 +221,7 @@ const OrderRow = memo(
           />
         )}
         <span
-          className={`relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono font-medium ${
+          className={`relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-medium ${
             level.price === 0
               ? "text-muted-foreground/30"
               : side === "bid"
@@ -232,14 +232,14 @@ const OrderRow = memo(
           {level.formattedPrice}
         </span>
         <span
-          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono ${
+          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
             level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground"
           }`}
         >
           {level.formattedSize}
         </span>
         <span
-          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono ${
+          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
             level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
           }`}
         >
@@ -569,7 +569,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         scalingOptions={scalingOptions}
       />
 
-      <div className="flex items-center text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono uppercase text-muted-foreground shrink-0">
+      <div className="flex items-center text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase text-muted-foreground shrink-0">
         <span className="flex-1">Price</span>
         <span className="flex-1 text-right">{pairFocus === "quote" ? "Value" : "Size"}</span>
         <span className="flex-1 text-right">{pairFocus === "quote" ? "Total Val" : "Total"}</span>
@@ -593,13 +593,13 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         </div>
 
         <div className="flex items-center justify-center gap-[clamp(1.25rem,3vw,2.5rem)] py-4 shrink-0">
-          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono font-medium text-muted-foreground">
+          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-medium text-muted-foreground">
             Spread
           </span>
-          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground">
+          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] text-muted-foreground">
             {formatPriceWithScaling(spread, effectivePriceScaling)}
           </span>
-          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground">
+          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] text-muted-foreground">
             {spreadPercent.toFixed(3)}%
           </span>
         </div>
@@ -636,12 +636,12 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
             <span className="text-xs text-muted-foreground uppercase">
               {popupData.side === "ask" ? "Ask" : "Bid"}
             </span>
-            <span className="text-xs font-mono text-muted-foreground">{symbol.toUpperCase()}</span>
+            <span className="text-xs text-muted-foreground">{symbol.toUpperCase()}</span>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-xs text-muted-foreground">Price</span>
-              <span className="text-base font-mono font-medium">
+              <span className="text-base font-medium">
                 {formatPriceWithScaling(popupData.price, effectivePriceScaling)}
               </span>
             </div>
@@ -649,13 +649,13 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
               <span className="text-xs text-muted-foreground">
                 {pairFocus === "quote" ? "Value" : "Size"}
               </span>
-              <span className="text-sm font-mono">{formatSize(popupData.size)}</span>
+              <span className="text-sm">{formatSize(popupData.size)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-xs text-muted-foreground">
                 {pairFocus === "quote" ? "Total Val" : "Total"}
               </span>
-              <span className="text-sm font-mono font-medium">{formatSize(popupData.total)}</span>
+              <span className="text-sm font-medium">{formatSize(popupData.total)}</span>
             </div>
             {popupData.cumulativeSize && popupData.cumulativeSize > popupData.size && (
               <>
@@ -664,7 +664,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-xs text-muted-foreground">Avg Price</span>
-                  <span className="text-sm font-mono font-medium">
+                  <span className="text-sm font-medium">
                     {popupData.avgPrice
                       ? formatPriceWithScaling(popupData.avgPrice, effectivePriceScaling)
                       : "-"}
@@ -672,7 +672,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-xs text-muted-foreground">Total Size</span>
-                  <span className="text-sm font-mono">{formatSize(popupData.cumulativeSize)}</span>
+                  <span className="text-sm">{formatSize(popupData.cumulativeSize)}</span>
                 </div>
               </>
             )}

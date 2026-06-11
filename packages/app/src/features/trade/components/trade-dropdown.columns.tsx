@@ -50,7 +50,7 @@ export const MarketRow = memo(function MarketRow({
         >
           <span
             className={cn(
-              "font-mono text-sm tabular-nums truncate",
+              "text-sm tabular-nums truncate",
               col.align === "right" && "text-right",
               col.id === "symbol" && "font-medium",
               col.id === "change" && (item.changeValue >= 0 ? "text-gain" : "text-loss"),

@@ -57,7 +57,7 @@ export function SettingsPage() {
     <div className="container-fluid py-[clamp(1.5rem,3vw,3rem)] space-y-[clamp(1rem,1.5vw,1.5rem)] animate-in fade-in duration-200 ease-premium w-full">
       {/* ─── Compact Header Container ─── */}
       <div className="max-w-5xl mx-auto space-y-[clamp(0.125rem,0.2vw,0.25rem)] px-1">
-        <h1 className="text-[clamp(1.125rem,1.5vw,1.5rem)] font-display font-semibold tracking-tight">
+        <h1 className="text-[clamp(1.125rem,1.5vw,1.5rem)] font-semibold tracking-tight">
           Settings
         </h1>
         <p className="text-[clamp(0.75rem,0.85vw,0.875rem)] text-muted-foreground">

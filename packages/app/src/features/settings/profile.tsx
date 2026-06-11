@@ -59,9 +59,8 @@ export function ProfileSettings() {
             Manage your avatar, display name, and account.
           </p>
         </div>
-        <div className="border-t border-border/10" />
         <div className="flex items-center justify-center py-8">
-          <div className="size-5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" />
+          <div className="size-5 animate-spin rounded-full border-2 border-muted-foreground/30" />
         </div>
       </div>
     );
@@ -79,7 +78,6 @@ export function ProfileSettings() {
             Manage your avatar, display name, and account.
           </p>
         </div>
-        <div className="border-t border-border/10" />
         <div className="flex flex-col items-center gap-4 py-8 text-center">
           <Lock className="size-8 text-muted-foreground" />
           <div className="space-y-1">

@@ -55,7 +55,7 @@ export function UnifiedAccountSummary() {
       {/* Portfolio Value */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Portfolio Value</span>
-        <span className="text-xs font-mono tabular-nums text-foreground">
+        <span className="text-xs tabular-nums text-foreground">
           {formatCompactUsd(accountValue)}
         </span>
       </div>
@@ -63,7 +63,7 @@ export function UnifiedAccountSummary() {
       {/* Unrealized PNL */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Unrealized PNL</span>
-        <span className={cn("text-xs font-mono tabular-nums", pnlClass)}>
+        <span className={cn("text-xs tabular-nums", pnlClass)}>
           {formatCompactUsd(totalUnrealizedPnl)}
         </span>
       </div>
@@ -71,17 +71,13 @@ export function UnifiedAccountSummary() {
       {/* Account Ratio */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Account Ratio</span>
-        <span className="text-xs font-mono tabular-nums text-foreground">
-          {accountRatio.toFixed(2)}%
-        </span>
+        <span className="text-xs tabular-nums text-foreground">{accountRatio.toFixed(2)}%</span>
       </div>
 
       {/* Account Leverage */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Account Leverage</span>
-        <span className="text-xs font-mono tabular-nums text-foreground">
-          {accountLeverage.toFixed(2)}x
-        </span>
+        <span className="text-xs tabular-nums text-foreground">{accountLeverage.toFixed(2)}x</span>
       </div>
     </div>
   );

@@ -254,7 +254,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           </button>
           <button
             onClick={() => setAdjustLeverageOpen(true)}
-            className="flex-1 h-9 px-2 text-xs font-mono tabular-nums text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors active:scale-[0.97]"
+            className="flex-1 h-9 px-2 text-xs tabular-nums text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors active:scale-[0.97]"
           >
             {effectiveLeverage}x
           </button>
@@ -301,7 +301,9 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               onClick={() => setSide("buy")}
               className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer active:brightness-90"
             >
-              <span className={side === "buy" ? "text-white" : "text-muted-foreground"}>
+              <span
+                className={side === "buy" ? "text-primary-foreground" : "text-muted-foreground"}
+              >
                 Buy / Long
               </span>
             </button>
@@ -309,7 +311,9 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               onClick={() => setSide("sell")}
               className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer active:brightness-90"
             >
-              <span className={side === "sell" ? "text-white" : "text-muted-foreground"}>
+              <span
+                className={side === "sell" ? "text-primary-foreground" : "text-muted-foreground"}
+              >
                 Sell / Short
               </span>
             </button>
@@ -404,7 +408,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             {/* Available to Trade */}
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Available to Trade</span>
-              <span className="text-xs font-mono tabular-nums text-foreground">
+              <span className="text-xs tabular-nums text-foreground">
                 ${effectiveBalance.toFixed(2)} {safeSizeAsset}
               </span>
             </div>
@@ -517,25 +521,23 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Order Value</span>
-              <span className="text-xs font-mono tabular-nums text-foreground">
+              <span className="text-xs tabular-nums text-foreground">
                 {orderValue > 0 ? `$${orderValue.toFixed(2)} ${safeSizeAsset}` : "—"}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Margin Required</span>
-              <span className="text-xs font-mono tabular-nums text-foreground">
+              <span className="text-xs tabular-nums text-foreground">
                 {marginRequired > 0 ? `$${marginRequired.toFixed(2)}` : "—"}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Fees (Maker / Taker)</span>
-              <span className="text-xs font-mono tabular-nums text-muted-foreground">
-                0.0100% / 0.0350%
-              </span>
+              <span className="text-xs tabular-nums text-muted-foreground">0.0100% / 0.0350%</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Liquidation Price</span>
-              <span className="text-xs font-mono tabular-nums text-muted-foreground">N/A</span>
+              <span className="text-xs tabular-nums text-muted-foreground">N/A</span>
             </div>
           </div>
 

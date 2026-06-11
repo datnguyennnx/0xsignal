@@ -25,7 +25,7 @@ export function UserNav() {
       {isConnected && address ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 px-3 text-xs font-mono">
+            <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
               {truncateAddress(address)}
             </Button>
           </DropdownMenuTrigger>

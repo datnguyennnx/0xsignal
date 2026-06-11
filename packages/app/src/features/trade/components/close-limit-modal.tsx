@@ -145,13 +145,13 @@ export function CloseLimitModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Closing</span>
-              <span className="text-xs font-mono tabular-nums text-foreground">
+              <span className="text-xs tabular-nums text-foreground">
                 {size && Number(size) > 0 ? `${size} ${position?.coin ?? ""}` : "—"}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Direction</span>
-              <span className="text-xs font-mono tabular-nums">
+              <span className="text-xs tabular-nums">
                 {position ? (position.isLong ? "Close Long" : "Close Short") : "—"}
               </span>
             </div>

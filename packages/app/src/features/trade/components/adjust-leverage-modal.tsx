@@ -104,7 +104,7 @@ export function AdjustLeverageModal({
           {/* Current state */}
           <div className="flex items-center justify-between px-3 py-2 bg-background/70 rounded-md border border-border/20">
             <span className="text-xs text-muted-foreground">Current</span>
-            <span className="text-sm font-mono tabular-nums text-foreground">
+            <span className="text-sm tabular-nums text-foreground">
               {currentLeverage}x — {isCross ? "Cross" : "Isolated"}
             </span>
           </div>
@@ -113,7 +113,7 @@ export function AdjustLeverageModal({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground font-normal">Leverage</Label>
-              <span className="text-lg font-mono tabular-nums font-semibold text-foreground transition-all duration-200">
+              <span className="text-lg tabular-nums font-semibold text-foreground transition-all duration-200">
                 {leverage}x
               </span>
             </div>

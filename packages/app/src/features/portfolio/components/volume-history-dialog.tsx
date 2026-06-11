@@ -43,14 +43,14 @@ export function VolumeHistoryDialog({ open, onOpenChange, portfolio }: VolumeHis
                 <span className="text-xs text-muted-foreground">
                   {PERIOD_LABELS[AGGREGATE_PERIODS[idx]] ?? "—"}
                 </span>
-                <span className="text-sm font-mono tabular-nums text-foreground font-medium">
+                <span className="text-sm tabular-nums text-foreground font-medium">
                   {formatCompactUsd(Number(period.vlm) || 0)}
                 </span>
               </div>
             ))
           ) : (
             <div className="py-6 text-center">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
                 No volume data
               </span>
             </div>

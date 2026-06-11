@@ -42,51 +42,55 @@ export function IndicatorParamField({
   );
 
   return (
-    <div className="group/param flex flex-col gap-1.5 transition-all">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0 flex flex-col gap-0.5">
-          <label className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-bold uppercase tracking-widest text-muted-foreground/50 group-hover/param:text-foreground transition-colors leading-none">
-            {definition.label}
-          </label>
-          <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground font-mono leading-none opacity-30">
-            {definition.min} {"->"} {definition.max}
-          </p>
-        </div>
-
-        <div className="flex items-center ring-1 ring-border/30 rounded-xl overflow-hidden bg-muted/5 group-hover/param:ring-muted-foreground/30 transition-all">
-          <button
-            type="button"
-            onClick={() => adjust(-1)}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-muted/60 active:bg-muted-foreground/10 transition-colors border-r border-border/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
-          >
-            <Minus className="w-3 h-3 opacity-30" />
-          </button>
-
-          <input
-            type="number"
-            inputMode="decimal"
-            min={definition.min}
-            max={definition.max}
-            step={definition.step}
-            value={value}
-            onChange={(e) => onValueChange(e.target.value)}
-            className="w-12 h-7 px-1 text-center text-xs font-bold bg-transparent text-foreground focus:outline-none tabular-nums select-none"
-          />
-
-          <button
-            type="button"
-            onClick={() => adjust(1)}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-muted/60 active:bg-muted-foreground/10 transition-colors border-l border-border/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
-          >
-            <Plus className="w-3 h-3 opacity-40" />
-          </button>
-        </div>
+    <div className="group/param flex flex-col gap-2">
+      {/* ─── Top Row: Label + Range ─── */}
+      <div className="flex items-baseline justify-between gap-2">
+        <label className="text-sm font-medium text-foreground leading-none">
+          {definition.label}
+        </label>
+        <span className="text-[10px] text-muted-foreground leading-none tabular-nums shrink-0">
+          {definition.min} – {definition.max}
+        </span>
       </div>
 
+      {/* ─── Bottom Row: Full-width stepper bar ─── */}
+      <div className="flex items-center bg-muted/40 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-ring/25 w-full">
+        {/* Decrement */}
+        <button
+          type="button"
+          onClick={() => adjust(-1)}
+          disabled={numeric !== null && numeric <= definition.min}
+          className="h-[clamp(1.75rem,3vh,2.25rem)] w-[clamp(1.75rem,2.5vw,2rem)] flex items-center justify-center hover:bg-accent/30 rounded-l transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none shrink-0"
+        >
+          <Minus className="size-3.5 opacity-50" />
+        </button>
+
+        {/* Value — centered, fills remaining space */}
+        <input
+          type="number"
+          inputMode="decimal"
+          min={definition.min}
+          max={definition.max}
+          step={definition.step}
+          value={value}
+          onChange={(e) => onValueChange(e.target.value)}
+          className="flex-1 h-[clamp(1.75rem,3vh,2.25rem)] px-1 text-center text-xs font-semibold bg-transparent text-foreground focus:outline-none tabular-nums select-none min-w-0"
+        />
+
+        {/* Increment */}
+        <button
+          type="button"
+          onClick={() => adjust(1)}
+          disabled={numeric !== null && numeric >= definition.max}
+          className="h-[clamp(1.75rem,3vh,2.25rem)] w-[clamp(1.75rem,2.5vw,2rem)] flex items-center justify-center hover:bg-accent/30 rounded-r transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none shrink-0"
+        >
+          <Plus className="size-3.5 opacity-50" />
+        </button>
+      </div>
+
+      {/* ─── Description (optional) ─── */}
       {definition.description && (
-        <p className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground leading-tight max-w-[90%] opacity-50 group-hover/param:opacity-100 transition-opacity">
-          {definition.description}
-        </p>
+        <p className="text-[11px] text-muted-foreground leading-tight">{definition.description}</p>
       )}
     </div>
   );

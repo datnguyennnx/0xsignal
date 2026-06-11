@@ -53,7 +53,7 @@ export const ChartHeader = memo(function ChartHeader({
               size="sm"
               onClick={() => handleIntervalChange(int.value)}
               className={cn(
-                "relative h-8 rounded-xl border px-2.5 py-4 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-mono tabular-nums tracking-[0.01em] transition-all duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/25",
+                "relative h-8 rounded-xl border px-2.5 py-4 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tabular-nums tracking-[0.01em] transition-all duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/25",
                 interval === int.value
                   ? "border-border/60 bg-muted/70 text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -78,7 +78,7 @@ export const ChartHeader = memo(function ChartHeader({
               }}
               wrapperClassName="min-w-[clamp(4.5rem,12vw,6rem)] max-w-[clamp(4.5rem,12vw,6rem)]"
               className={cn(
-                "h-8 w-full min-w-0 border border-border/50 bg-background/75 px-2.5 pr-7 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-mono tabular-nums tracking-[0.01em] cursor-pointer transition-[background-color,border-color,color,box-shadow] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/25",
+                "h-8 w-full min-w-0 border border-border/50 bg-background/75 px-2.5 pr-7 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tabular-nums tracking-[0.01em] cursor-pointer transition-[background-color,border-color,color,box-shadow] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/25",
                 isDefaultInterval
                   ? "text-muted-foreground hover:text-foreground"
                   : "border-border/60 bg-muted/70 text-foreground"

@@ -22,7 +22,7 @@ export function PortfolioPage() {
 
   return (
     <div className="container-fluid py-6 space-y-6 animate-in fade-in duration-200 ease-premium">
-      <h1 className="text-xl font-display font-semibold">Portfolio</h1>
+      <h1 className="text-xl font-semibold">Portfolio</h1>
 
       {/* ── Top row: Summary + Chart ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">

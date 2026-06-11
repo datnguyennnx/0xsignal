@@ -36,7 +36,7 @@ export function TwapActiveTable() {
       <TableBody>
         <TableRow>
           <TableCell colSpan={8} className="text-center py-6">
-            <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+            <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
               No active TWAP orders
             </span>
           </TableCell>

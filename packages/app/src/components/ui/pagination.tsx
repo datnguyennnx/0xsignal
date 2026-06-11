@@ -52,7 +52,7 @@ export const Pagination = memo(function Pagination({
       )}
     >
       {/* Results count */}
-      <span className="text-xs text-muted-foreground font-mono tabular-nums order-1">
+      <span className="text-xs text-muted-foreground tabular-nums order-1">
         {start.toLocaleString()}–{end.toLocaleString()} of {totalItems.toLocaleString()}
       </span>
 
@@ -81,7 +81,7 @@ export const Pagination = memo(function Pagination({
               type="button"
               onClick={() => onPageChange(page)}
               className={cn(
-                "inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded text-xs font-mono tabular-nums transition-colors",
+                "inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded text-xs tabular-nums transition-colors",
                 currentPage === page
                   ? "bg-foreground text-background"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
@@ -118,7 +118,7 @@ export const Pagination = memo(function Pagination({
       {/* Page size selector */}
       {onPageSizeChange && (
         <div className="flex items-center gap-2 order-3">
-          <span className="text-xs text-muted-foreground font-mono tabular-nums">Show</span>
+          <span className="text-xs text-muted-foreground tabular-nums">Show</span>
           <NativeSelect
             size="sm"
             aria-label="Rows per page"

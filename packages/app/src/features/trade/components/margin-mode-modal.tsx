@@ -155,9 +155,7 @@ export function MarginModeModal({
           {/* Summary row */}
           <div className="flex items-center justify-between px-3 py-2 bg-background/70 rounded-md border border-border/20">
             <span className="text-xs text-muted-foreground">Leverage for {symbol}</span>
-            <span className="text-sm font-mono tabular-nums text-foreground">
-              {currentLeverage}x
-            </span>
+            <span className="text-sm tabular-nums text-foreground">{currentLeverage}x</span>
           </div>
         </div>
 

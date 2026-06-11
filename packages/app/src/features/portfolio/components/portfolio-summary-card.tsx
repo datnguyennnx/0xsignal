@@ -63,7 +63,7 @@ function Row({
       </span>
       <span
         className={cn(
-          "text-[length:var(--text-compact)] font-mono tabular-nums font-medium",
+          "text-[length:var(--text-compact)] tabular-nums font-medium",
           accent === "gain" && "text-gain",
           accent === "loss" && "text-loss",
           accent === "warn" && "text-warn",
@@ -163,7 +163,7 @@ export function PortfolioSummaryCard() {
     return (
       <div className={SURFACE}>
         <div className="flex-1 flex items-center justify-center">
-          <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground/30">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground/30">
             Unable to load
           </span>
         </div>
@@ -184,7 +184,7 @@ export function PortfolioSummaryCard() {
           aria-label="Timeframe"
           value={tf}
           onChange={(e) => setTf(e.target.value as Timeframe)}
-          className="h-7 min-w-[4.5rem] text-xs font-mono tabular-nums border-border/30 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25"
+          className="h-7 min-w-[4.5rem] text-xs tabular-nums border-border/30 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25"
         >
           {PERIOD_KEYS.map((p) => (
             <NativeSelectOption key={p} value={p}>

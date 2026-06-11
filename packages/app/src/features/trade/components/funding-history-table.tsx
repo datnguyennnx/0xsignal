@@ -49,7 +49,7 @@ export function FundingHistoryTable() {
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-6">
-                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
                   Loading...
                 </span>
               </TableCell>
@@ -57,7 +57,7 @@ export function FundingHistoryTable() {
           ) : isError ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-6">
-                <span className="text-xs text-destructive/70 uppercase tracking-wider font-mono">
+                <span className="text-xs text-destructive/70 uppercase tracking-wider">
                   Unable to load funding history
                 </span>
               </TableCell>
@@ -65,7 +65,7 @@ export function FundingHistoryTable() {
           ) : !funding || funding.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-6">
-                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider font-mono">
+                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
                   No funding history
                 </span>
               </TableCell>

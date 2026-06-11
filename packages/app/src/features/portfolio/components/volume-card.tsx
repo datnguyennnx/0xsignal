@@ -33,7 +33,7 @@ export function VolumeCard() {
           ) : isError || !portfolio ? (
             <span className="text-xs text-muted-foreground/50">Unable to load volume</span>
           ) : (
-            <span className="text-lg font-mono tabular-nums font-semibold text-foreground">
+            <span className="text-lg tabular-nums font-semibold text-foreground">
               {formatCompactUsd(Number(portfolio[0][1].vlm) || 0)}
             </span>
           )}

@@ -103,7 +103,6 @@ function ChartTooltip({
             display: "block",
             fontSize: 12,
             color: "var(--chart-text)",
-            fontFamily: "var(--font-mono)",
             lineHeight: 1.5,
           }}
         >
@@ -115,7 +114,6 @@ function ChartTooltip({
           display: "block",
           fontSize: 14,
           fontWeight: 600,
-          fontFamily: "var(--font-mono)",
           color: val >= 0 ? "var(--gain)" : "var(--loss)",
           lineHeight: 1.5,
         }}
@@ -214,7 +212,7 @@ export function PortfolioPnLChart() {
     return (
       <div className={SURFACE}>
         <div className="flex-1 flex items-center justify-center">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/30">
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground/30">
             Chart unavailable
           </span>
         </div>
@@ -254,7 +252,7 @@ export function PortfolioPnLChart() {
           aria-label="Timeframe"
           value={timePeriod}
           onChange={(e) => setTimePeriod(e.target.value as TimePeriod)}
-          className="h-7 min-w-[4.5rem] text-xs font-mono tabular-nums border-border/30 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25"
+          className="h-7 min-w-[4.5rem] text-xs tabular-nums border-border/30 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25"
         >
           {PERIOD_KEYS.map((p) => (
             <NativeSelectOption key={p} value={p}>
@@ -278,7 +276,7 @@ export function PortfolioPnLChart() {
                   scale="time"
                   axisLine={{ stroke: "var(--chart-border)", strokeWidth: 1 }}
                   tickLine={false}
-                  tick={{ fontSize: 11, fontFamily: "var(--font-mono)", fill: "var(--chart-text)" }}
+                  tick={{ fontSize: 11, fill: "var(--chart-text)" }}
                   tickFormatter={formatXAxisTick}
                   ticks={xAxisTicks}
                   minTickGap={40}
@@ -288,7 +286,7 @@ export function PortfolioPnLChart() {
                   axisLine={{ stroke: "var(--chart-border)", strokeWidth: 1 }}
                   tickLine={false}
                   width={56}
-                  tick={{ fontSize: 11, fontFamily: "var(--font-mono)", fill: "var(--chart-text)" }}
+                  tick={{ fontSize: 11, fill: "var(--chart-text)" }}
                   tickFormatter={formatAxisTick}
                   domain={[dataMin, dataMax]}
                   tickCount={4}
@@ -316,7 +314,7 @@ export function PortfolioPnLChart() {
           </div>
         ) : (
           <div className="flex items-center justify-center h-full">
-            <span className="text-xs text-muted-foreground/30 font-mono uppercase tracking-widest">
+            <span className="text-xs text-muted-foreground/30 uppercase tracking-widest">
               No data
             </span>
           </div>

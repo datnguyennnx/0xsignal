@@ -65,7 +65,7 @@ const usePreloadRoutes = () => {
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[clamp(20rem,50dvh,40rem)]">
-      <div className="h-6 w-6 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+      <div className="h-6 w-6 border-2 border-foreground/20 rounded-full animate-spin" />
     </div>
   );
 }
