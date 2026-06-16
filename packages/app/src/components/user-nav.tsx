@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Settings } from "lucide-react";
+import { RotateCcw, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,6 +8,8 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
+import { resetLayout } from "@/features/asset-detail/contexts/layout-store";
+import { toast } from "sonner";
 import { useAccount, useDisconnect } from "wagmi";
 
 function truncateAddress(address: string) {
@@ -50,7 +52,21 @@ export function UserNav() {
       )}
 
       <Button
-        variant="ghost"
+        variant="outline"
+        size="icon-sm"
+        className="size-8"
+        title="Reset Dashboard Layout"
+        onClick={() => {
+          resetLayout();
+          toast.success("Dashboard layout reset");
+        }}
+      >
+        <RotateCcw className="size-4" />
+        <span className="sr-only">Reset Dashboard Layout</span>
+      </Button>
+
+      <Button
+        variant="outline"
         size="icon-sm"
         className="size-8"
         onClick={() => navigate("/settings?tab=appearance")}
