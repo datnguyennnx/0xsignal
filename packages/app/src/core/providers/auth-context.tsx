@@ -1,39 +1,8 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  useMemo,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, useCallback, useMemo, type ReactNode } from "react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/services/api";
 import { setAuthToken } from "@/lib/api-base";
-
-export interface AuthUser {
-  readonly userId: string;
-  readonly provider: string;
-  readonly avatarUrl: string | null;
-  readonly displayName: string | null;
-}
-
-type AuthState = {
-  /** Whether the user has a valid session */
-  readonly isAuthenticated: boolean;
-  /** True while checking auth on mount */
-  readonly isLoading: boolean;
-  /** Authenticated user info (null when not authenticated) */
-  readonly user: AuthUser | null;
-  /** Whether the user has linked a wallet to their account */
-  readonly hasLinkedWallet: boolean;
-  /** Re-fetch wallet status and update hasLinkedWallet */
-  readonly refreshWalletStatus: () => Promise<void>;
-  /** Clear session and reset state */
-  readonly signOut: () => void;
-};
-
-const AuthContext = createContext<AuthState | undefined>(undefined);
+import { AuthContext, type AuthState, type AuthUser } from "./auth-types";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -149,13 +118,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [isAuthenticated, isLoading, user, hasLinkedWallet, refreshWalletStatus, signOut]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth(): AuthState {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
+  return <AuthContext value={value}>{children}</AuthContext>;
 }

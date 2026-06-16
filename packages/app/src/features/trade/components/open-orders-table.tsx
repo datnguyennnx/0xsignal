@@ -6,7 +6,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { formatTime, fmtNum } from "./shared-table-utils";
+import { formatTime, fmtNum } from "../utils/shared-table-utils";
 import { DirLabel } from "./shared-table-components";
 
 import {
@@ -20,17 +20,17 @@ import {
   CELL_NUM_CLASS,
   CELL_HEAD_CLASS,
   CELL_HEAD_NUM_CLASS,
-} from "./orderbook-table-classes";
+} from "../utils/orderbook-table-classes";
 import type { FrontendOpenOrder } from "@0xsignal/shared";
 
-/* ─── Styling constants ─── */
+/* Styling constants */
 
 const c = CELL_CLASS;
 const cNum = CELL_NUM_CLASS;
 const cHead = CELL_HEAD_CLASS;
 const cHeadNum = CELL_HEAD_NUM_CLASS;
 
-/* ─── Types ─── */
+/* Types */
 
 interface OpenOrdersTableProps {
   isOoLoading: boolean;
@@ -42,7 +42,7 @@ interface OpenOrdersTableProps {
   orderCount: number;
 }
 
-/* ─── Component ─── */
+/* Component */
 
 export function OpenOrdersTable({
   isOoLoading,

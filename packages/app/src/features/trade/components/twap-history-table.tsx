@@ -1,10 +1,3 @@
-/**
- * TWAP History Table — displays completed/cancelled TWAP orders.
- *
- * Column matrix: Time, Coin, Total Size, Executed Size, Average Price, Total Runtime, Reduce Only, Randomize, Status
- *
- * @note Backend data source not yet implemented. Renders empty state.
- */
 import {
   Table,
   TableHeader,
@@ -13,7 +6,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { CELL_HEAD_CLASS, CELL_HEAD_NUM_CLASS } from "./orderbook-table-classes";
+import { CELL_HEAD_CLASS, CELL_HEAD_NUM_CLASS } from "../utils/orderbook-table-classes";
 
 const cHead = CELL_HEAD_CLASS;
 const cHeadNum = CELL_HEAD_NUM_CLASS;

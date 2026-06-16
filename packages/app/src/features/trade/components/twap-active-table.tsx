@@ -1,10 +1,3 @@
-/**
- * TWAP Active Table — displays currently running TWAP orders.
- *
- * Column matrix: Coin, Size, Executed Size, Average Price, Running Time / Total, Reduce Only, Creation Time, Terminate
- *
- * @note Backend data source not yet implemented. Renders empty state.
- */
 import {
   Table,
   TableHeader,
@@ -13,7 +6,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { CELL_HEAD_CLASS, CELL_HEAD_NUM_CLASS } from "./orderbook-table-classes";
+import { CELL_HEAD_CLASS, CELL_HEAD_NUM_CLASS } from "../utils/orderbook-table-classes";
 
 const cHead = CELL_HEAD_CLASS;
 const cHeadNum = CELL_HEAD_NUM_CLASS;

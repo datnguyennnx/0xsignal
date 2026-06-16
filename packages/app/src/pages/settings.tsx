@@ -1,20 +1,10 @@
-/**
- * Settings Page
- *
- * Provides a highly polished, unified settings dashboard.
- * Provides sidebar menu navigation and tabbed content panels for settings.
- * Applies responsive styling tokens dynamically using CSS clamp() for fluid, high-fidelity scaling,
- * and bumps text sizes slightly to optimize legibility and layout presence.
- *
- * Tabs: "profile" (default) | "api-console" | "appearance"
- */
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { User, Palette, Terminal } from "lucide-react";
 import { cn } from "@/core/utils/cn";
-import { ApiConsole } from "@/features/settings/api-console";
-import { AppearanceSettings } from "@/features/settings/appearance";
-import { ProfileSettings } from "@/features/settings/profile";
+import { ApiConsole } from "@/features/settings/components/api-console";
+import { AppearanceSettings } from "@/features/settings/components/appearance";
+import { ProfileSettings } from "@/features/settings/components/profile";
 
 type SettingsTab = "profile" | "api-console" | "appearance";
 
@@ -55,7 +45,6 @@ export function SettingsPage() {
 
   return (
     <div className="container-fluid py-[clamp(1.5rem,3vw,3rem)] space-y-[clamp(1rem,1.5vw,1.5rem)] animate-in fade-in duration-200 ease-premium w-full">
-      {/* ─── Compact Header Container ─── */}
       <div className="max-w-5xl mx-auto space-y-[clamp(0.125rem,0.2vw,0.25rem)] px-1">
         <h1 className="text-[clamp(1.125rem,1.5vw,1.5rem)] font-semibold tracking-tight">
           Settings
@@ -65,7 +54,6 @@ export function SettingsPage() {
         </p>
       </div>
 
-      {/* ─── Unified Settings Layout ─── */}
       <div className="max-w-5xl mx-auto w-full bg-card/50 p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl">
         <div className="grid grid-cols-1 md:grid-cols-12 w-full min-h-[300px]">
           {/* Left Column: Sidebar Navigation */}

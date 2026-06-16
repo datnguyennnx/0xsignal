@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog";
 import { formatCompactUsd } from "@/core/utils/formatters";
-import { type TpSlOrderDisplay } from "./tp-sl-view-utils";
+import { type TpSlOrderDisplay } from "../utils/tp-sl-view-utils";
 
-/* ─── Internal types (not exported) ─── */
+/* Internal types (not exported) */
 
 interface TpSlViewModalProps {
   open: boolean;
@@ -13,7 +13,7 @@ interface TpSlViewModalProps {
   slOrder?: TpSlOrderDisplay;
 }
 
-/* ─── Helpers ─── */
+/* Helpers */
 
 function getSideLabel(side: "A" | "B"): string {
   return side === "B" ? "Long" : "Short";
@@ -23,7 +23,7 @@ function getSideColor(side: "A" | "B"): string {
   return side === "B" ? "text-gain" : "text-loss";
 }
 
-/* ─── Key-value row micro-component ─── */
+/* Key-value row micro-component */
 
 function DetailRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
@@ -34,7 +34,7 @@ function DetailRow({ label, value, color }: { label: string; value: string; colo
   );
 }
 
-/* ─── Order detail box ─── */
+/* Order detail box */
 
 function OrderDetailBox({ order }: { order: TpSlOrderDisplay }) {
   return (
@@ -48,13 +48,13 @@ function OrderDetailBox({ order }: { order: TpSlOrderDisplay }) {
   );
 }
 
-/* ─── Decision-tree label ─── */
+/* Decision-tree label */
 
 function TreeNodeLabel({ children }: { children: ReactNode }) {
   return <p className="text-xs text-center text-muted-foreground">{children}</p>;
 }
 
-/* ─── Main Component ─── */
+/* Main Component */
 
 export function TpSlViewModal({
   open,

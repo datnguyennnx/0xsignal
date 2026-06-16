@@ -12,13 +12,11 @@ import {
   CELL_NUM_CLASS,
   CELL_HEAD_CLASS,
   CELL_HEAD_NUM_CLASS,
-} from "./orderbook-table-classes";
+} from "../utils/orderbook-table-classes";
 import { PnLDisplay } from "./shared-table-components";
 
 import { useNavigate } from "react-router-dom";
-import { getNextFundingMs } from "@/pages/asset-detail.utils";
-
-/* ─── Styling constants ─── */
+import { getNextFundingMs } from "@/features/asset-detail/utils/format";
 
 const FUNDING_INTERVAL_MS = 3_600_000;
 
@@ -26,8 +24,6 @@ const c = CELL_CLASS;
 const cNum = CELL_NUM_CLASS;
 const cHead = CELL_HEAD_CLASS;
 const cHeadNum = CELL_HEAD_NUM_CLASS;
-
-/* ─── Funding math (pure) ─── */
 
 function computeAccruedFunding(
   settledFunding: number,
@@ -45,8 +41,6 @@ function computeAccruedFunding(
   return settledFunding + unsettled;
 }
 
-/* ─── TP/SL cell sub-component ─── */
-
 function TpSlCell({ tpSl }: { tpSl: { tp: string | null; sl: string | null } | undefined }) {
   if (!tpSl || (!tpSl.tp && !tpSl.sl)) {
     return <span className="text-muted-foreground/40">—</span>;
@@ -56,8 +50,6 @@ function TpSlCell({ tpSl }: { tpSl: { tp: string | null; sl: string | null } | u
   if (tpSl.sl) parts.push(`SL ${tpSl.sl}`);
   return <span className="text-xs font-medium text-foreground">{parts.join(" / ")}</span>;
 }
-
-/* ─── Types ─── */
 
 interface PositionsTableProps {
   isChLoading: boolean;
@@ -81,8 +73,6 @@ interface PositionsTableProps {
   /** Real-time mid prices from WebSocket, keyed by coin name */
   mids?: Record<string, number>;
 }
-
-/* ─── Component ─── */
 
 export function PositionsTable({
   isChLoading,
@@ -154,6 +144,7 @@ export function PositionsTable({
               <TableRow key={position.coin}>
                 <TableCell className={`${c} font-medium`}>
                   <button
+                    type="button"
                     onClick={() => navigate(`/trade/${position.coin}`)}
                     className="relative overflow-hidden flex items-center w-full text-left cursor-pointer transition-colors hover:text-foreground rounded px-1 -mx-1"
                   >
@@ -189,6 +180,7 @@ export function PositionsTable({
                 <TableCell className={c}>
                   <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
                     <button
+                      type="button"
                       onClick={() => onCloseMarket?.(position.coin, position.szi, signedSz >= 0)}
                       className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
                     >
@@ -196,6 +188,7 @@ export function PositionsTable({
                     </button>
                     <span className="text-xs text-muted-foreground/40">/</span>
                     <button
+                      type="button"
                       onClick={() =>
                         onCloseLimit?.({ coin: position.coin, sz, isLong: signedSz >= 0, markPx })
                       }

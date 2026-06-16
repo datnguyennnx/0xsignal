@@ -1,14 +1,4 @@
 /**
- * @overview Pure trading math utilities for Hyperliquid order forms.
- *
- * All functions are side-effect free — no React, no UI, no hooks.
- * Formulas assume ROE (Return on Equity) basis where leverage scales
- * the percentage gain/loss relative to the entry price.
- *
- * @module trade-math
- */
-
-/**
  * Buffer applied to max size to account for taker fees.
  * Prevents orders from being rejected due to insufficient margin
  * after fee deduction.
@@ -129,34 +119,10 @@ export function formatOrderSize(size: number, szDecimals: number): string {
   return truncated.toFixed(szDecimals);
 }
 
-/**
- * Format a price value to 2 decimal places. Returns an empty string for
- * invalid or non-positive values.
- *
- * @param value - The price value
- * @returns Formatted price string (e.g., "105.00") or ""
- *
- * @example
- * formatPriceFixed(105.5)  // → "105.50"
- * formatPriceFixed(0)      // → ""
- * formatPriceFixed(NaN)    // → ""
- */
 export function formatPriceFixed(value: number): string {
   return Number.isFinite(value) && value > 0 ? value.toFixed(2) : "";
 }
 
-/**
- * Format a percentage value to 2 decimal places. Returns an empty string
- * for invalid or negative values.
- *
- * @param value - The percentage value
- * @returns Formatted percentage string (e.g., "10.00") or ""
- *
- * @example
- * formatPctFixed(10.5)  // → "10.50"
- * formatPctFixed(-1)    // → ""
- * formatPctFixed(NaN)   // → ""
- */
 export function formatPctFixed(value: number): string {
   return Number.isFinite(value) && value >= 0 ? value.toFixed(2) : "";
 }

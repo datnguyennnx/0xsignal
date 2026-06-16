@@ -7,7 +7,6 @@ import { MarketStreamProvider } from "@/features/trade/contexts/market-stream-co
 import { MainLayout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/sonner";
-
 import { queryKeys } from "@/lib/query/query-keys";
 import { queryClient } from "@/lib/query/client";
 import { api } from "@/services/api";
@@ -56,7 +55,7 @@ const usePreloadRoutes = () => {
     const preloadTimer = setTimeout(() => {
       import("@/pages/asset-detail");
       import("@/pages/portfolio");
-      import("@/features/chart/trading-chart");
+      import("@/features/chart/components/trading-chart");
     }, 2000);
     return () => clearTimeout(preloadTimer);
   }, []);

@@ -1,9 +1,3 @@
-/**
- * Market selector dropdown. Searchable, sortable, category-filtered.
- * Column layout adapts to active tab:
- *   - Non-spot (perp, crypto, tradfi, hip-3): Symbol | Price | 24h | Funding | Volume | OI
- *   - Spot: Symbol | Price | 24h | Volume | Market Cap
- */
 import { memo, useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, ChevronDown, X } from "lucide-react";
@@ -14,10 +8,10 @@ import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { calculatePxDecimals } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { formatSize, formatCompactUsd } from "@/core/utils/formatters";
 import { MarketHeader, MarketRow, MarketRowSkeleton } from "./trade-dropdown.columns";
-import { getColumns } from "./trade-dropdown.columns.helpers";
+import { getColumns } from "../utils/trade-dropdown-columns";
 import type { AggregatedMarket } from "@0xsignal/shared";
-import type { CategoryTab, FormattedTrade } from "./trade-dropdown.types";
-import { TAB_ORDER, TAB_TO_CATEGORY } from "./trade-dropdown.types";
+import type { CategoryTab, FormattedTrade } from "../utils/trade-dropdown";
+import { TAB_ORDER, TAB_TO_CATEGORY } from "../utils/trade-dropdown";
 
 const TradeDropdownFn = ({
   currentSymbol,
@@ -25,7 +19,7 @@ const TradeDropdownFn = ({
   displaySymbol,
   currentDisplayName,
   onPrefetchMarkets,
-}: import("./trade-dropdown.types").TradeDropdownProps) => {
+}: import("../utils/trade-dropdown").TradeDropdownProps) => {
   const dropdownContentId = "trade-market-dropdown-content";
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);

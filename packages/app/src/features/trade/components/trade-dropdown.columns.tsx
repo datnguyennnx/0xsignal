@@ -1,10 +1,11 @@
 import { memo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/core/utils/cn";
-import { gridTemplate, HeaderCell } from "./trade-dropdown.columns.helpers";
-import type { ColumnDef, FormattedTrade } from "./trade-dropdown.types";
+import { gridTemplate } from "../utils/trade-dropdown-columns";
+import { HeaderCell } from "./trade-dropdown.columns.helpers";
+import type { ColumnDef, FormattedTrade } from "../utils/trade-dropdown";
 
-// ── Header row ──────────────────────────────────────────────────────────────
+// Header row
 
 export const MarketHeader = memo(function MarketHeader({
   columns,
@@ -29,7 +30,7 @@ export const MarketHeader = memo(function MarketHeader({
   );
 });
 
-// ── Data row ────────────────────────────────────────────────────────────────
+// Data row
 
 export const MarketRow = memo(function MarketRow({
   item,
@@ -68,7 +69,7 @@ export const MarketRow = memo(function MarketRow({
   );
 });
 
-// ── Skeleton row ────────────────────────────────────────────────────────────
+// Skeleton row
 
 export const MarketRowSkeleton = memo(function MarketRowSkeleton({
   columns,

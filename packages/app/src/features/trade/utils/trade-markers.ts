@@ -1,22 +1,6 @@
-/**
- * @overview Pure utility module for mapping Hyperliquid trade fills to
- * Lightweight Charts series markers.
- *
- * All functions are side-effect free — no React, no UI, no hooks.
- * Designed to be fully unit-testable.
- *
- * @module trade-markers
- *
- * @remarks
- * The `HyperliquidFill` type defined here includes a `dir` field that
- * is present in the raw Hyperliquid API response but not yet reflected
- * in the shared `UserFill` schema. When consuming data from `useUserFills`,
- * cast the response to `HyperliquidFill[]` at the call site.
- */
-
 import type { SeriesMarker, Time } from "lightweight-charts";
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
+// Types
 
 /**
  * Shape of a Hyperliquid user fill / executed trade.
@@ -70,7 +54,7 @@ export interface MarkerGroup {
   items: LogicalTradeMarker[];
 }
 
-// ─── Timeframe Helpers ─────────────────────────────────────────────────────────
+// Timeframe Helpers
 
 /** Parse "1m", "5h" etc. to seconds. Pure alternative to getIntervalMs. */
 export function intervalToSeconds(interval: string): number {
@@ -92,14 +76,14 @@ export function normalizeFillToCandleTime(fillTimeMs: number, timeframeSec: numb
   return bucket * timeframeSec;
 }
 
-// ─── Buy/Sell Classification ───────────────────────────────────────────────────
+// Buy/Sell Classification
 
 /** True if fill increases long exposure (side=B + Open Long/Close Short). */
 export function isBuyFill(fill: HyperliquidFill): boolean {
   return fill.side === "B" && (fill.dir === "Open Long" || fill.dir === "Close Short");
 }
 
-// ─── Marker Visuals ────────────────────────────────────────────────────────────
+// Marker Visuals
 
 const BUY_SHAPE = "circle" as const;
 const SELL_SHAPE = "circle" as const;
@@ -114,7 +98,7 @@ function formatFillLabel(fill: HyperliquidFill): string {
   return isBuyFill(fill) ? "B" : "S";
 }
 
-// ─── Main Pipeline ─────────────────────────────────────────────────────────────
+// Main Pipeline
 
 /**
  * Map fills → LWC series markers.
@@ -181,7 +165,7 @@ export function mapFillsToLogicalMarkers(
   return markers;
 }
 
-// ─── Grouping ─────────────────────────────────────────────────────────────────
+// Grouping
 
 /** Max markers rendered per candle before collapsing into "+N". */
 export const MAX_STACK_PER_CANDLE = 5;
@@ -219,7 +203,7 @@ export function groupMarkersByCandle(markers: readonly LogicalTradeMarker[]): Ma
   return groups;
 }
 
-// ─── Tooltip ──────────────────────────────────────────────────────────────────
+// Tooltip
 
 /** Tooltip text e.g. "Open Long at 81,000". */
 export function buildTooltipText(marker: LogicalTradeMarker): string {

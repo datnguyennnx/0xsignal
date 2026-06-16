@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table";
 
 import { formatPrice, formatCompactUsd } from "@/core/utils/formatters";
-import { formatTime, fmtNum, formatStatus } from "./shared-table-utils";
+import { formatTime, fmtNum, formatStatus } from "../utils/shared-table-utils";
 import { DirLabel, DirDisplay } from "./shared-table-components";
 import { getOrderType, getTriggerLabel, formatOrderValue } from "../utils/trigger-utils";
 import {
@@ -16,17 +16,17 @@ import {
   CELL_NUM_CLASS,
   CELL_HEAD_CLASS,
   CELL_HEAD_NUM_CLASS,
-} from "./orderbook-table-classes";
+} from "../utils/orderbook-table-classes";
 import type { UserFill, HistoricalOrderEntry } from "@0xsignal/shared";
 
-/* ─── Styling constants ─── */
+/* Styling constants */
 
 const c = CELL_CLASS;
 const cNum = CELL_NUM_CLASS;
 const cHead = CELL_HEAD_CLASS;
 const cHeadNum = CELL_HEAD_NUM_CLASS;
 
-/* ─── Types ─── */
+/* Types */
 
 interface TradeHistoryTableProps {
   fills?: UserFill[];
@@ -38,7 +38,7 @@ interface HistoryOrderTableProps {
   isHistLoading: boolean;
 }
 
-/* ─── Trade History (fills) ─── */
+/* Trade History (fills) */
 
 export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTableProps) {
   return (
@@ -108,7 +108,7 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
   );
 }
 
-/* ─── Order History (historical orders) ─── */
+/* Order History (historical orders) */
 
 export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTableProps) {
   return (

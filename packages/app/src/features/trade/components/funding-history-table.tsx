@@ -1,6 +1,3 @@
-/**
- * Funding History Table — displays historical funding rate payments.
- */
 import {
   Table,
   TableHeader,
@@ -11,7 +8,7 @@ import {
 } from "@/components/ui/table";
 
 import { useUserFunding } from "@/features/portfolio/hooks/use-portfolio-data";
-import { formatTime, fmtNum } from "@/features/trade/components/shared-table-utils";
+import { formatTime, fmtNum } from "@/features/trade/utils/shared-table-utils";
 import { formatCompactUsd } from "@/core/utils/formatters";
 import { PosDirLabel } from "@/features/trade/components/shared-table-components";
 import {
@@ -19,7 +16,7 @@ import {
   CELL_NUM_CLASS,
   CELL_HEAD_CLASS,
   CELL_HEAD_NUM_CLASS,
-} from "@/features/trade/components/orderbook-table-classes";
+} from "@/features/trade/utils/orderbook-table-classes";
 import { usePagination } from "@/hooks/use-pagination";
 import { Pagination } from "@/components/ui/pagination";
 

@@ -1,23 +1,3 @@
-/**
- * @overview Orderbook Widget
- *
- * Renders a real-time L2 orderbook with support for custom tick sizes and depth visualization.
- * Supports row highlighting and cumulative volume calculations on hover.
- *
- * @mechanism
- * - Integrates with L2BookNSigFigsContext for cross-component aggregation sync
- * - Implements client-side grouping when local tick size differs from exchange SigFigs
- *
- * @performance
- * - Memoized OrderRow with stable identity tracking (prevents flash on data updates)
- * - RAF-throttled updates from the underlying hook
- * - Single-pass maxTotal computation (O(1) space, no intermediate arrays)
- * - Threshold-based maxTotal stabilization (eliminates unnecessary re-renders)
- * - CSS transitions on depth bars for smooth visual updates
- * - CSS custom properties for dynamic width values (avoids inline style allocation)
- * - Persistent scroll/resize listeners via refs (no add/remove on every hover)
- * - Debounced popup position calculation via rAF (avoids synchronous layout thrashing)
- */
 import {
   memo,
   useState,
@@ -29,6 +9,7 @@ import {
   type MouseEvent,
   type FocusEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   useHyperliquidOrderbook,
   generateTickSizeOptions,
@@ -38,32 +19,28 @@ import {
   getEffectivePriceScaling,
   shouldApplyInitialPrecisionSync,
   type PriceScalingState,
-} from "./orderbook-widget.shared";
+} from "../utils/orderbook-widget-shared";
 import { type OrderbookLevel, priceKey } from "@/core/utils/hyperliquid";
 import { useOptionalL2BookNSigFigs } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { parseSymbol } from "@0xsignal/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { formatPriceWithScaling, formatSize } from "@/core/utils/formatters";
+import {
+  type FormattedLevel,
+  type PopupData,
+  formatLevel,
+  toQuoteDenom,
+  VISIBLE_ROWS,
+  ROW_STYLE,
+} from "../utils/orderbook-utils";
+import { useOrderbookResize } from "../hooks/use-orderbook-resize";
 
 const EMPTY_ORDERBOOK_OPTIONS = {} as const;
 
 interface OrderbookWidgetProps {
   symbol: string;
 }
-
-interface PopupData {
-  price: number;
-  size: number;
-  total: number;
-  side: "bid" | "ask";
-  avgPrice?: number;
-  cumulativeSize?: number;
-}
-
-const ROW_HEIGHT = 28;
-const ROW_STYLE = { height: ROW_HEIGHT };
-const VISIBLE_ROWS = 20;
 
 const PRECISION_RESUBSCRIBE_DEBOUNCE_MS = 160;
 
@@ -118,12 +95,6 @@ const OrderbookToolbar = memo(
 );
 
 OrderbookToolbar.displayName = "OrderbookToolbar";
-
-interface FormattedLevel extends OrderbookLevel {
-  formattedPrice: string;
-  formattedSize: string;
-  formattedTotal: string;
-}
 
 interface OrderRowProps {
   level: FormattedLevel;
@@ -261,22 +232,6 @@ const OrderRow = memo(
 
 OrderRow.displayName = "OrderRow";
 
-function formatLevel(level: OrderbookLevel, scaling: number): FormattedLevel {
-  return {
-    ...level,
-    formattedPrice: level.price > 0 ? formatPriceWithScaling(level.price, scaling) : "-",
-    formattedSize: level.price > 0 ? formatSize(level.size) : "-",
-    formattedTotal: level.price > 0 ? formatSize(level.total) : "-",
-  };
-}
-
-/** Convert size/total to quote denomination. Rounds to 2 decimals to prevent float jitter. */
-function toQuoteDenom(level: OrderbookLevel): OrderbookLevel {
-  const size = Math.round(level.price * level.size * 100) / 100;
-  const total = Math.round(level.price * level.total * 100) / 100;
-  return { ...level, size, total };
-}
-
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const l2BookSig = useOptionalL2BookNSigFigs();
   const l2BookSigRef = useRef(l2BookSig);
@@ -322,26 +277,10 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     null
   );
   const widgetRef = useRef<HTMLDivElement>(null);
-  const [transitionsEnabled, setTransitionsEnabled] = useState(true);
+  const transitionsEnabled = useOrderbookResize();
   const initialSyncedSymbolsRef = useRef<Set<string>>(new Set());
   const userInteractedSymbolsRef = useRef<Set<string>>(new Set());
   const precisionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    let raf = 0;
-    const onResize = () => {
-      setTransitionsEnabled(false);
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        raf = requestAnimationFrame(() => setTransitionsEnabled(true));
-      });
-    };
-    window.addEventListener("resize", onResize, { passive: true });
-    return () => {
-      window.removeEventListener("resize", onResize);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -621,64 +560,67 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         </div>
       </div>
 
-      {popupData && popupPosition && (
-        <div
-          id="orderbook-depth-details"
-          className="fixed bg-card/95 border border-border/30 rounded-xl p-3 shadow-xl z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]"
-          style={{
-            top: popupPosition.top,
-            left: popupPosition.left,
-            right: popupPosition.right,
-            transform: "translateY(-50%)",
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground uppercase">
-              {popupData.side === "ask" ? "Ask" : "Bid"}
-            </span>
-            <span className="text-xs text-muted-foreground">{symbol.toUpperCase()}</span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-xs text-muted-foreground">Price</span>
-              <span className="text-base font-medium">
-                {formatPriceWithScaling(popupData.price, effectivePriceScaling)}
+      {popupData &&
+        popupPosition &&
+        createPortal(
+          <div
+            id="orderbook-depth-details"
+            className="fixed bg-card/95 border border-border/30 rounded-xl p-3 shadow-xl z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]"
+            style={{
+              top: popupPosition.top,
+              left: popupPosition.left,
+              right: popupPosition.right,
+              transform: "translateY(-50%)",
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground uppercase">
+                {popupData.side === "ask" ? "Ask" : "Bid"}
               </span>
+              <span className="text-xs text-muted-foreground">{symbol.toUpperCase()}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-xs text-muted-foreground">
-                {pairFocus === "quote" ? "Value" : "Size"}
-              </span>
-              <span className="text-sm">{formatSize(popupData.size)}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">Price</span>
+                <span className="text-base font-medium">
+                  {formatPriceWithScaling(popupData.price, effectivePriceScaling)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {pairFocus === "quote" ? "Value" : "Size"}
+                </span>
+                <span className="text-sm">{formatSize(popupData.size)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {pairFocus === "quote" ? "Total Val" : "Total"}
+                </span>
+                <span className="text-sm font-medium">{formatSize(popupData.total)}</span>
+              </div>
+              {popupData.cumulativeSize && popupData.cumulativeSize > popupData.size && (
+                <>
+                  <div className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground uppercase">
+                    To Best Price
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">Avg Price</span>
+                    <span className="text-sm font-medium">
+                      {popupData.avgPrice
+                        ? formatPriceWithScaling(popupData.avgPrice, effectivePriceScaling)
+                        : "-"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground">Total Size</span>
+                    <span className="text-sm">{formatSize(popupData.cumulativeSize)}</span>
+                  </div>
+                </>
+              )}
             </div>
-            <div className="flex justify-between">
-              <span className="text-xs text-muted-foreground">
-                {pairFocus === "quote" ? "Total Val" : "Total"}
-              </span>
-              <span className="text-sm font-medium">{formatSize(popupData.total)}</span>
-            </div>
-            {popupData.cumulativeSize && popupData.cumulativeSize > popupData.size && (
-              <>
-                <div className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground uppercase">
-                  To Best Price
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-xs text-muted-foreground">Avg Price</span>
-                  <span className="text-sm font-medium">
-                    {popupData.avgPrice
-                      ? formatPriceWithScaling(popupData.avgPrice, effectivePriceScaling)
-                      : "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-xs text-muted-foreground">Total Size</span>
-                  <span className="text-sm">{formatSize(popupData.cumulativeSize)}</span>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

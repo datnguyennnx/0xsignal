@@ -1,7 +1,7 @@
 import { formatPrice } from "@/core/utils/formatters";
 import type { OpenOrder } from "@0xsignal/shared";
 
-/* ─── Nested extraction ─── */
+/* Nested extraction */
 
 /**
  * Extracts the trigger price from an order.
@@ -54,7 +54,7 @@ export function resolveTriggerCondition(order: OpenOrder): string | undefined {
   return undefined;
 }
 
-/* ─── Order type (Stop Market / Take Profit Market / Limit) ─── */
+/* Order type (Stop Market / Take Profit Market / Limit) */
 
 export function getOrderType(order: OpenOrder): string {
   // FrontendOpenOrderSchema: orderType is a native string
@@ -87,7 +87,7 @@ export function getOrderType(order: OpenOrder): string {
   return "Limit";
 }
 
-/* ─── Trigger label for TRIGGER CONDITIONS column ─── */
+/* Trigger label for TRIGGER CONDITIONS column */
 
 export function getTriggerLabel(order: OpenOrder): string {
   const ot = getOrderType(order);
@@ -102,7 +102,7 @@ export function getTriggerLabel(order: OpenOrder): string {
   return `Price ${condition} ${formatPrice(Number(triggerPx))}`;
 }
 
-/* ─── Order value display ─── */
+/* Order value display */
 
 /**
  * Returns "Market" for trigger orders, or the exact value formatted

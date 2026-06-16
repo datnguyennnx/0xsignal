@@ -9,7 +9,7 @@ import {
   unwrapTickerPayload,
   type MarketChannel,
   type MarketStreamMeta,
-} from "./market-stream-decoder";
+} from "../utils/market-stream-decoder";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 export const createMarketStreamWsUrl = (

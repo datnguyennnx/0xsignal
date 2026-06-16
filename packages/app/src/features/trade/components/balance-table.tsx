@@ -13,17 +13,17 @@ import {
   CELL_NUM_CLASS,
   CELL_HEAD_CLASS,
   CELL_HEAD_NUM_CLASS,
-} from "./orderbook-table-classes";
+} from "../utils/orderbook-table-classes";
 import { PnLDisplay } from "./shared-table-components";
 
-/* ─── Styling constants ─── */
+/* Styling constants */
 
 const c = CELL_CLASS;
 const cNum = CELL_NUM_CLASS;
 const cHead = CELL_HEAD_CLASS;
 const cHeadNum = CELL_HEAD_NUM_CLASS;
 
-/* ─── Types ─── */
+/* Types */
 
 interface BalanceTableProps {
   isChLoading: boolean;
@@ -48,7 +48,7 @@ interface BalanceTableProps {
   effectiveAvailableBalance: number;
 }
 
-/* ─── Component ─── */
+/* Component */
 
 export function BalanceTable({
   marginSummary,

@@ -1,14 +1,3 @@
-/**
- * @overview Technical Indicator Modal
- *
- * Provides a comprehensive interface for exploring, configuring, and adding technical indicators to the chart.
- * Features categorized browsing (Active, Overlays, Oscillators), fuzzy search, and an insights panel with deep-dive analysis.
- *
- * @mechanism
- * - uses internal state to manage categories and selected indicators.
- * - dynamically filters available indicators from @0xsignal/shared based on user input.
- * - renders specialized sub-panels (Config, Insights) to keep the main component focused.
- */
 import { useState, useCallback, useMemo } from "react";
 import { AVAILABLE_INDICATORS, type ActiveIndicator, type IndicatorConfig } from "@0xsignal/shared";
 import { Layers, Activity, Search, Sparkles, X } from "lucide-react";
@@ -16,8 +5,8 @@ import { cn } from "@/core/utils/cn";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ContentUnavailable } from "@/components/content-unavailable";
-import { IndicatorConfigPanel } from "./indicator-modal/indicator-config-panel";
-import { IndicatorInsightsPanel } from "./indicator-modal/indicator-insights-panel";
+import { IndicatorConfigPanel } from "./config-panel";
+import { IndicatorInsightsPanel } from "./insights-panel";
 
 interface IndicatorModalProps {
   activeIndicators: ActiveIndicator[];

@@ -34,7 +34,7 @@ import { PositionsTable } from "./positions-table";
 import { OpenOrdersTable } from "./open-orders-table";
 import { TradeHistoryTable, HistoryOrderTable } from "./order-history-table";
 import { TpSlViewModal } from "./tp-sl-view-modal";
-import { toTpSlDisplay } from "./tp-sl-view-utils";
+import { toTpSlDisplay } from "../utils/tp-sl-view-utils";
 import { CloseLimitModal } from "./close-limit-modal";
 import { formatOrderSize } from "../utils/trade-math";
 import { getOrderType } from "../utils/trigger-utils";
@@ -269,7 +269,7 @@ export function PositionManagement() {
           <TabTrigger value="order-history">Order History</TabTrigger>
         </TabsList>
 
-        {/* ─── TWAP Sub-Navigation ─── */}
+        {/* TWAP Sub-Navigation */}
         {activeTab === "twap" && (
           <div className="shrink-0 pt-1.5">
             <div className="flex items-center gap-1">
@@ -400,7 +400,7 @@ export function PositionManagement() {
         </TabsContent>
       </Tabs>
 
-      {/* ─── TP/SL View Modal ─── */}
+      {/* TP/SL View Modal */}
       {tpSlModalProps && (
         <TpSlViewModal
           open={tpSlModalOrder != null}
@@ -413,7 +413,7 @@ export function PositionManagement() {
         />
       )}
 
-      {/* ─── Cancel All Confirmation Dialog ─── */}
+      {/* Cancel All Confirmation Dialog */}
       <Dialog open={cancelAllDialogOpen} onOpenChange={setCancelAllDialogOpen}>
         <DialogContent className="sm:max-w-[360px] bg-card border-border/30 p-5 gap-[clamp(0.75rem,1.25vw,1.25rem)] overflow-hidden">
           <div className="p-0">
@@ -443,7 +443,7 @@ export function PositionManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* ─── Close Limit Modal ─── */}
+      {/* Close Limit Modal */}
       <CloseLimitModal
         isOpen={closeLimitPosition != null}
         onClose={() => setCloseLimitPosition(null)}

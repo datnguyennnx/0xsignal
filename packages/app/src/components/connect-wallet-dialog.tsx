@@ -3,7 +3,7 @@ import { useConnect, useConnection, useConnectors } from "wagmi";
 import { Metamask, Coinbase } from "@thesvg/react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/services/api";
-import { useAuth } from "@/core/providers/auth-context";
+import { useAuth } from "@/core/providers/use-auth";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,7 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
         const address =
           typeof data.accounts[0] === "string"
             ? data.accounts[0]
-            : (data.accounts[0] as any)?.address;
+            : (data.accounts[0] as { address?: string })?.address;
 
         if (address) {
           // Register the wallet on the backend so hasLinkedWallet becomes true
