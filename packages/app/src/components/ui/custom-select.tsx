@@ -1,9 +1,3 @@
-/**
- * @overview CustomSelect — minimal, flat, borderless dropdown
- *
- * Matches Hyperliquid's dense inline dropdown style.
- * Dark background, compact padding, no visible border until hover.
- */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/core/utils/cn";
 import { ChevronDownIcon } from "lucide-react";

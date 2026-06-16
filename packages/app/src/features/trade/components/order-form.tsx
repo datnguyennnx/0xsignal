@@ -551,7 +551,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           </Button>
         </div>
 
-        {/* ════════════════ FIXED BOTTOM: Unified Account Summary ════════════════ */}
+        {/* Fixed Bottom: Unified Account Summary */}
         <div className="shrink-0">
           <UnifiedAccountSummary />
         </div>

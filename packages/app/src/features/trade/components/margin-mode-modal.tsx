@@ -77,14 +77,12 @@ export function MarginModeModal({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[520px] bg-card border-border/30 p-5 gap-[clamp(0.5rem,1vw,1rem)] overflow-hidden">
-        {/* ─── Header ─── */}
         <div className="p-0">
           <DialogHeader>
             <DialogTitle className="text-sm font-medium text-foreground">Margin Mode</DialogTitle>
           </DialogHeader>
         </div>
 
-        {/* ─── Body ─── */}
         <div className="space-y-3">
           {/* Isolated block — first, with Recommended */}
           <button
@@ -159,7 +157,6 @@ export function MarginModeModal({
           </div>
         </div>
 
-        {/* ─── Footer ─── */}
         <DialogFooter className="p-0">
           <Button
             size="sm"

@@ -1,12 +1,3 @@
-/**
- * Portfolio Page — overview of account balances, positions, PnL, and history.
- *
- * Top row layout (revised):
- *   col-span-5: PortfolioSummaryCard  — Perps / Spot / Vaults tabbed metrics
- *   col-span-7: PortfolioPnLChart     — step chart with timeframe + view controls
- *
- * Bottom: PositionManagement (shared with /trade page)
- */
 import { useEffect } from "react";
 import { PortfolioSummaryCard } from "@/features/portfolio/components/portfolio-summary-card";
 import { PortfolioPnLChart } from "@/features/portfolio/components/portfolio-pnl-chart";
@@ -24,7 +15,6 @@ export function PortfolioPage() {
     <div className="container-fluid py-6 space-y-6 animate-in fade-in duration-200 ease-premium">
       <h1 className="text-xl font-semibold">Portfolio</h1>
 
-      {/* ── Top row: Summary + Chart ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-5">
           <ErrorBoundary>
@@ -38,7 +28,6 @@ export function PortfolioPage() {
         </div>
       </div>
 
-      {/* ── Tables (shared PositionManagement) ── */}
       <ErrorBoundary>
         <PositionManagement />
       </ErrorBoundary>

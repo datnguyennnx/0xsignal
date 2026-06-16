@@ -1,16 +1,3 @@
-/**
- * @overview Document Title Hook
- *
- * Manages the browser tab title dynamically based on the current page context.
- * Useful for real-time price updates in the tab title for better UX.
- *
- * @mechanism
- * - useDocumentTitle: syncs document.title to React state changes
- * - formatPerpTitle: formats symbol + price for tab display using asset-specific pxDecimals
- *
- * @data-flow
- * useHyperliquidMeta.getPrecision(symbol) → pxDecimals → formatPerpTitle → useDocumentTitle
- */
 import { useEffect } from "react";
 
 interface UseDocumentTitleOptions {

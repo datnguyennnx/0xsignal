@@ -1,6 +1,3 @@
-/**
- * Day Volume card — shows the day volume from portfolio data.
- */
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";

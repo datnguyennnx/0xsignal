@@ -1,9 +1,3 @@
-/**
- * @overview Error State View
- *
- * Dedicated screen for handling higher-level error contexts like rate limiting.
- * Provides clear user messaging and a reconnection logic.
- */
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/core/utils/cn";

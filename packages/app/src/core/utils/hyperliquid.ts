@@ -1,9 +1,3 @@
-/**
- * @overview Market Data UI Utilities
- * @data-flow backend WS/HTTP payloads → UI adapters → processRawL2Levels
- *   → RAF batch/local state → chart + orderbook rendering
- */
-
 // Supported time intervals
 export type HLInterval =
   | "1m"

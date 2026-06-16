@@ -1,10 +1,3 @@
-/**
- * @overview Market Stream Subscription Hook
- *
- * Wraps MarketStreamContext subscriptions for feature hooks (candles/orderbook/trades).
- * It consumes backend WebSocket channels and exposes connection lifecycle state for
- * render-local behavior; it is not a direct exchange client.
- */
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
   useMarketStreamClient,

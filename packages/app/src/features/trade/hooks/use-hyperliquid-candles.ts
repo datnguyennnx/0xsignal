@@ -1,19 +1,3 @@
-/**
- * @overview Hyperliquid Candlestick Hook
- *
- * Manages chart candle state for a symbol/interval by combining backend HTTP history
- * with backend market-stream WS updates into one render-local series.
- *
- * @mechanism
- * 1. Initial Load: Fetch candle history via backend REST hooks (React Query)
- * 2. Streaming: Subscribe to backend-proxied realtime candles via useHyperliquidWs
- * 3. Throttling: Buffer rapid WebSocket updates and flush to state at 60fps using RAF
- * 4. Merging: O(n) sorted two-pointer merge with dedup
- *
- * @performance
- * - Throttled updates prevent React re-render storms during high volatility
- * - Infinite scroll (loadMore) logic uses refs to avoid stale closures
- */
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { normalizeChartDataPoints } from "@0xsignal/shared";

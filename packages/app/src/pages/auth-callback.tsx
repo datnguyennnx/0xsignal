@@ -1,11 +1,3 @@
-/**
- * OAuth Callback Page
- *
- * Handles the OAuth redirect from backend after successful login.
- * The backend redirects to /auth/callback?code=xxx
- * This page swaps the code for final tokens via POST /api/auth/token,
- * stores the access token in-memory, and redirects to the trading page.
- */
 import { useEffect } from "react";
 import { api } from "@/services/api";
 import { setAuthToken } from "@/lib/api-base";

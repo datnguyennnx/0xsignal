@@ -85,7 +85,6 @@ export function CloseLimitModal({
       }}
     >
       <DialogContent className="sm:max-w-[420px] bg-card border-border/30 p-5 gap-[clamp(0.5rem,1vw,1rem)] overflow-hidden">
-        {/* ─── Header ─── */}
         <DialogHeader className="p-0">
           <DialogTitle className="text-sm font-medium text-foreground">Limit Close</DialogTitle>
           <p className="text-xs text-muted-foreground leading-relaxed">
@@ -93,7 +92,6 @@ export function CloseLimitModal({
           </p>
         </DialogHeader>
 
-        {/* ─── Body ─── */}
         <div className="space-y-4">
           {/* Price Input */}
           <div className="space-y-4">
@@ -158,7 +156,6 @@ export function CloseLimitModal({
           </div>
         </div>
 
-        {/* ─── Footer ─── */}
         <DialogFooter className="p-0">
           <Button
             onClick={handleConfirm}

@@ -87,12 +87,10 @@ export function AdjustLeverageModal({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[480px] bg-card border-border/30 p-5 gap-[clamp(0.5rem,1vw,1rem)] overflow-hidden">
-        {/* ─── Header ─── */}
         <DialogHeader>
           <DialogTitle className="text-sm font-medium text-foreground">Adjust Leverage</DialogTitle>
         </DialogHeader>
 
-        {/* ─── Body ─── */}
         <div className="space-y-4">
           {/* Descriptive text */}
           <p className="text-xs text-muted-foreground leading-relaxed">
@@ -163,7 +161,6 @@ export function AdjustLeverageModal({
           </div>
         </div>
 
-        {/* ─── Footer ─── */}
         <DialogFooter className="p-0">
           <Button
             size="sm"

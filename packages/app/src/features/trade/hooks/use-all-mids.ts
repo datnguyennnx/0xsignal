@@ -1,12 +1,3 @@
-/**
- * @overview Real-time Mid Prices Hook
- *
- * Subscribes to the `allMids` WebSocket channel and returns a map of coin → mid price.
- * The backend streams mid prices for ALL coins; this hook parses the string values to
- * numbers and replaces the entire map on each message (allMids is a full snapshot).
- *
- * @data-flow backend WS allMids payload → useHyperliquidWs → useState<Record<coin, number>>
- */
 import { useState, useCallback, useMemo } from "react";
 import { useHyperliquidWs } from "./use-hyperliquid-ws";
 

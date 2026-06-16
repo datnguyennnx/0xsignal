@@ -1,8 +1,3 @@
-/**
- * @overview Shared table UI components extracted from shared-table-utils.tsx
- * for reuse across trade tables.
- */
-
 import { formatCompactUsd, formatSignedPercent } from "@/core/utils/formatters";
 import { TabsTrigger } from "@/components/ui/tabs";
 import type { ReactNode } from "react";

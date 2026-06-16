@@ -1,12 +1,3 @@
-/**
- * React Query hooks for portfolio data.
- *
- * Provides access to the new portfolio API endpoints:
- * - Portfolio metrics (accountValueHistory, pnlHistory, vlm across periods)
- * - Vault equities
- * - Funding history
- * - Combined portfolio summary
- */
 import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
 import { api } from "@/services/api";

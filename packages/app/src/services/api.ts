@@ -1,6 +1,3 @@
-/**
- * Frontend HTTP client for backend market data APIs.
- */
 import type {
   ApiErrorBody,
   ChartDataPoint,
@@ -158,7 +155,10 @@ async function attemptSilentRefresh(): Promise<boolean> {
       });
       if (res.ok) {
         const body = await res.json();
-        const data = body && typeof body === "object" && "data" in body ? (body as any).data : body;
+        const data =
+          body && typeof body === "object" && "data" in body
+            ? (body as { data?: { accessToken: string } }).data
+            : body;
         if (data && data.accessToken) {
           setAuthToken(data.accessToken);
           return true;

@@ -1,10 +1,3 @@
-/**
- * @overview Shared Formatting Utilities
- *
- * Provides consistent display of prices, volumes, and market data across the UI.
- * Handles diverse scaling for crypto pairs (from BTC @ $60k to PEPE @ $0.000001).
- */
-
 const MAX_SIG_FIGS = 5;
 
 export const formatPrice = (price: number, pxDecimals?: number): string => {
@@ -47,9 +40,6 @@ export const formatPriceWithScaling = (price: number, scaling: number): string =
   });
 };
 
-/**
- * Formats value with compact USD notation (e.g., $1.2M, $500K).
- */
 export const formatCompactUsd = (value: number): string => {
   if (!Number.isFinite(value)) return "-";
   return new Intl.NumberFormat("en-US", {

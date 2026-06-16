@@ -1,9 +1,3 @@
-/**
- * @overview Global Design System & Tokens
- *
- * Implements a pure monochrome, high-contrast quantitative aesthetic.
- * Uses OKLCH for perceptually uniform colors.
- */
 /* Fonts loaded asynchronously via <link rel="preload"> in index.html — not via @import to avoid render-blocking */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -48,7 +42,7 @@
   --radius-field: 0.875rem;
 }
 
-/* ─── Animation timing tokens (transitions.dev) ─── */
+/* Animation timing tokens (transitions.dev) */
 :root {
   --dropdown-open-dur: 250ms;
   --dropdown-close-dur: 150ms;
@@ -349,16 +343,13 @@
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 2rem;
-    padding-right: 2rem;
-    gap: 2rem;
+    gap: 1rem;
   }
 
   @media (min-width: 1920px) {
     .container-fluid {
       max-width: 2400px;
-      padding-left: 3rem;
-      padding-right: 3rem;
+      gap: 2rem;
     }
   }
 
@@ -422,7 +413,7 @@
   }
 }
 
-/* ─── Trade markers overlay ────────────────────────────────────────────── */
+/* Trade markers overlay */
 .hl-trade-marker {
   width: 20px;
   height: 20px;

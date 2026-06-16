@@ -1,8 +1,3 @@
-/**
- * Login Page — social authentication entry point.
- *
- * Clean, minimal design. Just logo, heading, and social login buttons.
- */
 import { memo, useEffect } from "react";
 import { Github, Google } from "@thesvg/react";
 import { Button } from "@/components/ui/button";

@@ -1,7 +1,6 @@
 import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import svgr from "vite-plugin-svgr";
 import { defineConfig } from "vite";
 import { visualizer } from "rollup-plugin-visualizer";
 
@@ -24,7 +23,7 @@ export default defineConfig({
       clientFiles: [
         "./src/main.tsx",
         "./src/App.tsx",
-        "./src/features/chart/trading-chart/index.tsx",
+        "./src/features/chart/components/trading-chart.tsx",
         "./src/pages/asset-detail.tsx",
       ],
     },

@@ -1,6 +1,3 @@
-/**
- * React Query hooks for user account data and order mutations.
- */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
 import { api } from "@/services/api";

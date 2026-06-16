@@ -1,10 +1,3 @@
-/**
- * Portfolio Summary — Hyperliquid-style flat compact row list.
- *
- * One continuous list: PNL, Volume, Max Drawdown, Total Equity,
- * Trading Equity, Vault Equity, Earn Balance, Staking Account.
- * No subsections.
- */
 import { useState, useMemo } from "react";
 import { cn } from "@/core/utils/cn";
 import { usePortfolio, useUserVaultEquities } from "../hooks/use-portfolio-data";
@@ -14,7 +7,7 @@ import {
 } from "@/features/trade/hooks/use-user-data";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
-/* ─── Types ─── */
+/* Types */
 
 type Timeframe = "day" | "week" | "month" | "allTime";
 
@@ -27,7 +20,7 @@ const PERIOD_LABELS: Record<Timeframe, string> = {
 const PERIOD_KEYS: Timeframe[] = ["day", "week", "month", "allTime"];
 const TF_INDEX: Record<Timeframe, number> = { day: 0, week: 1, month: 2, allTime: 3 };
 
-/* ─── Helpers ─── */
+/* Helpers */
 
 function computeMaxDrawdown(history: [number, string][]): number | null {
   if (history.length < 2) return null;
@@ -45,7 +38,7 @@ function computeMaxDrawdown(history: [number, string][]): number | null {
   return maxDd;
 }
 
-/* ─── Primitives ─── */
+/* Primitives */
 
 function Row({
   label,
@@ -80,7 +73,7 @@ function SkeletonLine({ w = "100%", h = 11 }: { w?: string; h?: number }) {
   return <div className="loading-shimmer rounded-sm" style={{ width: w, height: h }} />;
 }
 
-/* ─── Main Component ─── */
+/* Main Component */
 
 const SURFACE =
   "h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
@@ -138,7 +131,7 @@ export function PortfolioSummaryCard() {
     };
   }, [vaultData]);
 
-  /* ── Loading ── */
+  /* Loading */
   if (isLoading) {
     return (
       <div className={SURFACE}>
@@ -158,7 +151,7 @@ export function PortfolioSummaryCard() {
     );
   }
 
-  /* ── Error ── */
+  /* Error */
   if (pfError) {
     return (
       <div className={SURFACE}>
@@ -171,10 +164,9 @@ export function PortfolioSummaryCard() {
     );
   }
 
-  /* ── Render ── */
+  /* Render */
   return (
     <div className={SURFACE}>
-      {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <span className="text-[length:var(--text-compact)] font-medium tracking-wider text-muted-foreground">
           Perps + Spot + Vaults
@@ -194,7 +186,6 @@ export function PortfolioSummaryCard() {
         </NativeSelect>
       </div>
 
-      {/* ── Body — flat row list ── */}
       <div className="overflow-y-auto flex-1 flex flex-col gap-[clamp(0.5rem,1vw,1rem)]">
         <Row
           label="PNL"

@@ -1,14 +1,3 @@
-/**
- * Portfolio PnL Chart — self-designed panel, no shadcn Card.
- *
- * Surface: raw div with bg-card / border / rounded via CSS vars.
- * Header:  Account Value | PnL | Perps PnL tabs (gain-color underline on active)
- *          + timeframe button right
- * Chart:   stepAfter line, left Y-axis, bottom X-axis, subtle grid.
- * Axes:   Treatment copied from the TradingView/Lightweight Charts source.
- *         Muted text, subtle axis lines, minimal horizontal grid, even tick distribution.
- *         No dashboard chrome, no loud grid, no oversized labels.
- */
 import { useState, useMemo } from "react";
 import {
   CartesianGrid,
@@ -23,7 +12,7 @@ import { cn } from "@/core/utils/cn";
 import { usePortfolio } from "../hooks/use-portfolio-data";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
-/* ─── Types & Constants ─── */
+/* Types & Constants */
 
 type ChartView = "account-value" | "pnl" | "perps-pnl";
 type TimePeriod = "day" | "week" | "month" | "allTime";
@@ -43,7 +32,7 @@ const VIEW_LABELS: Record<ChartView, string> = {
   "perps-pnl": "Perps PnL",
 };
 
-/* ─── Helpers ─── */
+/* Helpers */
 
 function formatCompact(v: number): string {
   const abs = Math.abs(v);
@@ -64,12 +53,12 @@ function formatXAxisTick(ts: number): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/* ─── Self-rolled skeleton ─── */
+/* Self-rolled skeleton */
 function SkeletonBlock({ h }: { h: number }) {
   return <div className="loading-shimmer rounded-sm w-full" style={{ height: h }} />;
 }
 
-/* ─── Custom Tooltip ─── */
+/* Custom Tooltip */
 function ChartTooltip({
   active,
   payload,
@@ -125,11 +114,11 @@ function ChartTooltip({
   );
 }
 
-/* ─── Panel surface — shared class string ─── */
+/* Panel surface — shared class string */
 const SURFACE =
   "h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
 
-/* ─── Main Component ─── */
+/* Main Component */
 
 export function PortfolioPnLChart() {
   const { data: portfolio, isLoading, isError } = usePortfolio();
@@ -188,7 +177,7 @@ export function PortfolioPnLChart() {
     return Array.from({ length: count + 1 }, (_, i) => +(min + step * i).toFixed(0));
   }, [values]);
 
-  /* ── Loading ── */
+  /* Loading */
   if (isLoading) {
     return (
       <div className={SURFACE}>
@@ -207,7 +196,7 @@ export function PortfolioPnLChart() {
     );
   }
 
-  /* ── Error ── */
+  /* Error */
   if (isError || !portfolio) {
     return (
       <div className={SURFACE}>
@@ -220,10 +209,10 @@ export function PortfolioPnLChart() {
     );
   }
 
-  /* ── Render ── */
+  /* Render */
   return (
     <div className={SURFACE}>
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-end justify-between">
         {/* View tabs */}
         <div className="flex items-end">
@@ -262,7 +251,7 @@ export function PortfolioPnLChart() {
         </NativeSelect>
       </div>
 
-      {/* ── Chart body ── */}
+      {/* Chart body */}
       <div className="flex-1 min-h-[clamp(120px,12vw,180px)]">
         {chartData ? (
           <div className="w-full h-full">

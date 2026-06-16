@@ -1,7 +1,3 @@
-/**
- * Simple pagination hook for client-side data slicing.
- * Returns sliced data for the current page plus pagination controls.
- */
 import { useState, useMemo, useCallback } from "react";
 
 interface PaginationState {

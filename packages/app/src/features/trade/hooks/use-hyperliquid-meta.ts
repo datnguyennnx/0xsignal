@@ -1,27 +1,3 @@
-/**
- * @overview Hyperliquid Metadata Hook
- *
- * Fetches and manages market metadata from backend `/api/markets`.
- * Provides helper functions for price and size precision formatting.
- *
- * @mechanism
- * - Fetches backend-provided universe metadata (backend owns upstream source + normalization)
- * - Memoizes a precision mapping for O(1) lookups during rendering
- * - Uses TanStack Query for long-term metadata caching
- *
- * @hyperliquid-mapping
- * - Main perp (HIP-1): coin = "BTC", "ETH", etc.
- * - Builder perp (HIP-3): coin = "xyz:CL", "km:US500", etc. (format: "dex:coin")
- * - Use meta({ dex }) to query specific DEX
- *
- * @precision-formula
- * Per Hyperliquid spec (llm/hyperliquid/tick-and-slot-size.md):
- * - Perps: pxDecimals = min(5, 6 - szDecimals)
- * This ensures price decimals never exceed MAX_DECIMALS - szDecimals constraint.
- *
- * @role frontend render-local precision adapter for UI formatting.
- */
-
 import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";

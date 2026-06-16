@@ -1,12 +1,3 @@
-/**
- * @strategy
- * - data state is the source of truth for render-phase access
- * - dataRef is updated by useHyperliquidCandles on every tick (RAF-throttled) for internal use
- * - Consumers should use `data` for rendering, not dataRef
- * - This context is scoped per-symbol in AssetDetail via L2BookNSigFigsProvider nesting
- *
- * Public stream — connects unconditionally. No auth dependency by design.
- */
 import { createContext, useContext, type ReactNode, type MutableRefObject } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
 

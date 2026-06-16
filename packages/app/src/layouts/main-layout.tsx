@@ -1,8 +1,3 @@
-/**
- * @overview Main Layout Component
- *
- * Defines the primary shell for the application (desktop-only).
- */
 import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { UserNav } from "@/components/user-nav";

@@ -1,13 +1,3 @@
-/**
- * @overview Theme Provider
- *
- * Manages the application's appearance (light/dark/system).
- * Persists user preference to localStorage and updates the DOM documentElement class.
- *
- * @mechanism
- * - uses matchMedia to listen for system theme changes when in 'system' mode.
- * - provides a resolvedTheme to child components to handle conditional styling in JS.
- */
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 
 type Theme = "dark" | "light" | "system";

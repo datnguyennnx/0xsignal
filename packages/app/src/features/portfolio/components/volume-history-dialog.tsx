@@ -1,6 +1,3 @@
-/**
- * Volume History Dialog — shows volume across all periods.
- */
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatCompactUsd } from "@/core/utils/formatters";
 import type { PortfolioResponse } from "@/services/api";

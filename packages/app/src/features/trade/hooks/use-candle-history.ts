@@ -1,7 +1,3 @@
-/**
- * @overview Candle History Fetching Hook
- * Uses TanStack Query to fetch historical OHLCV data from backend candle APIs.
- */
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";

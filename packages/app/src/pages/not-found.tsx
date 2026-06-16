@@ -1,9 +1,3 @@
-/**
- * @overview 404 Not Found Page
- *
- * Displays a clean error page when a user navigates to a non-existent route.
- * Provides a clear path back to the trade page.
- */
 import { memo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";

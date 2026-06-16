@@ -1,13 +1,3 @@
-/**
- * @overview L2 Book SigFigs Context
- *
- * Manages the shared `nSigFigs` (precision/aggregation) for Hyperliquid L2 subscriptions.
- * Ensures that Orderbook and Depth Chart components are synchronized to the same authoritative data stream.
- *
- * @mechanism
- * - Hyperliquid `l2Book` subscription takes `nSigFigs` (2–5) for server-side price precision.
- * - This context prevents independent components from requesting different precision levels for the same symbol.
- */
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 const DEFAULT_N_SIG_FIGS = 5;

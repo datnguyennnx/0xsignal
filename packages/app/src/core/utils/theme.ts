@@ -1,20 +1,10 @@
-/**
- * @overview Theme & CSS Variable Utilities
- *
- * Provides a way to access CSS variables programmatically, primarily for
- * canvas-based rendering where Tailwind classes cannot be used directly.
- */
-
 export const getThemeColor = (token: string, fallback: string = ""): string => {
   if (typeof window === "undefined") return fallback;
   const value = getComputedStyle(document.documentElement).getPropertyValue(`--${token}`).trim();
   return value || fallback;
 };
 
-/**
- * Generates a stable, high-contrast HSL color from a string seed.
- * Useful for technical indicators to ensure consistency across sessions.
- */
+/** Stable HSL color from string seed. */
 export const getStableColor = (seed: string): string => {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {

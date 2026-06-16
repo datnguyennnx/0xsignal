@@ -1,8 +1,3 @@
-/**
- * TP/SL two-way binding hook.
- * Syncs price ↔ percent, re-calculates on env (entry price, leverage, side) changes.
- * Pure math in trade-math.ts — this is state orchestration only.
- */
 import { useState, useCallback, useEffect, useRef } from "react";
 import {
   tpPriceFromPercent,
@@ -59,7 +54,7 @@ export function useTakeProfitStopLoss({
   const tpPercentRef = useRef("");
   const slPercentRef = useRef("");
 
-  // ─── TP handlers ─────────────────────────────────────────────────
+  // TP handlers
 
   const handleTpPercentChange = useCallback(
     (raw: string) => {
@@ -93,7 +88,7 @@ export function useTakeProfitStopLoss({
     [entryPrice, effectiveLeverage, isLong]
   );
 
-  // ─── SL handlers ─────────────────────────────────────────────────
+  // SL handlers
 
   const handleSlPercentChange = useCallback(
     (raw: string) => {
@@ -127,7 +122,7 @@ export function useTakeProfitStopLoss({
     [entryPrice, effectiveLeverage, isLong]
   );
 
-  // ─── Re-sync prices when env changes ─────────────────────────────
+  // Re-sync prices when env changes
 
   useEffect(() => {
     if (entryPrice > 0 && effectiveLeverage > 0) {

@@ -1,8 +1,3 @@
-/**
- * @overview Theme Mode Toggle
- *
- * Provides a dropdown for switching between Light, Dark, and System theme modes.
- */
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

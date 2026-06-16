@@ -1,13 +1,3 @@
-/**
- * Orderbook hook — REST seed + WS streaming with RAF-throttled render.
- *
- * @data-flow
- *   mount: useQuery REST snapshot (stale-forever, oneshot) → seeds fineBook
- *          → l2Book WS channel → handleMessage → processRawL2Levels → RAF → setState
- *   reconnect: fetchRestSnapshot → schedule → RAF
- *   adaptive: guarded by options.adaptiveNSigFigs, cooldown-gated
- */
-
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useHyperliquidWs } from "./use-hyperliquid-ws";
@@ -44,7 +34,7 @@ const DEFAULT_N_SIG_FIGS = 5;
 const MIN_N_SIG_FIGS = 2;
 const MAX_N_SIG_FIGS = 5;
 const RESUBSCRIBE_COOLDOWN_MS = 3200;
-const MAX_DEPTH = 15;
+const MAX_DEPTH = 25;
 
 interface UseHyperliquidOrderbookOptions {
   adaptiveNSigFigs?: boolean;
@@ -64,7 +54,7 @@ function computeCoverageHalfSpan(
   return Math.max(0, Math.min(centerPrice - farBid, farAsk - centerPrice));
 }
 
-/* ─── Hook ──────────────────────────────────────────────────────────────── */
+/* Hook */
 
 export function useHyperliquidOrderbook(
   symbol: string,
@@ -80,7 +70,7 @@ export function useHyperliquidOrderbook(
     ? Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, options.controlledNSigFigs!))
     : uncontrolledSigFigs;
 
-  // ── Mutable refs ─────────────────────────────────────────────────
+  // Mutable refs
   const activeSigFigsRef = useRef(activeSigFigs);
   useEffect(() => {
     activeSigFigsRef.current = activeSigFigs;
@@ -95,7 +85,7 @@ export function useHyperliquidOrderbook(
     coinRef.current = coin;
   }, [coin]);
 
-  // ── RAF-throttled flush — always sets state, RAF caps at 60fps ──
+  // RAF-throttled flush — always sets state, RAF caps at 60fps
   const schedule = useCallback((data: OrderbookData) => {
     pending.current = data;
     if (raf.current) return;
@@ -173,8 +163,8 @@ export function useHyperliquidOrderbook(
           )
         );
       }
-    } catch {
-      /* silent */
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch REST snapshot");
     }
   }, [schedule]);
 
@@ -186,7 +176,7 @@ export function useHyperliquidOrderbook(
     onReconnect: fetchRestSnapshot,
   });
 
-  // ── Resubscribe (precision change) ──────────────────────────────
+  // Resubscribe (precision change)
   const resubscribe = useCallback(
     (nSigFigs: number) => {
       const next = Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, nSigFigs));
@@ -261,7 +251,6 @@ export function useHyperliquidOrderbook(
 
   return {
     orderbook: fineBook,
-    fineBook,
     isConnected: ws.isConnected,
     error,
     resubscribe,

@@ -1,15 +1,3 @@
-/**
- * @example
- * ```tsx
- * const { open, ConnectWalletSheet } = useConnectWalletPrompt();
- * return (
- *   <>
- *     <button onClick={open}>Connect Wallet</button>
- *     <ConnectWalletSheet />
- *   </>
- * );
- * ```
- */
 import { useState, useCallback } from "react";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 
