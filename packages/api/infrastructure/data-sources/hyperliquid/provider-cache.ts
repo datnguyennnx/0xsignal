@@ -1,4 +1,5 @@
-import { Deferred, Effect, Ref } from "effect";
+import { Effect, Ref } from "effect";
+import type { Cache } from "effect";
 import { type Semaphore } from "effect/Semaphore";
 import { HyperliquidError } from "./errors";
 import { HyperliquidRateLimiter } from "./rate-limiter";
@@ -9,9 +10,24 @@ export type CacheSlot<T> = {
   readonly expiresAt: number;
 };
 
-export type RateLimiterSvc = { readonly semaphore: Semaphore };
+/**
+ * Types stored in the Hyperliquid deduplication cache.
+ * Enumerates all concrete API response shapes across call sites.
+ */
+export type DedupCacheValue =
+  | string[]
+  | Record<string, string>
+  | ReadonlyArray<null | { readonly name: string }>
+  | ReadonlyArray<[string, string]>
+  | [unknown, unknown];
+
+export type RateLimiterSvc = {
+  readonly semaphore: Semaphore;
+  readonly withRateLimit: (key: string) => Effect.Effect<void>;
+};
 export type DedupRegistrySvc = {
-  readonly registryRef: Ref.Ref<Map<string, Deferred.Deferred<any, HyperliquidError>>>;
+  readonly cache: Cache.Cache<string, DedupCacheValue, HyperliquidError, never>;
+  readonly lookupRef: Ref.Ref<Map<string, Effect.Effect<DedupCacheValue, HyperliquidError>>>;
 };
 
 export const AGGREGATED_MARKETS_TTL_MS = 60_000;

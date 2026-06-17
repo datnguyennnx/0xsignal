@@ -276,7 +276,7 @@ describe("UserDataService", () => {
           .pipe(Effect.flip),
       );
 
-      expect(result).toHaveProperty("code", "INTERNAL_ERROR");
+      expect(result).toHaveProperty("_tag", "InternalError");
       expect(result).toHaveProperty("message", "clearinghouseState failed");
     });
   });
@@ -310,7 +310,7 @@ describe("UserDataService", () => {
           .pipe(Effect.flip),
       );
 
-      expect(result).toHaveProperty("code", "INTERNAL_ERROR");
+      expect(result).toHaveProperty("_tag", "InternalError");
       expect(result).toHaveProperty("message", "openOrders failed");
     });
   });
@@ -385,7 +385,7 @@ describe("UserDataService", () => {
           .pipe(Effect.flip),
       );
 
-      expect(result).toHaveProperty("code", "INTERNAL_ERROR");
+      expect(result).toHaveProperty("_tag", "InternalError");
       expect(result).toHaveProperty("message", "frontendOpenOrders failed");
     });
   });
@@ -426,7 +426,7 @@ describe("UserDataService", () => {
           .pipe(Effect.flip),
       );
 
-      expect(result).toHaveProperty("code", "INTERNAL_ERROR");
+      expect(result).toHaveProperty("_tag", "InternalError");
       expect(result).toHaveProperty("message", "spotClearinghouseState failed");
     });
   });
@@ -465,7 +465,7 @@ describe("UserDataService", () => {
           .pipe(Effect.flip),
       );
 
-      expect(result).toHaveProperty("code", "INTERNAL_ERROR");
+      expect(result).toHaveProperty("_tag", "InternalError");
       expect(result).toHaveProperty("message", "meta failed");
     });
   });

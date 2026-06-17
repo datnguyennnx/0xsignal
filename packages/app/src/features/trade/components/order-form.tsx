@@ -19,8 +19,8 @@ import { MarginModeModal } from "./margin-mode-modal";
 import { UnifiedAccountSummary } from "./unified-account-summary";
 import { MARGIN_BUFFER, formatOrderSize } from "../utils/trade-math";
 import { UnauthenticatedError } from "@/lib/api-base";
-import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
+import { useAppStore } from "@/stores/use-app-store";
 
 interface OrderFormProps {
   symbol: string;
@@ -29,11 +29,15 @@ interface OrderFormProps {
 }
 
 export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormProps) {
-  const {
-    open: openConnectWallet,
-    isOpen: isConnectWalletOpen,
-    close: closeConnectWallet,
-  } = useConnectWalletPrompt();
+  const isConnectWalletOpen = useAppStore((s) => s.connectWalletOpen["trade-order-form"] ?? false);
+  const openConnectWallet = useCallback(
+    () => useAppStore.getState().openConnectWallet("trade-order-form"),
+    [],
+  );
+  const closeConnectWallet = useCallback(
+    () => useAppStore.getState().closeConnectWallet("trade-order-form"),
+    [],
+  );
   const { data: chData } = useClearinghouseState();
   const { data: spotData } = useSpotClearinghouseState();
   const { getPrecision } = useHyperliquidMeta();

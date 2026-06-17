@@ -1,5 +1,5 @@
 import { Clock, Effect, Layer } from "effect";
-import { HealthService } from "../../application/health";
+import { HealthError, HealthService } from "../../application/health";
 import { PostgresConnectionPool } from "@0xsignal/auth";
 
 export const healthServiceLayer = Layer.effect(
@@ -28,7 +28,8 @@ export const healthServiceLayer = Layer.effect(
               const res = await pool.query("SELECT 1 as health");
               return res.rows[0]?.health === 1;
             },
-            catch: (error) => ({ status: 500, message: `Health check failed: ${error}` }),
+            catch: (error) =>
+              new HealthError({ status: 500, message: `Health check failed: ${error}` }),
           });
 
           return {

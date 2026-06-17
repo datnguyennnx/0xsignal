@@ -1,5 +1,5 @@
 import { Clock, Effect, Layer } from "effect";
-import { DomainError } from "../errors";
+import { NotFoundError, ValidationError } from "../errors";
 import type { CoverageResult } from "@0xsignal/shared";
 import { MarketCandleStore, MarketDataService, MarketRemoteProvider } from "./contracts";
 import type { RecentCandleQuery } from "./types";
@@ -32,8 +32,7 @@ export const makeMarketDataService = () =>
 
           if (startTime.getTime() > endTime.getTime()) {
             return yield* Effect.fail(
-              new DomainError({
-                code: "VALIDATION_ERROR",
+              new ValidationError({
                 message: "Start time must be before end time",
               }),
             );
@@ -45,8 +44,7 @@ export const makeMarketDataService = () =>
             ) + 1;
           if (requestedRangeCount > MAX_RANGE_CANDLES) {
             return yield* Effect.fail(
-              new DomainError({
-                code: "VALIDATION_ERROR",
+              new ValidationError({
                 message: `Requested range is too large (${requestedRangeCount} candles). Maximum is ${MAX_RANGE_CANDLES}.`,
               }),
             );
@@ -80,8 +78,7 @@ export const makeMarketDataService = () =>
           const exchange = query.exchange ?? "Hyperliquid";
           if (exchange.toLowerCase() !== "hyperliquid") {
             return yield* Effect.fail(
-              new DomainError({
-                code: "VALIDATION_ERROR",
+              new ValidationError({
                 message: "Recent candle snapshots are currently supported only for Hyperliquid",
               }),
             );
@@ -90,16 +87,14 @@ export const makeMarketDataService = () =>
           const requestedLimit = query.limit ?? DEFAULT_RECENT_CANDLES;
           if (!Number.isFinite(requestedLimit) || requestedLimit <= 0) {
             return yield* Effect.fail(
-              new DomainError({
-                code: "VALIDATION_ERROR",
+              new ValidationError({
                 message: "limit must be a positive integer",
               }),
             );
           }
           if (requestedLimit > MAX_RECENT_CANDLES) {
             return yield* Effect.fail(
-              new DomainError({
-                code: "VALIDATION_ERROR",
+              new ValidationError({
                 message: `limit is too large (${requestedLimit}). Maximum is ${MAX_RECENT_CANDLES}.`,
               }),
             );
@@ -153,8 +148,7 @@ export const makeMarketDataService = () =>
               .getTicker(symbol)
               .pipe(Effect.mapError(mapMarketInfraError("Failed to get ticker")))
           : Effect.fail(
-              new DomainError({
-                code: "NOT_FOUND",
+              new NotFoundError({
                 message: "Ticker is not available in this runtime",
               }),
             ),
@@ -165,8 +159,7 @@ export const makeMarketDataService = () =>
               .getOrderBook(symbol, depth)
               .pipe(Effect.mapError(mapMarketInfraError("Failed to get orderbook")))
           : Effect.fail(
-              new DomainError({
-                code: "NOT_FOUND",
+              new NotFoundError({
                 message: "Orderbook is not available in this runtime",
               }),
             ),
@@ -177,8 +170,7 @@ export const makeMarketDataService = () =>
               .getTradeAnnotation(symbol)
               .pipe(Effect.mapError(mapMarketInfraError("Failed to get trade annotation")))
           : Effect.fail(
-              new DomainError({
-                code: "NOT_FOUND",
+              new NotFoundError({
                 message: "Trade annotation is not available in this runtime",
               }),
             ),

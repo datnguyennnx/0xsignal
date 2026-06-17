@@ -1,9 +1,20 @@
-import { Match } from "effect";
-import { WS_MARKET_INTERVALS, type WsMarketInterval } from "@0xsignal/shared";
+import { Match, Schema } from "effect";
+import { WS_MARKET_INTERVALS } from "@0xsignal/shared";
 
 // Re-export shared interval constants/types as the single source of truth
 export { WS_MARKET_INTERVALS as MARKET_TIMEFRAMES };
-export type MarketTimeframe = WsMarketInterval;
+
+// Schema-based branded type — validation happens once at boundaries, not at call sites.
+// Use `Schema.decodeUnknownEffect(MarketTimeframeSchema)(raw)` at API/event edges.
+const MarketTimeframeSchema = Schema.Literals(WS_MARKET_INTERVALS).pipe(
+  Schema.brand("MarketTimeframe"),
+);
+
+// Branded type: assignable to WsMarketInterval | string, but not vice-versa.
+export type MarketTimeframe = typeof MarketTimeframeSchema.Type;
+
+// Export schema for decoding at boundaries (HTTP parsers, WS subscriptions, etc.)
+export { MarketTimeframeSchema };
 
 export const getTimeframeMs = (timeframe: MarketTimeframe): number =>
   Match.value(timeframe).pipe(

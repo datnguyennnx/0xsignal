@@ -1,29 +1,19 @@
 import { Match } from "effect";
-import { DomainError } from "../errors";
+import { MarketProviderError } from "./contracts";
+import { NotFoundError, ValidationError, InternalError } from "../errors";
+import type { AppError } from "../errors";
 
 export const mapMarketInfraError =
   (fallbackMessage: string) =>
-  (error: unknown): DomainError =>
-    Match.type<unknown>().pipe(
-      Match.when(Match.instanceOf(DomainError), (e) => e),
+  (error: MarketProviderError): AppError =>
+    Match.value(error.kind).pipe(
       Match.when(
-        (e: unknown): e is { message?: unknown; kind?: unknown } =>
-          typeof e === "object" && e !== null,
-        (candidate) => {
-          const message =
-            typeof candidate.message === "string" ? candidate.message : fallbackMessage;
-          return mapKindToDomainError(candidate.kind, message, candidate);
-        },
+        "BAD_REQUEST",
+        () => new ValidationError({ message: error.message, cause: error }),
       ),
-      Match.orElse(
-        () => new DomainError({ code: "INTERNAL_ERROR", message: fallbackMessage, cause: error }),
-      ),
-    )(error);
-
-const mapKindToDomainError = (kind: unknown, message: string, cause: unknown): DomainError =>
-  Match.value(kind).pipe(
-    Match.when("BAD_REQUEST", () => new DomainError({ code: "VALIDATION_ERROR", message, cause })),
-    Match.when("NOT_FOUND", () => new DomainError({ code: "NOT_FOUND", message, cause })),
-    Match.when("UPSTREAM", () => new DomainError({ code: "INTERNAL_ERROR", message, cause })),
-    Match.orElse(() => new DomainError({ code: "INTERNAL_ERROR", message, cause })),
-  );
+      Match.when("NOT_FOUND", () => new NotFoundError({ message: error.message, cause: error })),
+      Match.when("UPSTREAM", () => new InternalError({ message: error.message, cause: error })),
+      Match.when("RATE_LIMITED", () => new InternalError({ message: error.message, cause: error })),
+      Match.when("INTERNAL", () => new InternalError({ message: error.message, cause: error })),
+      Match.orElse(() => new InternalError({ message: fallbackMessage, cause: error })),
+    );

@@ -1,15 +1,14 @@
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
-import { ThemeProvider } from "@/core/providers/theme-provider";
-import { AuthProvider } from "@/core/providers/auth-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { MarketStreamProvider } from "@/features/trade/contexts/market-stream-context";
 import { MainLayout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/sonner";
 import { queryKeys } from "@/lib/query-keys";
 import { queryClient } from "@/lib/query-client";
 import { api } from "@/services/api";
+import { useAppStore } from "@/stores/use-app-store";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 const AssetDetail = lazy(() =>
   import("@/pages/asset-detail").then((m) => ({ default: m.AssetDetail })),
@@ -28,21 +27,7 @@ const AuthCallbackPage = lazy(() =>
   import("@/pages/auth-callback").then((m) => ({ default: m.AuthCallbackPage })),
 );
 
-/** Keep in sync with backend MARKET_SCHEMA_VERSION (cache.ts). Bump when payload shape changes. */
-const FRONTEND_MARKET_SCHEMA_VERSION = 2;
-const MARKET_SCHEMA_KEY = "0xsignal_market_schema_version";
-
-const useSchemaVersionGuard = () => {
-  useEffect(() => {
-    const stored = localStorage.getItem(MARKET_SCHEMA_KEY);
-    if (stored !== String(FRONTEND_MARKET_SCHEMA_VERSION)) {
-      queryClient.removeQueries({ queryKey: queryKeys.market.all });
-      queryClient.removeQueries({ queryKey: ["market", "candles"] });
-      queryClient.invalidateQueries();
-      localStorage.setItem(MARKET_SCHEMA_KEY, String(FRONTEND_MARKET_SCHEMA_VERSION));
-    }
-  }, []);
-};
+/** Schema version guard — now delegated to useAppStore.checkSchemaVersion() */
 
 const usePreloadRoutes = () => {
   useEffect(() => {
@@ -84,61 +69,62 @@ function RouteErrorFallback() {
 }
 
 export function App() {
-  useSchemaVersionGuard();
+  const checkSchemaVersion = useAppStore((s) => s.checkSchemaVersion);
+  useEffect(() => {
+    checkSchemaVersion();
+  }, [checkSchemaVersion]);
+  useEffect(() => {
+    const cancel = useAuthStore.getState().initialize();
+    return cancel;
+  }, []);
   usePreloadRoutes();
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <AuthProvider>
-          <MarketStreamProvider>
-            <TooltipProvider>
-              <BrowserRouter>
-                <Routes>
-                  {/* All routes are public. Auth enforced only at POST /exchange/* request boundary. */}
-                  <Route
-                    path="/login"
-                    element={
-                      <Suspense fallback={<PageLoader />}>
-                        <ErrorBoundary fallback={<RouteErrorFallback />}>
-                          <LoginPage />
-                        </ErrorBoundary>
-                      </Suspense>
-                    }
-                  />
-                  <Route
-                    path="/auth/callback"
-                    element={
-                      <Suspense fallback={<PageLoader />}>
-                        <AuthCallbackPage />
-                      </Suspense>
-                    }
-                  />
-                  <Route
-                    element={
-                      <MainLayout>
-                        <Suspense fallback={<PageLoader />}>
-                          <ErrorBoundary fallback={<RouteErrorFallback />}>
-                            <Outlet />
-                          </ErrorBoundary>
-                        </Suspense>
-                      </MainLayout>
-                    }
-                  >
-                    <Route path="/" element={<Navigate to="/trade/BTC" replace />} />
-                    <Route path="/trade" element={<Navigate to="/trade/BTC" replace />} />
-                    <Route path="/trade/:base/:quote" element={<AssetDetail />} />
-                    <Route path="/trade/:symbol" element={<AssetDetail />} />
-                    <Route path="/portfolio" element={<PortfolioPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="*" element={<NotFoundPage />} />
-                  </Route>
-                </Routes>
-                <Toaster />
-              </BrowserRouter>
-            </TooltipProvider>
-          </MarketStreamProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <TooltipProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* All routes are public. Auth enforced only at POST /exchange/* request boundary. */}
+            <Route
+              path="/login"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <ErrorBoundary fallback={<RouteErrorFallback />}>
+                    <LoginPage />
+                  </ErrorBoundary>
+                </Suspense>
+              }
+            />
+            <Route
+              path="/auth/callback"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AuthCallbackPage />
+                </Suspense>
+              }
+            />
+            <Route
+              element={
+                <MainLayout>
+                  <Suspense fallback={<PageLoader />}>
+                    <ErrorBoundary fallback={<RouteErrorFallback />}>
+                      <Outlet />
+                    </ErrorBoundary>
+                  </Suspense>
+                </MainLayout>
+              }
+            >
+              <Route path="/" element={<Navigate to="/trade/BTC" replace />} />
+              <Route path="/trade" element={<Navigate to="/trade/BTC" replace />} />
+              <Route path="/trade/:base/:quote" element={<AssetDetail />} />
+              <Route path="/trade/:symbol" element={<AssetDetail />} />
+              <Route path="/portfolio" element={<PortfolioPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+          <Toaster />
+        </BrowserRouter>
+      </TooltipProvider>
     </ErrorBoundary>
   );
 }

@@ -48,11 +48,15 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
           HashMap.empty<string, Bucket>(),
         );
 
-        const _connectionSeq: Ref.Ref<number> = yield* Ref.make(0);
+        // Bridge Pattern: connectionSeq counter uses plain number instead of Ref
+        // because createConnectionData is a sync function called from non-Effect
+        // context (Bun WebSocket upgrade handler). A Ref-based approach would
+        // require making the entire interface Effect-based.
+        let _connectionSeq = 0;
 
         const service = MarketStreamHub.of({
           createConnectionData: (subscription) => {
-            const nextSeq = Effect.runSync(Ref.updateAndGet(_connectionSeq, (n) => n + 1));
+            const nextSeq = ++_connectionSeq;
             const normalized = { ...subscription };
             if (normalized.symbol) {
               normalized.symbol = normalizeSymbol(normalized.symbol);
@@ -116,9 +120,7 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
               });
 
               // Fork upstream subscription in background
-              yield* ensureUpstream(subscriptionClient, provider, buckets, key).pipe(
-                Effect.forkDetach(),
-              );
+              yield* Effect.forkDetach(ensureUpstream(subscriptionClient, provider, buckets, key));
             }),
 
           handleClose: (ws) =>
@@ -257,7 +259,11 @@ const ensureUpstream = (
       }),
       Effect.tap((sub) =>
         Effect.gen(function* () {
-          // Set up failure signal listener for restart
+          // Bridge Pattern: sub.failureSignal is a native EventTarget from
+          // @nktkas/hyperliquid — not an Effect fiber. We use addEventListener
+          // to listen for the native abort signal, then fork a background fiber
+          // to handle the restart. This is an acceptable bridge at the adapter
+          // boundary between external library and Effect.
           const abortHandler = () => {
             marketWsLog(
               "upstream_failure_signal",

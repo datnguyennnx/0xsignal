@@ -1,9 +1,12 @@
-import { Context, Deferred, Ref } from "effect";
+import { Context, Effect, Ref } from "effect";
+import type { Cache } from "effect";
 import { HyperliquidError } from "./errors";
+import type { DedupCacheValue } from "./provider-cache";
 
 export class HyperliquidDeduplicationRegistry extends Context.Service<
   HyperliquidDeduplicationRegistry,
   {
-    readonly registryRef: Ref.Ref<Map<string, Deferred.Deferred<any, HyperliquidError>>>;
+    readonly cache: Cache.Cache<string, DedupCacheValue, HyperliquidError, never>;
+    readonly lookupRef: Ref.Ref<Map<string, Effect.Effect<DedupCacheValue, HyperliquidError>>>;
   }
 >()("HyperliquidDeduplicationRegistry") {}

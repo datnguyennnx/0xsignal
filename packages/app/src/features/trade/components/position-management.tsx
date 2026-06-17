@@ -20,15 +20,21 @@ import { OrderHistoryTab } from "./order-history-tab";
 import { TwapContent } from "./twap-content";
 import { formatOrderSize } from "../utils/trade-math";
 import { UnauthenticatedError } from "@/lib/api-base";
-import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
+import { useAppStore } from "@/stores/use-app-store";
 
 export function PositionManagement() {
-  const {
-    open: openConnectWallet,
-    isOpen: isConnectWalletOpen,
-    close: closeConnectWallet,
-  } = useConnectWalletPrompt();
+  const isConnectWalletOpen = useAppStore(
+    (s) => s.connectWalletOpen["trade-position-management"] ?? false,
+  );
+  const openConnectWallet = useCallback(
+    () => useAppStore.getState().openConnectWallet("trade-position-management"),
+    [],
+  );
+  const closeConnectWallet = useCallback(
+    () => useAppStore.getState().closeConnectWallet("trade-position-management"),
+    [],
+  );
   const { balanceCount, positionsCount, isChLoading } = useUserBalances();
   const { data: openOrders, isLoading: isOoLoading } = useOpenOrders();
   const cancelOrdersMutation = useCancelOrdersMutation();

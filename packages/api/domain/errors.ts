@@ -9,6 +9,8 @@ import { Data } from "effect";
 export class HyperliquidValidationError extends Data.TaggedError("HyperliquidValidationError")<{
   readonly message: string;
   readonly cause?: unknown;
+  readonly symbol?: string;
+  readonly input?: unknown;
 }> {}
 
 /**
@@ -19,6 +21,9 @@ export class HyperliquidValidationError extends Data.TaggedError("HyperliquidVal
  */
 export class InsufficientMarginError extends Data.TaggedError("InsufficientMarginError")<{
   readonly message: string;
+  readonly symbol?: string;
+  readonly required?: string;
+  readonly available?: string;
 }> {}
 
 /**
@@ -30,4 +35,7 @@ export class InsufficientMarginError extends Data.TaggedError("InsufficientMargi
 export class HyperliquidInternalError extends Data.TaggedError("HyperliquidInternalError")<{
   readonly message: string;
   readonly cause?: unknown;
+  readonly symbol?: string;
+  readonly endpoint?: string;
+  readonly input?: unknown;
 }> {}

@@ -1,4 +1,5 @@
 import {
+  memo,
   useState,
   useCallback,
   useEffect,
@@ -17,25 +18,22 @@ import {
 import {
   getEffectivePriceScaling,
   shouldApplyInitialPrecisionSync,
+  getDepthStyle,
   type PriceScalingState,
 } from "../utils/orderbook-widget-shared";
-import { type OrderbookLevel, priceKey } from "@/core/utils/hyperliquid";
-import { useOptionalL2BookNSigFigs } from "@/features/trade/contexts/l2-book-nsig-figs-context";
+import { type DisplayOrderbookLevel as OrderbookLevel, priceKey } from "@/core/utils/hyperliquid";
+import { useTradeUIStore } from "@/stores/use-trade-ui-store";
 import { parseSymbol } from "@0xsignal/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { formatPriceWithScaling, formatSize } from "@/core/utils/formatters";
 import {
-  type FormattedLevel,
   type PopupData,
   formatLevel,
   toQuoteDenom,
   VISIBLE_ROWS,
   ROW_STYLE,
 } from "../utils/orderbook-utils";
-import { useOrderbookResize } from "../hooks/use-orderbook-resize";
-
-const EMPTY_ORDERBOOK_OPTIONS = {} as const;
 
 interface OrderbookWidgetProps {
   symbol: string;
@@ -43,182 +41,185 @@ interface OrderbookWidgetProps {
 
 const PRECISION_RESUBSCRIBE_DEBOUNCE_MS = 160;
 
-const OrderbookToolbar = ({
-  symbol,
-  coinOptions,
-  onSymbolChange,
-  priceScaling,
-  onPriceScalingChange,
-  scalingOptions,
-}: {
-  symbol: string;
-  coinOptions: Array<{ value: string; label: string }>;
-  onSymbolChange: (s: string) => void;
-  priceScaling: number;
-  onPriceScalingChange: (s: number) => void;
-  scalingOptions: TickSizeOption[];
-}) => (
-  <div className="flex items-center justify-between gap-[clamp(0.375rem,0.6vw,0.625rem)] shrink-0">
-    <NativeSelect
-      size="sm"
-      aria-label="Coin"
-      value={symbol}
-      onChange={(e) => onSymbolChange(e.target.value)}
-      wrapperClassName="min-w-[4rem] max-w-[6rem]"
-      className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-semibold tracking-[0.01em]"
-    >
-      {coinOptions.map((opt) => (
-        <NativeSelectOption key={opt.value} value={opt.value}>
-          {opt.label}
-        </NativeSelectOption>
-      ))}
-    </NativeSelect>
-    <NativeSelect
-      size="sm"
-      aria-label="Price precision"
-      value={priceScaling.toString()}
-      onChange={(e) => onPriceScalingChange(Number(e.target.value))}
-      wrapperClassName="min-w-fit"
-      className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
-    >
-      {scalingOptions.map((opt) => (
-        <NativeSelectOption key={opt.value} value={opt.value.toString()}>
-          {opt.label}
-        </NativeSelectOption>
-      ))}
-    </NativeSelect>
-  </div>
+const OrderbookToolbar = memo(
+  ({
+    symbol,
+    coinOptions,
+    onSymbolChange,
+    priceScaling,
+    onPriceScalingChange,
+    scalingOptions,
+  }: {
+    symbol: string;
+    coinOptions: Array<{ value: string; label: string }>;
+    onSymbolChange: (s: string) => void;
+    priceScaling: number;
+    onPriceScalingChange: (s: number) => void;
+    scalingOptions: TickSizeOption[];
+  }) => (
+    <div className="flex items-center justify-between gap-[clamp(0.375rem,0.6vw,0.625rem)] shrink-0">
+      <NativeSelect
+        size="sm"
+        aria-label="Coin"
+        value={symbol}
+        onChange={(e) => onSymbolChange(e.target.value)}
+        wrapperClassName="min-w-[4rem] max-w-[6rem]"
+        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-semibold tracking-[0.01em]"
+      >
+        {coinOptions.map((opt) => (
+          <NativeSelectOption key={opt.value} value={opt.value}>
+            {opt.label}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+      <NativeSelect
+        size="sm"
+        aria-label="Price precision"
+        value={priceScaling.toString()}
+        onChange={(e) => onPriceScalingChange(Number(e.target.value))}
+        wrapperClassName="min-w-fit"
+        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
+      >
+        {scalingOptions.map((opt) => (
+          <NativeSelectOption key={opt.value} value={opt.value.toString()}>
+            {opt.label}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+    </div>
+  ),
+  (prev, next) => prev.symbol === next.symbol && prev.priceScaling === next.priceScaling,
 );
 
 interface OrderRowProps {
-  level: FormattedLevel;
+  level: OrderbookLevel;
   side: "bid" | "ask";
   index: number;
   isHovered: boolean;
   isInRange: boolean;
   onHover: (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => void;
   maxTotal: number;
-  transitionsEnabled: boolean;
+  priceScaling: number;
 }
 
-const OrderRow = ({
-  level,
-  side,
-  index,
-  isHovered,
-  isInRange,
-  onHover,
-  maxTotal,
-  transitionsEnabled,
-}: OrderRowProps) => {
-  const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
-  // Round to 1 decimal to avoid false cache busts from floating point drift
-  const stableDepthPercent = Math.round(depthPercent * 10) / 10;
+const OrderRow = memo(
+  ({
+    level,
+    side,
+    index,
+    isHovered,
+    isInRange,
+    onHover,
+    maxTotal,
+    priceScaling,
+  }: OrderRowProps) => {
+    const formatted = useMemo(() => formatLevel(level, priceScaling), [level, priceScaling]);
 
-  const depthStyle = useMemo(
-    () => ({
-      width: "100%",
-      transform: `scaleX(${Math.min(stableDepthPercent, 100) / 100})`,
-      transformOrigin: "right center",
-      willChange: stableDepthPercent < 100 ? "transform" : "auto",
-      transition: transitionsEnabled ? "transform 150ms ease-out" : "none",
-    }),
-    [stableDepthPercent, transitionsEnabled],
-  );
+    const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
+    // Round to 1 decimal to avoid false cache busts from floating point drift
+    const stableDepthPercent = Math.round(depthPercent * 10) / 10;
 
-  const handleMouseEnter = useCallback(
-    (e: MouseEvent<HTMLDivElement> | FocusEvent<HTMLDivElement>) => {
-      const dataset = e.currentTarget.dataset;
-      if (dataset.price === undefined) return;
-      onHover(
-        {
-          price: Number(dataset.price),
-          size: Number(dataset.size),
-          total: Number(dataset.total),
-          side: dataset.side as "bid" | "ask",
-        },
-        e.currentTarget,
-        Number(dataset.index),
-      );
-    },
-    [onHover],
-  );
+    const depthStyle = getDepthStyle(stableDepthPercent, side);
 
-  const handleMouseLeave = useCallback(() => onHover(null, null), [onHover]);
+    const handleMouseEnter = useCallback(
+      (e: MouseEvent<HTMLDivElement> | FocusEvent<HTMLDivElement>) => {
+        const dataset = e.currentTarget.dataset;
+        if (dataset.price === undefined) return;
+        onHover(
+          {
+            price: Number(dataset.price),
+            size: Number(dataset.size),
+            total: Number(dataset.total),
+            side: dataset.side as "bid" | "ask",
+          },
+          e.currentTarget,
+          Number(dataset.index),
+        );
+      },
+      [onHover],
+    );
 
-  return (
-    <div
-      data-price={level.price}
-      data-size={level.size}
-      data-total={level.total}
-      data-side={side}
-      data-index={index}
-      onMouseEnter={level.price > 0 ? handleMouseEnter : undefined}
-      onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
-      onFocus={level.price > 0 ? handleMouseEnter : undefined}
-      onBlur={level.price > 0 ? handleMouseLeave : undefined}
-      className={`relative flex items-center cursor-pointer tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset ${
-        isHovered ? "bg-muted/50" : "hover:bg-muted/30"
-      }`}
-      style={ROW_STYLE}
-      tabIndex={level.price > 0 ? 0 : -1}
-      aria-label={
-        level.price > 0
-          ? `${side} level, price ${level.formattedPrice}, size ${level.formattedSize}, total ${level.formattedTotal}`
-          : undefined
-      }
-      aria-describedby={level.price > 0 && isHovered ? "orderbook-depth-details" : undefined}
-    >
-      {isInRange && (
-        <div
-          className={`absolute inset-0 z-[5] pointer-events-none bg-foreground/5 dark:bg-foreground/10 ${
-            isHovered && side === "ask" ? "border-b border-dashed border-foreground/30" : ""
-          } ${isHovered && side === "bid" ? "border-t border-dashed border-foreground/30" : ""}`}
-        />
-      )}
-      {level.price > 0 && (
-        <div
-          className={`absolute inset-y-0 right-0 z-0 opacity-20 pointer-events-none ${
-            side === "bid" ? "bg-gain" : "bg-loss"
+    const handleMouseLeave = useCallback(() => onHover(null, null), [onHover]);
+
+    return (
+      <div
+        data-price={level.price}
+        data-size={level.size}
+        data-total={level.total}
+        data-side={side}
+        data-index={index}
+        onMouseEnter={level.price > 0 ? handleMouseEnter : undefined}
+        onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
+        onFocus={level.price > 0 ? handleMouseEnter : undefined}
+        onBlur={level.price > 0 ? handleMouseLeave : undefined}
+        className={`relative flex items-center cursor-pointer tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset ${
+          isHovered ? "bg-muted/50" : "hover:bg-muted/30"
+        }`}
+        style={ROW_STYLE}
+        tabIndex={level.price > 0 ? 0 : -1}
+        aria-label={
+          level.price > 0
+            ? `${side} level, price ${formatted.formattedPrice}, size ${formatted.formattedSize}, total ${formatted.formattedTotal}`
+            : undefined
+        }
+        aria-describedby={level.price > 0 && isHovered ? "orderbook-depth-details" : undefined}
+      >
+        {isInRange && (
+          <div
+            className={`absolute inset-0 z-[5] pointer-events-none bg-foreground/5 dark:bg-foreground/10 ${
+              isHovered && side === "ask" ? "border-b border-dashed border-foreground/30" : ""
+            } ${isHovered && side === "bid" ? "border-t border-dashed border-foreground/30" : ""}`}
+          />
+        )}
+        {level.price > 0 && (
+          <div
+            className={`absolute inset-y-0 right-0 z-0 opacity-20 pointer-events-none ${
+              side === "bid" ? "bg-gain" : "bg-loss"
+            }`}
+            style={depthStyle}
+          />
+        )}
+        <span
+          className={`relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-medium ${
+            level.price === 0
+              ? "text-muted-foreground/30"
+              : side === "bid"
+                ? "text-gain"
+                : "text-loss"
           }`}
-          style={depthStyle}
-        />
-      )}
-      <span
-        className={`relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-medium ${
-          level.price === 0
-            ? "text-muted-foreground/30"
-            : side === "bid"
-              ? "text-gain"
-              : "text-loss"
-        }`}
-      >
-        {level.formattedPrice}
-      </span>
-      <span
-        className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
-          level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground"
-        }`}
-      >
-        {level.formattedSize}
-      </span>
-      <span
-        className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
-          level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
-        }`}
-      >
-        {level.formattedTotal}
-      </span>
-    </div>
-  );
-};
+        >
+          {formatted.formattedPrice}
+        </span>
+        <span
+          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
+            level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground"
+          }`}
+        >
+          {formatted.formattedSize}
+        </span>
+        <span
+          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
+            level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
+          }`}
+        >
+          {formatted.formattedTotal}
+        </span>
+      </div>
+    );
+  },
+  (prev, next) =>
+    prev.level.price === next.level.price &&
+    prev.level.size === next.level.size &&
+    prev.level.total === next.level.total &&
+    prev.side === next.side &&
+    prev.isHovered === next.isHovered &&
+    prev.isInRange === next.isInRange &&
+    prev.priceScaling === next.priceScaling,
+);
 
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
-  const l2BookSig = useOptionalL2BookNSigFigs();
-  const l2BookSigRef = useRef(l2BookSig);
-  useEffect(() => {
-    l2BookSigRef.current = l2BookSig;
-  }, [l2BookSig]);
+  const nSigFigs = useTradeUIStore((s) => s.nSigFigs);
+  const setNSigFigs = useTradeUIStore((s) => s.setNSigFigs);
 
   // Base/quote denomination toggle. Resets on mount via key={symbol} in parent.
   const [pairFocus, setPairFocus] = useState("base");
@@ -233,14 +234,15 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     ];
   }, [symbol]);
 
-  const orderbookHookOptions = useMemo(() => {
-    if (l2BookSig != null) {
-      return { controlledNSigFigs: l2BookSig.nSigFigs, adaptiveNSigFigs: false as const };
-    }
-    return EMPTY_ORDERBOOK_OPTIONS;
-  }, [l2BookSig]);
+  const orderbookHookOptions = useMemo(
+    () => ({
+      controlledNSigFigs: nSigFigs,
+      adaptiveNSigFigs: false as const,
+    }),
+    [nSigFigs],
+  );
 
-  const { orderbook, resubscribe } = useHyperliquidOrderbook(symbol, true, orderbookHookOptions);
+  const { orderbook } = useHyperliquidOrderbook(symbol, true, orderbookHookOptions);
 
   const [userPriceScaling, setUserPriceScaling] = useState<PriceScalingState | null>(null);
   const [hoverTarget, setHoverTarget] = useState<{
@@ -258,7 +260,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     null,
   );
   const widgetRef = useRef<HTMLDivElement>(null);
-  const transitionsEnabled = useOrderbookResize();
   const initialSyncedSymbolsRef = useRef<Set<string>>(new Set());
   const userInteractedSymbolsRef = useRef<Set<string>>(new Set());
   const precisionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -349,11 +350,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     }
 
     const first = scalingOptions[0];
-    if (l2BookSigRef.current) {
-      l2BookSigRef.current.setNSigFigs(first.nSigFigs ?? 5);
-    }
+    setNSigFigs(first.nSigFigs ?? 5);
     initialSyncedSymbolsRef.current.add(symbol);
-  }, [orderbook, scalingOptions, symbol, userPriceScaling]);
+  }, [orderbook, scalingOptions, symbol, userPriceScaling, setNSigFigs]);
 
   const handlePriceScalingChange = useCallback(
     (newScale: number) => {
@@ -371,29 +370,26 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       }
 
       precisionTimerRef.current = setTimeout(() => {
-        if (l2BookSigRef.current) {
-          l2BookSigRef.current.setNSigFigs(nextSig);
-        } else {
-          resubscribe(nextSig);
-        }
+        setNSigFigs(nextSig);
         precisionTimerRef.current = null;
       }, PRECISION_RESUBSCRIBE_DEBOUNCE_MS);
     },
-    [scalingOptions, resubscribe, symbol],
+    [scalingOptions, symbol, setNSigFigs],
   );
 
   const { visibleAsks, visibleBids, maxTotal } = useMemo(() => {
     if (!orderbook)
-      // safe: empty array needs type hint for FormattedLevel[] inference
       return {
-        visibleAsks: [] as FormattedLevel[],
-        visibleBids: [] as FormattedLevel[],
+        visibleAsks: [] as OrderbookLevel[],
+        visibleBids: [] as OrderbookLevel[],
         maxTotal: 0,
       };
 
-    const convert = pairFocus === "quote" ? toQuoteDenom : (l: OrderbookLevel) => l;
-    const convAsks = orderbook.asks.slice(0, VISIBLE_ROWS).map(convert);
-    const convBids = orderbook.bids.slice(0, VISIBLE_ROWS).map(convert);
+    const rawAsks = orderbook.asks.slice(0, VISIBLE_ROWS);
+    const rawBids = orderbook.bids.slice(0, VISIBLE_ROWS);
+
+    const convAsks = pairFocus === "quote" ? rawAsks.map(toQuoteDenom) : rawAsks;
+    const convBids = pairFocus === "quote" ? rawBids.map(toQuoteDenom) : rawBids;
 
     let maxTotal = 0;
     for (let i = 0; i < convAsks.length; i++) maxTotal = Math.max(maxTotal, convAsks[i].total);
@@ -401,11 +397,11 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     maxTotal = Math.round(maxTotal * 100) / 100; // stabilize depth bars
 
     return {
-      visibleAsks: convAsks.map((l) => formatLevel(l, effectivePriceScaling)),
-      visibleBids: convBids.map((l) => formatLevel(l, effectivePriceScaling)),
+      visibleAsks: convAsks,
+      visibleBids: convBids,
       maxTotal,
     };
-  }, [orderbook, effectivePriceScaling, pairFocus]);
+  }, [orderbook, pairFocus]);
 
   const { spread, spreadPercent } = useMemo(() => {
     if (!orderbook || orderbook.asks.length === 0 || orderbook.bids.length === 0) {
@@ -506,7 +502,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
               isInRange={isRowInHighlightRange("ask", index)}
               onHover={handleHover}
               maxTotal={maxTotal}
-              transitionsEnabled={transitionsEnabled}
+              priceScaling={effectivePriceScaling}
             />
           ))}
         </div>
@@ -534,7 +530,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
               isInRange={isRowInHighlightRange("bid", index)}
               onHover={handleHover}
               maxTotal={maxTotal}
-              transitionsEnabled={transitionsEnabled}
+              priceScaling={effectivePriceScaling}
             />
           ))}
         </div>
@@ -605,4 +601,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   );
 };
 
-export const OrderbookWidget = OrderbookWidgetComponent;
+export const OrderbookWidget = memo(
+  OrderbookWidgetComponent,
+  (prev, next) => prev.symbol === next.symbol,
+);

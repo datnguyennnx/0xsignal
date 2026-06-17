@@ -6,7 +6,7 @@ import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
 import { PositionManagement } from "@/features/trade/components/position-management";
 import { OrderForm } from "@/features/trade/components/order-form";
 import { TradeDropdown } from "@/features/trade/components/trade-dropdown";
-import { L2BookNSigFigsProvider } from "@/features/trade/contexts/l2-book-nsig-figs-context";
+
 import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
 import { useHyperliquidSymbolLogo } from "@/features/trade/hooks/use-hyperliquid-symbol-logo";
 import { useAllMids } from "@/features/trade/hooks/use-all-mids";
@@ -171,48 +171,46 @@ export const AssetContent = memo(function AssetContent({
         )}
       </header>
 
-      <L2BookNSigFigsProvider key={symbol}>
-        <div className="flex-1 min-h-0 flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-          {/* ===== DESKTOP (≥1440px): DashboardGrid ===== */}
-          {isDesktop ? (
-            <div className="flex-1 min-h-0 flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-              <DashboardGrid className="min-h-0">
-                <DashboardPanel id="chart">
-                  {showChartSkeleton ? (
-                    <Skeleton className="h-full w-full rounded-lg" />
-                  ) : (
-                    <div className="animate-in fade-in duration-200 ease-premium h-full">
-                      {chartPanel}
-                    </div>
-                  )}
-                </DashboardPanel>
-                <DashboardPanel id="orderbook">{orderbookPanel}</DashboardPanel>
-                <DashboardPanel id="orderform">{orderformPanel}</DashboardPanel>
-                <DashboardPanel id="positions">{positionsPanel}</DashboardPanel>
-              </DashboardGrid>
-            </div>
-          ) : (
-            /* ===== NARROW (<1440px): 2×2 Grid ===== */
-            <div className="flex-1 min-h-0 grid grid-cols-[7fr_3fr] grid-rows-[auto_auto] gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-              {/* Row 1 */}
-              <div className="min-w-0 self-stretch">
+      <div className="flex-1 min-h-0 flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+        {/* ===== DESKTOP (≥1440px): DashboardGrid ===== */}
+        {isDesktop ? (
+          <div className="flex-1 min-h-0 flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+            <DashboardGrid className="min-h-0">
+              <DashboardPanel id="chart">
                 {showChartSkeleton ? (
                   <Skeleton className="h-full w-full rounded-lg" />
                 ) : (
-                  <div className="h-full">{chartPanel}</div>
+                  <div className="animate-in fade-in duration-200 ease-premium h-full">
+                    {chartPanel}
+                  </div>
                 )}
-              </div>
-
-              <div className="flex flex-col h-fit min-w-0">{orderbookPanel}</div>
-
-              {/* Row 2 */}
-              <div className="flex flex-col h-fit min-w-0">{positionsPanel}</div>
-
-              <div className="flex flex-col h-fit min-w-0">{orderformPanel}</div>
+              </DashboardPanel>
+              <DashboardPanel id="orderbook">{orderbookPanel}</DashboardPanel>
+              <DashboardPanel id="orderform">{orderformPanel}</DashboardPanel>
+              <DashboardPanel id="positions">{positionsPanel}</DashboardPanel>
+            </DashboardGrid>
+          </div>
+        ) : (
+          /* ===== NARROW (<1440px): 2×2 Grid ===== */
+          <div className="flex-1 min-h-0 grid grid-cols-[7fr_3fr] grid-rows-[auto_auto] gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+            {/* Row 1 */}
+            <div className="min-w-0 self-stretch">
+              {showChartSkeleton ? (
+                <Skeleton className="h-full w-full rounded-lg" />
+              ) : (
+                <div className="h-full">{chartPanel}</div>
+              )}
             </div>
-          )}
-        </div>
-      </L2BookNSigFigsProvider>
+
+            <div className="flex flex-col h-fit min-w-0">{orderbookPanel}</div>
+
+            {/* Row 2 */}
+            <div className="flex flex-col h-fit min-w-0">{positionsPanel}</div>
+
+            <div className="flex flex-col h-fit min-w-0">{orderformPanel}</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 });

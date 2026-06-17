@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { RotateCcw, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,9 +8,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
-import { resetLayout } from "@/lib/layout-reset";
+import { useLayoutStore } from "@/stores/use-layout-store";
+import { useAppStore } from "@/stores/use-app-store";
 import { toast } from "sonner";
 import { useAccount, useDisconnect } from "wagmi";
 
@@ -20,11 +21,15 @@ function truncateAddress(address: string) {
 export function UserNav() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const {
-    open: openConnectWallet,
-    isOpen: isConnectWalletOpen,
-    close: closeConnectWallet,
-  } = useConnectWalletPrompt();
+  const isConnectWalletOpen = useAppStore((s) => s.connectWalletOpen["user-nav"] ?? false);
+  const openConnectWallet = useCallback(
+    () => useAppStore.getState().openConnectWallet("user-nav"),
+    [],
+  );
+  const closeConnectWallet = useCallback(
+    () => useAppStore.getState().closeConnectWallet("user-nav"),
+    [],
+  );
   const navigate = useNavigate();
 
   return (
@@ -62,7 +67,7 @@ export function UserNav() {
         className="size-8"
         title="Reset Dashboard Layout"
         onClick={() => {
-          resetLayout();
+          useLayoutStore.getState().resetLayout();
           toast.success("Dashboard layout reset");
         }}
       >

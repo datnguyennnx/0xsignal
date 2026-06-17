@@ -1,24 +1,17 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { normalizeSymbol } from "@/features/trade/lib/symbol";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
-import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-candles";
 import { useAssetPrice } from "@/features/asset-detail/hooks/use-asset-price";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { CandleDataProvider } from "@/features/trade/contexts/candle-data-context";
 import { useIsDesktop } from "@/hooks/use-breakpoint";
+import { useMarketDataStore } from "@/stores/use-market-data-store";
 import {
   AssetContent,
   type AssetViewModel,
 } from "@/features/asset-detail/components/asset-content";
-
-const DESKTOP_CONFIG = {
-  initialCandles: 350,
-  loadMoreCandles: 300,
-  visibleCandles: 250,
-};
 
 function AssetDetailSkeleton() {
   const isDesktop = useIsDesktop();
@@ -72,24 +65,20 @@ export function AssetDetail() {
     }
   }, [rawCoin, normalizedRoute, navigate]);
 
+  // Lazy-init market stream client synchronously before paint so child
+  // components (AssetContent → useAllMids → useHyperliquidWs) find the
+  // client available on first painted render.
+  // Idempotent — initializeStreamClient returns existing client if already
+  // created, only calls Zustand set() once.
+  useLayoutEffect(() => {
+    useMarketDataStore.getState().initializeStreamClient();
+  }, []);
+
   const [interval, setInterval] = useState("1h");
 
   const handleIntervalChange = useCallback((newInterval: string) => {
     setInterval(newInterval);
   }, []);
-
-  const normalizedSymbol = rawCoin.toUpperCase();
-  // Perps use {COIN}USDT for TradingView mapping; spots use the raw pair name.
-  const isSpotUrl = rawCoin.includes("/");
-  const chartSymbol = isSpotUrl
-    ? rawCoin
-    : normalizedSymbol.endsWith("USDT")
-      ? normalizedSymbol
-      : `${normalizedSymbol}USDT`;
-
-  // WS enabled by default — backend validates perp-only server-side (rejects spot).
-  // Markets list is loaded lazily (trade dropdown intent), not needed for above-the-fold render.
-  const enableWsRealtime = true;
 
   const {
     data: fetchedAsset,
@@ -107,36 +96,19 @@ export function AssetDetail() {
     [fetchedAsset],
   );
 
-  const {
-    data: candleData,
-    dataRef: candleDataRef,
-    isLoading: chartLoading,
-    loadMore: loadMoreCandles,
-    hasMore: hasMoreCandles,
-    isFetching: chartFetching,
-  } = useHyperliquidCandles({
-    symbol: chartSymbol,
-    interval,
-    limit: DESKTOP_CONFIG.initialCandles,
-    enabled: enableWsRealtime,
-  });
-
-  const latestPrice = useMemo(() => {
-    if (!candleData || candleData.length === 0) return null;
-    return candleData[candleData.length - 1].close;
-  }, [candleData]);
-
   // Only show full-page skeleton during initial asset fetch.
   // Widgets handle their own loading states independently.
   const showSkeleton = !asset && assetLoading;
-  const showChartSkeleton = chartLoading;
 
   const documentTitle = useMemo(() => {
-    if (!asset?.price && !latestPrice) return "";
-    const price = latestPrice || asset?.price?.price || 0;
-    // Use default precision (4) — markets list is lazy-loaded, precision cosmetics are non-critical
-    return formatPerpTitle(asset?.symbol.toUpperCase() || symbol?.toUpperCase() || "", price, 4);
-  }, [asset, symbol, latestPrice]);
+    const fallbackPrice = asset?.price?.price || asset?.price?.markPx || 0;
+    if (!asset?.symbol && !fallbackPrice) return "";
+    return formatPerpTitle(
+      asset?.symbol.toUpperCase() || symbol?.toUpperCase() || "",
+      fallbackPrice,
+      4,
+    );
+  }, [asset, symbol]);
 
   useDocumentTitle({ title: documentTitle });
 
@@ -165,22 +137,13 @@ export function AssetDetail() {
 
   return (
     <ErrorBoundary>
-      <CandleDataProvider
-        data={candleData}
-        dataRef={candleDataRef}
-        isLoading={chartLoading}
-        loadMore={loadMoreCandles}
-        hasMore={hasMoreCandles}
-        isFetching={chartFetching}
-      >
-        <AssetContent
-          asset={asset}
-          symbol={rawCoin}
-          interval={interval}
-          onIntervalChange={handleIntervalChange}
-          showChartSkeleton={showChartSkeleton}
-        />
-      </CandleDataProvider>
+      <AssetContent
+        asset={asset}
+        symbol={rawCoin}
+        interval={interval}
+        onIntervalChange={handleIntervalChange}
+        showChartSkeleton={false}
+      />
     </ErrorBoundary>
   );
 }

@@ -1,16 +1,23 @@
 import { Data } from "effect";
 
-export type DomainErrorCode =
-  | "NOT_FOUND"
-  | "ALREADY_EXISTS"
-  | "VALIDATION_ERROR"
-  | "INTERNAL_ERROR"
-  | "INVALID_STATE"
-  | "CONFLICT"
-  | "FORBIDDEN";
-
-export class DomainError extends Data.TaggedError("DomainError")<{
-  readonly code: DomainErrorCode;
+export class NotFoundError extends Data.TaggedError("NotFoundError")<{
   readonly message: string;
   readonly cause?: unknown;
 }> {}
+
+export class ConflictError extends Data.TaggedError("ConflictError")<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}
+
+export class ValidationError extends Data.TaggedError("ValidationError")<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}
+
+export class InternalError extends Data.TaggedError("InternalError")<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}
+
+export type AppError = NotFoundError | ConflictError | ValidationError | InternalError;

@@ -43,7 +43,7 @@ export const MigrationLayer: Layer.Layer<never, never, PostgresConnectionPool | 
 
       yield* runCleanup(pool);
 
-      yield* Effect.forkDetach(
+      yield* Effect.forkScoped(
         Effect.repeat(runCleanup(pool), Schedule.fixed("1 hour")).pipe(Effect.ignore),
       );
     }).pipe(Effect.provide(Reactivity.layer), Effect.scoped, Effect.orDie),

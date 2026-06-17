@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, LogOut, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -8,19 +8,30 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { SaveBar } from "@/components/save-bar";
-import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
-import { useAuth } from "@/core/providers/use-auth";
+import { useAuthStore } from "@/stores/use-auth-store";
+import { useAppStore } from "@/stores/use-app-store";
 import { api } from "@/services/api";
 
 export function ProfileSettings() {
-  const { user, isLoading, signOut } = useAuth();
+  const user = useAuthStore((s) => s.user);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const signOut = useAuthStore((s) => s.signOut);
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [isSaving, setIsSaving] = useState(false);
 
   const initialDisplayName = user?.displayName ?? "";
   const hasChanges = displayName !== initialDisplayName;
-  useUnsavedChanges(hasChanges);
+  useEffect(() => {
+    if (hasChanges) {
+      useAppStore.getState().markDirty("settings-profile");
+    } else {
+      useAppStore.getState().markClean("settings-profile");
+    }
+    return () => {
+      useAppStore.getState().markClean("settings-profile");
+    };
+  }, [hasChanges]);
 
   const handleSave = async () => {
     const trimmed = displayName.trim();

@@ -25,7 +25,7 @@ export function useAllMids(enabled = true): Record<string, number> {
 
   // Stable subscription reference — prevents infinite unsubscribe/resubscribe cycles
   const subscription = useMemo(
-    () => (enabled ? ({ type: "allMids" as const } as const) : null),
+    () => (enabled ? ({ channel: "allMids" as const } as const) : null),
     [enabled],
   );
 
@@ -33,6 +33,9 @@ export function useAllMids(enabled = true): Record<string, number> {
     subscription,
     onMessage: handleMessage,
     enabled,
+    onError: (error) => {
+      console.error("allMids WS error:", error);
+    },
   });
 
   return mids;

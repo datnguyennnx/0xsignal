@@ -1,5 +1,6 @@
 import type { ApiErrorBody, ApiEnvelope } from "@0xsignal/shared";
-import { resolveApiBase, setAuthToken, apiFetch, UnauthenticatedError } from "@/lib/api-base";
+import { resolveApiBase, apiFetch, UnauthenticatedError } from "@/lib/api-base";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 export const API_BASE = resolveApiBase(configuredApiUrl, import.meta.env.DEV);
@@ -78,7 +79,7 @@ const refreshManager = {
               ? (body as { data?: { accessToken: string } }).data
               : body;
           if (data && data.accessToken) {
-            setAuthToken(data.accessToken);
+            useAuthStore.getState().setToken(data.accessToken);
             return true;
           }
         }
@@ -115,7 +116,7 @@ export async function fetchJson<T>(
         if (refreshed) {
           return fetchJson<T>(url, options, true);
         } else {
-          setAuthToken(null);
+          useAuthStore.getState().setToken(null);
         }
       }
 

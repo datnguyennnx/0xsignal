@@ -2,9 +2,9 @@ import { Palette, LayoutDashboard } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { useTheme } from "@/core/providers/theme-provider";
+import { useAppStore } from "@/stores/use-app-store";
 import { cn } from "@/core/utils/cn";
-import { resetLayout } from "@/lib/layout-reset";
+import { useLayoutStore } from "@/stores/use-layout-store";
 
 interface ThemeCardProps {
   value: "light" | "dark" | "system";
@@ -41,7 +41,8 @@ const ThemeCard = ({ value, label, theme, handleThemeChange, children }: ThemeCa
 );
 
 export function AppearanceSettings() {
-  const { theme, setTheme } = useTheme();
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
 
   return (
     <div className="flex flex-col gap-[clamp(1rem,1.5vw,1.5rem)]">
@@ -122,7 +123,7 @@ export function AppearanceSettings() {
           variant="outline"
           size="sm"
           onClick={() => {
-            resetLayout();
+            useLayoutStore.getState().resetLayout();
             toast.success("Dashboard layout reset");
           }}
         >

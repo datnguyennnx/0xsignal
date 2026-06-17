@@ -4,14 +4,6 @@ export { TradeDropdown } from "./components/trade-dropdown";
 export { OrderForm } from "./components/order-form";
 export { PositionManagement } from "./components/position-management";
 
-// Contexts — used by asset-detail, chart, App
-export { CandleDataProvider, useCandleData } from "./contexts/candle-data-context";
-export {
-  L2BookNSigFigsProvider,
-  useOptionalL2BookNSigFigs,
-} from "./contexts/l2-book-nsig-figs-context";
-export { MarketStreamProvider, useMarketStreamClient } from "./contexts/market-stream-context";
-
 // Hooks — used by asset-detail, chart, portfolio
 export { useAllMids } from "./hooks/use-all-mids";
 export { useHyperliquidSymbolLogo } from "./hooks/use-hyperliquid-symbol-logo";

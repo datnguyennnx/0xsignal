@@ -12,15 +12,15 @@ import type {
 } from "@0xsignal/shared";
 import { Effect, Layer } from "effect";
 import { HyperliquidClient } from "../hyperliquid/contracts";
-import { DomainError } from "../errors";
+import { InternalError } from "../errors";
+import type { AppError } from "../errors";
 import { UserDataService } from "./contracts";
 
-const callInfoApi = <A>(label: string, fn: () => Promise<A>): Effect.Effect<A, DomainError> =>
+const callInfoApi = <A>(label: string, fn: () => Promise<A>): Effect.Effect<A, AppError> =>
   Effect.tryPromise({
     try: fn,
     catch: (cause) =>
-      new DomainError({
-        code: "INTERNAL_ERROR",
+      new InternalError({
         message: `${label} failed`,
         cause,
       }),
@@ -35,51 +35,51 @@ export const userDataServiceLayer = Layer.effect(
       getClearinghouseState: (walletAddress) =>
         callInfoApi("clearinghouseState", () =>
           info.clearinghouseState({ user: walletAddress }),
-        ) as Effect.Effect<ClearinghouseState, DomainError>,
+        ) as Effect.Effect<ClearinghouseState, AppError>,
 
       getSpotClearinghouseState: (walletAddress) =>
         callInfoApi("spotClearinghouseState", () =>
           info.spotClearinghouseState({ user: walletAddress }),
-        ) as Effect.Effect<SpotClearinghouseState, DomainError>,
+        ) as Effect.Effect<SpotClearinghouseState, AppError>,
 
       getOpenOrders: (walletAddress) =>
         callInfoApi("openOrders", () => info.openOrders({ user: walletAddress })) as Effect.Effect<
           OpenOrder[],
-          DomainError
+          AppError
         >,
 
       getFrontendOpenOrders: (walletAddress) =>
         callInfoApi("frontendOpenOrders", () =>
           info.frontendOpenOrders({ user: walletAddress }),
-        ) as Effect.Effect<FrontendOpenOrder[], DomainError>,
+        ) as Effect.Effect<FrontendOpenOrder[], AppError>,
 
       getMeta: () =>
         callInfoApi("meta", () => info.meta()) as unknown as Effect.Effect<
           AggregatedMarket[],
-          DomainError
+          AppError
         >,
 
       getHistoricalOrders: (walletAddress) =>
         callInfoApi("historicalOrders", () =>
           info.historicalOrders({ user: walletAddress }),
-        ) as Effect.Effect<HistoricalOrderEntry[], DomainError>,
+        ) as Effect.Effect<HistoricalOrderEntry[], AppError>,
 
       getUserFills: (walletAddress) =>
         callInfoApi("userFills", () => info.userFills({ user: walletAddress })) as Effect.Effect<
           UserFill[],
-          DomainError
+          AppError
         >,
 
       getPortfolio: (walletAddress) =>
         callInfoApi("portfolio", () => info.portfolio({ user: walletAddress })) as Effect.Effect<
           PortfolioResponse,
-          DomainError
+          AppError
         >,
 
       getUserVaultEquities: (walletAddress) =>
         callInfoApi("userVaultEquities", () =>
           info.userVaultEquities({ user: walletAddress }),
-        ) as Effect.Effect<UserVaultEquity[], DomainError>,
+        ) as Effect.Effect<UserVaultEquity[], AppError>,
 
       getUserFunding: (walletAddress, startTime?: number, endTime?: number) =>
         callInfoApi("userFunding", () => {
@@ -89,7 +89,7 @@ export const userDataServiceLayer = Layer.effect(
           if (startTime !== undefined) params.startTime = startTime;
           if (endTime !== undefined) params.endTime = endTime;
           return info.userFunding(params);
-        }) as Effect.Effect<UserFundingEntry[], DomainError>,
+        }) as Effect.Effect<UserFundingEntry[], AppError>,
     });
   }),
 );

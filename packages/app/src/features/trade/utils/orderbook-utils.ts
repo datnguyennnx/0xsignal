@@ -1,4 +1,4 @@
-import { type OrderbookLevel } from "@/core/utils/hyperliquid";
+import { type DisplayOrderbookLevel as OrderbookLevel } from "@/core/utils/hyperliquid";
 import { formatPriceWithScaling, formatSize } from "@/core/utils/formatters";
 
 export const ROW_HEIGHT = 28;

@@ -29,16 +29,18 @@ const Core = Layer.mergeAll(
   CorsServiceLayer,
 );
 
-// MarketStreamHubLayer requires HyperliquidProvider (from marketRemoteProviderLayer).
-// Layer.provide resolves this dependency while keeping MarketStreamHub visible.
-const ResolvedHubLayer = Layer.provide(MarketStreamHubLayer, marketRemoteProviderLayer);
-
+// marketRemoteProviderLayer is provided once here so both MarketStreamHubLayer
+// and marketCandleStoreLayer resolve MarketRemoteProvider from the same instance.
 const Infrastructure = Layer.mergeAll(
-  marketCandleStoreLayer.pipe(Layer.provideMerge(marketRemoteProviderLayer)),
-  ResolvedHubLayer,
+  marketCandleStoreLayer,
+  MarketStreamHubLayer,
   healthServiceLayer,
   MigrationLayer,
-).pipe(Layer.provideMerge(hyperliquidClientLayer), Layer.provideMerge(postgresConnectionPoolLayer));
+).pipe(
+  Layer.provideMerge(marketRemoteProviderLayer),
+  Layer.provideMerge(hyperliquidClientLayer),
+  Layer.provideMerge(postgresConnectionPoolLayer),
+);
 
 const AppServices = Layer.mergeAll(
   marketDataServiceLayer,

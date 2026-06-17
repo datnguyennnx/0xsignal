@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import {
-  useMarketStreamClient,
-  type MarketStreamMeta,
-  type MarketSubscription,
-} from "../contexts/market-stream-context";
+import type { MarketStreamMeta, MarketSubscription } from "../lib/market-stream-client";
+import { useMarketDataStore } from "@/stores/use-market-data-store";
 
 export interface UseHyperliquidWsOptions {
   subscription: MarketSubscription | null;
@@ -27,7 +24,7 @@ export function useHyperliquidWs({
   onError,
   onReconnect,
 }: UseHyperliquidWsOptions) {
-  const client = useMarketStreamClient();
+  const client = useMarketDataStore((s) => s.marketStreamClient);
   const [isConnected, setIsConnected] = useState(false);
   const subRef = useRef<WsSubscription | null>(null);
   const isMountedRef = useRef(true);
@@ -70,13 +67,13 @@ export function useHyperliquidWs({
       return;
     }
 
-    const { type: channel, coin, nSigFigs, interval } = subscription;
-    if (!coin && channel !== "allMids") return;
+    const { channel, symbol, nSigFigs, interval } = subscription;
+    if (!symbol && channel !== "allMids") return;
 
     const subscribe = async () => {
       try {
         const activeSub = await client.subscribe(
-          { type: channel, coin, interval, nSigFigs },
+          { channel, symbol, interval, nSigFigs },
           {
             onMessage: (data, subscribedChannel, meta) => {
               if (ignore || !isMountedRef.current || generationRef.current !== generation) {
@@ -144,12 +141,12 @@ export function useHyperliquidWs({
       if (subRef.current) subRef.current.unsubscribe();
       subRef.current = null;
 
-      const { type: channel, coin, nSigFigs, interval } = newSubscription;
-      if (!coin && channel !== "allMids") return;
+      const { channel, symbol, nSigFigs, interval } = newSubscription;
+      if (!symbol && channel !== "allMids") return;
 
       try {
         const activeSub = await client.subscribe(
-          { type: channel, coin, interval, nSigFigs },
+          { channel, symbol, interval, nSigFigs },
           {
             onMessage: (data, subscribedChannel, meta) => {
               if (!isMountedRef.current || generationRef.current !== generation) {

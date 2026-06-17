@@ -4,7 +4,7 @@ import { MarketDataService } from "../../../application/market-data/contracts";
 import { HealthService } from "../../../application/health";
 import { UserDataService } from "../../../application/user-data/contracts";
 import { ExchangeService } from "../../../application/exchange/contracts";
-import { DomainError } from "../../../application/errors";
+import { NotFoundError, InternalError } from "../../../application/errors";
 import { handleRequest } from "../router";
 
 const mockMarketDataService = {
@@ -251,7 +251,7 @@ describe("HTTP Market Data Router", () => {
 
   it("maps ticker not found errors to 404", async () => {
     mockMarketDataService.getTicker.mockReturnValue(
-      Effect.fail(new DomainError({ code: "NOT_FOUND", message: "Symbol not found: XRP" })),
+      Effect.fail(new NotFoundError({ message: "Symbol not found: XRP" })),
     );
 
     await expectHttpFailure(runRequest("/api/ticker?symbol=XRP"), {
@@ -262,9 +262,7 @@ describe("HTTP Market Data Router", () => {
 
   it("maps upstream ticker failures to 502", async () => {
     mockMarketDataService.getTicker.mockReturnValue(
-      Effect.fail(
-        new DomainError({ code: "INTERNAL_ERROR", message: "Upstream provider unavailable" }),
-      ),
+      Effect.fail(new InternalError({ message: "Upstream provider unavailable" })),
     );
 
     await expectHttpFailure(runRequest("/api/ticker?symbol=BTC"), {

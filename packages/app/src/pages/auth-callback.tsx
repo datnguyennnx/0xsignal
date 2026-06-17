@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/services/api";
-import { setAuthToken } from "@/lib/api-base";
+import { useAuthStore } from "@/stores/use-auth-store";
 import { ErrorState } from "@/components/error-state";
 
 export function AuthCallbackPage() {
@@ -24,8 +24,30 @@ export function AuthCallbackPage() {
         const data = await api.exchangeCode(code);
         if (cancelled) return;
         if (data && data.accessToken) {
-          setAuthToken(data.accessToken);
-          navigate("/trade/BTC", { replace: true });
+          useAuthStore.getState().setToken(data.accessToken);
+
+          try {
+            const profile = await api.getAuthMe();
+            if (profile && !cancelled) {
+              useAuthStore.getState().setUser({
+                userId: profile.userId,
+                provider: profile.provider,
+                avatarUrl: profile.avatarUrl,
+                displayName: profile.displayName,
+              });
+            }
+            if (!cancelled) {
+              await useAuthStore.getState().refreshWalletStatus();
+            }
+          } catch (err) {
+            if (!cancelled) {
+              console.error("[Auth] Failed to fetch profile after login:", err);
+            }
+          }
+
+          if (!cancelled) {
+            navigate("/trade/BTC", { replace: true });
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -52,17 +74,33 @@ export function AuthCallbackPage() {
             setError(null);
             const code = new URLSearchParams(window.location.search).get("code");
             if (code) {
-              api
-                .exchangeCode(code)
-                .then((data) => {
+              (async () => {
+                try {
+                  const data = await api.exchangeCode(code);
                   if (data && data.accessToken) {
-                    setAuthToken(data.accessToken);
+                    useAuthStore.getState().setToken(data.accessToken);
+
+                    try {
+                      const profile = await api.getAuthMe();
+                      if (profile) {
+                        useAuthStore.getState().setUser({
+                          userId: profile.userId,
+                          provider: profile.provider,
+                          avatarUrl: profile.avatarUrl,
+                          displayName: profile.displayName,
+                        });
+                      }
+                      await useAuthStore.getState().refreshWalletStatus();
+                    } catch (profileErr) {
+                      console.error("[Auth] Failed to fetch profile after login:", profileErr);
+                    }
+
                     navigate("/trade/BTC", { replace: true });
                   }
-                })
-                .catch((err) => {
+                } catch (err) {
                   setError(err instanceof Error ? err.message : "Token exchange failed");
-                });
+                }
+              })();
             } else {
               navigate("/trade/BTC", { replace: true });
             }

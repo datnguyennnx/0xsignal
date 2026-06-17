@@ -1,14 +1,10 @@
-import { Match } from "effect";
+import { Data, Effect, Match } from "effect";
 import { type Candle, type WsMarketInterval } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 
-class NormalizationError extends Error {
-  readonly _tag = "NormalizationError";
-  constructor(message: string) {
-    super(message);
-    this.name = "NormalizationError";
-  }
-}
+export class NormalizationError extends Data.TaggedError("NormalizationError")<{
+  readonly message: string;
+}> {}
 
 export type HlInterval = WsMarketInterval;
 
@@ -37,18 +33,24 @@ const isHlRawCandle = (value: unknown): value is HlRawCandle => {
   );
 };
 
-export function parseHlRawCandles(payload: unknown): HlRawCandle[] {
+export function parseHlRawCandles(
+  payload: unknown,
+): Effect.Effect<HlRawCandle[], NormalizationError> {
   if (!Array.isArray(payload)) {
-    throw new NormalizationError("Hyperliquid candle payload must be an array");
+    return Effect.fail(
+      new NormalizationError({ message: "Hyperliquid candle payload must be an array" }),
+    );
   }
   const parsed: HlRawCandle[] = [];
   for (const item of payload) {
     if (!isHlRawCandle(item)) {
-      throw new NormalizationError("Hyperliquid candle item has invalid shape");
+      return Effect.fail(
+        new NormalizationError({ message: "Hyperliquid candle item has invalid shape" }),
+      );
     }
     parsed.push(item);
   }
-  return parsed;
+  return Effect.succeed(parsed);
 }
 
 export function toHlInterval(timeframe: MarketTimeframe): HlInterval {

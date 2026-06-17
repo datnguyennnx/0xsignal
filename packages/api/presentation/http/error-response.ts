@@ -1,5 +1,10 @@
 import { Match } from "effect";
-import { DomainError } from "../../application/errors";
+import {
+  NotFoundError,
+  ConflictError,
+  ValidationError,
+  InternalError,
+} from "../../application/errors";
 import {
   HyperliquidValidationError,
   InsufficientMarginError,
@@ -25,21 +30,8 @@ export const asHttpError = (status: number, message: string, code?: string): Htt
   code,
 });
 
-const mapDomainCodeToHttpStatus = (code: DomainError["code"]): number =>
-  Match.value(code).pipe(
-    Match.when("VALIDATION_ERROR", () => 400 as const),
-    Match.when("NOT_FOUND", () => 404 as const),
-    Match.when("FORBIDDEN", () => 403 as const),
-    Match.when("ALREADY_EXISTS", () => 409 as const),
-    Match.when("CONFLICT", () => 409 as const),
-    Match.when("INVALID_STATE", () => 409 as const),
-    Match.when("INTERNAL_ERROR", () => 502 as const),
-    Match.orElse(() => 500 as const),
-  );
-
 const toErrorCode = (tag: string): string =>
   Match.value(tag).pipe(
-    Match.when("DomainError", () => "DOMAIN_ERROR"),
     Match.when("HyperliquidValidationError", () => "VALIDATION_ERROR"),
     Match.when("InsufficientMarginError", () => "INSUFFICIENT_MARGIN"),
     Match.when("HyperliquidInternalError", () => "INTERNAL_ERROR"),
@@ -61,9 +53,18 @@ export const errorResponse = (error: unknown, corsHeaders: Record<string, string
 
 export const mapServiceError = (error: unknown): HttpError =>
   Match.value(error).pipe(
-    // Application-level DomainError (carries a DomainErrorCode for status mapping)
-    Match.when(Match.instanceOf(DomainError), (e) =>
-      asHttpError(mapDomainCodeToHttpStatus(e.code), e.message, toErrorCode(e._tag)),
+    // Application-level tagged errors
+    Match.when(Match.instanceOf(ValidationError), (e) =>
+      asHttpError(400, e.message, toErrorCode(e._tag)),
+    ),
+    Match.when(Match.instanceOf(NotFoundError), (e) =>
+      asHttpError(404, e.message, toErrorCode(e._tag)),
+    ),
+    Match.when(Match.instanceOf(ConflictError), (e) =>
+      asHttpError(409, e.message, toErrorCode(e._tag)),
+    ),
+    Match.when(Match.instanceOf(InternalError), (e) =>
+      asHttpError(502, e.message, toErrorCode(e._tag)),
     ),
 
     // Domain-layer tagged errors

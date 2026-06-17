@@ -5,7 +5,7 @@ function isNonNullObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Extract trigger price from order (top-level, with legacy nested fallback). */
+/** Extract trigger price from order. */
 export function extractTriggerPx(order: OpenOrder): string | undefined {
   if (order.triggerPx) return order.triggerPx;
   const ot = order.orderType;
@@ -20,7 +20,7 @@ export function extractTriggerPx(order: OpenOrder): string | undefined {
 
 /**
  * Extract trigger condition ("above"/"below") from order.
- * Top-level with legacy inference fallback.
+ * Checks top-level triggerPx first, then infers from order type + side.
  */
 export function resolveTriggerCondition(order: OpenOrder): string | undefined {
   if (order.triggerCondition) {
@@ -30,7 +30,7 @@ export function resolveTriggerCondition(order: OpenOrder): string | undefined {
     return order.triggerCondition;
   }
 
-  // Legacy: infer from order type + side
+  // Infer from order type + side
   const ot = getOrderType(order);
   if (ot === "Stop Market") return order.side === "B" ? "above" : "below";
   if (ot === "Take Profit Market") return order.side === "B" ? "below" : "above";
@@ -43,7 +43,7 @@ export function getOrderType(order: OpenOrder): string {
   if (typeof order.orderType === "string") {
     return order.orderType;
   }
-  // Legacy: orderType is a nested object
+  // orderType is a nested object
   const ot = order.orderType;
   if (isNonNullObject(ot)) {
     if ("limit" in ot) return "Limit";

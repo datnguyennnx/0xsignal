@@ -1,6 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { Deferred, Effect, Ref } from "effect";
+import { Effect, Ref } from "effect";
+import { Cache, Duration } from "effect";
 import { makeUnsafe as makeSemaphoreUnsafe } from "effect/Semaphore";
+import { HyperliquidError } from "../errors";
+import { HyperliquidDeduplicationRegistry } from "../dedup";
+import { HyperliquidRateLimiter } from "../rate-limiter";
 import { getTickerSnapshot } from "../mapping";
 import {
   mapTickerFromSnapshot,
@@ -9,8 +13,6 @@ import {
   extractSpotTokens,
   sortAndDedupeAssets,
 } from "../market-aggregation";
-import { HyperliquidRateLimiter } from "../rate-limiter";
-import { HyperliquidDeduplicationRegistry } from "../dedup";
 
 describe("Hyperliquid Mapping", () => {
   const mockInfo = {
@@ -61,13 +63,33 @@ describe("Hyperliquid Mapping", () => {
         .mockResolvedValueOnce([{ universe: [{ name: "xyz:EUR" }] }, [{ midPx: "1.1" }]]); // xyz
 
       const semaphore = makeSemaphoreUnsafe(6);
-      const dedupRef = Ref.makeUnsafe(new Map<string, Deferred.Deferred<any, unknown>>());
-      const program = getTickerSnapshot(mockInfo).pipe(
-        Effect.provideService(HyperliquidRateLimiter, { semaphore }),
-        Effect.provideService(HyperliquidDeduplicationRegistry, {
-          registryRef: dedupRef,
-        }),
-      );
+      const program = Effect.gen(function* () {
+        const lookupRef = yield* Ref.make<Map<string, Effect.Effect<any, HyperliquidError>>>(
+          new Map(),
+        );
+        const cache = yield* Cache.make<string, any, HyperliquidError, never>({
+          capacity: 100,
+          timeToLive: Duration.seconds(30),
+          lookup: (key: string): Effect.Effect<any, HyperliquidError, never> =>
+            Ref.get(lookupRef).pipe(
+              Effect.flatMap((map) => {
+                const effect = map.get(key);
+                if (effect) return effect;
+                return Effect.die(new Error(`[Test] No dedup lookup registered for key: ${key}`));
+              }),
+            ),
+        });
+        return getTickerSnapshot(mockInfo).pipe(
+          Effect.provideService(HyperliquidRateLimiter, {
+            semaphore,
+            withRateLimit: () => Effect.void,
+          }),
+          Effect.provideService(HyperliquidDeduplicationRegistry, {
+            cache,
+            lookupRef,
+          }),
+        );
+      }).pipe(Effect.flatten);
       const result = await Effect.runPromise(program);
 
       expect(result.universe).toHaveLength(2);
@@ -83,13 +105,33 @@ describe("Hyperliquid Mapping", () => {
         .mockRejectedValueOnce(new Error("DEX Offline"));
 
       const semaphore = makeSemaphoreUnsafe(6);
-      const dedupRef = Ref.makeUnsafe(new Map<string, Deferred.Deferred<any, unknown>>());
-      const program = getTickerSnapshot(mockInfo).pipe(
-        Effect.provideService(HyperliquidRateLimiter, { semaphore }),
-        Effect.provideService(HyperliquidDeduplicationRegistry, {
-          registryRef: dedupRef,
-        }),
-      );
+      const program = Effect.gen(function* () {
+        const lookupRef = yield* Ref.make<Map<string, Effect.Effect<any, HyperliquidError>>>(
+          new Map(),
+        );
+        const cache = yield* Cache.make<string, any, HyperliquidError, never>({
+          capacity: 100,
+          timeToLive: Duration.seconds(30),
+          lookup: (key: string): Effect.Effect<any, HyperliquidError, never> =>
+            Ref.get(lookupRef).pipe(
+              Effect.flatMap((map) => {
+                const effect = map.get(key);
+                if (effect) return effect;
+                return Effect.die(new Error(`[Test] No dedup lookup registered for key: ${key}`));
+              }),
+            ),
+        });
+        return getTickerSnapshot(mockInfo).pipe(
+          Effect.provideService(HyperliquidRateLimiter, {
+            semaphore,
+            withRateLimit: () => Effect.void,
+          }),
+          Effect.provideService(HyperliquidDeduplicationRegistry, {
+            cache,
+            lookupRef,
+          }),
+        );
+      }).pipe(Effect.flatten);
       const result = await Effect.runPromise(program);
 
       expect(result.universe).toHaveLength(1); // Only main DEX succeeded

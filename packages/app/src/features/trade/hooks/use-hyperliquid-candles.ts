@@ -4,11 +4,11 @@ import { normalizeChartDataPoints } from "@0xsignal/shared";
 import { useHyperliquidWs } from "./use-hyperliquid-ws";
 import { useCandleHistory, fetchByRange } from "./use-candle-history";
 import { normalizeSymbol } from "../lib/symbol";
-import { mapToHLInterval, getIntervalMs } from "@/core/utils/hyperliquid";
+import { mapToHLInterval, getIntervalMs, type HLInterval } from "@/core/utils/hyperliquid";
 
 interface UseHyperliquidCandlesOptions {
   symbol: string;
-  interval: string;
+  interval: HLInterval;
   limit?: number;
   enabled?: boolean;
 }
@@ -84,7 +84,8 @@ export function useHyperliquidCandles({
   currentCoinRef.current = coin;
 
   const subscription = useMemo(
-    () => (enabled && coin ? { type: "candle" as const, coin, interval: hlInterval } : null),
+    () =>
+      enabled && coin ? { channel: "candle" as const, symbol: coin, interval: hlInterval } : null,
     [enabled, coin, hlInterval],
   );
 

@@ -1,7 +1,6 @@
 import { Effect, Match } from "effect";
 import * as RedactedNs from "effect/Redacted";
 import type {
-  ApiCredential,
   DecryptedAgentCredential,
   DecryptedEoaCredential,
 } from "../../domain/exchange-credential";
@@ -16,6 +15,7 @@ import {
 import type { EncryptionServicePort } from "../encryption.service";
 import type { ExchangeCredentialRepoPort } from "./exchange-credential.repo";
 import { isPgUniqueViolation, resolveMasterWallet } from "./shared/pg-utils";
+import { mapCredentialRow } from "./exchange-credential.mapper";
 
 export function pgExchangeCredentialRepo(
   pg: NonNullable<import("pg").Pool>,
@@ -170,10 +170,11 @@ export function pgExchangeCredentialRepo(
       ),
 
     getDecryptedAgent: (credentialId, userId) =>
-      Effect.gen(function* () {
-        const rows = yield* Effect.tryPromise(() =>
-          pg.query(
-            `SELECT ac.*,
+      Effect.scoped(
+        Effect.gen(function* () {
+          const rows = yield* Effect.tryPromise(() =>
+            pg.query(
+              `SELECT ac.*,
                     ea.node_type,
                     ea.wallet_address AS account_wallet_address,
                     ea.parent_id AS account_parent_id,
@@ -182,131 +183,134 @@ export function pgExchangeCredentialRepo(
              JOIN exchange_accounts ea ON ea.id = ac.account_id
              JOIN exchanges e ON e.id = ea.exchange_id
              WHERE ac.id = $1 AND ac.user_id = $2`,
-            [credentialId, userId],
-          ),
-        ).pipe(Effect.orDie);
+              [credentialId, userId],
+            ),
+          ).pipe(Effect.orDie);
 
-        if (rows.rows.length === 0) {
-          return yield* Effect.fail(new CredentialNotFound({ credentialId }));
-        }
-        const row = rows.rows[0];
-        const credential = mapCredentialRow(row);
-
-        if (credential.credentialSubtype !== "agent") {
-          return yield* Effect.fail(new CredentialNotFound({ credentialId }));
-        }
-
-        if (row.is_revoked) {
-          return yield* Effect.fail(new CredentialRevoked({ credentialId }));
-        }
-
-        if (row.expires_at) {
-          const expiresAt = new Date(row.expires_at);
-          if (expiresAt < new Date()) {
-            return yield* Effect.fail(new CredentialExpired({ credentialId }));
+          if (rows.rows.length === 0) {
+            return yield* Effect.fail(new CredentialNotFound({ credentialId }));
           }
-        }
+          const row = rows.rows[0];
+          const credential = mapCredentialRow(row);
 
-        if (!row.is_verified) {
-          return yield* Effect.fail(new CredentialUnverified({ credentialId }));
-        }
+          if (credential.credentialSubtype !== "agent") {
+            return yield* Effect.fail(new CredentialNotFound({ credentialId }));
+          }
 
-        if (!row.enc_agent_key) {
-          return yield* Effect.die(new Error("Missing enc_agent_key for agent credential"));
-        }
-        const decryptedKey = yield* enc.decrypt(row.enc_agent_key);
-        const privateKey = RedactedNs.make(decryptedKey);
+          if (row.is_revoked) {
+            return yield* Effect.fail(new CredentialRevoked({ credentialId }));
+          }
 
-        const walletAddress = yield* resolveMasterWallet(pg, row.account_id);
+          if (row.expires_at) {
+            const expiresAt = new Date(row.expires_at);
+            if (expiresAt < new Date()) {
+              return yield* Effect.fail(new CredentialExpired({ credentialId }));
+            }
+          }
 
-        let vaultAddress: string | undefined;
-        if (row.node_type === "sub" || row.node_type === "vault") {
-          vaultAddress = row.account_wallet_address;
-        }
+          if (!row.is_verified) {
+            return yield* Effect.fail(new CredentialUnverified({ credentialId }));
+          }
 
-        yield* writeAudit("read", {
-          userId,
-          credentialId,
-          accountId: row.account_id,
-          context: { resolvedWallet: true },
-        });
+          if (!row.enc_agent_key) {
+            return yield* Effect.die(new Error("Missing enc_agent_key for agent credential"));
+          }
+          const decryptedKey = yield* enc.decrypt(row.enc_agent_key);
+          const privateKey = RedactedNs.make(decryptedKey);
 
-        yield* Effect.forkDetach(markUsed(credentialId));
+          const walletAddress = yield* resolveMasterWallet(pg, row.account_id);
 
-        const result: DecryptedAgentCredential = {
-          privateKey,
-          walletAddress,
-          vaultAddress,
-          agentAddress: row.agent_address ?? "",
-          exchange: row.exchange_slug,
-          permissions: row.permissions ?? [],
-        };
-        return result;
-      }),
+          let vaultAddress: string | undefined;
+          if (row.node_type === "sub" || row.node_type === "vault") {
+            vaultAddress = row.account_wallet_address;
+          }
+
+          yield* writeAudit("read", {
+            userId,
+            credentialId,
+            accountId: row.account_id,
+            context: { resolvedWallet: true },
+          });
+
+          yield* Effect.forkScoped(markUsed(credentialId));
+
+          const result: DecryptedAgentCredential = {
+            privateKey,
+            walletAddress,
+            vaultAddress,
+            agentAddress: row.agent_address ?? "",
+            exchange: row.exchange_slug,
+            permissions: row.permissions ?? [],
+          };
+          return result;
+        }),
+      ),
 
     getDecryptedEoa: (credentialId, userId) =>
-      Effect.gen(function* () {
-        const rows = yield* Effect.tryPromise(() =>
-          pg.query(
-            `SELECT ac.*,
+      Effect.scoped(
+        Effect.gen(function* () {
+          const rows = yield* Effect.tryPromise(() =>
+            pg.query(
+              `SELECT ac.*,
                     ea.wallet_address AS account_wallet_address,
                     e.slug AS exchange_slug
              FROM api_credentials ac
              JOIN exchange_accounts ea ON ea.id = ac.account_id
              JOIN exchanges e ON e.id = ea.exchange_id
              WHERE ac.id = $1 AND ac.user_id = $2`,
-            [credentialId, userId],
-          ),
-        ).pipe(Effect.orDie);
+              [credentialId, userId],
+            ),
+          ).pipe(Effect.orDie);
 
-        if (rows.rows.length === 0) {
-          return yield* Effect.fail(new CredentialNotFound({ credentialId }));
-        }
-        const row = rows.rows[0];
-
-        if (row.credential_subtype !== "eoa") {
-          return yield* Effect.fail(new CredentialNotFound({ credentialId }));
-        }
-
-        if (row.is_revoked) {
-          return yield* Effect.fail(new CredentialRevoked({ credentialId }));
-        }
-
-        if (row.expires_at) {
-          const expiresAt = new Date(row.expires_at);
-          if (expiresAt < new Date()) {
-            return yield* Effect.fail(new CredentialExpired({ credentialId }));
+          if (rows.rows.length === 0) {
+            return yield* Effect.fail(new CredentialNotFound({ credentialId }));
           }
-        }
+          const row = rows.rows[0];
 
-        if (!row.is_verified) {
-          return yield* Effect.fail(new CredentialUnverified({ credentialId }));
-        }
+          if (row.credential_subtype !== "eoa") {
+            return yield* Effect.fail(new CredentialNotFound({ credentialId }));
+          }
 
-        if (!row.enc_eoa_key) {
-          return yield* Effect.die(new Error("Missing enc_eoa_key for EOA credential"));
-        }
-        const decryptedKey = yield* enc.decrypt(row.enc_eoa_key);
-        const privateKey = RedactedNs.make(decryptedKey);
+          if (row.is_revoked) {
+            return yield* Effect.fail(new CredentialRevoked({ credentialId }));
+          }
 
-        const walletAddress = yield* resolveMasterWallet(pg, row.account_id);
+          if (row.expires_at) {
+            const expiresAt = new Date(row.expires_at);
+            if (expiresAt < new Date()) {
+              return yield* Effect.fail(new CredentialExpired({ credentialId }));
+            }
+          }
 
-        yield* writeAudit("read", {
-          userId,
-          credentialId,
-          accountId: row.account_id,
-          context: { resolvedWallet: true },
-        });
+          if (!row.is_verified) {
+            return yield* Effect.fail(new CredentialUnverified({ credentialId }));
+          }
 
-        yield* Effect.forkDetach(markUsed(credentialId));
+          if (!row.enc_eoa_key) {
+            return yield* Effect.die(new Error("Missing enc_eoa_key for EOA credential"));
+          }
+          const decryptedKey = yield* enc.decrypt(row.enc_eoa_key);
+          const privateKey = RedactedNs.make(decryptedKey);
 
-        const result: DecryptedEoaCredential = {
-          privateKey,
-          walletAddress,
-          exchange: row.exchange_slug,
-        };
-        return result;
-      }),
+          const walletAddress = yield* resolveMasterWallet(pg, row.account_id);
+
+          yield* writeAudit("read", {
+            userId,
+            credentialId,
+            accountId: row.account_id,
+            context: { resolvedWallet: true },
+          });
+
+          yield* Effect.forkScoped(markUsed(credentialId));
+
+          const result: DecryptedEoaCredential = {
+            privateKey,
+            walletAddress,
+            exchange: row.exchange_slug,
+          };
+          return result;
+        }),
+      ),
 
     rotate: (oldId, newParams) =>
       Effect.gen(function* () {
@@ -532,36 +536,4 @@ export function pgExchangeCredentialRepo(
   };
 }
 
-// DB row mapping (shared by create/read operations)
-function mapCredentialRow(row: unknown): ApiCredential {
-  const r = row as Record<string, unknown>;
-  return {
-    id: r.id as string,
-    accountId: r.account_id as string,
-    userId: r.user_id as string,
-    credentialSubtype: r.credential_subtype as "agent" | "eoa" | "hardware",
-    label: r.label as string,
-    agentAddress: (r.agent_address as string | undefined) ?? undefined,
-    encAgentKey: (r.enc_agent_key as string | undefined) ?? undefined,
-    encEoaKey: (r.enc_eoa_key as string | undefined) ?? undefined,
-    derivationPath: (r.derivation_path as string | undefined) ?? undefined,
-    permissions: (r.permissions as readonly string[] | undefined) ?? [],
-    ipWhitelist: (r.ip_whitelist as readonly string[] | undefined) ?? undefined,
-    expiresAt: r.expires_at != null ? ts(r.expires_at) : undefined,
-    lastUsedAt: r.last_used_at != null ? ts(r.last_used_at) : undefined,
-    isActive: r.is_active as boolean,
-    isRevoked: r.is_revoked as boolean,
-    revokedAt: r.revoked_at != null ? ts(r.revoked_at) : undefined,
-    revokedReason: (r.revoked_reason as string | undefined) ?? undefined,
-    rotatedFrom: (r.rotated_from as string | undefined) ?? undefined,
-    encryptionVersion: r.encryption_version as number,
-    isVerified: r.is_verified as boolean,
-    verifiedAt: r.verified_at != null ? ts(r.verified_at) : undefined,
-    metadata: (r.metadata as Record<string, unknown>) ?? {},
-    createdAt: ts(r.created_at),
-    updatedAt: ts(r.updated_at),
-  };
-}
-
-const ts = (v: unknown): string =>
-  v instanceof Date ? v.toISOString() : v != null ? String(v) : (v as unknown as string);
+// mapCredentialRow and ts extracted to exchange-credential.mapper.ts

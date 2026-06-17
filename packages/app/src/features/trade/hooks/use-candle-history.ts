@@ -13,6 +13,7 @@ async function fetchHistorical(symbol: string, interval: HLInterval, limit: numb
     });
     return candles.slice(-limit);
   } catch (err) {
+    console.error("Failed to fetch candle history:", err);
     return [];
   }
 }
@@ -31,13 +32,14 @@ export async function fetchByRange(
       endTime,
     });
   } catch (err) {
+    console.error("Failed to fetch candles by range:", err);
     return [];
   }
 }
 
 export function useCandleHistory(
   symbol: string,
-  interval: string,
+  interval: HLInterval,
   limit: number = 200,
   enabled: boolean = true,
 ) {

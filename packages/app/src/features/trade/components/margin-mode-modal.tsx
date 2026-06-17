@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -12,8 +12,8 @@ import { api, type UpdateLeverageRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/core/utils/cn";
 import { UnauthenticatedError } from "@/lib/api-base";
-import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
+import { useAppStore } from "@/stores/use-app-store";
 
 interface MarginModeModalProps {
   open: boolean;
@@ -48,11 +48,15 @@ export function MarginModeModal({
 }: MarginModeModalProps) {
   const [mode, setMode] = useState<"cross" | "isolated">(currentMode);
   const queryClient = useQueryClient();
-  const {
-    open: openConnectWallet,
-    isOpen: isConnectWalletOpen,
-    close: closeConnectWallet,
-  } = useConnectWalletPrompt();
+  const isConnectWalletOpen = useAppStore((s) => s.connectWalletOpen["trade-margin-mode"] ?? false);
+  const openConnectWallet = useCallback(
+    () => useAppStore.getState().openConnectWallet("trade-margin-mode"),
+    [],
+  );
+  const closeConnectWallet = useCallback(
+    () => useAppStore.getState().closeConnectWallet("trade-margin-mode"),
+    [],
+  );
 
   const mutation = useMutation({
     mutationFn: (params: UpdateLeverageRequest) => api.updateLeverage(params),

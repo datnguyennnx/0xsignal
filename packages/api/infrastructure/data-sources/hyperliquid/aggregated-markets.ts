@@ -4,6 +4,7 @@ import { HyperliquidError } from "./errors";
 import { HyperliquidRateLimiter } from "./rate-limiter";
 import { HyperliquidDeduplicationRegistry } from "./dedup";
 import { deduplicatedApiCall } from "./dedup-call";
+import type { DedupCacheValue } from "./provider-cache";
 import {
   extractSpotTokens,
   parsePerpAssets,
@@ -96,7 +97,8 @@ const fetchOptionalData = (
         ? Effect.succeed(preFetchedSpot)
         : deduplicatedApiCall(
             "spotMetaAndAssetCtxs",
-            () => (info.spotMetaAndAssetCtxs?.() ?? Promise.resolve(null)) as Promise<unknown>,
+            () =>
+              (info.spotMetaAndAssetCtxs?.() ?? Promise.resolve(null)) as Promise<DedupCacheValue>,
             "Failed to fetch spot meta and asset ctxs",
           ).pipe(Effect.catch(() => Effect.succeed(null))),
   });

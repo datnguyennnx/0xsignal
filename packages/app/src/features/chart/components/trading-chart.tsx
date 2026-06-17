@@ -1,7 +1,7 @@
 import { useRef, useCallback, useMemo } from "react";
-import { useTheme } from "@/core/providers/theme-provider";
+import { useAppStore } from "@/stores/use-app-store";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
-import { useCandleData } from "@/features/trade/contexts/candle-data-context";
+import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-candles";
 import { useUserFills } from "@/features/trade/hooks/use-user-data";
 
 import { ChartHeader } from "./chart-header";
@@ -15,6 +15,7 @@ import { useIndicators } from "../hooks/use-indicators";
 import { useIndicatorOverlay } from "../hooks/use-indicator-overlay";
 import { useTradeMarkers } from "../hooks/use-trade-markers";
 import { intervalToSeconds } from "@/features/trade/utils/trade-markers";
+import { mapToHLInterval } from "@/core/utils/hyperliquid";
 import { INTERVAL_RESTORE_DELAY } from "../utils/constants";
 import { ChartOhlcOverlay } from "./chart-ohlc-overlay";
 import { HoverProvider, useHoverActions } from "../contexts/hover-context";
@@ -33,14 +34,22 @@ interface TradingChartProps {
 }
 
 const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartProps) => {
-  const { resolvedTheme } = useTheme();
+  const resolvedTheme = useAppStore((s) => s.resolvedTheme);
   const isDark = resolvedTheme === "dark";
   const { getPrecision } = useHyperliquidMeta();
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const { setHoveredCandle } = useHoverActions();
-  const { data, loadMore, hasMore } = useCandleData();
+  const {
+    data: candles,
+    loadMore: loadMoreCandles,
+    hasMore: hasMoreCandles,
+  } = useHyperliquidCandles({ symbol, interval: mapToHLInterval(interval), limit: 350 });
 
   const { isFullscreen, toggleFullscreen, fullscreenContainerRef } = useFullscreen();
+
+  const handleLoadMore = useCallback(async () => {
+    await loadMoreCandles();
+  }, [loadMoreCandles]);
 
   const precision = useMemo(() => getPrecision(symbol), [symbol, getPrecision]);
   const priceFormat = usePriceFormat(precision.pxDecimals);
@@ -52,11 +61,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     handleRemoveIndicator,
     handleResetAll,
     hasActiveOverlays,
-  } = useIndicators({ data });
-
-  const handleLoadMore = useCallback(() => {
-    return loadMore?.(300);
-  }, [loadMore]);
+  } = useIndicators({ data: candles ?? [] });
 
   const { chart, candlestickSeries, volumeSeries } = useChartEngine({
     containerRef: chartContainerRef,
@@ -64,11 +69,11 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     priceFormat,
     onCrosshairMove: setHoveredCandle,
     onLoadMore: handleLoadMore,
-    hasMore: hasMore,
+    hasMore: hasMoreCandles,
   });
 
   useChartData({
-    data,
+    data: candles ?? [],
     isDark,
     candlestickSeries,
     volumeSeries,
@@ -106,7 +111,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     fills: fills ?? [],
     timeframeSec,
     currentCoin: symbol,
-    candles: data,
+    candles: candles ?? [],
   });
 
   const handleIntervalChange = useCallback(
@@ -136,7 +141,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
 
       <div className="flex-1 relative overflow-hidden rounded-lg">
         <div ref={chartContainerRef} className="absolute inset-0 will-change-transform" />
-        {data.length === 0 && (
+        {(candles ?? []).length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground/50 pointer-events-none">
             No recent data
           </div>
@@ -145,10 +150,10 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
           chart={chart}
           series={candlestickSeries}
           markers={markers}
-          candles={data}
+          candles={candles ?? []}
         />
         <IndicatorChips indicators={activeIndicators} />
-        <ChartOhlcOverlay data={data} precision={precision.pxDecimals} />
+        <ChartOhlcOverlay data={candles ?? []} precision={precision.pxDecimals} />
       </div>
     </>
   );

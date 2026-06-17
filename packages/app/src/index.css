@@ -180,6 +180,20 @@
     display: none;
   }
 
+  svg .st1 {
+    fill: #e4761b;
+    stroke: #e4761b;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  svg .st6 {
+    fill: #f6851b;
+    stroke: #f6851b;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   /* Hide number input spinners — styled as regular text fields */
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button {

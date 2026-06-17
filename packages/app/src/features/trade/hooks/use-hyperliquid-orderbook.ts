@@ -4,6 +4,7 @@ import { useHyperliquidWs } from "./use-hyperliquid-ws";
 import { normalizeSymbol } from "../lib/symbol";
 import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query-keys";
+import type { OrderBook } from "@0xsignal/shared";
 import { processRawL2Levels, type OrderbookData, type L2BookLevel } from "@/core/utils/hyperliquid";
 
 export interface TickSizeOption {
@@ -34,7 +35,7 @@ const DEFAULT_N_SIG_FIGS = 5;
 const MIN_N_SIG_FIGS = 2;
 const MAX_N_SIG_FIGS = 5;
 const RESUBSCRIBE_COOLDOWN_MS = 3200;
-const MAX_DEPTH = 25;
+const MAX_DEPTH = 20;
 
 interface UseHyperliquidOrderbookOptions {
   adaptiveNSigFigs?: boolean;
@@ -64,9 +65,9 @@ export function useHyperliquidOrderbook(
 
   const controlledNSigFigs = options.controlledNSigFigs;
   const isControlled = controlledNSigFigs !== undefined;
-  const [uncontrolledSigFigs, setUncontrolledSigFigs] = useState(DEFAULT_N_SIG_FIGS);
-  const activeSigFigs = isControlled
-    ? Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, controlledNSigFigs))
+  const [uncontrolledSigFigs, setUncontrolledSigFigs] = useState<2 | 3 | 4 | 5>(DEFAULT_N_SIG_FIGS);
+  const activeSigFigs: 2 | 3 | 4 | 5 = isControlled
+    ? (Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, controlledNSigFigs)) as 2 | 3 | 4 | 5)
     : uncontrolledSigFigs;
 
   const activeSigFigsRef = useRef(activeSigFigs);
@@ -93,6 +94,19 @@ export function useHyperliquidOrderbook(
     });
   }, []);
 
+  // Snapshot processor — unwraps REST API nested orderbook levels
+
+  const processSnapshot = useCallback(
+    (snapshot: OrderBook) => {
+      const rawLevels = snapshot.orderbook?.levels;
+      if (!Array.isArray(rawLevels) || rawLevels.length !== 2) return;
+      schedule(
+        processRawL2Levels(rawLevels[0] as L2BookLevel[], rawLevels[1] as L2BookLevel[], MAX_DEPTH),
+      );
+    },
+    [schedule],
+  );
+
   //  REST SEED — oneshot snapshot, discarded once WS starts streaming
 
   const { data: restSnapshot } = useQuery({
@@ -105,25 +119,16 @@ export function useHyperliquidOrderbook(
 
   useEffect(() => {
     if (!restSnapshot || wsHasReceivedData.current) return;
-    const raw = restSnapshot as {
-      orderbook?: { levels?: [L2BookLevel[], L2BookLevel[]] };
-      levels?: [L2BookLevel[], L2BookLevel[]];
-    };
-    const levels = raw?.orderbook?.levels ?? raw?.levels;
-    if (levels && Array.isArray(levels) && levels.length === 2) {
-      schedule(
-        processRawL2Levels(
-          (levels[0] ?? []).slice(0, MAX_DEPTH),
-          (levels[1] ?? []).slice(0, MAX_DEPTH),
-        ),
-      );
-    }
-  }, [restSnapshot, schedule]);
+    processSnapshot(restSnapshot);
+  }, [restSnapshot, processSnapshot]);
 
   //  WS STREAMING
 
   const subscription = useMemo(
-    () => (enabled && coin ? { type: "l2Book" as const, coin, nSigFigs: activeSigFigs } : null),
+    () =>
+      enabled && coin
+        ? { channel: "l2Book" as const, symbol: coin, nSigFigs: activeSigFigs }
+        : null,
     [enabled, coin, activeSigFigs],
   );
 
@@ -132,13 +137,17 @@ export function useHyperliquidOrderbook(
       if (ch !== "l2Book") return;
       if (meta?.nSigFigs !== undefined && meta.nSigFigs !== activeSigFigsRef.current) return;
       if (meta?.coin !== undefined && meta.coin !== coinRef.current) return;
-      const book = data as { levels: [L2BookLevel[], L2BookLevel[]] };
-      if (!book?.levels) return;
+      const payload = data as { levels?: unknown };
+      if (!payload?.levels || !Array.isArray(payload.levels) || payload.levels.length !== 2) return;
 
       wsHasReceivedData.current = true;
-      const bids = book.levels[0]?.slice(0, MAX_DEPTH) ?? [];
-      const asks = book.levels[1]?.slice(0, MAX_DEPTH) ?? [];
-      schedule(processRawL2Levels(bids, asks));
+      schedule(
+        processRawL2Levels(
+          payload.levels[0] as L2BookLevel[],
+          payload.levels[1] as L2BookLevel[],
+          MAX_DEPTH,
+        ),
+      );
     },
     [schedule],
   );
@@ -148,23 +157,11 @@ export function useHyperliquidOrderbook(
       const c = coinRef.current;
       if (!c) return;
       const raw = await api.getOrderbook(c, activeSigFigsRef.current);
-      const book = raw as {
-        orderbook?: { levels?: [L2BookLevel[], L2BookLevel[]] };
-        levels?: [L2BookLevel[], L2BookLevel[]];
-      };
-      const levels = book?.orderbook?.levels ?? book?.levels;
-      if (levels && Array.isArray(levels) && levels.length === 2) {
-        schedule(
-          processRawL2Levels(
-            (levels[0] ?? []).slice(0, MAX_DEPTH),
-            (levels[1] ?? []).slice(0, MAX_DEPTH),
-          ),
-        );
-      }
+      processSnapshot(raw);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch REST snapshot");
     }
-  }, [schedule]);
+  }, [processSnapshot]);
 
   const ws = useHyperliquidWs({
     subscription,
@@ -176,9 +173,9 @@ export function useHyperliquidOrderbook(
 
   const resubscribe = useCallback(
     (nSigFigs: number) => {
-      const next = Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, nSigFigs));
+      const next = Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, nSigFigs)) as 2 | 3 | 4 | 5;
       if (!coin || !ws.resubscribe || next === activeSigFigsRef.current) return;
-      ws.resubscribe({ type: "l2Book", coin, nSigFigs: next });
+      ws.resubscribe({ channel: "l2Book", symbol: coin, nSigFigs: next });
       if (!isControlled) setUncontrolledSigFigs(next);
     },
     [coin, ws, isControlled],

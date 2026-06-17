@@ -1,5 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { Effect, Layer, Ref } from "effect";
+import { Cache, Duration } from "effect";
 import { makeUnsafe as makeSemaphoreUnsafe } from "effect/Semaphore";
 import type { InfoClient } from "@nktkas/hyperliquid";
 import {
@@ -10,6 +11,7 @@ import {
   getTradeAnnotation,
 } from "../provider";
 import { HyperliquidClient } from "../client";
+import { HyperliquidError } from "../errors";
 import { HyperliquidRateLimiter } from "../rate-limiter";
 import { HyperliquidDeduplicationRegistry } from "../dedup";
 
@@ -32,13 +34,29 @@ const TestHLClientLayer = Layer.succeed(
 
 const TestRateLimiterLayer = Layer.succeed(
   HyperliquidRateLimiter,
-  HyperliquidRateLimiter.of({ semaphore: makeSemaphoreUnsafe(6) }),
+  HyperliquidRateLimiter.of({
+    semaphore: makeSemaphoreUnsafe(6),
+    withRateLimit: () => Effect.void,
+  }),
 );
 
-const TestDedupLayer = Layer.succeed(
+const TestDedupLayer = Layer.effect(
   HyperliquidDeduplicationRegistry,
-  HyperliquidDeduplicationRegistry.of({
-    registryRef: Ref.makeUnsafe(new Map()),
+  Effect.gen(function* () {
+    const lookupRef = yield* Ref.make<Map<string, Effect.Effect<any, HyperliquidError>>>(new Map());
+    const cache = yield* Cache.make<string, any, HyperliquidError, never>({
+      capacity: 100,
+      timeToLive: Duration.seconds(30),
+      lookup: (key: string): Effect.Effect<any, HyperliquidError, never> =>
+        Ref.get(lookupRef).pipe(
+          Effect.flatMap((map) => {
+            const effect = map.get(key);
+            if (effect) return effect;
+            return Effect.die(new Error(`[Test] No dedup lookup registered for key: ${key}`));
+          }),
+        ),
+    });
+    return HyperliquidDeduplicationRegistry.of({ cache, lookupRef });
   }),
 );
 

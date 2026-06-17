@@ -11,7 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { useLayout, commitLayout } from "../contexts/layout-store";
+import { useLayoutStore } from "@/stores/use-layout-store";
 import { ResizableWrapper } from "./resizable-wrapper";
 import { useLiftAndFloat } from "../hooks/use-lift-and-float";
 import { GRID_ROW_HEIGHT, GRID_GUTTER } from "../utils/constants";
@@ -48,13 +48,13 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(800); // fallback
 
-  const layout = useLayout();
+  const layout = useLayoutStore((s) => s.items);
 
   const handleResizeCommit = useCallback(
     (id: string, x: number, y: number, w: number, h: number) => {
       const originalItem = layout.find((item) => item.i === id);
       const newItems = layout.map((item) => (item.i === id ? { ...item, x, y, w, h } : item));
-      commitLayout(newItems, id, "resize", originalItem);
+      useLayoutStore.getState().commitLayout(newItems, id, "resize", originalItem);
     },
     [layout],
   );
@@ -62,7 +62,7 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
   const handleRepositionCommit = useCallback(
     (id: string, x: number, y: number) => {
       const newItems = layout.map((item) => (item.i === id ? { ...item, x, y } : item));
-      commitLayout(newItems, id, "drag");
+      useLayoutStore.getState().commitLayout(newItems, id, "drag");
     },
     [layout],
   );

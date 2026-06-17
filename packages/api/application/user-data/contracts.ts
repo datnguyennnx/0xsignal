@@ -1,5 +1,5 @@
 import { Context, type Effect } from "effect";
-import type { DomainError } from "../errors";
+import type { AppError } from "../errors";
 import type {
   ClearinghouseState,
   SpotClearinghouseState,
@@ -18,27 +18,27 @@ export class UserDataService extends Context.Service<
   {
     readonly getClearinghouseState: (
       walletAddress: string,
-    ) => Effect.Effect<ClearinghouseState, DomainError>;
+    ) => Effect.Effect<ClearinghouseState, AppError>;
     readonly getSpotClearinghouseState: (
       walletAddress: string,
-    ) => Effect.Effect<SpotClearinghouseState, DomainError>;
-    readonly getOpenOrders: (walletAddress: string) => Effect.Effect<OpenOrder[], DomainError>;
+    ) => Effect.Effect<SpotClearinghouseState, AppError>;
+    readonly getOpenOrders: (walletAddress: string) => Effect.Effect<OpenOrder[], AppError>;
     readonly getFrontendOpenOrders: (
       walletAddress: string,
-    ) => Effect.Effect<FrontendOpenOrder[], DomainError>;
-    readonly getMeta: () => Effect.Effect<AggregatedMarket[], DomainError>;
+    ) => Effect.Effect<FrontendOpenOrder[], AppError>;
+    readonly getMeta: () => Effect.Effect<AggregatedMarket[], AppError>;
     readonly getHistoricalOrders: (
       walletAddress: string,
-    ) => Effect.Effect<HistoricalOrderEntry[], DomainError>;
-    readonly getUserFills: (walletAddress: string) => Effect.Effect<UserFill[], DomainError>;
-    readonly getPortfolio: (walletAddress: string) => Effect.Effect<PortfolioResponse, DomainError>;
+    ) => Effect.Effect<HistoricalOrderEntry[], AppError>;
+    readonly getUserFills: (walletAddress: string) => Effect.Effect<UserFill[], AppError>;
+    readonly getPortfolio: (walletAddress: string) => Effect.Effect<PortfolioResponse, AppError>;
     readonly getUserVaultEquities: (
       walletAddress: string,
-    ) => Effect.Effect<UserVaultEquity[], DomainError>;
+    ) => Effect.Effect<UserVaultEquity[], AppError>;
     readonly getUserFunding: (
       walletAddress: string,
       startTime?: number,
       endTime?: number,
-    ) => Effect.Effect<UserFundingEntry[], DomainError>;
+    ) => Effect.Effect<UserFundingEntry[], AppError>;
   }
 >()("UserDataService") {}

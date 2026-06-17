@@ -3,7 +3,7 @@ import { useConnect, useConnection, useConnectors } from "wagmi";
 import { Metamask, Coinbase } from "@thesvg/react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/services/api";
-import { useAuth } from "@/core/providers/use-auth";
+import { useAuthStore } from "@/stores/use-auth-store";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ interface ConnectWalletDialogProps {
 }
 
 export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogProps) {
-  const { refreshWalletStatus } = useAuth();
+  const refreshWalletStatus = useAuthStore((s) => s.refreshWalletStatus);
   const { mutate } = useConnect({
     mutation: {
       onSuccess: async (data) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent } from "react";
+import { useState, useEffect, useCallback, type ChangeEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -16,8 +16,8 @@ import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/core/utils/cn";
 import { AlertTriangleIcon } from "lucide-react";
 import { UnauthenticatedError } from "@/lib/api-base";
-import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
+import { useAppStore } from "@/stores/use-app-store";
 
 interface AdjustLeverageModalProps {
   open: boolean;
@@ -43,11 +43,17 @@ export function AdjustLeverageModal({
 }: AdjustLeverageModalProps) {
   const [leverage, setLeverage] = useState(currentLeverage);
   const queryClient = useQueryClient();
-  const {
-    open: openConnectWallet,
-    isOpen: isConnectWalletOpen,
-    close: closeConnectWallet,
-  } = useConnectWalletPrompt();
+  const isConnectWalletOpen = useAppStore(
+    (s) => s.connectWalletOpen["trade-adjust-leverage"] ?? false,
+  );
+  const openConnectWallet = useCallback(
+    () => useAppStore.getState().openConnectWallet("trade-adjust-leverage"),
+    [],
+  );
+  const closeConnectWallet = useCallback(
+    () => useAppStore.getState().closeConnectWallet("trade-adjust-leverage"),
+    [],
+  );
 
   // Sync state when prop changes (e.g. modal opened for a different asset)
   useEffect(() => {

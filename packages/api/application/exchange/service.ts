@@ -1,5 +1,5 @@
-import { Clock, Effect, Layer, Ref } from "effect";
-import type { ExchangeClient, InfoClient } from "@nktkas/hyperliquid";
+import { Cache, Duration, Effect, Layer, Match, Schedule } from "effect";
+import type { ExchangeClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../hyperliquid/contracts";
 import { ExchangeService, type ExchangeError } from "./contracts";
 import { HyperliquidInternalError } from "../../domain/errors";
@@ -15,11 +15,7 @@ const withExchangeClient = <A>(
   userId: string,
   accountRepo: typeof ExchangeAccountRepo.Service,
   credentialRepo: typeof ExchangeCredentialRepo.Service,
-  metaCache: Ref.Ref<{
-    readonly value?: { universe: Array<{ name: string }> };
-    readonly expiresAt: number;
-  }>,
-  info: InfoClient,
+  metaCache: Cache.Cache<string, { universe: Array<{ name: string }> }, HyperliquidInternalError>,
   fn: (ctx: {
     exchange: ExchangeClient;
     vaultAddress: string | undefined;
@@ -33,39 +29,16 @@ const withExchangeClient = <A>(
       credentialRepo,
     );
 
-    const meta = yield* getCachedMetaInner(metaCache, info);
+    const meta = yield* getCachedMetaInner(metaCache);
     const coinToAsset = buildCoinToAsset(meta);
 
     return yield* fn({ exchange, vaultAddress, coinToAsset });
   });
 
 const getCachedMetaInner = (
-  metaCache: Ref.Ref<{
-    readonly value?: { universe: Array<{ name: string }> };
-    readonly expiresAt: number;
-  }>,
-  info: InfoClient,
+  cache: Cache.Cache<string, { universe: Array<{ name: string }> }, HyperliquidInternalError>,
 ): Effect.Effect<{ universe: Array<{ name: string }> }, HyperliquidInternalError> =>
-  Effect.gen(function* () {
-    const cached = yield* Ref.get(metaCache);
-    const now = yield* Clock.currentTimeMillis;
-    if (cached.value !== undefined && cached.expiresAt > now) {
-      return cached.value;
-    }
-    const value = yield* Effect.tryPromise({
-      try: () => info.meta(),
-      catch: (e) =>
-        new HyperliquidInternalError({
-          message: "Failed to fetch market metadata",
-          cause: e,
-        }),
-    });
-    yield* Ref.set(metaCache, {
-      value,
-      expiresAt: now + 300_000,
-    });
-    return value;
-  });
+  Cache.get(cache, "meta");
 
 export const exchangeServiceLayer = Layer.effect(
   ExchangeService,
@@ -74,10 +47,24 @@ export const exchangeServiceLayer = Layer.effect(
     const accountRepo = yield* ExchangeAccountRepo;
     const credentialRepo = yield* ExchangeCredentialRepo;
 
-    const metaCache = yield* Ref.make<{
-      readonly value?: { universe: Array<{ name: string }> };
-      readonly expiresAt: number;
-    }>({ expiresAt: 0 });
+    const metaCache = yield* Cache.make<
+      string,
+      { universe: Array<{ name: string }> },
+      HyperliquidInternalError
+    >({
+      capacity: 1,
+      timeToLive: Duration.minutes(5),
+      lookup: () =>
+        Effect.tryPromise({
+          try: () => info.meta(),
+          catch: (e) =>
+            new HyperliquidInternalError({
+              message: "Failed to fetch market metadata",
+              cause: e,
+              endpoint: "info.meta()",
+            }),
+        }),
+    });
 
     return ExchangeService.of({
       placeOrder: (params, userId) =>
@@ -86,7 +73,6 @@ export const exchangeServiceLayer = Layer.effect(
           accountRepo,
           credentialRepo,
           metaCache,
-          info,
           ({ exchange, vaultAddress, coinToAsset }) =>
             Effect.gen(function* () {
               const hlOrders = yield* Effect.forEach(params.orders, (o) =>
@@ -94,7 +80,10 @@ export const exchangeServiceLayer = Layer.effect(
                   const a = coinToAsset.get(o.symbol);
                   if (a === undefined) {
                     return yield* Effect.fail(
-                      new HyperliquidInternalError({ message: `Unknown coin: ${o.symbol}` }),
+                      new HyperliquidInternalError({
+                        message: `Unknown coin: ${o.symbol}`,
+                        symbol: o.symbol,
+                      }),
                     );
                   }
                   return {
@@ -126,10 +115,21 @@ export const exchangeServiceLayer = Layer.effect(
                   ),
                 catch: classifyExchangeError,
               }).pipe(
+                Effect.retry({
+                  schedule: Schedule.exponential("200 millis").pipe(Schedule.take(3)),
+                  while: (error) =>
+                    Match.value(error).pipe(
+                      Match.tag("HyperliquidInternalError", () => true),
+                      Match.orElse(() => false),
+                    ),
+                }),
                 Effect.timeout("30 seconds"),
                 Effect.catchTag("TimeoutError", () =>
                   Effect.fail(
-                    new HyperliquidInternalError({ message: "Exchange order timed out" }),
+                    new HyperliquidInternalError({
+                      message: "Exchange order timed out",
+                      endpoint: "exchange.order()",
+                    }),
                   ),
                 ),
               );
@@ -142,13 +142,15 @@ export const exchangeServiceLayer = Layer.effect(
           accountRepo,
           credentialRepo,
           metaCache,
-          info,
           ({ exchange, vaultAddress, coinToAsset }) =>
             Effect.gen(function* () {
               const assetIndex = coinToAsset.get(params.symbol);
               if (assetIndex === undefined) {
                 return yield* Effect.fail(
-                  new HyperliquidInternalError({ message: `Unknown coin: ${params.symbol}` }),
+                  new HyperliquidInternalError({
+                    message: `Unknown coin: ${params.symbol}`,
+                    symbol: params.symbol,
+                  }),
                 );
               }
 
@@ -165,10 +167,22 @@ export const exchangeServiceLayer = Layer.effect(
                   ),
                 catch: classifyExchangeError,
               }).pipe(
+                Effect.retry({
+                  schedule: Schedule.exponential("200 millis").pipe(Schedule.take(3)),
+                  while: (error) =>
+                    Match.value(error).pipe(
+                      Match.tag("HyperliquidInternalError", () => true),
+                      Match.orElse(() => false),
+                    ),
+                }),
                 Effect.timeout("30 seconds"),
                 Effect.catchTag("TimeoutError", () =>
                   Effect.fail(
-                    new HyperliquidInternalError({ message: "Exchange leverage update timed out" }),
+                    new HyperliquidInternalError({
+                      message: "Exchange leverage update timed out",
+                      endpoint: "exchange.updateLeverage()",
+                      symbol: params.symbol,
+                    }),
                   ),
                 ),
               );
@@ -181,7 +195,6 @@ export const exchangeServiceLayer = Layer.effect(
           accountRepo,
           credentialRepo,
           metaCache,
-          info,
           ({ exchange, vaultAddress, coinToAsset }) =>
             Effect.gen(function* () {
               const cancels: Array<{ a: number; o: number }> = [];
@@ -189,7 +202,10 @@ export const exchangeServiceLayer = Layer.effect(
                 const a = coinToAsset.get(c.symbol);
                 if (a === undefined) {
                   return yield* Effect.fail(
-                    new HyperliquidInternalError({ message: `Unknown coin: ${c.symbol}` }),
+                    new HyperliquidInternalError({
+                      message: `Unknown coin: ${c.symbol}`,
+                      symbol: c.symbol,
+                    }),
                   );
                 }
                 cancels.push({ a, o: c.orderId });
@@ -198,13 +214,23 @@ export const exchangeServiceLayer = Layer.effect(
               const cancelOpts = vaultAddress ? { vaultAddress } : {};
               return yield* Effect.tryPromise({
                 try: () => exchange.cancel({ cancels }, cancelOpts),
-                catch: (e) =>
-                  new HyperliquidInternalError({ message: "Failed to cancel orders", cause: e }),
+                catch: classifyExchangeError,
               }).pipe(
+                Effect.retry({
+                  schedule: Schedule.exponential("200 millis").pipe(Schedule.take(3)),
+                  while: (error) =>
+                    Match.value(error).pipe(
+                      Match.tag("HyperliquidInternalError", () => true),
+                      Match.orElse(() => false),
+                    ),
+                }),
                 Effect.timeout("30 seconds"),
                 Effect.catchTag("TimeoutError", () =>
                   Effect.fail(
-                    new HyperliquidInternalError({ message: "Exchange cancel timed out" }),
+                    new HyperliquidInternalError({
+                      message: "Exchange cancel timed out",
+                      endpoint: "exchange.cancel()",
+                    }),
                   ),
                 ),
               );

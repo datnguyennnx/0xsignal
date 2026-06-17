@@ -1,6 +1,6 @@
-import { Context, type Effect } from "effect";
+import { Context, Data, type Effect } from "effect";
 import type { Candle, CoverageResult } from "@0xsignal/shared";
-import type { DomainError } from "../errors";
+import type { AppError } from "../errors";
 import type { AggregatedMarket } from "@0xsignal/shared";
 import type {
   CandleQuery,
@@ -11,8 +11,14 @@ import type {
 } from "./types";
 import type { MarketTimeframe } from "../../domain/market-data/timeframe";
 
+export class MarketProviderError extends Data.TaggedError("MarketProviderError")<{
+  readonly kind: "NOT_FOUND" | "UPSTREAM" | "RATE_LIMITED" | "BAD_REQUEST" | "INTERNAL";
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}
+
 export interface MarketCandleStorePort {
-  readonly getCandles: (query: CandleQuery) => Effect.Effect<Candle[], unknown>;
+  readonly getCandles: (query: CandleQuery) => Effect.Effect<Candle[], MarketProviderError>;
 }
 
 export interface MarketRemoteProviderPort {
@@ -21,14 +27,19 @@ export interface MarketRemoteProviderPort {
     timeframe: MarketTimeframe,
     startTime: number,
     endTime: number,
-  ) => Effect.Effect<Candle[], unknown>;
-  readonly getAggregatedMarkets: () => Effect.Effect<readonly AggregatedMarket[], unknown>;
-  readonly getTicker?: (symbol: string) => Effect.Effect<MarketTicker, unknown>;
+  ) => Effect.Effect<Candle[], MarketProviderError>;
+  readonly getAggregatedMarkets: () => Effect.Effect<
+    readonly AggregatedMarket[],
+    MarketProviderError
+  >;
+  readonly getTicker?: (symbol: string) => Effect.Effect<MarketTicker, MarketProviderError>;
   readonly getOrderBook?: (
     symbol: string,
     depth?: number,
-  ) => Effect.Effect<MarketOrderBook, unknown>;
-  readonly getTradeAnnotation?: (symbol: string) => Effect.Effect<MarketTradeAnnotation, unknown>;
+  ) => Effect.Effect<MarketOrderBook, MarketProviderError>;
+  readonly getTradeAnnotation?: (
+    symbol: string,
+  ) => Effect.Effect<MarketTradeAnnotation, MarketProviderError>;
 }
 
 export class MarketCandleStore extends Context.Service<MarketCandleStore, MarketCandleStorePort>()(
@@ -47,22 +58,20 @@ export class MarketDataService extends Context.Service<
       query: CandleQuery,
     ) => Effect.Effect<
       { candles: Candle[]; provenance: string; coverage: CoverageResult },
-      DomainError
+      AppError
     >;
     readonly getRecentCandles: (
       query: RecentCandleQuery,
     ) => Effect.Effect<
       { candles: Candle[]; provenance: string; coverage: CoverageResult },
-      DomainError
+      AppError
     >;
-    readonly discoverMarkets: () => Effect.Effect<unknown, DomainError>;
-    readonly getTicker: (symbol: string) => Effect.Effect<MarketTicker, DomainError>;
+    readonly discoverMarkets: () => Effect.Effect<readonly AggregatedMarket[], AppError>;
+    readonly getTicker: (symbol: string) => Effect.Effect<MarketTicker, AppError>;
     readonly getOrderBook: (
       symbol: string,
       depth?: number,
-    ) => Effect.Effect<MarketOrderBook, DomainError>;
-    readonly getTradeAnnotation: (
-      symbol: string,
-    ) => Effect.Effect<MarketTradeAnnotation, DomainError>;
+    ) => Effect.Effect<MarketOrderBook, AppError>;
+    readonly getTradeAnnotation: (symbol: string) => Effect.Effect<MarketTradeAnnotation, AppError>;
   }
 >()("MarketDataService") {}

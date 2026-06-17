@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Terminal, Plug, Lock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
@@ -9,10 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { SaveBar } from "@/components/save-bar";
-import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
-import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
-import { useAuth } from "@/core/providers/use-auth";
+import { useAuthStore } from "@/stores/use-auth-store";
+import { useAppStore } from "@/stores/use-app-store";
 import { api } from "@/services/api";
 
 function truncateAddress(addr: string) {
@@ -20,13 +19,22 @@ function truncateAddress(addr: string) {
 }
 
 export function ApiConsole() {
-  const {
-    open: openConnectPrompt,
-    isOpen: isConnectWalletOpen,
-    close: closeConnectWallet,
-  } = useConnectWalletPrompt();
+  const isConnectWalletOpen = useAppStore(
+    (s) => s.connectWalletOpen["settings-api-console"] ?? false,
+  );
+  const openConnectPrompt = useCallback(
+    () => useAppStore.getState().openConnectWallet("settings-api-console"),
+    [],
+  );
+  const closeConnectWallet = useCallback(
+    () => useAppStore.getState().closeConnectWallet("settings-api-console"),
+    [],
+  );
   const { address, isConnected } = useAccount();
-  const { isAuthenticated, isLoading, hasLinkedWallet, refreshWalletStatus } = useAuth();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const hasLinkedWallet = useAuthStore((s) => s.hasLinkedWallet);
+  const refreshWalletStatus = useAuthStore((s) => s.refreshWalletStatus);
   const navigate = useNavigate();
 
   const [agentPrivateKey, setAgentPrivateKey] = useState("");
@@ -37,7 +45,16 @@ export function ApiConsole() {
   const [initialLabel] = useState("");
 
   const hasChanges = agentPrivateKey !== initialAgentPrivateKey || label !== initialLabel;
-  useUnsavedChanges(hasChanges);
+  useEffect(() => {
+    if (hasChanges) {
+      useAppStore.getState().markDirty("settings-api-console");
+    } else {
+      useAppStore.getState().markClean("settings-api-console");
+    }
+    return () => {
+      useAppStore.getState().markClean("settings-api-console");
+    };
+  }, [hasChanges]);
 
   const handleSave = async () => {
     if (!isConnected || !address) {

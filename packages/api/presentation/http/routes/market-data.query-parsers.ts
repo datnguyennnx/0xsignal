@@ -1,11 +1,12 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import type { HttpError } from "../error-response";
+import { asHttpError } from "../error-response";
 import { parseOptionalSigFigsParam } from "../utils/param-parsers";
-import { WS_MARKET_INTERVALS, type WsMarketInterval } from "@0xsignal/shared";
+import { MarketTimeframeSchema, type MarketTimeframe } from "../../../domain/market-data/timeframe";
+import { WS_MARKET_INTERVALS } from "@0xsignal/shared";
 
 // Re-export for convenience — these are single-source-of-truth from @0xsignal/shared
 export { WS_MARKET_INTERVALS };
-export type MarketInterval = WsMarketInterval;
 
 const badRequest = (message: string): Effect.Effect<never, HttpError> =>
   Effect.fail({ status: 400, message });
@@ -74,13 +75,12 @@ export const parseOptionalSigFigs = (
 
 export const parseInterval = (
   params: URLSearchParams,
-): Effect.Effect<MarketInterval, HttpError> => {
+): Effect.Effect<MarketTimeframe, HttpError> => {
   const value = params.get("interval") ?? params.get("timeframe");
   if (!value) {
     return badRequest("Missing required query parameter: interval");
   }
-  if (!WS_MARKET_INTERVALS.includes(value as MarketInterval)) {
-    return badRequest(`Unsupported interval: ${value}`);
-  }
-  return Effect.succeed(value as MarketInterval);
+  return Schema.decodeUnknownEffect(MarketTimeframeSchema)(value).pipe(
+    Effect.mapError(() => asHttpError(400, `Unsupported interval: ${value}`)),
+  );
 };
