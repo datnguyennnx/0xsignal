@@ -9,6 +9,6 @@ export const hyperliquidClientLayer = Layer.effect(
   Effect.sync(() =>
     HyperliquidClient.of({
       info: new InfoClient({ transport: new HttpTransport() }),
-    })
-  )
+    }),
+  ),
 );

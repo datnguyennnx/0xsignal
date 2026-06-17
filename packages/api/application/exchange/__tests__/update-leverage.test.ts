@@ -36,9 +36,9 @@ describe("ExchangeService — order operations", () => {
           const svc = yield* ExchangeService;
           return yield* svc.updateLeverageAndMargin(
             { symbol: "ETH", isCross: true, leverage: 10 },
-            USER_A
+            USER_A,
           );
-        }).pipe(Effect.provide(makeTestLayer()))
+        }).pipe(Effect.provide(makeTestLayer())),
       );
 
       expect(mockExchangeInstance.updateLeverage).toHaveBeenCalledWith(
@@ -47,7 +47,7 @@ describe("ExchangeService — order operations", () => {
           isCross: true,
           leverage: 10,
         },
-        {}
+        {},
       );
     });
 
@@ -62,9 +62,9 @@ describe("ExchangeService — order operations", () => {
           const svc = yield* ExchangeService;
           return yield* svc.updateLeverageAndMargin(
             { symbol: "SOL", isCross: false, leverage: 5 },
-            USER_A
+            USER_A,
           );
-        }).pipe(Effect.provide(makeTestLayer()))
+        }).pipe(Effect.provide(makeTestLayer())),
       );
 
       expect(mockExchangeInstance.updateLeverage).toHaveBeenCalledWith(
@@ -73,7 +73,7 @@ describe("ExchangeService — order operations", () => {
           isCross: false,
           leverage: 5,
         },
-        {}
+        {},
       );
     });
   });

@@ -3,7 +3,7 @@ import { getTimeframeMs, type MarketTimeframe } from "../../domain/market-data/t
 export const alignRangeToTimeframe = (
   timeframe: MarketTimeframe,
   startTime: Date,
-  endTime: Date
+  endTime: Date,
 ): { startTime: Date; endTime: Date } => {
   const timeframeMs = getTimeframeMs(timeframe);
   const alignedStartMs = Math.ceil(startTime.getTime() / timeframeMs) * timeframeMs;

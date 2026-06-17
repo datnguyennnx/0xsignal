@@ -6,16 +6,16 @@ import { OAuthCallbackFailed } from "../../domain/errors";
 export interface GoogleProviderPort {
   readonly generateState: () => Effect.Effect<string>;
   readonly createAuthorizationUrl: (
-    state: string
+    state: string,
   ) => Effect.Effect<{ url: URL; codeVerifier: string }>;
   readonly fetchProfile: (
     code: string,
-    codeVerifier: string | null
+    codeVerifier: string | null,
   ) => Effect.Effect<OAuthProfile, OAuthCallbackFailed>;
 }
 
 export class GoogleProvider extends Context.Service<GoogleProvider, GoogleProviderPort>()(
-  "GoogleProvider"
+  "GoogleProvider",
 ) {}
 
 const disabledGoogleProvider = GoogleProvider.of({
@@ -28,13 +28,13 @@ export const GoogleProviderLayer: Layer.Layer<GoogleProvider, never, never> = La
   GoogleProvider,
   Effect.gen(function* () {
     const maybeClientId = yield* Config.option(Config.string("GOOGLE_CLIENT_ID")).pipe(
-      Effect.orDie
+      Effect.orDie,
     );
     const maybeClientSecret = yield* Config.option(Config.string("GOOGLE_CLIENT_SECRET")).pipe(
-      Effect.orDie
+      Effect.orDie,
     );
     const maybeRedirectUri = yield* Config.option(Config.string("GOOGLE_REDIRECT_URI")).pipe(
-      Effect.orDie
+      Effect.orDie,
     );
 
     if (
@@ -91,5 +91,5 @@ export const GoogleProviderLayer: Layer.Layer<GoogleProvider, never, never> = La
           catch: (cause) => new OAuthCallbackFailed({ cause }),
         }),
     });
-  })
+  }),
 );

@@ -22,7 +22,7 @@ type UserDataHttpService = {
 type RouteHandler = (
   request: Request,
   url: URL,
-  userData: UserDataHttpService
+  userData: UserDataHttpService,
 ) => Effect.Effect<Response, HttpError>;
 
 type BuildUserDataRoutesParams = {
@@ -166,7 +166,7 @@ export const buildUserDataRoutes = ({
           .getUserFunding(
             walletAddress,
             startTime ? Number(startTime) : undefined,
-            endTime ? Number(endTime) : undefined
+            endTime ? Number(endTime) : undefined,
           )
           .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });

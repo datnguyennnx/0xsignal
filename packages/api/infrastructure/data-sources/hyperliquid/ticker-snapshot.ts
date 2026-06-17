@@ -50,7 +50,7 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
 
   const marketIndex = snapshot.universe.findIndex(
     (item) =>
-      lookupSymbols.includes(item.name) || lookupSymbols.includes(normalizeSymbol(item.name))
+      lookupSymbols.includes(item.name) || lookupSymbols.includes(normalizeSymbol(item.name)),
   );
   let ctx: MarketAssetCtxItem | undefined;
 
@@ -69,7 +69,7 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
 
   const fallbackMid = lookupSymbols.reduce<string | undefined>(
     (found, s) => found ?? snapshot.allMids[s],
-    undefined
+    undefined,
   );
   const mid =
     toNumberOrNull(ctx?.midPx) ?? toNumberOrNull(ctx?.markPx) ?? toNumberOrNull(fallbackMid);
@@ -101,7 +101,7 @@ export const isPerpSymbol = (snapshot: TickerSnapshot, symbol: string): boolean 
       u.name === normalized ||
       normalizeSymbol(u.name) === normalized ||
       (unprefixed !== undefined &&
-        (u.name === unprefixed || normalizeSymbol(u.name) === unprefixed))
+        (u.name === unprefixed || normalizeSymbol(u.name) === unprefixed)),
   );
 };
 
@@ -126,7 +126,7 @@ export const resolveInternalSymbol = (snapshot: TickerSnapshot, symbol: string):
       u.name === normalized ||
       normalizeSymbol(u.name) === normalized ||
       (unprefixed !== undefined &&
-        (u.name === unprefixed || normalizeSymbol(u.name) === unprefixed))
+        (u.name === unprefixed || normalizeSymbol(u.name) === unprefixed)),
   );
   if (perp) return perp.name;
 

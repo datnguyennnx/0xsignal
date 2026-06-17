@@ -13,7 +13,7 @@ export const CorsServiceLayer = Layer.effect(
   CorsService,
   Effect.gen(function* () {
     const frontendUrl = yield* Config.string("FRONTEND_URL").pipe(
-      Config.withDefault("http://localhost:5173")
+      Config.withDefault("http://localhost:5173"),
     );
 
     const headers = {
@@ -39,5 +39,5 @@ export const CorsServiceLayer = Layer.effect(
         return responseHeaders;
       },
     });
-  })
+  }),
 );

@@ -3,7 +3,7 @@ import type { IndicatorDataPoint } from "../types";
 
 export const calculateStandardDeviation = (
   data: ChartDataPoint[],
-  period: number
+  period: number,
 ): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   if (data.length < period) return result;
@@ -64,7 +64,7 @@ export const calculateZScore = (data: ChartDataPoint[], period: number): Indicat
 
 export const calculateRegressionSlope = (
   data: ChartDataPoint[],
-  period: number
+  period: number,
 ): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   if (data.length < period) return result;

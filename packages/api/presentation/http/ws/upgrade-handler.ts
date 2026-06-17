@@ -16,7 +16,7 @@ export const handleWsUpgrade = (
   url: URL,
   req: Request,
   server: Server<unknown>,
-  marketStreamHub: MarketStreamHubPort
+  marketStreamHub: MarketStreamHubPort,
 ): Response | undefined => {
   if (url.pathname !== "/api/ws/market") return undefined;
 

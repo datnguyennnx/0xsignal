@@ -20,16 +20,16 @@ interface GitHubEmail {
 export interface GitHubProviderPort {
   readonly generateState: () => Effect.Effect<string>;
   readonly createAuthorizationUrl: (
-    state: string
+    state: string,
   ) => Effect.Effect<{ url: URL; codeVerifier: null }>;
   readonly fetchProfile: (
     code: string,
-    codeVerifier: string | null
+    codeVerifier: string | null,
   ) => Effect.Effect<OAuthProfile, OAuthCallbackFailed>;
 }
 
 export class GitHubProvider extends Context.Service<GitHubProvider, GitHubProviderPort>()(
-  "GitHubProvider"
+  "GitHubProvider",
 ) {}
 
 const disabledGitHubProvider = GitHubProvider.of({
@@ -42,13 +42,13 @@ export const GitHubProviderLayer: Layer.Layer<GitHubProvider, never, never> = La
   GitHubProvider,
   Effect.gen(function* () {
     const maybeClientId = yield* Config.option(Config.string("GITHUB_CLIENT_ID")).pipe(
-      Effect.orDie
+      Effect.orDie,
     );
     const maybeClientSecret = yield* Config.option(Config.string("GITHUB_CLIENT_SECRET")).pipe(
-      Effect.orDie
+      Effect.orDie,
     );
     const maybeRedirectUri = yield* Config.option(Config.string("GITHUB_REDIRECT_URI")).pipe(
-      Effect.orDie
+      Effect.orDie,
     );
 
     if (
@@ -120,8 +120,8 @@ export const GitHubProviderLayer: Layer.Layer<GitHubProvider, never, never> = La
           },
           catch: (cause) => new OAuthCallbackFailed({ cause }),
         }).pipe(
-          Effect.tapError((err) => Effect.logError("GitHub OAuth error", { cause: err.cause }))
+          Effect.tapError((err) => Effect.logError("GitHub OAuth error", { cause: err.cause })),
         ),
     });
-  })
+  }),
 );

@@ -34,7 +34,7 @@ export const calculateSTC = (
   fastPeriod: number,
   slowPeriod: number,
   cyclePeriod: number,
-  smoothPeriod: number
+  smoothPeriod: number,
 ): IndicatorDataPoint[] => {
   if (data.length < slowPeriod + cyclePeriod) return [];
 
@@ -80,7 +80,7 @@ export const calculateKRI = (data: ChartDataPoint[], period: number): IndicatorD
 export const calculateDVO = (
   data: ChartDataPoint[],
   maPeriod: number,
-  rankPeriod: number
+  rankPeriod: number,
 ): IndicatorDataPoint[] => {
   const detrended: { time: number; value: number }[] = [];
   if (data.length < maPeriod + rankPeriod) return [];
@@ -142,7 +142,7 @@ export const calculateVZO = (data: ChartDataPoint[], period: number): IndicatorD
 
 export const calculateVortexSpread = (
   data: ChartDataPoint[],
-  period: number
+  period: number,
 ): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   if (data.length <= period) return result;
@@ -158,8 +158,8 @@ export const calculateVortexSpread = (
       Math.max(
         data[i].high - data[i].low,
         Math.abs(data[i].high - data[i - 1].close),
-        Math.abs(data[i].low - data[i - 1].close)
-      )
+        Math.abs(data[i].low - data[i - 1].close),
+      ),
     );
   }
 

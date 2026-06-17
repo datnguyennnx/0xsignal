@@ -14,11 +14,11 @@ interface SqlMigrationFile {
 
 const loadSqlMigrations = (
   fs: FileSystem,
-  sqlDir: string
+  sqlDir: string,
 ): Effect.Effect<ReadonlyArray<SqlMigrationFile>, never> =>
   Effect.gen(function* () {
     const files = yield* Effect.catch(fs.readDirectory(sqlDir), () =>
-      Effect.succeed<ReadonlyArray<string>>([])
+      Effect.succeed<ReadonlyArray<string>>([]),
     );
 
     const migrations: Array<SqlMigrationFile> = [];
@@ -51,7 +51,7 @@ const ensureMigrationsTable = (sql: SqlClient): Effect.Effect<void, SqlError> =>
 const getAppliedMigrationIds = (sql: SqlClient): Effect.Effect<ReadonlySet<number>, SqlError> =>
   Effect.gen(function* () {
     const rows = yield* sql.unsafe<{ migration_id: number }>(
-      `SELECT migration_id FROM ${TABLE_NAME} ORDER BY migration_id`
+      `SELECT migration_id FROM ${TABLE_NAME} ORDER BY migration_id`,
     );
     return new Set(rows.map((r) => r.migration_id));
   });
@@ -97,7 +97,7 @@ export const runSqlMigrations = Effect.gen(function* () {
           migration.id,
           migration.name,
         ]);
-      })
+      }),
     );
 
     applied.push([migration.id, migration.name]);

@@ -39,7 +39,7 @@ describe("ExchangeService — order operations", () => {
         Effect.gen(function* () {
           const svc = yield* ExchangeService;
           return yield* svc.cancelOrders({ cancels: [{ symbol: "BTC", orderId: 12345 }] }, USER_A);
-        }).pipe(Effect.provide(makeTestLayer()))
+        }).pipe(Effect.provide(makeTestLayer())),
       );
 
       expect(mockInfoInstance.meta).toHaveBeenCalled();
@@ -47,7 +47,7 @@ describe("ExchangeService — order operations", () => {
         {
           cancels: [{ a: 0, o: 12345 }],
         },
-        {}
+        {},
       );
     });
 
@@ -67,9 +67,9 @@ describe("ExchangeService — order operations", () => {
                 { symbol: "SOL", orderId: 222 },
               ],
             },
-            USER_A
+            USER_A,
           );
-        }).pipe(Effect.provide(makeTestLayer()))
+        }).pipe(Effect.provide(makeTestLayer())),
       );
 
       expect(mockExchangeInstance.cancel).toHaveBeenCalledWith(
@@ -79,7 +79,7 @@ describe("ExchangeService — order operations", () => {
             { a: 2, o: 222 },
           ],
         },
-        {}
+        {},
       );
     });
 
@@ -92,7 +92,7 @@ describe("ExchangeService — order operations", () => {
           return yield* svc.cancelOrders({ cancels: [{ symbol: "UNKNOWN", orderId: 1 }] }, USER_A);
         })
           .pipe(Effect.provide(makeTestLayer()))
-          .pipe(Effect.flip)
+          .pipe(Effect.flip),
       );
 
       expect(result).toBeInstanceOf(HyperliquidInternalError);

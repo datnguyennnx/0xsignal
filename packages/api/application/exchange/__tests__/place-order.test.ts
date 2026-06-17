@@ -57,9 +57,9 @@ describe("ExchangeService — order operations", () => {
                 },
               ],
             },
-            USER_A
+            USER_A,
           );
-        }).pipe(Effect.provide(makeTestLayer()))
+        }).pipe(Effect.provide(makeTestLayer())),
       );
 
       const callArg = mockExchangeInstance.order.mock.calls[0][0];
@@ -95,11 +95,11 @@ describe("ExchangeService — order operations", () => {
                 },
               ],
             },
-            USER_A
+            USER_A,
           );
         })
           .pipe(Effect.provide(makeTestLayer()))
-          .pipe(Effect.flip)
+          .pipe(Effect.flip),
       );
 
       expect(result).toBeInstanceOf(InsufficientMarginError);
@@ -136,11 +136,11 @@ describe("ExchangeService — order operations", () => {
                 },
               ],
             },
-            USER_A
+            USER_A,
           );
         })
           .pipe(Effect.provide(makeTestLayer()))
-          .pipe(Effect.flip)
+          .pipe(Effect.flip),
       );
 
       expect(result).toBeInstanceOf(HyperliquidValidationError);
@@ -184,9 +184,9 @@ describe("ExchangeService — order operations", () => {
               ],
               grouping: "normalTpsl",
             },
-            USER_A
+            USER_A,
           );
-        }).pipe(Effect.provide(makeTestLayer()))
+        }).pipe(Effect.provide(makeTestLayer())),
       );
 
       const callArg = mockExchangeInstance.order.mock.calls[0][0];
@@ -222,9 +222,9 @@ describe("ExchangeService — order operations", () => {
               ],
               grouping: "na",
             },
-            USER_A
+            USER_A,
           );
-        }).pipe(Effect.provide(makeTestLayer()))
+        }).pipe(Effect.provide(makeTestLayer())),
       );
 
       const callArg = mockExchangeInstance.order.mock.calls[0][0];
@@ -243,12 +243,12 @@ describe("ExchangeService — order operations", () => {
                 findPrimary: vi
                   .fn()
                   .mockReturnValue(
-                    Effect.fail(new AccountNotFound({ accountId: "primary@user-a/hyperliquid" }))
+                    Effect.fail(new AccountNotFound({ accountId: "primary@user-a/hyperliquid" })),
                   ),
-              })
-            )
+              }),
+            ),
           )
-          .pipe(Effect.flip)
+          .pipe(Effect.flip),
       );
 
       expect(result).toBeInstanceOf(AccountNotFound);

@@ -25,7 +25,7 @@ export const withAuth =
           UserSuspended: (err) =>
             Effect.succeed({ _tag: "suspended" as const, userId: err.userId }),
         }),
-        Effect.catch(() => Effect.succeed({ _tag: "error" as const }))
+        Effect.catch(() => Effect.succeed({ _tag: "error" as const })),
       );
 
       return yield* Match.value(sessionResult).pipe(
@@ -34,16 +34,16 @@ export const withAuth =
             new Response(JSON.stringify({ error: "Forbidden: Account suspended" }), {
               status: 403,
               headers: { "Content-Type": "application/json" },
-            })
-          )
+            }),
+          ),
         ),
         Match.when({ _tag: "error" }, () =>
           Effect.succeed(
             new Response(JSON.stringify({ error: "Token invalid or expired" }), {
               status: 401,
               headers: { "Content-Type": "application/json" },
-            })
-          )
+            }),
+          ),
         ),
         Match.orElse((s) =>
           handler(s.session).pipe(
@@ -52,10 +52,10 @@ export const withAuth =
                 new Response(JSON.stringify({ error: "Internal error" }), {
                   status: 500,
                   headers: { "Content-Type": "application/json" },
-                })
-              )
-            )
-          )
-        )
+                }),
+              ),
+            ),
+          ),
+        ),
       );
     });

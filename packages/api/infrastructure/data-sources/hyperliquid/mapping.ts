@@ -24,7 +24,7 @@ export { getAggregatedMarketsSnapshot, getSpotTokens } from "./aggregated-market
 
 const fetchBaseSnapshot = (
   info: HyperliquidInfoClient,
-  skipPerpDexs = false
+  skipPerpDexs = false,
 ): Effect.Effect<
   [Array<null | { name: string }>, Record<string, string>],
   never,
@@ -37,28 +37,28 @@ const fetchBaseSnapshot = (
         : deduplicatedApiCall(
             "perpDexs",
             () => info.perpDexs?.() ?? Promise.resolve([]),
-            "Failed to fetch perp DEXs"
+            "Failed to fetch perp DEXs",
           ).pipe(
             Effect.tapError((e) =>
               Effect.logWarning(
-                `[mapping] perpDexs fetch failed, falling back to empty: ${String(e)}`
-              )
+                `[mapping] perpDexs fetch failed, falling back to empty: ${String(e)}`,
+              ),
             ),
-            Effect.catch(() => Effect.succeed([] as Array<null | { name: string }>))
+            Effect.catch(() => Effect.succeed([] as Array<null | { name: string }>)),
           ),
       deduplicatedApiCall("allMids", () => info.allMids(), "Failed to fetch mids").pipe(
         Effect.tapError((e) =>
-          Effect.logWarning(`[mapping] allMids fetch failed, falling back to empty: ${String(e)}`)
+          Effect.logWarning(`[mapping] allMids fetch failed, falling back to empty: ${String(e)}`),
         ),
-        Effect.catch(() => Effect.succeed({} as Record<string, string>))
+        Effect.catch(() => Effect.succeed({} as Record<string, string>)),
       ),
     ],
-    { concurrency: 3 }
+    { concurrency: 3 },
   );
 
 export const getTickerSnapshot = (
   info: HyperliquidInfoClient,
-  symbol?: string
+  symbol?: string,
 ): Effect.Effect<
   TickerSnapshot,
   HyperliquidError,
@@ -88,14 +88,14 @@ export const getTickerSnapshot = (
             info.metaAndAssetCtxs(dexName ? { dex: dexName } : undefined) as Promise<
               [unknown, unknown]
             >,
-          `Failed to fetch meta for ${dexName || "main"}`
-        ).pipe(Effect.catch(() => Effect.succeed([null, null] as [unknown, unknown])))
+          `Failed to fetch meta for ${dexName || "main"}`,
+        ).pipe(Effect.catch(() => Effect.succeed([null, null] as [unknown, unknown]))),
       ),
-      { concurrency: 3 }
+      { concurrency: 3 },
     );
 
     const { flattenedUniverse, flattenedAssetCtxs } = processMetaResults(
-      metaResults as [unknown, unknown][]
+      metaResults as [unknown, unknown][],
     );
 
     return {

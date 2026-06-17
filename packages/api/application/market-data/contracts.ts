@@ -20,19 +20,19 @@ export interface MarketRemoteProviderPort {
     symbol: string,
     timeframe: MarketTimeframe,
     startTime: number,
-    endTime: number
+    endTime: number,
   ) => Effect.Effect<Candle[], unknown>;
   readonly getAggregatedMarkets: () => Effect.Effect<readonly AggregatedMarket[], unknown>;
   readonly getTicker?: (symbol: string) => Effect.Effect<MarketTicker, unknown>;
   readonly getOrderBook?: (
     symbol: string,
-    depth?: number
+    depth?: number,
   ) => Effect.Effect<MarketOrderBook, unknown>;
   readonly getTradeAnnotation?: (symbol: string) => Effect.Effect<MarketTradeAnnotation, unknown>;
 }
 
 export class MarketCandleStore extends Context.Service<MarketCandleStore, MarketCandleStorePort>()(
-  "MarketCandleStore"
+  "MarketCandleStore",
 ) {}
 
 export class MarketRemoteProvider extends Context.Service<
@@ -44,13 +44,13 @@ export class MarketDataService extends Context.Service<
   MarketDataService,
   {
     readonly getCandles: (
-      query: CandleQuery
+      query: CandleQuery,
     ) => Effect.Effect<
       { candles: Candle[]; provenance: string; coverage: CoverageResult },
       DomainError
     >;
     readonly getRecentCandles: (
-      query: RecentCandleQuery
+      query: RecentCandleQuery,
     ) => Effect.Effect<
       { candles: Candle[]; provenance: string; coverage: CoverageResult },
       DomainError
@@ -59,10 +59,10 @@ export class MarketDataService extends Context.Service<
     readonly getTicker: (symbol: string) => Effect.Effect<MarketTicker, DomainError>;
     readonly getOrderBook: (
       symbol: string,
-      depth?: number
+      depth?: number,
     ) => Effect.Effect<MarketOrderBook, DomainError>;
     readonly getTradeAnnotation: (
-      symbol: string
+      symbol: string,
     ) => Effect.Effect<MarketTradeAnnotation, DomainError>;
   }
 >()("MarketDataService") {}

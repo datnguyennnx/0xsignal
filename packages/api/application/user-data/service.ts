@@ -25,7 +25,7 @@ export const userDataServiceLayer = Layer.effect(
 
       getSpotClearinghouseState: (walletAddress) =>
         callInfoApi("spotClearinghouseState", () =>
-          info.spotClearinghouseState({ user: walletAddress })
+          info.spotClearinghouseState({ user: walletAddress }),
         ),
 
       getOpenOrders: (walletAddress) =>
@@ -58,5 +58,5 @@ export const userDataServiceLayer = Layer.effect(
           return info.userFunding(params);
         }),
     });
-  })
+  }),
 );

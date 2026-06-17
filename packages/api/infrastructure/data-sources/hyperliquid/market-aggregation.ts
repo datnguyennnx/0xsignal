@@ -39,7 +39,7 @@ export const processMetaResults = (metaResults: [unknown, unknown][]) => {
 
 export function sortAndDedupeAssets(
   perpAssets: PerpTradeAsset[],
-  spotAssets: SpotTradeAsset[]
+  spotAssets: SpotTradeAsset[],
 ): HyperliquidAggregatedAsset[] {
   const combined: HyperliquidAggregatedAsset[] = [...perpAssets, ...spotAssets];
   const sorted = [...combined].sort((a, b) => {

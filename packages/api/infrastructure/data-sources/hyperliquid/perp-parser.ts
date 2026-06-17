@@ -68,7 +68,7 @@ const buildPerpAsset = (
   allMids: Record<string, string>,
   categoryMap: ReadonlyMap<string, string>,
   quoteCurrency: string,
-  globalIndex: number
+  globalIndex: number,
 ): PerpTradeAsset | null => {
   const rawName = typeof market.name === "string" ? market.name : "";
   if (!rawName) return null;
@@ -126,7 +126,7 @@ export function parsePerpAssets(
   allMids: Record<string, string>,
   categoryMap: ReadonlyMap<string, string>,
   resolvedTokens: string[],
-  startIndex: number
+  startIndex: number,
 ): [PerpTradeAsset[], number] {
   const dex = extractDexMetaResult(rawResult);
   if (!dex) return [[], startIndex];
@@ -151,7 +151,7 @@ export function parsePerpAssets(
       allMids,
       categoryMap,
       quoteCurrency,
-      globalIndex
+      globalIndex,
     );
     if (asset === null) continue;
     assets.push(asset);

@@ -8,7 +8,7 @@ export const intParam = (
   min: number,
   max: number,
   step: number,
-  description?: string
+  description?: string,
 ): IndicatorParamDefinition => ({
   key,
   label,
@@ -25,7 +25,7 @@ export const floatParam = (
   min: number,
   max: number,
   step: number,
-  description?: string
+  description?: string,
 ): IndicatorParamDefinition => ({
   key,
   label,
@@ -46,7 +46,7 @@ export const staticIndicator = (
     allowMultiple?: boolean;
     output?: import("../types").IndicatorOutputType;
     overlayOnPrice: boolean;
-  }
+  },
 ): import("../types").IndicatorConfig => ({
   ...config,
   defaultParams: config.defaultParams ?? {},

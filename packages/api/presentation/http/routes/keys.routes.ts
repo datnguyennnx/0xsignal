@@ -17,7 +17,7 @@ type KeyRouteHandler = (
   url: URL,
   accountRepo: AccountRepoService,
   credentialRepo: CredentialRepoService,
-  userId?: string
+  userId?: string,
 ) => Effect.Effect<Response, HttpError, HyperliquidClient>;
 
 type BuildKeyRoutesParams = {
@@ -53,9 +53,9 @@ export const buildKeyRoutes = ({
         });
 
         const { agentAddress, agentPrivateKey, label } = yield* Schema.decodeUnknownEffect(
-          CreateKeySchema
+          CreateKeySchema,
         )(raw).pipe(
-          Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`))
+          Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`)),
         );
 
         // agentPrivateKey is sensitive — wrap in Redacted before passing to repo
@@ -71,15 +71,15 @@ export const buildKeyRoutes = ({
           })
           .pipe(
             Effect.catchTag("AccountNotFound", () =>
-              Effect.fail(asHttpError(404, "Wallet not found"))
+              Effect.fail(asHttpError(404, "Wallet not found")),
             ),
             Effect.catchTag("DuplicateLabel", (e) =>
-              Effect.fail(asHttpError(409, `Duplicate label: "${e.label}"`))
+              Effect.fail(asHttpError(409, `Duplicate label: "${e.label}"`)),
             ),
             Effect.catchTag("EncryptionFailed", () =>
-              Effect.fail(asHttpError(500, "Failed to encrypt credential key"))
+              Effect.fail(asHttpError(500, "Failed to encrypt credential key")),
             ),
-            Effect.mapError(mapServiceError)
+            Effect.mapError(mapServiceError),
           );
 
         return json({
@@ -110,7 +110,7 @@ export const buildKeyRoutes = ({
           .getActiveForAccount(accountId, userId, "agent")
           .pipe(
             Effect.catchTag("CredentialNotFound", () => Effect.succeed(null as never)),
-            Effect.mapError(mapServiceError)
+            Effect.mapError(mapServiceError),
           );
 
         if (!maybeCredential) {
@@ -155,18 +155,18 @@ export const buildKeyRoutes = ({
         // Step 1: Get decrypted credential (skips is_verified check)
         const decrypted = yield* credentialRepo.getForVerification(credentialId, userId).pipe(
           Effect.catchTag("CredentialNotFound", () =>
-            Effect.fail(asHttpError(404, "Credential not found"))
+            Effect.fail(asHttpError(404, "Credential not found")),
           ),
           Effect.catchTag("CredentialRevoked", () =>
-            Effect.fail(asHttpError(403, "Credential has been revoked"))
+            Effect.fail(asHttpError(403, "Credential has been revoked")),
           ),
           Effect.catchTag("CredentialExpired", () =>
-            Effect.fail(asHttpError(403, "Credential has expired"))
+            Effect.fail(asHttpError(403, "Credential has expired")),
           ),
           Effect.catchTag("EncryptionFailed", () =>
-            Effect.fail(asHttpError(500, "Failed to decrypt credential"))
+            Effect.fail(asHttpError(500, "Failed to decrypt credential")),
           ),
-          Effect.mapError(mapServiceError)
+          Effect.mapError(mapServiceError),
         );
 
         // Step 2: Call Hyperliquid Info API to verify the credential exists
@@ -181,16 +181,16 @@ export const buildKeyRoutes = ({
 
         if (!hlState) {
           return yield* Effect.fail(
-            asHttpError(422, "Verification failed: no account state returned from Hyperliquid")
+            asHttpError(422, "Verification failed: no account state returned from Hyperliquid"),
           );
         }
 
         // Step 3: Mark as verified
         yield* credentialRepo.setVerified(credentialId, userId).pipe(
           Effect.catchTag("CredentialNotFound", () =>
-            Effect.fail(asHttpError(404, "Credential not found after verification"))
+            Effect.fail(asHttpError(404, "Credential not found after verification")),
           ),
-          Effect.mapError(mapServiceError)
+          Effect.mapError(mapServiceError),
         );
 
         // Step 4: Audit log
@@ -226,9 +226,9 @@ export const buildKeyRoutes = ({
 
         yield* credentialRepo.revoke(credentialId, "user_initiated", userId).pipe(
           Effect.catchTag("CredentialNotFound", () =>
-            Effect.fail(asHttpError(404, "Credential not found"))
+            Effect.fail(asHttpError(404, "Credential not found")),
           ),
-          Effect.mapError(mapServiceError)
+          Effect.mapError(mapServiceError),
         );
 
         return new Response(null, { status: 204 });

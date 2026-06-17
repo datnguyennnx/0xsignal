@@ -76,13 +76,13 @@ export function calculateEMA(data: ChartDataPoint[], period: number): IndicatorD
 }
 export function calculateWMAIndicator(
   data: ChartDataPoint[],
-  period: number = 20
+  period: number = 20,
 ): IndicatorDataPoint[] {
   return calculateWMA(data, period);
 }
 export function calculateHMAIndicator(
   data: ChartDataPoint[],
-  period: number = 21
+  period: number = 21,
 ): IndicatorDataPoint[] {
   return calculateHMA(data, period);
 }
@@ -92,14 +92,14 @@ export function calculateADX(data: ChartDataPoint[], period: number = 14): Indic
 export function calculateParabolicSAR(
   data: ChartDataPoint[],
   step: number = 0.02,
-  maxStep: number = 0.2
+  maxStep: number = 0.2,
 ): IndicatorDataPoint[] {
   return calculateParabolicSARFromTrend(data, step, maxStep);
 }
 export function calculateSuperTrend(
   data: ChartDataPoint[],
   period: number = 10,
-  multiplier: number = 3
+  multiplier: number = 3,
 ): IndicatorDataPoint[] {
   return calculateSuperTrendFromTrend(data, period, multiplier);
 }
@@ -111,7 +111,7 @@ export function calculateVWMA(data: ChartDataPoint[], period: number = 20): Indi
 export function calculateBollingerBands(
   data: ChartDataPoint[],
   period: number = 20,
-  stdDev: number = 2
+  stdDev: number = 2,
 ): BandIndicatorDataPoint[] {
   return calculateBollingerBandsFromVolatility(data, period, stdDev);
 }
@@ -120,14 +120,14 @@ export function calculateATR(data: ChartDataPoint[], period: number = 14): Indic
 }
 export function calculateDonchianChannels(
   data: ChartDataPoint[],
-  period: number = 20
+  period: number = 20,
 ): BandIndicatorDataPoint[] {
   return calculateDonchianChannelsFromVolatility(data, period);
 }
 export function calculateKeltnerChannels(
   data: ChartDataPoint[],
   period: number = 20,
-  multiplier: number = 2
+  multiplier: number = 2,
 ): BandIndicatorDataPoint[] {
   const middleSeries = calculateEMA(data, period);
   const atrSeries = calculateATR(data, period);
@@ -156,26 +156,26 @@ export function calculateRSI(data: ChartDataPoint[], period: number = 14): Indic
 export function calculateMACDLine(
   data: ChartDataPoint[],
   fastPeriod: number = 12,
-  slowPeriod: number = 26
+  slowPeriod: number = 26,
 ): IndicatorDataPoint[] {
   return calculateMACDLineFromMomentum(data, fastPeriod, slowPeriod, calculateEMAFromTrend);
 }
 export function calculateStochasticK(
   data: ChartDataPoint[],
-  kPeriod: number = 14
+  kPeriod: number = 14,
 ): IndicatorDataPoint[] {
   return calculateStochasticKFromMomentum(data, kPeriod);
 }
 export function calculateWilliamsR(
   data: ChartDataPoint[],
-  period: number = 14
+  period: number = 14,
 ): IndicatorDataPoint[] {
   return calculateWilliamsRFromMomentum(data, period);
 }
 export function calculateAO(
   data: ChartDataPoint[],
   fastPeriod: number = 5,
-  slowPeriod: number = 34
+  slowPeriod: number = 34,
 ): IndicatorDataPoint[] {
   return calculateAwesomeOscillator(data, fastPeriod, slowPeriod);
 }
@@ -183,7 +183,7 @@ export function calculateUO(
   data: ChartDataPoint[],
   short: number = 7,
   med: number = 14,
-  long: number = 28
+  long: number = 28,
 ): IndicatorDataPoint[] {
   return calculateUltimateOscillator(data, short, med, long);
 }
@@ -195,14 +195,14 @@ export function calculateROC(data: ChartDataPoint[], period: number = 12): Indic
 }
 export function calculateMomentum(
   data: ChartDataPoint[],
-  period: number = 10
+  period: number = 10,
 ): IndicatorDataPoint[] {
   return calculateMomentumFromMomentum(data, period);
 }
 export function calculateTSI(
   data: ChartDataPoint[],
   long: number = 25,
-  short: number = 13
+  short: number = 13,
 ): IndicatorDataPoint[] {
   return calculateTSIFromMomentum(data, long, short);
 }
@@ -233,19 +233,19 @@ export function calculateADLine(data: ChartDataPoint[]): IndicatorDataPoint[] {
 // Statistics indicators
 export function calculateZScoreIndicator(
   data: ChartDataPoint[],
-  period: number = 30
+  period: number = 30,
 ): IndicatorDataPoint[] {
   return calculateZScore(data, period);
 }
 export function calculateStdDevIndicator(
   data: ChartDataPoint[],
-  period: number = 20
+  period: number = 20,
 ): IndicatorDataPoint[] {
   return calculateStandardDeviation(data, period);
 }
 export function calculateLinRegSlopeIndicator(
   data: ChartDataPoint[],
-  period: number = 50
+  period: number = 50,
 ): IndicatorDataPoint[] {
   return calculateRegressionSlope(data, period);
 }
@@ -253,19 +253,19 @@ export function calculateLinRegSlopeIndicator(
 // Regime indicators
 export function calculateATRPIndicator(
   data: ChartDataPoint[],
-  period: number = 14
+  period: number = 14,
 ): IndicatorDataPoint[] {
   return calculateATRP(data, period);
 }
 export function calculateChoppinessIndicator(
   data: ChartDataPoint[],
-  period: number = 14
+  period: number = 14,
 ): IndicatorDataPoint[] {
   return calculateChoppiness(data, period);
 }
 export function calculateEfficiencyRatioIndicator(
   data: ChartDataPoint[],
-  period: number = 10
+  period: number = 10,
 ): IndicatorDataPoint[] {
   return calculateEfficiencyRatio(data, period);
 }
@@ -276,14 +276,14 @@ export function calculateSTCIndicator(
   f: number,
   s: number,
   c: number,
-  sm: number
+  sm: number,
 ): IndicatorDataPoint[] {
   return calculateSTC(data, f, s, c, sm);
 }
 export function calculateDVOIndicator(
   data: ChartDataPoint[],
   ma: number,
-  rank: number
+  rank: number,
 ): IndicatorDataPoint[] {
   return calculateDVO(data, ma, rank);
 }
@@ -301,7 +301,7 @@ export function calculateVortexIndicator(data: ChartDataPoint[], p: number): Ind
 export function calculatePPOIndicator(
   data: ChartDataPoint[],
   f: number,
-  s: number
+  s: number,
 ): IndicatorDataPoint[] {
   return calculatePPO(data, f, s);
 }
@@ -312,21 +312,21 @@ export function calculateStochRSIIndicator(
   data: ChartDataPoint[],
   r: number,
   st: number,
-  sm: number
+  sm: number,
 ): IndicatorDataPoint[] {
   return calculateStochRSI(data, r, st, sm);
 }
 export function calculateVolumeOscillatorIndicator(
   data: ChartDataPoint[],
   s: number,
-  l: number
+  l: number,
 ): IndicatorDataPoint[] {
   return calculateVolumeOscillator(data, s, l);
 }
 export function calculateChaikinOscillatorIndicator(
   data: ChartDataPoint[],
   f: number,
-  s: number
+  s: number,
 ): IndicatorDataPoint[] {
   return calculateChaikinOscillator(data, f, s);
 }
@@ -336,13 +336,13 @@ export function calculateEOMIndicator(data: ChartDataPoint[], p: number): Indica
 export function calculateHistoricalVolatilityIndicator(
   data: ChartDataPoint[],
   p: number,
-  ann: number
+  ann: number,
 ): IndicatorDataPoint[] {
   return calculateHistoricalVolatility(data, p, ann);
 }
 export function calculateAroonOscillatorIndicator(
   data: ChartDataPoint[],
-  p: number
+  p: number,
 ): IndicatorDataPoint[] {
   return calculateAroonOscillator(data, p);
 }

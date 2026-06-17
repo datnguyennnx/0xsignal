@@ -20,9 +20,9 @@ export const TICKER_SNAPSHOT_TTL_MS = 30_000;
 export const provideServicesFor =
   (rateLimiter: RateLimiterSvc, dedup: DedupRegistrySvc) =>
   <A, E>(
-    effect: Effect.Effect<A, E, HyperliquidRateLimiter | HyperliquidDeduplicationRegistry>
+    effect: Effect.Effect<A, E, HyperliquidRateLimiter | HyperliquidDeduplicationRegistry>,
   ): Effect.Effect<A, E> =>
     effect.pipe(
       Effect.provideService(HyperliquidRateLimiter, rateLimiter),
-      Effect.provideService(HyperliquidDeduplicationRegistry, dedup)
+      Effect.provideService(HyperliquidDeduplicationRegistry, dedup),
     );

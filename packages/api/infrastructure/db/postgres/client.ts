@@ -16,7 +16,7 @@ export const postgresConnectionPoolLayer = Layer.effect(
   Effect.acquireRelease(
     Effect.gen(function* () {
       const maybeUrl = yield* Config.option(
-        Config.string("DATABASE_URL").pipe(Config.orElse(() => Config.string("POSTGRES_URL")))
+        Config.string("DATABASE_URL").pipe(Config.orElse(() => Config.string("POSTGRES_URL"))),
       );
 
       if (Option.isNone(maybeUrl)) {
@@ -49,6 +49,6 @@ export const postgresConnectionPoolLayer = Layer.effect(
           try: () => pool.end(),
           catch: (error) => new PostgresConnectionError({ message: String(error), cause: error }),
         }).pipe(Effect.catch((err) => Effect.logError(`Error closing pool: ${err.message}`)));
-      })
-  )
+      }),
+  ),
 );

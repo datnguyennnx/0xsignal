@@ -28,7 +28,7 @@ interface CorsConfig {
 export const createFetchHandler = (
   runtime: ManagedRuntime<unknown, unknown>,
   cors: CorsConfig,
-  marketStreamHub: MarketStreamHubPort
+  marketStreamHub: MarketStreamHubPort,
 ) => {
   const corsHeaders = cors.headers;
   const applyCors = cors.applyTo;
@@ -58,7 +58,7 @@ export const createFetchHandler = (
         Effect.gen(function* () {
           yield* Effect.logInfo(`${req.method} ${url.pathname}`);
           return yield* handleRequest(req);
-        })
+        }),
       );
 
       const headers = applyCors(new Headers(response.headers));

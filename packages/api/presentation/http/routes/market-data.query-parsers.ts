@@ -28,7 +28,7 @@ const badRequest = (message: string): Effect.Effect<never, HttpError> =>
 
 export const parseRequiredString = (
   params: URLSearchParams,
-  key: string
+  key: string,
 ): Effect.Effect<string, HttpError> => {
   const value = params.get(key)?.trim();
   if (!value) {
@@ -39,7 +39,7 @@ export const parseRequiredString = (
 
 export const parseOptionalDate = (
   params: URLSearchParams,
-  key: string
+  key: string,
 ): Effect.Effect<Date | undefined, HttpError> => {
   const value = params.get(key);
   if (!value) {
@@ -56,7 +56,7 @@ export const parseOptionalDate = (
 
 export const parseOptionalPositiveInt = (
   params: URLSearchParams,
-  key: string
+  key: string,
 ): Effect.Effect<number | undefined, HttpError> => {
   const rawValue = params.get(key);
   if (!rawValue) {
@@ -78,7 +78,7 @@ export const parseOptionalPositiveInt = (
 
 export const parseOptionalSigFigs = (
   params: URLSearchParams,
-  key: string
+  key: string,
 ): Effect.Effect<2 | 3 | 4 | 5 | undefined, HttpError> => {
   const value = parseOptionalSigFigsParam(params, key);
   if (value === null) {
@@ -89,7 +89,7 @@ export const parseOptionalSigFigs = (
 };
 
 export const parseInterval = (
-  params: URLSearchParams
+  params: URLSearchParams,
 ): Effect.Effect<MarketInterval, HttpError> => {
   const value = params.get("interval") ?? params.get("timeframe");
   if (!value) {

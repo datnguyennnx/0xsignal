@@ -13,11 +13,11 @@ export const mapMarketInfraError =
           const message =
             typeof candidate.message === "string" ? candidate.message : fallbackMessage;
           return mapKindToDomainError(candidate.kind, message, candidate);
-        }
+        },
       ),
       Match.orElse(
-        () => new DomainError({ code: "INTERNAL_ERROR", message: fallbackMessage, cause: error })
-      )
+        () => new DomainError({ code: "INTERNAL_ERROR", message: fallbackMessage, cause: error }),
+      ),
     )(error);
 
 const mapKindToDomainError = (kind: unknown, message: string, cause: unknown): DomainError =>
@@ -25,5 +25,5 @@ const mapKindToDomainError = (kind: unknown, message: string, cause: unknown): D
     Match.when("BAD_REQUEST", () => new DomainError({ code: "VALIDATION_ERROR", message, cause })),
     Match.when("NOT_FOUND", () => new DomainError({ code: "NOT_FOUND", message, cause })),
     Match.when("UPSTREAM", () => new DomainError({ code: "INTERNAL_ERROR", message, cause })),
-    Match.orElse(() => new DomainError({ code: "INTERNAL_ERROR", message, cause }))
+    Match.orElse(() => new DomainError({ code: "INTERNAL_ERROR", message, cause })),
   );

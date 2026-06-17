@@ -25,7 +25,7 @@ type MarketDataHttpService = {
 type RouteHandler = (
   request: Request,
   url: URL,
-  marketData: MarketDataHttpService
+  marketData: MarketDataHttpService,
 ) => Effect.Effect<Response, HttpError>;
 
 type BuildMarketDataRoutesParams = {

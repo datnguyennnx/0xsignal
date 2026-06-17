@@ -77,7 +77,7 @@ export function toHlInterval(timeframe: MarketTimeframe): HlInterval {
     Match.when("12h", () => "12h" as const),
     Match.when("1d", () => "1d" as const),
     Match.when("1w", () => "1w" as const),
-    Match.exhaustive
+    Match.exhaustive,
   );
 }
 

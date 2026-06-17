@@ -20,7 +20,7 @@ export const calculateATRP = (data: ChartDataPoint[], period: number): Indicator
 
 export const calculateChoppiness = (
   data: ChartDataPoint[],
-  period: number
+  period: number,
 ): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   if (data.length <= period) return result;
@@ -32,8 +32,8 @@ export const calculateChoppiness = (
       Math.max(
         data[i].high - data[i].low,
         Math.abs(data[i].high - prevClose),
-        Math.abs(data[i].low - prevClose)
-      )
+        Math.abs(data[i].low - prevClose),
+      ),
     );
   }
 
@@ -70,7 +70,7 @@ export const calculateChoppiness = (
 
 export const calculateEfficiencyRatio = (
   data: ChartDataPoint[],
-  period: number
+  period: number,
 ): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   if (data.length <= period) return result;

@@ -28,12 +28,12 @@ export interface MarketStreamHubPort {
   readonly handleClose: (ws: ServerWebSocket<MarketWsConnectionData>) => Effect.Effect<void, never>;
   readonly handleMessage: (
     ws: ServerWebSocket<MarketWsConnectionData>,
-    raw: string | Buffer | Uint8Array
+    raw: string | Buffer | Uint8Array,
   ) => Effect.Effect<void, never>;
 }
 
 export class MarketStreamHub extends Context.Service<MarketStreamHub, MarketStreamHubPort>()(
-  "MarketStreamHub"
+  "MarketStreamHub",
 ) {}
 
 export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, HyperliquidProvider> =
@@ -45,7 +45,7 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
         const transport = new WebSocketTransport({ resubscribe: true });
         const subscriptionClient = new SubscriptionClient({ transport });
         const buckets: Ref.Ref<HashMap.HashMap<string, Bucket>> = yield* Ref.make(
-          HashMap.empty<string, Bucket>()
+          HashMap.empty<string, Bucket>(),
         );
 
         const _connectionSeq: Ref.Ref<number> = yield* Ref.make(0);
@@ -76,7 +76,7 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
                   HashMap.set(m, key, {
                     ...bucket,
                     clients: new Set(bucket.clients).add(ws),
-                  })
+                  }),
                 );
                 const now = yield* Clock.currentTimeMillis;
                 send(ws, {
@@ -117,7 +117,7 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
 
               // Fork upstream subscription in background
               yield* ensureUpstream(subscriptionClient, provider, buckets, key).pipe(
-                Effect.forkDetach()
+                Effect.forkDetach(),
               );
             }),
 
@@ -147,7 +147,7 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
                 yield* Ref.update(buckets, (m) => HashMap.remove(m, key));
               } else {
                 yield* Ref.update(buckets, (m) =>
-                  HashMap.set(m, key, { ...bucket, clients: newClients })
+                  HashMap.set(m, key, { ...bucket, clients: newClients }),
                 );
               }
             }),
@@ -189,8 +189,8 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
               });
             }
           }
-        })
-    ).pipe(Effect.map(({ service }) => service))
+        }),
+    ).pipe(Effect.map(({ service }) => service)),
   );
 
 const resolveAndSubscribe = (
@@ -198,7 +198,7 @@ const resolveAndSubscribe = (
   subscriptionClient: SubscriptionClient,
   provider: typeof HyperliquidProvider.Service,
   bucket: Bucket,
-  detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void
+  detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
 ): Effect.Effect<ISubscription, WebSocketSubscribeError> => {
   const subSymbol = subscription.symbol;
 
@@ -214,8 +214,8 @@ const resolveAndSubscribe = (
           new WebSocketSubscribeError({
             message: err.message,
             symbol: subscription.symbol,
-          })
-      )
+          }),
+      ),
     );
     return yield* subscribeUpstream(bucket, subscriptionClient, Promise.resolve(markets), detach);
   });
@@ -225,7 +225,7 @@ const ensureUpstream = (
   subscriptionClient: SubscriptionClient,
   provider: typeof HyperliquidProvider.Service,
   buckets: Ref.Ref<HashMap.HashMap<string, Bucket>>,
-  key: string
+  key: string,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const map = yield* Ref.get(buckets);
@@ -235,7 +235,7 @@ const ensureUpstream = (
     if (bucket.state._tag !== "idle") return;
 
     yield* Ref.update(buckets, (m) =>
-      HashMap.set(m, key, { ...bucket, state: { _tag: "subscribing" } })
+      HashMap.set(m, key, { ...bucket, state: { _tag: "subscribing" } }),
     );
 
     const detach = (_ws: ServerWebSocket<MarketWsConnectionData>) => {
@@ -250,7 +250,7 @@ const ensureUpstream = (
       subscriptionClient,
       provider,
       bucket,
-      detach
+      detach,
     ).pipe(
       Effect.retry({
         schedule: Schedule.exponential("500 millis").pipe(Schedule.take(3)),
@@ -265,7 +265,7 @@ const ensureUpstream = (
                 bucketKey: key,
                 channel: subChannel,
               },
-              "warn"
+              "warn",
             );
             Effect.runFork(
               restartBucket(
@@ -273,8 +273,8 @@ const ensureUpstream = (
                 provider,
                 buckets,
                 key,
-                "upstream_subscription_failed"
-              )
+                "upstream_subscription_failed",
+              ),
             );
           };
           sub.failureSignal.addEventListener("abort", abortHandler, { once: true });
@@ -285,9 +285,9 @@ const ensureUpstream = (
               upstream: Option.some(sub),
               state: { _tag: "subscribed", upstream: sub } as BucketState,
               retryCount: 0,
-            })
+            }),
           );
-        })
+        }),
       ),
       Effect.catch((error) =>
         Effect.gen(function* () {
@@ -298,7 +298,7 @@ const ensureUpstream = (
               channel: subChannel,
               error: error.message,
             },
-            "error"
+            "error",
           );
 
           yield* Ref.update(buckets, (m) => {
@@ -333,8 +333,8 @@ const ensureUpstream = (
             }
             yield* Ref.update(buckets, (m) => HashMap.remove(m, key));
           }
-        })
-      )
+        }),
+      ),
     );
   });
 
@@ -343,7 +343,7 @@ const restartBucket = (
   provider: typeof HyperliquidProvider.Service,
   buckets: Ref.Ref<HashMap.HashMap<string, Bucket>>,
   key: string,
-  reason: string
+  reason: string,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const map = yield* Ref.get(buckets);
@@ -378,13 +378,13 @@ const restartBucket = (
         upstream: Option.none(),
         state: { _tag: "idle" },
         restartFibers: new Set(),
-      })
+      }),
     );
 
     const fiber = yield* Effect.forkDetach(
       Effect.sleep("500 millis").pipe(
-        Effect.flatMap(() => ensureUpstream(subscriptionClient, provider, buckets, key))
-      )
+        Effect.flatMap(() => ensureUpstream(subscriptionClient, provider, buckets, key)),
+      ),
     );
 
     yield* Ref.update(buckets, (m) => {

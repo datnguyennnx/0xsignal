@@ -15,7 +15,7 @@ export interface AuthCodeStorePort {
 }
 
 export class AuthCodeStore extends Context.Service<AuthCodeStore, AuthCodeStorePort>()(
-  "AuthCodeStore"
+  "AuthCodeStore",
 ) {}
 
 export const AuthCodeStoreLayer: Layer.Layer<AuthCodeStore, never, PostgresConnectionPool> =
@@ -56,8 +56,8 @@ export const AuthCodeStoreLayer: Layer.Layer<AuthCodeStore, never, PostgresConne
           Effect.tryPromise(() =>
             pg.query(
               "INSERT INTO auth_codes (code, user_id, provider, expires_at) VALUES ($1, $2, $3, NOW() + INTERVAL '30 seconds')",
-              [code, userId, provider]
-            )
+              [code, userId, provider],
+            ),
           ).pipe(Effect.orDie),
 
         consume: (code: string) =>
@@ -65,8 +65,8 @@ export const AuthCodeStoreLayer: Layer.Layer<AuthCodeStore, never, PostgresConne
             const result = yield* Effect.tryPromise(() =>
               pg.query(
                 "DELETE FROM auth_codes WHERE code = $1 RETURNING user_id, provider, expires_at",
-                [code]
-              )
+                [code],
+              ),
             ).pipe(Effect.orDie);
 
             if (result.rows.length === 0) {
@@ -85,7 +85,7 @@ export const AuthCodeStoreLayer: Layer.Layer<AuthCodeStore, never, PostgresConne
             };
           }),
       });
-    })
+    }),
   );
 
 interface OAuthStateData {
@@ -98,12 +98,12 @@ interface OAuthStateData {
 export interface OAuthStateStorePort {
   readonly save: (data: OAuthStateData) => Effect.Effect<void>;
   readonly consume: (
-    state: string
+    state: string,
   ) => Effect.Effect<OAuthStateData, OAuthStateExpired | OAuthStateMismatch>;
 }
 
 export class OAuthStateStore extends Context.Service<OAuthStateStore, OAuthStateStorePort>()(
-  "OAuthStateStore"
+  "OAuthStateStore",
 ) {}
 
 export const OAuthStateStoreLayer: Layer.Layer<OAuthStateStore, never, PostgresConnectionPool> =
@@ -113,7 +113,7 @@ export const OAuthStateStoreLayer: Layer.Layer<OAuthStateStore, never, PostgresC
       const pg = yield* PostgresConnectionPool;
       if (pg === null) {
         return yield* Effect.die(
-          new Error("OAuthStateStore requires Postgres — set DATABASE_URL or POSTGRES_URL")
+          new Error("OAuthStateStore requires Postgres — set DATABASE_URL or POSTGRES_URL"),
         );
       }
 
@@ -123,8 +123,8 @@ export const OAuthStateStoreLayer: Layer.Layer<OAuthStateStore, never, PostgresC
             yield* Effect.tryPromise(() =>
               pg.query(
                 "INSERT INTO oauth_states (state, provider, redirect_url, code_verifier, expires_at) VALUES ($1, $2, $3, $4, NOW() + INTERVAL '10 minutes')",
-                [state, provider, redirectUrl, codeVerifier ?? ""]
-              )
+                [state, provider, redirectUrl, codeVerifier ?? ""],
+              ),
             ).pipe(Effect.orDie);
           }),
 
@@ -133,8 +133,8 @@ export const OAuthStateStoreLayer: Layer.Layer<OAuthStateStore, never, PostgresC
             const result = yield* Effect.tryPromise(() =>
               pg.query(
                 "DELETE FROM oauth_states WHERE state = $1 RETURNING provider, redirect_url, code_verifier, expires_at",
-                [state]
-              )
+                [state],
+              ),
             ).pipe(Effect.orDie);
 
             if (result.rows.length === 0) {
@@ -155,5 +155,5 @@ export const OAuthStateStoreLayer: Layer.Layer<OAuthStateStore, never, PostgresC
             } as const;
           }),
       });
-    })
+    }),
   );

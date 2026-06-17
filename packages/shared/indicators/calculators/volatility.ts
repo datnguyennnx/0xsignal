@@ -27,7 +27,7 @@ export const calculateATR = (data: ChartDataPoint[], period: number): IndicatorD
 export const calculateBollingerBands = (
   data: ChartDataPoint[],
   period: number,
-  stdDev: number
+  stdDev: number,
 ): BandIndicatorDataPoint[] => {
   const result: BandIndicatorDataPoint[] = [];
   if (data.length < period) return result;
@@ -65,7 +65,7 @@ export const calculateBollingerBands = (
 
 export const calculateDonchianChannels = (
   data: ChartDataPoint[],
-  period: number
+  period: number,
 ): BandIndicatorDataPoint[] => {
   const result: BandIndicatorDataPoint[] = [];
   if (data.length < period) return result;

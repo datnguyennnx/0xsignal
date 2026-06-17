@@ -13,7 +13,7 @@ import {
 import type { HyperliquidAggregatedAsset, PerpTradeAsset, HyperliquidInfoClient } from "./types";
 
 export function getSpotTokens(
-  info: HyperliquidInfoClient
+  info: HyperliquidInfoClient,
 ): Effect.Effect<
   string[],
   HyperliquidError,
@@ -26,13 +26,13 @@ export function getSpotTokens(
       const raw = await info.spotMeta();
       return extractSpotTokens(raw);
     },
-    "Failed to fetch spot meta"
+    "Failed to fetch spot meta",
   ).pipe(Effect.catch(() => Effect.succeed([] as string[])));
 }
 
 const fetchAllDexMetas = (
   info: HyperliquidInfoClient,
-  dexNames: string[]
+  dexNames: string[],
 ): Effect.Effect<
   Array<unknown>,
   HyperliquidError,
@@ -47,7 +47,7 @@ const fetchAllDexMetas = (
           info.metaAndAssetCtxs(dexName ? { dex: dexName } : undefined) as Promise<
             [unknown, unknown]
           >,
-        `Failed to fetch meta for dex "${dexName || "main"}"`
+        `Failed to fetch meta for dex "${dexName || "main"}"`,
       ).pipe(
         Effect.catch((err) => {
           if (dexName === "") {
@@ -56,19 +56,19 @@ const fetchAllDexMetas = (
                 message: `Main DEX meta fetch failed: ${err.message}`,
                 kind: "UPSTREAM",
                 cause: err,
-              })
+              }),
             );
           }
           return Effect.logWarning(`[Hyperliquid] Skipping dex "${dexName}": ${err.message}`).pipe(
-            Effect.as(null)
+            Effect.as(null),
           );
-        })
+        }),
       ),
-    { concurrency: 3 }
+    { concurrency: 3 },
   );
 
 const fetchDexNames = (
-  dexNamesResult: ReadonlyArray<null | { readonly name: string }> | undefined
+  dexNamesResult: ReadonlyArray<null | { readonly name: string }> | undefined,
 ): string[] => {
   const raw: ReadonlyArray<null | { readonly name: string }> = dexNamesResult ?? [];
   return ["", ...raw.filter((d): d is { readonly name: string } => d !== null).map((d) => d.name)];
@@ -84,7 +84,7 @@ const buildCategoryMap = (rawPerpCats: Array<[string, string]>): Map<string, str
 
 const fetchOptionalData = (
   info: HyperliquidInfoClient,
-  preFetchedSpot: unknown | undefined
+  preFetchedSpot: unknown | undefined,
 ): Effect.Effect<
   { spotRaw: unknown },
   never,
@@ -97,7 +97,7 @@ const fetchOptionalData = (
         : deduplicatedApiCall(
             "spotMetaAndAssetCtxs",
             () => (info.spotMetaAndAssetCtxs?.() ?? Promise.resolve(null)) as Promise<unknown>,
-            "Failed to fetch spot meta and asset ctxs"
+            "Failed to fetch spot meta and asset ctxs",
           ).pipe(Effect.catch(() => Effect.succeed(null))),
   });
 
@@ -106,7 +106,7 @@ export function getAggregatedMarketsSnapshot(
   options?: {
     spotTokens?: string[];
     spotMetaAndAssetCtxs?: unknown;
-  }
+  },
 ): Effect.Effect<
   readonly HyperliquidAggregatedAsset[],
   HyperliquidError,
@@ -123,23 +123,23 @@ export function getAggregatedMarketsSnapshot(
         dexNamesResult: deduplicatedApiCall(
           "perpDexs",
           () => info.perpDexs?.() ?? Promise.resolve([]),
-          "Failed to fetch perp DEXs"
+          "Failed to fetch perp DEXs",
         ).pipe(Effect.catch(() => Effect.succeed([] as Array<null | { name: string }>))),
 
         rawPerpCats: deduplicatedApiCall(
           "perpCategories",
           () =>
             (info.perpCategories?.() ?? Promise.resolve([])) as Promise<Array<[string, string]>>,
-          "Failed to fetch categories"
+          "Failed to fetch categories",
         ).pipe(Effect.catch(() => Effect.succeed([] as Array<[string, string]>))),
 
         allMids: deduplicatedApiCall("allMids", () => info.allMids(), "Failed to fetch mids").pipe(
-          Effect.catch(() => Effect.succeed({} as Record<string, string>))
+          Effect.catch(() => Effect.succeed({} as Record<string, string>)),
         ),
 
         optionalData: fetchOptionalData(info, preFetchedSpot),
       },
-      { concurrency: 3 }
+      { concurrency: 3 },
     );
 
     const { dexNamesResult, rawPerpCats, allMids, optionalData } = allResult;
@@ -161,7 +161,7 @@ export function getAggregatedMarketsSnapshot(
         allMids,
         categoryMap,
         resolvedTokens,
-        globalIndex
+        globalIndex,
       );
       perpAssets.push(...parsed);
       globalIndex = nextIndex;

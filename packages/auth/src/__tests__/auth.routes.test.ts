@@ -22,7 +22,7 @@ describe("auth routes", () => {
 
   it("returns redirect URL for GET /api/auth/:provider/login", async () => {
     mockAuthService.getAuthorizationUrl.mockReturnValue(
-      Effect.succeed({ url: "https://accounts.google.com/o/oauth2/auth?state=xyz", state: "xyz" })
+      Effect.succeed({ url: "https://accounts.google.com/o/oauth2/auth?state=xyz", state: "xyz" }),
     );
 
     const routes = buildAuthRoutes();
@@ -53,7 +53,7 @@ describe("auth routes", () => {
     mockAuthService.handleCallback.mockReturnValue(
       Effect.succeed({
         code: "one-time-code-123",
-      })
+      }),
     );
 
     const routes = buildAuthRoutes();
@@ -90,7 +90,7 @@ describe("auth routes", () => {
         refreshToken: "refresh-456",
         tokenType: "Bearer",
         expiresIn: 900,
-      })
+      }),
     );
 
     const routes = buildAuthRoutes();
@@ -118,7 +118,7 @@ describe("auth routes", () => {
         refreshToken: "refresh-rotated",
         tokenType: "Bearer",
         expiresIn: 900,
-      })
+      }),
     );
 
     const routes = buildAuthRoutes();

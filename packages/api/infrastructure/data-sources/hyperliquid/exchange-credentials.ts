@@ -37,7 +37,7 @@ export type ResolvedCredentials = {
 export const resolveExchangeCredentials = (
   userId: string,
   accountRepo: AccountRepoService,
-  credentialRepo: CredentialRepoService
+  credentialRepo: CredentialRepoService,
 ): Effect.Effect<ResolvedCredentials, ExchangeError> =>
   Effect.gen(function* () {
     const account = yield* accountRepo.findPrimary(userId, "hyperliquid");
@@ -50,7 +50,7 @@ export const resolveExchangeCredentials = (
       return yield* Effect.fail(
         new HyperliquidInternalError({
           message: "Invalid decrypted private key from credential store",
-        })
+        }),
       );
     }
 

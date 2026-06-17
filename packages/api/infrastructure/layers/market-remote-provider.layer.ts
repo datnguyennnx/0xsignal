@@ -24,5 +24,5 @@ export const marketRemoteProviderLayer = Layer.effect(
           ? (symbol) => provider.getTradeAnnotation(symbol)
           : undefined,
     });
-  })
+  }),
 ).pipe(Layer.provideMerge(hyperliquidProviderLayer));

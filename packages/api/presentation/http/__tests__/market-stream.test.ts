@@ -124,10 +124,10 @@ describe("Market WS subscription parser", () => {
 
   it("rejects unsupported long intervals not backed by HTTP/", () => {
     const threeDay = parseMarketWsSubscription(
-      new URLSearchParams({ channel: "candle", symbol: "BTC", interval: "3d" })
+      new URLSearchParams({ channel: "candle", symbol: "BTC", interval: "3d" }),
     );
     const oneMonth = parseMarketWsSubscription(
-      new URLSearchParams({ channel: "candle", symbol: "BTC", interval: "1M" })
+      new URLSearchParams({ channel: "candle", symbol: "BTC", interval: "1M" }),
     );
 
     expect(threeDay).toEqual({
@@ -145,10 +145,10 @@ describe("Market WS subscription parser", () => {
 
   it("builds stable bucket keys", () => {
     expect(buildMarketWsBucketKey({ channel: "candle", symbol: "BTC", interval: "1m" })).toBe(
-      "candle:BTC:1m"
+      "candle:BTC:1m",
     );
     expect(buildMarketWsBucketKey({ channel: "l2Book", symbol: "ETH", nSigFigs: 5 })).toBe(
-      "l2Book:ETH:5"
+      "l2Book:ETH:5",
     );
     expect(buildMarketWsBucketKey({ channel: "trades", symbol: "SOL" })).toBe("trades:SOL");
     expect(buildMarketWsBucketKey({ channel: "allMids" })).toBe("allMids:");
@@ -165,10 +165,10 @@ describe("Market WS subscription parser", () => {
 
   it("builds stable builder-perp bucket keys across mixed casing", () => {
     const parsedA = parseMarketWsSubscription(
-      new URLSearchParams({ channel: "candle", symbol: "XYZ:clusdt", interval: "1m" })
+      new URLSearchParams({ channel: "candle", symbol: "XYZ:clusdt", interval: "1m" }),
     );
     const parsedB = parseMarketWsSubscription(
-      new URLSearchParams({ channel: "candle", symbol: "xyz:CL", interval: "1m" })
+      new URLSearchParams({ channel: "candle", symbol: "xyz:CL", interval: "1m" }),
     );
 
     expect(parsedA.ok).toBe(true);
@@ -220,7 +220,7 @@ describe("Market WS emitter contract", () => {
     const bucket = createBucket({ channel: "candle", symbol: "BTC", interval: "1m" });
 
     const upstream = await Effect.runPromise(
-      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach)
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach),
     );
 
     expect(upstream).toBeDefined();
@@ -238,7 +238,7 @@ describe("Market WS emitter contract", () => {
     const bucket = createBucket({ channel: "l2Book", symbol: "ETH", nSigFigs: 4 });
 
     const upstream = await Effect.runPromise(
-      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach)
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach),
     );
 
     expect(upstream).toBeDefined();
@@ -256,7 +256,7 @@ describe("Market WS emitter contract", () => {
     const bucket = createBucket({ channel: "trades", symbol: "SOL" });
 
     const upstream = await Effect.runPromise(
-      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach)
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach),
     );
 
     expect(upstream).toBeDefined();
@@ -275,7 +275,7 @@ describe("Market WS emitter contract", () => {
     const bucket = createBucket({ channel: "allMids" });
 
     const upstream = await Effect.runPromise(
-      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach)
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach),
     );
 
     expect(upstream).toBeDefined();

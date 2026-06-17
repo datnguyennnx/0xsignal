@@ -17,7 +17,7 @@ export function subscribeUpstream(
   bucket: Bucket,
   subscriptionClient: SubscriptionClient,
   aggregatedMarketsPromise: Promise<readonly HyperliquidAggregatedAsset[]> | undefined,
-  detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void
+  detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
 ): Effect.Effect<ISubscription, WebSocketSubscribeError> {
   const { subscription } = bucket;
   let internalSymbol = subscription.symbol;
@@ -37,14 +37,14 @@ export function subscribeUpstream(
             if (!markets) return Effect.succeed(undefined);
             const subUpper = subSymbol.toUpperCase();
             const asset: HyperliquidAggregatedAsset | undefined = markets.find(
-              (m) => m.rawCoin === subSymbol || m.rawCoin.toUpperCase() === subUpper
+              (m) => m.rawCoin === subSymbol || m.rawCoin.toUpperCase() === subUpper,
             );
             if (!asset) {
               return Effect.fail(
                 new WebSocketSubscribeError({
                   message: `Cannot subscribe to WebSocket for "${subSymbol}": not found in any market universe (perp, spot, or outcome).`,
                   symbol: subSymbol,
-                })
+                }),
               );
             }
             internalSymbol = asset.marketType === "spot" ? asset.name : asset.rawCoin;
@@ -58,10 +58,10 @@ export function subscribeUpstream(
                   symbol: subSymbol,
                   error: error instanceof Error ? error.message : String(error),
                 },
-                "warn"
+                "warn",
               );
-            })
-          )
+            }),
+          ),
         )
       : Effect.succeed(undefined);
 
@@ -82,16 +82,16 @@ export function subscribeUpstream(
                       interval: subscription.interval,
                       data: normalizeCandleData(event),
                     },
-                    detach
+                    detach,
                   );
-                }
+                },
               ),
             catch: (error) =>
               new WebSocketSubscribeError({
                 message: `Failed to subscribe to candle: ${error instanceof Error ? error.message : String(error)}`,
                 symbol: subSymbol,
               }),
-          })
+          }),
         ),
         Match.when("l2Book", () =>
           Effect.tryPromise({
@@ -116,16 +116,16 @@ export function subscribeUpstream(
                       nSigFigs: subscription.nSigFigs,
                       data: sliced,
                     },
-                    detach
+                    detach,
                   );
-                }
+                },
               ),
             catch: (error) =>
               new WebSocketSubscribeError({
                 message: `Failed to subscribe to l2Book: ${error instanceof Error ? error.message : String(error)}`,
                 symbol: subSymbol,
               }),
-          })
+          }),
         ),
         Match.when("trades", () =>
           Effect.tryPromise({
@@ -138,7 +138,7 @@ export function subscribeUpstream(
                     channel: "trades",
                     data: normalizeTradesData(event),
                   },
-                  detach
+                  detach,
                 );
               }),
             catch: (error) =>
@@ -146,7 +146,7 @@ export function subscribeUpstream(
                 message: `Failed to subscribe to trades: ${error instanceof Error ? error.message : String(error)}`,
                 symbol: subSymbol,
               }),
-          })
+          }),
         ),
         Match.when("allMids", () =>
           Effect.tryPromise({
@@ -160,7 +160,7 @@ export function subscribeUpstream(
                         channel: "allMids",
                         data: normalizeAllMidsData(event),
                       },
-                      detach
+                      detach,
                     );
                   })
                 : subscriptionClient.allMids((event) => {
@@ -171,7 +171,7 @@ export function subscribeUpstream(
                         channel: "allMids",
                         data: normalizeAllMidsData(event),
                       },
-                      detach
+                      detach,
                     );
                   }),
             catch: (error) =>
@@ -179,10 +179,10 @@ export function subscribeUpstream(
                 message: `Failed to subscribe to allMids: ${error instanceof Error ? error.message : String(error)}`,
                 symbol: subSymbol,
               }),
-          })
+          }),
         ),
-        Match.exhaustive
-      )
-    )
+        Match.exhaustive,
+      ),
+    ),
   );
 }

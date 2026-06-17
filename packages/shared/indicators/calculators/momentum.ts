@@ -30,7 +30,7 @@ export const calculateMACDLine = (
   data: ChartDataPoint[],
   fastPeriod: number,
   slowPeriod: number,
-  calculateEMA: (data: ChartDataPoint[], period: number) => IndicatorDataPoint[]
+  calculateEMA: (data: ChartDataPoint[], period: number) => IndicatorDataPoint[],
 ): IndicatorDataPoint[] => {
   const fastEMA = calculateEMA(data, fastPeriod);
   const slowEMA = calculateEMA(data, slowPeriod);
@@ -49,7 +49,7 @@ export const calculateMACDLine = (
 
 export const calculateStochasticK = (
   data: ChartDataPoint[],
-  period: number
+  period: number,
 ): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   if (data.length < period) return result;
@@ -86,7 +86,7 @@ export const calculateStochasticK = (
 export const calculateAwesomeOscillator = (
   data: ChartDataPoint[],
   fast: number,
-  slow: number
+  slow: number,
 ): IndicatorDataPoint[] => {
   if (fast >= slow) {
     return [];
@@ -137,7 +137,7 @@ export const calculateUltimateOscillator = (
   data: ChartDataPoint[],
   shortPeriod: number,
   mediumPeriod: number,
-  longPeriod: number
+  longPeriod: number,
 ): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   if (data.length < longPeriod + 1) return result;
@@ -197,7 +197,7 @@ export const calculateUltimateOscillator = (
 
 export const calculateWilliamsR = (
   data: ChartDataPoint[],
-  period: number
+  period: number,
 ): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   if (data.length < period) return result;
@@ -282,7 +282,7 @@ export const calculateMomentum = (data: ChartDataPoint[], period: number): Indic
 export const calculateTSI = (
   data: ChartDataPoint[],
   longPeriod: number,
-  shortPeriod: number
+  shortPeriod: number,
 ): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   if (data.length < longPeriod + shortPeriod) return result;

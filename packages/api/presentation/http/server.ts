@@ -28,13 +28,13 @@ const serverProgram = Effect.gen(function* () {
         websocket: wsHandlers,
         reusePort: true,
         idleTimeout: 30,
-      })
+      }),
     ),
     (s) =>
       Effect.gen(function* () {
         yield* Effect.logInfo("Shutting down server...");
         yield* Effect.sync(() => s.stop());
-      })
+      }),
   );
 
   yield* Effect.logInfo(`0xSignal API Server`);

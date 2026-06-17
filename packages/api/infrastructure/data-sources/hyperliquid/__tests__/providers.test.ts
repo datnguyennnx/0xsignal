@@ -27,19 +27,19 @@ const TestHLClientLayer = Layer.succeed(
   HyperliquidClient,
   HyperliquidClient.of({
     info: mockInfoClient as unknown as InfoClient,
-  })
+  }),
 );
 
 const TestRateLimiterLayer = Layer.succeed(
   HyperliquidRateLimiter,
-  HyperliquidRateLimiter.of({ semaphore: makeSemaphoreUnsafe(6) })
+  HyperliquidRateLimiter.of({ semaphore: makeSemaphoreUnsafe(6) }),
 );
 
 const TestDedupLayer = Layer.succeed(
   HyperliquidDeduplicationRegistry,
   HyperliquidDeduplicationRegistry.of({
     registryRef: Ref.makeUnsafe(new Map()),
-  })
+  }),
 );
 
 const TestLayer = Layer.mergeAll(TestHLClientLayer, TestRateLimiterLayer, TestDedupLayer);
@@ -110,7 +110,7 @@ describe("Hyperliquid Providers", () => {
     mockInfoClient.allMids.mockResolvedValueOnce({ BTC: "101.25" });
 
     await expect(
-      Effect.runPromise(getTicker("XRP").pipe(Effect.provide(TestLayer)))
+      Effect.runPromise(getTicker("XRP").pipe(Effect.provide(TestLayer))),
     ).rejects.toThrow("Symbol not found: XRP");
   });
 
@@ -148,7 +148,7 @@ describe("Hyperliquid Providers", () => {
     });
 
     const result = await Effect.runPromise(
-      getTradeAnnotation("sol").pipe(Effect.provide(TestLayer))
+      getTradeAnnotation("sol").pipe(Effect.provide(TestLayer)),
     );
 
     expect(mockInfoClient.perpAnnotation).toHaveBeenCalledWith({ coin: "SOL" });
@@ -164,7 +164,7 @@ describe("Hyperliquid Providers", () => {
     mockInfoClient.perpAnnotation.mockResolvedValueOnce({ category: "major" });
 
     const result = await Effect.runPromise(
-      getTradeAnnotation("DEX:clusdt").pipe(Effect.provide(TestLayer))
+      getTradeAnnotation("DEX:clusdt").pipe(Effect.provide(TestLayer)),
     );
 
     expect(mockInfoClient.perpAnnotation).toHaveBeenCalledWith({ coin: "dex:CL" });

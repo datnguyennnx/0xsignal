@@ -28,7 +28,7 @@ const smaNumbers = (values: number[], period: number): number[] => {
 export const calculatePPO = (
   data: ChartDataPoint[],
   fastPeriod: number,
-  slowPeriod: number
+  slowPeriod: number,
 ): IndicatorDataPoint[] => {
   if (data.length < slowPeriod) return [];
   const closes = data.map((d) => d.close);
@@ -64,7 +64,7 @@ export const calculateStochRSI = (
   data: ChartDataPoint[],
   rsiPeriod: number,
   stochPeriod: number,
-  smoothK: number
+  smoothK: number,
 ): IndicatorDataPoint[] => {
   if (data.length < rsiPeriod + stochPeriod + smoothK) return [];
 
@@ -128,7 +128,7 @@ export const calculateStochRSI = (
 export const calculateVolumeOscillator = (
   data: ChartDataPoint[],
   shortPeriod: number,
-  longPeriod: number
+  longPeriod: number,
 ): IndicatorDataPoint[] => {
   if (data.length < longPeriod) return [];
   const volumes = data.map((d) => d.volume);
@@ -147,7 +147,7 @@ export const calculateVolumeOscillator = (
 export const calculateChaikinOscillator = (
   data: ChartDataPoint[],
   fastPeriod: number,
-  slowPeriod: number
+  slowPeriod: number,
 ): IndicatorDataPoint[] => {
   if (data.length < slowPeriod) return [];
   const adLine: number[] = [];
@@ -172,7 +172,7 @@ export const calculateChaikinOscillator = (
 
 export const calculateEaseOfMovement = (
   data: ChartDataPoint[],
-  period: number
+  period: number,
 ): IndicatorDataPoint[] => {
   if (data.length < period + 1) return [];
   const raw: number[] = [];
@@ -197,7 +197,7 @@ export const calculateEaseOfMovement = (
 export const calculateHistoricalVolatility = (
   data: ChartDataPoint[],
   period: number,
-  annualization: number
+  annualization: number,
 ): IndicatorDataPoint[] => {
   if (data.length < period + 1) return [];
   const logReturns: number[] = [];
@@ -236,7 +236,7 @@ export const calculateHistoricalVolatility = (
 
 export const calculateAroonOscillator = (
   data: ChartDataPoint[],
-  period: number
+  period: number,
 ): IndicatorDataPoint[] => {
   if (data.length < period) return [];
   const result: IndicatorDataPoint[] = [];

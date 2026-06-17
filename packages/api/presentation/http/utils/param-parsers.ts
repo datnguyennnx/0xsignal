@@ -2,7 +2,7 @@ const INTEGER_PATTERN = /^[+-]?\d+$/;
 
 export const parseOptionalSigFigsParam = (
   params: URLSearchParams,
-  key: string
+  key: string,
 ): 2 | 3 | 4 | 5 | undefined | null => {
   const rawValue = params.get(key);
   if (!rawValue) {

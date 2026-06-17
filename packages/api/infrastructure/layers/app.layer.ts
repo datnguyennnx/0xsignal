@@ -26,7 +26,7 @@ const Core = Layer.mergeAll(
   devLoggerLayer,
   BunServices.layer,
   FetchHttpClient.layer,
-  CorsServiceLayer
+  CorsServiceLayer,
 );
 
 // MarketStreamHubLayer requires HyperliquidProvider (from marketRemoteProviderLayer).
@@ -37,17 +37,17 @@ const Infrastructure = Layer.mergeAll(
   marketCandleStoreLayer.pipe(Layer.provideMerge(marketRemoteProviderLayer)),
   ResolvedHubLayer,
   healthServiceLayer,
-  MigrationLayer
+  MigrationLayer,
 ).pipe(Layer.provideMerge(hyperliquidClientLayer), Layer.provideMerge(postgresConnectionPoolLayer));
 
 const AppServices = Layer.mergeAll(
   marketDataServiceLayer,
   userDataServiceLayer,
   exchangeServiceLayer,
-  authLayer
+  authLayer,
 ).pipe(Layer.provideMerge(AuthInfraLayer));
 
 export const AppLayer = AppServices.pipe(
   Layer.provideMerge(Infrastructure),
-  Layer.provideMerge(Core)
+  Layer.provideMerge(Core),
 ) as Layer.Layer<any, any, never>;

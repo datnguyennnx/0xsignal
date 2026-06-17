@@ -19,7 +19,7 @@ import { isPgUniqueViolation, resolveMasterWallet } from "./shared/pg-utils";
 
 export function pgExchangeCredentialRepo(
   pg: NonNullable<import("pg").Pool>,
-  enc: EncryptionServicePort
+  enc: EncryptionServicePort,
 ): ExchangeCredentialRepoPort {
   const writeAudit = (
     action: string,
@@ -28,7 +28,7 @@ export function pgExchangeCredentialRepo(
       accountId?: string;
       credentialId?: string;
       context?: Record<string, unknown>;
-    }
+    },
   ): Effect.Effect<void, never> =>
     Effect.tryPromise(() =>
       pg.query(
@@ -41,25 +41,25 @@ export function pgExchangeCredentialRepo(
           params.credentialId ?? null,
           action,
           JSON.stringify(params.context ?? {}),
-        ]
-      )
+        ],
+      ),
     ).pipe(
       Effect.catch((cause: unknown) =>
-        Effect.logWarning(`Audit log write failed for action=${action}: ${cause}`)
+        Effect.logWarning(`Audit log write failed for action=${action}: ${cause}`),
       ),
-      Effect.ignore
+      Effect.ignore,
     );
 
   const markUsed = (credentialId: string): Effect.Effect<void, never> =>
     Effect.tryPromise(() =>
-      pg.query("UPDATE api_credentials SET last_used_at = NOW() WHERE id = $1", [credentialId])
+      pg.query("UPDATE api_credentials SET last_used_at = NOW() WHERE id = $1", [credentialId]),
     ).pipe(Effect.ignore);
 
   return {
     create: (params) =>
       Effect.gen(function* () {
         const accountCheck = yield* Effect.tryPromise(() =>
-          pg.query("SELECT id FROM exchange_accounts WHERE id = $1", [params.accountId])
+          pg.query("SELECT id FROM exchange_accounts WHERE id = $1", [params.accountId]),
         ).pipe(Effect.orDie);
         if (accountCheck.rows.length === 0) {
           return yield* Effect.fail(new AccountNotFound({ accountId: params.accountId }));
@@ -99,7 +99,7 @@ export function pgExchangeCredentialRepo(
               params.encryptionVersion ?? 1,
               params.isVerified ?? false,
               JSON.stringify(params.metadata ?? {}),
-            ]
+            ],
           );
           return result.rows[0];
         }).pipe(
@@ -108,7 +108,7 @@ export function pgExchangeCredentialRepo(
               return Effect.fail(new DuplicateLabel({ label: params.label ?? "" }));
             }
             return Effect.die(error);
-          })
+          }),
         );
 
         yield* writeAudit("created", {
@@ -131,7 +131,7 @@ export function pgExchangeCredentialRepo(
                AND ac.is_active = true
                AND ac.is_revoked = false
              LIMIT 1`,
-            [accountId, userId, subtype]
+            [accountId, userId, subtype],
           );
           if (result.rows.length === 0) {
             throw new CredentialNotFound({
@@ -149,7 +149,7 @@ export function pgExchangeCredentialRepo(
              AND ac.is_revoked = false
            ORDER BY ac.created_at DESC
            LIMIT 1`,
-          [accountId, userId]
+          [accountId, userId],
         );
         if (result.rows.length === 0) {
           throw new CredentialNotFound({
@@ -162,11 +162,11 @@ export function pgExchangeCredentialRepo(
           (error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
             Match.value(error).pipe(
               Match.when({ _tag: "CredentialNotFound" }, (e) =>
-                Effect.fail(e as CredentialNotFound)
+                Effect.fail(e as CredentialNotFound),
               ),
-              Match.orElse(() => Effect.die(error))
-            )
-        )
+              Match.orElse(() => Effect.die(error)),
+            ),
+        ),
       ),
 
     getDecryptedAgent: (credentialId, userId) =>
@@ -182,8 +182,8 @@ export function pgExchangeCredentialRepo(
              JOIN exchange_accounts ea ON ea.id = ac.account_id
              JOIN exchanges e ON e.id = ea.exchange_id
              WHERE ac.id = $1 AND ac.user_id = $2`,
-            [credentialId, userId]
-          )
+            [credentialId, userId],
+          ),
         ).pipe(Effect.orDie);
 
         if (rows.rows.length === 0) {
@@ -255,8 +255,8 @@ export function pgExchangeCredentialRepo(
              JOIN exchange_accounts ea ON ea.id = ac.account_id
              JOIN exchanges e ON e.id = ea.exchange_id
              WHERE ac.id = $1 AND ac.user_id = $2`,
-            [credentialId, userId]
-          )
+            [credentialId, userId],
+          ),
         ).pipe(Effect.orDie);
 
         if (rows.rows.length === 0) {
@@ -314,14 +314,14 @@ export function pgExchangeCredentialRepo(
           pg.query("SELECT id FROM api_credentials WHERE id = $1 AND user_id = $2", [
             oldId,
             newParams.userId,
-          ])
+          ]),
         ).pipe(Effect.orDie);
         if (oldCheck.rows.length === 0) {
           return yield* Effect.fail(new CredentialNotFound({ credentialId: oldId }));
         }
 
         const accountCheck = yield* Effect.tryPromise(() =>
-          pg.query("SELECT id FROM exchange_accounts WHERE id = $1", [newParams.accountId])
+          pg.query("SELECT id FROM exchange_accounts WHERE id = $1", [newParams.accountId]),
         ).pipe(Effect.orDie);
         if (accountCheck.rows.length === 0) {
           return yield* Effect.fail(new AccountNotFound({ accountId: newParams.accountId }));
@@ -368,7 +368,7 @@ export function pgExchangeCredentialRepo(
                 newParams.isVerified ?? false,
                 JSON.stringify(newParams.metadata ?? {}),
                 oldId,
-              ]
+              ],
             );
 
             await pg.query("COMMIT");
@@ -383,7 +383,7 @@ export function pgExchangeCredentialRepo(
               return Effect.fail(new DuplicateLabel({ label: newParams.label ?? "" }));
             }
             return Effect.die(error);
-          })
+          }),
         );
 
         yield* writeAudit("rotated", {
@@ -403,7 +403,7 @@ export function pgExchangeCredentialRepo(
            SET is_revoked = true, revoked_at = NOW(), revoked_reason = $1
            WHERE id = $2 AND user_id = $3
            RETURNING id`,
-          [reason, id, userId]
+          [reason, id, userId],
         );
         if (result.rows.length === 0) {
           throw new CredentialNotFound({ credentialId: id });
@@ -414,17 +414,17 @@ export function pgExchangeCredentialRepo(
             userId,
             credentialId: id,
             context: { reason },
-          })
+          }),
         ),
         Effect.catch(
           (error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
             Match.value(error).pipe(
               Match.when({ _tag: "CredentialNotFound" }, (e) =>
-                Effect.fail(e as CredentialNotFound)
+                Effect.fail(e as CredentialNotFound),
               ),
-              Match.orElse(() => Effect.die(error))
-            )
-        )
+              Match.orElse(() => Effect.die(error)),
+            ),
+        ),
       ),
 
     setVerified: (id, userId) =>
@@ -434,7 +434,7 @@ export function pgExchangeCredentialRepo(
            SET is_verified = true, verified_at = NOW()
            WHERE id = $1 AND user_id = $2
            RETURNING id`,
-          [id, userId]
+          [id, userId],
         );
         if (result.rows.length === 0) {
           throw new CredentialNotFound({ credentialId: id });
@@ -445,16 +445,16 @@ export function pgExchangeCredentialRepo(
           (error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
             Match.value(error).pipe(
               Match.when({ _tag: "CredentialNotFound" }, (e) =>
-                Effect.fail(e as CredentialNotFound)
+                Effect.fail(e as CredentialNotFound),
               ),
-              Match.orElse(() => Effect.die(error))
-            )
-        )
+              Match.orElse(() => Effect.die(error)),
+            ),
+        ),
       ),
 
     markUsed: (id) =>
       Effect.tryPromise(() =>
-        pg.query("UPDATE api_credentials SET last_used_at = NOW() WHERE id = $1", [id])
+        pg.query("UPDATE api_credentials SET last_used_at = NOW() WHERE id = $1", [id]),
       ).pipe(Effect.ignore),
 
     getForVerification: (credentialId, userId) =>
@@ -468,8 +468,8 @@ export function pgExchangeCredentialRepo(
              JOIN exchange_accounts ea ON ea.id = ac.account_id
              JOIN exchanges e ON e.id = ea.exchange_id
              WHERE ac.id = $1 AND ac.user_id = $2`,
-            [credentialId, userId]
-          )
+            [credentialId, userId],
+          ),
         ).pipe(Effect.orDie);
 
         if (rows.rows.length === 0) {
@@ -521,13 +521,13 @@ export function pgExchangeCredentialRepo(
             params.credentialId ?? null,
             action,
             JSON.stringify(params.context ?? {}),
-          ]
-        )
+          ],
+        ),
       ).pipe(
         Effect.catch((cause: unknown) =>
-          Effect.logWarning(`Audit log write failed for action=${action}: ${cause}`)
+          Effect.logWarning(`Audit log write failed for action=${action}: ${cause}`),
         ),
-        Effect.ignore
+        Effect.ignore,
       ),
   };
 }

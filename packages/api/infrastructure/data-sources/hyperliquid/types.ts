@@ -106,7 +106,7 @@ export class HyperliquidProvider extends Context.Service<
       coin: string,
       interval: MarketTimeframe,
       startTime: number,
-      endTime: number
+      endTime: number,
     ) => Effect.Effect<Candle[], HyperliquidError>;
     readonly getAllMids: () => Effect.Effect<Record<string, string>, HyperliquidError>;
     readonly getAggregatedMarkets: () => Effect.Effect<
@@ -116,10 +116,10 @@ export class HyperliquidProvider extends Context.Service<
     readonly getTicker: (symbol: string) => Effect.Effect<TickerPayload, HyperliquidError>;
     readonly getOrderBook: (
       symbol: string,
-      depth?: number
+      depth?: number,
     ) => Effect.Effect<OrderBookPayload, HyperliquidError>;
     readonly getTradeAnnotation: (
-      symbol: string
+      symbol: string,
     ) => Effect.Effect<{ symbol: string; annotation: PerpAnnotationResponse }, HyperliquidError>;
   }
 >()("HyperliquidProvider") {}

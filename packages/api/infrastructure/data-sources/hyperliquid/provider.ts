@@ -42,7 +42,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
         // Layer-scoped rate limiter + dedup — created safely inside Effect
         const semaphore = yield* Semaphore.make(6);
         const dedupRef = yield* Ref.make(
-          new Map<string, Deferred.Deferred<unknown, HyperliquidError>>()
+          new Map<string, Deferred.Deferred<unknown, HyperliquidError>>(),
         );
         const rateLimiterSvc: RateLimiterSvc = { semaphore };
         const dedupSvc: DedupRegistrySvc = { registryRef: dedupRef };
@@ -59,7 +59,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
         const fetchWithCache = <T>(
           slot: Ref.Ref<CacheSlot<T>>,
           ttlMs: number,
-          fetch: Effect.Effect<T, HyperliquidError>
+          fetch: Effect.Effect<T, HyperliquidError>,
         ): Effect.Effect<T, HyperliquidError> =>
           Effect.gen(function* () {
             const cached = yield* Ref.get(slot);
@@ -73,7 +73,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
           });
 
         const fetchTickerWithCache = (
-          symbol: string
+          symbol: string,
         ): Effect.Effect<TickerSnapshot, HyperliquidError> =>
           Effect.gen(function* () {
             const normalized = normalizeSymbol(symbol);
@@ -121,11 +121,11 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
           refreshPipeline.pipe(
             Effect.catch((err) =>
               Effect.logError(
-                `[Hyperliquid] Unified refresh failed: ${(err as HyperliquidError).message}`
-              )
+                `[Hyperliquid] Unified refresh failed: ${(err as HyperliquidError).message}`,
+              ),
             ),
-            Effect.repeat(Schedule.spaced("24 seconds"))
-          )
+            Effect.repeat(Schedule.spaced("24 seconds")),
+          ),
         );
 
         yield* Effect.addFinalizer(() => Fiber.interrupt(refreshFiber));
@@ -141,7 +141,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
                 yield* fetchWithCache(
                   aggregatedSlot,
                   AGGREGATED_MARKETS_TTL_MS,
-                  provide(getAggregatedMarketsSnapshot(hlInfo))
+                  provide(getAggregatedMarketsSnapshot(hlInfo)),
                 );
                 internalSymbol = (yield* Ref.get(spotIndexRef))[coin] ?? coin;
               } else {
@@ -162,7 +162,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
                       message: `Failed to fetch candles for ${coin} (${interval})`,
                       cause,
                     }),
-                })
+                }),
               );
 
               return normalizeCandles(parseHlRawCandles(candles));
@@ -173,7 +173,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
             fetchWithCache(
               aggregatedSlot,
               AGGREGATED_MARKETS_TTL_MS,
-              provide(getAggregatedMarketsSnapshot(hlInfo))
+              provide(getAggregatedMarketsSnapshot(hlInfo)),
             ).pipe(
               Effect.tap((markets) => {
                 const spotIndex: Record<string, string> = {};
@@ -183,7 +183,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
                   }
                 }
                 return Ref.set(spotIndexRef, spotIndex);
-              })
+              }),
             ),
 
           getTicker: (symbol) =>
@@ -199,7 +199,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
                 yield* fetchWithCache(
                   aggregatedSlot,
                   AGGREGATED_MARKETS_TTL_MS,
-                  provide(getAggregatedMarketsSnapshot(hlInfo))
+                  provide(getAggregatedMarketsSnapshot(hlInfo)),
                 );
                 internalSymbol = (yield* Ref.get(spotIndexRef))[symbol] ?? symbol;
               } else {
@@ -221,7 +221,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
                       kind: "UPSTREAM",
                       cause,
                     }),
-                })
+                }),
               );
 
               if (!orderbook) {
@@ -229,7 +229,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
                   new HyperliquidError({
                     message: `Orderbook not available for ${internalSymbol}`,
                     kind: "NOT_FOUND",
-                  })
+                  }),
                 );
               }
 
@@ -247,7 +247,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
                   new HyperliquidError({
                     message: `Asset not supported or not found in perpetuals universe: ${symbol}`,
                     kind: "NOT_FOUND",
-                  })
+                  }),
                 );
               }
 
@@ -259,20 +259,20 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
                       message: `Failed to fetch trade annotation for ${symbol}`,
                       cause,
                     }),
-                })
+                }),
               );
 
               return { symbol: normalizeSymbol(symbol), annotation };
             }),
         });
-      })
-    )
+      }),
+    ),
   );
 
 // Standalone query functions — require HyperliquidClient + rate limiter + dedup from Context.
 
 const fetchTickerOnce = (
-  hlInfo: HyperliquidInfoClient
+  hlInfo: HyperliquidInfoClient,
 ): Effect.Effect<
   TickerSnapshot,
   HyperliquidError,
@@ -283,7 +283,7 @@ export const getCandleSnapshot = (
   coin: string,
   interval: MarketTimeframe,
   startTime: number,
-  endTime: number
+  endTime: number,
 ): Effect.Effect<
   Candle[],
   HyperliquidError,
@@ -329,7 +329,7 @@ export const getAllMids = (): Effect.Effect<
   });
 
 export const getTicker = (
-  symbol: string
+  symbol: string,
 ): Effect.Effect<
   TickerPayload,
   HyperliquidError,
@@ -344,7 +344,7 @@ export const getTicker = (
 
 export const getOrderBook = (
   symbol: string,
-  depth?: number
+  depth?: number,
 ): Effect.Effect<
   OrderBookPayload,
   HyperliquidError,
@@ -378,14 +378,14 @@ export const getOrderBook = (
         new HyperliquidError({
           message: `Orderbook not available for ${internalSymbol}`,
           kind: "NOT_FOUND",
-        })
+        }),
       );
     }
     return { symbol: normalizeSymbol(symbol), nSigFigs, orderbook };
   });
 
 export const getTradeAnnotation = (
-  symbol: string
+  symbol: string,
 ): Effect.Effect<
   { symbol: string; annotation: PerpAnnotationResponse },
   HyperliquidError,
@@ -402,7 +402,7 @@ export const getTradeAnnotation = (
         new HyperliquidError({
           message: `Asset not supported or not found in perpetuals universe: ${symbol}`,
           kind: "NOT_FOUND",
-        })
+        }),
       );
     }
     const annotation = yield* Effect.tryPromise({

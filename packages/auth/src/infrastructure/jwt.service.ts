@@ -10,7 +10,7 @@ export interface JwtServicePort {
   readonly sign: (payload: { sub: UserId; provider: OAuthProvider }) => Effect.Effect<AuthTokens>;
   readonly verify: (
     token: string,
-    expectedType: "access" | "refresh"
+    expectedType: "access" | "refresh",
   ) => Effect.Effect<JwtPayload, TokenExpired | TokenInvalid>;
   readonly revoke: (jti: string, expiresAt: Date) => Effect.Effect<void>;
   readonly isRevoked: (jti: string) => Effect.Effect<boolean>;
@@ -25,7 +25,7 @@ export const JwtServiceLayer: Layer.Layer<JwtService, never, PostgresConnectionP
 
     if (Option.isNone(maybeSecret)) {
       yield* Effect.logWarning(
-        "JWT_SECRET not set — JWT service disabled. Auth endpoints will return 500."
+        "JWT_SECRET not set — JWT service disabled. Auth endpoints will return 500.",
       );
       return JwtService.of({
         sign: () => Effect.die(new Error("JWT_SECRET not configured")),
@@ -41,7 +41,7 @@ export const JwtServiceLayer: Layer.Layer<JwtService, never, PostgresConnectionP
 
     if (pg === null) {
       yield* Effect.logWarning(
-        "Postgres not available — JWT service disabled (no token revocation)"
+        "Postgres not available — JWT service disabled (no token revocation)",
       );
       return JwtService.of({
         sign: ({ sub, provider }: { sub: UserId; provider: OAuthProvider }) =>
@@ -54,14 +54,14 @@ export const JwtServiceLayer: Layer.Layer<JwtService, never, PostgresConnectionP
                   .setProtectedHeader({ alg: "HS256" })
                   .setIssuedAt(now)
                   .setExpirationTime("15m")
-                  .sign(key)
+                  .sign(key),
               ).pipe(Effect.orDie),
               Effect.tryPromise(() =>
                 new SignJWT({ sub, provider, jti: crypto.randomUUID(), type: "refresh" } as any)
                   .setProtectedHeader({ alg: "HS256" })
                   .setIssuedAt(now)
                   .setExpirationTime("30d")
-                  .sign(key)
+                  .sign(key),
               ).pipe(Effect.orDie),
             ]);
             return { accessToken, refreshToken, tokenType: "Bearer" as const, expiresIn: 15 * 60 };
@@ -94,14 +94,14 @@ export const JwtServiceLayer: Layer.Layer<JwtService, never, PostgresConnectionP
                 .setProtectedHeader({ alg: "HS256" })
                 .setIssuedAt(now)
                 .setExpirationTime("15m")
-                .sign(key)
+                .sign(key),
             ).pipe(Effect.orDie),
             Effect.tryPromise(() =>
               new SignJWT({ sub, provider, jti: crypto.randomUUID(), type: "refresh" } as any)
                 .setProtectedHeader({ alg: "HS256" })
                 .setIssuedAt(now)
                 .setExpirationTime("30d")
-                .sign(key)
+                .sign(key),
             ).pipe(Effect.orDie),
           ]);
           return { accessToken, refreshToken, tokenType: "Bearer" as const, expiresIn: 15 * 60 };
@@ -122,17 +122,17 @@ export const JwtServiceLayer: Layer.Layer<JwtService, never, PostgresConnectionP
         Effect.tryPromise(() =>
           pg!.query(
             "INSERT INTO refresh_token_blocklist (jti, expires_at) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-            [jti, expiresAt]
-          )
+            [jti, expiresAt],
+          ),
         ).pipe(Effect.orDie),
       isRevoked: (jti: string) =>
         Effect.tryPromise(async () => {
           const result = await pg!.query(
             "SELECT 1 FROM refresh_token_blocklist WHERE jti = $1 AND expires_at > NOW()",
-            [jti]
+            [jti],
           );
           return result.rows.length > 0;
         }).pipe(Effect.orDie),
     });
-  })
+  }),
 );

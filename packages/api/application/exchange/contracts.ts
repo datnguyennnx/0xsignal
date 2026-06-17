@@ -30,15 +30,15 @@ export class ExchangeService extends Context.Service<
   {
     readonly placeOrder: (
       params: PlaceOrderRequest,
-      userId: string
+      userId: string,
     ) => Effect.Effect<unknown, ExchangeError>;
     readonly updateLeverageAndMargin: (
       params: UpdateLeverageRequest,
-      userId: string
+      userId: string,
     ) => Effect.Effect<unknown, ExchangeError>;
     readonly cancelOrders: (
       params: CancelOrdersRequest,
-      userId: string
+      userId: string,
     ) => Effect.Effect<unknown, ExchangeError>;
   }
 >()("ExchangeService") {}

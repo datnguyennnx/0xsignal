@@ -17,5 +17,5 @@ export interface HealthServicePort {
 }
 
 export class HealthService extends Context.Service<HealthService, HealthServicePort>()(
-  "HealthService"
+  "HealthService",
 ) {}

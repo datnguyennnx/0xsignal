@@ -7,7 +7,7 @@ export function isPgUniqueViolation(error: unknown): boolean {
 
 export function resolveMasterWallet(
   pg: NonNullable<import("pg").Pool>,
-  accountId: string
+  accountId: string,
 ): Effect.Effect<string, AccountNotFound> {
   return Effect.tryPromise(async () => {
     const result = await pg.query(
@@ -20,7 +20,7 @@ export function resolveMasterWallet(
          INNER JOIN chain c ON c.parent_id = ea.id
        )
        SELECT wallet_address FROM chain WHERE node_type = 'wallet' LIMIT 1`,
-      [accountId]
+      [accountId],
     );
     if (result.rows.length === 0) {
       throw new AccountNotFound({
@@ -33,8 +33,8 @@ export function resolveMasterWallet(
       (error: unknown): Effect.Effect<never, AccountNotFound, never> =>
         Match.value(error).pipe(
           Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-          Match.orElse(() => Effect.die(error))
-        )
-    )
+          Match.orElse(() => Effect.die(error)),
+        ),
+    ),
   );
 }

@@ -47,7 +47,7 @@ export const getIndicatorConfigById = (id: string): IndicatorConfig | undefined 
 
 export const normalizeIndicatorParams = (
   config: IndicatorConfig,
-  input?: Record<string, number>
+  input?: Record<string, number>,
 ): Record<string, number> => {
   if (config.params.length === 0) {
     return { ...config.defaultParams };
@@ -69,7 +69,7 @@ export const normalizeIndicatorParams = (
 
 export const createIndicatorInstanceId = (
   config: IndicatorConfig,
-  params: Record<string, number>
+  params: Record<string, number>,
 ): string => {
   if (!config.allowMultiple) {
     return config.id;

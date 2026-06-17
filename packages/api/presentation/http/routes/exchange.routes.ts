@@ -16,7 +16,7 @@ type RouteHandler = (
   request: Request,
   url: URL,
   exchange: ExchangeHttpService,
-  userId?: string
+  userId?: string,
 ) => Effect.Effect<Response, HttpError>;
 
 type BuildExchangeRoutesParams = {
@@ -93,8 +93,8 @@ export const buildExchangeRoutes = ({
         const payload = yield* Schema.decodeUnknownEffect(PlaceOrderRequestSchema)(raw).pipe(
           Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`)),
           Effect.flatMap((body) =>
-            exchange.placeOrder(body, userId).pipe(Effect.mapError(mapServiceError))
-          )
+            exchange.placeOrder(body, userId).pipe(Effect.mapError(mapServiceError)),
+          ),
         );
         return json({ data: payload });
       }),
@@ -116,8 +116,8 @@ export const buildExchangeRoutes = ({
         const payload = yield* Schema.decodeUnknownEffect(UpdateLeverageRequestSchema)(raw).pipe(
           Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`)),
           Effect.flatMap((body) =>
-            exchange.updateLeverageAndMargin(body, userId).pipe(Effect.mapError(mapServiceError))
-          )
+            exchange.updateLeverageAndMargin(body, userId).pipe(Effect.mapError(mapServiceError)),
+          ),
         );
         return json({ data: payload });
       }),
@@ -139,8 +139,8 @@ export const buildExchangeRoutes = ({
         const payload = yield* Schema.decodeUnknownEffect(CancelOrdersRequestSchema)(raw).pipe(
           Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`)),
           Effect.flatMap((body) =>
-            exchange.cancelOrders(body, userId).pipe(Effect.mapError(mapServiceError))
-          )
+            exchange.cancelOrders(body, userId).pipe(Effect.mapError(mapServiceError)),
+          ),
         );
         return json({ data: payload });
       }),

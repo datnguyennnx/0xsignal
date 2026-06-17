@@ -60,7 +60,7 @@ type RouteHandler = (
   health: HealthHttpService,
   userData: UserDataHttpService,
   exchange: ExchangeHttpService,
-  userId?: string
+  userId?: string,
 ) => Effect.Effect<Response, HttpError, any>;
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -76,8 +76,8 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
 const adaptAuthRoute =
   (
     handler: (
-      request: Request
-    ) => Effect.Effect<Response, never, import("@0xsignal/auth").AuthService>
+      request: Request,
+    ) => Effect.Effect<Response, never, import("@0xsignal/auth").AuthService>,
   ): RouteHandler =>
   (request) =>
     handler(request).pipe(
@@ -86,9 +86,9 @@ const adaptAuthRoute =
           new Response(JSON.stringify({ error: "Internal server error" }), {
             status: 500,
             headers: { "Content-Type": "application/json" },
-          })
-        )
-      )
+          }),
+        ),
+      ),
     );
 
 // Requires a valid auth session before executing
@@ -96,16 +96,16 @@ const requireAuth =
   (routeHandler: RouteHandler): RouteHandler =>
   (request, url, marketData, health, userData, exchange) =>
     withAuth((session) =>
-      routeHandler(request, url, marketData, health, userData, exchange, session.userId)
+      routeHandler(request, url, marketData, health, userData, exchange, session.userId),
     )(request).pipe(
       Effect.catchCause(() =>
         Effect.succeed(
           new Response(JSON.stringify({ error: "Internal server error" }), {
             status: 500,
             headers: { "Content-Type": "application/json" },
-          })
-        )
-      )
+          }),
+        ),
+      ),
     );
 
 const matchPath = (pattern: string, path: string): boolean => {
@@ -146,7 +146,7 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
       url: URL,
       _marketData: MarketDataHttpService,
       _health: HealthHttpService,
-      userData: UserDataHttpService
+      userData: UserDataHttpService,
     ) => route.handler(request, url, userData),
   })),
   ...buildExchangeRoutes({
@@ -163,8 +163,8 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
         _health: HealthHttpService,
         _userData: UserDataHttpService,
         exchange: ExchangeHttpService,
-        userId?: string
-      ) => route.handler(request, url, exchange, userId)
+        userId?: string,
+      ) => route.handler(request, url, exchange, userId),
     ),
   })),
   ...buildCredentialRoutes({
@@ -181,13 +181,13 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
         _health: HealthHttpService,
         _userData: UserDataHttpService,
         _exchange: ExchangeHttpService,
-        userId?: string
+        userId?: string,
       ) =>
         Effect.gen(function* () {
           const accountRepo = yield* ExchangeAccountRepo;
           const credentialRepo = yield* ExchangeCredentialRepo;
           return yield* route.handler(request, url, accountRepo, credentialRepo, userId);
-        })
+        }),
     ),
   })),
   ...buildAuthRoutes().map((route) => ({
@@ -204,7 +204,7 @@ export const handleRequest = (request: Request) => {
     const method = request.method.toUpperCase();
 
     const route = routes.find(
-      (candidate) => matchPath(candidate.path, path) && candidate.method === method
+      (candidate) => matchPath(candidate.path, path) && candidate.method === method,
     );
     if (!route) {
       if (routes.some((candidate) => matchPath(candidate.path, path))) {
@@ -225,6 +225,6 @@ export const handleRequest = (request: Request) => {
         body.code = error.code;
       }
       return Effect.succeed(json(body, error.status));
-    })
+    }),
   );
 };

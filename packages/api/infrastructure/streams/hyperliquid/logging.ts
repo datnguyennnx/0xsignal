@@ -11,7 +11,7 @@ const MARKET_WS_DEBUG_LOGS_ENABLED = process.env.MODE === "dev";
 export const marketWsLog = (
   event: string,
   fields: Record<string, unknown>,
-  level: "info" | "warn" | "error" = "info"
+  level: "info" | "warn" | "error" = "info",
 ) => {
   // Bridge Pattern: new Date() in sync context
   // marketWsLog is a plain sync function used in non-Effect callbacks

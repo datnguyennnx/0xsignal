@@ -36,7 +36,7 @@ export class AuthService extends Context.Service<
 
     readonly updateProfile: (
       userId: string,
-      params: { displayName: string }
+      params: { displayName: string },
     ) => Effect.Effect<UserProfile>;
   }
 >()("AuthService") {}

@@ -30,7 +30,7 @@ describe("withAuth guard", () => {
     const handler = vi
       .fn()
       .mockImplementation((session: Session) =>
-        Effect.succeed(new Response(JSON.stringify({ userId: session.userId }), { status: 200 }))
+        Effect.succeed(new Response(JSON.stringify({ userId: session.userId }), { status: 200 })),
       );
 
     const request = new Request("http://localhost/api/auth/me", {

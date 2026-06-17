@@ -36,7 +36,7 @@ export const makeMockHLClient = () =>
     HyperliquidClient,
     HyperliquidClient.of({
       info: mockInfoInstance as unknown as InfoClient,
-    })
+    }),
   );
 
 // ── Placeholder factories ─────────────────────────────────────────────
@@ -114,19 +114,19 @@ export const defaultMockCredRepo = {
 
 export const makeTestLayer = (
   accountRepoOverrides?: Partial<typeof defaultMockAccountRepo>,
-  credRepoOverrides?: Partial<typeof defaultMockCredRepo>
+  credRepoOverrides?: Partial<typeof defaultMockCredRepo>,
 ) => {
   const mergedAccount = { ...defaultMockAccountRepo, ...accountRepoOverrides };
   const mergedCred = { ...defaultMockCredRepo, ...credRepoOverrides };
 
   return exchangeServiceLayer.pipe(
     Layer.provideMerge(
-      Layer.succeed(ExchangeAccountRepo, ExchangeAccountRepo.of(mergedAccount as any))
+      Layer.succeed(ExchangeAccountRepo, ExchangeAccountRepo.of(mergedAccount as any)),
     ),
     Layer.provideMerge(
-      Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(mergedCred as any))
+      Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(mergedCred as any)),
     ),
-    Layer.provideMerge(makeMockHLClient())
+    Layer.provideMerge(makeMockHLClient()),
   );
 };
 

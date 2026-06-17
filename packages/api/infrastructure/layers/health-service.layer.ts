@@ -39,5 +39,5 @@ export const healthServiceLayer = Layer.effect(
           };
         }),
     });
-  })
+  }),
 );

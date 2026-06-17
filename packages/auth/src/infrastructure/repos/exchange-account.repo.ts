@@ -23,26 +23,26 @@ export interface CreateExchangeAccountParams {
 
 export interface ExchangeAccountRepoPort {
   readonly create: (
-    params: CreateExchangeAccountParams
+    params: CreateExchangeAccountParams,
   ) => Effect.Effect<ExchangeAccount, AccountNotFound | DuplicateLabel>;
 
   readonly findById: (
     id: string,
-    userId: string
+    userId: string,
   ) => Effect.Effect<ExchangeAccount, AccountNotFound>;
 
   readonly findByUserId: (
     userId: string,
-    exchangeSlug?: string
+    exchangeSlug?: string,
   ) => Effect.Effect<readonly ExchangeAccount[], never>;
 
   readonly findPrimary: (
     userId: string,
-    exchangeSlug: string
+    exchangeSlug: string,
   ) => Effect.Effect<ExchangeAccount, AccountNotFound>;
 
   readonly findWithDescendants: (
-    accountId: string
+    accountId: string,
   ) => Effect.Effect<readonly ExchangeAccount[], never>;
 
   readonly resolveMasterWallet: (accountId: string) => Effect.Effect<string, AccountNotFound>;
@@ -72,12 +72,12 @@ export const ExchangeAccountRepoLayer: Layer.Layer<
 
     if (pg === null) {
       return yield* Effect.die(
-        new Error("PostgresConnectionPool required but was null — provide a proper pool")
+        new Error("PostgresConnectionPool required but was null — provide a proper pool"),
       );
     }
 
     return pgExchangeAccountRepo(pg);
-  })
+  }),
 );
 
 // Note: DB row mapping (mapRow) lives in exchange-account.repo.pg.ts — not exported from this facade.

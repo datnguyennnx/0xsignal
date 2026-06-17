@@ -30,38 +30,38 @@ const classifyApiError = (e: ApiRequestError) => {
   return Match.value(true).pipe(
     Match.when(
       () => msg.includes("insufficient margin"),
-      () => new InsufficientMarginError({ message: e.message })
+      () => new InsufficientMarginError({ message: e.message }),
     ),
     Match.when(
       () => msg.includes("invalid") || msg.includes("size") || msg.includes("tick"),
-      () => new HyperliquidValidationError({ message: e.message, cause: e })
+      () => new HyperliquidValidationError({ message: e.message, cause: e }),
     ),
-    Match.orElse(() => new HyperliquidInternalError({ message: e.message, cause: e }))
+    Match.orElse(() => new HyperliquidInternalError({ message: e.message, cause: e })),
   );
 };
 
 export const classifyExchangeError = (
-  e: unknown
+  e: unknown,
 ): HyperliquidValidationError | InsufficientMarginError | HyperliquidInternalError =>
   Match.value(e).pipe(
     Match.when(
       isValiError,
-      (v) => new HyperliquidValidationError({ message: v.message, cause: v })
+      (v) => new HyperliquidValidationError({ message: v.message, cause: v }),
     ),
     Match.when(
       isValidationError,
-      (v) => new HyperliquidValidationError({ message: v.message, cause: v.cause })
+      (v) => new HyperliquidValidationError({ message: v.message, cause: v.cause }),
     ),
     Match.when(isApiRequestError, (v) => classifyApiError(v)),
     Match.when(
       isHttpOrTransportError,
-      (v) => new HyperliquidInternalError({ message: v.message, cause: v })
+      (v) => new HyperliquidInternalError({ message: v.message, cause: v }),
     ),
     Match.orElse(
       (e) =>
         new HyperliquidInternalError({
           message: e instanceof Error ? e.message : String(e),
           cause: e instanceof Error ? e : undefined,
-        })
-    )
+        }),
+    ),
   );

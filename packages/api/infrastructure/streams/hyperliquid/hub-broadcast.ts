@@ -12,7 +12,7 @@ export const MAX_BACKPRESSURE_BYTES = 1024 * 1024;
 export function broadcast(
   bucket: Bucket,
   payload: unknown,
-  detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void
+  detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
 ) {
   if (!isRecord(payload)) return;
 
@@ -37,7 +37,7 @@ export function broadcast(
             bucketKey: bucket.key,
             backpressure,
           },
-          "warn"
+          "warn",
         );
         client.close(1011, "High backpressure - slow client");
         detach(client);

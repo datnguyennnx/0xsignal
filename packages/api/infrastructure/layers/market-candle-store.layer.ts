@@ -15,9 +15,9 @@ export const marketCandleStoreLayer = Layer.effect(
             query.symbol,
             query.timeframe,
             startTime,
-            endTime
+            endTime,
           );
         }),
     });
-  })
+  }),
 );

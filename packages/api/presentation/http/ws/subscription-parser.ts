@@ -33,7 +33,7 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
         status: 400,
         message: `Unsupported channel: ${channel}`,
       };
-    })
+    }),
   );
 
   if (typeof validatedChannel !== "string") {

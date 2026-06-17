@@ -196,14 +196,14 @@ const makeMockLayer = (
     portfolio: () => Promise<unknown>;
     userVaultEquities: () => Promise<unknown>;
     userFunding: () => Promise<unknown>;
-  }>
+  }>,
 ) => {
   const client = HyperliquidClient.of({
     info: {
       clearinghouseState: vi
         .fn()
         .mockImplementation(
-          overrides?.clearinghouseState ?? (() => Promise.resolve(mockClearinghouseState))
+          overrides?.clearinghouseState ?? (() => Promise.resolve(mockClearinghouseState)),
         ),
       openOrders: vi
         .fn()
@@ -211,7 +211,7 @@ const makeMockLayer = (
       historicalOrders: vi
         .fn()
         .mockImplementation(
-          overrides?.historicalOrders ?? (() => Promise.resolve(mockHistoricalOrders))
+          overrides?.historicalOrders ?? (() => Promise.resolve(mockHistoricalOrders)),
         ),
       userFills: vi
         .fn()
@@ -219,12 +219,12 @@ const makeMockLayer = (
       frontendOpenOrders: vi
         .fn()
         .mockImplementation(
-          overrides?.frontendOpenOrders ?? (() => Promise.resolve(mockFrontendOpenOrders))
+          overrides?.frontendOpenOrders ?? (() => Promise.resolve(mockFrontendOpenOrders)),
         ),
       spotClearinghouseState: vi
         .fn()
         .mockImplementation(
-          overrides?.spotClearinghouseState ?? (() => Promise.resolve(mockSpotClearinghouseState))
+          overrides?.spotClearinghouseState ?? (() => Promise.resolve(mockSpotClearinghouseState)),
         ),
       meta: vi.fn().mockImplementation(overrides?.meta ?? (() => Promise.resolve(mockMeta))),
       portfolio: vi.fn().mockImplementation(overrides?.portfolio ?? (() => Promise.resolve({}))),
@@ -253,7 +253,7 @@ describe("UserDataService", () => {
         Effect.gen(function* () {
           const svc = yield* UserDataService;
           return yield* svc.getClearinghouseState(WALLET);
-        }).pipe(Effect.provide(makeTestLayer()))
+        }).pipe(Effect.provide(makeTestLayer())),
       );
 
       const data = result as typeof mockClearinghouseState;
@@ -273,7 +273,7 @@ describe("UserDataService", () => {
           return yield* svc.getClearinghouseState(WALLET);
         })
           .pipe(Effect.provide(errorLayer))
-          .pipe(Effect.flip)
+          .pipe(Effect.flip),
       );
 
       expect(result).toHaveProperty("code", "INTERNAL_ERROR");
@@ -287,7 +287,7 @@ describe("UserDataService", () => {
         Effect.gen(function* () {
           const svc = yield* UserDataService;
           return yield* svc.getOpenOrders(WALLET);
-        }).pipe(Effect.provide(makeTestLayer()))
+        }).pipe(Effect.provide(makeTestLayer())),
       );
 
       const orders = result as typeof mockOpenOrders;
@@ -307,7 +307,7 @@ describe("UserDataService", () => {
           return yield* svc.getOpenOrders(WALLET);
         })
           .pipe(Effect.provide(errorLayer))
-          .pipe(Effect.flip)
+          .pipe(Effect.flip),
       );
 
       expect(result).toHaveProperty("code", "INTERNAL_ERROR");
@@ -321,7 +321,7 @@ describe("UserDataService", () => {
         Effect.gen(function* () {
           const svc = yield* UserDataService;
           return yield* svc.getHistoricalOrders(WALLET);
-        }).pipe(Effect.provide(makeTestLayer()))
+        }).pipe(Effect.provide(makeTestLayer())),
       );
 
       const orders = result as typeof mockHistoricalOrders;
@@ -337,7 +337,7 @@ describe("UserDataService", () => {
         Effect.gen(function* () {
           const svc = yield* UserDataService;
           return yield* svc.getUserFills(WALLET);
-        }).pipe(Effect.provide(makeTestLayer()))
+        }).pipe(Effect.provide(makeTestLayer())),
       );
 
       const fills = result as typeof mockUserFills;
@@ -358,7 +358,7 @@ describe("UserDataService", () => {
         Effect.gen(function* () {
           const svc = yield* UserDataService;
           return yield* svc.getFrontendOpenOrders(WALLET);
-        }).pipe(Effect.provide(layer))
+        }).pipe(Effect.provide(layer)),
       );
 
       const orders = result as typeof mockFrontendOpenOrders;
@@ -382,7 +382,7 @@ describe("UserDataService", () => {
           return yield* svc.getFrontendOpenOrders(WALLET);
         })
           .pipe(Effect.provide(errorLayer))
-          .pipe(Effect.flip)
+          .pipe(Effect.flip),
       );
 
       expect(result).toHaveProperty("code", "INTERNAL_ERROR");
@@ -400,7 +400,7 @@ describe("UserDataService", () => {
         Effect.gen(function* () {
           const svc = yield* UserDataService;
           return yield* svc.getSpotClearinghouseState(WALLET);
-        }).pipe(Effect.provide(layer))
+        }).pipe(Effect.provide(layer)),
       );
 
       const data = result as typeof mockSpotClearinghouseState;
@@ -423,7 +423,7 @@ describe("UserDataService", () => {
           return yield* svc.getSpotClearinghouseState(WALLET);
         })
           .pipe(Effect.provide(errorLayer))
-          .pipe(Effect.flip)
+          .pipe(Effect.flip),
       );
 
       expect(result).toHaveProperty("code", "INTERNAL_ERROR");
@@ -441,7 +441,7 @@ describe("UserDataService", () => {
         Effect.gen(function* () {
           const svc = yield* UserDataService;
           return yield* svc.getMeta();
-        }).pipe(Effect.provide(layer))
+        }).pipe(Effect.provide(layer)),
       );
 
       const data = result as typeof mockMeta;
@@ -462,7 +462,7 @@ describe("UserDataService", () => {
           return yield* svc.getMeta();
         })
           .pipe(Effect.provide(errorLayer))
-          .pipe(Effect.flip)
+          .pipe(Effect.flip),
       );
 
       expect(result).toHaveProperty("code", "INTERNAL_ERROR");
@@ -482,7 +482,7 @@ describe("UserDataService", () => {
         Effect.gen(function* () {
           const svc = yield* UserDataService;
           return yield* svc.getPortfolio(WALLET);
-        }).pipe(Effect.provide(layer))
+        }).pipe(Effect.provide(layer)),
       );
 
       expect(result).toEqual(mockPortfolio);
@@ -500,7 +500,7 @@ describe("UserDataService", () => {
         Effect.gen(function* () {
           const svc = yield* UserDataService;
           return yield* svc.getUserVaultEquities(WALLET);
-        }).pipe(Effect.provide(layer))
+        }).pipe(Effect.provide(layer)),
       );
 
       expect(result).toEqual(mockEquities);
@@ -518,7 +518,7 @@ describe("UserDataService", () => {
         Effect.gen(function* () {
           const svc = yield* UserDataService;
           return yield* svc.getUserFunding(WALLET, 1000, 2000);
-        }).pipe(Effect.provide(layer))
+        }).pipe(Effect.provide(layer)),
       );
 
       expect(result).toEqual(mockFunding);
@@ -549,14 +549,14 @@ describe("UserDataService", () => {
       });
 
       const testLayer = userDataServiceLayer.pipe(
-        Layer.provideMerge(Layer.succeed(HyperliquidClient, customClient))
+        Layer.provideMerge(Layer.succeed(HyperliquidClient, customClient)),
       );
 
       await Effect.runPromise(
         Effect.gen(function* () {
           const svc = yield* UserDataService;
           return yield* svc.getClearinghouseState(testWallet);
-        }).pipe(Effect.provide(testLayer))
+        }).pipe(Effect.provide(testLayer)),
       );
 
       expect(spy).toHaveBeenCalledWith(testWallet);

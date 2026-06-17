@@ -20,7 +20,7 @@ export const AuthInfraLayer = Layer.mergeAll(
   UserRepoLayer,
   OAuthAccountRepoLayer,
   ExchangeAccountRepoLayer,
-  ExchangeCredentialRepoLayer.pipe(Layer.provideMerge(EncryptionServiceLayer))
+  ExchangeCredentialRepoLayer.pipe(Layer.provideMerge(EncryptionServiceLayer)),
 );
 
 /* AuthInfraLayer is provided at AppLayer level for cross-layer access. */

@@ -18,8 +18,8 @@ const RedactedString: Schema.Schema<Redacted> = Schema.String.pipe(
     {
       decode: SchemaGetter.transform((s: string) => RedactedNs.make(s)),
       encode: SchemaGetter.transform((r: Redacted) => RedactedNs.value(r)),
-    }
-  )
+    },
+  ),
 );
 
 const StringArray = Schema.TupleWithRest(Schema.Tuple([]), [Schema.String]);

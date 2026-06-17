@@ -7,7 +7,7 @@ export interface EncryptionServicePort {
 }
 
 export class EncryptionService extends Context.Service<EncryptionService, EncryptionServicePort>()(
-  "EncryptionService"
+  "EncryptionService",
 ) {}
 
 const ALGORITHM = "AES-GCM";
@@ -18,7 +18,7 @@ async function getKey(secret: string): Promise<CryptoKey> {
     new TextEncoder().encode(secret),
     { name: "HKDF" },
     false,
-    ["deriveKey"]
+    ["deriveKey"],
   );
   return crypto.subtle.deriveKey(
     {
@@ -30,7 +30,7 @@ async function getKey(secret: string): Promise<CryptoKey> {
     keyMaterial,
     { name: ALGORITHM, length: 256 },
     false,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 }
 
@@ -53,9 +53,9 @@ export const EncryptionServiceLayer: Layer.Layer<EncryptionService, never, never
         onSuccess: (key) => Effect.succeed({ _tag: "ok" as const, key }),
         onFailure: () =>
           Effect.logWarning(`Encryption key derivation failed — encryption disabled`).pipe(
-            Effect.andThen(Effect.succeed({ _tag: "fail" as const }))
+            Effect.andThen(Effect.succeed({ _tag: "fail" as const })),
           ),
-      })
+      }),
     );
     return Match.value(result).pipe(
       Match.when({ _tag: "fail" }, () => disabledEncryptionService),
@@ -68,7 +68,7 @@ export const EncryptionServiceLayer: Layer.Layer<EncryptionService, never, never
                 const encrypted = await crypto.subtle.encrypt(
                   { name: ALGORITHM, iv },
                   key,
-                  new TextEncoder().encode(plaintext)
+                  new TextEncoder().encode(plaintext),
                 );
                 const combined = new Uint8Array(iv.length + encrypted.byteLength);
                 combined.set(iv);
@@ -88,8 +88,8 @@ export const EncryptionServiceLayer: Layer.Layer<EncryptionService, never, never
               },
               catch: (cause) => new EncryptionFailed({ cause }),
             }),
-        })
-      )
+        }),
+      ),
     );
-  })
+  }),
 );

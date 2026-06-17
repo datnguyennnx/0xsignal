@@ -31,5 +31,5 @@ export const getTimeframeMs = (timeframe: MarketTimeframe): number =>
     Match.when("12h", () => 12 * 60 * 60 * 1000),
     Match.when("1d", () => 24 * 60 * 60 * 1000),
     Match.when("1w", () => 7 * 24 * 60 * 60 * 1000),
-    Match.exhaustive
+    Match.exhaustive,
   );

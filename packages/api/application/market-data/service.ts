@@ -27,7 +27,7 @@ export const makeMarketDataService = () =>
           const { startTime, endTime } = alignRangeToTimeframe(
             query.timeframe,
             requestedStartTime,
-            requestedEndTime
+            requestedEndTime,
           );
 
           if (startTime.getTime() > endTime.getTime()) {
@@ -35,20 +35,20 @@ export const makeMarketDataService = () =>
               new DomainError({
                 code: "VALIDATION_ERROR",
                 message: "Start time must be before end time",
-              })
+              }),
             );
           }
 
           const requestedRangeCount =
             Math.floor(
-              (endTime.getTime() - startTime.getTime()) / getTimeframeMs(query.timeframe)
+              (endTime.getTime() - startTime.getTime()) / getTimeframeMs(query.timeframe),
             ) + 1;
           if (requestedRangeCount > MAX_RANGE_CANDLES) {
             return yield* Effect.fail(
               new DomainError({
                 code: "VALIDATION_ERROR",
                 message: `Requested range is too large (${requestedRangeCount} candles). Maximum is ${MAX_RANGE_CANDLES}.`,
-              })
+              }),
             );
           }
 
@@ -83,7 +83,7 @@ export const makeMarketDataService = () =>
               new DomainError({
                 code: "VALIDATION_ERROR",
                 message: "Recent candle snapshots are currently supported only for Hyperliquid",
-              })
+              }),
             );
           }
 
@@ -93,7 +93,7 @@ export const makeMarketDataService = () =>
               new DomainError({
                 code: "VALIDATION_ERROR",
                 message: "limit must be a positive integer",
-              })
+              }),
             );
           }
           if (requestedLimit > MAX_RECENT_CANDLES) {
@@ -101,14 +101,14 @@ export const makeMarketDataService = () =>
               new DomainError({
                 code: "VALIDATION_ERROR",
                 message: `limit is too large (${requestedLimit}). Maximum is ${MAX_RECENT_CANDLES}.`,
-              })
+              }),
             );
           }
 
           const endTime = query.endTime ?? new Date(startedAt);
           const expectedCount = Math.trunc(requestedLimit);
           const startTime = new Date(
-            endTime.getTime() - (expectedCount - 1) * getTimeframeMs(query.timeframe)
+            endTime.getTime() - (expectedCount - 1) * getTimeframeMs(query.timeframe),
           );
 
           const snapshotCandles = yield* remoteProvider
@@ -116,7 +116,7 @@ export const makeMarketDataService = () =>
               query.symbol,
               query.timeframe,
               startTime.getTime(),
-              endTime.getTime()
+              endTime.getTime(),
             )
             .pipe(Effect.mapError(mapMarketInfraError("Failed to fetch recent candle snapshot")));
 
@@ -156,7 +156,7 @@ export const makeMarketDataService = () =>
               new DomainError({
                 code: "NOT_FOUND",
                 message: "Ticker is not available in this runtime",
-              })
+              }),
             ),
 
       getOrderBook: (symbol, depth) =>
@@ -168,7 +168,7 @@ export const makeMarketDataService = () =>
               new DomainError({
                 code: "NOT_FOUND",
                 message: "Orderbook is not available in this runtime",
-              })
+              }),
             ),
 
       getTradeAnnotation: (symbol) =>
@@ -180,7 +180,7 @@ export const makeMarketDataService = () =>
               new DomainError({
                 code: "NOT_FOUND",
                 message: "Trade annotation is not available in this runtime",
-              })
+              }),
             ),
     });
   });

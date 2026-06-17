@@ -56,5 +56,5 @@ export const UserRepoLayer: Layer.Layer<UserRepo, never, PostgresConnectionPool>
           return mapRow(result.rows[0]);
         }).pipe(Effect.orDie),
     });
-  })
+  }),
 );

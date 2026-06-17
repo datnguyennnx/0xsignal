@@ -21,6 +21,6 @@ export const normalizeCandles = (candles: Candle[]): Candle[] => {
   }
   // Sort by timestamp once
   return Array.from(byTimestamp.values()).sort(
-    (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
   );
 };

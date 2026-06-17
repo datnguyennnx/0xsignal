@@ -6,7 +6,7 @@ import type { UserId } from "../../domain/user";
 export interface OAuthAccountRepoPort {
   readonly findByProvider: (
     provider: string,
-    providerUserId: string
+    providerUserId: string,
   ) => Effect.Effect<OAuthAccount | null>;
   readonly findByUserId: (userId: UserId) => Effect.Effect<OAuthAccount | null>;
   readonly upsert: (profile: OAuthProfile, userId: UserId) => Effect.Effect<OAuthAccount>;
@@ -15,7 +15,7 @@ export interface OAuthAccountRepoPort {
 }
 
 export class OAuthAccountRepo extends Context.Service<OAuthAccountRepo, OAuthAccountRepoPort>()(
-  "OAuthAccountRepo"
+  "OAuthAccountRepo",
 ) {}
 
 export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, PostgresConnectionPool> =
@@ -25,7 +25,7 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
       const pg = yield* PostgresConnectionPool;
       if (pg === null) {
         yield* Effect.logWarning(
-          "Postgres not available — using in-memory OAuth account repo (dev only)"
+          "Postgres not available — using in-memory OAuth account repo (dev only)",
         );
 
         const memoryAccounts = new Map<string, OAuthAccount>();
@@ -136,7 +136,7 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
           Effect.tryPromise(async () => {
             const result = await pg!.query(
               "SELECT * FROM oauth_accounts WHERE provider = $1 AND provider_user_id = $2",
-              [provider, providerUserId]
+              [provider, providerUserId],
             );
             return result.rows.length > 0 ? mapRow(result.rows[0]) : null;
           }).pipe(Effect.orDie),
@@ -145,7 +145,7 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
           Effect.tryPromise(async () => {
             const result = await pg!.query(
               "SELECT * FROM oauth_accounts WHERE user_id = $1 LIMIT 1",
-              [userId]
+              [userId],
             );
             return result.rows.length > 0 ? mapRow(result.rows[0]) : null;
           }).pipe(Effect.orDie),
@@ -165,7 +165,7 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
                 profile.email,
                 profile.displayName,
                 profile.avatarUrl,
-              ]
+              ],
             );
             return mapRow(result.rows[0]);
           }).pipe(Effect.orDie),
@@ -202,7 +202,7 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
                 profile.email,
                 profile.displayName,
                 profile.avatarUrl,
-              ]
+              ],
             );
             return { userId: result.rows[0].user_id };
           }).pipe(Effect.orDie),
@@ -215,5 +215,5 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
             ]);
           }).pipe(Effect.orDie),
       });
-    })
+    }),
   );

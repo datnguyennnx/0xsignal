@@ -3,7 +3,7 @@ import type { SpotTradeAsset } from "./types";
 export function parseSpotAssets(
   raw: unknown,
   allMids: Record<string, string>,
-  existingCount: number
+  existingCount: number,
 ): SpotTradeAsset[] {
   if (!Array.isArray(raw) || raw.length < 2) return [];
 

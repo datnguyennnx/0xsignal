@@ -43,18 +43,18 @@ export interface CreateApiCredentialParams {
 
 export interface ExchangeCredentialRepoPort {
   readonly create: (
-    params: CreateApiCredentialParams
+    params: CreateApiCredentialParams,
   ) => Effect.Effect<ApiCredential, EncryptionFailed | DuplicateLabel | AccountNotFound>;
 
   readonly getActiveForAccount: (
     accountId: string,
     userId: string,
-    subtype?: string
+    subtype?: string,
   ) => Effect.Effect<ApiCredential, CredentialNotFound>;
 
   readonly getDecryptedAgent: (
     credentialId: string,
-    userId: string
+    userId: string,
   ) => Effect.Effect<
     DecryptedAgentCredential,
     | CredentialNotFound
@@ -67,7 +67,7 @@ export interface ExchangeCredentialRepoPort {
 
   readonly getDecryptedEoa: (
     credentialId: string,
-    userId: string
+    userId: string,
   ) => Effect.Effect<
     DecryptedEoaCredential,
     | CredentialNotFound
@@ -80,7 +80,7 @@ export interface ExchangeCredentialRepoPort {
 
   readonly rotate: (
     oldId: string,
-    newParams: CreateApiCredentialParams
+    newParams: CreateApiCredentialParams,
   ) => Effect.Effect<
     ApiCredential,
     CredentialNotFound | AccountNotFound | EncryptionFailed | DuplicateLabel
@@ -89,7 +89,7 @@ export interface ExchangeCredentialRepoPort {
   readonly revoke: (
     id: string,
     reason: string,
-    userId: string
+    userId: string,
   ) => Effect.Effect<void, CredentialNotFound>;
 
   readonly setVerified: (id: string, userId: string) => Effect.Effect<void, CredentialNotFound>;
@@ -98,7 +98,7 @@ export interface ExchangeCredentialRepoPort {
 
   readonly getForVerification: (
     credentialId: string,
-    userId: string
+    userId: string,
   ) => Effect.Effect<
     {
       readonly privateKey: RedactedNs.Redacted<string>;
@@ -117,7 +117,7 @@ export interface ExchangeCredentialRepoPort {
       readonly accountId?: string;
       readonly credentialId?: string;
       readonly context?: Record<string, unknown>;
-    }
+    },
   ) => Effect.Effect<void, never>;
 }
 
@@ -142,12 +142,12 @@ export const ExchangeCredentialRepoLayer: Layer.Layer<
 
     if (pg === null) {
       return yield* Effect.die(
-        new Error("PostgresConnectionPool required but was null — provide a proper pool")
+        new Error("PostgresConnectionPool required but was null — provide a proper pool"),
       );
     }
 
     return pgExchangeCredentialRepo(pg, enc);
-  })
+  }),
 );
 
 // Note: DB row mapping functions (ts, mapCredentialRow) live in

@@ -24,7 +24,7 @@ export const MigrationLayer: Layer.Layer<never, never, PostgresConnectionPool | 
       const result = yield* runSqlMigrations.pipe(Effect.provideService(SqlClient, pgClient));
 
       yield* Effect.logInfo(
-        `Auth SQL migrations applied: ${result.map(([id, name]) => `${id}_${name}`).join(", ")}`
+        `Auth SQL migrations applied: ${result.map(([id, name]) => `${id}_${name}`).join(", ")}`,
       );
 
       const runCleanup = (pool: import("pg").Pool) =>
@@ -44,7 +44,7 @@ export const MigrationLayer: Layer.Layer<never, never, PostgresConnectionPool | 
       yield* runCleanup(pool);
 
       yield* Effect.forkDetach(
-        Effect.repeat(runCleanup(pool), Schedule.fixed("1 hour")).pipe(Effect.ignore)
+        Effect.repeat(runCleanup(pool), Schedule.fixed("1 hour")).pipe(Effect.ignore),
       );
-    }).pipe(Effect.provide(Reactivity.layer), Effect.scoped, Effect.orDie)
+    }).pipe(Effect.provide(Reactivity.layer), Effect.scoped, Effect.orDie),
   );

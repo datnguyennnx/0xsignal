@@ -6,7 +6,7 @@ export class UserDataService extends Context.Service<
   {
     readonly getClearinghouseState: (walletAddress: string) => Effect.Effect<unknown, DomainError>;
     readonly getSpotClearinghouseState: (
-      walletAddress: string
+      walletAddress: string,
     ) => Effect.Effect<unknown, DomainError>;
     readonly getOpenOrders: (walletAddress: string) => Effect.Effect<unknown, DomainError>;
     readonly getFrontendOpenOrders: (walletAddress: string) => Effect.Effect<unknown, DomainError>;
@@ -18,7 +18,7 @@ export class UserDataService extends Context.Service<
     readonly getUserFunding: (
       walletAddress: string,
       startTime?: number,
-      endTime?: number
+      endTime?: number,
     ) => Effect.Effect<unknown, DomainError>;
   }
 >()("UserDataService") {}

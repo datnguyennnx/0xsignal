@@ -18,7 +18,7 @@ type CredentialRouteHandler = (
   url: URL,
   accountRepo: AccountRepoService,
   credentialRepo: CredentialRepoService,
-  userId?: string
+  userId?: string,
 ) => Effect.Effect<Response, HttpError, HyperliquidClient>;
 
 type BuildCredentialRoutesParams = {

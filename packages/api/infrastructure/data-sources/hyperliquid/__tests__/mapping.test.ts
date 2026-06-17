@@ -66,7 +66,7 @@ describe("Hyperliquid Mapping", () => {
         Effect.provideService(HyperliquidRateLimiter, { semaphore }),
         Effect.provideService(HyperliquidDeduplicationRegistry, {
           registryRef: dedupRef,
-        })
+        }),
       );
       const result = await Effect.runPromise(program);
 
@@ -88,7 +88,7 @@ describe("Hyperliquid Mapping", () => {
         Effect.provideService(HyperliquidRateLimiter, { semaphore }),
         Effect.provideService(HyperliquidDeduplicationRegistry, {
           registryRef: dedupRef,
-        })
+        }),
       );
       const result = await Effect.runPromise(program);
 
@@ -241,7 +241,7 @@ describe("Hyperliquid Mapping", () => {
       rawCoin: string,
       dexPrefix: string | null,
       dayNtlVlm: string,
-      isDelisted = false
+      isDelisted = false,
     ) => ({ coin, rawCoin, dexPrefix, dayNtlVlm, isDelisted, marketType: "perp" as const }) as any;
 
     const makeSpot = (coin: string, rawCoin: string, dayNtlVlm: string) =>

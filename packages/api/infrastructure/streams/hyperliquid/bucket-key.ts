@@ -7,5 +7,5 @@ export const buildMarketWsBucketKey = (subscription: MarketWsSubscription): stri
     Match.when("l2Book", () => `l2Book:${subscription.symbol}:${subscription.nSigFigs ?? "raw"}`),
     Match.when("trades", () => `trades:${subscription.symbol}`),
     Match.when("allMids", () => `allMids:${subscription.dex ?? ""}`),
-    Match.exhaustive
+    Match.exhaustive,
   );

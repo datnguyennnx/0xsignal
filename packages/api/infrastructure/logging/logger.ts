@@ -9,7 +9,7 @@ const toEffectLogLevel = (level: AppLogLevel): "Debug" | "Info" | "Warn" | "Erro
     Match.when("INFO", () => "Info" as const),
     Match.when("WARN", () => "Warn" as const),
     Match.when("ERROR", () => "Error" as const),
-    Match.exhaustive
+    Match.exhaustive,
   );
 
 export const withLogLevel = (level: AppLogLevel) =>
@@ -17,5 +17,5 @@ export const withLogLevel = (level: AppLogLevel) =>
 
 export const devLoggerLayer = Layer.mergeAll(
   Logger.layer([Logger.consolePretty()]),
-  withLogLevel("INFO")
+  withLogLevel("INFO"),
 );

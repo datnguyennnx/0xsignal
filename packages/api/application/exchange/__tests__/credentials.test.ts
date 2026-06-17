@@ -63,13 +63,13 @@ describe("ExchangeService — credential system", () => {
           metadata: {},
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        })
+        }),
       ),
     };
 
     const layer = Layer.succeed(
       ExchangeAccountRepo,
-      ExchangeAccountRepo.of(mockAccountRepo as any)
+      ExchangeAccountRepo.of(mockAccountRepo as any),
     );
 
     const result = await Effect.runPromise(
@@ -82,7 +82,7 @@ describe("ExchangeService — credential system", () => {
           walletAddress: "0xMASTER",
           label: "Master",
         } as any);
-      }).pipe(Effect.provide(layer))
+      }).pipe(Effect.provide(layer)),
     );
 
     expect(result.walletAddress).toBe("0xMASTER");
@@ -114,13 +114,13 @@ describe("ExchangeService — credential system", () => {
           metadata: {},
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        })
+        }),
       ),
     };
 
     const layer = Layer.succeed(
       ExchangeCredentialRepo,
-      ExchangeCredentialRepo.of(mockCredRepo as any)
+      ExchangeCredentialRepo.of(mockCredRepo as any),
     );
 
     const result = await Effect.runPromise(
@@ -136,7 +136,7 @@ describe("ExchangeService — credential system", () => {
           permissions: ["order:place"],
           isVerified: false,
         } as any);
-      }).pipe(Effect.provide(layer))
+      }).pipe(Effect.provide(layer)),
     );
 
     expect(result.encAgentKey).toBe(ENCRYPTED_KEY);
@@ -160,13 +160,13 @@ describe("ExchangeService — credential system", () => {
                 getDecryptedAgent: vi
                   .fn()
                   .mockReturnValue(
-                    Effect.fail(new CredentialUnverified({ credentialId: "cred-1" }))
+                    Effect.fail(new CredentialUnverified({ credentialId: "cred-1" })),
                   ),
-              }
-            )
-          )
+              },
+            ),
+          ),
         )
-        .pipe(Effect.flip)
+        .pipe(Effect.flip),
     );
 
     expect(result).toBeInstanceOf(CredentialUnverified);
@@ -202,9 +202,9 @@ describe("ExchangeService — credential system", () => {
               },
             ],
           },
-          USER_A
+          USER_A,
         );
-      }).pipe(Effect.provide(makeTestLayer({}, { getDecryptedAgent: getDecryptedAgentMock })))
+      }).pipe(Effect.provide(makeTestLayer({}, { getDecryptedAgent: getDecryptedAgentMock }))),
     );
 
     expect(getDecryptedAgentMock).toHaveBeenCalled();
@@ -241,16 +241,16 @@ describe("ExchangeService — credential system", () => {
               },
             ],
           },
-          USER_A
+          USER_A,
         );
       }).pipe(
         Effect.provide(
           makeTestLayer(
             {},
-            { getDecryptedAgent: vi.fn().mockReturnValue(Effect.succeed(subDecryptedCred)) }
-          )
-        )
-      )
+            { getDecryptedAgent: vi.fn().mockReturnValue(Effect.succeed(subDecryptedCred)) },
+          ),
+        ),
+      ),
     );
 
     expect(subDecryptedCred.walletAddress).toBe("0xMASTER");
@@ -271,11 +271,11 @@ describe("ExchangeService — credential system", () => {
                 getDecryptedAgent: vi
                   .fn()
                   .mockReturnValue(Effect.fail(new CredentialRevoked({ credentialId: "cred-1" }))),
-              }
-            )
-          )
+              },
+            ),
+          ),
         )
-        .pipe(Effect.flip)
+        .pipe(Effect.flip),
     );
 
     expect(result).toBeInstanceOf(CredentialRevoked);
@@ -296,11 +296,11 @@ describe("ExchangeService — credential system", () => {
                 getDecryptedAgent: vi
                   .fn()
                   .mockReturnValue(Effect.fail(new CredentialExpired({ credentialId: "cred-1" }))),
-              }
-            )
-          )
+              },
+            ),
+          ),
         )
-        .pipe(Effect.flip)
+        .pipe(Effect.flip),
     );
 
     expect(result).toBeInstanceOf(CredentialExpired);
@@ -318,7 +318,7 @@ describe("ExchangeService — credential system", () => {
         return yield* svc.placeOrder({ orders: [] }, USER_B);
       })
         .pipe(Effect.provide(makeTestLayer({}, { getDecryptedAgent: getDecryptedAgentMock })))
-        .pipe(Effect.flip)
+        .pipe(Effect.flip),
     );
 
     expect(result).toBeInstanceOf(CredentialNotFound);
@@ -342,13 +342,13 @@ describe("ExchangeService — credential system", () => {
             encAgentKey: "enc:" + NEW_KEY,
             rotatedFrom: OLD_ID,
             isActive: true,
-          })
+          }),
         );
       }),
       getActiveForAccount: vi.fn().mockImplementation(() => {
         if (!oldActive) {
           return Effect.succeed(
-            makePlaceholderCredential({ id: NEW_ID, rotatedFrom: OLD_ID, isActive: true })
+            makePlaceholderCredential({ id: NEW_ID, rotatedFrom: OLD_ID, isActive: true }),
           );
         }
         return Effect.succeed(makePlaceholderCredential({ id: OLD_ID }));
@@ -357,7 +357,7 @@ describe("ExchangeService — credential system", () => {
 
     const layer = Layer.succeed(
       ExchangeCredentialRepo,
-      ExchangeCredentialRepo.of(mockRotateRepo as any)
+      ExchangeCredentialRepo.of(mockRotateRepo as any),
     );
 
     const rotated = await Effect.runPromise(
@@ -371,7 +371,7 @@ describe("ExchangeService — credential system", () => {
           agentAddress: "0xAGENT_NEW",
           label: "Rotated Key",
         } as any);
-      }).pipe(Effect.provide(layer))
+      }).pipe(Effect.provide(layer)),
     );
 
     expect(rotated.id).toBe(NEW_ID);
@@ -387,14 +387,14 @@ describe("ExchangeService — credential system", () => {
     };
     const layer = Layer.succeed(
       ExchangeAccountRepo,
-      ExchangeAccountRepo.of(mockAccountRepo1 as any)
+      ExchangeAccountRepo.of(mockAccountRepo1 as any),
     );
 
     await Effect.runPromise(
       Effect.gen(function* () {
         const repo = yield* ExchangeAccountRepo;
         return yield* repo.setPrimary("acct-2", USER_A);
-      }).pipe(Effect.provide(layer))
+      }).pipe(Effect.provide(layer)),
     );
 
     expect(mockAccountRepo1.setPrimary).toHaveBeenCalledWith("acct-2", USER_A);
@@ -424,9 +424,9 @@ describe("ExchangeService — credential system", () => {
               },
             ],
           },
-          USER_A
+          USER_A,
         );
-      }).pipe(Effect.provide(makeTestLayer({}, { markUsed: markUsedDelay })))
+      }).pipe(Effect.provide(makeTestLayer({}, { markUsed: markUsedDelay }))),
     );
     const elapsed = Date.now() - start;
 
@@ -462,7 +462,7 @@ describe("Security Boundary — vaultAddress forwarding", () => {
               },
             ],
           },
-          USER_A
+          USER_A,
         );
       }).pipe(
         Effect.provide(
@@ -472,12 +472,12 @@ describe("Security Boundary — vaultAddress forwarding", () => {
               getDecryptedAgent: vi
                 .fn()
                 .mockReturnValue(
-                  Effect.succeed(makeDecryptedCredential({ vaultAddress: "0xVAULT" }))
+                  Effect.succeed(makeDecryptedCredential({ vaultAddress: "0xVAULT" })),
                 ),
-            }
-          )
-        )
-      )
+            },
+          ),
+        ),
+      ),
     );
 
     expect(mockExchangeInstance.order.mock.calls[0][1]).toEqual({ vaultAddress: "0xVAULT" });
@@ -492,7 +492,7 @@ describe("Security Boundary — vaultAddress forwarding", () => {
         const svc = yield* ExchangeService;
         return yield* svc.updateLeverageAndMargin(
           { symbol: "BTC", isCross: true, leverage: 10 },
-          USER_A
+          USER_A,
         );
       }).pipe(
         Effect.provide(
@@ -502,12 +502,12 @@ describe("Security Boundary — vaultAddress forwarding", () => {
               getDecryptedAgent: vi
                 .fn()
                 .mockReturnValue(
-                  Effect.succeed(makeDecryptedCredential({ vaultAddress: "0xVAULT" }))
+                  Effect.succeed(makeDecryptedCredential({ vaultAddress: "0xVAULT" })),
                 ),
-            }
-          )
-        )
-      )
+            },
+          ),
+        ),
+      ),
     );
 
     expect(mockExchangeInstance.updateLeverage).toHaveBeenCalledWith(expect.any(Object), {
@@ -531,12 +531,12 @@ describe("Security Boundary — vaultAddress forwarding", () => {
               getDecryptedAgent: vi
                 .fn()
                 .mockReturnValue(
-                  Effect.succeed(makeDecryptedCredential({ vaultAddress: "0xVAULT" }))
+                  Effect.succeed(makeDecryptedCredential({ vaultAddress: "0xVAULT" })),
                 ),
-            }
-          )
-        )
-      )
+            },
+          ),
+        ),
+      ),
     );
 
     expect(mockExchangeInstance.cancel).toHaveBeenCalledWith(expect.any(Object), {
@@ -570,7 +570,7 @@ describe("Security Boundary — vaultAddress omitted for wallet accounts", () =>
               },
             ],
           },
-          USER_A
+          USER_A,
         );
       }).pipe(
         Effect.provide(
@@ -580,12 +580,12 @@ describe("Security Boundary — vaultAddress omitted for wallet accounts", () =>
               getDecryptedAgent: vi
                 .fn()
                 .mockReturnValue(
-                  Effect.succeed(makeDecryptedCredential({ vaultAddress: undefined }))
+                  Effect.succeed(makeDecryptedCredential({ vaultAddress: undefined })),
                 ),
-            }
-          )
-        )
-      )
+            },
+          ),
+        ),
+      ),
     );
 
     expect(mockExchangeInstance.order.mock.calls[0][1]).toEqual({});
@@ -607,7 +607,7 @@ describe("Security Boundary — getActiveForAccount isolation", () => {
     };
     const layer = Layer.succeed(
       ExchangeCredentialRepo,
-      ExchangeCredentialRepo.of(isolationMock as any)
+      ExchangeCredentialRepo.of(isolationMock as any),
     );
 
     const result = await Effect.runPromise(
@@ -616,7 +616,7 @@ describe("Security Boundary — getActiveForAccount isolation", () => {
         return yield* repo.getActiveForAccount("acct-owned-by-A", "USER_B", "agent");
       })
         .pipe(Effect.provide(layer))
-        .pipe(Effect.flip)
+        .pipe(Effect.flip),
     );
 
     expect(result).toBeInstanceOf(CredentialNotFound);
@@ -628,19 +628,19 @@ describe("Security Boundary — getActiveForAccount isolation", () => {
       getActiveForAccount: vi
         .fn()
         .mockReturnValue(
-          Effect.succeed(makePlaceholderCredential({ id: "cred-accessible", userId: USER_A }))
+          Effect.succeed(makePlaceholderCredential({ id: "cred-accessible", userId: USER_A })),
         ),
     };
     const layer = Layer.succeed(
       ExchangeCredentialRepo,
-      ExchangeCredentialRepo.of(isolationMock as any)
+      ExchangeCredentialRepo.of(isolationMock as any),
     );
 
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const repo = yield* ExchangeCredentialRepo;
         return yield* repo.getActiveForAccount("acct-owned-by-A", "USER_A", "agent");
-      }).pipe(Effect.provide(layer))
+      }).pipe(Effect.provide(layer)),
     );
 
     expect(result.id).toBe("cred-accessible");
@@ -668,13 +668,13 @@ describe("Security Boundary — error sanitization", () => {
                 getDecryptedAgent: vi
                   .fn()
                   .mockReturnValue(
-                    Effect.fail(new CredentialNotFound({ credentialId: "cred-sanitized-id" }))
+                    Effect.fail(new CredentialNotFound({ credentialId: "cred-sanitized-id" })),
                   ),
-              }
-            )
-          )
+              },
+            ),
+          ),
         )
-        .pipe(Effect.flip)
+        .pipe(Effect.flip),
     );
 
     expect(result).toBeInstanceOf(CredentialNotFound);
@@ -682,7 +682,7 @@ describe("Security Boundary — error sanitization", () => {
       expect((result as any).credentialId).not.toMatch(uuidPattern);
     }
     expect((result as any).message ?? "").not.toMatch(
-      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
     );
   });
 });
@@ -718,11 +718,11 @@ describe("Security Boundary — markUsed fire-and-forget", () => {
               },
             ],
           },
-          USER_A
+          USER_A,
         );
       }).pipe(
-        Effect.provide(makeTestLayer({}, { getDecryptedAgent: getDecryptedAgentWithMarkUsed }))
-      )
+        Effect.provide(makeTestLayer({}, { getDecryptedAgent: getDecryptedAgentWithMarkUsed })),
+      ),
     );
     const elapsed = Date.now() - start;
 
@@ -751,7 +751,7 @@ describe("Full credential lifecycle end-to-end", () => {
         const active = Object.values(creds).find((c) => c.isActive && !c.isRevoked);
         if (!active) return Effect.fail(new CredentialNotFound({ credentialId: "none" }));
         return Effect.succeed(
-          makePlaceholderCredential({ id: active.id, isVerified: active.isVerified })
+          makePlaceholderCredential({ id: active.id, isVerified: active.isVerified }),
         );
       }),
       getDecryptedAgent: vi.fn().mockImplementation((id: string) => {
@@ -776,7 +776,7 @@ describe("Full credential lifecycle end-to-end", () => {
             id: "cred-lc-new",
             rotatedFrom: "cred-lc-old",
             isActive: true,
-          })
+          }),
         );
       }),
       revoke: vi.fn().mockImplementation((id: string) => {
@@ -788,16 +788,16 @@ describe("Full credential lifecycle end-to-end", () => {
 
     const accountLayer = Layer.succeed(
       ExchangeAccountRepo,
-      ExchangeAccountRepo.of(defaultMockAccountRepo as any)
+      ExchangeAccountRepo.of(defaultMockAccountRepo as any),
     );
     const credLayer = Layer.succeed(
       ExchangeCredentialRepo,
-      ExchangeCredentialRepo.of(lifecycleMock as any)
+      ExchangeCredentialRepo.of(lifecycleMock as any),
     );
     const testLayer = exchangeServiceLayer.pipe(
       Layer.provideMerge(accountLayer),
       Layer.provideMerge(credLayer),
-      Layer.provideMerge(makeMockHLClient())
+      Layer.provideMerge(makeMockHLClient()),
     );
 
     // Step 1: Unverified credential blocks trading
@@ -807,7 +807,7 @@ describe("Full credential lifecycle end-to-end", () => {
         return yield* svc.placeOrder({ orders: [] }, USER_A);
       })
         .pipe(Effect.provide(testLayer))
-        .pipe(Effect.flip)
+        .pipe(Effect.flip),
     );
     expect(blocked).toBeInstanceOf(CredentialUnverified);
 
@@ -816,7 +816,7 @@ describe("Full credential lifecycle end-to-end", () => {
       Effect.gen(function* () {
         const repo = yield* ExchangeCredentialRepo;
         yield* repo.setVerified("cred-lc-old", USER_A);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(testLayer)),
     );
     expect(creds.old.isVerified).toBe(true);
 
@@ -839,9 +839,9 @@ describe("Full credential lifecycle end-to-end", () => {
               },
             ],
           },
-          USER_A
+          USER_A,
         );
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(testLayer)),
     );
     expect(mockExchangeInstance.order).toHaveBeenCalled();
 
@@ -856,7 +856,7 @@ describe("Full credential lifecycle end-to-end", () => {
           agentKey: "0x" + "c".repeat(64),
           agentAddress: "0xAGENT_NEW",
         } as any);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(testLayer)),
     );
     expect(rotated.id).toBe("cred-lc-new");
     expect(creds.old.isActive).toBe(false);
@@ -868,7 +868,7 @@ describe("Full credential lifecycle end-to-end", () => {
       Effect.gen(function* () {
         const svc = yield* ExchangeService;
         return yield* svc.placeOrder({ orders: [] }, USER_A);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(testLayer)),
     );
 
     // Step 6: Revoke and verify block
@@ -876,7 +876,7 @@ describe("Full credential lifecycle end-to-end", () => {
       Effect.gen(function* () {
         const repo = yield* ExchangeCredentialRepo;
         yield* repo.revoke("cred-lc-new", "compromised", USER_A);
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(testLayer)),
     );
 
     const revokedResult = await Effect.runPromise(
@@ -885,7 +885,7 @@ describe("Full credential lifecycle end-to-end", () => {
         return yield* svc.placeOrder({ orders: [] }, USER_A);
       })
         .pipe(Effect.provide(testLayer))
-        .pipe(Effect.flip)
+        .pipe(Effect.flip),
     );
     expect(revokedResult).toBeInstanceOf(CredentialNotFound);
   });
@@ -915,11 +915,11 @@ describe("Expired credential — decrypt never called", () => {
                   return Effect.fail(new CredentialExpired({ credentialId: id }));
                   decryptWouldHaveBeenCalled = true;
                 }),
-              }
-            )
-          )
+              },
+            ),
+          ),
         )
-        .pipe(Effect.flip)
+        .pipe(Effect.flip),
     );
 
     expect(result).toBeInstanceOf(CredentialExpired);
@@ -952,7 +952,7 @@ describe("Sub-account/Vault flow — vaultAddress resolution", () => {
               },
             ],
           },
-          USER_A
+          USER_A,
         );
       }).pipe(
         Effect.provide(
@@ -965,13 +965,13 @@ describe("Sub-account/Vault flow — vaultAddress resolution", () => {
                     walletAddress: "0xMASTER",
                     vaultAddress: "0xSUB1",
                     privateKey: Redacted.make(VALID_PRIVATE_KEY),
-                  })
-                )
+                  }),
+                ),
               ),
-            }
-          )
-        )
-      )
+            },
+          ),
+        ),
+      ),
     );
 
     expect(mockExchangeInstance.order).toHaveBeenCalledWith(expect.any(Object), {
@@ -999,7 +999,7 @@ describe("Sub-account/Vault flow — vaultAddress resolution", () => {
               },
             ],
           },
-          USER_A
+          USER_A,
         );
       }).pipe(
         Effect.provide(
@@ -1012,13 +1012,13 @@ describe("Sub-account/Vault flow — vaultAddress resolution", () => {
                     walletAddress: "0xMASTER",
                     vaultAddress: "0xVAULT1",
                     privateKey: Redacted.make(VALID_PRIVATE_KEY),
-                  })
-                )
+                  }),
+                ),
               ),
-            }
-          )
-        )
-      )
+            },
+          ),
+        ),
+      ),
     );
 
     expect(mockExchangeInstance.order).toHaveBeenCalledWith(expect.any(Object), {
@@ -1044,11 +1044,11 @@ describe("Concurrent/Multi-User isolation", () => {
       findPrimary: vi.fn().mockImplementation((userId: string) => {
         if (userId === USER_A)
           return Effect.succeed(
-            makePlaceholderAccount({ userId: USER_A, walletAddress: "0xUSER_A" })
+            makePlaceholderAccount({ userId: USER_A, walletAddress: "0xUSER_A" }),
           );
         if (userId === USER_B)
           return Effect.succeed(
-            makePlaceholderAccount({ userId: USER_B, walletAddress: "0xUSER_B" })
+            makePlaceholderAccount({ userId: USER_B, walletAddress: "0xUSER_B" }),
           );
         return Effect.fail(new AccountNotFound({ accountId: userId }));
       }),
@@ -1070,12 +1070,12 @@ describe("Concurrent/Multi-User isolation", () => {
 
     const isolatedLayer = exchangeServiceLayer.pipe(
       Layer.provideMerge(
-        Layer.succeed(ExchangeAccountRepo, ExchangeAccountRepo.of(multiUserAccountRepo as any))
+        Layer.succeed(ExchangeAccountRepo, ExchangeAccountRepo.of(multiUserAccountRepo as any)),
       ),
       Layer.provideMerge(
-        Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(multiUserCredRepo as any))
+        Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(multiUserCredRepo as any)),
       ),
-      Layer.provideMerge(makeMockHLClient())
+      Layer.provideMerge(makeMockHLClient()),
     );
 
     const [resultA, resultB] = await Effect.runPromise(
@@ -1095,7 +1095,7 @@ describe("Concurrent/Multi-User isolation", () => {
                 },
               ],
             },
-            USER_A
+            USER_A,
           );
         }),
         Effect.gen(function* () {
@@ -1113,10 +1113,10 @@ describe("Concurrent/Multi-User isolation", () => {
                 },
               ],
             },
-            USER_B
+            USER_B,
           );
         }),
-      ]).pipe(Effect.provide(isolatedLayer))
+      ]).pipe(Effect.provide(isolatedLayer)),
     );
 
     expect(resultA).toEqual({ response: "ok" });
@@ -1138,13 +1138,13 @@ describe("Concurrent/Multi-User isolation", () => {
                 .fn()
                 .mockReturnValue(
                   Effect.fail(
-                    new AccountNotFound({ accountId: "primary@user-no-account/hyperliquid" })
-                  )
+                    new AccountNotFound({ accountId: "primary@user-no-account/hyperliquid" }),
+                  ),
                 ),
-            })
-          )
+            }),
+          ),
         )
-        .pipe(Effect.flip)
+        .pipe(Effect.flip),
     );
 
     expect(result).toBeInstanceOf(AccountNotFound);
@@ -1154,7 +1154,7 @@ describe("Concurrent/Multi-User isolation", () => {
 // ── Group 6: Edge Cases ──────────────────────────────────────────────
 
 it.todo(
-  "One agent credential should not sign for multiple sub-accounts under concurrency — nonce isolation rule"
+  "One agent credential should not sign for multiple sub-accounts under concurrency — nonce isolation rule",
 );
 
 describe("Negative/Defensive tests", () => {
@@ -1170,12 +1170,12 @@ describe("Negative/Defensive tests", () => {
       getActiveForAccount: vi
         .fn()
         .mockReturnValue(
-          Effect.succeed(makePlaceholderCredential({ credentialSubtype: "hardware" }))
+          Effect.succeed(makePlaceholderCredential({ credentialSubtype: "hardware" })),
         ),
       getDecryptedAgent: vi
         .fn()
         .mockImplementation((id: string) =>
-          Effect.fail(new CredentialNotFound({ credentialId: id }))
+          Effect.fail(new CredentialNotFound({ credentialId: id })),
         ),
     };
 
@@ -1185,7 +1185,7 @@ describe("Negative/Defensive tests", () => {
         return yield* svc.placeOrder({ orders: [] }, USER_A);
       })
         .pipe(Effect.provide(makeTestLayer({}, mockCredRepo)))
-        .pipe(Effect.flip)
+        .pipe(Effect.flip),
     );
 
     expect(result).toBeInstanceOf(CredentialNotFound);

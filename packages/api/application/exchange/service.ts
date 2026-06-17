@@ -24,13 +24,13 @@ const withExchangeClient = <A>(
     exchange: ExchangeClient;
     vaultAddress: string | undefined;
     coinToAsset: Map<string, number>;
-  }) => Effect.Effect<A, ExchangeError>
+  }) => Effect.Effect<A, ExchangeError>,
 ): Effect.Effect<A, ExchangeError> =>
   Effect.gen(function* () {
     const { exchange, vaultAddress } = yield* resolveExchangeCredentials(
       userId,
       accountRepo,
-      credentialRepo
+      credentialRepo,
     );
 
     const meta = yield* getCachedMetaInner(metaCache, info);
@@ -44,7 +44,7 @@ const getCachedMetaInner = (
     readonly value?: { universe: Array<{ name: string }> };
     readonly expiresAt: number;
   }>,
-  info: InfoClient
+  info: InfoClient,
 ): Effect.Effect<{ universe: Array<{ name: string }> }, HyperliquidInternalError> =>
   Effect.gen(function* () {
     const cached = yield* Ref.get(metaCache);
@@ -94,7 +94,7 @@ export const exchangeServiceLayer = Layer.effect(
                   const a = coinToAsset.get(o.symbol);
                   if (a === undefined) {
                     return yield* Effect.fail(
-                      new HyperliquidInternalError({ message: `Unknown coin: ${o.symbol}` })
+                      new HyperliquidInternalError({ message: `Unknown coin: ${o.symbol}` }),
                     );
                   }
                   return {
@@ -114,7 +114,7 @@ export const exchangeServiceLayer = Layer.effect(
                             },
                           } as const),
                   };
-                })
+                }),
               );
 
               const orderOpts = vaultAddress ? { vaultAddress } : {};
@@ -122,16 +122,18 @@ export const exchangeServiceLayer = Layer.effect(
                 try: () =>
                   exchange.order(
                     { orders: hlOrders, grouping: params.grouping ?? "na" },
-                    orderOpts
+                    orderOpts,
                   ),
                 catch: classifyExchangeError,
               }).pipe(
                 Effect.timeout("30 seconds"),
                 Effect.catchTag("TimeoutError", () =>
-                  Effect.fail(new HyperliquidInternalError({ message: "Exchange order timed out" }))
-                )
+                  Effect.fail(
+                    new HyperliquidInternalError({ message: "Exchange order timed out" }),
+                  ),
+                ),
               );
-            })
+            }),
         ),
 
       updateLeverageAndMargin: (params, userId) =>
@@ -146,7 +148,7 @@ export const exchangeServiceLayer = Layer.effect(
               const assetIndex = coinToAsset.get(params.symbol);
               if (assetIndex === undefined) {
                 return yield* Effect.fail(
-                  new HyperliquidInternalError({ message: `Unknown coin: ${params.symbol}` })
+                  new HyperliquidInternalError({ message: `Unknown coin: ${params.symbol}` }),
                 );
               }
 
@@ -159,18 +161,18 @@ export const exchangeServiceLayer = Layer.effect(
                       isCross: params.isCross,
                       leverage: params.leverage,
                     },
-                    leverageOpts
+                    leverageOpts,
                   ),
                 catch: classifyExchangeError,
               }).pipe(
                 Effect.timeout("30 seconds"),
                 Effect.catchTag("TimeoutError", () =>
                   Effect.fail(
-                    new HyperliquidInternalError({ message: "Exchange leverage update timed out" })
-                  )
-                )
+                    new HyperliquidInternalError({ message: "Exchange leverage update timed out" }),
+                  ),
+                ),
               );
-            })
+            }),
         ),
 
       cancelOrders: (params, userId) =>
@@ -187,7 +189,7 @@ export const exchangeServiceLayer = Layer.effect(
                 const a = coinToAsset.get(c.symbol);
                 if (a === undefined) {
                   return yield* Effect.fail(
-                    new HyperliquidInternalError({ message: `Unknown coin: ${c.symbol}` })
+                    new HyperliquidInternalError({ message: `Unknown coin: ${c.symbol}` }),
                   );
                 }
                 cancels.push({ a, o: c.orderId });
@@ -202,12 +204,12 @@ export const exchangeServiceLayer = Layer.effect(
                 Effect.timeout("30 seconds"),
                 Effect.catchTag("TimeoutError", () =>
                   Effect.fail(
-                    new HyperliquidInternalError({ message: "Exchange cancel timed out" })
-                  )
-                )
+                    new HyperliquidInternalError({ message: "Exchange cancel timed out" }),
+                  ),
+                ),
               );
-            })
+            }),
         ),
     });
-  })
+  }),
 );

@@ -57,12 +57,12 @@ import {
 
 export type LineCalculator = (
   data: ChartDataPoint[],
-  params: Record<string, number>
+  params: Record<string, number>,
 ) => IndicatorDataPoint[] | null;
 
 export type BandCalculator = (
   data: ChartDataPoint[],
-  params: Record<string, number>
+  params: Record<string, number>,
 ) => BandIndicatorDataPoint[] | null;
 
 export const LINE_INDICATOR_MAP = new Map<string, LineCalculator>([
@@ -157,7 +157,7 @@ export const BAND_INDICATOR_MAP = new Map<string, BandCalculator>([
 
 export const calculateLineIndicator = (
   indicator: ActiveIndicator,
-  data: ChartDataPoint[]
+  data: ChartDataPoint[],
 ): IndicatorDataPoint[] | null => {
   const baseId = getIndicatorBaseId(indicator.config.id);
   const calculator = LINE_INDICATOR_MAP.get(baseId);
@@ -166,7 +166,7 @@ export const calculateLineIndicator = (
 
 export const calculateBandIndicator = (
   indicator: ActiveIndicator,
-  data: ChartDataPoint[]
+  data: ChartDataPoint[],
 ): BandIndicatorDataPoint[] | null => {
   const baseId = getIndicatorBaseId(indicator.config.id);
   const calculator = BAND_INDICATOR_MAP.get(baseId);

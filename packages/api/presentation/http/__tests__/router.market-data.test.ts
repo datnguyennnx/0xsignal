@@ -18,7 +18,7 @@ const mockMarketDataService = {
 
 const TestMarketDataLayer = Layer.succeed(
   MarketDataService,
-  mockMarketDataService as unknown as Context.Service.Shape<typeof MarketDataService>
+  mockMarketDataService as unknown as Context.Service.Shape<typeof MarketDataService>,
 );
 
 const TestHealthLayer = Layer.succeed(HealthService, {
@@ -55,14 +55,14 @@ const runRequest = (path: string, method = "GET") =>
   Effect.runPromise(
     handleRequest(new Request(`http://localhost${path}`, { method })).pipe(
       Effect.provide(
-        Layer.mergeAll(TestMarketDataLayer, TestHealthLayer, TestUserDataLayer, TestExchangeLayer)
-      )
-    )
+        Layer.mergeAll(TestMarketDataLayer, TestHealthLayer, TestUserDataLayer, TestExchangeLayer),
+      ),
+    ),
   );
 
 const expectHttpFailure = async (
   promise: Promise<unknown>,
-  expected: { status: number; message: string }
+  expected: { status: number; message: string },
 ) => {
   const result = await promise;
 
@@ -101,7 +101,7 @@ describe("HTTP Market Data Router", () => {
           fullCoverage: true,
           missingWindows: [],
         },
-      })
+      }),
     );
     mockMarketDataService.getRecentCandles.mockReturnValue(
       Effect.succeed({
@@ -114,7 +114,7 @@ describe("HTTP Market Data Router", () => {
           fullCoverage: true,
           missingWindows: [],
         },
-      })
+      }),
     );
     mockMarketDataService.getTicker.mockReturnValue(
       Effect.succeed({
@@ -126,13 +126,13 @@ describe("HTTP Market Data Router", () => {
         dayNtlVlm: 12345,
         openInterest: 500000,
         funding: 0.0001,
-      })
+      }),
     );
     mockMarketDataService.getOrderBook.mockReturnValue(
-      Effect.succeed({ symbol: "BTC", orderbook: null })
+      Effect.succeed({ symbol: "BTC", orderbook: null }),
     );
     mockMarketDataService.getTradeAnnotation.mockReturnValue(
-      Effect.succeed({ symbol: "BTC", annotation: null })
+      Effect.succeed({ symbol: "BTC", annotation: null }),
     );
   });
 
@@ -179,7 +179,7 @@ describe("HTTP Market Data Router", () => {
         symbol: "BTC",
         timeframe: "3m",
         limit: 50,
-      })
+      }),
     );
   });
 
@@ -198,7 +198,7 @@ describe("HTTP Market Data Router", () => {
         symbol: "BTC",
         timeframe: "1m",
         limit: 200,
-      })
+      }),
     );
   });
 
@@ -251,7 +251,7 @@ describe("HTTP Market Data Router", () => {
 
   it("maps ticker not found errors to 404", async () => {
     mockMarketDataService.getTicker.mockReturnValue(
-      Effect.fail(new DomainError({ code: "NOT_FOUND", message: "Symbol not found: XRP" }))
+      Effect.fail(new DomainError({ code: "NOT_FOUND", message: "Symbol not found: XRP" })),
     );
 
     await expectHttpFailure(runRequest("/api/ticker?symbol=XRP"), {
@@ -263,8 +263,8 @@ describe("HTTP Market Data Router", () => {
   it("maps upstream ticker failures to 502", async () => {
     mockMarketDataService.getTicker.mockReturnValue(
       Effect.fail(
-        new DomainError({ code: "INTERNAL_ERROR", message: "Upstream provider unavailable" })
-      )
+        new DomainError({ code: "INTERNAL_ERROR", message: "Upstream provider unavailable" }),
+      ),
     );
 
     await expectHttpFailure(runRequest("/api/ticker?symbol=BTC"), {

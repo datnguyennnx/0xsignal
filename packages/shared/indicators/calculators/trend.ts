@@ -159,7 +159,7 @@ export const calculateEMA = (data: ChartDataPoint[], period: number): IndicatorD
 export const calculateParabolicSAR = (
   data: ChartDataPoint[],
   step: number,
-  maxStep: number
+  maxStep: number,
 ): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   if (data.length < 2) return result;
@@ -204,7 +204,7 @@ export const calculateParabolicSAR = (
 export const calculateSuperTrend = (
   data: ChartDataPoint[],
   period: number,
-  multiplier: number
+  multiplier: number,
 ): IndicatorDataPoint[] => {
   const result: IndicatorDataPoint[] = [];
   const atrData = calculateATR(data, period);

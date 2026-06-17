@@ -12,7 +12,7 @@ import { HyperliquidDeduplicationRegistry } from "./dedup";
 export const deduplicatedApiCall = <T>(
   key: string,
   call: () => Promise<T>,
-  errorMessage: string
+  errorMessage: string,
 ): Effect.Effect<T, HyperliquidError, HyperliquidRateLimiter | HyperliquidDeduplicationRegistry> =>
   Effect.gen(function* () {
     const rateLimiter = yield* HyperliquidRateLimiter;
@@ -33,7 +33,7 @@ export const deduplicatedApiCall = <T>(
         }
         const d = Deferred.makeUnsafe<T, HyperliquidError>();
         return [{ deferred: d, isFirst: true }, new Map(map).set(key, d)];
-      }
+      },
     );
 
     if (isFirst) {
@@ -51,24 +51,24 @@ export const deduplicatedApiCall = <T>(
           Effect.retry({
             schedule: Schedule.exponential("1 second").pipe(Schedule.take(16)),
             while: (err) => err.kind === "RATE_LIMITED",
-          })
-        )
+          }),
+        ),
       );
 
       yield* apiCall.pipe(
         Effect.tap((value) => Deferred.completeWith(deferred, Effect.succeed(value))),
         Effect.catch((error) =>
           Deferred.completeWith(deferred, Effect.fail(error)).pipe(
-            Effect.flatMap(() => Effect.fail(error))
-          )
+            Effect.flatMap(() => Effect.fail(error)),
+          ),
         ),
         Effect.ensuring(
           Ref.update(dedup.registryRef, (map) => {
             const newMap = new Map(map);
             newMap.delete(key);
             return newMap;
-          })
-        )
+          }),
+        ),
       );
     }
 

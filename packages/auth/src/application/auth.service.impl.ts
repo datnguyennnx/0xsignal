@@ -124,7 +124,7 @@ export const AuthServiceLayer: Layer.Layer<
             Effect.catchTags({
               TokenExpired: () => Effect.succeed(Option.none<JwtPayload>()),
               TokenInvalid: () => Effect.succeed(Option.none<JwtPayload>()),
-            })
+            }),
           );
 
           if (Option.isSome(maybePayload)) {
@@ -166,5 +166,5 @@ export const AuthServiceLayer: Layer.Layer<
           };
         }),
     });
-  })
+  }),
 );

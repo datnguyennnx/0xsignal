@@ -29,7 +29,7 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
 
         const countResult = await pg.query(
           "SELECT COUNT(*)::int AS cnt FROM exchange_accounts WHERE user_id = $1 AND exchange_id = $2",
-          [params.userId, exchangeId]
+          [params.userId, exchangeId],
         );
         const isFirst = countResult.rows[0].cnt === 0;
 
@@ -50,7 +50,7 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
             params.sortOrder ?? 0,
             isFirst,
             JSON.stringify(params.metadata ?? {}),
-          ]
+          ],
         );
 
         return mapRow(insertResult.rows[0]);
@@ -62,16 +62,16 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
           return Match.value(error).pipe(
             Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
             Match.when({ _tag: "DuplicateLabel" }, (e) => Effect.fail(e as DuplicateLabel)),
-            Match.orElse(() => Effect.die(error))
+            Match.orElse(() => Effect.die(error)),
           );
-        })
+        }),
       ),
 
     findById: (id, userId) =>
       Effect.tryPromise(async () => {
         const result = await pg.query(
           "SELECT * FROM exchange_accounts WHERE id = $1 AND user_id = $2",
-          [id, userId]
+          [id, userId],
         );
         if (result.rows.length === 0) {
           throw new AccountNotFound({ accountId: id });
@@ -81,9 +81,9 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
         Effect.catch((error: unknown) => {
           return Match.value(error).pipe(
             Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-            Match.orElse(() => Effect.die(error))
+            Match.orElse(() => Effect.die(error)),
           );
-        })
+        }),
       ),
 
     findByUserId: (userId, exchangeSlug) =>
@@ -115,7 +115,7 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
            JOIN exchanges e ON e.id = ea.exchange_id
            WHERE ea.user_id = $1 AND e.slug = $2 AND ea.is_primary = true
            LIMIT 1`,
-          [userId, exchangeSlug]
+          [userId, exchangeSlug],
         );
         if (result.rows.length === 0) {
           throw new AccountNotFound({
@@ -127,9 +127,9 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
         Effect.catch((error: unknown) => {
           return Match.value(error).pipe(
             Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-            Match.orElse(() => Effect.die(error))
+            Match.orElse(() => Effect.die(error)),
           );
-        })
+        }),
       ),
 
     findWithDescendants: (accountId) =>
@@ -142,7 +142,7 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
              INNER JOIN descendants d ON ea.parent_id = d.id
            )
            SELECT * FROM descendants ORDER BY created_at ASC`,
-          [accountId]
+          [accountId],
         );
         return result.rows.map(mapRow);
       }).pipe(Effect.orDie),
@@ -165,7 +165,7 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
            UPDATE exchange_accounts SET is_primary = true
            WHERE id = $1 AND user_id = $2
            RETURNING id`,
-          [accountId, userId]
+          [accountId, userId],
         );
         if (result.rows.length === 0) {
           throw new AccountNotFound({ accountId });
@@ -174,16 +174,16 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
         Effect.catch((error: unknown) => {
           return Match.value(error).pipe(
             Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-            Match.orElse(() => Effect.die(error))
+            Match.orElse(() => Effect.die(error)),
           );
-        })
+        }),
       ),
 
     deactivate: (accountId, userId) =>
       Effect.tryPromise(async () => {
         const result = await pg.query(
           "UPDATE exchange_accounts SET is_active = false WHERE id = $1 AND user_id = $2 RETURNING id",
-          [accountId, userId]
+          [accountId, userId],
         );
         if (result.rows.length === 0) {
           throw new AccountNotFound({ accountId });
@@ -192,9 +192,9 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
         Effect.catch((error: unknown) => {
           return Match.value(error).pipe(
             Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-            Match.orElse(() => Effect.die(error))
+            Match.orElse(() => Effect.die(error)),
           );
-        })
+        }),
       ),
   };
 }

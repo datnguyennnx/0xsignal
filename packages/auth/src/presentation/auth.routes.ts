@@ -60,7 +60,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         const result = yield* authService.handleCallback({ provider, code, state });
 
         const frontendUrl = yield* Config.string("FRONTEND_URL").pipe(
-          Effect.catch(() => Effect.succeed(FRONTEND_URL_DEFAULT))
+          Effect.catch(() => Effect.succeed(FRONTEND_URL_DEFAULT)),
         );
 
         const normalizedFrontend = frontendUrl.replace(/\/+$/, "");
@@ -75,20 +75,20 @@ export const buildAuthRoutes = (): readonly Route[] => [
         Effect.catch((error) =>
           Match.value(error).pipe(
             Match.when({ _tag: "OAuthCallbackFailed" }, () =>
-              Effect.succeed(json({ error: "OAuth provider error" }, 502))
+              Effect.succeed(json({ error: "OAuth provider error" }, 502)),
             ),
             Match.when({ _tag: "OAuthStateMismatch" }, () =>
-              Effect.succeed(json({ error: "State mismatch" }, 400))
+              Effect.succeed(json({ error: "State mismatch" }, 400)),
             ),
             Match.when({ _tag: "OAuthStateExpired" }, () =>
-              Effect.succeed(json({ error: "State expired" }, 400))
+              Effect.succeed(json({ error: "State expired" }, 400)),
             ),
             Match.when({ _tag: "UserSuspended" }, () =>
-              Effect.succeed(json({ error: "Account suspended" }, 403))
+              Effect.succeed(json({ error: "Account suspended" }, 403)),
             ),
-            Match.orElse(() => Effect.succeed(json({ error: "Authentication failed" }, 500)))
-          )
-        )
+            Match.orElse(() => Effect.succeed(json({ error: "Authentication failed" }, 500))),
+          ),
+        ),
       ),
   },
   {
@@ -98,7 +98,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
       Effect.gen(function* () {
         const authService = yield* AuthService;
         const body = yield* Effect.tryPromise(() => request.json()).pipe(
-          Effect.catch(() => Effect.succeed({} as any))
+          Effect.catch(() => Effect.succeed({} as any)),
         );
         const code = body.code;
         if (!code) {
@@ -107,7 +107,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         const tokens = yield* authService.exchangeCode(code);
 
         const frontendUrl = yield* Config.string("FRONTEND_URL").pipe(
-          Effect.catch(() => Effect.succeed(FRONTEND_URL_DEFAULT))
+          Effect.catch(() => Effect.succeed(FRONTEND_URL_DEFAULT)),
         );
         const normalizedFrontend = frontendUrl.replace(/\/+$/, "");
         const isDev =
@@ -122,7 +122,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
             expiresIn: tokens.expiresIn,
           },
           200,
-          { "Set-Cookie": cookie }
+          { "Set-Cookie": cookie },
         );
       }).pipe(Effect.catch(() => Effect.succeed(json({ error: "Invalid or expired code" }, 400)))),
   },
@@ -141,7 +141,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         const tokens = yield* authService.refreshTokens(refreshToken);
 
         const frontendUrl = yield* Config.string("FRONTEND_URL").pipe(
-          Effect.catch(() => Effect.succeed(FRONTEND_URL_DEFAULT))
+          Effect.catch(() => Effect.succeed(FRONTEND_URL_DEFAULT)),
         );
         const normalizedFrontend = frontendUrl.replace(/\/+$/, "");
         const isDev =
@@ -156,13 +156,13 @@ export const buildAuthRoutes = (): readonly Route[] => [
             expiresIn: tokens.expiresIn,
           },
           200,
-          { "Set-Cookie": cookie }
+          { "Set-Cookie": cookie },
         );
       }).pipe(
         Effect.catch(() => {
           const cookie = `refresh_token=; HttpOnly; SameSite=Strict; Path=/api/auth; Max-Age=0`;
           return Effect.succeed(json({ error: "Session expired" }, 401, { "Set-Cookie": cookie }));
-        })
+        }),
       ),
   },
   {
@@ -194,7 +194,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
             avatarUrl: profile?.avatarUrl ?? null,
             displayName: profile?.displayName ?? null,
           });
-        })
+        }),
       )(request),
   },
   {
@@ -205,7 +205,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         Effect.gen(function* () {
           const authService = yield* AuthService;
           const body = yield* Effect.tryPromise(() => request.json()).pipe(
-            Effect.catch(() => Effect.succeed({} as any))
+            Effect.catch(() => Effect.succeed({} as any)),
           );
           const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
           if (!displayName) {
@@ -216,7 +216,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
           }
           const profile = yield* authService.updateProfile(session.userId, { displayName });
           return json({ data: profile });
-        })
+        }),
       )(request),
   },
 ];

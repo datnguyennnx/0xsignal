@@ -16,7 +16,7 @@ type WalletRouteHandler = (
   url: URL,
   accountRepo: AccountRepoService,
   credentialRepo: CredentialRepoService,
-  userId?: string
+  userId?: string,
 ) => Effect.Effect<Response, HttpError>;
 
 type BuildWalletRoutesParams = {
@@ -50,9 +50,9 @@ export const buildWalletRoutes = ({
         });
 
         const { exchangeSlug, walletAddress, label } = yield* Schema.decodeUnknownEffect(
-          CreateWalletSchema
+          CreateWalletSchema,
         )(raw).pipe(
-          Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`))
+          Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`)),
         );
 
         const validationErr = validateWalletAddress(walletAddress, exchangeSlug);
@@ -70,9 +70,9 @@ export const buildWalletRoutes = ({
           })
           .pipe(
             Effect.catchTag("DuplicateLabel", (e) =>
-              Effect.fail(asHttpError(409, `Duplicate label: "${e.label}"`))
+              Effect.fail(asHttpError(409, `Duplicate label: "${e.label}"`)),
             ),
-            Effect.mapError(mapServiceError)
+            Effect.mapError(mapServiceError),
           );
 
         return json({
@@ -119,9 +119,9 @@ export const buildWalletRoutes = ({
 
         yield* accountRepo.deactivate(accountId, userId).pipe(
           Effect.catchTag("AccountNotFound", () =>
-            Effect.fail(asHttpError(404, "Wallet not found"))
+            Effect.fail(asHttpError(404, "Wallet not found")),
           ),
-          Effect.mapError(mapServiceError)
+          Effect.mapError(mapServiceError),
         );
 
         return new Response(null, { status: 204 });
