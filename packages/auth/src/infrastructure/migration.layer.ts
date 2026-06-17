@@ -4,7 +4,7 @@ import { Path } from "effect/Path";
 import * as Reactivity from "effect/unstable/reactivity/Reactivity";
 import { SqlClient } from "effect/unstable/sql/SqlClient";
 import * as PgClientModule from "@effect/sql-pg/PgClient";
-import { PostgresConnectionPool } from "@0xsignal/shared/db/postgres";
+import { PostgresConnectionPool } from "./db/postgres";
 import { runSqlMigrations } from "./migrations/sql-migration.runner";
 
 export const MigrationLayer: Layer.Layer<never, never, PostgresConnectionPool | FileSystem | Path> =

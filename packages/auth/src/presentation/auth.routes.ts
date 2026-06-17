@@ -1,7 +1,18 @@
-import { Config, Effect, Match } from "effect";
+import { Config, Effect, Match, Option, Schema } from "effect";
 import { AuthService } from "../application/auth.service";
 import type { OAuthProvider } from "../domain/oauth-account";
 import { withAuth } from "./require-auth";
+import { AuthMeResponseSchema } from "./auth.schemas";
+
+type AuthMeResponse = Schema.Schema.Type<typeof AuthMeResponseSchema>;
+
+const TokenExchangeSchema = Schema.Struct({
+  code: Schema.String,
+});
+
+const ProfileUpdateSchema = Schema.Struct({
+  displayName: Schema.String,
+});
 
 type Route = {
   readonly method: "GET" | "POST";
@@ -97,13 +108,14 @@ export const buildAuthRoutes = (): readonly Route[] => [
     handler: (request) =>
       Effect.gen(function* () {
         const authService = yield* AuthService;
-        const body = yield* Effect.tryPromise(() => request.json()).pipe(
+        const raw = yield* Effect.tryPromise(() => request.json()).pipe(
           Effect.catch(() => Effect.succeed({} as any)),
         );
-        const code = body.code;
-        if (!code) {
+        const decoded = Schema.decodeUnknownOption(TokenExchangeSchema)(raw);
+        if (Option.isNone(decoded)) {
           return json({ error: "Missing code" }, 400);
         }
+        const { code } = decoded.value;
         const tokens = yield* authService.exchangeCode(code);
 
         const frontendUrl = yield* Config.string("FRONTEND_URL").pipe(
@@ -188,12 +200,13 @@ export const buildAuthRoutes = (): readonly Route[] => [
         Effect.gen(function* () {
           const authService = yield* AuthService;
           const profile = yield* authService.getProfile(session.userId);
-          return json({
+          const body: AuthMeResponse = {
             userId: session.userId,
             provider: session.provider,
             avatarUrl: profile?.avatarUrl ?? null,
             displayName: profile?.displayName ?? null,
-          });
+          };
+          return json(body);
         }),
       )(request),
   },
@@ -204,13 +217,14 @@ export const buildAuthRoutes = (): readonly Route[] => [
       withAuth((session) =>
         Effect.gen(function* () {
           const authService = yield* AuthService;
-          const body = yield* Effect.tryPromise(() => request.json()).pipe(
+          const raw = yield* Effect.tryPromise(() => request.json()).pipe(
             Effect.catch(() => Effect.succeed({} as any)),
           );
-          const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
-          if (!displayName) {
+          const decoded = Schema.decodeUnknownOption(ProfileUpdateSchema)(raw);
+          if (Option.isNone(decoded)) {
             return json({ error: "Display name is required" }, 400);
           }
+          const displayName = decoded.value.displayName.trim();
           if (displayName.length > 100) {
             return json({ error: "Display name must be 100 characters or fewer" }, 400);
           }

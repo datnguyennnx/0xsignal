@@ -1,7 +1,5 @@
-import type { ChartDataPoint } from "@0xsignal/shared";
+import type { ChartDataPoint, WsMarketChannel } from "@0xsignal/shared";
 import { normalizeCandle } from "@0xsignal/shared";
-
-type MarketChannel = "candle" | "l2Book" | "trades" | "allMids";
 
 interface L2BookPayload {
   levels: unknown;
@@ -28,14 +26,14 @@ export interface MarketStreamMeta {
 type DecodedMessage =
   | { kind: "ignore" }
   | { kind: "control"; type: "ready" | "pong" | "reconnecting" | "error"; message?: string }
-  | { kind: "market"; channel: MarketChannel; payload: unknown; meta?: MarketStreamMeta };
+  | { kind: "market"; channel: WsMarketChannel; payload: unknown; meta?: MarketStreamMeta };
 
-const CHANNELS: MarketChannel[] = ["candle", "l2Book", "trades", "allMids"];
+const CHANNELS: WsMarketChannel[] = ["candle", "l2Book", "trades", "allMids"];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-const isMarketChannel = (s: string): s is MarketChannel =>
+const isMarketChannel = (s: string): s is WsMarketChannel =>
   (CHANNELS as readonly string[]).includes(s);
 
 const parseIncomingMessage = (raw: unknown): unknown => {
@@ -66,7 +64,7 @@ const getControlType = (value: unknown): "ready" | "pong" | "reconnecting" | "er
   return null;
 };
 
-const findChannel = (value: unknown): MarketChannel | null => {
+const findChannel = (value: unknown): WsMarketChannel | null => {
   if (!isRecord(value)) return null;
 
   if (typeof value.channel === "string" && isMarketChannel(value.channel)) {
@@ -152,7 +150,7 @@ const unwrapMarketPayload = (value: unknown): unknown => {
 
 export function decodeMarketWsMessage(
   raw: unknown,
-  expectedChannel: MarketChannel,
+  expectedChannel: WsMarketChannel,
 ): DecodedMessage {
   const parsed = parseIncomingMessage(raw);
   const controlType = getControlType(parsed);
@@ -217,8 +215,6 @@ export function decodeMarketWsMessage(
 
   return { kind: "market", channel, payload: rootPayload };
 }
-
-export type { MarketChannel };
 
 const unwrapTradePayload = (value: unknown): unknown => {
   if (!isRecord(value)) return value;

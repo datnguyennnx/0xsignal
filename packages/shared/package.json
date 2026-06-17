@@ -9,8 +9,7 @@
     ".": "./index.ts",
     "./types/*": "./types/*",
     "./indicators/*": "./indicators/*",
-    "./schemas/*": "./schemas/*",
-    "./db/postgres": "./db/postgres.ts"
+    "./schemas/*": "./schemas/*"
   },
   "scripts": {
     "build": "tsc -b tsconfig.json",

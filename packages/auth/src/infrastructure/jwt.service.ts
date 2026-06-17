@@ -1,6 +1,6 @@
 import { Clock, Config, Context, Effect, Layer, Option } from "effect";
 import { SignJWT, jwtVerify } from "jose";
-import { PostgresConnectionPool } from "@0xsignal/shared/db/postgres";
+import { PostgresConnectionPool } from "./db/postgres";
 import type { JwtPayload, AuthTokens } from "../domain/session";
 import { TokenExpired, TokenInvalid } from "../domain/errors";
 import type { UserId } from "../domain/user";

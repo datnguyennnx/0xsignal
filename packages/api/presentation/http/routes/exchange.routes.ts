@@ -1,10 +1,6 @@
 import { Effect, Schema } from "effect";
 import { ExchangeService } from "../../../application/exchange/contracts";
-
-type HttpError = {
-  readonly status: number;
-  readonly message: string;
-};
+import { asHttpError, type HttpError } from "../error-response";
 
 type ExchangeHttpService = {
   readonly placeOrder: (typeof ExchangeService.Service)["placeOrder"];
@@ -24,7 +20,7 @@ type BuildExchangeRoutesParams = {
   readonly mapServiceError: (error: unknown) => HttpError;
 };
 
-const OrderTypeSchema = Schema.Union([
+export const OrderTypeSchema = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("limit"),
     timeInForce: Schema.Literals(["GTC", "IOC", "FOK", "Alo", "FrontendMarket"]),
@@ -37,7 +33,7 @@ const OrderTypeSchema = Schema.Union([
   }),
 ]).pipe(Schema.toTaggedUnion("kind"));
 
-const PlaceOrderEntrySchema = Schema.Struct({
+export const PlaceOrderEntrySchema = Schema.Struct({
   symbol: Schema.String,
   side: Schema.Literals(["buy", "sell"]),
   quantity: Schema.String,
@@ -46,27 +42,25 @@ const PlaceOrderEntrySchema = Schema.Struct({
   orderType: OrderTypeSchema,
 });
 
-const PlaceOrderRequestSchema = Schema.Struct({
+export const PlaceOrderRequestSchema = Schema.Struct({
   orders: Schema.Array(PlaceOrderEntrySchema).pipe(Schema.mutable),
   grouping: Schema.optional(Schema.Literals(["na", "normalTpsl", "positionTpsl"])),
 });
 
-const UpdateLeverageRequestSchema = Schema.Struct({
+export const UpdateLeverageRequestSchema = Schema.Struct({
   symbol: Schema.String,
   isCross: Schema.Boolean,
   leverage: Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))),
 });
 
-const CancelEntrySchema = Schema.Struct({
+export const CancelEntrySchema = Schema.Struct({
   symbol: Schema.String,
   orderId: Schema.Number,
 });
 
-const CancelOrdersRequestSchema = Schema.Struct({
+export const CancelOrdersRequestSchema = Schema.Struct({
   cancels: Schema.Array(CancelEntrySchema).pipe(Schema.mutable),
 });
-
-const asHttpError = (status: number, message: string): HttpError => ({ status, message });
 
 export const buildExchangeRoutes = ({
   json,

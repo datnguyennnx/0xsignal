@@ -1,6 +1,12 @@
-import { normalizeCandle, normalizeChartDataPoints } from "@0xsignal/shared";
+import { candleToChartDataPoint, normalizeChartDataPoints } from "@0xsignal/shared";
+import type {
+  CandleResponse,
+  RecentCandleResponse,
+  WsMarketInterval,
+  OrderBook,
+} from "@0xsignal/shared";
 import { normalizeSymbol } from "@/features/trade/lib/symbol";
-import { API_BASE, fetchJson, toNumberOrNull, extractRawCandlePayload } from "./client";
+import { API_BASE, fetchJson, toNumberOrNull } from "./client";
 import type { AggregatedMarket, ChartDataPoint, MarketTicker, MarketPrice } from "./types";
 
 export function getMarkets() {
@@ -9,7 +15,8 @@ export function getMarkets() {
 
 export async function getCandles(params: {
   symbol: string;
-  interval: string;
+  interval: WsMarketInterval;
+  exchange?: string;
   startTime?: number;
   endTime?: number;
   limit?: number;
@@ -19,6 +26,9 @@ export async function getCandles(params: {
     interval: params.interval,
   });
 
+  if (params.exchange !== undefined) {
+    query.set("exchange", params.exchange);
+  }
   if (params.startTime !== undefined) {
     query.set("start_time", new Date(params.startTime).toISOString());
   }
@@ -29,16 +39,13 @@ export async function getCandles(params: {
     query.set("limit", String(params.limit));
   }
 
-  const payload = await fetchJson(`${API_BASE}/candles?${query.toString()}`);
-  const rawItems = extractRawCandlePayload(payload);
-  return normalizeChartDataPoints(
-    rawItems.map((item) => normalizeCandle(item)).filter((p): p is ChartDataPoint => p !== null),
-  );
+  const payload = await fetchJson<CandleResponse>(`${API_BASE}/candles?${query.toString()}`);
+  return normalizeChartDataPoints(payload.candles.map(candleToChartDataPoint));
 }
 
 export async function getRecentChartLane(params: {
   symbol: string;
-  interval: string;
+  interval: WsMarketInterval;
   limit?: number;
   endTime?: number;
 }): Promise<ChartDataPoint[]> {
@@ -54,11 +61,10 @@ export async function getRecentChartLane(params: {
     query.set("end_time", new Date(params.endTime).toISOString());
   }
 
-  const payload = await fetchJson(`${API_BASE}/candles/recent?${query.toString()}`);
-  const rawItems = extractRawCandlePayload(payload);
-  return normalizeChartDataPoints(
-    rawItems.map((item) => normalizeCandle(item)).filter((p): p is ChartDataPoint => p !== null),
+  const payload = await fetchJson<RecentCandleResponse>(
+    `${API_BASE}/candles/recent?${query.toString()}`,
   );
+  return normalizeChartDataPoints(payload.candles.map(candleToChartDataPoint));
 }
 
 export function getTicker(symbol: string) {
@@ -67,10 +73,10 @@ export function getTicker(symbol: string) {
   );
 }
 
-export function getOrderbook(symbol: string, depth?: number) {
+export function getOrderbook(symbol: string, depth?: 2 | 3 | 4 | 5): Promise<OrderBook> {
   const query = new URLSearchParams({ symbol: normalizeSymbol(symbol) });
   if (depth !== undefined) query.set("depth", String(depth));
-  return fetchJson(`${API_BASE}/orderbook?${query.toString()}`);
+  return fetchJson<OrderBook>(`${API_BASE}/orderbook?${query.toString()}`);
 }
 
 export function getTradeAnnotation(symbol: string) {

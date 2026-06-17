@@ -5,7 +5,7 @@
  * and the `unknown` returns in the backend.
  */
 
-// ─── Clearinghouse State ──────────────────────────────────────────────────────
+// Clearinghouse State
 
 export interface LeverageIsolated {
   readonly type: "isolated";
@@ -60,7 +60,7 @@ export interface ClearinghouseState {
   readonly time: number;
 }
 
-// ─── Spot Clearinghouse State ─────────────────────────────────────────────────
+// Spot Clearinghouse State
 
 export interface SpotBalance {
   readonly coin: string;
@@ -79,7 +79,7 @@ export interface SpotClearinghouseState {
   }>;
 }
 
-// ─── Open Orders ──────────────────────────────────────────────────────────────
+// Open Orders
 
 export interface OpenOrder {
   readonly coin: string;
@@ -100,7 +100,7 @@ export interface OpenOrder {
   readonly tif?: string | null;
 }
 
-// ─── Frontend Open Orders (enhanced with children + string orderType) ─────────
+// Frontend Open Orders
 
 export interface FrontendOpenOrder {
   readonly coin: string;
@@ -121,7 +121,7 @@ export interface FrontendOpenOrder {
   readonly tif: "Gtc" | "Ioc" | "Alo" | "FrontendMarket" | "LiquidationMarket" | null;
 }
 
-// ─── Historical Orders ────────────────────────────────────────────────────────
+// Historical Orders
 
 export interface HistoricalOrderEntry {
   readonly order: OpenOrder;
@@ -129,7 +129,7 @@ export interface HistoricalOrderEntry {
   readonly statusTimestamp: number;
 }
 
-// ─── User Fills ───────────────────────────────────────────────────────────────
+// User Fills
 
 export interface UserFill {
   readonly coin: string;
@@ -142,4 +142,56 @@ export interface UserFill {
   readonly hash: string;
   readonly time: number;
   readonly closedPnl?: string;
+}
+
+// Portfolio
+
+export interface PortfolioPeriod {
+  readonly accountValueHistory: [number, string][];
+  readonly pnlHistory: [number, string][];
+  readonly vlm: string;
+}
+
+export type PortfolioPeriodKey =
+  | "day"
+  | "week"
+  | "month"
+  | "allTime"
+  | "perpDay"
+  | "perpWeek"
+  | "perpMonth"
+  | "perpAllTime";
+
+export type PortfolioResponse = readonly [
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+  readonly [PortfolioPeriodKey, PortfolioPeriod],
+];
+
+// Vault / Funding
+
+export interface UserVaultEquity {
+  readonly vaultAddress: string;
+  readonly equity: string;
+  readonly lockedUntilTimestamp: number;
+}
+
+export interface UserFundingDelta {
+  readonly type: "funding";
+  readonly coin: string;
+  readonly usdc: string;
+  readonly szi: string;
+  readonly fundingRate: string;
+  readonly nSamples: number;
+}
+
+export interface UserFundingEntry {
+  readonly time: number;
+  readonly hash: string;
+  readonly delta: UserFundingDelta;
 }

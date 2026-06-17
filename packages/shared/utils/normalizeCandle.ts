@@ -1,4 +1,5 @@
 import type { ChartDataPoint } from "../types/chart";
+import type { Candle } from "../schemas/market-data";
 
 type CandleInput = {
   timestamp?: string | number;
@@ -75,4 +76,25 @@ export function normalizeChartDataPoints(points: readonly ChartDataPoint[]): Cha
   }
 
   return Array.from(dedupedByTime.values()).sort((a, b) => a.time - b.time);
+}
+
+/**
+ * Directly converts a Candle to a ChartDataPoint (epoch-seconds-based).
+ * Handles timestamp as Date, ISO string, or Unix ms number.
+ * API returns timestamp as ISO string (response.json() doesn't create Date objects).
+ */
+export function candleToChartDataPoint(candle: Candle): ChartDataPoint {
+  // API returns timestamp as ISO string (response.json() doesn't create Date objects),
+  // but can also be a Date or Unix ms number depending on the data source.
+  const ts =
+    typeof candle.timestamp === "number" ? candle.timestamp : new Date(candle.timestamp).getTime();
+
+  return {
+    time: Math.floor(ts / 1000),
+    open: candle.open,
+    high: candle.high,
+    low: candle.low,
+    close: candle.close,
+    volume: candle.volume,
+  };
 }

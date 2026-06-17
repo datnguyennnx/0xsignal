@@ -19,13 +19,13 @@ import {
   CredentialUnverified,
 } from "@0xsignal/auth";
 
-// ── Constants ─────────────────────────────────────────────────────────
+// Constants
 
 export const VALID_PRIVATE_KEY = "0x" + "a".repeat(64);
 export const USER_A = "user-a";
 export const USER_B = "user-b";
 
-// ── Mock instances ────────────────────────────────────────────────────
+// Mock instances
 
 export const mockInfoInstance = {
   meta: vi.fn(),
@@ -39,7 +39,7 @@ export const makeMockHLClient = () =>
     }),
   );
 
-// ── Placeholder factories ─────────────────────────────────────────────
+// Placeholder factories
 
 export const makePlaceholderAccount = (overrides?: Partial<Record<string, unknown>>) => ({
   id: "acct-1",
@@ -86,7 +86,7 @@ export const makeDecryptedCredential = (overrides?: Partial<Record<string, unkno
   ...overrides,
 });
 
-// ── Default mock repos ────────────────────────────────────────────────
+// Default mock repos
 
 export const defaultMockAccountRepo = {
   create: vi.fn().mockReturnValue(Effect.succeed(makePlaceholderAccount())),
@@ -110,7 +110,7 @@ export const defaultMockCredRepo = {
   markUsed: vi.fn().mockReturnValue(Effect.succeed(void 0)),
 };
 
-// ── Test layer factory ────────────────────────────────────────────────
+// Test layer factory
 
 export const makeTestLayer = (
   accountRepoOverrides?: Partial<typeof defaultMockAccountRepo>,

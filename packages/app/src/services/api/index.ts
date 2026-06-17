@@ -1,11 +1,29 @@
-// Re-export everything for direct imports
-export * from "./client";
-export * from "./types";
-export * from "./market";
-export * from "./user";
-export * from "./auth";
-export * from "./credentials";
-export * from "./exchange";
+// Public API surface — named exports only, no wildcard re-exports
+export type { MarketPrice, UserFill, PlaceOrderRequest, UpdateLeverageRequest } from "./types";
+export { fetchJson, ApiError, NetworkError } from "./client";
+export { UnauthenticatedError } from "@/lib/api-base";
+export {
+  getMarkets,
+  getCandles,
+  getRecentChartLane,
+  getTicker,
+  getOrderbook,
+  getTradeAnnotation,
+  getMarketPrice,
+} from "./market";
+export {
+  getUserClearinghouseState,
+  getUserSpotClearinghouseState,
+  getUserFrontendOpenOrders,
+  getUserHistoricalOrders,
+  getUserFills,
+  getPortfolio,
+  getUserVaultEquities,
+  getUserFunding,
+} from "./user";
+export { exchangeCode, getAuthMe, logout, updateProfile, refreshToken } from "./auth";
+export { createCredential, listWallets, createWallet } from "./credentials";
+export { placeOrder, updateLeverage, cancelOrders } from "./exchange";
 
 import {
   getMarkets,

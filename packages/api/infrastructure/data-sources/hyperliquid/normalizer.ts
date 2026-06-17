@@ -1,5 +1,5 @@
 import { Match } from "effect";
-import { type Candle } from "@0xsignal/shared";
+import { type Candle, type WsMarketInterval } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 
 class NormalizationError extends Error {
@@ -10,19 +10,7 @@ class NormalizationError extends Error {
   }
 }
 
-export type HlInterval =
-  | "1m"
-  | "3m"
-  | "5m"
-  | "15m"
-  | "30m"
-  | "1h"
-  | "2h"
-  | "4h"
-  | "8h"
-  | "12h"
-  | "1d"
-  | "1w";
+export type HlInterval = WsMarketInterval;
 
 export interface HlRawCandle {
   readonly t: number | string;

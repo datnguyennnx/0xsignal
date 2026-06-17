@@ -1,14 +1,9 @@
 import { Effect } from "effect";
 import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
 import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
+import type { HttpError } from "../error-response";
 import { buildWalletRoutes } from "./wallets.routes";
 import { buildKeyRoutes } from "./keys.routes";
-
-type HttpError = {
-  readonly status: number;
-  readonly message: string;
-  readonly code?: string;
-};
 
 type AccountRepoService = typeof ExchangeAccountRepo.Service;
 type CredentialRepoService = typeof ExchangeCredentialRepo.Service;

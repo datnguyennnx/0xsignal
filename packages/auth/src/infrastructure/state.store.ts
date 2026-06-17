@@ -1,5 +1,5 @@
 import { Clock, Context, Effect, Layer } from "effect";
-import { PostgresConnectionPool } from "@0xsignal/shared/db/postgres";
+import { PostgresConnectionPool } from "./db/postgres";
 import { OAuthStateExpired, OAuthStateMismatch, TokenInvalid } from "../domain/errors";
 import type { OAuthProvider } from "../domain/oauth-account";
 

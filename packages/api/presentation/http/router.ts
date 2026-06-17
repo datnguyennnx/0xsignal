@@ -15,13 +15,7 @@ import {
   ExchangeAccountRepo,
   ExchangeCredentialRepo,
 } from "@0xsignal/auth";
-import { mapServiceError } from "./error-response";
-
-type HttpError = {
-  readonly status: number;
-  readonly message: string;
-  readonly code?: string;
-};
+import { mapServiceError, type HttpError } from "./error-response";
 
 type UserDataHttpService = {
   readonly getClearinghouseState: (typeof UserDataService.Service)["getClearinghouseState"];

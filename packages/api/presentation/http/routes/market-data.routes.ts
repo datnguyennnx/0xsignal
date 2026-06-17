@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { MarketDataService } from "../../../application/market-data/contracts";
+import type { HttpError } from "../error-response";
 import {
   parseInterval,
   parseOptionalDate,
@@ -7,11 +8,6 @@ import {
   parseOptionalSigFigs,
   parseRequiredString,
 } from "./market-data.query-parsers";
-
-type HttpError = {
-  readonly status: number;
-  readonly message: string;
-};
 
 type MarketDataHttpService = {
   readonly discoverMarkets: (typeof MarketDataService.Service)["discoverMarkets"];

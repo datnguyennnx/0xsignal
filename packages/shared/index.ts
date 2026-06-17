@@ -1,3 +1,11 @@
+/**
+ * @0xsignal/shared — Zero-dependency type-and-utility library.
+ *
+ * This package is the shared contract surface between frontend and backend.
+ * All types in `schemas/` are pure TypeScript mirrors of Effect Schema definitions
+ * in the owning backend packages. See ARCHITECTURE.md for the full pattern.
+ */
+
 // Chart types
 export type { ChartDataPoint } from "./types/chart";
 
@@ -10,7 +18,11 @@ export {
 } from "./utils/market-symbol";
 
 // Candle normalizer
-export { normalizeCandle, normalizeChartDataPoints } from "./utils/normalizeCandle";
+export {
+  normalizeCandle,
+  normalizeChartDataPoints,
+  candleToChartDataPoint,
+} from "./utils/normalizeCandle";
 
 // Indicator types
 export type {
@@ -47,7 +59,7 @@ export {
 // Indicator metadata
 export { BAND_INDICATOR_IDS, HISTOGRAM_INDICATOR_IDS } from "./indicators/metadata";
 
-// ─── API Boundary Schemas (pure TypeScript types, no runtime deps) ────────────
+// API Boundary Schemas
 export type { ApiEnvelope } from "./schemas/envelope";
 export type { ApiErrorBody } from "./schemas/errors";
 export type {
@@ -63,7 +75,11 @@ export type {
   CandleResponse,
   RecentCandleResponse,
   HealthStatus,
+  WsMarketChannel,
+  WsMarketInterval,
+  WsMarketSubscription,
 } from "./schemas/market-data";
+export { WS_MARKET_INTERVALS } from "./schemas/market-data";
 export type {
   ClearinghouseState,
   SpotClearinghouseState,
@@ -71,6 +87,12 @@ export type {
   FrontendOpenOrder,
   HistoricalOrderEntry,
   UserFill,
+  PortfolioPeriod,
+  PortfolioPeriodKey,
+  PortfolioResponse,
+  UserVaultEquity,
+  UserFundingDelta,
+  UserFundingEntry,
 } from "./schemas/user-data";
 export type {
   OrderSide,
@@ -81,3 +103,4 @@ export type {
   CancelEntry,
   CancelOrdersRequest,
 } from "./schemas/exchange";
+export type { AuthMeResponse } from "./schemas/auth";

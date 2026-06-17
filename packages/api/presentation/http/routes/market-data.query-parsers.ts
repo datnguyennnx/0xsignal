@@ -1,27 +1,11 @@
 import { Effect } from "effect";
+import type { HttpError } from "../error-response";
 import { parseOptionalSigFigsParam } from "../utils/param-parsers";
+import { WS_MARKET_INTERVALS, type WsMarketInterval } from "@0xsignal/shared";
 
-type HttpError = {
-  readonly status: number;
-  readonly message: string;
-};
-
-export const MARKET_INTERVALS = [
-  "1m",
-  "3m",
-  "5m",
-  "15m",
-  "30m",
-  "1h",
-  "2h",
-  "4h",
-  "8h",
-  "12h",
-  "1d",
-  "1w",
-] as const;
-
-export type MarketInterval = (typeof MARKET_INTERVALS)[number];
+// Re-export for convenience — these are single-source-of-truth from @0xsignal/shared
+export { WS_MARKET_INTERVALS };
+export type MarketInterval = WsMarketInterval;
 
 const badRequest = (message: string): Effect.Effect<never, HttpError> =>
   Effect.fail({ status: 400, message });
@@ -95,7 +79,7 @@ export const parseInterval = (
   if (!value) {
     return badRequest("Missing required query parameter: interval");
   }
-  if (!MARKET_INTERVALS.includes(value as MarketInterval)) {
+  if (!WS_MARKET_INTERVALS.includes(value as MarketInterval)) {
     return badRequest(`Unsupported interval: ${value}`);
   }
   return Effect.succeed(value as MarketInterval);

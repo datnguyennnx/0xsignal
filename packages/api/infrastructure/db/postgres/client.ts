@@ -1,7 +1,7 @@
 import { Config, Data, Effect, Layer, Option } from "effect";
 import pg, { type PoolClient } from "pg";
 
-import { PostgresConnectionPool } from "@0xsignal/shared/db/postgres";
+import { PostgresConnectionPool } from "@0xsignal/auth";
 
 export type { PoolClient };
 

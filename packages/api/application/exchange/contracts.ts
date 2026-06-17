@@ -4,7 +4,11 @@ import type {
   HyperliquidValidationError,
   InsufficientMarginError,
 } from "../../domain/errors";
-import type { PlaceOrderRequest, UpdateLeverageRequest, CancelOrdersRequest } from "./types";
+import type {
+  PlaceOrderRequest,
+  UpdateLeverageRequest,
+  CancelOrdersRequest,
+} from "@0xsignal/shared";
 import type {
   AccountNotFound,
   CredentialNotFound,

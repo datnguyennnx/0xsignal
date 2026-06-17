@@ -1,10 +1,6 @@
 import { Effect } from "effect";
 import { UserDataService } from "../../../application/user-data/contracts";
-
-type HttpError = {
-  readonly status: number;
-  readonly message: string;
-};
+import { asHttpError, type HttpError } from "../error-response";
 
 type UserDataHttpService = {
   readonly getClearinghouseState: (typeof UserDataService.Service)["getClearinghouseState"];
@@ -33,10 +29,7 @@ type BuildUserDataRoutesParams = {
 const requireWalletAddress = (url: URL): Effect.Effect<string, HttpError> => {
   const walletAddress = url.searchParams.get("walletAddress");
   if (!walletAddress) {
-    return Effect.fail({
-      status: 400,
-      message: "walletAddress query parameter is required",
-    } as HttpError);
+    return Effect.fail(asHttpError(400, "walletAddress query parameter is required"));
   }
   return Effect.succeed(walletAddress);
 };

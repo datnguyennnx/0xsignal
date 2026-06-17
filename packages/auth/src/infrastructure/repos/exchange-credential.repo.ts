@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 import * as RedactedNs from "effect/Redacted";
-import { PostgresConnectionPool } from "@0xsignal/shared/db/postgres";
+import { PostgresConnectionPool } from "../db/postgres";
 import type {
   ApiCredential,
   DecryptedAgentCredential,

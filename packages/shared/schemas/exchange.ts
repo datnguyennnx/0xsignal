@@ -4,11 +4,11 @@
  * Replaces duplicated frontend manual types and backend ad-hoc body shapes.
  */
 
-// ─── Order Side ───────────────────────────────────────────────────────────────
+// Order Side
 
 export type OrderSide = "buy" | "sell";
 
-// ─── Order Type ───────────────────────────────────────────────────────────────
+// Order Type
 
 export type OrderType =
   | {
@@ -22,7 +22,7 @@ export type OrderType =
       readonly tpsl: "tp" | "sl";
     };
 
-// ─── Place Order ──────────────────────────────────────────────────────────────
+// Place Order
 
 export interface PlaceOrderEntry {
   readonly symbol: string;
@@ -38,7 +38,7 @@ export interface PlaceOrderRequest {
   readonly grouping?: "na" | "normalTpsl" | "positionTpsl";
 }
 
-// ─── Update Leverage ──────────────────────────────────────────────────────────
+// Update Leverage
 
 export interface UpdateLeverageRequest {
   readonly symbol: string;
@@ -46,7 +46,7 @@ export interface UpdateLeverageRequest {
   readonly leverage: number;
 }
 
-// ─── Cancel Orders ────────────────────────────────────────────────────────────
+// Cancel Orders
 
 export interface CancelEntry {
   readonly symbol: string;

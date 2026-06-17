@@ -435,7 +435,7 @@ describe("ExchangeService — credential system", () => {
   });
 });
 
-// ── Security Boundary Tests ───────────────────────────────────────────
+// Security Boundary Tests
 
 describe("Security Boundary — vaultAddress forwarding", () => {
   beforeEach(() => {
@@ -732,7 +732,7 @@ describe("Security Boundary — markUsed fire-and-forget", () => {
   });
 });
 
-// ── Full Lifecycle Tests ──────────────────────────────────────────────
+// Full Lifecycle Tests
 
 describe("Full credential lifecycle end-to-end", () => {
   beforeEach(() => {
@@ -891,7 +891,7 @@ describe("Full credential lifecycle end-to-end", () => {
   });
 });
 
-// ── Edge Cases ────────────────────────────────────────────────────────
+// Edge Cases
 
 describe("Expired credential — decrypt never called", () => {
   beforeEach(() => {
@@ -1151,7 +1151,7 @@ describe("Concurrent/Multi-User isolation", () => {
   });
 });
 
-// ── Group 6: Edge Cases ──────────────────────────────────────────────
+// Group 6: Edge Cases
 
 it.todo(
   "One agent credential should not sign for multiple sub-accounts under concurrency — nonce isolation rule",

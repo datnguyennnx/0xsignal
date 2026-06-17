@@ -1,19 +1,19 @@
 import { Match } from "effect";
 import { normalizeSymbol } from "../../../infrastructure/data-sources/hyperliquid/symbol";
 import {
-  MARKET_WS_INTERVALS,
-  type MarketWsChannel,
-  type MarketWsInterval,
-  type MarketWsSubscription,
-} from "../../../infrastructure/streams/hyperliquid/hub-types";
+  WS_MARKET_INTERVALS,
+  type WsMarketChannel,
+  type WsMarketInterval,
+  type WsMarketSubscription,
+} from "@0xsignal/shared";
 import { parseOptionalSigFigsParam } from "../utils/param-parsers";
 
 export type ParseResult =
-  | { readonly ok: true; readonly data: MarketWsSubscription }
+  | { readonly ok: true; readonly data: WsMarketSubscription }
   | { readonly ok: false; readonly status: number; readonly message: string };
 
 export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult => {
-  const channel = (params.get("channel") ?? params.get("type") ?? "").trim() as MarketWsChannel;
+  const channel = (params.get("channel") ?? params.get("type") ?? "").trim() as WsMarketChannel;
   if (!channel) {
     return {
       ok: false,
@@ -55,7 +55,7 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
     }
 
     const interval = (params.get("interval") ?? "1m").trim();
-    if (!MARKET_WS_INTERVALS.includes(interval as MarketWsInterval)) {
+    if (!WS_MARKET_INTERVALS.includes(interval as WsMarketInterval)) {
       return {
         ok: false,
         status: 400,
@@ -68,7 +68,7 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
       data: {
         channel,
         symbol,
-        interval: interval as MarketWsInterval,
+        interval: interval as WsMarketInterval,
       },
     };
   }
@@ -125,7 +125,9 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
     ok: true,
     data: {
       channel,
+      // dex is used internally by hub subscription for allMids configuration
+      // but is not part of the shared WsMarketSubscription type
       dex,
-    },
+    } as unknown as WsMarketSubscription,
   };
 };

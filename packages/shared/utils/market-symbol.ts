@@ -52,7 +52,7 @@ export function parseSymbol(symbol: string): NormalizedAsset {
 
   const upper = trimmed.toUpperCase();
 
-  // ── Builder perps (HIP-3) with colon ────────────────────────────
+  // Builder perps (HIP-3) with colon
   if (trimmed.includes(":")) {
     const [dex, ...rest] = trimmed.split(":");
     const assetPart = stripStables(rest.join(":").toUpperCase());
@@ -64,7 +64,7 @@ export function parseSymbol(symbol: string): NormalizedAsset {
     };
   }
 
-  // ── Main perps ──────────────────────────────────────────────────
+  // Main perps
   // Keep hyphens, @, #, + but remove other noise characters,
   // strip stablecoin suffixes
   const cleaned = stripStables(upper.replace(/[^A-Z0-9-@#+]/g, ""));

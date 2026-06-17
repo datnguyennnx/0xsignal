@@ -1,13 +1,8 @@
 import { Effect, Redacted, Schema } from "effect";
 import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
 import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
+import { asHttpError, type HttpError } from "../error-response";
 import { CreateKeySchema } from "./credentials.schemas";
-
-type HttpError = {
-  readonly status: number;
-  readonly message: string;
-  readonly code?: string;
-};
 
 type AccountRepoService = typeof ExchangeAccountRepo.Service;
 type CredentialRepoService = typeof ExchangeCredentialRepo.Service;
@@ -24,8 +19,6 @@ type BuildKeyRoutesParams = {
   readonly json: (body: unknown, status?: number, headers?: Record<string, string>) => Response;
   readonly mapServiceError: (error: unknown) => HttpError;
 };
-
-const asHttpError = (status: number, message: string): HttpError => ({ status, message });
 
 export const buildKeyRoutes = ({
   json,

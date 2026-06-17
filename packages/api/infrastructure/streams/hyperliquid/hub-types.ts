@@ -2,30 +2,12 @@ import type { ServerWebSocket } from "bun";
 import type { ISubscription } from "@nktkas/hyperliquid";
 import { Data } from "effect";
 import type { Fiber, Option } from "effect";
-
-export const MARKET_WS_INTERVALS = [
-  "1m",
-  "3m",
-  "5m",
-  "15m",
-  "30m",
-  "1h",
-  "2h",
-  "4h",
-  "8h",
-  "12h",
-  "1d",
-  "1w",
-] as const;
-
-export type MarketWsInterval = (typeof MARKET_WS_INTERVALS)[number];
-
-export type MarketWsChannel = "candle" | "l2Book" | "trades" | "allMids";
+import { type WsMarketChannel, type WsMarketInterval } from "@0xsignal/shared";
 
 export type MarketWsSubscription = {
-  readonly channel: MarketWsChannel;
+  readonly channel: WsMarketChannel;
   readonly symbol?: string;
-  readonly interval?: MarketWsInterval;
+  readonly interval?: WsMarketInterval;
   readonly nSigFigs?: 2 | 3 | 4 | 5;
   readonly depth?: number;
   readonly dex?: string;

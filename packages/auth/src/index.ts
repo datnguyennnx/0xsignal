@@ -29,5 +29,6 @@ export { buildAuthRoutes } from "./presentation/auth.routes";
 
 export { MigrationLayer } from "./infrastructure/migration.layer";
 
+export { PostgresConnectionPool } from "./infrastructure/db/postgres";
 export { ExchangeAccountRepo } from "./infrastructure/repos/exchange-account.repo";
 export { ExchangeCredentialRepo } from "./infrastructure/repos/exchange-credential.repo";

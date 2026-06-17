@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from "effect";
-import { PostgresConnectionPool } from "@0xsignal/shared/db/postgres";
+import { PostgresConnectionPool } from "../db/postgres";
 import type { User, UserId, UserStatus } from "../../domain/user";
 
 export interface UserRepoPort {

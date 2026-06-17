@@ -14,16 +14,12 @@ import {
 } from "@0xsignal/auth";
 
 export type HttpError = {
-  readonly message?: string;
-  readonly status?: number;
+  readonly status: number;
+  readonly message: string;
   readonly code?: string;
 };
 
-const asHttpError = (
-  status: number,
-  message: string,
-  code?: string,
-): { readonly status: number; readonly message: string; readonly code?: string } => ({
+export const asHttpError = (status: number, message: string, code?: string): HttpError => ({
   status,
   message,
   code,
@@ -63,13 +59,7 @@ export const errorResponse = (error: unknown, corsHeaders: Record<string, string
   });
 };
 
-export const mapServiceError = (
-  error: unknown,
-): {
-  readonly status: number;
-  readonly message: string;
-  readonly code?: string;
-} =>
+export const mapServiceError = (error: unknown): HttpError =>
   Match.value(error).pipe(
     // Application-level DomainError (carries a DomainErrorCode for status mapping)
     Match.when(Match.instanceOf(DomainError), (e) =>

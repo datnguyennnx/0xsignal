@@ -1,31 +1,10 @@
-export type HLInterval =
-  | "1m"
-  | "3m"
-  | "5m"
-  | "15m"
-  | "30m"
-  | "1h"
-  | "2h"
-  | "4h"
-  | "8h"
-  | "12h"
-  | "1d"
-  | "1w";
+import { type WsMarketInterval, WS_MARKET_INTERVALS } from "@0xsignal/shared";
 
-const HL_INTERVALS: readonly HLInterval[] = [
-  "1m",
-  "3m",
-  "5m",
-  "15m",
-  "30m",
-  "1h",
-  "2h",
-  "4h",
-  "8h",
-  "12h",
-  "1d",
-  "1w",
-];
+// Re-export shared interval type as the canonical interval type
+export type HLInterval = WsMarketInterval;
+
+/** @deprecated Use `WS_MARKET_INTERVALS` from `@0xsignal/shared` instead. */
+const HL_INTERVALS: readonly HLInterval[] = WS_MARKET_INTERVALS;
 
 export const mapToHLInterval = (interval: string): HLInterval =>
   HL_INTERVALS.find((v) => v === interval) ?? "1h";
@@ -38,7 +17,6 @@ export const getIntervalMs = (interval: string): number => {
     h: 3_600_000,
     d: 86_400_000,
     w: 604_800_000,
-    M: 2_592_000_000,
   };
   return value * (mult[unit] || 3_600_000);
 };
@@ -58,16 +36,15 @@ export function priceKey(side: "bid" | "ask", price: number): string {
   return `${side}-${price.toFixed(8)}`;
 }
 
-export interface OrderbookLevel {
+export interface DisplayOrderbookLevel {
   price: number;
   size: number;
   total: number;
-  depth: number;
 }
 
 export interface OrderbookData {
-  bids: OrderbookLevel[];
-  asks: OrderbookLevel[];
+  bids: DisplayOrderbookLevel[];
+  asks: DisplayOrderbookLevel[];
   spread: number;
   spreadPercent: number;
   midPrice: number;
@@ -79,19 +56,21 @@ export interface L2BookLevel {
   n: number;
 }
 
-export function processRawL2Levels(rawBids: L2BookLevel[], rawAsks: L2BookLevel[]): OrderbookData {
+export function processRawL2Levels(
+  rawBids: L2BookLevel[],
+  rawAsks: L2BookLevel[],
+  maxDepth = 20,
+): OrderbookData {
   // HL WS delivers levels sorted: bids descending, asks ascending — no sort needed.
-  const bids = rawBids.map((l) => ({
+  const bids = rawBids.slice(0, maxDepth).map((l) => ({
     price: parseFloat(l.px),
     size: parseFloat(l.sz),
     total: 0,
-    depth: 0,
   }));
-  const asks = rawAsks.map((l) => ({
+  const asks = rawAsks.slice(0, maxDepth).map((l) => ({
     price: parseFloat(l.px),
     size: parseFloat(l.sz),
     total: 0,
-    depth: 0,
   }));
 
   let bidTotal = 0;
@@ -104,14 +83,6 @@ export function processRawL2Levels(rawBids: L2BookLevel[], rawAsks: L2BookLevel[
   for (let i = 0; i < asks.length; i++) {
     askTotal += asks[i].size;
     asks[i].total = askTotal;
-  }
-
-  const maxTotal = Math.max(bidTotal, askTotal, 1);
-  for (let i = 0; i < bids.length; i++) {
-    bids[i].depth = (bids[i].total / maxTotal) * 100;
-  }
-  for (let i = 0; i < asks.length; i++) {
-    asks[i].depth = (asks[i].total / maxTotal) * 100;
   }
 
   const bestBid = bids[0]?.price || 0;

@@ -1,12 +1,8 @@
+import type { AuthMeResponse } from "@0xsignal/shared";
 import { API_BASE, fetchJson } from "./client";
 
 export function getAuthMe() {
-  return fetchJson<{
-    userId: string;
-    provider: string;
-    avatarUrl: string | null;
-    displayName: string | null;
-  }>(`${API_BASE}/auth/me`);
+  return fetchJson<AuthMeResponse>(`${API_BASE}/auth/me`);
 }
 
 export function logout() {
@@ -17,12 +13,10 @@ export function logout() {
 
 export function updateProfile(params: { displayName: string }) {
   return fetchJson<{
-    data: {
-      userId: string;
-      provider: string;
-      avatarUrl: string | null;
-      displayName: string | null;
-    };
+    userId: string;
+    provider: string;
+    avatarUrl: string | null;
+    displayName: string | null;
   }>(`${API_BASE}/auth/me/profile`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

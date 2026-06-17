@@ -1,21 +1,9 @@
 import { Match } from "effect";
+import { WS_MARKET_INTERVALS, type WsMarketInterval } from "@0xsignal/shared";
 
-export const MARKET_TIMEFRAMES = [
-  "1m",
-  "3m",
-  "5m",
-  "15m",
-  "30m",
-  "1h",
-  "2h",
-  "4h",
-  "8h",
-  "12h",
-  "1d",
-  "1w",
-] as const;
-
-export type MarketTimeframe = (typeof MARKET_TIMEFRAMES)[number];
+// Re-export shared interval constants/types as the single source of truth
+export { WS_MARKET_INTERVALS as MARKET_TIMEFRAMES };
+export type MarketTimeframe = WsMarketInterval;
 
 export const getTimeframeMs = (timeframe: MarketTimeframe): number =>
   Match.value(timeframe).pipe(

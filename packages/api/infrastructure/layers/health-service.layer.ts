@@ -1,6 +1,6 @@
 import { Clock, Effect, Layer } from "effect";
 import { HealthService } from "../../application/health";
-import { PostgresConnectionPool } from "@0xsignal/shared/db/postgres";
+import { PostgresConnectionPool } from "@0xsignal/auth";
 
 export const healthServiceLayer = Layer.effect(
   HealthService,

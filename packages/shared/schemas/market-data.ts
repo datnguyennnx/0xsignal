@@ -3,10 +3,18 @@
  * Single source of truth — no runtime deps.
  */
 
-// ─── Candle ───────────────────────────────────────────────────────────────────
+// Candle
 
+/**
+ * A single OHLCV candle.
+ *
+ * `timestamp` reflects the candle's open time. After JSON deserialization
+ * on the client, `timestamp` arrives as an ISO-8601 string; server-side it
+ * may be a `Date` object. Consumers should use `candleToChartDataPoint`
+ * (from `@0xsignal/shared`) which handles all three formats transparently.
+ */
 export interface Candle {
-  readonly timestamp: Date;
+  readonly timestamp: Date | string | number;
   readonly open: number;
   readonly high: number;
   readonly low: number;
@@ -14,7 +22,7 @@ export interface Candle {
   readonly volume: number;
 }
 
-// ─── Market Ticker ────────────────────────────────────────────────────────────
+// Market Ticker
 
 export interface MarketTicker {
   readonly symbol: string;
@@ -27,28 +35,33 @@ export interface MarketTicker {
   readonly funding: number | null;
 }
 
-// ─── Order Book ───────────────────────────────────────────────────────────────
+// Order Book
 
 export type OrderBookLevel = readonly [px: number, sz: number, n?: string | null];
 
 export interface OrderBook {
   readonly symbol: string;
   readonly nSigFigs?: 2 | 3 | 4 | 5;
-  readonly levels: readonly [bids: OrderBookLevel[], asks: OrderBookLevel[]];
+  readonly orderbook?: {
+    readonly levels: readonly [
+      bids: { px: string; sz: string; n: number }[],
+      asks: { px: string; sz: string; n: number }[],
+    ];
+  };
 }
 
-// ─── Trade Annotation ─────────────────────────────────────────────────────────
+// Trade Annotation
 
 export interface TradeAnnotation {
   readonly symbol: string;
   readonly annotation: unknown;
 }
 
-// ─── Market Type (Perp / Spot) ────────────────────────────────────────────────
+// Market Type (Perp / Spot)
 
 export type MarketTypeCategory = "perp" | "spot";
 
-// ─── Aggregated Market (trade list / discover-markets) ────────────────────────
+// Aggregated Market
 
 export interface AggregatedMarket {
   readonly coin: string;
@@ -77,7 +90,7 @@ export interface AggregatedMarket {
   readonly evmContract?: string;
 }
 
-// ─── Coverage ─────────────────────────────────────────────────────────────────
+// Coverage
 
 export interface CoverageWindow {
   readonly start: Date;
@@ -92,7 +105,7 @@ export interface CoverageResult {
   readonly missingWindows: CoverageWindow[];
 }
 
-// ─── Candle Response (wraps candles + provenance + coverage) ──────────────────
+// Candle Response
 
 export interface CandleResponse {
   readonly candles: Candle[];
@@ -100,7 +113,7 @@ export interface CandleResponse {
   readonly coverage: CoverageResult;
 }
 
-// ─── Recent Candle Response ───────────────────────────────────────────────────
+// Recent Candle Response
 
 export interface RecentCandleResponse {
   readonly candles: Candle[];
@@ -108,11 +121,39 @@ export interface RecentCandleResponse {
   readonly coverage: CoverageResult;
 }
 
-// ─── Health ───────────────────────────────────────────────────────────────────
+// Health
 
 export interface HealthStatus {
   readonly status: "ok";
   readonly timestamp: Date;
   readonly uptime: number;
   readonly postgres: boolean;
+}
+
+// WebSocket Market Stream
+
+export type WsMarketChannel = "candle" | "l2Book" | "trades" | "allMids";
+
+export const WS_MARKET_INTERVALS = [
+  "1m",
+  "3m",
+  "5m",
+  "15m",
+  "30m",
+  "1h",
+  "2h",
+  "4h",
+  "8h",
+  "12h",
+  "1d",
+  "1w",
+] as const;
+
+export type WsMarketInterval = (typeof WS_MARKET_INTERVALS)[number];
+
+export interface WsMarketSubscription {
+  readonly channel: WsMarketChannel;
+  readonly symbol?: string;
+  readonly interval?: WsMarketInterval;
+  readonly nSigFigs?: 2 | 3 | 4 | 5;
 }
