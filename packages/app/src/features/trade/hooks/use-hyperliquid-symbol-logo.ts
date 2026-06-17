@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/query/query-keys";
+import { queryKeys } from "@/lib/query-keys";
 
 const HYPERLIQUID_COIN_ICON_BASE = "https://app.hyperliquid.xyz/coins";
 const LOGO_RESULT_CACHE = new Map<string, string | null>();

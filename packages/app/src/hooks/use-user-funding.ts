@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
 import { api } from "@/services/api";
-import { queryKeys } from "@/lib/query/query-keys";
+import { queryKeys } from "@/lib/query-keys";
 
 export function useUserFunding(startTime?: number, endTime?: number, enabled: boolean = true) {
   const { address: walletAddress } = useAccount();

@@ -7,8 +7,8 @@ import { MarketStreamProvider } from "@/features/trade/contexts/market-stream-co
 import { MainLayout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/sonner";
-import { queryKeys } from "@/lib/query/query-keys";
-import { queryClient } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query-keys";
+import { queryClient } from "@/lib/query-client";
 import { api } from "@/services/api";
 
 const AssetDetail = lazy(() =>

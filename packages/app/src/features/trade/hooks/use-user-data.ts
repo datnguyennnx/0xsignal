@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
 import { api } from "@/services/api";
-import { queryKeys } from "@/lib/query/query-keys";
+import { queryKeys } from "@/lib/query-keys";
 
 export function useClearinghouseState(enabled: boolean = true) {
   const { address } = useAccount();

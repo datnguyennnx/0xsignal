@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { api, type UpdateLeverageRequest } from "@/services/api";
-import { queryKeys } from "@/lib/query/query-keys";
+import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/core/utils/cn";
 import { AlertTriangleIcon } from "lucide-react";
 import { UnauthenticatedError } from "@/lib/api-base";

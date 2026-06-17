@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type PlaceOrderRequest } from "@/services/api";
-import { queryKeys } from "@/lib/query/query-keys";
+import { queryKeys } from "@/lib/query-keys";
 
 /**
  * Shared hook for the placeOrder mutation used in both

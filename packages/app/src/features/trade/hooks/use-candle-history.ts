@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
-import { queryKeys } from "@/lib/query/query-keys";
+import { queryKeys } from "@/lib/query-keys";
 import { normalizeSymbol } from "../lib/symbol";
 import { mapToHLInterval, type HLInterval } from "@/core/utils/hyperliquid";
 

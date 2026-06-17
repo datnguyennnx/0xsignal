@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { api, type UpdateLeverageRequest } from "@/services/api";
-import { queryKeys } from "@/lib/query/query-keys";
+import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/core/utils/cn";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
-import { queryKeys } from "@/lib/query/query-keys";
+import { queryKeys } from "@/lib/query-keys";
 import { parseSymbol } from "../lib/symbol";
 
 export function useTradeAnnotation(symbol: string) {
