@@ -21,7 +21,7 @@ const buildCacheKey = (
   dataLength: number,
   lastTime: number,
   firstTime: number,
-  lastSignature: string
+  lastSignature: string,
 ): string => {
   return `${indicatorId}#${paramsKey}#${dataLength}#${firstTime}#${lastTime}#${lastSignature}`;
 };
@@ -59,10 +59,9 @@ export const useIndicatorData = (activeIndicators: ActiveIndicator[], data: Char
         data.length,
         lastTime,
         firstTime,
-        lastSignature
+        lastSignature,
       );
 
-      // Check cache first
       const cached = _cache.get(cacheKey);
       if (cached) {
         // Bump to front (re-insert to maintain LRU order)

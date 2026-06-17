@@ -1,13 +1,10 @@
-import { memo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/core/utils/cn";
 import { gridTemplate } from "../utils/trade-dropdown-columns";
 import { HeaderCell } from "./trade-dropdown.columns.helpers";
 import type { ColumnDef, FormattedTrade } from "../utils/trade-dropdown";
 
-// Header row
-
-export const MarketHeader = memo(function MarketHeader({
+export function MarketHeader({
   columns,
   sortBy,
   sortDesc,
@@ -28,17 +25,9 @@ export const MarketHeader = memo(function MarketHeader({
       ))}
     </div>
   );
-});
+}
 
-// Data row
-
-export const MarketRow = memo(function MarketRow({
-  item,
-  columns,
-}: {
-  item: FormattedTrade;
-  columns: ColumnDef[];
-}) {
+export function MarketRow({ item, columns }: { item: FormattedTrade; columns: ColumnDef[] }) {
   return (
     <div
       className="grid min-w-0 gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-2.5"
@@ -58,7 +47,7 @@ export const MarketRow = memo(function MarketRow({
               col.id === "funding" && (Number(item.funding) >= 0 ? "text-gain" : "text-loss"),
               col.id === "volume" && "text-muted-foreground",
               col.id === "oi" && "text-muted-foreground text-xs",
-              col.id === "marketCap" && "text-muted-foreground text-xs"
+              col.id === "marketCap" && "text-muted-foreground text-xs",
             )}
           >
             {col.render(item)}
@@ -67,15 +56,9 @@ export const MarketRow = memo(function MarketRow({
       ))}
     </div>
   );
-});
+}
 
-// Skeleton row
-
-export const MarketRowSkeleton = memo(function MarketRowSkeleton({
-  columns,
-}: {
-  columns: ColumnDef[];
-}) {
+export function MarketRowSkeleton({ columns }: { columns: ColumnDef[] }) {
   return (
     <div
       className="grid min-w-0 gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-2.5"
@@ -91,4 +74,4 @@ export const MarketRowSkeleton = memo(function MarketRowSkeleton({
       ))}
     </div>
   );
-});
+}

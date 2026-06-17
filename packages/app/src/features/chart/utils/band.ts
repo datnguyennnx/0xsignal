@@ -49,11 +49,12 @@ class BandPaneRenderer implements IPrimitivePaneRenderer {
   }
 
   draw(target: RenderTarget): void {
-    if (!this._data) return;
+    const data = this._data;
+    if (!data) return;
 
     target.useBitmapCoordinateSpace((scope) => {
       const ctx = scope.context;
-      const { x1, x2, levels, fills } = this._data!;
+      const { x1, x2, levels, fills } = data;
       const { horizontalPixelRatio, verticalPixelRatio } = scope;
 
       const scaledX1 = Math.round(x1 * horizontalPixelRatio);
@@ -122,7 +123,7 @@ export class BandPrimitive implements ISeriesPrimitive<Time> {
 
   attached(param: SeriesAttachedParameter<Time>): void {
     this._chart = param.chart;
-    this._series = param.series as ISeriesApi<"Candlestick">;
+    this._series = param.series as ISeriesApi<"Candlestick">; // safe: only attached to candlestick series
   }
 
   detached(): void {
@@ -141,8 +142,8 @@ export class BandPrimitive implements ISeriesPrimitive<Time> {
     }
 
     const timeScale = this._chart.timeScale();
-    const x1 = timeScale.timeToCoordinate(this._options.startTime as Time);
-    const x2 = timeScale.timeToCoordinate(this._options.endTime as Time);
+    const x1 = timeScale.timeToCoordinate(this._options.startTime as Time); // safe: lightweight-charts branded type
+    const x2 = timeScale.timeToCoordinate(this._options.endTime as Time); // safe: lightweight-charts branded type
 
     if (x1 === null || x2 === null) {
       this._paneView.update(null);
@@ -153,7 +154,7 @@ export class BandPrimitive implements ISeriesPrimitive<Time> {
     for (const level of this._options.levels) {
       const y = this._series.priceToCoordinate(level.price);
       if (y !== null) {
-        levels.push({ y: y as number, level });
+        levels.push({ y, level });
       }
     }
 
@@ -163,14 +164,14 @@ export class BandPrimitive implements ISeriesPrimitive<Time> {
         const y1 = this._series.priceToCoordinate(fill.top);
         const y2 = this._series.priceToCoordinate(fill.bottom);
         if (y1 !== null && y2 !== null) {
-          fills.push({ y1: y1 as number, y2: y2 as number, color: fill.color });
+          fills.push({ y1, y2, color: fill.color });
         }
       }
     }
 
     this._paneView.update({
-      x1: x1 as number,
-      x2: x2 as number,
+      x1,
+      x2,
       levels,
       fills,
     });

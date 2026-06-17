@@ -19,7 +19,7 @@ export const parseParamInput = (value: string): number | null => {
 
 export const toFormValues = (
   indicator: IndicatorConfig,
-  source?: Record<string, number>
+  source?: Record<string, number>,
 ): Record<string, string> => {
   const params = normalizeIndicatorParams(indicator, source);
   return Object.fromEntries(Object.entries(params).map(([key, value]) => [key, `${value}`]));
@@ -27,7 +27,7 @@ export const toFormValues = (
 
 export const parseFormValues = (
   indicator: IndicatorConfig,
-  formValues: Record<string, string>
+  formValues: Record<string, string>,
 ): Record<string, number> => {
   const params: Record<string, number> = {};
   for (const [key, rawValue] of Object.entries(formValues)) {
@@ -37,6 +37,19 @@ export const parseFormValues = (
     }
   }
   return normalizeIndicatorParams(indicator, params);
+};
+
+export const toChipLabel = (indicator: ActiveIndicator): string => {
+  const summary = indicator.config.params
+    .map((param) => {
+      const value = indicator.params[param.key];
+      if (value === undefined) return null;
+      return `${param.key}:${value}`;
+    })
+    .filter(Boolean)
+    .join(" ");
+
+  return summary ? `${indicator.config.name} ${summary}` : indicator.config.name;
 };
 
 export const getInstanceLabel = (activeIndicator: ActiveIndicator): string => {

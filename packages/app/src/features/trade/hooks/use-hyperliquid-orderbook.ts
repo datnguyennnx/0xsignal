@@ -45,7 +45,7 @@ interface UseHyperliquidOrderbookOptions {
 
 function computeCoverageHalfSpan(
   book: OrderbookData | null,
-  centerPrice: number | null
+  centerPrice: number | null,
 ): number | null {
   if (!book || !centerPrice || centerPrice <= 0 || !book.bids.length || !book.asks.length)
     return null;
@@ -54,23 +54,21 @@ function computeCoverageHalfSpan(
   return Math.max(0, Math.min(centerPrice - farBid, farAsk - centerPrice));
 }
 
-/* Hook */
-
 export function useHyperliquidOrderbook(
   symbol: string,
   enabled = true,
-  options: UseHyperliquidOrderbookOptions = {}
+  options: UseHyperliquidOrderbookOptions = {},
 ) {
   const [fineBook, setFineBook] = useState<OrderbookData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isControlled = options.controlledNSigFigs !== undefined;
+  const controlledNSigFigs = options.controlledNSigFigs;
+  const isControlled = controlledNSigFigs !== undefined;
   const [uncontrolledSigFigs, setUncontrolledSigFigs] = useState(DEFAULT_N_SIG_FIGS);
   const activeSigFigs = isControlled
-    ? Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, options.controlledNSigFigs!))
+    ? Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, controlledNSigFigs))
     : uncontrolledSigFigs;
 
-  // Mutable refs
   const activeSigFigsRef = useRef(activeSigFigs);
   useEffect(() => {
     activeSigFigsRef.current = activeSigFigs;
@@ -98,7 +96,7 @@ export function useHyperliquidOrderbook(
   //  REST SEED — oneshot snapshot, discarded once WS starts streaming
 
   const { data: restSnapshot } = useQuery({
-    queryKey: queryKeys.orderbook.snapshot(symbol),
+    queryKey: queryKeys.market.orderbook.snapshot(symbol),
     queryFn: () => api.getOrderbook(symbol, activeSigFigsRef.current),
     enabled: enabled && !!symbol,
     staleTime: Infinity,
@@ -116,8 +114,8 @@ export function useHyperliquidOrderbook(
       schedule(
         processRawL2Levels(
           (levels[0] ?? []).slice(0, MAX_DEPTH),
-          (levels[1] ?? []).slice(0, MAX_DEPTH)
-        )
+          (levels[1] ?? []).slice(0, MAX_DEPTH),
+        ),
       );
     }
   }, [restSnapshot, schedule]);
@@ -126,7 +124,7 @@ export function useHyperliquidOrderbook(
 
   const subscription = useMemo(
     () => (enabled && coin ? { type: "l2Book" as const, coin, nSigFigs: activeSigFigs } : null),
-    [enabled, coin, activeSigFigs]
+    [enabled, coin, activeSigFigs],
   );
 
   const handleMessage = useCallback(
@@ -142,7 +140,7 @@ export function useHyperliquidOrderbook(
       const asks = book.levels[1]?.slice(0, MAX_DEPTH) ?? [];
       schedule(processRawL2Levels(bids, asks));
     },
-    [schedule]
+    [schedule],
   );
 
   const fetchRestSnapshot = useCallback(async () => {
@@ -159,8 +157,8 @@ export function useHyperliquidOrderbook(
         schedule(
           processRawL2Levels(
             (levels[0] ?? []).slice(0, MAX_DEPTH),
-            (levels[1] ?? []).slice(0, MAX_DEPTH)
-          )
+            (levels[1] ?? []).slice(0, MAX_DEPTH),
+          ),
         );
       }
     } catch (err) {
@@ -176,7 +174,6 @@ export function useHyperliquidOrderbook(
     onReconnect: fetchRestSnapshot,
   });
 
-  // Resubscribe (precision change)
   const resubscribe = useCallback(
     (nSigFigs: number) => {
       const next = Math.max(MIN_N_SIG_FIGS, Math.min(MAX_N_SIG_FIGS, nSigFigs));
@@ -184,7 +181,7 @@ export function useHyperliquidOrderbook(
       ws.resubscribe({ type: "l2Book", coin, nSigFigs: next });
       if (!isControlled) setUncontrolledSigFigs(next);
     },
-    [coin, ws, isControlled]
+    [coin, ws, isControlled],
   );
 
   //  ADAPTIVE SIGFIGS (cooldown-gated, fully guarded)

@@ -1,24 +1,30 @@
 import { useState } from "react";
 import { Terminal, Plug, Lock, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
+import { useAccount } from "wagmi";
+import { privateKeyToAccount } from "viem/accounts";
+import { useNavigate } from "react-router-dom";
+
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { useAccount } from "wagmi";
+import { SaveBar } from "@/components/save-bar";
 import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
+import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useAuth } from "@/core/providers/use-auth";
 import { api } from "@/services/api";
-import { privateKeyToAccount } from "viem/accounts";
-import { SaveBar } from "@/components/save-bar";
-import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
-import { useNavigate } from "react-router-dom";
 
 function truncateAddress(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
 export function ApiConsole() {
-  const { open: openConnectPrompt, ConnectWalletSheet } = useConnectWalletPrompt();
+  const {
+    open: openConnectPrompt,
+    isOpen: isConnectWalletOpen,
+    close: closeConnectWallet,
+  } = useConnectWalletPrompt();
   const { address, isConnected } = useAccount();
   const { isAuthenticated, isLoading, hasLinkedWallet, refreshWalletStatus } = useAuth();
   const navigate = useNavigate();
@@ -225,7 +231,9 @@ export function ApiConsole() {
         />
       )}
 
-      {ConnectWalletSheet}
+      {isConnectWalletOpen && (
+        <ConnectWalletDialog open={true} onOpenChange={(open) => !open && closeConnectWallet()} />
+      )}
     </>
   );
 }

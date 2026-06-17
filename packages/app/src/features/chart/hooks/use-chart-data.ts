@@ -13,11 +13,10 @@ interface UseChartDataProps {
   volumeSeries: import("lightweight-charts").ISeriesApi<"Histogram"> | null;
   chart: import("lightweight-charts").IChartApi | null;
   visibleCandles: number;
-  enabled?: boolean;
   resetKey?: string; // Force reset when this changes
 }
 
-const toTime = (time: number): Time => time as Time;
+const toTime = (time: number): Time => time as Time; // safe: lightweight-charts branded type, time is epoch seconds
 
 const toCandlestickData = (points: ChartDataPoint[]): CandlestickData<Time>[] =>
   points.map((point) => ({
@@ -42,7 +41,6 @@ export const useChartData = ({
   volumeSeries,
   chart,
   visibleCandles,
-  enabled = true,
   resetKey,
 }: UseChartDataProps) => {
   const initialDataLoadedRef = useRef(false);
@@ -51,7 +49,6 @@ export const useChartData = ({
   const prevLastTimeRef = useRef<number | null>(null);
   const prevLastCandleRef = useRef<ChartDataPoint | null>(null);
   const prevIsDarkRef = useRef(isDark);
-  const prevEnabledRef = useRef(enabled);
   const prevResetKeyRef = useRef<string | undefined>(undefined);
   // Fast-path: skip full comparison when data identity is unchanged
   const stableIdentityRef = useRef<{
@@ -70,11 +67,6 @@ export const useChartData = ({
 
   useEffect(() => {
     if (!candlestickSeries || !volumeSeries || data.length === 0) return;
-
-    if (!enabled) {
-      prevEnabledRef.current = false;
-      return;
-    }
 
     const currentFirstTime = data[0].time;
     const currentLastTime = data[data.length - 1].time;
@@ -98,13 +90,9 @@ export const useChartData = ({
       lastClose: currentLastCandle.close,
     };
 
-    const themeChanged = prevIsDarkRef.current !== isDark;
-    const resumedFromDisabled = !prevEnabledRef.current;
-
-    if (themeChanged || resumedFromDisabled) {
+    if (prevIsDarkRef.current !== isDark) {
       prevIsDarkRef.current = isDark;
       initialDataLoadedRef.current = false;
-      prevEnabledRef.current = true;
     }
 
     const prevFirstTime = prevFirstTimeRef.current;
@@ -231,7 +219,7 @@ export const useChartData = ({
     prevFirstTimeRef.current = currentFirstTime;
     prevLastTimeRef.current = currentLastTime;
     prevLastCandleRef.current = { ...currentLastCandle };
-  }, [data, isDark, candlestickSeries, volumeSeries, chart, visibleCandles, enabled]);
+  }, [data, isDark, candlestickSeries, volumeSeries, chart, visibleCandles]);
   // NOTE: `data` must be in deps because it's the sync trigger.
   // Ref-based guards inside prevent unnecessary LWC API calls on every render.
 };

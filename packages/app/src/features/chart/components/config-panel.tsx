@@ -38,13 +38,13 @@ function IndicatorConfigPanelInner({
   // Derive form values from selected instance or defaults - no effect needed
   const selectedInstance = useMemo(
     () => activeIndicators.find((i) => i.instanceId === selectedInstanceId) ?? null,
-    [activeIndicators, selectedInstanceId]
+    [activeIndicators, selectedInstanceId],
   );
 
   const formValues = useMemo(
     () =>
       selectedInstance ? toFormValues(indicator, selectedInstance.params) : toFormValues(indicator),
-    [indicator, selectedInstance]
+    [indicator, selectedInstance],
   );
 
   // Merge local edits (if any) on top of memoized formValues so keystrokes are reflected
@@ -55,17 +55,17 @@ function IndicatorConfigPanelInner({
 
   const parsedParamsForCurrentForm = useMemo(
     () => parseFormValues(indicator, formValues),
-    [indicator, formValues]
+    [indicator, formValues],
   );
 
   const derivedInstanceId = useMemo(
     () => createIndicatorInstanceId(indicator, parsedParamsForCurrentForm),
-    [indicator, parsedParamsForCurrentForm]
+    [indicator, parsedParamsForCurrentForm],
   );
 
   const matchingActiveInstance = useMemo(
     () => activeIndicators.find((entry) => entry.instanceId === derivedInstanceId),
-    [activeIndicators, derivedInstanceId]
+    [activeIndicators, derivedInstanceId],
   );
 
   const handleApply = useCallback(() => {

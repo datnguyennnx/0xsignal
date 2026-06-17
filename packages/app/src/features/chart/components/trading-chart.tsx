@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo, memo } from "react";
+import { useRef, useCallback, useMemo } from "react";
 import { useTheme } from "@/core/providers/theme-provider";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { useCandleData } from "@/features/trade/contexts/candle-data-context";
@@ -19,6 +19,7 @@ import { INTERVAL_RESTORE_DELAY } from "../utils/constants";
 import { ChartOhlcOverlay } from "./chart-ohlc-overlay";
 import { HoverProvider, useHoverActions } from "../contexts/hover-context";
 import type { HyperliquidFill } from "@/features/trade/utils/trade-markers";
+import type { UserFill } from "@/services/api";
 import { TradeMarkersOverlay } from "./trade-markers-overlay";
 
 const DESKTOP_CONFIG = {
@@ -73,7 +74,6 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     volumeSeries,
     chart,
     visibleCandles: DESKTOP_CONFIG.visibleCandles,
-    enabled: true,
     resetKey: interval,
   });
 
@@ -86,7 +86,19 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
 
   // Trade markers: HTML overlay (B/S circles)
   const { data: rawFills } = useUserFills();
-  const fills = rawFills as HyperliquidFill[] | undefined;
+  const fills = rawFills
+    ?.filter((f): f is UserFill & { dir: string } => typeof f.dir === "string")
+    .map(
+      (f): HyperliquidFill => ({
+        coin: f.coin,
+        px: f.px,
+        sz: f.sz,
+        side: f.side,
+        time: f.time,
+        dir: f.dir,
+        hash: f.hash,
+      }),
+    );
 
   const timeframeSec = useMemo(() => intervalToSeconds(interval), [interval]);
 
@@ -105,7 +117,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
         setTimeout(() => toggleFullscreen(), INTERVAL_RESTORE_DELAY);
       }
     },
-    [interval, onIntervalChange, isFullscreen, toggleFullscreen]
+    [interval, onIntervalChange, isFullscreen, toggleFullscreen],
   );
 
   const chartContent = (
@@ -167,4 +179,4 @@ const TradingChartComponent = (props: TradingChartProps) => {
   );
 };
 
-export const TradingChart = memo(TradingChartComponent);
+export const TradingChart = TradingChartComponent;

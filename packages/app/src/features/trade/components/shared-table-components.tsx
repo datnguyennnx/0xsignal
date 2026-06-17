@@ -2,10 +2,7 @@ import { formatCompactUsd, formatSignedPercent } from "@/core/utils/formatters";
 import { TabsTrigger } from "@/components/ui/tabs";
 import type { ReactNode } from "react";
 
-/**
- * Renders a directional label accounting for reduce-only orders.
- * Shows "Close Short" / "Close Long" when reduceOnly is true.
- */
+/** Directional label, shows "Close Short/Long" when reduceOnly. */
 export function DirLabel({ side, reduceOnly }: { side: "A" | "B"; reduceOnly?: boolean }) {
   if (reduceOnly) {
     return (
@@ -21,20 +18,12 @@ export function DirLabel({ side, reduceOnly }: { side: "A" | "B"; reduceOnly?: b
   );
 }
 
-/**
- * Renders a position direction label (Long/Short) based on
- * the sign of the position size string.
- */
 export function PosDirLabel({ szi }: { szi: string }) {
   const n = Number(szi);
   return <span className={n >= 0 ? "text-gain" : "text-loss"}>{n >= 0 ? "Long" : "Short"}</span>;
 }
 
-/**
- * Renders a direction label from the Hyperliquid API `dir` field.
- * The API provides semantic strings like "Open Long", "Close Short", "Long > Short", etc.
- * Colors: green for long-oriented, red for short-oriented.
- */
+/** Direction label from HL API `dir` field ("Open Long", "Close Short", etc.). */
 export function DirDisplay({ dir }: { dir?: string | null }) {
   if (!dir) return <span className="text-muted-foreground/40">—</span>;
   const isLong = dir.toLowerCase().includes("long");

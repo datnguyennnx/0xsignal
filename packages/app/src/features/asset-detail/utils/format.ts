@@ -25,12 +25,4 @@ export const toCountdown = (msRemaining: number): string => {
   return `${hours}:${minutes}:${seconds}`;
 };
 
-export const getNextFundingMs = (): number => {
-  const now = new Date();
-  const next = new Date(now);
-  next.setMinutes(0, 0, 0);
-  if (next.getTime() <= now.getTime()) {
-    next.setHours(next.getHours() + 1);
-  }
-  return next.getTime() - now.getTime();
-};
+export { getNextFundingMs } from "@/core/utils/formatters";

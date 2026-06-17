@@ -17,18 +17,12 @@ export const formatPrice = (price: number, pxDecimals?: number): string => {
   });
 };
 
-/**
- * Formats orderbook or asset size.
- */
 export const formatSize = (size: number): string => {
   if (size >= 1_000_000) return `${(size / 1_000_000).toFixed(2)}M`;
   if (size >= 1_000) return `${(size / 1_000).toFixed(2)}K`;
   return size.toFixed(size < 1 ? 4 : 2);
 };
 
-/**
- * Specialized price formatting with custom scaling factor (Orderbook tick size).
- */
 export const formatPriceWithScaling = (price: number, scaling: number): string => {
   let decimals: number;
   if (scaling >= 1) decimals = 0;
@@ -51,8 +45,18 @@ export const formatCompactUsd = (value: number): string => {
 };
 
 /**
- * Formats percentage with sign prefix (+/-).
+ * Calculate milliseconds remaining until the next funding interval (top of the hour).
  */
+export const getNextFundingMs = (): number => {
+  const now = new Date();
+  const next = new Date(now);
+  next.setMinutes(0, 0, 0);
+  if (next.getTime() <= now.getTime()) {
+    next.setHours(next.getHours() + 1);
+  }
+  return next.getTime() - now.getTime();
+};
+
 export const formatSignedPercent = (pct: number): string => {
   if (!Number.isFinite(pct)) return "-";
   return `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;

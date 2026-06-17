@@ -1,6 +1,4 @@
-/**
- * Format a Unix timestamp (ms) to a human-readable date-time string.
- */
+/** Format ms timestamp → "MM/DD/YYYY - HH:mm:ss". */
 export function formatTime(ts: number): string {
   const d = new Date(ts);
   const mm = d.getMonth() + 1;
@@ -12,9 +10,6 @@ export function formatTime(ts: number): string {
   return `${mm}/${dd}/${yyyy} - ${hh}:${min}:${ss}`;
 }
 
-/**
- * Convert an order status string to a human-readable label.
- */
 export function formatStatus(status: string): string {
   switch (status) {
     case "open":
@@ -29,10 +24,7 @@ export function formatStatus(status: string): string {
   }
 }
 
-/**
- * Compact number formatting: millions (M), thousands (K),
- * or raw with decreasing precision for small values.
- */
+/** Compact number: M/K/raw with decreasing precision for small values. */
 export function fmtNum(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(2)}K`;

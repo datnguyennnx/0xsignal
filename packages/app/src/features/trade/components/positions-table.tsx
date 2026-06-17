@@ -7,39 +7,11 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
-import {
-  CELL_CLASS,
-  CELL_NUM_CLASS,
-  CELL_HEAD_CLASS,
-  CELL_HEAD_NUM_CLASS,
-} from "../utils/orderbook-table-classes";
+import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import { PnLDisplay } from "./shared-table-components";
+import { computeAccruedFunding } from "../utils/trade-math";
 
 import { useNavigate } from "react-router-dom";
-import { getNextFundingMs } from "@/features/asset-detail/utils/format";
-
-const FUNDING_INTERVAL_MS = 3_600_000;
-
-const c = CELL_CLASS;
-const cNum = CELL_NUM_CLASS;
-const cHead = CELL_HEAD_CLASS;
-const cHeadNum = CELL_HEAD_NUM_CLASS;
-
-function computeAccruedFunding(
-  settledFunding: number,
-  positionValue: number,
-  fundingRate: number | undefined,
-  isLong: boolean
-): number {
-  if (!fundingRate || !Number.isFinite(fundingRate)) return settledFunding;
-  const msToNext = getNextFundingMs();
-  const elapsedMs = FUNDING_INTERVAL_MS - Math.min(msToNext, FUNDING_INTERVAL_MS);
-  const elapsedFraction = elapsedMs / FUNDING_INTERVAL_MS;
-  // Sign: positive funding rate → longs pay (−), shorts receive (+)
-  const signAdj = isLong ? -1 : 1;
-  const unsettled = positionValue * fundingRate * elapsedFraction * signAdj;
-  return settledFunding + unsettled;
-}
 
 function TpSlCell({ tpSl }: { tpSl: { tp: string | null; sl: string | null } | undefined }) {
   if (!tpSl || (!tpSl.tp && !tpSl.sl)) {
@@ -135,7 +107,7 @@ export function PositionsTable({
               settledFunding,
               posValue,
               fundingRate,
-              isLong
+              isLong,
             );
             const computedMarkPx = signedSz !== 0 ? entryPx + unrealizedPnl / signedSz : entryPx;
             const markPx = mids?.[position.coin] ?? computedMarkPx;

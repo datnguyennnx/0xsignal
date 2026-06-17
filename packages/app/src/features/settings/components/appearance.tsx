@@ -1,9 +1,10 @@
 import { Palette, LayoutDashboard } from "lucide-react";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/core/providers/theme-provider";
-import { resetLayout } from "@/features/asset-detail/contexts/layout-store";
 import { cn } from "@/core/utils/cn";
-import { toast } from "sonner";
+import { resetLayout } from "@/lib/layout-reset";
 
 interface ThemeCardProps {
   value: "light" | "dark" | "system";
@@ -23,7 +24,7 @@ const ThemeCard = ({ value, label, theme, handleThemeChange, children }: ThemeCa
         "relative w-full aspect-[16/10] rounded-xl overflow-hidden border transition-all duration-200 shadow-sm hover:scale-[1.02] hover:shadow-md",
         theme === value
           ? "border-foreground ring-1 ring-foreground/10"
-          : "border-border/20 hover:border-border/60"
+          : "border-border/20 hover:border-border/60",
       )}
     >
       {children}
@@ -31,7 +32,7 @@ const ThemeCard = ({ value, label, theme, handleThemeChange, children }: ThemeCa
     <span
       className={cn(
         "text-xs font-semibold tracking-tight transition-colors",
-        theme === value ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+        theme === value ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
       )}
     >
       {label}
@@ -107,7 +108,6 @@ export function AppearanceSettings() {
         </ThemeCard>
       </div>
 
-      {/* Dashboard Layout Reset */}
       <div className="pt-4 border-t border-border/20">
         <div className="space-y-1 mb-3">
           <h4 className="text-sm font-semibold flex items-center gap-2 text-foreground">

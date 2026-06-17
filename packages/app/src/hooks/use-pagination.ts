@@ -6,27 +6,16 @@ interface PaginationState {
 }
 
 interface UsePaginationResult<T> {
-  /** Sliced data for the current page */
   pageData: T[];
-  /** Total number of pages */
   totalPages: number;
-  /** Current page number (1-indexed) */
   currentPage: number;
-  /** Items per page */
   pageSize: number;
-  /** Total items in the original dataset */
   totalItems: number;
-  /** Go to a specific page */
   setPage: (page: number) => void;
-  /** Change page size (resets to page 1) */
   setPageSize: (size: number) => void;
-  /** Go to the next page */
   nextPage: () => void;
-  /** Go to the previous page */
   previousPage: () => void;
-  /** Whether there is a next page */
   hasNextPage: boolean;
-  /** Whether there is a previous page */
   hasPreviousPage: boolean;
 }
 

@@ -8,22 +8,20 @@ import {
   XAxis,
   Tooltip,
 } from "recharts";
+
 import { cn } from "@/core/utils/cn";
-import { usePortfolio } from "../hooks/use-portfolio-data";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
-/* Types & Constants */
+import { usePortfolio } from "../hooks/use-portfolio-data";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  PERIOD_LABELS,
+  PERIOD_KEYS,
+  isPortfolioPeriod,
+  type PortfolioPeriod,
+} from "../utils/constants";
 
 type ChartView = "account-value" | "pnl" | "perps-pnl";
-type TimePeriod = "day" | "week" | "month" | "allTime";
-
-const PERIOD_LABELS: Record<TimePeriod, string> = {
-  day: "1D",
-  week: "7D",
-  month: "30D",
-  allTime: "All",
-};
-const PERIOD_KEYS: TimePeriod[] = ["day", "week", "month", "allTime"];
 
 const VIEW_KEYS: ChartView[] = ["account-value", "pnl", "perps-pnl"];
 const VIEW_LABELS: Record<ChartView, string> = {
@@ -31,8 +29,6 @@ const VIEW_LABELS: Record<ChartView, string> = {
   pnl: "PnL",
   "perps-pnl": "Perps PnL",
 };
-
-/* Helpers */
 
 function formatCompact(v: number): string {
   const abs = Math.abs(v);
@@ -53,12 +49,6 @@ function formatXAxisTick(ts: number): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/* Self-rolled skeleton */
-function SkeletonBlock({ h }: { h: number }) {
-  return <div className="loading-shimmer rounded-sm w-full" style={{ height: h }} />;
-}
-
-/* Custom Tooltip */
 function ChartTooltip({
   active,
   payload,
@@ -114,19 +104,15 @@ function ChartTooltip({
   );
 }
 
-/* Panel surface — shared class string */
 const SURFACE =
   "h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
-
-/* Main Component */
 
 export function PortfolioPnLChart() {
   const { data: portfolio, isLoading, isError } = usePortfolio();
 
   const [chartView, setChartView] = useState<ChartView>("account-value");
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>("month");
+  const [timePeriod, setTimePeriod] = useState<PortfolioPeriod>("month");
 
-  /* Extract [timestamp, value] pairs */
   const values = useMemo<[number, number][] | null>(() => {
     if (!portfolio) return null;
     const periodIndex =
@@ -147,10 +133,7 @@ export function PortfolioPnLChart() {
     return result.length > 0 ? result : null;
   }, [portfolio, chartView, timePeriod]);
 
-  const chartData = useMemo(() => {
-    if (!values) return null;
-    return values.map(([time, value]) => ({ time, value }));
-  }, [values]);
+  const chartData = values ? values.map(([time, value]) => ({ time, value })) : null;
 
   const [dataMin, dataMax] = useMemo(() => {
     if (!values) return [0, 0];
@@ -177,26 +160,24 @@ export function PortfolioPnLChart() {
     return Array.from({ length: count + 1 }, (_, i) => +(min + step * i).toFixed(0));
   }, [values]);
 
-  /* Loading */
   if (isLoading) {
     return (
       <div className={SURFACE}>
         <div className="flex justify-between">
           <div className="flex gap-[clamp(0.4rem,0.7vw,0.75rem)]">
-            <SkeletonBlock h={14} />
-            <SkeletonBlock h={14} />
-            <SkeletonBlock h={14} />
+            <Skeleton className="h-3.5 w-16" />
+            <Skeleton className="h-3.5 w-16" />
+            <Skeleton className="h-3.5 w-16" />
           </div>
-          <SkeletonBlock h={18} />
+          <Skeleton className="w-14" style={{ height: 18 }} />
         </div>
         <div className="flex-1 flex items-center justify-center p-1.5 min-h-[clamp(80px,10vw,120px)]">
-          <SkeletonBlock h={120} />
+          <Skeleton className="w-full h-[120px]" />
         </div>
       </div>
     );
   }
 
-  /* Error */
   if (isError || !portfolio) {
     return (
       <div className={SURFACE}>
@@ -209,12 +190,9 @@ export function PortfolioPnLChart() {
     );
   }
 
-  /* Render */
   return (
     <div className={SURFACE}>
-      {/* Header */}
       <div className="flex items-end justify-between">
-        {/* View tabs */}
         <div className="flex items-end">
           {VIEW_KEYS.map((key) => {
             const active = chartView === key;
@@ -226,7 +204,7 @@ export function PortfolioPnLChart() {
                   "text-[length:var(--text-compact)] font-medium px-2.5 pb-2 cursor-pointer transition-colors -mb-px",
                   active
                     ? "text-foreground border-b-2 border-foreground"
-                    : "text-muted-foreground/50 border-transparent hover:text-muted-foreground"
+                    : "text-muted-foreground/50 border-transparent hover:text-muted-foreground",
                 )}
               >
                 {VIEW_LABELS[key]}
@@ -235,12 +213,14 @@ export function PortfolioPnLChart() {
           })}
         </div>
 
-        {/* Timeframe */}
         <NativeSelect
           size="sm"
           aria-label="Timeframe"
           value={timePeriod}
-          onChange={(e) => setTimePeriod(e.target.value as TimePeriod)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setTimePeriod(isPortfolioPeriod(val) ? val : "month");
+          }}
           className="h-7 min-w-[4.5rem] text-xs tabular-nums border-border/30 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25"
         >
           {PERIOD_KEYS.map((p) => (
@@ -251,7 +231,6 @@ export function PortfolioPnLChart() {
         </NativeSelect>
       </div>
 
-      {/* Chart body */}
       <div className="flex-1 min-h-[clamp(120px,12vw,180px)]">
         {chartData ? (
           <div className="w-full h-full">

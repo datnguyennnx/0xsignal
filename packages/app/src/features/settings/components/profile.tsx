@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { User, LogOut, Lock } from "lucide-react";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { useAuth } from "@/core/providers/use-auth";
-import { api } from "@/services/api";
 import { SaveBar } from "@/components/save-bar";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/core/providers/use-auth";
+import { api } from "@/services/api";
 
 export function ProfileSettings() {
   const { user, isLoading, signOut } = useAuth();

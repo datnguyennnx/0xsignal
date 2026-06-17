@@ -28,7 +28,7 @@ export function shouldApplyInitialPrecisionSync({
 export function getEffectivePriceScaling(
   userPriceScaling: PriceScalingState | null,
   symbol: string,
-  scalingOptions: ScalingOptionLike[]
+  scalingOptions: ScalingOptionLike[],
 ): number {
   if (userPriceScaling?.symbol === symbol) {
     return userPriceScaling.value;

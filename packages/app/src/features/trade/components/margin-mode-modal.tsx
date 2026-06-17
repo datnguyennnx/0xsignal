@@ -13,6 +13,7 @@ import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/core/utils/cn";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
+import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 
 interface MarginModeModalProps {
   open: boolean;
@@ -47,12 +48,16 @@ export function MarginModeModal({
 }: MarginModeModalProps) {
   const [mode, setMode] = useState<"cross" | "isolated">(currentMode);
   const queryClient = useQueryClient();
-  const { open: openConnectWallet, ConnectWalletSheet } = useConnectWalletPrompt();
+  const {
+    open: openConnectWallet,
+    isOpen: isConnectWalletOpen,
+    close: closeConnectWallet,
+  } = useConnectWalletPrompt();
 
   const mutation = useMutation({
     mutationFn: (params: UpdateLeverageRequest) => api.updateLeverage(params),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.userData.clearinghouseState() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
       onConfirm?.(mode);
       onOpenChange(false);
     },
@@ -84,14 +89,13 @@ export function MarginModeModal({
         </div>
 
         <div className="space-y-3">
-          {/* Isolated block — first, with Recommended */}
           <button
             onClick={() => setMode("isolated")}
             className={cn(
               "w-full text-left px-4 py-3 rounded-lg border transition-all active:brightness-90",
               mode === "isolated"
                 ? "border-foreground bg-foreground/5"
-                : "border-border/30 bg-transparent hover:border-border"
+                : "border-border/30 bg-transparent hover:border-border",
             )}
           >
             <div className="flex items-start justify-between">
@@ -100,7 +104,7 @@ export function MarginModeModal({
                   <span
                     className={cn(
                       "text-sm font-medium",
-                      mode === "isolated" ? "text-foreground" : "text-muted-foreground"
+                      mode === "isolated" ? "text-foreground" : "text-muted-foreground",
                     )}
                   >
                     Isolated
@@ -110,7 +114,7 @@ export function MarginModeModal({
                       "text-[0.6rem] px-1.5 py-0.5 rounded",
                       mode === "isolated"
                         ? "bg-foreground text-background"
-                        : "text-muted-foreground bg-muted/30"
+                        : "text-muted-foreground bg-muted/30",
                     )}
                   >
                     Recommended
@@ -123,14 +127,13 @@ export function MarginModeModal({
             </div>
           </button>
 
-          {/* Cross block — second, no tag */}
           <button
             onClick={() => setMode("cross")}
             className={cn(
               "w-full text-left px-4 py-3 rounded-lg border transition-all active:brightness-90",
               mode === "cross"
                 ? "border-foreground bg-foreground/5"
-                : "border-border/30 bg-transparent hover:border-border"
+                : "border-border/30 bg-transparent hover:border-border",
             )}
           >
             <div className="flex items-start justify-between">
@@ -138,7 +141,7 @@ export function MarginModeModal({
                 <span
                   className={cn(
                     "text-sm font-medium",
-                    mode === "cross" ? "text-foreground" : "text-muted-foreground"
+                    mode === "cross" ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
                   Cross
@@ -150,7 +153,6 @@ export function MarginModeModal({
             </div>
           </button>
 
-          {/* Summary row */}
           <div className="flex items-center justify-between px-3 py-2 bg-background/70 rounded-md border border-border/20">
             <span className="text-xs text-muted-foreground">Leverage for {symbol}</span>
             <span className="text-sm tabular-nums text-foreground">{currentLeverage}x</span>
@@ -167,7 +169,9 @@ export function MarginModeModal({
             {mutation.isPending ? "Confirming..." : "Confirm"}
           </Button>
         </DialogFooter>
-        {ConnectWalletSheet}
+        {isConnectWalletOpen && (
+          <ConnectWalletDialog open={true} onOpenChange={(open) => !open && closeConnectWallet()} />
+        )}
       </DialogContent>
     </Dialog>
   );

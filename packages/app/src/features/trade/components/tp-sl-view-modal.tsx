@@ -3,8 +3,6 @@ import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/u
 import { formatCompactUsd } from "@/core/utils/formatters";
 import { type TpSlOrderDisplay } from "../utils/tp-sl-view-utils";
 
-/* Internal types (not exported) */
-
 interface TpSlViewModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -12,8 +10,6 @@ interface TpSlViewModalProps {
   tpOrder?: TpSlOrderDisplay;
   slOrder?: TpSlOrderDisplay;
 }
-
-/* Helpers */
 
 function getSideLabel(side: "A" | "B"): string {
   return side === "B" ? "Long" : "Short";
@@ -23,8 +19,6 @@ function getSideColor(side: "A" | "B"): string {
   return side === "B" ? "text-gain" : "text-loss";
 }
 
-/* Key-value row micro-component */
-
 function DetailRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="flex justify-between items-center py-1 text-sm">
@@ -33,8 +27,6 @@ function DetailRow({ label, value, color }: { label: string; value: string; colo
     </div>
   );
 }
-
-/* Order detail box */
 
 function OrderDetailBox({ order }: { order: TpSlOrderDisplay }) {
   return (
@@ -48,13 +40,9 @@ function OrderDetailBox({ order }: { order: TpSlOrderDisplay }) {
   );
 }
 
-/* Decision-tree label */
-
 function TreeNodeLabel({ children }: { children: ReactNode }) {
   return <p className="text-xs text-center text-muted-foreground">{children}</p>;
 }
-
-/* Main Component */
 
 export function TpSlViewModal({
   open,

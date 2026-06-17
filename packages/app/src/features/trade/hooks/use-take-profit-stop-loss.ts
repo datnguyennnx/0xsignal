@@ -9,33 +9,21 @@ import {
 } from "../utils/trade-math";
 
 export interface UseTakeProfitStopLossOptions {
-  /** Position entry price (0 = not yet known) */
   entryPrice: number;
-  /** Current effective leverage */
   effectiveLeverage: number;
-  /** True for long, false for short */
   isLong: boolean;
 }
 
 export interface UseTakeProfitStopLossReturn {
-  /** Whether TP/SL is enabled (checkbox state) */
   tpSlEnabled: boolean;
   setTpSlEnabled: (enabled: boolean) => void;
-  /** Take profit price input value */
   tpPrice: string;
-  /** Take profit gain percentage input value */
   tpPercent: string;
-  /** Stop loss price input value */
   slPrice: string;
-  /** Stop loss loss percentage input value */
   slPercent: string;
-  /** Called when the user changes the TP % input */
   handleTpPercentChange: (raw: string) => void;
-  /** Called when the user changes the TP price input */
   handleTpPriceChange: (raw: string) => void;
-  /** Called when the user changes the SL % input */
   handleSlPercentChange: (raw: string) => void;
-  /** Called when the user changes the SL price input */
   handleSlPriceChange: (raw: string) => void;
 }
 
@@ -54,8 +42,6 @@ export function useTakeProfitStopLoss({
   const tpPercentRef = useRef("");
   const slPercentRef = useRef("");
 
-  // TP handlers
-
   const handleTpPercentChange = useCallback(
     (raw: string) => {
       setTpPercent(raw);
@@ -68,7 +54,7 @@ export function useTakeProfitStopLoss({
         setTpPrice("");
       }
     },
-    [entryPrice, effectiveLeverage, isLong]
+    [entryPrice, effectiveLeverage, isLong],
   );
 
   const handleTpPriceChange = useCallback(
@@ -85,10 +71,8 @@ export function useTakeProfitStopLoss({
         tpPercentRef.current = "";
       }
     },
-    [entryPrice, effectiveLeverage, isLong]
+    [entryPrice, effectiveLeverage, isLong],
   );
-
-  // SL handlers
 
   const handleSlPercentChange = useCallback(
     (raw: string) => {
@@ -102,7 +86,7 @@ export function useTakeProfitStopLoss({
         setSlPrice("");
       }
     },
-    [entryPrice, effectiveLeverage, isLong]
+    [entryPrice, effectiveLeverage, isLong],
   );
 
   const handleSlPriceChange = useCallback(
@@ -119,23 +103,21 @@ export function useTakeProfitStopLoss({
         slPercentRef.current = "";
       }
     },
-    [entryPrice, effectiveLeverage, isLong]
+    [entryPrice, effectiveLeverage, isLong],
   );
-
-  // Re-sync prices when env changes
 
   useEffect(() => {
     if (entryPrice > 0 && effectiveLeverage > 0) {
       const tpPct = Number(tpPercentRef.current);
       if (tpPercentRef.current && tpPct > 0) {
         setTpPrice(
-          formatPriceFixed(tpPriceFromPercent(entryPrice, tpPct, effectiveLeverage, isLong))
+          formatPriceFixed(tpPriceFromPercent(entryPrice, tpPct, effectiveLeverage, isLong)),
         );
       }
       const slPct = Number(slPercentRef.current);
       if (slPercentRef.current && slPct > 0) {
         setSlPrice(
-          formatPriceFixed(slPriceFromPercent(entryPrice, slPct, effectiveLeverage, isLong))
+          formatPriceFixed(slPriceFromPercent(entryPrice, slPct, effectiveLeverage, isLong)),
         );
       }
     }

@@ -32,7 +32,7 @@ export function IndicatorParamField({
       const output = definition.control === "int" ? Math.round(clamped) : clamped;
       onValueChange(formatValue(output, definition.step));
     },
-    [definition, numeric, onValueChange]
+    [definition, numeric, onValueChange],
   );
 
   return (
@@ -47,7 +47,6 @@ export function IndicatorParamField({
       </div>
 
       <div className="flex items-center bg-muted/40 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-ring/25 w-full">
-        {/* Decrement */}
         <button
           type="button"
           onClick={() => adjust(-1)}
@@ -57,7 +56,6 @@ export function IndicatorParamField({
           <Minus className="size-3.5 opacity-50" />
         </button>
 
-        {/* Value — centered, fills remaining space */}
         <input
           type="number"
           inputMode="decimal"
@@ -69,7 +67,6 @@ export function IndicatorParamField({
           className="flex-1 h-[clamp(1.75rem,3vh,2.25rem)] px-1 text-center text-xs font-semibold bg-transparent text-foreground focus:outline-none tabular-nums select-none min-w-0"
         />
 
-        {/* Increment */}
         <button
           type="button"
           onClick={() => adjust(1)}

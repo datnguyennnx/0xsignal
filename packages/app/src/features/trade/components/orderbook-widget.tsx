@@ -1,5 +1,4 @@
 import {
-  memo,
   useState,
   useCallback,
   useEffect,
@@ -44,57 +43,52 @@ interface OrderbookWidgetProps {
 
 const PRECISION_RESUBSCRIBE_DEBOUNCE_MS = 160;
 
-const OrderbookToolbar = memo(
-  ({
-    symbol,
-    coinOptions,
-    onSymbolChange,
-    priceScaling,
-    onPriceScalingChange,
-    scalingOptions,
-  }: {
-    symbol: string;
-    coinOptions: Array<{ value: string; label: string }>;
-    onSymbolChange: (s: string) => void;
-    priceScaling: number;
-    onPriceScalingChange: (s: number) => void;
-    scalingOptions: TickSizeOption[];
-  }) => (
-    <div className="flex items-center justify-between gap-[clamp(0.375rem,0.6vw,0.625rem)] shrink-0">
-      <NativeSelect
-        size="sm"
-        aria-label="Coin"
-        value={symbol}
-        onChange={(e) => onSymbolChange(e.target.value)}
-        wrapperClassName="min-w-[4rem] max-w-[6rem]"
-        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-semibold tracking-[0.01em]"
-      >
-        {coinOptions.map((opt) => (
-          <NativeSelectOption key={opt.value} value={opt.value}>
-            {opt.label}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
-      <NativeSelect
-        size="sm"
-        aria-label="Price precision"
-        value={priceScaling.toString()}
-        onChange={(e) => onPriceScalingChange(Number(e.target.value))}
-        wrapperClassName="min-w-fit"
-        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
-      >
-        {scalingOptions.map((opt) => (
-          <NativeSelectOption key={opt.value} value={opt.value.toString()}>
-            {opt.label}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
-    </div>
-  ),
-  (prev, next) => prev.symbol === next.symbol && prev.priceScaling === next.priceScaling
+const OrderbookToolbar = ({
+  symbol,
+  coinOptions,
+  onSymbolChange,
+  priceScaling,
+  onPriceScalingChange,
+  scalingOptions,
+}: {
+  symbol: string;
+  coinOptions: Array<{ value: string; label: string }>;
+  onSymbolChange: (s: string) => void;
+  priceScaling: number;
+  onPriceScalingChange: (s: number) => void;
+  scalingOptions: TickSizeOption[];
+}) => (
+  <div className="flex items-center justify-between gap-[clamp(0.375rem,0.6vw,0.625rem)] shrink-0">
+    <NativeSelect
+      size="sm"
+      aria-label="Coin"
+      value={symbol}
+      onChange={(e) => onSymbolChange(e.target.value)}
+      wrapperClassName="min-w-[4rem] max-w-[6rem]"
+      className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-semibold tracking-[0.01em]"
+    >
+      {coinOptions.map((opt) => (
+        <NativeSelectOption key={opt.value} value={opt.value}>
+          {opt.label}
+        </NativeSelectOption>
+      ))}
+    </NativeSelect>
+    <NativeSelect
+      size="sm"
+      aria-label="Price precision"
+      value={priceScaling.toString()}
+      onChange={(e) => onPriceScalingChange(Number(e.target.value))}
+      wrapperClassName="min-w-fit"
+      className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
+    >
+      {scalingOptions.map((opt) => (
+        <NativeSelectOption key={opt.value} value={opt.value.toString()}>
+          {opt.label}
+        </NativeSelectOption>
+      ))}
+    </NativeSelect>
+  </div>
 );
-
-OrderbookToolbar.displayName = "OrderbookToolbar";
 
 interface OrderRowProps {
   level: FormattedLevel;
@@ -107,130 +101,117 @@ interface OrderRowProps {
   transitionsEnabled: boolean;
 }
 
-const OrderRow = memo(
-  ({
-    level,
-    side,
-    index,
-    isHovered,
-    isInRange,
-    onHover,
-    maxTotal,
-    transitionsEnabled,
-  }: OrderRowProps) => {
-    const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
-    // Round to 1 decimal to avoid false cache busts from floating point drift
-    const stableDepthPercent = Math.round(depthPercent * 10) / 10;
+const OrderRow = ({
+  level,
+  side,
+  index,
+  isHovered,
+  isInRange,
+  onHover,
+  maxTotal,
+  transitionsEnabled,
+}: OrderRowProps) => {
+  const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
+  // Round to 1 decimal to avoid false cache busts from floating point drift
+  const stableDepthPercent = Math.round(depthPercent * 10) / 10;
 
-    const depthStyle = useMemo(
-      () => ({
-        width: "100%",
-        transform: `scaleX(${Math.min(stableDepthPercent, 100) / 100})`,
-        transformOrigin: "right center",
-        willChange: stableDepthPercent < 100 ? "transform" : "auto",
-        transition: transitionsEnabled ? "transform 150ms ease-out" : "none",
-      }),
-      [stableDepthPercent, transitionsEnabled]
-    );
+  const depthStyle = useMemo(
+    () => ({
+      width: "100%",
+      transform: `scaleX(${Math.min(stableDepthPercent, 100) / 100})`,
+      transformOrigin: "right center",
+      willChange: stableDepthPercent < 100 ? "transform" : "auto",
+      transition: transitionsEnabled ? "transform 150ms ease-out" : "none",
+    }),
+    [stableDepthPercent, transitionsEnabled],
+  );
 
-    const handleMouseEnter = useCallback(
-      (e: MouseEvent<HTMLDivElement> | FocusEvent<HTMLDivElement>) => {
-        const dataset = e.currentTarget.dataset;
-        if (dataset.price === undefined) return;
-        onHover(
-          {
-            price: Number(dataset.price),
-            size: Number(dataset.size),
-            total: Number(dataset.total),
-            side: dataset.side as "bid" | "ask",
-          },
-          e.currentTarget,
-          Number(dataset.index)
-        );
-      },
-      [onHover]
-    );
+  const handleMouseEnter = useCallback(
+    (e: MouseEvent<HTMLDivElement> | FocusEvent<HTMLDivElement>) => {
+      const dataset = e.currentTarget.dataset;
+      if (dataset.price === undefined) return;
+      onHover(
+        {
+          price: Number(dataset.price),
+          size: Number(dataset.size),
+          total: Number(dataset.total),
+          side: dataset.side as "bid" | "ask",
+        },
+        e.currentTarget,
+        Number(dataset.index),
+      );
+    },
+    [onHover],
+  );
 
-    const handleMouseLeave = useCallback(() => onHover(null, null), [onHover]);
+  const handleMouseLeave = useCallback(() => onHover(null, null), [onHover]);
 
-    return (
-      <div
-        data-price={level.price}
-        data-size={level.size}
-        data-total={level.total}
-        data-side={side}
-        data-index={index}
-        onMouseEnter={level.price > 0 ? handleMouseEnter : undefined}
-        onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
-        onFocus={level.price > 0 ? handleMouseEnter : undefined}
-        onBlur={level.price > 0 ? handleMouseLeave : undefined}
-        className={`relative flex items-center cursor-pointer tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset ${
-          isHovered ? "bg-muted/50" : "hover:bg-muted/30"
+  return (
+    <div
+      data-price={level.price}
+      data-size={level.size}
+      data-total={level.total}
+      data-side={side}
+      data-index={index}
+      onMouseEnter={level.price > 0 ? handleMouseEnter : undefined}
+      onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
+      onFocus={level.price > 0 ? handleMouseEnter : undefined}
+      onBlur={level.price > 0 ? handleMouseLeave : undefined}
+      className={`relative flex items-center cursor-pointer tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset ${
+        isHovered ? "bg-muted/50" : "hover:bg-muted/30"
+      }`}
+      style={ROW_STYLE}
+      tabIndex={level.price > 0 ? 0 : -1}
+      aria-label={
+        level.price > 0
+          ? `${side} level, price ${level.formattedPrice}, size ${level.formattedSize}, total ${level.formattedTotal}`
+          : undefined
+      }
+      aria-describedby={level.price > 0 && isHovered ? "orderbook-depth-details" : undefined}
+    >
+      {isInRange && (
+        <div
+          className={`absolute inset-0 z-[5] pointer-events-none bg-foreground/5 dark:bg-foreground/10 ${
+            isHovered && side === "ask" ? "border-b border-dashed border-foreground/30" : ""
+          } ${isHovered && side === "bid" ? "border-t border-dashed border-foreground/30" : ""}`}
+        />
+      )}
+      {level.price > 0 && (
+        <div
+          className={`absolute inset-y-0 right-0 z-0 opacity-20 pointer-events-none ${
+            side === "bid" ? "bg-gain" : "bg-loss"
+          }`}
+          style={depthStyle}
+        />
+      )}
+      <span
+        className={`relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-medium ${
+          level.price === 0
+            ? "text-muted-foreground/30"
+            : side === "bid"
+              ? "text-gain"
+              : "text-loss"
         }`}
-        style={ROW_STYLE}
-        tabIndex={level.price > 0 ? 0 : -1}
-        aria-label={
-          level.price > 0
-            ? `${side} level, price ${level.formattedPrice}, size ${level.formattedSize}, total ${level.formattedTotal}`
-            : undefined
-        }
-        aria-describedby={level.price > 0 && isHovered ? "orderbook-depth-details" : undefined}
       >
-        {isInRange && (
-          <div
-            className={`absolute inset-0 z-[5] pointer-events-none bg-foreground/5 dark:bg-foreground/10 ${
-              isHovered && side === "ask" ? "border-b border-dashed border-foreground/30" : ""
-            } ${isHovered && side === "bid" ? "border-t border-dashed border-foreground/30" : ""}`}
-          />
-        )}
-        {level.price > 0 && (
-          <div
-            className={`absolute inset-y-0 right-0 z-0 opacity-20 pointer-events-none ${
-              side === "bid" ? "bg-gain" : "bg-loss"
-            }`}
-            style={depthStyle}
-          />
-        )}
-        <span
-          className={`relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-medium ${
-            level.price === 0
-              ? "text-muted-foreground/30"
-              : side === "bid"
-                ? "text-gain"
-                : "text-loss"
-          }`}
-        >
-          {level.formattedPrice}
-        </span>
-        <span
-          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
-            level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground"
-          }`}
-        >
-          {level.formattedSize}
-        </span>
-        <span
-          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
-            level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
-          }`}
-        >
-          {level.formattedTotal}
-        </span>
-      </div>
-    );
-  },
-  (prev, next) =>
-    prev.level.price === next.level.price &&
-    prev.level.formattedPrice === next.level.formattedPrice &&
-    prev.level.formattedSize === next.level.formattedSize &&
-    prev.level.formattedTotal === next.level.formattedTotal &&
-    prev.side === next.side &&
-    prev.isHovered === next.isHovered &&
-    prev.isInRange === next.isInRange &&
-    prev.transitionsEnabled === next.transitionsEnabled
-);
-
-OrderRow.displayName = "OrderRow";
+        {level.formattedPrice}
+      </span>
+      <span
+        className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
+          level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground"
+        }`}
+      >
+        {level.formattedSize}
+      </span>
+      <span
+        className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
+          level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
+        }`}
+      >
+        {level.formattedTotal}
+      </span>
+    </div>
+  );
+};
 
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const l2BookSig = useOptionalL2BookNSigFigs();
@@ -274,7 +255,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     right?: number;
   } | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<{ side: "bid" | "ask"; index: number } | null>(
-    null
+    null,
   );
   const widgetRef = useRef<HTMLDivElement>(null);
   const transitionsEnabled = useOrderbookResize();
@@ -300,7 +281,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       price: number,
       size: number,
       total: number,
-      index: number
+      index: number,
     ) => {
       if (popupRafRef.current) cancelAnimationFrame(popupRafRef.current);
       popupRafRef.current = requestAnimationFrame(() => {
@@ -323,7 +304,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       setHoverTarget({ side, price, size, total });
       setHoveredIndex({ side, index });
     },
-    []
+    [],
   );
 
   const clearPopup = useCallback(() => {
@@ -348,10 +329,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   const effectivePriceScaling = useMemo(
     () => getEffectivePriceScaling(userPriceScaling, symbol, scalingOptions),
-    [userPriceScaling, symbol, scalingOptions]
+    [userPriceScaling, symbol, scalingOptions],
   );
 
-  // Sync initial nSigFigs when orderbook data arrives
   useEffect(() => {
     if (!orderbook || scalingOptions.length === 0) {
       return;
@@ -399,12 +379,12 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         precisionTimerRef.current = null;
       }, PRECISION_RESUBSCRIBE_DEBOUNCE_MS);
     },
-    [scalingOptions, resubscribe, symbol]
+    [scalingOptions, resubscribe, symbol],
   );
 
-  // Convert to selected denomination, format, and compute maxTotal.
   const { visibleAsks, visibleBids, maxTotal } = useMemo(() => {
     if (!orderbook)
+      // safe: empty array needs type hint for FormattedLevel[] inference
       return {
         visibleAsks: [] as FormattedLevel[],
         visibleBids: [] as FormattedLevel[],
@@ -471,13 +451,13 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
       schedulePopupPosition(rowElement, data.side, data.price, data.size, data.total, index);
     },
-    [schedulePopupPosition]
+    [schedulePopupPosition],
   );
 
   const isRowHovered = useCallback(
     (side: "bid" | "ask", index: number) =>
       hoveredIndex?.side === side && hoveredIndex?.index === index,
-    [hoveredIndex]
+    [hoveredIndex],
   );
 
   const isRowInHighlightRange = useCallback(
@@ -485,7 +465,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       if (!hoveredIndex || hoveredIndex.side !== side) return false;
       return index <= hoveredIndex.index;
     },
-    [hoveredIndex]
+    [hoveredIndex],
   );
 
   const hasBookData = !!orderbook && orderbook.asks.length > 0 && orderbook.bids.length > 0;
@@ -619,14 +599,10 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
               )}
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );
 };
 
-export const OrderbookWidget = memo(
-  OrderbookWidgetComponent,
-  (prev, next) => prev.symbol === next.symbol
-);
-OrderbookWidget.displayName = "OrderbookWidget";
+export const OrderbookWidget = OrderbookWidgetComponent;

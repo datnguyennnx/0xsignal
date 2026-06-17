@@ -14,7 +14,7 @@ import {
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 export const createMarketStreamWsUrl = (
   apiBase: string,
-  locationLike: Pick<Location, "protocol" | "host"> | undefined
+  locationLike: Pick<Location, "protocol" | "host"> | undefined,
 ): string => {
   if (apiBase.startsWith("/")) {
     const protocol = locationLike?.protocol === "https:" ? "wss:" : "ws:";
@@ -44,7 +44,7 @@ export interface MarketSubscription {
 }
 
 export const buildMarketStreamSearchParams = (
-  subscription: MarketSubscription
+  subscription: MarketSubscription,
 ): URLSearchParams => {
   const params = new URLSearchParams();
   params.set("channel", subscription.type);
@@ -79,13 +79,13 @@ interface MarketStreamCallbacks {
 interface MarketStreamClient {
   subscribe: (
     subscription: MarketSubscription,
-    callbacks: MarketStreamCallbacks
+    callbacks: MarketStreamCallbacks,
   ) => Promise<MarketStreamSubscription>;
 }
 
 const createWebSocketSubscription = (
   subscription: MarketSubscription,
-  callbacks: MarketStreamCallbacks
+  callbacks: MarketStreamCallbacks,
 ): MarketStreamSubscription => {
   let cancelled = false;
   let socket: WebSocket | null = null;
@@ -100,7 +100,7 @@ const createWebSocketSubscription = (
 
     const delay = Math.min(
       RECONNECT_BASE_DELAY_MS * Math.pow(2, reconnectAttempt),
-      RECONNECT_MAX_DELAY_MS
+      RECONNECT_MAX_DELAY_MS,
     );
     reconnectAttempt += 1;
 
@@ -123,11 +123,8 @@ const createWebSocketSubscription = (
       }
     });
 
-    socket.addEventListener("message", (event) => {
-      const decoded = decodeMarketWsMessage(
-        (event as MessageEvent<string>).data,
-        subscription.type
-      );
+    socket.addEventListener("message", (event: MessageEvent<string>) => {
+      const decoded = decodeMarketWsMessage(event.data, subscription.type);
 
       if (decoded.kind === "ignore") return;
 
@@ -173,13 +170,8 @@ const createWebSocketSubscription = (
       callbacks.onError?.(new Error("Market WebSocket connection failed"));
     });
 
-    socket.addEventListener("close", (event) => {
+    socket.addEventListener("close", () => {
       callbacks.onConnectionChange?.(false);
-      if (event.code === 1011) {
-        console.warn(
-          `[MarketStream] Connection closed due to server-side backpressure (status 1011): "${event.reason || "Slow client detected"}". Retrying connection with exponential backoff.`
-        );
-      }
       scheduleReconnect();
     });
   };
@@ -214,7 +206,7 @@ function createMarketStreamClient(): MarketStreamClient {
           ...subscription,
           interval: normalizedInterval,
         },
-        callbacks
+        callbacks,
       );
     },
   };

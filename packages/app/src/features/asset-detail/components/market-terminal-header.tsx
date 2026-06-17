@@ -1,8 +1,8 @@
 import { memo } from "react";
 import { cn } from "@/core/utils/cn";
+import { formatCompactUsd, formatPrice, formatSignedPercent } from "@/core/utils/formatters";
 import { MetricItem } from "./metric-item";
 import { formatSignedUsd, formatFundingPercent } from "../utils/format";
-import { formatCompactUsd, formatPrice, formatSignedPercent } from "@/core/utils/formatters";
 
 interface MarketTerminalHeaderProps {
   markPrice: number;
@@ -56,7 +56,7 @@ export const MarketTerminalHeader = memo(function MarketTerminalHeader({
               className={cn(
                 "font-semibold tabular-nums",
                 fundingTone === "positive" && "text-gain",
-                fundingTone === "negative" && "text-loss"
+                fundingTone === "negative" && "text-loss",
               )}
             >
               {formatFundingPercent(fundingRate)}

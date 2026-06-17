@@ -11,8 +11,6 @@ import {
   type LogicalTradeMarker,
 } from "@/features/trade/utils/trade-markers";
 
-// Types
-
 interface TradeMarkersOverlayProps {
   chart: IChartApi | null;
   series: ISeriesApi<"Candlestick"> | null;
@@ -31,12 +29,8 @@ interface OverlayPoint {
   overflowCount?: number;
 }
 
-// Constants
-
 const RADIUS = MARKER_DIAMETER / 2;
 const STEP = MARKER_DIAMETER + MARKER_GAP;
-
-// Component
 
 export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMarkersOverlayProps) {
   const [points, setPoints] = useState<OverlayPoint[]>([]);
@@ -68,7 +62,7 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
         continue;
       }
 
-      const x = ts.timeToCoordinate(group.time as Time);
+      const x = ts.timeToCoordinate(group.time as Time); // safe: lightweight-charts branded type
       const baseY = series.priceToCoordinate(candle.high);
       if (x === null || baseY === null) continue;
 
@@ -139,7 +133,6 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10" aria-hidden="true">
-      {/* Markers — pointer-events enabled for hover */}
       {points.map((p, idx) => (
         <div
           key={`${p.id}-${idx}`}
@@ -168,7 +161,6 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
         </div>
       ))}
 
-      {/* Tooltip */}
       {visibleHovered && (
         <div
           className="hl-trade-tooltip"

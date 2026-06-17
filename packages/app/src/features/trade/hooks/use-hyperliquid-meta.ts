@@ -3,9 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query/query-keys";
 import { parseSymbol } from "../lib/symbol";
-
-const MAX_DECIMALS_PERP = 6;
-const MAX_SIG_FIGS = 5;
+import { calculatePxDecimals, MAX_DECIMALS_PERP, MAX_SIG_FIGS } from "../utils/trade-formatters";
 
 export interface AssetPrecision {
   pxDecimals: number;
@@ -19,13 +17,9 @@ const DEFAULT: AssetPrecision = {
   maxLeverage: 50,
 };
 
-export function calculatePxDecimals(szDecimals: number): number {
-  return Math.min(MAX_SIG_FIGS, MAX_DECIMALS_PERP - szDecimals);
-}
-
 export function useHyperliquidMeta() {
   const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.marketData.markets(),
+    queryKey: queryKeys.market.meta(),
     queryFn: () => api.getMarkets(),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -40,7 +34,6 @@ export function useHyperliquidMeta() {
       const sz = asset.szDecimals ?? 4;
       const pxDec = calculatePxDecimals(sz);
       const ml = asset.maxLeverage ?? 50;
-      // Use coin (normalized) as key
       map.set(asset.coin.toUpperCase(), {
         pxDecimals: pxDec,
         szDecimals: sz,
@@ -58,7 +51,7 @@ export function useHyperliquidMeta() {
       const lookupKey = parsed.kind === "builderPerp" ? parsed.coin : parsed.coin.toUpperCase();
       return precisionMap.get(lookupKey) ?? DEFAULT;
     },
-    [precisionMap]
+    [precisionMap],
   );
 
   return { meta: data, isLoading, error, getPrecision, precisionMap };

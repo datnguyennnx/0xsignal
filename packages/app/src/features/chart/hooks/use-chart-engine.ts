@@ -159,7 +159,7 @@ export const useChartEngine = ({
         lastValueVisible: false,
         priceLineVisible: false,
       },
-      1
+      1,
     );
 
     const panes = chart.panes();
@@ -214,7 +214,6 @@ export const useChartEngine = ({
 
     // autoSize handles resize — no manual ResizeObserver (causes disposed errors).
 
-    // Crosshair move
     const handleCrosshairMove: MouseEventHandler<Time> = (param) => {
       if (!param.time || !param.seriesData) {
         onCrosshairMoveRef.current(null);

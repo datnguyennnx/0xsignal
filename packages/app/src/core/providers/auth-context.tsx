@@ -1,7 +1,14 @@
-import { useEffect, useState, useCallback, useMemo, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import { api, ApiError } from "@/services/api";
-import { setAuthToken } from "@/lib/api-base";
+import { setAuthToken, subscribeToken, getToken } from "@/lib/api-base";
 import { AuthContext, type AuthState, type AuthUser } from "./auth-types";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -9,6 +16,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [hasLinkedWallet, setHasLinkedWallet] = useState(false);
+
+  // Subscribe to the external token store so React is aware of token changes
+  useSyncExternalStore(subscribeToken, getToken);
 
   const refreshWalletStatus = useCallback(async () => {
     try {
@@ -50,17 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               displayName: profileData.displayName,
             });
 
-            // Non-critical wallet check — don't block auth
-            try {
-              const wallets = await api.listWallets();
-              if (!cancelled) {
-                setHasLinkedWallet(wallets.length > 0);
-              }
-            } catch {
-              if (!cancelled) {
-                setHasLinkedWallet(false);
-              }
-            }
+            await refreshWalletStatus();
           }
         } else {
           setIsAuthenticated(false);
@@ -94,12 +94,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshWalletStatus]);
 
-  const signOut = useCallback(() => {
-    api.logout().catch(() => {
-      /* best-effort */
-    });
+  const signOut = useCallback(async () => {
+    try {
+      await api.logout();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Sign out failed";
+      console.error("[Auth] Logout error:", err);
+      toast.error("Sign out failed", { description: message });
+    }
     setAuthToken(null);
     setIsAuthenticated(false);
     setUser(null);
@@ -115,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshWalletStatus,
       signOut,
     }),
-    [isAuthenticated, isLoading, user, hasLinkedWallet, refreshWalletStatus, signOut]
+    [isAuthenticated, isLoading, user, hasLinkedWallet, refreshWalletStatus, signOut],
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

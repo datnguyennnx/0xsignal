@@ -28,7 +28,6 @@ export function useHyperliquidCandles({
   const [hasMore, setHasMore] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
 
-  // Refs for mutable data (avoid re-renders)
   const dataRef = useRef<ChartDataPoint[]>([]);
   const bufferRef = useRef<ChartDataPoint[]>([]);
   const rafRef = useRef<number | null>(null);
@@ -52,10 +51,10 @@ export function useHyperliquidCandles({
   const { data: historyData, isLoading: historyLoading, error: historyError } = historical;
 
   useEffect(() => {
-    if (historyError) setError(historyError as Error);
+    if (historyError)
+      setError(historyError instanceof Error ? historyError : new Error(String(historyError)));
   }, [historyError]);
 
-  // Reset dataRef/data whenever historyData changes (e.g. symbol/interval change)
   useEffect(() => {
     const previousIdentity = historyIdentityRef.current;
     const identityChanged =
@@ -86,18 +85,16 @@ export function useHyperliquidCandles({
 
   const subscription = useMemo(
     () => (enabled && coin ? { type: "candle" as const, coin, interval: hlInterval } : null),
-    [enabled, coin, hlInterval]
+    [enabled, coin, hlInterval],
   );
 
   // RAF-throttled buffer flush — O(n) merge of sorted arrays at max 60fps.
-  // Uses requestAnimationFrame's native timestamp for delta-time checks,
-  // eliminating the nested setTimeout pattern.
   const scheduleUpdate = useCallback(() => {
     if (rafRef.current) return;
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
       const now = performance.now();
-      if (now - lastUpdateRef.current < 16) return; // maintain ~60fps cap
+      if (now - lastUpdateRef.current < 16) return;
 
       const buffer = bufferRef.current;
       if (buffer.length === 0) return;
@@ -171,34 +168,30 @@ export function useHyperliquidCandles({
     }, remaining);
   }, []);
 
-  /**
-   * Handle incoming WS candle messages.
-   * `rawData` is already `ChartDataPoint[]` from `convertToCandlePayload` in the decoder.
-   */
   const handleMessage = useCallback(
     (
       rawData: unknown,
       channel: string,
-      meta?: { nSigFigs?: number; interval?: string; coin?: string }
+      meta?: { nSigFigs?: number; interval?: string; coin?: string },
     ) => {
       if (channel !== "candle") return;
       if (meta?.interval !== undefined && meta.interval !== hlInterval) return;
       // Symbol guard: reject candle data for a different coin
       if (meta?.coin !== undefined && meta.coin !== currentCoinRef.current) return;
 
+      // safe: WS decoder returns ChartDataPoint[] shape
       const converted = rawData as ChartDataPoint[];
       if (converted.length > 0) {
         bufferRef.current.push(...converted);
         scheduleUpdate();
       }
     },
-    [hlInterval, scheduleUpdate]
+    [hlInterval, scheduleUpdate],
   );
 
   const handleConnectionChange = useCallback((c: boolean) => setIsConnected(c), []);
   const handleError = useCallback((e: Error) => setError(e), []);
 
-  // WebSocket connection for real-time updates
   useHyperliquidWs({
     subscription,
     onMessage: handleMessage,
@@ -207,7 +200,6 @@ export function useHyperliquidCandles({
     onError: handleError,
   });
 
-  // Loads older candles for infinite scroll
   const loadMore = useCallback(
     async (count: number = 200) => {
       if (isFetchingRef.current || !hasMoreRef.current) return;
@@ -286,7 +278,7 @@ export function useHyperliquidCandles({
         setFetchingWithMinimumDuration(false);
       }
     },
-    [setFetchingWithMinimumDuration]
+    [setFetchingWithMinimumDuration],
   );
 
   return {

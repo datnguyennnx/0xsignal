@@ -8,3 +8,8 @@ export const CELL_HEAD_CLASS =
 
 export const CELL_HEAD_NUM_CLASS =
   "px-4 py-2.5 text-[length:var(--text-data)] font-medium text-muted-foreground uppercase tracking-wider text-right whitespace-nowrap";
+
+export const c = CELL_CLASS;
+export const cNum = CELL_NUM_CLASS;
+export const cHead = CELL_HEAD_CLASS;
+export const cHeadNum = CELL_HEAD_NUM_CLASS;

@@ -10,7 +10,7 @@ function Progress({
 }: React.ComponentProps<typeof ProgressPrimitive.Root>) {
   const indicatorStyle = React.useMemo(
     () => ({ transform: `translateX(-${100 - (value || 0)}%)` }),
-    [value]
+    [value],
   );
 
   return (

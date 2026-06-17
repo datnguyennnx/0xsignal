@@ -1,135 +1,50 @@
 import { useState, useMemo, useCallback } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsContent } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Pagination } from "@/components/ui/pagination";
-import { api, type PlaceOrderRequest } from "@/services/api";
-import { queryKeys } from "@/lib/query/query-keys";
 import type { FrontendOpenOrder } from "@0xsignal/shared";
-import {
-  useOpenOrders,
-  useUserFills,
-  useHistoricalOrders,
-  useCancelOrdersMutation,
-} from "../hooks/use-user-data";
+import { useOpenOrders, useCancelOrdersMutation } from "../hooks/use-user-data";
 import { useUserBalances } from "../hooks/use-user-balances";
+import { usePlaceOrder } from "../hooks/use-place-order";
+import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
 import { FundingHistoryTable } from "./funding-history-table";
 import { OutcomesTable } from "./outcomes-table";
-import { TwapActiveTable } from "./twap-active-table";
-import { TwapHistoryTable } from "./twap-history-table";
-import { TwapFillHistoryTable } from "./twap-fill-history-table";
-import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
-import { useAllMids } from "../hooks/use-all-mids";
-import { usePagination } from "@/hooks/use-pagination";
 import { TabTrigger } from "./shared-table-components";
-import { BalanceTable } from "./balance-table";
-import { PositionsTable } from "./positions-table";
-import { OpenOrdersTable } from "./open-orders-table";
-import { TradeHistoryTable, HistoryOrderTable } from "./order-history-table";
 import { TpSlViewModal } from "./tp-sl-view-modal";
 import { toTpSlDisplay } from "../utils/tp-sl-view-utils";
 import { CloseLimitModal } from "./close-limit-modal";
+import { CancelAllDialog } from "./cancel-all-dialog";
+import { BalancesTab } from "./balances-tab";
+import { PositionsTab } from "./positions-tab";
+import { OpenOrdersTab } from "./open-orders-tab";
+import { TradeHistoryTab } from "./trade-history-tab";
+import { OrderHistoryTab } from "./order-history-tab";
+import { TwapContent } from "./twap-content";
 import { formatOrderSize } from "../utils/trade-math";
-import { getOrderType } from "../utils/trigger-utils";
-import { formatPrice } from "@/core/utils/formatters";
-import { cn } from "@/core/utils/cn";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
-
-type TwapSubTab = "active" | "history" | "fill-history";
-
-const TWAP_SUB_TABS: { value: TwapSubTab; label: string }[] = [
-  { value: "active", label: "Active" },
-  { value: "history", label: "History" },
-  { value: "fill-history", label: "Fill History" },
-];
+import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 
 export function PositionManagement() {
-  const { open: openConnectWallet, ConnectWalletSheet } = useConnectWalletPrompt();
   const {
-    positions,
-    marginSummary,
-    usdcTotalBalance,
-    usdcAvailableBalance,
-    totalUnrealizedPnl,
-    effectiveAccountTotal,
-    effectiveAvailableBalance,
-    balanceCount,
-    positionsCount,
-    isChLoading,
-  } = useUserBalances();
+    open: openConnectWallet,
+    isOpen: isConnectWalletOpen,
+    close: closeConnectWallet,
+  } = useConnectWalletPrompt();
+  const { balanceCount, positionsCount, isChLoading } = useUserBalances();
   const { data: openOrders, isLoading: isOoLoading } = useOpenOrders();
-  const { data: fills, isLoading: isFillsLoading } = useUserFills();
-  const { data: histOrders, isLoading: isHistLoading } = useHistoricalOrders();
   const cancelOrdersMutation = useCancelOrdersMutation();
+  const { getPrecision } = useHyperliquidMeta();
 
-  const queryClient = useQueryClient();
-  const { meta, getPrecision } = useHyperliquidMeta();
-
-  const mids = useAllMids();
-
-  const paginatedFills = usePagination(fills ?? [], 20);
-  const paginatedHistOrders = usePagination(histOrders ?? [], 20);
-  const paginatedOpenOrders = usePagination(openOrders ?? [], 20);
-
-  const fundingRates = useMemo(() => {
-    if (!meta) return {};
-    const map: Record<string, number> = {};
-    for (const market of meta) {
-      if (market.marketType !== "perp") continue;
-      const rate = Number(market.funding);
-      if (Number.isFinite(rate) && rate !== 0) {
-        map[market.coin.toUpperCase()] = rate;
-      }
-    }
-    return map;
-  }, [meta]);
-
-  const tpSlByCoin = useMemo(() => {
-    if (!openOrders) return {};
-    const map: Record<string, { tp: string | null; sl: string | null }> = {};
-    for (const order of openOrders) {
-      if (!order.children?.length) continue;
-      let tp: string | null = null;
-      let sl: string | null = null;
-      for (const child of order.children) {
-        const ot = getOrderType(child);
-        const limitVal = Number(child.limitPx);
-        const triggerVal = Number(child.triggerPx);
-        const priceNum = limitVal > 0 ? limitVal : triggerVal > 0 ? triggerVal : 0;
-        const px = formatPrice(priceNum);
-        if (ot.includes("Take Profit")) tp = px;
-        else if (ot.includes("Stop")) sl = px;
-      }
-      if (tp || sl) {
-        map[order.coin.toUpperCase()] = { tp, sl };
-      }
-    }
-    return map;
-  }, [openOrders]);
-
-  const placeOrderMutation = useMutation({
-    mutationFn: (params: PlaceOrderRequest) => api.placeOrder(params),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.userData.clearinghouseState() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.userData.openOrders() });
-    },
-    onError: (err) => {
+  const handlePlaceOrderError = useCallback(
+    (err: Error) => {
       if (err instanceof UnauthenticatedError) {
         openConnectWallet();
       }
     },
-  });
+    [openConnectWallet],
+  );
+  const placeOrderMutation = usePlaceOrder(handlePlaceOrderError);
 
   const [activeTab, setActiveTab] = useState("balances");
-  const [twapSubTab, setTwapSubTab] = useState<TwapSubTab>("active");
 
   const [closeLimitPosition, setCloseLimitPosition] = useState<{
     coin: string;
@@ -164,10 +79,10 @@ export function PositionManagement() {
               openConnectWallet();
             }
           },
-        }
+        },
       );
     },
-    [cancelOrdersMutation, openConnectWallet]
+    [cancelOrdersMutation, openConnectWallet],
   );
 
   const handleCancelAllConfirm = () => {
@@ -181,7 +96,7 @@ export function PositionManagement() {
             openConnectWallet();
           }
         },
-      }
+      },
     );
     setCancelAllDialogOpen(false);
   };
@@ -205,7 +120,7 @@ export function PositionManagement() {
         grouping: "na",
       });
     },
-    [getPrecision, placeOrderMutation]
+    [getPrecision, placeOrderMutation],
   );
 
   const handleCloseLimitConfirm = useCallback(
@@ -227,23 +142,12 @@ export function PositionManagement() {
       });
       setCloseLimitPosition(null);
     },
-    [closeLimitPosition, placeOrderMutation]
+    [closeLimitPosition, placeOrderMutation],
   );
 
   const closeLimitSzDecimals = closeLimitPosition
     ? getPrecision(closeLimitPosition.coin).szDecimals
     : 4;
-
-  const renderTwapSubTabContent = () => {
-    switch (twapSubTab) {
-      case "active":
-        return <TwapActiveTable />;
-      case "history":
-        return <TwapHistoryTable />;
-      case "fill-history":
-        return <TwapFillHistoryTable />;
-    }
-  };
 
   return (
     <div className="rounded-xl border border-border/20 p-4 bg-card gap-4">
@@ -269,54 +173,18 @@ export function PositionManagement() {
           <TabTrigger value="order-history">Order History</TabTrigger>
         </TabsList>
 
-        {/* TWAP Sub-Navigation */}
-        {activeTab === "twap" && (
-          <div className="shrink-0 pt-1.5">
-            <div className="flex items-center gap-1">
-              {TWAP_SUB_TABS.map((sub) => (
-                <button
-                  key={sub.value}
-                  onClick={() => setTwapSubTab(sub.value)}
-                  className={cn(
-                    "px-3 py-1 text-xs font-medium rounded-sm transition-colors",
-                    twapSubTab === sub.value
-                      ? "text-foreground bg-foreground/5"
-                      : "text-muted-foreground/60 hover:text-muted-foreground"
-                  )}
-                >
-                  {sub.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         <TabsContent
           value="balances"
           className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <BalanceTable
-            isChLoading={isChLoading}
-            marginSummary={marginSummary}
-            positions={positions}
-            usdcTotalBalance={usdcTotalBalance}
-            usdcAvailableBalance={usdcAvailableBalance}
-            totalUnrealizedPnl={totalUnrealizedPnl}
-            effectiveAccountTotal={effectiveAccountTotal}
-            effectiveAvailableBalance={effectiveAvailableBalance}
-          />
+          <BalancesTab />
         </TabsContent>
 
         <TabsContent
           value="positions"
           className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <PositionsTable
-            isChLoading={isChLoading}
-            positions={positions}
-            mids={mids}
-            fundingRates={fundingRates}
-            tpSlByCoin={tpSlByCoin}
+          <PositionsTab
             onCloseMarket={handleCloseMarket}
             onCloseLimit={(pos) => setCloseLimitPosition(pos)}
           />
@@ -333,22 +201,11 @@ export function PositionManagement() {
           value="open-orders"
           className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <OpenOrdersTable
-            isOoLoading={isOoLoading}
-            openOrders={paginatedOpenOrders.pageData}
+          <OpenOrdersTab
             onCancelOrder={handleCancelOrder}
             onViewTpSl={(order) => setTpSlModalOrder(order)}
             onCancelAll={() => setCancelAllDialogOpen(true)}
             isCancelPending={cancelOrdersMutation.isPending}
-            orderCount={openOrdersCount}
-          />
-          <Pagination
-            currentPage={paginatedOpenOrders.currentPage}
-            totalPages={paginatedOpenOrders.totalPages}
-            totalItems={paginatedOpenOrders.totalItems}
-            pageSize={paginatedOpenOrders.pageSize}
-            onPageChange={paginatedOpenOrders.setPage}
-            onPageSizeChange={paginatedOpenOrders.setPageSize}
           />
         </TabsContent>
 
@@ -356,22 +213,14 @@ export function PositionManagement() {
           value="twap"
           className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          {renderTwapSubTabContent()}
+          <TwapContent />
         </TabsContent>
 
         <TabsContent
           value="trade-history"
           className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <TradeHistoryTable fills={paginatedFills.pageData} isFillsLoading={isFillsLoading} />
-          <Pagination
-            currentPage={paginatedFills.currentPage}
-            totalPages={paginatedFills.totalPages}
-            totalItems={paginatedFills.totalItems}
-            pageSize={paginatedFills.pageSize}
-            onPageChange={paginatedFills.setPage}
-            onPageSizeChange={paginatedFills.setPageSize}
-          />
+          <TradeHistoryTab />
         </TabsContent>
 
         <TabsContent
@@ -385,22 +234,10 @@ export function PositionManagement() {
           value="order-history"
           className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
         >
-          <HistoryOrderTable
-            histOrders={paginatedHistOrders.pageData}
-            isHistLoading={isHistLoading}
-          />
-          <Pagination
-            currentPage={paginatedHistOrders.currentPage}
-            totalPages={paginatedHistOrders.totalPages}
-            totalItems={paginatedHistOrders.totalItems}
-            pageSize={paginatedHistOrders.pageSize}
-            onPageChange={paginatedHistOrders.setPage}
-            onPageSizeChange={paginatedHistOrders.setPageSize}
-          />
+          <OrderHistoryTab />
         </TabsContent>
       </Tabs>
 
-      {/* TP/SL View Modal */}
       {tpSlModalProps && (
         <TpSlViewModal
           open={tpSlModalOrder != null}
@@ -413,37 +250,14 @@ export function PositionManagement() {
         />
       )}
 
-      {/* Cancel All Confirmation Dialog */}
-      <Dialog open={cancelAllDialogOpen} onOpenChange={setCancelAllDialogOpen}>
-        <DialogContent className="sm:max-w-[360px] bg-card border-border/30 p-5 gap-[clamp(0.75rem,1.25vw,1.25rem)] overflow-hidden">
-          <div className="p-0">
-            <DialogHeader>
-              <DialogTitle className="text-sm font-medium text-foreground">
-                Cancel All Orders
-              </DialogTitle>
-            </DialogHeader>
-            <p className="text-xs text-muted-foreground/70 leading-relaxed">
-              Are you sure you want to cancel all {openOrders?.length ?? 0} open order
-              {openOrders?.length !== 1 ? "s" : ""}?
-            </p>
-          </div>
-          <div className="flex items-center justify-end gap-[clamp(0.5rem,0.8vw,0.75rem)] p-0">
-            <DialogClose asChild>
-              <Button variant="outline" className="h-8 px-3 text-xs font-medium">
-                Keep Orders
-              </Button>
-            </DialogClose>
-            <Button
-              onClick={handleCancelAllConfirm}
-              className="h-8 px-3 text-xs font-medium bg-foreground text-background hover:bg-foreground/90"
-            >
-              Cancel All
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CancelAllDialog
+        open={cancelAllDialogOpen}
+        onOpenChange={setCancelAllDialogOpen}
+        orderCount={openOrdersCount}
+        onConfirm={handleCancelAllConfirm}
+        isPending={cancelOrdersMutation.isPending}
+      />
 
-      {/* Close Limit Modal */}
       <CloseLimitModal
         isOpen={closeLimitPosition != null}
         onClose={() => setCloseLimitPosition(null)}
@@ -452,7 +266,9 @@ export function PositionManagement() {
         onConfirmLimitClose={handleCloseLimitConfirm}
         isPending={placeOrderMutation.isPending}
       />
-      {ConnectWalletSheet}
+      {isConnectWalletOpen && (
+        <ConnectWalletDialog open={true} onOpenChange={(open) => !open && closeConnectWallet()} />
+      )}
     </div>
   );
 }

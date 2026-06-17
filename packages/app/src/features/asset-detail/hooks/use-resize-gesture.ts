@@ -9,9 +9,7 @@ import type { LayoutItem, ResizeHandleAxis } from "../utils/types";
 import { GRID_COLS, GRID_ROW_HEIGHT } from "../utils/constants";
 import { cellWidth, snapToGridUnits } from "../utils/collision";
 
-// Gesture State
 // Only 'resize' variant — reposition is handled by useLiftAndFloat
-
 type GestureState = {
   kind: "resize";
   axis: ResizeHandleAxis;
@@ -27,8 +25,6 @@ type GestureState = {
   lastSnappedY: number;
 };
 
-// Ghost State (visual re-render during drag)
-
 interface GhostState {
   w?: number;
   h?: number;
@@ -36,9 +32,6 @@ interface GhostState {
   y?: number;
 }
 
-// Cursor Helpers
-
-/** Map a resize handle axis to its CSS cursor name */
 function cursorForAxis(axis: ResizeHandleAxis): string {
   switch (axis) {
     case "e":
@@ -55,8 +48,6 @@ function cursorForAxis(axis: ResizeHandleAxis): string {
       return "nwse-resize";
   }
 }
-
-// Hook Options & Return
 
 interface UseResizeGestureOptions {
   id: string;
@@ -81,8 +72,6 @@ interface UseResizeGestureReturn {
   handlePanelMouseLeave: () => void;
 }
 
-// Hook
-
 export function useResizeGesture({
   id,
   item,
@@ -102,11 +91,8 @@ export function useResizeGesture({
   const [isResizing, setIsResizing] = useState(false);
   const [activeCorner, setActiveCorner] = useState<ResizeHandleAxis | null>(null);
 
-  // Grid measurements
   const cw = cellWidth(containerWidth);
   const ch = GRID_ROW_HEIGHT;
-
-  // Resize Handler
 
   // Sync resize cursor to document root via effect (avoids direct DOM mutation in callbacks)
   useEffect(() => {
@@ -118,7 +104,6 @@ export function useResizeGesture({
     }
   });
 
-  // Cleanup cursor on unmount
   useEffect(() => {
     return () => {
       delete document.documentElement.dataset.resizeCursor;
@@ -130,7 +115,8 @@ export function useResizeGesture({
       e.preventDefault();
       e.stopPropagation();
 
-      const target = e.target as HTMLElement;
+      if (!(e.target instanceof Element)) return;
+      const target = e.target;
       target.setPointerCapture(e.pointerId);
 
       gestureRef.current = {
@@ -148,14 +134,13 @@ export function useResizeGesture({
         lastSnappedY: item.y,
       };
 
-      // Initialize ghost to current item dimensions
       setGhost({ w: item.w, h: item.h, x: item.x, y: item.y });
       setIsResizing(true);
 
       // Lock cursor via CSS class on root element (avoids direct style mutation)
       resizeCursorRef.current = cursorForAxis(axis);
     },
-    [item.w, item.h, item.x, item.y]
+    [item.w, item.h, item.x, item.y],
   );
 
   const handlePointerMove = useCallback(
@@ -181,7 +166,7 @@ export function useResizeGesture({
       if (axis.includes("e")) {
         proposedW = Math.max(
           minW,
-          Math.min(startW + snappedDx, Math.min(maxW, GRID_COLS - proposedX))
+          Math.min(startW + snappedDx, Math.min(maxW, GRID_COLS - proposedX)),
         );
       }
       if (axis.includes("w")) {
@@ -204,7 +189,6 @@ export function useResizeGesture({
         proposedH = startItemY + startH - proposedY;
       }
 
-      // Skip if no change from last frame
       if (
         proposedW === gesture.lastSnappedW &&
         proposedH === gesture.lastSnappedH &&
@@ -222,7 +206,7 @@ export function useResizeGesture({
         lastSnappedY: proposedY,
       };
     },
-    [item.minW, item.minH, maxW, maxH, minX, minY, cw, ch]
+    [item.minW, item.minH, maxW, maxH, minX, minY, cw, ch],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -230,13 +214,11 @@ export function useResizeGesture({
     if (!gesture || gesture.kind !== "resize") return;
 
     const { lastSnappedX, lastSnappedY, lastSnappedW, lastSnappedH } = gesture;
-    // Fallback to item values if gesture doesn't have snapped values
     const commitX = lastSnappedX ?? item.x;
     const commitY = lastSnappedY ?? item.y;
     const commitW = lastSnappedW ?? item.w;
     const commitH = lastSnappedH ?? item.h;
 
-    // Clear cursor class
     resizeCursorRef.current = null;
 
     gestureRef.current = null;
@@ -247,8 +229,6 @@ export function useResizeGesture({
       onResizeCommit(id, commitX, commitY, commitW, commitH);
     }
   }, [id, item, onResizeCommit]);
-
-  // Corner Detection
 
   const handlePanelMouseMove = useCallback(
     (e: React.MouseEvent) => {
@@ -265,7 +245,8 @@ export function useResizeGesture({
         return;
       }
 
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      if (!(e.currentTarget instanceof Element)) return;
+      const rect = e.currentTarget.getBoundingClientRect();
       if (!rect) return;
 
       const mx = e.clientX - rect.left;
@@ -294,7 +275,7 @@ export function useResizeGesture({
       setActiveCorner(closest);
       activeCornerRef.current = closest;
     },
-    [isResizing, isDragged]
+    [isResizing, isDragged],
   );
 
   const handlePanelMouseLeave = useCallback(() => {

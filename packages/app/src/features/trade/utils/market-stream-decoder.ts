@@ -35,6 +35,9 @@ const CHANNELS: MarketChannel[] = ["candle", "l2Book", "trades", "allMids"];
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
+const isMarketChannel = (s: string): s is MarketChannel =>
+  (CHANNELS as readonly string[]).includes(s);
+
 const parseIncomingMessage = (raw: unknown): unknown => {
   if (typeof raw !== "string") return raw;
   try {
@@ -46,7 +49,7 @@ const parseIncomingMessage = (raw: unknown): unknown => {
 
 const asEnvelope = (value: unknown): MarketEnvelope | null => {
   if (!isRecord(value)) return null;
-  return value as MarketEnvelope;
+  return value;
 };
 
 const getControlType = (value: unknown): "ready" | "pong" | "reconnecting" | "error" | null => {
@@ -64,22 +67,15 @@ const getControlType = (value: unknown): "ready" | "pong" | "reconnecting" | "er
 };
 
 const findChannel = (value: unknown): MarketChannel | null => {
-  if (typeof value !== "object" || value === null) return null;
-  const obj = value as Record<string, unknown>;
+  if (!isRecord(value)) return null;
 
-  // Direct access: { channel: "candle", data: {...}, ... }
-  if (typeof obj.channel === "string" && CHANNELS.includes(obj.channel as MarketChannel)) {
-    return obj.channel as MarketChannel;
+  if (typeof value.channel === "string" && isMarketChannel(value.channel)) {
+    return value.channel;
   }
 
-  // { payload: { channel: "...", data: {...} } }
-  if (typeof obj.payload === "object" && obj.payload !== null) {
-    const payload = obj.payload as Record<string, unknown>;
-    if (
-      typeof payload.channel === "string" &&
-      CHANNELS.includes(payload.channel as MarketChannel)
-    ) {
-      return payload.channel as MarketChannel;
+  if (isRecord(value.payload)) {
+    if (typeof value.payload.channel === "string" && isMarketChannel(value.payload.channel)) {
+      return value.payload.channel;
     }
   }
 
@@ -94,55 +90,41 @@ const hasCandleShape = (value: Record<string, unknown>): boolean =>
   value.c !== undefined;
 
 const extractCandlePayload = (value: unknown): unknown => {
-  if (typeof value !== "object" || value === null) return null;
-
-  if (Array.isArray(value)) return value;
-
-  const obj = value as Record<string, unknown>;
-
-  if (Array.isArray(obj.data)) return obj.data;
-  if (Array.isArray(obj.candles)) return obj.candles;
-  if (Array.isArray(obj.candle)) return obj.candle;
-  if (hasCandleShape(obj)) return value;
-
-  // Single candle object nested in data/candle field
-  if (
-    obj.data &&
-    typeof obj.data === "object" &&
-    hasCandleShape(obj.data as Record<string, unknown>)
-  ) {
-    return obj.data;
+  if (!isRecord(value)) {
+    if (Array.isArray(value)) return value;
+    return null;
   }
-  if (
-    obj.candle &&
-    typeof obj.candle === "object" &&
-    hasCandleShape(obj.candle as Record<string, unknown>)
-  ) {
-    return obj.candle;
+
+  if (Array.isArray(value.data)) return value.data;
+  if (Array.isArray(value.candles)) return value.candles;
+  if (Array.isArray(value.candle)) return value.candle;
+  if (hasCandleShape(value)) return value;
+
+  if (isRecord(value.data) && hasCandleShape(value.data)) {
+    return value.data;
+  }
+  if (isRecord(value.candle) && hasCandleShape(value.candle)) {
+    return value.candle;
   }
 
   return null;
 };
 
 const extractOrderbookPayload = (value: unknown): L2BookPayload | null => {
-  if (typeof value !== "object" || value === null) return null;
-  const obj = value as Record<string, unknown>;
+  if (!isRecord(value)) return null;
 
-  // Walk nested data/orderbook/levels path up to 4 levels deep
   const walkLevels = (node: Record<string, unknown>, depth: number): L2BookPayload | null => {
     if (depth > 4) return null;
 
-    // Direct levels array found
     if (Array.isArray(node.levels)) {
       return { levels: node.levels };
     }
     if (Array.isArray(node.data)) return { levels: node.data };
 
-    // Check known wrapper fields (levels is checked at top — skip to avoid redundant recursion)
     for (const key of ["data", "payload", "orderbook", "l2Book", "book", "result"] as const) {
       const child = node[key];
-      if (typeof child === "object" && child !== null && !Array.isArray(child)) {
-        const result = walkLevels(child as Record<string, unknown>, depth + 1);
+      if (isRecord(child) && !Array.isArray(child)) {
+        const result = walkLevels(child, depth + 1);
         if (result) return result;
       }
     }
@@ -150,12 +132,13 @@ const extractOrderbookPayload = (value: unknown): L2BookPayload | null => {
     return null;
   };
 
-  const result = walkLevels(obj, 0);
+  const result = walkLevels(value, 0);
   if (!result) return null;
 
-  // Extract nSigFigs from the outermost level
   const nSigFigs =
-    typeof obj.nSigFigs === "number" && Number.isFinite(obj.nSigFigs) ? obj.nSigFigs : undefined;
+    typeof value.nSigFigs === "number" && Number.isFinite(value.nSigFigs)
+      ? value.nSigFigs
+      : undefined;
   return nSigFigs !== undefined ? { levels: result.levels, nSigFigs } : result;
 };
 
@@ -169,7 +152,7 @@ const unwrapMarketPayload = (value: unknown): unknown => {
 
 export function decodeMarketWsMessage(
   raw: unknown,
-  expectedChannel: MarketChannel
+  expectedChannel: MarketChannel,
 ): DecodedMessage {
   const parsed = parseIncomingMessage(raw);
   const controlType = getControlType(parsed);
@@ -238,34 +221,31 @@ export function decodeMarketWsMessage(
 export type { MarketChannel };
 
 const unwrapTradePayload = (value: unknown): unknown => {
-  if (typeof value !== "object" || value === null) return value;
-  const payload = value as Record<string, unknown>;
-  return payload.tradeAnnotation ?? payload.annotation ?? payload;
+  if (!isRecord(value)) return value;
+  return value.tradeAnnotation ?? value.annotation ?? value;
 };
 
 const unwrapTickerPayload = (value: unknown): unknown => {
-  if (typeof value !== "object" || value === null) return value;
-  const payload = value as Record<string, unknown>;
-  return payload.ticker ?? payload.allMids ?? payload.mids ?? payload;
+  if (!isRecord(value)) return value;
+  return value.ticker ?? value.allMids ?? value.mids ?? value;
 };
 
 export { unwrapTradePayload, unwrapTickerPayload };
 
-/** Flatten WS candle payload shapes (array, {data}, {candles}, {candle}, single) into ChartDataPoint[]. */
 export const convertToCandlePayload = (value: unknown): ChartDataPoint[] => {
   const rawItems: unknown[] = [];
 
   if (Array.isArray(value)) {
     rawItems.push(...value);
-  } else if (value && typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    if (Array.isArray(obj.candles)) rawItems.push(...obj.candles);
-    else if (Array.isArray(obj.candle)) rawItems.push(...obj.candle);
-    else if (Array.isArray(obj.data)) rawItems.push(...obj.data);
-    else rawItems.push(value); // treat as single candle object
+  } else if (isRecord(value)) {
+    if (Array.isArray(value.candles)) rawItems.push(...value.candles);
+    else if (Array.isArray(value.candle)) rawItems.push(...value.candle);
+    else if (Array.isArray(value.data)) rawItems.push(...value.data);
+    else rawItems.push(value);
   }
 
   return rawItems
-    .map((item) => normalizeCandle(item as Record<string, unknown>))
+    .filter(isRecord)
+    .map(normalizeCandle)
     .filter((p): p is ChartDataPoint => p !== null);
 };

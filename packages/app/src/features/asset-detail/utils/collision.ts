@@ -1,8 +1,6 @@
 import type { LayoutItem } from "./types";
 import { GRID_COLS, GRID_GUTTER } from "./constants";
 
-// Grid Snapping & Pixels
-
 export function snapToGridUnits(pixelDelta: number, cellSize: number): number {
   const unitSize = cellSize + GRID_GUTTER;
   return Math.round(pixelDelta / unitSize);
@@ -12,21 +10,13 @@ export function cellWidth(containerWidth: number): number {
   return (containerWidth - GRID_GUTTER * (GRID_COLS - 1)) / GRID_COLS;
 }
 
-// Collision Constraints
-
 /**
- * Compute resize constraints.
- *
- * Horizontal: maxW and minX are derived from the aggregate minW
- * of neighbors in the same row band — allowing fluid co-resizing
- * where neighbors shrink to their minW to make room.
- *
- * Vertical: maxH = Infinity (cascade push handles it).
- * minY is clamped by the bottom edge of items directly above.
+ * Resize constraints: maxW/minX from neighbor minW aggregation,
+ * minY from bottom edge of items directly above.
  */
 export function getResizeConstraints(
   item: LayoutItem,
-  others: LayoutItem[]
+  others: LayoutItem[],
 ): { maxW: number; maxH: number; minX: number; minY: number } {
   const maxH = Infinity;
   let minY = 0;
@@ -67,13 +57,9 @@ export function getResizeConstraints(
   return { maxW, maxH, minX, minY };
 }
 
-// Collision Detection
-
 function isOverlapping(a: LayoutItem, b: LayoutItem): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
-
-// Horizontal Row-Band Redistribution
 
 /**
  * Redistribute widths within the active item's row band during resize.
@@ -88,7 +74,7 @@ function isOverlapping(a: LayoutItem, b: LayoutItem): boolean {
 function redistributeRowBand(
   items: LayoutItem[],
   activeItemId: string,
-  originalItem?: LayoutItem
+  originalItem?: LayoutItem,
 ): LayoutItem[] {
   const result = items.map((i) => ({ ...i }));
   const active = result.find((i) => i.i === activeItemId);
@@ -148,7 +134,8 @@ function redistributeRowBand(
     const spaceForLeft = active.x;
 
     for (let i = 0; i < leftItems.length; i++) {
-      const ref = result.find((r) => r.i === leftItems[i].i)!;
+      const ref = result.find((r) => r.i === leftItems[i].i);
+      if (!ref) continue;
       ref.x = cursor;
 
       if (i === leftItems.length - 1) {
@@ -163,8 +150,8 @@ function redistributeRowBand(
     }
 
     // Clamp last left item to not overshoot
-    const lastLeft = result.find((r) => r.i === leftItems[leftItems.length - 1].i)!;
-    if (lastLeft.x + lastLeft.w > active.x) {
+    const lastLeft = result.find((r) => r.i === leftItems[leftItems.length - 1].i);
+    if (lastLeft && lastLeft.x + lastLeft.w > active.x) {
       lastLeft.w = active.x - lastLeft.x;
     }
   }
@@ -177,7 +164,8 @@ function redistributeRowBand(
     const rightTotalW = rightItems.reduce((s, i) => s + i.w, 0);
 
     for (let i = 0; i < rightItems.length; i++) {
-      const ref = result.find((r) => r.i === rightItems[i].i)!;
+      const ref = result.find((r) => r.i === rightItems[i].i);
+      if (!ref) continue;
       ref.x = cursor;
 
       if (i === rightItems.length - 1) {
@@ -201,8 +189,6 @@ function redistributeRowBand(
   return result;
 }
 
-// Collision Resolution
-
 /**
  * Resolve all grid collisions.
  *
@@ -215,7 +201,7 @@ export function resolveCollisions(
   items: LayoutItem[],
   activeItemId?: string,
   interactionType?: "drag" | "resize",
-  originalItem?: LayoutItem
+  originalItem?: LayoutItem,
 ): LayoutItem[] {
   // Phase 0: Horizontal row-band redistribution (resize only)
   let working = [...items];

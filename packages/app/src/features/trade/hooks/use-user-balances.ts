@@ -59,7 +59,7 @@ export function useUserBalances(): UserBalances {
 
   const totalUnrealizedPnl = (positions ?? []).reduce(
     (sum, p) => sum + Number(p.position.unrealizedPnl),
-    0
+    0,
   );
 
   const balanceCount = marginSummary ? 2 + (positions?.length ?? 0) : 0;
@@ -89,6 +89,6 @@ export function useUserBalances(): UserBalances {
       balanceCount,
       positionsCount,
       isChLoading,
-    ]
+    ],
   );
 }

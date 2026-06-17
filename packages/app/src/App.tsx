@@ -12,20 +12,20 @@ import { queryClient } from "@/lib/query/client";
 import { api } from "@/services/api";
 
 const AssetDetail = lazy(() =>
-  import("@/pages/asset-detail").then((m) => ({ default: m.AssetDetail }))
+  import("@/pages/asset-detail").then((m) => ({ default: m.AssetDetail })),
 );
 const NotFoundPage = lazy(() =>
-  import("@/pages/not-found").then((m) => ({ default: m.NotFoundPage }))
+  import("@/pages/not-found").then((m) => ({ default: m.NotFoundPage })),
 );
 const PortfolioPage = lazy(() =>
-  import("@/pages/portfolio").then((m) => ({ default: m.PortfolioPage }))
+  import("@/pages/portfolio").then((m) => ({ default: m.PortfolioPage })),
 );
 const SettingsPage = lazy(() =>
-  import("@/pages/settings").then((m) => ({ default: m.SettingsPage }))
+  import("@/pages/settings").then((m) => ({ default: m.SettingsPage })),
 );
 const LoginPage = lazy(() => import("@/pages/login").then((m) => ({ default: m.LoginPage })));
 const AuthCallbackPage = lazy(() =>
-  import("@/pages/auth-callback").then((m) => ({ default: m.AuthCallbackPage }))
+  import("@/pages/auth-callback").then((m) => ({ default: m.AuthCallbackPage })),
 );
 
 /** Keep in sync with backend MARKET_SCHEMA_VERSION (cache.ts). Bump when payload shape changes. */
@@ -36,8 +36,8 @@ const useSchemaVersionGuard = () => {
   useEffect(() => {
     const stored = localStorage.getItem(MARKET_SCHEMA_KEY);
     if (stored !== String(FRONTEND_MARKET_SCHEMA_VERSION)) {
-      queryClient.removeQueries({ queryKey: queryKeys.marketData.all });
-      queryClient.removeQueries({ queryKey: queryKeys.chart.all });
+      queryClient.removeQueries({ queryKey: queryKeys.market.all });
+      queryClient.removeQueries({ queryKey: ["market", "candles"] });
       queryClient.invalidateQueries();
       localStorage.setItem(MARKET_SCHEMA_KEY, String(FRONTEND_MARKET_SCHEMA_VERSION));
     }
@@ -47,7 +47,7 @@ const useSchemaVersionGuard = () => {
 const usePreloadRoutes = () => {
   useEffect(() => {
     queryClient.prefetchQuery({
-      queryKey: queryKeys.marketData.markets(),
+      queryKey: queryKeys.market.meta(),
       queryFn: () => api.getMarkets(),
       staleTime: 5 * 60 * 1000,
     });
@@ -83,7 +83,7 @@ function RouteErrorFallback() {
   );
 }
 
-function App() {
+export function App() {
   useSchemaVersionGuard();
   usePreloadRoutes();
   return (
@@ -142,5 +142,3 @@ function App() {
     </ErrorBoundary>
   );
 }
-
-export default App;

@@ -15,22 +15,8 @@ import {
   formatOrderValue,
   formatOrderPrice,
 } from "../utils/trigger-utils";
-import {
-  CELL_CLASS,
-  CELL_NUM_CLASS,
-  CELL_HEAD_CLASS,
-  CELL_HEAD_NUM_CLASS,
-} from "../utils/orderbook-table-classes";
+import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import type { FrontendOpenOrder } from "@0xsignal/shared";
-
-/* Styling constants */
-
-const c = CELL_CLASS;
-const cNum = CELL_NUM_CLASS;
-const cHead = CELL_HEAD_CLASS;
-const cHeadNum = CELL_HEAD_NUM_CLASS;
-
-/* Types */
 
 interface OpenOrdersTableProps {
   isOoLoading: boolean;
@@ -41,8 +27,6 @@ interface OpenOrdersTableProps {
   isCancelPending: boolean;
   orderCount: number;
 }
-
-/* Component */
 
 export function OpenOrdersTable({
   isOoLoading,

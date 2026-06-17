@@ -11,6 +11,15 @@ import { CELL_HEAD_CLASS, CELL_HEAD_NUM_CLASS } from "../utils/orderbook-table-c
 const cHead = CELL_HEAD_CLASS;
 const cHeadNum = CELL_HEAD_NUM_CLASS;
 
+/**
+ * Active TWAP orders table.
+ *
+ * INTENTIONAL SCAFFOLD — TWAP order placement and querying is not yet
+ * implemented on the backend. This component renders the correct empty
+ * state for users who have never placed a TWAP order. When the TWAP
+ * feature is added to the backend API, wire this component to the
+ * appropriate `useHyperliquid*` or API hook.
+ */
 export function TwapActiveTable() {
   return (
     <Table>

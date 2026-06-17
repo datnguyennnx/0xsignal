@@ -102,7 +102,7 @@ export function useHyperliquidWs({
                 onReconnectRef.current?.();
               }
             },
-          }
+          },
         );
 
         if (!ignore && isMountedRef.current && generationRef.current === generation) {
@@ -177,7 +177,7 @@ export function useHyperliquidWs({
                 onReconnectRef.current?.();
               }
             },
-          }
+          },
         );
 
         if (!isMountedRef.current || generationRef.current !== generation) {
@@ -193,7 +193,7 @@ export function useHyperliquidWs({
         onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
       }
     },
-    [isConnected, client]
+    [isConnected, client],
   );
 
   return {

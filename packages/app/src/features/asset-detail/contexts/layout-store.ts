@@ -1,4 +1,4 @@
-import { useSyncExternalStore, useRef, createContext, useContext } from "react";
+import { useSyncExternalStore, createContext, useContext } from "react";
 import { INITIAL_LAYOUT, LAYOUT_STORAGE_KEY } from "../utils/constants";
 import { resolveCollisions, clampToMin } from "../utils/collision";
 import type { LayoutItem } from "../utils/types";
@@ -12,7 +12,6 @@ const cloneDeep = <T>(value: T): T => {
   }
 };
 
-// Store Factory
 type Listener = () => void;
 
 export interface LayoutStore {
@@ -23,7 +22,7 @@ export interface LayoutStore {
     items: LayoutItem[],
     activeItemId?: string,
     interactionType?: "drag" | "resize",
-    originalItem?: LayoutItem
+    originalItem?: LayoutItem,
   ) => void;
   replaceLayout: (items: LayoutItem[]) => void;
   resetLayout: () => void;
@@ -80,7 +79,7 @@ function createLayoutStore(): LayoutStore {
       items: LayoutItem[],
       activeItemId?: string,
       interactionType?: "drag" | "resize",
-      originalItem?: LayoutItem
+      originalItem?: LayoutItem,
     ): void {
       const clamped = items.map(clampToMin);
       const resolved = resolveCollisions(clamped, activeItemId, interactionType, originalItem);
@@ -113,10 +112,8 @@ function createLayoutStore(): LayoutStore {
   };
 }
 
-// Default Store Instance
 const defaultStore = createLayoutStore();
 
-// React Context
 const LayoutContext = createContext<LayoutStore | null>(null);
 
 // Internal hook to access the store from context (with fallback)
@@ -124,84 +121,32 @@ function useLayoutStore(): LayoutStore {
   const store = useContext(LayoutContext);
   if (!store) {
     // Fallback: if no provider, use the default store (backward compatibility).
-    // This allows `useLayout()` / `useLayoutItem()` to work without explicit LayoutProvider.
+    // This allows `useLayout()` to work without explicit LayoutProvider.
     return defaultStore;
   }
   return store;
 }
 
-// Public Hooks
-
-/** Returns all layout items. Re-renders the subscribing component on any layout change. */
+/** Returns all layout items. Re-renders on any layout change. */
 export function useLayout(): LayoutItem[] {
   const store = useLayoutStore();
   return useSyncExternalStore(store.subscribe, store.getSnapshot);
 }
 
-/** Returns a single layout item by id, or undefined if not found. Only re-renders when that specific item changes. */
-export function useLayoutItem(id: string): LayoutItem | undefined {
-  const store = useLayoutStore();
-  const prevRef = useRef<LayoutItem | undefined>(undefined);
-  return useSyncExternalStore(store.subscribe, () => {
-    const item = store.getSnapshot().find((i) => i.i === id);
-    const prev = prevRef.current;
-    if (
-      prev &&
-      item &&
-      prev.i === item.i &&
-      prev.x === item.x &&
-      prev.y === item.y &&
-      prev.w === item.w &&
-      prev.h === item.h &&
-      prev.minW === item.minW &&
-      prev.minH === item.minH
-    ) {
-      return prev;
-    }
-    prevRef.current = item;
-    return item;
-  });
-}
-
 // Public Actions (module-level, backward-compatible singleton)
 
-/**
- * Update a single layout item's properties directly.
- * Triggers re-render and persists to localStorage.
- * Use for programmatic changes (e.g., reset, theme toggles).
- * For drag/resize operations, use commitLayout instead.
- */
-export const updateLayoutItem: LayoutStore["updateLayoutItem"] = (id, patch) => {
-  defaultStore.updateLayoutItem(id, patch);
-};
-
-/**
- * Replace the entire layout after resolving collisions.
- * This is the ONLY function that should be called after a resize gesture.
- */
 export const commitLayout: LayoutStore["commitLayout"] = (
   items,
   activeItemId,
   interactionType,
-  originalItem
+  originalItem,
 ) => {
   defaultStore.commitLayout(items, activeItemId, interactionType, originalItem);
 };
 
-/**
- * Replace the entire layout directly (without collision resolution).
- * Use for batch programmatic updates where you've already resolved collisions.
- */
-export const replaceLayout: LayoutStore["replaceLayout"] = (items) => {
-  defaultStore.replaceLayout(items);
-};
-
-/**
- * Reset the layout to the initial default and clear localStorage.
- */
+/** Reset layout to default and clear localStorage. */
 export const resetLayout: LayoutStore["resetLayout"] = () => {
   defaultStore.resetLayout();
 };
 
-// Exports for internal use by LayoutProvider
 export { LayoutContext, defaultStore };

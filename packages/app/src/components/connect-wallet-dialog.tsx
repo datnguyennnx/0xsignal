@@ -30,13 +30,11 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
             : (data.accounts[0] as { address?: string })?.address;
 
         if (address) {
-          // Register the wallet on the backend so hasLinkedWallet becomes true
           try {
             await api.createWallet({ walletAddress: String(address) });
           } catch {
             // Wallet may already be linked — that's fine
           }
-          // Refresh wallet status from backend
           refreshWalletStatus();
         }
       },
@@ -49,7 +47,7 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
   // Find connectors by id or name — wagmi versions vary and connector IDs may differ.
   const metaMaskConnector = connectors.find((c) => c.id === "metaMask" || c.name === "MetaMask");
   const coinbaseConnector = connectors.find(
-    (c) => c.id === "coinbaseWallet" || c.name?.includes("Coinbase")
+    (c) => c.id === "coinbaseWallet" || c.name?.includes("Coinbase"),
   );
 
   // Auto-close dialog when a connection is established (but not on initial mount

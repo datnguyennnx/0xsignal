@@ -11,22 +11,8 @@ import { formatPrice, formatCompactUsd } from "@/core/utils/formatters";
 import { formatTime, fmtNum, formatStatus } from "../utils/shared-table-utils";
 import { DirLabel, DirDisplay } from "./shared-table-components";
 import { getOrderType, getTriggerLabel, formatOrderValue } from "../utils/trigger-utils";
-import {
-  CELL_CLASS,
-  CELL_NUM_CLASS,
-  CELL_HEAD_CLASS,
-  CELL_HEAD_NUM_CLASS,
-} from "../utils/orderbook-table-classes";
+import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import type { UserFill, HistoricalOrderEntry } from "@0xsignal/shared";
-
-/* Styling constants */
-
-const c = CELL_CLASS;
-const cNum = CELL_NUM_CLASS;
-const cHead = CELL_HEAD_CLASS;
-const cHeadNum = CELL_HEAD_NUM_CLASS;
-
-/* Types */
 
 interface TradeHistoryTableProps {
   fills?: UserFill[];

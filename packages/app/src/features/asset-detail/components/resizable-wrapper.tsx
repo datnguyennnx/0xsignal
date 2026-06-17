@@ -6,8 +6,6 @@ import { cellWidth } from "../utils/collision";
 import { useResizeGesture } from "../hooks/use-resize-gesture";
 import { CornerHandles } from "./corner-handles";
 
-// Props
-
 interface ResizableWrapperProps {
   id: string;
   children: React.ReactNode;
@@ -26,8 +24,6 @@ interface ResizableWrapperProps {
 }
 
 const TOUCH_NONE = { touchAction: "none" } as const;
-
-// Component
 
 export function ResizableWrapper({
   id,
@@ -68,7 +64,6 @@ export function ResizableWrapper({
     onResizeCommit,
   });
 
-  // Position & Size Calculation
   const cw = cellWidth(containerWidth);
   const ch = GRID_ROW_HEIGHT;
   const GUTTER = GRID_GUTTER;
@@ -108,7 +103,6 @@ export function ResizableWrapper({
     };
   }, []);
 
-  // Computed styles
   const isActive = isResizing || isDragged || isHovered;
 
   return (
@@ -135,7 +129,6 @@ export function ResizableWrapper({
       onMouseLeave={handlePanelMouseLeave}
       onMouseMove={handlePanelMouseMove}
     >
-      {/* Content area */}
       <div className="h-full w-full overflow-hidden rounded-xl">{children}</div>
 
       {/* Drag Handle — Grip icon for repositioning */}

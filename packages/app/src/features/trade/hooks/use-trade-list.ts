@@ -14,8 +14,8 @@ export interface TradeListData {
  */
 export function useTradeList(enabled = true) {
   return useQuery<AggregatedMarket[], Error, TradeListData>({
-    queryKey: queryKeys.marketData.markets(),
-    queryFn: () => api.getMarkets() as Promise<AggregatedMarket[]>,
+    queryKey: queryKeys.market.meta(),
+    queryFn: (): Promise<AggregatedMarket[]> => api.getMarkets(),
     select: (payload) => ({
       assets: payload.filter((a) => !a.isDelisted),
     }),

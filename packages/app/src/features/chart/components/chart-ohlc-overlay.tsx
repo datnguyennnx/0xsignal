@@ -43,7 +43,7 @@ export const ChartOhlcOverlay = memo(({ data, precision }: ChartOhlcOverlayProps
           <span
             className={cn(
               displayCandle.close >= displayCandle.open ? "text-gain" : "text-loss",
-              "tabular-nums"
+              "tabular-nums",
             )}
           >
             {formatPriceValue(displayCandle.close, precision)}

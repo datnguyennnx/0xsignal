@@ -23,7 +23,7 @@ export const ErrorState = memo(function ErrorState({
     <div
       className={cn(
         "flex flex-col items-center justify-center text-center min-h-[50dvh]",
-        className
+        className,
       )}
     >
       <h3 className="text-sm font-semibold tracking-tight mb-3">

@@ -6,7 +6,6 @@ import type {
   ApiEnvelope,
   ClearinghouseState,
   SpotClearinghouseState,
-  OpenOrder,
   FrontendOpenOrder,
   HistoricalOrderEntry,
   UserFill,
@@ -21,7 +20,6 @@ import { normalizeSymbol } from "@/features/trade/lib/symbol";
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const API_BASE = resolveApiBase(configuredApiUrl, import.meta.env.DEV);
 
-// Re-export boundary types for consumers of this module.
 export type { ChartDataPoint, AggregatedMarket, MarketTicker } from "@0xsignal/shared";
 export type {
   ClearinghouseState,
@@ -36,8 +34,6 @@ export type {
   UpdateLeverageRequest,
   CancelOrdersRequest,
 } from "@0xsignal/shared";
-
-// Portfolio & Vault API types
 
 export interface PortfolioPeriod {
   readonly accountValueHistory: [number, string][];
@@ -93,7 +89,7 @@ export class ApiError extends Error {
     message: string,
     public readonly status?: number,
     public readonly statusText?: string,
-    public readonly code?: string
+    public readonly code?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -140,39 +136,46 @@ function unwrapEnvelope<T>(json: unknown): T {
   return json as T;
 }
 
-let activeRefreshPromise: Promise<boolean> | null = null;
+/** Token refresh dedup: single in-flight request with auto-reset. */
+const refreshManager = {
+  _activePromise: null as Promise<boolean> | null,
+
+  async attempt(): Promise<boolean> {
+    if (this._activePromise) {
+      return this._activePromise;
+    }
+
+    this._activePromise = (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (res.ok) {
+          const body = await res.json();
+          const data =
+            body && typeof body === "object" && "data" in body
+              ? (body as { data?: { accessToken: string } }).data
+              : body;
+          if (data && data.accessToken) {
+            setAuthToken(data.accessToken);
+            return true;
+          }
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        this._activePromise = null;
+      }
+    })();
+
+    return this._activePromise;
+  },
+};
 
 async function attemptSilentRefresh(): Promise<boolean> {
-  if (activeRefreshPromise) {
-    return activeRefreshPromise;
-  }
-
-  activeRefreshPromise = (async () => {
-    try {
-      const res = await fetch(`${API_BASE}/auth/refresh`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (res.ok) {
-        const body = await res.json();
-        const data =
-          body && typeof body === "object" && "data" in body
-            ? (body as { data?: { accessToken: string } }).data
-            : body;
-        if (data && data.accessToken) {
-          setAuthToken(data.accessToken);
-          return true;
-        }
-      }
-      return false;
-    } catch {
-      return false;
-    } finally {
-      activeRefreshPromise = null;
-    }
-  })();
-
-  return activeRefreshPromise;
+  return refreshManager.attempt();
 }
 
 async function fetchJson<T>(url: string, options?: RequestInit, isRetry = false): Promise<T> {
@@ -197,7 +200,7 @@ async function fetchJson<T>(url: string, options?: RequestInit, isRetry = false)
         errorBody?.error ?? `API request failed: ${response.statusText}`,
         response.status,
         response.statusText,
-        errorBody?.code
+        errorBody?.code,
       );
     }
 
@@ -209,7 +212,6 @@ async function fetchJson<T>(url: string, options?: RequestInit, isRetry = false)
   }
 }
 
-/** Frontend-specific DTO assembled locally from ticker data. */
 export interface MarketPrice {
   readonly symbol: string;
   readonly price: number;
@@ -226,8 +228,6 @@ export interface MarketPrice {
 }
 
 export const api = {
-  health: () => fetchJson(`${API_BASE}/health`),
-
   getMarkets: () => fetchJson<AggregatedMarket[]>(`${API_BASE}/markets`),
 
   getCandles: async (params: {
@@ -255,7 +255,7 @@ export const api = {
     const payload = await fetchJson(`${API_BASE}/candles?${query.toString()}`);
     const rawItems = extractRawCandlePayload(payload);
     return normalizeChartDataPoints(
-      rawItems.map((item) => normalizeCandle(item)).filter((p): p is ChartDataPoint => p !== null)
+      rawItems.map((item) => normalizeCandle(item)).filter((p): p is ChartDataPoint => p !== null),
     );
   },
 
@@ -280,13 +280,13 @@ export const api = {
     const payload = await fetchJson(`${API_BASE}/candles/recent?${query.toString()}`);
     const rawItems = extractRawCandlePayload(payload);
     return normalizeChartDataPoints(
-      rawItems.map((item) => normalizeCandle(item)).filter((p): p is ChartDataPoint => p !== null)
+      rawItems.map((item) => normalizeCandle(item)).filter((p): p is ChartDataPoint => p !== null),
     );
   },
 
   getTicker: (symbol: string) =>
     fetchJson<MarketTicker>(
-      `${API_BASE}/ticker?symbol=${encodeURIComponent(normalizeSymbol(symbol))}`
+      `${API_BASE}/ticker?symbol=${encodeURIComponent(normalizeSymbol(symbol))}`,
     ),
 
   getOrderbook: (symbol: string, depth?: number) => {
@@ -308,42 +308,37 @@ export const api = {
 
   getUserClearinghouseState: (walletAddress: string) =>
     fetchJson<ClearinghouseState>(
-      `${API_BASE}/user/clearinghouse-state?walletAddress=${encodeURIComponent(walletAddress)}`
+      `${API_BASE}/user/clearinghouse-state?walletAddress=${encodeURIComponent(walletAddress)}`,
     ),
 
   getUserSpotClearinghouseState: (walletAddress: string) =>
     fetchJson<SpotClearinghouseState>(
-      `${API_BASE}/user/spot-clearinghouse-state?walletAddress=${encodeURIComponent(walletAddress)}`
-    ),
-
-  getUserOpenOrders: (walletAddress: string) =>
-    fetchJson<OpenOrder[]>(
-      `${API_BASE}/user/open-orders?walletAddress=${encodeURIComponent(walletAddress)}`
+      `${API_BASE}/user/spot-clearinghouse-state?walletAddress=${encodeURIComponent(walletAddress)}`,
     ),
 
   getUserFrontendOpenOrders: (walletAddress: string) =>
     fetchJson<FrontendOpenOrder[]>(
-      `${API_BASE}/user/frontend-open-orders?walletAddress=${encodeURIComponent(walletAddress)}`
+      `${API_BASE}/user/frontend-open-orders?walletAddress=${encodeURIComponent(walletAddress)}`,
     ),
 
   getUserHistoricalOrders: (walletAddress: string) =>
     fetchJson<HistoricalOrderEntry[]>(
-      `${API_BASE}/user/historical-orders?walletAddress=${encodeURIComponent(walletAddress)}`
+      `${API_BASE}/user/historical-orders?walletAddress=${encodeURIComponent(walletAddress)}`,
     ),
 
   getUserFills: (walletAddress: string) =>
     fetchJson<UserFill[]>(
-      `${API_BASE}/user/fills?walletAddress=${encodeURIComponent(walletAddress)}`
+      `${API_BASE}/user/fills?walletAddress=${encodeURIComponent(walletAddress)}`,
     ),
 
   getPortfolio: (walletAddress: string) =>
     fetchJson<PortfolioResponse>(
-      `${API_BASE}/user/portfolio?walletAddress=${encodeURIComponent(walletAddress)}`
+      `${API_BASE}/user/portfolio?walletAddress=${encodeURIComponent(walletAddress)}`,
     ),
 
   getUserVaultEquities: (walletAddress: string) =>
     fetchJson<UserVaultEquity[]>(
-      `${API_BASE}/user/vault-equities?walletAddress=${encodeURIComponent(walletAddress)}`
+      `${API_BASE}/user/vault-equities?walletAddress=${encodeURIComponent(walletAddress)}`,
     ),
 
   getUserFunding: (walletAddress: string, startTime?: number, endTime?: number) => {
@@ -400,8 +395,7 @@ export const api = {
           ? ticker.symbol
           : normalizedSymbol;
     } catch (err) {
-      // Graceful fallback for builder perps not in main perp universe
-      console.warn("Ticker fetch failed for", normalizedSymbol, err);
+      // Logged
     }
 
     const price = markPx || midPx;
@@ -423,7 +417,6 @@ export const api = {
     };
   },
 
-  /** Check current auth session — returns user info if authenticated, throws 401 if not */
   getAuthMe: () =>
     fetchJson<{
       userId: string;
@@ -432,13 +425,11 @@ export const api = {
       displayName: string | null;
     }>(`${API_BASE}/auth/me`),
 
-  /** Logout — revoke refresh token on server */
   logout: () =>
     fetchJson(`${API_BASE}/auth/logout`, {
       method: "POST",
     }),
 
-  /** Update the current user's profile. */
   updateProfile: (params: { displayName: string }) =>
     fetchJson<{
       data: {
@@ -460,7 +451,7 @@ export const api = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
-      }
+      },
     ),
 
   refreshToken: () =>
@@ -468,12 +459,9 @@ export const api = {
       `${API_BASE}/auth/refresh`,
       {
         method: "POST",
-      }
+      },
     ),
 
-  // Exchange Credentials API
-
-  /** Create a key credential for an exchange wallet. */
   createCredential: (params: {
     accountId: string;
     agentAddress: string;
@@ -490,43 +478,9 @@ export const api = {
           agentPrivateKey: params.agentPrivateKey,
           label: params.label,
         }),
-      }
+      },
     ),
 
-  /** List credentials for a wallet. */
-  listCredentials: (accountId: string) =>
-    fetchJson<
-      Array<{
-        id: string;
-        label: string;
-        agentAddress: string;
-        permissions: string[];
-        isVerified: boolean;
-        verifiedAt: string | null;
-        createdAt: string;
-        expiresAt: string | null;
-        isRevoked: boolean;
-      }>
-    >(`${API_BASE}/wallets/${accountId}/keys`),
-
-  /** Revoke / delete a credential by ID. */
-  revokeCredential: (accountId: string, credentialId: string) =>
-    fetchJson<void>(`${API_BASE}/wallets/${accountId}/keys/${credentialId}`, {
-      method: "DELETE",
-    }),
-
-  /** Verify credential connectivity with the exchange. */
-  verifyCredential: (accountId: string, credentialId: string) =>
-    fetchJson<{ isVerified: boolean; verifiedAt: string }>(
-      `${API_BASE}/wallets/${accountId}/keys/${credentialId}/verify`,
-      {
-        method: "POST",
-      }
-    ),
-
-  // Wallet Linking API
-
-  /** List wallets linked to the current user's account. */
   listWallets: () =>
     fetchJson<
       Array<{
@@ -537,7 +491,6 @@ export const api = {
       }>
     >(`${API_BASE}/wallets`),
 
-  /** Link a wallet address to the current user's account. */
   createWallet: (params: { walletAddress: string; label?: string }) =>
     fetchJson<{ accountId: string; walletAddress: string; isPrimary: boolean }>(
       `${API_BASE}/wallets`,
@@ -549,6 +502,6 @@ export const api = {
           walletAddress: params.walletAddress,
           label: params.label,
         }),
-      }
+      },
     ),
 };

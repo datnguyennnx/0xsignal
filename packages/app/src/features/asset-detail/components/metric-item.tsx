@@ -1,4 +1,3 @@
-import { memo } from "react";
 import { cn } from "@/core/utils/cn";
 
 interface MetricItemProps {
@@ -7,11 +6,7 @@ interface MetricItemProps {
   tone?: "neutral" | "positive" | "negative";
 }
 
-export const MetricItem = memo(function MetricItem({
-  label,
-  value,
-  tone = "neutral",
-}: MetricItemProps) {
+export function MetricItem({ label, value, tone = "neutral" }: MetricItemProps) {
   return (
     <div className={cn("flex flex-col")}>
       <span className="text-[10px] tracking-wider text-muted-foreground/60 font-medium uppercase leading-none mb-1">
@@ -22,11 +17,11 @@ export const MetricItem = memo(function MetricItem({
           "text-sm font-semibold tabular-nums leading-none whitespace-nowrap",
           tone === "positive" && "text-gain",
           tone === "negative" && "text-loss",
-          tone === "neutral" && "text-foreground"
+          tone === "neutral" && "text-foreground",
         )}
       >
         {value}
       </span>
     </div>
   );
-});
+}

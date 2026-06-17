@@ -1,23 +1,11 @@
 import { memo } from "react";
 import type { ActiveIndicator } from "@0xsignal/shared";
 import { cn } from "@/core/utils/cn";
+import { toChipLabel } from "../utils/indicator-param-utils";
 
 interface IndicatorChipsProps {
   indicators: ActiveIndicator[];
 }
-
-const toChipLabel = (indicator: ActiveIndicator): string => {
-  const summary = indicator.config.params
-    .map((param) => {
-      const value = indicator.params[param.key];
-      if (value === undefined) return null;
-      return `${param.key}:${value}`;
-    })
-    .filter(Boolean)
-    .join(" ");
-
-  return summary ? `${indicator.config.name} ${summary}` : indicator.config.name;
-};
 
 export const IndicatorChips = memo(function IndicatorChips({ indicators }: IndicatorChipsProps) {
   if (indicators.length === 0) {
@@ -32,7 +20,7 @@ export const IndicatorChips = memo(function IndicatorChips({ indicators }: Indic
             key={indicator.instanceId}
             className={cn(
               "flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)] rounded-xl border-border/30 bg-background/90 px-2 py-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] backdrop-blur shrink-0",
-              indicator.visible ? "" : "text-muted-foreground"
+              indicator.visible ? "" : "text-muted-foreground",
             )}
           >
             <span className="h-2 w-2 rounded-full bg-foreground/60 shrink-0" />

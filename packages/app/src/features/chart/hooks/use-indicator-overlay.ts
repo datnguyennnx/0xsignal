@@ -108,13 +108,11 @@ export const useIndicatorOverlay = ({
     volumePaneRef.current = panes.length > 1 ? panes[panes.length - 1] : null;
   }, [chart]);
 
-  // Helper functions (called from effect below)
-
   const removeIndicator = (
     chart: IChartApi,
     mainSeries: ISeriesApi<"Candlestick"> | null | undefined,
     instanceId: string,
-    isBand: boolean
+    isBand: boolean,
   ) => {
     if (isBand) {
       const bandRef = bandPrimitiveRefs.current.get(instanceId);
@@ -162,7 +160,7 @@ export const useIndicatorOverlay = ({
     chart: IChartApi,
     instanceId: string,
     data: IndicatorRenderEntry,
-    color?: string
+    color?: string,
   ) => {
     let seriesRef = lineSeriesRefs.current.get(instanceId);
     if (!seriesRef) {
@@ -170,7 +168,7 @@ export const useIndicatorOverlay = ({
       seriesRef = { series: lineSeries, indicatorId: instanceId };
       lineSeriesRefs.current.set(instanceId, seriesRef);
     }
-    const lineData = data.data as LineData<Time>[];
+    const lineData = data.data as LineData<Time>[]; // safe: IndicatorRenderEntry.data typed by caller for line indicators
     if (lineData.length > 0) seriesRef.series.setData(lineData);
   };
 
@@ -178,9 +176,9 @@ export const useIndicatorOverlay = ({
     mainSeries: ISeriesApi<"Candlestick"> | null | undefined,
     instanceId: string,
     data: IndicatorRenderEntry,
-    color?: string
+    color?: string,
   ) => {
-    const bandData = data.data as BandIndicatorDataPoint[];
+    const bandData = data.data as BandIndicatorDataPoint[]; // safe: IndicatorRenderEntry.data typed by caller for band indicators
     if (!bandData.length) return;
     const safeColor = color || "#8884d8";
 
@@ -237,7 +235,7 @@ export const useIndicatorOverlay = ({
     chart: IChartApi,
     instanceId: string,
     data: IndicatorRenderEntry,
-    color?: string
+    color?: string,
   ) => {
     let paneState = paneByIndicatorRef.current.get(instanceId);
     if (!paneState) {
@@ -262,12 +260,14 @@ export const useIndicatorOverlay = ({
     }
 
     if (isHistogram) {
+      // safe: narrowed by isHistogramIndicator check above
       (seriesRef.series as ISeriesApi<"Histogram">).setData(
-        data.data as import("lightweight-charts").HistogramData<Time>[]
+        data.data as import("lightweight-charts").HistogramData<Time>[], // safe: IndicatorRenderEntry.data typed for histogram
       );
     } else {
+      // safe: !isHistogram implies line indicator
       (seriesRef.series as ISeriesApi<"Line">).setData(
-        data.data as import("lightweight-charts").LineData<Time>[]
+        data.data as import("lightweight-charts").LineData<Time>[], // safe: IndicatorRenderEntry.data typed for line
       );
     }
   };
@@ -310,8 +310,6 @@ export const useIndicatorOverlay = ({
 
     const activeIds = new Set(activeIndicators.map((indicator) => indicator.instanceId));
 
-    // Cleanup removed indicators
-    // Line series cleanup
     for (const [instanceId, ref] of lineSeriesRefs.current) {
       if (activeIds.has(instanceId)) continue;
       try {
@@ -337,7 +335,6 @@ export const useIndicatorOverlay = ({
       }
     }
 
-    // Band primitive cleanup
     for (const [instanceId, bandRef] of bandPrimitiveRefs.current) {
       if (activeIds.has(instanceId)) continue;
       if (mainSeries) {
@@ -354,7 +351,6 @@ export const useIndicatorOverlay = ({
     const mainPane = chart.panes()[0];
     if (!mainPane) return;
 
-    // Render Overlay Indicators (on main chart)
     for (const indicator of activeIndicators) {
       if (!indicator.config.overlayOnPrice) continue;
 
@@ -362,13 +358,11 @@ export const useIndicatorOverlay = ({
       const data = indicatorData.get(instanceId);
       const isBand = isBandIndicator(instanceId);
 
-      // Remove if hidden or no data
       if (!indicator.visible || !data) {
         removeIndicator(chart, mainSeries, instanceId, isBand);
         continue;
       }
 
-      // Cache hit — skip
       if (appliedCacheKeyRef.current.get(instanceId) === data.meta.cacheKey) continue;
 
       if (isBand) {
@@ -380,27 +374,23 @@ export const useIndicatorOverlay = ({
       appliedCacheKeyRef.current.set(instanceId, data.meta.cacheKey);
     }
 
-    // Render Oscillator Indicators (secondary panes)
     for (const indicator of activeIndicators) {
       if (indicator.config.overlayOnPrice) continue;
 
       const instanceId = indicator.instanceId;
       const data = indicatorData.get(instanceId);
 
-      // Remove if hidden or no data
       if (!indicator.visible || !data) {
         removeOscillator(chart, instanceId);
         continue;
       }
 
-      // Cache hit — skip
       if (appliedCacheKeyRef.current.get(instanceId) === data.meta.cacheKey) continue;
 
       renderOscillator(chart, instanceId, data, indicator.color);
       appliedCacheKeyRef.current.set(instanceId, data.meta.cacheKey);
     }
 
-    // Adjust pane ratios
     const currentPanes = chart.panes();
     if (currentPanes.length > 1) {
       currentPanes[0].setStretchFactor(1000);
@@ -417,5 +407,5 @@ export const useIndicatorOverlay = ({
     };
   }, [clearAllSeries]);
 
-  return { clearAllSeries };
+  return {};
 };

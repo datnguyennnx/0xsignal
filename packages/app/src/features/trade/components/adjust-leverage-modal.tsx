@@ -17,6 +17,7 @@ import { cn } from "@/core/utils/cn";
 import { AlertTriangleIcon } from "lucide-react";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
+import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 
 interface AdjustLeverageModalProps {
   open: boolean;
@@ -42,7 +43,11 @@ export function AdjustLeverageModal({
 }: AdjustLeverageModalProps) {
   const [leverage, setLeverage] = useState(currentLeverage);
   const queryClient = useQueryClient();
-  const { open: openConnectWallet, ConnectWalletSheet } = useConnectWalletPrompt();
+  const {
+    open: openConnectWallet,
+    isOpen: isConnectWalletOpen,
+    close: closeConnectWallet,
+  } = useConnectWalletPrompt();
 
   // Sync state when prop changes (e.g. modal opened for a different asset)
   useEffect(() => {
@@ -54,7 +59,7 @@ export function AdjustLeverageModal({
   const mutation = useMutation({
     mutationFn: (params: UpdateLeverageRequest) => api.updateLeverage(params),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.userData.clearinghouseState() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
       onConfirm?.(leverage);
       onOpenChange(false);
     },
@@ -92,14 +97,12 @@ export function AdjustLeverageModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Descriptive text */}
           <p className="text-xs text-muted-foreground leading-relaxed">
             Control the leverage used for{" "}
             <span className="text-foreground font-medium">{symbol}</span> positions. The maximum
             leverage is {maxLeverage}x.
           </p>
 
-          {/* Current state */}
           <div className="flex items-center justify-between px-3 py-2 bg-background/70 rounded-md border border-border/20">
             <span className="text-xs text-muted-foreground">Current</span>
             <span className="text-sm tabular-nums text-foreground">
@@ -107,7 +110,6 @@ export function AdjustLeverageModal({
             </span>
           </div>
 
-          {/* Leverage control */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground font-normal">Leverage</Label>
@@ -145,12 +147,10 @@ export function AdjustLeverageModal({
             </div>
           </div>
 
-          {/* Max position info */}
           <p className="text-xs text-muted-foreground/70 leading-relaxed">
             Max position size decreases the higher your leverage.
           </p>
 
-          {/* Warning box: context-aware */}
           <div className="flex items-start gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-2.5 rounded-md bg-loss-muted/20 border border-loss/20">
             <AlertTriangleIcon className="size-3.5 text-warn shrink-0" />
             <p className="text-[0.65rem] text-muted-foreground leading-relaxed">
@@ -168,13 +168,15 @@ export function AdjustLeverageModal({
             disabled={mutation.isPending}
             className={cn(
               "w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-all duration-150 ease-premium",
-              "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
+              "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]",
             )}
           >
             {mutation.isPending ? "Confirming..." : "Confirm"}
           </Button>
         </DialogFooter>
-        {ConnectWalletSheet}
+        {isConnectWalletOpen && (
+          <ConnectWalletDialog open={true} onOpenChange={(open) => !open && closeConnectWallet()} />
+        )}
       </DialogContent>
     </Dialog>
   );

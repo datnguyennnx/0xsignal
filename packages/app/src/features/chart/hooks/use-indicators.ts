@@ -17,7 +17,6 @@ interface UseIndicatorsResult {
   indicatorData: Map<string, IndicatorRenderEntry>;
   handleAddIndicator: (config: IndicatorConfig, customParams?: Record<string, number>) => void;
   handleRemoveIndicator: (indicatorId: string) => void;
-  handleToggleIndicator: (indicatorId: string) => void;
   handleResetAll: () => void;
   hasActiveOverlays: boolean;
 }
@@ -46,7 +45,7 @@ export const useIndicators = ({ data = [] }: UseIndicatorsProps): UseIndicatorsR
                   params,
                   visible: true,
                 }
-              : indicator
+              : indicator,
           );
         }
 
@@ -62,7 +61,7 @@ export const useIndicators = ({ data = [] }: UseIndicatorsProps): UseIndicatorsR
         ];
       });
     },
-    []
+    [],
   );
 
   const handleRemoveIndicator = useCallback((indicatorId: string) => {
@@ -76,21 +75,6 @@ export const useIndicators = ({ data = [] }: UseIndicatorsProps): UseIndicatorsR
     });
   }, []);
 
-  const handleToggleIndicator = useCallback((indicatorId: string) => {
-    setActiveIndicators((prev) => {
-      const hasDirectMatch = prev.some((ind) => ind.instanceId === indicatorId);
-      if (hasDirectMatch) {
-        return prev.map((ind) =>
-          ind.instanceId === indicatorId ? { ...ind, visible: !ind.visible } : ind
-        );
-      }
-
-      return prev.map((ind) =>
-        getIndicatorBaseId(ind.instanceId) === indicatorId ? { ...ind, visible: !ind.visible } : ind
-      );
-    });
-  }, []);
-
   const handleResetAll = useCallback(() => {
     setActiveIndicators([]);
   }, []);
@@ -100,7 +84,6 @@ export const useIndicators = ({ data = [] }: UseIndicatorsProps): UseIndicatorsR
     indicatorData,
     handleAddIndicator,
     handleRemoveIndicator,
-    handleToggleIndicator,
     handleResetAll,
     hasActiveOverlays,
   };

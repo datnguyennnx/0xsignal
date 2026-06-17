@@ -1,10 +1,3 @@
-export const getThemeColor = (token: string, fallback: string = ""): string => {
-  if (typeof window === "undefined") return fallback;
-  const value = getComputedStyle(document.documentElement).getPropertyValue(`--${token}`).trim();
-  return value || fallback;
-};
-
-/** Stable HSL color from string seed. */
 export const getStableColor = (seed: string): string => {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {

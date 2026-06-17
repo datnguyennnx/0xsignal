@@ -23,7 +23,7 @@ export function L2BookNSigFigsProvider({ children }: { children: ReactNode }) {
       nSigFigs,
       setNSigFigs,
     }),
-    [nSigFigs, setNSigFigs]
+    [nSigFigs, setNSigFigs],
   );
 
   return <L2BookNSigFigsContext value={value}>{children}</L2BookNSigFigsContext>;

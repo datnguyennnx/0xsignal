@@ -3,10 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { normalizeSymbol } from "@/features/trade/lib/symbol";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/services/api";
 import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-candles";
-import { queryKeys } from "@/lib/query/query-keys";
+import { useAssetPrice } from "@/features/asset-detail/hooks/use-asset-price";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { CandleDataProvider } from "@/features/trade/contexts/candle-data-context";
@@ -66,7 +64,6 @@ export function AssetDetail() {
   // Spot route /:base/:quote → rawCoin = "base/quote" (e.g., "PURR/USDC")
   const rawCoin = (quote ? `${base}/${quote}` : symbol) ?? "";
 
-  // Redirect lowercase URLs (/trade/btc → /trade/BTC)
   const normalizedRoute = normalizeSymbol(rawCoin);
   useEffect(() => {
     if (rawCoin && rawCoin !== normalizedRoute) {
@@ -99,16 +96,7 @@ export function AssetDetail() {
     isLoading: assetLoading,
     error: assetError,
     refetch: refetchAsset,
-  } = useQuery({
-    queryKey: queryKeys.asset.bySymbol(rawCoin),
-    queryFn: () => api.getMarketPrice(rawCoin),
-    enabled: !!rawCoin,
-    staleTime: 60 * 1000,
-    refetchOnMount: true,
-    retry: 1,
-    // Show previous price data while loading next symbol
-    placeholderData: (prev) => prev,
-  });
+  } = useAssetPrice(rawCoin);
 
   const handleRetry = useCallback(() => {
     refetchAsset();
@@ -116,7 +104,7 @@ export function AssetDetail() {
 
   const asset = useMemo<AssetViewModel | null>(
     () => (fetchedAsset ? { symbol: fetchedAsset.symbol, price: fetchedAsset } : null),
-    [fetchedAsset]
+    [fetchedAsset],
   );
 
   const {

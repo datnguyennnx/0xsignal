@@ -32,7 +32,7 @@ export function CustomSelect<T extends string>({
       onChange(v);
       setIsOpen(false);
     },
-    [onChange]
+    [onChange],
   );
 
   /* Close on outside click */
@@ -54,7 +54,7 @@ export function CustomSelect<T extends string>({
         className={cn(
           "flex items-center gap-1 px-2 py-0.5 text-[0.6rem] font-medium leading-none",
           "bg-muted/20 hover:bg-muted/40 rounded transition-colors",
-          "text-muted-foreground hover:text-foreground"
+          "text-muted-foreground hover:text-foreground",
         )}
       >
         {selected?.label ?? value}
@@ -65,7 +65,7 @@ export function CustomSelect<T extends string>({
         <div
           className={cn(
             "absolute right-0 top-full z-50 mt-1 min-w-[5rem]",
-            "bg-card border border-border/50 rounded-md shadow-lg overflow-hidden"
+            "bg-card border border-border/50 rounded-md shadow-lg overflow-hidden",
           )}
         >
           {options.map((opt) => (
@@ -76,7 +76,7 @@ export function CustomSelect<T extends string>({
                 "w-full text-left px-3 py-1.5 text-[0.65rem] leading-none transition-colors",
                 opt.value === value
                   ? "text-foreground bg-accent/30"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/20",
               )}
             >
               {opt.label}

@@ -28,7 +28,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
                     to={item.path}
                     className={cn(
                       "text-sm font-medium transition-colors",
-                      isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                      isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                     )}
                   >
                     {item.label}

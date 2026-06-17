@@ -48,7 +48,7 @@ export const Pagination = memo(function Pagination({
     <div
       className={cn(
         "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3",
-        className
+        className,
       )}
     >
       {/* Results count */}
@@ -67,7 +67,7 @@ export const Pagination = memo(function Pagination({
           className={cn(
             "inline-flex items-center justify-center h-7 w-7 rounded text-xs transition-colors",
             "text-muted-foreground hover:text-foreground hover:bg-muted/40",
-            "disabled:pointer-events-none disabled:opacity-30"
+            "disabled:pointer-events-none disabled:opacity-30",
           )}
         >
           <ChevronLeft className="size-3.5" />
@@ -84,7 +84,7 @@ export const Pagination = memo(function Pagination({
                 "inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded text-xs tabular-nums transition-colors",
                 currentPage === page
                   ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
               )}
             >
               {page}
@@ -96,7 +96,7 @@ export const Pagination = memo(function Pagination({
             >
               ...
             </span>
-          )
+          ),
         )}
 
         {/* Next */}
@@ -108,7 +108,7 @@ export const Pagination = memo(function Pagination({
           className={cn(
             "inline-flex items-center justify-center h-7 w-7 rounded text-xs transition-colors",
             "text-muted-foreground hover:text-foreground hover:bg-muted/40",
-            "disabled:pointer-events-none disabled:opacity-30"
+            "disabled:pointer-events-none disabled:opacity-30",
           )}
         >
           <ChevronRight className="size-3.5" />

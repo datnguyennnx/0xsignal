@@ -11,6 +11,14 @@ import { CELL_HEAD_CLASS, CELL_HEAD_NUM_CLASS } from "../utils/orderbook-table-c
 const cHead = CELL_HEAD_CLASS;
 const cHeadNum = CELL_HEAD_NUM_CLASS;
 
+/**
+ * TWAP fill history table (individual fills from TWAP orders).
+ *
+ * INTENTIONAL SCAFFOLD — TWAP feature is not yet implemented on the
+ * backend. This component renders the correct empty state. When TWAP
+ * fill data is available from the API, wire this component to the
+ * appropriate data hook.
+ */
 export function TwapFillHistoryTable() {
   return (
     <Table>

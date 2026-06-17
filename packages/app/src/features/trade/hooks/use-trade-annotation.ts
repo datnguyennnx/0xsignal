@@ -7,7 +7,7 @@ export function useTradeAnnotation(symbol: string) {
   const coin = parseSymbol(symbol).coin;
 
   return useQuery({
-    queryKey: queryKeys.hyperliquid.tradeAnnotation(coin),
+    queryKey: queryKeys.asset.annotation(coin),
     queryFn: async () => {
       const payload = await api.getTradeAnnotation(coin);
       return payload.annotation ?? null;

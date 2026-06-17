@@ -8,22 +8,8 @@ import {
 } from "@/components/ui/table";
 import { formatCompactUsd } from "@/core/utils/formatters";
 
-import {
-  CELL_CLASS,
-  CELL_NUM_CLASS,
-  CELL_HEAD_CLASS,
-  CELL_HEAD_NUM_CLASS,
-} from "../utils/orderbook-table-classes";
+import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import { PnLDisplay } from "./shared-table-components";
-
-/* Styling constants */
-
-const c = CELL_CLASS;
-const cNum = CELL_NUM_CLASS;
-const cHead = CELL_HEAD_CLASS;
-const cHeadNum = CELL_HEAD_NUM_CLASS;
-
-/* Types */
 
 interface BalanceTableProps {
   isChLoading: boolean;
@@ -47,8 +33,6 @@ interface BalanceTableProps {
   effectiveAccountTotal: number;
   effectiveAvailableBalance: number;
 }
-
-/* Component */
 
 export function BalanceTable({
   marginSummary,
@@ -85,7 +69,6 @@ export function BalanceTable({
           </TableRow>
         ) : (
           <>
-            {/* USDC row */}
             <TableRow>
               <TableCell className={`${c} font-medium`}>USDC</TableCell>
               <TableCell className={cNum}>{usdcTotalBalance.toFixed(2)}</TableCell>
@@ -106,7 +89,6 @@ export function BalanceTable({
               <TableCell className={c}>—</TableCell>
             </TableRow>
 
-            {/* Account Value row */}
             <TableRow>
               <TableCell className={`${c} font-medium`}>Account</TableCell>
               <TableCell className={cNum}>{formatCompactUsd(effectiveAccountTotal)}</TableCell>
@@ -129,7 +111,6 @@ export function BalanceTable({
               <TableCell className={c}>—</TableCell>
             </TableRow>
 
-            {/* Per-position rows */}
             {positions.map(({ position }) => {
               const posValue = Number(position.positionValue);
               const upnl = Number(position.unrealizedPnl);

@@ -15,17 +15,14 @@ import { formatOrderSize } from "../utils/trade-math";
 interface CloseLimitModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Position info needed to construct the order */
   position: {
     coin: string;
-    sz: number; // absolute size (positive)
+    sz: number;
     isLong: boolean;
     markPx: number;
   } | null;
   szDecimals: number;
-  /** Called when user confirms — parent handles the mutation */
   onConfirmLimitClose: (params: { price: string; size: string }) => void;
-  /** Whether the mutation is pending */
   isPending: boolean;
 }
 
@@ -50,7 +47,7 @@ export function CloseLimitModal({
         setSize(formatOrderSize(rawSize, szDecimals));
       }
     },
-    [position, szDecimals]
+    [position, szDecimals],
   );
 
   const handleSizeChange = useCallback(
@@ -64,7 +61,7 @@ export function CloseLimitModal({
         setSliderPercent(0);
       }
     },
-    [position]
+    [position],
   );
 
   const handleConfirm = useCallback(() => {
@@ -93,7 +90,6 @@ export function CloseLimitModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Price Input */}
           <div className="space-y-4">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
               Price (USDC)
@@ -115,7 +111,6 @@ export function CloseLimitModal({
             </div>
           </div>
 
-          {/* Size Input */}
           <div className="space-y-4">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
               Size {position ? `(${position.coin})` : ""}
@@ -129,7 +124,6 @@ export function CloseLimitModal({
             />
           </div>
 
-          {/* Slider */}
           <Slider
             value={[sliderPercent]}
             onValueChange={handleSliderChange}
@@ -139,7 +133,6 @@ export function CloseLimitModal({
             className="[&_[data-slot=slider-thumb]]:hover:ring-4 [&_[data-slot=slider-thumb]]:hover:ring-ring/40 [&_[data-slot=slider-track]]:hover:bg-muted/40 [&_[data-slot=slider-range]]:hover:brightness-110"
           />
 
-          {/* Info rows */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Closing</span>

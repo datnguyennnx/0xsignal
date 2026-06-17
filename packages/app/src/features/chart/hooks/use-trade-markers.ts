@@ -32,7 +32,7 @@ export function useTradeMarkers({
 }: UseTradeMarkersOptions): UseTradeMarkersResult {
   const markers = useMemo<LogicalTradeMarker[]>(
     () => mapFillsToLogicalMarkers(fills, timeframeSec, currentCoin),
-    [fills, timeframeSec, currentCoin]
+    [fills, timeframeSec, currentCoin],
   );
 
   // Dev validation: check every marker time exists in the candle set.
@@ -64,13 +64,6 @@ export function useTradeMarkers({
         }
         sample = { markerTime: mTime, nearestCandleTime: nearest };
       }
-    }
-
-    if (missingCount > 0) {
-      console.warn(
-        `[TradeMarkers] ${missingCount}/${markers.length} markers have no matching candle.`,
-        `Sample: marker time ${sample?.markerTime}, nearest candle: ${sample?.nearestCandleTime}.`
-      );
     }
   }, [markers, candles]);
 

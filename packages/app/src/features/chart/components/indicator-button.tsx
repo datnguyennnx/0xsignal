@@ -34,7 +34,7 @@ export const IndicatorButton = memo(function IndicatorButton({
         className={cn(
           "gap-[clamp(0.2rem,0.4vw,0.375rem)] px-2 sm:px-3 border-border/50 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25",
           isOpen && "bg-foreground text-background hover:bg-foreground/90",
-          className
+          className,
         )}
       >
         <Settings2 className="w-3.5 h-3.5" />
@@ -44,7 +44,7 @@ export const IndicatorButton = memo(function IndicatorButton({
             variant={isOpen ? "secondary" : "default"}
             className={cn(
               "px-1 sm:px-1.5 py-0 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] h-4 min-w-[1rem] tabular-nums select-none",
-              isOpen && "bg-background/20 text-background"
+              isOpen && "bg-background/20 text-background",
             )}
           >
             {indicatorCount}

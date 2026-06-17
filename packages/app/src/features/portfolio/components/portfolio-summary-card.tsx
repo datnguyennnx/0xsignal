@@ -1,44 +1,21 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/core/utils/cn";
-import { usePortfolio, useUserVaultEquities } from "../hooks/use-portfolio-data";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import {
   useClearinghouseState,
   useSpotClearinghouseState,
 } from "@/features/trade/hooks/use-user-data";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
-/* Types */
-
-type Timeframe = "day" | "week" | "month" | "allTime";
-
-const PERIOD_LABELS: Record<Timeframe, string> = {
-  day: "1D",
-  week: "7D",
-  month: "30D",
-  allTime: "All",
-};
-const PERIOD_KEYS: Timeframe[] = ["day", "week", "month", "allTime"];
-const TF_INDEX: Record<Timeframe, number> = { day: 0, week: 1, month: 2, allTime: 3 };
-
-/* Helpers */
-
-function computeMaxDrawdown(history: [number, string][]): number | null {
-  if (history.length < 2) return null;
-  let peak = -Infinity,
-    maxDd = 0;
-  for (const [, v] of history) {
-    const val = Number(v);
-    if (!Number.isFinite(val)) continue;
-    if (val > peak) peak = val;
-    if (peak > 0) {
-      const dd = (val - peak) / peak;
-      if (dd < maxDd) maxDd = dd;
-    }
-  }
-  return maxDd;
-}
-
-/* Primitives */
+import { usePortfolio, useUserVaultEquities } from "../hooks/use-portfolio-data";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  PERIOD_LABELS,
+  PERIOD_KEYS,
+  TF_INDEX,
+  isPortfolioPeriod,
+  type PortfolioPeriod,
+} from "../utils/constants";
+import { computeMaxDrawdown } from "../utils/financial";
 
 function Row({
   label,
@@ -60,7 +37,7 @@ function Row({
           accent === "gain" && "text-gain",
           accent === "loss" && "text-loss",
           accent === "warn" && "text-warn",
-          !accent && "text-foreground"
+          !accent && "text-foreground",
         )}
       >
         {value}
@@ -69,17 +46,11 @@ function Row({
   );
 }
 
-function SkeletonLine({ w = "100%", h = 11 }: { w?: string; h?: number }) {
-  return <div className="loading-shimmer rounded-sm" style={{ width: w, height: h }} />;
-}
-
-/* Main Component */
-
 const SURFACE =
   "h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
 
 export function PortfolioSummaryCard() {
-  const [tf, setTf] = useState<Timeframe>("month");
+  const [tf, setTf] = useState<PortfolioPeriod>("month");
 
   const { data: portfolio, isLoading: pfLoading, isError: pfError } = usePortfolio();
   const { data: chData, isLoading: chLoading } = useClearinghouseState();
@@ -101,7 +72,7 @@ export function PortfolioSummaryCard() {
     const ntlPos = Number(ms.totalNtlPos);
     const unrealizedPnl = (chData.assetPositions ?? []).reduce(
       (s, p) => s + Number(p.position.unrealizedPnl),
-      0
+      0,
     );
     const marginRatio = accountValue > 0 ? (marginUsed / accountValue) * 100 : 0;
     const leverage = accountValue > 0 ? ntlPos / accountValue : 0;
@@ -117,7 +88,7 @@ export function PortfolioSummaryCard() {
     if (!spotData?.balances) return null;
     const totalUsdc = spotData.balances.reduce(
       (s, b) => s + (b.coin === "USDC" ? Number(b.total) : 0),
-      0
+      0,
     );
     const nonZero = spotData.balances.filter((b) => Number(b.total) > 0);
     return { totalUsdc, tokenCount: nonZero.length, top: nonZero.slice(0, 3) };
@@ -131,19 +102,18 @@ export function PortfolioSummaryCard() {
     };
   }, [vaultData]);
 
-  /* Loading */
   if (isLoading) {
     return (
       <div className={SURFACE}>
         <div className="p-0 flex justify-between items-center">
-          <SkeletonLine w="48px" h={14} />
-          <SkeletonLine w="36px" h={20} />
+          <Skeleton className="h-3.5 w-12" />
+          <Skeleton className="h-5 w-9" />
         </div>
         <div className="space-y-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex justify-between items-center">
-              <SkeletonLine w="38%" h={11} />
-              <SkeletonLine w="28%" h={11} />
+              <Skeleton className="w-[38%]" style={{ height: 11 }} />
+              <Skeleton className="w-[28%]" style={{ height: 11 }} />
             </div>
           ))}
         </div>
@@ -151,7 +121,6 @@ export function PortfolioSummaryCard() {
     );
   }
 
-  /* Error */
   if (pfError) {
     return (
       <div className={SURFACE}>
@@ -164,7 +133,6 @@ export function PortfolioSummaryCard() {
     );
   }
 
-  /* Render */
   return (
     <div className={SURFACE}>
       <div className="flex items-center justify-between">
@@ -175,7 +143,10 @@ export function PortfolioSummaryCard() {
           size="sm"
           aria-label="Timeframe"
           value={tf}
-          onChange={(e) => setTf(e.target.value as Timeframe)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setTf(isPortfolioPeriod(val) ? val : "month");
+          }}
           className="h-7 min-w-[4.5rem] text-xs tabular-nums border-border/30 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25"
         >
           {PERIOD_KEYS.map((p) => (

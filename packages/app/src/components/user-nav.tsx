@@ -8,7 +8,8 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
-import { resetLayout } from "@/features/asset-detail/contexts/layout-store";
+import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
+import { resetLayout } from "@/lib/layout-reset";
 import { toast } from "sonner";
 import { useAccount, useDisconnect } from "wagmi";
 
@@ -19,7 +20,11 @@ function truncateAddress(address: string) {
 export function UserNav() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { open: openConnectWallet, ConnectWalletSheet } = useConnectWalletPrompt();
+  const {
+    open: openConnectWallet,
+    isOpen: isConnectWalletOpen,
+    close: closeConnectWallet,
+  } = useConnectWalletPrompt();
   const navigate = useNavigate();
 
   return (
@@ -75,7 +80,9 @@ export function UserNav() {
         <span className="sr-only">Settings</span>
       </Button>
 
-      {ConnectWalletSheet}
+      {isConnectWalletOpen && (
+        <ConnectWalletDialog open={true} onOpenChange={(open) => !open && closeConnectWallet()} />
+      )}
     </div>
   );
 }

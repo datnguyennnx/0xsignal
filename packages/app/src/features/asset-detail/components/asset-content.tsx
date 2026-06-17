@@ -1,22 +1,22 @@
 import { useState, useEffect, useMemo, memo, lazy, Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { useIsDesktop } from "@/hooks/use-breakpoint";
 import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
 import { PositionManagement } from "@/features/trade/components/position-management";
 import { OrderForm } from "@/features/trade/components/order-form";
+import { TradeDropdown } from "@/features/trade/components/trade-dropdown";
 import { L2BookNSigFigsProvider } from "@/features/trade/contexts/l2-book-nsig-figs-context";
 import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
 import { useHyperliquidSymbolLogo } from "@/features/trade/hooks/use-hyperliquid-symbol-logo";
 import { useAllMids } from "@/features/trade/hooks/use-all-mids";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
-import { useIsDesktop } from "@/hooks/use-breakpoint";
 import { DashboardGrid, DashboardPanel } from "./dashboard-grid";
-import { TradeDropdown } from "@/features/trade/components/trade-dropdown";
 import { MarketTerminalHeader } from "./market-terminal-header";
 import { toCountdown, getNextFundingMs } from "../utils/format";
 
 const TradingChart = lazy(() =>
-  import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart }))
+  import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart })),
 );
 
 const ChartSkeleton = () => (
@@ -61,8 +61,7 @@ export const AssetContent = memo(function AssetContent({
   const { data: annotation } = useTradeAnnotation(isSpot ? "" : symbol);
   const { data: logoUrl } = useHyperliquidSymbolLogo(symbol);
 
-  // Markets list is intent-driven: only fetch when user interacts with trade dropdown.
-  // This removes 166kB from the initial render critical path.
+  // Intent-driven: only fetch markets when user interacts with trade dropdown (removes 166kB from critical path)
   const [marketsIntent, setMarketsIntent] = useState(false);
   const { data: tradeList } = useTradeList(marketsIntent);
   const displayName = annotation?.displayName || symbol.toUpperCase();

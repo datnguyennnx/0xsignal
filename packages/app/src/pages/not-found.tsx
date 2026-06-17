@@ -1,9 +1,9 @@
-import { memo, useEffect } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
-export const NotFoundPage = memo(function NotFoundPage() {
+export function NotFoundPage() {
   useEffect(() => {
     document.title = "Not Found | 0xsignal";
   }, []);
@@ -34,4 +34,4 @@ export const NotFoundPage = memo(function NotFoundPage() {
       </div>
     </div>
   );
-});
+}

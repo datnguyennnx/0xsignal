@@ -13,20 +13,15 @@ async function fetchHistorical(symbol: string, interval: HLInterval, limit: numb
     });
     return candles.slice(-limit);
   } catch (err) {
-    // Gracefully handle errors (e.g., builder perps not in main perp universe)
-    console.warn("Candle history fetch failed, returning empty:", symbol, interval, limit, err);
     return [];
   }
 }
 
-/**
- * Fetches candles by time range (for loadMore)
- */
 export async function fetchByRange(
   symbol: string,
   interval: HLInterval,
   startTime: number,
-  endTime: number
+  endTime: number,
 ) {
   try {
     return await api.getCandles({
@@ -36,7 +31,6 @@ export async function fetchByRange(
       endTime,
     });
   } catch (err) {
-    console.warn("Candle range fetch failed, returning empty:", symbol, interval, err);
     return [];
   }
 }
@@ -45,12 +39,12 @@ export function useCandleHistory(
   symbol: string,
   interval: string,
   limit: number = 200,
-  enabled: boolean = true
+  enabled: boolean = true,
 ) {
   const hlInterval = mapToHLInterval(interval);
   const normalizedSymbol = normalizeSymbol(symbol);
   return useQuery({
-    queryKey: queryKeys.chart.candles(normalizedSymbol, hlInterval, limit),
+    queryKey: queryKeys.market.candles(normalizedSymbol, hlInterval, limit),
     queryFn: () => fetchHistorical(normalizedSymbol, hlInterval, limit),
     enabled: enabled && !!symbol,
     placeholderData: (previousData, previousQuery) => {
@@ -62,6 +56,6 @@ export function useCandleHistory(
       return previousData;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes (historical data is relatively static)
-    gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
+    gcTime: 15 * 60 * 1000,
   });
 }

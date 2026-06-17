@@ -12,11 +12,12 @@ export function useAllMids(enabled = true): Record<string, number> {
   const [mids, setMids] = useState<Record<string, number>>({});
 
   const handleMessage = useCallback((data: unknown) => {
-    if (data && typeof data === "object") {
-      const raw = data as Record<string, string>;
+    if (data && typeof data === "object" && !Array.isArray(data)) {
       const parsed: Record<string, number> = {};
-      for (const [coin, price] of Object.entries(raw)) {
-        parsed[coin] = Number(price) || 0;
+      for (const [coin, price] of Object.entries(data)) {
+        if (typeof price === "string") {
+          parsed[coin] = Number(price) || 0;
+        }
       }
       setMids(parsed);
     }
@@ -25,7 +26,7 @@ export function useAllMids(enabled = true): Record<string, number> {
   // Stable subscription reference — prevents infinite unsubscribe/resubscribe cycles
   const subscription = useMemo(
     () => (enabled ? ({ type: "allMids" as const } as const) : null),
-    [enabled]
+    [enabled],
   );
 
   useHyperliquidWs({

@@ -1,4 +1,3 @@
-// Supported time intervals
 export type HLInterval =
   | "1m"
   | "3m"
@@ -13,17 +12,24 @@ export type HLInterval =
   | "1d"
   | "1w";
 
-/**
- * Maps a generic interval string (like "1h") to a supported backend market interval.
- */
-export const mapToHLInterval = (interval: string): HLInterval =>
-  (["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "8h", "12h", "1d", "1w"].includes(interval)
-    ? interval
-    : "1h") as HLInterval;
+const HL_INTERVALS: readonly HLInterval[] = [
+  "1m",
+  "3m",
+  "5m",
+  "15m",
+  "30m",
+  "1h",
+  "2h",
+  "4h",
+  "8h",
+  "12h",
+  "1d",
+  "1w",
+];
 
-/**
- * Converts an interval string to its millisecond equivalent.
- */
+export const mapToHLInterval = (interval: string): HLInterval =>
+  HL_INTERVALS.find((v) => v === interval) ?? "1h";
+
 export const getIntervalMs = (interval: string): number => {
   const value = parseInt(interval);
   const unit = interval.slice(-1);
@@ -73,15 +79,6 @@ export interface L2BookLevel {
   n: number;
 }
 
-/**
- * Standard processing of L2 raw data into structured levels with cumulative total and depth.
- *
- * Algorithm:
- *   1. Parse + sort: O(n log n) — optimal for comparison-based sort
- *   2. Single-pass cumulative totals: O(n)
- *   3. Single-pass depth percentages: O(n)
- *   Total time: O(n log n), Space: O(n) for output only (no intermediate arrays)
- */
 export function processRawL2Levels(rawBids: L2BookLevel[], rawAsks: L2BookLevel[]): OrderbookData {
   // HL WS delivers levels sorted: bids descending, asks ascending — no sort needed.
   const bids = rawBids.map((l) => ({

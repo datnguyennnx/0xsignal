@@ -18,11 +18,14 @@ interface IndicatorModalProps {
 
 type Category = "active" | "overlays" | "oscillators";
 
-const categories = [
-  { id: "active" as Category, label: "Active", icon: Sparkles },
-  { id: "overlays" as Category, label: "Overlays", icon: Layers },
-  { id: "oscillators" as Category, label: "Oscillators", icon: Activity },
+const categories: { id: Category; label: string; icon: typeof Sparkles }[] = [
+  { id: "active", label: "Active", icon: Sparkles },
+  { id: "overlays", label: "Overlays", icon: Layers },
+  { id: "oscillators", label: "Oscillators", icon: Activity },
 ];
+
+const overlayIndicators = AVAILABLE_INDICATORS.filter((i) => i.overlayOnPrice);
+const oscillatorIndicators = AVAILABLE_INDICATORS.filter((i) => !i.overlayOnPrice);
 
 export function IndicatorModal({
   activeIndicators,
@@ -34,12 +37,6 @@ export function IndicatorModal({
   const [category, setCategory] = useState<Category>("active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-
-  const overlayIndicators = useMemo(() => AVAILABLE_INDICATORS.filter((i) => i.overlayOnPrice), []);
-  const oscillatorIndicators = useMemo(
-    () => AVAILABLE_INDICATORS.filter((i) => !i.overlayOnPrice),
-    []
-  );
 
   const activeByBaseId = useMemo(() => {
     const map = new Map<string, ActiveIndicator[]>();
@@ -53,7 +50,7 @@ export function IndicatorModal({
 
   const activeIndicatorConfigs = useMemo(
     () => AVAILABLE_INDICATORS.filter((indicator) => activeByBaseId.has(indicator.id)),
-    [activeByBaseId]
+    [activeByBaseId],
   );
 
   const currentIndicators =
@@ -132,7 +129,7 @@ export function IndicatorModal({
                       "w-full flex items-center gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-3 sm:py-2 rounded text-xs transition-all duration-150 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                       category === cat.id
                         ? "bg-accent text-foreground font-semibold"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent/50 font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent/50 font-medium",
                     )}
                   >
                     <Icon
@@ -144,7 +141,7 @@ export function IndicatorModal({
                         "text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] px-1 rounded tabular-nums font-bold",
                         category === cat.id
                           ? "bg-background/20 opacity-60"
-                          : "bg-muted text-muted-foreground/60"
+                          : "bg-muted text-muted-foreground/60",
                       )}
                     >
                       {count}
@@ -160,7 +157,6 @@ export function IndicatorModal({
             {!(category === "active" && activeIndicatorConfigs.length === 0) && (
               <div className="p-4">
                 <div className="relative">
-                  {/* Search icon */}
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/50 pointer-events-none" />
 
                   <Input
@@ -170,7 +166,6 @@ export function IndicatorModal({
                     className="pl-9 pr-8 bg-muted/30 border-border h-10 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-offset-0 text-secondary"
                   />
 
-                  {/* Clear button — only visible when query is non-empty */}
                   {query && (
                     <button
                       type="button"
@@ -200,14 +195,14 @@ export function IndicatorModal({
                           "w-full flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-3 sm:py-2 rounded text-xs transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                           isSelected
                             ? "bg-accent text-foreground font-semibold"
-                            : "hover:bg-accent/50 text-muted-foreground hover:text-foreground font-medium transition-all duration-150"
+                            : "hover:bg-accent/50 text-muted-foreground hover:text-foreground font-medium transition-all duration-150",
                         )}
                       >
                         <div
                           className={cn(
                             "w-1.5 h-1.5 rounded-full shrink-0 transition-all",
                             activeCount > 0 ? "bg-foreground" : "bg-muted-foreground/20",
-                            isSelected && "scale-105"
+                            isSelected && "scale-105",
                           )}
                         />
                         <span className="flex-1 text-left truncate">{indicator.name}</span>

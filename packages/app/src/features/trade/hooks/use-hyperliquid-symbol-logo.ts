@@ -135,7 +135,7 @@ async function resolveHyperliquidSymbolLogo(symbol: string): Promise<string | nu
 
 export function useHyperliquidSymbolLogo(symbol: string) {
   return useQuery({
-    queryKey: queryKeys.hyperliquid.symbolLogo(symbol),
+    queryKey: queryKeys.asset.logo(symbol),
     queryFn: () => resolveHyperliquidSymbolLogo(symbol),
     enabled: !!symbol,
     staleTime: LOGO_STALE_TIME,

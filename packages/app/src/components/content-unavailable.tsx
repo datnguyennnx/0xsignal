@@ -57,7 +57,7 @@ export const ContentUnavailable = memo(function ContentUnavailable({
     <div
       className={cn(
         "flex flex-col items-center justify-center text-center px-6 py-10 flex-1 min-h-0",
-        className
+        className,
       )}
     >
       <Icon

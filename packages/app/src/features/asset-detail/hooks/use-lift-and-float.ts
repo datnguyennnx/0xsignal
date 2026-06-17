@@ -3,8 +3,6 @@ import type { LayoutItem } from "../utils/types";
 import { GRID_COLS, GRID_ROW_HEIGHT, GRID_GUTTER } from "../utils/constants";
 import { cellWidth } from "../utils/collision";
 
-// Interfaces
-
 interface UseLiftAndFloatOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
   containerWidth: number;
@@ -39,14 +37,12 @@ export interface UseLiftAndFloatReturn {
   handleRepositionStart: (id: string, e: React.PointerEvent) => void;
 }
 
-// Collision-Aware Projection
-
 function computeProjectedPosition(
   dragState: DragState,
   pixelDx: number,
   pixelDy: number,
   containerWidth: number,
-  allItems: LayoutItem[]
+  allItems: LayoutItem[],
 ): PreviewState {
   const cw = cellWidth(containerWidth);
   const unitW = cw + GRID_GUTTER;
@@ -57,7 +53,7 @@ function computeProjectedPosition(
 
   const proposedX = Math.max(
     0,
-    Math.min(GRID_COLS - dragState.itemW, dragState.startItemX + snappedDx)
+    Math.min(GRID_COLS - dragState.itemW, dragState.startItemX + snappedDx),
   );
   const proposedY = Math.max(0, dragState.startItemY + snappedDy);
 
@@ -68,13 +64,11 @@ function computeProjectedPosition(
       proposedX < other.x + other.w &&
       proposedX + dragState.itemW > other.x &&
       proposedY < other.y + other.h &&
-      proposedY + dragState.itemH > other.y
+      proposedY + dragState.itemH > other.y,
   );
 
   return { gridX: proposedX, gridY: proposedY, isValid: !collision };
 }
-
-// Hook
 
 export function useLiftAndFloat({
   containerRef,
@@ -82,7 +76,6 @@ export function useLiftAndFloat({
   layout,
   onRepositionCommit,
 }: UseLiftAndFloatOptions): UseLiftAndFloatReturn {
-  // Refs (no re-renders)
   const dragStateRef = useRef<DragState | null>(null);
   const previewStateRef = useRef<PreviewState | null>(null);
   const pointerUpRef = useRef<((e: PointerEvent) => void) | null>(null);
@@ -91,13 +84,11 @@ export function useLiftAndFloat({
   const rafIdRef = useRef(0);
   const handleMoveRef = useRef<((e: PointerEvent) => void) | null>(null);
 
-  // React visual state
   const [isDragging, setIsDragging] = useState(false);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [previewState, setPreviewState] = useState<PreviewState | null>(null);
   const [phantomSize, setPhantomSize] = useState<{ width: number; height: number } | null>(null);
 
-  // Ref synchronization
   const layoutRef = useRef(layout);
   const containerWidthRef = useRef(containerWidth);
   const onRepositionCommitRef = useRef(onRepositionCommit);
@@ -109,7 +100,6 @@ export function useLiftAndFloat({
     onRepositionCommitRef.current = onRepositionCommit;
   });
 
-  // Event Handlers
   // Both handlers use only refs — never stale closures.
   // They have stable identity via useCallback([]).
 
@@ -140,7 +130,7 @@ export function useLiftAndFloat({
       dx,
       dy,
       containerWidthRef.current,
-      layoutRef.current
+      layoutRef.current,
     );
 
     // Only update if grid position or validity changed
@@ -149,7 +139,7 @@ export function useLiftAndFloat({
       prev?.gridY === projected.gridY &&
       prev?.isValid === projected.isValid
         ? prev
-        : projected
+        : projected,
     );
     previewStateRef.current = projected;
   }, []);
@@ -158,7 +148,6 @@ export function useLiftAndFloat({
     const ds = dragStateRef.current;
     if (!ds) return;
 
-    // Cancel any pending rAF
     if (rafIdRef.current) {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = 0;
@@ -168,7 +157,6 @@ export function useLiftAndFloat({
     const commitX = lastPreview?.gridX ?? ds.startItemX;
     const commitY = lastPreview?.gridY ?? ds.startItemY;
 
-    // Clear ALL visual state
     dragStateRef.current = null;
     previewStateRef.current = null;
     setIsDragging(false);
@@ -176,7 +164,6 @@ export function useLiftAndFloat({
     setPreviewState(null);
     setPhantomSize(null);
 
-    // Commit if position changed
     const currentItem = layoutRef.current.find((li) => li.i === ds.draggedItemId);
     if (currentItem && (commitX !== currentItem.x || commitY !== currentItem.y)) {
       onRepositionCommitRef.current(ds.draggedItemId, commitX, commitY);
@@ -194,7 +181,6 @@ export function useLiftAndFloat({
     }
   }, []);
 
-  // Sync refs after mount so cleanup can reference themselves without TDZ
   useEffect(() => {
     handleMoveRef.current = handlePointerMove;
   }, [handlePointerMove]);
@@ -202,16 +188,15 @@ export function useLiftAndFloat({
     pointerUpRef.current = handlePointerUp;
   }, [handlePointerUp]);
 
-  // handleRepositionStart
   const handleRepositionStart = useCallback(
     (id: string, e: React.PointerEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
-      // Prevent concurrent drags
       if (dragStateRef.current) return;
 
-      const target = e.target as HTMLElement;
+      if (!(e.target instanceof Element)) return;
+      const target = e.target;
       target.setPointerCapture(e.pointerId);
 
       const currentLayout = layoutRef.current;
@@ -226,15 +211,12 @@ export function useLiftAndFloat({
       const initialPhantomY = containerRect.top + item.y * (GRID_ROW_HEIGHT + GRID_GUTTER);
 
       // Get original item's DOM element to measure dimensions
-      const originalElement = container.querySelector(
-        `[data-panel-id="${id}"]`
-      ) as HTMLElement | null;
+      const originalElement = container.querySelector<HTMLElement>(`[data-panel-id="${id}"]`);
       if (originalElement) {
         const rect = originalElement.getBoundingClientRect();
         setPhantomSize({ width: rect.width, height: rect.height });
       }
 
-      // Store gesture state
       dragStateRef.current = {
         draggedItemId: id,
         startClientX: e.clientX,
@@ -247,24 +229,25 @@ export function useLiftAndFloat({
         initialPhantomY,
       };
 
-      // Set initial phantom position immediately
       if (phantomRef.current) {
         phantomRef.current.style.transform = `translate(${initialPhantomX}px, ${initialPhantomY}px)`;
       }
 
-      // Trigger React re-render to show preview
       setIsDragging(true);
       setDraggedItemId(id);
 
       // Attach document-level listeners via refs (stable identity)
-      document.addEventListener("pointermove", handleMoveRef.current!);
-      document.addEventListener("pointerup", pointerUpRef.current!);
-      document.addEventListener("pointercancel", pointerUpRef.current!);
+      const moveHandler = handleMoveRef.current;
+      const upHandler = pointerUpRef.current;
+      if (moveHandler) document.addEventListener("pointermove", moveHandler);
+      if (upHandler) {
+        document.addEventListener("pointerup", upHandler);
+        document.addEventListener("pointercancel", upHandler);
+      }
     },
-    [containerRef]
+    [containerRef],
   );
 
-  // Sync phantom position
   useEffect(() => {
     if (!isDragging) return;
     const ds = dragStateRef.current;

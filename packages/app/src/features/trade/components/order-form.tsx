@@ -1,24 +1,26 @@
-import { useState, useMemo, type ChangeEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo, useCallback, type ChangeEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { api, type PlaceOrderRequest } from "@/services/api";
+import type { PlaceOrderRequest } from "@/services/api";
 import type { PlaceOrderEntry } from "@0xsignal/shared";
-import { queryKeys } from "@/lib/query/query-keys";
 import { cn } from "@/core/utils/cn";
 import { CheckIcon } from "lucide-react";
 import { useClearinghouseState, useSpotClearinghouseState } from "../hooks/use-user-data";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
-import { useTakeProfitStopLoss } from "../hooks/use-take-profit-stop-loss";
+import { usePlaceOrder } from "../hooks/use-place-order";
+import { useTpSlOrchestration } from "../hooks/use-tp-sl-orchestration";
+import { useLeverageMarginState } from "../hooks/use-leverage-margin-state";
+import { LeverageMarginBar } from "./leverage-margin-bar";
 import { AdjustLeverageModal } from "./adjust-leverage-modal";
 import { MarginModeModal } from "./margin-mode-modal";
 import { UnifiedAccountSummary } from "./unified-account-summary";
 import { MARGIN_BUFFER, formatOrderSize } from "../utils/trade-math";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { useConnectWalletPrompt } from "@/hooks/use-connect-wallet-prompt";
+import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 
 interface OrderFormProps {
   symbol: string;
@@ -27,42 +29,48 @@ interface OrderFormProps {
 }
 
 export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormProps) {
-  const queryClient = useQueryClient();
-  const { open: openConnectWallet, ConnectWalletSheet } = useConnectWalletPrompt();
+  const {
+    open: openConnectWallet,
+    isOpen: isConnectWalletOpen,
+    close: closeConnectWallet,
+  } = useConnectWalletPrompt();
   const { data: chData } = useClearinghouseState();
   const { data: spotData } = useSpotClearinghouseState();
   const { getPrecision } = useHyperliquidMeta();
   const { szDecimals, maxLeverage } = getPrecision(symbol);
 
-  /* ─── Derive current leverage/margin from clearinghouse state ─── */
   // Normalize: URL param may be lowercase ("btc") but API returns uppercase ("BTC")
   const normalizedSymbol = symbol.toUpperCase();
   const currentAssetPosition = chData?.assetPositions?.find(
-    (ap) => ap.position.coin === normalizedSymbol
+    (ap) => ap.position.coin === normalizedSymbol,
   );
   const currentLeverageFromChain = currentAssetPosition?.position?.leverage?.value ?? 20;
   const currentMarginTypeFromChain: "cross" | "isolated" =
     currentAssetPosition?.position?.leverage?.type === "isolated" ? "isolated" : "cross";
 
-  /* ─── Core state (init from chain, updated via modals) ─── */
+  const {
+    adjustLeverageOpen,
+    setAdjustLeverageOpen,
+    marginModeOpen,
+    setMarginModeOpen,
+    setOverrideLeverage,
+    setOverrideMarginMode,
+    effectiveLeverage,
+    effectiveMarginMode,
+  } = useLeverageMarginState({
+    currentLeverageFromChain,
+    currentMarginTypeFromChain,
+  });
+
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
-  const [overrideLeverage, setOverrideLeverage] = useState<number | null>(null);
-  const [overrideMarginMode, setOverrideMarginMode] = useState<"cross" | "isolated" | null>(null);
-  const effectiveLeverage = overrideLeverage ?? currentLeverageFromChain;
-  const effectiveMarginMode = overrideMarginMode ?? currentMarginTypeFromChain;
   const [size, setSize] = useState("");
   const [sliderPercent, setSliderPercent] = useState(0);
   const [price, setPrice] = useState("");
   const [priceError, setPriceError] = useState<string | null>(null);
-  const [reduceOnly, setReduceOnly] = useState(false);
-  const [adjustLeverageOpen, setAdjustLeverageOpen] = useState(false);
-  const [marginModeOpen, setMarginModeOpen] = useState(false);
 
-  /** Sizing asset — dynamic from user's balances + perps USDC. */
   const [sizeAsset, setSizeAsset] = useState("USDC");
 
-  /* ─── Derived values ─── */
   const currentPrice = markPrice || Number(price) || 0;
   const usablePrice = currentPrice > 0 ? currentPrice : orderType === "limit" ? Number(price) : 0;
   const orderValue = Number(size) || 0;
@@ -70,7 +78,6 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   const isLong = side === "buy";
   const entryPrice = orderType === "limit" ? Number(price) || 0 : markPrice || 0;
 
-  /* ─── TP/SL state orchestration ─── */
   const {
     tpSlEnabled,
     setTpSlEnabled,
@@ -82,31 +89,23 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     handleTpPriceChange,
     handleSlPercentChange,
     handleSlPriceChange,
-  } = useTakeProfitStopLoss({ entryPrice, effectiveLeverage, isLong });
+    reduceOnly,
+    setReduceOnly,
+    showTpSl,
+  } = useTpSlOrchestration({ entryPrice, effectiveLeverage, isLong });
 
-  const showTpSl = tpSlEnabled && !reduceOnly;
-
-  /* ─── Size / Slider sync — leverage-aware, falls back to Spot USDC ─── */
-
-  // Derive available balances:
-  // - Perps USDC (from clearinghouse withdrawable)
-  // - Spot tokens (from spotClearinghouseState)
   const marginSummary = chData?.marginSummary;
   const accountValue = Number(marginSummary?.accountValue || 0);
   const perpsUsdc = Number(chData?.withdrawable || 0);
   const spotUsdc = Number(spotData?.balances?.find((b) => b.coin === "USDC")?.total || 0);
 
-  // Build options: perps USDC (priority) then all non-zero spot balances
   const sizeAssetOptions: Array<{ value: string; label: string; balance: number }> = useMemo(() => {
     const map = new Map<string, number>();
-    // Perps USDC is always the first option if account is active
     if (accountValue > 0) map.set("USDC", perpsUsdc);
-    // Spot balances for all tokens user holds
     for (const b of spotData?.balances ?? []) {
       const bal = Number(b.total);
       if (bal > 0) map.set(b.coin, bal);
     }
-    // If no perps account, use spot USDC as default USDC
     if (!map.has("USDC") && spotUsdc > 0) map.set("USDC", spotUsdc);
     return Array.from(map.entries()).map(([coin, bal]) => ({
       value: coin,
@@ -115,16 +114,13 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     }));
   }, [accountValue, perpsUsdc, spotUsdc, spotData]);
 
-  // Default to first option if current selection is no longer available
   const safeSizeAsset = sizeAssetOptions.some((o) => o.value === sizeAsset)
     ? sizeAsset
     : (sizeAssetOptions[0]?.value ?? "USDC");
   const effectiveBalance = sizeAssetOptions.find((o) => o.value === safeSizeAsset)?.balance ?? 0;
 
-  // Max notional = balance × leverage (what the user can open)
   const maxNotional = effectiveBalance * effectiveLeverage * MARGIN_BUFFER;
 
-  // Show converted asset quantity below the size input
   const assetQtyDisplay =
     !usablePrice || !Number(size)
       ? null
@@ -162,19 +158,15 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     }
   };
 
-  /* ─── Place order mutation ─── */
-  const placeOrderMutation = useMutation({
-    mutationFn: (params: PlaceOrderRequest) => api.placeOrder(params),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.userData.clearinghouseState() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.userData.openOrders() });
-    },
-    onError: (err) => {
+  const handlePlaceOrderError = useCallback(
+    (err: Error) => {
       if (err instanceof UnauthenticatedError) {
         openConnectWallet();
       }
     },
-  });
+    [openConnectWallet],
+  );
+  const placeOrderMutation = usePlaceOrder(handlePlaceOrderError);
 
   const handlePlaceOrder = () => {
     if (orderType === "limit" && (!price || Number(price) <= 0)) {
@@ -238,35 +230,19 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   const canPlace = Boolean(
     Number(size) > 0 &&
     usablePrice > 0 &&
-    !(orderType === "limit" && (!price || Number(price) <= 0))
+    !(orderType === "limit" && (!price || Number(price) <= 0)),
   );
 
   return (
     <>
       <div className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.75rem,1.25vw,1.25rem)]">
-        {/* Top controls */}
-        <div className="flex items-center gap-[clamp(0.75rem,1vw,1rem)] shrink-0">
-          <button
-            onClick={() => setMarginModeOpen(true)}
-            className="flex-1 h-9 px-2 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors truncate active:scale-[0.97]"
-          >
-            {effectiveMarginMode === "cross" ? "Cross" : "Isolated"}
-          </button>
-          <button
-            onClick={() => setAdjustLeverageOpen(true)}
-            className="flex-1 h-9 px-2 text-xs tabular-nums text-muted-foreground hover:text-foreground bg-muted/10 hover:bg-muted/30 rounded border border-border/30 transition-colors active:scale-[0.97]"
-          >
-            {effectiveLeverage}x
-          </button>
-          <button
-            disabled
-            className="flex-1 h-9 px-2 text-xs text-muted-foreground/40 bg-muted/10 rounded border border-border/30 cursor-not-allowed truncate"
-          >
-            Classic
-          </button>
-        </div>
+        <LeverageMarginBar
+          effectiveMarginMode={effectiveMarginMode}
+          effectiveLeverage={effectiveLeverage}
+          onOpenMarginMode={() => setMarginModeOpen(true)}
+          onOpenLeverage={() => setAdjustLeverageOpen(true)}
+        />
 
-        {/* Order type tabs */}
         <div className="flex shrink-0">
           {(["market", "limit"] as const).map((type) => (
             <button
@@ -276,7 +252,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                 "flex-1 pb-1.5 text-xs font-medium uppercase tracking-wider transition-colors",
                 orderType === type
                   ? "border-b-2 border-foreground text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground/70"
+                  : "border-transparent text-muted-foreground hover:text-foreground/70",
               )}
             >
               {type === "market" ? "Market" : "Limit"}
@@ -284,17 +260,14 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           ))}
         </div>
 
-        {/* Form body — takes remaining flex space, no internal scroll */}
         <div className="flex-1 flex flex-col gap-[clamp(1.5rem,3vw,3rem)]">
-          {/* ─── Buy / Sell Toggle — linked sliding pill ─── */}
           <div className="relative flex h-10 rounded-md bg-muted/10 p-0.5">
-            {/* Sliding indicator */}
             <div
               className={cn(
                 "absolute inset-y-0.5 w-[calc(50%-0.25rem)] rounded-[5px] transition-transform duration-500 ease-premium",
                 side === "buy"
                   ? "translate-x-0.5 bg-gain"
-                  : "translate-x-[calc(100%+0.5rem)] bg-loss"
+                  : "translate-x-[calc(100%+0.5rem)] bg-loss",
               )}
             />
             <button
@@ -319,7 +292,6 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             </button>
           </div>
 
-          {/* ─── Price Input (limit only) ─── */}
           {orderType === "limit" && (
             <div className="space-y-1.5">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
@@ -340,9 +312,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             </div>
           )}
 
-          {/* ─── Order Entry: Size + Slider + Available ─── */}
           <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]">
-            {/* Size Input with Asset Selector */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
@@ -379,7 +349,6 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               )}
             </div>
 
-            {/* Size Percentage Slider */}
             <div className="space-y-2">
               <div className="flex items-center gap-[clamp(0.75rem,1vw,1rem)]">
                 <Slider
@@ -405,7 +374,6 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               </div>
             </div>
 
-            {/* Available to Trade */}
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Available to Trade</span>
               <span className="text-xs tabular-nums text-foreground">
@@ -414,9 +382,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             </div>
           </div>
 
-          {/* ─── Order Options: Reduce Only + TP/SL ─── */}
           <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]">
-            {/* Reduce Only */}
             <label className="relative flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)] cursor-pointer select-none group">
               <input
                 type="checkbox"
@@ -430,7 +396,9 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               <div
                 className={cn(
                   "size-3.5 rounded border flex items-center justify-center transition-colors group-hover:border-border/60",
-                  reduceOnly ? "bg-foreground border-foreground" : "border-border/30 bg-transparent"
+                  reduceOnly
+                    ? "bg-foreground border-foreground"
+                    : "border-border/30 bg-transparent",
                 )}
               >
                 {reduceOnly && <CheckIcon className="size-2.5 text-background" />}
@@ -440,7 +408,6 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
               </span>
             </label>
 
-            {/* TP/SL */}
             <div className="space-y-3">
               <label className="relative flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)] cursor-pointer select-none group">
                 <input
@@ -457,7 +424,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                     "size-3.5 rounded border flex items-center justify-center transition-colors group-hover:border-border/60",
                     tpSlEnabled
                       ? "bg-foreground border-foreground"
-                      : "border-border/30 bg-transparent"
+                      : "border-border/30 bg-transparent",
                   )}
                 >
                   {tpSlEnabled && <CheckIcon className="size-2.5 text-background" />}
@@ -517,7 +484,6 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             </div>
           </div>
 
-          {/* ─── Order Summary ─── */}
           <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Order Value</span>
@@ -541,7 +507,6 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             </div>
           </div>
 
-          {/* ─── Place Order Button ─── */}
           <Button
             onClick={handlePlaceOrder}
             disabled={!canPlace || placeOrderMutation.isPending}
@@ -551,7 +516,6 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           </Button>
         </div>
 
-        {/* Fixed Bottom: Unified Account Summary */}
         <div className="shrink-0">
           <UnifiedAccountSummary />
         </div>
@@ -578,7 +542,9 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
         symbol={symbol}
         onConfirm={(newMode) => setOverrideMarginMode(newMode)}
       />
-      {ConnectWalletSheet}
+      {isConnectWalletOpen && (
+        <ConnectWalletDialog open={true} onOpenChange={(open) => !open && closeConnectWallet()} />
+      )}
     </>
   );
 }

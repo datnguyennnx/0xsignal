@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { cn } from "@/core/utils/cn";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_INTERVALS, ALL_INTERVALS } from "../utils/constants";
@@ -11,7 +11,7 @@ interface ChartHeaderProps {
   children?: React.ReactNode;
 }
 
-export const ChartHeader = memo(function ChartHeader({
+export function ChartHeader({
   interval,
   onIntervalChange,
   isIntervalSwitching = false,
@@ -19,22 +19,18 @@ export const ChartHeader = memo(function ChartHeader({
 }: ChartHeaderProps) {
   const isDefaultInterval = useMemo(
     () => DEFAULT_INTERVALS.some((int) => int.value === interval),
-    [interval]
+    [interval],
   );
 
-  const nonDefaultIntervals = useMemo(
-    () => ALL_INTERVALS.filter((int) => !DEFAULT_INTERVALS.some((d) => d.value === int.value)),
-    []
+  const nonDefaultIntervals = ALL_INTERVALS.filter(
+    (int) => !DEFAULT_INTERVALS.some((d) => d.value === int.value),
   );
 
-  const handleIntervalChange = useCallback(
-    (newInterval: string) => {
-      if (newInterval !== interval) {
-        onIntervalChange(newInterval);
-      }
-    },
-    [onIntervalChange, interval]
-  );
+  function handleIntervalChange(newInterval: string) {
+    if (newInterval !== interval) {
+      onIntervalChange(newInterval);
+    }
+  }
 
   return (
     <div className="flex items-center justify-between gap-[clamp(0.75rem,2vw,1rem)]">
@@ -50,7 +46,7 @@ export const ChartHeader = memo(function ChartHeader({
                 "relative h-8 rounded-xl border px-2.5 py-4 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tabular-nums tracking-[0.01em] transition-all duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/25",
                 interval === int.value
                   ? "border-border/60 bg-muted/70 text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
               )}
             >
               {int.label}
@@ -75,7 +71,7 @@ export const ChartHeader = memo(function ChartHeader({
                 "h-8 w-full min-w-0 border border-border/50 bg-background/75 px-2.5 pr-7 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tabular-nums tracking-[0.01em] cursor-pointer transition-[background-color,border-color,color,box-shadow] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/25",
                 isDefaultInterval
                   ? "text-muted-foreground hover:text-foreground"
-                  : "border-border/60 bg-muted/70 text-foreground"
+                  : "border-border/60 bg-muted/70 text-foreground",
               )}
             >
               {isDefaultInterval && (
@@ -95,4 +91,4 @@ export const ChartHeader = memo(function ChartHeader({
       <div className="flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">{children}</div>
     </div>
   );
-});
+}

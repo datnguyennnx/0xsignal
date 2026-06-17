@@ -36,7 +36,9 @@ export function ThemeProvider({
   // Lazy initialization - safe for client-side Vite apps
   const [theme, setThemeState] = useState<Theme>(() => {
     try {
-      return (localStorage.getItem(storageKey) as Theme) || defaultTheme;
+      const stored = localStorage.getItem(storageKey);
+      if (stored === "dark" || stored === "light" || stored === "system") return stored;
+      return defaultTheme;
     } catch {
       return defaultTheme;
     }
@@ -67,7 +69,7 @@ export function ThemeProvider({
       localStorage.setItem(storageKey, newTheme);
       setThemeState(newTheme);
     },
-    [storageKey]
+    [storageKey],
   );
 
   const value = useMemo(
@@ -76,7 +78,7 @@ export function ThemeProvider({
       resolvedTheme,
       setTheme,
     }),
-    [theme, resolvedTheme, setTheme]
+    [theme, resolvedTheme, setTheme],
   );
 
   return (

@@ -23,7 +23,6 @@ interface CornerHandlesProps {
   onPointerDown: (axis: ResizeHandleAxis) => (e: PointerEvent<HTMLDivElement>) => void;
 }
 
-/** L-shaped SVG corner brackets for resize handles */
 export function CornerHandles({ activeCorner, isResizing, onPointerDown }: CornerHandlesProps) {
   return (
     <div

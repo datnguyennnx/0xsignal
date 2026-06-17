@@ -7,23 +7,13 @@ import {
   TableCell,
 } from "@/components/ui/table";
 
-import { useUserFunding } from "@/features/portfolio/hooks/use-portfolio-data";
+import { useUserFunding } from "@/hooks/use-user-funding";
 import { formatTime, fmtNum } from "@/features/trade/utils/shared-table-utils";
 import { formatCompactUsd } from "@/core/utils/formatters";
 import { PosDirLabel } from "@/features/trade/components/shared-table-components";
-import {
-  CELL_CLASS,
-  CELL_NUM_CLASS,
-  CELL_HEAD_CLASS,
-  CELL_HEAD_NUM_CLASS,
-} from "@/features/trade/utils/orderbook-table-classes";
+import { c, cNum, cHead, cHeadNum } from "@/features/trade/utils/orderbook-table-classes";
 import { usePagination } from "@/hooks/use-pagination";
 import { Pagination } from "@/components/ui/pagination";
-
-const c = CELL_CLASS;
-const cNum = CELL_NUM_CLASS;
-const cHead = CELL_HEAD_CLASS;
-const cHeadNum = CELL_HEAD_NUM_CLASS;
 
 export function FundingHistoryTable() {
   const { data: funding, isLoading, isError } = useUserFunding();

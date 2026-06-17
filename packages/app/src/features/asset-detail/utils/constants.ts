@@ -1,9 +1,7 @@
 import type { LayoutItem } from "./types";
 
-/** localStorage key for persisting the layout */
 export const LAYOUT_STORAGE_KEY = "0xsignal_layout_config";
 
-/** Number of columns in the grid */
 export const GRID_COLS = 12;
 
 /** Height of each grid row in pixels */

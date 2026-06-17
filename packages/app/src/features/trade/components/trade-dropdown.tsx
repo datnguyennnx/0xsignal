@@ -1,15 +1,14 @@
-import { memo, useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, ChevronDown, X } from "lucide-react";
 import { ContentUnavailable } from "@/components/content-unavailable";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
-import { calculatePxDecimals } from "@/features/trade/hooks/use-hyperliquid-meta";
+import { calculatePxDecimals } from "@/features/trade/utils/trade-formatters";
 import { formatSize, formatCompactUsd } from "@/core/utils/formatters";
 import { MarketHeader, MarketRow, MarketRowSkeleton } from "./trade-dropdown.columns";
 import { getColumns } from "../utils/trade-dropdown-columns";
-import type { AggregatedMarket } from "@0xsignal/shared";
 import type { CategoryTab, FormattedTrade } from "../utils/trade-dropdown";
 import { TAB_ORDER, TAB_TO_CATEGORY } from "../utils/trade-dropdown";
 
@@ -47,7 +46,7 @@ const TradeDropdownFn = ({
         filtered = filtered.filter((f) => f.marketType === "spot");
       } else if (category === "tradfi") {
         filtered = filtered.filter((f) =>
-          ["stocks", "forex", "commodities", "indices"].includes(f.category)
+          ["stocks", "forex", "commodities", "indices"].includes(f.category),
         );
       } else if (category === "hip3") {
         filtered = filtered.filter((f) => f.isHip3);
@@ -63,7 +62,7 @@ const TradeDropdownFn = ({
     if (query) {
       const q = query.toLowerCase();
       filtered = filtered.filter(
-        (f) => f.coin.toLowerCase().includes(q) || f.displaySymbol.toLowerCase().includes(q)
+        (f) => f.coin.toLowerCase().includes(q) || f.displaySymbol.toLowerCase().includes(q),
       );
     }
 
@@ -123,7 +122,7 @@ const TradeDropdownFn = ({
       navigate(`/trade/${asset.rawCoin}`);
       handleClose();
     },
-    [navigate, handleClose]
+    [navigate, handleClose],
   );
 
   const handleSort = useCallback(
@@ -135,7 +134,7 @@ const TradeDropdownFn = ({
         setSortDesc(true);
       }
     },
-    [sortBy]
+    [sortBy],
   );
 
   useEffect(() => {
@@ -149,7 +148,7 @@ const TradeDropdownFn = ({
     if (!isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (!(e.target as Element).closest("[data-trade-dropdown]")) {
+      if (!(e.target instanceof Element) || !e.target.closest("[data-trade-dropdown]")) {
         handleClose();
       }
     };
@@ -180,9 +179,7 @@ const TradeDropdownFn = ({
       const volume = Number(item.dayNtlVlm);
       const funding = Number(item.funding);
       const marketCap =
-        item.marketType === "spot" && "circulatingSupply" in item
-          ? markPx * Number((item as AggregatedMarket).circulatingSupply ?? 0)
-          : 0;
+        item.marketType === "spot" ? markPx * Number(item.circulatingSupply ?? 0) : 0;
       const pxDec = calculatePxDecimals(item.szDecimals ?? 4);
       return {
         coin: item.coin,
@@ -250,7 +247,7 @@ const TradeDropdownFn = ({
         <ChevronDown
           className={cn(
             "w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0",
-            isOpen && "rotate-180"
+            isOpen && "rotate-180",
           )}
         />
       </button>
@@ -301,7 +298,7 @@ const TradeDropdownFn = ({
                     "px-3 py-2 text-[clamp(0.6875rem,0.7rem+0.4vw,0.75rem)] font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none -mb-px",
                     isActive
                       ? "text-foreground border-b-2 border-foreground"
-                      : "text-muted-foreground/50 hover:text-muted-foreground border-transparent"
+                      : "text-muted-foreground/50 hover:text-muted-foreground border-transparent",
                   )}
                 >
                   {tab}
@@ -342,7 +339,7 @@ const TradeDropdownFn = ({
                     onClick={() => handleSelect(item)}
                     className={cn(
                       "w-full text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset cursor-pointer select-none tap-highlight",
-                      item.isActive && "bg-muted/60"
+                      item.isActive && "bg-muted/60",
                     )}
                     aria-current={item.isActive ? "true" : undefined}
                   >
@@ -358,4 +355,4 @@ const TradeDropdownFn = ({
   );
 };
 
-export const TradeDropdown = memo(TradeDropdownFn);
+export const TradeDropdown = TradeDropdownFn;
