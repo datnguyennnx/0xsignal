@@ -1,14 +1,34 @@
 import type { ServerWebSocket } from "bun";
 import type { ISubscription } from "@nktkas/hyperliquid";
-import { Data } from "effect";
-import type { Fiber, Option } from "effect";
+import { Data, type Fiber, type Option } from "effect";
 import { type WsMarketChannel, type WsMarketInterval } from "@0xsignal/shared";
+
+/**
+ * Price level in the orderbook.
+ */
+export interface L2Level {
+  readonly px: string;
+  readonly sz: string;
+  readonly n: number;
+}
+
+/**
+ * L2 orderbook event from the NKTAS SDK subscription.
+ */
+export interface L2BookEvent {
+  readonly coin: string;
+  readonly time: number;
+  readonly levels: readonly [readonly L2Level[], readonly L2Level[]];
+  readonly spread?: string;
+  readonly fast?: true;
+}
 
 export type MarketWsSubscription = {
   readonly channel: WsMarketChannel;
   readonly symbol?: string;
   readonly interval?: WsMarketInterval;
-  readonly nSigFigs?: 2 | 3 | 4 | 5;
+  readonly nSigFigs?: 2 | 3 | 4 | 5 | null;
+  readonly fast?: boolean;
   readonly depth?: number;
   readonly dex?: string;
 };
@@ -39,11 +59,3 @@ export type BucketState =
   | { readonly _tag: "idle" }
   | { readonly _tag: "subscribing" }
   | { readonly _tag: "subscribed"; readonly upstream: ISubscription };
-
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-// Extend ServerWebSocket with the runtime backpressure property not exposed in bun types
-export interface ServerWebSocketWithBackpressure<T = undefined> extends ServerWebSocket<T> {
-  readonly backpressure: number;
-}

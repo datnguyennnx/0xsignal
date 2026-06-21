@@ -1,6 +1,5 @@
 import { Effect, Schema } from "effect";
-import type { HttpError } from "../error-response";
-import { asHttpError } from "../error-response";
+import { asHttpError, type HttpError } from "../error-response";
 import { parseOptionalSigFigsParam } from "../utils/param-parsers";
 import { MarketTimeframeSchema, type MarketTimeframe } from "../../../domain/market-data/timeframe";
 import { WS_MARKET_INTERVALS } from "@0xsignal/shared";
@@ -64,13 +63,14 @@ export const parseOptionalPositiveInt = (
 export const parseOptionalSigFigs = (
   params: URLSearchParams,
   key: string,
-): Effect.Effect<2 | 3 | 4 | 5 | undefined, HttpError> => {
+): Effect.Effect<2 | 3 | 4 | 5 | null, HttpError> => {
   const value = parseOptionalSigFigsParam(params, key);
   if (value === null) {
     return badRequest(`Invalid ${key}: ${params.get(key)}. Supported values are 2, 3, 4, 5.`);
   }
 
-  return Effect.succeed(value);
+  // undefined (not provided) → null (full precision default)
+  return Effect.succeed(value ?? null);
 };
 
 export const parseInterval = (

@@ -111,20 +111,30 @@ export const buildKeyRoutes = ({
         }
 
         // NEVER return enc_agent_key or enc_eoa_key in any HTTP response
-        const { encAgentKey: _k1, encEoaKey: _k2, ...safe } = maybeCredential;
+        const {
+          id,
+          label,
+          agentAddress,
+          permissions,
+          isVerified,
+          verifiedAt,
+          createdAt,
+          expiresAt,
+          isRevoked,
+        } = maybeCredential;
 
         return json({
           data: [
             {
-              id: safe.id,
-              label: safe.label,
-              agentAddress: safe.agentAddress,
-              permissions: safe.permissions,
-              isVerified: safe.isVerified,
-              verifiedAt: safe.verifiedAt,
-              createdAt: safe.createdAt,
-              expiresAt: safe.expiresAt,
-              isRevoked: safe.isRevoked,
+              id,
+              label,
+              agentAddress,
+              permissions,
+              isVerified,
+              verifiedAt,
+              createdAt,
+              expiresAt,
+              isRevoked,
             },
           ],
         });

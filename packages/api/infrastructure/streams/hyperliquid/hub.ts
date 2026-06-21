@@ -1,5 +1,4 @@
-import { Context, Effect, HashMap, Layer, Option, Ref, Schedule } from "effect";
-import { Clock, Fiber } from "effect";
+import { Clock, Context, Effect, Fiber, Layer, Option, Ref, Schedule } from "effect";
 import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
 import type { ISubscription } from "@nktkas/hyperliquid";
 import type { ServerWebSocket } from "bun";
@@ -44,9 +43,7 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
         const provider = yield* HyperliquidProvider;
         const transport = new WebSocketTransport({ resubscribe: true });
         const subscriptionClient = new SubscriptionClient({ transport });
-        const buckets: Ref.Ref<HashMap.HashMap<string, Bucket>> = yield* Ref.make(
-          HashMap.empty<string, Bucket>(),
-        );
+        const buckets: Ref.Ref<Map<string, Bucket>> = yield* Ref.make(new Map<string, Bucket>());
 
         // Bridge Pattern: connectionSeq counter uses plain number instead of Ref
         // because createConnectionData is a sync function called from non-Effect
@@ -72,16 +69,14 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
             Effect.gen(function* () {
               const key = ws.data.bucketKey;
               const map = yield* Ref.get(buckets);
-              const existing = HashMap.get(map, key);
+              const existing = map.get(key);
 
-              if (Option.isSome(existing)) {
-                const bucket = existing.value;
-                yield* Ref.update(buckets, (m) =>
-                  HashMap.set(m, key, {
-                    ...bucket,
-                    clients: new Set(bucket.clients).add(ws),
-                  }),
-                );
+              if (existing !== undefined) {
+                const bucket = existing;
+                // Mutate the existing clients Set in-place so that the upstream
+                // subscription callback (which holds a reference to the same
+                // bucket object) sees the new client on its next broadcast.
+                bucket.clients.add(ws);
                 const now = yield* Clock.currentTimeMillis;
                 send(ws, {
                   type: "ready",
@@ -103,7 +98,10 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
                 firstMarketBroadcastLogged: false,
               };
 
-              yield* Ref.update(buckets, (m) => HashMap.set(m, key, bucket));
+              yield* Ref.update(buckets, (m) => {
+                m.set(key, bucket);
+                return m;
+              });
               const now = yield* Clock.currentTimeMillis;
               send(ws, {
                 type: "ready",
@@ -127,30 +125,28 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
             Effect.gen(function* () {
               const key = ws.data.bucketKey;
               const map = yield* Ref.get(buckets);
-              const existing = HashMap.get(map, key);
+              const existing = map.get(key);
 
-              if (Option.isNone(existing)) return;
-              const bucket = existing.value;
+              if (existing === undefined) return;
+              const bucket = existing;
 
-              const newClients = new Set(bucket.clients);
-              newClients.delete(ws);
+              // Mutate the existing clients Set in-place (mirrors handleOpen).
+              bucket.clients.delete(ws);
 
-              if (newClients.size === 0) {
+              if (bucket.clients.size === 0) {
                 for (const f of bucket.restartFibers) {
                   yield* Fiber.interrupt(f);
                 }
 
                 if (Option.isSome(bucket.upstream)) {
                   const sub = bucket.upstream.value;
-                  yield* Effect.sync(() => {
-                    sub.unsubscribe();
-                  });
+                  // SDK v0.33.0: unsubscribe() returns Promise<void>
+                  yield* Effect.promise(() => sub.unsubscribe());
                 }
-                yield* Ref.update(buckets, (m) => HashMap.remove(m, key));
-              } else {
-                yield* Ref.update(buckets, (m) =>
-                  HashMap.set(m, key, { ...bucket, clients: newClients }),
-                );
+                yield* Ref.update(buckets, (m) => {
+                  m.delete(key);
+                  return m;
+                });
               }
             }),
 
@@ -180,15 +176,13 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
         Effect.gen(function* () {
           yield* Effect.logInfo("Shutting down MarketStreamHub");
           const map = yield* Ref.get(buckets);
-          for (const [_, bucket] of map) {
+          for (const bucket of map.values()) {
             for (const f of bucket.restartFibers) {
               yield* Fiber.interrupt(f);
             }
             if (Option.isSome(bucket.upstream)) {
               const sub = bucket.upstream.value;
-              yield* Effect.sync(() => {
-                sub.unsubscribe();
-              });
+              yield* Effect.promise(() => sub.unsubscribe());
             }
           }
         }),
@@ -201,12 +195,13 @@ const resolveAndSubscribe = (
   provider: typeof HyperliquidProvider.Service,
   bucket: Bucket,
   detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
+  onSubscriptionError?: (error: import("@nktkas/hyperliquid").TransportError) => void,
 ): Effect.Effect<ISubscription, WebSocketSubscribeError> => {
   const subSymbol = subscription.symbol;
 
   if (!subSymbol) {
     // No symbol means allMids or similar — subscribe directly
-    return subscribeUpstream(bucket, subscriptionClient, undefined, detach);
+    return subscribeUpstream(bucket, subscriptionClient, undefined, detach, onSubscriptionError);
   }
 
   return Effect.gen(function* () {
@@ -219,26 +214,33 @@ const resolveAndSubscribe = (
           }),
       ),
     );
-    return yield* subscribeUpstream(bucket, subscriptionClient, Promise.resolve(markets), detach);
+    return yield* subscribeUpstream(
+      bucket,
+      subscriptionClient,
+      Promise.resolve(markets),
+      detach,
+      onSubscriptionError,
+    );
   });
 };
 
 const ensureUpstream = (
   subscriptionClient: SubscriptionClient,
   provider: typeof HyperliquidProvider.Service,
-  buckets: Ref.Ref<HashMap.HashMap<string, Bucket>>,
+  buckets: Ref.Ref<Map<string, Bucket>>,
   key: string,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const map = yield* Ref.get(buckets);
-    const existing = HashMap.get(map, key);
-    if (Option.isNone(existing)) return;
-    const bucket = existing.value;
+    const existing = map.get(key);
+    if (existing === undefined) return;
+    const bucket = existing;
     if (bucket.state._tag !== "idle") return;
 
-    yield* Ref.update(buckets, (m) =>
-      HashMap.set(m, key, { ...bucket, state: { _tag: "subscribing" } }),
-    );
+    yield* Ref.update(buckets, (m) => {
+      m.set(key, { ...bucket, state: { _tag: "subscribing" } });
+      return m;
+    });
 
     const detach = (_ws: ServerWebSocket<MarketWsConnectionData>) => {
       // no-op for now; cleanup happens in handleClose
@@ -247,52 +249,40 @@ const ensureUpstream = (
     // Capture values that may be needed in sync closures
     const subChannel = bucket.subscription.channel;
 
+    const onSubscriptionError = (error: import("@nktkas/hyperliquid").TransportError) => {
+      marketWsLog(
+        "upstream_subscription_error",
+        { bucketKey: key, channel: subChannel, error: error.message },
+        "error",
+      );
+      Effect.runFork(restartBucket(subscriptionClient, provider, buckets, key, error.message));
+    };
+
     yield* resolveAndSubscribe(
       bucket.subscription,
       subscriptionClient,
       provider,
       bucket,
       detach,
+      onSubscriptionError,
     ).pipe(
       Effect.retry({
         schedule: Schedule.exponential("500 millis").pipe(Schedule.take(3)),
       }),
       Effect.tap((sub) =>
         Effect.gen(function* () {
-          // Bridge Pattern: sub.failureSignal is a native EventTarget from
-          // @nktkas/hyperliquid — not an Effect fiber. We use addEventListener
-          // to listen for the native abort signal, then fork a background fiber
-          // to handle the restart. This is an acceptable bridge at the adapter
-          // boundary between external library and Effect.
-          const abortHandler = () => {
-            marketWsLog(
-              "upstream_failure_signal",
-              {
-                bucketKey: key,
-                channel: subChannel,
-              },
-              "warn",
-            );
-            Effect.runFork(
-              restartBucket(
-                subscriptionClient,
-                provider,
-                buckets,
-                key,
-                "upstream_subscription_failed",
-              ),
-            );
-          };
-          sub.failureSignal.addEventListener("abort", abortHandler, { once: true });
-
-          yield* Ref.update(buckets, (m) =>
-            HashMap.set(m, key, {
-              ...bucket,
+          // Read latest bucket from Ref to avoid stale client set
+          const currentMap = yield* Ref.get(buckets);
+          const currentBucket = currentMap.get(key) ?? bucket;
+          yield* Ref.update(buckets, (m) => {
+            m.set(key, {
+              ...currentBucket,
               upstream: Option.some(sub),
               state: { _tag: "subscribed", upstream: sub } as BucketState,
               retryCount: 0,
-            }),
-          );
+            });
+            return m;
+          });
         }),
       ),
       Effect.catch((error) =>
@@ -308,28 +298,22 @@ const ensureUpstream = (
           );
 
           yield* Ref.update(buckets, (m) => {
-            const current = HashMap.get(m, key);
-            if (Option.isNone(current)) return m;
-            return HashMap.set(m, key, {
-              ...current.value,
-              state: { _tag: "idle" },
-              retryCount: current.value.retryCount + 1,
-            });
+            const current = m.get(key);
+            if (current === undefined) return m;
+            m.set(key, { ...current, state: { _tag: "idle" }, retryCount: current.retryCount + 1 });
+            return m;
           });
 
           const updatedMap = yield* Ref.get(buckets);
-          const updatedExisting = HashMap.get(updatedMap, key);
+          const updatedExisting = updatedMap.get(key);
 
-          if (
-            Option.isSome(updatedExisting) &&
-            updatedExisting.value.retryCount < MAX_RESTART_RETRIES
-          ) {
+          if (updatedExisting !== undefined && updatedExisting.retryCount < MAX_RESTART_RETRIES) {
             yield* Effect.sleep("1 second");
             yield* ensureUpstream(subscriptionClient, provider, buckets, key);
-          } else if (Option.isSome(updatedExisting)) {
+          } else if (updatedExisting !== undefined) {
             yield* Effect.logError(`Max retries (${MAX_RESTART_RETRIES}) exceeded for ${key}`);
             const now = yield* Clock.currentTimeMillis;
-            for (const client of updatedExisting.value.clients) {
+            for (const client of updatedExisting.clients) {
               send(client, {
                 type: "error",
                 code: "max_retries_exceeded",
@@ -337,7 +321,10 @@ const ensureUpstream = (
                 timestamp: now,
               });
             }
-            yield* Ref.update(buckets, (m) => HashMap.remove(m, key));
+            yield* Ref.update(buckets, (m) => {
+              m.delete(key);
+              return m;
+            });
           }
         }),
       ),
@@ -347,15 +334,15 @@ const ensureUpstream = (
 const restartBucket = (
   subscriptionClient: SubscriptionClient,
   provider: typeof HyperliquidProvider.Service,
-  buckets: Ref.Ref<HashMap.HashMap<string, Bucket>>,
+  buckets: Ref.Ref<Map<string, Bucket>>,
   key: string,
   reason: string,
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const map = yield* Ref.get(buckets);
-    const existing = HashMap.get(map, key);
-    if (Option.isNone(existing)) return;
-    const bucket = existing.value;
+    const existing = map.get(key);
+    if (existing === undefined) return;
+    const bucket = existing;
     if (bucket.state._tag === "idle") return;
 
     for (const f of bucket.restartFibers) {
@@ -364,9 +351,7 @@ const restartBucket = (
 
     if (Option.isSome(bucket.upstream)) {
       const sub = bucket.upstream.value;
-      yield* Effect.sync(() => {
-        sub.unsubscribe();
-      });
+      yield* Effect.promise(() => sub.unsubscribe());
     }
 
     const now = yield* Clock.currentTimeMillis;
@@ -378,14 +363,15 @@ const restartBucket = (
       });
     }
 
-    yield* Ref.update(buckets, (m) =>
-      HashMap.set(m, key, {
+    yield* Ref.update(buckets, (m) => {
+      m.set(key, {
         ...bucket,
         upstream: Option.none(),
         state: { _tag: "idle" },
         restartFibers: new Set(),
-      }),
-    );
+      });
+      return m;
+    });
 
     const fiber = yield* Effect.forkDetach(
       Effect.sleep("500 millis").pipe(
@@ -394,11 +380,9 @@ const restartBucket = (
     );
 
     yield* Ref.update(buckets, (m) => {
-      const current = HashMap.get(m, key);
-      if (Option.isNone(current)) return m;
-      return HashMap.set(m, key, {
-        ...current.value,
-        restartFibers: new Set(current.value.restartFibers).add(fiber),
-      });
+      const current = m.get(key);
+      if (current === undefined) return m;
+      m.set(key, { ...current, restartFibers: new Set(current.restartFibers).add(fiber) });
+      return m;
     });
   });

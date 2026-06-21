@@ -49,7 +49,7 @@ const AppServices = Layer.mergeAll(
   authLayer,
 ).pipe(Layer.provideMerge(AuthInfraLayer));
 
-export const AppLayer = AppServices.pipe(
+export const AppLayer: Layer.Layer<any, any, never> = AppServices.pipe(
   Layer.provideMerge(Infrastructure),
   Layer.provideMerge(Core),
 ) as Layer.Layer<any, any, never>;

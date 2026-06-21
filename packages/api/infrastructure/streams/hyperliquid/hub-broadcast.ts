@@ -1,48 +1,19 @@
 import type { ServerWebSocket } from "bun";
-import {
-  isRecord,
-  type Bucket,
-  type MarketWsConnectionData,
-  type ServerWebSocketWithBackpressure,
-} from "./hub-types";
-import { marketWsLog } from "./logging";
+import { type Bucket, type MarketWsConnectionData } from "./hub-types";
 
-export const MAX_BACKPRESSURE_BYTES = 1024 * 1024;
-
+/**
+ * Fire-and-forget broadcast: send every message to every client immediately.
+ * If a client's send buffer is full or the connection is dead, drop silently
+ * for that client. One slow client never delays others.
+ */
 export function broadcast(
   bucket: Bucket,
   payload: unknown,
   detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
 ) {
-  if (!isRecord(payload)) return;
-
-  if (!bucket.firstMarketBroadcastLogged && payload.type === "market") {
-    bucket.firstMarketBroadcastLogged = true;
-    marketWsLog("first_market_broadcast", {
-      bucketKey: bucket.key,
-      channel: bucket.subscription.channel,
-      clientsInBucket: bucket.clients.size,
-    });
-  }
-
   const encoded = JSON.stringify(payload);
   for (const client of bucket.clients) {
     try {
-      const backpressure = (client as unknown as ServerWebSocketWithBackpressure).backpressure ?? 0;
-      if (backpressure > MAX_BACKPRESSURE_BYTES) {
-        marketWsLog(
-          "backpressure_exceeded",
-          {
-            connectionId: client.data.id,
-            bucketKey: bucket.key,
-            backpressure,
-          },
-          "warn",
-        );
-        client.close(1011, "High backpressure - slow client");
-        detach(client);
-        continue;
-      }
       client.send(encoded);
     } catch {
       detach(client);

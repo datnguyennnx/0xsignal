@@ -37,24 +37,15 @@ export interface MarketTicker {
 
 // Order Book
 
-export type OrderBookLevel = readonly [px: number, sz: number, n?: string | null];
-
 export interface OrderBook {
   readonly symbol: string;
-  readonly nSigFigs?: 2 | 3 | 4 | 5;
+  readonly nSigFigs?: 2 | 3 | 4 | 5 | null;
   readonly orderbook?: {
     readonly levels: readonly [
       bids: { px: string; sz: string; n: number }[],
       asks: { px: string; sz: string; n: number }[],
     ];
   };
-}
-
-// Trade Annotation
-
-export interface TradeAnnotation {
-  readonly symbol: string;
-  readonly annotation: unknown;
 }
 
 // Market Type (Perp / Spot)
@@ -115,11 +106,7 @@ export interface CandleResponse {
 
 // Recent Candle Response
 
-export interface RecentCandleResponse {
-  readonly candles: Candle[];
-  readonly provenance: string;
-  readonly coverage: CoverageResult;
-}
+export type RecentCandleResponse = CandleResponse;
 
 // Health
 
@@ -155,5 +142,5 @@ export interface WsMarketSubscription {
   readonly channel: WsMarketChannel;
   readonly symbol?: string;
   readonly interval?: WsMarketInterval;
-  readonly nSigFigs?: 2 | 3 | 4 | 5;
+  readonly nSigFigs?: 2 | 3 | 4 | 5 | null;
 }

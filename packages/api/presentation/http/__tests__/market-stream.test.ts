@@ -53,7 +53,7 @@ describe("Market WS subscription parser", () => {
     });
   });
 
-  it("prefers explicit nSigFigs over depth alias for l2Book", () => {
+  it("prefers explicit nSigFigs over depth alias for l2Book; depth becomes maxDepth", () => {
     const params = new URLSearchParams({
       channel: "l2Book",
       symbol: "ETH",
@@ -68,6 +68,7 @@ describe("Market WS subscription parser", () => {
         channel: "l2Book",
         symbol: "ETH",
         nSigFigs: 3,
+        depth: 5,
       },
     });
   });
@@ -182,21 +183,8 @@ describe("Market WS subscription parser", () => {
 });
 
 describe("Market WS emitter contract", () => {
-  type StubUpstream = {
-    unsubscribe: () => Promise<void>;
-    failureSignal: AbortSignal;
-  };
-
-  type StubSubscriptionClient = {
-    candle?: (params: unknown, onEvent: (event: unknown) => void) => Promise<StubUpstream>;
-    l2Book?: (params: unknown, onEvent: (event: unknown) => void) => Promise<StubUpstream>;
-    trades?: (params: unknown, onEvent: (event: unknown) => void) => Promise<StubUpstream>;
-    allMids?: (first: unknown, second?: (event: unknown) => void) => Promise<StubUpstream>;
-  };
-
   const stubUpstream = {
     unsubscribe: async () => {},
-    failureSignal: new AbortController().signal,
   };
 
   const createBucket = (subscription: MarketWsSubscription) =>
@@ -204,6 +192,9 @@ describe("Market WS emitter contract", () => {
       key: buildMarketWsBucketKey(subscription),
       subscription,
       clients: new Set(),
+      state: { _tag: "idle" },
+      upstream: undefined as unknown,
+      retryCount: 0,
       restarting: false,
     }) as any;
 
@@ -228,8 +219,12 @@ describe("Market WS emitter contract", () => {
   });
 
   it("emits stable market envelope for l2Book", async () => {
+    let callCount = 0;
     const subscriptionClient = {
       l2Book: async (_params: unknown, onEvent: (event: unknown) => void) => {
+        callCount++;
+        // Hybrid model: l2Book is called twice (fast + slow).
+        // First call (fast) and second call (slow) both fire the event.
         onEvent({ data: { orderbook: { levels: [[{ px: "100", sz: "1" }], []] } } });
         return stubUpstream;
       },
@@ -243,6 +238,8 @@ describe("Market WS emitter contract", () => {
 
     expect(upstream).toBeDefined();
     expect(upstream.unsubscribe).toBeDefined();
+    // Both fast and slow subscriptions are established
+    expect(callCount).toBe(2);
   });
 
   it("emits stable market envelope for trades", async () => {
@@ -265,9 +262,10 @@ describe("Market WS emitter contract", () => {
 
   it("emits stable market envelope for allMids", async () => {
     const subscriptionClient = {
-      allMids: async (first: unknown, second?: (event: unknown) => void) => {
-        const onEvent = typeof first === "function" ? first : second!;
-        onEvent({ data: { allMids: { BTC: "100" } } });
+      allMids: async (first: unknown, second?: unknown, _third?: unknown) => {
+        // v0.33.0: allMids(listener, options?) or allMids(params, listener, options?)
+        const onEvent = typeof first === "function" ? first : second;
+        (onEvent as (event: unknown) => void)({ data: { allMids: { BTC: "100" } } });
         return stubUpstream;
       },
     } as unknown as import("@nktkas/hyperliquid").SubscriptionClient;
@@ -283,28 +281,49 @@ describe("Market WS emitter contract", () => {
   });
 });
 
-describe("Market WS backpressure handling", () => {
-  it("disconnects slow clients and detaches them when backpressure exceeds 1MB", () => {
-    const closedCalls: [number, string][] = [];
+describe("Market WS fire-and-forget broadcast", () => {
+  it("sends every message to every client immediately, without backpressure checks", () => {
     const sentMessages: string[] = [];
+
+    const mockWs = {
+      data: {
+        id: "conn-1",
+        bucketKey: "candle:BTC:1m",
+        subscription: { channel: "candle", symbol: "BTC", interval: "1m" },
+      },
+      send(data: string) {
+        sentMessages.push(data);
+      },
+    };
+
+    const bucket = {
+      key: "candle:BTC:1m",
+      subscription: { channel: "candle", symbol: "BTC", interval: "1m" },
+      clients: new Set([mockWs]),
+      restarting: false,
+      firstMarketBroadcastLogged: false,
+      retryCount: 0,
+    };
+
+    const detach = () => {};
+    const payload = { type: "market", channel: "candle", data: [{ t: 1 }] };
+    broadcast(bucket, payload, detach);
+
+    // Message is sent, not coalesced
+    expect(sentMessages).toEqual([JSON.stringify(payload)]);
+  });
+
+  it("drops silently for a client whose send throws, but does NOT disconnect aggressively", () => {
     const detachLog: string[] = [];
 
     const mockWs = {
       data: {
-        id: "conn-slow-123",
+        id: "conn-faulty",
         bucketKey: "candle:BTC:1m",
-        subscription: {
-          channel: "candle",
-          symbol: "BTC",
-          interval: "1m",
-        },
+        subscription: { channel: "candle", symbol: "BTC", interval: "1m" },
       },
-      backpressure: 1.5 * 1024 * 1024, // 1.5MB (> 1MB)
-      close(code: number, reason: string) {
-        closedCalls.push([code, reason]);
-      },
-      send(data: string) {
-        sentMessages.push(data);
+      send() {
+        throw new Error("buffer full");
       },
     };
 
@@ -322,33 +341,32 @@ describe("Market WS backpressure handling", () => {
       detachLog.push(ws.data.id);
     };
 
-    // Trigger broadcast directly
     broadcast(bucket, { type: "market", channel: "candle", data: [] }, detach);
 
-    // Validate behavior
-    expect(closedCalls).toEqual([[1011, "High backpressure - slow client"]]);
+    // Faulty client is detached silently
+    expect(detachLog).toEqual(["conn-faulty"]);
     expect(bucket.clients.has(mockWs as any)).toBe(false);
-    expect(sentMessages).toEqual([]); // Message dropped
-    expect(detachLog).toEqual(["conn-slow-123"]);
   });
 
-  it("sends message successfully and retains clients when backpressure is under 1MB", () => {
-    const closedCalls: [number, string][] = [];
+  it("sends to a healthy client even when another client throws", () => {
     const sentMessages: string[] = [];
 
-    const mockWs = {
+    const faultyWs = {
       data: {
-        id: "conn-fast-123",
+        id: "faulty",
         bucketKey: "candle:BTC:1m",
-        subscription: {
-          channel: "candle",
-          symbol: "BTC",
-          interval: "1m",
-        },
+        subscription: { channel: "candle", symbol: "BTC", interval: "1m" },
       },
-      backpressure: 500 * 1024, // 500KB (< 1MB)
-      close(code: number, reason: string) {
-        closedCalls.push([code, reason]);
+      send() {
+        throw new Error("buffer full");
+      },
+    };
+
+    const healthyWs = {
+      data: {
+        id: "healthy",
+        bucketKey: "candle:BTC:1m",
+        subscription: { channel: "candle", symbol: "BTC", interval: "1m" },
       },
       send(data: string) {
         sentMessages.push(data);
@@ -358,19 +376,20 @@ describe("Market WS backpressure handling", () => {
     const bucket = {
       key: "candle:BTC:1m",
       subscription: { channel: "candle", symbol: "BTC", interval: "1m" },
-      clients: new Set([mockWs]),
+      clients: new Set([faultyWs, healthyWs]),
       restarting: false,
       firstMarketBroadcastLogged: false,
       retryCount: 0,
     };
 
-    const detach = () => {};
+    const detach = (ws: any) => {
+      bucket.clients.delete(ws);
+    };
 
-    const payload = { type: "market", channel: "candle", data: [] };
+    const payload = { type: "market", channel: "candle", data: [{ t: 1 }] };
     broadcast(bucket, payload, detach);
 
-    expect(closedCalls).toEqual([]);
-    expect(bucket.clients.has(mockWs as any)).toBe(true);
+    // Healthy client still gets the message
     expect(sentMessages).toEqual([JSON.stringify(payload)]);
   });
 });

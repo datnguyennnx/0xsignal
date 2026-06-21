@@ -112,9 +112,7 @@ export const buildMarketDataRoutes = ({
     handler: (_request, url, marketData) =>
       Effect.gen(function* () {
         const symbol = yield* parseRequiredString(url.searchParams, "symbol");
-        const nSigFigs = yield* parseOptionalSigFigs(url.searchParams, "nSigFigs");
-        const depth = yield* parseOptionalSigFigs(url.searchParams, "depth");
-        const precision = nSigFigs ?? depth;
+        const precision = yield* parseOptionalSigFigs(url.searchParams, "nSigFigs");
         const payload = yield* marketData
           .getOrderBook(symbol, precision)
           .pipe(Effect.mapError(mapServiceError));

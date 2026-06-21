@@ -55,7 +55,7 @@ type RouteHandler = (
   userData: UserDataHttpService,
   exchange: ExchangeHttpService,
   userId?: string,
-) => Effect.Effect<Response, HttpError, any>;
+) => Effect.Effect<Response, HttpError, never>;
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), {
@@ -67,6 +67,9 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
   });
 
 // Auth routes handle their own errors internally; always returns a Response
+// Services (AuthService, ExchangeAccountRepo, ExchangeCredentialRepo) are
+// provided by AppLayer at the top level — the cast is safe because all
+// requirements are satisfied when the effect is run.
 const adaptAuthRoute =
   (
     handler: (
@@ -83,7 +86,7 @@ const adaptAuthRoute =
           }),
         ),
       ),
-    );
+    ) as unknown as Effect.Effect<Response, HttpError>;
 
 // Requires a valid auth session before executing
 const requireAuth =
@@ -100,7 +103,7 @@ const requireAuth =
           }),
         ),
       ),
-    );
+    ) as unknown as Effect.Effect<Response, HttpError>;
 
 const matchPath = (pattern: string, path: string): boolean => {
   if (pattern === path) return true;
@@ -181,7 +184,7 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
           const accountRepo = yield* ExchangeAccountRepo;
           const credentialRepo = yield* ExchangeCredentialRepo;
           return yield* route.handler(request, url, accountRepo, credentialRepo, userId);
-        }),
+        }) as unknown as Effect.Effect<Response, HttpError>,
     ),
   })),
   ...buildAuthRoutes().map((route) => ({

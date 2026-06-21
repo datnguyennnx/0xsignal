@@ -1,7 +1,6 @@
 import { Match } from "effect";
 import { MarketProviderError } from "./contracts";
-import { NotFoundError, ValidationError, InternalError } from "../errors";
-import type { AppError } from "../errors";
+import { NotFoundError, ValidationError, InternalError, type AppError } from "../errors";
 
 export const mapMarketInfraError =
   (fallbackMessage: string) =>

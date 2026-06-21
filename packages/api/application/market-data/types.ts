@@ -3,7 +3,7 @@ import type { MarketTicker, AggregatedMarket, MarketTypeCategory } from "@0xsign
 
 export type MarketOrderBook = {
   readonly symbol: string;
-  readonly nSigFigs?: 2 | 3 | 4 | 5;
+  readonly nSigFigs?: 2 | 3 | 4 | 5 | null;
   readonly orderbook: unknown;
 };
 

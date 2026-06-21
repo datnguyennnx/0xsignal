@@ -12,7 +12,7 @@ export type ParseResult =
 // the correct variant based on the `channel` discriminator.
 
 const IntervalSchema = Schema.Literals(WS_MARKET_INTERVALS);
-const NSigFigsSchema = Schema.Literals([2, 3, 4, 5]);
+const NSigFigsSchema = Schema.NullOr(Schema.Literals([2, 3, 4, 5]));
 
 const AllMidsSchema = Schema.Struct({
   channel: Schema.Literal("allMids"),
@@ -30,6 +30,8 @@ const L2BookSchema = Schema.Struct({
   channel: Schema.Literal("l2Book"),
   symbol: Schema.NonEmptyString,
   nSigFigs: Schema.optional(NSigFigsSchema),
+  fast: Schema.optional(Schema.Boolean),
+  depth: Schema.optional(Schema.Number),
 });
 
 const TradesSchema = Schema.Struct({
@@ -46,6 +48,12 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
   const interval = (params.get("interval") ?? "1m").trim();
   const nSigFigsStr = params.get("nSigFigs") ?? params.get("depth");
   const dex = params.get("dex")?.trim();
+  const fastStr = params.get("fast");
+  // `depth` param can mean maxDepth OR sigfigs depending on context:
+  // - If `nSigFigs` was explicitly sent, `depth` is NOT consumed as sigfigs → use it as maxDepth
+  // - If `nSigFigs` was NOT sent, `depth` IS consumed as sigfigs → don't double-use it
+  const depthStr =
+    params.get("maxDepth") ?? (params.has("nSigFigs") ? params.get("depth") : undefined);
 
   // Build input — Schema.Union resolves the correct variant by channel discriminator.
   // Extra fields for non-matching variants are silently ignored by the Union.
@@ -55,6 +63,10 @@ export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult 
     interval,
     ...(nSigFigsStr ? { nSigFigs: Number(nSigFigsStr) } : {}),
     ...(dex ? { dex } : {}),
+    ...(fastStr !== null && fastStr !== undefined
+      ? { fast: fastStr === "true" || fastStr === "1" }
+      : {}),
+    ...(depthStr !== null && depthStr !== undefined ? { depth: Number(depthStr) } : {}),
   };
 
   // Schema handles ALL validation: channel, symbol, interval, nSigFigs

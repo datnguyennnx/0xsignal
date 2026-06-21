@@ -3,11 +3,8 @@ import { type WsMarketInterval, WS_MARKET_INTERVALS } from "@0xsignal/shared";
 // Re-export shared interval type as the canonical interval type
 export type HLInterval = WsMarketInterval;
 
-/** @deprecated Use `WS_MARKET_INTERVALS` from `@0xsignal/shared` instead. */
-const HL_INTERVALS: readonly HLInterval[] = WS_MARKET_INTERVALS;
-
 export const mapToHLInterval = (interval: string): HLInterval =>
-  HL_INTERVALS.find((v) => v === interval) ?? "1h";
+  WS_MARKET_INTERVALS.find((v) => v === interval) ?? "1h";
 
 export const getIntervalMs = (interval: string): number => {
   const value = parseInt(interval);
@@ -20,12 +17,6 @@ export const getIntervalMs = (interval: string): number => {
   };
   return value * (mult[unit] || 3_600_000);
 };
-
-export function toFiniteNumber(value: unknown): number | null {
-  const parsed =
-    typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
-  return Number.isFinite(parsed) ? parsed : null;
-}
 
 /**
  * Produces a stable string key for an orderbook price level.
@@ -61,17 +52,23 @@ export function processRawL2Levels(
   rawAsks: L2BookLevel[],
   maxDepth = 20,
 ): OrderbookData {
-  // HL WS delivers levels sorted: bids descending, asks ascending — no sort needed.
-  const bids = rawBids.slice(0, maxDepth).map((l) => ({
-    price: parseFloat(l.px),
-    size: parseFloat(l.sz),
-    total: 0,
-  }));
-  const asks = rawAsks.slice(0, maxDepth).map((l) => ({
-    price: parseFloat(l.px),
-    size: parseFloat(l.sz),
-    total: 0,
-  }));
+  // Pre-convert string px/sz to numbers ONCE (O(N)) so the sort comparator
+  // and map use direct number comparison — avoiding O(N log N) parseFloat calls.
+  const asNumbers = (levels: L2BookLevel[]) =>
+    levels.map((l) => ({ price: parseFloat(l.px), size: parseFloat(l.sz) }));
+
+  // Sort: bids descending by price, asks ascending by price.
+  // Map.values() iterates in insertion order (not price order) after delta
+  // application, so we must sort before slicing to ensure the visible window
+  // contains the correct top-of-book levels.
+  const bids = asNumbers(rawBids)
+    .sort((a, b) => b.price - a.price)
+    .slice(0, maxDepth)
+    .map((l) => ({ ...l, total: 0 }));
+  const asks = asNumbers(rawAsks)
+    .sort((a, b) => a.price - b.price)
+    .slice(0, maxDepth)
+    .map((l) => ({ ...l, total: 0 }));
 
   let bidTotal = 0;
   for (let i = 0; i < bids.length; i++) {

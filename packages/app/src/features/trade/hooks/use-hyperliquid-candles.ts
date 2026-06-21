@@ -5,6 +5,7 @@ import { useHyperliquidWs } from "./use-hyperliquid-ws";
 import { useCandleHistory, fetchByRange } from "./use-candle-history";
 import { normalizeSymbol } from "../lib/symbol";
 import { mapToHLInterval, getIntervalMs, type HLInterval } from "@/core/utils/hyperliquid";
+import { useMarketDataStore, useCandleData } from "@/stores/use-market-data-store";
 
 interface UseHyperliquidCandlesOptions {
   symbol: string;
@@ -22,16 +23,11 @@ export function useHyperliquidCandles({
   limit = 200,
   enabled = true,
 }: UseHyperliquidCandlesOptions) {
-  const [data, setData] = useState<ChartDataPoint[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
 
-  const dataRef = useRef<ChartDataPoint[]>([]);
-  const bufferRef = useRef<ChartDataPoint[]>([]);
-  const rafRef = useRef<number | null>(null);
-  const lastUpdateRef = useRef<number>(performance.now());
   const isFetchingRef = useRef(false);
   const hasMoreRef = useRef(true);
   const lastLoadMoreTimeRef = useRef<number>(0);
@@ -46,6 +42,14 @@ export function useHyperliquidCandles({
   useEffect(() => {
     hasMoreRef.current = hasMore;
   }, [hasMore]);
+
+  // ── Read from store ───────────────────────────────────────────────
+  const candleKey = `${normalizeSymbol(symbol)}:${interval}`;
+  const storedCandles = useCandleData(candleKey);
+  const setCandleData = useMarketDataStore((s) => s.setCandleData);
+  const appendCandles = useMarketDataStore((s) => s.appendCandles);
+
+  // ── Historical data via React Query ───────────────────────────────
 
   const historical = useCandleHistory(symbol, interval, limit, enabled);
   const { data: historyData, isLoading: historyLoading, error: historyError } = historical;
@@ -66,17 +70,17 @@ export function useHyperliquidCandles({
 
     if (historyData) {
       const normalized = normalizeChartDataPoints(historyData);
-      dataRef.current = normalized;
-      setData(normalized);
+      setCandleData(candleKey, normalized);
     } else {
-      dataRef.current = [];
-      setData([]);
+      setCandleData(candleKey, []);
     }
 
     if (identityChanged) {
       setHasMore(true);
     }
-  }, [historyData, symbol, interval]);
+  }, [historyData, symbol, interval, candleKey, setCandleData]);
+
+  // ── WS subscription ───────────────────────────────────────────────
 
   const hlInterval = useMemo(() => mapToHLInterval(interval), [interval]);
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
@@ -89,58 +93,37 @@ export function useHyperliquidCandles({
     [enabled, coin, hlInterval],
   );
 
-  // RAF-throttled buffer flush — O(n) merge of sorted arrays at max 60fps.
-  const scheduleUpdate = useCallback(() => {
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null;
-      const now = performance.now();
-      if (now - lastUpdateRef.current < 16) return;
+  const handleMessage = useCallback(
+    (
+      rawData: unknown,
+      channel: string,
+      meta?: { nSigFigs?: number; interval?: string; coin?: string },
+    ) => {
+      if (channel !== "candle") return;
+      if (meta?.interval !== undefined && meta.interval !== hlInterval) return;
+      if (meta?.coin !== undefined && meta.coin !== currentCoinRef.current) return;
 
-      const buffer = bufferRef.current;
-      if (buffer.length === 0) return;
-      bufferRef.current = [];
-
-      const existing = dataRef.current;
-      const result: ChartDataPoint[] = [];
-      let i = 0; // index in existing
-      let j = 0; // index in buffer
-
-      // Both arrays are sorted by time ascending — O(n) merge
-      while (i < existing.length && j < buffer.length) {
-        if (existing[i].time < buffer[j].time) {
-          result.push(existing[i]);
-          i++;
-        } else if (existing[i].time > buffer[j].time) {
-          result.push(buffer[j]);
-          j++;
-        } else {
-          // Same timestamp — buffer wins (most recent data)
-          result.push(buffer[j]);
-          i++;
-          j++;
-        }
+      // WS decoder returns ChartDataPoint[] shape
+      const converted = rawData as ChartDataPoint[];
+      if (converted.length > 0) {
+        appendCandles(candleKey, converted);
       }
-      // Append remaining (skip duplicates against last result entry)
-      const lastTime = () => result[result.length - 1]?.time;
-      while (i < existing.length && existing[i].time !== lastTime()) result.push(existing[i++]);
-      while (j < buffer.length && buffer[j].time !== lastTime()) result.push(buffer[j++]);
+    },
+    [hlInterval, candleKey, appendCandles],
+  );
 
-      dataRef.current = result;
-      setData(result);
-      lastUpdateRef.current = now;
-    });
-  }, []);
+  const handleConnectionChange = useCallback((c: boolean) => setIsConnected(c), []);
+  const handleError = useCallback((e: Error) => setError(e), []);
 
-  useEffect(() => {
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (fetchIndicatorTimerRef.current) {
-        clearTimeout(fetchIndicatorTimerRef.current);
-        fetchIndicatorTimerRef.current = null;
-      }
-    };
-  }, []);
+  useHyperliquidWs({
+    subscription,
+    onMessage: handleMessage,
+    enabled: enabled && !!symbol,
+    onConnectionChange: handleConnectionChange,
+    onError: handleError,
+  });
+
+  // ── Load more ──────────────────────────────────────────────────────
 
   const setFetchingWithMinimumDuration = useCallback((next: boolean) => {
     if (next) {
@@ -169,44 +152,12 @@ export function useHyperliquidCandles({
     }, remaining);
   }, []);
 
-  const handleMessage = useCallback(
-    (
-      rawData: unknown,
-      channel: string,
-      meta?: { nSigFigs?: number; interval?: string; coin?: string },
-    ) => {
-      if (channel !== "candle") return;
-      if (meta?.interval !== undefined && meta.interval !== hlInterval) return;
-      // Symbol guard: reject candle data for a different coin
-      if (meta?.coin !== undefined && meta.coin !== currentCoinRef.current) return;
-
-      // safe: WS decoder returns ChartDataPoint[] shape
-      const converted = rawData as ChartDataPoint[];
-      if (converted.length > 0) {
-        bufferRef.current.push(...converted);
-        scheduleUpdate();
-      }
-    },
-    [hlInterval, scheduleUpdate],
-  );
-
-  const handleConnectionChange = useCallback((c: boolean) => setIsConnected(c), []);
-  const handleError = useCallback((e: Error) => setError(e), []);
-
-  useHyperliquidWs({
-    subscription,
-    onMessage: handleMessage,
-    enabled: enabled && !!symbol,
-    onConnectionChange: handleConnectionChange,
-    onError: handleError,
-  });
-
   const loadMore = useCallback(
     async (count: number = 200) => {
       if (isFetchingRef.current || !hasMoreRef.current) return;
       if (Date.now() - lastLoadMoreTimeRef.current < LOAD_MORE_COOLDOWN) return;
 
-      const currentData = dataRef.current;
+      const currentData = storedCandles ?? [];
       if (currentData.length === 0) return;
 
       const targetSymbol = symbolRef.current;
@@ -233,12 +184,12 @@ export function useHyperliquidCandles({
           return;
         }
 
-        const existing = new Set(dataRef.current.map((d) => d.time));
+        const existing = new Set(currentData.map((d) => d.time));
         const filtered = older.filter((d) => !existing.has(d.time));
 
         if (filtered.length === 0) {
           const earliestFetchedTime = older[0]?.time;
-          const currentEarliestTime = dataRef.current[0]?.time;
+          const currentEarliestTime = currentData[0]?.time;
           if (
             earliestFetchedTime === undefined ||
             currentEarliestTime === undefined ||
@@ -249,29 +200,8 @@ export function useHyperliquidCandles({
           return;
         }
 
-        // Both filtered (older) and dataRef.current are sorted by time ascending — O(n) merge
-        const merged: ChartDataPoint[] = [];
-        let i = 0;
-        let j = 0;
-        while (i < filtered.length && j < dataRef.current.length) {
-          if (filtered[i].time < dataRef.current[j].time) {
-            merged.push(filtered[i++]);
-          } else if (filtered[i].time > dataRef.current[j].time) {
-            merged.push(dataRef.current[j++]);
-          } else {
-            // filtered wins (older data is authoritative; no conflict expected)
-            merged.push(filtered[i++]);
-            j++;
-          }
-        }
-        // Append remaining (skip duplicates against last merged entry)
-        const lastMerged = () => merged[merged.length - 1]?.time;
-        while (i < filtered.length && filtered[i].time !== lastMerged()) merged.push(filtered[i++]);
-        while (j < dataRef.current.length && dataRef.current[j].time !== lastMerged())
-          merged.push(dataRef.current[j++]);
-
-        dataRef.current = merged;
-        setData(merged);
+        // Merge into store
+        appendCandles(candleKey, filtered);
       } catch (err) {
         console.error("Failed to load more:", err);
       } finally {
@@ -279,12 +209,22 @@ export function useHyperliquidCandles({
         setFetchingWithMinimumDuration(false);
       }
     },
-    [setFetchingWithMinimumDuration],
+    [storedCandles, setFetchingWithMinimumDuration, candleKey, appendCandles],
   );
 
+  // ── Cleanup ────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    return () => {
+      if (fetchIndicatorTimerRef.current) {
+        clearTimeout(fetchIndicatorTimerRef.current);
+        fetchIndicatorTimerRef.current = null;
+      }
+    };
+  }, []);
+
   return {
-    data,
-    dataRef,
+    data: storedCandles ?? [],
     isLoading: historyLoading,
     isConnected,
     error,

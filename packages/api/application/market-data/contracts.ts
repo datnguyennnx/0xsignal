@@ -1,7 +1,6 @@
 import { Context, Data, type Effect } from "effect";
-import type { Candle, CoverageResult } from "@0xsignal/shared";
+import type { Candle, CoverageResult, AggregatedMarket } from "@0xsignal/shared";
 import type { AppError } from "../errors";
-import type { AggregatedMarket } from "@0xsignal/shared";
 import type {
   CandleQuery,
   RecentCandleQuery,
@@ -35,7 +34,7 @@ export interface MarketRemoteProviderPort {
   readonly getTicker?: (symbol: string) => Effect.Effect<MarketTicker, MarketProviderError>;
   readonly getOrderBook?: (
     symbol: string,
-    depth?: number,
+    depth?: number | null,
   ) => Effect.Effect<MarketOrderBook, MarketProviderError>;
   readonly getTradeAnnotation?: (
     symbol: string,
@@ -70,7 +69,7 @@ export class MarketDataService extends Context.Service<
     readonly getTicker: (symbol: string) => Effect.Effect<MarketTicker, AppError>;
     readonly getOrderBook: (
       symbol: string,
-      depth?: number,
+      depth?: number | null,
     ) => Effect.Effect<MarketOrderBook, AppError>;
     readonly getTradeAnnotation: (symbol: string) => Effect.Effect<MarketTradeAnnotation, AppError>;
   }

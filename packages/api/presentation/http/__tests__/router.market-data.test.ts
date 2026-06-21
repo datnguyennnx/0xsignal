@@ -235,6 +235,13 @@ describe("HTTP Market Data Router", () => {
     expect(mockMarketDataService.getOrderBook).toHaveBeenCalledWith("BTC", 4);
   });
 
+  it("defaults to null nSigFigs (full precision) when no nSigFigs param", async () => {
+    const response = await runRequest("/api/orderbook?symbol=BTC");
+
+    expect(response.status).toBe(200);
+    expect(mockMarketDataService.getOrderBook).toHaveBeenCalledWith("BTC", null);
+  });
+
   it("rejects unsupported orderbook precision values", async () => {
     await expectHttpFailure(runRequest("/api/orderbook?symbol=BTC&nSigFigs=6"), {
       status: 400,

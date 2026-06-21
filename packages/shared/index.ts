@@ -65,9 +65,7 @@ export type { ApiErrorBody } from "./schemas/errors";
 export type {
   Candle,
   MarketTicker,
-  OrderBookLevel,
   OrderBook,
-  TradeAnnotation,
   MarketTypeCategory,
   AggregatedMarket,
   CoverageWindow,

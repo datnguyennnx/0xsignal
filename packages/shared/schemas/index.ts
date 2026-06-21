@@ -10,9 +10,7 @@ export type { ApiErrorBody } from "./errors";
 export type {
   Candle,
   MarketTicker,
-  OrderBookLevel,
   OrderBook,
-  TradeAnnotation,
   MarketTypeCategory,
   AggregatedMarket,
   CoverageWindow,

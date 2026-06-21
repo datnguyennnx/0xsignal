@@ -1,34 +1,56 @@
 import type { ChartDataPoint, WsMarketChannel } from "@0xsignal/shared";
 import { normalizeCandle } from "@0xsignal/shared";
 
-interface L2BookPayload {
-  levels: unknown;
-  nSigFigs?: number;
+// ── Wire Contract Types (source of truth — from backend) ───────────
+
+/** Single orderbook level as received over the wire. */
+export interface RawL2Level {
+  readonly px: string;
+  readonly sz: string;
+  readonly n: number;
 }
 
-interface MarketEnvelope {
-  type?: unknown;
-  channel?: unknown;
-  data?: unknown;
-  payload?: unknown;
-  message?: unknown;
-  nSigFigs?: unknown;
-  interval?: unknown;
-  coin?: unknown;
+/**
+ * L2 book snapshot — first message after subscribe.
+ * Shape: { type: "snapshot", levels: [[bids], [asks]] }
+ */
+export interface L2BookSnapshotPayload {
+  type: "snapshot";
+  levels: readonly [readonly RawL2Level[], readonly RawL2Level[]];
 }
 
+/**
+ * L2 book delta — subsequent messages after snapshot.
+ * Shape: { type: "delta", delta: { changedBids, changedAsks, replace } }
+ */
+export interface L2BookDeltaPayload {
+  type: "delta";
+  delta: {
+    changedBids: readonly RawL2Level[];
+    changedAsks: readonly RawL2Level[];
+    /** When true, frontend must re-fetch full REST snapshot. */
+    replace: boolean;
+  };
+}
+
+/** Decoded L2 book payload — preserves consumer contract shape. */
+export type L2BookPayload = L2BookSnapshotPayload | L2BookDeltaPayload;
+
+/** Meta fields that may accompany market stream messages. */
 export interface MarketStreamMeta {
   nSigFigs?: number;
   interval?: string;
   coin?: string;
 }
 
+// ── Internal helpers ────────────────────────────────────────────────
+
 type DecodedMessage =
   | { kind: "ignore" }
   | { kind: "control"; type: "ready" | "pong" | "reconnecting" | "error"; message?: string }
   | { kind: "market"; channel: WsMarketChannel; payload: unknown; meta?: MarketStreamMeta };
 
-const CHANNELS: WsMarketChannel[] = ["candle", "l2Book", "trades", "allMids"];
+const CHANNELS: readonly WsMarketChannel[] = ["candle", "l2Book", "trades", "allMids"];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -45,10 +67,8 @@ const parseIncomingMessage = (raw: unknown): unknown => {
   }
 };
 
-const asEnvelope = (value: unknown): MarketEnvelope | null => {
-  if (!isRecord(value)) return null;
-  return value;
-};
+const asEnvelope = (value: unknown): Record<string, unknown> | null =>
+  isRecord(value) ? value : null;
 
 const getControlType = (value: unknown): "ready" | "pong" | "reconnecting" | "error" | null => {
   const envelope = asEnvelope(value);
@@ -66,17 +86,14 @@ const getControlType = (value: unknown): "ready" | "pong" | "reconnecting" | "er
 
 const findChannel = (value: unknown): WsMarketChannel | null => {
   if (!isRecord(value)) return null;
-
   if (typeof value.channel === "string" && isMarketChannel(value.channel)) {
     return value.channel;
   }
-
   if (isRecord(value.payload)) {
     if (typeof value.payload.channel === "string" && isMarketChannel(value.payload.channel)) {
       return value.payload.channel;
     }
   }
-
   return null;
 };
 
@@ -87,57 +104,108 @@ const hasCandleShape = (value: Record<string, unknown>): boolean =>
   value.l !== undefined &&
   value.c !== undefined;
 
-const extractCandlePayload = (value: unknown): unknown => {
+const extractCandlePayload = (value: unknown): unknown[] | null => {
   if (!isRecord(value)) {
-    if (Array.isArray(value)) return value;
+    if (Array.isArray(value)) return value as unknown[];
     return null;
   }
-
-  if (Array.isArray(value.data)) return value.data;
-  if (Array.isArray(value.candles)) return value.candles;
-  if (Array.isArray(value.candle)) return value.candle;
-  if (hasCandleShape(value)) return value;
-
-  if (isRecord(value.data) && hasCandleShape(value.data)) {
-    return value.data;
-  }
-  if (isRecord(value.candle) && hasCandleShape(value.candle)) {
-    return value.candle;
-  }
-
+  if (Array.isArray(value.data)) return value.data as unknown[];
+  if (Array.isArray(value.candles)) return value.candles as unknown[];
+  if (Array.isArray(value.candle)) return value.candle as unknown[];
+  if (hasCandleShape(value)) return [value];
+  if (isRecord(value.data) && hasCandleShape(value.data)) return [value.data];
+  if (isRecord(value.candle) && hasCandleShape(value.candle)) return [value.candle];
   return null;
 };
 
-const extractOrderbookPayload = (value: unknown): L2BookPayload | null => {
-  if (!isRecord(value)) return null;
+/**
+ * Extract L2 book payload from the WS wire contract.
+ *
+ * The backend sends levels directly in the `data` envelope:
+ *   { levels: [[bids], [asks]] }
+ *
+ * Future backend versions may add typed wrappers:
+ *   snapshot: { snapshot: { levels: [[bids], [asks]] } }
+ *   delta:   { delta: { changedBids, changedAsks, replace } }
+ */
+const extractOrderbookPayload = (
+  dataField: unknown,
+  envelopeNSigFigs?: number,
+): { payload: L2BookPayload; nSigFigs?: number } | null => {
+  if (!isRecord(dataField)) return null;
 
-  const walkLevels = (node: Record<string, unknown>, depth: number): L2BookPayload | null => {
-    if (depth > 4) return null;
+  // ── Direct levels format (what the backend actually sends) ─────
+  // The backend broadcasts every L2 event as a full snapshot via:
+  //   { type: "market", channel: "l2Book", data: { levels: [[bids], [asks]] } }
+  // This check must come FIRST since there are no typed wrapper keys.
+  if (
+    Array.isArray(dataField.levels) &&
+    dataField.levels.length === 2 &&
+    Array.isArray(dataField.levels[0]) &&
+    Array.isArray(dataField.levels[1])
+  ) {
+    return {
+      payload: {
+        type: "snapshot",
+        levels: dataField.levels as unknown as readonly [
+          readonly RawL2Level[],
+          readonly RawL2Level[],
+        ],
+      },
+      nSigFigs:
+        typeof dataField.nSigFigs === "number" && Number.isFinite(dataField.nSigFigs)
+          ? dataField.nSigFigs
+          : envelopeNSigFigs,
+    };
+  }
 
-    if (Array.isArray(node.levels)) {
-      return { levels: node.levels };
+  // ── Typed snapshot path (future backend format) ───────────────
+  const snapshot = dataField.snapshot;
+  if (isRecord(snapshot)) {
+    const levels = snapshot.levels;
+    if (
+      Array.isArray(levels) &&
+      levels.length === 2 &&
+      Array.isArray(levels[0]) &&
+      Array.isArray(levels[1])
+    ) {
+      return {
+        payload: {
+          type: "snapshot",
+          levels: levels as unknown as readonly [readonly RawL2Level[], readonly RawL2Level[]],
+        },
+        nSigFigs:
+          typeof dataField.nSigFigs === "number" && Number.isFinite(dataField.nSigFigs)
+            ? dataField.nSigFigs
+            : envelopeNSigFigs,
+      };
     }
-    if (Array.isArray(node.data)) return { levels: node.data };
+  }
 
-    for (const key of ["data", "payload", "orderbook", "l2Book", "book", "result"] as const) {
-      const child = node[key];
-      if (isRecord(child) && !Array.isArray(child)) {
-        const result = walkLevels(child, depth + 1);
-        if (result) return result;
-      }
+  // ── Typed delta path (future backend format) ──────────────────
+  const delta = dataField.delta;
+  if (isRecord(delta)) {
+    const changedBids = delta.changedBids;
+    const changedAsks = delta.changedAsks;
+    if (Array.isArray(changedBids) && Array.isArray(changedAsks)) {
+      return {
+        payload: {
+          type: "delta",
+          delta: {
+            changedBids: changedBids as unknown as readonly RawL2Level[],
+            changedAsks: changedAsks as unknown as readonly RawL2Level[],
+            replace: delta.replace === true,
+          },
+        },
+        nSigFigs:
+          typeof dataField.nSigFigs === "number" && Number.isFinite(dataField.nSigFigs)
+            ? dataField.nSigFigs
+            : envelopeNSigFigs,
+      };
     }
+  }
 
-    return null;
-  };
-
-  const result = walkLevels(value, 0);
-  if (!result) return null;
-
-  const nSigFigs =
-    typeof value.nSigFigs === "number" && Number.isFinite(value.nSigFigs)
-      ? value.nSigFigs
-      : undefined;
-  return nSigFigs !== undefined ? { levels: result.levels, nSigFigs } : result;
+  return null;
 };
 
 const unwrapMarketPayload = (value: unknown): unknown => {
@@ -148,13 +216,14 @@ const unwrapMarketPayload = (value: unknown): unknown => {
   return value;
 };
 
+// ── Public API ──────────────────────────────────────────────────────
+
 export function decodeMarketWsMessage(
   raw: unknown,
   expectedChannel: WsMarketChannel,
 ): DecodedMessage {
   const parsed = parseIncomingMessage(raw);
   const controlType = getControlType(parsed);
-
   if (controlType) {
     const envelope = asEnvelope(parsed);
     const message = typeof envelope?.message === "string" ? envelope.message : undefined;
@@ -190,31 +259,28 @@ export function decodeMarketWsMessage(
             ...(envelopeCoin !== undefined && { coin: envelopeCoin }),
           }
         : undefined;
-    return {
-      kind: "market",
-      channel,
-      payload: candlePayload,
-      meta,
-    };
+    return { kind: "market", channel, payload: candlePayload, meta };
   }
 
   if (channel === "l2Book") {
-    const orderbookPayload = extractOrderbookPayload({
-      nSigFigs: envelopeNSigFigs,
-      data: rootPayload,
-    });
-    if (!orderbookPayload) return { kind: "ignore" };
-    const nSigFigs = orderbookPayload.nSigFigs ?? envelopeNSigFigs;
+    const result = extractOrderbookPayload(
+      isRecord(rootPayload) ? rootPayload : {},
+      envelopeNSigFigs,
+    );
+    if (!result) return { kind: "ignore" };
     return {
       kind: "market",
       channel,
-      payload: { levels: orderbookPayload.levels },
-      meta: nSigFigs !== undefined ? { nSigFigs } : undefined,
+      payload: result.payload,
+      meta: result.nSigFigs !== undefined ? { nSigFigs: result.nSigFigs } : undefined,
     };
   }
 
+  // trades / allMids — passthrough
   return { kind: "market", channel, payload: rootPayload };
 }
+
+// ── Payload unwrappers (trades, tickers) ────────────────────────────
 
 const unwrapTradePayload = (value: unknown): unknown => {
   if (!isRecord(value)) return value;
@@ -229,19 +295,28 @@ const unwrapTickerPayload = (value: unknown): unknown => {
 export { unwrapTradePayload, unwrapTickerPayload };
 
 export const convertToCandlePayload = (value: unknown): ChartDataPoint[] => {
-  const rawItems: unknown[] = [];
-
+  // Single-pass: no intermediate filter/map arrays. Collect raw items first,
+  // then push directly into result through normalizeCandle in one loop.
+  let rawItems: unknown[];
   if (Array.isArray(value)) {
-    rawItems.push(...value);
+    rawItems = value;
   } else if (isRecord(value)) {
-    if (Array.isArray(value.candles)) rawItems.push(...value.candles);
-    else if (Array.isArray(value.candle)) rawItems.push(...value.candle);
-    else if (Array.isArray(value.data)) rawItems.push(...value.data);
-    else rawItems.push(value);
+    if (Array.isArray(value.candles)) rawItems = value.candles;
+    else if (Array.isArray(value.candle)) rawItems = value.candle;
+    else if (Array.isArray(value.data)) rawItems = value.data;
+    else rawItems = [value];
+  } else {
+    return [];
   }
-
-  return rawItems
-    .filter(isRecord)
-    .map(normalizeCandle)
-    .filter((p): p is ChartDataPoint => p !== null);
+  const result: ChartDataPoint[] = [];
+  for (let i = 0; i < rawItems.length; i++) {
+    const item = rawItems[i];
+    if (isRecord(item)) {
+      const candle = normalizeCandle(item);
+      if (candle !== null) {
+        result.push(candle);
+      }
+    }
+  }
+  return result;
 };

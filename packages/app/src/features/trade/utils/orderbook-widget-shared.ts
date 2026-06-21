@@ -38,6 +38,20 @@ export function getEffectivePriceScaling(
   return scalingOptions.length > 0 ? scalingOptions[0].value : 0;
 }
 
+/**
+ * Resolve the effective nSigFigs from the user's selection or the default option.
+ * The `value` field of TickSizeOption now stores the nSigFigs value (2-5, or 0 for raw).
+ */
+export function getEffectiveNSigFigs(
+  userPriceScaling: PriceScalingState | null,
+  symbol: string,
+  scalingOptions: ScalingOptionLike[],
+): number | null {
+  const raw = getEffectivePriceScaling(userPriceScaling, symbol, scalingOptions);
+  if (raw === 0) return null; // Raw / no aggregation
+  return raw;
+}
+
 // Module-level depth style cache to avoid object allocation per row per tick
 const depthStyleCache = new Map<string, CSSProperties>();
 

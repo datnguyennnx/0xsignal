@@ -34,6 +34,20 @@ export const formatPriceWithScaling = (price: number, scaling: number): string =
   });
 };
 
+/**
+ * Format a price that has been rounded to N significant figures.
+ * Determines the appropriate number of decimal places based on the
+ * price magnitude and the nSigFigs value.
+ */
+export const formatPriceWithNSigFigs = (price: number, n: number): string => {
+  if (price <= 0 || n <= 0) return price.toLocaleString("en-US", { maximumFractionDigits: 6 });
+  const decimals = Math.max(0, n - Math.floor(Math.log10(Math.abs(price))) - 1);
+  return price.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+};
+
 export const formatCompactUsd = (value: number): string => {
   if (!Number.isFinite(value)) return "-";
   return new Intl.NumberFormat("en-US", {

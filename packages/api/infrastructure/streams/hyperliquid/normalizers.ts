@@ -1,3 +1,10 @@
+/**
+ * Normalization functions for upstream Hyperliquid WebSocket events.
+ *
+ * Optimized to reduce per-message object allocation and redundant walks
+ * by short-circuiting common payload shapes.
+ */
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
@@ -24,6 +31,7 @@ const extractOrderbookLevels = (value: unknown): unknown[] | null => {
     return null;
   }
 
+  // Fast paths for known shapes
   if (Array.isArray(value.levels)) {
     return value.levels;
   }

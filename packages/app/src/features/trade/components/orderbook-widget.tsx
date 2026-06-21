@@ -5,7 +5,6 @@ import {
   useEffect,
   useRef,
   useMemo,
-  startTransition,
   type MouseEvent,
   type FocusEvent,
 } from "react";
@@ -16,7 +15,7 @@ import {
   type TickSizeOption,
 } from "@/features/trade/hooks/use-hyperliquid-orderbook";
 import {
-  getEffectivePriceScaling,
+  getEffectiveNSigFigs,
   shouldApplyInitialPrecisionSync,
   getDepthStyle,
   type PriceScalingState,
@@ -26,7 +25,7 @@ import { useTradeUIStore } from "@/stores/use-trade-ui-store";
 import { parseSymbol } from "@0xsignal/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { formatPriceWithScaling, formatSize } from "@/core/utils/formatters";
+import { formatPriceWithNSigFigs, formatSize } from "@/core/utils/formatters";
 import {
   type PopupData,
   formatLevel,
@@ -39,22 +38,20 @@ interface OrderbookWidgetProps {
   symbol: string;
 }
 
-const PRECISION_RESUBSCRIBE_DEBOUNCE_MS = 160;
-
 const OrderbookToolbar = memo(
   ({
     symbol,
     coinOptions,
     onSymbolChange,
-    priceScaling,
-    onPriceScalingChange,
+    currentNSigFigs,
+    onNSigFigsChange,
     scalingOptions,
   }: {
     symbol: string;
     coinOptions: Array<{ value: string; label: string }>;
     onSymbolChange: (s: string) => void;
-    priceScaling: number;
-    onPriceScalingChange: (s: number) => void;
+    currentNSigFigs: number | null;
+    onNSigFigsChange: (s: number) => void;
     scalingOptions: TickSizeOption[];
   }) => (
     <div className="flex items-center justify-between gap-[clamp(0.375rem,0.6vw,0.625rem)] shrink-0">
@@ -75,8 +72,8 @@ const OrderbookToolbar = memo(
       <NativeSelect
         size="sm"
         aria-label="Price precision"
-        value={priceScaling.toString()}
-        onChange={(e) => onPriceScalingChange(Number(e.target.value))}
+        value={String(currentNSigFigs ?? 0)}
+        onChange={(e) => onNSigFigsChange(Number(e.target.value))}
         wrapperClassName="min-w-fit"
         className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
       >
@@ -88,7 +85,7 @@ const OrderbookToolbar = memo(
       </NativeSelect>
     </div>
   ),
-  (prev, next) => prev.symbol === next.symbol && prev.priceScaling === next.priceScaling,
+  (prev, next) => prev.symbol === next.symbol && prev.currentNSigFigs === next.currentNSigFigs,
 );
 
 interface OrderRowProps {
@@ -99,28 +96,22 @@ interface OrderRowProps {
   isInRange: boolean;
   onHover: (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => void;
   maxTotal: number;
-  priceScaling: number;
+  nSigFigs: number;
 }
 
 const OrderRow = memo(
-  ({
-    level,
-    side,
-    index,
-    isHovered,
-    isInRange,
-    onHover,
-    maxTotal,
-    priceScaling,
-  }: OrderRowProps) => {
-    const formatted = useMemo(() => formatLevel(level, priceScaling), [level, priceScaling]);
+  ({ level, side, index, isHovered, isInRange, onHover, maxTotal, nSigFigs }: OrderRowProps) => {
+    // formatLevel uses module-level cache — stable output for same price+nSigFigs
+    const formatted = useMemo(() => formatLevel(level, nSigFigs), [level, nSigFigs]);
 
-    const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
-    // Round to 1 decimal to avoid false cache busts from floating point drift
-    const stableDepthPercent = Math.round(depthPercent * 10) / 10;
+    // Depth bar — stabilised to prevent jitter from float drift
+    const depthStyle = useMemo(() => {
+      const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
+      const stable = Math.round(depthPercent * 10) / 10;
+      return getDepthStyle(stable, side);
+    }, [level.total, maxTotal, side]);
 
-    const depthStyle = getDepthStyle(stableDepthPercent, side);
-
+    // Stable event handlers — created once, never recreated per row
     const handleMouseEnter = useCallback(
       (e: MouseEvent<HTMLDivElement> | FocusEvent<HTMLDivElement>) => {
         const dataset = e.currentTarget.dataset;
@@ -141,6 +132,11 @@ const OrderRow = memo(
 
     const handleMouseLeave = useCallback(() => onHover(null, null), [onHover]);
 
+    const rowAriaLabel =
+      level.price > 0
+        ? `${side} level, price ${formatted.formattedPrice}, size ${formatted.formattedSize}, total ${formatted.formattedTotal}`
+        : undefined;
+
     return (
       <div
         data-price={level.price}
@@ -157,11 +153,7 @@ const OrderRow = memo(
         }`}
         style={ROW_STYLE}
         tabIndex={level.price > 0 ? 0 : -1}
-        aria-label={
-          level.price > 0
-            ? `${side} level, price ${formatted.formattedPrice}, size ${formatted.formattedSize}, total ${formatted.formattedTotal}`
-            : undefined
-        }
+        aria-label={rowAriaLabel}
         aria-describedby={level.price > 0 && isHovered ? "orderbook-depth-details" : undefined}
       >
         {isInRange && (
@@ -180,7 +172,7 @@ const OrderRow = memo(
           />
         )}
         <span
-          className={`relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-medium ${
+          className={`relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono font-medium ${
             level.price === 0
               ? "text-muted-foreground/30"
               : side === "bid"
@@ -191,14 +183,14 @@ const OrderRow = memo(
           {formatted.formattedPrice}
         </span>
         <span
-          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
+          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono ${
             level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground"
           }`}
         >
           {formatted.formattedSize}
         </span>
         <span
-          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] ${
+          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono ${
             level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
           }`}
         >
@@ -214,7 +206,8 @@ const OrderRow = memo(
     prev.side === next.side &&
     prev.isHovered === next.isHovered &&
     prev.isInRange === next.isInRange &&
-    prev.priceScaling === next.priceScaling,
+    prev.nSigFigs === next.nSigFigs &&
+    prev.maxTotal === next.maxTotal,
 );
 
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
@@ -234,17 +227,11 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     ];
   }, [symbol]);
 
-  const orderbookHookOptions = useMemo(
-    () => ({
-      controlledNSigFigs: nSigFigs,
-      adaptiveNSigFigs: false as const,
-    }),
-    [nSigFigs],
-  );
+  const orderbookHookOptions = useMemo(() => ({ controlledNSigFigs: nSigFigs }), [nSigFigs]);
 
   const { orderbook } = useHyperliquidOrderbook(symbol, true, orderbookHookOptions);
 
-  const [userPriceScaling, setUserPriceScaling] = useState<PriceScalingState | null>(null);
+  const [selectedNSigFigs, setSelectedNSigFigs] = useState<PriceScalingState | null>(null);
   const [hoverTarget, setHoverTarget] = useState<{
     side: "bid" | "ask";
     price: number;
@@ -262,16 +249,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const widgetRef = useRef<HTMLDivElement>(null);
   const initialSyncedSymbolsRef = useRef<Set<string>>(new Set());
   const userInteractedSymbolsRef = useRef<Set<string>>(new Set());
-  const precisionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (precisionTimerRef.current) {
-        clearTimeout(precisionTimerRef.current);
-        precisionTimerRef.current = null;
-      }
-    };
-  }, []);
 
   // Debounced popup position via rAF to avoid synchronous layout thrashing
   const popupRafRef = useRef(0);
@@ -328,20 +305,18 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   const scalingOptions = useMemo(() => generateTickSizeOptions(bestPrice), [bestPrice]);
 
-  const effectivePriceScaling = useMemo(
-    () => getEffectivePriceScaling(userPriceScaling, symbol, scalingOptions),
-    [userPriceScaling, symbol, scalingOptions],
+  const effectiveNSigFigs = useMemo(
+    () => getEffectiveNSigFigs(selectedNSigFigs, symbol, scalingOptions),
+    [selectedNSigFigs, symbol, scalingOptions],
   );
 
   useEffect(() => {
-    if (!orderbook || scalingOptions.length === 0) {
-      return;
-    }
+    if (!orderbook || scalingOptions.length === 0) return;
 
     if (
       !shouldApplyInitialPrecisionSync({
         symbol,
-        userPriceScaling,
+        userPriceScaling: selectedNSigFigs,
         hasSyncedForSymbol: initialSyncedSymbolsRef.current.has(symbol),
         userInteracted: userInteractedSymbolsRef.current.has(symbol),
       })
@@ -352,31 +327,24 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     const first = scalingOptions[0];
     setNSigFigs(first.nSigFigs ?? 5);
     initialSyncedSymbolsRef.current.add(symbol);
-  }, [orderbook, scalingOptions, symbol, userPriceScaling, setNSigFigs]);
+  }, [orderbook, scalingOptions, symbol, selectedNSigFigs, setNSigFigs]);
 
-  const handlePriceScalingChange = useCallback(
-    (newScale: number) => {
-      const opt = scalingOptions.find((o) => o.value === newScale);
-      const nextSig = opt?.nSigFigs ?? 5;
+  const handleNSigFigsChange = useCallback(
+    (newValue: number) => {
+      const opt = scalingOptions.find((o) => o.value === newValue);
+      const nextSig = opt?.nSigFigs ?? null;
 
-      startTransition(() => {
-        setUserPriceScaling({ symbol, value: newScale });
-      });
-
+      setSelectedNSigFigs({ symbol, value: newValue });
       userInteractedSymbolsRef.current.add(symbol);
-
-      if (precisionTimerRef.current) {
-        clearTimeout(precisionTimerRef.current);
-      }
-
-      precisionTimerRef.current = setTimeout(() => {
-        setNSigFigs(nextSig);
-        precisionTimerRef.current = null;
-      }, PRECISION_RESUBSCRIBE_DEBOUNCE_MS);
+      setNSigFigs(nextSig);
     },
     [scalingOptions, symbol, setNSigFigs],
   );
 
+  // nSigFigs controls price display precision, not level grouping.
+  // Levels arrive pre-aggregated from the server (Hyperliquid's own
+  // nSigFigs grouping over the full deep orderbook). No client-side
+  // aggregation needed — just slice to the visible window.
   const { visibleAsks, visibleBids, maxTotal } = useMemo(() => {
     if (!orderbook)
       return {
@@ -394,13 +362,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     let maxTotal = 0;
     for (let i = 0; i < convAsks.length; i++) maxTotal = Math.max(maxTotal, convAsks[i].total);
     for (let i = 0; i < convBids.length; i++) maxTotal = Math.max(maxTotal, convBids[i].total);
-    maxTotal = Math.round(maxTotal * 100) / 100; // stabilize depth bars
+    maxTotal = Math.round(maxTotal * 100) / 100;
 
-    return {
-      visibleAsks: convAsks,
-      visibleBids: convBids,
-      maxTotal,
-    };
+    return { visibleAsks: convAsks, visibleBids: convBids, maxTotal };
   }, [orderbook, pairFocus]);
 
   const { spread, spreadPercent } = useMemo(() => {
@@ -409,9 +373,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     }
     const bestAsk = orderbook.asks[0]?.price || 0;
     const bestBid = orderbook.bids[0]?.price || 0;
-    const s = bestAsk - bestBid;
-    const sp = bestBid > 0 ? (s / bestBid) * 100 : 0;
-    return { spread: s, spreadPercent: sp };
+    const spread = bestAsk - bestBid;
+    const spreadPercent = bestBid > 0 ? (spread / bestBid) * 100 : 0;
+    return { spread, spreadPercent };
   }, [orderbook]);
 
   const popupData = useMemo((): PopupData | null => {
@@ -444,7 +408,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         setHoveredIndex(null);
         return;
       }
-
       schedulePopupPosition(rowElement, data.side, data.price, data.size, data.total, index);
     },
     [schedulePopupPosition],
@@ -479,19 +442,19 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         symbol={pairFocus}
         coinOptions={pairOptions}
         onSymbolChange={setPairFocus}
-        priceScaling={effectivePriceScaling}
-        onPriceScalingChange={handlePriceScalingChange}
+        currentNSigFigs={effectiveNSigFigs}
+        onNSigFigsChange={handleNSigFigsChange}
         scalingOptions={scalingOptions}
       />
 
-      <div className="flex items-center text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] uppercase text-muted-foreground shrink-0">
+      <div className="flex items-center text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono uppercase text-muted-foreground shrink-0">
         <span className="flex-1">Price</span>
         <span className="flex-1 text-right">{pairFocus === "quote" ? "Value" : "Size"}</span>
         <span className="flex-1 text-right">{pairFocus === "quote" ? "Total Val" : "Total"}</span>
       </div>
 
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col-reverse">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse">
           {visibleAsks.map((level, index) => (
             <OrderRow
               key={priceKey("ask", level.price)}
@@ -502,7 +465,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
               isInRange={isRowInHighlightRange("ask", index)}
               onHover={handleHover}
               maxTotal={maxTotal}
-              priceScaling={effectivePriceScaling}
+              nSigFigs={effectiveNSigFigs ?? 5}
             />
           ))}
         </div>
@@ -511,15 +474,15 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
           <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-medium text-muted-foreground">
             Spread
           </span>
-          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] text-muted-foreground">
-            {formatPriceWithScaling(spread, effectivePriceScaling)}
+          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground">
+            {formatPriceWithNSigFigs(spread, effectiveNSigFigs ?? 5)}
           </span>
-          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] text-muted-foreground">
+          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground">
             {spreadPercent.toFixed(3)}%
           </span>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col relative">
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col relative">
           {visibleBids.map((level, index) => (
             <OrderRow
               key={priceKey("bid", level.price)}
@@ -530,7 +493,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
               isInRange={isRowInHighlightRange("bid", index)}
               onHover={handleHover}
               maxTotal={maxTotal}
-              priceScaling={effectivePriceScaling}
+              nSigFigs={effectiveNSigFigs ?? 5}
             />
           ))}
         </div>
@@ -558,21 +521,21 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">Price</span>
-                <span className="text-base font-medium">
-                  {formatPriceWithScaling(popupData.price, effectivePriceScaling)}
+                <span className="text-base font-mono font-medium">
+                  {formatPriceWithNSigFigs(popupData.price, effectiveNSigFigs ?? 5)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">
                   {pairFocus === "quote" ? "Value" : "Size"}
                 </span>
-                <span className="text-sm">{formatSize(popupData.size)}</span>
+                <span className="text-sm font-mono">{formatSize(popupData.size)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">
                   {pairFocus === "quote" ? "Total Val" : "Total"}
                 </span>
-                <span className="text-sm font-medium">{formatSize(popupData.total)}</span>
+                <span className="text-sm font-mono font-medium">{formatSize(popupData.total)}</span>
               </div>
               {popupData.cumulativeSize && popupData.cumulativeSize > popupData.size && (
                 <>
@@ -581,15 +544,17 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-xs text-muted-foreground">Avg Price</span>
-                    <span className="text-sm font-medium">
+                    <span className="text-sm font-mono font-medium">
                       {popupData.avgPrice
-                        ? formatPriceWithScaling(popupData.avgPrice, effectivePriceScaling)
+                        ? formatPriceWithNSigFigs(popupData.avgPrice, effectiveNSigFigs ?? 5)
                         : "-"}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-xs text-muted-foreground">Total Size</span>
-                    <span className="text-sm">{formatSize(popupData.cumulativeSize)}</span>
+                    <span className="text-sm font-mono">
+                      {formatSize(popupData.cumulativeSize)}
+                    </span>
                   </div>
                 </>
               )}

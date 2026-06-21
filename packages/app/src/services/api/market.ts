@@ -73,7 +73,7 @@ export function getTicker(symbol: string) {
   );
 }
 
-export function getOrderbook(symbol: string, depth?: 2 | 3 | 4 | 5): Promise<OrderBook> {
+export function getOrderbook(symbol: string, depth?: number): Promise<OrderBook> {
   const query = new URLSearchParams({ symbol: normalizeSymbol(symbol) });
   if (depth !== undefined) query.set("depth", String(depth));
   return fetchJson<OrderBook>(`${API_BASE}/orderbook?${query.toString()}`);
@@ -115,7 +115,7 @@ export async function getMarketPrice(symbol: string): Promise<MarketPrice> {
       typeof ticker.symbol === "string" && ticker.symbol.trim().length > 0
         ? ticker.symbol
         : normalizedSymbol;
-  } catch (err) {
+  } catch {
     // Logged
   }
 
