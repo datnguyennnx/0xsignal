@@ -89,7 +89,7 @@ export type TickerPayload = {
 
 export type OrderBookPayload = {
   readonly symbol: string;
-  readonly nSigFigs?: 2 | 3 | 4 | 5;
+  readonly nSigFigs?: 2 | 3 | 4 | 5 | null;
   readonly orderbook: L2BookResponse;
 };
 
@@ -116,7 +116,7 @@ export class HyperliquidProvider extends Context.Service<
     readonly getTicker: (symbol: string) => Effect.Effect<TickerPayload, HyperliquidError>;
     readonly getOrderBook: (
       symbol: string,
-      depth?: number,
+      depth?: number | null,
     ) => Effect.Effect<OrderBookPayload, HyperliquidError>;
     readonly getTradeAnnotation: (
       symbol: string,
@@ -134,7 +134,7 @@ export class HyperliquidProvider extends Context.Service<
 export type HyperliquidInfoClient = {
   readonly metaAndAssetCtxs: (params?: { dex?: string }) => Promise<[unknown, unknown]>;
   readonly allMids: () => Promise<Record<string, string>>;
-  readonly perpCategories?: () => Promise<unknown>;
+  readonly perpCategories?: () => Promise<Array<[string, string]>>;
   readonly perpDexs?: () => Promise<Array<null | { name: string }>>;
   readonly spotMeta?: () => Promise<unknown>;
   readonly spotMetaAndAssetCtxs?: () => Promise<unknown>;

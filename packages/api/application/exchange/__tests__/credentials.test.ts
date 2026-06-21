@@ -15,7 +15,6 @@ import {
   ExchangeService,
   ExchangeAccountRepo,
   ExchangeCredentialRepo,
-  HyperliquidClient,
   exchangeServiceLayer,
   AccountNotFound,
   CredentialNotFound,
@@ -899,7 +898,7 @@ describe("Expired credential — decrypt never called", () => {
   });
 
   it("blocks expired credential before decrypt is invoked", async () => {
-    let decryptWouldHaveBeenCalled = false;
+    const decryptWouldHaveBeenCalled = false;
 
     const result = await Effect.runPromise(
       Effect.gen(function* () {
@@ -913,7 +912,6 @@ describe("Expired credential — decrypt never called", () => {
               {
                 getDecryptedAgent: vi.fn().mockImplementation((id: string) => {
                   return Effect.fail(new CredentialExpired({ credentialId: id }));
-                  decryptWouldHaveBeenCalled = true;
                 }),
               },
             ),

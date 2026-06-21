@@ -34,7 +34,6 @@ export default [
       ...reactHooks.configs.recommended.rules,
       "react-compiler/react-compiler": "error",
       "@effect/no-import-from-barrel-package": "error",
-      "@effect/dprint": "off", // Optional: based on project preference
       "react-refresh/only-export-components": [
         "warn",
         {
@@ -43,20 +42,17 @@ export default [
             "badgeVariants",
             "buttonVariants",
             "toggleVariants",
-            "useTheme",
             "useHoverState",
             "useHoverActions",
             "useCandleData",
-            "useOptionalL2BookNSigFigs",
             "resolveApiBase",
             "createMarketStreamWsUrl",
             "buildMarketStreamSearchParams",
-            "useMarketStreamClient",
           ],
         },
       ],
-      "react-hooks/exhaustive-deps": "warn",
-      "@typescript-eslint/no-explicit-any": "warn",
+      // 'any' is used in auth infra and test mocks; tracked separately.
+      "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/no-empty-object-type": "off",
     },

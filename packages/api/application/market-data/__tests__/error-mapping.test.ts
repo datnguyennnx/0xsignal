@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { MarketProviderError } from "../contracts";
-import { ValidationError, NotFoundError, InternalError } from "../../errors";
 
 import { mapMarketInfraError } from "../error-mapping";
 

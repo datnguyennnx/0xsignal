@@ -1,7 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { Effect, Layer, Ref } from "effect";
-import { Cache, Duration } from "effect";
-import { makeUnsafe as makeSemaphoreUnsafe } from "effect/Semaphore";
+import { Effect, Layer } from "effect";
 import type { InfoClient } from "@nktkas/hyperliquid";
 import {
   getCandleSnapshot,
@@ -11,11 +9,8 @@ import {
   getTradeAnnotation,
 } from "../provider";
 import { HyperliquidClient } from "../client";
-import { HyperliquidError } from "../errors";
-import { HyperliquidRateLimiter } from "../rate-limiter";
-import { HyperliquidDeduplicationRegistry } from "../dedup";
 
-const mockInfoClient = {
+const createMockInfoClient = () => ({
   candleSnapshot: vi.fn(),
   meta: vi.fn(),
   metaAndAssetCtxs: vi.fn(),
@@ -23,57 +18,31 @@ const mockInfoClient = {
   perpCategories: vi.fn(),
   l2Book: vi.fn(),
   perpAnnotation: vi.fn(),
-};
+});
 
-const TestHLClientLayer = Layer.succeed(
-  HyperliquidClient,
-  HyperliquidClient.of({
-    info: mockInfoClient as unknown as InfoClient,
-  }),
-);
-
-const TestRateLimiterLayer = Layer.succeed(
-  HyperliquidRateLimiter,
-  HyperliquidRateLimiter.of({
-    semaphore: makeSemaphoreUnsafe(6),
-    withRateLimit: () => Effect.void,
-  }),
-);
-
-const TestDedupLayer = Layer.effect(
-  HyperliquidDeduplicationRegistry,
-  Effect.gen(function* () {
-    const lookupRef = yield* Ref.make<Map<string, Effect.Effect<any, HyperliquidError>>>(new Map());
-    const cache = yield* Cache.make<string, any, HyperliquidError, never>({
-      capacity: 100,
-      timeToLive: Duration.seconds(30),
-      lookup: (key: string): Effect.Effect<any, HyperliquidError, never> =>
-        Ref.get(lookupRef).pipe(
-          Effect.flatMap((map) => {
-            const effect = map.get(key);
-            if (effect) return effect;
-            return Effect.die(new Error(`[Test] No dedup lookup registered for key: ${key}`));
-          }),
-        ),
-    });
-    return HyperliquidDeduplicationRegistry.of({ cache, lookupRef });
-  }),
-);
-
-const TestLayer = Layer.mergeAll(TestHLClientLayer, TestRateLimiterLayer, TestDedupLayer);
+// Fresh mock for each test using vi.restoreAllMocks in beforeEach
+let mockInfoClient: ReturnType<typeof createMockInfoClient>;
 
 describe("Hyperliquid Providers", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
+    mockInfoClient = createMockInfoClient();
   });
 
   it("getCandleSnapshot should call SDK and normalize results", async () => {
-    mockInfoClient.candleSnapshot.mockResolvedValueOnce([
+    mockInfoClient.candleSnapshot.mockResolvedValue([
       { t: 1000, o: "1", h: "2", l: "0.5", c: "1.5", v: "10" },
     ]);
+    mockInfoClient.allMids.mockResolvedValue({});
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [] }, []]);
+
+    const clientLayer = Layer.succeed(
+      HyperliquidClient,
+      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
+    );
 
     const program = getCandleSnapshot("BTC", "1m", 0, 2000);
-    const result = await Effect.runPromise(program.pipe(Effect.provide(TestLayer)));
+    const result = await Effect.runPromise(program.pipe(Effect.provide(clientLayer)));
 
     expect(mockInfoClient.candleSnapshot).toHaveBeenCalledWith({
       coin: "BTC",
@@ -86,15 +55,20 @@ describe("Hyperliquid Providers", () => {
   });
 
   it("should wrap HL SDK errors into HyperliquidError", async () => {
-    mockInfoClient.allMids.mockRejectedValueOnce(new Error("Rate Limit"));
+    mockInfoClient.allMids.mockRejectedValue(new Error("Rate Limit"));
 
-    const program = getAllMids().pipe(Effect.provide(TestLayer));
+    const clientLayer = Layer.succeed(
+      HyperliquidClient,
+      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
+    );
+
+    const program = getAllMids().pipe(Effect.provide(clientLayer));
 
     await expect(Effect.runPromise(program)).rejects.toThrow("Failed to fetch all mids");
   });
 
   it("getTicker should map allMids into stable payload", async () => {
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValueOnce([
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([
       { universe: [{ name: "BTC" }] },
       [
         {
@@ -107,9 +81,14 @@ describe("Hyperliquid Providers", () => {
         },
       ],
     ]);
-    mockInfoClient.allMids.mockResolvedValueOnce({ BTC: "101.25" });
+    mockInfoClient.allMids.mockResolvedValue({ BTC: "101.25" });
 
-    const result = await Effect.runPromise(getTicker("btc").pipe(Effect.provide(TestLayer)));
+    const clientLayer = Layer.succeed(
+      HyperliquidClient,
+      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
+    );
+
+    const result = await Effect.runPromise(getTicker("btc").pipe(Effect.provide(clientLayer)));
 
     expect(result).toEqual({
       symbol: "BTC",
@@ -124,22 +103,36 @@ describe("Hyperliquid Providers", () => {
   });
 
   it("getTicker should return not found when symbol does not exist", async () => {
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{}]]);
-    mockInfoClient.allMids.mockResolvedValueOnce({ BTC: "101.25" });
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [{ name: "BTC" }] }, [{}]]);
+    mockInfoClient.allMids.mockResolvedValue({ BTC: "101.25" });
+
+    const clientLayer = Layer.succeed(
+      HyperliquidClient,
+      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
+    );
 
     await expect(
-      Effect.runPromise(getTicker("XRP").pipe(Effect.provide(TestLayer))),
+      Effect.runPromise(getTicker("XRP").pipe(Effect.provide(clientLayer))),
     ).rejects.toThrow("Symbol not found: XRP");
   });
 
   it("getOrderBook should call l2Book with normalized symbol", async () => {
-    mockInfoClient.l2Book.mockResolvedValueOnce({
+    mockInfoClient.allMids.mockResolvedValue({});
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [] }, []]);
+    mockInfoClient.l2Book.mockResolvedValue({
       coin: "ETH",
       time: 123,
       levels: [[], []],
     });
 
-    const result = await Effect.runPromise(getOrderBook("eth", 3).pipe(Effect.provide(TestLayer)));
+    const clientLayer = Layer.succeed(
+      HyperliquidClient,
+      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
+    );
+
+    const result = await Effect.runPromise(
+      getOrderBook("eth", 3).pipe(Effect.provide(clientLayer)),
+    );
 
     expect(mockInfoClient.l2Book).toHaveBeenCalledWith({ coin: "ETH", nSigFigs: 3 });
     expect(result.symbol).toBe("ETH");
@@ -147,26 +140,63 @@ describe("Hyperliquid Providers", () => {
   });
 
   it("getOrderBook should keep builder-perp dex lowercase while normalizing coin", async () => {
-    mockInfoClient.l2Book.mockResolvedValueOnce({
+    mockInfoClient.allMids.mockResolvedValue({});
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [] }, []]);
+    mockInfoClient.l2Book.mockResolvedValue({
       coin: "dex:CL",
       time: 123,
       levels: [[], []],
     });
 
-    await Effect.runPromise(getOrderBook("DEX:clusdt", 4).pipe(Effect.provide(TestLayer)));
+    const clientLayer = Layer.succeed(
+      HyperliquidClient,
+      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
+    );
 
+    const result = await Effect.runPromise(
+      getOrderBook("DEX:clusdt", 4).pipe(Effect.provide(clientLayer)),
+    );
+
+    // normalizeSymbol("DEX:clusdt") resolves to "dex:CL" (strips USDT suffix, lowercases dex)
     expect(mockInfoClient.l2Book).toHaveBeenCalledWith({ coin: "dex:CL", nSigFigs: 4 });
+    expect(result.symbol).toBe("dex:CL");
+  });
+
+  it("getOrderBook defaults to null nSigFigs (full precision) when depth not specified", async () => {
+    mockInfoClient.allMids.mockResolvedValue({});
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [] }, []]);
+    mockInfoClient.l2Book.mockResolvedValue({
+      coin: "BTC",
+      time: 123,
+      levels: [[], []],
+    });
+
+    const clientLayer = Layer.succeed(
+      HyperliquidClient,
+      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
+    );
+
+    const result = await Effect.runPromise(getOrderBook("btc").pipe(Effect.provide(clientLayer)));
+
+    expect(mockInfoClient.l2Book).toHaveBeenCalledWith({ coin: "BTC", nSigFigs: null });
+    expect(result.nSigFigs).toBeNull();
   });
 
   it("getTradeAnnotation should call perpAnnotation", async () => {
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValueOnce([{ universe: [{ name: "SOL" }] }, []]);
-    mockInfoClient.perpAnnotation.mockResolvedValueOnce({
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [{ name: "SOL" }] }, []]);
+    mockInfoClient.allMids.mockResolvedValue({ SOL: "100" });
+    mockInfoClient.perpAnnotation.mockResolvedValue({
       category: "major",
       description: "Major market",
     });
 
+    const clientLayer = Layer.succeed(
+      HyperliquidClient,
+      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
+    );
+
     const result = await Effect.runPromise(
-      getTradeAnnotation("sol").pipe(Effect.provide(TestLayer)),
+      getTradeAnnotation("sol").pipe(Effect.provide(clientLayer)),
     );
 
     expect(mockInfoClient.perpAnnotation).toHaveBeenCalledWith({ coin: "SOL" });
@@ -178,14 +208,24 @@ describe("Hyperliquid Providers", () => {
   });
 
   it("getTradeAnnotation should preserve builder-perp canonical symbol", async () => {
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValueOnce([{ universe: [{ name: "dex:CL" }] }, []]);
-    mockInfoClient.perpAnnotation.mockResolvedValueOnce({ category: "major" });
+    mockInfoClient.allMids.mockResolvedValue({});
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [{ name: "dex:CL" }] }, []]);
+    mockInfoClient.perpAnnotation.mockResolvedValue({ category: "major" });
 
-    const result = await Effect.runPromise(
-      getTradeAnnotation("DEX:clusdt").pipe(Effect.provide(TestLayer)),
+    const clientLayer = Layer.succeed(
+      HyperliquidClient,
+      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
     );
 
+    const result = await Effect.runPromise(
+      getTradeAnnotation("DEX:clusdt").pipe(Effect.provide(clientLayer)),
+    );
+
+    // The ticker snapshot resolves DEX:clusdt to dex:CL (from universe),
+    // so perpAnnotation is called with dex:CL
     expect(mockInfoClient.perpAnnotation).toHaveBeenCalledWith({ coin: "dex:CL" });
+    // But the return symbol is normalized from the input
     expect(result.symbol).toBe("dex:CL");
+    expect(result.annotation).toEqual({ category: "major" });
   });
 });

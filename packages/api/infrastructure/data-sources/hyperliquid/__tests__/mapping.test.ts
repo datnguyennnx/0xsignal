@@ -1,10 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { Effect, Ref } from "effect";
-import { Cache, Duration } from "effect";
-import { makeUnsafe as makeSemaphoreUnsafe } from "effect/Semaphore";
-import { HyperliquidError } from "../errors";
-import { HyperliquidDeduplicationRegistry } from "../dedup";
-import { HyperliquidRateLimiter } from "../rate-limiter";
+import { Effect } from "effect";
 import { getTickerSnapshot } from "../mapping";
 import {
   mapTickerFromSnapshot,
@@ -62,35 +57,7 @@ describe("Hyperliquid Mapping", () => {
         .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
         .mockResolvedValueOnce([{ universe: [{ name: "xyz:EUR" }] }, [{ midPx: "1.1" }]]); // xyz
 
-      const semaphore = makeSemaphoreUnsafe(6);
-      const program = Effect.gen(function* () {
-        const lookupRef = yield* Ref.make<Map<string, Effect.Effect<any, HyperliquidError>>>(
-          new Map(),
-        );
-        const cache = yield* Cache.make<string, any, HyperliquidError, never>({
-          capacity: 100,
-          timeToLive: Duration.seconds(30),
-          lookup: (key: string): Effect.Effect<any, HyperliquidError, never> =>
-            Ref.get(lookupRef).pipe(
-              Effect.flatMap((map) => {
-                const effect = map.get(key);
-                if (effect) return effect;
-                return Effect.die(new Error(`[Test] No dedup lookup registered for key: ${key}`));
-              }),
-            ),
-        });
-        return getTickerSnapshot(mockInfo).pipe(
-          Effect.provideService(HyperliquidRateLimiter, {
-            semaphore,
-            withRateLimit: () => Effect.void,
-          }),
-          Effect.provideService(HyperliquidDeduplicationRegistry, {
-            cache,
-            lookupRef,
-          }),
-        );
-      }).pipe(Effect.flatten);
-      const result = await Effect.runPromise(program);
+      const result = await Effect.runPromise(getTickerSnapshot(mockInfo));
 
       expect(result.universe).toHaveLength(2);
       expect(result.universe[0].name).toBe("BTC");
@@ -104,35 +71,7 @@ describe("Hyperliquid Mapping", () => {
         .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
         .mockRejectedValueOnce(new Error("DEX Offline"));
 
-      const semaphore = makeSemaphoreUnsafe(6);
-      const program = Effect.gen(function* () {
-        const lookupRef = yield* Ref.make<Map<string, Effect.Effect<any, HyperliquidError>>>(
-          new Map(),
-        );
-        const cache = yield* Cache.make<string, any, HyperliquidError, never>({
-          capacity: 100,
-          timeToLive: Duration.seconds(30),
-          lookup: (key: string): Effect.Effect<any, HyperliquidError, never> =>
-            Ref.get(lookupRef).pipe(
-              Effect.flatMap((map) => {
-                const effect = map.get(key);
-                if (effect) return effect;
-                return Effect.die(new Error(`[Test] No dedup lookup registered for key: ${key}`));
-              }),
-            ),
-        });
-        return getTickerSnapshot(mockInfo).pipe(
-          Effect.provideService(HyperliquidRateLimiter, {
-            semaphore,
-            withRateLimit: () => Effect.void,
-          }),
-          Effect.provideService(HyperliquidDeduplicationRegistry, {
-            cache,
-            lookupRef,
-          }),
-        );
-      }).pipe(Effect.flatten);
-      const result = await Effect.runPromise(program);
+      const result = await Effect.runPromise(getTickerSnapshot(mockInfo));
 
       expect(result.universe).toHaveLength(1); // Only main DEX succeeded
       expect(result.universe[0].name).toBe("BTC");
@@ -145,7 +84,6 @@ describe("Hyperliquid Mapping", () => {
     } as any;
 
     it("should resolve with different casing and suffix", () => {
-      // PARA:BTCD-USDT should normalize to para:BTCD and match
       expect(resolveInternalSymbol(mockSnapshot, "PARA:BTCD-USDT")).toBe("para:BTCD");
     });
   });

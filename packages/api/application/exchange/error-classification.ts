@@ -25,8 +25,23 @@ const isApiRequestError = (e: unknown): e is ApiRequestError => e instanceof Api
 const isHttpOrTransportError = (e: unknown): e is HttpRequestError | TransportError =>
   e instanceof HttpRequestError || e instanceof TransportError;
 
+const getApiErrorMessage = (e: ApiRequestError): string => {
+  const msg = e.message?.toLowerCase() ?? "";
+  // SDK v0.33.0: ApiRequestError constructor is (response, message?).
+  // When message is omitted, the message is stringified response.
+  // Try to extract meaningful text from response if message is unhelpful.
+  if (msg === "" || msg === "[object object]") {
+    const resp = e.response;
+    if (resp && typeof resp === "object") {
+      const r = resp as Record<string, unknown>;
+      return String(r.response ?? r.message ?? r.error ?? r.status ?? "");
+    }
+  }
+  return msg;
+};
+
 const classifyApiError = (e: ApiRequestError) => {
-  const msg = e.message.toLowerCase();
+  const msg = getApiErrorMessage(e);
   return Match.value(true).pipe(
     Match.when(
       () => msg.includes("insufficient margin"),

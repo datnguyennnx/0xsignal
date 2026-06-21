@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { Effect } from "effect";
 import { ValiError } from "valibot";
 import { ApiRequestError } from "@nktkas/hyperliquid/api/exchange";
@@ -9,7 +9,6 @@ import {
   ExchangeService,
   InsufficientMarginError,
   HyperliquidValidationError,
-  HyperliquidInternalError,
   AccountNotFound,
 } from "./helpers";
 
@@ -73,10 +72,11 @@ describe("ExchangeService — order operations", () => {
 
     it("maps insufficient margin ApiRequestError to InsufficientMarginError", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
-      const error = new ApiRequestError({
-        status: "err",
-        response: "insufficient margin for order",
-      });
+      // SDK v0.33.0: ApiRequestError(response, message?)
+      const error = new ApiRequestError(
+        { status: "err", response: "insufficient margin for order" },
+        "insufficient margin for order",
+      );
       mockExchangeInstance.order.mockRejectedValueOnce(error);
 
       const result = await Effect.runPromise(

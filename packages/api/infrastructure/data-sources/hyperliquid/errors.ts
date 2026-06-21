@@ -1,4 +1,5 @@
 import { Data } from "effect";
+import { TransportError } from "@nktkas/hyperliquid";
 
 export class HyperliquidError extends Data.TaggedError("HyperliquidError")<{
   readonly message: string;
@@ -8,7 +9,6 @@ export class HyperliquidError extends Data.TaggedError("HyperliquidError")<{
 
 /**
  * Detect 429 rate-limit errors from raw Promise rejection causes.
- * Handles both HTTP Response-like objects (with `.status`) and Error instances.
  */
 export const isRateLimitedCause = (cause: unknown): boolean =>
   (cause !== null &&
@@ -20,11 +20,20 @@ export const isRateLimitedCause = (cause: unknown): boolean =>
 
 /**
  * Wrap a message + raw cause into a HyperliquidError with the correct kind.
- * Maps HTTP 429 to "RATE_LIMITED", everything else to "UPSTREAM".
+ * Handles SDK v0.33.0 TransportError, ApiRequestError, and HTTP 429.
+ * Import ApiRequestError from @nktkas/hyperliquid if needed in callers.
  */
-export const toHyperliquidError = (message: string, cause: unknown): HyperliquidError =>
-  new HyperliquidError({
+export const toHyperliquidError = (message: string, cause: unknown): HyperliquidError => {
+  if (cause instanceof TransportError) {
+    return new HyperliquidError({
+      message: `${message}: ${cause.message}`,
+      kind: isRateLimitedCause(cause) ? "RATE_LIMITED" : "UPSTREAM",
+      cause,
+    });
+  }
+  return new HyperliquidError({
     message,
     kind: isRateLimitedCause(cause) ? "RATE_LIMITED" : "UPSTREAM",
     cause,
   });
+};

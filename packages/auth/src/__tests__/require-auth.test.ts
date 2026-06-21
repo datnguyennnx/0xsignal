@@ -3,7 +3,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { AuthService } from "../application/auth.service";
 import { withAuth } from "../presentation/require-auth";
 import { Session } from "../domain/session";
-import { TokenExpired, TokenInvalid } from "../domain/errors";
+import { TokenExpired } from "../domain/errors";
 import type { UserId } from "../domain/user";
 import type { OAuthProvider } from "../domain/oauth-account";
 

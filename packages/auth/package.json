@@ -18,9 +18,9 @@
   },
   "dependencies": {
     "@0xsignal/shared": "workspace:*",
-    "@effect/sql-pg": "4.0.0-beta.74",
+    "@effect/sql-pg": "4.0.0-beta.85",
     "arctic": "^3.4.0",
-    "effect": "4.0.0-beta.74",
+    "effect": "4.0.0-beta.85",
     "jose": "^6.0.10"
   },
   "devDependencies": {
