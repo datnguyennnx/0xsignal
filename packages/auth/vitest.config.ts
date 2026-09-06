@@ -8,5 +8,6 @@ export default defineConfig({
     exclude: ["node_modules", "dist"],
     testTimeout: 10000,
     hookTimeout: 10000,
+    clearMocks: true,
   },
 });
