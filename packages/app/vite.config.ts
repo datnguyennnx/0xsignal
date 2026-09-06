@@ -42,13 +42,26 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
     cssCodeSplit: true,
     reportCompressedSize: true,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id: string) {
-          if (id.includes("lightweight-charts")) return "vendor-lightweight-charts";
-          if (id.includes("node_modules/viem") || id.includes("node_modules/wagmi"))
-            return "vendor-viem-wagmi";
-          if (id.includes("node_modules/react")) return "vendor-react";
+        codeSplitting: {
+          groups: [
+            {
+              name: "vendor-lightweight-charts",
+              test: /lightweight-charts/,
+              priority: 3,
+            },
+            {
+              name: "vendor-viem-wagmi",
+              test: /node_modules[\\/](viem|wagmi)/,
+              priority: 2,
+            },
+            {
+              name: "vendor-react",
+              test: /node_modules[\\/]react/,
+              priority: 1,
+            },
+          ],
         },
       },
     },
