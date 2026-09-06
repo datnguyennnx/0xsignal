@@ -10,12 +10,12 @@
     "dev": "nx run-many -t dev --parallel",
     "build": "nx run-many -t build",
     "test": "nx run-many -t test",
-    "lint": "nx run-many -t lint",
+    "lint": "oxlint .",
     "typecheck": "nx run-many -t typecheck",
     "start": "docker compose -f deploy/docker-compose.yml build && docker compose -f deploy/docker-compose.yml up -d",
     "down": "docker compose -f deploy/docker-compose.yml down",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "db:up": "docker compose -f deploy/dev/docker-compose.yml up -d",
     "db:down": "docker compose -f deploy/dev/docker-compose.yml down",
     "db:logs": "docker compose -f deploy/dev/docker-compose.yml logs -f postgres",
@@ -23,22 +23,23 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@effect/eslint-plugin": "^0.3.2",
     "@nx/js": "^22.7.1",
     "@types/pg": "^8.20.0",
-    "@typescript-eslint/eslint-plugin": "^8.47.0",
-    "@typescript-eslint/parser": "^8.47.0",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react-compiler": "^19.0.0-beta-af1b7da-20250417",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "nx": "^22.7.1",
+    "oxfmt": "0.66.0",
+    "oxlint": "1.81.0",
     "prettier": "^3.6.2",
     "typescript": "^6.0.3"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,json,md,css}": [
-      "prettier --write"
+    "*.{ts,tsx,js,jsx}": [
+      "oxfmt --write",
+      "oxlint --fix"
+    ],
+    "*.{json,md,css}": [
+      "oxfmt --write"
     ]
   },
   "dependencies": {

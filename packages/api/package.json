@@ -8,7 +8,7 @@
     "dev": "bun --watch presentation/http/server.ts",
     "start": "bun ./dist/server.js",
     "build": "bun run clean && tsc -b tsconfig.json && bun build ./presentation/http/server.ts --target=bun --minify --outdir=./dist && mkdir -p ./dist/sql && cp -r ../auth/src/infrastructure/migrations/sql/. ./dist/sql/",
-    "lint": "eslint .",
+    "lint": "oxlint .",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "test": "vitest run",
     "test:watch": "vitest"

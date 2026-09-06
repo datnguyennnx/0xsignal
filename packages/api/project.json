@@ -29,7 +29,7 @@
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "eslint . --ext .ts",
+        "command": "oxlint .",
         "cwd": "packages/api"
       }
     },

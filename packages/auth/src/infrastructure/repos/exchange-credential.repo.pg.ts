@@ -158,14 +158,11 @@ export function pgExchangeCredentialRepo(
         }
         return mapCredentialRow(result.rows[0]);
       }).pipe(
-        Effect.catch(
-          (error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
-            Match.value(error).pipe(
-              Match.when({ _tag: "CredentialNotFound" }, (e) =>
-                Effect.fail(e as CredentialNotFound),
-              ),
-              Match.orElse(() => Effect.die(error)),
-            ),
+        Effect.catch((error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
+          Match.value(error).pipe(
+            Match.when({ _tag: "CredentialNotFound" }, (e) => Effect.fail(e as CredentialNotFound)),
+            Match.orElse(() => Effect.die(error)),
+          ),
         ),
       ),
 
@@ -420,14 +417,11 @@ export function pgExchangeCredentialRepo(
             context: { reason },
           }),
         ),
-        Effect.catch(
-          (error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
-            Match.value(error).pipe(
-              Match.when({ _tag: "CredentialNotFound" }, (e) =>
-                Effect.fail(e as CredentialNotFound),
-              ),
-              Match.orElse(() => Effect.die(error)),
-            ),
+        Effect.catch((error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
+          Match.value(error).pipe(
+            Match.when({ _tag: "CredentialNotFound" }, (e) => Effect.fail(e as CredentialNotFound)),
+            Match.orElse(() => Effect.die(error)),
+          ),
         ),
       ),
 
@@ -445,14 +439,11 @@ export function pgExchangeCredentialRepo(
         }
       }).pipe(
         Effect.tap(() => writeAudit("verified", { userId, credentialId: id })),
-        Effect.catch(
-          (error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
-            Match.value(error).pipe(
-              Match.when({ _tag: "CredentialNotFound" }, (e) =>
-                Effect.fail(e as CredentialNotFound),
-              ),
-              Match.orElse(() => Effect.die(error)),
-            ),
+        Effect.catch((error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
+          Match.value(error).pipe(
+            Match.when({ _tag: "CredentialNotFound" }, (e) => Effect.fail(e as CredentialNotFound)),
+            Match.orElse(() => Effect.die(error)),
+          ),
         ),
       ),
 

@@ -29,12 +29,11 @@ export function resolveMasterWallet(
     }
     return result.rows[0].wallet_address;
   }).pipe(
-    Effect.catch(
-      (error: unknown): Effect.Effect<never, AccountNotFound, never> =>
-        Match.value(error).pipe(
-          Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-          Match.orElse(() => Effect.die(error)),
-        ),
+    Effect.catch((error: unknown): Effect.Effect<never, AccountNotFound, never> =>
+      Match.value(error).pipe(
+        Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
+        Match.orElse(() => Effect.die(error)),
+      ),
     ),
   );
 }

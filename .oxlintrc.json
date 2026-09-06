@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc", "unicorn"],
+  "categories": {
+    "correctness": "error"
+  },
+  "jsPlugins": [{ "name": "react-compiler", "specifier": "eslint-plugin-react-compiler" }],
+  "rules": {
+    "react-compiler/react-compiler": "error",
+    "react/refs": "warn",
+    "react/set-state-in-effect": "warn",
+    "unicorn/no-new-array": "warn"
+  },
+  "ignorePatterns": ["**/dist/**", "**/node_modules/**"]
+}
