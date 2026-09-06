@@ -16,9 +16,9 @@
   "dependencies": {
     "@0xsignal/auth": "workspace:*",
     "@0xsignal/shared": "workspace:*",
-    "@effect/platform-bun": "4.0.0-beta.85",
-    "@nktkas/hyperliquid": "^0.33.0",
-    "effect": "4.0.0-beta.85",
+    "@effect/platform-bun": "4.0.0-rc.112",
+    "@nktkas/hyperliquid": "0.33.3",
+    "effect": "4.0.0-rc.112",
     "pg": "^8.11.3",
     "viem": "^2.47.6"
   },
@@ -26,7 +26,7 @@
     "@types/node": "^24.10.1",
     "@types/pg": "^8.11.0",
     "bun-types": "^1.3.3",
-    "typescript": "^6.0.3",
+    "typescript": "7.0.2",
     "vitest": "^4.0.14"
   }
 }

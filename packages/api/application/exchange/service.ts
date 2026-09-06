@@ -116,7 +116,7 @@ export const exchangeServiceLayer = Layer.effect(
                 catch: classifyExchangeError,
               }).pipe(
                 Effect.retry({
-                  schedule: Schedule.exponential("200 millis").pipe(Schedule.take(3)),
+                  schedule: Schedule.exponential("200 millis").pipe(Schedule.upTo({ times: 3 })),
                   while: (error) =>
                     Match.value(error).pipe(
                       Match.tag("HyperliquidInternalError", () => true),
@@ -168,7 +168,7 @@ export const exchangeServiceLayer = Layer.effect(
                 catch: classifyExchangeError,
               }).pipe(
                 Effect.retry({
-                  schedule: Schedule.exponential("200 millis").pipe(Schedule.take(3)),
+                  schedule: Schedule.exponential("200 millis").pipe(Schedule.upTo({ times: 3 })),
                   while: (error) =>
                     Match.value(error).pipe(
                       Match.tag("HyperliquidInternalError", () => true),
@@ -217,7 +217,7 @@ export const exchangeServiceLayer = Layer.effect(
                 catch: classifyExchangeError,
               }).pipe(
                 Effect.retry({
-                  schedule: Schedule.exponential("200 millis").pipe(Schedule.take(3)),
+                  schedule: Schedule.exponential("200 millis").pipe(Schedule.upTo({ times: 3 })),
                   while: (error) =>
                     Match.value(error).pipe(
                       Match.tag("HyperliquidInternalError", () => true),

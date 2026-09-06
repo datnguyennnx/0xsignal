@@ -267,7 +267,7 @@ const ensureUpstream = (
       onSubscriptionError,
     ).pipe(
       Effect.retry({
-        schedule: Schedule.exponential("500 millis").pipe(Schedule.take(3)),
+        schedule: Schedule.exponential("500 millis").pipe(Schedule.upTo({ times: 3 })),
       }),
       Effect.tap((sub) =>
         Effect.gen(function* () {

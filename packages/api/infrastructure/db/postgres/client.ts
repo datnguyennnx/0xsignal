@@ -1,5 +1,5 @@
-import { Config, Data, Effect, Layer, Option } from "effect";
-import pg, { type PoolClient } from "pg";
+import { Config, Context, Data, Effect, Layer, Option } from "effect";
+import pg, { type Pool, type PoolClient } from "pg";
 
 import { PostgresConnectionPool } from "@0xsignal/auth";
 
@@ -11,8 +11,9 @@ export class PostgresConnectionError extends Data.TaggedError("PostgresConnectio
 }> {}
 
 // Layer that creates the pool via acquireRelease (optional — null if unconfigured)
+// Direct pg.Pool (no @effect/sql-pg) + runSync bridge for pool "error" events.
 export const postgresConnectionPoolLayer = Layer.effect(
-  PostgresConnectionPool,
+  PostgresConnectionPool as unknown as Context.Key<Pool | null, Pool | null>,
   Effect.acquireRelease(
     Effect.gen(function* () {
       const maybeUrl = yield* Config.option(
