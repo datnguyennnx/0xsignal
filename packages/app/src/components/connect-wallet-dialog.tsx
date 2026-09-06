@@ -4,6 +4,7 @@ import { Metamask, Coinbase } from "@thesvg/react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +20,13 @@ interface ConnectWalletDialogProps {
 
 export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogProps) {
   const refreshWalletStatus = useAuthStore((s) => s.refreshWalletStatus);
-  const { mutate } = useConnect({
+  const { mutate, isPending } = useConnect({
     mutation: {
+      onError: (err) => {
+        toast.error("Wallet connection failed", {
+          description: err instanceof Error ? err.message : "Please try again.",
+        });
+      },
       onSuccess: async (data) => {
         // data.accounts[0] is the connected wallet address
         // Must be a string (wagmi v3 returns readonly [Address, ...Address[]])
@@ -67,15 +73,21 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
           <DialogDescription>Choose a wallet to connect with</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3 pb-2">
+          {!metaMaskConnector && !coinbaseConnector && (
+            <p className="text-sm text-muted-foreground">
+              No wallet connectors available. Install MetaMask or Coinbase Wallet to continue.
+            </p>
+          )}
           {metaMaskConnector && (
             <Button
               variant="outline"
               size="lg"
               className="w-full gap-3 justify-start"
+              disabled={isPending}
               onClick={() => mutate({ connector: metaMaskConnector })}
             >
               <Metamask className="size-5 shrink-0" />
-              MetaMask
+              {isPending ? "Connecting…" : "MetaMask"}
             </Button>
           )}
           {coinbaseConnector && (
@@ -83,10 +95,11 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
               variant="outline"
               size="lg"
               className="w-full gap-3 justify-start"
+              disabled={isPending}
               onClick={() => mutate({ connector: coinbaseConnector })}
             >
               <Coinbase className="size-5 shrink-0" />
-              Coinbase Wallet
+              {isPending ? "Connecting…" : "Coinbase Wallet"}
             </Button>
           )}
         </div>
