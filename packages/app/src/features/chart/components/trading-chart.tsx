@@ -93,17 +93,15 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   const { data: rawFills } = useUserFills();
   const fills = rawFills
     ?.filter((f): f is UserFill & { dir: string } => typeof f.dir === "string")
-    .map(
-      (f): HyperliquidFill => ({
-        coin: f.coin,
-        px: f.px,
-        sz: f.sz,
-        side: f.side,
-        time: f.time,
-        dir: f.dir,
-        hash: f.hash,
-      }),
-    );
+    .map((f): HyperliquidFill => ({
+      coin: f.coin,
+      px: f.px,
+      sz: f.sz,
+      side: f.side,
+      time: f.time,
+      dir: f.dir,
+      hash: f.hash,
+    }));
 
   const timeframeSec = useMemo(() => intervalToSeconds(interval), [interval]);
 
