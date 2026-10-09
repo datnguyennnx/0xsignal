@@ -102,3 +102,11 @@ export type {
   CancelOrdersRequest,
 } from "./schemas/exchange";
 export type { AuthMeResponse } from "./schemas/auth";
+export type {
+  CalendarImpact,
+  CalendarCategory,
+  CalendarSource,
+  EconomicEvent,
+  CalendarQuery,
+  CalendarApiResponse,
+} from "./schemas/economic-event";

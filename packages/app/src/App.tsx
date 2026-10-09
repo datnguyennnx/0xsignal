@@ -19,6 +19,9 @@ const NotFoundPage = lazy(() =>
 const PortfolioPage = lazy(() =>
   import("@/pages/portfolio").then((m) => ({ default: m.PortfolioPage })),
 );
+const CalendarPage = lazy(() =>
+  import("@/pages/calendar").then((m) => ({ default: m.CalendarPage })),
+);
 const SettingsPage = lazy(() =>
   import("@/pages/settings").then((m) => ({ default: m.SettingsPage })),
 );
@@ -118,6 +121,7 @@ export function App() {
               <Route path="/trade/:base/:quote" element={<AssetDetail />} />
               <Route path="/trade/:symbol" element={<AssetDetail />} />
               <Route path="/portfolio" element={<PortfolioPage />} />
+              <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>

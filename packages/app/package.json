@@ -8,6 +8,8 @@
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "start": "vite preview",
     "lint": "oxlint .",
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {

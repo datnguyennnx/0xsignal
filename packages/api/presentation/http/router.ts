@@ -1,11 +1,12 @@
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { HealthService } from "../../application/health";
 import { MarketDataService } from "../../application/market-data/contracts";
 import { UserDataService } from "../../application/user-data/contracts";
 import { ExchangeService } from "../../application/exchange/contracts";
-
+import { CalendarService } from "../../application/calendar/contracts";
 import { healthRoute } from "./routes/health.routes";
 import { buildMarketDataRoutes } from "./routes/market-data.routes";
+import { buildCalendarRoutes } from "./routes/calendar.routes";
 import { buildUserDataRoutes } from "./routes/user-data.routes";
 import { buildExchangeRoutes } from "./routes/exchange.routes";
 import { buildCredentialRoutes } from "./routes/credentials.routes";
@@ -45,6 +46,11 @@ type MarketDataHttpService = {
   readonly getTradeAnnotation: (typeof MarketDataService.Service)["getTradeAnnotation"];
 };
 
+type CalendarHttpService = {
+  readonly query: (typeof CalendarService.Service)["query"];
+  readonly upcoming: (typeof CalendarService.Service)["upcoming"];
+};
+
 type HealthHttpService = Parameters<typeof healthRoute>[0];
 
 type RouteHandler = (
@@ -54,6 +60,7 @@ type RouteHandler = (
   health: HealthHttpService,
   userData: UserDataHttpService,
   exchange: ExchangeHttpService,
+  calendar: CalendarHttpService | undefined,
   userId?: string,
 ) => Effect.Effect<Response, HttpError, never>;
 
@@ -91,9 +98,9 @@ const adaptAuthRoute =
 // Requires a valid auth session before executing
 const requireAuth =
   (routeHandler: RouteHandler): RouteHandler =>
-  (request, url, marketData, health, userData, exchange) =>
+  (request, url, marketData, health, userData, exchange, calendar) =>
     withAuth((session) =>
-      routeHandler(request, url, marketData, health, userData, exchange, session.userId),
+      routeHandler(request, url, marketData, health, userData, exchange, calendar, session.userId),
     )(request).pipe(
       Effect.catchCause(() =>
         Effect.succeed(
@@ -132,6 +139,25 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
     handler: (request: Request, url: URL, marketData: MarketDataHttpService) =>
       route.handler(request, url, marketData),
   })),
+  ...buildCalendarRoutes({
+    json,
+    mapServiceError,
+  }).map((route) => ({
+    method: route.method,
+    path: route.path,
+    handler: (
+      request: Request,
+      url: URL,
+      _marketData: MarketDataHttpService,
+      _health: HealthHttpService,
+      _userData: UserDataHttpService,
+      _exchange: ExchangeHttpService,
+      calendar: CalendarHttpService | undefined,
+    ) =>
+      calendar === undefined
+        ? Effect.succeed(json({ error: "Calendar service unavailable" }, 503))
+        : route.handler(request, url, calendar),
+  })),
   ...buildUserDataRoutes({
     json,
     mapServiceError,
@@ -160,6 +186,7 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
         _health: HealthHttpService,
         _userData: UserDataHttpService,
         exchange: ExchangeHttpService,
+        _calendar: CalendarHttpService | undefined,
         userId?: string,
       ) => route.handler(request, url, exchange, userId),
     ),
@@ -178,6 +205,7 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
         _health: HealthHttpService,
         _userData: UserDataHttpService,
         _exchange: ExchangeHttpService,
+        _calendar: CalendarHttpService | undefined,
         userId?: string,
       ) =>
         Effect.gen(function* () {
@@ -214,7 +242,8 @@ export const handleRequest = (request: Request) => {
     const health = yield* HealthService;
     const userData = yield* UserDataService;
     const exchange = yield* ExchangeService;
-    return yield* route.handler(request, url, marketData, health, userData, exchange);
+    const calendar = Option.getOrUndefined(yield* Effect.serviceOption(CalendarService));
+    return yield* route.handler(request, url, marketData, health, userData, exchange, calendar);
   }).pipe(
     Effect.catch((error: HttpError) => {
       const body: Record<string, unknown> = { error: error.message };

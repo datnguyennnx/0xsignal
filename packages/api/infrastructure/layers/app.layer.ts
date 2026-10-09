@@ -8,6 +8,7 @@ import { CorsServiceLayer } from "../../presentation/http/cors";
 import { marketCandleStoreLayer } from "./market-candle-store.layer";
 import { marketRemoteProviderLayer } from "./market-remote-provider.layer";
 import { healthServiceLayer } from "./health-service.layer";
+import { CalendarLayer } from "./calendar.layer";
 import { postgresConnectionPoolLayer } from "../db/postgres/client";
 import { hyperliquidClientLayer } from "../data-sources/hyperliquid/client";
 
@@ -36,6 +37,7 @@ const Infrastructure = Layer.mergeAll(
   MarketStreamHubLayer,
   healthServiceLayer,
   MigrationLayer,
+  CalendarLayer,
 ).pipe(
   Layer.provideMerge(marketRemoteProviderLayer),
   Layer.provideMerge(hyperliquidClientLayer),

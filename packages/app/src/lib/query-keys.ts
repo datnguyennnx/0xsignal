@@ -1,3 +1,5 @@
+import type { CalendarQuery } from "@0xsignal/shared";
+
 /**
  * Query key hierarchy — single source of truth for all React Query keys.
  *
@@ -38,6 +40,22 @@ export const queryKeys = {
     vaultEquities: (address: string) => ["user", "vaultEquities", address] as const,
     userFunding: (address: string, startTime?: number, endTime?: number) =>
       ["user", "userFunding", address, startTime, endTime] as const,
+  },
+
+  calendar: {
+    all: ["calendar"] as const,
+    list: (q: CalendarQuery) =>
+      [
+        ...queryKeys.calendar.all,
+        "list",
+        q.from,
+        q.to,
+        q.impact,
+        q.category,
+        q.currency,
+        q.limit,
+      ] as const,
+    upcoming: (hours: number) => [...queryKeys.calendar.all, "upcoming", hours] as const,
   },
 
   exchange: {

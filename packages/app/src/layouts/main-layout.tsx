@@ -5,6 +5,7 @@ import { cn } from "@/core/utils/cn";
 const NAV_ITEMS = [
   { path: "/trade", label: "Trade" },
   { path: "/portfolio", label: "Portfolio" },
+  { path: "/calendar", label: "Calendar" },
 ] as const;
 
 export function MainLayout({ children }: { children: ReactNode }) {

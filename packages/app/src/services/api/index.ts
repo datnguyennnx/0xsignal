@@ -24,6 +24,7 @@ export {
 export { exchangeCode, getAuthMe, logout, updateProfile, refreshToken } from "./auth";
 export { createCredential, listWallets, createWallet } from "./credentials";
 export { placeOrder, updateLeverage, cancelOrders } from "./exchange";
+export { getCalendar, getUpcomingCalendar } from "./calendar";
 
 import {
   getMarkets,
@@ -47,6 +48,7 @@ import {
 import { exchangeCode, getAuthMe, logout, updateProfile, refreshToken } from "./auth";
 import { createCredential, listWallets, createWallet } from "./credentials";
 import { placeOrder, updateLeverage, cancelOrders } from "./exchange";
+import { getCalendar, getUpcomingCalendar } from "./calendar";
 
 export const api = {
   getMarkets,
@@ -75,4 +77,8 @@ export const api = {
   placeOrder,
   updateLeverage,
   cancelOrders,
+  calendar: {
+    get: getCalendar,
+    upcoming: getUpcomingCalendar,
+  },
 };
