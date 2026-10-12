@@ -1,4 +1,5 @@
 import { type PointerEvent } from "react";
+import { cn } from "cn";
 import type { ResizeHandleAxis } from "../utils/types";
 
 /** SVG path for L-shaped corner bracket, oriented to the given corner */
@@ -27,19 +28,21 @@ export function CornerHandles({ activeCorner, isResizing, onPointerDown }: Corne
   return (
     <div
       onPointerDown={onPointerDown(activeCorner)}
-      className={`absolute z-10 ${
-        isResizing ? "opacity-100" : "opacity-60 hover:opacity-100"
-      } transition-opacity duration-150`}
-      style={{
-        touchAction: "none",
-        [activeCorner.includes("w") ? "left" : "right"]: 4,
-        [activeCorner.includes("n") ? "top" : "bottom"]: 4,
-        cursor: activeCorner === "nw" || activeCorner === "se" ? "nwse-resize" : "nesw-resize",
-      }}
+      className={cn(
+        "absolute z-10 touch-none transition-opacity duration-150",
+        isResizing ? "opacity-100" : "opacity-60 hover:opacity-100",
+        activeCorner.includes("w") ? "left-1" : "right-1",
+        activeCorner.includes("n") ? "top-1" : "bottom-1",
+        activeCorner === "nw" || activeCorner === "se"
+          ? "cursor-nwse-resize"
+          : "cursor-nesw-resize",
+      )}
     >
       <svg
         viewBox="0 0 8 8"
-        className={`w-2.5 h-2.5 ${isResizing ? "text-neutral-400/50" : "text-neutral-500/25"}`}
+        className={`w-2.5 h-2.5 ${
+          isResizing ? "text-muted-foreground/50" : "text-muted-foreground/25"
+        }`}
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"

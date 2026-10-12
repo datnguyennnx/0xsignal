@@ -23,8 +23,9 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
   const { mutate, isPending } = useConnect({
     mutation: {
       onError: (err) => {
+        console.error("[Wallet] Connection failed:", err);
         toast.error("Wallet connection failed", {
-          description: err instanceof Error ? err.message : "Please try again.",
+          description: "Check your wallet and try again.",
         });
       },
       onSuccess: async (data) => {

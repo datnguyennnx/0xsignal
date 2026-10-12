@@ -1,8 +1,7 @@
 import * as React from "react";
+import { cn } from "cn";
 import * as RechartsPrimitive from "recharts";
 import type { TooltipValueType } from "recharts";
-
-import { cn } from "@/core/utils/cn";
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
@@ -228,7 +227,7 @@ function ChartTooltipContent({
                         </span>
                       </div>
                       {item.value != null && (
-                        <span className="font-medium text-foreground tabular-nums">
+                        <span className="font-mono font-medium text-foreground tabular-nums">
                           {typeof item.value === "number"
                             ? item.value.toLocaleString()
                             : String(item.value)}

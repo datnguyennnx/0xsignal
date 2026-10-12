@@ -1,6 +1,6 @@
 import { memo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { formatPriceValue } from "../utils/price-format";
 import { useHoverState } from "../contexts/hover-context";
 

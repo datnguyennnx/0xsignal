@@ -1,5 +1,5 @@
 import { type IndicatorConfig } from "@0xsignal/shared";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { IndicatorFormula } from "./formula";
 
 interface IndicatorInsightsPanelProps {
@@ -15,9 +15,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
           <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             {indicator.name}
           </h3>
-          <p className="text-xs text-muted-foreground/70 leading-relaxed">
-            {indicator.description}
-          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">{indicator.description}</p>
         </div>
       </div>
 
@@ -26,32 +24,28 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
           <div className="grid gap-[clamp(0.75rem,1.5vw,1.5rem)]">
             {indicator.usage.formula ? (
               <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground/70">
-                  Mathematical Engine
-                </p>
+                <p className="text-xs font-semibold text-muted-foreground">Mathematical Engine</p>
                 <IndicatorFormula value={indicator.usage.formula} />
               </div>
             ) : null}
 
             {indicator.usage.mathematicalWeaknesses ? (
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-muted-foreground/70">
-                  Structural Weaknesses
-                </p>
+                <p className="text-xs font-semibold text-muted-foreground">Structural Weaknesses</p>
                 <p className="text-sm leading-relaxed">{indicator.usage.mathematicalWeaknesses}</p>
               </div>
             ) : null}
 
             {indicator.usage.regimePerformance ? (
               <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-muted-foreground/70">Regime Robustness</p>
+                <p className="text-xs font-semibold text-muted-foreground">Regime Robustness</p>
                 <p className="text-sm leading-relaxed">{indicator.usage.regimePerformance}</p>
               </div>
             ) : null}
 
             {indicator.usage.tips?.length ? (
               <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground/70">Pro Tips</p>
+                <p className="text-xs font-semibold text-muted-foreground">Pro Tips</p>
                 <ul className="space-y-1.5">
                   {indicator.usage.tips.map((tip, idx) => (
                     <li
@@ -67,7 +61,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
 
             {indicator.usage.pitfalls?.length ? (
               <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground/70">Execution Pitfalls</p>
+                <p className="text-xs font-semibold text-muted-foreground">Execution Pitfalls</p>
                 <ul className="space-y-1.5">
                   {indicator.usage.pitfalls.map((pitfall, idx) => (
                     <li
@@ -85,7 +79,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
               <div className="space-y-5">
                 {indicator.usage.comparisons && (
                   <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-muted-foreground/70">
+                    <p className="text-xs font-semibold text-muted-foreground">
                       Institutional Comparison
                     </p>
                     <p className="text-sm text-muted-foreground italic leading-relaxed">
@@ -95,7 +89,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
                 )}
                 {indicator.usage.upgrades && (
                   <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-muted-foreground/70">
+                    <p className="text-xs font-semibold text-muted-foreground">
                       Architectural Upgrades
                     </p>
                     <p className="text-sm text-muted-foreground leading-relaxed">
@@ -107,11 +101,11 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {indicator.implementationNotesForDev && (
-              <div className="p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl bg-card/50">
-                <p className="text-xs font-semibold text-muted-foreground/70 mb-1">
+              <div className="p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl bg-card">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">
                   Implementation Spec
                 </p>
-                <p className="text-xs text-muted-foreground/60 leading-tight">
+                <p className="text-xs text-muted-foreground leading-tight">
                   {indicator.implementationNotesForDev}
                 </p>
               </div>

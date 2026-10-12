@@ -100,7 +100,7 @@ export function CloseLimitModal({
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="0.00"
-                className="h-9 text-xs tabular-nums bg-background/70 border-border/30 pr-14"
+                className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/30 pr-14"
               />
               <button
                 onClick={() => position && setPrice(position.markPx.toFixed(2))}
@@ -120,7 +120,7 @@ export function CloseLimitModal({
               value={size}
               onChange={handleSizeChange}
               placeholder="0.00"
-              className="h-9 text-xs tabular-nums bg-background/70 border-border/30"
+              className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/30"
             />
           </div>
 
@@ -153,9 +153,9 @@ export function CloseLimitModal({
           <Button
             onClick={handleConfirm}
             disabled={!canConfirm || isPending}
-            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all bg-foreground text-background hover:bg-foreground/90"
+            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors bg-foreground text-background hover:bg-foreground/90"
           >
-            {isPending ? "Confirming..." : "Confirm"}
+            {isPending ? "Closing..." : "Close position"}
           </Button>
         </DialogFooter>
       </DialogContent>

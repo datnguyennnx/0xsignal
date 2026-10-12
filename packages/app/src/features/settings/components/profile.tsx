@@ -48,8 +48,8 @@ export function ProfileSettings() {
       await api.updateProfile({ displayName: trimmed });
       toast.success("Profile updated");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to update profile";
-      toast.error(msg);
+      console.error("[Settings] Failed to update profile:", err);
+      toast.error("Failed to update profile. Try again.");
     } finally {
       setIsSaving(false);
     }

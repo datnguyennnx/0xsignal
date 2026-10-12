@@ -1,6 +1,6 @@
 import { useState, useCallback, memo } from "react";
 import { Settings2 } from "lucide-react";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";

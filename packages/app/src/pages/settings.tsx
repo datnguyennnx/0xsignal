@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { User, Palette, Terminal } from "lucide-react";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { ApiConsole } from "@/features/settings/components/api-console";
 import { AppearanceSettings } from "@/features/settings/components/appearance";
 import { ProfileSettings } from "@/features/settings/components/profile";
@@ -42,6 +42,8 @@ export function SettingsPage() {
     document.title = "Settings | 0xsignal";
   }, []);
 
+  const activeLabel = SIDEBAR_ITEMS.find((item) => item.value === activeTab)?.label ?? "";
+
   return (
     <div className="container-fluid py-[clamp(1.5rem,3vw,3rem)] space-y-[clamp(1rem,1.5vw,1.5rem)] animate-in fade-in duration-200 ease-premium w-full">
       <div className="max-w-5xl mx-auto space-y-[clamp(0.125rem,0.2vw,0.25rem)] px-1">
@@ -53,9 +55,9 @@ export function SettingsPage() {
         </p>
       </div>
 
-      <div className="max-w-5xl mx-auto w-full bg-card/50 p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl">
+      <div className="max-w-5xl mx-auto w-full bg-card p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl">
         <div className="grid grid-cols-1 md:grid-cols-12 w-full min-h-[300px]">
-          <div className="col-span-1 md:col-span-3 border-b md:border-b-0 md:border-r border-border/10 py-[clamp(1rem,1.5vw,1.5rem)] pr-[clamp(1rem,1.5vw,1.5rem)] flex flex-col gap-1">
+          <div className="col-span-1 md:col-span-3 md:border-r border-border/10 py-[clamp(1rem,1.5vw,1.5rem)] pr-[clamp(1rem,1.5vw,1.5rem)] flex flex-col gap-1">
             {SIDEBAR_ITEMS.map((item) => (
               <button
                 key={item.value}
@@ -66,7 +68,7 @@ export function SettingsPage() {
                   });
                 }}
                 className={cn(
-                  "w-full flex items-center gap-[clamp(0.5rem,0.6vw,0.625rem)] px-[clamp(0.625rem,0.8vw,0.875rem)] py-[clamp(0.5rem,0.8vw,0.75rem)] rounded-lg text-left transition-all duration-150 cursor-pointer",
+                  "w-full flex items-center gap-[clamp(0.5rem,0.6vw,0.625rem)] px-[clamp(0.625rem,0.8vw,0.875rem)] py-[clamp(0.5rem,0.8vw,0.75rem)] rounded-lg text-left transition-colors duration-150 cursor-pointer",
                   activeTab === item.value
                     ? "bg-accent text-foreground font-semibold"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent/50 font-medium",
@@ -89,6 +91,7 @@ export function SettingsPage() {
           </div>
 
           <div className="col-span-1 md:col-span-9 py-[clamp(1rem,1.5vw,1.5rem)] pl-[clamp(1rem,1.5vw,1.5rem)] md:pl-[clamp(1.5rem,2.5vw,2rem)]">
+            <h2 className="sr-only">{activeLabel}</h2>
             <div className="t-page-slide">
               <section
                 className="t-page flex flex-col gap-5"

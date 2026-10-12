@@ -6,6 +6,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { TableEmptyRow } from "@/components/table-empty-row";
 import { formatTime, fmtNum } from "../utils/shared-table-utils";
 import { DirLabel } from "./shared-table-components";
 
@@ -67,19 +68,13 @@ export function OpenOrdersTable({
         {isOoLoading ? (
           <TableRow>
             <TableCell colSpan={12} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 Loading...
               </span>
             </TableCell>
           </TableRow>
         ) : !openOrders || openOrders.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={12} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
-                No open orders
-              </span>
-            </TableCell>
-          </TableRow>
+          <TableEmptyRow colSpan={12} />
         ) : (
           openOrders.map((order) => {
             const sz = Number(order.sz);
@@ -103,7 +98,7 @@ export function OpenOrdersTable({
                   {order.children?.length > 0 ? (
                     <button
                       onClick={() => onViewTpSl(order)}
-                      className="text-gain hover:text-gain-light text-sm font-medium transition-colors"
+                      className="text-gain text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                     >
                       View
                     </button>
@@ -115,7 +110,7 @@ export function OpenOrdersTable({
                   <button
                     onClick={() => onCancelOrder(order.coin, order.oid)}
                     disabled={isCancelPending}
-                    className="text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
                   >
                     Cancel
                   </button>

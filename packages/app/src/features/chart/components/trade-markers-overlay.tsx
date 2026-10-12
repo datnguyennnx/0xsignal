@@ -136,13 +136,8 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
       {points.map((p, idx) => (
         <div
           key={`${p.id}-${idx}`}
-          style={{
-            position: "absolute",
-            left: p.x,
-            top: p.y,
-            transform: "translate(-50%, -50%)",
-          }}
-          className="pointer-events-auto"
+          className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
+          style={{ left: p.x, top: p.y }}
           onMouseEnter={() => setHovered(p)}
           onMouseLeave={() => setHovered(null)}
         >
@@ -163,13 +158,8 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
 
       {visibleHovered && (
         <div
-          className="hl-trade-tooltip"
-          style={{
-            position: "absolute",
-            left: visibleHovered.x,
-            top: visibleHovered.y,
-            transform: "translate(-50%, calc(-100% - 8px))",
-          }}
+          className="hl-trade-tooltip absolute! -translate-x-1/2 translate-y-[calc(-100%-8px)]"
+          style={{ left: visibleHovered.x, top: visibleHovered.y }}
         >
           {visibleHovered.tooltip}
         </div>

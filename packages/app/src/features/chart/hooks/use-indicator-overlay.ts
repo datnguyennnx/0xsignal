@@ -10,6 +10,7 @@ import {
 } from "@0xsignal/shared";
 import { BandPrimitive } from "../utils/band";
 import type { IndicatorRenderEntry } from "../utils/indicator-data";
+import { toRgb, toRgba } from "../lib/color";
 
 interface UseIndicatorOverlayProps {
   chart: IChartApi | null;
@@ -42,6 +43,9 @@ const createOscillatorPriceFormat = (minDecimals = 2, maxDecimals = 4) => ({
     });
   },
 });
+
+const readToken = (token: string): string =>
+  toRgb(getComputedStyle(document.documentElement).getPropertyValue(token).trim());
 
 const createLineOptions = (color?: string) => ({
   color,
@@ -180,7 +184,7 @@ export const useIndicatorOverlay = ({
   ) => {
     const bandData = data.data as BandIndicatorDataPoint[]; // safe: IndicatorRenderEntry.data typed by caller for band indicators
     if (!bandData.length) return;
-    const safeColor = color || "#8884d8";
+    const safeColor = color || readToken("--chart-crosshair");
 
     let bandRef = bandPrimitiveRefs.current.get(instanceId);
     if (!bandRef && mainSeries) {
@@ -224,7 +228,7 @@ export const useIndicatorOverlay = ({
           {
             top: bandData[bandData.length - 1].upper,
             bottom: bandData[bandData.length - 1].lower,
-            color: safeColor.replace(")", ", 0.05)").replace("hsl", "hsla"),
+            color: toRgba(safeColor, 0.05),
           },
         ],
       });
@@ -365,10 +369,12 @@ export const useIndicatorOverlay = ({
 
       if (appliedCacheKeyRef.current.get(instanceId) === data.meta.cacheKey) continue;
 
+      const color = indicator.color ? toRgb(indicator.color) : undefined;
+
       if (isBand) {
-        renderBandOverlay(mainSeries, instanceId, data, indicator.color);
+        renderBandOverlay(mainSeries, instanceId, data, color);
       } else {
-        renderLineOverlay(chart, instanceId, data, indicator.color);
+        renderLineOverlay(chart, instanceId, data, color);
       }
 
       appliedCacheKeyRef.current.set(instanceId, data.meta.cacheKey);
@@ -387,7 +393,12 @@ export const useIndicatorOverlay = ({
 
       if (appliedCacheKeyRef.current.get(instanceId) === data.meta.cacheKey) continue;
 
-      renderOscillator(chart, instanceId, data, indicator.color);
+      renderOscillator(
+        chart,
+        instanceId,
+        data,
+        indicator.color ? toRgb(indicator.color) : undefined,
+      );
       appliedCacheKeyRef.current.set(instanceId, data.meta.cacheKey);
     }
 

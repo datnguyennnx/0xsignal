@@ -24,6 +24,7 @@ import { type DisplayOrderbookLevel as OrderbookLevel, priceKey } from "@/core/u
 import { useTradeUIStore } from "@/stores/use-trade-ui-store";
 import { parseSymbol } from "@0xsignal/shared";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/empty-state";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { formatPriceWithNSigFigs, formatSize } from "@/core/utils/formatters";
 import {
@@ -157,11 +158,7 @@ const OrderRow = memo(
         aria-describedby={level.price > 0 && isHovered ? "orderbook-depth-details" : undefined}
       >
         {isInRange && (
-          <div
-            className={`absolute inset-0 z-[5] pointer-events-none bg-foreground/5 dark:bg-foreground/10 ${
-              isHovered && side === "ask" ? "border-b border-dashed border-foreground/30" : ""
-            } ${isHovered && side === "bid" ? "border-t border-dashed border-foreground/30" : ""}`}
-          />
+          <div className="absolute inset-0 z-[5] pointer-events-none bg-foreground/5 dark:bg-foreground/10" />
         )}
         {level.price > 0 && (
           <div
@@ -173,27 +170,15 @@ const OrderRow = memo(
         )}
         <span
           className={`relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono font-medium ${
-            level.price === 0
-              ? "text-muted-foreground/30"
-              : side === "bid"
-                ? "text-gain"
-                : "text-loss"
+            level.price === 0 ? "text-muted-foreground" : side === "bid" ? "text-gain" : "text-loss"
           }`}
         >
           {formatted.formattedPrice}
         </span>
-        <span
-          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono ${
-            level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground"
-          }`}
-        >
+        <span className="relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono text-muted-foreground">
           {formatted.formattedSize}
         </span>
-        <span
-          className={`relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono ${
-            level.price === 0 ? "text-muted-foreground/30" : "text-muted-foreground/70"
-          }`}
-        >
+        <span className="relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono text-muted-foreground">
           {formatted.formattedTotal}
         </span>
       </div>
@@ -429,8 +414,20 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   const hasBookData = !!orderbook && orderbook.asks.length > 0 && orderbook.bids.length > 0;
 
-  if (!hasBookData) {
+  if (!orderbook) {
     return <Skeleton className="h-full w-full rounded-xl" />;
+  }
+
+  if (!hasBookData) {
+    return (
+      <div className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card">
+        <EmptyState
+          variant="panel"
+          title="No order book data"
+          description="Waiting for the book to populate."
+        />
+      </div>
+    );
   }
 
   return (
@@ -504,12 +501,11 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         createPortal(
           <div
             id="orderbook-depth-details"
-            className="fixed bg-card/95 border border-border/30 rounded-xl p-3 shadow-xl z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]"
+            className="fixed bg-card/95 border border-border/30 rounded-xl p-3 shadow-xl z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)] -translate-y-1/2"
             style={{
               top: popupPosition.top,
               left: popupPosition.left,
               right: popupPosition.right,
-              transform: "translateY(-50%)",
             }}
           >
             <div className="flex items-center justify-between">

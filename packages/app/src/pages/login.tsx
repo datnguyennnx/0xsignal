@@ -16,7 +16,7 @@ export function LoginPage() {
 
         <div className="flex flex-col items-center gap-3">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome back</h1>
-          <p className="text-sm text-muted-foreground/50 italic text-center leading-relaxed max-w-[18rem]">
+          <p className="text-sm text-muted-foreground italic text-center leading-relaxed max-w-[18rem]">
             "Every model is a myth until the market proves it real. Trade the abstraction, not the
             noise."
           </p>

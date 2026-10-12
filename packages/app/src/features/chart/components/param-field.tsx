@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useId } from "react";
 import type { IndicatorParamDefinition } from "@0xsignal/shared";
 import { Plus, Minus } from "lucide-react";
 import { parseParamInput } from "../utils/indicator-param-utils";
@@ -23,6 +23,7 @@ export function IndicatorParamField({
   onValueChange,
 }: IndicatorParamFieldProps) {
   const numeric = parseParamInput(value);
+  const inputId = useId();
 
   const adjust = useCallback(
     (direction: -1 | 1) => {
@@ -38,7 +39,7 @@ export function IndicatorParamField({
   return (
     <div className="group/param flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
-        <label className="text-sm font-medium text-foreground leading-none">
+        <label htmlFor={inputId} className="text-sm font-medium text-foreground leading-none">
           {definition.label}
         </label>
         <span className="text-[10px] text-muted-foreground leading-none tabular-nums shrink-0">
@@ -51,12 +52,14 @@ export function IndicatorParamField({
           type="button"
           onClick={() => adjust(-1)}
           disabled={numeric !== null && numeric <= definition.min}
-          className="h-[clamp(1.75rem,3vh,2.25rem)] w-[clamp(1.75rem,2.5vw,2rem)] flex items-center justify-center hover:bg-accent/30 rounded-l transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none shrink-0"
+          aria-label={`Decrease ${definition.label}`}
+          className="h-[clamp(1.75rem,3vh,2.25rem)] w-[clamp(1.75rem,2.5vw,2rem)] flex items-center justify-center hover:bg-accent/30 rounded-l transition-[background-color,transform] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none shrink-0"
         >
-          <Minus className="size-3.5 opacity-50" />
+          <Minus className="size-3.5 opacity-50" aria-hidden="true" />
         </button>
 
         <input
+          id={inputId}
           type="number"
           inputMode="decimal"
           min={definition.min}
@@ -64,16 +67,17 @@ export function IndicatorParamField({
           step={definition.step}
           value={value}
           onChange={(e) => onValueChange(e.target.value)}
-          className="flex-1 h-[clamp(1.75rem,3vh,2.25rem)] px-1 text-center text-xs font-semibold bg-transparent text-foreground focus:outline-none tabular-nums select-none min-w-0"
+          className="flex-1 h-[clamp(1.75rem,3vh,2.25rem)] px-1 text-center text-base sm:text-sm font-semibold bg-transparent text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 tabular-nums min-w-0"
         />
 
         <button
           type="button"
           onClick={() => adjust(1)}
           disabled={numeric !== null && numeric >= definition.max}
-          className="h-[clamp(1.75rem,3vh,2.25rem)] w-[clamp(1.75rem,2.5vw,2rem)] flex items-center justify-center hover:bg-accent/30 rounded-r transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none shrink-0"
+          aria-label={`Increase ${definition.label}`}
+          className="h-[clamp(1.75rem,3vh,2.25rem)] w-[clamp(1.75rem,2.5vw,2rem)] flex items-center justify-center hover:bg-accent/30 rounded-r transition-[background-color,transform] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none shrink-0"
         >
-          <Plus className="size-3.5 opacity-50" />
+          <Plus className="size-3.5 opacity-50" aria-hidden="true" />
         </button>
       </div>
 

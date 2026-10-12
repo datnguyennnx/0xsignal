@@ -11,21 +11,24 @@ import {
 } from "lightweight-charts";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { VOLUME_PANE_HEIGHT } from "../utils/constants";
+import { toRgb } from "../lib/color";
 
-const getChartColors = (isDark: boolean) => ({
-  bg: "transparent",
-  grid: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)",
-  text: isDark ? "rgba(255, 255, 255, 0.55)" : "rgba(0, 0, 0, 0.55)",
-  border: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.10)",
-  crosshair: isDark ? "rgba(255, 255, 255, 0.35)" : "rgba(0, 0, 0, 0.35)",
-  volume: isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.12)",
+const readToken = (token: string): string =>
+  toRgb(getComputedStyle(document.documentElement).getPropertyValue(token).trim());
+
+const getChartColors = () => ({
+  grid: readToken("--chart-grid"),
+  text: readToken("--chart-text"),
+  border: readToken("--chart-border"),
+  crosshair: readToken("--chart-crosshair"),
+  volume: readToken("--chart-grid"),
 });
 
-const getCandlestickColors = (isDark: boolean) => ({
-  upColor: isDark ? "#22c55e" : "#16a34a",
-  downColor: isDark ? "#ef4444" : "#dc2626",
-  wickUpColor: isDark ? "#22c55e" : "#16a34a",
-  wickDownColor: isDark ? "#ef4444" : "#dc2626",
+const getCandlestickColors = () => ({
+  upColor: readToken("--candle-up"),
+  downColor: readToken("--candle-down"),
+  wickUpColor: readToken("--candle-up"),
+  wickDownColor: readToken("--candle-down"),
 });
 
 interface UseChartEngineProps {
@@ -77,7 +80,6 @@ export const useChartEngine = ({
   const loadMoreCallbackRef = useRef(onLoadMore);
   const hasMoreRef = useRef(hasMore);
   const onCrosshairMoveRef = useRef(onCrosshairMove);
-  const isDarkRef = useRef(isDark);
   const prevIsDarkRef = useRef(isDark);
   const hasSeenLogicalRangeRef = useRef(false);
   const prevLogicalFromRef = useRef<number | null>(null);
@@ -86,8 +88,7 @@ export const useChartEngine = ({
     loadMoreCallbackRef.current = onLoadMore;
     hasMoreRef.current = hasMore;
     onCrosshairMoveRef.current = onCrosshairMove;
-    isDarkRef.current = isDark;
-  }, [onLoadMore, hasMore, onCrosshairMove, isDark]);
+  }, [onLoadMore, hasMore, onCrosshairMove]);
 
   const priceFormatRef = useRef(priceFormat);
   useEffect(() => {
@@ -97,8 +98,8 @@ export const useChartEngine = ({
   const initChart = useCallback(() => {
     if (!containerRef.current || chartRef.current) return undefined;
 
-    const c = getChartColors(isDarkRef.current);
-    const candle = getCandlestickColors(isDarkRef.current);
+    const c = getChartColors();
+    const candle = getCandlestickColors();
 
     const chart = createChart(containerRef.current, {
       autoSize: true,
@@ -267,8 +268,8 @@ export const useChartEngine = ({
 
     if (prevIsDarkRef.current !== isDark) {
       prevIsDarkRef.current = isDark;
-      const c = getChartColors(isDark);
-      const candle = getCandlestickColors(isDark);
+      const c = getChartColors();
+      const candle = getCandlestickColors();
 
       chartRef.current.applyOptions({
         layout: { textColor: c.text },

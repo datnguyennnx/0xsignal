@@ -3,6 +3,7 @@ import type { EconomicEvent } from "@0xsignal/shared";
 
 import { format, isSameDay } from "date-fns";
 
+import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -20,10 +21,9 @@ export interface DayDetailPanelProps {
 
 function NowBar({ now }: { now: Date }): JSX.Element {
   return (
-    <div className="flex items-center gap-2 py-3 text-xs text-loss">
-      <span className="tabular-nums">now {format(now, "h:mm a")}</span>
-      <span className="h-px flex-1 border-t border-dashed border-loss" />
-    </div>
+    <span className="self-start rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+      now {format(now, "h:mm a")}
+    </span>
   );
 }
 
@@ -70,10 +70,14 @@ export function DayDetailPanel({
           className="min-h-[clamp(10rem,30vh,16rem)]"
         />
       ) : (
-        <div className="flex flex-col gap-3 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
           {sorted.length === 0 ? (
-            <div className="flex items-center justify-center py-6 text-[length:var(--text-data)] text-muted-foreground/40">
-              No events scheduled
+            <div className="flex flex-1 items-center justify-center min-h-[clamp(12rem,30vh,18rem)]">
+              <EmptyState
+                variant="panel"
+                title="No events scheduled"
+                description="Pick another day or adjust your filters to find upcoming events."
+              />
             </div>
           ) : (
             <div className="flex flex-col gap-2">

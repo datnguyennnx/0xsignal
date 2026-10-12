@@ -6,6 +6,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { TableEmptyRow } from "@/components/table-empty-row";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import { PnLDisplay } from "./shared-table-components";
@@ -77,19 +78,13 @@ export function PositionsTable({
         {isChLoading ? (
           <TableRow>
             <TableCell colSpan={11} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 Loading...
               </span>
             </TableCell>
           </TableRow>
         ) : positions.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={11} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
-                No open positions
-              </span>
-            </TableCell>
-          </TableRow>
+          <TableEmptyRow colSpan={11} />
         ) : (
           positions.map(({ position }) => {
             const signedSz = Number(position.szi);
@@ -122,12 +117,11 @@ export function PositionsTable({
                   >
                     <span
                       aria-hidden="true"
-                      className="absolute inset-0 rounded pointer-events-none"
-                      style={{
-                        background: `linear-gradient(to right, var(${
-                          signedSz >= 0 ? "--gain-muted" : "--loss-muted"
-                        }), transparent)`,
-                      }}
+                      className={
+                        signedSz >= 0
+                          ? "absolute inset-0 rounded pointer-events-none bg-[linear-gradient(to_right,var(--gain-muted),transparent)]"
+                          : "absolute inset-0 rounded pointer-events-none bg-[linear-gradient(to_right,var(--loss-muted),transparent)]"
+                      }
                     />
                     <span className={`relative z-10 ${signedSz >= 0 ? "text-gain" : "text-loss"}`}>
                       {position.coin}

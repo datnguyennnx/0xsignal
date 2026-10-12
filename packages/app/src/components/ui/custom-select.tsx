@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { ChevronDownIcon } from "lucide-react";
 
 export interface CustomSelectOption<T extends string> {
@@ -53,7 +53,7 @@ export function CustomSelect<T extends string>({
         onClick={handleToggle}
         className={cn(
           "flex items-center gap-1 px-2 py-0.5 text-[0.6rem] font-medium leading-none",
-          "bg-muted/20 hover:bg-muted/40 rounded transition-colors",
+          "bg-muted hover:bg-muted/40 rounded transition-colors",
           "text-muted-foreground hover:text-foreground",
         )}
       >

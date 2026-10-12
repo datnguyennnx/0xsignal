@@ -9,8 +9,9 @@ import {
   Tooltip,
 } from "recharts";
 
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { EmptyState } from "@/components/empty-state";
 
 import { usePortfolio } from "../hooks/use-portfolio-data";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,35 +68,17 @@ function ChartTooltip({
   }
 
   return (
-    <div
-      style={{
-        background: "var(--tooltip-bg)",
-        border: "1px solid var(--tooltip-border)",
-        borderRadius: 4,
-        padding: "6px 10px",
-        pointerEvents: "none",
-      }}
-    >
+    <div className="pointer-events-none rounded border border-[color:var(--tooltip-border)] bg-[color:var(--tooltip-bg)] px-2.5 py-1.5">
       {dateStr && (
-        <span
-          style={{
-            display: "block",
-            fontSize: 12,
-            color: "var(--chart-text)",
-            lineHeight: 1.5,
-          }}
-        >
+        <span className="block text-[12px] leading-normal text-[color:var(--chart-text)]">
           {dateStr}
         </span>
       )}
       <span
-        style={{
-          display: "block",
-          fontSize: 14,
-          fontWeight: 600,
-          color: val >= 0 ? "var(--gain)" : "var(--loss)",
-          lineHeight: 1.5,
-        }}
+        className={cn(
+          "block text-[14px] font-semibold leading-normal tabular-nums",
+          val >= 0 ? "text-gain" : "text-loss",
+        )}
       >
         {val >= 0 ? "+" : ""}
         {formatCompact(val)}
@@ -169,7 +152,7 @@ export function PortfolioPnLChart() {
             <Skeleton className="h-3.5 w-16" />
             <Skeleton className="h-3.5 w-16" />
           </div>
-          <Skeleton className="w-14" style={{ height: 18 }} />
+          <Skeleton className="h-[18px] w-14" />
         </div>
         <div className="flex-1 flex items-center justify-center p-1.5 min-h-[clamp(80px,10vw,120px)]">
           <Skeleton className="w-full h-[120px]" />
@@ -181,11 +164,11 @@ export function PortfolioPnLChart() {
   if (isError || !portfolio) {
     return (
       <div className={SURFACE}>
-        <div className="flex-1 flex items-center justify-center">
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground/30">
-            Chart unavailable
-          </span>
-        </div>
+        <EmptyState
+          variant="chart"
+          title="No data"
+          description="Connect your wallet to see your PnL history."
+        />
       </div>
     );
   }
@@ -204,7 +187,7 @@ export function PortfolioPnLChart() {
                   "text-[length:var(--text-compact)] font-medium px-2.5 pb-2 cursor-pointer transition-colors -mb-px",
                   active
                     ? "text-foreground border-b-2 border-foreground"
-                    : "text-muted-foreground/50 border-transparent hover:text-muted-foreground",
+                    : "text-muted-foreground border-transparent hover:text-foreground",
                 )}
               >
                 {VIEW_LABELS[key]}
@@ -231,7 +214,7 @@ export function PortfolioPnLChart() {
         </NativeSelect>
       </div>
 
-      <div className="flex-1 min-h-[clamp(120px,12vw,180px)]">
+      <div className="flex flex-1 items-center justify-center min-h-[clamp(120px,12vw,180px)]">
         {chartData ? (
           <div className="w-full h-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -254,7 +237,11 @@ export function PortfolioPnLChart() {
                   axisLine={{ stroke: "var(--chart-border)", strokeWidth: 1 }}
                   tickLine={false}
                   width={56}
-                  tick={{ fontSize: 11, fill: "var(--chart-text)" }}
+                  tick={{
+                    fontSize: 11,
+                    fill: "var(--chart-text)",
+                    style: { fontVariantNumeric: "tabular-nums" },
+                  }}
                   tickFormatter={formatAxisTick}
                   domain={[dataMin, dataMax]}
                   tickCount={4}
@@ -281,11 +268,7 @@ export function PortfolioPnLChart() {
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <span className="text-xs text-muted-foreground/30 uppercase tracking-widest">
-              No data
-            </span>
-          </div>
+          <EmptyState variant="chart" />
         )}
       </div>
     </div>

@@ -95,7 +95,7 @@ export const AssetContent = memo(function AssetContent({
   // Shared panel variables (deduplicates desktop vs narrow layout)
   const chartPanel = (
     <Suspense fallback={<ChartSkeleton />}>
-      <ErrorBoundary>
+      <ErrorBoundary resetKey={chartSymbol}>
         <TradingChart
           key={chartSymbol}
           symbol={chartSymbol}
@@ -107,19 +107,19 @@ export const AssetContent = memo(function AssetContent({
   );
 
   const orderbookPanel = (
-    <ErrorBoundary>
+    <ErrorBoundary resetKey={symbol}>
       <OrderbookWidget key={symbol} symbol={symbol} />
     </ErrorBoundary>
   );
 
   const orderformPanel = (
-    <ErrorBoundary>
+    <ErrorBoundary resetKey={symbol}>
       <OrderForm symbol={symbol} markPrice={asset.price?.markPx || asset.price?.price || 0} />
     </ErrorBoundary>
   );
 
   const positionsPanel = (
-    <ErrorBoundary>
+    <ErrorBoundary resetKey={symbol}>
       <PositionManagement />
     </ErrorBoundary>
   );
@@ -164,9 +164,7 @@ export const AssetContent = memo(function AssetContent({
         </div>
         {description && (
           <div className="pb-[clamp(0.25rem,0.5vw,0.375rem)]">
-            <p className="text-xs text-muted-foreground/70 leading-relaxed max-w-2xl">
-              {description}
-            </p>
+            <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">{description}</p>
           </div>
         )}
       </header>

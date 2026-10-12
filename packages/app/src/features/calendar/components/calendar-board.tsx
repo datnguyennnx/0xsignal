@@ -4,7 +4,7 @@ import type { CalendarQuery } from "@0xsignal/shared";
 
 import { ErrorState } from "@/components/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 
 import { useCalendarEvents } from "../hooks/use-calendar-data";
 import {
@@ -88,7 +88,9 @@ export function CalendarBoard({ className }: CalendarBoardProps): JSX.Element {
         {isLoading ? (
           <Skeleton className="h-[clamp(20rem,60vh,40rem)] w-full" />
         ) : isError ? (
-          <ErrorState title="Unable to load events" retryAction={handleRefresh} />
+          <div className="flex min-h-[clamp(20rem,60vh,40rem)] items-center justify-center">
+            <ErrorState title="Unable to load events" retryAction={handleRefresh} />
+          </div>
         ) : (
           <MonthGrid
             days={gridDays}

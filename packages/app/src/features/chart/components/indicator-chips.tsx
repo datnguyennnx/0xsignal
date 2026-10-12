@@ -1,12 +1,13 @@
 import { memo } from "react";
 import type { ActiveIndicator } from "@0xsignal/shared";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { toChipLabel } from "../utils/indicator-param-utils";
 
 interface IndicatorChipsProps {
   indicators: ActiveIndicator[];
 }
 
+/** Overlay strip: with no active indicators it returns null so the empty state occupies zero layout (deliberately no EmptyState). */
 export const IndicatorChips = memo(function IndicatorChips({ indicators }: IndicatorChipsProps) {
   if (indicators.length === 0) {
     return null;

@@ -3,6 +3,8 @@ import { useAppStore } from "@/stores/use-app-store";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-candles";
 import { useUserFills } from "@/features/trade/hooks/use-user-data";
+import { cn } from "cn";
+import { EmptyState } from "@/components/empty-state";
 
 import { ChartHeader } from "./chart-header";
 import { ChartControls } from "./chart-controls";
@@ -123,6 +125,8 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     [interval, onIntervalChange, isFullscreen, toggleFullscreen],
   );
 
+  const hasCandles = (candles ?? []).length > 0;
+
   const chartContent = (
     <>
       <ChartHeader interval={interval} onIntervalChange={handleIntervalChange}>
@@ -138,20 +142,28 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
       </ChartHeader>
 
       <div className="flex-1 relative overflow-hidden rounded-lg">
-        <div ref={chartContainerRef} className="absolute inset-0 will-change-transform" />
-        {(candles ?? []).length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground/50 pointer-events-none">
-            No recent data
-          </div>
-        )}
-        <TradeMarkersOverlay
-          chart={chart}
-          series={candlestickSeries}
-          markers={markers}
-          candles={candles ?? []}
+        <div
+          ref={chartContainerRef}
+          className={cn("absolute inset-0 will-change-transform", !hasCandles && "invisible")}
         />
-        <IndicatorChips indicators={activeIndicators} />
-        <ChartOhlcOverlay data={candles ?? []} precision={precision.pxDecimals} />
+        {hasCandles ? (
+          <>
+            <TradeMarkersOverlay
+              chart={chart}
+              series={candlestickSeries}
+              markers={markers}
+              candles={candles ?? []}
+            />
+            <IndicatorChips indicators={activeIndicators} />
+            <ChartOhlcOverlay data={candles ?? []} precision={precision.pxDecimals} />
+          </>
+        ) : (
+          <EmptyState
+            variant="chart"
+            title="No recent data"
+            className="absolute inset-0 pointer-events-none"
+          />
+        )}
       </div>
     </>
   );

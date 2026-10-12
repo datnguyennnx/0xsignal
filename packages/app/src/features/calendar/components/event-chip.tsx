@@ -1,7 +1,7 @@
 import type { CalendarCategory, EconomicEvent } from "@0xsignal/shared";
 import type { JSX } from "react";
 
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 
 export interface EventChipProps {
   event: EconomicEvent;
@@ -10,9 +10,9 @@ export interface EventChipProps {
 }
 
 const CATEGORY_STYLE: Record<CalendarCategory, string> = {
-  macro: "border-primary/20 bg-primary/10 text-primary",
-  fx: "border-warn/30 bg-warn/10 text-warn",
-  crypto: "border-gain/30 bg-gain/10 text-gain",
+  macro: "border-border bg-secondary text-secondary-foreground",
+  fx: "border-border bg-accent text-accent-foreground",
+  crypto: "border-border bg-muted text-muted-foreground",
 };
 
 function formatTime(iso: string): string {
@@ -32,7 +32,7 @@ export function EventChip({ event, onClick, className }: EventChipProps): JSX.El
   const classes = cn(
     "flex w-full items-center gap-1.5 overflow-hidden rounded-md border px-2 py-1 text-left text-xs transition-colors",
     CATEGORY_STYLE[event.category],
-    onClick && "cursor-pointer hover:bg-muted",
+    onClick && "cursor-pointer hover:border-foreground/30",
     className,
   );
 

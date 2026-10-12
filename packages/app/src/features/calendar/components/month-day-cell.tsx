@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import type { EconomicEvent } from "@0xsignal/shared";
 
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 
 import { EventChip } from "./event-chip";
 
@@ -44,10 +44,10 @@ export function MonthDayCell({
         }
       }}
       className={cn(
-        "flex min-h-[8rem] cursor-pointer flex-col gap-1.5 border-r border-b border-border/40 p-2 text-left transition-colors hover:bg-accent/40",
+        "flex min-h-[8rem] cursor-pointer flex-col gap-1.5 rounded-lg p-2 text-left transition-colors hover:bg-accent/40",
         isSelected && "bg-accent/60",
         isToday && "ring-1 ring-primary/50 ring-inset",
-        !isCurrentMonth && "bg-muted/30 text-muted-foreground/50",
+        !isCurrentMonth && "bg-muted text-muted-foreground",
       )}
     >
       <div className="flex justify-end">
@@ -57,7 +57,7 @@ export function MonthDayCell({
             isSelected
               ? "bg-primary text-primary-foreground"
               : !isCurrentMonth
-                ? "text-muted-foreground/50"
+                ? "text-muted-foreground"
                 : isToday
                   ? "text-primary"
                   : "text-foreground",

@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { formatCompactUsd, formatPrice, formatSignedPercent } from "@/core/utils/formatters";
 import { MetricItem } from "./metric-item";
 import { formatSignedUsd, formatFundingPercent } from "../utils/format";
@@ -48,7 +48,7 @@ export const MarketTerminalHeader = memo(function MarketTerminalHeader({
       {!isSpot && <MetricItem label="Open Interest" value={formatCompactUsd(openInterest)} />}
       {!isSpot && (
         <div className="flex flex-col shrink-0">
-          <span className="text-[10px] tracking-wider text-muted-foreground/60 font-medium uppercase leading-none mb-1">
+          <span className="text-[10px] tracking-wider text-muted-foreground font-medium uppercase leading-none mb-1">
             Funding / Countdown
           </span>
           <div className="flex items-baseline gap-1 text-sm leading-none">
@@ -61,8 +61,8 @@ export const MarketTerminalHeader = memo(function MarketTerminalHeader({
             >
               {formatFundingPercent(fundingRate)}
             </span>
-            <span className="text-muted-foreground/50 font-normal">/</span>
-            <span className="text-muted-foreground/70 tabular-nums">{fundingCountdown}</span>
+            <span className="text-muted-foreground font-normal">/</span>
+            <span className="text-muted-foreground tabular-nums">{fundingCountdown}</span>
           </div>
         </div>
       )}
@@ -71,7 +71,7 @@ export const MarketTerminalHeader = memo(function MarketTerminalHeader({
       )}
       {isSpot && contractAddress && (
         <div className="flex flex-col shrink-0">
-          <span className="text-[10px] tracking-wider text-muted-foreground/60 font-medium uppercase leading-none mb-1">
+          <span className="text-[10px] tracking-wider text-muted-foreground font-medium uppercase leading-none mb-1">
             Contract
           </span>
           <a

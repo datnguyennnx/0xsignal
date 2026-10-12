@@ -13,8 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { api, type UpdateLeverageRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query-keys";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { AlertTriangleIcon } from "lucide-react";
+import { toast } from "sonner";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 import { useAppStore } from "@/stores/use-app-store";
@@ -72,7 +73,10 @@ export function AdjustLeverageModal({
     onError: (err) => {
       if (err instanceof UnauthenticatedError) {
         openConnectWallet();
+        return;
       }
+      console.error("Failed to update leverage", err);
+      toast.error("Unable to update leverage. Try again.");
     },
   });
 
@@ -119,7 +123,7 @@ export function AdjustLeverageModal({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground font-normal">Leverage</Label>
-              <span className="text-lg tabular-nums font-semibold text-foreground transition-all duration-200">
+              <span className="text-lg tabular-nums font-semibold text-foreground transition-colors duration-200">
                 {leverage}x
               </span>
             </div>
@@ -131,7 +135,7 @@ export function AdjustLeverageModal({
                 min={1}
                 max={maxLeverage}
                 step={1}
-                className="flex-1 transition-all duration-200"
+                className="flex-1 transition-opacity duration-200"
               />
               <Input
                 type="number"
@@ -139,11 +143,11 @@ export function AdjustLeverageModal({
                 max={maxLeverage}
                 value={leverage}
                 onChange={handleInputChange}
-                className="w-14 h-8 text-xs text-center tabular-nums bg-background/70 border-border/30"
+                className="w-14 h-8 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/30"
               />
             </div>
 
-            <div className="flex justify-between text-[0.55rem] text-muted-foreground/60">
+            <div className="flex justify-between text-[0.55rem] text-muted-foreground">
               <span>1x</span>
               <span>{Math.round(maxLeverage * 0.25)}x</span>
               <span>{Math.round(maxLeverage * 0.5)}x</span>
@@ -153,11 +157,11 @@ export function AdjustLeverageModal({
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground/70 leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             Max position size decreases the higher your leverage.
           </p>
 
-          <div className="flex items-start gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-2.5 rounded-md bg-loss-muted/20 border border-loss/20">
+          <div className="flex items-start gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-2.5 rounded-md bg-loss/10 border border-loss/30">
             <AlertTriangleIcon className="size-3.5 text-warn shrink-0" />
             <p className="text-[0.65rem] text-muted-foreground leading-relaxed">
               {isDecreasingLeverage
@@ -173,11 +177,11 @@ export function AdjustLeverageModal({
             onClick={handleConfirm}
             disabled={mutation.isPending}
             className={cn(
-              "w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-all duration-150 ease-premium",
+              "w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,transform] duration-150 ease-premium",
               "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]",
             )}
           >
-            {mutation.isPending ? "Confirming..." : "Confirm"}
+            {mutation.isPending ? `Setting ${leverage}×...` : `Set ${leverage}×`}
           </Button>
         </DialogFooter>
         {isConnectWalletOpen && (

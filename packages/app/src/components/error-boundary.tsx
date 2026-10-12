@@ -7,21 +7,30 @@ interface Props {
   fallback?: ReactNode;
   onReset?: () => void;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  resetKey?: unknown;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
+  prevResetKey: unknown;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, prevResetKey: props.resetKey };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
+  }
+
+  static getDerivedStateFromProps(props: Props, state: State): Partial<State> | null {
+    if (state.prevResetKey !== props.resetKey) {
+      return { hasError: false, error: null, prevResetKey: props.resetKey };
+    }
+    return null;
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
@@ -48,10 +57,9 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold">Something went wrong</h3>
+              <h3 className="text-lg font-semibold">Unable to load this view</h3>
               <p className="text-sm text-muted-foreground">
-                {this.state.error?.message ||
-                  "An unexpected error occurred. The error has been logged."}
+                Reload the page, or use Try again to retry this section.
               </p>
             </div>
 

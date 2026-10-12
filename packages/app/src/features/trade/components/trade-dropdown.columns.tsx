@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { gridTemplate } from "../utils/trade-dropdown-columns";
 import { HeaderCell } from "./trade-dropdown.columns.helpers";
 import type { ColumnDef, FormattedTrade } from "../utils/trade-dropdown";

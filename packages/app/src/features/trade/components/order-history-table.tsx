@@ -6,6 +6,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { TableEmptyRow } from "@/components/table-empty-row";
 
 import { formatPrice, formatCompactUsd } from "@/core/utils/formatters";
 import { formatTime, fmtNum, formatStatus } from "../utils/shared-table-utils";
@@ -45,19 +46,13 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
         {isFillsLoading ? (
           <TableRow>
             <TableCell colSpan={8} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 Loading...
               </span>
             </TableCell>
           </TableRow>
         ) : !fills || fills.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={8} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
-                No trade history
-              </span>
-            </TableCell>
-          </TableRow>
+          <TableEmptyRow colSpan={8} />
         ) : (
           fills.map((fill, idx) => {
             const sz = Number(fill.sz);
@@ -120,19 +115,13 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
         {isHistLoading ? (
           <TableRow>
             <TableCell colSpan={13} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 Loading...
               </span>
             </TableCell>
           </TableRow>
         ) : !histOrders || histOrders.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={13} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
-                No order history
-              </span>
-            </TableCell>
-          </TableRow>
+          <TableEmptyRow colSpan={13} />
         ) : (
           histOrders.map((entry) => {
             const o = entry.order;

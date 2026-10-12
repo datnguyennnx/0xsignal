@@ -6,6 +6,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { TableEmptyRow } from "@/components/table-empty-row";
 import { formatCompactUsd } from "@/core/utils/formatters";
 
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
@@ -60,13 +61,7 @@ export function BalanceTable({
       </TableHeader>
       <TableBody>
         {!marginSummary ? (
-          <TableRow>
-            <TableCell colSpan={9} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
-                No balance data
-              </span>
-            </TableCell>
-          </TableRow>
+          <TableEmptyRow colSpan={9} />
         ) : (
           <>
             <TableRow>

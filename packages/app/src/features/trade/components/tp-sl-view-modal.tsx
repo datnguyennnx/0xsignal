@@ -60,7 +60,7 @@ export function TpSlViewModal({
               Take Profit / Stop Loss
             </DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground/70 leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             If order A is filled, orders B and C will be placed
           </p>
         </div>
@@ -94,9 +94,7 @@ export function TpSlViewModal({
             </div>
           ) : (
             <div className="rounded-lg border border-border/30 bg-background/40 px-3.5 py-3">
-              <p className="text-xs text-muted-foreground/60 text-center">
-                No TP/SL orders attached
-              </p>
+              <p className="text-xs text-muted-foreground text-center">No TP/SL orders attached</p>
             </div>
           )}
         </div>

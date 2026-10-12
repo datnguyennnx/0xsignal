@@ -35,7 +35,7 @@ export function CancelAllDialog({
               Cancel All Orders
             </DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground/70 leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             Are you sure you want to cancel all {orderCount} open order
             {orderCount !== 1 ? "s" : ""}?
           </p>

@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { SearchX, BarChart3, AlertCircle, FileX } from "lucide-react";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 
 type UnavailableVariant = "empty" | "no-results" | "no-data" | "error" | "unavailable";
 
@@ -19,27 +19,27 @@ const VARIANT_DEFAULTS: Record<
   "no-results": {
     icon: SearchX,
     title: "No Results",
-    description: "Your search returned no matching items.",
+    description: "Nothing here matches your search. Clear the search or broaden your filters.",
   },
   "no-data": {
     icon: FileX,
     title: "No Data",
-    description: "Data for this panel is unavailable.",
+    description: "This panel has no data to show yet. Check back once new activity arrives.",
   },
   unavailable: {
     icon: AlertCircle,
     title: "Content Unavailable",
-    description: "This content could not be loaded.",
+    description: "This section is not available right now. Reload the page to try again.",
   },
   empty: {
     icon: BarChart3,
     title: "Nothing Here",
-    description: "There is no content to display.",
+    description: "This area has no content yet. Add an item to get started.",
   },
   error: {
     icon: AlertCircle,
     title: "Unable to Load",
-    description: "An error occurred while loading content.",
+    description: "This section failed to load. Reload the page to try again.",
   },
 };
 
@@ -70,7 +70,7 @@ export const ContentUnavailable = memo(function ContentUnavailable({
         {title ?? config.title}
       </h3>
       {(description ?? config.description) && (
-        <p className="text-xs text-muted-foreground/50 max-w-[clamp(17rem,70vw,17.5rem)] leading-relaxed">
+        <p className="text-xs text-muted-foreground max-w-[clamp(17rem,70vw,17.5rem)] leading-relaxed">
           {description ?? config.description}
         </p>
       )}

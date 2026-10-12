@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { MainLayout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/sonner";
@@ -61,13 +62,17 @@ function RouteErrorFallback() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-4">
       <p className="text-foreground">Something went wrong loading this page.</p>
-      <button
-        onClick={() => window.location.reload()}
-        className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
-      >
-        Reload
-      </button>
+      <Button onClick={() => window.location.reload()}>Reload</Button>
     </div>
+  );
+}
+
+function RouteErrorBoundary({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  return (
+    <ErrorBoundary resetKey={pathname} fallback={<RouteErrorFallback />}>
+      {children}
+    </ErrorBoundary>
   );
 }
 
@@ -91,9 +96,9 @@ export function App() {
               path="/login"
               element={
                 <Suspense fallback={<PageLoader />}>
-                  <ErrorBoundary fallback={<RouteErrorFallback />}>
+                  <RouteErrorBoundary>
                     <LoginPage />
-                  </ErrorBoundary>
+                  </RouteErrorBoundary>
                 </Suspense>
               }
             />
@@ -109,9 +114,9 @@ export function App() {
               element={
                 <MainLayout>
                   <Suspense fallback={<PageLoader />}>
-                    <ErrorBoundary fallback={<RouteErrorFallback />}>
+                    <RouteErrorBoundary>
                       <Outlet />
-                    </ErrorBoundary>
+                    </RouteErrorBoundary>
                   </Suspense>
                 </MainLayout>
               }

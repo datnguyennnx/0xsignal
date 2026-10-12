@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "@/core/utils/cn";
+
+import { cn } from "cn";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 interface PaginationProps {
@@ -51,14 +52,11 @@ export const Pagination = memo(function Pagination({
         className,
       )}
     >
-      {/* Results count */}
       <span className="text-xs text-muted-foreground tabular-nums order-1">
         {start.toLocaleString()}–{end.toLocaleString()} of {totalItems.toLocaleString()}
       </span>
 
-      {/* Page controls */}
       <div className="flex items-center gap-0.5 order-2">
-        {/* Previous */}
         <button
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
@@ -73,7 +71,6 @@ export const Pagination = memo(function Pagination({
           <ChevronLeft className="size-3.5" />
         </button>
 
-        {/* Page numbers */}
         {pageNumbers.map((page, i) =>
           typeof page === "number" ? (
             <button
@@ -99,7 +96,6 @@ export const Pagination = memo(function Pagination({
           ),
         )}
 
-        {/* Next */}
         <button
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
@@ -115,7 +111,6 @@ export const Pagination = memo(function Pagination({
         </button>
       </div>
 
-      {/* Page size selector */}
       {onPageSizeChange && (
         <div className="flex items-center gap-2 order-3">
           <span className="text-xs text-muted-foreground tabular-nums">Show</span>

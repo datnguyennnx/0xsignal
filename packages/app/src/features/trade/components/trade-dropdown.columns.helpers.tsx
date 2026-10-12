@@ -1,5 +1,5 @@
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import type { ColumnDef } from "../utils/trade-dropdown";
 
 const SortIcon = ({

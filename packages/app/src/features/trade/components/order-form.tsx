@@ -6,8 +6,9 @@ import { Slider } from "@/components/ui/slider";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import type { PlaceOrderRequest } from "@/services/api";
 import type { PlaceOrderEntry } from "@0xsignal/shared";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { CheckIcon } from "lucide-react";
+import { toast } from "sonner";
 import { useClearinghouseState, useSpotClearinghouseState } from "../hooks/use-user-data";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
 import { usePlaceOrder } from "../hooks/use-place-order";
@@ -71,7 +72,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   const [size, setSize] = useState("");
   const [sliderPercent, setSliderPercent] = useState(0);
   const [price, setPrice] = useState("");
-  const [priceError, setPriceError] = useState<string | null>(null);
+  const [priceInvalid, setPriceInvalid] = useState(false);
 
   const [sizeAsset, setSizeAsset] = useState("USDC");
 
@@ -174,7 +175,8 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
   const handlePlaceOrder = () => {
     if (orderType === "limit" && (!price || Number(price) <= 0)) {
-      setPriceError("Please enter a valid limit price");
+      setPriceInvalid(true);
+      toast.error("Enter a price greater than 0.");
       return;
     }
 
@@ -265,7 +267,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
         </div>
 
         <div className="flex-1 flex flex-col gap-[clamp(1.5rem,3vw,3rem)]">
-          <div className="relative flex h-10 rounded-md bg-muted/10 p-0.5">
+          <div className="relative flex h-10 rounded-md bg-muted p-0.5">
             <div
               className={cn(
                 "absolute inset-y-0.5 w-[calc(50%-0.25rem)] rounded-[5px] transition-transform duration-500 ease-premium",
@@ -298,28 +300,34 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
           {orderType === "limit" && (
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
+              <Label
+                htmlFor="order-form-price"
+                className="text-xs uppercase tracking-wider text-muted-foreground font-normal"
+              >
                 Price
               </Label>
               <Input
+                id="order-form-price"
                 type="number"
                 value={price}
                 onChange={(e) => {
                   setPrice(e.target.value);
-                  setPriceError(null);
+                  setPriceInvalid(false);
                 }}
                 placeholder="0.00"
-                className="h-9 text-xs tabular-nums bg-background/70 border-border/30"
-                aria-invalid={!!priceError}
+                className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/30"
+                aria-invalid={priceInvalid}
               />
-              {priceError && <p className="text-[10px] text-destructive/80 mt-1">{priceError}</p>}
             </div>
           )}
 
           <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
+                <Label
+                  htmlFor="order-form-size"
+                  className="text-xs uppercase tracking-wider text-muted-foreground font-normal"
+                >
                   Size ({safeSizeAsset})
                 </Label>
                 {sizeAssetOptions.length > 1 && (
@@ -340,14 +348,15 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                 )}
               </div>
               <Input
+                id="order-form-size"
                 type="number"
                 value={size}
                 onChange={handleSizeChange}
                 placeholder="0.00"
-                className="h-9 w-full text-xs tabular-nums bg-background/70 border-border/30 hover:border-border/60 transition-colors"
+                className="h-9 w-full text-base sm:text-sm tabular-nums bg-background/70 border-border/30 hover:border-border/60 transition-colors"
               />
               {assetQtyDisplay && (
-                <p className="text-[10px] text-muted-foreground/60 tabular-nums text-right">
+                <p className="text-[10px] text-muted-foreground tabular-nums text-right">
                   → {assetQtyDisplay}
                 </p>
               )}
@@ -372,7 +381,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                   value={sliderPercent}
                   onChange={handlePctInputChange}
                   aria-label="Size percentage"
-                  className="w-16 h-8 text-xs text-center tabular-nums bg-background/70 border-border/30 px-1 shrink-0"
+                  className="w-16 h-8 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/30 px-1 shrink-0"
                 />
                 <span className="text-xs text-muted-foreground">%</span>
               </div>
@@ -442,21 +451,29 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                 <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)] pl-5">
                   <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
                     <div className="flex-1">
+                      <label htmlFor="order-form-tp-price" className="sr-only">
+                        Take profit price
+                      </label>
                       <Input
+                        id="order-form-tp-price"
                         type="number"
                         value={tpPrice}
                         onChange={(e) => handleTpPriceChange(e.target.value)}
                         placeholder="TP Price"
-                        className="h-8 text-xs tabular-nums bg-background/70 border-border/30"
+                        className="h-8 text-base sm:text-sm tabular-nums bg-background/70 border-border/30"
                       />
                     </div>
                     <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
+                      <label htmlFor="order-form-tp-gain" className="sr-only">
+                        Take profit gain percent
+                      </label>
                       <Input
+                        id="order-form-tp-gain"
                         type="number"
                         value={tpPercent}
                         onChange={(e) => handleTpPercentChange(e.target.value)}
                         placeholder="Gain"
-                        className="w-20 h-8 text-xs text-center tabular-nums bg-background/70 border-border/30"
+                        className="w-20 h-8 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/30"
                       />
                       <span className="text-xs text-muted-foreground w-4">%</span>
                     </div>
@@ -464,21 +481,29 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
                   <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
                     <div className="flex-1">
+                      <label htmlFor="order-form-sl-price" className="sr-only">
+                        Stop loss price
+                      </label>
                       <Input
+                        id="order-form-sl-price"
                         type="number"
                         value={slPrice}
                         onChange={(e) => handleSlPriceChange(e.target.value)}
                         placeholder="SL Price"
-                        className="h-8 text-xs tabular-nums bg-background/70 border-border/30"
+                        className="h-8 text-base sm:text-sm tabular-nums bg-background/70 border-border/30"
                       />
                     </div>
                     <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
+                      <label htmlFor="order-form-sl-loss" className="sr-only">
+                        Stop loss percent
+                      </label>
                       <Input
+                        id="order-form-sl-loss"
                         type="number"
                         value={slPercent}
                         onChange={(e) => handleSlPercentChange(e.target.value)}
                         placeholder="Loss"
-                        className="w-20 h-8 text-xs text-center tabular-nums bg-background/70 border-border/30"
+                        className="w-20 h-8 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/30"
                       />
                       <span className="text-xs text-muted-foreground w-4">%</span>
                     </div>
@@ -514,7 +539,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           <Button
             onClick={handlePlaceOrder}
             disabled={!canPlace || placeOrderMutation.isPending}
-            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-all duration-150 ease-premium bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
+            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,scale] duration-150 ease-premium bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
           >
             {placeOrderMutation.isPending ? "Placing Order..." : "Place Order"}
           </Button>

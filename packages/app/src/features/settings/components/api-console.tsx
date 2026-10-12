@@ -101,9 +101,9 @@ export function ApiConsole() {
 
       handleReset();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Something went wrong.";
-      toast.error("Failed to save credential", {
-        description: message,
+      console.error("[ApiConsole] Failed to save credential", err);
+      toast.error("Unable to save credential", {
+        description: "Check your API key and try again.",
       });
     } finally {
       setIsSubmitting(false);
@@ -175,8 +175,10 @@ export function ApiConsole() {
                     });
                     refreshWalletStatus();
                   } catch (err) {
-                    const msg = err instanceof Error ? err.message : "Failed to link wallet";
-                    toast.error("Failed to link wallet", { description: msg });
+                    console.error("[ApiConsole] Failed to link wallet", err);
+                    toast.error("Unable to link wallet", {
+                      description: "Check your wallet connection and try again.",
+                    });
                   }
                 }
               }}

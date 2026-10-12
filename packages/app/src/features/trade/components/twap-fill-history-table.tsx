@@ -1,11 +1,5 @@
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead } from "@/components/ui/table";
+import { TableEmptyRow } from "@/components/table-empty-row";
 import { CELL_HEAD_CLASS, CELL_HEAD_NUM_CLASS } from "../utils/orderbook-table-classes";
 
 const cHead = CELL_HEAD_CLASS;
@@ -35,13 +29,7 @@ export function TwapFillHistoryTable() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        <TableRow>
-          <TableCell colSpan={8} className="text-center py-6">
-            <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
-              No TWAP fill history
-            </span>
-          </TableCell>
-        </TableRow>
+        <TableEmptyRow colSpan={8} />
       </TableBody>
     </Table>
   );

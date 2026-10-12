@@ -7,7 +7,7 @@ import {
 } from "@0xsignal/shared";
 import { Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ContentUnavailable } from "@/components/content-unavailable";
+import { EmptyState } from "@/components/empty-state";
 import { IndicatorParamField } from "./param-field";
 import { parseFormValues, toFormValues } from "../utils/indicator-param-utils";
 
@@ -83,14 +83,12 @@ function IndicatorConfigPanelInner({
             <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
               Indicator Settings
             </h3>
-            <p className="text-xs text-muted-foreground/70 leading-relaxed">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               Configure parameters for this technical indicator.
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-xs text-muted-foreground/70 font-medium">
-              {activeCount} active
-            </span>
+            <span className="text-xs text-muted-foreground font-medium">{activeCount} active</span>
           </div>
         </div>
       </div>
@@ -118,8 +116,8 @@ function IndicatorConfigPanelInner({
             </div>
           ) : (
             <div className="flex items-center justify-center min-h-[clamp(10rem,30dvh,14rem)]">
-              <ContentUnavailable
-                variant="empty"
+              <EmptyState
+                variant="panel"
                 title="Fixed Model"
                 description="This strategy utilizes fixed institutional logic and does not require manual parameter adjustment."
               />

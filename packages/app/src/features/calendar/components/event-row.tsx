@@ -3,7 +3,7 @@ import type { JSX } from "react";
 
 import { ExternalLink } from "lucide-react";
 
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 
 interface EventRowProps {
   event: EconomicEvent;
@@ -34,7 +34,7 @@ export function EventRow({ event, className }: EventRowProps): JSX.Element {
   );
 
   const cardClass = cn(
-    "group rounded-xl bg-muted/40 p-3 transition-colors",
+    "group rounded-xl bg-muted p-3 transition-colors",
     event.sourceUrl && "cursor-pointer hover:bg-muted/60",
     className,
   );

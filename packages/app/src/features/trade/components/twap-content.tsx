@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { TwapActiveTable } from "./twap-active-table";
 import { TwapHistoryTable } from "./twap-history-table";
 import { TwapFillHistoryTable } from "./twap-fill-history-table";
@@ -32,7 +32,7 @@ export function TwapContent() {
                 "px-3 py-1 text-xs font-medium rounded-sm transition-colors",
                 twapSubTab === sub.value
                   ? "text-foreground bg-foreground/5"
-                  : "text-muted-foreground/60 hover:text-muted-foreground",
+                  : "text-muted-foreground hover:text-foreground",
               )}
               type="button"
             >

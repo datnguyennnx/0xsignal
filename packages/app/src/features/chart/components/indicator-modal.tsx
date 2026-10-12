@@ -1,10 +1,11 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useId } from "react";
 import { AVAILABLE_INDICATORS, type ActiveIndicator, type IndicatorConfig } from "@0xsignal/shared";
 import { Layers, Activity, Search, Sparkles, X } from "lucide-react";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ContentUnavailable } from "@/components/content-unavailable";
+import { EmptyState } from "@/components/empty-state";
 import { IndicatorConfigPanel } from "./config-panel";
 import { IndicatorInsightsPanel } from "./insights-panel";
 
@@ -37,6 +38,7 @@ export function IndicatorModal({
   const [category, setCategory] = useState<Category>("active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const searchId = useId();
 
   const activeByBaseId = useMemo(() => {
     const map = new Map<string, ActiveIndicator[]>();
@@ -101,9 +103,10 @@ export function IndicatorModal({
               <h2 className="text-xs font-semibold text-muted-foreground">Indicators</h2>
               <button
                 onClick={handleClose}
+                aria-label="Close"
                 className="sm:hidden p-2 min-w-[44px] min-h-[44px] flex items-center justify-center tap-highlight rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
@@ -126,7 +129,7 @@ export function IndicatorModal({
                       setSelectedId(null);
                     }}
                     className={cn(
-                      "w-full flex items-center gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-3 sm:py-2 rounded text-xs transition-all duration-150 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
+                      "w-full flex items-center gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-3 sm:py-2 rounded text-xs transition-[background-color,color,box-shadow] duration-150 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                       category === cat.id
                         ? "bg-accent text-foreground font-semibold"
                         : "text-muted-foreground hover:text-foreground hover:bg-accent/50 font-medium",
@@ -134,6 +137,7 @@ export function IndicatorModal({
                   >
                     <Icon
                       className={cn("w-3.5 h-3.5 shrink-0", category === cat.id && "text-primary")}
+                      aria-hidden="true"
                     />
                     <span className="flex-1 text-left truncate">{cat.label}</span>
                     <span
@@ -157,13 +161,21 @@ export function IndicatorModal({
             {!(category === "active" && activeIndicatorConfigs.length === 0) && (
               <div className="p-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/50 pointer-events-none" />
+                  <Search
+                    className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/50 pointer-events-none"
+                    aria-hidden="true"
+                  />
+
+                  <label htmlFor={searchId} className="sr-only">
+                    Search indicators
+                  </label>
 
                   <Input
+                    id={searchId}
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Find indicator..."
-                    className="pl-9 pr-8 bg-muted/30 border-border h-10 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-offset-0 text-secondary"
+                    className="pl-9 pr-8 bg-muted border-border h-10 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-offset-0 text-secondary"
                   />
 
                   {query && (
@@ -173,7 +185,7 @@ export function IndicatorModal({
                       aria-label="Clear search"
                       className="absolute right-2 top-1/2 -translate-y-1/2 size-8 flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors"
                     >
-                      <X className="size-4" />
+                      <X className="size-4" aria-hidden="true" />
                     </button>
                   )}
                 </div>
@@ -192,15 +204,15 @@ export function IndicatorModal({
                         key={indicator.id}
                         onClick={() => setSelectedId(indicator.id)}
                         className={cn(
-                          "w-full flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-3 sm:py-2 rounded text-xs transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
+                          "w-full flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-3 sm:py-2 rounded text-xs transition-[background-color,color,box-shadow] min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25",
                           isSelected
                             ? "bg-accent text-foreground font-semibold"
-                            : "hover:bg-accent/50 text-muted-foreground hover:text-foreground font-medium transition-all duration-150",
+                            : "hover:bg-accent/50 text-muted-foreground hover:text-foreground font-medium transition-[background-color,color] duration-150",
                         )}
                       >
                         <div
                           className={cn(
-                            "w-1.5 h-1.5 rounded-full shrink-0 transition-all",
+                            "w-1.5 h-1.5 rounded-full shrink-0 transition-[background-color,transform]",
                             activeCount > 0 ? "bg-foreground" : "bg-muted-foreground/20",
                             isSelected && "scale-105",
                           )}
@@ -217,15 +229,18 @@ export function IndicatorModal({
                 </div>
               ) : (
                 <div className="min-h-full flex items-center justify-center">
-                  <ContentUnavailable
-                    variant="no-results"
-                    title="No Indicators"
-                    description={
-                      normalizedQuery
-                        ? `No indicators match "${normalizedQuery}".`
-                        : "No indicators in this category."
-                    }
-                  />
+                  {normalizedQuery ? (
+                    <ContentUnavailable
+                      variant="no-results"
+                      description={`No indicators match "${normalizedQuery}".`}
+                    />
+                  ) : (
+                    <EmptyState
+                      variant="panel"
+                      title="No Indicators"
+                      description="No indicators in this category."
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -240,8 +255,8 @@ export function IndicatorModal({
                 className="scrollbar-none px-2 flex-1"
               />
             ) : (
-              <ContentUnavailable
-                variant="no-data"
+              <EmptyState
+                variant="panel"
                 title="No Indicator Selected"
                 description="Select an indicator from the list to view its details."
               />
@@ -249,7 +264,7 @@ export function IndicatorModal({
           </div>
 
           {/* Column 4: Inspector Sidepan */}
-          <div className="flex-[1] min-w-[clamp(14rem,16vw,18rem)] max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col min-h-0 shadow-[-1px_0_0_0_rgba(0,0,0,0.02)]">
+          <div className="flex-[1] min-w-[clamp(14rem,16vw,18rem)] max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col min-h-0 shadow-[-1px_0_0_0_var(--border)]">
             {selectedIndicator ? (
               <IndicatorConfigPanel
                 key={`${selectedIndicator.id}-config`}

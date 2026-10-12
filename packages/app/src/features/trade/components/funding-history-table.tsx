@@ -6,6 +6,9 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { useEffect } from "react";
+import { toast } from "sonner";
+import { TableEmptyRow } from "@/components/table-empty-row";
 
 import { useUserFunding } from "@/hooks/use-user-funding";
 import { formatTime, fmtNum } from "@/features/trade/utils/shared-table-utils";
@@ -18,6 +21,14 @@ import { Pagination } from "@/components/ui/pagination";
 export function FundingHistoryTable() {
   const { data: funding, isLoading, isError } = useUserFunding();
   const paginated = usePagination(funding ?? [], 20);
+
+  useEffect(() => {
+    if (isError) {
+      toast.error("Couldn't load funding history", {
+        description: "Check your connection and try again.",
+      });
+    }
+  }, [isError]);
 
   return (
     <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]">
@@ -36,27 +47,13 @@ export function FundingHistoryTable() {
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-6">
-                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">
                   Loading...
                 </span>
               </TableCell>
             </TableRow>
-          ) : isError ? (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center py-6">
-                <span className="text-xs text-destructive/70 uppercase tracking-wider">
-                  Unable to load funding history
-                </span>
-              </TableCell>
-            </TableRow>
           ) : !funding || funding.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center py-6">
-                <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
-                  No funding history
-                </span>
-              </TableCell>
-            </TableRow>
+            <TableEmptyRow colSpan={6} />
           ) : (
             paginated.pageData.map((entry, idx) => {
               const usdc = Number(entry.delta.usdc);

@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { api, type UpdateLeverageRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query-keys";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 import { useAppStore } from "@/stores/use-app-store";
@@ -68,7 +69,10 @@ export function MarginModeModal({
     onError: (err) => {
       if (err instanceof UnauthenticatedError) {
         openConnectWallet();
+        return;
       }
+      console.error("Failed to update margin mode", err);
+      toast.error("Unable to update margin mode. Try again.");
     },
   });
 
@@ -96,7 +100,7 @@ export function MarginModeModal({
           <button
             onClick={() => setMode("isolated")}
             className={cn(
-              "w-full text-left px-4 py-3 rounded-lg border transition-all active:brightness-90",
+              "w-full text-left px-4 py-3 rounded-lg border transition-[background-color,border-color,filter] active:brightness-90",
               mode === "isolated"
                 ? "border-foreground bg-foreground/5"
                 : "border-border/30 bg-transparent hover:border-border",
@@ -134,7 +138,7 @@ export function MarginModeModal({
           <button
             onClick={() => setMode("cross")}
             className={cn(
-              "w-full text-left px-4 py-3 rounded-lg border transition-all active:brightness-90",
+              "w-full text-left px-4 py-3 rounded-lg border transition-[background-color,border-color,filter] active:brightness-90",
               mode === "cross"
                 ? "border-foreground bg-foreground/5"
                 : "border-border/30 bg-transparent hover:border-border",
@@ -168,9 +172,13 @@ export function MarginModeModal({
             size="sm"
             onClick={handleConfirm}
             disabled={mutation.isPending}
-            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-all duration-150 ease-premium bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
+            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,transform] duration-150 ease-premium bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
           >
-            {mutation.isPending ? "Confirming..." : "Confirm"}
+            {mutation.isPending
+              ? `Setting ${mode}...`
+              : mode === "isolated"
+                ? "Set isolated"
+                : "Set cross"}
           </Button>
         </DialogFooter>
         {isConnectWalletOpen && (

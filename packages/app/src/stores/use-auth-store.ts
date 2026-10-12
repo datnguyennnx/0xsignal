@@ -53,9 +53,8 @@ export const useAuthStore = create<AuthStoreState>()(
           try {
             await api.logout();
           } catch (err) {
-            const message = err instanceof Error ? err.message : "Sign out failed";
             console.error("[Auth] Logout error:", err);
-            toast.error("Sign out failed", { description: message });
+            toast.error("Sign out failed", { description: "Try again to sign out." });
           }
           set({
             token: null,

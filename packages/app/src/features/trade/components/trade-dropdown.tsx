@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, ChevronDown, X } from "lucide-react";
-import { ContentUnavailable } from "@/components/content-unavailable";
+import { EmptyState } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
+import { toast } from "sonner";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { calculatePxDecimals } from "@/features/trade/utils/trade-formatters";
 import { formatSize, formatCompactUsd } from "@/core/utils/formatters";
@@ -30,6 +31,13 @@ const TradeDropdownFn = ({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { data, isLoading, error } = useTradeList();
+
+  useEffect(() => {
+    if (!error) return;
+    toast.error("Failed to load markets", {
+      description: "Check your connection and try again.",
+    });
+  }, [error]);
 
   const displayLabel = currentDisplayName || displaySymbol || currentSymbol;
   const trades = data?.assets;
@@ -265,12 +273,16 @@ const TradeDropdownFn = ({
           <div className="p-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+              <label htmlFor="trade-dropdown-search" className="sr-only">
+                Search markets
+              </label>
               <Input
+                id="trade-dropdown-search"
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search market..."
-                className="pl-9 pr-8 bg-muted/30 border-border h-10 text-sm rounded-xl focus:ring-1 focus:ring-offset-0"
+                className="pl-9 pr-8 bg-muted border-border h-10 text-sm rounded-xl focus:ring-1 focus:ring-offset-0"
               />
               {query && (
                 <button
@@ -298,7 +310,7 @@ const TradeDropdownFn = ({
                     "px-3 py-2 text-[clamp(0.6875rem,0.7rem+0.4vw,0.75rem)] font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none -mb-px",
                     isActive
                       ? "text-foreground border-b-2 border-foreground"
-                      : "text-muted-foreground/50 hover:text-muted-foreground border-transparent",
+                      : "text-muted-foreground hover:text-foreground border-transparent",
                   )}
                 >
                   {tab}
@@ -311,27 +323,29 @@ const TradeDropdownFn = ({
 
           <div className="max-h-[clamp(22rem,60dvh,34rem)] overflow-y-auto overscroll-none flex flex-col">
             {isLoading ? (
-              <div className="divide-y divide-border/30">
+              <div>
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="divide-y divide-border/30">
-                    <MarketRowSkeleton columns={columns} />
-                  </div>
+                  <MarketRowSkeleton key={i} columns={columns} />
                 ))}
               </div>
             ) : error ? (
-              <ContentUnavailable
-                variant="error"
-                title="Failed to Load"
-                description="Could not retrieve market data. Please try again."
-              />
+              <div className="flex flex-1 items-center justify-center min-h-[clamp(12rem,40dvh,18rem)]">
+                <EmptyState variant="panel" title="Unable to load markets" />
+              </div>
             ) : formattedTrades.length === 0 ? (
-              <ContentUnavailable
-                variant="no-data"
-                title="No Markets Found"
-                description="No markets match your current filters."
-              />
+              <div className="flex flex-1 items-center justify-center min-h-[clamp(12rem,40dvh,18rem)]">
+                <EmptyState
+                  variant="panel"
+                  title={query ? "No results" : "No markets found"}
+                  description={
+                    query
+                      ? "Try a different search or filter."
+                      : "No markets are available in this category."
+                  }
+                />
+              </div>
             ) : (
-              <div className="divide-y divide-border/30">
+              <div>
                 {formattedTrades.map((item) => (
                   <button
                     key={`${item.rawCoin}-${item.dexPrefix ?? "main"}-${item.marketType}`}

@@ -112,12 +112,11 @@ export function ResizableWrapper({
         isResizing || isDragged
           ? "select-none border-foreground/30 shadow-xl z-50"
           : "border-border/20"
-      } ${isDragged ? "pointer-events-none" : ""} ${isHovered && !isResizing && !isDragged ? "border-foreground/10" : ""} ${className}`}
+      } ${isDragged ? "pointer-events-none" : ""} ${isHovered && !isResizing && !isDragged ? "border-foreground/10" : ""} ${isDragged ? "opacity-30" : "opacity-100"} ${className}`}
       style={{
         transform: `translate(${left}px, ${top}px)`,
         width: `${width}px`,
         height: `${height}px`,
-        opacity: isDragged ? 0.3 : 1,
         transition: isResizing
           ? "box-shadow 150ms ease, border-color 150ms ease, opacity 150ms ease"
           : "transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), width 200ms cubic-bezier(0.34, 1.56, 0.64, 1), height 200ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 200ms ease, border-color 200ms ease, opacity 150ms ease",
@@ -134,7 +133,7 @@ export function ResizableWrapper({
       {/* Drag Handle — Grip icon for repositioning */}
       <div
         onPointerDown={(e) => onRepositionStart?.(id, e)}
-        className={`absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-8 h-5 cursor-grab active:cursor-grabbing transition-all duration-150 rounded ${
+        className={`absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-8 h-5 cursor-grab active:cursor-grabbing transition-[opacity,background-color] duration-150 rounded ${
           isActive && !isResizing ? "opacity-60" : "opacity-0"
         } hover:opacity-80 hover:bg-foreground/5`}
         style={TOUCH_NONE}

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import {
   useClearinghouseState,
@@ -112,8 +112,8 @@ export function PortfolioSummaryCard() {
         <div className="space-y-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex justify-between items-center">
-              <Skeleton className="w-[38%]" style={{ height: 11 }} />
-              <Skeleton className="w-[28%]" style={{ height: 11 }} />
+              <Skeleton className="h-[11px] w-[38%]" />
+              <Skeleton className="h-[11px] w-[28%]" />
             </div>
           ))}
         </div>
@@ -125,7 +125,7 @@ export function PortfolioSummaryCard() {
     return (
       <div className={SURFACE}>
         <div className="flex-1 flex items-center justify-center">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground/30">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
             Unable to load
           </span>
         </div>

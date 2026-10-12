@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 
 interface ErrorStateProps {
   title?: string;
@@ -30,7 +30,7 @@ export const ErrorState = memo(function ErrorState({
         {isRateLimit ? "System Cooling Down" : title}
       </h3>
 
-      <p className="text-xs text-muted-foreground/60 max-w-md mb-6 leading-relaxed">
+      <p className="text-xs text-muted-foreground max-w-md mb-6 leading-relaxed">
         {isRateLimit
           ? "High data velocity detected. The stream has been temporarily paused to preserve integrity."
           : description}

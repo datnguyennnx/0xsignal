@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_INTERVALS, ALL_INTERVALS } from "../utils/constants";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -43,7 +43,7 @@ export function ChartHeader({
               size="sm"
               onClick={() => handleIntervalChange(int.value)}
               className={cn(
-                "relative h-8 rounded-xl border px-2.5 py-4 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tabular-nums tracking-[0.01em] transition-all duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/25",
+                "relative h-8 rounded-xl border px-2.5 py-4 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tabular-nums tracking-[0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/25",
                 interval === int.value
                   ? "border-border/60 bg-muted/70 text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",

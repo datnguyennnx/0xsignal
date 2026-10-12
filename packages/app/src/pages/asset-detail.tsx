@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { toast } from "sonner";
 import { normalizeSymbol } from "@/features/trade/lib/symbol";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/error-state";
@@ -52,6 +53,7 @@ function AssetDetailSkeleton() {
 export function AssetDetail() {
   const { symbol, base, quote } = useParams<{ symbol: string; base: string; quote: string }>();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   // rawCoin = exact Hyperliquid API identifier from URL.
   // Perp route /:symbol → rawCoin = symbol (e.g., "BTC", "xyz:TSLA")
   // Spot route /:base/:quote → rawCoin = "base/quote" (e.g., "PURR/USDC")
@@ -91,6 +93,13 @@ export function AssetDetail() {
     refetchAsset();
   }, [refetchAsset]);
 
+  useEffect(() => {
+    if (!assetError) return;
+    toast.error(`Couldn't load ${symbol?.toUpperCase() ?? "this asset"}`, {
+      description: "Check your connection and try again.",
+    });
+  }, [assetError, symbol]);
+
   const asset = useMemo<AssetViewModel | null>(
     () => (fetchedAsset ? { symbol: fetchedAsset.symbol, price: fetchedAsset } : null),
     [fetchedAsset],
@@ -116,10 +125,12 @@ export function AssetDetail() {
 
   if (assetError || (!fetchedAsset && !assetLoading)) {
     return (
-      <div className="container-fluid h-full py-6 overscroll-none animate-in fade-in duration-200 ease-premium">
+      <div className="container-fluid h-full flex items-center justify-center py-6 overscroll-none animate-in fade-in duration-200 ease-premium">
         <ErrorState
           title={
-            assetError ? `Error: ${assetError.message}` : `No data for ${symbol?.toUpperCase()}`
+            assetError
+              ? `Couldn't load ${symbol?.toUpperCase() ?? "this asset"}. Check your connection and try again.`
+              : `No data for ${symbol?.toUpperCase()}`
           }
           retryAction={handleRetry}
         />
@@ -129,21 +140,24 @@ export function AssetDetail() {
 
   if (!asset) {
     return (
-      <div className="container-fluid h-full py-6 overscroll-none animate-in fade-in duration-200 ease-premium">
+      <div className="container-fluid h-full flex items-center justify-center py-6 overscroll-none animate-in fade-in duration-200 ease-premium">
         <ErrorState title={`No data for ${symbol?.toUpperCase()}`} retryAction={handleRetry} />
       </div>
     );
   }
 
   return (
-    <ErrorBoundary>
-      <AssetContent
-        asset={asset}
-        symbol={rawCoin}
-        interval={interval}
-        onIntervalChange={handleIntervalChange}
-        showChartSkeleton={false}
-      />
-    </ErrorBoundary>
+    <>
+      <h1 className="sr-only">{asset.symbol.toUpperCase()}</h1>
+      <ErrorBoundary resetKey={pathname}>
+        <AssetContent
+          asset={asset}
+          symbol={rawCoin}
+          interval={interval}
+          onIntervalChange={handleIntervalChange}
+          showChartSkeleton={false}
+        />
+      </ErrorBoundary>
+    </>
   );
 }

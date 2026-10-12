@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { ErrorState } from "@/components/error-state";
@@ -52,7 +53,7 @@ export function AuthCallbackPage() {
       } catch (err) {
         if (!cancelled) {
           console.error("[Auth] Token exchange failed:", err);
-          setError(err instanceof Error ? err.message : "Token exchange failed");
+          setError("Unable to complete sign-in. Try again.");
         }
       }
     }
@@ -63,6 +64,11 @@ export function AuthCallbackPage() {
       cancelled = true;
     };
   }, [navigate]);
+
+  useEffect(() => {
+    if (!error) return;
+    toast.error("Sign-in failed", { description: error });
+  }, [error]);
 
   if (error) {
     return (
@@ -98,7 +104,8 @@ export function AuthCallbackPage() {
                     navigate("/trade/BTC", { replace: true });
                   }
                 } catch (err) {
-                  setError(err instanceof Error ? err.message : "Token exchange failed");
+                  console.error("[Auth] Token exchange failed:", err);
+                  setError("Unable to complete sign-in. Try again.");
                 }
               })();
             } else {

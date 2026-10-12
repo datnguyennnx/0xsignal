@@ -6,6 +6,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { TableEmptyRow } from "@/components/table-empty-row";
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
 import { useUserBalances } from "../hooks/use-user-balances";
@@ -40,19 +41,13 @@ export function OutcomesTable() {
         {isChLoading ? (
           <TableRow>
             <TableCell colSpan={7} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
                 Loading...
               </span>
             </TableCell>
           </TableRow>
         ) : positions.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={7} className="text-center py-6">
-              <span className="text-xs text-muted-foreground/50 uppercase tracking-wider">
-                No open positions
-              </span>
-            </TableCell>
-          </TableRow>
+          <TableEmptyRow colSpan={7} />
         ) : (
           positions.map(({ position }) => {
             const signedSz = Number(position.szi);

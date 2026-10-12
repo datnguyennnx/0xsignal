@@ -2,7 +2,7 @@ import type { JSX } from "react";
 import { ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 
 import { CalendarCategoryFilter, type CalendarCategoryFilterValue } from "./calendar-filters";
 

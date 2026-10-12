@@ -1,6 +1,6 @@
 import { formatCompactUsd } from "@/core/utils/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/core/utils/cn";
+import { cn } from "cn";
 import { useUserBalances } from "../hooks/use-user-balances";
 
 export function UnifiedAccountSummary() {

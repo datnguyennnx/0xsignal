@@ -148,7 +148,7 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
           const { maxW, maxH, minX, minY } = getResizeConstraints(item, others);
 
           return (
-            <ErrorBoundary key={item.i}>
+            <ErrorBoundary key={item.i} resetKey={item.i}>
               <ResizableWrapper
                 id={item.i}
                 item={item}
@@ -191,27 +191,26 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
           draggedItemId &&
           phantomSize &&
           createPortal(
-            <ErrorBoundary>
+            <ErrorBoundary resetKey={draggedItemId}>
               <div
                 ref={phantomRef}
-                className="fixed left-0 top-0 pointer-events-none"
+                className="fixed left-0 top-0 pointer-events-none will-change-transform"
                 style={{
                   width: `${phantomSize.width}px`,
                   height: `${phantomSize.height}px`,
-                  willChange: "transform",
                   zIndex: Z.glassShell,
                 }}
                 aria-hidden="true"
               >
-                <div className="h-full w-full bg-neutral-900/50 backdrop-blur-sm border border-neutral-700 rounded-lg flex items-center justify-center">
+                <div className="h-full w-full bg-card backdrop-blur-sm border border-border rounded-lg flex items-center justify-center">
                   <div className="text-center px-4">
                     <div className="flex items-center justify-center gap-2 mb-1">
-                      <div className="size-2 rounded-full bg-neutral-500 animate-pulse" />
-                      <p className="text-sm font-medium text-neutral-300">
+                      <div className="size-2 rounded-full bg-muted-foreground animate-pulse" />
+                      <p className="text-sm font-medium text-foreground">
                         {panelNamesMap[draggedItemId] ?? draggedItemId}
                       </p>
                     </div>
-                    <p className="text-xs text-neutral-500">Dragging to reorder</p>
+                    <p className="text-xs text-muted-foreground">Dragging to reorder</p>
                   </div>
                 </div>
               </div>
