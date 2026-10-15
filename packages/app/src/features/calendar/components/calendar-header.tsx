@@ -38,10 +38,10 @@ export function CalendarHeader({
 
       <div className="flex items-center gap-2">
         <div className="flex items-center rounded-md border border-border/40">
-          <Button variant="ghost" size="icon-sm" onClick={onPrev} aria-label="Previous period">
+          <Button variant="outline" size="icon" onClick={onPrev} aria-label="Previous period">
             <ChevronLeft />
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={onNext} aria-label="Next period">
+          <Button variant="outline" size="icon" onClick={onNext} aria-label="Next period">
             <ChevronRight />
           </Button>
         </div>
@@ -54,8 +54,7 @@ export function CalendarHeader({
 
         <Button
           variant="outline"
-          size="icon-sm"
-          className="border-border/40"
+          size="icon"
           onClick={onRefresh}
           disabled={isRefreshing}
           aria-label="Refresh"

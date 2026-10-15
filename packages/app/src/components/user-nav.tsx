@@ -53,7 +53,6 @@ export function UserNav() {
       ) : (
         <Button
           variant="default"
-          size="sm"
           className="h-8 px-3 text-xs font-medium"
           onClick={openConnectWallet}
         >
@@ -63,7 +62,7 @@ export function UserNav() {
 
       <Button
         variant="outline"
-        size="icon-sm"
+        size="icon"
         className="size-8"
         title="Reset Dashboard Layout"
         onClick={() => {
@@ -77,7 +76,7 @@ export function UserNav() {
 
       <Button
         variant="outline"
-        size="icon-sm"
+        size="icon"
         className="size-8"
         onClick={() => navigate("/settings?tab=appearance")}
       >
