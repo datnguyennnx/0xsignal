@@ -37,12 +37,12 @@ export function CalendarCategoryFilter({
 }: CalendarCategoryFilterProps): JSX.Element {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5 border-border/40">
-          <Filter className="size-3.5 opacity-60" />
-          {CATEGORY_LABEL[value]}
-          <ChevronDown className="size-3.5 opacity-60" />
-        </Button>
+      <DropdownMenuTrigger
+        render={<Button variant="outline" size="sm" className="gap-1.5 border-border/40" />}
+      >
+        <Filter className="size-3.5 opacity-60" />
+        {CATEGORY_LABEL[value]}
+        <ChevronDown className="size-3.5 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuRadioGroup

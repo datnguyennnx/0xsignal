@@ -32,8 +32,8 @@ export const IndicatorButton = memo(function IndicatorButton({
         size="sm"
         onClick={handleToggle}
         className={cn(
-          "gap-[clamp(0.2rem,0.4vw,0.375rem)] px-2 sm:px-3 border-border/50 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25",
-          isOpen && "bg-foreground text-background hover:bg-foreground/90",
+          "gap-[clamp(0.2rem,0.4vw,0.375rem)] px-2 sm:px-3 border-border/40 focus-visible:ring-ring/40",
+          !isOpen && "bg-background/70 hover:bg-muted/40",
           className,
         )}
       >
@@ -43,7 +43,7 @@ export const IndicatorButton = memo(function IndicatorButton({
           <Badge
             variant={isOpen ? "secondary" : "default"}
             className={cn(
-              "px-1 sm:px-1.5 py-0 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] h-4 min-w-[1rem] tabular-nums select-none",
+              "px-1 sm:px-1.5 py-0 text-[length:var(--text-data)] h-4 min-w-[1rem] tabular-nums select-none",
               isOpen && "bg-background/20 text-background",
             )}
           >

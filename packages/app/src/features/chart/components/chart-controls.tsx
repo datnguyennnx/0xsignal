@@ -35,16 +35,18 @@ export const ChartControls = memo(function ChartControls({
       </div>
       {hasActiveOverlays && (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onResetAll}
-              aria-label="Reset all overlays"
-              className="px-2 min-h-[44px] border-border/30 bg-background/70 text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring/25"
-            >
-              <RefreshCcw className="w-3.5 h-3.5" aria-hidden="true" />
-            </Button>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onResetAll}
+                aria-label="Reset all overlays"
+                className="px-2 min-h-[44px] border-border/40 bg-background/70 text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring/40"
+              />
+            }
+          >
+            <RefreshCcw className="w-3.5 h-3.5" aria-hidden="true" />
           </TooltipTrigger>
           <TooltipContent>Reset all overlays</TooltipContent>
         </Tooltip>
@@ -55,7 +57,7 @@ export const ChartControls = memo(function ChartControls({
         size="sm"
         onClick={onToggleFullscreen}
         aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-        className="px-3 border-border/30 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25"
+        className="px-3 border-border/40 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/40"
       >
         {isFullscreen ? (
           <Minimize2 className="w-3.5 h-3.5" aria-hidden="true" />

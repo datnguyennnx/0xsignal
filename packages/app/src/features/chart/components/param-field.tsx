@@ -42,12 +42,12 @@ export function IndicatorParamField({
         <label htmlFor={inputId} className="text-sm font-medium text-foreground leading-none">
           {definition.label}
         </label>
-        <span className="text-[10px] text-muted-foreground leading-none tabular-nums shrink-0">
+        <span className="text-[length:var(--text-micro)] text-muted-foreground leading-none tabular-nums shrink-0">
           {definition.min} – {definition.max}
         </span>
       </div>
 
-      <div className="flex items-center bg-muted/40 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-ring/25 w-full">
+      <div className="flex items-center bg-muted/40 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-ring/40 w-full">
         <button
           type="button"
           onClick={() => adjust(-1)}
@@ -82,7 +82,9 @@ export function IndicatorParamField({
       </div>
 
       {definition.description && (
-        <p className="text-[11px] text-muted-foreground leading-tight">{definition.description}</p>
+        <p className="text-[length:var(--text-micro)] text-muted-foreground leading-tight">
+          {definition.description}
+        </p>
       )}
     </div>
   );

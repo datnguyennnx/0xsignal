@@ -24,11 +24,9 @@ export function NotFoundPage() {
         </p>
 
         <div className="pt-4">
-          <Button asChild variant="outline" className="gap-2">
-            <Link to="/trade/btc">
-              <ArrowLeft className="h-4 w-4" />
-              Return to Trade
-            </Link>
+          <Button render={<Link to="/trade/btc" />} variant="outline" className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Return to Trade
           </Button>
         </div>
       </div>

@@ -14,7 +14,13 @@ import { useUserFunding } from "@/hooks/use-user-funding";
 import { formatTime, fmtNum } from "@/features/trade/utils/shared-table-utils";
 import { formatCompactUsd } from "@/core/utils/formatters";
 import { PosDirLabel } from "@/features/trade/components/shared-table-components";
-import { c, cNum, cHead, cHeadNum } from "@/features/trade/utils/orderbook-table-classes";
+import {
+  c,
+  cNum,
+  cHead,
+  cHeadNum,
+  TABLE_HEAD_CLASS,
+} from "@/features/trade/utils/orderbook-table-classes";
 import { usePagination } from "@/hooks/use-pagination";
 import { Pagination } from "@/components/ui/pagination";
 
@@ -47,9 +53,7 @@ export function FundingHistoryTable() {
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={6} className="text-center py-6">
-                <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                  Loading...
-                </span>
+                <span className={TABLE_HEAD_CLASS}>Loading...</span>
               </TableCell>
             </TableRow>
           ) : !funding || funding.length === 0 ? (

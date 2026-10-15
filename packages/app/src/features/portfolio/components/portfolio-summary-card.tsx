@@ -147,7 +147,7 @@ export function PortfolioSummaryCard() {
             const val = e.target.value;
             setTf(isPortfolioPeriod(val) ? val : "month");
           }}
-          className="h-7 min-w-[4.5rem] text-xs tabular-nums border-border/30 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25"
+          className="h-7 min-w-[4.5rem] text-xs tabular-nums border-border/40 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/40"
         >
           {PERIOD_KEYS.map((p) => (
             <NativeSelectOption key={p} value={p}>

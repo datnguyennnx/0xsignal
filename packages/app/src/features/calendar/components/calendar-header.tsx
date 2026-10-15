@@ -37,7 +37,7 @@ export function CalendarHeader({
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="flex items-center rounded-md border border-border/40">
+        <div className="flex items-center gap-1">
           <Button variant="outline" size="icon" onClick={onPrev} aria-label="Previous period">
             <ChevronLeft />
           </Button>

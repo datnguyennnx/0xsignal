@@ -20,7 +20,7 @@ export const IndicatorChips = memo(function IndicatorChips({ indicators }: Indic
           <div
             key={indicator.instanceId}
             className={cn(
-              "flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)] rounded-xl border-border/30 bg-background/90 px-2 py-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] backdrop-blur shrink-0",
+              "flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)] rounded-xl border-border/40 bg-background/90 px-2 py-1 text-[length:var(--text-micro)] backdrop-blur shrink-0",
               indicator.visible ? "" : "text-muted-foreground",
             )}
           >

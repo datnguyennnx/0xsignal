@@ -12,7 +12,7 @@ import { formatPrice, formatCompactUsd } from "@/core/utils/formatters";
 import { formatTime, fmtNum, formatStatus } from "../utils/shared-table-utils";
 import { DirLabel, DirDisplay } from "./shared-table-components";
 import { getOrderType, getTriggerLabel, formatOrderValue } from "../utils/trigger-utils";
-import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
+import { c, cNum, cHead, cHeadNum, TABLE_HEAD_CLASS } from "../utils/orderbook-table-classes";
 import type { UserFill, HistoricalOrderEntry } from "@0xsignal/shared";
 
 interface TradeHistoryTableProps {
@@ -46,9 +46,7 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
         {isFillsLoading ? (
           <TableRow>
             <TableCell colSpan={8} className="text-center py-6">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                Loading...
-              </span>
+              <span className={TABLE_HEAD_CLASS}>Loading...</span>
             </TableCell>
           </TableRow>
         ) : !fills || fills.length === 0 ? (
@@ -115,9 +113,7 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
         {isHistLoading ? (
           <TableRow>
             <TableCell colSpan={13} className="text-center py-6">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                Loading...
-              </span>
+              <span className={TABLE_HEAD_CLASS}>Loading...</span>
             </TableCell>
           </TableRow>
         ) : !histOrders || histOrders.length === 0 ? (

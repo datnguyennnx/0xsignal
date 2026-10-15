@@ -3,6 +3,8 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant data-horizontal (&[data-orientation="horizontal"]);
+@custom-variant data-vertical (&[data-orientation="vertical"]);
 
 @theme inline {
   --color-border: var(--border);
@@ -26,10 +28,17 @@
 
   --text-compact: clamp(0.8125rem, 0.2vw, 0.875rem);
   --text-data: clamp(0.75rem, 0.2vw, 0.875rem);
+  --text-micro: clamp(0.5625rem, 0.6rem + 0.25vw, 0.75rem);
 
-  --color-gain: oklch(0.72 0.17 150);
-  --color-loss: oklch(0.64 0.21 25);
-  --color-warn: oklch(0.77 0.16 80);
+  --panel-gap: clamp(0.75rem, 0.35vw + 0.6rem, 1.75rem);
+  --panel-pad: clamp(0.75rem, 0.4vw + 0.6rem, 1.5rem);
+  --text-heading: clamp(1.125rem, 1vw + 0.85rem, 2rem);
+
+  --color-gain: var(--gain);
+  --color-loss: var(--loss);
+  --color-warn: var(--warn);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-overlay: var(--overlay);
 }
 
 /* Animation timing tokens (transitions.dev) */
@@ -38,7 +47,6 @@
   --page-fade-ease: cubic-bezier(0.19, 1, 0.22, 1);
 
   --radius: 0.625rem;
-  font-size: clamp(14px, 0.8rem + 0.3vw, 17px);
 
   /* Gray page, white elevated surfaces; muted/secondary/accent are light fills layered inside a white card. */
   --background: oklch(0.965 0 0);
@@ -56,17 +64,20 @@
   --accent: oklch(0.955 0 0);
   --accent-foreground: oklch(0.12 0 0);
   --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.92 0 0);
   --input: oklch(0.92 0 0);
   --ring: oklch(0.12 0 0);
 
-  --gain: oklch(0.58 0.19 145);
-  --gain-muted: oklch(0.58 0.19 145 / 0.15);
+  --gain: oklch(0.5 0.16 150);
+  --gain-muted: oklch(0.5 0.16 150 / 0.15);
 
-  --loss: oklch(0.55 0.22 25);
-  --loss-muted: oklch(0.55 0.22 25 / 0.15);
+  --loss: oklch(0.5 0.2 25);
+  --loss-muted: oklch(0.5 0.2 25 / 0.15);
 
-  --warn: oklch(0.72 0.16 75);
+  --warn: oklch(0.55 0.14 75);
+
+  --overlay: oklch(0 0 0 / 0.1);
 
   --chart-grid: oklch(0.9 0 0);
   --chart-text: oklch(0.45 0 0);
@@ -76,8 +87,8 @@
   --tooltip-border: oklch(0.85 0 0);
   --tooltip-text: oklch(0.12 0 0);
   /* concrete copies of --gain/--loss: LWC cannot resolve var() chains */
-  --candle-up: oklch(0.58 0.19 145);
-  --candle-down: oklch(0.55 0.22 25);
+  --candle-up: oklch(0.5 0.16 150);
+  --candle-down: oklch(0.5 0.2 25);
 }
 
 .dark {
@@ -97,9 +108,20 @@
   --accent: oklch(0.27 0 0);
   --accent-foreground: oklch(0.95 0 0);
   --destructive: oklch(0.6 0.18 22);
+  --destructive-foreground: oklch(0.1 0 0);
   --border: oklch(0.27 0 0);
   --input: oklch(0.27 0 0);
   --ring: oklch(0.95 0 0);
+
+  --gain: oklch(0.75 0.17 150);
+  --gain-muted: oklch(0.75 0.17 150 / 0.15);
+  --loss: oklch(0.72 0.19 25);
+  --loss-muted: oklch(0.72 0.19 25 / 0.15);
+  --warn: oklch(0.8 0.15 80);
+  --overlay: oklch(0 0 0 / 0.5);
+  /* concrete copies of --gain/--loss: LWC cannot resolve var() chains */
+  --candle-up: oklch(0.75 0.17 150);
+  --candle-down: oklch(0.72 0.19 25);
 
   --chart-grid: oklch(0.18 0 0);
   --chart-text: oklch(0.65 0 0);
@@ -140,20 +162,6 @@
     display: none;
   }
 
-  svg .st1 {
-    fill: #e4761b;
-    stroke: #e4761b;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  svg .st6 {
-    fill: #f6851b;
-    stroke: #f6851b;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
   /* Hide number input spinners — styled as regular text fields */
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button {
@@ -179,41 +187,22 @@
     display: none;
   }
 
-  .text-gain {
-    color: var(--gain);
-  }
-
-  .text-loss {
-    color: var(--loss);
-  }
-
-  .text-warn {
-    color: var(--warn);
-  }
-
-  .bg-gain {
-    background-color: var(--gain);
-  }
-
-  .bg-loss {
-    background-color: var(--loss);
-  }
-
-  .border-loss {
-    border-color: var(--loss);
-  }
-
   .container-fluid {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    gap: 1rem;
+    gap: var(--panel-gap);
+  }
+
+  /* Trade region is a query container: panels adapt to its width, not the viewport. */
+  .container-query {
+    container-type: inline-size;
   }
 
   @media (min-width: 1920px) {
     .container-fluid {
       max-width: 2400px;
-      gap: 2rem;
+      gap: var(--panel-pad);
     }
   }
 
@@ -244,10 +233,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: var(--text-data);
   font-weight: 600;
-  color: #ffffff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  color: var(--primary-foreground);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground) 25%, transparent);
   line-height: 1;
 }
 
@@ -261,22 +250,22 @@
 
 .hl-trade-marker--overflow {
   background-color: var(--muted-foreground);
-  font-size: 9px;
+  font-size: calc(var(--text-data) * 0.8);
   letter-spacing: -0.5px;
 }
 
 .hl-trade-tooltip {
   position: relative;
   padding: 5px 10px;
-  border-radius: 6px;
+  border-radius: calc(var(--radius) * 0.6);
   background: var(--tooltip-bg);
   color: var(--tooltip-text);
-  font-size: 12px;
+  font-size: var(--text-data);
   font-weight: 500;
   white-space: nowrap;
   box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(0, 0, 0, 0.06);
+    0 2px 8px color-mix(in oklch, var(--foreground) 20%, transparent),
+    0 0 0 1px color-mix(in oklch, var(--foreground) 8%, transparent);
   pointer-events: none;
   line-height: 1.4;
 }

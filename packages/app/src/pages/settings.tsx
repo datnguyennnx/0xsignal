@@ -47,17 +47,15 @@ export function SettingsPage() {
   return (
     <div className="container-fluid py-[clamp(1.5rem,3vw,3rem)] space-y-[clamp(1rem,1.5vw,1.5rem)] animate-in fade-in duration-200 ease-premium w-full">
       <div className="max-w-5xl mx-auto space-y-[clamp(0.125rem,0.2vw,0.25rem)] px-1">
-        <h1 className="text-[clamp(1.125rem,1.5vw,1.5rem)] font-semibold tracking-tight">
-          Settings
-        </h1>
-        <p className="text-[clamp(0.75rem,0.85vw,0.875rem)] text-muted-foreground">
+        <h1 className="text-[length:var(--text-heading)] font-semibold tracking-tight">Settings</h1>
+        <p className="text-[length:var(--text-data)] text-muted-foreground">
           Configure your account preferences, themes, and exchange credentials.
         </p>
       </div>
 
       <div className="max-w-5xl mx-auto w-full bg-card p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl">
         <div className="grid grid-cols-1 md:grid-cols-12 w-full min-h-[300px]">
-          <div className="col-span-1 md:col-span-3 md:border-r border-border/10 py-[clamp(1rem,1.5vw,1.5rem)] pr-[clamp(1rem,1.5vw,1.5rem)] flex flex-col gap-1">
+          <div className="col-span-1 md:col-span-3 md:border-r border-border/20 py-[clamp(1rem,1.5vw,1.5rem)] pr-[clamp(1rem,1.5vw,1.5rem)] flex flex-col gap-1">
             {SIDEBAR_ITEMS.map((item) => (
               <button
                 key={item.value}
@@ -70,19 +68,19 @@ export function SettingsPage() {
                 className={cn(
                   "w-full flex items-center gap-[clamp(0.5rem,0.6vw,0.625rem)] px-[clamp(0.625rem,0.8vw,0.875rem)] py-[clamp(0.5rem,0.8vw,0.75rem)] rounded-lg text-left transition-colors duration-150 cursor-pointer",
                   activeTab === item.value
-                    ? "bg-accent text-foreground font-semibold"
+                    ? "bg-accent text-accent-foreground font-semibold"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent/50 font-medium",
                 )}
               >
                 <span
                   className={cn(
-                    activeTab === item.value ? "text-primary" : "text-muted-foreground",
+                    activeTab === item.value ? "text-accent-foreground" : "text-muted-foreground",
                   )}
                 >
                   {item.icon}
                 </span>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-[clamp(0.6875rem,0.8vw,0.8125rem)] tracking-tight">
+                  <span className="text-[length:var(--text-micro)] tracking-tight">
                     {item.label}
                   </span>
                 </div>

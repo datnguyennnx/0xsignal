@@ -41,7 +41,7 @@ export function CornerHandles({ activeCorner, isResizing, onPointerDown }: Corne
       <svg
         viewBox="0 0 8 8"
         className={`w-2.5 h-2.5 ${
-          isResizing ? "text-muted-foreground/50" : "text-muted-foreground/25"
+          isResizing ? "text-muted-foreground/60" : "text-muted-foreground/60"
         }`}
         fill="none"
         stroke="currentColor"

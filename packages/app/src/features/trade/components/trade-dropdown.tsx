@@ -4,6 +4,7 @@ import { Search, ChevronDown, X } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { Input } from "@/components/ui/input";
 import { cn } from "cn";
+import { OVERLAY_PANEL_CLASS } from "@/lib/overlay-classes";
 import { toast } from "sonner";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { calculatePxDecimals } from "@/features/trade/utils/trade-formatters";
@@ -266,13 +267,16 @@ const TradeDropdownFn = ({
           role="dialog"
           aria-modal="false"
           aria-label="Market selector"
-          className="fixed z-50 w-[calc(100vw-16px)] sm:w-[90vw] max-w-[56rem] bg-background border-border/30 rounded-xl shadow-2xl"
+          className={cn(
+            OVERLAY_PANEL_CLASS,
+            "fixed z-50 w-[calc(100vw-16px)] sm:w-[90vw] max-w-[56rem]",
+          )}
           style={{ top: position.top, left: position.left }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="p-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
               <label htmlFor="trade-dropdown-search" className="sr-only">
                 Search markets
               </label>
@@ -282,7 +286,7 @@ const TradeDropdownFn = ({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search market..."
-                className="pl-9 pr-8 bg-muted border-border h-10 text-sm rounded-xl focus:ring-1 focus:ring-offset-0"
+                className="pl-9 pr-8 bg-muted border-border h-10 text-sm rounded-lg focus:ring-1 focus:ring-offset-0"
               />
               {query && (
                 <button
@@ -307,7 +311,7 @@ const TradeDropdownFn = ({
                   type="button"
                   onClick={() => setCategory(catKey)}
                   className={cn(
-                    "px-3 py-2 text-[clamp(0.6875rem,0.7rem+0.4vw,0.75rem)] font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none -mb-px",
+                    "px-3 py-2 text-[length:var(--text-data)] font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none -mb-px",
                     isActive
                       ? "text-foreground border-b-2 border-foreground"
                       : "text-muted-foreground hover:text-foreground border-transparent",
@@ -352,7 +356,7 @@ const TradeDropdownFn = ({
                     type="button"
                     onClick={() => handleSelect(item)}
                     className={cn(
-                      "w-full text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset cursor-pointer select-none tap-highlight",
+                      "w-full text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset cursor-pointer select-none tap-highlight",
                       item.isActive && "bg-muted/60",
                     )}
                     aria-current={item.isActive ? "true" : undefined}

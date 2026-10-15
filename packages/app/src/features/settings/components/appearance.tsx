@@ -58,51 +58,51 @@ export function AppearanceSettings() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
         <ThemeCard value="light" label="Light Mode" theme={theme} handleThemeChange={setTheme}>
-          <div className="h-full w-full bg-white">
-            <div className="h-4 bg-gray-50 flex items-center gap-1 px-2">
+          <div className="h-full w-full bg-card">
+            <div className="h-4 bg-background flex items-center gap-1 px-2">
               <span className="size-1.5 rounded-full bg-red-300" />
               <span className="size-1.5 rounded-full bg-yellow-300" />
               <span className="size-1.5 rounded-full bg-green-300" />
             </div>
             <div className="flex items-center justify-center h-[calc(100%-16px)]">
-              <span className="text-sm font-bold text-gray-800/90 font-display">Aa</span>
+              <span className="text-sm font-bold text-foreground/90 font-display">Aa</span>
             </div>
           </div>
         </ThemeCard>
 
         <ThemeCard value="dark" label="Dark Mode" theme={theme} handleThemeChange={setTheme}>
-          <div className="h-full w-full bg-black">
-            <div className="h-4 bg-black flex items-center gap-1 px-2">
+          <div className="dark h-full w-full bg-card">
+            <div className="h-4 bg-background flex items-center gap-1 px-2">
               <span className="size-1.5 rounded-full bg-red-500/70" />
               <span className="size-1.5 rounded-full bg-yellow-500/70" />
               <span className="size-1.5 rounded-full bg-green-500/70" />
             </div>
             <div className="flex items-center justify-center h-[calc(100%-16px)]">
-              <span className="text-sm font-bold text-gray-200/90 font-display">Aa</span>
+              <span className="text-sm font-bold text-foreground/90 font-display">Aa</span>
             </div>
           </div>
         </ThemeCard>
 
         <ThemeCard value="system" label="System Theme" theme={theme} handleThemeChange={setTheme}>
           <div className="flex h-full w-full">
-            <div className="flex-1 bg-white border-r border-gray-100">
-              <div className="h-4 bg-gray-50 flex items-center gap-1 px-1.5">
+            <div className="flex-1 bg-card border-r border-border">
+              <div className="h-4 bg-background flex items-center gap-1 px-1.5">
                 <span className="size-1.5 rounded-full bg-red-300" />
                 <span className="size-1.5 rounded-full bg-yellow-300" />
                 <span className="size-1.5 rounded-full bg-green-300" />
               </div>
               <div className="flex items-center justify-center h-[calc(100%-16px)]">
-                <span className="text-sm font-bold text-gray-800/90 font-display">Aa</span>
+                <span className="text-sm font-bold text-foreground/90 font-display">Aa</span>
               </div>
             </div>
-            <div className="flex-1 bg-black">
-              <div className="h-4 bg-black flex items-center gap-1 px-1.5">
+            <div className="dark flex-1 bg-card">
+              <div className="h-4 bg-background flex items-center gap-1 px-1.5">
                 <span className="size-1.5 rounded-full bg-red-500/70" />
                 <span className="size-1.5 rounded-full bg-yellow-500/70" />
                 <span className="size-1.5 rounded-full bg-green-500/70" />
               </div>
               <div className="flex items-center justify-center h-[calc(100%-16px)]">
-                <span className="text-sm font-bold text-gray-200/90 font-display">Aa</span>
+                <span className="text-sm font-bold text-foreground/90 font-display">Aa</span>
               </div>
             </div>
           </div>

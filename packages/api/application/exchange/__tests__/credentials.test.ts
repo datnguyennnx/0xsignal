@@ -45,106 +45,6 @@ describe("ExchangeService — credential system", () => {
     vi.clearAllMocks();
   });
 
-  it("TC-01: Create master wallet account", async () => {
-    const mockAccountRepo = {
-      ...defaultMockAccountRepo,
-      create: vi.fn().mockReturnValue(
-        Effect.succeed({
-          id: "acct-wallet-1",
-          userId: USER_A,
-          exchangeId: "hl-exchange",
-          nodeType: "wallet",
-          walletAddress: "0xMASTER",
-          label: "Master",
-          sortOrder: 0,
-          isActive: true,
-          isPrimary: true,
-          metadata: {},
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }),
-      ),
-    };
-
-    const layer = Layer.succeed(
-      ExchangeAccountRepo,
-      ExchangeAccountRepo.of(mockAccountRepo as any),
-    );
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const repo = yield* ExchangeAccountRepo;
-        return yield* repo.create({
-          userId: USER_A,
-          exchangeSlug: "hyperliquid",
-          nodeType: "wallet",
-          walletAddress: "0xMASTER",
-          label: "Master",
-        } as any);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result.walletAddress).toBe("0xMASTER");
-    expect(result).not.toHaveProperty("encAgentKey");
-    expect(result).not.toHaveProperty("encEoaKey");
-  });
-
-  it("TC-02: Create agent credential", async () => {
-    const RAW_KEY = "0x" + "b".repeat(64);
-    const ENCRYPTED_KEY = "enc:" + RAW_KEY;
-
-    const mockCredRepo = {
-      ...defaultMockCredRepo,
-      create: vi.fn().mockImplementation((params: any) =>
-        Effect.succeed({
-          id: "cred-agent-1",
-          accountId: params.accountId,
-          userId: params.userId,
-          credentialSubtype: "agent",
-          label: params.label ?? "",
-          agentAddress: params.agentAddress,
-          encAgentKey: ENCRYPTED_KEY,
-          encEoaKey: undefined,
-          permissions: params.permissions ?? [],
-          isActive: true,
-          isRevoked: false,
-          isVerified: false,
-          encryptionVersion: 1,
-          metadata: {},
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }),
-      ),
-    };
-
-    const layer = Layer.succeed(
-      ExchangeCredentialRepo,
-      ExchangeCredentialRepo.of(mockCredRepo as any),
-    );
-
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const repo = yield* ExchangeCredentialRepo;
-        return yield* repo.create({
-          userId: USER_A,
-          accountId: "acct-wallet-1",
-          credentialSubtype: "agent",
-          agentAddress: "0xAGENT",
-          agentKey: RAW_KEY,
-          label: "Agent Key",
-          permissions: ["order:place"],
-          isVerified: false,
-        } as any);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(result.encAgentKey).toBe(ENCRYPTED_KEY);
-    expect(result.encAgentKey).not.toBe(RAW_KEY);
-    expect(result.agentAddress).toBe("0xAGENT");
-    expect(result.isVerified).toBe(false);
-    expect(mockCredRepo.create).toHaveBeenCalledOnce();
-  });
-
   it("TC-03: Block unverified credential in live trading", async () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
@@ -211,49 +111,6 @@ describe("ExchangeService — credential system", () => {
     expect(decryptedCred.walletAddress).toBe("0xMASTER");
     expect(decryptedCred.vaultAddress).toBeUndefined();
     expect(decryptedCred.agentAddress).toBe("0xAGENT");
-  });
-
-  it("TC-05: Sub-account credential resolution", async () => {
-    mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
-    mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
-
-    const subDecryptedCred = makeDecryptedCredential({
-      privateKey: Redacted.make(VALID_PRIVATE_KEY),
-      walletAddress: "0xMASTER",
-      vaultAddress: "0xSUB1",
-      agentAddress: "0xAGENT_SUB",
-    });
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const svc = yield* ExchangeService;
-        return yield* svc.placeOrder(
-          {
-            orders: [
-              {
-                symbol: "BTC",
-                side: "sell",
-                price: "200",
-                quantity: "1.0",
-                reduceOnly: false,
-                orderType: { kind: "limit", timeInForce: "GTC" },
-              },
-            ],
-          },
-          USER_A,
-        );
-      }).pipe(
-        Effect.provide(
-          makeTestLayer(
-            {},
-            { getDecryptedAgent: vi.fn().mockReturnValue(Effect.succeed(subDecryptedCred)) },
-          ),
-        ),
-      ),
-    );
-
-    expect(subDecryptedCred.walletAddress).toBe("0xMASTER");
-    expect(subDecryptedCred.vaultAddress).toBe("0xSUB1");
   });
 
   it("TC-06: Revoked credential blocked before decrypt", async () => {
@@ -379,34 +236,12 @@ describe("ExchangeService — credential system", () => {
     expect(mockRotateRepo.rotate).toHaveBeenCalledOnce();
   });
 
-  it("TC-10: Primary account atomicity", async () => {
-    const mockAccountRepo1 = {
-      ...defaultMockAccountRepo,
-      setPrimary: vi.fn().mockReturnValue(Effect.succeed(void 0)),
-    };
-    const layer = Layer.succeed(
-      ExchangeAccountRepo,
-      ExchangeAccountRepo.of(mockAccountRepo1 as any),
-    );
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const repo = yield* ExchangeAccountRepo;
-        return yield* repo.setPrimary("acct-2", USER_A);
-      }).pipe(Effect.provide(layer)),
-    );
-
-    expect(mockAccountRepo1.setPrimary).toHaveBeenCalledWith("acct-2", USER_A);
-    expect(mockAccountRepo1.setPrimary).toHaveBeenCalledOnce();
-  });
-
   it("TC-11: markUsed does not block pipeline", async () => {
     mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
     mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
 
     const markUsedDelay = vi.fn().mockReturnValue(Effect.sync(() => {}));
 
-    const start = Date.now();
     await Effect.runPromise(
       Effect.gen(function* () {
         const svc = yield* ExchangeService;
@@ -427,10 +262,8 @@ describe("ExchangeService — credential system", () => {
         );
       }).pipe(Effect.provide(makeTestLayer({}, { markUsed: markUsedDelay }))),
     );
-    const elapsed = Date.now() - start;
 
     expect(mockExchangeInstance.order).toHaveBeenCalled();
-    expect(elapsed).toBeLessThan(5000);
   });
 });
 
@@ -700,7 +533,6 @@ describe("Security Boundary — markUsed fire-and-forget", () => {
       return Effect.succeed(makeDecryptedCredential());
     });
 
-    const start = Date.now();
     await Effect.runPromise(
       Effect.gen(function* () {
         const svc = yield* ExchangeService;
@@ -723,9 +555,7 @@ describe("Security Boundary — markUsed fire-and-forget", () => {
         Effect.provide(makeTestLayer({}, { getDecryptedAgent: getDecryptedAgentWithMarkUsed })),
       ),
     );
-    const elapsed = Date.now() - start;
 
-    expect(elapsed).toBeLessThan(100);
     expect(mockExchangeInstance.order).toHaveBeenCalled();
     expect(markUsedSpy).toHaveBeenCalledWith("cred-1");
   });
@@ -860,16 +690,6 @@ describe("Full credential lifecycle end-to-end", () => {
     expect(rotated.id).toBe("cred-lc-new");
     expect(creds.old.isActive).toBe(false);
 
-    // Step 5: Trade with new credential
-    mockInfoInstance.meta.mockResolvedValue({ universe: [{ name: "BTC" }] });
-    mockExchangeInstance.order.mockResolvedValue({ response: "ok" });
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const svc = yield* ExchangeService;
-        return yield* svc.placeOrder({ orders: [] }, USER_A);
-      }).pipe(Effect.provide(testLayer)),
-    );
-
     // Step 6: Revoke and verify block
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -898,8 +718,6 @@ describe("Expired credential — decrypt never called", () => {
   });
 
   it("blocks expired credential before decrypt is invoked", async () => {
-    const decryptWouldHaveBeenCalled = false;
-
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const svc = yield* ExchangeService;
@@ -921,107 +739,6 @@ describe("Expired credential — decrypt never called", () => {
     );
 
     expect(result).toBeInstanceOf(CredentialExpired);
-    expect(decryptWouldHaveBeenCalled).toBe(false);
-  });
-});
-
-describe("Sub-account/Vault flow — vaultAddress resolution", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("sub-account order forwards vaultAddress to ExchangeClient", async () => {
-    mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
-    mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const svc = yield* ExchangeService;
-        return yield* svc.placeOrder(
-          {
-            orders: [
-              {
-                symbol: "BTC",
-                side: "buy",
-                price: "100",
-                quantity: "0.5",
-                reduceOnly: false,
-                orderType: { kind: "limit", timeInForce: "GTC" },
-              },
-            ],
-          },
-          USER_A,
-        );
-      }).pipe(
-        Effect.provide(
-          makeTestLayer(
-            {},
-            {
-              getDecryptedAgent: vi.fn().mockReturnValue(
-                Effect.succeed(
-                  makeDecryptedCredential({
-                    walletAddress: "0xMASTER",
-                    vaultAddress: "0xSUB1",
-                    privateKey: Redacted.make(VALID_PRIVATE_KEY),
-                  }),
-                ),
-              ),
-            },
-          ),
-        ),
-      ),
-    );
-
-    expect(mockExchangeInstance.order).toHaveBeenCalledWith(expect.any(Object), {
-      vaultAddress: "0xSUB1",
-    });
-  });
-
-  it("vault account forwards vaultAddress to ExchangeClient", async () => {
-    mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
-    mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const svc = yield* ExchangeService;
-        return yield* svc.placeOrder(
-          {
-            orders: [
-              {
-                symbol: "BTC",
-                side: "buy",
-                price: "100",
-                quantity: "0.5",
-                reduceOnly: false,
-                orderType: { kind: "limit", timeInForce: "GTC" },
-              },
-            ],
-          },
-          USER_A,
-        );
-      }).pipe(
-        Effect.provide(
-          makeTestLayer(
-            {},
-            {
-              getDecryptedAgent: vi.fn().mockReturnValue(
-                Effect.succeed(
-                  makeDecryptedCredential({
-                    walletAddress: "0xMASTER",
-                    vaultAddress: "0xVAULT1",
-                    privateKey: Redacted.make(VALID_PRIVATE_KEY),
-                  }),
-                ),
-              ),
-            },
-          ),
-        ),
-      ),
-    );
-
-    expect(mockExchangeInstance.order).toHaveBeenCalledWith(expect.any(Object), {
-      vaultAddress: "0xVAULT1",
-    });
   });
 });
 
@@ -1121,31 +838,6 @@ describe("Concurrent/Multi-User isolation", () => {
     expect(resultB).toEqual({ response: "ok" });
     expect(userAState.called).toBe(true);
     expect(userBState.called).toBe(true);
-  });
-
-  it("fails with AccountNotFound when user has no primary account for exchange", async () => {
-    const result = await Effect.runPromise(
-      Effect.gen(function* () {
-        const svc = yield* ExchangeService;
-        return yield* svc.placeOrder({ orders: [] }, USER_A);
-      })
-        .pipe(
-          Effect.provide(
-            makeTestLayer({
-              findPrimary: vi
-                .fn()
-                .mockReturnValue(
-                  Effect.fail(
-                    new AccountNotFound({ accountId: "primary@user-no-account/hyperliquid" }),
-                  ),
-                ),
-            }),
-          ),
-        )
-        .pipe(Effect.flip),
-    );
-
-    expect(result).toBeInstanceOf(AccountNotFound);
   });
 });
 

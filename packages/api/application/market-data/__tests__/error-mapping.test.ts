@@ -35,14 +35,11 @@ describe("mapMarketInfraError", () => {
   });
 
   it("falls back to fallbackMessage for unrecognized kind", () => {
-    // Create a minimal MarketProviderError-compatible shape using partial
     const err = new MarketProviderError({
-      kind: "INTERNAL" as const,
+      kind: "UNRECOGNIZED" as MarketProviderError["kind"],
       message: "original",
     });
-    // Override internal kind via prototype bypass — test the fallback path
     const result = mapMarketInfraError("fallback message")(err);
-    // INTERNAL maps to InternalError, uses error.message
-    expect(result).toMatchObject({ _tag: "InternalError", message: "original" });
+    expect(result).toMatchObject({ _tag: "InternalError", message: "fallback message" });
   });
 });

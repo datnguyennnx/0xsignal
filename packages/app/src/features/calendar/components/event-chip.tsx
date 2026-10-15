@@ -2,6 +2,7 @@ import type { CalendarCategory, EconomicEvent } from "@0xsignal/shared";
 import type { JSX } from "react";
 
 import { cn } from "cn";
+import { SELECTED_ITEM_CLASS } from "@/lib/state-classes";
 
 export interface EventChipProps {
   event: EconomicEvent;
@@ -11,7 +12,7 @@ export interface EventChipProps {
 
 const CATEGORY_STYLE: Record<CalendarCategory, string> = {
   macro: "border-border bg-secondary text-secondary-foreground",
-  fx: "border-border bg-accent text-accent-foreground",
+  fx: cn("border-border", SELECTED_ITEM_CLASS),
   crypto: "border-border bg-muted text-muted-foreground",
 };
 
@@ -32,7 +33,7 @@ export function EventChip({ event, onClick, className }: EventChipProps): JSX.El
   const classes = cn(
     "flex w-full items-center gap-1.5 overflow-hidden rounded-md border px-2 py-1 text-left text-xs transition-colors",
     CATEGORY_STYLE[event.category],
-    onClick && "cursor-pointer hover:border-foreground/30",
+    onClick && "cursor-pointer hover:border-foreground/40",
     className,
   );
 

@@ -4,8 +4,28 @@ export const LAYOUT_STORAGE_KEY = "0xsignal_layout_config";
 
 export const GRID_COLS = 12;
 
-/** Height of each grid row in pixels */
-export const GRID_ROW_HEIGHT = 40;
+/** Design-token row height in rem; grid math and the fluid CSS clamp key off this. */
+const GRID_ROW_HEIGHT_REM = 2.5;
+
+/**
+ * Height of each grid row in pixels. Derived (not a bare literal) so the fluid
+ * CSS value below can be tracked from one token; stays a number for gesture math.
+ */
+export const GRID_ROW_HEIGHT = GRID_ROW_HEIGHT_REM * 16;
+
+/**
+ * Fluid row height for CSS consumers. Small delta (2.25rem–2.75rem) keeps the
+ * rendered row within a few px of GRID_ROW_HEIGHT so panels do not reflow.
+ */
+export const GRID_ROW_HEIGHT_CSS = "clamp(2.25rem, 2.3vh + 1.2rem, 2.75rem)";
+
+/**
+ * Single source of truth for the vertical row pitch (row height + vertical
+ * gutter). Panels, the container height, and drop-zone previews MUST all use
+ * this so they cannot drift apart. Requires `--grid-row-height` to be set from
+ * GRID_ROW_HEIGHT_CSS on the grid container.
+ */
+export const GRID_ROW_PITCH_CSS = "calc(var(--grid-row-height) + 0.5rem)";
 
 /** Gap between grid cells in pixels */
 export const GRID_GUTTER = 8;

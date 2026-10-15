@@ -199,11 +199,11 @@ export function ApiConsole() {
                   {truncateAddress(address)}
                 </div>
               ) : (
-                <div className="flex h-10 w-full items-center rounded-md border border-dashed border-muted-foreground/30 px-3 py-2 text-sm text-muted-foreground">
+                <div className="flex h-10 w-full items-center rounded-md border border-dashed border-muted-foreground/40 px-3 py-2 text-sm text-muted-foreground">
                   Connect Wallet first
                 </div>
               )}
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[length:var(--text-micro)] text-muted-foreground">
                 Auto-resolved from your connected wallet.
               </p>
             </div>
@@ -219,7 +219,7 @@ export function ApiConsole() {
                 required
                 autoComplete="off"
               />
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[length:var(--text-micro)] text-muted-foreground">
                 Masked on screen, encrypted at rest.
               </p>
             </div>
@@ -233,7 +233,7 @@ export function ApiConsole() {
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
               />
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[length:var(--text-micro)] text-muted-foreground">
                 Optional name to identify this credential.
               </p>
             </div>

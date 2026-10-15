@@ -63,7 +63,7 @@ export const ContentUnavailable = memo(function ContentUnavailable({
       <Icon
         size={iconSize}
         strokeWidth={1}
-        className="text-muted-foreground/25 mb-3"
+        className="text-muted-foreground/60 mb-3"
         aria-hidden="true"
       />
       <h3 className="text-sm font-semibold text-muted-foreground tracking-tight mb-1">

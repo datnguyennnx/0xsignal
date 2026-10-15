@@ -131,8 +131,8 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
       ? null
       : `${formatOrderSize(Number(size) / usablePrice, szDecimals)} ${normalizedSymbol}`;
 
-  const handleSliderCommit = (values: number[]) => {
-    const pct = values[0] ?? 0;
+  const handleSliderCommit = (value: number | readonly number[]) => {
+    const pct = (Array.isArray(value) ? value : [value])[0] ?? 0;
     setSliderPercent(pct);
     if (effectiveBalance <= 0 || effectiveLeverage <= 0) {
       setSize("0.00");
@@ -315,7 +315,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                   setPriceInvalid(false);
                 }}
                 placeholder="0.00"
-                className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/30"
+                className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
                 aria-invalid={priceInvalid}
               />
             </div>
@@ -337,7 +337,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                     value={safeSizeAsset}
                     onChange={(e) => setSizeAsset(e.target.value)}
                     wrapperClassName="min-w-0"
-                    className="h-6 w-20 text-[10px] border-border/30 bg-background/70 text-muted-foreground tabular-nums"
+                    className="h-6 w-20 text-[length:var(--text-micro)] border-border/40 bg-background/70 text-muted-foreground tabular-nums"
                   >
                     {sizeAssetOptions.map((opt) => (
                       <NativeSelectOption key={opt.value} value={opt.value}>
@@ -353,10 +353,10 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                 value={size}
                 onChange={handleSizeChange}
                 placeholder="0.00"
-                className="h-9 w-full text-base sm:text-sm tabular-nums bg-background/70 border-border/30 hover:border-border/60 transition-colors"
+                className="h-9 w-full text-base sm:text-sm tabular-nums bg-background/70 border-border/40 hover:border-border/60 transition-colors"
               />
               {assetQtyDisplay && (
-                <p className="text-[10px] text-muted-foreground tabular-nums text-right">
+                <p className="text-[length:var(--text-micro)] text-muted-foreground tabular-nums text-right">
                   → {assetQtyDisplay}
                 </p>
               )}
@@ -381,7 +381,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                   value={sliderPercent}
                   onChange={handlePctInputChange}
                   aria-label="Size percentage"
-                  className="w-16 h-8 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/30 px-1 shrink-0"
+                  className="w-16 h-8 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40 px-1 shrink-0"
                 />
                 <span className="text-xs text-muted-foreground">%</span>
               </div>
@@ -411,7 +411,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                   "size-3.5 rounded border flex items-center justify-center transition-colors group-hover:border-border/60",
                   reduceOnly
                     ? "bg-foreground border-foreground"
-                    : "border-border/30 bg-transparent",
+                    : "border-border/40 bg-transparent",
                 )}
               >
                 {reduceOnly && <CheckIcon className="size-2.5 text-background" />}
@@ -437,7 +437,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                     "size-3.5 rounded border flex items-center justify-center transition-colors group-hover:border-border/60",
                     tpSlEnabled
                       ? "bg-foreground border-foreground"
-                      : "border-border/30 bg-transparent",
+                      : "border-border/40 bg-transparent",
                   )}
                 >
                   {tpSlEnabled && <CheckIcon className="size-2.5 text-background" />}
@@ -460,7 +460,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                         value={tpPrice}
                         onChange={(e) => handleTpPriceChange(e.target.value)}
                         placeholder="TP Price"
-                        className="h-8 text-base sm:text-sm tabular-nums bg-background/70 border-border/30"
+                        className="h-8 text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
                       />
                     </div>
                     <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
@@ -473,7 +473,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                         value={tpPercent}
                         onChange={(e) => handleTpPercentChange(e.target.value)}
                         placeholder="Gain"
-                        className="w-20 h-8 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/30"
+                        className="w-20 h-8 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40"
                       />
                       <span className="text-xs text-muted-foreground w-4">%</span>
                     </div>
@@ -490,7 +490,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                         value={slPrice}
                         onChange={(e) => handleSlPriceChange(e.target.value)}
                         placeholder="SL Price"
-                        className="h-8 text-base sm:text-sm tabular-nums bg-background/70 border-border/30"
+                        className="h-8 text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
                       />
                     </div>
                     <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
@@ -503,7 +503,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
                         value={slPercent}
                         onChange={(e) => handleSlPercentChange(e.target.value)}
                         placeholder="Loss"
-                        className="w-20 h-8 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/30"
+                        className="w-20 h-8 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40"
                       />
                       <span className="text-xs text-muted-foreground w-4">%</span>
                     </div>
@@ -537,9 +537,10 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
           </div>
 
           <Button
+            variant="default"
             onClick={handlePlaceOrder}
             disabled={!canPlace || placeOrderMutation.isPending}
-            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,scale] duration-150 ease-premium bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
+            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,scale] duration-150 ease-premium active:scale-[0.98]"
           >
             {placeOrderMutation.isPending ? "Placing Order..." : "Place Order"}
           </Button>

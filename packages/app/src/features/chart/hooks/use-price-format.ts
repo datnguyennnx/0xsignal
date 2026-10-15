@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-const MAX_SIG_FIGS = 5;
+import { MAX_SIG_FIGS } from "@/core/utils/formatters";
 
 export interface PriceFormatResult {
   precision: number;

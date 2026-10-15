@@ -4,10 +4,12 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  DialogDescription,
   DialogHeader,
-  DialogFooter,
+  MODAL_CONTENT_CLASS,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -63,6 +65,15 @@ export function AdjustLeverageModal({
 
   const isDecreasingLeverage = hasPosition && leverage < currentLeverage;
 
+  const ticks = [
+    1,
+    Math.round(maxLeverage * 0.25),
+    Math.round(maxLeverage * 0.5),
+    Math.round(maxLeverage * 0.75),
+    Math.round(maxLeverage * 0.9),
+    maxLeverage,
+  ];
+
   const mutation = useMutation({
     mutationFn: (params: UpdateLeverageRequest) => api.updateLeverage(params),
     onSuccess: () => {
@@ -84,8 +95,8 @@ export function AdjustLeverageModal({
     onOpenChange(newOpen);
   };
 
-  const handleSliderCommit = (values: number[]) => {
-    setLeverage(values[0] ?? 1);
+  const handleSliderCommit = (value: number | readonly number[]) => {
+    setLeverage((Array.isArray(value) ? value : [value])[0] ?? 1);
   };
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -101,89 +112,109 @@ export function AdjustLeverageModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[480px] bg-card border-border/30 p-5 gap-[clamp(0.5rem,1vw,1rem)] overflow-hidden">
+      <DialogContent
+        className={cn(
+          MODAL_CONTENT_CLASS,
+          "sm:max-w-[clamp(22rem,42vw,30rem)] p-5 gap-[clamp(0.5rem,1vw,1rem)]",
+        )}
+      >
         <DialogHeader>
-          <DialogTitle className="text-sm font-medium text-foreground">Adjust Leverage</DialogTitle>
+          <DialogTitle className="text-[length:var(--text-compact)] font-medium text-foreground">
+            Adjust Leverage
+          </DialogTitle>
+          <DialogDescription className="text-[length:var(--text-compact)] leading-relaxed">
+            Control the leverage used for{" "}
+            <span className="text-foreground font-medium">{symbol}</span> positions. Maximum
+            leverage is {maxLeverage}x.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Control the leverage used for{" "}
-            <span className="text-foreground font-medium">{symbol}</span> positions. The maximum
-            leverage is {maxLeverage}x.
-          </p>
-
-          <div className="flex items-center justify-between px-3 py-2 bg-background/70 rounded-md border border-border/20">
-            <span className="text-xs text-muted-foreground">Current</span>
-            <span className="text-sm tabular-nums text-foreground">
+          <div className="flex items-center justify-between rounded-md border border-border/20 bg-muted/40 px-3 py-2">
+            <span className="text-[length:var(--text-compact)] text-muted-foreground">Current</span>
+            <span className="text-[length:var(--text-compact)] tabular-nums text-foreground">
               {currentLeverage}x — {isCross ? "Cross" : "Isolated"}
             </span>
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground font-normal">Leverage</Label>
-              <span className="text-lg tabular-nums font-semibold text-foreground transition-colors duration-200">
-                {leverage}x
-              </span>
+            <div className="flex items-center justify-between rounded-md border border-border/20 bg-muted/40 px-3 py-2">
+              <Label
+                htmlFor="adjust-leverage-input"
+                className="text-[length:var(--text-compact)] font-normal text-muted-foreground"
+              >
+                Leverage
+              </Label>
+              <div className="flex items-baseline">
+                <Input
+                  id="adjust-leverage-input"
+                  type="number"
+                  min={1}
+                  max={maxLeverage}
+                  value={leverage}
+                  onChange={handleInputChange}
+                  className="h-7 w-14 border-0 bg-transparent p-0 text-right text-lg font-semibold tabular-nums text-foreground shadow-none focus-visible:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                <span className="text-lg font-semibold tabular-nums text-foreground">x</span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-[clamp(0.4rem,0.7vw,0.75rem)]">
-              <Slider
-                value={[leverage]}
-                onValueChange={handleSliderCommit}
-                min={1}
-                max={maxLeverage}
-                step={1}
-                className="flex-1 transition-opacity duration-200"
-              />
-              <Input
-                type="number"
-                min={1}
-                max={maxLeverage}
-                value={leverage}
-                onChange={handleInputChange}
-                className="w-14 h-8 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/30"
-              />
-            </div>
+            <Slider
+              value={[leverage]}
+              onValueChange={handleSliderCommit}
+              min={1}
+              max={maxLeverage}
+              step={1}
+              className="transition-opacity duration-200"
+            />
 
-            <div className="flex justify-between text-[0.55rem] text-muted-foreground">
-              <span>1x</span>
-              <span>{Math.round(maxLeverage * 0.25)}x</span>
-              <span>{Math.round(maxLeverage * 0.5)}x</span>
-              <span>{Math.round(maxLeverage * 0.75)}x</span>
-              <span>{Math.round(maxLeverage * 0.9)}x</span>
-              <span>{maxLeverage}x</span>
+            <div className="relative h-4 text-[length:var(--text-data)] text-muted-foreground">
+              {ticks.map((tick, i) => {
+                const isFirst = i === 0;
+                const isLast = i === ticks.length - 1;
+                const pct = maxLeverage > 1 ? ((tick - 1) / (maxLeverage - 1)) * 100 : 0;
+                return (
+                  <span
+                    key={i}
+                    className={cn(
+                      "absolute tabular-nums",
+                      isFirst && "left-0",
+                      isLast && "right-0",
+                      !isFirst && !isLast && "-translate-x-1/2",
+                    )}
+                    style={!isFirst && !isLast ? { left: `${pct}%` } : undefined}
+                  >
+                    {tick}x
+                  </span>
+                );
+              })}
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <p className="text-[length:var(--text-data)] text-muted-foreground leading-relaxed">
             Max position size decreases the higher your leverage.
           </p>
 
-          <div className="flex items-start gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-2.5 rounded-md bg-loss/10 border border-loss/30">
-            <AlertTriangleIcon className="size-3.5 text-warn shrink-0" />
-            <p className="text-[0.65rem] text-muted-foreground leading-relaxed">
+          <Alert variant="destructive" className="px-3 py-2.5">
+            <AlertTriangleIcon />
+            <AlertDescription className="text-[length:var(--text-data)] leading-relaxed">
               {isDecreasingLeverage
                 ? "Decreasing leverage requires additional margin. Ensure you have sufficient available balance."
                 : "Note that setting a higher leverage increases the risk of liquidation."}
-            </p>
-          </div>
+            </AlertDescription>
+          </Alert>
         </div>
 
-        <DialogFooter className="p-0">
+        <div className="pt-1">
           <Button
-            size="sm"
+            variant="default"
             onClick={handleConfirm}
             disabled={mutation.isPending}
-            className={cn(
-              "w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,transform] duration-150 ease-premium",
-              "bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]",
-            )}
+            className="h-10 w-full rounded-lg text-[length:var(--text-compact)] font-semibold transition-[background-color,transform] duration-150 ease-premium active:scale-[0.98]"
           >
-            {mutation.isPending ? `Setting ${leverage}×...` : `Set ${leverage}×`}
+            {mutation.isPending ? `Setting ${leverage}×...` : `Set ${leverage}× leverage`}
           </Button>
-        </DialogFooter>
+        </div>
         {isConnectWalletOpen && (
           <ConnectWalletDialog open={true} onOpenChange={(open) => !open && closeConnectWallet()} />
         )}

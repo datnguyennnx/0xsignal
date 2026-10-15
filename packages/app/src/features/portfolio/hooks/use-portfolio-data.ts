@@ -26,5 +26,3 @@ export function useUserVaultEquities(enabled: boolean = true) {
     refetchOnWindowFocus: false,
   });
 }
-
-export { useUserFunding } from "@/hooks/use-user-funding";

@@ -48,7 +48,7 @@ export const MarketTerminalHeader = memo(function MarketTerminalHeader({
       {!isSpot && <MetricItem label="Open Interest" value={formatCompactUsd(openInterest)} />}
       {!isSpot && (
         <div className="flex flex-col shrink-0">
-          <span className="text-[10px] tracking-wider text-muted-foreground font-medium uppercase leading-none mb-1">
+          <span className="text-[length:var(--text-micro)] tracking-wider text-muted-foreground font-medium uppercase leading-none mb-1">
             Funding / Countdown
           </span>
           <div className="flex items-baseline gap-1 text-sm leading-none">
@@ -71,7 +71,7 @@ export const MarketTerminalHeader = memo(function MarketTerminalHeader({
       )}
       {isSpot && contractAddress && (
         <div className="flex flex-col shrink-0">
-          <span className="text-[10px] tracking-wider text-muted-foreground font-medium uppercase leading-none mb-1">
+          <span className="text-[length:var(--text-micro)] tracking-wider text-muted-foreground font-medium uppercase leading-none mb-1">
             Contract
           </span>
           <a

@@ -72,7 +72,7 @@ export function AuthCallbackPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-dvh items-center justify-center bg-background">
         <ErrorState
           title="Authentication failed"
           description={error}
@@ -118,7 +118,7 @@ export function AuthCallbackPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="flex min-h-dvh items-center justify-center bg-background">
       <div className="h-6 w-6 border-2 border-foreground/20 rounded-full animate-spin" />
     </div>
   );

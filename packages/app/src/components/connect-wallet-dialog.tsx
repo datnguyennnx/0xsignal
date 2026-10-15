@@ -11,7 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  MODAL_CONTENT_CLASS,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "cn";
+import { AlertTriangleIcon } from "lucide-react";
 
 interface ConnectWalletDialogProps {
   open: boolean;
@@ -68,22 +72,27 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent
+        className={cn(MODAL_CONTENT_CLASS, "sm:max-w-sm p-5 gap-[clamp(0.5rem,1vw,1rem)]")}
+      >
         <DialogHeader className="text-left">
           <DialogTitle>Connect Wallet</DialogTitle>
           <DialogDescription>Choose a wallet to connect with</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-3 pb-2">
+        <div className="flex flex-col gap-3">
           {!metaMaskConnector && !coinbaseConnector && (
-            <p className="text-sm text-muted-foreground">
-              No wallet connectors available. Install MetaMask or Coinbase Wallet to continue.
-            </p>
+            <Alert className="px-3 py-2.5">
+              <AlertTriangleIcon />
+              <AlertDescription className="text-sm leading-relaxed">
+                No wallet connectors available. Install MetaMask or Coinbase Wallet to continue.
+              </AlertDescription>
+            </Alert>
           )}
           {metaMaskConnector && (
             <Button
               variant="outline"
               size="lg"
-              className="w-full gap-3 justify-start"
+              className="h-10 w-full gap-3 justify-start"
               disabled={isPending}
               onClick={() => mutate({ connector: metaMaskConnector })}
             >
@@ -95,7 +104,7 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
             <Button
               variant="outline"
               size="lg"
-              className="w-full gap-3 justify-start"
+              className="h-10 w-full gap-3 justify-start"
               disabled={isPending}
               onClick={() => mutate({ connector: coinbaseConnector })}
             >

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, memo, lazy, Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { useIsDesktop } from "@/hooks/use-breakpoint";
 import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
 import { PositionManagement } from "@/features/trade/components/position-management";
 import { OrderForm } from "@/features/trade/components/order-form";
@@ -73,8 +72,6 @@ export const AssetContent = memo(function AssetContent({
     return tradeList.assets.find((a) => a.rawCoin.toLowerCase() === symbol.toLowerCase());
   }, [tradeList, symbol]);
   const displaySymbol = tradeAsset?.displaySymbol;
-
-  const isDesktop = useIsDesktop();
 
   // Real-time mark price from WebSocket (allMids channel)
   const allMids = useAllMids(!!symbol);
@@ -169,45 +166,43 @@ export const AssetContent = memo(function AssetContent({
         )}
       </header>
 
-      <div className="flex-1 min-h-0 flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-        {/* ===== DESKTOP (≥1440px): DashboardGrid ===== */}
-        {isDesktop ? (
-          <div className="flex-1 min-h-0 flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-            <DashboardGrid className="min-h-0">
-              <DashboardPanel id="chart">
-                {showChartSkeleton ? (
-                  <Skeleton className="h-full w-full rounded-lg" />
-                ) : (
-                  <div className="animate-in fade-in duration-200 ease-premium h-full">
-                    {chartPanel}
-                  </div>
-                )}
-              </DashboardPanel>
-              <DashboardPanel id="orderbook">{orderbookPanel}</DashboardPanel>
-              <DashboardPanel id="orderform">{orderformPanel}</DashboardPanel>
-              <DashboardPanel id="positions">{positionsPanel}</DashboardPanel>
-            </DashboardGrid>
-          </div>
-        ) : (
-          /* ===== NARROW (<1440px): 2×2 Grid ===== */
-          <div className="flex-1 min-h-0 grid grid-cols-[7fr_3fr] grid-rows-[auto_auto] gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-            {/* Row 1 */}
-            <div className="min-w-0 self-stretch">
+      <div className="container-query flex-1 min-h-0 flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+        {/* ===== WIDE (container ≥ 80rem): DashboardGrid ===== */}
+        <div className="hidden @[80rem]:flex flex-1 min-h-0 flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+          <DashboardGrid className="min-h-0">
+            <DashboardPanel id="chart">
               {showChartSkeleton ? (
                 <Skeleton className="h-full w-full rounded-lg" />
               ) : (
-                <div className="h-full">{chartPanel}</div>
+                <div className="animate-in fade-in duration-200 ease-premium h-full">
+                  {chartPanel}
+                </div>
               )}
-            </div>
+            </DashboardPanel>
+            <DashboardPanel id="orderbook">{orderbookPanel}</DashboardPanel>
+            <DashboardPanel id="orderform">{orderformPanel}</DashboardPanel>
+            <DashboardPanel id="positions">{positionsPanel}</DashboardPanel>
+          </DashboardGrid>
+        </div>
 
-            <div className="flex flex-col h-fit min-w-0">{orderbookPanel}</div>
-
-            {/* Row 2 */}
-            <div className="flex flex-col h-fit min-w-0">{positionsPanel}</div>
-
-            <div className="flex flex-col h-fit min-w-0">{orderformPanel}</div>
+        {/* ===== NARROW (container < 80rem): 2×2 Grid ===== */}
+        <div className="grid @[80rem]:hidden flex-1 min-h-0 grid-cols-[7fr_3fr] grid-rows-[auto_auto] gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+          {/* Row 1 */}
+          <div className="min-w-0 self-stretch">
+            {showChartSkeleton ? (
+              <Skeleton className="h-full w-full rounded-lg" />
+            ) : (
+              <div className="h-full">{chartPanel}</div>
+            )}
           </div>
-        )}
+
+          <div className="flex flex-col h-fit min-w-0">{orderbookPanel}</div>
+
+          {/* Row 2 */}
+          <div className="flex flex-col h-fit min-w-0">{positionsPanel}</div>
+
+          <div className="flex flex-col h-fit min-w-0">{orderformPanel}</div>
+        </div>
       </div>
     </div>
   );

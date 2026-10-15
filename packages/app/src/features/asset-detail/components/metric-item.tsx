@@ -9,7 +9,7 @@ interface MetricItemProps {
 export function MetricItem({ label, value, tone = "neutral" }: MetricItemProps) {
   return (
     <div className={cn("flex flex-col")}>
-      <span className="text-[10px] tracking-wider text-muted-foreground font-medium uppercase leading-none mb-1">
+      <span className="text-[length:var(--text-micro)] tracking-wider text-muted-foreground font-medium uppercase leading-none mb-1">
         {label}
       </span>
       <span

@@ -3,13 +3,15 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  DialogDescription,
   DialogHeader,
-  DialogFooter,
+  MODAL_CONTENT_CLASS,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { cn } from "cn";
 import { formatOrderSize } from "../utils/trade-math";
 
 interface CloseLimitModalProps {
@@ -39,8 +41,8 @@ export function CloseLimitModal({
   const [sliderPercent, setSliderPercent] = useState(0);
 
   const handleSliderChange = useCallback(
-    (values: number[]) => {
-      const pct = values[0] ?? 0;
+    (value: number | readonly number[]) => {
+      const pct = (Array.isArray(value) ? value : [value])[0] ?? 0;
       setSliderPercent(pct);
       if (position) {
         const rawSize = (pct / 100) * position.sz;
@@ -81,12 +83,17 @@ export function CloseLimitModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-[420px] bg-card border-border/30 p-5 gap-[clamp(0.5rem,1vw,1rem)] overflow-hidden">
-        <DialogHeader className="p-0">
+      <DialogContent
+        className={cn(
+          MODAL_CONTENT_CLASS,
+          "sm:max-w-[clamp(20rem,40vw,26.25rem)] p-5 gap-[clamp(0.5rem,1vw,1rem)]",
+        )}
+      >
+        <DialogHeader>
           <DialogTitle className="text-sm font-medium text-foreground">Limit Close</DialogTitle>
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <DialogDescription className="text-xs leading-relaxed">
             This will send an order to close your position at the limit price.
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -100,7 +107,7 @@ export function CloseLimitModal({
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="0.00"
-                className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/30 pr-14"
+                className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/40 pr-14"
               />
               <button
                 onClick={() => position && setPrice(position.markPx.toFixed(2))}
@@ -120,7 +127,7 @@ export function CloseLimitModal({
               value={size}
               onChange={handleSizeChange}
               placeholder="0.00"
-              className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/30"
+              className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
             />
           </div>
 
@@ -149,15 +156,16 @@ export function CloseLimitModal({
           </div>
         </div>
 
-        <DialogFooter className="p-0">
+        <div className="pt-1">
           <Button
+            variant="default"
             onClick={handleConfirm}
             disabled={!canConfirm || isPending}
-            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors bg-foreground text-background hover:bg-foreground/90"
+            className="w-full h-10 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors"
           >
             {isPending ? "Closing..." : "Close position"}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

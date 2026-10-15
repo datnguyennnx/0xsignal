@@ -25,7 +25,7 @@ export function PosDirLabel({ szi }: { szi: string }) {
 
 /** Direction label from HL API `dir` field ("Open Long", "Close Short", etc.). */
 export function DirDisplay({ dir }: { dir?: string | null }) {
-  if (!dir) return <span className="text-muted-foreground/40">—</span>;
+  if (!dir) return <span className="text-muted-foreground/60">—</span>;
   const isLong = dir.toLowerCase().includes("long");
   return <span className={isLong ? "text-gain" : "text-loss"}>{dir}</span>;
 }
@@ -56,18 +56,7 @@ export function TabTrigger({
   children: ReactNode;
 }) {
   return (
-    <TabsTrigger
-      value={value}
-      className="relative flex-none px-3 py-2 text-[length:var(--text-compact)] font-medium
-        bg-transparent dark:bg-transparent border-0 rounded-none shadow-none
-        data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent
-        data-[state=active]:shadow-none
-        text-muted-foreground hover:text-foreground/80
-        data-[state=active]:text-foreground dark:data-[state=active]:text-foreground
-        data-[state=active]:after:absolute data-[state=active]:after:bottom-0 data-[state=active]:after:left-0
-        data-[state=active]:after:right-0 data-[state=active]:after:h-[2px] data-[state=active]:after:bg-foreground
-        transition-colors cursor-pointer gap-[clamp(0.375rem,0.6vw,0.625rem)]"
-    >
+    <TabsTrigger value={value} variant="text" className="relative">
       {children}
       {count !== undefined && count > 0 && (
         <span className="text-[length:var(--text-data)] text-muted-foreground font-normal">

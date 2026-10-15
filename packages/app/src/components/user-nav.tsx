@@ -36,12 +36,12 @@ export function UserNav() {
     <div className="flex items-center gap-2">
       {isConnected && address ? (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
-              {truncateAddress(address)}
-            </Button>
+          <DropdownMenuTrigger
+            render={<Button variant="outline" size="sm" className="h-8 px-3 text-xs" />}
+          >
+            {truncateAddress(address)}
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[180px] border-border/20" align="end" sideOffset={10}>
+          <DropdownMenuContent className="w-44 border-border/20" align="end" sideOffset={10}>
             <DropdownMenuItem
               onClick={() => disconnect()}
               className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-accent transition-colors rounded-md"

@@ -1,13 +1,35 @@
 import type { LayoutItem } from "./types";
-import { GRID_COLS, GRID_GUTTER } from "./constants";
+import { GRID_COLS } from "./constants";
 
-export function snapToGridUnits(pixelDelta: number, cellSize: number): number {
-  const unitSize = cellSize + GRID_GUTTER;
-  return Math.round(pixelDelta / unitSize);
+/**
+ * NEW UNIT CONTRACT (S-6 fluid scaling): every width below is a FRACTION of
+ * the container width (unitless, 0..1) — never pixels. Consumers must scale by
+ * the container width or emit the value as a percentage / CSS `calc()`. No
+ * caller subtracts a pixel gutter any more.
+ */
+
+/**
+ * Inter-cell gutter as a fraction of container width — fluid analogue of the
+ * legacy 8px GRID_GUTTER. It only equals 8px at a 1000px container
+ * (0.008 * 1000 = 8); wider containers scale the gutter up, narrower down.
+ */
+export const GRID_GUTTER_FRACTION = 0.008;
+
+/**
+ * Per-column width as a fraction of the container width, gutters excluded.
+ * At 12 columns and an 0.008 gutter each column spans
+ * `(1 - 0.008 * 11) / 12` of the container.
+ */
+export function cellWidth(): number {
+  return (1 - GRID_GUTTER_FRACTION * (GRID_COLS - 1)) / GRID_COLS;
 }
 
-export function cellWidth(containerWidth: number): number {
-  return (containerWidth - GRID_GUTTER * (GRID_COLS - 1)) / GRID_COLS;
+/**
+ * Snap a delta — expressed as a fraction of container width — to whole grid
+ * units. `cellFraction` is a per-column fraction from `cellWidth()`.
+ */
+export function snapToGridUnits(fractionDelta: number, cellFraction: number): number {
+  return Math.round(fractionDelta / (cellFraction + GRID_GUTTER_FRACTION));
 }
 
 /**

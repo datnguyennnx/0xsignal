@@ -60,7 +60,7 @@ function PageLoader() {
 
 function RouteErrorFallback() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+    <div className="flex flex-col items-center justify-center min-h-dvh gap-4">
       <p className="text-foreground">Something went wrong loading this page.</p>
       <Button onClick={() => window.location.reload()}>Reload</Button>
     </div>

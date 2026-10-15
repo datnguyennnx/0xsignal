@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import type { LayoutItem } from "../utils/types";
-import { GRID_COLS, GRID_ROW_HEIGHT, GRID_GUTTER } from "../utils/constants";
-import { cellWidth } from "../utils/collision";
+import { GRID_COLS } from "../utils/constants";
+import { cellWidth, GRID_GUTTER_FRACTION, snapToGridUnits } from "../utils/collision";
+import { readRowPitchPx } from "../utils/row-pitch";
 
 interface UseLiftAndFloatOptions {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -18,8 +19,10 @@ interface DragState {
   startItemY: number;
   itemW: number;
   itemH: number;
-  initialPhantomX: number;
-  initialPhantomY: number;
+  containerHeight: number;
+  rowStep: number;
+  phantomXFrac: number;
+  phantomYFrac: number;
 }
 
 export interface PreviewState {
@@ -37,6 +40,19 @@ export interface UseLiftAndFloatReturn {
   handleRepositionStart: (id: string, e: React.PointerEvent) => void;
 }
 
+/** Position the viewport-fixed phantom from container-relative fractions. */
+function phantomTranslate(
+  rect: DOMRect,
+  xFrac: number,
+  yFrac: number,
+  dx: number,
+  dy: number,
+): string {
+  const x = rect.left + xFrac * rect.width + dx;
+  const y = rect.top + yFrac * rect.height + dy;
+  return `translate(${x}px, ${y}px)`;
+}
+
 function computeProjectedPosition(
   dragState: DragState,
   pixelDx: number,
@@ -44,12 +60,9 @@ function computeProjectedPosition(
   containerWidth: number,
   allItems: LayoutItem[],
 ): PreviewState {
-  const cw = cellWidth(containerWidth);
-  const unitW = cw + GRID_GUTTER;
-  const unitH = GRID_ROW_HEIGHT + GRID_GUTTER;
-
-  const snappedDx = Math.round(pixelDx / unitW);
-  const snappedDy = Math.round(pixelDy / unitH);
+  const snappedDx = snapToGridUnits(pixelDx / containerWidth, cellWidth());
+  const rowStep = dragState.rowStep;
+  const snappedDy = Math.round(pixelDy / dragState.containerHeight / rowStep);
 
   const proposedX = Math.max(
     0,
@@ -80,6 +93,7 @@ export function useLiftAndFloat({
   const previewStateRef = useRef<PreviewState | null>(null);
   const pointerUpRef = useRef<((e: PointerEvent) => void) | null>(null);
   const phantomRef = useRef<HTMLDivElement | null>(null);
+  const containerElRef = useRef<HTMLDivElement | null>(null);
   const latestDeltaRef = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
   const rafIdRef = useRef(0);
   const handleMoveRef = useRef<((e: PointerEvent) => void) | null>(null);
@@ -98,6 +112,7 @@ export function useLiftAndFloat({
     layoutRef.current = layout;
     containerWidthRef.current = containerWidth;
     onRepositionCommitRef.current = onRepositionCommit;
+    containerElRef.current = containerRef.current;
   });
 
   // Both handlers use only refs — never stale closures.
@@ -119,8 +134,15 @@ export function useLiftAndFloat({
         rafIdRef.current = 0;
         const { dx: latestDx, dy: latestDy } = latestDeltaRef.current;
         const phantom = phantomRef.current;
-        if (phantom) {
-          phantom.style.transform = `translate(${ds.initialPhantomX + latestDx}px, ${ds.initialPhantomY + latestDy}px)`;
+        const rect = containerElRef.current?.getBoundingClientRect();
+        if (phantom && rect) {
+          phantom.style.transform = phantomTranslate(
+            rect,
+            ds.phantomXFrac,
+            ds.phantomYFrac,
+            latestDx,
+            latestDy,
+          );
         }
       });
     }
@@ -206,9 +228,10 @@ export function useLiftAndFloat({
 
       // Calculate phantom position in viewport coords
       const containerRect = container.getBoundingClientRect();
-      const cw = cellWidth(containerWidthRef.current);
-      const initialPhantomX = containerRect.left + item.x * (cw + GRID_GUTTER);
-      const initialPhantomY = containerRect.top + item.y * (GRID_ROW_HEIGHT + GRID_GUTTER);
+      const cellStep = cellWidth() + GRID_GUTTER_FRACTION;
+      const rowStep = readRowPitchPx(container) / containerRect.height;
+      const phantomXFrac = item.x * cellStep;
+      const phantomYFrac = item.y * rowStep;
 
       // Get original item's DOM element to measure dimensions
       const originalElement = container.querySelector<HTMLElement>(`[data-panel-id="${id}"]`);
@@ -225,12 +248,20 @@ export function useLiftAndFloat({
         startItemY: item.y,
         itemW: item.w,
         itemH: item.h,
-        initialPhantomX,
-        initialPhantomY,
+        containerHeight: containerRect.height,
+        rowStep,
+        phantomXFrac,
+        phantomYFrac,
       };
 
       if (phantomRef.current) {
-        phantomRef.current.style.transform = `translate(${initialPhantomX}px, ${initialPhantomY}px)`;
+        phantomRef.current.style.transform = phantomTranslate(
+          containerRect,
+          phantomXFrac,
+          phantomYFrac,
+          0,
+          0,
+        );
       }
 
       setIsDragging(true);
@@ -251,10 +282,17 @@ export function useLiftAndFloat({
   useEffect(() => {
     if (!isDragging) return;
     const ds = dragStateRef.current;
-    if (phantomRef.current && ds) {
-      phantomRef.current.style.transform = `translate(${ds.initialPhantomX}px, ${ds.initialPhantomY}px)`;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (phantomRef.current && ds && rect) {
+      phantomRef.current.style.transform = phantomTranslate(
+        rect,
+        ds.phantomXFrac,
+        ds.phantomYFrac,
+        0,
+        0,
+      );
     }
-  }, [isDragging]);
+  }, [isDragging, containerRef]);
 
   return {
     isDragging,

@@ -72,7 +72,7 @@ export function ProfileSettings() {
           </p>
         </div>
         <div className="flex items-center justify-center py-8">
-          <div className="size-5 animate-spin rounded-full border-2 border-muted-foreground/30" />
+          <div className="size-5 animate-spin rounded-full border-2 border-muted-foreground/40" />
         </div>
       </div>
     );

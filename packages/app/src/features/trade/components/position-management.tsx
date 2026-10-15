@@ -181,14 +181,14 @@ export function PositionManagement() {
 
         <TabsContent
           value="balances"
-          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+          className="flex-1 min-h-0 data-active:flex data-active:flex-col"
         >
           <BalancesTab />
         </TabsContent>
 
         <TabsContent
           value="positions"
-          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+          className="flex-1 min-h-0 data-active:flex data-active:flex-col"
         >
           <PositionsTab
             onCloseMarket={handleCloseMarket}
@@ -198,14 +198,14 @@ export function PositionManagement() {
 
         <TabsContent
           value="outcomes"
-          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+          className="flex-1 min-h-0 data-active:flex data-active:flex-col"
         >
           <OutcomesTable />
         </TabsContent>
 
         <TabsContent
           value="open-orders"
-          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+          className="flex-1 min-h-0 data-active:flex data-active:flex-col"
         >
           <OpenOrdersTab
             onCancelOrder={handleCancelOrder}
@@ -215,30 +215,27 @@ export function PositionManagement() {
           />
         </TabsContent>
 
-        <TabsContent
-          value="twap"
-          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
-        >
+        <TabsContent value="twap" className="flex-1 min-h-0 data-active:flex data-active:flex-col">
           <TwapContent />
         </TabsContent>
 
         <TabsContent
           value="trade-history"
-          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+          className="flex-1 min-h-0 data-active:flex data-active:flex-col"
         >
           <TradeHistoryTab />
         </TabsContent>
 
         <TabsContent
           value="funding-history"
-          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+          className="flex-1 min-h-0 data-active:flex data-active:flex-col"
         >
           <FundingHistoryTable />
         </TabsContent>
 
         <TabsContent
           value="order-history"
-          className="flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
+          className="flex-1 min-h-0 data-active:flex data-active:flex-col"
         >
           <OrderHistoryTab />
         </TabsContent>

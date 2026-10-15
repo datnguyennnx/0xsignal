@@ -21,6 +21,8 @@ import {
   type PriceScalingState,
 } from "../utils/orderbook-widget-shared";
 import { type DisplayOrderbookLevel as OrderbookLevel, priceKey } from "@/core/utils/hyperliquid";
+import { OVERLAY_PANEL_CLASS } from "@/lib/overlay-classes";
+import { cn } from "cn";
 import { useTradeUIStore } from "@/stores/use-trade-ui-store";
 import { parseSymbol } from "@0xsignal/shared";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,7 +34,7 @@ import {
   formatLevel,
   toQuoteDenom,
   VISIBLE_ROWS,
-  ROW_STYLE,
+  ROW_HEIGHT_CLASS,
 } from "../utils/orderbook-utils";
 
 interface OrderbookWidgetProps {
@@ -62,7 +64,7 @@ const OrderbookToolbar = memo(
         value={symbol}
         onChange={(e) => onSymbolChange(e.target.value)}
         wrapperClassName="min-w-[4rem] max-w-[6rem]"
-        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] font-semibold tracking-[0.01em]"
+        className="h-7 w-full min-w-0 border-border/40 bg-background/70 text-[length:var(--text-micro)] font-semibold tracking-[0.01em]"
       >
         {coinOptions.map((opt) => (
           <NativeSelectOption key={opt.value} value={opt.value}>
@@ -76,7 +78,7 @@ const OrderbookToolbar = memo(
         value={String(currentNSigFigs ?? 0)}
         onChange={(e) => onNSigFigsChange(Number(e.target.value))}
         wrapperClassName="min-w-fit"
-        className="h-7 w-full min-w-0 border-border/50 bg-background/70 text-[clamp(0.625rem,0.65rem+0.35vw,0.75rem)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
+        className="h-7 w-full min-w-0 border-border/40 bg-background/70 text-[length:var(--text-micro)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
       >
         {scalingOptions.map((opt) => (
           <NativeSelectOption key={opt.value} value={opt.value.toString()}>
@@ -149,10 +151,9 @@ const OrderRow = memo(
         onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
         onFocus={level.price > 0 ? handleMouseEnter : undefined}
         onBlur={level.price > 0 ? handleMouseLeave : undefined}
-        className={`relative flex items-center cursor-pointer tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset ${
+        className={`${ROW_HEIGHT_CLASS} relative flex items-center cursor-pointer tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset ${
           isHovered ? "bg-muted/50" : "hover:bg-muted/30"
         }`}
-        style={ROW_STYLE}
         tabIndex={level.price > 0 ? 0 : -1}
         aria-label={rowAriaLabel}
         aria-describedby={level.price > 0 && isHovered ? "orderbook-depth-details" : undefined}
@@ -169,16 +170,16 @@ const OrderRow = memo(
           />
         )}
         <span
-          className={`relative z-10 flex-1 text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono font-medium ${
+          className={`relative z-10 flex-1 text-[length:var(--text-micro)] font-mono font-medium ${
             level.price === 0 ? "text-muted-foreground" : side === "bid" ? "text-gain" : "text-loss"
           }`}
         >
           {formatted.formattedPrice}
         </span>
-        <span className="relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono text-muted-foreground">
+        <span className="relative z-10 flex-1 text-right text-[length:var(--text-micro)] font-mono text-muted-foreground">
           {formatted.formattedSize}
         </span>
-        <span className="relative z-10 flex-1 text-right text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono text-muted-foreground">
+        <span className="relative z-10 flex-1 text-right text-[length:var(--text-micro)] font-mono text-muted-foreground">
           {formatted.formattedTotal}
         </span>
       </div>
@@ -444,7 +445,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         scalingOptions={scalingOptions}
       />
 
-      <div className="flex items-center text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] font-mono uppercase text-muted-foreground shrink-0">
+      <div className="flex items-center text-[length:var(--text-micro)] font-mono uppercase text-muted-foreground shrink-0">
         <span className="flex-1">Price</span>
         <span className="flex-1 text-right">{pairFocus === "quote" ? "Value" : "Size"}</span>
         <span className="flex-1 text-right">{pairFocus === "quote" ? "Total Val" : "Total"}</span>
@@ -468,13 +469,13 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         </div>
 
         <div className="flex items-center justify-center gap-[clamp(1.25rem,3vw,2.5rem)] py-4 shrink-0">
-          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-medium text-muted-foreground">
+          <span className="text-[length:var(--text-micro)] font-medium text-muted-foreground">
             Spread
           </span>
-          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground">
+          <span className="text-[length:var(--text-micro)] font-mono text-muted-foreground">
             {formatPriceWithNSigFigs(spread, effectiveNSigFigs ?? 5)}
           </span>
-          <span className="text-[clamp(0.625rem,0.5rem+0.2vw,0.6875rem)] font-mono text-muted-foreground">
+          <span className="text-[length:var(--text-micro)] font-mono text-muted-foreground">
             {spreadPercent.toFixed(3)}%
           </span>
         </div>
@@ -501,7 +502,10 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         createPortal(
           <div
             id="orderbook-depth-details"
-            className="fixed bg-card/95 border border-border/30 rounded-xl p-3 shadow-xl z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)] -translate-y-1/2"
+            className={cn(
+              OVERLAY_PANEL_CLASS,
+              "fixed p-3 z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)] -translate-y-1/2",
+            )}
             style={{
               top: popupPosition.top,
               left: popupPosition.left,
@@ -535,7 +539,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
               </div>
               {popupData.cumulativeSize && popupData.cumulativeSize > popupData.size && (
                 <>
-                  <div className="text-[clamp(0.5625rem,0.6rem+0.4vw,0.6875rem)] text-muted-foreground uppercase">
+                  <div className="text-[length:var(--text-data)] text-muted-foreground uppercase">
                     To Best Price
                   </div>
                   <div className="flex justify-between">

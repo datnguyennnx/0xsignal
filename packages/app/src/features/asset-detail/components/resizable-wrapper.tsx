@@ -1,8 +1,8 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { GripHorizontal } from "lucide-react";
 import type { LayoutItem } from "../utils/types";
-import { GRID_ROW_HEIGHT, GRID_GUTTER } from "../utils/constants";
-import { cellWidth } from "../utils/collision";
+import { GRID_ROW_PITCH_CSS } from "../utils/constants";
+import { cellWidth, GRID_GUTTER_FRACTION } from "../utils/collision";
 import { useResizeGesture } from "../hooks/use-resize-gesture";
 import { CornerHandles } from "./corner-handles";
 
@@ -22,8 +22,6 @@ interface ResizableWrapperProps {
   isDragged?: boolean;
   className?: string;
 }
-
-const TOUCH_NONE = { touchAction: "none" } as const;
 
 export function ResizableWrapper({
   id,
@@ -64,9 +62,8 @@ export function ResizableWrapper({
     onResizeCommit,
   });
 
-  const cw = cellWidth(containerWidth);
-  const ch = GRID_ROW_HEIGHT;
-  const GUTTER = GRID_GUTTER;
+  const cw = cellWidth();
+  const cellStep = cw + GRID_GUTTER_FRACTION;
 
   // Use ghost overrides during drag, real item dimensions otherwise
   const displayW = ghost?.w ?? item.w;
@@ -74,10 +71,12 @@ export function ResizableWrapper({
   const displayX = ghost?.x ?? item.x;
   const displayY = ghost?.y ?? item.y;
 
-  const left = displayX * (cw + GUTTER);
-  const top = displayY * (ch + GUTTER);
-  const width = displayW * cw + (displayW - 1) * GUTTER;
-  const height = displayH * ch + (displayH - 1) * GUTTER;
+  // Horizontal geometry is container-relative (fractions → %). Vertical uses the
+  // shared fluid row pitch so the panel matches the container/preview geometry.
+  const left = displayX * cellStep * containerWidth;
+  const top = `calc(${displayY} * ${GRID_ROW_PITCH_CSS})`;
+  const widthFraction = displayW * cw + (displayW - 1) * GRID_GUTTER_FRACTION;
+  const heightCalc = `calc(${displayH} * var(--grid-row-height) + ${displayH - 1} * 0.5rem)`;
 
   // Combined leave handler: gesture cleanup + hover state
   const handlePanelMouseLeave = useCallback(() => {
@@ -110,16 +109,17 @@ export function ResizableWrapper({
       ref={wrapperRef}
       className={`absolute rounded-xl border bg-card overflow-hidden ${
         isResizing || isDragged
-          ? "select-none border-foreground/30 shadow-xl z-50"
+          ? "select-none border-foreground/40 shadow-xl z-50"
           : "border-border/20"
-      } ${isDragged ? "pointer-events-none" : ""} ${isHovered && !isResizing && !isDragged ? "border-foreground/10" : ""} ${isDragged ? "opacity-30" : "opacity-100"} ${className}`}
+      } ${isDragged ? "pointer-events-none" : ""} ${isHovered && !isResizing && !isDragged ? "border-foreground/20" : ""} ${isDragged ? "opacity-30" : "opacity-100"} ${className}`}
       style={{
-        transform: `translate(${left}px, ${top}px)`,
-        width: `${width}px`,
-        height: `${height}px`,
+        transform: `translateX(${left}px)`,
+        top,
+        width: `${widthFraction * 100}%`,
+        height: heightCalc,
         transition: isResizing
           ? "box-shadow 150ms ease, border-color 150ms ease, opacity 150ms ease"
-          : "transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), width 200ms cubic-bezier(0.34, 1.56, 0.64, 1), height 200ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 200ms ease, border-color 200ms ease, opacity 150ms ease",
+          : "transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), top 200ms cubic-bezier(0.34, 1.56, 0.64, 1), width 200ms cubic-bezier(0.34, 1.56, 0.64, 1), height 200ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 200ms ease, border-color 200ms ease, opacity 150ms ease",
       }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -133,10 +133,9 @@ export function ResizableWrapper({
       {/* Drag Handle — Grip icon for repositioning */}
       <div
         onPointerDown={(e) => onRepositionStart?.(id, e)}
-        className={`absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-8 h-5 cursor-grab active:cursor-grabbing transition-[opacity,background-color] duration-150 rounded ${
+        className={`absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-8 h-5 cursor-grab active:cursor-grabbing transition-[opacity,background-color] duration-150 rounded touch-none ${
           isActive && !isResizing ? "opacity-60" : "opacity-0"
         } hover:opacity-80 hover:bg-foreground/5`}
-        style={TOUCH_NONE}
       >
         <GripHorizontal className="size-4 text-foreground/60" />
       </div>
@@ -146,26 +145,22 @@ export function ResizableWrapper({
         <>
           {/* Left edge */}
           <div
-            className="absolute left-0 top-2.5 bottom-2.5 w-[6px] cursor-ew-resize z-10"
-            style={TOUCH_NONE}
+            className="absolute left-0 top-2.5 bottom-2.5 w-1.5 cursor-ew-resize z-10 touch-none"
             onPointerDown={handlePointerDown("w")}
           />
           {/* Right edge */}
           <div
-            className="absolute right-0 top-2.5 bottom-2.5 w-[6px] cursor-ew-resize z-10"
-            style={TOUCH_NONE}
+            className="absolute right-0 top-2.5 bottom-2.5 w-1.5 cursor-ew-resize z-10 touch-none"
             onPointerDown={handlePointerDown("e")}
           />
           {/* Top edge */}
           <div
-            className="absolute top-0 left-2.5 right-2.5 h-[6px] cursor-ns-resize z-10"
-            style={TOUCH_NONE}
+            className="absolute top-0 left-2.5 right-2.5 h-1.5 cursor-ns-resize z-10 touch-none"
             onPointerDown={handlePointerDown("n")}
           />
           {/* Bottom edge */}
           <div
-            className="absolute bottom-0 left-2.5 right-2.5 h-[6px] cursor-ns-resize z-10"
-            style={TOUCH_NONE}
+            className="absolute bottom-0 left-2.5 right-2.5 h-1.5 cursor-ns-resize z-10 touch-none"
             onPointerDown={handlePointerDown("s")}
           />
         </>

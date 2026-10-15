@@ -33,7 +33,7 @@ export const EmptyState = memo(function EmptyState({
         {title ?? VARIANT_DEFAULTS[variant]}
       </h3>
       {description && (
-        <p className="text-xs text-muted-foreground/70 max-w-[clamp(17rem,70vw,20rem)] leading-relaxed">
+        <p className="text-xs text-muted-foreground max-w-[clamp(17rem,70vw,20rem)] leading-relaxed">
           {description}
         </p>
       )}

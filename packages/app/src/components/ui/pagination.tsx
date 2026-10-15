@@ -2,6 +2,7 @@ import { memo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "cn";
+import { SELECTED_ITEM_CLASS } from "@/lib/state-classes";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 interface PaginationProps {
@@ -80,7 +81,7 @@ export const Pagination = memo(function Pagination({
               className={cn(
                 "inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded text-xs tabular-nums transition-colors",
                 currentPage === page
-                  ? "bg-foreground text-background"
+                  ? SELECTED_ITEM_CLASS
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
               )}
             >
@@ -89,7 +90,7 @@ export const Pagination = memo(function Pagination({
           ) : (
             <span
               key={i}
-              className="inline-flex items-center justify-center h-7 w-5 text-xs text-muted-foreground/50 select-none"
+              className="inline-flex items-center justify-center h-7 w-5 text-xs text-muted-foreground/60 select-none"
             >
               ...
             </span>

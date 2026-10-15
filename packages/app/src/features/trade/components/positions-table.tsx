@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
-import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
+import { c, cNum, cHead, cHeadNum, TABLE_HEAD_CLASS } from "../utils/orderbook-table-classes";
 import { PnLDisplay } from "./shared-table-components";
 import { computeAccruedFunding } from "../utils/trade-math";
 
@@ -16,7 +16,7 @@ import { useNavigate } from "react-router-dom";
 
 function TpSlCell({ tpSl }: { tpSl: { tp: string | null; sl: string | null } | undefined }) {
   if (!tpSl || (!tpSl.tp && !tpSl.sl)) {
-    return <span className="text-muted-foreground/40">—</span>;
+    return <span className="text-muted-foreground/60">—</span>;
   }
   const parts: string[] = [];
   if (tpSl.tp) parts.push(`TP ${tpSl.tp}`);
@@ -78,9 +78,7 @@ export function PositionsTable({
         {isChLoading ? (
           <TableRow>
             <TableCell colSpan={11} className="text-center py-6">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                Loading...
-              </span>
+              <span className={TABLE_HEAD_CLASS}>Loading...</span>
             </TableCell>
           </TableRow>
         ) : positions.length === 0 ? (
@@ -152,7 +150,7 @@ export function PositionsTable({
                     >
                       Market
                     </button>
-                    <span className="text-xs text-muted-foreground/40">/</span>
+                    <span className="text-xs text-muted-foreground/60">/</span>
                     <button
                       type="button"
                       onClick={() =>

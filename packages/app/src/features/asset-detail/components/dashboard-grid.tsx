@@ -8,14 +8,16 @@ import {
   useMemo,
   createContext,
   useContext,
+  type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "cn";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useLayoutStore } from "@/stores/use-layout-store";
 import { ResizableWrapper } from "./resizable-wrapper";
 import { useLiftAndFloat } from "../hooks/use-lift-and-float";
-import { GRID_ROW_HEIGHT, GRID_GUTTER } from "../utils/constants";
-import { cellWidth, getResizeConstraints } from "../utils/collision";
+import { GRID_ROW_HEIGHT_CSS } from "../utils/constants";
+import { cellWidth, GRID_GUTTER_FRACTION, getResizeConstraints } from "../utils/collision";
 import type { DashboardGridProps } from "../utils/types";
 
 const Z = {
@@ -114,13 +116,10 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
     [draggedItemId, layout],
   );
 
-  const maxBottom = layout.reduce((max, item) => {
-    const bottom = (item.y + item.h) * (GRID_ROW_HEIGHT + GRID_GUTTER) - GRID_GUTTER;
-    return Math.max(max, bottom);
-  }, 0);
-  const totalHeight = maxBottom + GRID_GUTTER;
+  const maxRow = layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
 
-  const cw = cellWidth(containerWidth);
+  const cw = cellWidth();
+  const cellStep = cw + GRID_GUTTER_FRACTION;
 
   const DEFAULT_PANEL_NAMES: Record<string, string> = {
     chart: "Chart",
@@ -136,7 +135,12 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
       <div
         ref={containerRef}
         className={`relative w-full ${className}`}
-        style={{ height: `${totalHeight}px` }}
+        style={
+          {
+            height: `calc(${maxRow} * var(--grid-row-height) + ${maxRow - 1} * 0.5rem)`,
+            "--grid-row-height": GRID_ROW_HEIGHT_CSS,
+          } as CSSProperties
+        }
       >
         {/* Panels */}
         {panels.map((panel) => {
@@ -170,18 +174,17 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
         {/* Drop preview — grid-snapped dashed outline */}
         {previewState && draggedLayoutItem && (
           <div
-            className="absolute pointer-events-none z-40 rounded-xl border-2 border-dashed transition-none"
+            className={cn(
+              "absolute pointer-events-none z-40 rounded-xl border-2 border-dashed transition-none",
+              previewState.isValid
+                ? "border-primary/40 bg-primary/[0.06]"
+                : "border-destructive/60 bg-destructive/[0.08]",
+            )}
             style={{
-              left: `${previewState.gridX * (cw + GRID_GUTTER)}px`,
-              top: `${previewState.gridY * (GRID_ROW_HEIGHT + GRID_GUTTER)}px`,
-              width: `${draggedLayoutItem.w * cw + (draggedLayoutItem.w - 1) * GRID_GUTTER}px`,
-              height: `${draggedLayoutItem.h * GRID_ROW_HEIGHT + (draggedLayoutItem.h - 1) * GRID_GUTTER}px`,
-              borderColor: previewState.isValid
-                ? "hsl(var(--primary) / 0.5)"
-                : "hsl(var(--destructive) / 0.7)",
-              backgroundColor: previewState.isValid
-                ? "hsl(var(--primary) / 0.06)"
-                : "hsl(var(--destructive) / 0.08)",
+              left: `${previewState.gridX * cellStep * 100}%`,
+              top: `calc(${previewState.gridY} * var(--grid-row-height) + ${previewState.gridY} * 0.5rem)`,
+              width: `${(draggedLayoutItem.w * cw + (draggedLayoutItem.w - 1) * GRID_GUTTER_FRACTION) * 100}%`,
+              height: `calc(${draggedLayoutItem.h} * var(--grid-row-height) + ${draggedLayoutItem.h - 1} * 0.5rem)`,
             }}
           />
         )}
@@ -190,14 +193,15 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
         {isDragging &&
           draggedItemId &&
           phantomSize &&
+          draggedLayoutItem &&
           createPortal(
             <ErrorBoundary resetKey={draggedItemId}>
               <div
                 ref={phantomRef}
                 className="fixed left-0 top-0 pointer-events-none will-change-transform"
                 style={{
-                  width: `${phantomSize.width}px`,
-                  height: `${phantomSize.height}px`,
+                  width: `${(draggedLayoutItem.w * cw + (draggedLayoutItem.w - 1) * GRID_GUTTER_FRACTION) * 100}%`,
+                  height: `calc(${draggedLayoutItem.h} * var(--grid-row-height) + ${draggedLayoutItem.h - 1} * 0.5rem)`,
                   zIndex: Z.glassShell,
                 }}
                 aria-hidden="true"

@@ -2,7 +2,7 @@ import { type DisplayOrderbookLevel as OrderbookLevel } from "@/core/utils/hyper
 import { formatPriceWithNSigFigs, formatSize } from "@/core/utils/formatters";
 
 export const ROW_HEIGHT = 28;
-export const ROW_STYLE = { height: ROW_HEIGHT };
+export const ROW_HEIGHT_CLASS = "h-7";
 export const VISIBLE_ROWS = 20;
 
 export interface PopupData {

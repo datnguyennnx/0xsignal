@@ -53,19 +53,12 @@ function IndicatorConfigPanelInner({
     return { ...formValues, ...localEdits };
   }, [formValues, localEdits]);
 
-  const parsedParamsForCurrentForm = useMemo(
-    () => parseFormValues(indicator, formValues),
-    [indicator, formValues],
-  );
+  const parsedParamsForCurrentForm = parseFormValues(indicator, formValues);
+  const derivedInstanceId = createIndicatorInstanceId(indicator, parsedParamsForCurrentForm);
 
-  const derivedInstanceId = useMemo(
-    () => createIndicatorInstanceId(indicator, parsedParamsForCurrentForm),
-    [indicator, parsedParamsForCurrentForm],
-  );
-
-  const matchingActiveInstance = useMemo(
-    () => activeIndicators.find((entry) => entry.instanceId === derivedInstanceId),
-    [activeIndicators, derivedInstanceId],
+  // Cheap terminal derivation: consumed only inline in JSX, so no memo.
+  const matchingActiveInstance = activeIndicators.find(
+    (entry) => entry.instanceId === derivedInstanceId,
   );
 
   const handleApply = useCallback(() => {

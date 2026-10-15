@@ -16,7 +16,7 @@ import {
   formatOrderValue,
   formatOrderPrice,
 } from "../utils/trigger-utils";
-import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
+import { c, cNum, cHead, cHeadNum, TABLE_HEAD_CLASS } from "../utils/orderbook-table-classes";
 import type { FrontendOpenOrder } from "@0xsignal/shared";
 
 interface OpenOrdersTableProps {
@@ -68,9 +68,7 @@ export function OpenOrdersTable({
         {isOoLoading ? (
           <TableRow>
             <TableCell colSpan={12} className="text-center py-6">
-              <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                Loading...
-              </span>
+              <span className={TABLE_HEAD_CLASS}>Loading...</span>
             </TableCell>
           </TableRow>
         ) : !openOrders || openOrders.length === 0 ? (
@@ -98,7 +96,7 @@ export function OpenOrdersTable({
                   {order.children?.length > 0 ? (
                     <button
                       onClick={() => onViewTpSl(order)}
-                      className="text-gain text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                      className="text-gain text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                     >
                       View
                     </button>
@@ -110,7 +108,7 @@ export function OpenOrdersTable({
                   <button
                     onClick={() => onCancelOrder(order.coin, order.oid)}
                     disabled={isCancelPending}
-                    className="text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                    className="text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
                   >
                     Cancel
                   </button>

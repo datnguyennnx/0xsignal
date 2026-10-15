@@ -45,8 +45,8 @@ export function MonthDayCell({
       }}
       className={cn(
         "flex min-h-[8rem] cursor-pointer flex-col gap-1.5 rounded-lg p-2 text-left transition-colors hover:bg-accent/40",
-        isSelected && "bg-accent/60",
-        isToday && "ring-1 ring-primary/50 ring-inset",
+        isSelected && "bg-accent text-accent-foreground",
+        isToday && "ring-1 ring-primary/40 ring-inset",
         !isCurrentMonth && "bg-muted text-muted-foreground",
       )}
     >
@@ -85,7 +85,7 @@ export function MonthDayCell({
               clickEvent.stopPropagation();
               onShowMore?.(date);
             }}
-            className="rounded-md px-2 py-0.5 text-left text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+            className="rounded-md px-2 py-0.5 text-left text-[length:var(--text-micro)] font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
           >
             +{overflow} more
           </button>

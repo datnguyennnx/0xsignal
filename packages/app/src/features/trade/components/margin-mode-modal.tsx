@@ -5,12 +5,15 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  DialogDescription,
   DialogHeader,
   DialogFooter,
+  MODAL_CONTENT_CLASS,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { api, type UpdateLeverageRequest } from "@/services/api";
 import { queryKeys } from "@/lib/query-keys";
+import { SELECTED_CARD_CLASS } from "@/lib/state-classes";
 import { cn } from "cn";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
@@ -89,26 +92,32 @@ export function MarginModeModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[520px] bg-card border-border/30 p-5 gap-[clamp(0.5rem,1vw,1rem)] overflow-hidden">
-        <div className="p-0">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-medium text-foreground">Margin Mode</DialogTitle>
-          </DialogHeader>
-        </div>
+      <DialogContent
+        className={cn(
+          MODAL_CONTENT_CLASS,
+          "sm:max-w-[clamp(24rem,46vw,32.5rem)] p-5 gap-[clamp(0.5rem,1vw,1rem)]",
+        )}
+      >
+        <DialogHeader>
+          <DialogTitle className="text-sm font-medium text-foreground">Margin Mode</DialogTitle>
+          <DialogDescription className="text-[length:var(--text-compact)]">
+            Choose how margin is shared across your positions.
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-3">
           <button
             onClick={() => setMode("isolated")}
             className={cn(
-              "w-full text-left px-4 py-3 rounded-lg border transition-[background-color,border-color,filter] active:brightness-90",
+              "w-full text-left px-4 py-3 rounded-lg border transition-[background-color,border-color,filter] active:brightness-95",
               mode === "isolated"
-                ? "border-foreground bg-foreground/5"
-                : "border-border/30 bg-transparent hover:border-border",
+                ? SELECTED_CARD_CLASS
+                : "border-border/40 bg-transparent hover:border-border",
             )}
           >
-            <div className="flex items-start justify-between">
-              <div className="space-y-4">
-                <div className="flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
                   <span
                     className={cn(
                       "text-sm font-medium",
@@ -117,35 +126,36 @@ export function MarginModeModal({
                   >
                     Isolated
                   </span>
-                  <span
-                    className={cn(
-                      "text-[0.6rem] px-1.5 py-0.5 rounded",
-                      mode === "isolated"
-                        ? "bg-foreground text-background"
-                        : "text-muted-foreground bg-muted/30",
-                    )}
-                  >
+                  <span className="text-[length:var(--text-data)] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                     Recommended
                   </span>
                 </div>
-                <p className="text-[0.65rem] text-muted-foreground leading-relaxed max-w-sm">
+                <p className="text-[length:var(--text-compact)] text-muted-foreground leading-relaxed max-w-sm">
                   {MODE_CONFIG.isolated.description}
                 </p>
               </div>
+              <span
+                className={cn(
+                  "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+                  mode === "isolated" ? "border-foreground" : "border-border/60",
+                )}
+              >
+                {mode === "isolated" && <span className="size-2 rounded-full bg-foreground" />}
+              </span>
             </div>
           </button>
 
           <button
             onClick={() => setMode("cross")}
             className={cn(
-              "w-full text-left px-4 py-3 rounded-lg border transition-[background-color,border-color,filter] active:brightness-90",
+              "w-full text-left px-4 py-3 rounded-lg border transition-[background-color,border-color,filter] active:brightness-95",
               mode === "cross"
-                ? "border-foreground bg-foreground/5"
-                : "border-border/30 bg-transparent hover:border-border",
+                ? SELECTED_CARD_CLASS
+                : "border-border/40 bg-transparent hover:border-border",
             )}
           >
-            <div className="flex items-start justify-between">
-              <div className="space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-2">
                 <span
                   className={cn(
                     "text-sm font-medium",
@@ -154,25 +164,36 @@ export function MarginModeModal({
                 >
                   Cross
                 </span>
-                <p className="text-[0.65rem] text-muted-foreground leading-relaxed max-w-sm">
+                <p className="text-[length:var(--text-compact)] text-muted-foreground leading-relaxed max-w-sm">
                   {MODE_CONFIG.cross.description}
                 </p>
               </div>
+              <span
+                className={cn(
+                  "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+                  mode === "cross" ? "border-foreground" : "border-border/60",
+                )}
+              >
+                {mode === "cross" && <span className="size-2 rounded-full bg-foreground" />}
+              </span>
             </div>
           </button>
 
           <div className="flex items-center justify-between px-3 py-2 bg-background/70 rounded-md border border-border/20">
-            <span className="text-xs text-muted-foreground">Leverage for {symbol}</span>
+            <span className="text-[length:var(--text-data)] text-muted-foreground">
+              Leverage for {symbol}
+            </span>
             <span className="text-sm tabular-nums text-foreground">{currentLeverage}x</span>
           </div>
         </div>
 
-        <DialogFooter className="p-0">
+        <DialogFooter className="mx-0 mb-0 p-0 border-t-0 bg-transparent rounded-none sm:flex-col">
           <Button
             size="sm"
+            variant="default"
             onClick={handleConfirm}
             disabled={mutation.isPending}
-            className="w-full h-9 text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,transform] duration-150 ease-premium bg-foreground text-background hover:bg-foreground/90 active:scale-[0.98]"
+            className="w-full h-10 text-[length:var(--text-data)] font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,transform] duration-150 ease-premium active:scale-[0.98]"
           >
             {mutation.isPending
               ? `Setting ${mode}...`

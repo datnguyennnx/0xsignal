@@ -3,9 +3,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
   DialogClose,
+  MODAL_CONTENT_CLASS,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "cn";
 
 interface CancelAllDialogProps {
   open: boolean;
@@ -28,32 +32,41 @@ export function CancelAllDialog({
 }: CancelAllDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[360px] bg-card border-border/30 p-5 gap-[clamp(0.75rem,1.25vw,1.25rem)] overflow-hidden">
-        <div className="p-0">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-medium text-foreground">
-              Cancel All Orders
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-xs text-muted-foreground leading-relaxed">
+      <DialogContent
+        className={cn(
+          MODAL_CONTENT_CLASS,
+          "sm:max-w-[clamp(18rem,36vw,22.5rem)] p-5 gap-[clamp(0.75rem,1.25vw,1.25rem)]",
+        )}
+      >
+        <DialogHeader>
+          <DialogTitle className="text-sm font-medium text-foreground">
+            Cancel All Orders
+          </DialogTitle>
+          <DialogDescription className="text-[length:var(--text-compact)] leading-relaxed">
             Are you sure you want to cancel all {orderCount} open order
             {orderCount !== 1 ? "s" : ""}?
-          </p>
-        </div>
-        <div className="flex items-center justify-end gap-[clamp(0.5rem,0.8vw,0.75rem)] p-0">
-          <DialogClose asChild>
-            <Button variant="outline" className="h-8 px-3 text-xs font-medium">
-              Keep Orders
-            </Button>
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="mx-0 mb-0 flex-row items-center justify-end gap-[clamp(0.5rem,0.8vw,0.75rem)] rounded-none border-t-0 bg-transparent p-0">
+          <DialogClose
+            render={
+              <Button
+                variant="outline"
+                className="h-10 px-3 text-[length:var(--text-compact)] font-medium"
+              />
+            }
+          >
+            Keep Orders
           </DialogClose>
           <Button
+            variant="destructive"
             onClick={onConfirm}
             disabled={isPending}
-            className="h-8 px-3 text-xs font-medium bg-foreground text-background hover:bg-foreground/90"
+            className="h-10 px-3 text-[length:var(--text-compact)] font-medium"
           >
             Cancel All
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

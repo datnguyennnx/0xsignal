@@ -6,8 +6,12 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { LayoutItem, ResizeHandleAxis } from "../utils/types";
-import { GRID_COLS, GRID_ROW_HEIGHT } from "../utils/constants";
+import { GRID_COLS } from "../utils/constants";
 import { cellWidth, snapToGridUnits } from "../utils/collision";
+import { readRowPitchPx } from "../utils/row-pitch";
+
+/** Corner activation radius in rem; converted to px against the pointer distance. */
+const CORNER_THRESHOLD_REM = 3.25;
 
 // Only 'resize' variant — reposition is handled by useLiftAndFloat
 type GestureState = {
@@ -91,8 +95,9 @@ export function useResizeGesture({
   const [isResizing, setIsResizing] = useState(false);
   const [activeCorner, setActiveCorner] = useState<ResizeHandleAxis | null>(null);
 
-  const cw = cellWidth(containerWidth);
-  const ch = GRID_ROW_HEIGHT;
+  // cw is a fraction of container width (fluid unit contract); vertical snaps
+  // against the grid's displayed row pitch, measured per gesture from the DOM.
+  const cw = cellWidth();
 
   // Sync resize cursor to document root via effect (avoids direct DOM mutation in callbacks)
   useEffect(() => {
@@ -151,8 +156,12 @@ export function useResizeGesture({
       const { axis, startX, startY, startW, startH, startItemX, startItemY } = gesture;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      const snappedDx = snapToGridUnits(dx, cw);
-      const snappedDy = snapToGridUnits(dy, ch);
+      // Horizontal delta must be a fraction of container width to match the
+      // fluid cell unit; vertical snaps against the displayed row pitch.
+      const snappedDx = snapToGridUnits(dx / containerWidth, cw);
+      const gridEl =
+        e.currentTarget.closest<HTMLElement>('[style*="--grid-row-height"]') ?? e.currentTarget;
+      const snappedDy = Math.round(dy / readRowPitchPx(gridEl));
 
       let proposedX = startItemX;
       let proposedY = startItemY;
@@ -206,7 +215,7 @@ export function useResizeGesture({
         lastSnappedY: proposedY,
       };
     },
-    [item.minW, item.minH, maxW, maxH, minX, minY, cw, ch],
+    [item.minW, item.minH, maxW, maxH, minX, minY, containerWidth, cw],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -260,7 +269,9 @@ export function useResizeGesture({
         { axis: "se", cx: rw, cy: rh },
       ];
 
-      const threshold = 52; // px — distance threshold for activation
+      // Corner activation radius: 3.25rem, converted to px because the pointer
+      // distance below is measured in px.
+      const threshold = CORNER_THRESHOLD_REM * 16;
       let closest: ResizeHandleAxis | null = null;
       let minDist = threshold;
 

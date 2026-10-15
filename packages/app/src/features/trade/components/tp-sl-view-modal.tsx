@@ -1,5 +1,13 @@
 import type { ReactNode } from "react";
-import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog";
+import { cn } from "cn";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogHeader,
+  MODAL_CONTENT_CLASS,
+} from "@/components/ui/dialog";
 import { formatCompactUsd } from "@/core/utils/formatters";
 import { type TpSlOrderDisplay } from "../utils/tp-sl-view-utils";
 
@@ -53,17 +61,15 @@ export function TpSlViewModal({
 }: TpSlViewModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl bg-card border-border/30 p-0 gap-0 overflow-hidden">
-        <div className="px-6 pt-5 pb-3 space-y-1">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-medium text-foreground">
-              Take Profit / Stop Loss
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-xs text-muted-foreground leading-relaxed">
+      <DialogContent className={cn(MODAL_CONTENT_CLASS, "sm:max-w-2xl p-0 gap-0")}>
+        <DialogHeader className="px-6 pt-5 pb-3">
+          <DialogTitle className="text-sm font-medium text-foreground">
+            Take Profit / Stop Loss
+          </DialogTitle>
+          <DialogDescription className="text-xs leading-relaxed">
             If order A is filled, orders B and C will be placed
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="px-6 py-5 space-y-2">
           <TreeNodeLabel>Order A</TreeNodeLabel>
@@ -93,7 +99,7 @@ export function TpSlViewModal({
               </div>
             </div>
           ) : (
-            <div className="rounded-lg border border-border/30 bg-background/40 px-3.5 py-3">
+            <div className="rounded-md border border-border/20 bg-muted/30 px-3 py-2">
               <p className="text-xs text-muted-foreground text-center">No TP/SL orders attached</p>
             </div>
           )}

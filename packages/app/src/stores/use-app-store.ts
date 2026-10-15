@@ -148,17 +148,17 @@ export const useAppStore = create<AppStoreState>()(
   ),
 );
 
-// Module-level matchMedia listener for system theme changes
-if (typeof window !== "undefined") {
-  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  const handler = (e: MediaQueryListEvent) => {
-    useAppStore.getState().setSystemTheme(e.matches ? "dark" : "light");
-  };
-  mediaQuery.addEventListener("change", handler);
-}
+let appStoreInitialized = false;
 
-// Module-level beforeunload listener for dirty form detection
-if (typeof window !== "undefined") {
+export function initAppStore(): void {
+  if (appStoreInitialized || typeof window === "undefined") return;
+  appStoreInitialized = true;
+
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQuery.addEventListener("change", (e) => {
+    useAppStore.getState().setSystemTheme(e.matches ? "dark" : "light");
+  });
+
   window.addEventListener("beforeunload", (e) => {
     if (useAppStore.getState().hasUnsavedChanges()) {
       e.preventDefault();

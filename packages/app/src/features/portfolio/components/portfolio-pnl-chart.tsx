@@ -70,13 +70,13 @@ function ChartTooltip({
   return (
     <div className="pointer-events-none rounded border border-[color:var(--tooltip-border)] bg-[color:var(--tooltip-bg)] px-2.5 py-1.5">
       {dateStr && (
-        <span className="block text-[12px] leading-normal text-[color:var(--chart-text)]">
+        <span className="block text-[length:var(--text-data)] leading-normal text-[color:var(--chart-text)]">
           {dateStr}
         </span>
       )}
       <span
         className={cn(
-          "block text-[14px] font-semibold leading-normal tabular-nums",
+          "block text-[length:var(--text-data)] font-semibold leading-normal tabular-nums",
           val >= 0 ? "text-gain" : "text-loss",
         )}
       >
@@ -152,10 +152,10 @@ export function PortfolioPnLChart() {
             <Skeleton className="h-3.5 w-16" />
             <Skeleton className="h-3.5 w-16" />
           </div>
-          <Skeleton className="h-[18px] w-14" />
+          <Skeleton className="h-[clamp(14px,1.5vw,18px)] w-14" />
         </div>
         <div className="flex-1 flex items-center justify-center p-1.5 min-h-[clamp(80px,10vw,120px)]">
-          <Skeleton className="w-full h-[120px]" />
+          <Skeleton className="w-full h-[clamp(80px,10vw,120px)]" />
         </div>
       </div>
     );
@@ -204,7 +204,7 @@ export function PortfolioPnLChart() {
             const val = e.target.value;
             setTimePeriod(isPortfolioPeriod(val) ? val : "month");
           }}
-          className="h-7 min-w-[4.5rem] text-xs tabular-nums border-border/30 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/25"
+          className="h-7 min-w-[4.5rem] text-xs tabular-nums border-border/40 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/40"
         >
           {PERIOD_KEYS.map((p) => (
             <NativeSelectOption key={p} value={p}>

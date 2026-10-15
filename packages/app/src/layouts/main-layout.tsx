@@ -12,7 +12,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   return (
-    <div className="flex flex-col min-h-screen p-4 gap-4 bg-background">
+    <div className="flex flex-col min-h-dvh p-4 gap-4 bg-background">
       <a
         href="#main-content"
         className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-4 focus-visible:left-4 focus-visible:z-[60] focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
