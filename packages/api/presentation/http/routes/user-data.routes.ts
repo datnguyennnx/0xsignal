@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { UserDataService } from "../../../application/user-data/contracts";
 import { asHttpError, type HttpError } from "../error-response";
+import { EVM_ADDRESS_RE } from "./credentials.schemas";
 
 type UserDataHttpService = {
   readonly getClearinghouseState: (typeof UserDataService.Service)["getClearinghouseState"];
@@ -30,6 +31,11 @@ const requireWalletAddress = (url: URL): Effect.Effect<string, HttpError> => {
   const walletAddress = url.searchParams.get("walletAddress");
   if (!walletAddress) {
     return Effect.fail(asHttpError(400, "walletAddress query parameter is required"));
+  }
+  if (!EVM_ADDRESS_RE.test(walletAddress)) {
+    return Effect.fail(
+      asHttpError(400, "Invalid walletAddress format (expected 0x-prefixed 40-char hex)"),
+    );
   }
   return Effect.succeed(walletAddress);
 };

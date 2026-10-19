@@ -1,9 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useConnect, useConnection, useConnectors } from "wagmi";
 import { Metamask, Coinbase } from "@thesvg/react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { useAppStore } from "@/stores/use-app-store";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -22,8 +25,27 @@ interface ConnectWalletDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
+
 export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogProps) {
   const refreshWalletStatus = useAuthStore((s) => s.refreshWalletStatus);
+  const setViewedAddress = useAppStore((s) => s.setViewedAddress);
+  const viewedAddress = useAppStore((s) => s.viewedAddress);
+  const clearViewedAddress = useAppStore((s) => s.clearViewedAddress);
+  const [addressInput, setAddressInput] = useState("");
+  const [addressError, setAddressError] = useState<string | null>(null);
+
+  const handleAddressSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const address = addressInput.trim();
+    if (!ADDRESS_PATTERN.test(address)) {
+      setAddressError("Enter a valid address (0x followed by 40 hex characters).");
+      return;
+    }
+    setViewedAddress(address);
+    onOpenChange(false);
+  };
+
   const { mutate, isPending } = useConnect({
     mutation: {
       onError: (err) => {
@@ -65,10 +87,11 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
   // if the user is already connected — that would cause a flash).
   useEffect(() => {
     if (open && isConnected && !wasConnectedRef.current) {
+      clearViewedAddress();
       onOpenChange(false);
     }
     wasConnectedRef.current = isConnected;
-  }, [isConnected, open, onOpenChange]);
+  }, [isConnected, open, onOpenChange, clearViewedAddress]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -79,39 +102,86 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
           <DialogTitle>Connect Wallet</DialogTitle>
           <DialogDescription>Choose a wallet to connect with</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-3">
-          {!metaMaskConnector && !coinbaseConnector && (
-            <Alert className="px-3 py-2.5">
-              <AlertTriangleIcon />
-              <AlertDescription className="text-sm leading-relaxed">
-                No wallet connectors available. Install MetaMask or Coinbase Wallet to continue.
-              </AlertDescription>
-            </Alert>
+        <div className="flex flex-col gap-[clamp(0.5rem,1vw,1rem)]">
+          <div className="flex flex-col gap-3">
+            {!metaMaskConnector && !coinbaseConnector && (
+              <Alert className="px-3 py-2.5">
+                <AlertTriangleIcon />
+                <AlertDescription className="text-sm leading-relaxed">
+                  No wallet connectors available. Install MetaMask or Coinbase Wallet to continue.
+                </AlertDescription>
+              </Alert>
+            )}
+            {metaMaskConnector && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-10 w-full gap-3 justify-start"
+                disabled={isPending}
+                onClick={() => mutate({ connector: metaMaskConnector })}
+              >
+                <Metamask className="size-5 shrink-0" />
+                {isPending ? "Connecting…" : "MetaMask"}
+              </Button>
+            )}
+            {coinbaseConnector && (
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-10 w-full gap-3 justify-start"
+                disabled={isPending}
+                onClick={() => mutate({ connector: coinbaseConnector })}
+              >
+                <Coinbase className="size-5 shrink-0" />
+                {isPending ? "Connecting…" : "Coinbase Wallet"}
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <Separator className="flex-1" />
+            <span className="shrink-0 text-xs text-muted-foreground">or</span>
+            <Separator className="flex-1" />
+          </div>
+          {viewedAddress && (
+            <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-2">
+              <span className="text-xs text-muted-foreground">
+                Viewing read-only: {viewedAddress.slice(0, 6)}…{viewedAddress.slice(-4)}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0 px-2"
+                onClick={() => clearViewedAddress()}
+              >
+                Exit
+              </Button>
+            </div>
           )}
-          {metaMaskConnector && (
+          <form className="flex flex-col gap-2.5" onSubmit={handleAddressSubmit}>
+            <Input
+              value={addressInput}
+              onChange={(event) => {
+                setAddressInput(event.target.value);
+                setAddressError(null);
+              }}
+              placeholder="Paste wallet address (0x…)"
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={addressError ? true : undefined}
+              aria-label="Wallet address"
+            />
+            {addressError && <p className="text-sm text-destructive">{addressError}</p>}
             <Button
-              variant="outline"
+              type="submit"
+              variant="default"
               size="lg"
-              className="h-10 w-full gap-3 justify-start"
-              disabled={isPending}
-              onClick={() => mutate({ connector: metaMaskConnector })}
+              className="h-10 w-full"
+              disabled={!addressInput.trim()}
             >
-              <Metamask className="size-5 shrink-0" />
-              {isPending ? "Connecting…" : "MetaMask"}
+              View address
             </Button>
-          )}
-          {coinbaseConnector && (
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-10 w-full gap-3 justify-start"
-              disabled={isPending}
-              onClick={() => mutate({ connector: coinbaseConnector })}
-            >
-              <Coinbase className="size-5 shrink-0" />
-              {isPending ? "Connecting…" : "Coinbase Wallet"}
-            </Button>
-          )}
+          </form>
         </div>
       </DialogContent>
     </Dialog>

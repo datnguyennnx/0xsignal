@@ -38,12 +38,15 @@ export interface AppStoreState {
   connectWalletOpen: Record<string, boolean>;
   dirtyFormPaths: Set<string>;
   marketSchemaVersion: number;
+  viewedAddress: string | null;
 
   setTheme: (theme: Theme) => void;
   setSystemTheme: (sys: "dark" | "light") => void;
   openConnectWallet: (key: string) => void;
   closeConnectWallet: (key: string) => void;
   isConnectWalletOpen: (key: string) => boolean;
+  setViewedAddress: (address: string) => void;
+  clearViewedAddress: () => void;
   markDirty: (path: string) => void;
   markClean: (path: string) => void;
   hasUnsavedChanges: () => boolean;
@@ -68,6 +71,7 @@ export const useAppStore = create<AppStoreState>()(
           connectWalletOpen: {},
           dirtyFormPaths: new Set<string>(),
           marketSchemaVersion: FRONTEND_MARKET_SCHEMA_VERSION,
+          viewedAddress: null,
 
           setTheme: (newTheme: Theme) => {
             localStorage.setItem("vite-ui-theme", newTheme);
@@ -98,6 +102,14 @@ export const useAppStore = create<AppStoreState>()(
 
           isConnectWalletOpen: (key: string) => {
             return get().connectWalletOpen[key] ?? false;
+          },
+
+          setViewedAddress: (address: string) => {
+            set({ viewedAddress: address });
+          },
+
+          clearViewedAddress: () => {
+            set({ viewedAddress: null });
           },
 
           markDirty: (path: string) => {
@@ -132,8 +144,8 @@ export const useAppStore = create<AppStoreState>()(
         };
       },
       {
-        name: "vite-ui-theme",
-        partialize: (state) => ({ theme: state.theme }),
+        name: "0xsignal-app-store",
+        partialize: (state) => ({ theme: state.theme, viewedAddress: state.viewedAddress }),
         onRehydrateStorage: () => {
           return (state) => {
             if (!state) return;

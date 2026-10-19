@@ -43,7 +43,6 @@ interface PositionsTableProps {
   tpSlByCoin?: Record<string, { tp: string | null; sl: string | null }>;
   onCloseMarket?: (coin: string, size: string, isLong: boolean) => void;
   onCloseLimit?: (position: { coin: string; sz: number; isLong: boolean; markPx: number }) => void;
-  /** Real-time mid prices from WebSocket, keyed by coin name */
   mids?: Record<string, number>;
 }
 
@@ -113,14 +112,6 @@ export function PositionsTable({
                     onClick={() => navigate(`/trade/${position.coin}`)}
                     className="relative overflow-hidden flex items-center w-full text-left cursor-pointer transition-colors hover:text-foreground rounded px-1 -mx-1"
                   >
-                    <span
-                      aria-hidden="true"
-                      className={
-                        signedSz >= 0
-                          ? "absolute inset-0 rounded pointer-events-none bg-[linear-gradient(to_right,var(--gain-muted),transparent)]"
-                          : "absolute inset-0 rounded pointer-events-none bg-[linear-gradient(to_right,var(--loss-muted),transparent)]"
-                      }
-                    />
                     <span className={`relative z-10 ${signedSz >= 0 ? "text-gain" : "text-loss"}`}>
                       {position.coin}
                     </span>

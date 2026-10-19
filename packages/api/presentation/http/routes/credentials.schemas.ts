@@ -14,7 +14,7 @@ export const CreateKeySchema = Schema.Struct({
 
 // Wallet address validation
 
-const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+export const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 const EVM_EXCHANGES = new Set(["hyperliquid"]);
