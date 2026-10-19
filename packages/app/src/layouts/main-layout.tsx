@@ -5,6 +5,7 @@ import { cn } from "cn";
 const NAV_ITEMS = [
   { path: "/trade", label: "Trade" },
   { path: "/portfolio", label: "Portfolio" },
+  { path: "/whales", label: "Whales" },
   { path: "/calendar", label: "Calendar" },
 ] as const;
 

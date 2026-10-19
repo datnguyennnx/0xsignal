@@ -1,17 +1,4 @@
-export const formatSignedUsd = (value: number): string => {
-  if (!Number.isFinite(value)) return "-";
-  const abs = Math.abs(value);
-  const formatted = abs.toLocaleString("en-US", {
-    minimumFractionDigits: abs >= 100 ? 0 : 2,
-    maximumFractionDigits: abs >= 100 ? 2 : 4,
-  });
-  return `${value >= 0 ? "+" : "-"}$${formatted}`;
-};
-
-export const formatFundingPercent = (fundingRate: number): string => {
-  if (!Number.isFinite(fundingRate)) return "-";
-  return `${fundingRate >= 0 ? "+" : ""}${(fundingRate * 100).toFixed(4)}%`;
-};
+export { formatSignedUsd, formatFundingPercent } from "@/core/utils/formatters";
 
 export const toCountdown = (msRemaining: number): string => {
   const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));

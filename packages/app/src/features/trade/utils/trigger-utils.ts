@@ -1,4 +1,4 @@
-import { formatPrice } from "@/core/utils/formatters";
+import { formatCompactUsd, formatPrice } from "@/core/utils/formatters";
 import type { OpenOrder, FrontendOpenOrder } from "@0xsignal/shared";
 
 function isNonNullObject(value: unknown): value is Record<string, unknown> {
@@ -83,15 +83,11 @@ export function getTriggerLabel(order: OpenOrder): string {
   return `Price ${condition} ${formatPrice(Number(triggerPx))}`;
 }
 
-/** "Market" for trigger orders, formatted with commas + " USDC" suffix for Limit. */
+/** "Market" for trigger orders, or canonical currency for Limit. */
 export function formatOrderValue(order: OpenOrder, sz: number, limitPx: number): string {
   const ot = getOrderType(order);
   if (ot === "Stop Market" || ot === "Take Profit Market") return "Market";
-  const value = sz * limitPx;
-  return `${value.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })} USDC`;
+  return formatCompactUsd(sz * limitPx);
 }
 
 /** "Market" for trigger orders, or formatPrice() for Limit. */

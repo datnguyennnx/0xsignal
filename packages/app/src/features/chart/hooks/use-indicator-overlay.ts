@@ -11,6 +11,7 @@ import {
 import { BandPrimitive } from "../utils/band";
 import type { IndicatorRenderEntry } from "../utils/indicator-data";
 import { toRgb, toRgba } from "../lib/color";
+import { formatAxis } from "@/core/utils/formatters";
 
 interface UseIndicatorOverlayProps {
   chart: IChartApi | null;
@@ -33,15 +34,9 @@ interface PaneState {
   indicatorId: string;
 }
 
-const createOscillatorPriceFormat = (minDecimals = 2, maxDecimals = 4) => ({
+const createOscillatorPriceFormat = () => ({
   type: "custom" as const,
-  formatter: (price: number) => {
-    if (!Number.isFinite(price) || price === 0) return "0";
-    return price.toLocaleString("en-US", {
-      minimumFractionDigits: minDecimals,
-      maximumFractionDigits: maxDecimals,
-    });
-  },
+  formatter: (price: number) => formatAxis(price),
 });
 
 const readToken = (token: string): string =>

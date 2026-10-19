@@ -11,16 +11,14 @@ import {
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 import { useLayoutStore } from "@/stores/use-layout-store";
 import { useAppStore } from "@/stores/use-app-store";
+import { truncateAddress } from "@/core/utils/address";
 import { toast } from "sonner";
 import { useAccount, useDisconnect } from "wagmi";
-
-function truncateAddress(address: string) {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
 
 export function UserNav() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
+  const activeAddress = useAppStore((s) => s.activeAddress);
   const isConnectWalletOpen = useAppStore((s) => s.connectWalletOpen["user-nav"] ?? false);
   const openConnectWallet = useCallback(
     () => useAppStore.getState().openConnectWallet("user-nav"),
@@ -30,11 +28,28 @@ export function UserNav() {
     () => useAppStore.getState().closeConnectWallet("user-nav"),
     [],
   );
+  const clearActiveAddress = useCallback(() => useAppStore.getState().clearActiveAddress(), []);
   const navigate = useNavigate();
 
   return (
     <div className="flex items-center gap-2">
-      {isConnected && address ? (
+      {activeAddress ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button variant="outline" size="sm" className="h-8 px-3 text-xs" />}
+          >
+            {truncateAddress(activeAddress)}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={10}>
+            <DropdownMenuItem
+              onClick={clearActiveAddress}
+              className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-accent transition-colors rounded-md"
+            >
+              Exit read-only
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : isConnected && address ? (
         <DropdownMenu>
           <DropdownMenuTrigger
             render={<Button variant="outline" size="sm" className="h-8 px-3 text-xs" />}

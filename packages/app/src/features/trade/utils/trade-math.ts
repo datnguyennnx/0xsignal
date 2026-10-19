@@ -1,4 +1,9 @@
-import { getNextFundingMs } from "@/core/utils/formatters";
+import {
+  formatPrice,
+  formatSignedPercent,
+  formatSize,
+  getNextFundingMs,
+} from "@/core/utils/formatters";
 
 const FUNDING_INTERVAL_MS = 3_600_000;
 
@@ -89,19 +94,18 @@ export function lossPercentFromPrice(
  * Does NOT round half-up.
  * @example formatOrderSize(1.23456, 3) // → "1.234"
  */
-export function formatOrderSize(size: number, szDecimals: number): string {
-  if (!Number.isFinite(size) || size <= 0) return "0";
-  const factor = Math.pow(10, szDecimals);
-  const truncated = Math.floor(size * factor) / factor;
-  return truncated.toFixed(szDecimals);
+export function formatOrderSize(size: number, _szDecimals: number): string {
+  return formatSize(size);
 }
 
 export function formatPriceFixed(value: number): string {
-  return Number.isFinite(value) && value > 0 ? value.toFixed(2) : "";
+  if (!Number.isFinite(value) || value <= 0) return "";
+  return formatPrice(value);
 }
 
 export function formatPctFixed(value: number): string {
-  return Number.isFinite(value) && value >= 0 ? value.toFixed(2) : "";
+  if (!Number.isFinite(value) || value < 0) return "";
+  return formatSignedPercent(value);
 }
 
 export function buildFundingRatesMap(

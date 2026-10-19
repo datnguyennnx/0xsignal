@@ -29,7 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { LiquidGlass } from "@/components/glass";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { formatPriceWithNSigFigs, formatSize } from "@/core/utils/formatters";
+import { formatPriceWithNSigFigs, formatSize, formatSignedPercent } from "@/core/utils/formatters";
 import {
   type PopupData,
   formatLevel,
@@ -479,7 +479,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
             {formatPriceWithNSigFigs(spread, effectiveNSigFigs ?? 5)}
           </span>
           <span className="text-[length:var(--text-micro)] font-mono text-muted-foreground">
-            {spreadPercent.toFixed(3)}%
+            {formatSignedPercent(spreadPercent)}
           </span>
         </div>
 

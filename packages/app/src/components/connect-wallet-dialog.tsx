@@ -19,19 +19,18 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "cn";
 import { AlertTriangleIcon } from "lucide-react";
+import { ADDRESS_PATTERN, truncateAddress } from "@/core/utils/address";
 
 interface ConnectWalletDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
-
 export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogProps) {
   const refreshWalletStatus = useAuthStore((s) => s.refreshWalletStatus);
-  const setViewedAddress = useAppStore((s) => s.setViewedAddress);
-  const viewedAddress = useAppStore((s) => s.viewedAddress);
-  const clearViewedAddress = useAppStore((s) => s.clearViewedAddress);
+  const setActiveAddress = useAppStore((s) => s.setActiveAddress);
+  const activeAddress = useAppStore((s) => s.activeAddress);
+  const clearActiveAddress = useAppStore((s) => s.clearActiveAddress);
   const [addressInput, setAddressInput] = useState("");
   const [addressError, setAddressError] = useState<string | null>(null);
 
@@ -42,7 +41,7 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
       setAddressError("Enter a valid address (0x followed by 40 hex characters).");
       return;
     }
-    setViewedAddress(address);
+    setActiveAddress(address);
     onOpenChange(false);
   };
 
@@ -87,11 +86,11 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
   // if the user is already connected — that would cause a flash).
   useEffect(() => {
     if (open && isConnected && !wasConnectedRef.current) {
-      clearViewedAddress();
+      clearActiveAddress();
       onOpenChange(false);
     }
     wasConnectedRef.current = isConnected;
-  }, [isConnected, open, onOpenChange, clearViewedAddress]);
+  }, [isConnected, open, onOpenChange, clearActiveAddress]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -142,17 +141,17 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
             <span className="shrink-0 text-xs text-muted-foreground">or</span>
             <Separator className="flex-1" />
           </div>
-          {viewedAddress && (
+          {activeAddress && (
             <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-2">
               <span className="text-xs text-muted-foreground">
-                Viewing read-only: {viewedAddress.slice(0, 6)}…{viewedAddress.slice(-4)}
+                Viewing read-only: {truncateAddress(activeAddress)}
               </span>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 className="h-7 shrink-0 px-2"
-                onClick={() => clearViewedAddress()}
+                onClick={() => clearActiveAddress()}
               >
                 Exit
               </Button>

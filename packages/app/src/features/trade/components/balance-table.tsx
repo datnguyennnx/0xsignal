@@ -66,8 +66,8 @@ export function BalanceTable({
           <>
             <TableRow>
               <TableCell className={`${c} font-medium`}>USDC</TableCell>
-              <TableCell className={cNum}>{usdcTotalBalance.toFixed(2)}</TableCell>
-              <TableCell className={cNum}>{usdcAvailableBalance.toFixed(2)}</TableCell>
+              <TableCell className={cNum}>{formatCompactUsd(usdcTotalBalance)}</TableCell>
+              <TableCell className={cNum}>{formatCompactUsd(usdcAvailableBalance)}</TableCell>
               <TableCell className={cNum}>{formatCompactUsd(usdcTotalBalance)}</TableCell>
               <TableCell className={cNum}>
                 {totalUnrealizedPnl !== 0 ? (

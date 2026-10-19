@@ -21,6 +21,7 @@ import { TwapContent } from "./twap-content";
 import { formatOrderSize } from "../utils/trade-math";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
+import { useIsSigningDisabled } from "@/hooks/use-effective-address";
 import { useAppStore } from "@/stores/use-app-store";
 
 export function PositionManagement() {
@@ -35,6 +36,7 @@ export function PositionManagement() {
     () => useAppStore.getState().closeConnectWallet("trade-position-management"),
     [],
   );
+  const signingDisabled = useIsSigningDisabled();
   const { balanceCount, positionsCount, isChLoading } = useUserBalances();
   const { data: openOrders, isLoading: isOoLoading } = useOpenOrders();
   const cancelOrdersMutation = useCancelOrdersMutation();
@@ -77,6 +79,7 @@ export function PositionManagement() {
 
   const handleCancelOrder = useCallback(
     (coin: string, oid: number) => {
+      if (signingDisabled) return;
       cancelOrdersMutation.mutate(
         { cancels: [{ symbol: coin, orderId: oid }] },
         {
@@ -88,10 +91,11 @@ export function PositionManagement() {
         },
       );
     },
-    [cancelOrdersMutation, openConnectWallet],
+    [cancelOrdersMutation, openConnectWallet, signingDisabled],
   );
 
   const handleCancelAllConfirm = () => {
+    if (signingDisabled) return;
     if (!openOrders || openOrders.length === 0) return;
     const cancels = openOrders.map((o) => ({ symbol: o.coin, orderId: o.oid }));
     cancelOrdersMutation.mutate(
@@ -109,6 +113,7 @@ export function PositionManagement() {
 
   const handleCloseMarket = useCallback(
     (coin: string, size: string, isLong: boolean) => {
+      if (signingDisabled) return;
       const { szDecimals } = getPrecision(coin);
       const absSz = Math.abs(Number(size));
       const formattedSz = formatOrderSize(absSz, szDecimals);
@@ -126,11 +131,12 @@ export function PositionManagement() {
         grouping: "na",
       });
     },
-    [getPrecision, placeOrderMutation],
+    [getPrecision, placeOrderMutation, signingDisabled],
   );
 
   const handleCloseLimitConfirm = useCallback(
     ({ price, size }: { price: string; size: string }) => {
+      if (signingDisabled) return;
       if (!closeLimitPosition) return;
       const { coin, isLong } = closeLimitPosition;
       placeOrderMutation.mutate({
@@ -148,7 +154,7 @@ export function PositionManagement() {
       });
       setCloseLimitPosition(null);
     },
-    [closeLimitPosition, placeOrderMutation],
+    [closeLimitPosition, placeOrderMutation, signingDisabled],
   );
 
   const closeLimitSzDecimals = closeLimitPosition
@@ -157,6 +163,11 @@ export function PositionManagement() {
 
   return (
     <div className="rounded-xl p-4 material-raised gap-4">
+      {signingDisabled && (
+        <p className="mb-2 rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+          Viewing another account — connect a wallet to trade.
+        </p>
+      )}
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
@@ -188,7 +199,10 @@ export function PositionManagement() {
 
         <TabsContent
           value="positions"
-          className="flex-1 min-h-0 data-active:flex data-active:flex-col"
+          className={`flex-1 min-h-0 data-active:flex data-active:flex-col${
+            signingDisabled ? " pointer-events-none opacity-60" : ""
+          }`}
+          title={signingDisabled ? "Connect a wallet to trade" : undefined}
         >
           <PositionsTab
             onCloseMarket={handleCloseMarket}
@@ -205,7 +219,10 @@ export function PositionManagement() {
 
         <TabsContent
           value="open-orders"
-          className="flex-1 min-h-0 data-active:flex data-active:flex-col"
+          className={`flex-1 min-h-0 data-active:flex data-active:flex-col${
+            signingDisabled ? " pointer-events-none opacity-60" : ""
+          }`}
+          title={signingDisabled ? "Connect a wallet to trade" : undefined}
         >
           <OpenOrdersTab
             onCancelOrder={handleCancelOrder}

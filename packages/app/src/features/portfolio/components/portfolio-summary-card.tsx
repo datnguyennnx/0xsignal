@@ -16,6 +16,7 @@ import {
   type PortfolioPeriod,
 } from "../utils/constants";
 import { computeMaxDrawdown } from "../utils/financial";
+import { formatCompactUsd, formatSignedPercent, formatSignedUsd } from "@/core/utils/formatters";
 
 function Row({
   label,
@@ -160,32 +161,21 @@ export function PortfolioSummaryCard() {
       <div className="overflow-y-auto flex-1 flex flex-col gap-[clamp(0.5rem,1vw,1rem)]">
         <Row
           label="PNL"
-          value={
-            perps && perps.pnl !== 0
-              ? `${perps.pnl >= 0 ? "+" : ""}$${Math.abs(perps.pnl).toFixed(2)}`
-              : "$0.00"
-          }
+          value={perps && perps.pnl !== 0 ? formatSignedUsd(perps.pnl) : "$0.00"}
           accent={perps && perps.pnl > 0 ? "gain" : perps && perps.pnl < 0 ? "loss" : null}
         />
-        <Row
-          label="Volume"
-          value={
-            perps
-              ? `$${Number(perps.volume).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              : "$0.00"
-          }
-        />
+        <Row label="Volume" value={perps ? formatCompactUsd(perps.volume) : "$0.00"} />
         <Row
           label="Max Drawdown"
-          value={perps && perps.maxDd !== null ? (perps.maxDd * 100).toFixed(2) + "%" : "0.00%"}
+          value={perps && perps.maxDd !== null ? formatSignedPercent(perps.maxDd * 100) : "0.00%"}
           accent={perps && perps.maxDd !== null && perps.maxDd < 0 ? "loss" : null}
         />
         <Row
           label="Total Equity"
-          value={`$${((perps?.accountValue ?? 0) + (spot?.totalUsdc ?? 0)).toFixed(2)}`}
+          value={formatCompactUsd((perps?.accountValue ?? 0) + (spot?.totalUsdc ?? 0))}
         />
-        <Row label="Trading Equity" value={`$${(perps?.accountValue ?? 0).toFixed(2)}`} />
-        <Row label="Vault Equity" value={`$${(vaults?.totalEquity ?? 0).toFixed(2)}`} />
+        <Row label="Trading Equity" value={formatCompactUsd(perps?.accountValue ?? 0)} />
+        <Row label="Vault Equity" value={formatCompactUsd(vaults?.totalEquity ?? 0)} />
         <Row label="Earn Balance" value="$0.00" />
         <Row label="Staking Account" value="0 HYPE" />
       </div>

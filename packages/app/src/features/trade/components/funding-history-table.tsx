@@ -12,7 +12,7 @@ import { TableEmptyRow } from "@/components/table-empty-row";
 
 import { useUserFunding } from "@/hooks/use-user-funding";
 import { formatTime, fmtNum } from "@/features/trade/utils/shared-table-utils";
-import { formatCompactUsd } from "@/core/utils/formatters";
+import { formatCompactUsd, formatFundingPercent } from "@/core/utils/formatters";
 import { PosDirLabel } from "@/features/trade/components/shared-table-components";
 import {
   c,
@@ -73,7 +73,7 @@ export function FundingHistoryTable() {
                     {formatCompactUsd(Math.abs(usdc))}
                   </TableCell>
                   <TableCell className={cNum}>
-                    {(Number(entry.delta.fundingRate) * 100).toFixed(6)}%
+                    {formatFundingPercent(Number(entry.delta.fundingRate))}
                   </TableCell>
                 </TableRow>
               );

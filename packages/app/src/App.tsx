@@ -26,6 +26,10 @@ const CalendarPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("@/pages/settings").then((m) => ({ default: m.SettingsPage })),
 );
+const WhalesPage = lazy(() => import("@/pages/whales").then((m) => ({ default: m.WhalesPage })));
+const WhaleDetailPage = lazy(() =>
+  import("@/pages/whale-detail").then((m) => ({ default: m.WhaleDetailPage })),
+);
 const LoginPage = lazy(() => import("@/pages/login").then((m) => ({ default: m.LoginPage })));
 const AuthCallbackPage = lazy(() =>
   import("@/pages/auth-callback").then((m) => ({ default: m.AuthCallbackPage })),
@@ -44,6 +48,7 @@ const usePreloadRoutes = () => {
     const preloadTimer = setTimeout(() => {
       import("@/pages/asset-detail");
       import("@/pages/portfolio");
+      import("@/pages/whales");
       import("@/features/chart/components/trading-chart");
     }, 2000);
     return () => clearTimeout(preloadTimer);
@@ -127,6 +132,8 @@ export function App() {
               <Route path="/trade/:symbol" element={<AssetDetail />} />
               <Route path="/portfolio" element={<PortfolioPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/whales" element={<WhalesPage />} />
+              <Route path="/whales/:address" element={<WhaleDetailPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>

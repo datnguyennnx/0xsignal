@@ -13,6 +13,7 @@ export interface UserBalances {
       liquidationPx: string | null;
       marginUsed: string;
       cumFunding: { sinceOpen: string };
+      leverage?: { type: "cross" | "isolated"; value?: number };
     };
   }>;
   marginSummary:

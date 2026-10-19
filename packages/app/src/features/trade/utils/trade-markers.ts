@@ -1,5 +1,7 @@
 import type { SeriesMarker, Time } from "lightweight-charts";
 
+import { formatPrice } from "@/core/utils/formatters";
+
 /**
  * Shape of a Hyperliquid user fill / executed trade.
  * Only the fields needed for marker mapping are included.
@@ -152,14 +154,7 @@ export function groupMarkersByCandle(markers: readonly LogicalTradeMarker[]): Ma
   return groups;
 }
 
-/** Tooltip text e.g. "Open Long at 81,000". */
+/** Tooltip text e.g. "Open Long at $81,000.00". */
 export function buildTooltipText(marker: LogicalTradeMarker): string {
-  const price = Number(marker.price);
-  const formattedPrice = Number.isInteger(price)
-    ? price.toLocaleString("en-US")
-    : price.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 8,
-      });
-  return `${marker.dir} at ${formattedPrice}`;
+  return `${marker.dir} at ${formatPrice(Number(marker.price))}`;
 }

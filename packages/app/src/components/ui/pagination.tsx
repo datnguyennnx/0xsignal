@@ -2,6 +2,7 @@ import { memo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "cn";
+import { formatAxis } from "@/core/utils/formatters";
 import { SELECTED_ITEM_CLASS } from "@/lib/state-classes";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
@@ -54,7 +55,7 @@ export const Pagination = memo(function Pagination({
       )}
     >
       <span className="text-xs text-muted-foreground tabular-nums order-1">
-        {start.toLocaleString()}–{end.toLocaleString()} of {totalItems.toLocaleString()}
+        {formatAxis(start)}–{formatAxis(end)} of {formatAxis(totalItems)}
       </span>
 
       <div className="flex items-center gap-0.5 order-2">

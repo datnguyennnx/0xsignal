@@ -37,6 +37,7 @@ interface PositionsTableProps {
       unrealizedPnl: string;
       returnOnEquity: string;
       cumFunding: { sinceOpen: string };
+      leverage?: { type: "cross" | "isolated"; value?: number };
     };
   }>;
   fundingRates?: Record<string, number>;
@@ -68,6 +69,7 @@ export function PositionsTable({
           <TableHead className={cHeadNum}>PNL (ROE %)</TableHead>
           <TableHead className={cHeadNum}>Liq. Price</TableHead>
           <TableHead className={cHeadNum}>Margin</TableHead>
+          <TableHead className={cHeadNum}>Mode</TableHead>
           <TableHead className={cHeadNum}>Funding</TableHead>
           <TableHead className={cHead}>Close All</TableHead>
           <TableHead className={cHead}>TP/SL</TableHead>
@@ -76,12 +78,12 @@ export function PositionsTable({
       <TableBody>
         {isChLoading ? (
           <TableRow>
-            <TableCell colSpan={11} className="text-center py-6">
+            <TableCell colSpan={12} className="text-center py-6">
               <span className={TABLE_HEAD_CLASS}>Loading...</span>
             </TableCell>
           </TableRow>
         ) : positions.length === 0 ? (
-          <TableEmptyRow colSpan={11} />
+          <TableEmptyRow colSpan={12} />
         ) : (
           positions.map(({ position }) => {
             const signedSz = Number(position.szi);
@@ -129,6 +131,13 @@ export function PositionsTable({
                 </TableCell>
                 <TableCell className={cNum}>{liqPx > 0 ? formatPrice(liqPx) : "—"}</TableCell>
                 <TableCell className={cNum}>{formatCompactUsd(marginUsed)}</TableCell>
+                <TableCell className={cNum}>
+                  {position.leverage?.type === "isolated"
+                    ? "Isolated"
+                    : position.leverage?.type === "cross"
+                      ? "Cross"
+                      : "—"}
+                </TableCell>
                 <TableCell className={`${cNum} ${totalFunding >= 0 ? "text-gain" : "text-loss"}`}>
                   {formatCompactUsd(totalFunding)}
                 </TableCell>

@@ -1,4 +1,4 @@
-import { formatCompactUsd } from "@/core/utils/formatters";
+import { formatCompactUsd, formatSignedPercent, formatSize } from "@/core/utils/formatters";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "cn";
 import { useUserBalances } from "../hooks/use-user-balances";
@@ -60,12 +60,14 @@ export function UnifiedAccountSummary() {
 
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Account Ratio</span>
-        <span className="text-xs tabular-nums text-foreground">{accountRatio.toFixed(2)}%</span>
+        <span className="text-xs tabular-nums text-foreground">
+          {formatSignedPercent(accountRatio)}
+        </span>
       </div>
 
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Account Leverage</span>
-        <span className="text-xs tabular-nums text-foreground">{accountLeverage.toFixed(2)}x</span>
+        <span className="text-xs tabular-nums text-foreground">{formatSize(accountLeverage)}x</span>
       </div>
     </div>
   );

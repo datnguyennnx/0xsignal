@@ -1,4 +1,4 @@
-import type { CalendarQuery } from "@0xsignal/shared";
+import type { CalendarQuery, WhalePositionsQuery } from "@0xsignal/shared";
 
 /**
  * Query key hierarchy — single source of truth for all React Query keys.
@@ -56,6 +56,23 @@ export const queryKeys = {
         q.limit,
       ] as const,
     upcoming: (hours: number) => [...queryKeys.calendar.all, "upcoming", hours] as const,
+  },
+
+  whales: {
+    all: ["whales"] as const,
+    positions: (q: WhalePositionsQuery) =>
+      [
+        ...queryKeys.whales.all,
+        "positions",
+        q.symbol,
+        q.side,
+        q.pnlMin,
+        q.pnlMax,
+        q.fundingMin,
+        q.sort,
+        q.limit,
+        q.cursor,
+      ] as const,
   },
 
   exchange: {

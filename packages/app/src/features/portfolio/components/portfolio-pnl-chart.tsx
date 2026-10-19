@@ -21,6 +21,7 @@ import {
   isPortfolioPeriod,
   type PortfolioPeriod,
 } from "../utils/constants";
+import { formatAxis, formatSignedUsd } from "@/core/utils/formatters";
 
 type ChartView = "account-value" | "pnl" | "perps-pnl";
 
@@ -30,20 +31,6 @@ const VIEW_LABELS: Record<ChartView, string> = {
   pnl: "PnL",
   "perps-pnl": "Perps PnL",
 };
-
-function formatCompact(v: number): string {
-  const abs = Math.abs(v);
-  if (abs >= 1_000_000) return (v / 1_000_000).toFixed(2) + "M";
-  if (abs >= 1_000) return (v / 1_000).toFixed(2) + "K";
-  return v.toFixed(2);
-}
-
-function formatAxisTick(v: number): string {
-  const abs = Math.abs(v);
-  if (abs >= 1_000_000) return (v / 1_000_000).toFixed(1) + "M";
-  if (abs >= 1_000) return (v / 1_000).toFixed(1) + "K";
-  return v.toFixed(0);
-}
 
 function formatXAxisTick(ts: number): string {
   const date = new Date(ts > 1e12 ? ts : ts * 1000);
@@ -80,8 +67,7 @@ function ChartTooltip({
           val >= 0 ? "text-gain" : "text-loss",
         )}
       >
-        {val >= 0 ? "+" : ""}
-        {formatCompact(val)}
+        {formatSignedUsd(val)}
       </span>
     </div>
   );
@@ -242,7 +228,7 @@ export function PortfolioPnLChart() {
                     fill: "var(--chart-text)",
                     style: { fontVariantNumeric: "tabular-nums" },
                   }}
-                  tickFormatter={formatAxisTick}
+                  tickFormatter={formatAxis}
                   domain={[dataMin, dataMax]}
                   tickCount={4}
                 />

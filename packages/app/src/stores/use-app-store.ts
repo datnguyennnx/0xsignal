@@ -38,15 +38,15 @@ export interface AppStoreState {
   connectWalletOpen: Record<string, boolean>;
   dirtyFormPaths: Set<string>;
   marketSchemaVersion: number;
-  viewedAddress: string | null;
+  activeAddress: string | null;
 
   setTheme: (theme: Theme) => void;
   setSystemTheme: (sys: "dark" | "light") => void;
   openConnectWallet: (key: string) => void;
   closeConnectWallet: (key: string) => void;
   isConnectWalletOpen: (key: string) => boolean;
-  setViewedAddress: (address: string) => void;
-  clearViewedAddress: () => void;
+  setActiveAddress: (address: string) => void;
+  clearActiveAddress: () => void;
   markDirty: (path: string) => void;
   markClean: (path: string) => void;
   hasUnsavedChanges: () => boolean;
@@ -71,7 +71,7 @@ export const useAppStore = create<AppStoreState>()(
           connectWalletOpen: {},
           dirtyFormPaths: new Set<string>(),
           marketSchemaVersion: FRONTEND_MARKET_SCHEMA_VERSION,
-          viewedAddress: null,
+          activeAddress: null,
 
           setTheme: (newTheme: Theme) => {
             localStorage.setItem("vite-ui-theme", newTheme);
@@ -104,12 +104,12 @@ export const useAppStore = create<AppStoreState>()(
             return get().connectWalletOpen[key] ?? false;
           },
 
-          setViewedAddress: (address: string) => {
-            set({ viewedAddress: address });
+          setActiveAddress: (address: string) => {
+            set({ activeAddress: address });
           },
 
-          clearViewedAddress: () => {
-            set({ viewedAddress: null });
+          clearActiveAddress: () => {
+            set({ activeAddress: null });
           },
 
           markDirty: (path: string) => {
@@ -145,7 +145,25 @@ export const useAppStore = create<AppStoreState>()(
       },
       {
         name: "0xsignal-app-store",
-        partialize: (state) => ({ theme: state.theme, viewedAddress: state.viewedAddress }),
+        version: 1,
+        partialize: (state) => ({ theme: state.theme, activeAddress: state.activeAddress }),
+        migrate: (persistedState, version) => {
+          const persisted = persistedState as {
+            theme?: Theme;
+            activeAddress?: string | null;
+            viewedAddress?: string | null;
+          };
+          if (version < 1) {
+            return {
+              theme: persisted.theme ?? "dark",
+              activeAddress: persisted.viewedAddress ?? null,
+            };
+          }
+          return {
+            theme: persisted.theme ?? "dark",
+            activeAddress: persisted.activeAddress ?? null,
+          };
+        },
         onRehydrateStorage: () => {
           return (state) => {
             if (!state) return;

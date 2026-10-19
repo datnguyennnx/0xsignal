@@ -37,8 +37,19 @@ export const formatPriceWithNSigFigs = (price: number, n: number): string => {
   });
 };
 
-export const formatCompactUsd = (value: number): string => {
-  if (!Number.isFinite(value)) return "-";
+const isFiniteNumber = (value: number | null | undefined): value is number =>
+  value != null && Number.isFinite(value);
+
+export const formatCompactUsd = (value: number | null | undefined): string => {
+  if (!isFiniteNumber(value)) return "—";
+  if (Math.abs(value) < 10_000) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -60,7 +71,29 @@ export const getNextFundingMs = (): number => {
   return next.getTime() - now.getTime();
 };
 
-export const formatSignedPercent = (pct: number): string => {
-  if (!Number.isFinite(pct)) return "-";
-  return `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
+export const formatSignedPercent = (value: number | null | undefined): string => {
+  if (!isFiniteNumber(value)) return "—";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+};
+
+export const formatSignedUsd = (value: number | null | undefined): string => {
+  if (!isFiniteNumber(value)) return "—";
+  return `${value >= 0 ? "+" : "-"}${formatCompactUsd(Math.abs(value))}`;
+};
+
+export const formatAxis = (value: number | null | undefined): string => {
+  if (!isFiniteNumber(value)) return "—";
+  if (Math.abs(value) >= 10_000) {
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
+  return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+};
+
+export const formatFundingPercent = (value: number | null | undefined): string => {
+  if (!isFiniteNumber(value)) return "—";
+  const pct = value * 100;
+  return `${pct >= 0 ? "+" : ""}${pct.toFixed(4)}%`;
 };

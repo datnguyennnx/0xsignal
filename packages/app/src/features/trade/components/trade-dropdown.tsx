@@ -8,7 +8,12 @@ import { OVERLAY_PANEL_CLASS } from "@/lib/overlay-classes";
 import { toast } from "sonner";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { calculatePxDecimals } from "@/features/trade/utils/trade-formatters";
-import { formatSize, formatCompactUsd } from "@/core/utils/formatters";
+import {
+  formatSize,
+  formatCompactUsd,
+  formatSignedPercent,
+  formatFundingPercent,
+} from "@/core/utils/formatters";
 import { MarketHeader, MarketRow, MarketRowSkeleton } from "./trade-dropdown.columns";
 import { getColumns } from "../utils/trade-dropdown-columns";
 import type { CategoryTab, FormattedTrade } from "../utils/trade-dropdown";
@@ -205,10 +210,10 @@ const TradeDropdownFn = ({
         category: item.category,
         dexPrefix: item.dexPrefix,
         changeValue: change,
-        changeFormatted: `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`,
+        changeFormatted: formatSignedPercent(change),
         oiFormatted: formatSize(oi),
         volumeFormatted: formatCompactUsd(volume),
-        fundingFormatted: `${funding >= 0 ? "+" : ""}${(funding * 100).toFixed(4)}%`,
+        fundingFormatted: formatFundingPercent(funding),
         marketCapFormatted: marketCap > 0 ? formatCompactUsd(marketCap) : "--",
         isActive: item.rawCoin.toLowerCase() === currentRawCoinLower,
         pxDecimals: pxDec,

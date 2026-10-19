@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "cn";
+import { formatAxis } from "@/core/utils/formatters";
 import * as RechartsPrimitive from "recharts";
 import type { TooltipValueType } from "recharts";
 
@@ -229,7 +230,7 @@ function ChartTooltipContent({
                       {item.value != null && (
                         <span className="font-mono font-medium text-foreground tabular-nums">
                           {typeof item.value === "number"
-                            ? item.value.toLocaleString()
+                            ? formatAxis(item.value)
                             : String(item.value)}
                         </span>
                       )}

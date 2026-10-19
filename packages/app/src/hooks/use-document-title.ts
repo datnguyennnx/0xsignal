@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 
+import { formatCompactUsd } from "@/core/utils/formatters";
+
 interface UseDocumentTitleOptions {
   title: string;
   suffix?: string;
@@ -17,10 +19,6 @@ export function useDocumentTitle({
   }, [title, suffix, separator]);
 }
 
-export function formatPerpTitle(symbol: string, price: number, pxDecimals: number): string {
-  const formattedPrice = price.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: pxDecimals,
-  });
-  return `${symbol} $${formattedPrice}`;
+export function formatPerpTitle(symbol: string, price: number, _pxDecimals: number): string {
+  return `${symbol} ${formatCompactUsd(price)}`;
 }

@@ -11,6 +11,7 @@ import { CheckIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useClearinghouseState, useSpotClearinghouseState } from "../hooks/use-user-data";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
+import { formatCompactUsd } from "@/core/utils/formatters";
 import { usePlaceOrder } from "../hooks/use-place-order";
 import { useTpSlOrchestration } from "../hooks/use-tp-sl-orchestration";
 import { useLeverageMarginState } from "../hooks/use-leverage-margin-state";
@@ -390,7 +391,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Available to Trade</span>
               <span className="text-xs tabular-nums text-foreground">
-                ${effectiveBalance.toFixed(2)} {safeSizeAsset}
+                {formatCompactUsd(effectiveBalance)} {safeSizeAsset}
               </span>
             </div>
           </div>
@@ -517,13 +518,13 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Order Value</span>
               <span className="text-xs tabular-nums text-foreground">
-                {orderValue > 0 ? `$${orderValue.toFixed(2)} ${safeSizeAsset}` : "—"}
+                {orderValue > 0 ? `${formatCompactUsd(orderValue)} ${safeSizeAsset}` : "—"}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Margin Required</span>
               <span className="text-xs tabular-nums text-foreground">
-                {marginRequired > 0 ? `$${marginRequired.toFixed(2)}` : "—"}
+                {marginRequired > 0 ? formatCompactUsd(marginRequired) : "—"}
               </span>
             </div>
             <div className="flex items-center justify-between">

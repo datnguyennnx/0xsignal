@@ -4,9 +4,11 @@ import { MarketDataService } from "../../application/market-data/contracts";
 import { UserDataService } from "../../application/user-data/contracts";
 import { ExchangeService } from "../../application/exchange/contracts";
 import { CalendarService } from "../../application/calendar/contracts";
+import { WhaleService } from "../../application/whales/contracts";
 import { healthRoute } from "./routes/health.routes";
 import { buildMarketDataRoutes } from "./routes/market-data.routes";
 import { buildCalendarRoutes } from "./routes/calendar.routes";
+import { buildWhaleRoutes } from "./routes/whale.routes";
 import { buildUserDataRoutes } from "./routes/user-data.routes";
 import { buildExchangeRoutes } from "./routes/exchange.routes";
 import { buildCredentialRoutes } from "./routes/credentials.routes";
@@ -51,6 +53,10 @@ type CalendarHttpService = {
   readonly upcoming: (typeof CalendarService.Service)["upcoming"];
 };
 
+type WhaleHttpService = {
+  readonly queryPositions: (typeof WhaleService.Service)["queryPositions"];
+};
+
 type HealthHttpService = Parameters<typeof healthRoute>[0];
 
 type RouteHandler = (
@@ -61,6 +67,7 @@ type RouteHandler = (
   userData: UserDataHttpService,
   exchange: ExchangeHttpService,
   calendar: CalendarHttpService | undefined,
+  whale: WhaleHttpService | undefined,
   userId?: string,
 ) => Effect.Effect<Response, HttpError, never>;
 
@@ -98,9 +105,19 @@ const adaptAuthRoute =
 // Requires a valid auth session before executing
 const requireAuth =
   (routeHandler: RouteHandler): RouteHandler =>
-  (request, url, marketData, health, userData, exchange, calendar) =>
+  (request, url, marketData, health, userData, exchange, calendar, whale) =>
     withAuth((session) =>
-      routeHandler(request, url, marketData, health, userData, exchange, calendar, session.userId),
+      routeHandler(
+        request,
+        url,
+        marketData,
+        health,
+        userData,
+        exchange,
+        calendar,
+        whale,
+        session.userId,
+      ),
     )(request).pipe(
       Effect.catchCause(() =>
         Effect.succeed(
@@ -158,6 +175,26 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
         ? Effect.succeed(json({ error: "Calendar service unavailable" }, 503))
         : route.handler(request, url, calendar),
   })),
+  ...buildWhaleRoutes({
+    json,
+    mapServiceError,
+  }).map((route) => ({
+    method: route.method,
+    path: route.path,
+    handler: (
+      request: Request,
+      url: URL,
+      _marketData: MarketDataHttpService,
+      _health: HealthHttpService,
+      _userData: UserDataHttpService,
+      _exchange: ExchangeHttpService,
+      _calendar: CalendarHttpService | undefined,
+      whale: WhaleHttpService | undefined,
+    ) =>
+      whale === undefined
+        ? Effect.succeed(json({ error: "Whale service unavailable" }, 503))
+        : route.handler(request, url, whale),
+  })),
   ...buildUserDataRoutes({
     json,
     mapServiceError,
@@ -187,6 +224,7 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
         _userData: UserDataHttpService,
         exchange: ExchangeHttpService,
         _calendar: CalendarHttpService | undefined,
+        _whale: WhaleHttpService | undefined,
         userId?: string,
       ) => route.handler(request, url, exchange, userId),
     ),
@@ -206,6 +244,7 @@ const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
         _userData: UserDataHttpService,
         _exchange: ExchangeHttpService,
         _calendar: CalendarHttpService | undefined,
+        _whale: WhaleHttpService | undefined,
         userId?: string,
       ) =>
         Effect.gen(function* () {
@@ -243,7 +282,17 @@ export const handleRequest = (request: Request) => {
     const userData = yield* UserDataService;
     const exchange = yield* ExchangeService;
     const calendar = Option.getOrUndefined(yield* Effect.serviceOption(CalendarService));
-    return yield* route.handler(request, url, marketData, health, userData, exchange, calendar);
+    const whale = Option.getOrUndefined(yield* Effect.serviceOption(WhaleService));
+    return yield* route.handler(
+      request,
+      url,
+      marketData,
+      health,
+      userData,
+      exchange,
+      calendar,
+      whale,
+    );
   }).pipe(
     Effect.catch((error: HttpError) => {
       const body: Record<string, unknown> = { error: error.message };

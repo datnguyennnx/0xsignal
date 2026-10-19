@@ -13,10 +13,7 @@ import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { useAppStore } from "@/stores/use-app-store";
 import { api } from "@/services/api";
-
-function truncateAddress(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
+import { truncateAddress } from "@/core/utils/address";
 
 export function ApiConsole() {
   const isConnectWalletOpen = useAppStore(

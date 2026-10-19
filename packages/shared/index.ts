@@ -110,3 +110,17 @@ export type {
   CalendarQuery,
   CalendarApiResponse,
 } from "./schemas/economic-event";
+export type {
+  WhaleSide,
+  WhaleTrade,
+  WhalePositionSort,
+  WhalePosition,
+  WhalePositionsQuery,
+  WhalePositionsApiResponse,
+  WhaleLeaderboardRow,
+} from "./schemas/whale";
+export {
+  WHALE_POSITIONS_LIMIT_DEFAULT,
+  WHALE_POSITIONS_LIMIT_MIN,
+  WHALE_POSITIONS_LIMIT_MAX,
+} from "./schemas/whale";
