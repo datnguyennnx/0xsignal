@@ -46,7 +46,7 @@ export function CalendarHeader({
           </Button>
         </div>
 
-        <Button variant="outline" size="sm" className="border-border/40" onClick={onToday}>
+        <Button variant="outline" size="sm" onClick={onToday}>
           Today
         </Button>
 

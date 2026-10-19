@@ -2,5 +2,4 @@
 // Selection uses solid bg-accent; neutral hovers use bg-muted/50.
 export const SELECTED_ITEM_CLASS = "bg-accent text-accent-foreground";
 
-export const SELECTED_CARD_CLASS =
-  "border-foreground bg-foreground/[0.04] ring-1 ring-foreground/10";
+export const SELECTED_CARD_CLASS = "border-foreground bg-foreground/[0.04]";

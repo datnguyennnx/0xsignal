@@ -27,6 +27,7 @@ import { useTradeUIStore } from "@/stores/use-trade-ui-store";
 import { parseSymbol } from "@0xsignal/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import { LiquidGlass } from "@/components/glass";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { formatPriceWithNSigFigs, formatSize } from "@/core/utils/formatters";
 import {
@@ -421,7 +422,8 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   if (!hasBookData) {
     return (
-      <div className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card">
+      <div className="relative isolate h-full flex flex-col rounded-xl p-4 bg-transparent">
+        <LiquidGlass borderRadius="inherit" tint="var(--material-raised-tint)" />
         <EmptyState
           variant="panel"
           title="No order book data"
@@ -434,8 +436,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   return (
     <div
       ref={widgetRef}
-      className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]"
+      className="relative isolate h-full flex flex-col rounded-xl p-4 bg-transparent animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]"
     >
+      <LiquidGlass borderRadius="inherit" tint="var(--material-raised-tint)" />
       <OrderbookToolbar
         symbol={pairFocus}
         coinOptions={pairOptions}

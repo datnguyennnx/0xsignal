@@ -293,7 +293,7 @@ const TradeDropdownFn = ({
                   type="button"
                   onClick={() => setQuery("")}
                   aria-label="Clear search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground/60 hover:text-foreground bg-transparent border-none cursor-pointer tap-highlight"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center text-muted-foreground/60 hover:text-foreground bg-transparent border-none cursor-pointer tap-highlight"
                 >
                   <X className="w-4 h-4" />
                 </button>

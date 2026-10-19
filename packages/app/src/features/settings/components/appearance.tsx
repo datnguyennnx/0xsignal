@@ -22,9 +22,7 @@ const ThemeCard = ({ value, label, theme, handleThemeChange, children }: ThemeCa
     <div
       className={cn(
         "relative w-full aspect-[16/10] rounded-xl overflow-hidden border transition-[transform,box-shadow,border-color] duration-200 shadow-sm hover:scale-[1.02] hover:shadow-md",
-        theme === value
-          ? "border-foreground ring-1 ring-foreground/10"
-          : "border-border/20 hover:border-border/60",
+        theme === value ? "border-foreground" : "border-border/20 hover:border-border/60",
       )}
     >
       {children}
@@ -58,7 +56,7 @@ export function AppearanceSettings() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
         <ThemeCard value="light" label="Light Mode" theme={theme} handleThemeChange={setTheme}>
-          <div className="h-full w-full bg-card">
+          <div className="light h-full w-full bg-card">
             <div className="h-4 bg-background flex items-center gap-1 px-2">
               <span className="size-1.5 rounded-full bg-red-300" />
               <span className="size-1.5 rounded-full bg-yellow-300" />
@@ -85,7 +83,7 @@ export function AppearanceSettings() {
 
         <ThemeCard value="system" label="System Theme" theme={theme} handleThemeChange={setTheme}>
           <div className="flex h-full w-full">
-            <div className="flex-1 bg-card border-r border-border">
+            <div className="light flex-1 bg-card border-r border-border">
               <div className="h-4 bg-background flex items-center gap-1 px-1.5">
                 <span className="size-1.5 rounded-full bg-red-300" />
                 <span className="size-1.5 rounded-full bg-yellow-300" />

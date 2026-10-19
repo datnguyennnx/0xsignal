@@ -9,7 +9,7 @@ interface IndicatorInsightsPanelProps {
 
 export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsightsPanelProps) {
   return (
-    <div className={cn("flex flex-col h-full overflow-hidden bg-background", className)}>
+    <div className={cn("flex flex-col h-full overflow-hidden material-base", className)}>
       <div className="p-6 flex flex-col gap-[clamp(0.75rem,1vw,1.5rem)]">
         <div className="space-y-1">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -101,7 +101,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {indicator.implementationNotesForDev && (
-              <div className="p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl bg-card">
+              <div className="p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl material-raised">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">
                   Implementation Spec
                 </p>

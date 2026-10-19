@@ -19,7 +19,7 @@ const TradingChart = lazy(() =>
 );
 
 const ChartSkeleton = () => (
-  <div className="h-full w-full flex items-center justify-center bg-card rounded-xl border border-border/20">
+  <div className="h-full w-full flex items-center justify-center material-raised rounded-xl">
     <Skeleton className="h-full w-full rounded-xl bg-muted/50" />
   </div>
 );

@@ -16,7 +16,7 @@ export function IndicatorFormula({ value }: IndicatorFormulaProps) {
   const equations = tokenize(value);
 
   return (
-    <div className="rounded-xl bg-background p-[clamp(0.75rem,1vw,1rem)] overflow-x-auto overscroll-none space-y-2">
+    <div className="rounded-xl material-base p-[clamp(0.75rem,1vw,1rem)] overflow-x-auto overscroll-none space-y-2">
       {equations.map((eq, i) => (
         <div key={i} className="min-h-[1.5rem] flex items-center justify-center">
           <BlockMath math={eq} />

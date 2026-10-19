@@ -156,13 +156,13 @@ export function PositionManagement() {
     : 4;
 
   return (
-    <div className="rounded-xl border border-border/20 p-4 bg-card gap-4">
+    <div className="rounded-xl p-4 material-raised gap-4">
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
         className="flex-1 min-h-0 flex flex-col overflow-hidden gap-[clamp(0.5rem,0.8vw,0.75rem)]"
       >
-        <TabsList className="shrink-0 flex gap-[clamp(0.5rem,0.8vw,0.75rem)] h-auto bg-transparent rounded-none p-0">
+        <TabsList className="shrink-0 flex gap-[clamp(0.5rem,0.8vw,0.75rem)]">
           <TabTrigger value="balances" count={!isChLoading ? balanceCount : undefined}>
             Balances
           </TabTrigger>

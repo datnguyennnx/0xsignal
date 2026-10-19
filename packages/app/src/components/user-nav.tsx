@@ -41,7 +41,7 @@ export function UserNav() {
           >
             {truncateAddress(address)}
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-44 border-border/20" align="end" sideOffset={10}>
+          <DropdownMenuContent align="end" sideOffset={10}>
             <DropdownMenuItem
               onClick={() => disconnect()}
               className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-accent transition-colors rounded-md"

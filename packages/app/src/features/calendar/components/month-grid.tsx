@@ -33,7 +33,7 @@ export function MonthGrid({
   const today = new Date();
 
   return (
-    <div className="flex w-full flex-col gap-1 overflow-hidden rounded-xl border border-border/20 bg-card">
+    <div className="flex w-full flex-col gap-1 overflow-hidden rounded-xl material-raised">
       <div className="grid grid-cols-7 gap-1">
         {HEADER_LABELS.map((label) => (
           <div

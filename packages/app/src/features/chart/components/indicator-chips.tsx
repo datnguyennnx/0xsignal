@@ -1,6 +1,7 @@
 import { memo } from "react";
 import type { ActiveIndicator } from "@0xsignal/shared";
 import { cn } from "cn";
+import { LiquidGlass } from "@/components/glass";
 import { toChipLabel } from "../utils/indicator-param-utils";
 
 interface IndicatorChipsProps {
@@ -20,10 +21,11 @@ export const IndicatorChips = memo(function IndicatorChips({ indicators }: Indic
           <div
             key={indicator.instanceId}
             className={cn(
-              "flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)] rounded-xl border-border/40 bg-background/90 px-2 py-1 text-[length:var(--text-micro)] backdrop-blur shrink-0",
+              "flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)] rounded-xl bg-transparent px-2 py-1 text-[length:var(--text-micro)] shrink-0",
               indicator.visible ? "" : "text-muted-foreground",
             )}
           >
+            <LiquidGlass borderRadius="inherit" tint="var(--material-floating-tint)" />
             <span className="h-2 w-2 rounded-full bg-foreground/60 shrink-0" />
             <span className="max-w-[clamp(5rem,25vw,7.5rem)] truncate">
               {toChipLabel(indicator)}

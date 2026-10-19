@@ -47,7 +47,7 @@ export function DayDetailPanel({
     : -1;
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col gap-3 rounded-xl border border-border/20 bg-card p-4">
+    <aside className="flex w-80 shrink-0 flex-col gap-3 rounded-xl material-raised p-4">
       <h3 className="flex items-baseline justify-between gap-2 text-sm font-medium tracking-tight text-foreground">
         <span>{heading}</span>
         {!isLoading && !isError && (

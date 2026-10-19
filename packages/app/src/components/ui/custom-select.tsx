@@ -65,7 +65,7 @@ export function CustomSelect<T extends string>({
         <div
           className={cn(
             "absolute right-0 top-full z-50 mt-1 min-w-[5rem]",
-            "bg-card border border-border/40 rounded-md shadow-lg overflow-hidden",
+            "material-floating rounded-md overflow-hidden",
           )}
         >
           {options.map((opt) => (

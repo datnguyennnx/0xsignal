@@ -107,10 +107,10 @@ export function ResizableWrapper({
   return (
     <div
       ref={wrapperRef}
-      className={`absolute rounded-xl border bg-card overflow-hidden ${
+      className={`absolute rounded-xl border bg-transparent overflow-hidden ${
         isResizing || isDragged
           ? "select-none border-foreground/40 shadow-xl z-50"
-          : "border-border/20"
+          : "border-transparent"
       } ${isDragged ? "pointer-events-none" : ""} ${isHovered && !isResizing && !isDragged ? "border-foreground/20" : ""} ${isDragged ? "opacity-30" : "opacity-100"} ${className}`}
       style={{
         transform: `translateX(${left}px)`,

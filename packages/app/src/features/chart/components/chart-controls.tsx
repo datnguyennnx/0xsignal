@@ -42,7 +42,7 @@ export const ChartControls = memo(function ChartControls({
                 size="sm"
                 onClick={onResetAll}
                 aria-label="Reset all overlays"
-                className="px-2 min-h-[44px] border-border/40 bg-background/70 text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring/40"
+                className="px-2 border-border/40 bg-background/70 text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring/40"
               />
             }
           >

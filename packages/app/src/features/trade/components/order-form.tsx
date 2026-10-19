@@ -241,7 +241,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
 
   return (
     <>
-      <div className="h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.75rem,1.25vw,1.25rem)]">
+      <div className="h-full flex flex-col rounded-xl p-4 material-raised animate-in fade-in duration-200 ease-premium gap-[clamp(0.75rem,1.25vw,1.25rem)]">
         <LeverageMarginBar
           effectiveMarginMode={effectiveMarginMode}
           effectiveLeverage={effectiveLeverage}

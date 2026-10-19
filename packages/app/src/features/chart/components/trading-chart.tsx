@@ -5,6 +5,7 @@ import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-ca
 import { useUserFills } from "@/features/trade/hooks/use-user-data";
 import { cn } from "cn";
 import { EmptyState } from "@/components/empty-state";
+import { LiquidGlass } from "@/components/glass";
 
 import { ChartHeader } from "./chart-header";
 import { ChartControls } from "./chart-controls";
@@ -172,7 +173,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     return (
       <div
         ref={fullscreenContainerRef}
-        className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden"
+        className="fixed inset-0 z-50 material-overlay flex flex-col overflow-hidden"
       >
         <div className="w-full h-full max-w-8xl mx-auto flex flex-col">{chartContent}</div>
       </div>
@@ -180,7 +181,8 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   }
 
   return (
-    <div className="flex flex-1 h-full flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium">
+    <div className="relative isolate flex flex-1 h-full flex-col rounded-xl p-4 bg-transparent animate-in fade-in duration-200 ease-premium">
+      <LiquidGlass borderRadius="inherit" tint="var(--material-raised-tint)" />
       <div className="relative flex-1 flex flex-col gap-[clamp(1rem,1vw,1rem)]">{chartContent}</div>
     </div>
   );

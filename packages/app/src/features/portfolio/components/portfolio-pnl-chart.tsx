@@ -88,7 +88,7 @@ function ChartTooltip({
 }
 
 const SURFACE =
-  "h-full flex flex-col rounded-xl border border-border/20 p-4 bg-card animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
+  "h-full flex flex-col rounded-xl p-4 material-raised animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
 
 export function PortfolioPnLChart() {
   const { data: portfolio, isLoading, isError } = usePortfolio();

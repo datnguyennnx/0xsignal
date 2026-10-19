@@ -89,12 +89,12 @@ export function IndicatorModal({
         showCloseButton={false}
         className={cn(
           MODAL_CONTENT_CLASS,
-          "max-w-[98vw] xl:max-w-[clamp(90rem,100vw,100rem)] w-fit h-[clamp(18rem,80dvh,60rem)] p-0 gap-0 shadow-xl rounded-lg animate-in fade-in duration-200 ease-premium",
+          "max-w-[98vw] xl:max-w-[clamp(90rem,100vw,100rem)] w-fit h-[clamp(18rem,80dvh,60rem)] p-0 gap-0 rounded-lg animate-in fade-in duration-200 ease-premium",
         )}
       >
         <DialogTitle className="sr-only">Indicator Settings</DialogTitle>
 
-        <div className="flex flex-col sm:flex-row h-full min-h-0 bg-card">
+        <div className="flex flex-col sm:flex-row h-full min-h-0">
           {/* Column 1: Indicators Sidebar */}
           <div className="flex-[2] min-w-[clamp(10rem,15vw,14rem)] flex flex-col min-h-0 sm:max-h-[clamp(18rem,80dvh,60rem)]">
             <div className="p-4 sm:p-6 flex items-center justify-between sm:justify-start gap-[clamp(0.25rem,0.5vw,0.5rem)]">
@@ -102,7 +102,7 @@ export function IndicatorModal({
               <button
                 onClick={handleClose}
                 aria-label="Close"
-                className="sm:hidden p-2 min-w-[44px] min-h-[44px] flex items-center justify-center tap-highlight rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="sm:hidden p-2 flex items-center justify-center tap-highlight rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -127,7 +127,7 @@ export function IndicatorModal({
                       setSelectedId(null);
                     }}
                     className={cn(
-                      "w-full flex items-center gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-3 sm:py-2 rounded text-xs transition-[background-color,color,box-shadow] duration-150 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                      "w-full flex items-center gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-3 sm:py-2 rounded text-xs transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
                       category === cat.id
                         ? "bg-accent text-foreground font-semibold"
                         : "text-muted-foreground hover:text-foreground hover:bg-accent/50 font-medium",
@@ -202,7 +202,7 @@ export function IndicatorModal({
                         key={indicator.id}
                         onClick={() => setSelectedId(indicator.id)}
                         className={cn(
-                          "w-full flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-3 sm:py-2 rounded text-xs transition-[background-color,color,box-shadow] min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                          "w-full flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-3 sm:py-2 rounded text-xs transition-[background-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
                           isSelected
                             ? "bg-accent text-foreground font-semibold"
                             : "hover:bg-accent/50 text-muted-foreground hover:text-foreground font-medium transition-[background-color,color] duration-150",

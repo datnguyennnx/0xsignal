@@ -15,7 +15,7 @@ export function SaveBar({ open, onSave, onReset, isSaving, message }: SaveBarPro
       className="fixed inset-x-0 bottom-0 z-[100] grid translate-y-full transition-transform duration-200 ease-premium data-[open=true]:translate-y-0"
     >
       <div className="mx-auto w-full max-w-2xl px-[clamp(1rem,1.5vw,1.5rem)] pb-[clamp(1rem,1.5vw,1.5rem)]">
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-border/20 bg-background/95 px-[clamp(1rem,1.5vw,1.5rem)] py-[clamp(0.75rem,1vw,1rem)] shadow-lg backdrop-blur-sm">
+        <div className="flex items-center justify-between gap-4 rounded-lg material-floating px-[clamp(1rem,1.5vw,1.5rem)] py-[clamp(0.75rem,1vw,1rem)]">
           <p className="text-sm text-muted-foreground">{message ?? "You have unsaved changes"}</p>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onReset} disabled={isSaving}>

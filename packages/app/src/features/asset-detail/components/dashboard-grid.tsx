@@ -206,7 +206,7 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
                 }}
                 aria-hidden="true"
               >
-                <div className="h-full w-full bg-card backdrop-blur-sm border border-border rounded-lg flex items-center justify-center">
+                <div className="h-full w-full material-raised rounded-lg flex items-center justify-center">
                   <div className="text-center px-4">
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <div className="size-2 rounded-full bg-muted-foreground animate-pulse" />
