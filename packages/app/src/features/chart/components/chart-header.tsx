@@ -41,9 +41,11 @@ export function ChartHeader({
               key={int.value}
               variant="ghost"
               size="sm"
-              onClick={() => handleIntervalChange(int.value)}
+              onClick={() => {
+                handleIntervalChange(int.value);
+              }}
               className={cn(
-                "relative h-8 rounded-xl border px-2.5 py-4 text-[length:var(--text-micro)] tabular-nums tracking-[0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/40",
+                "relative h-8 rounded-xl border px-2.5 text-[length:var(--text-micro)] tabular-nums tracking-[0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/40",
                 interval === int.value
                   ? "border-border/60 bg-muted/70 text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
@@ -51,10 +53,7 @@ export function ChartHeader({
             >
               {int.label}
               {isIntervalSwitching && interval === int.value && (
-                <span className="absolute -right-1 -top-0.5 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-foreground opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-foreground" />
-                </span>
+                <span className="absolute -right-1 -top-0.5 inline-flex h-2 w-2 rounded-full bg-primary-foreground" />
               )}
             </Button>
           ))}

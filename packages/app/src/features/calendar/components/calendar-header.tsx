@@ -6,15 +6,17 @@ import { cn } from "cn";
 
 import { CalendarCategoryFilter, type CalendarCategoryFilterValue } from "./calendar-filters";
 
+export type { CalendarCategoryFilterValue };
+
 export interface CalendarHeaderProps {
   title: string;
   rangeLabel: string;
   category: CalendarCategoryFilterValue;
-  onCategoryChange(v: CalendarCategoryFilterValue): void;
-  onPrev(): void;
-  onNext(): void;
-  onToday(): void;
-  onRefresh(): void;
+  onCategoryChange: (v: CalendarCategoryFilterValue) => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onToday: () => void;
+  onRefresh: () => void;
   isRefreshing?: boolean;
 }
 

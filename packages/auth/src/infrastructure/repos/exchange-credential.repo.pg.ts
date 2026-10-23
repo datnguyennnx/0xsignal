@@ -1,106 +1,70 @@
-import { Effect, Match } from "effect";
-import * as RedactedNs from "effect/Redacted";
-import type {
-  DecryptedAgentCredential,
-  DecryptedEoaCredential,
-} from "../../domain/exchange-credential";
-import {
-  AccountNotFound,
-  CredentialNotFound,
-  CredentialRevoked,
-  CredentialExpired,
-  CredentialUnverified,
-  DuplicateLabel,
-} from "../../domain/errors";
+import { Effect } from "effect";
+import { AccountNotFound, CredentialNotFound, DuplicateLabel } from "../../domain/errors";
 import type { EncryptionServicePort } from "../encryption.service";
 import type { ExchangeCredentialRepoPort } from "./exchange-credential.repo";
-import { isPgUniqueViolation, resolveMasterWallet } from "./shared/pg-utils";
-import { mapCredentialRow } from "./exchange-credential.mapper";
+import { markCredentialUsed, writeCredentialAudit } from "./exchange-credential.activity";
+import { encryptCredentialSecrets } from "./exchange-credential.keys";
+import { mapCredentialRow, type CredentialRow } from "./exchange-credential.mapper";
+import {
+  readActiveCredential,
+  readDecryptedAgent,
+  readDecryptedEoa,
+  readForVerification,
+} from "./exchange-credential.read";
+import {
+  DEACTIVATE_CREDENTIAL_SQL,
+  REVOKE_CREDENTIAL_SQL,
+  SELECT_ACCOUNT_ID_SQL,
+  SELECT_CREDENTIAL_OWNER_SQL,
+  VERIFY_CREDENTIAL_SQL,
+  buildCreateCredentialQuery,
+  buildRotateCredentialQuery,
+} from "./exchange-credential.sql";
+import { isPgUniqueViolation } from "./shared/pg-utils";
+
+type IdRow = { readonly id: string };
+
+const assertAccountExists = (
+  pg: NonNullable<import("pg").Pool>,
+  accountId: string,
+): Effect.Effect<void, AccountNotFound> =>
+  Effect.tryPromise(() => pg.query<IdRow>(SELECT_ACCOUNT_ID_SQL, [accountId])).pipe(
+    Effect.orDie,
+    Effect.flatMap((result) =>
+      result.rows.length === 0 ? Effect.fail(new AccountNotFound({ accountId })) : Effect.void,
+    ),
+  );
+
+const assertCredentialOwned = (
+  pg: NonNullable<import("pg").Pool>,
+  credentialId: string,
+  userId: string,
+): Effect.Effect<void, CredentialNotFound> =>
+  Effect.tryPromise(() =>
+    pg.query<IdRow>(SELECT_CREDENTIAL_OWNER_SQL, [credentialId, userId]),
+  ).pipe(
+    Effect.orDie,
+    Effect.flatMap((result) =>
+      result.rows.length === 0
+        ? Effect.fail(new CredentialNotFound({ credentialId }))
+        : Effect.void,
+    ),
+  );
 
 export function pgExchangeCredentialRepo(
   pg: NonNullable<import("pg").Pool>,
   enc: EncryptionServicePort,
 ): ExchangeCredentialRepoPort {
-  const writeAudit = (
-    action: string,
-    params: {
-      userId: string;
-      accountId?: string;
-      credentialId?: string;
-      context?: Record<string, unknown>;
-    },
-  ): Effect.Effect<void, never> =>
-    Effect.tryPromise(() =>
-      pg.query(
-        `INSERT INTO credential_audit_log
-         (user_id, account_id, credential_id, action, context)
-         VALUES ($1, $2, $3, $4, $5::jsonb)`,
-        [
-          params.userId,
-          params.accountId ?? null,
-          params.credentialId ?? null,
-          action,
-          JSON.stringify(params.context ?? {}),
-        ],
-      ),
-    ).pipe(
-      Effect.catch((cause: unknown) =>
-        Effect.logWarning(`Audit log write failed for action=${action}: ${cause}`),
-      ),
-      Effect.ignore,
-    );
-
-  const markUsed = (credentialId: string): Effect.Effect<void, never> =>
-    Effect.tryPromise(() =>
-      pg.query("UPDATE api_credentials SET last_used_at = NOW() WHERE id = $1", [credentialId]),
-    ).pipe(Effect.ignore);
-
   return {
     create: (params) =>
       Effect.gen(function* () {
-        const accountCheck = yield* Effect.tryPromise(() =>
-          pg.query("SELECT id FROM exchange_accounts WHERE id = $1", [params.accountId]),
-        ).pipe(Effect.orDie);
-        if (accountCheck.rows.length === 0) {
-          return yield* Effect.fail(new AccountNotFound({ accountId: params.accountId }));
-        }
+        yield* assertAccountExists(pg, params.accountId);
 
-        let encAgentKey: string | undefined;
-        let encEoaKey: string | undefined;
+        const secrets = yield* encryptCredentialSecrets(enc, params);
+        const query = buildCreateCredentialQuery(params, secrets);
 
-        if (params.credentialSubtype === "agent" && params.agentKey) {
-          encAgentKey = yield* enc.encrypt(RedactedNs.value(params.agentKey));
-        }
-        if (params.credentialSubtype === "eoa" && params.eoaKey) {
-          encEoaKey = yield* enc.encrypt(params.eoaKey);
-        }
-
-        const insertResult = yield* Effect.tryPromise(async () => {
-          const result = await pg.query(
-            `INSERT INTO api_credentials
-             (account_id, user_id, credential_subtype, label,
-              agent_address, enc_agent_key, enc_eoa_key,
-              derivation_path, permissions, ip_whitelist,
-              expires_at, encryption_version, is_verified, metadata)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb)
-             RETURNING *`,
-            [
-              params.accountId,
-              params.userId,
-              params.credentialSubtype,
-              params.label ?? "",
-              params.credentialSubtype === "agent" ? (params.agentAddress ?? null) : null,
-              encAgentKey ?? null,
-              encEoaKey ?? null,
-              params.credentialSubtype === "hardware" ? (params.derivationPath ?? null) : null,
-              params.permissions ?? [],
-              params.ipWhitelist ?? null,
-              params.expiresAt ?? null,
-              params.encryptionVersion ?? 1,
-              params.isVerified ?? false,
-              JSON.stringify(params.metadata ?? {}),
-            ],
-          );
+        const inserted = yield* Effect.tryPromise(async () => {
+          const result = await pg.query<CredentialRow>(query.text, query.values);
           return result.rows[0];
         }).pipe(
           Effect.catch((error: unknown) => {
@@ -111,266 +75,36 @@ export function pgExchangeCredentialRepo(
           }),
         );
 
-        yield* writeAudit("created", {
+        yield* writeCredentialAudit(pg, "created", {
           userId: params.userId,
           accountId: params.accountId,
-          credentialId: insertResult.id,
+          credentialId: inserted.id,
         });
 
-        return mapCredentialRow(insertResult);
+        return mapCredentialRow(inserted);
       }),
 
     getActiveForAccount: (accountId, userId, subtype) =>
-      Effect.tryPromise(async () => {
-        if (subtype) {
-          const result = await pg.query(
-            `SELECT ac.* FROM api_credentials ac
-             JOIN exchange_accounts ea ON ea.id = ac.account_id AND ea.user_id = $2
-             WHERE ac.account_id = $1
-               AND ac.credential_subtype = $3
-               AND ac.is_active = true
-               AND ac.is_revoked = false
-             LIMIT 1`,
-            [accountId, userId, subtype],
-          );
-          if (result.rows.length === 0) {
-            throw new CredentialNotFound({
-              credentialId: `${accountId}/${subtype}`,
-            });
-          }
-          return mapCredentialRow(result.rows[0]);
-        }
+      readActiveCredential(pg, accountId, userId, subtype),
 
-        const result = await pg.query(
-          `SELECT ac.* FROM api_credentials ac
-           JOIN exchange_accounts ea ON ea.id = ac.account_id AND ea.user_id = $2
-           WHERE ac.account_id = $1
-             AND ac.is_active = true
-             AND ac.is_revoked = false
-           ORDER BY ac.created_at DESC
-           LIMIT 1`,
-          [accountId, userId],
-        );
-        if (result.rows.length === 0) {
-          throw new CredentialNotFound({
-            credentialId: `${accountId}/*`,
-          });
-        }
-        return mapCredentialRow(result.rows[0]);
-      }).pipe(
-        Effect.catch((error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
-          Match.value(error).pipe(
-            Match.when({ _tag: "CredentialNotFound" }, (e) => Effect.fail(e as CredentialNotFound)),
-            Match.orElse(() => Effect.die(error)),
-          ),
-        ),
-      ),
+    getDecryptedAgent: (credentialId, userId) => readDecryptedAgent(pg, enc, credentialId, userId),
 
-    getDecryptedAgent: (credentialId, userId) =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const rows = yield* Effect.tryPromise(() =>
-            pg.query(
-              `SELECT ac.*,
-                    ea.node_type,
-                    ea.wallet_address AS account_wallet_address,
-                    ea.parent_id AS account_parent_id,
-                    e.slug AS exchange_slug
-             FROM api_credentials ac
-             JOIN exchange_accounts ea ON ea.id = ac.account_id
-             JOIN exchanges e ON e.id = ea.exchange_id
-             WHERE ac.id = $1 AND ac.user_id = $2`,
-              [credentialId, userId],
-            ),
-          ).pipe(Effect.orDie);
-
-          if (rows.rows.length === 0) {
-            return yield* Effect.fail(new CredentialNotFound({ credentialId }));
-          }
-          const row = rows.rows[0];
-          const credential = mapCredentialRow(row);
-
-          if (credential.credentialSubtype !== "agent") {
-            return yield* Effect.fail(new CredentialNotFound({ credentialId }));
-          }
-
-          if (row.is_revoked) {
-            return yield* Effect.fail(new CredentialRevoked({ credentialId }));
-          }
-
-          if (row.expires_at) {
-            const expiresAt = new Date(row.expires_at);
-            if (expiresAt < new Date()) {
-              return yield* Effect.fail(new CredentialExpired({ credentialId }));
-            }
-          }
-
-          if (!row.is_verified) {
-            return yield* Effect.fail(new CredentialUnverified({ credentialId }));
-          }
-
-          if (!row.enc_agent_key) {
-            return yield* Effect.die(new Error("Missing enc_agent_key for agent credential"));
-          }
-          const decryptedKey = yield* enc.decrypt(row.enc_agent_key);
-          const privateKey = RedactedNs.make(decryptedKey);
-
-          const walletAddress = yield* resolveMasterWallet(pg, row.account_id);
-
-          let vaultAddress: string | undefined;
-          if (row.node_type === "sub" || row.node_type === "vault") {
-            vaultAddress = row.account_wallet_address;
-          }
-
-          yield* writeAudit("read", {
-            userId,
-            credentialId,
-            accountId: row.account_id,
-            context: { resolvedWallet: true },
-          });
-
-          yield* Effect.forkScoped(markUsed(credentialId));
-
-          const result: DecryptedAgentCredential = {
-            privateKey,
-            walletAddress,
-            vaultAddress,
-            agentAddress: row.agent_address ?? "",
-            exchange: row.exchange_slug,
-            permissions: row.permissions ?? [],
-          };
-          return result;
-        }),
-      ),
-
-    getDecryptedEoa: (credentialId, userId) =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const rows = yield* Effect.tryPromise(() =>
-            pg.query(
-              `SELECT ac.*,
-                    ea.wallet_address AS account_wallet_address,
-                    e.slug AS exchange_slug
-             FROM api_credentials ac
-             JOIN exchange_accounts ea ON ea.id = ac.account_id
-             JOIN exchanges e ON e.id = ea.exchange_id
-             WHERE ac.id = $1 AND ac.user_id = $2`,
-              [credentialId, userId],
-            ),
-          ).pipe(Effect.orDie);
-
-          if (rows.rows.length === 0) {
-            return yield* Effect.fail(new CredentialNotFound({ credentialId }));
-          }
-          const row = rows.rows[0];
-
-          if (row.credential_subtype !== "eoa") {
-            return yield* Effect.fail(new CredentialNotFound({ credentialId }));
-          }
-
-          if (row.is_revoked) {
-            return yield* Effect.fail(new CredentialRevoked({ credentialId }));
-          }
-
-          if (row.expires_at) {
-            const expiresAt = new Date(row.expires_at);
-            if (expiresAt < new Date()) {
-              return yield* Effect.fail(new CredentialExpired({ credentialId }));
-            }
-          }
-
-          if (!row.is_verified) {
-            return yield* Effect.fail(new CredentialUnverified({ credentialId }));
-          }
-
-          if (!row.enc_eoa_key) {
-            return yield* Effect.die(new Error("Missing enc_eoa_key for EOA credential"));
-          }
-          const decryptedKey = yield* enc.decrypt(row.enc_eoa_key);
-          const privateKey = RedactedNs.make(decryptedKey);
-
-          const walletAddress = yield* resolveMasterWallet(pg, row.account_id);
-
-          yield* writeAudit("read", {
-            userId,
-            credentialId,
-            accountId: row.account_id,
-            context: { resolvedWallet: true },
-          });
-
-          yield* Effect.forkScoped(markUsed(credentialId));
-
-          const result: DecryptedEoaCredential = {
-            privateKey,
-            walletAddress,
-            exchange: row.exchange_slug,
-          };
-          return result;
-        }),
-      ),
+    getDecryptedEoa: (credentialId, userId) => readDecryptedEoa(pg, enc, credentialId, userId),
 
     rotate: (oldId, newParams) =>
       Effect.gen(function* () {
-        const oldCheck = yield* Effect.tryPromise(() =>
-          pg.query("SELECT id FROM api_credentials WHERE id = $1 AND user_id = $2", [
-            oldId,
-            newParams.userId,
-          ]),
-        ).pipe(Effect.orDie);
-        if (oldCheck.rows.length === 0) {
-          return yield* Effect.fail(new CredentialNotFound({ credentialId: oldId }));
-        }
+        yield* assertCredentialOwned(pg, oldId, newParams.userId);
+        yield* assertAccountExists(pg, newParams.accountId);
 
-        const accountCheck = yield* Effect.tryPromise(() =>
-          pg.query("SELECT id FROM exchange_accounts WHERE id = $1", [newParams.accountId]),
-        ).pipe(Effect.orDie);
-        if (accountCheck.rows.length === 0) {
-          return yield* Effect.fail(new AccountNotFound({ accountId: newParams.accountId }));
-        }
-
-        let encAgentKey: string | undefined;
-        let encEoaKey: string | undefined;
-        if (newParams.credentialSubtype === "agent" && newParams.agentKey) {
-          encAgentKey = yield* enc.encrypt(RedactedNs.value(newParams.agentKey));
-        }
-        if (newParams.credentialSubtype === "eoa" && newParams.eoaKey) {
-          encEoaKey = yield* enc.encrypt(newParams.eoaKey);
-        }
+        const secrets = yield* encryptCredentialSecrets(enc, newParams);
+        const query = buildRotateCredentialQuery(oldId, newParams, secrets);
 
         const newRow = yield* Effect.tryPromise(async () => {
           await pg.query("BEGIN");
           try {
-            await pg.query("UPDATE api_credentials SET is_active = false WHERE id = $1", [oldId]);
+            await pg.query(DEACTIVATE_CREDENTIAL_SQL, [oldId]);
 
-            const insertResult = await pg.query(
-              `INSERT INTO api_credentials
-               (account_id, user_id, credential_subtype, label,
-                agent_address, enc_agent_key, enc_eoa_key,
-                derivation_path, permissions, ip_whitelist,
-                expires_at, encryption_version, is_verified, metadata,
-                rotated_from)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15)
-               RETURNING *`,
-              [
-                newParams.accountId,
-                newParams.userId,
-                newParams.credentialSubtype,
-                newParams.label ?? "",
-                newParams.credentialSubtype === "agent" ? (newParams.agentAddress ?? null) : null,
-                encAgentKey ?? null,
-                encEoaKey ?? null,
-                newParams.credentialSubtype === "hardware"
-                  ? (newParams.derivationPath ?? null)
-                  : null,
-                newParams.permissions ?? [],
-                newParams.ipWhitelist ?? null,
-                newParams.expiresAt ?? null,
-                newParams.encryptionVersion ?? 1,
-                newParams.isVerified ?? false,
-                JSON.stringify(newParams.metadata ?? {}),
-                oldId,
-              ],
-            );
+            const insertResult = await pg.query<CredentialRow>(query.text, query.values);
 
             await pg.query("COMMIT");
             return insertResult.rows[0];
@@ -387,7 +121,7 @@ export function pgExchangeCredentialRepo(
           }),
         );
 
-        yield* writeAudit("rotated", {
+        yield* writeCredentialAudit(pg, "rotated", {
           userId: newParams.userId,
           accountId: newParams.accountId,
           credentialId: newRow.id,
@@ -399,132 +133,41 @@ export function pgExchangeCredentialRepo(
 
     revoke: (id, reason, userId) =>
       Effect.tryPromise(async () => {
-        const result = await pg.query(
-          `UPDATE api_credentials
-           SET is_revoked = true, revoked_at = NOW(), revoked_reason = $1
-           WHERE id = $2 AND user_id = $3
-           RETURNING id`,
-          [reason, id, userId],
-        );
+        const result = await pg.query<IdRow>(REVOKE_CREDENTIAL_SQL, [reason, id, userId]);
         if (result.rows.length === 0) {
           throw new CredentialNotFound({ credentialId: id });
         }
       }).pipe(
         Effect.tap(() =>
-          writeAudit("revoked", {
+          writeCredentialAudit(pg, "revoked", {
             userId,
             credentialId: id,
             context: { reason },
           }),
         ),
-        Effect.catch((error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
-          Match.value(error).pipe(
-            Match.when({ _tag: "CredentialNotFound" }, (e) => Effect.fail(e as CredentialNotFound)),
-            Match.orElse(() => Effect.die(error)),
-          ),
+        Effect.catch((error: unknown) =>
+          error instanceof CredentialNotFound ? Effect.fail(error) : Effect.die(error),
         ),
       ),
 
     setVerified: (id, userId) =>
       Effect.tryPromise(async () => {
-        const result = await pg.query(
-          `UPDATE api_credentials
-           SET is_verified = true, verified_at = NOW()
-           WHERE id = $1 AND user_id = $2
-           RETURNING id`,
-          [id, userId],
-        );
+        const result = await pg.query<IdRow>(VERIFY_CREDENTIAL_SQL, [id, userId]);
         if (result.rows.length === 0) {
           throw new CredentialNotFound({ credentialId: id });
         }
       }).pipe(
-        Effect.tap(() => writeAudit("verified", { userId, credentialId: id })),
-        Effect.catch((error: unknown): Effect.Effect<never, CredentialNotFound, never> =>
-          Match.value(error).pipe(
-            Match.when({ _tag: "CredentialNotFound" }, (e) => Effect.fail(e as CredentialNotFound)),
-            Match.orElse(() => Effect.die(error)),
-          ),
+        Effect.tap(() => writeCredentialAudit(pg, "verified", { userId, credentialId: id })),
+        Effect.catch((error: unknown) =>
+          error instanceof CredentialNotFound ? Effect.fail(error) : Effect.die(error),
         ),
       ),
 
-    markUsed: (id) =>
-      Effect.tryPromise(() =>
-        pg.query("UPDATE api_credentials SET last_used_at = NOW() WHERE id = $1", [id]),
-      ).pipe(Effect.ignore),
+    markUsed: (id) => markCredentialUsed(pg, id),
 
     getForVerification: (credentialId, userId) =>
-      Effect.gen(function* () {
-        const rows = yield* Effect.tryPromise(() =>
-          pg.query(
-            `SELECT ac.*,
-                    ea.wallet_address AS account_wallet_address,
-                    e.slug AS exchange_slug
-             FROM api_credentials ac
-             JOIN exchange_accounts ea ON ea.id = ac.account_id
-             JOIN exchanges e ON e.id = ea.exchange_id
-             WHERE ac.id = $1 AND ac.user_id = $2`,
-            [credentialId, userId],
-          ),
-        ).pipe(Effect.orDie);
+      readForVerification(pg, enc, credentialId, userId),
 
-        if (rows.rows.length === 0) {
-          return yield* Effect.fail(new CredentialNotFound({ credentialId }));
-        }
-        const row = rows.rows[0];
-
-        if (row.credential_subtype !== "agent") {
-          return yield* Effect.fail(new CredentialNotFound({ credentialId }));
-        }
-
-        if (row.is_revoked) {
-          return yield* Effect.fail(new CredentialRevoked({ credentialId }));
-        }
-
-        if (row.expires_at) {
-          const expiresAt = new Date(row.expires_at);
-          if (expiresAt < new Date()) {
-            return yield* Effect.fail(new CredentialExpired({ credentialId }));
-          }
-        }
-
-        if (!row.enc_agent_key) {
-          return yield* Effect.die(new Error("Missing enc_agent_key for agent credential"));
-        }
-        const decryptedKey = yield* enc.decrypt(row.enc_agent_key);
-        const privateKey = RedactedNs.make(decryptedKey);
-
-        const masterWalletAddress = yield* resolveMasterWallet(pg, row.account_id);
-
-        return {
-          privateKey,
-          agentAddress: row.agent_address ?? "",
-          accountId: row.account_id,
-          exchangeSlug: row.exchange_slug,
-          masterWalletAddress,
-        };
-      }),
-
-    recordAuditEvent: (action, params) =>
-      Effect.tryPromise(() =>
-        pg.query(
-          `INSERT INTO credential_audit_log
-           (user_id, account_id, credential_id, action, context)
-           VALUES ($1, $2, $3, $4, $5::jsonb)`,
-          [
-            params.userId,
-            params.accountId ?? null,
-            params.credentialId ?? null,
-            action,
-            JSON.stringify(params.context ?? {}),
-          ],
-        ),
-      ).pipe(
-        Effect.catch((cause: unknown) =>
-          Effect.logWarning(`Audit log write failed for action=${action}: ${cause}`),
-        ),
-        Effect.ignore,
-      ),
+    recordAuditEvent: (action, params) => writeCredentialAudit(pg, action, params),
   };
 }
-
-// mapCredentialRow and ts extracted to exchange-credential.mapper.ts

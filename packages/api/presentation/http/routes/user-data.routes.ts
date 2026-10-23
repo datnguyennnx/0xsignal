@@ -29,7 +29,7 @@ type BuildUserDataRoutesParams = {
 
 const requireWalletAddress = (url: URL): Effect.Effect<string, HttpError> => {
   const walletAddress = url.searchParams.get("walletAddress");
-  if (!walletAddress) {
+  if (walletAddress === null || walletAddress === "") {
     return Effect.fail(asHttpError(400, "walletAddress query parameter is required"));
   }
   if (!EVM_ADDRESS_RE.test(walletAddress)) {
@@ -164,8 +164,8 @@ export const buildUserDataRoutes = ({
         const payload = yield* userData
           .getUserFunding(
             walletAddress,
-            startTime ? Number(startTime) : undefined,
-            endTime ? Number(endTime) : undefined,
+            startTime === null || startTime === "" ? undefined : Number(startTime),
+            endTime === null || endTime === "" ? undefined : Number(endTime),
           )
           .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });

@@ -1,9 +1,10 @@
 import { vi } from "vitest";
-import { Effect, Layer, Redacted } from "effect";
-import type { InfoClient } from "@nktkas/hyperliquid";
+import { type Context, Effect, Layer, Redacted } from "effect";
+import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../../hyperliquid/contracts";
 import { ExchangeService } from "../contracts";
 import { exchangeServiceLayer } from "../service";
+import { exchangeCredentialsLayer } from "../../../infrastructure/data-sources/hyperliquid/exchange-credentials";
 import {
   HyperliquidValidationError,
   InsufficientMarginError,
@@ -25,23 +26,39 @@ export const VALID_PRIVATE_KEY = "0x" + "a".repeat(64);
 export const USER_A = "user-a";
 export const USER_B = "user-b";
 
+// Types derived from the mocked service contracts
+
+export type AccountRepoShape = Context.Service.Shape<typeof ExchangeAccountRepo>;
+export type CredRepoShape = Context.Service.Shape<typeof ExchangeCredentialRepo>;
+
+type AccountRecord = Effect.Success<ReturnType<AccountRepoShape["create"]>>;
+type CredentialRecord = Effect.Success<ReturnType<CredRepoShape["create"]>>;
+type DecryptedAgent = Effect.Success<ReturnType<CredRepoShape["getDecryptedAgent"]>>;
+type MetaResponse = Awaited<ReturnType<InfoClient["meta"]>>;
+
 // Mock instances
 
 export const mockInfoInstance = {
-  meta: vi.fn(),
+  meta: vi.fn<InfoClient["meta"]>(),
 };
+
+export const makeMetaResponse = (names: readonly string[]): MetaResponse => ({
+  universe: names.map((name) => ({ name, szDecimals: 0, maxLeverage: 1, marginTableId: 0 })),
+  marginTables: [],
+  collateralToken: 0,
+});
 
 export const makeMockHLClient = () =>
   Layer.succeed(
     HyperliquidClient,
     HyperliquidClient.of({
-      info: mockInfoInstance as unknown as InfoClient,
+      info: Object.assign(new InfoClient({ transport: new HttpTransport() }), mockInfoInstance),
     }),
   );
 
 // Placeholder factories
 
-export const makePlaceholderAccount = (overrides?: Partial<Record<string, unknown>>) => ({
+export const makePlaceholderAccount = (overrides?: Partial<AccountRecord>): AccountRecord => ({
   id: "acct-1",
   userId: USER_A,
   exchangeId: "hl-exchange",
@@ -57,7 +74,9 @@ export const makePlaceholderAccount = (overrides?: Partial<Record<string, unknow
   ...overrides,
 });
 
-export const makePlaceholderCredential = (overrides?: Partial<Record<string, unknown>>) => ({
+export const makePlaceholderCredential = (
+  overrides?: Partial<CredentialRecord>,
+): CredentialRecord => ({
   id: "cred-1",
   accountId: "acct-1",
   userId: USER_A,
@@ -76,7 +95,7 @@ export const makePlaceholderCredential = (overrides?: Partial<Record<string, unk
   ...overrides,
 });
 
-export const makeDecryptedCredential = (overrides?: Partial<Record<string, unknown>>) => ({
+export const makeDecryptedCredential = (overrides?: Partial<DecryptedAgent>): DecryptedAgent => ({
   privateKey: Redacted.make(VALID_PRIVATE_KEY),
   walletAddress: "0xMASTER",
   vaultAddress: undefined,
@@ -89,25 +108,45 @@ export const makeDecryptedCredential = (overrides?: Partial<Record<string, unkno
 // Default mock repos
 
 export const defaultMockAccountRepo = {
-  create: vi.fn().mockReturnValue(Effect.succeed(makePlaceholderAccount())),
-  findById: vi.fn().mockReturnValue(Effect.fail(new AccountNotFound({ accountId: "nope" }))),
-  findByUserId: vi.fn().mockReturnValue(Effect.succeed([])),
-  findPrimary: vi.fn().mockReturnValue(Effect.succeed(makePlaceholderAccount())),
-  findWithDescendants: vi.fn().mockReturnValue(Effect.succeed([])),
-  resolveMasterWallet: vi.fn().mockReturnValue(Effect.succeed("0xMASTER")),
-  setPrimary: vi.fn().mockReturnValue(Effect.succeed(void 0)),
-  deactivate: vi.fn().mockReturnValue(Effect.succeed(void 0)),
+  create: vi
+    .fn<AccountRepoShape["create"]>()
+    .mockReturnValue(Effect.succeed(makePlaceholderAccount())),
+  findById: vi
+    .fn<AccountRepoShape["findById"]>()
+    .mockReturnValue(Effect.fail(new AccountNotFound({ accountId: "nope" }))),
+  findByUserId: vi.fn<AccountRepoShape["findByUserId"]>().mockReturnValue(Effect.succeed([])),
+  findPrimary: vi
+    .fn<AccountRepoShape["findPrimary"]>()
+    .mockReturnValue(Effect.succeed(makePlaceholderAccount())),
+  findWithDescendants: vi
+    .fn<AccountRepoShape["findWithDescendants"]>()
+    .mockReturnValue(Effect.succeed([])),
+  resolveMasterWallet: vi
+    .fn<AccountRepoShape["resolveMasterWallet"]>()
+    .mockReturnValue(Effect.succeed("0xMASTER")),
+  setPrimary: vi.fn<AccountRepoShape["setPrimary"]>().mockReturnValue(Effect.succeed(void 0)),
+  deactivate: vi.fn<AccountRepoShape["deactivate"]>().mockReturnValue(Effect.succeed(void 0)),
 };
 
 export const defaultMockCredRepo = {
-  create: vi.fn().mockReturnValue(Effect.succeed(makePlaceholderCredential())),
-  getActiveForAccount: vi.fn().mockReturnValue(Effect.succeed(makePlaceholderCredential())),
-  getDecryptedAgent: vi.fn().mockReturnValue(Effect.succeed(makeDecryptedCredential())),
-  getDecryptedEoa: vi.fn().mockReturnValue(Effect.die(new Error("not implemented"))),
-  rotate: vi.fn().mockReturnValue(Effect.succeed(makePlaceholderCredential({ id: "cred-2" }))),
-  revoke: vi.fn().mockReturnValue(Effect.succeed(void 0)),
-  setVerified: vi.fn().mockReturnValue(Effect.succeed(void 0)),
-  markUsed: vi.fn().mockReturnValue(Effect.succeed(void 0)),
+  create: vi
+    .fn<CredRepoShape["create"]>()
+    .mockReturnValue(Effect.succeed(makePlaceholderCredential())),
+  getActiveForAccount: vi
+    .fn<CredRepoShape["getActiveForAccount"]>()
+    .mockReturnValue(Effect.succeed(makePlaceholderCredential())),
+  getDecryptedAgent: vi
+    .fn<CredRepoShape["getDecryptedAgent"]>()
+    .mockReturnValue(Effect.succeed(makeDecryptedCredential())),
+  getDecryptedEoa: vi
+    .fn<CredRepoShape["getDecryptedEoa"]>()
+    .mockReturnValue(Effect.die(new Error("not implemented"))),
+  rotate: vi
+    .fn<CredRepoShape["rotate"]>()
+    .mockReturnValue(Effect.succeed(makePlaceholderCredential({ id: "cred-2" }))),
+  revoke: vi.fn<CredRepoShape["revoke"]>().mockReturnValue(Effect.succeed(void 0)),
+  setVerified: vi.fn<CredRepoShape["setVerified"]>().mockReturnValue(Effect.succeed(void 0)),
+  markUsed: vi.fn<CredRepoShape["markUsed"]>().mockReturnValue(Effect.succeed(void 0)),
 };
 
 // Test layer factory
@@ -120,11 +159,10 @@ export const makeTestLayer = (
   const mergedCred = { ...defaultMockCredRepo, ...credRepoOverrides };
 
   return exchangeServiceLayer.pipe(
+    Layer.provideMerge(exchangeCredentialsLayer),
+    Layer.provideMerge(Layer.succeed(ExchangeAccountRepo, ExchangeAccountRepo.of(mergedAccount))),
     Layer.provideMerge(
-      Layer.succeed(ExchangeAccountRepo, ExchangeAccountRepo.of(mergedAccount as any)),
-    ),
-    Layer.provideMerge(
-      Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(mergedCred as any)),
+      Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(mergedCred)),
     ),
     Layer.provideMerge(makeMockHLClient()),
   );
@@ -143,8 +181,5 @@ export {
   ExchangeCredentialRepo,
   ExchangeService,
   exchangeServiceLayer,
-  HyperliquidClient,
-  Effect,
-  Layer,
-  Redacted,
+  exchangeCredentialsLayer,
 };

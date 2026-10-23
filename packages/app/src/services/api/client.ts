@@ -1,27 +1,20 @@
-import type { ApiErrorBody, ApiEnvelope } from "@0xsignal/shared";
+import type { ApiErrorBody } from "@0xsignal/shared";
+import { writeAuthToken } from "@/lib/auth-token";
+import { ApiError } from "@/lib/api-error";
 import { resolveApiBase, apiFetch, UnauthenticatedError } from "@/lib/api-base";
-import { useAuthStore } from "@/stores/use-auth-store";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 export const API_BASE = resolveApiBase(configuredApiUrl, import.meta.env.DEV);
 
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly status?: number,
-    public readonly statusText?: string,
-    public readonly code?: string,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
-
-export class NetworkError extends Error {
+class NetworkError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "NetworkError";
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 export function toNumberOrNull(value: unknown): number | null {
@@ -30,56 +23,51 @@ export function toNumberOrNull(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function extractRawCandlePayload(payload: unknown): Record<string, unknown>[] {
-  if (Array.isArray(payload)) return payload as Record<string, unknown>[];
-  if (payload && typeof payload === "object") {
-    const obj = payload as Record<string, unknown>;
-    if (Array.isArray(obj.candles)) return obj.candles as Record<string, unknown>[];
-    if (Array.isArray(obj.lane)) return obj.lane as Record<string, unknown>[];
-    if (Array.isArray(obj.data)) return obj.data as Record<string, unknown>[];
-  }
-  return [];
+/**
+ * JSON boundary. The payload shape is owned by the backend contract, so the parsed
+ * body is handed back as the type the caller declared, with the `{ data }` envelope
+ * unwrapped when present.
+ */
+function readPayload<T>(response: Response): Promise<T>;
+function readPayload(response: Response): Promise<unknown>;
+async function readPayload(response: Response): Promise<unknown> {
+  const body: unknown = await response.json();
+  return isRecord(body) && "data" in body ? body.data : body;
 }
 
 async function parseErrorBody(response: Response): Promise<ApiErrorBody | null> {
   try {
-    const body = (await response.json()) as ApiErrorBody;
-    return body;
+    const body = await readPayload(response);
+    if (!isRecord(body) || typeof body.error !== "string") return null;
+    return typeof body.code === "string"
+      ? { error: body.error, code: body.code }
+      : { error: body.error };
   } catch {
     return null;
   }
 }
 
-function unwrapEnvelope<T>(json: unknown): T {
-  if (json && typeof json === "object" && "data" in json) {
-    return (json as ApiEnvelope<T>).data;
-  }
-  return json as T;
-}
-
 /** Token refresh dedup: single in-flight request with auto-reset. */
 const refreshManager = {
-  _activePromise: null as Promise<boolean> | null,
+  activePromise: null as Promise<boolean> | null,
 
-  async attempt(): Promise<boolean> {
-    if (this._activePromise) {
-      return this._activePromise;
+  attempt(): Promise<boolean> {
+    if (this.activePromise !== null) {
+      return this.activePromise;
     }
 
-    this._activePromise = (async () => {
+    this.activePromise = (async () => {
       try {
         const res = await fetch(`${API_BASE}/auth/refresh`, {
           method: "POST",
           credentials: "include",
         });
         if (res.ok) {
-          const body = await res.json();
-          const data =
-            body && typeof body === "object" && "data" in body
-              ? (body as { data?: { accessToken: string } }).data
-              : body;
-          if (data && data.accessToken) {
-            useAuthStore.getState().setToken(data.accessToken);
+          const body = await readPayload(res);
+          const data = isRecord(body) && "data" in body ? body.data : body;
+          const token = isRecord(data) ? data.accessToken : undefined;
+          if (typeof token === "string" && token !== "") {
+            writeAuthToken(token);
             return true;
           }
         }
@@ -87,15 +75,15 @@ const refreshManager = {
       } catch {
         return false;
       } finally {
-        this._activePromise = null;
+        this.activePromise = null;
       }
     })();
 
-    return this._activePromise;
+    return this.activePromise;
   },
 };
 
-async function attemptSilentRefresh(): Promise<boolean> {
+function attemptSilentRefresh(): Promise<boolean> {
   return refreshManager.attempt();
 }
 
@@ -114,23 +102,21 @@ export async function fetchJson<T>(
       if (response.status === 401 && !isRetry) {
         const refreshed = await attemptSilentRefresh();
         if (refreshed) {
-          return fetchJson<T>(url, options, true);
-        } else {
-          useAuthStore.getState().setToken(null);
+          return await fetchJson<T>(url, options, true);
         }
+        writeAuthToken(null);
       }
 
       const errorBody = await parseErrorBody(response);
       throw new ApiError(
-        errorBody?.error ?? `API request failed: ${response.statusText}`,
+        errorBody === null ? `API request failed: ${response.statusText}` : errorBody.error,
         response.status,
         response.statusText,
         errorBody?.code,
       );
     }
 
-    const body = await response.json();
-    return unwrapEnvelope<T>(body);
+    return await readPayload<T>(response);
   } catch (error) {
     if (error instanceof ApiError || error instanceof UnauthenticatedError) throw error;
     throw new NetworkError(error instanceof Error ? error.message : "Network request failed");

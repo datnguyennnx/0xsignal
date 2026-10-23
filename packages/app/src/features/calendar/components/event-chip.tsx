@@ -6,7 +6,7 @@ import { SELECTED_ITEM_CLASS } from "@/lib/state-classes";
 
 export interface EventChipProps {
   event: EconomicEvent;
-  onClick?: (event: EconomicEvent) => void;
+  onClick?: ((event: EconomicEvent) => void) | undefined;
   className?: string;
 }
 
@@ -25,7 +25,7 @@ export function EventChip({ event, onClick, className }: EventChipProps): JSX.El
 
   const content = (
     <>
-      {time && <span className="shrink-0 tabular-nums">{time}</span>}
+      {time !== null && <span className="shrink-0 tabular-nums">{time}</span>}
       <span className="truncate">{event.title}</span>
     </>
   );
@@ -39,7 +39,14 @@ export function EventChip({ event, onClick, className }: EventChipProps): JSX.El
 
   if (onClick) {
     return (
-      <button type="button" title={event.title} className={classes} onClick={() => onClick(event)}>
+      <button
+        type="button"
+        title={event.title}
+        className={classes}
+        onClick={() => {
+          onClick(event);
+        }}
+      >
         {content}
       </button>
     );

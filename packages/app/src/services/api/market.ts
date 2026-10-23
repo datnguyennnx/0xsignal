@@ -1,13 +1,20 @@
-import { candleToChartDataPoint, normalizeChartDataPoints } from "@0xsignal/shared";
+import { normalizeCandle } from "@0xsignal/shared";
 import type {
+  AggregatedMarket,
+  Candle,
   CandleResponse,
+  ChartDataPoint,
+  MarketTicker,
+  OrderBook,
   RecentCandleResponse,
   WsMarketInterval,
-  OrderBook,
 } from "@0xsignal/shared";
 import { normalizeSymbol } from "@/features/trade/lib/symbol";
 import { API_BASE, fetchJson, toNumberOrNull } from "./client";
-import type { AggregatedMarket, ChartDataPoint, MarketTicker, MarketPrice } from "./types";
+import type { MarketPrice } from "./types";
+
+const toChartDataPoints = (candles: readonly Candle[]): ChartDataPoint[] =>
+  candles.flatMap((candle) => normalizeCandle(candle) ?? []);
 
 export function getMarkets() {
   return fetchJson<AggregatedMarket[]>(`${API_BASE}/markets`);
@@ -40,7 +47,7 @@ export async function getCandles(params: {
   }
 
   const payload = await fetchJson<CandleResponse>(`${API_BASE}/candles?${query.toString()}`);
-  return normalizeChartDataPoints(payload.candles.map(candleToChartDataPoint));
+  return toChartDataPoints(payload.candles);
 }
 
 export async function getRecentChartLane(params: {
@@ -64,7 +71,7 @@ export async function getRecentChartLane(params: {
   const payload = await fetchJson<RecentCandleResponse>(
     `${API_BASE}/candles/recent?${query.toString()}`,
   );
-  return normalizeChartDataPoints(payload.candles.map(candleToChartDataPoint));
+  return toChartDataPoints(payload.candles);
 }
 
 export function getTicker(symbol: string) {
@@ -132,8 +139,6 @@ export async function getMarketPrice(symbol: string): Promise<MarketPrice> {
     markPx,
     midPx,
     prevDayPx,
-    high24h: undefined,
-    low24h: undefined,
     timestamp: new Date(),
   };
 }

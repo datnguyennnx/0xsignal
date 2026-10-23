@@ -40,9 +40,10 @@ export const ensureCalendarSchema: Effect.Effect<
 > = Effect.gen(function* () {
   const pool = yield* PostgresConnectionPool;
   if (pool === null) {
-    return yield* Effect.fail(
+    yield* Effect.fail(
       new CalendarSchemaError({ message: "PostgresConnectionPool is not configured" }),
     );
+    return;
   }
   yield* Effect.tryPromise({
     try: async () => {

@@ -1,153 +1,260 @@
-import { Clock, Context, Effect, Fiber, Layer, Option, Ref, Schedule } from "effect";
+import { Clock, Effect, Exit, Fiber, Layer, Option, Predicate, Ref, Schedule, Scope } from "effect";
 import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
-import type { ISubscription } from "@nktkas/hyperliquid";
+import type { ISubscription, TransportError } from "@nktkas/hyperliquid";
 import type { ServerWebSocket } from "bun";
-import type { MarketWsSubscription } from "./hub-types";
+import {
+  addMarketWsConnectionSubscription,
+  MarketStreamHub,
+  type MarketWsConnectionData,
+  type MarketWsConnectionSubscription,
+  type MarketWsSubscription,
+  normalizeMarketWsSubscription,
+  removeMarketWsConnectionSubscription,
+  WebSocketSubscribeError,
+  type Bucket,
+} from "./hub-types";
 import { marketWsLog } from "./logging";
 import { buildMarketWsBucketKey } from "./bucket-key";
-import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
 import { HyperliquidProvider } from "../../data-sources/hyperliquid/types";
 import { subscribeUpstream } from "./hub-subscription";
 import { send, toText } from "./hub-broadcast";
-import {
-  type MarketWsConnectionData,
-  WebSocketSubscribeError,
-  type Bucket,
-  type BucketState,
-} from "./hub-types";
+import { parseMarketWsFrame } from "../../../application/market-data/subscription-parser";
 
 const MAX_RESTART_RETRIES = 3;
 
-export type { MarketWsConnectionData };
-export { WebSocketSubscribeError };
+const unsubscribeQuietly = (subscription: ISubscription): Effect.Effect<void> =>
+  Effect.tryPromise({
+    try: () => subscription.unsubscribe(),
+    catch: (error) => error,
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.logWarning(
+        `Upstream unsubscribe failed: ${error instanceof Error ? error.message : String(error)}`,
+      ),
+    ),
+  );
 
-export interface MarketStreamHubPort {
-  readonly createConnectionData: (subscription: MarketWsSubscription) => MarketWsConnectionData;
-  readonly handleOpen: (ws: ServerWebSocket<MarketWsConnectionData>) => Effect.Effect<void, never>;
-  readonly handleClose: (ws: ServerWebSocket<MarketWsConnectionData>) => Effect.Effect<void, never>;
-  readonly handleMessage: (
-    ws: ServerWebSocket<MarketWsConnectionData>,
-    raw: string | Buffer | Uint8Array,
-  ) => Effect.Effect<void, never>;
-}
+const closeQuietly = (
+  ws: ServerWebSocket<MarketWsConnectionData>,
+  code: number,
+  reason: string,
+): void => {
+  try {
+    ws.close(code, reason);
+  } catch {
+    // the peer already closed the socket
+  }
+};
 
-export class MarketStreamHub extends Context.Service<MarketStreamHub, MarketStreamHubPort>()(
-  "MarketStreamHub",
-) {}
+const sendQuietly = (ws: ServerWebSocket<MarketWsConnectionData>, payload: unknown): void => {
+  try {
+    send(ws, payload);
+  } catch {
+    // dead peer — broadcast detaches it on the next frame
+  }
+};
 
-export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, HyperliquidProvider> =
+type JoinedBucket = { readonly bucket: Bucket; readonly created: boolean };
+
+export const detachClient =
+  (bucket: Bucket) =>
+  (ws: ServerWebSocket<MarketWsConnectionData>): void => {
+    if (!bucket.clients.delete(ws)) return;
+    marketWsLog("ws_client_detached", { bucketKey: bucket.key, connectionId: ws.data.id }, "warn");
+    closeQuietly(ws, 1013, "client too slow");
+  };
+
+type MarketStreamHubClient = {
+  readonly subscriptionClient: SubscriptionClient;
+  readonly close: () => void;
+};
+
+export type MarketStreamHubLayerOptions = {
+  readonly createClient?: () => MarketStreamHubClient;
+  readonly onAcquire?: (buckets: Ref.Ref<Map<string, Bucket>>) => void;
+};
+
+const createDefaultClient = (): MarketStreamHubClient => {
+  const transport = new WebSocketTransport({ resubscribe: true });
+  return {
+    subscriptionClient: new SubscriptionClient({ transport }),
+    close: () => {
+      transport.close();
+    },
+  };
+};
+
+export const makeMarketStreamHubLayer = (
+  provider: typeof HyperliquidProvider.Service,
+  options: MarketStreamHubLayerOptions = {},
+): Layer.Layer<MarketStreamHub> =>
   Layer.effect(
     MarketStreamHub,
     Effect.acquireRelease(
       Effect.gen(function* () {
-        const provider = yield* HyperliquidProvider;
-        const transport = new WebSocketTransport({ resubscribe: true });
-        const subscriptionClient = new SubscriptionClient({ transport });
+        const client = (options.createClient ?? createDefaultClient)();
+        const subscriptionClient = client.subscriptionClient;
         const buckets: Ref.Ref<Map<string, Bucket>> = yield* Ref.make(new Map<string, Bucket>());
+        options.onAcquire?.(buckets);
 
         // Bridge Pattern: connectionSeq counter uses plain number instead of Ref
         // because createConnectionData is a sync function called from non-Effect
         // context (Bun WebSocket upgrade handler). A Ref-based approach would
         // require making the entire interface Effect-based.
-        let _connectionSeq = 0;
+        let connectionSeq = 0;
 
-        const service = MarketStreamHub.of({
-          createConnectionData: (subscription) => {
-            const nextSeq = ++_connectionSeq;
-            const normalized = { ...subscription };
-            if (normalized.symbol) {
-              normalized.symbol = normalizeSymbol(normalized.symbol);
-            }
-            return {
-              id: String(nextSeq),
-              bucketKey: buildMarketWsBucketKey(normalized),
-              subscription: normalized,
+        const createConnectionData = (initial?: MarketWsSubscription): MarketWsConnectionData => {
+          const subscriptions = new Map<string, MarketWsConnectionSubscription>();
+
+          if (initial !== undefined) {
+            const subscription = normalizeMarketWsSubscription(initial);
+            const bucketKey = buildMarketWsBucketKey(subscription);
+            subscriptions.set(bucketKey, { subscription, bucketKey, refCount: 1 });
+          }
+
+          return {
+            id: String(++connectionSeq),
+            subscriptions: Ref.makeUnsafe(subscriptions),
+          };
+        };
+
+        const joinBucket = (
+          ws: ServerWebSocket<MarketWsConnectionData>,
+          subscription: MarketWsSubscription,
+          key: string,
+        ): Effect.Effect<JoinedBucket> =>
+          Effect.gen(function* () {
+            const candidate: Bucket = {
+              key,
+              subscription,
+              clients: new Set<ServerWebSocket<MarketWsConnectionData>>([ws]),
+              upstream: Option.none<ISubscription>(),
+              state: { _tag: "idle" },
+              retryCount: 0,
+              subscribeFiber: Option.none(),
+              scope: yield* Scope.make(),
             };
-          },
 
-          handleOpen: (ws) =>
-            Effect.gen(function* () {
-              const key = ws.data.bucketKey;
-              const map = yield* Ref.get(buckets);
-              const existing = map.get(key);
+            // Mutating an existing clients Set in-place keeps the upstream
+            // callback's bucket reference valid for the new client.
+            const joined = yield* Ref.modify(
+              buckets,
+              (m): readonly [JoinedBucket, Map<string, Bucket>] => {
+                const existing = m.get(key);
+                if (existing !== undefined) {
+                  existing.clients.add(ws);
+                  return [{ bucket: existing, created: false }, m];
+                }
+                m.set(key, candidate);
+                return [{ bucket: candidate, created: true }, m];
+              },
+            );
 
-              if (existing !== undefined) {
-                const bucket = existing;
-                // Mutate the existing clients Set in-place so that the upstream
-                // subscription callback (which holds a reference to the same
-                // bucket object) sees the new client on its next broadcast.
-                bucket.clients.add(ws);
-                const now = yield* Clock.currentTimeMillis;
-                send(ws, {
-                  type: "ready",
-                  subscription: bucket.subscription,
-                  connectionId: ws.data.id,
-                  timestamp: now,
-                });
-                return;
-              }
-
-              const bucket: Bucket = {
-                key,
-                subscription: ws.data.subscription,
-                clients: new Set<ServerWebSocket<MarketWsConnectionData>>([ws]),
-                upstream: Option.none<ISubscription>(),
-                state: { _tag: "idle" },
-                retryCount: 0,
-                restartFibers: new Set<Fiber.Fiber<void, never>>(),
-                firstMarketBroadcastLogged: false,
-              };
-
-              yield* Ref.update(buckets, (m) => {
-                m.set(key, bucket);
-                return m;
-              });
-              const now = yield* Clock.currentTimeMillis;
-              send(ws, {
-                type: "ready",
-                subscription: bucket.subscription,
-                connectionId: ws.data.id,
-                timestamp: now,
-              });
-
+            if (joined.created) {
               marketWsLog("ws_open", {
                 connectionId: ws.data.id,
                 bucketKey: key,
-                channel: bucket.subscription.channel,
+                channel: subscription.channel,
                 clientsInBucket: 1,
               });
+            } else {
+              yield* Scope.close(candidate.scope, Exit.void);
+            }
 
-              // Fork upstream subscription in background
-              yield* Effect.forkDetach(ensureUpstream(subscriptionClient, provider, buckets, key));
+            return joined;
+          });
+
+        const startBucket = (bucket: Bucket): Effect.Effect<void> =>
+          Effect.gen(function* () {
+            const fiber = yield* Effect.forkIn(
+              ensureUpstream(
+                subscriptionClient,
+                provider,
+                buckets,
+                bucket.key,
+                detachClient(bucket),
+              ),
+              bucket.scope,
+            );
+
+            const registered = yield* Ref.modify(buckets, (m) => {
+              const current = m.get(bucket.key);
+              if (current === undefined || current.scope !== bucket.scope) {
+                return [false, m] as const;
+              }
+              m.set(bucket.key, { ...current, subscribeFiber: Option.some(fiber) });
+              return [true, m] as const;
+            });
+
+            if (!registered) yield* Scope.close(bucket.scope, Exit.void);
+          });
+
+        const releaseClient = (
+          ws: ServerWebSocket<MarketWsConnectionData>,
+          key: string,
+        ): Effect.Effect<void> =>
+          Effect.gen(function* () {
+            const map = yield* Ref.get(buckets);
+            const existing = map.get(key);
+
+            if (existing === undefined) return;
+            const bucket = existing;
+
+            // A slow client may already be detached; still own bucket cleanup.
+            bucket.clients.delete(ws);
+            if (bucket.clients.size > 0) return;
+
+            // Remove before interrupting so the in-flight subscribe observes
+            // an unowned bucket and unsubscribes instead of re-inserting.
+            yield* Ref.update(buckets, (m) => {
+              m.delete(key);
+              return m;
+            });
+
+            if (Option.isSome(bucket.subscribeFiber)) {
+              yield* Fiber.interrupt(bucket.subscribeFiber.value);
+            }
+            yield* Scope.close(bucket.scope, Exit.void);
+            if (Option.isSome(bucket.upstream)) yield* unsubscribeQuietly(bucket.upstream.value);
+          });
+
+        const service = MarketStreamHub.of({
+          createConnectionData,
+
+          handleOpen: (ws) =>
+            Effect.gen(function* () {
+              const entries = Array.from((yield* Ref.get(ws.data.subscriptions)).values());
+
+              if (entries.length === 0) {
+                const now = yield* Clock.currentTimeMillis;
+                send(ws, { type: "ready", connectionId: ws.data.id, timestamp: now });
+                return;
+              }
+
+              const [first, ...rest] = entries;
+              const joined = yield* joinBucket(ws, first.subscription, first.bucketKey);
+              const now = yield* Clock.currentTimeMillis;
+              send(ws, {
+                type: "ready",
+                subscription: joined.bucket.subscription,
+                connectionId: ws.data.id,
+                timestamp: now,
+              });
+              if (joined.created) yield* startBucket(joined.bucket);
+
+              for (const entry of rest) {
+                const other = yield* joinBucket(ws, entry.subscription, entry.bucketKey);
+                if (other.created) yield* startBucket(other.bucket);
+              }
             }),
 
           handleClose: (ws) =>
             Effect.gen(function* () {
-              const key = ws.data.bucketKey;
-              const map = yield* Ref.get(buckets);
-              const existing = map.get(key);
-
-              if (existing === undefined) return;
-              const bucket = existing;
-
-              // Mutate the existing clients Set in-place (mirrors handleOpen).
-              bucket.clients.delete(ws);
-
-              if (bucket.clients.size === 0) {
-                for (const f of bucket.restartFibers) {
-                  yield* Fiber.interrupt(f);
-                }
-
-                if (Option.isSome(bucket.upstream)) {
-                  const sub = bucket.upstream.value;
-                  // SDK v0.33.0: unsubscribe() returns Promise<void>
-                  yield* Effect.promise(() => sub.unsubscribe());
-                }
-                yield* Ref.update(buckets, (m) => {
-                  m.delete(key);
-                  return m;
-                });
+              const subscriptions = yield* Ref.get(ws.data.subscriptions);
+              for (const entry of subscriptions.values()) {
+                yield* releaseClient(ws, entry.bucketKey);
               }
+              yield* Ref.set(ws.data.subscriptions, new Map());
             }),
 
           handleMessage: (ws, raw) =>
@@ -158,35 +265,77 @@ export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, Hyperliqu
                 send(ws, { type: "pong", timestamp: now });
                 return;
               }
-              if (payload.length > 0) {
+              if (payload.length === 0) return;
+
+              const frame = parseMarketWsFrame(payload);
+              if (frame.kind === "unsupported") {
                 const now = yield* Clock.currentTimeMillis;
                 send(ws, {
                   type: "error",
                   code: "unsupported_message",
-                  message: "Only ping messages are supported on this endpoint.",
+                  message: "Only ping, subscribe, and unsubscribe messages are supported.",
                   timestamp: now,
                 });
+                return;
               }
+
+              if (frame.kind === "invalid_subscription") {
+                const now = yield* Clock.currentTimeMillis;
+                send(ws, {
+                  type: "error",
+                  code: "invalid_subscription",
+                  message: frame.message,
+                  timestamp: now,
+                });
+                return;
+              }
+
+              const { subscription } = frame;
+              const key = buildMarketWsBucketKey(subscription);
+
+              if (frame.action === "subscribe") {
+                yield* addMarketWsConnectionSubscription(ws.data.subscriptions, subscription, key);
+                const joined = yield* joinBucket(ws, subscription, key);
+                if (joined.created) yield* startBucket(joined.bucket);
+                send(ws, { type: "subscribed", subscription });
+                return;
+              }
+
+              const released = yield* removeMarketWsConnectionSubscription(
+                ws.data.subscriptions,
+                key,
+              );
+              if (released) yield* releaseClient(ws, key);
+              send(ws, { type: "unsubscribed", subscription });
             }),
         });
 
-        return { buckets, service } as const;
+        return { buckets, service, close: client.close } as const;
       }),
-      ({ buckets }) =>
+      ({ buckets, close }) =>
         Effect.gen(function* () {
           yield* Effect.logInfo("Shutting down MarketStreamHub");
           const map = yield* Ref.get(buckets);
           for (const bucket of map.values()) {
-            for (const f of bucket.restartFibers) {
-              yield* Fiber.interrupt(f);
+            if (Option.isSome(bucket.subscribeFiber)) {
+              yield* Fiber.interrupt(bucket.subscribeFiber.value);
             }
+            yield* Scope.close(bucket.scope, Exit.void);
             if (Option.isSome(bucket.upstream)) {
-              const sub = bucket.upstream.value;
-              yield* Effect.promise(() => sub.unsubscribe());
+              yield* unsubscribeQuietly(bucket.upstream.value);
             }
           }
+          close();
         }),
     ).pipe(Effect.map(({ service }) => service)),
+  );
+
+export const MarketStreamHubLayer: Layer.Layer<MarketStreamHub, never, HyperliquidProvider> =
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const provider = yield* HyperliquidProvider;
+      return makeMarketStreamHubLayer(provider);
+    }),
   );
 
 const resolveAndSubscribe = (
@@ -195,11 +344,11 @@ const resolveAndSubscribe = (
   provider: typeof HyperliquidProvider.Service,
   bucket: Bucket,
   detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
-  onSubscriptionError?: (error: import("@nktkas/hyperliquid").TransportError) => void,
+  onSubscriptionError?: (error: TransportError) => void,
 ): Effect.Effect<ISubscription, WebSocketSubscribeError> => {
   const subSymbol = subscription.symbol;
 
-  if (!subSymbol) {
+  if (subSymbol === undefined || subSymbol === "") {
     // No symbol means allMids or similar — subscribe directly
     return subscribeUpstream(bucket, subscriptionClient, undefined, detach, onSubscriptionError);
   }
@@ -229,33 +378,39 @@ const ensureUpstream = (
   provider: typeof HyperliquidProvider.Service,
   buckets: Ref.Ref<Map<string, Bucket>>,
   key: string,
-): Effect.Effect<void, never> =>
+  detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
+): Effect.Effect<void> =>
   Effect.gen(function* () {
     const map = yield* Ref.get(buckets);
     const existing = map.get(key);
     if (existing === undefined) return;
     const bucket = existing;
-    if (bucket.state._tag !== "idle") return;
 
-    yield* Ref.update(buckets, (m) => {
-      m.set(key, { ...bucket, state: { _tag: "subscribing" } });
-      return m;
+    const claimed = yield* Ref.modify(buckets, (m) => {
+      const current = m.get(key);
+      if (current === undefined || current.scope !== bucket.scope) return [false, m] as const;
+      if (!Predicate.isTagged(current.state, "idle")) return [false, m] as const;
+      m.set(key, { ...current, state: { _tag: "subscribing" } });
+      return [true, m] as const;
     });
+    if (!claimed) return;
 
-    const detach = (_ws: ServerWebSocket<MarketWsConnectionData>) => {
-      // no-op for now; cleanup happens in handleClose
-    };
-
-    // Capture values that may be needed in sync closures
     const subChannel = bucket.subscription.channel;
 
-    const onSubscriptionError = (error: import("@nktkas/hyperliquid").TransportError) => {
+    const onSubscriptionError = (error: TransportError) => {
       marketWsLog(
         "upstream_subscription_error",
         { bucketKey: key, channel: subChannel, error: error.message },
         "error",
       );
-      Effect.runFork(restartBucket(subscriptionClient, provider, buckets, key, error.message));
+      // Sync SDK callback: park the restart in the bucket scope so closing the
+      // bucket (or the layer) also stops it.
+      Effect.runFork(
+        Effect.forkIn(
+          restartBucket(subscriptionClient, provider, buckets, key, error.message, detach),
+          bucket.scope,
+        ),
+      );
     };
 
     yield* resolveAndSubscribe(
@@ -266,66 +421,85 @@ const ensureUpstream = (
       detach,
       onSubscriptionError,
     ).pipe(
-      Effect.retry({
-        schedule: Schedule.exponential("500 millis").pipe(Schedule.upTo({ times: 3 })),
-      }),
-      Effect.tap((sub) =>
+      Effect.flatMap((sub) =>
         Effect.gen(function* () {
-          // Read latest bucket from Ref to avoid stale client set
           const currentMap = yield* Ref.get(buckets);
-          const currentBucket = currentMap.get(key) ?? bucket;
+          const current = currentMap.get(key);
+          if (
+            current === undefined ||
+            current.scope !== bucket.scope ||
+            !Predicate.isTagged(current.state, "subscribing")
+          ) {
+            // The bucket was closed or replaced while the subscribe was in
+            // flight — never resurrect it, drop the orphaned subscription.
+            yield* unsubscribeQuietly(sub);
+            return;
+          }
           yield* Ref.update(buckets, (m) => {
+            const latest = m.get(key);
+            if (latest === undefined || latest.scope !== bucket.scope) return m;
             m.set(key, {
-              ...currentBucket,
+              ...latest,
               upstream: Option.some(sub),
-              state: { _tag: "subscribed", upstream: sub } as BucketState,
+              state: { _tag: "subscribed", upstream: sub },
               retryCount: 0,
             });
             return m;
           });
         }),
       ),
+      // A close must not land between resolving the subscription and deciding
+      // whether the bucket still owns it.
+      Effect.uninterruptible,
+      Effect.retry({
+        schedule: Schedule.exponential("500 millis").pipe(Schedule.upTo({ times: 3 })),
+      }),
       Effect.catch((error) =>
         Effect.gen(function* () {
           marketWsLog(
             "upstream_subscribe_failed",
-            {
-              bucketKey: key,
-              channel: subChannel,
-              error: error.message,
-            },
+            { bucketKey: key, channel: subChannel, error: error.message },
             "error",
           );
 
-          yield* Ref.update(buckets, (m) => {
+          const failed = yield* Ref.modify(buckets, (m) => {
             const current = m.get(key);
-            if (current === undefined) return m;
-            m.set(key, { ...current, state: { _tag: "idle" }, retryCount: current.retryCount + 1 });
+            if (current === undefined || current.scope !== bucket.scope) {
+              return [undefined, m] as const;
+            }
+            if (!Predicate.isTagged(current.state, "subscribing")) return [undefined, m] as const;
+            const next: Bucket = {
+              ...current,
+              state: { _tag: "idle" },
+              retryCount: current.retryCount + 1,
+            };
+            m.set(key, next);
+            return [next, m] as const;
+          });
+          if (failed === undefined) return;
+
+          if (failed.retryCount < MAX_RESTART_RETRIES) {
+            yield* Effect.sleep("1 second");
+            yield* ensureUpstream(subscriptionClient, provider, buckets, key, detach);
+            return;
+          }
+
+          yield* Effect.logError(`Max retries (${MAX_RESTART_RETRIES}) exceeded for ${key}`);
+          const now = yield* Clock.currentTimeMillis;
+          for (const client of failed.clients) {
+            sendQuietly(client, {
+              type: "error",
+              code: "max_retries_exceeded",
+              message: `Max retries (${MAX_RESTART_RETRIES}) exceeded for ${key}`,
+              timestamp: now,
+            });
+            closeQuietly(client, 1011, "upstream unavailable");
+          }
+          failed.clients.clear();
+          yield* Ref.update(buckets, (m) => {
+            m.delete(key);
             return m;
           });
-
-          const updatedMap = yield* Ref.get(buckets);
-          const updatedExisting = updatedMap.get(key);
-
-          if (updatedExisting !== undefined && updatedExisting.retryCount < MAX_RESTART_RETRIES) {
-            yield* Effect.sleep("1 second");
-            yield* ensureUpstream(subscriptionClient, provider, buckets, key);
-          } else if (updatedExisting !== undefined) {
-            yield* Effect.logError(`Max retries (${MAX_RESTART_RETRIES}) exceeded for ${key}`);
-            const now = yield* Clock.currentTimeMillis;
-            for (const client of updatedExisting.clients) {
-              send(client, {
-                type: "error",
-                code: "max_retries_exceeded",
-                message: `Max retries (${MAX_RESTART_RETRIES}) exceeded for ${key}`,
-                timestamp: now,
-              });
-            }
-            yield* Ref.update(buckets, (m) => {
-              m.delete(key);
-              return m;
-            });
-          }
         }),
       ),
     );
@@ -337,52 +511,39 @@ const restartBucket = (
   buckets: Ref.Ref<Map<string, Bucket>>,
   key: string,
   reason: string,
-): Effect.Effect<void, never> =>
+  detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
+): Effect.Effect<void> =>
   Effect.gen(function* () {
-    const map = yield* Ref.get(buckets);
-    const existing = map.get(key);
-    if (existing === undefined) return;
-    const bucket = existing;
-    if (bucket.state._tag === "idle") return;
+    const claimed = yield* Ref.modify(buckets, (m) => {
+      const current = m.get(key);
+      if (current === undefined) return [undefined, m] as const;
+      if (Predicate.isTagged(current.state, "idle")) return [undefined, m] as const;
+      if (Predicate.isTagged(current.state, "restarting")) return [undefined, m] as const;
+      const next: Bucket = { ...current, state: { _tag: "restarting" } };
+      m.set(key, next);
+      return [next, m] as const;
+    });
+    if (claimed === undefined) return;
 
-    for (const f of bucket.restartFibers) {
-      yield* Fiber.interrupt(f);
-    }
-
-    if (Option.isSome(bucket.upstream)) {
-      const sub = bucket.upstream.value;
-      yield* Effect.promise(() => sub.unsubscribe());
+    if (Option.isSome(claimed.upstream)) {
+      yield* unsubscribeQuietly(claimed.upstream.value);
     }
 
     const now = yield* Clock.currentTimeMillis;
-    for (const client of bucket.clients) {
-      send(client, {
-        type: "reconnecting",
-        reason,
-        timestamp: now,
-      });
+    for (const client of claimed.clients) {
+      sendQuietly(client, { type: "reconnecting", reason, timestamp: now });
     }
 
-    yield* Ref.update(buckets, (m) => {
-      m.set(key, {
-        ...bucket,
-        upstream: Option.none(),
-        state: { _tag: "idle" },
-        restartFibers: new Set(),
-      });
-      return m;
-    });
+    yield* Effect.sleep("500 millis");
 
-    const fiber = yield* Effect.forkDetach(
-      Effect.sleep("500 millis").pipe(
-        Effect.flatMap(() => ensureUpstream(subscriptionClient, provider, buckets, key)),
-      ),
-    );
-
-    yield* Ref.update(buckets, (m) => {
+    const reset = yield* Ref.modify(buckets, (m) => {
       const current = m.get(key);
-      if (current === undefined) return m;
-      m.set(key, { ...current, restartFibers: new Set(current.restartFibers).add(fiber) });
-      return m;
+      if (current === undefined || current.scope !== claimed.scope) return [false, m] as const;
+      if (!Predicate.isTagged(current.state, "restarting")) return [false, m] as const;
+      m.set(key, { ...current, upstream: Option.none(), state: { _tag: "idle" } });
+      return [true, m] as const;
     });
+    if (!reset) return;
+
+    yield* ensureUpstream(subscriptionClient, provider, buckets, key, detach);
   });

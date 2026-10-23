@@ -8,7 +8,7 @@ import { SEC_EDGAR_SEARCH_URL, SEC_EDGAR_USER_AGENT, parse } from "./parse";
 export const secEdgarProvider: CalendarSourceProvider = {
   source: "sec-edgar",
   fetchEvents: () =>
-    getJson<unknown>(SEC_EDGAR_SEARCH_URL, {
+    getJson(SEC_EDGAR_SEARCH_URL, {
       headers: { "user-agent": SEC_EDGAR_USER_AGENT },
     }).pipe(
       Effect.map((data) => parse(JSON.stringify(data))),

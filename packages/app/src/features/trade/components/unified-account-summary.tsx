@@ -3,6 +3,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "cn";
 import { useUserBalances } from "../hooks/use-user-balances";
 
+/** Loaded rows stack with this gap; the skeleton uses it so the height matches. */
+const STACK = "flex flex-col gap-[clamp(0.5rem,1vw,1rem)]";
+
+/** One loaded row is a `text-xs` line box (16px). */
+const ROW = "flex h-4 items-center justify-between";
+
+const SKELETON_ROW_KEYS = ["value", "pnl", "ratio", "leverage"];
+
 export function UnifiedAccountSummary() {
   const { marginSummary, totalUnrealizedPnl, isChLoading } = useUserBalances();
 
@@ -15,11 +23,16 @@ export function UnifiedAccountSummary() {
 
   if (isChLoading) {
     return (
-      <div className="flex items-center justify-between px-4 py-2.5">
-        <Skeleton className="h-3.5 w-20" />
-        <Skeleton className="h-3.5 w-14" />
-        <Skeleton className="h-3.5 w-14" />
-        <Skeleton className="h-3.5 w-14" />
+      <div className={STACK}>
+        <div className={ROW}>
+          <Skeleton className="h-3 w-24" />
+        </div>
+        {SKELETON_ROW_KEYS.map((key) => (
+          <div key={key} className={ROW}>
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-3 w-14" />
+          </div>
+        ))}
       </div>
     );
   }
@@ -37,7 +50,7 @@ export function UnifiedAccountSummary() {
   const pnlClass = pnlPos ? "text-gain" : "text-loss";
 
   return (
-    <div className="flex flex-col gap-[clamp(0.5rem,1vw,1rem)]">
+    <div className={STACK}>
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Unified Account

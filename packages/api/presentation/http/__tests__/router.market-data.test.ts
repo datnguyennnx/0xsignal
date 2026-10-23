@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Effect, Layer, Context } from "effect";
+import { type Context, Effect, Layer } from "effect";
 import { MarketDataService } from "../../../application/market-data/contracts";
 import { HealthService } from "../../../application/health";
 import { UserDataService } from "../../../application/user-data/contracts";
@@ -8,18 +8,16 @@ import { NotFoundError, InternalError } from "../../../application/errors";
 import { handleRequest } from "../router";
 
 const mockMarketDataService = {
-  getCandles: vi.fn(),
-  getRecentCandles: vi.fn(),
-  discoverMarkets: vi.fn(),
-  getTicker: vi.fn(),
-  getOrderBook: vi.fn(),
-  getTradeAnnotation: vi.fn(),
+  getCandles: vi.fn<Context.Service.Shape<typeof MarketDataService>["getCandles"]>(),
+  getRecentCandles: vi.fn<Context.Service.Shape<typeof MarketDataService>["getRecentCandles"]>(),
+  discoverMarkets: vi.fn<Context.Service.Shape<typeof MarketDataService>["discoverMarkets"]>(),
+  getTicker: vi.fn<Context.Service.Shape<typeof MarketDataService>["getTicker"]>(),
+  getOrderBook: vi.fn<Context.Service.Shape<typeof MarketDataService>["getOrderBook"]>(),
+  getTradeAnnotation:
+    vi.fn<Context.Service.Shape<typeof MarketDataService>["getTradeAnnotation"]>(),
 };
 
-const TestMarketDataLayer = Layer.succeed(
-  MarketDataService,
-  mockMarketDataService as unknown as Context.Service.Shape<typeof MarketDataService>,
-);
+const TestMarketDataLayer = Layer.succeed(MarketDataService, mockMarketDataService);
 
 const TestHealthLayer = Layer.succeed(HealthService, {
   check: () =>
@@ -31,23 +29,28 @@ const TestHealthLayer = Layer.succeed(HealthService, {
     }),
 });
 
-const mockUserDataService: Context.Service.Shape<typeof UserDataService> = {
-  getClearinghouseState: vi.fn(),
-  getSpotClearinghouseState: vi.fn(),
-  getOpenOrders: vi.fn(),
-  getFrontendOpenOrders: vi.fn(),
-  getMeta: vi.fn(),
-  getHistoricalOrders: vi.fn(),
-  getUserFills: vi.fn(),
+const mockUserDataService = {
+  getClearinghouseState:
+    vi.fn<Context.Service.Shape<typeof UserDataService>["getClearinghouseState"]>(),
+  getSpotClearinghouseState:
+    vi.fn<Context.Service.Shape<typeof UserDataService>["getSpotClearinghouseState"]>(),
+  getOpenOrders: vi.fn<Context.Service.Shape<typeof UserDataService>["getOpenOrders"]>(),
+  getFrontendOpenOrders:
+    vi.fn<Context.Service.Shape<typeof UserDataService>["getFrontendOpenOrders"]>(),
+  getMeta: vi.fn<Context.Service.Shape<typeof UserDataService>["getMeta"]>(),
+  getHistoricalOrders:
+    vi.fn<Context.Service.Shape<typeof UserDataService>["getHistoricalOrders"]>(),
+  getUserFills: vi.fn<Context.Service.Shape<typeof UserDataService>["getUserFills"]>(),
 };
 
-const TestUserDataLayer = Layer.succeed(UserDataService, mockUserDataService);
+const TestUserDataLayer = Layer.mock(UserDataService, mockUserDataService);
 
 // Exchange layer is required by router.ts handleRequest but unused in market-data tests
-const mockExchangeService: Context.Service.Shape<typeof ExchangeService> = {
-  placeOrder: vi.fn(),
-  updateLeverageAndMargin: vi.fn(),
-  cancelOrders: vi.fn(),
+const mockExchangeService = {
+  placeOrder: vi.fn<Context.Service.Shape<typeof ExchangeService>["placeOrder"]>(),
+  updateLeverageAndMargin:
+    vi.fn<Context.Service.Shape<typeof ExchangeService>["updateLeverageAndMargin"]>(),
+  cancelOrders: vi.fn<Context.Service.Shape<typeof ExchangeService>["cancelOrders"]>(),
 };
 const TestExchangeLayer = Layer.succeed(ExchangeService, mockExchangeService);
 
@@ -60,6 +63,14 @@ const runRequest = (path: string, method = "GET") =>
     ),
   );
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const errorMessage = (body: unknown): unknown => {
+  if (!isRecord(body)) return "Unknown error";
+  return body["error"] ?? "Unknown error";
+};
+
 const expectHttpFailure = async (
   promise: Promise<unknown>,
   expected: { status: number; message: string },
@@ -68,14 +79,14 @@ const expectHttpFailure = async (
 
   // handleRequest returns Response objects for all outcomes (including errors)
   if (result instanceof Response) {
-    const body = await result.json();
-    expect({ status: result.status, message: body.error ?? "Unknown error" }).toEqual(expected);
+    const body: unknown = await result.json();
+    expect({ status: result.status, message: errorMessage(body) }).toEqual(expected);
     return;
   }
 
   // Fallback: check for thrown errors
-  if (result && typeof result === "object") {
-    const candidate = result as { status?: unknown; message?: unknown };
+  if (isRecord(result)) {
+    const candidate = result;
     if (typeof candidate.status === "number" && typeof candidate.message === "string") {
       expect({ status: candidate.status, message: candidate.message }).toEqual(expected);
       return;
@@ -137,6 +148,7 @@ describe("HTTP Market Data Router", () => {
   });
 
   it("returns 404 for unknown route", async () => {
+    expect.hasAssertions();
     await expectHttpFailure(runRequest("/api/unknown"), {
       status: 404,
       message: "Not found",
@@ -144,6 +156,7 @@ describe("HTTP Market Data Router", () => {
   });
 
   it("returns 405 for unsupported method", async () => {
+    expect.hasAssertions();
     await expectHttpFailure(runRequest("/api/markets", "POST"), {
       status: 405,
       message: "Method POST not allowed",
@@ -184,6 +197,7 @@ describe("HTTP Market Data Router", () => {
   });
 
   it("returns 400 for invalid candle query", async () => {
+    expect.hasAssertions();
     await expectHttpFailure(runRequest("/api/candles?interval=1m"), {
       status: 400,
       message: "Missing required query parameter: symbol",
@@ -203,6 +217,7 @@ describe("HTTP Market Data Router", () => {
   });
 
   it("rejects malformed integer suffixes for candle limit", async () => {
+    expect.hasAssertions();
     await expectHttpFailure(runRequest("/api/candles?symbol=BTC&interval=1m&limit=2abc"), {
       status: 400,
       message: "Invalid integer for limit: 2abc",
@@ -243,6 +258,7 @@ describe("HTTP Market Data Router", () => {
   });
 
   it("rejects unsupported orderbook precision values", async () => {
+    expect.hasAssertions();
     await expectHttpFailure(runRequest("/api/orderbook?symbol=BTC&nSigFigs=6"), {
       status: 400,
       message: "Invalid nSigFigs: 6. Supported values are 2, 3, 4, 5.",
@@ -250,6 +266,7 @@ describe("HTTP Market Data Router", () => {
   });
 
   it("rejects malformed orderbook precision values", async () => {
+    expect.hasAssertions();
     await expectHttpFailure(runRequest("/api/orderbook?symbol=BTC&nSigFigs=2abc"), {
       status: 400,
       message: "Invalid nSigFigs: 2abc. Supported values are 2, 3, 4, 5.",
@@ -257,6 +274,7 @@ describe("HTTP Market Data Router", () => {
   });
 
   it("maps ticker not found errors to 404", async () => {
+    expect.hasAssertions();
     mockMarketDataService.getTicker.mockReturnValue(
       Effect.fail(new NotFoundError({ message: "Symbol not found: XRP" })),
     );
@@ -268,6 +286,7 @@ describe("HTTP Market Data Router", () => {
   });
 
   it("maps upstream ticker failures to 502", async () => {
+    expect.hasAssertions();
     mockMarketDataService.getTicker.mockReturnValue(
       Effect.fail(new InternalError({ message: "Upstream provider unavailable" })),
     );

@@ -1,54 +1,30 @@
 import { Context, type Effect } from "effect";
-import type { Candle } from "@0xsignal/shared";
+import type { AggregatedMarket, Candle, MarketTicker } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
 import type { L2BookResponse, PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
 import type { HyperliquidError } from "./errors";
 
+export type { Candle, MarketTicker as TickerPayload };
+export type { PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
+
 // Perp/spot discriminated union types
 
-export type MarketType = "perp" | "spot";
-
-/** Base fields shared by ALL market types. */
-interface BaseTradeAsset {
-  readonly coin: string;
-  readonly rawCoin: string;
-  readonly displaySymbol: string;
-  readonly dexPrefix: string | null;
-  readonly isHip3: boolean;
-  readonly quoteCurrency: string;
-  readonly name: string;
-  readonly category: string;
-  readonly displayCategory: string;
-  readonly isDelisted: boolean;
+/** Narrowed to the only venue this data source serves; the rest is the shared contract. */
+interface BaseTradeAsset extends AggregatedMarket {
   readonly dex: "HYPERLIQUID";
-  readonly assetId: number;
-  readonly marketType: MarketType;
 }
 
-/** Perpetual market (HIP-1 main or HIP-3 builder). Has funding, OI, leverage. */
+/** Perpetual market (HIP-1 main or HIP-3 builder). Inherits funding, OI and leverage. */
 export interface PerpTradeAsset extends BaseTradeAsset {
   readonly marketType: "perp";
-  readonly markPx: string;
-  readonly prevDayPx: string;
-  readonly openInterest: string;
-  readonly funding: string;
-  readonly dayNtlVlm: string;
-  readonly maxLeverage: number;
-  readonly szDecimals: number;
 }
 
-/** Spot market. No funding/OI, 1x leverage. */
+/** Spot market. Adds supply/volume fields that never cross the boundary. */
 export interface SpotTradeAsset extends BaseTradeAsset {
   readonly marketType: "spot";
-  readonly markPx: string;
-  readonly prevDayPx: string;
-  readonly dayNtlVlm: string;
   readonly dayBaseVlm: string;
-  readonly circulatingSupply?: string;
-  readonly totalSupply?: string;
-  readonly evmContract?: string;
+  readonly totalSupply?: string | undefined;
   readonly maxLeverage: 1;
-  readonly szDecimals: number;
   /** Spot markets always have zero funding with no open interest. */
   readonly openInterest: "0";
   readonly funding: "0";
@@ -58,33 +34,22 @@ export type HyperliquidAggregatedAsset = PerpTradeAsset | SpotTradeAsset;
 
 export interface MarketUniverseItem {
   readonly name: string;
-  readonly szDecimals?: number;
-  readonly maxLeverage?: number;
-  readonly isDelisted?: boolean;
-  readonly dexIndex?: number;
-  readonly displayName?: string;
+  readonly szDecimals?: number | undefined;
+  readonly maxLeverage?: number | undefined;
+  readonly isDelisted?: boolean | undefined;
+  readonly dexIndex?: number | undefined;
+  readonly displayName?: string | undefined;
   readonly tokens?: [number, number];
 }
 
 export type MarketAssetCtxItem = {
-  readonly prevDayPx?: string;
-  readonly dayNtlVlm?: string;
-  readonly markPx?: string;
-  readonly midPx?: string | null;
-  readonly funding?: string;
-  readonly openInterest?: string;
-  readonly premium?: string | null;
-};
-
-export type TickerPayload = {
-  readonly symbol: string;
-  readonly mid: number | null;
-  readonly markPx: number | null;
-  readonly midPx: number | null;
-  readonly prevDayPx: number | null;
-  readonly dayNtlVlm: number | null;
-  readonly openInterest: number | null;
-  readonly funding: number | null;
+  readonly prevDayPx?: string | undefined;
+  readonly dayNtlVlm?: string | undefined;
+  readonly markPx?: string | undefined;
+  readonly midPx?: string | null | undefined;
+  readonly funding?: string | undefined;
+  readonly openInterest?: string | undefined;
+  readonly premium?: string | null | undefined;
 };
 
 export type OrderBookPayload = {
@@ -113,7 +78,7 @@ export class HyperliquidProvider extends Context.Service<
       readonly HyperliquidAggregatedAsset[],
       HyperliquidError
     >;
-    readonly getTicker: (symbol: string) => Effect.Effect<TickerPayload, HyperliquidError>;
+    readonly getTicker: (symbol: string) => Effect.Effect<MarketTicker, HyperliquidError>;
     readonly getOrderBook: (
       symbol: string,
       depth?: number | null,
@@ -127,9 +92,8 @@ export class HyperliquidProvider extends Context.Service<
 /**
  * Subset of InfoClient methods used by the mapping/service layer.
  *
- * InfoClient from the library has a larger interface, but this type narrows
- * it to only the methods actually consumed. Casts are required because
- * TypeScript cannot verify structural compatibility with the external type.
+ * InfoClient from the library exposes more methods, but it is structurally
+ * assignable to this narrower surface, so no cast is needed to narrow it.
  */
 export type HyperliquidInfoClient = {
   readonly metaAndAssetCtxs: (params?: { dex?: string }) => Promise<[unknown, unknown]>;

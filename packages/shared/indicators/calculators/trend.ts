@@ -116,7 +116,7 @@ export const calculateHMA = (data: ChartDataPoint[], period: number): IndicatorD
 
   const wmaHalf = calculateWMA(data, halfPeriod);
   const wmaFull = calculateWMA(data, period);
-  if (!wmaHalf.length || !wmaFull.length) return [];
+  if (wmaHalf.length === 0 || wmaFull.length === 0) return [];
 
   const fullByTime = new Map<number, number>();
   for (const point of wmaFull) {

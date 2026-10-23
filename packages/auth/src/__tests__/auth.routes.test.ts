@@ -3,13 +3,15 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { AuthService } from "../application/auth.service";
 import { buildAuthRoutes } from "../presentation/auth.routes";
 
+type AuthServiceShape = (typeof AuthService)["Service"];
+
 const mockAuthService = {
-  getAuthorizationUrl: vi.fn(),
-  handleCallback: vi.fn(),
-  exchangeCode: vi.fn(),
-  verifyToken: vi.fn(),
-  refreshTokens: vi.fn(),
-  logout: vi.fn(),
+  getAuthorizationUrl: vi.fn<AuthServiceShape["getAuthorizationUrl"]>(),
+  handleCallback: vi.fn<AuthServiceShape["handleCallback"]>(),
+  exchangeCode: vi.fn<AuthServiceShape["exchangeCode"]>(),
+  verifyToken: vi.fn<AuthServiceShape["verifyToken"]>(),
+  refreshTokens: vi.fn<AuthServiceShape["refreshTokens"]>(),
+  logout: vi.fn<AuthServiceShape["logout"]>(),
 };
 
 const TestLayer = Layer.succeed(AuthService, mockAuthService);
@@ -45,8 +47,8 @@ describe("auth routes", () => {
     const result = await runtime.runPromise(loginRoute!.handler(request));
 
     expect(result.status).toBe(400);
-    const body = await result.json();
-    expect(body.error).toBe("Invalid provider");
+    const body: unknown = await result.json();
+    expect(body).toMatchObject({ error: "Invalid provider" });
   });
 
   it("handles callback and redirects with code", async () => {
@@ -79,8 +81,8 @@ describe("auth routes", () => {
     const result = await runtime.runPromise(callbackRoute!.handler(request));
 
     expect(result.status).toBe(400);
-    const body = await result.json();
-    expect(body.error).toBe("Missing required parameters");
+    const body: unknown = await result.json();
+    expect(body).toMatchObject({ error: "Missing required parameters" });
   });
 
   it("handles token exchange", async () => {
@@ -105,8 +107,8 @@ describe("auth routes", () => {
     const result = await runtime.runPromise(tokenRoute!.handler(request));
 
     expect(result.status).toBe(200);
-    const body = await result.json();
-    expect(body.accessToken).toBe("access-123");
+    const body: unknown = await result.json();
+    expect(body).toMatchObject({ accessToken: "access-123" });
     expect(result.headers.get("Set-Cookie")).toContain("refresh_token=refresh-456");
     expect(mockAuthService.exchangeCode).toHaveBeenCalledWith("one-time-code-123");
   });
@@ -132,8 +134,8 @@ describe("auth routes", () => {
     const result = await runtime.runPromise(refreshRoute!.handler(request));
 
     expect(result.status).toBe(200);
-    const body = await result.json();
-    expect(body.accessToken).toBe("access-789");
+    const body: unknown = await result.json();
+    expect(body).toMatchObject({ accessToken: "access-789" });
     expect(result.headers.get("Set-Cookie")).toContain("refresh_token=refresh-rotated");
     expect(mockAuthService.refreshTokens).toHaveBeenCalledWith("refresh-456");
   });

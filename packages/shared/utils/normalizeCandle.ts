@@ -1,10 +1,9 @@
 import type { ChartDataPoint } from "../types/chart";
-import type { Candle } from "../schemas/market-data";
 
 type CandleInput = {
-  timestamp?: string | number;
+  timestamp?: Date | string | number;
   time?: string | number;
-  t?: number;
+  t?: string | number;
   open?: unknown;
   o?: unknown;
   high?: unknown;
@@ -17,7 +16,11 @@ type CandleInput = {
   v?: unknown;
 };
 
-function toNumericTimestampMs(value: string | number | undefined): number | null {
+function toNumericTimestampMs(value: Date | string | number | undefined): number | null {
+  if (value instanceof Date) {
+    const ms = value.getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
   if (typeof value === "number") {
     if (Number.isFinite(value)) {
       return value > 1_000_000_000_000 ? value : value * 1000;
@@ -60,41 +63,4 @@ export function normalizeCandle(input: CandleInput): ChartDataPoint | null {
     return null;
   }
   return { time: Math.floor(tsMs / 1000), open, high, low, close, volume };
-}
-
-/**
- * Deduplicate and sort chart data points by time ascending.
- * When multiple points share the same timestamp, the last one wins.
- */
-export function normalizeChartDataPoints(points: readonly ChartDataPoint[]): ChartDataPoint[] {
-  const dedupedByTime = new Map<number, ChartDataPoint>();
-
-  for (const point of points) {
-    if (Number.isFinite(point.time)) {
-      dedupedByTime.set(point.time, point);
-    }
-  }
-
-  return Array.from(dedupedByTime.values()).sort((a, b) => a.time - b.time);
-}
-
-/**
- * Directly converts a Candle to a ChartDataPoint (epoch-seconds-based).
- * Handles timestamp as Date, ISO string, or Unix ms number.
- * API returns timestamp as ISO string (response.json() doesn't create Date objects).
- */
-export function candleToChartDataPoint(candle: Candle): ChartDataPoint {
-  // API returns timestamp as ISO string (response.json() doesn't create Date objects),
-  // but can also be a Date or Unix ms number depending on the data source.
-  const ts =
-    typeof candle.timestamp === "number" ? candle.timestamp : new Date(candle.timestamp).getTime();
-
-  return {
-    time: Math.floor(ts / 1000),
-    open: candle.open,
-    high: candle.high,
-    low: candle.low,
-    close: candle.close,
-    volume: candle.volume,
-  };
 }

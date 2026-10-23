@@ -1,7 +1,7 @@
 import { Effect, Layer } from "effect";
 import type { CalendarQuery, CalendarSource, EconomicEvent } from "@0xsignal/shared";
-import { CalendarRepo } from "../../infrastructure/repos/calendar.repo";
-import { CalendarSources } from "../../infrastructure/data-sources/calendar-source";
+import { CalendarRepo } from "./repo.contracts";
+import { CalendarSources } from "./sources.contracts";
 import { CalendarService, CalendarServiceError } from "./contracts";
 
 const mapRepoError =
@@ -11,7 +11,7 @@ const mapRepoError =
 
 const NO_EVENTS: readonly EconomicEvent[] = [];
 
-export const makeCalendarService = () =>
+const makeCalendarService = () =>
   Effect.gen(function* () {
     const repo = yield* CalendarRepo;
     const providers = yield* CalendarSources;

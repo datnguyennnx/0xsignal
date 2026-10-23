@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 
 # Stage 1: Dependencies (cached)
-FROM oven/bun:1-alpine AS deps
+FROM oven/bun:1.3.10-alpine AS deps
 WORKDIR /app
 
 COPY package.json bun.lock ./
@@ -14,7 +14,7 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile
 
 # Stage 2: Builder
-FROM oven/bun:1-alpine AS builder
+FROM oven/bun:1.3.10-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -38,11 +38,9 @@ COPY packages/app/nginx.conf /etc/nginx/nginx.conf
 COPY --from=builder /app/packages/app/dist /usr/share/nginx/html
 
 # Security hardening
-RUN chown -R nginx:nginx /usr/share/nginx/html \
-    && chmod -R 755 /usr/share/nginx/html \
+RUN chmod -R 755 /usr/share/nginx/html \
     && find /usr/share/nginx/html -type f -exec chmod 644 {} \; \
-    && chown -R nginx:nginx /var/cache/nginx \
-    && chown -R nginx:nginx /var/log/nginx \
+    && chown -R nginx:nginx /var/cache/nginx /var/log/nginx \
     && touch /var/run/nginx.pid \
     && chown nginx:nginx /var/run/nginx.pid \
     && rm -rf /var/cache/apk/*

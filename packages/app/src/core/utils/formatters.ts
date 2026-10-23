@@ -1,5 +1,8 @@
 export const MAX_SIG_FIGS = 5;
 
+/** Re-exported so display-only consumers need a single formatting module. */
+export { truncateAddress } from "./address";
+
 export const formatPrice = (price: number, pxDecimals?: number): string => {
   const maxDec = pxDecimals ?? Math.min(MAX_SIG_FIGS, 6);
   const config =

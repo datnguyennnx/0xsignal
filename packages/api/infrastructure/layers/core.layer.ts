@@ -1,0 +1,6 @@
+import { Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+import { BunServices } from "@effect/platform-bun";
+import { devLoggerLayer } from "../logging/logger";
+
+export const CoreLayer = Layer.mergeAll(devLoggerLayer, BunServices.layer, FetchHttpClient.layer);

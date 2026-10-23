@@ -46,8 +46,7 @@ export function useUserBalances(): UserBalances {
   const spotUsdcTotal = spotUsdc ? Number(spotUsdc.total) : null;
   const spotUsdcHold = spotUsdc ? Number(spotUsdc.hold) : null;
 
-  const usdcTotalBalance =
-    spotUsdcTotal !== null ? spotUsdcTotal : Number(marginSummary?.totalRawUsd ?? 0);
+  const usdcTotalBalance = spotUsdcTotal ?? Number(marginSummary?.totalRawUsd ?? 0);
   const usdcAvailableBalance =
     spotUsdcTotal !== null && spotUsdcHold !== null
       ? spotUsdcTotal - spotUsdcHold

@@ -1,27 +1,34 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { Effect } from "effect";
+import type {
+  ExchangeClient,
+  ExchangeConfig,
+  HttpTransport,
+  HttpTransportOptions,
+} from "@nktkas/hyperliquid";
 import {
   mockInfoInstance,
   makeTestLayer,
+  makeMetaResponse,
   USER_A,
   ExchangeService,
   HyperliquidInternalError,
 } from "./helpers";
 
 const mockExchangeInstance = vi.hoisted(() => ({
-  order: vi.fn(),
-  updateLeverage: vi.fn(),
-  cancel: vi.fn(),
+  order: vi.fn<ExchangeClient["order"]>(),
+  updateLeverage: vi.fn<ExchangeClient["updateLeverage"]>(),
+  cancel: vi.fn<ExchangeClient["cancel"]>(),
 }));
 
 vi.mock("@nktkas/hyperliquid", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@nktkas/hyperliquid")>();
   return {
     ...actual,
-    ExchangeClient: vi.fn(function () {
+    ExchangeClient: vi.fn<(config: ExchangeConfig) => typeof mockExchangeInstance>(function () {
       return mockExchangeInstance;
     }),
-    HttpTransport: vi.fn(),
+    HttpTransport: vi.fn<(options?: HttpTransportOptions) => HttpTransport>(),
   };
 });
 
@@ -32,7 +39,7 @@ describe("ExchangeService — order operations", () => {
 
   describe("cancelOrders", () => {
     it("cancels a single order by symbol and orderId", async () => {
-      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }, { name: "ETH" }] });
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC", "ETH"]));
       mockExchangeInstance.cancel.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
@@ -52,9 +59,7 @@ describe("ExchangeService — order operations", () => {
     });
 
     it("cancels multiple orders across different symbols", async () => {
-      mockInfoInstance.meta.mockResolvedValueOnce({
-        universe: [{ name: "BTC" }, { name: "ETH" }, { name: "SOL" }],
-      });
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC", "ETH", "SOL"]));
       mockExchangeInstance.cancel.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
@@ -84,7 +89,7 @@ describe("ExchangeService — order operations", () => {
     });
 
     it("fails with HyperliquidInternalError for unknown symbol", async () => {
-      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
 
       const result = await Effect.runPromise(
         Effect.gen(function* () {
@@ -96,7 +101,7 @@ describe("ExchangeService — order operations", () => {
       );
 
       expect(result).toBeInstanceOf(HyperliquidInternalError);
-      expect(result._tag).toBe("HyperliquidInternalError");
+      expect(result).toHaveProperty("_tag", "HyperliquidInternalError");
     });
   });
 });

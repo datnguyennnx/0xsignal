@@ -1,2 +1,18 @@
-# Run lint-staged
+#!/bin/sh
+set -e
+
+echo "==> lint-staged: format + autofix staged files"
 bunx lint-staged
+
+echo "==> format:check: catch drift outside the staged set"
+bun run format:check
+
+echo "==> lint:strict: lint gate (0 errors, 0 warnings allowed)"
+bun run lint:strict
+
+echo "==> typecheck: turbo run typecheck"
+bun run typecheck
+
+echo "==> knip: dead code / unused dependency gate (blocking)"
+
+bun run knip

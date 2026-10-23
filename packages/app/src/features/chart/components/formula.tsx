@@ -14,14 +14,22 @@ export function IndicatorFormula({ value }: IndicatorFormulaProps) {
   }
 
   const equations = tokenize(value);
+  const seen = new Map<string, number>();
 
   return (
     <div className="rounded-xl material-base p-[clamp(0.75rem,1vw,1rem)] overflow-x-auto overscroll-none space-y-2">
-      {equations.map((eq, i) => (
-        <div key={i} className="min-h-[1.5rem] flex items-center justify-center">
-          <BlockMath math={eq} />
-        </div>
-      ))}
+      {equations.map((eq) => {
+        const occurrence = (seen.get(eq) ?? 0) + 1;
+        seen.set(eq, occurrence);
+        return (
+          <div
+            key={`${eq}#${occurrence}`}
+            className="min-h-[1.5rem] flex items-center justify-center"
+          >
+            <BlockMath math={eq} />
+          </div>
+        );
+      })}
     </div>
   );
 }

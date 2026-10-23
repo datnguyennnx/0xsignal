@@ -42,7 +42,9 @@ export function HeaderCell({
     return (
       <button
         type="button"
-        onClick={() => onSort(sortField)}
+        onClick={() => {
+          onSort(sortField);
+        }}
         className={cn(
           "hover:text-foreground transition-colors flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)] cursor-pointer bg-transparent border-none p-0 w-full whitespace-nowrap",
           col.align === "right" && "justify-end",

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "treatConfigHintsAsErrors": false,
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "unlisted": "error",
+    "binaries": "error",
+    "exports": "warn",
+    "types": "warn",
+    "unresolved": "warn",
+    "duplicates": "off",
+    "cycles": "warn",
+  },
+  "workspaces": {
+    ".": {
+      "entry": [],
+      "project": [],
+    },
+    "packages/app": {
+      "entry": [
+        // Knip treats every file here as an entry point, so it never reports an
+        // unused primitive in ui/ as a dead file. Keep the glob: it covers the
+        // whole directory and unused primitives are removed by hand.
+        "src/components/ui/**/*.{ts,tsx}",
+        "src/components/glass/index.ts",
+        "src/services/api/index.ts",
+      ],
+      "project": ["src/**/*.{ts,tsx,css}"],
+      // Consumed from CSS, not JS: src/index.css @imports both, with the @tailwindcss/vite plugin wired in vite.config.ts. Do not delete these packages.
+    },
+    "packages/api": {
+      "project": ["**/*.ts"],
+    },
+    "packages/auth": {
+      "project": ["src/**/*.ts"],
+      "ignoreExportsUsedInFile": {
+        "type": true,
+        "interface": true,
+      },
+    },
+    "packages/shared": {
+      "project": ["**/*.ts"],
+      "ignoreExportsUsedInFile": {
+        "type": true,
+      },
+    },
+  },
+}

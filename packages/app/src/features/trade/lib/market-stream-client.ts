@@ -22,7 +22,7 @@ const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
  *   directly to the API server — no Vite proxy.
  * - Otherwise, construct a relative URL through the Vite dev-server proxy.
  */
-export const createMarketStreamWsUrl = (
+const createMarketStreamWsUrl = (
   apiBase: string,
   locationLike: Pick<Location, "protocol" | "host"> | undefined,
 ): string => {
@@ -48,7 +48,7 @@ export const createMarketStreamWsUrl = (
  * relative path for Vite proxy routing.
  */
 const resolveWsApiBase = (): string => {
-  if (configuredApiUrl) {
+  if (configuredApiUrl !== undefined && configuredApiUrl !== "") {
     // Ensure trailing /api is present
     const normalized = configuredApiUrl.replace(/\/+$/, "");
     return normalized.endsWith("/api") ? normalized : `${normalized}/api`;
@@ -62,94 +62,209 @@ const MARKET_STREAM_WS_URL = createMarketStreamWsUrl(WS_API_BASE, globalThis.loc
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
 
-export const buildMarketStreamSearchParams = (
-  subscription: WsMarketSubscription,
-): URLSearchParams => {
-  const params = new URLSearchParams();
-  params.set("channel", subscription.channel);
+interface MarketStreamCallbacks {
+  onMessage: (data: unknown, channel: string, meta?: MarketStreamMeta) => void;
+  onConnectionChange?: (connected: boolean) => void;
+  onError?: (error: Error) => void;
+  /** Fires when the WebSocket successfully reconnects after a disconnect. */
+  onReconnect?: () => void;
+}
 
+// ── Subscription identity ────────────────────────────────────────────
+// One socket carries every subscription for an endpoint, so frames are
+// routed by the identity echoed on the wire, never by socket instance.
+
+const toWireSubscription = (subscription: WsMarketSubscription): WsMarketSubscription => {
+  const symbol = normalizeSymbol(subscription.symbol ?? "");
+  if (subscription.channel === "allMids") return { channel: "allMids" };
+  if (subscription.channel === "trades") return { channel: "trades", symbol };
   if (subscription.channel === "l2Book") {
-    if (subscription.symbol) {
-      params.set("symbol", normalizeSymbol(subscription.symbol));
-    }
-    if (subscription.nSigFigs != null) {
-      params.set("nSigFigs", String(subscription.nSigFigs));
-    }
-    params.set("maxDepth", "20");
-  } else if (subscription.channel === "candle") {
-    if (subscription.symbol) {
-      params.set("symbol", normalizeSymbol(subscription.symbol));
-    }
-    if (subscription.interval) {
-      params.set("interval", subscription.interval);
-    }
-  } else if (subscription.channel === "trades") {
-    if (subscription.symbol) {
-      params.set("symbol", normalizeSymbol(subscription.symbol));
-    }
+    return {
+      channel: "l2Book",
+      symbol,
+      ...(subscription.nSigFigs != null && { nSigFigs: subscription.nSigFigs }),
+    };
   }
-  // allMids: channel only, no extra params
-
-  return params;
+  return { channel: "candle", symbol, interval: subscription.interval ?? "1m" };
 };
 
-export interface MarketStreamSubscription {
+/** Mirrors the server bucket key so duplicate identities share one refcount. */
+const buildSubscriptionKey = (subscription: WsMarketSubscription): string => {
+  if (subscription.channel === "allMids") return "allMids";
+  if (subscription.channel === "trades") return `trades:${subscription.symbol ?? ""}`;
+  if (subscription.channel === "l2Book") {
+    return `l2Book:${subscription.symbol ?? ""}:${subscription.nSigFigs ?? "raw"}`;
+  }
+  return `candle:${subscription.symbol ?? ""}:${subscription.interval ?? ""}`;
+};
+
+interface MarketStreamSubscription {
   unsubscribe(): void;
 }
 
 // ── Shared WebSocket connection pool ─────────────────────────────────
-// Multiple subscribers to the same URL share one underlying WebSocket.
-// The connection is closed when the last subscriber leaves.
+// One socket per server endpoint carries every subscription. Individual
+// subscriptions are released by key; the socket closes when none remain.
+
+interface SubscriptionRegistration {
+  readonly callbacks: MarketStreamCallbacks;
+}
+
+interface SharedSubscription {
+  readonly subscription: WsMarketSubscription;
+  refCount: number;
+  readonly registrations: Set<SubscriptionRegistration>;
+}
 
 interface SharedConnection {
+  readonly url: string;
   socket: WebSocket | null;
-  refCount: number;
+  readonly subscriptions: Map<string, SharedSubscription>;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   reconnectAttempt: number;
   cancelled: boolean;
-  /** Called on reconnect (open after close) */
-  onReconnectCallbacks: Set<() => void>;
-  /** Message handlers that survive socket reconnects */
-  messageHandlers: Set<(data: string) => void>;
-  /** Open/connection-change handlers that survive socket reconnects */
-  openHandlers: Set<() => void>;
-  /** Error handlers that survive socket reconnects */
-  errorHandlers: Set<() => void>;
-  /** Close handlers that survive socket reconnects */
-  closeHandlers: Set<() => void>;
 }
 
 const connectionPool = new Map<string, SharedConnection>();
 
+const forEachRegistration = (
+  entry: SharedConnection,
+  callback: (callbacks: MarketStreamCallbacks) => void,
+): void => {
+  for (const shared of entry.subscriptions.values()) {
+    for (const registration of shared.registrations) {
+      callback(registration.callbacks);
+    }
+  }
+};
+
+const sendSubscriptionFrame = (
+  socket: WebSocket,
+  type: "subscribe" | "unsubscribe",
+  subscription: WsMarketSubscription,
+): void => {
+  socket.send(JSON.stringify({ type, subscription }));
+};
+
+type DecodedMarketMessage = Extract<ReturnType<typeof decodeMarketWsMessage>, { kind: "market" }>;
+
+const matchesSubscription = (
+  subscription: WsMarketSubscription,
+  meta: MarketStreamMeta | undefined,
+): boolean => {
+  if (meta === undefined) return true;
+  if (meta.coin !== undefined && meta.coin !== subscription.symbol) return false;
+  if (meta.interval !== undefined && meta.interval !== subscription.interval) return false;
+  if (meta.nSigFigs !== undefined) {
+    return (subscription.nSigFigs ?? null) === meta.nSigFigs;
+  }
+  return true;
+};
+
+const deliverMarketMessage = (
+  decoded: DecodedMarketMessage,
+  callbacks: MarketStreamCallbacks,
+): void => {
+  if (decoded.channel === "l2Book") {
+    callbacks.onMessage(decoded.payload, "l2Book", decoded.meta);
+    return;
+  }
+
+  if (decoded.channel === "trades") {
+    callbacks.onMessage(unwrapTradePayload(decoded.payload), "trades");
+    return;
+  }
+
+  if (decoded.channel === "allMids") {
+    callbacks.onMessage(unwrapTickerPayload(decoded.payload), "allMids");
+    return;
+  }
+
+  const candles = convertToCandlePayload(decoded.payload);
+  if (candles.length > 0) {
+    callbacks.onMessage(candles, "candle", decoded.meta);
+  }
+};
+
+const dispatchMarketMessage = (entry: SharedConnection, parsed: unknown): void => {
+  for (const shared of entry.subscriptions.values()) {
+    const decoded = decodeMarketWsMessage(parsed, shared.subscription.channel);
+    if (decoded.kind !== "market") continue;
+    if (!matchesSubscription(shared.subscription, decoded.meta)) continue;
+    for (const registration of shared.registrations) {
+      deliverMarketMessage(decoded, registration.callbacks);
+    }
+  }
+};
+
+const dispatchMessage = (entry: SharedConnection, raw: string): void => {
+  let parsed: unknown = raw;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = raw;
+  }
+
+  const control = decodeMarketWsMessage(parsed, "allMids");
+  if (control.kind === "control") {
+    if (control.type === "ready") {
+      forEachRegistration(entry, (callbacks) => callbacks.onConnectionChange?.(true));
+    } else if (control.type === "error") {
+      const message = control.message ?? "Market stream reported an error";
+      forEachRegistration(entry, (callbacks) => {
+        callbacks.onConnectionChange?.(false);
+        callbacks.onError?.(new Error(message));
+      });
+    } else if (control.type === "reconnecting") {
+      forEachRegistration(entry, (callbacks) => callbacks.onConnectionChange?.(false));
+    }
+    return;
+  }
+
+  dispatchMarketMessage(entry, parsed);
+};
+
 function attachSharedListeners(entry: SharedConnection, socket: WebSocket): void {
   socket.addEventListener("open", () => {
+    if (entry.cancelled || entry.socket !== socket) return;
     const isReconnect = entry.reconnectAttempt > 0;
     entry.reconnectAttempt = 0;
-    // Notify open handlers (connection change)
-    entry.openHandlers.forEach((cb) => cb());
-    // Notify reconnect callbacks if this is a reconnect
+
+    // Re-register every active subscription before notifying reconnect handlers.
+    for (const shared of entry.subscriptions.values()) {
+      sendSubscriptionFrame(socket, "subscribe", shared.subscription);
+    }
+
+    forEachRegistration(entry, (callbacks) => callbacks.onConnectionChange?.(true));
+
     if (isReconnect) {
-      entry.onReconnectCallbacks.forEach((cb) => cb());
+      forEachRegistration(entry, (callbacks) => callbacks.onReconnect?.());
     }
   });
 
   socket.addEventListener("message", (event: MessageEvent<string>) => {
-    entry.messageHandlers.forEach((handler) => handler(event.data));
+    if (entry.cancelled || entry.socket !== socket) return;
+    dispatchMessage(entry, event.data);
   });
 
   socket.addEventListener("close", () => {
+    if (entry.socket !== socket) return;
+    entry.socket = null;
     if (!entry.cancelled) scheduleReconnect(entry);
-    entry.closeHandlers.forEach((cb) => cb());
+    forEachRegistration(entry, (callbacks) => callbacks.onConnectionChange?.(false));
   });
 
   socket.addEventListener("error", () => {
-    // Error event is followed by close, reconnect is handled there
-    entry.errorHandlers.forEach((cb) => cb());
+    if (entry.cancelled || entry.socket !== socket) return;
+    forEachRegistration(entry, (callbacks) => {
+      callbacks.onConnectionChange?.(false);
+      callbacks.onError?.(new Error("Market WebSocket connection failed"));
+    });
   });
 }
 
 function scheduleReconnect(entry: SharedConnection): void {
-  if (entry.cancelled || entry.reconnectTimer) return;
+  if (entry.cancelled || entry.reconnectTimer !== null) return;
   const delay = Math.min(
     RECONNECT_BASE_DELAY_MS * Math.pow(2, entry.reconnectAttempt),
     RECONNECT_MAX_DELAY_MS,
@@ -158,130 +273,95 @@ function scheduleReconnect(entry: SharedConnection): void {
   entry.reconnectTimer = setTimeout(() => {
     entry.reconnectTimer = null;
     if (entry.cancelled) return;
-    const ws = new WebSocket(urlForEntry(entry)!);
-    entry.socket = ws;
-    attachSharedListeners(entry, ws);
+    const socket = new WebSocket(entry.url);
+    entry.socket = socket;
+    attachSharedListeners(entry, socket);
   }, delay);
 }
 
-/** Retrieve the URL from the connection pool key for a given entry. */
-function urlForEntry(entry: SharedConnection): string | null {
-  for (const [url, e] of connectionPool) {
-    if (e === entry) return url;
-  }
-  return null;
-}
-
-function acquireConnection(url: string): {
-  addMessageHandler: (handler: (data: string) => void) => void;
-  removeMessageHandler: (handler: (data: string) => void) => void;
-  addOpenHandler: (handler: () => void) => void;
-  removeOpenHandler: (handler: () => void) => void;
-  addErrorHandler: (handler: () => void) => void;
-  removeErrorHandler: (handler: () => void) => void;
-  addCloseHandler: (handler: () => void) => void;
-  removeCloseHandler: (handler: () => void) => void;
-  release: () => void;
-  onReconnect: (cb: () => void) => void;
-  /** Whether the socket is currently open */
-  isConnected: () => boolean;
-} {
-  const existingEntry = connectionPool.get(url);
-
-  if (existingEntry) {
-    existingEntry.refCount++;
-    return createConnectionHandle(url, existingEntry);
+function acquireConnection(
+  subscription: WsMarketSubscription,
+  callbacks: MarketStreamCallbacks,
+): { release: () => void } {
+  let entry = connectionPool.get(MARKET_STREAM_WS_URL);
+  if (entry === undefined) {
+    entry = {
+      url: MARKET_STREAM_WS_URL,
+      socket: null,
+      subscriptions: new Map(),
+      reconnectTimer: null,
+      reconnectAttempt: 0,
+      cancelled: false,
+    };
+    connectionPool.set(MARKET_STREAM_WS_URL, entry);
   }
 
-  // Create new connection
-  const onReconnectCallbacks = new Set<() => void>();
-  const messageHandlers = new Set<(data: string) => void>();
-  const openHandlers = new Set<() => void>();
-  const errorHandlers = new Set<() => void>();
-  const closeHandlers = new Set<() => void>();
+  const connection = entry;
+  const key = buildSubscriptionKey(subscription);
+  let shared = connection.subscriptions.get(key);
+  const isNewSubscription = shared === undefined;
+  if (shared === undefined) {
+    shared = { subscription, refCount: 0, registrations: new Set() };
+    connection.subscriptions.set(key, shared);
+  }
 
-  const entryData: SharedConnection = {
-    socket: null,
-    refCount: 1,
-    reconnectTimer: null,
-    reconnectAttempt: 0,
-    cancelled: false,
-    onReconnectCallbacks,
-    messageHandlers,
-    openHandlers,
-    errorHandlers,
-    closeHandlers,
-  };
+  shared.refCount++;
+  const registration: SubscriptionRegistration = { callbacks };
+  shared.registrations.add(registration);
 
-  connectionPool.set(url, entryData);
+  const socket = connection.socket;
+  if (socket === null) {
+    if (connection.reconnectTimer === null) {
+      const ws = new WebSocket(connection.url);
+      connection.socket = ws;
+      attachSharedListeners(connection, ws);
+    }
+  } else if (socket.readyState === WebSocket.OPEN) {
+    if (isNewSubscription) {
+      sendSubscriptionFrame(socket, "subscribe", subscription);
+    }
+    callbacks.onConnectionChange?.(true);
+  }
 
-  const ws = new WebSocket(url);
-  entryData.socket = ws;
-  attachSharedListeners(entryData, ws);
-
-  return createConnectionHandle(url, entryData);
-}
-
-function createConnectionHandle(
-  url: string,
-  entry: SharedConnection,
-): ReturnType<typeof acquireConnection> {
   return {
-    addMessageHandler: (handler: (data: string) => void) => {
-      entry.messageHandlers.add(handler);
+    release: () => {
+      releaseSubscription(connection, key, registration);
     },
-    removeMessageHandler: (handler: (data: string) => void) => {
-      entry.messageHandlers.delete(handler);
-    },
-    addOpenHandler: (handler: () => void) => {
-      entry.openHandlers.add(handler);
-    },
-    removeOpenHandler: (handler: () => void) => {
-      entry.openHandlers.delete(handler);
-    },
-    addErrorHandler: (handler: () => void) => {
-      entry.errorHandlers.add(handler);
-    },
-    removeErrorHandler: (handler: () => void) => {
-      entry.errorHandlers.delete(handler);
-    },
-    addCloseHandler: (handler: () => void) => {
-      entry.closeHandlers.add(handler);
-    },
-    removeCloseHandler: (handler: () => void) => {
-      entry.closeHandlers.delete(handler);
-    },
-    release: () => releaseConnection(url),
-    onReconnect: (cb: () => void) => entry.onReconnectCallbacks.add(cb),
-    isConnected: () => entry.socket?.readyState === WebSocket.OPEN,
   };
 }
 
-function releaseConnection(url: string): void {
-  const entry = connectionPool.get(url);
-  if (!entry) return;
-  entry.refCount--;
-  if (entry.refCount <= 0) {
-    entry.cancelled = true;
-    if (entry.reconnectTimer) {
-      clearTimeout(entry.reconnectTimer);
-      entry.reconnectTimer = null;
+function releaseSubscription(
+  entry: SharedConnection,
+  key: string,
+  registration: SubscriptionRegistration,
+): void {
+  const shared = entry.subscriptions.get(key);
+  if (shared === undefined || !shared.registrations.delete(registration)) return;
+
+  shared.refCount--;
+  if (shared.refCount <= 0) {
+    entry.subscriptions.delete(key);
+
+    const socket = entry.socket;
+    if (socket !== null && socket.readyState === WebSocket.OPEN) {
+      sendSubscriptionFrame(socket, "unsubscribe", shared.subscription);
     }
-    if (entry.socket && entry.socket.readyState <= WebSocket.OPEN) {
-      entry.socket.close();
+
+    if (entry.subscriptions.size === 0) {
+      entry.cancelled = true;
+      if (entry.reconnectTimer !== null) {
+        clearTimeout(entry.reconnectTimer);
+        entry.reconnectTimer = null;
+      }
+      entry.socket = null;
+      if (socket !== null && socket.readyState <= WebSocket.OPEN) {
+        socket.close();
+      }
+      connectionPool.delete(entry.url);
     }
-    connectionPool.delete(url);
   }
-}
 
-// ── MarketStreamCallbacks ────────────────────────────────────────────
-
-export interface MarketStreamCallbacks {
-  onMessage: (data: unknown, channel: string, meta?: MarketStreamMeta) => void;
-  onConnectionChange?: (connected: boolean) => void;
-  onError?: (error: Error) => void;
-  /** Fires when the WebSocket successfully reconnects after a disconnect. */
-  onReconnect?: () => void;
+  registration.callbacks.onConnectionChange?.(false);
 }
 
 // ── Subscription factory ─────────────────────────────────────────────
@@ -290,105 +370,14 @@ const createWebSocketSubscription = (
   subscription: WsMarketSubscription,
   callbacks: MarketStreamCallbacks,
 ): MarketStreamSubscription => {
-  let cancelled = false;
-
-  const params = buildMarketStreamSearchParams(subscription);
-  const streamUrl = `${MARKET_STREAM_WS_URL}?${params.toString()}`;
-
-  const conn = acquireConnection(streamUrl);
-
-  // Register reconnect handler — fires when socket reconnects after close
-  conn.onReconnect(() => {
-    if (!cancelled) {
-      callbacks.onReconnect?.();
-    }
-  });
-
-  // Handlers are registered with the connection pool, not directly on a socket.
-  // This ensures they survive reconnects — the pool re-attaches them on each new socket.
-  const handleOpen = () => {
-    if (!cancelled) {
-      callbacks.onConnectionChange?.(true);
-    }
-  };
-
-  const handleMessage = (rawData: string) => {
-    if (cancelled) return;
-    const decoded = decodeMarketWsMessage(rawData, subscription.channel);
-
-    if (decoded.kind === "ignore") return;
-
-    if (decoded.kind === "control") {
-      if (decoded.type === "ready") {
-        callbacks.onConnectionChange?.(true);
-        return;
-      }
-      if (decoded.type === "error") {
-        callbacks.onConnectionChange?.(false);
-        callbacks.onError?.(new Error(decoded.message ?? "Market stream reported an error"));
-      } else if (decoded.type === "reconnecting") {
-        callbacks.onConnectionChange?.(false);
-      }
-      return;
-    }
-
-    if (decoded.channel === "l2Book") {
-      callbacks.onMessage(decoded.payload, "l2Book", decoded.meta);
-      return;
-    }
-
-    if (decoded.channel === "trades") {
-      callbacks.onMessage(unwrapTradePayload(decoded.payload), "trades");
-      return;
-    }
-
-    if (decoded.channel === "allMids") {
-      callbacks.onMessage(unwrapTickerPayload(decoded.payload), "allMids");
-      return;
-    }
-
-    if (decoded.channel === "candle") {
-      const candles = convertToCandlePayload(decoded.payload);
-      if (candles.length > 0) {
-        callbacks.onMessage(candles, "candle", decoded.meta);
-      }
-    }
-  };
-
-  const handleError = () => {
-    if (!cancelled) {
-      callbacks.onConnectionChange?.(false);
-      callbacks.onError?.(new Error("Market WebSocket connection failed"));
-    }
-  };
-
-  const handleClose = () => {
-    if (!cancelled) {
-      callbacks.onConnectionChange?.(false);
-    }
-  };
-
-  // Register handlers with the pool — survives reconnects
-  conn.addMessageHandler(handleMessage);
-  conn.addOpenHandler(handleOpen);
-  conn.addErrorHandler(handleError);
-  conn.addCloseHandler(handleClose);
-
-  // If socket is already open, fire immediately (handlers registered above)
-  if (conn.isConnected()) {
-    callbacks.onConnectionChange?.(true);
-  }
+  const conn = acquireConnection(toWireSubscription(subscription), callbacks);
+  let released = false;
 
   return {
     unsubscribe() {
-      if (cancelled) return;
-      cancelled = true;
-      conn.removeMessageHandler(handleMessage);
-      conn.removeOpenHandler(handleOpen);
-      conn.removeErrorHandler(handleError);
-      conn.removeCloseHandler(handleClose);
+      if (released) return;
+      released = true;
       conn.release();
-      callbacks.onConnectionChange?.(false);
     },
   };
 };
@@ -402,14 +391,14 @@ export interface MarketStreamClient {
 
 export function createMarketStreamClient(): MarketStreamClient {
   return {
-    subscribe: async (subscription, callbacks) => {
+    subscribe: (subscription, callbacks) => {
       // Only default interval for candle channel — l2Book, trades, and allMids
       // must not carry an interval param (the backend rejects l2Book with interval).
       const normalizedSubscription =
         subscription.channel === "candle"
           ? { ...subscription, interval: mapToHLInterval(subscription.interval ?? "1m") }
           : subscription;
-      return createWebSocketSubscription(normalizedSubscription, callbacks);
+      return Promise.resolve(createWebSocketSubscription(normalizedSubscription, callbacks));
     },
   };
 }

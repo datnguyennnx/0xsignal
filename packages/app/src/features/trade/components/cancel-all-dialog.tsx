@@ -44,7 +44,7 @@ export function CancelAllDialog({
           </DialogTitle>
           <DialogDescription className="text-[length:var(--text-compact)] leading-relaxed">
             Are you sure you want to cancel all {orderCount} open order
-            {orderCount !== 1 ? "s" : ""}?
+            {orderCount === 1 ? "" : "s"}?
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="mx-0 mb-0 flex-row items-center justify-end gap-[clamp(0.5rem,0.8vw,0.75rem)] rounded-none border-t-0 bg-transparent p-0">

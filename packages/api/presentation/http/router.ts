@@ -5,263 +5,24 @@ import { UserDataService } from "../../application/user-data/contracts";
 import { ExchangeService } from "../../application/exchange/contracts";
 import { CalendarService } from "../../application/calendar/contracts";
 import { WhaleService } from "../../application/whales/contracts";
-import { healthRoute } from "./routes/health.routes";
-import { buildMarketDataRoutes } from "./routes/market-data.routes";
-import { buildCalendarRoutes } from "./routes/calendar.routes";
-import { buildWhaleRoutes } from "./routes/whale.routes";
-import { buildUserDataRoutes } from "./routes/user-data.routes";
-import { buildExchangeRoutes } from "./routes/exchange.routes";
-import { buildCredentialRoutes } from "./routes/credentials.routes";
-import {
-  buildAuthRoutes,
-  withAuth,
-  ExchangeAccountRepo,
-  ExchangeCredentialRepo,
-} from "@0xsignal/auth";
-import { mapServiceError, type HttpError } from "./error-response";
-
-type UserDataHttpService = {
-  readonly getClearinghouseState: (typeof UserDataService.Service)["getClearinghouseState"];
-  readonly getSpotClearinghouseState: (typeof UserDataService.Service)["getSpotClearinghouseState"];
-  readonly getOpenOrders: (typeof UserDataService.Service)["getOpenOrders"];
-  readonly getFrontendOpenOrders: (typeof UserDataService.Service)["getFrontendOpenOrders"];
-  readonly getMeta: (typeof UserDataService.Service)["getMeta"];
-  readonly getHistoricalOrders: (typeof UserDataService.Service)["getHistoricalOrders"];
-  readonly getUserFills: (typeof UserDataService.Service)["getUserFills"];
-  readonly getPortfolio: (typeof UserDataService.Service)["getPortfolio"];
-  readonly getUserVaultEquities: (typeof UserDataService.Service)["getUserVaultEquities"];
-  readonly getUserFunding: (typeof UserDataService.Service)["getUserFunding"];
-};
-
-type ExchangeHttpService = {
-  readonly placeOrder: (typeof ExchangeService.Service)["placeOrder"];
-  readonly updateLeverageAndMargin: (typeof ExchangeService.Service)["updateLeverageAndMargin"];
-  readonly cancelOrders: (typeof ExchangeService.Service)["cancelOrders"];
-};
-
-type MarketDataHttpService = {
-  readonly discoverMarkets: (typeof MarketDataService.Service)["discoverMarkets"];
-  readonly getCandles: (typeof MarketDataService.Service)["getCandles"];
-  readonly getRecentCandles: (typeof MarketDataService.Service)["getRecentCandles"];
-  readonly getTicker: (typeof MarketDataService.Service)["getTicker"];
-  readonly getOrderBook: (typeof MarketDataService.Service)["getOrderBook"];
-  readonly getTradeAnnotation: (typeof MarketDataService.Service)["getTradeAnnotation"];
-};
-
-type CalendarHttpService = {
-  readonly query: (typeof CalendarService.Service)["query"];
-  readonly upcoming: (typeof CalendarService.Service)["upcoming"];
-};
-
-type WhaleHttpService = {
-  readonly queryPositions: (typeof WhaleService.Service)["queryPositions"];
-};
-
-type HealthHttpService = Parameters<typeof healthRoute>[0];
-
-type RouteHandler = (
-  request: Request,
-  url: URL,
-  marketData: MarketDataHttpService,
-  health: HealthHttpService,
-  userData: UserDataHttpService,
-  exchange: ExchangeHttpService,
-  calendar: CalendarHttpService | undefined,
-  whale: WhaleHttpService | undefined,
-  userId?: string,
-) => Effect.Effect<Response, HttpError, never>;
-
-const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      ...headers,
-    },
-  });
-
-// Auth routes handle their own errors internally; always returns a Response
-// Services (AuthService, ExchangeAccountRepo, ExchangeCredentialRepo) are
-// provided by AppLayer at the top level — the cast is safe because all
-// requirements are satisfied when the effect is run.
-const adaptAuthRoute =
-  (
-    handler: (
-      request: Request,
-    ) => Effect.Effect<Response, never, import("@0xsignal/auth").AuthService>,
-  ): RouteHandler =>
-  (request) =>
-    handler(request).pipe(
-      Effect.catchCause(() =>
-        Effect.succeed(
-          new Response(JSON.stringify({ error: "Internal server error" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }),
-        ),
-      ),
-    ) as unknown as Effect.Effect<Response, HttpError>;
-
-// Requires a valid auth session before executing
-const requireAuth =
-  (routeHandler: RouteHandler): RouteHandler =>
-  (request, url, marketData, health, userData, exchange, calendar, whale) =>
-    withAuth((session) =>
-      routeHandler(
-        request,
-        url,
-        marketData,
-        health,
-        userData,
-        exchange,
-        calendar,
-        whale,
-        session.userId,
-      ),
-    )(request).pipe(
-      Effect.catchCause(() =>
-        Effect.succeed(
-          new Response(JSON.stringify({ error: "Internal server error" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }),
-        ),
-      ),
-    ) as unknown as Effect.Effect<Response, HttpError>;
+import type { HttpError } from "./error-response";
+import { json, routes } from "./route-table";
+import type { HttpRequestServices } from "./route-contracts";
 
 const matchPath = (pattern: string, path: string): boolean => {
   if (pattern === path) return true;
 
   if (pattern.includes(":")) {
-    const regexStr = pattern.replace(/:([^/]+)/g, "([^/]+)");
+    const regexStr = pattern.replaceAll(/:([^/]+)/g, "([^/]+)");
     return new RegExp(`^${regexStr}$`).test(path);
   }
 
   return false;
 };
 
-const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
-  {
-    method: "GET",
-    path: "/api/health",
-    handler: (_request, _url, _marketData, health) =>
-      healthRoute(health).pipe(Effect.map((body) => json({ data: body }))),
-  },
-  ...buildMarketDataRoutes({
-    json,
-    mapServiceError,
-  }).map((route) => ({
-    method: route.method,
-    path: route.path,
-    handler: (request: Request, url: URL, marketData: MarketDataHttpService) =>
-      route.handler(request, url, marketData),
-  })),
-  ...buildCalendarRoutes({
-    json,
-    mapServiceError,
-  }).map((route) => ({
-    method: route.method,
-    path: route.path,
-    handler: (
-      request: Request,
-      url: URL,
-      _marketData: MarketDataHttpService,
-      _health: HealthHttpService,
-      _userData: UserDataHttpService,
-      _exchange: ExchangeHttpService,
-      calendar: CalendarHttpService | undefined,
-    ) =>
-      calendar === undefined
-        ? Effect.succeed(json({ error: "Calendar service unavailable" }, 503))
-        : route.handler(request, url, calendar),
-  })),
-  ...buildWhaleRoutes({
-    json,
-    mapServiceError,
-  }).map((route) => ({
-    method: route.method,
-    path: route.path,
-    handler: (
-      request: Request,
-      url: URL,
-      _marketData: MarketDataHttpService,
-      _health: HealthHttpService,
-      _userData: UserDataHttpService,
-      _exchange: ExchangeHttpService,
-      _calendar: CalendarHttpService | undefined,
-      whale: WhaleHttpService | undefined,
-    ) =>
-      whale === undefined
-        ? Effect.succeed(json({ error: "Whale service unavailable" }, 503))
-        : route.handler(request, url, whale),
-  })),
-  ...buildUserDataRoutes({
-    json,
-    mapServiceError,
-  }).map((route) => ({
-    method: route.method,
-    path: route.path,
-    handler: (
-      request: Request,
-      url: URL,
-      _marketData: MarketDataHttpService,
-      _health: HealthHttpService,
-      userData: UserDataHttpService,
-    ) => route.handler(request, url, userData),
-  })),
-  ...buildExchangeRoutes({
-    json,
-    mapServiceError,
-  }).map((route) => ({
-    method: route.method,
-    path: route.path,
-    handler: requireAuth(
-      (
-        request: Request,
-        url: URL,
-        _marketData: MarketDataHttpService,
-        _health: HealthHttpService,
-        _userData: UserDataHttpService,
-        exchange: ExchangeHttpService,
-        _calendar: CalendarHttpService | undefined,
-        _whale: WhaleHttpService | undefined,
-        userId?: string,
-      ) => route.handler(request, url, exchange, userId),
-    ),
-  })),
-  ...buildCredentialRoutes({
-    json,
-    mapServiceError,
-  }).map((route) => ({
-    method: route.method,
-    path: route.path,
-    handler: requireAuth(
-      (
-        request: Request,
-        url: URL,
-        _marketData: MarketDataHttpService,
-        _health: HealthHttpService,
-        _userData: UserDataHttpService,
-        _exchange: ExchangeHttpService,
-        _calendar: CalendarHttpService | undefined,
-        _whale: WhaleHttpService | undefined,
-        userId?: string,
-      ) =>
-        Effect.gen(function* () {
-          const accountRepo = yield* ExchangeAccountRepo;
-          const credentialRepo = yield* ExchangeCredentialRepo;
-          return yield* route.handler(request, url, accountRepo, credentialRepo, userId);
-        }) as unknown as Effect.Effect<Response, HttpError>,
-    ),
-  })),
-  ...buildAuthRoutes().map((route) => ({
-    method: route.method,
-    path: route.path,
-    handler: adaptAuthRoute(route.handler),
-  })),
-];
-
-export const handleRequest = (request: Request) => {
+export const handleRequest = (
+  request: Request,
+): Effect.Effect<Response, never, HttpRequestServices> => {
   return Effect.gen(function* () {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -296,7 +57,7 @@ export const handleRequest = (request: Request) => {
   }).pipe(
     Effect.catch((error: HttpError) => {
       const body: Record<string, unknown> = { error: error.message };
-      if (error.code) {
+      if (error.code !== undefined && error.code !== "") {
         body.code = error.code;
       }
       return Effect.succeed(json(body, error.status));

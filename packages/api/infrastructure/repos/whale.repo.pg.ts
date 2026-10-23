@@ -5,11 +5,26 @@ import {
   WHALE_POSITIONS_LIMIT_MAX,
   WHALE_POSITIONS_LIMIT_MIN,
 } from "@0xsignal/shared";
-import { WhaleRepoError, type WhalePositionsPage, type WhaleRepoPort } from "./whale.repo";
+import {
+  WhaleRepoError,
+  type WhalePositionsPage,
+  type WhaleRepoPort,
+} from "../../application/whales/repo.contracts";
 
 // Postgres caps a statement at 65535 bound parameters; chunking keeps each
 // statement well under that while still batching many rows per round trip.
 const MAX_ROWS_PER_STATEMENT = 500;
+
+const chunked = <T>(values: readonly T[]): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < values.length; i += MAX_ROWS_PER_STATEMENT) {
+    chunks.push(values.slice(i, i + MAX_ROWS_PER_STATEMENT));
+  }
+  return chunks;
+};
+
+const sum = (counts: readonly number[]): number =>
+  counts.reduce((total, count) => total + count, 0);
 
 const WALLET_COLUMNS = ["address", "last_trade_at", "last_notional_usd"];
 const WALLET_ASSIGNMENTS = [
@@ -72,7 +87,7 @@ export function pgWhaleRepo(pg: Pool): WhaleRepoPort {
             POSITION_COLUMNS,
             "(user_address, coin)",
             POSITION_ASSIGNMENTS,
-            positions.map(positionRow),
+            positions.map((position) => positionRow(position)),
           ),
         catch: (cause) =>
           new WhaleRepoError({ message: "Failed to upsert whale positions", cause }),
@@ -124,15 +139,15 @@ async function deletePositionsForAddresses(
   pg: Pool,
   addresses: readonly string[],
 ): Promise<number> {
-  let affected = 0;
-  for (let i = 0; i < addresses.length; i += MAX_ROWS_PER_STATEMENT) {
-    const chunk = addresses.slice(i, i + MAX_ROWS_PER_STATEMENT);
-    const result = await pg.query("DELETE FROM whale_positions WHERE user_address = ANY($1)", [
-      chunk,
-    ]);
-    affected += result.rowCount ?? 0;
-  }
-  return affected;
+  const counts = await Promise.all(
+    chunked(addresses).map(async (chunk) => {
+      const result = await pg.query("DELETE FROM whale_positions WHERE user_address = ANY($1)", [
+        chunk,
+      ]);
+      return result.rowCount ?? 0;
+    }),
+  );
+  return sum(counts);
 }
 
 async function pruneStalePositions(pg: Pool, before: Date): Promise<number> {
@@ -164,18 +179,18 @@ async function deletePositionKeys(
   pg: Pool,
   keys: readonly { readonly userAddress: string; readonly coin: string }[],
 ): Promise<number> {
-  let affected = 0;
-  for (let i = 0; i < keys.length; i += MAX_ROWS_PER_STATEMENT) {
-    const chunk = keys.slice(i, i + MAX_ROWS_PER_STATEMENT);
-    const params: unknown[] = [];
-    const tuples = chunk.map(
-      (key) => `(${bindParam(params, key.userAddress)}, ${bindParam(params, key.coin)})`,
-    );
-    const sql = `DELETE FROM whale_positions WHERE (user_address, coin) IN (${tuples.join(", ")})`;
-    const result = await pg.query(sql, params);
-    affected += result.rowCount ?? 0;
-  }
-  return affected;
+  const counts = await Promise.all(
+    chunked(keys).map(async (chunk) => {
+      const params: unknown[] = [];
+      const tuples = chunk.map(
+        (key) => `(${bindParam(params, key.userAddress)}, ${bindParam(params, key.coin)})`,
+      );
+      const sql = `DELETE FROM whale_positions WHERE (user_address, coin) IN (${tuples.join(", ")})`;
+      const result = await pg.query(sql, params);
+      return result.rowCount ?? 0;
+    }),
+  );
+  return sum(counts);
 }
 
 async function runPositionsQuery(pg: Pool, q: WhalePositionsQuery): Promise<WhalePositionsPage> {
@@ -185,7 +200,7 @@ async function runPositionsQuery(pg: Pool, q: WhalePositionsQuery): Promise<Whal
 
   const sort = q.sort ?? "notional";
   const sortExpr = SORT_EXPR[sort];
-  const decoded = q.cursor !== undefined ? decodeCursor(q.cursor) : null;
+  const decoded = q.cursor === undefined ? null : decodeCursor(q.cursor);
   if (decoded !== null) {
     const [sortValue, userAddress, coin] = decoded;
     conditions.push(
@@ -202,16 +217,16 @@ async function runPositionsQuery(pg: Pool, q: WhalePositionsQuery): Promise<Whal
     `SELECT * FROM whale_positions${where}` +
     ` ORDER BY ${sortExpr} DESC, user_address ASC, coin ASC LIMIT ${bind(limit + 1)}`;
 
-  const result = await pg.query(sql, params);
-  const rows = result.rows as WhalePositionRow[];
+  const result = await pg.query<WhalePositionRow>(sql, params);
+  const rows = result.rows;
   const page = rows.slice(0, limit);
-  const last = page[page.length - 1];
+  const last = page.at(-1);
   const nextCursor =
     rows.length > limit && last !== undefined
       ? encodeCursor(positionSortValue(last, sort), last.user_address, last.coin)
       : null;
 
-  return { positions: page.map(mapPositionRow), nextCursor };
+  return { positions: page.map((row) => mapPositionRow(row)), nextCursor };
 }
 
 function positionFilterConditions(q: WhalePositionsQuery, params: unknown[]): string[] {
@@ -235,22 +250,22 @@ async function batchedUpsert(
   assignments: readonly string[],
   rows: readonly (readonly unknown[])[],
 ): Promise<number> {
-  let affected = 0;
-  for (let i = 0; i < rows.length; i += MAX_ROWS_PER_STATEMENT) {
-    const chunk = rows.slice(i, i + MAX_ROWS_PER_STATEMENT);
-    const params: unknown[] = [];
-    const tuples = chunk.map(
-      (row) => `(${row.map((value) => bindParam(params, value)).join(", ")})`,
-    );
-    const sql =
-      `INSERT INTO ${table} (${columns.join(", ")})\n` +
-      `VALUES ${tuples.join(", ")}\n` +
-      `ON CONFLICT ${conflictTarget} DO UPDATE SET ${assignments.join(", ")}`;
+  const counts = await Promise.all(
+    chunked(rows).map(async (chunk) => {
+      const params: unknown[] = [];
+      const tuples = chunk.map(
+        (row) => `(${row.map((value) => bindParam(params, value)).join(", ")})`,
+      );
+      const sql =
+        `INSERT INTO ${table} (${columns.join(", ")})\n` +
+        `VALUES ${tuples.join(", ")}\n` +
+        `ON CONFLICT ${conflictTarget} DO UPDATE SET ${assignments.join(", ")}`;
 
-    await pg.query(sql, params);
-    affected += chunk.length;
-  }
-  return affected;
+      await pg.query(sql, params);
+      return chunk.length;
+    }),
+  );
+  return sum(counts);
 }
 
 function bindParam(params: unknown[], value: unknown): string {
@@ -259,7 +274,7 @@ function bindParam(params: unknown[], value: unknown): string {
 }
 
 function toIsoString(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : String(value);
+  return value instanceof Date ? value.toISOString() : value;
 }
 
 // pg returns numeric/decimal columns as strings; coerce before they reach the domain model.
@@ -277,6 +292,7 @@ function toLeverageType(value: string | null): "cross" | "isolated" | undefined 
 }
 
 interface WhalePositionRow {
+  [column: string]: unknown;
   user_address: string;
   coin: string;
   side: WhalePosition["side"];
@@ -315,14 +331,13 @@ function mapPositionRow(row: WhalePositionRow): WhalePosition {
 }
 
 function positionSortValue(row: WhalePositionRow, sort: WhalePositionSort): number {
-  switch (sort) {
-    case "notional":
-      return toNumber(row.notional_usd);
-    case "pnl":
-      return toNumber(row.unrealized_pnl);
-    case "funding":
-      return toNumber(row.funding_fee ?? 0);
-  }
+  const value =
+    sort === "pnl"
+      ? row.unrealized_pnl
+      : sort === "funding"
+        ? (row.funding_fee ?? 0)
+        : row.notional_usd;
+  return toNumber(value);
 }
 
 function encodeCursor(sortValue: number, userAddress: string, coin: string): string {

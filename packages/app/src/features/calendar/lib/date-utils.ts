@@ -10,7 +10,7 @@ import {
 
 import type { EconomicEvent } from "@0xsignal/shared";
 
-import type { EventsByDay } from "../types";
+export type EventsByDay = Map<string, EconomicEvent[]>;
 
 export const WEEK_STARTS_ON = 0;
 
@@ -27,7 +27,8 @@ export function getMonthGridDays(anchor: Date): Date[] {
 
 export function getViewRange(anchor: Date): { from: Date; to: Date } {
   const days = getMonthGridDays(anchor);
-  return { from: days[0], to: days[days.length - 1] };
+  const from = days[0];
+  return { from, to: days.at(-1) ?? from };
 }
 
 export function shiftAnchor(anchor: Date, direction: -1 | 1): Date {

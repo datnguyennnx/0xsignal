@@ -3,8 +3,14 @@ import { TabsTrigger } from "@/components/ui/tabs";
 import type { ReactNode } from "react";
 
 /** Directional label, shows "Close Short/Long" when reduceOnly. */
-export function DirLabel({ side, reduceOnly }: { side: "A" | "B"; reduceOnly?: boolean }) {
-  if (reduceOnly) {
+export function DirLabel({
+  side,
+  reduceOnly,
+}: {
+  side: "A" | "B";
+  reduceOnly?: boolean | undefined;
+}) {
+  if (reduceOnly === true) {
     return (
       <span className={side === "B" ? "text-gain" : "text-loss"}>
         {side === "B" ? "Close Short" : "Close Long"}
@@ -24,8 +30,9 @@ export function PosDirLabel({ szi }: { szi: string }) {
 }
 
 /** Direction label from HL API `dir` field ("Open Long", "Close Short", etc.). */
-export function DirDisplay({ dir }: { dir?: string | null }) {
-  if (!dir) return <span className="text-muted-foreground/60">—</span>;
+export function DirDisplay({ dir }: { dir?: string | null | undefined }) {
+  if (dir === undefined || dir === null || dir === "")
+    return <span className="text-muted-foreground/60">—</span>;
   const isLong = dir.toLowerCase().includes("long");
   return <span className={isLong ? "text-gain" : "text-loss"}>{dir}</span>;
 }
@@ -52,7 +59,7 @@ export function TabTrigger({
   children,
 }: {
   value: string;
-  count?: number;
+  count?: number | undefined;
   children: ReactNode;
 }) {
   return (

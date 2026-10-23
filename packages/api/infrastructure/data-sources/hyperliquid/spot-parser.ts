@@ -1,3 +1,4 @@
+import { asRecord, isUnknownArray, numberAt, stringAt } from "../parse-utils";
 import type { SpotTradeAsset } from "./types";
 
 export function parseSpotAssets(
@@ -5,70 +6,54 @@ export function parseSpotAssets(
   allMids: Record<string, string>,
   existingCount: number,
 ): SpotTradeAsset[] {
-  if (!Array.isArray(raw) || raw.length < 2) return [];
+  if (!isUnknownArray(raw) || raw.length < 2) return [];
 
-  const [meta, assetCtxs] = raw as [unknown, unknown];
-  if (!meta || typeof meta !== "object") return [];
+  const meta = asRecord(raw[0]);
+  if (meta === null || !isUnknownArray(meta.universe) || !isUnknownArray(meta.tokens)) return [];
 
-  const resp = meta as {
-    universe?: ReadonlyArray<{
-      tokens?: number[];
-      name?: string;
-      index?: number;
-      isCanonical?: boolean;
-    }>;
-    tokens?: ReadonlyArray<{
-      name?: string;
-      szDecimals?: number;
-      weiDecimals?: number;
-      index?: number;
-      tokenId?: string;
-      evmContract?: { address?: string; evm_extra_wei_decimals?: number } | null;
-    }>;
-  };
-
-  if (!Array.isArray(resp.universe) || !Array.isArray(resp.tokens)) return [];
-
-  const ctxs: ReadonlyArray<Record<string, unknown>> = Array.isArray(assetCtxs)
-    ? (assetCtxs as Array<Record<string, unknown>>)
-    : [];
+  const universe = meta.universe.map((entry) => asRecord(entry) ?? {});
+  const tokens = meta.tokens.map((token) => asRecord(token) ?? {});
+  const ctxs = isUnknownArray(raw[1]) ? raw[1].map((ctx) => asRecord(ctx) ?? {}) : [];
   const assets: SpotTradeAsset[] = [];
 
-  for (let i = 0; i < resp.universe.length; i++) {
-    const entry = resp.universe[i];
-    if (!entry || typeof entry.name !== "string") continue;
+  for (let i = 0; i < universe.length; i++) {
+    const entry = universe[i];
+    const entryName = entry.name;
+    if (typeof entryName !== "string") continue;
 
-    const tokenIndices = entry.tokens ?? [];
-    const baseTokenIdx: number | undefined = tokenIndices[0];
-    const quoteTokenIdx: number | undefined = tokenIndices[1];
+    const tokenIndices = isUnknownArray(entry.tokens) ? entry.tokens : [];
+    const baseTokenIdx = tokenIndices[0];
+    const quoteTokenIdx = tokenIndices[1];
 
     const baseToken =
-      typeof baseTokenIdx === "number" && baseTokenIdx >= 0 && baseTokenIdx < resp.tokens.length
-        ? resp.tokens[baseTokenIdx]
-        : null;
+      typeof baseTokenIdx === "number" && baseTokenIdx >= 0 && baseTokenIdx < tokens.length
+        ? tokens[baseTokenIdx]
+        : undefined;
     const quoteToken =
-      typeof quoteTokenIdx === "number" && quoteTokenIdx >= 0 && quoteTokenIdx < resp.tokens.length
-        ? resp.tokens[quoteTokenIdx]
-        : null;
+      typeof quoteTokenIdx === "number" && quoteTokenIdx >= 0 && quoteTokenIdx < tokens.length
+        ? tokens[quoteTokenIdx]
+        : undefined;
 
-    const coin = baseToken?.name ?? null;
-    if (!coin || coin.length === 0) continue;
+    const coin = baseToken === undefined ? null : (stringAt(baseToken, "name") ?? null);
+    if (coin === null || coin === "") continue;
 
-    const quoteCurrency = quoteToken?.name ?? "USDC";
+    const quoteCurrency =
+      quoteToken === undefined ? "USDC" : (stringAt(quoteToken, "name") ?? "USDC");
     const displaySymbol = `${coin}-${quoteCurrency}`;
     const ctx = ctxs[i] ?? {};
 
-    const markPx = allMids[entry.name] ?? (typeof ctx.markPx === "string" ? ctx.markPx : "0");
-    const prevDayPx = typeof ctx.prevDayPx === "string" ? ctx.prevDayPx : "0";
-    const dayNtlVlm = typeof ctx.dayNtlVlm === "string" ? ctx.dayNtlVlm : "0";
-    const dayBaseVlm = typeof ctx.dayBaseVlm === "string" ? ctx.dayBaseVlm : "0";
+    const markPx = allMids[entryName] ?? stringAt(ctx, "markPx") ?? "0";
+    const prevDayPx = stringAt(ctx, "prevDayPx") ?? "0";
+    const dayNtlVlm = stringAt(ctx, "dayNtlVlm") ?? "0";
+    const dayBaseVlm = stringAt(ctx, "dayBaseVlm") ?? "0";
     // Skip pairs with zero trading volume — they are dead listings with no trades
     if (Number(dayNtlVlm) === 0) continue;
-    const circulatingSupply =
-      typeof ctx.circulatingSupply === "string" ? ctx.circulatingSupply : undefined;
-    const totalSupply = typeof ctx.totalSupply === "string" ? ctx.totalSupply : undefined;
-    const szDecimals = baseToken?.szDecimals ?? 4;
-    const evmContract = baseToken?.tokenId ? baseToken.tokenId : undefined;
+    const circulatingSupply = stringAt(ctx, "circulatingSupply");
+    const totalSupply = stringAt(ctx, "totalSupply");
+    const szDecimals =
+      (baseToken === undefined ? undefined : numberAt(baseToken, "szDecimals")) ?? 4;
+    const tokenId = baseToken === undefined ? undefined : stringAt(baseToken, "tokenId");
+    const evmContract = tokenId === "" ? undefined : tokenId;
 
     assets.push({
       coin,
@@ -77,7 +62,7 @@ export function parseSpotAssets(
       dexPrefix: null,
       isHip3: false,
       quoteCurrency,
-      name: entry.name,
+      name: entryName,
       markPx,
       prevDayPx,
       dayNtlVlm,

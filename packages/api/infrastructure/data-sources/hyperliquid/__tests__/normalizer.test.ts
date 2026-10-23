@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
+import type { Candle } from "@0xsignal/shared";
 import { normalizeCandle, normalizeCandles } from "../normalizer";
+
+const timestampMs = (candle: Candle): number => {
+  const { timestamp } = candle;
+  if (timestamp instanceof Date) return timestamp.getTime();
+  if (typeof timestamp === "string") return new Date(timestamp).getTime();
+  return timestamp;
+};
 
 describe("Hyperliquid Normalizer", () => {
   it("should correctly normalize a single HL candle", () => {
@@ -14,7 +22,8 @@ describe("Hyperliquid Normalizer", () => {
 
     const normalized = normalizeCandle(hlCandle);
 
-    expect(normalized.timestamp.getTime()).toBe(1712928000000);
+    expect(normalized.timestamp).toBeInstanceOf(Date);
+    expect(timestampMs(normalized)).toBe(1712928000000);
     expect(normalized.open).toBe(60000.5);
     expect(normalized.high).toBe(61000.0);
     expect(normalized.low).toBe(59000.0);
@@ -45,7 +54,9 @@ describe("Hyperliquid Normalizer", () => {
     const normalized = normalizeCandles(hlCandles);
 
     expect(normalized).toHaveLength(2);
-    expect(normalized[0].timestamp.getTime()).toBe(1000);
-    expect(normalized[1].timestamp.getTime()).toBe(2000);
+    expect(normalized[0].timestamp).toBeInstanceOf(Date);
+    expect(normalized[1].timestamp).toBeInstanceOf(Date);
+    expect(timestampMs(normalized[0])).toBe(1000);
+    expect(timestampMs(normalized[1])).toBe(2000);
   });
 });

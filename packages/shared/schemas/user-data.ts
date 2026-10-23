@@ -140,6 +140,8 @@ export interface UserFill {
   readonly px: string;
   readonly fee: string;
   readonly hash: string;
+  readonly oid: number;
+  readonly tid: number;
   readonly time: number;
   readonly closedPnl?: string;
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import type { JSX } from "react";
+import type { ElementType, JSX } from "react";
 import { cn } from "cn";
 
 export interface LiquidGlassProps {
@@ -19,13 +19,16 @@ export interface LiquidGlassProps {
 const DEFAULT_BLUR = 8;
 const DEFAULT_SATURATION = 1.6;
 const DEFAULT_BRIGHTNESS = 1.05;
-const DEFAULT_CHROMATIC = 9;
 const DEFAULT_EDGE = 1.5;
 
-const MAP_MAX_DIMENSION = 512;
+/** Below this box the refracted edge is a sub-pixel detail; a plain blur reads the same. */
+const MIN_REFRACTION_WIDTH = 168;
+const MIN_REFRACTION_HEIGHT = 56;
+
+const MAP_MAX_DIMENSION = 256;
 const MAP_NEUTRAL = 128;
 const MAP_NEUTRAL_RANGE = 127;
-const DISPLACEMENT_SCALE = 24;
+const DISPLACEMENT_SCALE = 12;
 
 const SHEEN_BACKGROUND =
   "linear-gradient(135deg, light-dark(hsl(0 0% 100% / .26), hsl(0 0% 100% / .07)) 0%, transparent 42%, transparent 64%, light-dark(hsl(0 0% 100% / .10), hsl(0 0% 100% / .03)) 100%)";
@@ -33,14 +36,15 @@ const SHEEN_BACKGROUND =
 const RIM_BOX_SHADOW =
   "inset 0 1px 0 0 light-dark(hsl(0 0% 100% / .6), hsl(0 0% 100% / .18)), 0 0 0 1px light-dark(hsl(0 0% 0% / .08), hsl(0 0% 100% / .10)), 0 16px 40px -18px light-dark(hsl(220 20% 15% / .18), hsl(0 0% 0% / .55))";
 
-const R_ISOLATION = "1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0";
-const G_ISOLATION = "0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0";
-const B_ISOLATION = "0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0";
-
 function clamp01(value: number): number {
   if (value < 0) return 0;
   if (value > 1) return 1;
   return value;
+}
+
+function parseCssLength(value: string): number {
+  const match = /^[+-]?\d*\.?\d+/.exec(value.trim());
+  return match === null ? 0 : Number(match[0]);
 }
 
 /**
@@ -70,19 +74,28 @@ function useGlassPreferences(): GlassPreferences {
     reducedMotion: false,
   });
   useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return () => {};
+    }
     const transparency = window.matchMedia("(prefers-reduced-transparency: reduce)");
     const colors = window.matchMedia("(forced-colors: active)");
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () =>
+    const update = () => {
       setState({
         constrained: transparency.matches || colors.matches,
         reducedMotion: motion.matches,
       });
+    };
     update();
     const lists = [transparency, colors, motion];
-    lists.forEach((list) => list.addEventListener("change", update));
-    return () => lists.forEach((list) => list.removeEventListener("change", update));
+    for (const list of lists) {
+      list.addEventListener("change", update);
+    }
+    return () => {
+      for (const list of lists) {
+        list.removeEventListener("change", update);
+      }
+    };
   }, []);
   return state;
 }
@@ -99,7 +112,9 @@ function buildDisplacementMap(
   strength: number,
 ): string | null {
   if (width <= 0 || height <= 0) return null;
-  const dpr = typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+  // Half the device resolution: the map is a smooth gradient upscaled by feImage,
+  // so sub-CSS-pixel detail buys nothing but costs a JS pass and a PNG encode.
+  const dpr = typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, 2) * 0.5;
   const cap = MAP_MAX_DIMENSION / Math.max(width * dpr, height * dpr);
   const scale = cap < 1 ? dpr * cap : dpr;
   const w = Math.max(1, Math.round(width * scale));
@@ -159,54 +174,58 @@ export function LiquidGlass({
   blur = DEFAULT_BLUR,
   saturation = DEFAULT_SATURATION,
   brightness = DEFAULT_BRIGHTNESS,
-  refraction = true,
-  chromatic = DEFAULT_CHROMATIC,
+  refraction = false,
   edge = DEFAULT_EDGE,
   tint = "transparent",
   className,
   style,
 }: LiquidGlassProps): JSX.Element {
   const rawId = useId();
-  const filterId = useMemo(() => `liquid-glass-${rawId.replace(/:/g, "")}`, [rawId]);
+  const filterId = useMemo(() => `liquid-glass-${rawId.replaceAll(":", "")}`, [rawId]);
 
   const { constrained, reducedMotion } = useGlassPreferences();
-  const [supported, setSupported] = useState(false);
+  const [supported] = useState(detectRefraction);
   const [mapUrl, setMapUrl] = useState<string | null>(null);
-  const hostRef = useRef<HTMLElement | null>(null);
+  const hostRef = useRef<Element | null>(null);
 
-  useEffect(() => {
-    setSupported(detectRefraction());
-  }, []);
-
-  const refractionEnabled = refraction && !constrained;
+  const refractionEnabled = refraction && !constrained && !reducedMotion;
   const refractionSupported = supported && refractionEnabled;
   const refractionActive = refractionSupported && mapUrl !== null;
 
   useEffect(() => {
-    if (!refractionSupported) return;
-    const host = hostRef.current;
-    if (!host) return;
     let frame = 0;
+    let observer: ResizeObserver | null = null;
+    const cleanup = () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+
+    const host = hostRef.current;
+    if (!refractionSupported || host === null) {
+      return cleanup;
+    }
+
     const rebuild = () => {
       const rect = host.getBoundingClientRect();
+      if (rect.width < MIN_REFRACTION_WIDTH || rect.height < MIN_REFRACTION_HEIGHT) {
+        setMapUrl(null);
+        return;
+      }
       const cs = window.getComputedStyle(host);
       const parsed =
-        borderRadius === "inherit" ? Number.parseFloat(cs.borderTopLeftRadius) : borderRadius;
+        borderRadius === "inherit" ? parseCssLength(cs.borderTopLeftRadius) : borderRadius;
       const radius = Number.isFinite(parsed) ? parsed : 0;
       const url = buildDisplacementMap(rect.width, rect.height, radius, edge);
-      if (url) setMapUrl((current) => (current === url ? current : url));
+      if (url !== null) setMapUrl((current) => (current === url ? current : url));
     };
     const schedule = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(rebuild);
     };
     rebuild();
-    const observer = new ResizeObserver(schedule);
+    observer = new ResizeObserver(schedule);
     observer.observe(host);
-    return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-    };
+    return cleanup;
   }, [refractionSupported, borderRadius, edge]);
 
   const optics = `saturate(${saturation}) brightness(${brightness})`;
@@ -217,18 +236,17 @@ export function LiquidGlass({
       : `blur(${blur}px) ${optics}`;
 
   const setHost = useCallback((node: Element | null) => {
-    hostRef.current = node as HTMLElement | null;
+    hostRef.current = node;
   }, []);
 
-  const Component = as as unknown as (props: Record<string, unknown>) => JSX.Element;
+  const Component: ElementType = as;
 
   return (
     <Component
-      ref={setHost}
       aria-hidden="true"
       data-liquid-glass=""
       data-liquid-glass-refraction={refractionActive ? "on" : "off"}
-      data-liquid-glass-motion={reducedMotion ? "none" : undefined}
+      data-liquid-glass-motion={reducedMotion && !constrained ? "none" : undefined}
       className={cn(
         "pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-[inherit]",
         className,
@@ -236,6 +254,7 @@ export function LiquidGlass({
       style={style}
     >
       <span
+        ref={setHost}
         aria-hidden="true"
         className="absolute inset-0"
         style={{
@@ -283,33 +302,12 @@ export function LiquidGlass({
             <feDisplacementMap
               in="SourceGraphic"
               in2="map"
-              scale={DISPLACEMENT_SCALE + chromatic}
-              xChannelSelector="R"
-              yChannelSelector="G"
-              result="dr"
-            />
-            <feColorMatrix in="dr" type="matrix" values={R_ISOLATION} result="r" />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="map"
               scale={DISPLACEMENT_SCALE}
               xChannelSelector="R"
               yChannelSelector="G"
-              result="dg"
+              result="displaced"
             />
-            <feColorMatrix in="dg" type="matrix" values={G_ISOLATION} result="g" />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="map"
-              scale={DISPLACEMENT_SCALE - chromatic}
-              xChannelSelector="R"
-              yChannelSelector="G"
-              result="db"
-            />
-            <feColorMatrix in="db" type="matrix" values={B_ISOLATION} result="b" />
-            <feBlend in="r" in2="g" mode="screen" result="rg" />
-            <feBlend in="rg" in2="b" mode="screen" result="rgb" />
-            <feGaussianBlur in="rgb" stdDeviation="0.5" />
+            <feGaussianBlur in="displaced" stdDeviation="0.5" />
           </filter>
         </svg>
       ) : null}

@@ -1,6 +1,7 @@
 import { type PointerEvent } from "react";
 import { cn } from "cn";
 import type { ResizeHandleAxis } from "../utils/types";
+import { CORNER_HIT_BOX_PX } from "../hooks/use-resize-gesture";
 
 /** SVG path for L-shaped corner bracket, oriented to the given corner */
 function cornerBracketPath(axis: string): string {
@@ -24,15 +25,23 @@ interface CornerHandlesProps {
   onPointerDown: (axis: ResizeHandleAxis) => (e: PointerEvent<HTMLDivElement>) => void;
 }
 
+/** Drawn bracket size in px; the transparent padding around it is the grab area. */
+const BRACKET_SIZE_PX = 10;
+
 export function CornerHandles({ activeCorner, isResizing, onPointerDown }: CornerHandlesProps) {
   return (
     <div
       onPointerDown={onPointerDown(activeCorner)}
+      style={{
+        width: CORNER_HIT_BOX_PX,
+        height: CORNER_HIT_BOX_PX,
+        padding: (CORNER_HIT_BOX_PX - BRACKET_SIZE_PX) / 2,
+      }}
       className={cn(
         "absolute z-10 touch-none transition-opacity duration-150",
         isResizing ? "opacity-100" : "opacity-60 hover:opacity-100",
-        activeCorner.includes("w") ? "left-1" : "right-1",
-        activeCorner.includes("n") ? "top-1" : "bottom-1",
+        activeCorner.includes("w") ? "left-0" : "right-0",
+        activeCorner.includes("n") ? "top-0" : "bottom-0",
         activeCorner === "nw" || activeCorner === "se"
           ? "cursor-nwse-resize"
           : "cursor-nesw-resize",
@@ -40,9 +49,7 @@ export function CornerHandles({ activeCorner, isResizing, onPointerDown }: Corne
     >
       <svg
         viewBox="0 0 8 8"
-        className={`w-2.5 h-2.5 ${
-          isResizing ? "text-muted-foreground/60" : "text-muted-foreground/60"
-        }`}
+        className="block w-2.5 h-2.5 text-muted-foreground/60"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"

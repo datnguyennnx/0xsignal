@@ -1,4 +1,4 @@
-import { Config, Context, Effect, Layer, Option } from "effect";
+import { Config, Context, Effect, Layer, Option, Predicate } from "effect";
 import * as arctic from "arctic";
 import type { OAuthProfile } from "../../domain/oauth-account";
 import { OAuthCallbackFailed } from "../../domain/errors";
@@ -16,6 +16,37 @@ interface GitHubEmail {
   readonly primary: boolean;
   readonly verified: boolean;
 }
+
+const isArray = (value: unknown): value is readonly unknown[] => Array.isArray(value);
+
+const optionalString = (value: unknown): string | null =>
+  Predicate.isString(value) ? value : null;
+
+const toGitHubUser = (value: unknown): GitHubUser => {
+  if (
+    !Predicate.isObject(value) ||
+    typeof value.id !== "number" ||
+    typeof value.login !== "string"
+  ) {
+    throw new TypeError("Malformed GitHub /user response");
+  }
+  return {
+    id: value.id,
+    login: value.login,
+    name: optionalString(value.name),
+    email: optionalString(value.email),
+    avatar_url: optionalString(value.avatar_url),
+  };
+};
+
+const isGitHubEmail = (value: unknown): value is GitHubEmail =>
+  Predicate.isObject(value) &&
+  typeof value.email === "string" &&
+  typeof value.primary === "boolean" &&
+  typeof value.verified === "boolean";
+
+const toGitHubEmails = (value: unknown): readonly GitHubEmail[] =>
+  isArray(value) ? value.filter((entry) => isGitHubEmail(entry)) : [];
 
 export interface GitHubProviderPort {
   readonly generateState: () => Effect.Effect<string>;
@@ -38,7 +69,7 @@ const disabledGitHubProvider = GitHubProvider.of({
   fetchProfile: () => Effect.die(new Error("GitHub OAuth is not configured")),
 });
 
-export const GitHubProviderLayer: Layer.Layer<GitHubProvider, never, never> = Layer.effect(
+export const GitHubProviderLayer: Layer.Layer<GitHubProvider> = Layer.effect(
   GitHubProvider,
   Effect.gen(function* () {
     const maybeClientId = yield* Config.option(Config.string("GITHUB_CLIENT_ID")).pipe(
@@ -94,19 +125,21 @@ export const GitHubProviderLayer: Layer.Layer<GitHubProvider, never, never> = La
               throw new Error(`GitHub /user returned ${userRes.status}`);
             }
 
-            const user = (await userRes.json()) as GitHubUser;
+            const rawUser: unknown = await userRes.json();
+            const user = toGitHubUser(rawUser);
             let primaryEmail: string | null = null;
 
             if (emailsRes.ok) {
               try {
-                const emails = (await emailsRes.json()) as GitHubEmail[];
+                const rawEmails: unknown = await emailsRes.json();
+                const emails = toGitHubEmails(rawEmails);
                 primaryEmail = emails.find((e) => e.primary && e.verified)?.email ?? null;
               } catch {
                 // Ignore email parsing failures
               }
             }
 
-            if (!primaryEmail && typeof user.email === "string") {
+            if (primaryEmail === null && user.email !== null) {
               primaryEmail = user.email;
             }
 

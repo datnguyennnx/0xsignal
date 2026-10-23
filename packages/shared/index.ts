@@ -18,11 +18,7 @@ export {
 } from "./utils/market-symbol";
 
 // Candle normalizer
-export {
-  normalizeCandle,
-  normalizeChartDataPoints,
-  candleToChartDataPoint,
-} from "./utils/normalizeCandle";
+export { normalizeCandle } from "./utils/normalizeCandle";
 
 // Indicator types
 export type {
@@ -66,6 +62,7 @@ export type {
   Candle,
   MarketTicker,
   OrderBook,
+  OrderBookLevel,
   MarketTypeCategory,
   AggregatedMarket,
   CoverageWindow,

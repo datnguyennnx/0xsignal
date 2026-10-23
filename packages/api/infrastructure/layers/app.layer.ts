@@ -1,59 +1,11 @@
 import { Layer } from "effect";
-import { devLoggerLayer } from "../logging/logger";
-import { FetchHttpClient } from "effect/unstable/http";
-import { BunServices } from "@effect/platform-bun";
-import { CorsServiceLayer } from "../../presentation/http/cors";
+import type { ConfigError } from "effect/Config";
+import type { RequestEnvironment } from "./request-environment";
+import { AppServicesLayer } from "./app-services.layer";
+import { InfrastructureLayer } from "./app-infrastructure.layer";
+import { CoreLayer } from "./core.layer";
 
-// Infrastructure layers
-import { marketCandleStoreLayer } from "./market-candle-store.layer";
-import { marketRemoteProviderLayer } from "./market-remote-provider.layer";
-import { healthServiceLayer } from "./health-service.layer";
-import { CalendarLayer } from "./calendar.layer";
-import { WhaleLayer } from "./whale.layer";
-import { postgresConnectionPoolLayer } from "../db/postgres/client";
-import { hyperliquidClientLayer } from "../data-sources/hyperliquid/client";
-
-// Application service layers (inlined from services.layer.ts)
-import { marketDataServiceLayer } from "../../application/market-data/service";
-import { userDataServiceLayer } from "../../application/user-data/service";
-import { exchangeServiceLayer } from "../../application/exchange/service";
-
-// Stream layers
-import { MarketStreamHubLayer } from "../streams/hyperliquid/hub";
-
-// External
-import { authLayer, AuthInfraLayer, MigrationLayer } from "@0xsignal/auth";
-
-const Core = Layer.mergeAll(
-  devLoggerLayer,
-  BunServices.layer,
-  FetchHttpClient.layer,
-  CorsServiceLayer,
+export const AppLayer: Layer.Layer<RequestEnvironment, ConfigError> = AppServicesLayer.pipe(
+  Layer.provideMerge(InfrastructureLayer),
+  Layer.provideMerge(CoreLayer),
 );
-
-// marketRemoteProviderLayer is provided once here so both MarketStreamHubLayer
-// and marketCandleStoreLayer resolve MarketRemoteProvider from the same instance.
-const Infrastructure = Layer.mergeAll(
-  marketCandleStoreLayer,
-  MarketStreamHubLayer,
-  healthServiceLayer,
-  MigrationLayer,
-  CalendarLayer,
-  WhaleLayer,
-).pipe(
-  Layer.provideMerge(marketRemoteProviderLayer),
-  Layer.provideMerge(hyperliquidClientLayer),
-  Layer.provideMerge(postgresConnectionPoolLayer),
-);
-
-const AppServices = Layer.mergeAll(
-  marketDataServiceLayer,
-  userDataServiceLayer,
-  exchangeServiceLayer,
-  authLayer,
-).pipe(Layer.provideMerge(AuthInfraLayer));
-
-export const AppLayer: Layer.Layer<any, any, never> = AppServices.pipe(
-  Layer.provideMerge(Infrastructure),
-  Layer.provideMerge(Core),
-) as Layer.Layer<any, any, never>;

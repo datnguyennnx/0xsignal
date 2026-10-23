@@ -7,19 +7,44 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompactUsd } from "@/core/utils/formatters";
 
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import { PnLDisplay } from "./shared-table-components";
 
+const SKELETON_ROW_COUNT = 2;
+
+/** Same 1.5em line box as a loaded `c` cell, so a placeholder row is exactly one row tall. */
+function TableSkeletonRows({ columns }: { columns: number }) {
+  return (
+    <>
+      {Array.from({ length: SKELETON_ROW_COUNT }, (_, rowIndex) => (
+        <TableRow key={rowIndex} className="hover:bg-transparent">
+          <TableCell colSpan={columns} className={c}>
+            <div className="flex items-center gap-4">
+              {Array.from({ length: columns }, (_column, columnIndex) => (
+                <Skeleton key={columnIndex} className="h-[1.5em] flex-1" />
+              ))}
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+}
+
 interface BalanceTableProps {
   isChLoading: boolean;
-  marginSummary?: {
-    accountValue: string;
-    totalNtlPos: string;
-    totalRawUsd: string;
-    totalMarginUsed: string;
-  } | null;
+  marginSummary?:
+    | {
+        accountValue: string;
+        totalNtlPos: string;
+        totalRawUsd: string;
+        totalMarginUsed: string;
+      }
+    | null
+    | undefined;
   positions: Array<{
     position: {
       coin: string;
@@ -36,6 +61,7 @@ interface BalanceTableProps {
 }
 
 export function BalanceTable({
+  isChLoading,
   marginSummary,
   positions,
   usdcTotalBalance,
@@ -60,9 +86,9 @@ export function BalanceTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {!marginSummary ? (
-          <TableEmptyRow colSpan={9} />
-        ) : (
+        {isChLoading ? (
+          <TableSkeletonRows columns={9} />
+        ) : marginSummary ? (
           <>
             <TableRow>
               <TableCell className={`${c} font-medium`}>USDC</TableCell>
@@ -70,12 +96,12 @@ export function BalanceTable({
               <TableCell className={cNum}>{formatCompactUsd(usdcAvailableBalance)}</TableCell>
               <TableCell className={cNum}>{formatCompactUsd(usdcTotalBalance)}</TableCell>
               <TableCell className={cNum}>
-                {totalUnrealizedPnl !== 0 ? (
+                {totalUnrealizedPnl === 0 ? (
+                  "—"
+                ) : (
                   <span className={totalUnrealizedPnl >= 0 ? "text-gain" : "text-loss"}>
                     {formatCompactUsd(totalUnrealizedPnl)}
                   </span>
-                ) : (
-                  "—"
                 )}
               </TableCell>
               <TableCell className={c}>—</TableCell>
@@ -92,12 +118,12 @@ export function BalanceTable({
                 {formatCompactUsd(Number(marginSummary.accountValue))}
               </TableCell>
               <TableCell className={cNum}>
-                {totalUnrealizedPnl !== 0 ? (
+                {totalUnrealizedPnl === 0 ? (
+                  "—"
+                ) : (
                   <span className={totalUnrealizedPnl >= 0 ? "text-gain" : "text-loss"}>
                     {formatCompactUsd(totalUnrealizedPnl)}
                   </span>
-                ) : (
-                  "—"
                 )}
               </TableCell>
               <TableCell className={c}>—</TableCell>
@@ -117,7 +143,7 @@ export function BalanceTable({
                   <TableCell className={cNum}>—</TableCell>
                   <TableCell className={cNum}>{formatCompactUsd(posValue + upnl)}</TableCell>
                   <TableCell className={cNum}>
-                    {upnl !== 0 ? <PnLDisplay usd={upnl} pct={roe} /> : "—"}
+                    {upnl === 0 ? "—" : <PnLDisplay usd={upnl} pct={roe} />}
                   </TableCell>
                   <TableCell className={c}>—</TableCell>
                   <TableCell className={c}>—</TableCell>
@@ -127,6 +153,8 @@ export function BalanceTable({
               );
             })}
           </>
+        ) : (
+          <TableEmptyRow colSpan={9} />
         )}
       </TableBody>
     </Table>

@@ -35,10 +35,9 @@ describe("mapMarketInfraError", () => {
   });
 
   it("falls back to fallbackMessage for unrecognized kind", () => {
-    const err = new MarketProviderError({
-      kind: "UNRECOGNIZED" as MarketProviderError["kind"],
-      message: "original",
-    });
+    const err = new MarketProviderError({ kind: "BAD_REQUEST", message: "original" });
+    // Simulate a kind outside the declared union to exercise the fallback branch.
+    Object.assign(err, { kind: "UNRECOGNIZED" });
     const result = mapMarketInfraError("fallback message")(err);
     expect(result).toMatchObject({ _tag: "InternalError", message: "fallback message" });
   });

@@ -4,7 +4,7 @@ import type { IndicatorDataPoint } from "../types";
 const emaNumbers = (values: number[], period: number): number[] => {
   if (values.length === 0) return [];
   const alpha = 2 / (period + 1);
-  const out: number[] = new Array(values.length);
+  const out: number[] = Array.from({ length: values.length }, () => 0);
   out[0] = values[0];
   for (let i = 1; i < values.length; i++) {
     out[i] = values[i] * alpha + out[i - 1] * (1 - alpha);
@@ -68,13 +68,13 @@ export const calculateStochRSI = (
 ): IndicatorDataPoint[] => {
   if (data.length < rsiPeriod + stochPeriod + smoothK) return [];
 
-  const rsiValues: number[] = new Array(data.length).fill(Number.NaN);
+  const rsiValues: number[] = Array.from({ length: data.length }, () => Number.NaN);
   let gainSum = 0;
   let lossSum = 0;
 
   for (let i = 1; i <= rsiPeriod; i++) {
     const delta = data[i].close - data[i - 1].close;
-    gainSum += delta > 0 ? delta : 0;
+    gainSum += Math.max(delta, 0);
     lossSum += delta < 0 ? -delta : 0;
   }
 
@@ -84,7 +84,7 @@ export const calculateStochRSI = (
   for (let i = rsiPeriod; i < data.length; i++) {
     if (i > rsiPeriod) {
       const delta = data[i].close - data[i - 1].close;
-      avgGain = (avgGain * (rsiPeriod - 1) + (delta > 0 ? delta : 0)) / rsiPeriod;
+      avgGain = (avgGain * (rsiPeriod - 1) + Math.max(delta, 0)) / rsiPeriod;
       avgLoss = (avgLoss * (rsiPeriod - 1) + (delta < 0 ? -delta : 0)) / rsiPeriod;
     }
     const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
@@ -98,15 +98,21 @@ export const calculateStochRSI = (
 
   for (let i = 0; i < rsiValues.length; i++) {
     if (Number.isNaN(rsiValues[i])) continue;
-    while (maxDeque.length && rsiValues[maxDeque[maxDeque.length - 1]] <= rsiValues[i])
+    while (maxDeque.length > 0) {
+      const lastIndex = maxDeque.at(-1);
+      if (lastIndex === undefined || rsiValues[lastIndex] > rsiValues[i]) break;
       maxDeque.pop();
-    while (minDeque.length && rsiValues[minDeque[minDeque.length - 1]] >= rsiValues[i])
+    }
+    while (minDeque.length > 0) {
+      const lastIndex = minDeque.at(-1);
+      if (lastIndex === undefined || rsiValues[lastIndex] < rsiValues[i]) break;
       minDeque.pop();
+    }
     maxDeque.push(i);
     minDeque.push(i);
     const left = i - stochPeriod + 1;
-    while (maxDeque.length && maxDeque[0] < left) maxDeque.shift();
-    while (minDeque.length && minDeque[0] < left) minDeque.shift();
+    while (maxDeque.length > 0 && maxDeque[0] < left) maxDeque.shift();
+    while (minDeque.length > 0 && minDeque[0] < left) minDeque.shift();
     if (i < rsiPeriod + stochPeriod - 1) continue;
     const min = rsiValues[minDeque[0]];
     const max = rsiValues[maxDeque[0]];
@@ -244,15 +250,21 @@ export const calculateAroonOscillator = (
   const minDeque: number[] = [];
 
   for (let i = 0; i < data.length; i++) {
-    while (maxDeque.length && data[maxDeque[maxDeque.length - 1]].high <= data[i].high)
+    while (maxDeque.length > 0) {
+      const lastIndex = maxDeque.at(-1);
+      if (lastIndex === undefined || data[lastIndex].high > data[i].high) break;
       maxDeque.pop();
-    while (minDeque.length && data[minDeque[minDeque.length - 1]].low >= data[i].low)
+    }
+    while (minDeque.length > 0) {
+      const lastIndex = minDeque.at(-1);
+      if (lastIndex === undefined || data[lastIndex].low < data[i].low) break;
       minDeque.pop();
+    }
     maxDeque.push(i);
     minDeque.push(i);
     const left = i - period + 1;
-    while (maxDeque.length && maxDeque[0] < left) maxDeque.shift();
-    while (minDeque.length && minDeque[0] < left) minDeque.shift();
+    while (maxDeque.length > 0 && maxDeque[0] < left) maxDeque.shift();
+    while (minDeque.length > 0 && minDeque[0] < left) minDeque.shift();
     if (i < period - 1) continue;
 
     const highestIndex = maxDeque[0];

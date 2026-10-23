@@ -21,7 +21,9 @@ export const IndicatorButton = memo(function IndicatorButton({
 }: IndicatorButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleToggle = useCallback(() => setIsOpen((prev) => !prev), []);
+  const handleToggle = useCallback(() => {
+    setIsOpen((prev) => !prev);
+  }, []);
 
   const indicatorCount = activeIndicators.length;
 

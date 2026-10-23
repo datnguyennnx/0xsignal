@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 
 export interface TradeDropdownProps {
   currentSymbol: string;
-  logoUrl?: string;
-  displaySymbol?: string;
+  logoUrl?: string | undefined;
+  displaySymbol?: string | undefined;
   currentDisplayName?: string;
   onPrefetchMarkets?: () => void;
 }
@@ -64,7 +64,7 @@ export const TAB_TO_CATEGORY: Record<string, CategoryTab> = {
   "Pre-launch": "prelaunch",
 };
 
-export type ColumnId = "symbol" | "price" | "change" | "funding" | "volume" | "oi" | "marketCap";
+type ColumnId = "symbol" | "price" | "change" | "funding" | "volume" | "oi" | "marketCap";
 
 export interface ColumnDef {
   id: ColumnId;

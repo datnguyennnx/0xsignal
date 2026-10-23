@@ -137,7 +137,6 @@ export function calculateKeltnerChannels(
     const index = i + offset;
     if (index < 0 || index >= middleSeries.length) continue;
     const m = middleSeries[index];
-    if (!m) continue;
     const atr = atrSeries[i].value;
     result.push({
       time: atrSeries[i].time,

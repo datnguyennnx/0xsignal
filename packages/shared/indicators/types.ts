@@ -20,7 +20,7 @@ export type IndicatorParamControl = "int" | "float";
 export interface IndicatorParamDefinition {
   readonly key: string;
   readonly label: string;
-  readonly description?: string;
+  readonly description?: string | undefined;
   readonly control: IndicatorParamControl;
   readonly min: number;
   readonly max: number;

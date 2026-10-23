@@ -16,9 +16,10 @@ const clamp = (value: number, min: number, max: number): number =>
   value < min ? min : value > max ? max : value;
 
 const parseNumber = (raw: string, percentScale = 1): number => {
-  const parsed = Number.parseFloat(raw);
+  const percent = raw.endsWith("%");
+  const parsed = percent ? Number(raw.slice(0, -1)) : Number(raw);
   if (!Number.isFinite(parsed)) return Number.NaN;
-  return raw.endsWith("%") ? (parsed / 100) * percentScale : parsed;
+  return percent ? (parsed / 100) * percentScale : parsed;
 };
 
 const toByte = (linear: number): number => {

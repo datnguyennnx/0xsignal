@@ -9,7 +9,6 @@ interface UseTradeMarkersOptions {
   fills: readonly HyperliquidFill[];
   timeframeSec: number;
   currentCoin: string;
-  candles?: readonly unknown[];
 }
 
 interface UseTradeMarkersResult {

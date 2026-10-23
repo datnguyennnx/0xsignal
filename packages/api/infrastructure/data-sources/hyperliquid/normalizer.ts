@@ -1,6 +1,8 @@
-import { Data, Effect, Match } from "effect";
+/// <reference lib="es2023.array" />
+import { Data, Effect, Match, Predicate } from "effect";
 import { type Candle, type WsMarketInterval } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
+import { asRecord } from "../parse-utils";
 
 export class NormalizationError extends Data.TaggedError("NormalizationError")<{
   readonly message: string;
@@ -18,11 +20,11 @@ export interface HlRawCandle {
 }
 
 const isNumberOrString = (value: unknown): value is number | string =>
-  typeof value === "number" || typeof value === "string";
+  Predicate.isNumber(value) || Predicate.isString(value);
 
 const isHlRawCandle = (value: unknown): value is HlRawCandle => {
-  if (typeof value !== "object" || value === null) return false;
-  const candle = value as Record<string, unknown>;
+  const candle = asRecord(value);
+  if (candle === null) return false;
   return (
     isNumberOrString(candle.t) &&
     isNumberOrString(candle.o) &&
@@ -83,5 +85,16 @@ export function normalizeCandle(hlCandle: HlRawCandle): Candle {
 }
 
 export function normalizeCandles(hlCandles: ReadonlyArray<HlRawCandle>): Candle[] {
-  return hlCandles.map(normalizeCandle);
+  // The chart needs ascending, unique open times; a Hyperliquid snapshot may repeat one.
+  const byTimestamp = new Map<number, Candle>();
+  for (const hlCandle of hlCandles) {
+    const candle = normalizeCandle(hlCandle);
+    const timestamp = new Date(candle.timestamp).getTime();
+    if (!Number.isNaN(timestamp)) {
+      byTimestamp.set(timestamp, candle);
+    }
+  }
+  return Array.from(byTimestamp.entries())
+    .toSorted(([a], [b]) => a - b)
+    .map(([, candle]) => candle);
 }

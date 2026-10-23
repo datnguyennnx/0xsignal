@@ -13,26 +13,26 @@ export interface WhalePosition {
   size: number;
   notionalUsd: number;
   entryPx: string;
-  liquidationPx?: string;
-  leverage?: number;
-  leverageType?: "cross" | "isolated";
-  marginUsd?: number;
+  liquidationPx?: string | undefined;
+  leverage?: number | undefined;
+  leverageType?: "cross" | "isolated" | undefined;
+  marginUsd?: number | undefined;
   unrealizedPnl: number;
   unrealizedPnlPct: number;
-  fundingFee?: number;
-  markPrice?: string;
+  fundingFee?: number | undefined;
+  markPrice?: string | undefined;
   entryTime: string;
 }
 
 export interface WhalePositionsQuery {
-  symbol?: string;
-  side?: WhaleSide;
+  symbol?: string | undefined;
+  side?: WhaleSide | undefined;
   pnlMin?: number;
   pnlMax?: number;
   fundingMin?: number;
   sort?: WhalePositionSort;
   limit?: number;
-  cursor?: string;
+  cursor?: string | undefined;
 }
 
 export interface WhaleLeaderboardRow {

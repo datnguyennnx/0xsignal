@@ -28,7 +28,7 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
 
 const parseProvider = (url: URL): OAuthProvider | null => {
   const parts = url.pathname.split("/");
-  const provider = parts[parts.length - 2];
+  const provider = parts.at(-2);
   if (provider === "google" || provider === "github") return provider;
   return null;
 };
@@ -64,7 +64,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         const provider = parseProvider(url);
         const code = url.searchParams.get("code");
         const state = url.searchParams.get("state");
-        if (!provider || !code || !state) {
+        if (provider === null || code === null || code === "" || state === null || state === "") {
           return json({ error: "Missing required parameters" }, 400);
         }
 
@@ -109,7 +109,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
       Effect.gen(function* () {
         const authService = yield* AuthService;
         const raw = yield* Effect.tryPromise(() => request.json()).pipe(
-          Effect.catch(() => Effect.succeed({} as any)),
+          Effect.catch(() => Effect.succeed<unknown>({})),
         );
         const decoded = Schema.decodeUnknownOption(TokenExchangeSchema)(raw);
         if (Option.isNone(decoded)) {
@@ -146,7 +146,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         const authService = yield* AuthService;
         const cookieHeader = request.headers.get("cookie") ?? "";
         const refreshToken = parseCookie(cookieHeader, "refresh_token");
-        if (!refreshToken) {
+        if (refreshToken === undefined || refreshToken === "") {
           return json({ error: "No refresh token" }, 401);
         }
 
@@ -185,8 +185,8 @@ export const buildAuthRoutes = (): readonly Route[] => [
         const authService = yield* AuthService;
         const cookieHeader = request.headers.get("cookie") ?? "";
         const refreshToken = parseCookie(cookieHeader, "refresh_token");
-        if (refreshToken) {
-          yield* Effect.catch(authService.logout(refreshToken), () => Effect.succeed(undefined));
+        if (refreshToken !== undefined && refreshToken !== "") {
+          yield* authService.logout(refreshToken).pipe(Effect.catch(() => Effect.void));
         }
         const cookie = `refresh_token=; HttpOnly; SameSite=Strict; Path=/api/auth; Max-Age=0`;
         return json({ message: "Logged out" }, 200, { "Set-Cookie": cookie });
@@ -218,7 +218,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         Effect.gen(function* () {
           const authService = yield* AuthService;
           const raw = yield* Effect.tryPromise(() => request.json()).pipe(
-            Effect.catch(() => Effect.succeed({} as any)),
+            Effect.catch(() => Effect.succeed<unknown>({})),
           );
           const decoded = Schema.decodeUnknownOption(ProfileUpdateSchema)(raw);
           if (Option.isNone(decoded)) {

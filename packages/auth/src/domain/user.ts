@@ -1,5 +1,8 @@
-export type UserId = string & { readonly UserId: unique symbol };
-export const UserId = (id: string) => id as UserId;
+import { Brand } from "effect";
+
+export type UserId = string & Brand.Brand<"UserId">;
+
+export const makeUserId = Brand.nominal<UserId>();
 
 export type UserStatus = "active" | "suspended" | "banned";
 

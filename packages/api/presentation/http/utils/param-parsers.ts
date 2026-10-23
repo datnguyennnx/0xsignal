@@ -5,7 +5,7 @@ export const parseOptionalSigFigsParam = (
   key: string,
 ): 2 | 3 | 4 | 5 | undefined | null => {
   const rawValue = params.get(key);
-  if (!rawValue) {
+  if (rawValue === null || rawValue === "") {
     return undefined;
   }
 
@@ -14,7 +14,7 @@ export const parseOptionalSigFigsParam = (
     return null;
   }
 
-  const parsed = Number.parseInt(value, 10);
+  const parsed = Math.trunc(Number(value));
   if (parsed === 2 || parsed === 3 || parsed === 4 || parsed === 5) {
     return parsed;
   }

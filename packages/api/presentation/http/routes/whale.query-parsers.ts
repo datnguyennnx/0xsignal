@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import {
   type WhalePositionSort,
   type WhalePositionsQuery,
@@ -9,6 +9,9 @@ import {
 } from "@0xsignal/shared";
 import { asHttpError, type HttpError } from "../error-response";
 
+// Absent optional value: built through Option so the absence is explicit.
+const noNumber = Option.getOrUndefined(Option.none<number>());
+
 const badRequest = (message: string): Effect.Effect<never, HttpError> =>
   Effect.fail(asHttpError(400, message));
 
@@ -16,12 +19,12 @@ const parseOptionalPositiveInt = (
   raw: string | null,
   key: string,
 ): Effect.Effect<number | undefined, HttpError> => {
-  if (raw === null) return Effect.succeed(undefined);
+  if (raw === null) return Effect.succeed(noNumber);
   const value = raw.trim();
-  if (value === "") return Effect.succeed(undefined);
+  if (value === "") return Effect.succeed(noNumber);
   if (!/^\d+$/.test(value)) return badRequest(`Invalid ${key}: ${raw}`);
 
-  const parsed = Number.parseInt(value, 10);
+  const parsed = Math.trunc(Number(value));
   return parsed > 0 ? Effect.succeed(parsed) : badRequest(`Invalid ${key}: ${raw}`);
 };
 
@@ -29,9 +32,9 @@ const parseOptionalNumber = (
   raw: string | null,
   key: string,
 ): Effect.Effect<number | undefined, HttpError> => {
-  if (raw === null) return Effect.succeed(undefined);
+  if (raw === null) return Effect.succeed(noNumber);
   const value = raw.trim();
-  if (value === "") return Effect.succeed(undefined);
+  if (value === "") return Effect.succeed(noNumber);
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Effect.succeed(parsed) : badRequest(`Invalid ${key}: ${raw}`);
@@ -53,14 +56,14 @@ export const parseWhalePositionsQuery = (
     const query: WhalePositionsQuery = {};
 
     const symbol = params.get("symbol")?.trim();
-    if (symbol) query.symbol = symbol;
+    if (symbol !== undefined && symbol !== "") query.symbol = symbol;
     const cursor = params.get("cursor")?.trim();
-    if (cursor) query.cursor = cursor;
+    if (cursor !== undefined && cursor !== "") query.cursor = cursor;
 
     const side = params.get("side")?.trim();
-    if (side) {
-      if (!isSide(side)) yield* badRequest(`Invalid side: ${side}`);
-      else query.side = side;
+    if (side !== undefined && side !== "") {
+      if (isSide(side)) query.side = side;
+      else yield* badRequest(`Invalid side: ${side}`);
     }
 
     const pnlMin = yield* parseOptionalNumber(params.get("pnlMin"), "pnlMin");

@@ -1,32 +1,21 @@
-import { useState, useEffect, useMemo, memo, lazy, Suspense } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ErrorBoundary } from "@/components/error-boundary";
-import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
-import { PositionManagement } from "@/features/trade/components/position-management";
-import { OrderForm } from "@/features/trade/components/order-form";
+import { useState, useEffect, useMemo, memo, useLayoutEffect, useRef } from "react";
+
+import type { MarketPrice } from "@/services/api";
 import { TradeDropdown } from "@/features/trade/components/trade-dropdown";
-
-import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
-import { useHyperliquidSymbolLogo } from "@/features/trade/hooks/use-hyperliquid-symbol-logo";
 import { useAllMids } from "@/features/trade/hooks/use-all-mids";
-import { useTradeList } from "@/features/trade/hooks/use-trade-list";
-import { DashboardGrid, DashboardPanel } from "./dashboard-grid";
+import { useHyperliquidSymbolLogo } from "@/features/trade/hooks/use-hyperliquid-symbol-logo";
+import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
+import { useTradeList, type TradeListData } from "@/features/trade/hooks/use-trade-list";
+import { AssetTradingGrid } from "./asset-trading-grid";
 import { MarketTerminalHeader } from "./market-terminal-header";
-import { toCountdown, getNextFundingMs } from "../utils/format";
+import { getNextFundingMs, toCountdown } from "../utils/format";
 
-const TradingChart = lazy(() =>
-  import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart })),
-);
-
-const ChartSkeleton = () => (
-  <div className="h-full w-full flex items-center justify-center material-raised rounded-xl">
-    <Skeleton className="h-full w-full rounded-xl bg-muted/50" />
-  </div>
-);
+const isNonEmpty = (value: string | null | undefined): value is string =>
+  typeof value === "string" && value !== "";
 
 export interface AssetViewModel {
   readonly symbol: string;
-  readonly price: import("@/services/api").MarketPrice;
+  readonly price: MarketPrice;
 }
 
 interface AssetContentProps {
@@ -37,6 +26,84 @@ interface AssetContentProps {
   readonly showChartSkeleton: boolean;
 }
 
+interface LiveMarketHeaderProps {
+  readonly symbol: string;
+  readonly isSpot: boolean;
+  readonly price: MarketPrice;
+  readonly tradeAsset: TradeListData["assets"][number] | undefined;
+}
+
+/**
+ * The 1s countdown and the allMids ticks stop at this subtree: only the market
+ * metrics re-render, never the grid, the chart or the dashboard below them.
+ */
+const LiveMarketHeader = memo(function LiveMarketHeader({
+  symbol,
+  isSpot,
+  price,
+  tradeAsset,
+}: LiveMarketHeaderProps) {
+  const [fundingCountdown, setFundingCountdown] = useState(() => toCountdown(getNextFundingMs()));
+  const allMids = useAllMids(symbol !== "");
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFundingCountdown(toCountdown(getNextFundingMs()));
+    }, 1000);
+    return () => {
+      clearInterval(id);
+    };
+  }, []);
+
+  // Real-time mark price from WebSocket (allMids channel)
+  const liveMarkPrice = useMemo(() => {
+    // 1. WebSocket allMids real-time stream (handles perp "xyz:TSLA" and spot "PURR/USDC")
+    if (allMids[symbol]) return allMids[symbol];
+    // Fall back to normalized uppercase for backward compat
+    const upper = symbol.toUpperCase();
+    if (allMids[upper]) return allMids[upper];
+    // 2. Aggregated markets list — spot prices from spotMetaAndAssetCtxs
+    //    This is the authoritative source for spot mark prices when WebSocket
+    //    hasn't delivered data yet (cold load) or allMids doesn't include spot pairs.
+    if (isNonEmpty(tradeAsset?.markPx)) return Number(tradeAsset.markPx);
+    // 3. REST API ticker (last resort — returns zeros for spots without allMids data)
+    return price?.markPx || price?.price || 0;
+  }, [allMids, symbol, price, tradeAsset]);
+
+  const tradePrevDayPx = tradeAsset?.prevDayPx;
+  const circulatingSupply = tradeAsset?.circulatingSupply;
+
+  return (
+    <MarketTerminalHeader
+      markPrice={liveMarkPrice}
+      oraclePrice={price?.midPx || price?.markPx || 0}
+      change24hAbs={
+        isSpot && isNonEmpty(tradePrevDayPx)
+          ? liveMarkPrice - Number(tradePrevDayPx)
+          : (price?.markPx || price?.price || 0) - (price?.prevDayPx || 0)
+      }
+      change24hPct={
+        isSpot && isNonEmpty(tradePrevDayPx) && Number(tradePrevDayPx) > 0
+          ? ((liveMarkPrice - Number(tradePrevDayPx)) / Number(tradePrevDayPx)) * 100
+          : price?.change24h || 0
+      }
+      volume24h={isSpot ? Number(tradeAsset?.dayNtlVlm ?? 0) : price?.volume24h || 0}
+      openInterest={price?.openInterest || 0}
+      fundingRate={price?.funding || 0}
+      fundingCountdown={fundingCountdown}
+      marketType={tradeAsset?.marketType}
+      marketCap={
+        isSpot && isNonEmpty(circulatingSupply)
+          ? liveMarkPrice * Number(circulatingSupply)
+          : undefined
+      }
+      contractAddress={isSpot ? tradeAsset?.evmContract : undefined}
+    />
+  );
+});
+
+const TradingGrid = memo(AssetTradingGrid);
+
 export const AssetContent = memo(function AssetContent({
   asset,
   symbol,
@@ -44,166 +111,84 @@ export const AssetContent = memo(function AssetContent({
   onIntervalChange,
   showChartSkeleton,
 }: AssetContentProps) {
-  const chartSymbol = symbol.toUpperCase();
   const price = asset.price;
-  const [fundingCountdown, setFundingCountdown] = useState(() => toCountdown(getNextFundingMs()));
+  const isSpot = symbol.includes("/");
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setFundingCountdown(toCountdown(getNextFundingMs()));
-    }, 1000);
-    return () => clearInterval(id);
+  const regionRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  // The grid only gets the region minus the header block and the column gap that follows
+  // it. Publishing that offset lets the canvas derive its fit pitch without measuring
+  // itself (which would feed the canvas height back into its own row height). Runs before
+  // paint, so the first painted frame already has the fit height.
+  useLayoutEffect(() => {
+    const region = regionRef.current;
+    const header = headerRef.current;
+    if (region === null || header === null) return () => {};
+    const grid = header.nextElementSibling;
+    if (grid === null) return () => {};
+    const publish = () => {
+      const offset = grid.getBoundingClientRect().top - region.getBoundingClientRect().top;
+      region.style.setProperty("--trading-header-offset", `${offset}px`);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(header);
+    observer.observe(region);
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
   // `symbol` is the rawCoin from URL (perp: "BTC", spot: "PURR/USDC", HIP-3: "xyz:TSLA")
-  const isSpot = symbol.includes("/");
-  const { data: annotation } = useTradeAnnotation(isSpot ? "" : symbol);
-  const { data: logoUrl } = useHyperliquidSymbolLogo(symbol);
-
   // Intent-driven: only fetch markets when user interacts with trade dropdown (removes 166kB from critical path)
   const [marketsIntent, setMarketsIntent] = useState(false);
+  // Not useAssetContext: it reads the whole allMids map, which would re-render this
+  // subtree (and everything below it) on every WebSocket message.
+  const { data: annotation } = useTradeAnnotation(isSpot ? "" : symbol);
+  const { data: logoUrl } = useHyperliquidSymbolLogo(symbol);
   const { data: tradeList } = useTradeList(marketsIntent);
-  const displayName = annotation?.displayName || symbol.toUpperCase();
+  const annotationName = annotation?.displayName;
+  const displayName = isNonEmpty(annotationName) ? annotationName : symbol.toUpperCase();
   const description = annotation?.description;
 
   // Resolve trade asset from aggregated list by matching rawCoin (case-insensitive)
-  const tradeAsset = useMemo(() => {
-    if (!tradeList?.assets) return undefined;
-    return tradeList.assets.find((a) => a.rawCoin.toLowerCase() === symbol.toLowerCase());
-  }, [tradeList, symbol]);
+  const tradeAsset = useMemo(
+    () => tradeList?.assets.find((a) => a.rawCoin.toLowerCase() === symbol.toLowerCase()),
+    [tradeList, symbol],
+  );
   const displaySymbol = tradeAsset?.displaySymbol;
 
-  // Real-time mark price from WebSocket (allMids channel)
-  const allMids = useAllMids(!!symbol);
-  const liveMarkPrice = useMemo(() => {
-    // 1. WebSocket allMids real-time stream (handles perp "xyz:TSLA" and spot "PURR/USDC")
-    if (allMids[symbol]) return Number(allMids[symbol]);
-    // Fall back to normalized uppercase for backward compat
-    const upper = symbol.toUpperCase();
-    if (allMids[upper]) return Number(allMids[upper]);
-    // 2. Aggregated markets list — spot prices from spotMetaAndAssetCtxs
-    //    This is the authoritative source for spot mark prices when WebSocket
-    //    hasn't delivered data yet (cold load) or allMids doesn't include spot pairs.
-    if (tradeAsset?.markPx) return Number(tradeAsset.markPx);
-    // 3. REST API ticker (last resort — returns zeros for spots without allMids data)
-    return price?.markPx || price?.price || 0;
-  }, [allMids, symbol, price, tradeAsset]);
-
-  // Shared panel variables (deduplicates desktop vs narrow layout)
-  const chartPanel = (
-    <Suspense fallback={<ChartSkeleton />}>
-      <ErrorBoundary resetKey={chartSymbol}>
-        <TradingChart
-          key={chartSymbol}
-          symbol={chartSymbol}
-          interval={interval}
-          onIntervalChange={onIntervalChange}
-        />
-      </ErrorBoundary>
-    </Suspense>
-  );
-
-  const orderbookPanel = (
-    <ErrorBoundary resetKey={symbol}>
-      <OrderbookWidget key={symbol} symbol={symbol} />
-    </ErrorBoundary>
-  );
-
-  const orderformPanel = (
-    <ErrorBoundary resetKey={symbol}>
-      <OrderForm symbol={symbol} markPrice={asset.price?.markPx || asset.price?.price || 0} />
-    </ErrorBoundary>
-  );
-
-  const positionsPanel = (
-    <ErrorBoundary resetKey={symbol}>
-      <PositionManagement />
-    </ErrorBoundary>
-  );
-
   return (
-    <div className="container-fluid flex-1 min-h-0 flex flex-col animate-in fade-in duration-200 ease-premium">
-      <header>
+    <div
+      ref={regionRef}
+      className="container-fluid flex flex-col min-h-[var(--trading-region-height)] animate-in fade-in duration-200 ease-premium"
+    >
+      <header ref={headerRef} className="shrink-0 flex flex-col gap-2">
         <div className="flex items-center w-full min-w-0">
           <TradeDropdown
             currentSymbol={symbol}
             logoUrl={logoUrl ?? undefined}
             displaySymbol={displaySymbol}
             currentDisplayName={displayName}
-            onPrefetchMarkets={() => setMarketsIntent(true)}
+            onPrefetchMarkets={() => {
+              setMarketsIntent(true);
+            }}
           />
-          <MarketTerminalHeader
-            markPrice={liveMarkPrice}
-            oraclePrice={price?.midPx || price?.markPx || 0}
-            change24hAbs={
-              isSpot && tradeAsset?.prevDayPx
-                ? liveMarkPrice - Number(tradeAsset.prevDayPx)
-                : (price?.markPx || price?.price || 0) - (price?.prevDayPx || 0)
-            }
-            change24hPct={
-              isSpot && tradeAsset?.prevDayPx && Number(tradeAsset.prevDayPx) > 0
-                ? ((liveMarkPrice - Number(tradeAsset.prevDayPx)) / Number(tradeAsset.prevDayPx)) *
-                  100
-                : price?.change24h || 0
-            }
-            volume24h={isSpot ? Number(tradeAsset?.dayNtlVlm ?? 0) : price?.volume24h || 0}
-            openInterest={price?.openInterest || 0}
-            fundingRate={price?.funding || 0}
-            fundingCountdown={fundingCountdown}
-            marketType={tradeAsset?.marketType}
-            marketCap={
-              isSpot && tradeAsset?.circulatingSupply
-                ? liveMarkPrice * Number(tradeAsset.circulatingSupply)
-                : undefined
-            }
-            contractAddress={isSpot ? tradeAsset?.evmContract : undefined}
-          />
+          <LiveMarketHeader symbol={symbol} isSpot={isSpot} price={price} tradeAsset={tradeAsset} />
         </div>
-        {description && (
-          <div className="pb-[clamp(0.25rem,0.5vw,0.375rem)]">
-            <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">{description}</p>
-          </div>
+        {isNonEmpty(description) && (
+          <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">{description}</p>
         )}
       </header>
 
-      <div className="container-query flex-1 min-h-0 flex flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-        {/* ===== WIDE (container ≥ 80rem): DashboardGrid ===== */}
-        <div className="hidden @[80rem]:flex flex-1 min-h-0 flex-col gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-          <DashboardGrid className="min-h-0">
-            <DashboardPanel id="chart">
-              {showChartSkeleton ? (
-                <Skeleton className="h-full w-full rounded-lg" />
-              ) : (
-                <div className="animate-in fade-in duration-200 ease-premium h-full">
-                  {chartPanel}
-                </div>
-              )}
-            </DashboardPanel>
-            <DashboardPanel id="orderbook">{orderbookPanel}</DashboardPanel>
-            <DashboardPanel id="orderform">{orderformPanel}</DashboardPanel>
-            <DashboardPanel id="positions">{positionsPanel}</DashboardPanel>
-          </DashboardGrid>
-        </div>
-
-        {/* ===== NARROW (container < 80rem): 2×2 Grid ===== */}
-        <div className="grid @[80rem]:hidden flex-1 min-h-0 grid-cols-[7fr_3fr] grid-rows-[auto_auto] gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-          {/* Row 1 */}
-          <div className="min-w-0 self-stretch">
-            {showChartSkeleton ? (
-              <Skeleton className="h-full w-full rounded-lg" />
-            ) : (
-              <div className="h-full">{chartPanel}</div>
-            )}
-          </div>
-
-          <div className="flex flex-col h-fit min-w-0">{orderbookPanel}</div>
-
-          {/* Row 2 */}
-          <div className="flex flex-col h-fit min-w-0">{positionsPanel}</div>
-
-          <div className="flex flex-col h-fit min-w-0">{orderformPanel}</div>
-        </div>
-      </div>
+      <TradingGrid
+        symbol={symbol}
+        interval={interval}
+        onIntervalChange={onIntervalChange}
+        showChartSkeleton={showChartSkeleton}
+        markPrice={price?.markPx || price?.price || 0}
+      />
     </div>
   );
 });

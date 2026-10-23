@@ -1,11 +1,11 @@
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { asHttpError, type HttpError } from "../error-response";
 import { parseOptionalSigFigsParam } from "../utils/param-parsers";
 import { MarketTimeframeSchema, type MarketTimeframe } from "../../../domain/market-data/timeframe";
-import { WS_MARKET_INTERVALS } from "@0xsignal/shared";
 
-// Re-export for convenience — these are single-source-of-truth from @0xsignal/shared
-export { WS_MARKET_INTERVALS };
+// Absent optional value: built through Option so the absence is explicit.
+const noDate = Option.getOrUndefined(Option.none<Date>());
+const noNumber = Option.getOrUndefined(Option.none<number>());
 
 const badRequest = (message: string): Effect.Effect<never, HttpError> =>
   Effect.fail({ status: 400, message });
@@ -15,7 +15,7 @@ export const parseRequiredString = (
   key: string,
 ): Effect.Effect<string, HttpError> => {
   const value = params.get(key)?.trim();
-  if (!value) {
+  if (value === undefined || value === "") {
     return badRequest(`Missing required query parameter: ${key}`);
   }
   return Effect.succeed(value);
@@ -26,8 +26,8 @@ export const parseOptionalDate = (
   key: string,
 ): Effect.Effect<Date | undefined, HttpError> => {
   const value = params.get(key);
-  if (!value) {
-    return Effect.succeed(undefined);
+  if (value === null || value === "") {
+    return Effect.succeed(noDate);
   }
 
   const parsed = new Date(value);
@@ -43,8 +43,8 @@ export const parseOptionalPositiveInt = (
   key: string,
 ): Effect.Effect<number | undefined, HttpError> => {
   const rawValue = params.get(key);
-  if (!rawValue) {
-    return Effect.succeed(undefined);
+  if (rawValue === null || rawValue === "") {
+    return Effect.succeed(noNumber);
   }
 
   const value = rawValue.trim();
@@ -52,7 +52,7 @@ export const parseOptionalPositiveInt = (
     return badRequest(`Invalid integer for ${key}: ${rawValue}`);
   }
 
-  const parsed = Number.parseInt(value, 10);
+  const parsed = Math.trunc(Number(value));
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return badRequest(`Invalid integer for ${key}: ${rawValue}`);
   }
@@ -77,7 +77,7 @@ export const parseInterval = (
   params: URLSearchParams,
 ): Effect.Effect<MarketTimeframe, HttpError> => {
   const value = params.get("interval") ?? params.get("timeframe");
-  if (!value) {
+  if (value === null || value === "") {
     return badRequest("Missing required query parameter: interval");
   }
   return Schema.decodeUnknownEffect(MarketTimeframeSchema)(value).pipe(

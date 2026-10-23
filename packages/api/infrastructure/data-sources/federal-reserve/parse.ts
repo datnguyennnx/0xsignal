@@ -51,9 +51,9 @@ export const parse = (body: string, options: ParseOptions = {}): readonly Econom
   if (typeof body !== "string" || body.trim() === "") return [];
 
   const text = body
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&#8211;|&ndash;|&mdash;/gi, "-");
+    .replaceAll(/<[^>]+>/g, " ")
+    .replaceAll(/&nbsp;/gi, " ")
+    .replaceAll(/&#8211;|&ndash;|&mdash;/gi, "-");
   const years = collectYears(text);
   const events: EconomicEvent[] = [];
 

@@ -42,7 +42,7 @@ export function CloseLimitModal({
 
   const handleSliderChange = useCallback(
     (value: number | readonly number[]) => {
-      const pct = (Array.isArray(value) ? value : [value])[0] ?? 0;
+      const pct = typeof value === "number" ? value : (value[0] ?? 0);
       setSliderPercent(pct);
       if (position) {
         const rawSize = (pct / 100) * position.sz;
@@ -105,12 +105,16 @@ export function CloseLimitModal({
               <Input
                 type="number"
                 value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                onChange={(e) => {
+                  setPrice(e.target.value);
+                }}
                 placeholder="0.00"
                 className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/40 pr-14"
               />
               <button
-                onClick={() => position && setPrice(position.markPx.toFixed(2))}
+                onClick={() => {
+                  if (position !== null) setPrice(position.markPx.toFixed(2));
+                }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-foreground hover:text-foreground/70 transition-colors"
               >
                 Mid

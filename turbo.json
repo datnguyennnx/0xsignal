@@ -1,5 +1,6 @@
 {
-  "$schema": "https://v2-11-7.turborepo.dev/schema.json",
+  "$schema": "https://v2-11-10.turborepo.dev/schema.json",
+  "globalDependencies": ["tsconfig.base.json", "package.json", "bun.lock"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

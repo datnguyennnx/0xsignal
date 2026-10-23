@@ -1,5 +1,5 @@
 import type { MarketTimeframe } from "../../domain/market-data/timeframe";
-import type { MarketTicker, AggregatedMarket, MarketTypeCategory } from "@0xsignal/shared";
+import type { MarketTicker } from "@0xsignal/shared";
 
 export type MarketOrderBook = {
   readonly symbol: string;
@@ -16,9 +16,9 @@ export type CandleQuery = {
   readonly symbol: string;
   readonly exchange: string;
   readonly timeframe: MarketTimeframe;
-  readonly startTime?: Date;
-  readonly endTime?: Date;
-  readonly limit?: number;
+  readonly startTime?: Date | undefined;
+  readonly endTime?: Date | undefined;
+  readonly limit?: number | undefined;
   readonly disableLimitForRange?: boolean;
 };
 
@@ -26,8 +26,8 @@ export type RecentCandleQuery = {
   readonly symbol: string;
   readonly exchange?: string;
   readonly timeframe: MarketTimeframe;
-  readonly endTime?: Date;
-  readonly limit?: number;
+  readonly endTime?: Date | undefined;
+  readonly limit?: number | undefined;
 };
 
-export type { MarketTicker, AggregatedMarket, MarketTypeCategory };
+export type { MarketTicker };

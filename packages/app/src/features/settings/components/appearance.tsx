@@ -16,7 +16,9 @@ interface ThemeCardProps {
 
 const ThemeCard = ({ value, label, theme, handleThemeChange, children }: ThemeCardProps) => (
   <button
-    onClick={() => handleThemeChange(value)}
+    onClick={() => {
+      handleThemeChange(value);
+    }}
     className="flex flex-col items-center gap-3 flex-1 group cursor-pointer w-full text-center"
   >
     <div

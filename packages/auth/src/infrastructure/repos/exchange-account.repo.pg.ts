@@ -1,14 +1,61 @@
-import { Effect, Match } from "effect";
+import { Effect } from "effect";
 import type { ExchangeAccount } from "../../domain/exchange-credential";
 import { AccountNotFound, DuplicateLabel } from "../../domain/errors";
 import { isPgUniqueViolation, resolveMasterWallet } from "./shared/pg-utils";
 import type { ExchangeAccountRepoPort } from "./exchange-account.repo";
 
+type IdRow = { readonly id: string };
+
+type CountRow = { readonly cnt: number };
+
+type ExchangeAccountRow = {
+  readonly id: string;
+  readonly user_id: string;
+  readonly exchange_id: string;
+  readonly node_type: ExchangeAccount["nodeType"];
+  readonly parent_id: string | null;
+  readonly wallet_address: string;
+  readonly chain: string | null;
+  readonly label: string;
+  readonly color: string | null;
+  readonly sort_order: number;
+  readonly is_active: boolean;
+  readonly is_primary: boolean;
+  readonly metadata: Record<string, unknown> | null;
+  readonly created_at: Date | string;
+  readonly updated_at: Date | string;
+};
+
+const isPresent = (value: string | null | undefined): value is string =>
+  value !== undefined && value !== null && value !== "";
+
+const ts = (v: Date | string): string => (v instanceof Date ? v.toISOString() : v);
+
+function mapRow(row: ExchangeAccountRow): ExchangeAccount {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    exchangeId: row.exchange_id,
+    nodeType: row.node_type,
+    ...(row.parent_id !== null && { parentId: row.parent_id }),
+    walletAddress: row.wallet_address,
+    ...(row.chain !== null && { chain: row.chain }),
+    label: row.label,
+    ...(row.color !== null && { color: row.color }),
+    sortOrder: row.sort_order,
+    isActive: row.is_active,
+    isPrimary: row.is_primary,
+    metadata: row.metadata ?? {},
+    createdAt: ts(row.created_at),
+    updatedAt: ts(row.updated_at),
+  };
+}
+
 export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): ExchangeAccountRepoPort {
   return {
     create: (params) =>
       Effect.tryPromise(async () => {
-        const exchangeResult = await pg.query("SELECT id FROM exchanges WHERE slug = $1", [
+        const exchangeResult = await pg.query<IdRow>("SELECT id FROM exchanges WHERE slug = $1", [
           params.exchangeSlug,
         ]);
         if (exchangeResult.rows.length === 0) {
@@ -18,22 +65,23 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
         }
         const exchangeId = exchangeResult.rows[0].id;
 
-        if (params.parentId) {
-          const parentCheck = await pg.query("SELECT id FROM exchange_accounts WHERE id = $1", [
-            params.parentId,
-          ]);
+        if (isPresent(params.parentId)) {
+          const parentCheck = await pg.query<IdRow>(
+            "SELECT id FROM exchange_accounts WHERE id = $1",
+            [params.parentId],
+          );
           if (parentCheck.rows.length === 0) {
             throw new AccountNotFound({ accountId: params.parentId });
           }
         }
 
-        const countResult = await pg.query(
+        const countResult = await pg.query<CountRow>(
           "SELECT COUNT(*)::int AS cnt FROM exchange_accounts WHERE user_id = $1 AND exchange_id = $2",
           [params.userId, exchangeId],
         );
         const isFirst = countResult.rows[0].cnt === 0;
 
-        const insertResult = await pg.query(
+        const insertResult = await pg.query<ExchangeAccountRow>(
           `INSERT INTO exchange_accounts
            (user_id, exchange_id, node_type, parent_id, wallet_address, chain, label, color, sort_order, is_primary, metadata)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
@@ -55,21 +103,23 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
 
         return mapRow(insertResult.rows[0]);
       }).pipe(
-        Effect.catch((error: unknown) => {
+        Effect.catch((error: unknown): Effect.Effect<never, AccountNotFound | DuplicateLabel> => {
           if (isPgUniqueViolation(error)) {
             return Effect.fail(new DuplicateLabel({ label: params.label ?? "" }));
           }
-          return Match.value(error).pipe(
-            Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-            Match.when({ _tag: "DuplicateLabel" }, (e) => Effect.fail(e as DuplicateLabel)),
-            Match.orElse(() => Effect.die(error)),
-          );
+          if (error instanceof AccountNotFound) {
+            return Effect.fail(error);
+          }
+          if (error instanceof DuplicateLabel) {
+            return Effect.fail(error);
+          }
+          return Effect.die(error);
         }),
       ),
 
     findById: (id, userId) =>
       Effect.tryPromise(async () => {
-        const result = await pg.query(
+        const result = await pg.query<ExchangeAccountRow>(
           "SELECT * FROM exchange_accounts WHERE id = $1 AND user_id = $2",
           [id, userId],
         );
@@ -78,12 +128,9 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
         }
         return mapRow(result.rows[0]);
       }).pipe(
-        Effect.catch((error: unknown) => {
-          return Match.value(error).pipe(
-            Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-            Match.orElse(() => Effect.die(error)),
-          );
-        }),
+        Effect.catch((error: unknown) =>
+          error instanceof AccountNotFound ? Effect.fail(error) : Effect.die(error),
+        ),
       ),
 
     findByUserId: (userId, exchangeSlug) =>
@@ -91,7 +138,7 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
         let query: string;
         let params: unknown[];
 
-        if (exchangeSlug) {
+        if (isPresent(exchangeSlug)) {
           query = `
             SELECT ea.* FROM exchange_accounts ea
             JOIN exchanges e ON e.id = ea.exchange_id
@@ -104,13 +151,13 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
           params = [userId];
         }
 
-        const result = await pg.query(query, params);
+        const result = await pg.query<ExchangeAccountRow>(query, params);
         return result.rows.map(mapRow);
       }).pipe(Effect.orDie),
 
     findPrimary: (userId, exchangeSlug) =>
       Effect.tryPromise(async () => {
-        const result = await pg.query(
+        const result = await pg.query<ExchangeAccountRow>(
           `SELECT ea.* FROM exchange_accounts ea
            JOIN exchanges e ON e.id = ea.exchange_id
            WHERE ea.user_id = $1 AND e.slug = $2 AND ea.is_primary = true
@@ -124,17 +171,14 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
         }
         return mapRow(result.rows[0]);
       }).pipe(
-        Effect.catch((error: unknown) => {
-          return Match.value(error).pipe(
-            Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-            Match.orElse(() => Effect.die(error)),
-          );
-        }),
+        Effect.catch((error: unknown) =>
+          error instanceof AccountNotFound ? Effect.fail(error) : Effect.die(error),
+        ),
       ),
 
     findWithDescendants: (accountId) =>
       Effect.tryPromise(async () => {
-        const result = await pg.query(
+        const result = await pg.query<ExchangeAccountRow>(
           `WITH RECURSIVE descendants AS (
              SELECT * FROM exchange_accounts WHERE id = $1
              UNION
@@ -151,7 +195,7 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
 
     setPrimary: (accountId, userId) =>
       Effect.tryPromise(async () => {
-        const result = await pg.query(
+        const result = await pg.query<IdRow>(
           `WITH target AS (
              SELECT id, exchange_id FROM exchange_accounts
              WHERE id = $1 AND user_id = $2
@@ -171,17 +215,14 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
           throw new AccountNotFound({ accountId });
         }
       }).pipe(
-        Effect.catch((error: unknown) => {
-          return Match.value(error).pipe(
-            Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-            Match.orElse(() => Effect.die(error)),
-          );
-        }),
+        Effect.catch((error: unknown) =>
+          error instanceof AccountNotFound ? Effect.fail(error) : Effect.die(error),
+        ),
       ),
 
     deactivate: (accountId, userId) =>
       Effect.tryPromise(async () => {
-        const result = await pg.query(
+        const result = await pg.query<IdRow>(
           "UPDATE exchange_accounts SET is_active = false WHERE id = $1 AND user_id = $2 RETURNING id",
           [accountId, userId],
         );
@@ -189,33 +230,9 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
           throw new AccountNotFound({ accountId });
         }
       }).pipe(
-        Effect.catch((error: unknown) => {
-          return Match.value(error).pipe(
-            Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-            Match.orElse(() => Effect.die(error)),
-          );
-        }),
+        Effect.catch((error: unknown) =>
+          error instanceof AccountNotFound ? Effect.fail(error) : Effect.die(error),
+        ),
       ),
-  };
-}
-
-function mapRow(row: unknown): ExchangeAccount {
-  const r = row as Record<string, unknown>;
-  return {
-    id: r.id as string,
-    userId: r.user_id as string,
-    exchangeId: r.exchange_id as string,
-    nodeType: r.node_type as "wallet" | "sub" | "vault",
-    parentId: (r.parent_id as string | undefined) ?? undefined,
-    walletAddress: r.wallet_address as string,
-    chain: (r.chain as string | undefined) ?? undefined,
-    label: r.label as string,
-    color: (r.color as string | undefined) ?? undefined,
-    sortOrder: r.sort_order as number,
-    isActive: r.is_active as boolean,
-    isPrimary: r.is_primary as boolean,
-    metadata: (r.metadata as Record<string, unknown>) ?? {},
-    createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
-    updatedAt: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
   };
 }

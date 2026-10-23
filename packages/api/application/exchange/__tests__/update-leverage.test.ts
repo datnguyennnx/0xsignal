@@ -1,21 +1,33 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { Effect } from "effect";
-import { mockInfoInstance, makeTestLayer, USER_A, ExchangeService } from "./helpers";
+import type {
+  ExchangeClient,
+  ExchangeConfig,
+  HttpTransport,
+  HttpTransportOptions,
+} from "@nktkas/hyperliquid";
+import {
+  mockInfoInstance,
+  makeTestLayer,
+  makeMetaResponse,
+  USER_A,
+  ExchangeService,
+} from "./helpers";
 
 const mockExchangeInstance = vi.hoisted(() => ({
-  order: vi.fn(),
-  updateLeverage: vi.fn(),
-  cancel: vi.fn(),
+  order: vi.fn<ExchangeClient["order"]>(),
+  updateLeverage: vi.fn<ExchangeClient["updateLeverage"]>(),
+  cancel: vi.fn<ExchangeClient["cancel"]>(),
 }));
 
 vi.mock("@nktkas/hyperliquid", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@nktkas/hyperliquid")>();
   return {
     ...actual,
-    ExchangeClient: vi.fn(function () {
+    ExchangeClient: vi.fn<(config: ExchangeConfig) => typeof mockExchangeInstance>(function () {
       return mockExchangeInstance;
     }),
-    HttpTransport: vi.fn(),
+    HttpTransport: vi.fn<(options?: HttpTransportOptions) => HttpTransport>(),
   };
 });
 
@@ -26,9 +38,7 @@ describe("ExchangeService — order operations", () => {
 
   describe("updateLeverageAndMargin", () => {
     it("sends isCross and leverage for cross margin mode", async () => {
-      mockInfoInstance.meta.mockResolvedValueOnce({
-        universe: [{ name: "BTC" }, { name: "ETH" }],
-      });
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC", "ETH"]));
       mockExchangeInstance.updateLeverage.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
@@ -52,9 +62,7 @@ describe("ExchangeService — order operations", () => {
     });
 
     it("sends isCross and leverage for isolated margin mode", async () => {
-      mockInfoInstance.meta.mockResolvedValueOnce({
-        universe: [{ name: "BTC" }, { name: "ETH" }, { name: "SOL" }],
-      });
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC", "ETH", "SOL"]));
       mockExchangeInstance.updateLeverage.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(

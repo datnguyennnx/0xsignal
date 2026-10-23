@@ -3,7 +3,7 @@ import type { CalendarCategory, CalendarImpact, CalendarQuery } from "@0xsignal/
 const IMPACTS: readonly CalendarImpact[] = ["low", "medium", "high"];
 const CATEGORIES: readonly CalendarCategory[] = ["macro", "crypto", "fx"];
 
-export const DEFAULT_UPCOMING_HOURS = 24;
+const DEFAULT_UPCOMING_HOURS = 24;
 
 const isImpact = (value: string): value is CalendarImpact =>
   (IMPACTS as readonly string[]).includes(value);
@@ -23,7 +23,7 @@ const parsePositiveInt = (raw: string | null): number | undefined => {
   if (raw === null) return undefined;
   const value = raw.trim();
   if (!/^\d+$/.test(value)) return undefined;
-  const parsed = Number.parseInt(value, 10);
+  const parsed = Math.trunc(Number(value));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 };
 
@@ -35,7 +35,7 @@ const parseEnumList = <T extends string>(
   const values = raw
     .split(",")
     .map((token) => token.trim().toLowerCase())
-    .filter(isMember);
+    .filter((token) => isMember(token));
   return values.length > 0 ? values : undefined;
 };
 

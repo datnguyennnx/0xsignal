@@ -44,12 +44,12 @@ function ChartTooltip({
   active?: boolean;
   payload?: Array<{ value: number; payload?: { time?: number } }>;
 }) {
-  if (!active || !payload?.length) return null;
-  const val = payload[0].value as number;
-  const rawTs = payload[0]?.payload?.time as number | undefined;
+  if (active !== true || payload === undefined || payload.length === 0) return null;
+  const val = payload[0].value;
+  const rawTs = payload[0].payload?.time;
 
   let dateStr = "";
-  if (rawTs) {
+  if (rawTs !== undefined && rawTs !== 0) {
     const ts = rawTs > 1e12 ? rawTs : rawTs * 1000;
     dateStr = new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }
@@ -76,6 +76,9 @@ function ChartTooltip({
 const SURFACE =
   "h-full flex flex-col rounded-xl p-4 material-raised animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
 
+/** Both branches size the plot area from this one token so they cannot drift. */
+const CHART_MIN_HEIGHT = "min-h-[clamp(120px,12vw,180px)]";
+
 export function PortfolioPnLChart() {
   const { data: portfolio, isLoading, isError } = usePortfolio();
 
@@ -89,7 +92,7 @@ export function PortfolioPnLChart() {
         ? PERIOD_KEYS.indexOf(timePeriod) + 4
         : PERIOD_KEYS.indexOf(timePeriod);
     const entry = portfolio[periodIndex];
-    if (!entry) return null;
+    if (entry === undefined) return null;
     const period = entry[1];
     const rawData: [number, string][] =
       chartView === "account-value" ? period.accountValueHistory : period.pnlHistory;
@@ -106,8 +109,8 @@ export function PortfolioPnLChart() {
 
   const [dataMin, dataMax] = useMemo(() => {
     if (!values) return [0, 0];
-    let min = Infinity,
-      max = -Infinity;
+    let max = -Infinity;
+    let min = Infinity;
     for (const [, v] of values) {
       if (v < min) min = v;
       if (v > max) max = v;
@@ -121,9 +124,12 @@ export function PortfolioPnLChart() {
   }, [values]);
 
   const xAxisTicks = useMemo(() => {
-    if (!values || values.length < 2) return undefined;
-    const min = values[0][0];
-    const max = values[values.length - 1][0];
+    if (!values || values.length < 2) return null;
+    const first = values.at(0);
+    const last = values.at(-1);
+    if (first === undefined || last === undefined) return null;
+    const min = first[0];
+    const max = last[0];
     const count = 4;
     const step = (max - min) / count;
     return Array.from({ length: count + 1 }, (_, i) => +(min + step * i).toFixed(0));
@@ -132,16 +138,16 @@ export function PortfolioPnLChart() {
   if (isLoading) {
     return (
       <div className={SURFACE}>
-        <div className="flex justify-between">
+        <div className="flex h-7 items-center justify-between">
           <div className="flex gap-[clamp(0.4rem,0.7vw,0.75rem)]">
             <Skeleton className="h-3.5 w-16" />
             <Skeleton className="h-3.5 w-16" />
             <Skeleton className="h-3.5 w-16" />
           </div>
-          <Skeleton className="h-[clamp(14px,1.5vw,18px)] w-14" />
+          <Skeleton className="h-3.5 w-14" />
         </div>
-        <div className="flex-1 flex items-center justify-center p-1.5 min-h-[clamp(80px,10vw,120px)]">
-          <Skeleton className="w-full h-[clamp(80px,10vw,120px)]" />
+        <div className={cn("flex flex-1 items-center justify-center", CHART_MIN_HEIGHT)}>
+          <Skeleton className={cn("w-full", CHART_MIN_HEIGHT)} />
         </div>
       </div>
     );
@@ -168,7 +174,9 @@ export function PortfolioPnLChart() {
             return (
               <button
                 key={key}
-                onClick={() => setChartView(key)}
+                onClick={() => {
+                  setChartView(key);
+                }}
                 className={cn(
                   "text-[length:var(--text-compact)] font-medium px-2.5 pb-2 cursor-pointer transition-colors -mb-px",
                   active
@@ -200,7 +208,7 @@ export function PortfolioPnLChart() {
         </NativeSelect>
       </div>
 
-      <div className="flex flex-1 items-center justify-center min-h-[clamp(120px,12vw,180px)]">
+      <div className={cn("flex flex-1 items-center justify-center", CHART_MIN_HEIGHT)}>
         {chartData ? (
           <div className="w-full h-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -215,7 +223,7 @@ export function PortfolioPnLChart() {
                   tickLine={false}
                   tick={{ fontSize: 11, fill: "var(--chart-text)" }}
                   tickFormatter={formatXAxisTick}
-                  ticks={xAxisTicks}
+                  {...(xAxisTicks !== null && { ticks: xAxisTicks })}
                   minTickGap={40}
                 />
                 <YAxis

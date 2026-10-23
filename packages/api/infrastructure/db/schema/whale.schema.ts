@@ -86,9 +86,10 @@ export const ensureWhaleSchema: Effect.Effect<void, WhaleSchemaError, PostgresCo
   Effect.gen(function* () {
     const pool = yield* PostgresConnectionPool;
     if (pool === null) {
-      return yield* Effect.fail(
+      yield* Effect.fail(
         new WhaleSchemaError({ message: "PostgresConnectionPool is not configured" }),
       );
+      return;
     }
     for (const [index, statement] of SCHEMA_STATEMENTS.entries()) {
       yield* Effect.tryPromise({

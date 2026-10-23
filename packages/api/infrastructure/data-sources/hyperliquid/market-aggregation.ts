@@ -1,3 +1,5 @@
+/// <reference lib="es2023.array" />
+import { asRecord, isUnknownArray, numberAt, stringAt } from "../parse-utils";
 import type {
   HyperliquidAggregatedAsset,
   MarketAssetCtxItem,
@@ -6,7 +8,7 @@ import type {
   SpotTradeAsset,
 } from "./types";
 
-export { mapTickerFromSnapshot, isPerpSymbol, resolveInternalSymbol } from "./ticker-snapshot";
+export { mapTickerFromSnapshot, resolveInternalSymbol } from "./ticker-snapshot";
 
 export { parsePerpAssets } from "./perp-parser";
 export { parseSpotAssets } from "./spot-parser";
@@ -14,24 +16,44 @@ export { parseSpotAssets } from "./spot-parser";
 const MARKET_TYPE_ORDER: Record<string, number> = { perp: 0, spot: 1 };
 
 export function extractSpotTokens(raw: unknown): string[] {
-  if (!raw || typeof raw !== "object") return [];
-  const resp = raw as { tokens?: Array<{ name?: unknown; index?: unknown }> };
-  if (!Array.isArray(resp.tokens)) return [];
-  return resp.tokens.map((t) => (typeof t.name === "string" ? t.name : ""));
+  const resp = asRecord(raw);
+  if (resp === null || !isUnknownArray(resp.tokens)) return [];
+  return resp.tokens.map((token) => stringAt(asRecord(token) ?? {}, "name") ?? "");
 }
+
+const toUniverseItem = (entry: Record<string, unknown>): MarketUniverseItem => ({
+  name: stringAt(entry, "name") ?? "",
+  szDecimals: numberAt(entry, "szDecimals"),
+  maxLeverage: numberAt(entry, "maxLeverage"),
+  isDelisted: entry.isDelisted === true ? true : undefined,
+});
+
+const toAssetCtx = (entry: Record<string, unknown>): MarketAssetCtxItem => ({
+  prevDayPx: stringAt(entry, "prevDayPx"),
+  dayNtlVlm: stringAt(entry, "dayNtlVlm"),
+  markPx: stringAt(entry, "markPx"),
+  midPx: stringAt(entry, "midPx") ?? null,
+  funding: stringAt(entry, "funding"),
+  openInterest: stringAt(entry, "openInterest"),
+  premium: stringAt(entry, "premium") ?? null,
+});
 
 export const processMetaResults = (metaResults: [unknown, unknown][]) => {
   const flattenedUniverse: MarketUniverseItem[] = [];
   const flattenedAssetCtxs: MarketAssetCtxItem[] = [];
-  metaResults.forEach((res, idx) => {
-    if (!res || !Array.isArray(res)) return;
-    const [meta, assetCtxs] = res;
-    if (meta && typeof meta === "object" && "universe" in meta && Array.isArray(meta.universe)) {
-      const universe = meta.universe as MarketUniverseItem[];
-      flattenedUniverse.push(...universe.map((item) => ({ ...item, dexIndex: idx })));
+  metaResults.forEach((result, idx) => {
+    const meta = asRecord(result[0]);
+    if (meta !== null && isUnknownArray(meta.universe)) {
+      // Entries are kept index-aligned with `assetCtxs`; an unparsable entry
+      // becomes an empty record rather than shifting the pairing.
+      for (const entry of meta.universe) {
+        flattenedUniverse.push({ ...toUniverseItem(asRecord(entry) ?? {}), dexIndex: idx });
+      }
     }
-    if (Array.isArray(assetCtxs)) {
-      flattenedAssetCtxs.push(...(assetCtxs as MarketAssetCtxItem[]));
+    if (isUnknownArray(result[1])) {
+      for (const entry of result[1]) {
+        flattenedAssetCtxs.push(toAssetCtx(asRecord(entry) ?? {}));
+      }
     }
   });
   return { flattenedUniverse, flattenedAssetCtxs };
@@ -42,7 +64,7 @@ export function sortAndDedupeAssets(
   spotAssets: SpotTradeAsset[],
 ): HyperliquidAggregatedAsset[] {
   const combined: HyperliquidAggregatedAsset[] = [...perpAssets, ...spotAssets];
-  const sorted = [...combined].sort((a, b) => {
+  const sorted = combined.toSorted((a, b) => {
     if (a.isDelisted !== b.isDelisted) return a.isDelisted ? 1 : -1;
     const typeDiff =
       (MARKET_TYPE_ORDER[a.marketType] ?? 99) - (MARKET_TYPE_ORDER[b.marketType] ?? 99);

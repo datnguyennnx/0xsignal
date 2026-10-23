@@ -25,7 +25,7 @@ interface DragState {
   phantomYFrac: number;
 }
 
-export interface PreviewState {
+interface PreviewState {
   gridX: number;
   gridY: number;
   isValid: boolean;
@@ -155,15 +155,18 @@ export function useLiftAndFloat({
       layoutRef.current,
     );
 
-    // Only update if grid position or validity changed
-    setPreviewState((prev) =>
-      prev?.gridX === projected.gridX &&
-      prev?.gridY === projected.gridY &&
-      prev?.isValid === projected.isValid
-        ? prev
-        : projected,
-    );
+    // Only update if grid position or validity changed; comparing against the ref
+    // avoids queueing a React update at all for sub-cell movement.
+    const previous = previewStateRef.current;
+    if (
+      previous?.gridX === projected.gridX &&
+      previous?.gridY === projected.gridY &&
+      previous?.isValid === projected.isValid
+    )
+      return;
+
     previewStateRef.current = projected;
+    setPreviewState(projected);
   }, []);
 
   const handlePointerUp = useCallback((_e: PointerEvent) => {

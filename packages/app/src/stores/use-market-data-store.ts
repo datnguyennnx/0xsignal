@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import {
@@ -20,6 +21,10 @@ import type { ChartDataPoint } from "@0xsignal/shared";
 const MAX_DEPTH = 20;
 const MAX_BUFFERED_CANDLES = 10_000;
 const EVICT_TARGET = 5_000;
+/** Active candle key + the previously viewed ones (bounded LRU). */
+const MAX_CANDLE_KEYS = 4;
+/** Bounded orderbook state per symbol (active + recently viewed). */
+const MAX_ORDERBOOK_SYMBOLS = 6;
 
 // ── Store interface ──────────────────────────────────────────────────
 
@@ -75,12 +80,88 @@ const rawOrderbookState = new Map<
 const dirtySymbols = new Set<string>();
 let flushRafId: number | null = null;
 
+/** Bounded LRU order for candle keys and orderbook symbols. */
+const candleKeyOrder: string[] = [];
+const orderbookSymbolOrder: string[] = [];
+/** Symbols with at least one mounted `useOrderbookData` consumer. */
+const activeOrderbookSubscribers = new Map<string, number>();
+
+function symbolFromCandleKey(key: string): string {
+  const separator = key.indexOf(":");
+  return separator === -1 ? key : key.slice(0, separator);
+}
+
+function cancelScheduledFlush(): void {
+  if (flushRafId === null) return;
+  cancelAnimationFrame(flushRafId);
+  flushRafId = null;
+  dirtySymbols.clear();
+}
+
+function evictOrderbookSymbol(symbol: string): void {
+  rawOrderbookState.delete(symbol);
+  dirtySymbols.delete(symbol);
+
+  const orderIndex = orderbookSymbolOrder.indexOf(symbol);
+  if (orderIndex !== -1) orderbookSymbolOrder.splice(orderIndex, 1);
+
+  useMarketDataStore.setState((state) => {
+    if (!(symbol in state.orderbookData) && !(symbol in state.orderbookReplaceRequested)) {
+      return state;
+    }
+    const orderbookData = { ...state.orderbookData };
+    const orderbookReplaceRequested = { ...state.orderbookReplaceRequested };
+    delete orderbookData[symbol];
+    delete orderbookReplaceRequested[symbol];
+    return { orderbookData, orderbookReplaceRequested };
+  });
+}
+
+function touchOrderbookSymbol(symbol: string): void {
+  const existingIndex = orderbookSymbolOrder.indexOf(symbol);
+  if (existingIndex !== -1) orderbookSymbolOrder.splice(existingIndex, 1);
+  orderbookSymbolOrder.push(symbol);
+
+  while (orderbookSymbolOrder.length > MAX_ORDERBOOK_SYMBOLS) {
+    const victim = orderbookSymbolOrder.find(
+      (candidate) => candidate !== symbol && !activeOrderbookSubscribers.has(candidate),
+    );
+    if (victim === undefined) {
+      // Everything still tracked is on screen; drop the oldest bookkeeping entry.
+      orderbookSymbolOrder.shift();
+      continue;
+    }
+    evictOrderbookSymbol(victim);
+  }
+}
+
+function touchCandleKey(key: string): string[] {
+  const existingIndex = candleKeyOrder.indexOf(key);
+  if (existingIndex !== -1) candleKeyOrder.splice(existingIndex, 1);
+  candleKeyOrder.push(key);
+  return candleKeyOrder.splice(0, Math.max(0, candleKeyOrder.length - MAX_CANDLE_KEYS));
+}
+
+/** Drop orderbook state for symbols whose candle keys were evicted. */
+function evictRetiredSymbols(evictedKeys: readonly string[]): void {
+  if (evictedKeys.length === 0) return;
+
+  const liveSymbols = new Set(candleKeyOrder.map((key) => symbolFromCandleKey(key)));
+  for (const key of evictedKeys) {
+    const symbol = symbolFromCandleKey(key);
+    if (liveSymbols.has(symbol)) continue;
+    if (activeOrderbookSubscribers.has(symbol)) continue;
+    evictOrderbookSymbol(symbol);
+  }
+}
+
 function getOrCreateRawState(symbol: string) {
   let state = rawOrderbookState.get(symbol);
   if (!state) {
     state = { bids: new Map(), asks: new Map() };
     rawOrderbookState.set(symbol, state);
   }
+  touchOrderbookSymbol(symbol);
   return state;
 }
 
@@ -112,7 +193,7 @@ function scheduleFlush() {
       for (const [symbol, data] of Object.entries(updates)) {
         const existing = current[symbol];
         if (
-          !existing ||
+          existing === undefined ||
           existing.bids.length !== data.bids.length ||
           existing.asks.length !== data.asks.length ||
           data.bids.length === 0 ||
@@ -199,6 +280,7 @@ export const useMarketDataStore = create<MarketDataState>()(
 
     // ── Request replace ─────────────────────────────────────────
     requestOrderbookReplace: (symbol) => {
+      touchOrderbookSymbol(symbol);
       set((state) => ({
         orderbookReplaceRequested: {
           ...state.orderbookReplaceRequested,
@@ -233,6 +315,7 @@ export const useMarketDataStore = create<MarketDataState>()(
 
     // ── Candle append (O(n) merge of time-sorted arrays) ────────
     appendCandles: (key, candles) => {
+      const evictedKeys = touchCandleKey(key);
       set((state) => {
         const existing = state.candleData[key] ?? [];
         const result: ChartDataPoint[] = [];
@@ -252,7 +335,7 @@ export const useMarketDataStore = create<MarketDataState>()(
             j++;
           }
         }
-        const lastTime = () => result[result.length - 1]?.time;
+        const lastTime = () => result.at(-1)?.time;
         while (i < existing.length && existing[i].time !== lastTime()) result.push(existing[i++]);
         while (j < candles.length && candles[j].time !== lastTime()) result.push(candles[j++]);
 
@@ -262,15 +345,22 @@ export const useMarketDataStore = create<MarketDataState>()(
             ? result.slice(result.length - EVICT_TARGET)
             : result;
 
-        return { candleData: { ...state.candleData, [key]: evicted } };
+        const candleData = { ...state.candleData, [key]: evicted };
+        for (const evictedKey of evictedKeys) delete candleData[evictedKey];
+        return { candleData };
       });
+      evictRetiredSymbols(evictedKeys);
     },
 
     // ── Set candle data (for historical loads) ──────────────────
     setCandleData: (key, candles) => {
-      set((state) => ({
-        candleData: { ...state.candleData, [key]: candles },
-      }));
+      const evictedKeys = touchCandleKey(key);
+      set((state) => {
+        const candleData = { ...state.candleData, [key]: candles };
+        for (const evictedKey of evictedKeys) delete candleData[evictedKey];
+        return { candleData };
+      });
+      evictRetiredSymbols(evictedKeys);
     },
   })),
 );
@@ -279,8 +369,24 @@ export const useMarketDataStore = create<MarketDataState>()(
 // Components subscribe to only the slice they render.
 
 /** Subscribe to processed orderbook data for a single symbol. */
-export const useOrderbookData = (symbol: string): OrderbookData | undefined =>
-  useMarketDataStore((s) => s.orderbookData[symbol]);
+export const useOrderbookData = (symbol: string): OrderbookData | undefined => {
+  const data = useMarketDataStore((s) => s.orderbookData[symbol]);
+
+  useEffect(() => {
+    activeOrderbookSubscribers.set(symbol, (activeOrderbookSubscribers.get(symbol) ?? 0) + 1);
+    return () => {
+      const remaining = (activeOrderbookSubscribers.get(symbol) ?? 1) - 1;
+      if (remaining > 0) {
+        activeOrderbookSubscribers.set(symbol, remaining);
+        return;
+      }
+      activeOrderbookSubscribers.delete(symbol);
+      if (activeOrderbookSubscribers.size === 0) cancelScheduledFlush();
+    };
+  }, [symbol]);
+
+  return data;
+};
 
 /** Subscribe to all mid prices. */
 export const useAllMidsData = (): Record<string, number> => useMarketDataStore((s) => s.allMids);

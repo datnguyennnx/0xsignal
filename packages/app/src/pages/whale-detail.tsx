@@ -12,27 +12,30 @@ export function WhaleDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const setActiveAddress = useAppStore((s) => s.setActiveAddress);
 
-  const valid = address !== undefined && isValidAddress(address);
+  const currentAddress = address !== undefined && address !== "" ? address : null;
+  const valid = currentAddress !== null && isValidAddress(currentAddress);
 
   useEffect(() => {
-    if (address && valid) setActiveAddress(address);
-  }, [address, valid, setActiveAddress]);
+    if (currentAddress !== null && valid) setActiveAddress(currentAddress);
+  }, [currentAddress, valid, setActiveAddress]);
 
   useEffect(() => {
-    if (address && valid) {
-      document.title = `${truncateAddress(address)} | Whales | 0xsignal`;
+    if (currentAddress !== null && valid) {
+      document.title = `${truncateAddress(currentAddress)} | Whales | 0xsignal`;
     }
-  }, [address, valid]);
+  }, [currentAddress, valid]);
 
   useEffect(() => {
-    if (address && !valid) navigate("/whales", { replace: true });
-  }, [address, valid, navigate]);
+    if (currentAddress !== null && !valid) {
+      void navigate("/whales", { replace: true });
+    }
+  }, [currentAddress, valid, navigate]);
 
   const handleBack = () => {
-    navigate("/whales");
+    void navigate("/whales");
   };
 
-  if (!address || !valid) {
+  if (currentAddress === null || !valid) {
     return (
       <div className="container-fluid py-6">
         <div className="flex flex-col items-start gap-3">
@@ -56,7 +59,7 @@ export function WhaleDetailPage(): JSX.Element {
           Whales
         </Button>
         <h1 className="text-[length:var(--text-compact)] font-medium tracking-wide text-muted-foreground">
-          {truncateAddress(address)}
+          {truncateAddress(currentAddress)}
         </h1>
       </div>
 

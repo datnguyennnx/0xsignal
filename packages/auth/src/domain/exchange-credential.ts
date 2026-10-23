@@ -1,16 +1,10 @@
 import { Schema, SchemaGetter } from "effect";
 import * as RedactedNs from "effect/Redacted";
 import type { Redacted } from "effect/Redacted";
-import { EXCHANGE_SLUGS } from "./exchange-constants";
 
-export const ExchangeName = Schema.Literals([...EXCHANGE_SLUGS] as const);
-export type ExchangeName = Schema.Schema.Type<typeof ExchangeName>;
+const AccountNodeTypeSchema = Schema.Literals(["wallet", "sub", "vault"] as const);
 
-export const AccountNodeType = Schema.Literals(["wallet", "sub", "vault"] as const);
-export type AccountNodeType = Schema.Schema.Type<typeof AccountNodeType>;
-
-export const CredentialSubtype = Schema.Literals(["agent", "eoa", "hardware"] as const);
-export type CredentialSubtype = Schema.Schema.Type<typeof CredentialSubtype>;
+const CredentialSubtypeSchema = Schema.Literals(["agent", "eoa", "hardware"] as const);
 
 const RedactedString: Schema.Schema<Redacted> = Schema.String.pipe(
   Schema.decodeTo(
@@ -26,11 +20,11 @@ const StringArray = Schema.TupleWithRest(Schema.Tuple([]), [Schema.String]);
 
 // Maps to exchange_accounts table
 
-export const ExchangeAccount = Schema.Struct({
+const ExchangeAccountSchema = Schema.Struct({
   id: Schema.String,
   userId: Schema.String,
   exchangeId: Schema.String,
-  nodeType: AccountNodeType,
+  nodeType: AccountNodeTypeSchema,
   parentId: Schema.optionalKey(Schema.String),
   walletAddress: Schema.String,
   chain: Schema.optionalKey(Schema.String),
@@ -43,15 +37,15 @@ export const ExchangeAccount = Schema.Struct({
   createdAt: Schema.String,
   updatedAt: Schema.String,
 });
-export type ExchangeAccount = Schema.Schema.Type<typeof ExchangeAccount>;
+export type ExchangeAccount = Schema.Schema.Type<typeof ExchangeAccountSchema>;
 
 // enc_* fields are ciphertext
 
-export const ApiCredential = Schema.Struct({
+const ApiCredentialSchema = Schema.Struct({
   id: Schema.String,
   accountId: Schema.String,
   userId: Schema.String,
-  credentialSubtype: CredentialSubtype,
+  credentialSubtype: CredentialSubtypeSchema,
   label: Schema.String,
   agentAddress: Schema.optionalKey(Schema.String),
   encAgentKey: Schema.optionalKey(Schema.String),
@@ -73,9 +67,9 @@ export const ApiCredential = Schema.Struct({
   createdAt: Schema.String,
   updatedAt: Schema.String,
 });
-export type ApiCredential = Schema.Schema.Type<typeof ApiCredential>;
+export type ApiCredential = Schema.Schema.Type<typeof ApiCredentialSchema>;
 
-export const DecryptedAgentCredential = Schema.Struct({
+const DecryptedAgentCredentialSchema = Schema.Struct({
   privateKey: RedactedString,
   walletAddress: Schema.String,
   vaultAddress: Schema.optionalKey(Schema.String),
@@ -83,11 +77,11 @@ export const DecryptedAgentCredential = Schema.Struct({
   exchange: Schema.String,
   permissions: StringArray,
 });
-export type DecryptedAgentCredential = Schema.Schema.Type<typeof DecryptedAgentCredential>;
+export type DecryptedAgentCredential = Schema.Schema.Type<typeof DecryptedAgentCredentialSchema>;
 
-export const DecryptedEoaCredential = Schema.Struct({
+const DecryptedEoaCredentialSchema = Schema.Struct({
   privateKey: RedactedString,
   walletAddress: Schema.String,
   exchange: Schema.String,
 });
-export type DecryptedEoaCredential = Schema.Schema.Type<typeof DecryptedEoaCredential>;
+export type DecryptedEoaCredential = Schema.Schema.Type<typeof DecryptedEoaCredentialSchema>;

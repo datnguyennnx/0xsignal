@@ -9,7 +9,7 @@ export const calculateRSI = (data: ChartDataPoint[], period: number): IndicatorD
   const losses: number[] = [];
   for (let i = 1; i < data.length; i++) {
     const change = data[i].close - data[i - 1].close;
-    gains.push(change > 0 ? change : 0);
+    gains.push(Math.max(change, 0));
     losses.push(change < 0 ? -change : 0);
   }
 
@@ -38,9 +38,9 @@ export const calculateMACDLine = (
   const result: IndicatorDataPoint[] = [];
 
   for (let i = 0; i < slowEMA.length; i++) {
-    const fastPoint = fastEMA[i + startIndex];
-    const slowPoint = slowEMA[i];
-    if (!fastPoint || !slowPoint) continue;
+    const fastPoint = fastEMA.at(i + startIndex);
+    const slowPoint = slowEMA.at(i);
+    if (fastPoint === undefined || slowPoint === undefined) continue;
     result.push({ time: slowPoint.time, value: fastPoint.value - slowPoint.value });
   }
 
@@ -58,10 +58,14 @@ export const calculateStochasticK = (
   const minDeque: number[] = [];
 
   for (let i = 0; i < data.length; i++) {
-    while (maxDeque.length && data[maxDeque[maxDeque.length - 1]].high <= data[i].high) {
+    while (maxDeque.length > 0) {
+      const lastIndex = maxDeque.at(-1);
+      if (lastIndex === undefined || data[lastIndex].high > data[i].high) break;
       maxDeque.pop();
     }
-    while (minDeque.length && data[minDeque[minDeque.length - 1]].low >= data[i].low) {
+    while (minDeque.length > 0) {
+      const lastIndex = minDeque.at(-1);
+      if (lastIndex === undefined || data[lastIndex].low < data[i].low) break;
       minDeque.pop();
     }
 
@@ -69,8 +73,8 @@ export const calculateStochasticK = (
     minDeque.push(i);
 
     const left = i - period + 1;
-    while (maxDeque.length && maxDeque[0] < left) maxDeque.shift();
-    while (minDeque.length && minDeque[0] < left) minDeque.shift();
+    while (maxDeque.length > 0 && maxDeque[0] < left) maxDeque.shift();
+    while (minDeque.length > 0 && minDeque[0] < left) minDeque.shift();
 
     if (i < period - 1) continue;
 
@@ -81,6 +85,19 @@ export const calculateStochasticK = (
   }
 
   return result;
+};
+
+const smaSeries = (arr: ChartDataPoint[], period: number): IndicatorDataPoint[] => {
+  const output: IndicatorDataPoint[] = [];
+  if (arr.length < period) return output;
+  let rolling = 0;
+  for (let i = 0; i < period; i++) rolling += arr[i].close;
+  output.push({ time: arr[period - 1].time, value: rolling / period });
+  for (let i = period; i < arr.length; i++) {
+    rolling += arr[i].close - arr[i - period].close;
+    output.push({ time: arr[i].time, value: rolling / period });
+  }
+  return output;
 };
 
 export const calculateAwesomeOscillator = (
@@ -103,21 +120,8 @@ export const calculateAwesomeOscillator = (
     };
   });
 
-  const sma = (arr: ChartDataPoint[], period: number): IndicatorDataPoint[] => {
-    const output: IndicatorDataPoint[] = [];
-    if (arr.length < period) return output;
-    let rolling = 0;
-    for (let i = 0; i < period; i++) rolling += arr[i].close;
-    output.push({ time: arr[period - 1].time, value: rolling / period });
-    for (let i = period; i < arr.length; i++) {
-      rolling += arr[i].close - arr[i - period].close;
-      output.push({ time: arr[i].time, value: rolling / period });
-    }
-    return output;
-  };
-
-  const fastSeries = sma(medianData, fast);
-  const slowSeries = sma(medianData, slow);
+  const fastSeries = smaSeries(medianData, fast);
+  const slowSeries = smaSeries(medianData, slow);
   const fastByTime = new Map<number, number>();
   for (const point of fastSeries) {
     fastByTime.set(point.time, point.value);
@@ -152,12 +156,12 @@ export const calculateUltimateOscillator = (
     tr.push(maxHigh - minLow);
   }
 
-  let shortBP = 0,
+  let longBP = 0,
     medBP = 0,
-    longBP = 0;
-  let shortTR = 0,
+    shortBP = 0;
+  let longTR = 0,
     medTR = 0,
-    longTR = 0;
+    shortTR = 0;
 
   for (let i = 0; i < shortPeriod && i < bp.length; i++) {
     shortBP += bp[i];
@@ -206,18 +210,22 @@ export const calculateWilliamsR = (
   const minDeque: number[] = [];
 
   for (let i = 0; i < data.length; i++) {
-    while (maxDeque.length && data[maxDeque[maxDeque.length - 1]].high <= data[i].high) {
+    while (maxDeque.length > 0) {
+      const lastIndex = maxDeque.at(-1);
+      if (lastIndex === undefined || data[lastIndex].high > data[i].high) break;
       maxDeque.pop();
     }
-    while (minDeque.length && data[minDeque[minDeque.length - 1]].low >= data[i].low) {
+    while (minDeque.length > 0) {
+      const lastIndex = minDeque.at(-1);
+      if (lastIndex === undefined || data[lastIndex].low < data[i].low) break;
       minDeque.pop();
     }
     maxDeque.push(i);
     minDeque.push(i);
 
     const left = i - period + 1;
-    while (maxDeque.length && maxDeque[0] < left) maxDeque.shift();
-    while (minDeque.length && minDeque[0] < left) minDeque.shift();
+    while (maxDeque.length > 0 && maxDeque[0] < left) maxDeque.shift();
+    while (minDeque.length > 0 && minDeque[0] < left) minDeque.shift();
 
     if (i < period - 1) continue;
     const high = data[maxDeque[0]].high;
@@ -279,6 +287,33 @@ export const calculateMomentum = (data: ChartDataPoint[], period: number): Indic
   return result;
 };
 
+const doubleEmaSeries = (values: number[], long: number, short: number): number[] => {
+  const firstEMA: number[] = [];
+  let ema1 = values.slice(0, long).reduce((a, b) => a + b, 0) / long;
+  const mult1 = 2 / (long + 1);
+
+  for (let i = long - 1; i < values.length; i++) {
+    if (i === long - 1) firstEMA.push(ema1);
+    else {
+      ema1 = (values[i] - ema1) * mult1 + ema1;
+      firstEMA.push(ema1);
+    }
+  }
+
+  const secondEMA: number[] = [];
+  let ema2 = firstEMA.slice(0, short).reduce((a, b) => a + b, 0) / short;
+  const mult2 = 2 / (short + 1);
+
+  for (let i = short - 1; i < firstEMA.length; i++) {
+    if (i === short - 1) secondEMA.push(ema2);
+    else {
+      ema2 = (firstEMA[i] - ema2) * mult2 + ema2;
+      secondEMA.push(ema2);
+    }
+  }
+  return secondEMA;
+};
+
 export const calculateTSI = (
   data: ChartDataPoint[],
   longPeriod: number,
@@ -295,35 +330,8 @@ export const calculateTSI = (
     absChanges.push(Math.abs(change));
   }
 
-  const doubleEMA = (values: number[], long: number, short: number): number[] => {
-    const firstEMA: number[] = [];
-    let ema1 = values.slice(0, long).reduce((a, b) => a + b, 0) / long;
-    const mult1 = 2 / (long + 1);
-
-    for (let i = long - 1; i < values.length; i++) {
-      if (i === long - 1) firstEMA.push(ema1);
-      else {
-        ema1 = (values[i] - ema1) * mult1 + ema1;
-        firstEMA.push(ema1);
-      }
-    }
-
-    const secondEMA: number[] = [];
-    let ema2 = firstEMA.slice(0, short).reduce((a, b) => a + b, 0) / short;
-    const mult2 = 2 / (short + 1);
-
-    for (let i = short - 1; i < firstEMA.length; i++) {
-      if (i === short - 1) secondEMA.push(ema2);
-      else {
-        ema2 = (firstEMA[i] - ema2) * mult2 + ema2;
-        secondEMA.push(ema2);
-      }
-    }
-    return secondEMA;
-  };
-
-  const smoothedChanges = doubleEMA(changes, longPeriod, shortPeriod);
-  const smoothedAbsChanges = doubleEMA(absChanges, longPeriod, shortPeriod);
+  const smoothedChanges = doubleEmaSeries(changes, longPeriod, shortPeriod);
+  const smoothedAbsChanges = doubleEmaSeries(absChanges, longPeriod, shortPeriod);
   const startIdx = longPeriod + shortPeriod - 1;
 
   for (let i = 0; i < smoothedChanges.length; i++) {

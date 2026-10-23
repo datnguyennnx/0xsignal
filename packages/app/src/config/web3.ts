@@ -7,9 +7,9 @@ export const config = createConfig({
   connectors: [
     injected(),
     metaMask({
-      dappMetadata: {
+      dapp: {
         name: "0xsignal",
-        url: typeof window !== "undefined" ? window.location.origin : "https://0xsignal.app",
+        url: typeof window === "undefined" ? "https://0xsignal.app" : window.location.origin,
       },
     }),
     coinbaseWallet({}),

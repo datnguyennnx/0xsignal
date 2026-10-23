@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Array as A, Effect, Order } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { Path } from "effect/Path";
 import { SqlClient } from "effect/unstable/sql/SqlClient";
@@ -15,15 +15,15 @@ interface SqlMigrationFile {
 const loadSqlMigrations = (
   fs: FileSystem,
   sqlDir: string,
-): Effect.Effect<ReadonlyArray<SqlMigrationFile>, never> =>
+): Effect.Effect<ReadonlyArray<SqlMigrationFile>> =>
   Effect.gen(function* () {
-    const files = yield* Effect.catch(fs.readDirectory(sqlDir), () =>
-      Effect.succeed<ReadonlyArray<string>>([]),
-    );
+    const files = yield* fs
+      .readDirectory(sqlDir)
+      .pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<string>>([])));
 
     const migrations: Array<SqlMigrationFile> = [];
 
-    for (const file of [...files].sort()) {
+    for (const file of files) {
       const match = file.match(/^(\d+)_(.+)\.up\.sql$/);
       if (match) {
         migrations.push({
@@ -34,7 +34,10 @@ const loadSqlMigrations = (
       }
     }
 
-    return migrations.sort((a, b) => a.id - b.id);
+    return A.sortWith<ReadonlyArray<SqlMigrationFile>, number>(
+      (m) => m.id,
+      Order.Number,
+    )(migrations);
   });
 
 // Compatible with PgMigrator schema

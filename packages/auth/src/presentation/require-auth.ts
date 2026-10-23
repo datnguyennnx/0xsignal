@@ -2,6 +2,9 @@ import { Effect, Match } from "effect";
 import { AuthService } from "../application/auth.service";
 import type { Session } from "../domain/session";
 
+const isPresent = (value: string | undefined): value is string =>
+  value !== undefined && value !== "";
+
 export const withAuth =
   <E>(handler: (session: Session) => Effect.Effect<Response, E, AuthService>) =>
   (request: Request): Effect.Effect<Response, never, AuthService> =>
@@ -10,9 +13,9 @@ export const withAuth =
       const authorizationHeader = request.headers.get("Authorization");
       const bearerToken = authorizationHeader?.replace(/^Bearer\s+/, "");
       const cookieToken = request.headers.get("cookie")?.match(/access_token=([^;]+)/)?.[1];
-      const token = bearerToken || cookieToken;
+      const token = isPresent(bearerToken) ? bearerToken : cookieToken;
 
-      if (!token) {
+      if (!isPresent(token)) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
           headers: { "Content-Type": "application/json" },

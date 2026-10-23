@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Context, Effect, Layer } from "effect";
+import { type Context, Effect, Layer } from "effect";
 import type { EconomicEvent } from "@0xsignal/shared";
 import { MarketDataService } from "../../../application/market-data/contracts";
 import { HealthService } from "../../../application/health";
@@ -9,32 +9,17 @@ import { CalendarService } from "../../../application/calendar/contracts";
 import { handleRequest } from "../router";
 
 const mockCalendarService = {
-  ingest: vi.fn(),
-  query: vi.fn(),
-  upcoming: vi.fn(),
+  ingest: vi.fn<Context.Service.Shape<typeof CalendarService>["ingest"]>(),
+  query: vi.fn<Context.Service.Shape<typeof CalendarService>["query"]>(),
+  upcoming: vi.fn<Context.Service.Shape<typeof CalendarService>["upcoming"]>(),
 };
 
-const TestCalendarLayer = Layer.succeed(
-  CalendarService,
-  mockCalendarService as unknown as Context.Service.Shape<typeof CalendarService>,
-);
+const TestCalendarLayer = Layer.succeed(CalendarService, mockCalendarService);
 
-const TestMarketDataLayer = Layer.succeed(
-  MarketDataService,
-  {} as unknown as Context.Service.Shape<typeof MarketDataService>,
-);
-const TestHealthLayer = Layer.succeed(
-  HealthService,
-  {} as unknown as Context.Service.Shape<typeof HealthService>,
-);
-const TestUserDataLayer = Layer.succeed(
-  UserDataService,
-  {} as unknown as Context.Service.Shape<typeof UserDataService>,
-);
-const TestExchangeLayer = Layer.succeed(
-  ExchangeService,
-  {} as unknown as Context.Service.Shape<typeof ExchangeService>,
-);
+const TestMarketDataLayer = Layer.mock(MarketDataService, {});
+const TestHealthLayer = Layer.mock(HealthService, {});
+const TestUserDataLayer = Layer.mock(UserDataService, {});
+const TestExchangeLayer = Layer.mock(ExchangeService, {});
 
 const runRequest = (path: string, method = "GET") =>
   Effect.runPromise(
@@ -50,6 +35,10 @@ const runRequest = (path: string, method = "GET") =>
       ),
     ),
   );
+
+type LooseEnvelope = { data: Record<string, unknown> };
+
+const envelope = (data: Record<string, unknown>): LooseEnvelope => ({ data });
 
 const sampleEvent: EconomicEvent = {
   id: "bls-1",
@@ -85,9 +74,9 @@ describe("HTTP Calendar Router", () => {
     const response = await runRequest("/api/calendar");
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      data: { events: [], sources: [], fetchedAt: expect.any(String) },
-    });
+    await expect(response.json()).resolves.toEqual(
+      envelope({ events: [], sources: [], fetchedAt: expect.any(String) }),
+    );
     expect(mockCalendarService.query).toHaveBeenCalledWith({});
   });
 
@@ -97,13 +86,13 @@ describe("HTTP Calendar Router", () => {
     const response = await runRequest("/api/calendar");
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      data: {
+    await expect(response.json()).resolves.toEqual(
+      envelope({
         events: [sampleEvent],
         sources: ["bls"],
         fetchedAt: expect.any(String),
-      },
-    });
+      }),
+    );
   });
 
   it("ignores invalid query tokens instead of failing", async () => {

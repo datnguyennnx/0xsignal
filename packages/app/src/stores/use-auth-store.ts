@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { subscribeWithSelector, persist } from "zustand/middleware";
 import { toast } from "sonner";
-import { api, ApiError } from "@/services/api";
+import { api } from "@/services/api";
 import type { AuthMeResponse } from "@0xsignal/shared";
+import { ApiError } from "@/lib/api-error";
+import { registerAuthTokenBridge } from "@/lib/auth-token";
 
 export interface AuthStoreState {
   token: string | null;
@@ -78,7 +80,7 @@ export const useAuthStore = create<AuthStoreState>()(
         initialize: () => {
           let cancelled = false;
 
-          (async () => {
+          void (async () => {
             // Skip refresh on callback/login pages
             if (
               typeof window !== "undefined" &&
@@ -92,10 +94,11 @@ export const useAuthStore = create<AuthStoreState>()(
             try {
               const data = await api.refreshToken();
 
-              if (data && data.accessToken) {
+              const token = data?.accessToken;
+              if (token !== undefined && token !== "") {
                 const profileData = await api.getAuthMe();
 
-                if (profileData) {
+                if (profileData !== null) {
                   if (cancelled) return;
                   const user: AuthMeResponse = {
                     userId: profileData.userId,
@@ -104,7 +107,7 @@ export const useAuthStore = create<AuthStoreState>()(
                     displayName: profileData.displayName,
                   };
                   set({
-                    token: data.accessToken,
+                    token,
                     isAuthenticated: true,
                     user,
                   });
@@ -112,15 +115,13 @@ export const useAuthStore = create<AuthStoreState>()(
                   // Fetch wallet status after successful auth
                   if (!cancelled) await get().refreshWalletStatus();
                 }
-              } else {
-                if (!cancelled) {
-                  set({
-                    token: null,
-                    isAuthenticated: false,
-                    user: null,
-                    hasLinkedWallet: false,
-                  });
-                }
+              } else if (!cancelled) {
+                set({
+                  token: null,
+                  isAuthenticated: false,
+                  user: null,
+                  hasLinkedWallet: false,
+                });
               }
             } catch (err) {
               if (cancelled) return;
@@ -157,3 +158,10 @@ export const useAuthStore = create<AuthStoreState>()(
     ),
   ),
 );
+
+registerAuthTokenBridge({
+  read: () => useAuthStore.getState().token,
+  write: (token) => {
+    useAuthStore.getState().setToken(token);
+  },
+});

@@ -41,12 +41,23 @@
   --color-overlay: var(--overlay);
 }
 
+/* App chrome above the routed content. The trade route subtracts exactly these so a
+   single viewport holds the whole terminal; no second hardcoded number. */
+:root {
+  --app-header-height: 3rem;
+  --app-page-pad: 1rem;
+  --app-page-gap: 1rem;
+  --trading-region-height: calc(
+    100dvh - var(--app-header-height) - 2 * var(--app-page-pad) - var(--app-page-gap)
+  );
+}
+
 /* Animation timing tokens (transitions.dev) */
 :root,
 .light {
   color-scheme: light;
 
-  --page-fade-dur: 200ms;
+  --page-fade-dur: 120ms;
   --page-fade-ease: cubic-bezier(0.19, 1, 0.22, 1);
 
   --radius: 0.625rem;
@@ -217,7 +228,6 @@
   body {
     background-color: var(--background);
     background-image: var(--app-bg);
-    background-attachment: fixed;
     color: var(--foreground);
     font-family:
       "SF Pro Text",
@@ -229,13 +239,26 @@
       sans-serif;
   }
 
+  /* Scroll affordance: a thin visible thumb on every scroll container, and a reserved
+     gutter so a scrollbar appearing (page or pane) never reflows the row grid. */
   * {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 30%, transparent) transparent;
+    scrollbar-gutter: stable;
   }
 
   *::-webkit-scrollbar {
-    display: none;
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklch, var(--foreground) 30%, transparent);
+    border-radius: 9999px;
   }
 
   /* Hide number input spinners — styled as regular text fields */
@@ -263,6 +286,15 @@
     display: none;
   }
 
+  /* Opt-in suppression for chrome strips that scroll without needing an affordance. */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   .container-fluid {
     width: 100%;
     margin-left: auto;
@@ -273,6 +305,18 @@
   /* Trade region is a query container: panels adapt to its width, not the viewport. */
   .container-query {
     container-type: inline-size;
+  }
+
+  /* A panel owns its box: no repaint or relayout escapes it when its own canvas ticks.
+     Popovers that must escape are portalled to body, never rendered inside a panel. */
+  .panel-contain {
+    contain: layout paint;
+  }
+
+  /* Panels whose overflow is scrolled by a parent take layout containment only:
+     paint containment would clip content the parent scroll container still needs. */
+  .panel-contain-layout {
+    contain: layout;
   }
 
   @media (min-width: 1920px) {
@@ -331,8 +375,6 @@
     background: var(--material-base-tint);
     border: 1px solid var(--material-base-border);
     box-shadow: 0 2px 8px -4px var(--material-base-shadow);
-    backdrop-filter: blur(4px) saturate(1.2);
-    -webkit-backdrop-filter: blur(4px) saturate(1.2);
   }
   .material-raised {
     background: var(--material-raised-tint);
@@ -422,6 +464,13 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* The SVG displacement filter is re-evaluated per composited frame; a static blur
+     keeps the glass without keeping the filter alive. */
+  [data-liquid-glass-motion="none"] > span:first-child {
+    backdrop-filter: blur(8px) saturate(1.6) brightness(1.05) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(1.6) brightness(1.05) !important;
   }
 
   .t-page-slide .t-page {

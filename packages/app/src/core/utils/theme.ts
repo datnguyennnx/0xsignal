@@ -1,7 +1,7 @@
 export const getStableColor = (seed: string): string => {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
-    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+    hash = (seed.codePointAt(i) ?? 0) + ((hash << 5) - hash);
   }
 
   // Use the hash to drive HSL for better visual distribution than RGB

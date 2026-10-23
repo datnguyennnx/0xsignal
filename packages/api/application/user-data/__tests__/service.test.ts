@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
+import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../../hyperliquid/contracts";
 import { UserDataService } from "../contracts";
 import { userDataServiceLayer } from "../service";
@@ -178,63 +179,69 @@ const mockSpotClearinghouseState = {
 
 const mockMeta = {
   universe: [
-    { name: "BTC", szDecimals: 5, maxLeverage: 50 },
-    { name: "ETH", szDecimals: 4, maxLeverage: 50 },
-    { name: "SOL", szDecimals: 3, maxLeverage: 30 },
+    { name: "BTC", szDecimals: 5, maxLeverage: 50, marginTableId: 0 },
+    { name: "ETH", szDecimals: 4, maxLeverage: 50, marginTableId: 0 },
+    { name: "SOL", szDecimals: 3, maxLeverage: 30, marginTableId: 0 },
   ],
+  marginTables: [],
+  collateralToken: 0,
 };
 
-const makeMockLayer = (
-  overrides?: Partial<{
-    clearinghouseState: () => Promise<unknown>;
-    openOrders: () => Promise<unknown>;
-    historicalOrders: () => Promise<unknown>;
-    userFills: () => Promise<unknown>;
-    frontendOpenOrders: () => Promise<unknown>;
-    spotClearinghouseState: () => Promise<unknown>;
-    meta: () => Promise<unknown>;
-    portfolio: () => Promise<unknown>;
-    userVaultEquities: () => Promise<unknown>;
-    userFunding: () => Promise<unknown>;
-  }>,
-) => {
+type InfoMethod =
+  | "clearinghouseState"
+  | "openOrders"
+  | "historicalOrders"
+  | "userFills"
+  | "frontendOpenOrders"
+  | "spotClearinghouseState"
+  | "meta"
+  | "portfolio"
+  | "userVaultEquities"
+  | "userFunding";
+
+const makeMockLayer = (overrides?: Partial<Pick<InfoClient, InfoMethod>>) => {
+  const info = {
+    clearinghouseState: vi
+      .fn<InfoClient["clearinghouseState"]>()
+      .mockImplementation(
+        overrides?.clearinghouseState ?? (() => Promise.resolve(mockClearinghouseState)),
+      ),
+    openOrders: vi
+      .fn<InfoClient["openOrders"]>()
+      .mockImplementation(overrides?.openOrders ?? (() => Promise.resolve(mockOpenOrders))),
+    historicalOrders: vi
+      .fn<InfoClient["historicalOrders"]>()
+      .mockImplementation(
+        overrides?.historicalOrders ?? (() => Promise.resolve(mockHistoricalOrders)),
+      ),
+    userFills: vi
+      .fn<InfoClient["userFills"]>()
+      .mockImplementation(overrides?.userFills ?? (() => Promise.resolve(mockUserFills))),
+    frontendOpenOrders: vi
+      .fn<InfoClient["frontendOpenOrders"]>()
+      .mockImplementation(
+        overrides?.frontendOpenOrders ?? (() => Promise.resolve(mockFrontendOpenOrders)),
+      ),
+    spotClearinghouseState: vi
+      .fn<InfoClient["spotClearinghouseState"]>()
+      .mockImplementation(
+        overrides?.spotClearinghouseState ?? (() => Promise.resolve(mockSpotClearinghouseState)),
+      ),
+    meta: vi
+      .fn<InfoClient["meta"]>()
+      .mockImplementation(overrides?.meta ?? (() => Promise.resolve(mockMeta))),
+    portfolio: vi
+      .fn<InfoClient["portfolio"]>()
+      .mockImplementation(overrides?.portfolio ?? (() => Promise.resolve({}))),
+    userVaultEquities: vi
+      .fn<InfoClient["userVaultEquities"]>()
+      .mockImplementation(overrides?.userVaultEquities ?? (() => Promise.resolve({}))),
+    userFunding: vi
+      .fn<InfoClient["userFunding"]>()
+      .mockImplementation(overrides?.userFunding ?? (() => Promise.resolve({}))),
+  };
   const client = HyperliquidClient.of({
-    info: {
-      clearinghouseState: vi
-        .fn()
-        .mockImplementation(
-          overrides?.clearinghouseState ?? (() => Promise.resolve(mockClearinghouseState)),
-        ),
-      openOrders: vi
-        .fn()
-        .mockImplementation(overrides?.openOrders ?? (() => Promise.resolve(mockOpenOrders))),
-      historicalOrders: vi
-        .fn()
-        .mockImplementation(
-          overrides?.historicalOrders ?? (() => Promise.resolve(mockHistoricalOrders)),
-        ),
-      userFills: vi
-        .fn()
-        .mockImplementation(overrides?.userFills ?? (() => Promise.resolve(mockUserFills))),
-      frontendOpenOrders: vi
-        .fn()
-        .mockImplementation(
-          overrides?.frontendOpenOrders ?? (() => Promise.resolve(mockFrontendOpenOrders)),
-        ),
-      spotClearinghouseState: vi
-        .fn()
-        .mockImplementation(
-          overrides?.spotClearinghouseState ?? (() => Promise.resolve(mockSpotClearinghouseState)),
-        ),
-      meta: vi.fn().mockImplementation(overrides?.meta ?? (() => Promise.resolve(mockMeta))),
-      portfolio: vi.fn().mockImplementation(overrides?.portfolio ?? (() => Promise.resolve({}))),
-      userVaultEquities: vi
-        .fn()
-        .mockImplementation(overrides?.userVaultEquities ?? (() => Promise.resolve({}))),
-      userFunding: vi
-        .fn()
-        .mockImplementation(overrides?.userFunding ?? (() => Promise.resolve({}))),
-    } as any,
+    info: Object.assign(new InfoClient({ transport: new HttpTransport() }), info),
   });
   return Layer.succeed(HyperliquidClient, client);
 };
@@ -256,10 +263,9 @@ describe("UserDataService", () => {
         }).pipe(Effect.provide(makeTestLayer())),
       );
 
-      const data = result as typeof mockClearinghouseState;
-      expect(data.marginSummary.accountValue).toBe("50000.00");
-      expect(data.assetPositions).toHaveLength(1);
-      expect(data.assetPositions[0].position.coin).toBe("BTC");
+      expect(result.marginSummary.accountValue).toBe("50000.00");
+      expect(result.assetPositions).toHaveLength(1);
+      expect(result.assetPositions[0].position.coin).toBe("BTC");
     });
 
     it("returns typed error when SDK call fails", async () => {
@@ -290,10 +296,9 @@ describe("UserDataService", () => {
         }).pipe(Effect.provide(makeTestLayer())),
       );
 
-      const orders = result as typeof mockOpenOrders;
-      expect(orders).toHaveLength(1);
-      expect(orders[0].coin).toBe("ETH");
-      expect(orders[0].side).toBe("B");
+      expect(result).toHaveLength(1);
+      expect(result[0].coin).toBe("ETH");
+      expect(result[0].side).toBe("B");
     });
 
     it("returns typed error when SDK call fails", async () => {
@@ -324,10 +329,9 @@ describe("UserDataService", () => {
         }).pipe(Effect.provide(makeTestLayer())),
       );
 
-      const orders = result as typeof mockHistoricalOrders;
-      expect(orders).toHaveLength(1);
-      expect(orders[0].status).toBe("filled");
-      expect(orders[0].order.coin).toBe("BTC");
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe("filled");
+      expect(result[0].order.coin).toBe("BTC");
     });
   });
 
@@ -340,11 +344,10 @@ describe("UserDataService", () => {
         }).pipe(Effect.provide(makeTestLayer())),
       );
 
-      const fills = result as typeof mockUserFills;
-      expect(fills).toHaveLength(1);
-      expect(fills[0].coin).toBe("BTC");
-      expect(fills[0].side).toBe("B");
-      expect(fills[0].closedPnl).toBe("150");
+      expect(result).toHaveLength(1);
+      expect(result[0].coin).toBe("BTC");
+      expect(result[0].side).toBe("B");
+      expect(result[0].closedPnl).toBe("150");
     });
   });
 
@@ -361,14 +364,13 @@ describe("UserDataService", () => {
         }).pipe(Effect.provide(layer)),
       );
 
-      const orders = result as typeof mockFrontendOpenOrders;
-      expect(orders).toHaveLength(1);
-      expect(orders[0].oid).toBe(2001);
-      expect(orders[0].children).toHaveLength(2);
-      expect(orders[0].children[0].oid).toBe(2002);
-      expect(orders[0].children[0].reduceOnly).toBe(true);
-      expect(orders[0].children[1].oid).toBe(2003);
-      expect(orders[0].children[1].reduceOnly).toBe(true);
+      expect(result).toHaveLength(1);
+      expect(result[0].oid).toBe(2001);
+      expect(result[0].children).toHaveLength(2);
+      expect(result[0].children[0].oid).toBe(2002);
+      expect(result[0].children[0].reduceOnly).toBe(true);
+      expect(result[0].children[1].oid).toBe(2003);
+      expect(result[0].children[1].reduceOnly).toBe(true);
     });
 
     it("returns typed error when SDK call fails", async () => {
@@ -403,10 +405,9 @@ describe("UserDataService", () => {
         }).pipe(Effect.provide(layer)),
       );
 
-      const data = result as typeof mockSpotClearinghouseState;
-      expect(data.balances).toHaveLength(2);
+      expect(result.balances).toHaveLength(2);
 
-      const usdc = data.balances.find((b: { coin: string }) => b.coin === "USDC");
+      const usdc = result.balances.find((b: { coin: string }) => b.coin === "USDC");
       expect(usdc).toBeDefined();
       expect(usdc?.total).toBe("10000.00");
       expect(usdc?.hold).toBe("500.00");
@@ -444,11 +445,10 @@ describe("UserDataService", () => {
         }).pipe(Effect.provide(layer)),
       );
 
-      const data = result as typeof mockMeta;
-      expect(data.universe).toHaveLength(3);
-      expect(data.universe[0].name).toBe("BTC");
-      expect(data.universe[0].szDecimals).toBe(5);
-      expect(data.universe[0].maxLeverage).toBe(50);
+      expect(result).toHaveProperty("universe", mockMeta.universe);
+      expect(result).toHaveProperty("universe.0.name", "BTC");
+      expect(result).toHaveProperty("universe.0.szDecimals", 5);
+      expect(result).toHaveProperty("universe.0.maxLeverage", 50);
     });
 
     it("returns typed error when SDK call fails", async () => {
@@ -527,25 +527,29 @@ describe("UserDataService", () => {
 
   describe("wallet address propagation", () => {
     it("passes wallet address to HyperliquidClient info API", async () => {
-      const spy = vi.fn();
+      const spy = vi.fn<(user: string) => void>();
       const testWallet = "0xINFO_WALLET";
 
-      const customClient = HyperliquidClient.of({
-        info: {
-          clearinghouseState: vi.fn((params: { user: string }) => {
+      const info = {
+        clearinghouseState: vi
+          .fn<InfoClient["clearinghouseState"]>()
+          .mockImplementation((params) => {
             spy(params.user);
             return Promise.resolve(mockClearinghouseState);
           }),
-          openOrders: vi.fn(),
-          historicalOrders: vi.fn(),
-          userFills: vi.fn(),
-          frontendOpenOrders: vi.fn(),
-          spotClearinghouseState: vi.fn(),
-          meta: vi.fn().mockResolvedValue(mockMeta),
-          portfolio: vi.fn(),
-          userVaultEquities: vi.fn(),
-          userFunding: vi.fn(),
-        } as any,
+        openOrders: vi.fn<InfoClient["openOrders"]>(),
+        historicalOrders: vi.fn<InfoClient["historicalOrders"]>(),
+        userFills: vi.fn<InfoClient["userFills"]>(),
+        frontendOpenOrders: vi.fn<InfoClient["frontendOpenOrders"]>(),
+        spotClearinghouseState: vi.fn<InfoClient["spotClearinghouseState"]>(),
+        meta: vi.fn<InfoClient["meta"]>().mockResolvedValue(mockMeta),
+        portfolio: vi.fn<InfoClient["portfolio"]>(),
+        userVaultEquities: vi.fn<InfoClient["userVaultEquities"]>(),
+        userFunding: vi.fn<InfoClient["userFunding"]>(),
+      };
+
+      const customClient = HyperliquidClient.of({
+        info: Object.assign(new InfoClient({ transport: new HttpTransport() }), info),
       });
 
       const testLayer = userDataServiceLayer.pipe(

@@ -16,28 +16,10 @@ import {
   DuplicateLabel,
 } from "../../domain/errors";
 import { EncryptionService } from "../encryption.service";
+import type { CreateApiCredentialParams } from "./exchange-credential.sql";
 import { pgExchangeCredentialRepo } from "./exchange-credential.repo.pg";
 
-// Input types
-
-export interface CreateApiCredentialParams {
-  readonly userId: string;
-  readonly accountId: string;
-  readonly credentialSubtype: "agent" | "eoa" | "hardware";
-  readonly label?: string;
-  readonly agentAddress?: string;
-  /** Plaintext agent private key — will be encrypted before storage */
-  readonly agentKey?: RedactedNs.Redacted<string>;
-  /** Plaintext EOA private key — will be encrypted before storage */
-  readonly eoaKey?: string;
-  readonly derivationPath?: string;
-  readonly permissions?: readonly string[];
-  readonly ipWhitelist?: readonly string[];
-  readonly expiresAt?: string;
-  readonly encryptionVersion?: number;
-  readonly isVerified?: boolean;
-  readonly metadata?: Record<string, unknown>;
-}
+export type { CreateApiCredentialParams };
 
 // Port interface
 
@@ -94,14 +76,14 @@ export interface ExchangeCredentialRepoPort {
 
   readonly setVerified: (id: string, userId: string) => Effect.Effect<void, CredentialNotFound>;
 
-  readonly markUsed: (id: string) => Effect.Effect<void, never>;
+  readonly markUsed: (id: string) => Effect.Effect<void>;
 
   readonly getForVerification: (
     credentialId: string,
     userId: string,
   ) => Effect.Effect<
     {
-      readonly privateKey: RedactedNs.Redacted<string>;
+      readonly privateKey: RedactedNs.Redacted;
       readonly agentAddress: string;
       readonly accountId: string;
       readonly exchangeSlug: string;
@@ -118,7 +100,7 @@ export interface ExchangeCredentialRepoPort {
       readonly credentialId?: string;
       readonly context?: Record<string, unknown>;
     },
-  ) => Effect.Effect<void, never>;
+  ) => Effect.Effect<void>;
 }
 
 // Context Service

@@ -55,7 +55,6 @@ export const queryKeys = {
         q.currency,
         q.limit,
       ] as const,
-    upcoming: (hours: number) => [...queryKeys.calendar.all, "upcoming", hours] as const,
   },
 
   whales: {

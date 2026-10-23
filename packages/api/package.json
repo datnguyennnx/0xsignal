@@ -3,12 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "./index.ts",
+  "main": "./presentation/http/server.ts",
   "scripts": {
     "dev": "bun --watch presentation/http/server.ts",
     "start": "bun ./dist/server.js",
     "build": "bun run clean && tsc -b tsconfig.json && bun build ./presentation/http/server.ts --target=bun --minify --outdir=./dist && mkdir -p ./dist/sql && cp -r ../auth/src/infrastructure/migrations/sql/. ./dist/sql/",
     "lint": "oxlint .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "typecheck": "tsc -b",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -20,6 +23,7 @@
     "@nktkas/hyperliquid": "0.33.3",
     "effect": "4.0.0-rc.112",
     "pg": "^8.23.0",
+    "valibot": "^1.4.2",
     "viem": "^2.47.6"
   },
   "devDependencies": {

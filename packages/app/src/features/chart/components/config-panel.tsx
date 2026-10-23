@@ -102,7 +102,7 @@ function IndicatorConfigPanelInner({
                       return merged;
                     });
                     // When user edits a field, switch to "new" mode since params no longer match any instance
-                    if (selectedInstanceId) setSelectedInstanceId(null);
+                    if (selectedInstanceId !== null) setSelectedInstanceId(null);
                   }}
                 />
               ))}
@@ -125,10 +125,12 @@ function IndicatorConfigPanelInner({
             variant="ghost"
             size="sm"
             className="min-h-[clamp(2.5rem,5vh,3rem)] text-xs font-semibold rounded-lg active:scale-[0.97]"
-            onClick={() =>
-              matchingActiveInstance && onRemoveInstance(matchingActiveInstance.instanceId)
-            }
-            disabled={!matchingActiveInstance}
+            onClick={() => {
+              if (matchingActiveInstance !== undefined) {
+                onRemoveInstance(matchingActiveInstance.instanceId);
+              }
+            }}
+            disabled={matchingActiveInstance === undefined}
           >
             <Minus className="size-3.5" />
             Delete

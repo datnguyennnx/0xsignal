@@ -2,19 +2,14 @@ import { Cache, Duration, Effect, Layer, Match, Schedule } from "effect";
 import type { ExchangeClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../hyperliquid/contracts";
 import { ExchangeService, type ExchangeError } from "./contracts";
+import { ExchangeCredentials } from "./credentials.contracts";
 import { HyperliquidInternalError } from "../../domain/errors";
 import { classifyExchangeError, toHlTif } from "./error-classification";
-import { ExchangeAccountRepo } from "@0xsignal/auth";
-import { ExchangeCredentialRepo } from "@0xsignal/auth";
-import {
-  buildCoinToAsset,
-  resolveExchangeCredentials,
-} from "../../infrastructure/data-sources/hyperliquid/exchange-credentials";
+import { buildCoinToAsset } from "./asset-index";
 
 const withExchangeClient = <A>(
   userId: string,
-  accountRepo: typeof ExchangeAccountRepo.Service,
-  credentialRepo: typeof ExchangeCredentialRepo.Service,
+  credentials: typeof ExchangeCredentials.Service,
   metaCache: Cache.Cache<string, { universe: Array<{ name: string }> }, HyperliquidInternalError>,
   fn: (ctx: {
     exchange: ExchangeClient;
@@ -23,11 +18,7 @@ const withExchangeClient = <A>(
   }) => Effect.Effect<A, ExchangeError>,
 ): Effect.Effect<A, ExchangeError> =>
   Effect.gen(function* () {
-    const { exchange, vaultAddress } = yield* resolveExchangeCredentials(
-      userId,
-      accountRepo,
-      credentialRepo,
-    );
+    const { exchange, vaultAddress } = yield* credentials.resolve(userId);
 
     const meta = yield* getCachedMetaInner(metaCache);
     const coinToAsset = buildCoinToAsset(meta);
@@ -44,8 +35,7 @@ export const exchangeServiceLayer = Layer.effect(
   ExchangeService,
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
-    const accountRepo = yield* ExchangeAccountRepo;
-    const credentialRepo = yield* ExchangeCredentialRepo;
+    const credentials = yield* ExchangeCredentials;
 
     const metaCache = yield* Cache.make<
       string,
@@ -70,8 +60,7 @@ export const exchangeServiceLayer = Layer.effect(
       placeOrder: (params, userId) =>
         withExchangeClient(
           userId,
-          accountRepo,
-          credentialRepo,
+          credentials,
           metaCache,
           ({ exchange, vaultAddress, coinToAsset }) =>
             Effect.gen(function* () {
@@ -106,7 +95,8 @@ export const exchangeServiceLayer = Layer.effect(
                 }),
               );
 
-              const orderOpts = vaultAddress ? { vaultAddress } : {};
+              const orderOpts =
+                vaultAddress === undefined || vaultAddress === "" ? {} : { vaultAddress };
               return yield* Effect.tryPromise({
                 try: () =>
                   exchange.order(
@@ -139,8 +129,7 @@ export const exchangeServiceLayer = Layer.effect(
       updateLeverageAndMargin: (params, userId) =>
         withExchangeClient(
           userId,
-          accountRepo,
-          credentialRepo,
+          credentials,
           metaCache,
           ({ exchange, vaultAddress, coinToAsset }) =>
             Effect.gen(function* () {
@@ -154,7 +143,8 @@ export const exchangeServiceLayer = Layer.effect(
                 );
               }
 
-              const leverageOpts = vaultAddress ? { vaultAddress } : {};
+              const leverageOpts =
+                vaultAddress === undefined || vaultAddress === "" ? {} : { vaultAddress };
               return yield* Effect.tryPromise({
                 try: () =>
                   exchange.updateLeverage(
@@ -192,8 +182,7 @@ export const exchangeServiceLayer = Layer.effect(
       cancelOrders: (params, userId) =>
         withExchangeClient(
           userId,
-          accountRepo,
-          credentialRepo,
+          credentials,
           metaCache,
           ({ exchange, vaultAddress, coinToAsset }) =>
             Effect.gen(function* () {
@@ -211,7 +200,8 @@ export const exchangeServiceLayer = Layer.effect(
                 cancels.push({ a, o: c.orderId });
               }
 
-              const cancelOpts = vaultAddress ? { vaultAddress } : {};
+              const cancelOpts =
+                vaultAddress === undefined || vaultAddress === "" ? {} : { vaultAddress };
               return yield* Effect.tryPromise({
                 try: () => exchange.cancel({ cancels }, cancelOpts),
                 catch: classifyExchangeError,

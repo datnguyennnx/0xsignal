@@ -7,20 +7,44 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
-import { c, cNum, cHead, cHeadNum, TABLE_HEAD_CLASS } from "../utils/orderbook-table-classes";
+import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import { PnLDisplay } from "./shared-table-components";
 import { computeAccruedFunding } from "../utils/trade-math";
 
 import { useNavigate } from "react-router-dom";
 
+const SKELETON_ROW_COUNT = 3;
+
+/** Same 1.5em line box as a loaded `c` cell, so a placeholder row is exactly one row tall. */
+function TableSkeletonRows({ columns }: { columns: number }) {
+  return (
+    <>
+      {Array.from({ length: SKELETON_ROW_COUNT }, (_, rowIndex) => (
+        <TableRow key={rowIndex} className="hover:bg-transparent">
+          <TableCell colSpan={columns} className={c}>
+            <div className="flex items-center gap-4">
+              {Array.from({ length: columns }, (_column, columnIndex) => (
+                <Skeleton key={columnIndex} className="h-[1.5em] flex-1" />
+              ))}
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+}
+
 function TpSlCell({ tpSl }: { tpSl: { tp: string | null; sl: string | null } | undefined }) {
-  if (!tpSl || (!tpSl.tp && !tpSl.sl)) {
+  const hasTp = tpSl !== undefined && tpSl.tp !== null && tpSl.tp !== "";
+  const hasSl = tpSl !== undefined && tpSl.sl !== null && tpSl.sl !== "";
+  if (!hasTp && !hasSl) {
     return <span className="text-muted-foreground/60">—</span>;
   }
   const parts: string[] = [];
-  if (tpSl.tp) parts.push(`TP ${tpSl.tp}`);
-  if (tpSl.sl) parts.push(`SL ${tpSl.sl}`);
+  if (tpSl.tp !== null && tpSl.tp !== "") parts.push(`TP ${tpSl.tp}`);
+  if (tpSl.sl !== null && tpSl.sl !== "") parts.push(`SL ${tpSl.sl}`);
   return <span className="text-xs font-medium text-foreground">{parts.join(" / ")}</span>;
 }
 
@@ -77,11 +101,7 @@ export function PositionsTable({
       </TableHeader>
       <TableBody>
         {isChLoading ? (
-          <TableRow>
-            <TableCell colSpan={12} className="text-center py-6">
-              <span className={TABLE_HEAD_CLASS}>Loading...</span>
-            </TableCell>
-          </TableRow>
+          <TableSkeletonRows columns={12} />
         ) : positions.length === 0 ? (
           <TableEmptyRow colSpan={12} />
         ) : (
@@ -103,7 +123,7 @@ export function PositionsTable({
               fundingRate,
               isLong,
             );
-            const computedMarkPx = signedSz !== 0 ? entryPx + unrealizedPnl / signedSz : entryPx;
+            const computedMarkPx = signedSz === 0 ? entryPx : entryPx + unrealizedPnl / signedSz;
             const markPx = mids?.[position.coin] ?? computedMarkPx;
 
             return (
@@ -111,7 +131,9 @@ export function PositionsTable({
                 <TableCell className={`${c} font-medium`}>
                   <button
                     type="button"
-                    onClick={() => navigate(`/trade/${position.coin}`)}
+                    onClick={() => {
+                      void navigate(`/trade/${position.coin}`);
+                    }}
                     className="relative overflow-hidden flex items-center w-full text-left cursor-pointer transition-colors hover:text-foreground rounded px-1 -mx-1"
                   >
                     <span className={`relative z-10 ${signedSz >= 0 ? "text-gain" : "text-loss"}`}>

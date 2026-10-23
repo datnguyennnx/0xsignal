@@ -15,8 +15,8 @@ interface TpSlViewModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   parentOrder: TpSlOrderDisplay;
-  tpOrder?: TpSlOrderDisplay;
-  slOrder?: TpSlOrderDisplay;
+  tpOrder?: TpSlOrderDisplay | undefined;
+  slOrder?: TpSlOrderDisplay | undefined;
 }
 
 function getSideLabel(side: "A" | "B"): string {

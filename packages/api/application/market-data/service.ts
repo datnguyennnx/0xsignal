@@ -5,15 +5,10 @@ import { MarketCandleStore, MarketDataService, MarketRemoteProvider } from "./co
 import type { RecentCandleQuery } from "./types";
 import { alignRangeToTimeframe } from "./range-alignment";
 import { getTimeframeMs } from "../../domain/market-data/timeframe";
-import {
-  DEFAULT_RECENT_CANDLES,
-  MAX_RANGE_CANDLES,
-  MAX_RECENT_CANDLES,
-  normalizeCandles,
-} from "./policies";
+import { DEFAULT_RECENT_CANDLES, MAX_RANGE_CANDLES, MAX_RECENT_CANDLES } from "./policies";
 import { mapMarketInfraError } from "./error-mapping";
 
-export const makeMarketDataService = () =>
+const makeMarketDataService = () =>
   Effect.gen(function* () {
     const candleRepo = yield* MarketCandleStore;
     const remoteProvider = yield* MarketRemoteProvider;
@@ -59,17 +54,15 @@ export const makeMarketDataService = () =>
             })
             .pipe(Effect.mapError(mapMarketInfraError("Failed to load candles")));
 
-          const normalizedCandles = normalizeCandles(candles);
-
           const coverage: CoverageResult = {
-            hasData: normalizedCandles.length > 0,
-            rowCount: normalizedCandles.length,
+            hasData: candles.length > 0,
+            rowCount: candles.length,
             expectedCount: requestedRangeCount,
-            fullCoverage: normalizedCandles.length >= requestedRangeCount,
+            fullCoverage: candles.length >= requestedRangeCount,
             missingWindows: [],
           };
 
-          return { candles: normalizedCandles, provenance: "Candle Store", coverage };
+          return { candles, provenance: "Candle Store", coverage };
         }),
 
       getRecentCandles: (query: RecentCandleQuery) =>
@@ -115,12 +108,12 @@ export const makeMarketDataService = () =>
             )
             .pipe(Effect.mapError(mapMarketInfraError("Failed to fetch recent candle snapshot")));
 
-          const normalizedCandles = normalizeCandles(snapshotCandles).slice(-expectedCount);
+          const recentCandles = snapshotCandles.slice(-expectedCount);
           const coverage: CoverageResult = {
-            hasData: normalizedCandles.length > 0,
-            rowCount: normalizedCandles.length,
+            hasData: recentCandles.length > 0,
+            rowCount: recentCandles.length,
             expectedCount,
-            fullCoverage: normalizedCandles.length === expectedCount,
+            fullCoverage: recentCandles.length === expectedCount,
             missingWindows: [],
           };
 
@@ -131,7 +124,7 @@ export const makeMarketDataService = () =>
               : "No recent data available";
 
           return {
-            candles: normalizedCandles,
+            candles: recentCandles,
             provenance,
             coverage,
           };

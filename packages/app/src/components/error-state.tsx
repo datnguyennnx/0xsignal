@@ -5,7 +5,7 @@ import { cn } from "cn";
 interface ErrorStateProps {
   title?: string;
   description?: string;
-  retryAction?: () => void;
+  retryAction?: (() => void) | undefined;
   type?: "general" | "rate-limit";
   className?: string;
 }
@@ -22,7 +22,7 @@ export const ErrorState = memo(function ErrorState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center text-center min-h-[50dvh]",
+        "flex flex-col items-center justify-center text-center min-h-[clamp(12rem,28dvh,18rem)]",
         className,
       )}
     >

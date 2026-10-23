@@ -2,9 +2,15 @@ import type { ServerWebSocket } from "bun";
 import { type Bucket, type MarketWsConnectionData } from "./hub-types";
 
 /**
+ * A peer that lets this much sit in its socket buffer is not reading; keeping
+ * it would buffer every market frame forever. Close it and let it reconnect.
+ */
+export const MAX_CLIENT_BUFFER_BYTES = 1024 * 1024;
+
+/**
  * Fire-and-forget broadcast: send every message to every client immediately.
- * If a client's send buffer is full or the connection is dead, drop silently
- * for that client. One slow client never delays others.
+ * A client whose send buffer is over the ceiling, or whose send throws, is
+ * detached by the caller. One slow client never delays others.
  */
 export function broadcast(
   bucket: Bucket,
@@ -14,6 +20,10 @@ export function broadcast(
   const encoded = JSON.stringify(payload);
   for (const client of bucket.clients) {
     try {
+      if (client.getBufferedAmount() > MAX_CLIENT_BUFFER_BYTES) {
+        detach(client);
+        continue;
+      }
       client.send(encoded);
     } catch {
       detach(client);

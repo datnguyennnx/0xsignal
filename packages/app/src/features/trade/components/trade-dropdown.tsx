@@ -1,10 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, ChevronDown, X } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
-import { Input } from "@/components/ui/input";
-import { cn } from "cn";
-import { OVERLAY_PANEL_CLASS } from "@/lib/overlay-classes";
 import { toast } from "sonner";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { calculatePxDecimals } from "@/features/trade/utils/trade-formatters";
@@ -14,10 +9,9 @@ import {
   formatSignedPercent,
   formatFundingPercent,
 } from "@/core/utils/formatters";
-import { MarketHeader, MarketRow, MarketRowSkeleton } from "./trade-dropdown.columns";
-import { getColumns } from "../utils/trade-dropdown-columns";
-import type { CategoryTab, FormattedTrade } from "../utils/trade-dropdown";
-import { TAB_ORDER, TAB_TO_CATEGORY } from "../utils/trade-dropdown";
+import type { CategoryTab, FormattedTrade, TradeDropdownProps } from "../utils/trade-dropdown";
+import { TradeDropdownTrigger } from "./trade-dropdown-trigger";
+import { TradeDropdownPanel } from "./trade-dropdown-panel";
 
 const TradeDropdownFn = ({
   currentSymbol,
@@ -25,7 +19,7 @@ const TradeDropdownFn = ({
   displaySymbol,
   currentDisplayName,
   onPrefetchMarkets,
-}: import("../utils/trade-dropdown").TradeDropdownProps) => {
+}: TradeDropdownProps) => {
   const dropdownContentId = "trade-market-dropdown-content";
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -45,7 +39,12 @@ const TradeDropdownFn = ({
     });
   }, [error]);
 
-  const displayLabel = currentDisplayName || displaySymbol || currentSymbol;
+  const displayLabel =
+    currentDisplayName !== undefined && currentDisplayName !== ""
+      ? currentDisplayName
+      : displaySymbol !== undefined && displaySymbol !== ""
+        ? displaySymbol
+        : currentSymbol;
   const trades = data?.assets;
 
   const filteredTrades = useMemo(() => {
@@ -65,8 +64,8 @@ const TradeDropdownFn = ({
       } else if (category === "hip3") {
         filtered = filtered.filter((f) => f.isHip3);
       } else if (category === "trending") {
-        filtered = [...filtered]
-          .sort((a, b) => Number(b.dayNtlVlm) - Number(a.dayNtlVlm))
+        filtered = filtered
+          .toSorted((a, b) => Number(b.dayNtlVlm) - Number(a.dayNtlVlm))
           .slice(0, 10);
       } else {
         filtered = filtered.filter((f) => f.category === category);
@@ -80,7 +79,7 @@ const TradeDropdownFn = ({
       );
     }
 
-    filtered = [...filtered].sort((a, b) => {
+    filtered = filtered.toSorted((a, b) => {
       if (sortBy === "name") {
         return sortDesc ? b.coin.localeCompare(a.coin) : a.coin.localeCompare(b.coin);
       }
@@ -133,7 +132,7 @@ const TradeDropdownFn = ({
 
   const handleSelect = useCallback(
     (asset: { rawCoin: string }) => {
-      navigate(`/trade/${asset.rawCoin}`);
+      void navigate(`/trade/${asset.rawCoin}`);
       handleClose();
     },
     [navigate, handleClose],
@@ -152,14 +151,19 @@ const TradeDropdownFn = ({
   );
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      const timeout = setTimeout(() => inputRef.current?.focus(), 100);
-      return () => clearTimeout(timeout);
-    }
+    if (!isOpen) return () => {};
+    const input = inputRef.current;
+    if (input === null) return () => {};
+    const timeout = setTimeout(() => {
+      input.focus();
+    }, 100);
+    return () => {
+      clearTimeout(timeout);
+    };
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) return () => {};
 
     const handleClickOutside = (e: MouseEvent) => {
       if (!(e.target instanceof Element) || !e.target.closest("[data-trade-dropdown]")) {
@@ -180,10 +184,7 @@ const TradeDropdownFn = ({
     };
   }, [isOpen, handleClose]);
 
-  const columns = useMemo(() => getColumns(category), [category]);
-
   const formattedTrades: FormattedTrade[] = useMemo(() => {
-    if (!filteredTrades) return [];
     const currentRawCoinLower = currentSymbol.toLowerCase();
     return filteredTrades.map((item) => {
       const prevPx = Number(item.prevDayPx);
@@ -223,156 +224,34 @@ const TradeDropdownFn = ({
 
   return (
     <div className="relative" data-trade-dropdown>
-      <button
-        type="button"
-        ref={triggerRef}
-        className="flex items-center gap-[clamp(0.2rem,0.4vw,0.375rem)] cursor-pointer px-2 py-1 rounded transition-colors hover:bg-muted/30"
-        onClick={isOpen ? handleClose : handleOpen}
-        onMouseEnter={onPrefetchMarkets}
-        onFocus={onPrefetchMarkets}
-        aria-expanded={isOpen}
-        aria-haspopup="dialog"
-        aria-controls={dropdownContentId}
-        aria-label={`Select market, current ${displayLabel}`}
-      >
-        {logoUrl && (
-          <img
-            src={logoUrl}
-            alt=""
-            className="w-5 h-5 rounded-full shrink-0"
-            loading="eager"
-            decoding="async"
-          />
-        )}
-        {displaySymbol ? (
-          <div className="flex items-baseline gap-0">
-            <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
-              {displaySymbol.split("-")[0]}
-            </span>
-            <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
-              -{displaySymbol.split("-").slice(1).join("-")}
-            </span>
-          </div>
-        ) : (
-          <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
-            {displayLabel}
-          </span>
-        )}
-        <ChevronDown
-          className={cn(
-            "w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0",
-            isOpen && "rotate-180",
-          )}
-        />
-      </button>
+      <TradeDropdownTrigger
+        triggerRef={triggerRef}
+        isOpen={isOpen}
+        onToggle={isOpen ? handleClose : handleOpen}
+        onPrefetch={onPrefetchMarkets}
+        displayLabel={displayLabel}
+        displaySymbol={displaySymbol}
+        logoUrl={logoUrl}
+        contentId={dropdownContentId}
+      />
 
       {isOpen && (
-        <div
+        <TradeDropdownPanel
           id={dropdownContentId}
-          role="dialog"
-          aria-modal="false"
-          aria-label="Market selector"
-          className={cn(
-            OVERLAY_PANEL_CLASS,
-            "fixed z-50 w-[calc(100vw-16px)] sm:w-[90vw] max-w-[56rem]",
-          )}
-          style={{ top: position.top, left: position.left }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="p-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
-              <label htmlFor="trade-dropdown-search" className="sr-only">
-                Search markets
-              </label>
-              <Input
-                id="trade-dropdown-search"
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search market..."
-                className="pl-9 pr-8 bg-muted border-border h-10 text-sm rounded-lg focus:ring-1 focus:ring-offset-0"
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  aria-label="Clear search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center text-muted-foreground/60 hover:text-foreground bg-transparent border-none cursor-pointer tap-highlight"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex px-2 overflow-x-auto scrollbar-hide">
-            {TAB_ORDER.map((tab) => {
-              const catKey = TAB_TO_CATEGORY[tab];
-              const isActive = category === catKey;
-              return (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setCategory(catKey)}
-                  className={cn(
-                    "px-3 py-2 text-[length:var(--text-data)] font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none -mb-px",
-                    isActive
-                      ? "text-foreground border-b-2 border-foreground"
-                      : "text-muted-foreground hover:text-foreground border-transparent",
-                  )}
-                >
-                  {tab}
-                </button>
-              );
-            })}
-          </div>
-
-          <MarketHeader columns={columns} sortBy={sortBy} sortDesc={sortDesc} onSort={handleSort} />
-
-          <div className="max-h-[clamp(22rem,60dvh,34rem)] overflow-y-auto overscroll-none flex flex-col">
-            {isLoading ? (
-              <div>
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <MarketRowSkeleton key={i} columns={columns} />
-                ))}
-              </div>
-            ) : error ? (
-              <div className="flex flex-1 items-center justify-center min-h-[clamp(12rem,40dvh,18rem)]">
-                <EmptyState variant="panel" title="Unable to load markets" />
-              </div>
-            ) : formattedTrades.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center min-h-[clamp(12rem,40dvh,18rem)]">
-                <EmptyState
-                  variant="panel"
-                  title={query ? "No results" : "No markets found"}
-                  description={
-                    query
-                      ? "Try a different search or filter."
-                      : "No markets are available in this category."
-                  }
-                />
-              </div>
-            ) : (
-              <div>
-                {formattedTrades.map((item) => (
-                  <button
-                    key={`${item.rawCoin}-${item.dexPrefix ?? "main"}-${item.marketType}`}
-                    type="button"
-                    onClick={() => handleSelect(item)}
-                    className={cn(
-                      "w-full text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset cursor-pointer select-none tap-highlight",
-                      item.isActive && "bg-muted/60",
-                    )}
-                    aria-current={item.isActive ? "true" : undefined}
-                  >
-                    <MarketRow item={item} columns={columns} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+          position={position}
+          inputRef={inputRef}
+          query={query}
+          onQueryChange={setQuery}
+          category={category}
+          onCategoryChange={setCategory}
+          sortBy={sortBy}
+          sortDesc={sortDesc}
+          onSort={handleSort}
+          formattedTrades={formattedTrades}
+          isLoading={isLoading}
+          hasError={!!error}
+          onSelect={handleSelect}
+        />
       )}
     </div>
   );

@@ -1,7 +1,7 @@
-import { Match } from "effect";
+import { Match, Predicate } from "effect";
 import { ValidationError, HttpRequestError, TransportError } from "@nktkas/hyperliquid";
 import { ApiRequestError } from "@nktkas/hyperliquid/api/exchange";
-import { ValiError } from "valibot";
+import { ValiError, type BaseIssue, type BaseSchema } from "valibot";
 import {
   HyperliquidInternalError,
   HyperliquidValidationError,
@@ -19,11 +19,18 @@ export const toHlTif = (tif: string): "Gtc" | "Ioc" | "Alo" | "FrontendMarket" =
   return map[tif] ?? "Gtc";
 };
 
-const isValiError = (e: unknown): e is ValiError<any> => e instanceof ValiError;
+const isValiError = (
+  e: unknown,
+): e is ValiError<BaseSchema<unknown, unknown, BaseIssue<unknown>>> => e instanceof ValiError;
 const isValidationError = (e: unknown): e is ValidationError => e instanceof ValidationError;
 const isApiRequestError = (e: unknown): e is ApiRequestError => e instanceof ApiRequestError;
 const isHttpOrTransportError = (e: unknown): e is HttpRequestError | TransportError =>
   e instanceof HttpRequestError || e instanceof TransportError;
+
+const fieldText = (value: unknown): string | undefined =>
+  typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+    ? String(value)
+    : undefined;
 
 const getApiErrorMessage = (e: ApiRequestError): string => {
   const msg = e.message?.toLowerCase() ?? "";
@@ -31,10 +38,15 @@ const getApiErrorMessage = (e: ApiRequestError): string => {
   // When message is omitted, the message is stringified response.
   // Try to extract meaningful text from response if message is unhelpful.
   if (msg === "" || msg === "[object object]") {
-    const resp = e.response;
-    if (resp && typeof resp === "object") {
-      const r = resp as Record<string, unknown>;
-      return String(r.response ?? r.message ?? r.error ?? r.status ?? "");
+    const resp = Predicate.isObject(e.response) ? e.response : null;
+    if (resp !== null) {
+      return (
+        fieldText(resp.response) ??
+        fieldText(resp.message) ??
+        fieldText(resp.error) ??
+        fieldText(resp.status) ??
+        ""
+      );
     }
   }
   return msg;
@@ -73,10 +85,10 @@ export const classifyExchangeError = (
       (v) => new HyperliquidInternalError({ message: v.message, cause: v }),
     ),
     Match.orElse(
-      (e) =>
+      (unknownError) =>
         new HyperliquidInternalError({
-          message: e instanceof Error ? e.message : String(e),
-          cause: e instanceof Error ? e : undefined,
+          message: unknownError instanceof Error ? unknownError.message : String(unknownError),
+          cause: unknownError instanceof Error ? unknownError : undefined,
         }),
     ),
   );

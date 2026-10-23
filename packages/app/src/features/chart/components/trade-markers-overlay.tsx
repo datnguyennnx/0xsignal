@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
-import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import type { ChartDataPoint } from "@0xsignal/shared";
+import { isUtcTimestamp } from "../lib/time";
 import {
   groupMarkersByCandle,
   buildTooltipText,
@@ -8,7 +9,12 @@ import {
   MARKER_DIAMETER,
   MARKER_GAP,
   MARKER_OFFSET_TOP,
+  TOOLTIP_GAP,
+  TOOLTIP_HEIGHT,
+  TOOLTIP_HALF_WIDTH,
+  OVERLAY_EDGE_PAD,
   type LogicalTradeMarker,
+  type MarkerGroup,
 } from "@/features/trade/utils/trade-markers";
 
 interface TradeMarkersOverlayProps {
@@ -18,7 +24,11 @@ interface TradeMarkersOverlayProps {
   candles: readonly ChartDataPoint[];
 }
 
+type TooltipPlacement = "above" | "right" | "left";
+
 interface OverlayPoint {
+  /** Unique per rendered bubble: fill id scoped to its candle bucket (or the bucket chip). */
+  key: string;
   id: string;
   x: number;
   y: number;
@@ -27,121 +37,265 @@ interface OverlayPoint {
   /** If true, render as a "+N" summary marker. */
   isOverflow?: boolean;
   overflowCount?: number;
+  /** Tooltip anchor; identical for every bubble of one group. */
+  tipX: number;
+  tipY: number;
+  tipPlacement: TooltipPlacement;
+}
+
+/** A bubble's vertical slot before the group's tooltip anchor is known. */
+interface StackEntry {
+  key: string;
+  id: string;
+  y: number;
+  side: "buy" | "sell";
+  tooltip: string;
+  isOverflow?: boolean;
+  overflowCount?: number;
 }
 
 const RADIUS = MARKER_DIAMETER / 2;
 const STEP = MARKER_DIAMETER + MARKER_GAP;
 
+const TOOLTIP_PLACEMENT_CLASS: Record<TooltipPlacement, string> = {
+  above: "-translate-x-1/2 -translate-y-full",
+  right: "-translate-y-1/2",
+  left: "-translate-x-full -translate-y-1/2",
+};
+
+const clamp = (value: number, min: number, max: number): number =>
+  max < min ? (min + max) / 2 : Math.min(Math.max(value, min), max);
+
+/**
+ * Tooltip goes above the topmost bubble; it flips beside the stack only when the
+ * plot's top edge is too close, so it never drops onto the candle it describes.
+ */
+function placeTooltip(
+  x: number,
+  stackTopY: number,
+  pane: { readonly width: number; readonly height: number },
+): { tipX: number; tipY: number; tipPlacement: TooltipPlacement } {
+  const centerX = clamp(
+    x,
+    OVERLAY_EDGE_PAD + TOOLTIP_HALF_WIDTH,
+    pane.width - OVERLAY_EDGE_PAD - TOOLTIP_HALF_WIDTH,
+  );
+  const aboveY = stackTopY - RADIUS - TOOLTIP_GAP;
+
+  if (aboveY - TOOLTIP_HEIGHT >= OVERLAY_EDGE_PAD) {
+    return { tipX: centerX, tipY: aboveY, tipPlacement: "above" };
+  }
+
+  const sideY = clamp(
+    stackTopY,
+    OVERLAY_EDGE_PAD + TOOLTIP_HEIGHT / 2,
+    pane.height - OVERLAY_EDGE_PAD - TOOLTIP_HEIGHT / 2,
+  );
+  const rightX = x + RADIUS + TOOLTIP_GAP;
+  if (rightX + TOOLTIP_HALF_WIDTH * 2 <= pane.width - OVERLAY_EDGE_PAD) {
+    return { tipX: rightX, tipY: sideY, tipPlacement: "right" };
+  }
+  const leftX = x - RADIUS - TOOLTIP_GAP;
+  if (leftX - TOOLTIP_HALF_WIDTH * 2 >= OVERLAY_EDGE_PAD) {
+    return { tipX: leftX, tipY: sideY, tipPlacement: "left" };
+  }
+  // No room beside the stack either: pin to the plot's top edge, still above the candle.
+  return {
+    tipX: centerX,
+    tipY: OVERLAY_EDGE_PAD + TOOLTIP_HEIGHT,
+    tipPlacement: "above",
+  };
+}
+
+/** Positions every marker for the current viewport. Pure: same inputs, same pixels. */
+function buildPoints(
+  chart: IChartApi,
+  series: ISeriesApi<"Candlestick">,
+  groups: readonly MarkerGroup[],
+  candleMap: Map<number, ChartDataPoint>,
+): OverlayPoint[] {
+  const ts = chart.timeScale();
+  const visibleRange = ts.getVisibleRange();
+  const pane = chart.paneSize();
+  const result: OverlayPoint[] = [];
+
+  for (let g = 0; g < groups.length; g++) {
+    const group = groups[g];
+    if (!isUtcTimestamp(group.time)) continue;
+
+    // Cull markers outside the visible range.
+    if (
+      visibleRange &&
+      (group.time < Number(visibleRange.from) || group.time > Number(visibleRange.to))
+    ) {
+      continue;
+    }
+
+    const x = ts.timeToCoordinate(group.time);
+    if (x === null) continue;
+
+    const items = group.items;
+    const hasOverflow = items.length > MAX_STACK_PER_CANDLE;
+    const individualCount = hasOverflow ? MAX_STACK_PER_CANDLE - 1 : items.length;
+
+    // The bubble column hangs off the candle high, not off the fill price.
+    const candle = candleMap.get(group.time);
+    const highY = candle === undefined ? null : series.priceToCoordinate(candle.high);
+
+    const stack: StackEntry[] = [];
+    for (let i = 0; i < individualCount; i++) {
+      const m = items[i];
+      let y: number;
+      if (highY === null) {
+        // No candle loaded for this bucket (fill outside the fetched history):
+        // stay on the fill price, and drop the marker if that has no coordinate.
+        const fillY = series.priceToCoordinate(m.price);
+        if (fillY === null) continue;
+        y = fillY - RADIUS - MARKER_OFFSET_TOP;
+        while (stack.some((entry) => Math.abs(entry.y - y) < STEP)) y -= STEP;
+      } else {
+        y = highY - RADIUS - MARKER_OFFSET_TOP - stack.length * STEP;
+      }
+      stack.push({
+        key: `${group.time}:${m.id}`,
+        id: m.id,
+        y,
+        side: m.side,
+        tooltip: buildTooltipText(m),
+      });
+    }
+
+    if (stack.length === 0) continue;
+
+    let stackTopY = stack[0].y;
+    for (let i = 1; i < stack.length; i++) {
+      if (stack[i].y < stackTopY) stackTopY = stack[i].y;
+    }
+
+    if (hasOverflow) {
+      const overflowCount = items.length - individualCount;
+      stackTopY -= STEP;
+      stack.push({
+        key: `overflow:${group.time}`,
+        id: `overflow-${group.time}`,
+        y: stackTopY,
+        side: "buy",
+        tooltip: `+${overflowCount} more trades`,
+        isOverflow: true,
+        overflowCount,
+      });
+    }
+
+    const tip = placeTooltip(x, stackTopY, pane);
+    for (let i = 0; i < stack.length; i++) {
+      result.push({ ...stack[i], x, ...tip });
+    }
+  }
+
+  return result;
+}
+
+const pointsEqual = (a: readonly OverlayPoint[], b: readonly OverlayPoint[]): boolean => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i];
+    const right = b[i];
+    if (
+      left.key !== right.key ||
+      left.x !== right.x ||
+      left.y !== right.y ||
+      left.side !== right.side ||
+      left.tooltip !== right.tooltip ||
+      left.isOverflow !== right.isOverflow ||
+      left.overflowCount !== right.overflowCount ||
+      left.tipX !== right.tipX ||
+      left.tipY !== right.tipY ||
+      left.tipPlacement !== right.tipPlacement
+    )
+      return false;
+  }
+  return true;
+};
+
 export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMarkersOverlayProps) {
   const [points, setPoints] = useState<OverlayPoint[]>([]);
   const [hovered, setHovered] = useState<OverlayPoint | null>(null);
 
-  const recalc = useCallback(() => {
-    if (!chart || !series) return;
-
-    const ts = chart.timeScale();
-    const visibleRange = ts.getVisibleRange();
-    const candleMap = new Map<number, ChartDataPoint>();
+  // Rebuilt only when the candle dataset identity changes (a tick), never on pan/zoom.
+  const candleMap = useMemo(() => {
+    const map = new Map<number, ChartDataPoint>();
     for (let i = 0; i < candles.length; i++) {
-      candleMap.set(candles[i].time, candles[i]);
+      map.set(candles[i].time, candles[i]);
     }
+    return map;
+  }, [candles]);
 
-    const groups = groupMarkersByCandle(markers);
-    const result: OverlayPoint[] = [];
+  // Grouping is pure marker data; viewport events must not redo it.
+  const groups = useMemo(() => groupMarkersByCandle(markers), [markers]);
 
-    for (let g = 0; g < groups.length; g++) {
-      const group = groups[g];
-      const candle = candleMap.get(group.time);
-      if (!candle) continue;
-
-      // Cull markers outside the visible range.
-      if (
-        visibleRange &&
-        (group.time < Number(visibleRange.from) || group.time > Number(visibleRange.to))
-      ) {
-        continue;
-      }
-
-      const x = ts.timeToCoordinate(group.time as Time); // safe: lightweight-charts branded type
-      const baseY = series.priceToCoordinate(candle.high);
-      if (x === null || baseY === null) continue;
-
-      const items = group.items;
-      const hasOverflow = items.length > MAX_STACK_PER_CANDLE;
-      const individualCount = hasOverflow ? MAX_STACK_PER_CANDLE - 1 : items.length;
-
-      for (let i = 0; i < individualCount; i++) {
-        const m = items[i];
-        const y = baseY - RADIUS - MARKER_OFFSET_TOP - i * STEP;
-        result.push({
-          id: m.id,
-          x,
-          y,
-          side: m.side,
-          tooltip: buildTooltipText(m),
-        });
-      }
-
-      if (hasOverflow) {
-        const overflowCount = items.length - individualCount;
-        const y = baseY - RADIUS - MARKER_OFFSET_TOP - individualCount * STEP;
-        result.push({
-          id: `overflow-${group.time}`,
-          x,
-          y,
-          side: "buy" as const,
-          tooltip: `+${overflowCount} more trades`,
-          isOverflow: true,
-          overflowCount,
-        });
-      }
-    }
-
-    setPoints(result);
-  }, [chart, series, markers, candles]);
+  const recalc = useCallback(() => {
+    if (chart === null || series === null) return;
+    const result = buildPoints(chart, series, groups, candleMap);
+    setPoints((previous) => (pointsEqual(previous, result) ? previous : result));
+  }, [chart, series, groups, candleMap]);
 
   // Recalc on data change + subscribe to viewport/size events.
   useEffect(() => {
-    if (!chart || !series) return;
+    if (chart === null || series === null) return () => {};
 
     let disposed = false;
+    let frame = 0;
 
-    const safeRecalc = () => {
-      if (disposed) return;
-      recalc();
+    // Three timeScale events fire per pan/zoom gesture; fold them into one
+    // recompute per painted frame.
+    const scheduleRecalc = () => {
+      if (disposed || frame !== 0) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (!disposed) recalc();
+      });
     };
 
     const ts = chart.timeScale();
-    ts.subscribeVisibleTimeRangeChange(safeRecalc);
-    ts.subscribeVisibleLogicalRangeChange(safeRecalc);
-    ts.subscribeSizeChange(safeRecalc);
+    ts.subscribeVisibleTimeRangeChange(scheduleRecalc);
+    ts.subscribeVisibleLogicalRangeChange(scheduleRecalc);
+    ts.subscribeSizeChange(scheduleRecalc);
 
-    safeRecalc();
+    // Place the first point set on the next painted frame as well, so a burst of
+    // viewport events during mount still collapses into a single recompute.
+    scheduleRecalc();
 
     return () => {
       disposed = true;
-      ts.unsubscribeVisibleTimeRangeChange(safeRecalc);
-      ts.unsubscribeVisibleLogicalRangeChange(safeRecalc);
-      ts.unsubscribeSizeChange(safeRecalc);
+      if (frame !== 0) cancelAnimationFrame(frame);
+      ts.unsubscribeVisibleTimeRangeChange(scheduleRecalc);
+      ts.unsubscribeVisibleLogicalRangeChange(scheduleRecalc);
+      ts.unsubscribeSizeChange(scheduleRecalc);
     };
   }, [chart, series, recalc]);
 
-  // Derive tooltip: hide if the hovered marker no longer exists.
-  const visibleHovered = hovered && points.some((p) => p.id === hovered.id) ? hovered : null;
+  // Derive tooltip from the live point set: hide if the hovered marker is gone,
+  // and follow its current geometry while the viewport moves.
+  const visibleHovered =
+    hovered === null ? null : (points.find((p) => p.key === hovered.key) ?? null);
 
   if (points.length === 0) return null;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10" aria-hidden="true">
-      {points.map((p, idx) => (
+      {points.map((p) => (
         <div
-          key={`${p.id}-${idx}`}
+          key={p.key}
           className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
           style={{ left: p.x, top: p.y }}
-          onMouseEnter={() => setHovered(p)}
-          onMouseLeave={() => setHovered(null)}
+          onMouseEnter={() => {
+            setHovered(p);
+          }}
+          onMouseLeave={() => {
+            setHovered(null);
+          }}
         >
-          {p.isOverflow ? (
+          {p.isOverflow === true ? (
             <div className="hl-trade-marker hl-trade-marker--overflow">+{p.overflowCount}</div>
           ) : (
             <div
@@ -158,8 +312,10 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
 
       {visibleHovered && (
         <div
-          className="hl-trade-tooltip absolute! -translate-x-1/2 translate-y-[calc(-100%-8px)]"
-          style={{ left: visibleHovered.x, top: visibleHovered.y }}
+          className={
+            "hl-trade-tooltip absolute! " + TOOLTIP_PLACEMENT_CLASS[visibleHovered.tipPlacement]
+          }
+          style={{ left: visibleHovered.tipX, top: visibleHovered.tipY }}
         >
           {visibleHovered.tooltip}
         </div>

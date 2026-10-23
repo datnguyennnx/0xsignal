@@ -16,7 +16,7 @@ const refreshMinutesConfig = (envSuffix: string): Config.Config<number> =>
     Config.withDefault(DEFAULT_REFRESH_MINUTES),
   );
 
-export const calendarConfig: Config.Config<CalendarConfigService> = Config.all({
+const calendarConfig: Config.Config<CalendarConfigService> = Config.all({
   bls: refreshMinutesConfig("BLS"),
   bea: refreshMinutesConfig("BEA"),
   federalReserve: refreshMinutesConfig("FEDERAL_RESERVE"),

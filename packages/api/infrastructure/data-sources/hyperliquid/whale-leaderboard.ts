@@ -2,6 +2,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
 import type { WhaleLeaderboardRow } from "@0xsignal/shared";
 import { WhaleConfig } from "../../config/whale.config";
+import { asRecord } from "../parse-utils";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 
 export interface WhaleLeaderboardProvider {
@@ -11,11 +12,6 @@ export interface WhaleLeaderboardProvider {
 export class WhaleLeaderboard extends Context.Service<WhaleLeaderboard, WhaleLeaderboardProvider>()(
   "WhaleLeaderboard",
 ) {}
-
-const asRecord = (value: unknown): Record<string, unknown> | null =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
 
 const asFiniteNumber = (value: unknown): number | undefined => {
   if (typeof value !== "number" && typeof value !== "string") return undefined;

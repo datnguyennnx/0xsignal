@@ -1,15 +1,13 @@
+/// <reference lib="es2023.array" />
 import { Duration, Effect, Layer, Ref, Stream } from "effect";
 import {
   WHALE_POSITIONS_LIMIT_MAX,
   type WhalePosition,
   type WhalePositionsQuery,
 } from "@0xsignal/shared";
-import { WhaleRepo, type WhalePositionKey } from "../../infrastructure/repos/whale.repo";
-import {
-  WhaleSources,
-  type WhaleSourceProvider,
-} from "../../infrastructure/data-sources/hyperliquid/whale-source";
-import { WhaleConfig } from "../../infrastructure/config/whale.config";
+import { WhaleRepo, type WhalePositionKey } from "./repo.contracts";
+import { WhaleConfig } from "./config.contracts";
+import { WhaleSources, type WhaleSourceProvider } from "./sources.contracts";
 import { WhaleService, WhaleServiceError } from "./contracts";
 
 // A discovery tick samples the trade stream for at most this long, so the pass
@@ -58,22 +56,22 @@ const mapRepoError =
   (cause: unknown): WhaleServiceError =>
     new WhaleServiceError({ message, cause });
 
-export const makeWhaleService = () =>
+const makeWhaleService = () =>
   Effect.gen(function* () {
     const repo = yield* WhaleRepo;
     const providers = yield* WhaleSources;
 
-    const stream = providers.find(isTradeStreamSource);
+    const stream = providers.find((provider) => isTradeStreamSource(provider));
     if (stream === undefined) {
       return yield* Effect.die(new Error("WhaleSources must bundle a trade-stream provider"));
     }
 
-    const poller = providers.find(isPositionPollerSource);
+    const poller = providers.find((provider) => isPositionPollerSource(provider));
     if (poller === undefined) {
       return yield* Effect.die(new Error("WhaleSources must bundle a position-poller provider"));
     }
 
-    const leaderboard = providers.find(isLeaderboardSource);
+    const leaderboard = providers.find((provider) => isLeaderboardSource(provider));
     if (leaderboard === undefined) {
       return yield* Effect.die(new Error("WhaleSources must bundle a leaderboard provider"));
     }
@@ -97,16 +95,15 @@ export const makeWhaleService = () =>
           .pipe(Effect.mapError(mapRepoError("Failed to fetch the whale leaderboard")));
 
         const cap = Math.max(0, config.seededWalletCap);
-        const seeded = [...rows].sort((a, b) => b.accountValue - a.accountValue).slice(0, cap);
+        const seeded = rows.toSorted((a, b) => b.accountValue - a.accountValue).slice(0, cap);
         if (seeded.length === 0) return;
 
         const now = Date.now();
         yield* Ref.update(tracked, (map) => {
-          const next = new Map(map);
           for (const row of seeded) {
-            next.set(row.ethAddress, { lastSeenAt: now, lastNotionalUsd: row.accountValue });
+            map.set(row.ethAddress, { lastSeenAt: now, lastNotionalUsd: row.accountValue });
           }
-          return next;
+          return map;
         });
       });
 
@@ -157,13 +154,14 @@ export const makeWhaleService = () =>
           yield* stream.stream.trades().pipe(
             Stream.filter((trade) => trade.notionalUsd >= config.discoveryNotionalUsd),
             Stream.tap((trade) =>
+              // In-place: `tracked` is only read once the sampling window
+              // closes, so no fiber observes a partially updated snapshot.
               Ref.update(tracked, (map) => {
-                const next = new Map(map);
-                next.set(trade.user, {
+                map.set(trade.user, {
                   lastSeenAt: Date.now(),
                   lastNotionalUsd: trade.notionalUsd,
                 });
-                return next;
+                return map;
               }),
             ),
             Stream.runDrain,
@@ -180,15 +178,14 @@ export const makeWhaleService = () =>
           // The sweep drops expired wallets from memory; their addresses are
           // returned so their stored positions can be reclaimed in the DB.
           const dropped = yield* Ref.modify(tracked, (map) => {
-            const next = new Map(map);
             const expired: string[] = [];
-            for (const [address, meta] of next) {
+            for (const [address, meta] of map) {
               if (now - meta.lastSeenAt > config.walletTtlMs) {
-                next.delete(address);
+                map.delete(address);
                 expired.push(address);
               }
             }
-            return [expired, next] as const;
+            return [expired, map] as const;
           });
 
           if (dropped.length > 0) {
@@ -230,7 +227,7 @@ export const makeWhaleService = () =>
             .pipe(Effect.mapError(mapRepoError("Failed to upsert whale wallets")));
 
           const addresses = Array.from(trackedNow.entries())
-            .sort((a, b) => b[1].lastSeenAt - a[1].lastSeenAt)
+            .toSorted((a, b) => b[1].lastSeenAt - a[1].lastSeenAt)
             .slice(0, Math.max(0, config.maxWalletsPerPoll))
             .map(([address]) => address);
 

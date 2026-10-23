@@ -16,8 +16,7 @@ import {
   shiftAnchor,
   toEventsByDay,
 } from "../lib/date-utils";
-import { CalendarHeader } from "./calendar-header";
-import type { CalendarCategoryFilterValue } from "./calendar-filters";
+import { CalendarHeader, type CalendarCategoryFilterValue } from "./calendar-header";
 import { DayDetailPanel } from "./day-detail-panel";
 import { MonthGrid } from "./month-grid";
 
@@ -78,8 +77,12 @@ export function CalendarBoard({ className }: CalendarBoardProps): JSX.Element {
           rangeLabel={formatRangeLabel(anchor)}
           category={category}
           onCategoryChange={setCategory}
-          onPrev={() => setAnchor((current) => shiftAnchor(current, -1))}
-          onNext={() => setAnchor((current) => shiftAnchor(current, 1))}
+          onPrev={() => {
+            setAnchor((current) => shiftAnchor(current, -1));
+          }}
+          onNext={() => {
+            setAnchor((current) => shiftAnchor(current, 1));
+          }}
           onToday={handleToday}
           onRefresh={handleRefresh}
           isRefreshing={isFetching}

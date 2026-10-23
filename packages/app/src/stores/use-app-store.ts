@@ -27,6 +27,30 @@ const applyThemeClass = (resolved: "dark" | "light") => {
   root.classList.add(resolved);
 };
 
+interface PersistedAppState {
+  theme: Theme | null;
+  activeAddress: string | null;
+  viewedAddress: string | null;
+}
+
+function isTheme(value: unknown): value is Theme {
+  return value === "dark" || value === "light" || value === "system";
+}
+
+function readPersistedAppState(value: unknown): PersistedAppState {
+  if (typeof value !== "object" || value === null) {
+    return { theme: null, activeAddress: null, viewedAddress: null };
+  }
+  const theme = "theme" in value ? value.theme : undefined;
+  const activeAddress = "activeAddress" in value ? value.activeAddress : undefined;
+  const viewedAddress = "viewedAddress" in value ? value.viewedAddress : undefined;
+  return {
+    theme: isTheme(theme) ? theme : null,
+    activeAddress: typeof activeAddress === "string" ? activeAddress : null,
+    viewedAddress: typeof viewedAddress === "string" ? viewedAddress : null,
+  };
+}
+
 /** Keep in sync with backend MARKET_SCHEMA_VERSION (cache.ts). Bump when payload shape changes. */
 const FRONTEND_MARKET_SCHEMA_VERSION = 2;
 const MARKET_SCHEMA_KEY = "0xsignal_market_schema_version";
@@ -83,7 +107,7 @@ export const useAppStore = create<AppStoreState>()(
 
           setSystemTheme: (sys: "dark" | "light") => {
             const theme = get().theme;
-            const resolved = theme === "system" ? sys : (theme as "dark" | "light");
+            const resolved = theme === "system" ? sys : theme;
             applyThemeClass(resolved);
             set({ systemTheme: sys, resolvedTheme: resolved });
           },
@@ -113,11 +137,9 @@ export const useAppStore = create<AppStoreState>()(
           },
 
           markDirty: (path: string) => {
-            set((state) => {
-              const next = new Set(state.dirtyFormPaths);
-              next.add(path);
-              return { dirtyFormPaths: next };
-            });
+            set((state) => ({
+              dirtyFormPaths: new Set([...state.dirtyFormPaths, path]),
+            }));
           },
 
           markClean: (path: string) => {
@@ -137,7 +159,7 @@ export const useAppStore = create<AppStoreState>()(
             if (stored !== String(FRONTEND_MARKET_SCHEMA_VERSION)) {
               queryClient.removeQueries({ queryKey: queryKeys.market.all });
               queryClient.removeQueries({ queryKey: ["market", "candles"] });
-              queryClient.invalidateQueries();
+              void queryClient.invalidateQueries();
               localStorage.setItem(MARKET_SCHEMA_KEY, String(FRONTEND_MARKET_SCHEMA_VERSION));
             }
           },
@@ -148,11 +170,7 @@ export const useAppStore = create<AppStoreState>()(
         version: 1,
         partialize: (state) => ({ theme: state.theme, activeAddress: state.activeAddress }),
         migrate: (persistedState, version) => {
-          const persisted = persistedState as {
-            theme?: Theme;
-            activeAddress?: string | null;
-            viewedAddress?: string | null;
-          };
+          const persisted = readPersistedAppState(persistedState);
           if (version < 1) {
             return {
               theme: persisted.theme ?? "dark",
@@ -167,8 +185,7 @@ export const useAppStore = create<AppStoreState>()(
         onRehydrateStorage: () => {
           return (state) => {
             if (!state) return;
-            const resolved =
-              state.theme === "system" ? state.systemTheme : (state.theme as "dark" | "light");
+            const resolved = state.theme === "system" ? state.systemTheme : state.theme;
             state.resolvedTheme = resolved;
             applyThemeClass(resolved);
           };

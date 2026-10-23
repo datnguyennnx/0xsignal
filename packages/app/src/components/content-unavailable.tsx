@@ -52,11 +52,12 @@ export const ContentUnavailable = memo(function ContentUnavailable({
 }: ContentUnavailableProps) {
   const config = VARIANT_DEFAULTS[variant];
   const Icon = config.icon;
+  const body = description ?? config.description;
 
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center text-center px-6 py-10 flex-1 min-h-0",
+        "flex flex-col items-center justify-center text-center px-6 py-10 flex-1 min-h-[clamp(12rem,28dvh,18rem)]",
         className,
       )}
     >
@@ -69,9 +70,9 @@ export const ContentUnavailable = memo(function ContentUnavailable({
       <h3 className="text-sm font-semibold text-muted-foreground tracking-tight mb-1">
         {title ?? config.title}
       </h3>
-      {(description ?? config.description) && (
+      {body !== undefined && body !== "" && (
         <p className="text-xs text-muted-foreground max-w-[clamp(17rem,70vw,17.5rem)] leading-relaxed">
-          {description ?? config.description}
+          {body}
         </p>
       )}
     </div>

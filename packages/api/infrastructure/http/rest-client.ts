@@ -8,10 +8,14 @@ export interface GetJsonOptions {
   readonly headers?: Record<string, string>;
 }
 
-export const getJson = <T>(
+export const getJson = (
   url: string,
   options?: GetJsonOptions,
-): Effect.Effect<T, HttpClientError.HttpClientError | Cause.TimeoutError, HttpClient.HttpClient> =>
+): Effect.Effect<
+  unknown,
+  HttpClientError.HttpClientError | Cause.TimeoutError,
+  HttpClient.HttpClient
+> =>
   Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
     const request = HttpClientRequest.get(url).pipe(
@@ -19,7 +23,7 @@ export const getJson = <T>(
       HttpClientRequest.setHeaders(options?.headers ?? {}),
     );
     const response = yield* client.execute(request);
-    return (yield* response.json) as unknown as T;
+    return yield* response.json;
   }).pipe(
     Effect.retry({
       schedule: Schedule.exponential("200 millis").pipe(Schedule.upTo({ times: RETRY_TIMES })),

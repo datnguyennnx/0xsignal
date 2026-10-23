@@ -5,9 +5,7 @@ import { Button } from "@/components/ui/button";
 import { MainLayout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/sonner";
-import { queryKeys } from "@/lib/query-keys";
-import { queryClient } from "@/lib/query-client";
-import { api } from "@/services/api";
+import { usePreloadRoutes } from "@/lib/preload-routes";
 import { useAppStore } from "@/stores/use-app-store";
 import { useAuthStore } from "@/stores/use-auth-store";
 
@@ -35,26 +33,6 @@ const AuthCallbackPage = lazy(() =>
   import("@/pages/auth-callback").then((m) => ({ default: m.AuthCallbackPage })),
 );
 
-/** Schema version guard — now delegated to useAppStore.checkSchemaVersion() */
-
-const usePreloadRoutes = () => {
-  useEffect(() => {
-    queryClient.prefetchQuery({
-      queryKey: queryKeys.market.meta(),
-      queryFn: () => api.getMarkets(),
-      staleTime: 5 * 60 * 1000,
-    });
-
-    const preloadTimer = setTimeout(() => {
-      import("@/pages/asset-detail");
-      import("@/pages/portfolio");
-      import("@/pages/whales");
-      import("@/features/chart/components/trading-chart");
-    }, 2000);
-    return () => clearTimeout(preloadTimer);
-  }, []);
-};
-
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[clamp(20rem,50dvh,40rem)]">
@@ -67,7 +45,13 @@ function RouteErrorFallback() {
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh gap-4">
       <p className="text-foreground">Something went wrong loading this page.</p>
-      <Button onClick={() => window.location.reload()}>Reload</Button>
+      <Button
+        onClick={() => {
+          window.location.reload();
+        }}
+      >
+        Reload
+      </Button>
     </div>
   );
 }

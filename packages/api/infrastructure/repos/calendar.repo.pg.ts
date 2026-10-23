@@ -1,6 +1,9 @@
 import { Effect } from "effect";
 import type { EconomicEvent } from "@0xsignal/shared";
-import { CalendarRepoError, type CalendarRepoPort } from "./calendar.repo";
+import {
+  CalendarRepoError,
+  type CalendarRepoPort,
+} from "../../application/calendar/repo.contracts";
 
 const UPSERT_SQL = `
 INSERT INTO economic_events (
@@ -37,31 +40,31 @@ export function pgCalendarRepo(pg: NonNullable<import("pg").Pool>): CalendarRepo
     upsertMany: (events) =>
       Effect.tryPromise({
         try: async () => {
-          let upserted = 0;
-          for (const event of events) {
-            await pg.query(UPSERT_SQL, [
-              event.id,
-              event.source,
-              event.sourceEventId,
-              event.title,
-              event.country,
-              event.currency,
-              event.category,
-              event.impact,
-              event.scheduledAt,
-              event.allDay,
-              event.period,
-              event.forecast,
-              event.previous,
-              event.actual,
-              event.revised,
-              event.sourceUrl,
-              event.attribution,
-              event.fetchedAt,
-            ]);
-            upserted += 1;
-          }
-          return upserted;
+          await Promise.all(
+            events.map((event) =>
+              pg.query(UPSERT_SQL, [
+                event.id,
+                event.source,
+                event.sourceEventId,
+                event.title,
+                event.country,
+                event.currency,
+                event.category,
+                event.impact,
+                event.scheduledAt,
+                event.allDay,
+                event.period,
+                event.forecast,
+                event.previous,
+                event.actual,
+                event.revised,
+                event.sourceUrl,
+                event.attribution,
+                event.fetchedAt,
+              ]),
+            ),
+          );
+          return events.length;
         },
         catch: (cause) =>
           new CalendarRepoError({ message: "Failed to upsert economic events", cause }),
@@ -93,8 +96,8 @@ export function pgCalendarRepo(pg: NonNullable<import("pg").Pool>): CalendarRepo
           const where = conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
           const sql = `SELECT * FROM economic_events${where} ORDER BY scheduled_at ASC LIMIT ${limit}`;
 
-          const result = await pg.query(sql, params);
-          return result.rows.map(mapRow);
+          const result = await pg.query<EconomicEventRow>(sql, params);
+          return result.rows.map((row) => mapRow(row));
         },
         catch: (cause) =>
           new CalendarRepoError({ message: "Failed to query economic events", cause }),
@@ -103,8 +106,8 @@ export function pgCalendarRepo(pg: NonNullable<import("pg").Pool>): CalendarRepo
     upcoming: (hours) =>
       Effect.tryPromise({
         try: async () => {
-          const result = await pg.query(UPCOMING_SQL, [hours]);
-          return result.rows.map(mapRow);
+          const result = await pg.query<EconomicEventRow>(UPCOMING_SQL, [hours]);
+          return result.rows.map((row) => mapRow(row));
         },
         catch: (cause) =>
           new CalendarRepoError({ message: "Failed to load upcoming economic events", cause }),
@@ -113,6 +116,7 @@ export function pgCalendarRepo(pg: NonNullable<import("pg").Pool>): CalendarRepo
 }
 
 interface EconomicEventRow {
+  [column: string]: unknown;
   id: string;
   source: EconomicEvent["source"];
   source_event_id: string;
@@ -144,7 +148,7 @@ function mapRow(row: EconomicEventRow): EconomicEvent {
     category: row.category,
     impact: row.impact,
     scheduledAt: toIsoString(row.scheduled_at),
-    allDay: Boolean(row.all_day),
+    allDay: row.all_day,
     period: row.period ?? null,
     forecast: row.forecast ?? null,
     previous: row.previous ?? null,
@@ -157,5 +161,5 @@ function mapRow(row: EconomicEventRow): EconomicEvent {
 }
 
 function toIsoString(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : String(value);
+  return value instanceof Date ? value.toISOString() : value;
 }

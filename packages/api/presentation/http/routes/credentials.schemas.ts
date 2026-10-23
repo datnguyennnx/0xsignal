@@ -24,11 +24,9 @@ export const validateWalletAddress = (address: string, exchangeSlug: string): st
     if (!EVM_ADDRESS_RE.test(address)) {
       return "Invalid EVM wallet address format (expected 0x-prefixed 40-char hex)";
     }
-  } else {
+  } else if (!BASE58_RE.test(address)) {
     // Non-EVM chains (e.g. Solana) use base58
-    if (!BASE58_RE.test(address)) {
-      return "Invalid wallet address format (expected base58, 32–44 characters)";
-    }
+    return "Invalid wallet address format (expected base58, 32–44 characters)";
   }
   return null;
 };

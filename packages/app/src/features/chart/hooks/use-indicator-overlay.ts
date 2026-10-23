@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
-import type { IChartApi, ISeriesApi, LineData, Time, IPaneApi } from "lightweight-charts";
+import type { IChartApi, ISeriesApi, IPaneApi, Time } from "lightweight-charts";
 import { LineSeries, HistogramSeries } from "lightweight-charts";
-import type { ActiveIndicator, BandIndicatorDataPoint } from "@0xsignal/shared";
+import type { ActiveIndicator } from "@0xsignal/shared";
 import {
   getIndicatorBaseId,
   getIndicatorConfigById,
@@ -11,6 +11,7 @@ import {
 import { BandPrimitive } from "../utils/band";
 import type { IndicatorRenderEntry } from "../utils/indicator-data";
 import { toRgb, toRgba } from "../lib/color";
+import { toUtcTimestamps } from "../lib/time";
 import { formatAxis } from "@/core/utils/formatters";
 
 interface UseIndicatorOverlayProps {
@@ -43,7 +44,7 @@ const readToken = (token: string): string =>
   toRgb(getComputedStyle(document.documentElement).getPropertyValue(token).trim());
 
 const createLineOptions = (color?: string) => ({
-  color,
+  ...(color !== undefined && { color }),
   lineWidth: 2 as const,
   lastValueVisible: true,
   priceLineVisible: false,
@@ -63,7 +64,7 @@ export const useIndicatorOverlay = ({
   const volumePaneRef = useRef<IPaneApi<Time> | null>(null);
 
   const clearAllSeries = useCallback(() => {
-    if (!chart) return;
+    if (chart === null) return;
 
     for (const ref of lineSeriesRefs.current.values()) {
       try {
@@ -74,7 +75,7 @@ export const useIndicatorOverlay = ({
     }
 
     for (const ref of bandPrimitiveRefs.current.values()) {
-      if (mainSeries) {
+      if (mainSeries !== null && mainSeries !== undefined) {
         try {
           mainSeries.detachPrimitive(ref.primitive);
         } catch {
@@ -102,177 +103,176 @@ export const useIndicatorOverlay = ({
   }, [chart, mainSeries]);
 
   useEffect(() => {
-    if (!chart) return;
+    if (chart === null) return;
     const panes = chart.panes();
-    volumePaneRef.current = panes.length > 1 ? panes[panes.length - 1] : null;
+    volumePaneRef.current = panes.length > 1 ? (panes.at(-1) ?? null) : null;
   }, [chart]);
 
-  const removeIndicator = (
-    chart: IChartApi,
-    mainSeries: ISeriesApi<"Candlestick"> | null | undefined,
-    instanceId: string,
-    isBand: boolean,
-  ) => {
-    if (isBand) {
-      const bandRef = bandPrimitiveRefs.current.get(instanceId);
-      if (bandRef && mainSeries) {
-        try {
-          mainSeries.detachPrimitive(bandRef.primitive);
-        } catch {}
-        bandPrimitiveRefs.current.delete(instanceId);
+  const removeIndicator = useCallback(
+    (instanceId: string, isBand: boolean) => {
+      if (isBand) {
+        const bandRef = bandPrimitiveRefs.current.get(instanceId);
+        if (bandRef !== undefined && mainSeries !== null && mainSeries !== undefined) {
+          try {
+            mainSeries.detachPrimitive(bandRef.primitive);
+          } catch {}
+          bandPrimitiveRefs.current.delete(instanceId);
+        }
+      } else {
+        const seriesRef = lineSeriesRefs.current.get(instanceId);
+        if (seriesRef !== undefined && chart !== null) {
+          try {
+            chart.removeSeries(seriesRef.series);
+          } catch {}
+          lineSeriesRefs.current.delete(instanceId);
+        }
       }
-    } else {
+      appliedCacheKeyRef.current.delete(instanceId);
+    },
+    [chart, mainSeries],
+  );
+
+  const removeOscillator = useCallback(
+    (instanceId: string) => {
+      if (chart === null) return;
       const seriesRef = lineSeriesRefs.current.get(instanceId);
-      if (seriesRef) {
-        try {
-          chart.removeSeries(seriesRef.series);
-        } catch {}
-        lineSeriesRefs.current.delete(instanceId);
+      if (seriesRef === undefined) return;
+      try {
+        chart.removeSeries(seriesRef.series);
+      } catch {}
+      lineSeriesRefs.current.delete(instanceId);
+      appliedCacheKeyRef.current.delete(instanceId);
+
+      const paneState = paneByIndicatorRef.current.get(instanceId);
+      if (paneState !== undefined) {
+        const panes = chart.panes();
+        const paneIdx = panes.indexOf(paneState.pane);
+        if (paneIdx > 0) {
+          try {
+            chart.removePane(paneIdx);
+          } catch {}
+        }
+        paneByIndicatorRef.current.delete(instanceId);
       }
-    }
-    appliedCacheKeyRef.current.delete(instanceId);
-  };
+    },
+    [chart],
+  );
 
-  const removeOscillator = (chart: IChartApi, instanceId: string) => {
-    const seriesRef = lineSeriesRefs.current.get(instanceId);
-    if (!seriesRef) return;
-    try {
-      chart.removeSeries(seriesRef.series);
-    } catch {}
-    lineSeriesRefs.current.delete(instanceId);
-    appliedCacheKeyRef.current.delete(instanceId);
+  const renderLineOverlay = useCallback(
+    (instanceId: string, data: IndicatorRenderEntry, color?: string) => {
+      if (chart === null || data.type === "band") return;
 
-    const paneState = paneByIndicatorRef.current.get(instanceId);
-    if (paneState) {
-      const panes = chart.panes();
-      const paneIdx = panes.indexOf(paneState.pane);
-      if (paneIdx > 0) {
-        try {
-          chart.removePane(paneIdx);
-        } catch {}
+      let seriesRef = lineSeriesRefs.current.get(instanceId);
+      if (seriesRef === undefined) {
+        const lineSeries = chart.addSeries(LineSeries, createLineOptions(color));
+        seriesRef = { series: lineSeries, indicatorId: instanceId };
+        lineSeriesRefs.current.set(instanceId, seriesRef);
       }
-      paneByIndicatorRef.current.delete(instanceId);
-    }
-  };
+      const lineData = toUtcTimestamps(data.data);
+      if (lineData.length > 0) seriesRef.series.setData(lineData);
+    },
+    [chart],
+  );
 
-  const renderLineOverlay = (
-    chart: IChartApi,
-    instanceId: string,
-    data: IndicatorRenderEntry,
-    color?: string,
-  ) => {
-    let seriesRef = lineSeriesRefs.current.get(instanceId);
-    if (!seriesRef) {
-      const lineSeries = chart.addSeries(LineSeries, createLineOptions(color));
-      seriesRef = { series: lineSeries, indicatorId: instanceId };
-      lineSeriesRefs.current.set(instanceId, seriesRef);
-    }
-    const lineData = data.data as LineData<Time>[]; // safe: IndicatorRenderEntry.data typed by caller for line indicators
-    if (lineData.length > 0) seriesRef.series.setData(lineData);
-  };
+  const renderBandOverlay = useCallback(
+    (instanceId: string, data: IndicatorRenderEntry, color?: string) => {
+      if (data.type !== "band") return;
 
-  const renderBandOverlay = (
-    mainSeries: ISeriesApi<"Candlestick"> | null | undefined,
-    instanceId: string,
-    data: IndicatorRenderEntry,
-    color?: string,
-  ) => {
-    const bandData = data.data as BandIndicatorDataPoint[]; // safe: IndicatorRenderEntry.data typed by caller for band indicators
-    if (!bandData.length) return;
-    const safeColor = color || readToken("--chart-crosshair");
+      const bandData = toUtcTimestamps(data.data);
+      const first = bandData[0];
+      const last = bandData.at(-1);
+      if (first === undefined || last === undefined) return;
 
-    let bandRef = bandPrimitiveRefs.current.get(instanceId);
-    if (!bandRef && mainSeries) {
-      const primitive = new BandPrimitive({
-        startTime: bandData[0].time,
-        endTime: bandData[bandData.length - 1].time,
-        levels: [],
-        fillBetween: [],
-      });
-      mainSeries.attachPrimitive(primitive);
-      bandRef = { primitive };
-      bandPrimitiveRefs.current.set(instanceId, bandRef);
-    }
+      const safeColor =
+        color !== undefined && color !== "" ? color : readToken("--chart-crosshair");
 
-    if (bandRef) {
-      bandRef.primitive.updateOptions({
-        startTime: bandData[0].time,
-        endTime: bandData[bandData.length - 1].time,
-        levels: [
-          {
-            price: bandData[bandData.length - 1].upper,
-            color: safeColor,
-            lineWidth: 1,
-            label: "Upper",
-          },
-          {
-            price: bandData[bandData.length - 1].middle,
-            color: safeColor,
-            lineWidth: 1,
-            dashed: true,
-            label: "Basis",
-          },
-          {
-            price: bandData[bandData.length - 1].lower,
-            color: safeColor,
-            lineWidth: 1,
-            label: "Lower",
-          },
-        ],
-        fillBetween: [
-          {
-            top: bandData[bandData.length - 1].upper,
-            bottom: bandData[bandData.length - 1].lower,
-            color: toRgba(safeColor, 0.05),
-          },
-        ],
-      });
-    }
-  };
+      let bandRef = bandPrimitiveRefs.current.get(instanceId);
+      if (bandRef === undefined && mainSeries !== null && mainSeries !== undefined) {
+        const primitive = new BandPrimitive({
+          startTime: first.time,
+          endTime: last.time,
+          levels: [],
+          fillBetween: [],
+        });
+        mainSeries.attachPrimitive(primitive);
+        bandRef = { primitive };
+        bandPrimitiveRefs.current.set(instanceId, bandRef);
+      }
 
-  const renderOscillator = (
-    chart: IChartApi,
-    instanceId: string,
-    data: IndicatorRenderEntry,
-    color?: string,
-  ) => {
-    let paneState = paneByIndicatorRef.current.get(instanceId);
-    if (!paneState) {
-      const pane = chart.addPane();
-      paneState = { pane, indicatorId: instanceId };
-      paneByIndicatorRef.current.set(instanceId, paneState);
-      pane.setHeight(150);
-    }
+      if (bandRef !== undefined) {
+        bandRef.primitive.updateOptions({
+          startTime: first.time,
+          endTime: last.time,
+          levels: [
+            {
+              price: last.upper,
+              color: safeColor,
+              lineWidth: 1,
+              label: "Upper",
+            },
+            {
+              price: last.middle,
+              color: safeColor,
+              lineWidth: 1,
+              dashed: true,
+              label: "Basis",
+            },
+            {
+              price: last.lower,
+              color: safeColor,
+              lineWidth: 1,
+              label: "Lower",
+            },
+          ],
+          fillBetween: [
+            {
+              top: last.upper,
+              bottom: last.lower,
+              color: toRgba(safeColor, 0.05),
+            },
+          ],
+        });
+      }
+    },
+    [mainSeries],
+  );
 
-    let seriesRef = lineSeriesRefs.current.get(instanceId);
-    const baseId = getIndicatorBaseId(instanceId);
-    const config = getIndicatorConfigById(baseId);
-    const isHistogram = config?.output === "histogram" || isHistogramIndicator(instanceId);
+  const renderOscillator = useCallback(
+    (instanceId: string, data: IndicatorRenderEntry, color?: string) => {
+      if (chart === null || data.type === "band") return;
 
-    if (!seriesRef) {
-      const priceFormat = createOscillatorPriceFormat();
-      const series = isHistogram
-        ? paneState.pane.addSeries(HistogramSeries, { color, priceFormat })
-        : paneState.pane.addSeries(LineSeries, { ...createLineOptions(color), priceFormat });
-      seriesRef = { series, indicatorId: instanceId };
-      lineSeriesRefs.current.set(instanceId, seriesRef);
-    }
+      let paneState = paneByIndicatorRef.current.get(instanceId);
+      if (paneState === undefined) {
+        const pane = chart.addPane();
+        paneState = { pane, indicatorId: instanceId };
+        paneByIndicatorRef.current.set(instanceId, paneState);
+        pane.setHeight(150);
+      }
 
-    if (isHistogram) {
-      // safe: narrowed by isHistogramIndicator check above
-      (seriesRef.series as ISeriesApi<"Histogram">).setData(
-        data.data as import("lightweight-charts").HistogramData<Time>[], // safe: IndicatorRenderEntry.data typed for histogram
-      );
-    } else {
-      // safe: !isHistogram implies line indicator
-      (seriesRef.series as ISeriesApi<"Line">).setData(
-        data.data as import("lightweight-charts").LineData<Time>[], // safe: IndicatorRenderEntry.data typed for line
-      );
-    }
-  };
+      let seriesRef = lineSeriesRefs.current.get(instanceId);
+      const baseId = getIndicatorBaseId(instanceId);
+      const config = getIndicatorConfigById(baseId);
+      const isHistogram = config?.output === "histogram" || isHistogramIndicator(instanceId);
+
+      if (seriesRef === undefined) {
+        const priceFormat = createOscillatorPriceFormat();
+        const series = isHistogram
+          ? paneState.pane.addSeries(HistogramSeries, {
+              ...(color !== undefined && { color }),
+              priceFormat,
+            })
+          : paneState.pane.addSeries(LineSeries, { ...createLineOptions(color), priceFormat });
+        seriesRef = { series, indicatorId: instanceId };
+        lineSeriesRefs.current.set(instanceId, seriesRef);
+      }
+
+      seriesRef.series.setData(toUtcTimestamps(data.data));
+    },
+    [chart],
+  );
 
   useEffect(() => {
-    if (!chart) return;
+    if (chart === null) return;
 
     // Quick check: skip when no visible indicators need updating
     let needsRender = activeIndicators.some((indicator) => {
@@ -285,7 +285,9 @@ export const useIndicatorOverlay = ({
       }
       const d = indicatorData.get(indicator.instanceId);
       // Missing data or cache mismatch → needs recalculation
-      return !d || appliedCacheKeyRef.current.get(indicator.instanceId) !== d.meta.cacheKey;
+      return (
+        d === undefined || appliedCacheKeyRef.current.get(indicator.instanceId) !== d.meta.cacheKey
+      );
     });
     // Also check for indicators removed from the active list entirely
     if (!needsRender) {
@@ -320,7 +322,7 @@ export const useIndicatorOverlay = ({
       appliedCacheKeyRef.current.delete(instanceId);
 
       const paneState = paneByIndicatorRef.current.get(instanceId);
-      if (paneState && paneState.pane !== volumePaneRef.current) {
+      if (paneState !== undefined && paneState.pane !== volumePaneRef.current) {
         const panes = chart.panes();
         const paneIdx = panes.indexOf(paneState.pane);
         if (paneIdx > 0) {
@@ -336,7 +338,7 @@ export const useIndicatorOverlay = ({
 
     for (const [instanceId, bandRef] of bandPrimitiveRefs.current) {
       if (activeIds.has(instanceId)) continue;
-      if (mainSeries) {
+      if (mainSeries !== null && mainSeries !== undefined) {
         try {
           mainSeries.detachPrimitive(bandRef.primitive);
         } catch {
@@ -347,8 +349,7 @@ export const useIndicatorOverlay = ({
       appliedCacheKeyRef.current.delete(instanceId);
     }
 
-    const mainPane = chart.panes()[0];
-    if (!mainPane) return;
+    if (chart.panes().length === 0) return;
 
     for (const indicator of activeIndicators) {
       if (!indicator.config.overlayOnPrice) continue;
@@ -357,19 +358,22 @@ export const useIndicatorOverlay = ({
       const data = indicatorData.get(instanceId);
       const isBand = isBandIndicator(instanceId);
 
-      if (!indicator.visible || !data) {
-        removeIndicator(chart, mainSeries, instanceId, isBand);
+      if (!indicator.visible || data === undefined) {
+        removeIndicator(instanceId, isBand);
         continue;
       }
 
       if (appliedCacheKeyRef.current.get(instanceId) === data.meta.cacheKey) continue;
 
-      const color = indicator.color ? toRgb(indicator.color) : undefined;
+      const color =
+        indicator.color !== undefined && indicator.color !== ""
+          ? toRgb(indicator.color)
+          : undefined;
 
       if (isBand) {
-        renderBandOverlay(mainSeries, instanceId, data, color);
+        renderBandOverlay(instanceId, data, color);
       } else {
-        renderLineOverlay(chart, instanceId, data, color);
+        renderLineOverlay(instanceId, data, color);
       }
 
       appliedCacheKeyRef.current.set(instanceId, data.meta.cacheKey);
@@ -381,19 +385,19 @@ export const useIndicatorOverlay = ({
       const instanceId = indicator.instanceId;
       const data = indicatorData.get(instanceId);
 
-      if (!indicator.visible || !data) {
-        removeOscillator(chart, instanceId);
+      if (!indicator.visible || data === undefined) {
+        removeOscillator(instanceId);
         continue;
       }
 
       if (appliedCacheKeyRef.current.get(instanceId) === data.meta.cacheKey) continue;
 
-      renderOscillator(
-        chart,
-        instanceId,
-        data,
-        indicator.color ? toRgb(indicator.color) : undefined,
-      );
+      const color =
+        indicator.color !== undefined && indicator.color !== ""
+          ? toRgb(indicator.color)
+          : undefined;
+
+      renderOscillator(instanceId, data, color);
       appliedCacheKeyRef.current.set(instanceId, data.meta.cacheKey);
     }
 
@@ -405,7 +409,17 @@ export const useIndicatorOverlay = ({
         if (p !== volumePaneRef.current) p.setStretchFactor(300);
       });
     }
-  }, [chart, mainSeries, activeIndicators, indicatorData]);
+  }, [
+    chart,
+    mainSeries,
+    activeIndicators,
+    indicatorData,
+    removeIndicator,
+    removeOscillator,
+    renderBandOverlay,
+    renderLineOverlay,
+    renderOscillator,
+  ]);
 
   useEffect(() => {
     return () => {

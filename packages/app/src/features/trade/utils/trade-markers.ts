@@ -1,5 +1,3 @@
-import type { SeriesMarker, Time } from "lightweight-charts";
-
 import { formatPrice } from "@/core/utils/formatters";
 
 /**
@@ -18,9 +16,9 @@ export interface HyperliquidFill {
   readonly time: number;
   readonly dir: string;
   readonly hash: string;
+  /** Unique per-fill id; `hash` repeats for every fill of one transaction. */
+  readonly tid: number;
 }
-
-export type TradeMarker = SeriesMarker<Time>;
 
 /**
  * Logical representation of a trade for HTML overlay rendering.
@@ -43,8 +41,8 @@ export interface MarkerGroup {
 }
 
 export function intervalToSeconds(interval: string): number {
-  const value = parseInt(interval, 10);
-  const unit = interval.slice(-1) as "m" | "h" | "d" | "w";
+  const value = Math.trunc(Number(interval.replaceAll(/[^\d.-]/g, "")));
+  const unit = interval.slice(-1);
   const multipliers: Record<string, number> = {
     m: 60,
     h: 3_600,
@@ -55,51 +53,14 @@ export function intervalToSeconds(interval: string): number {
 }
 
 /** Floor ms to candle bucket: ms→s, divide by timeframe, floor, multiply back. */
-export function normalizeFillToCandleTime(fillTimeMs: number, timeframeSec: number): number {
+function normalizeFillToCandleTime(fillTimeMs: number, timeframeSec: number): number {
   const tSec = Math.floor(fillTimeMs / 1000);
   const bucket = Math.floor(tSec / timeframeSec);
   return bucket * timeframeSec;
 }
 
-export function isBuyFill(fill: HyperliquidFill): boolean {
+function isBuyFill(fill: HyperliquidFill): boolean {
   return fill.side === "B" && (fill.dir === "Open Long" || fill.dir === "Close Short");
-}
-
-const BUY_SHAPE = "circle" as const;
-const SELL_SHAPE = "circle" as const;
-
-function formatFillLabel(fill: HyperliquidFill): string {
-  return isBuyFill(fill) ? "B" : "S";
-}
-
-export function mapFillsToSeriesMarkers(
-  fills: readonly HyperliquidFill[],
-  timeframeSec: number,
-  currentCoin: string,
-  buyColor: string,
-  sellColor: string,
-): TradeMarker[] {
-  const markers: TradeMarker[] = [];
-
-  for (let i = 0; i < fills.length; i++) {
-    const fill = fills[i];
-    if (fill.coin !== currentCoin) continue;
-
-    const candleTime = normalizeFillToCandleTime(fill.time, timeframeSec);
-    const isBuy = isBuyFill(fill);
-
-    markers.push({
-      time: candleTime as Time, // safe: lightweight-charts branded type, candleTime is epoch seconds
-      position: isBuy ? "belowBar" : "aboveBar",
-      shape: isBuy ? BUY_SHAPE : SELL_SHAPE,
-      color: isBuy ? buyColor : sellColor,
-      text: formatFillLabel(fill),
-    });
-  }
-
-  markers.sort((a, b) => Number(a.time) - Number(b.time));
-
-  return markers;
 }
 
 export function mapFillsToLogicalMarkers(
@@ -108,13 +69,16 @@ export function mapFillsToLogicalMarkers(
   currentCoin: string,
 ): LogicalTradeMarker[] {
   const markers: LogicalTradeMarker[] = [];
+  const seen = new Set<number>();
 
   for (let i = 0; i < fills.length; i++) {
     const fill = fills[i];
     if (fill.coin !== currentCoin) continue;
+    if (seen.has(fill.tid)) continue;
+    seen.add(fill.tid);
 
     markers.push({
-      id: fill.hash,
+      id: String(fill.tid),
       time: normalizeFillToCandleTime(fill.time, timeframeSec),
       price: Number(fill.px),
       side: isBuyFill(fill) ? "buy" : "sell",
@@ -129,7 +93,17 @@ export function mapFillsToLogicalMarkers(
 export const MAX_STACK_PER_CANDLE = 5;
 export const MARKER_DIAMETER = 20;
 export const MARKER_GAP = 5;
+/** Pixel gap between the candle high and the bottom edge of the first bubble. */
 export const MARKER_OFFSET_TOP = 8;
+
+/** Pixel gap between the top of the bubble stack and the tooltip box. */
+export const TOOLTIP_GAP = 6;
+/** Tooltip box height (14px × line-height 1.4 + 10px padding), rounded up. */
+export const TOOLTIP_HEIGHT = 32;
+/** Half the widest tooltip ("Close Short at $123,456.78") at the max font size. */
+export const TOOLTIP_HALF_WIDTH = 100;
+/** Breathing room between the tooltip and the edge of the plot, in px. */
+export const OVERLAY_EDGE_PAD = 4;
 
 export function groupMarkersByCandle(markers: readonly LogicalTradeMarker[]): MarkerGroup[] {
   const map = new Map<number, LogicalTradeMarker[]>();
@@ -146,7 +120,9 @@ export function groupMarkersByCandle(markers: readonly LogicalTradeMarker[]): Ma
 
   const groups: MarkerGroup[] = [];
   map.forEach((items, time) => {
-    items.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    // Lowest price first: the stack grows upward from the candle high, so the
+    // lowest fill sits nearest the wick; id breaks price ties for stability.
+    items.sort((a, b) => a.price - b.price || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     groups.push({ time, items });
   });
 
@@ -156,5 +132,5 @@ export function groupMarkersByCandle(markers: readonly LogicalTradeMarker[]): Ma
 
 /** Tooltip text e.g. "Open Long at $81,000.00". */
 export function buildTooltipText(marker: LogicalTradeMarker): string {
-  return `${marker.dir} at ${formatPrice(Number(marker.price))}`;
+  return `${marker.dir} at ${formatPrice(marker.price)}`;
 }

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { JSX } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { WhalePositionsTable } from "@/features/whales";
+import { WhalePositionsTable } from "@/features/whales/components/whale-positions-table";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useAppStore } from "@/stores/use-app-store";
 
@@ -16,7 +16,7 @@ export function WhalesPage(): JSX.Element {
 
   const handleSelectWallet = (address: string) => {
     setActiveAddress(address);
-    navigate(`/whales/${address}`);
+    void navigate(`/whales/${address}`);
   };
 
   return (

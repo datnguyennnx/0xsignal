@@ -1,5 +1,6 @@
 import { Effect, Schema } from "effect";
 import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
+import type { CredentialVerifier } from "../../../application/hyperliquid/credential-verification";
 import { asHttpError, type HttpError } from "../error-response";
 import { CreateWalletSchema, validateWalletAddress } from "./credentials.schemas";
 
@@ -11,6 +12,7 @@ type WalletRouteHandler = (
   url: URL,
   accountRepo: AccountRepoService,
   credentialRepo: CredentialRepoService,
+  verifier: typeof CredentialVerifier.Service,
   userId?: string,
 ) => Effect.Effect<Response, HttpError>;
 
@@ -31,13 +33,13 @@ export const buildWalletRoutes = ({
   {
     method: "POST",
     path: "/api/wallets",
-    handler: (request, _url, accountRepo, _credentialRepo, userId) =>
+    handler: (request, _url, accountRepo, _credentialRepo, _hlClient, userId) =>
       Effect.gen(function* () {
-        if (!userId) {
+        if (userId === undefined || userId === "") {
           return yield* Effect.fail(asHttpError(401, "Authentication required"));
         }
 
-        const raw = yield* Effect.tryPromise({
+        const raw: unknown = yield* Effect.tryPromise({
           try: () => request.json(),
           catch: () => asHttpError(400, "Invalid request body"),
         });
@@ -49,7 +51,7 @@ export const buildWalletRoutes = ({
         );
 
         const validationErr = validateWalletAddress(walletAddress, exchangeSlug);
-        if (validationErr) {
+        if (validationErr !== null) {
           return yield* Effect.fail(asHttpError(400, validationErr));
         }
 
@@ -82,9 +84,9 @@ export const buildWalletRoutes = ({
   {
     method: "GET",
     path: "/api/wallets",
-    handler: (_request, url, accountRepo, _credentialRepo, userId) =>
+    handler: (_request, url, accountRepo, _credentialRepo, _hlClient, userId) =>
       Effect.gen(function* () {
-        if (!userId) {
+        if (userId === undefined || userId === "") {
           return yield* Effect.fail(asHttpError(401, "Authentication required"));
         }
 
@@ -102,9 +104,9 @@ export const buildWalletRoutes = ({
   {
     method: "DELETE",
     path: "/api/wallets/:accountId",
-    handler: (_request, url, accountRepo, _credentialRepo, userId) =>
+    handler: (_request, url, accountRepo, _credentialRepo, _hlClient, userId) =>
       Effect.gen(function* () {
-        if (!userId) {
+        if (userId === undefined || userId === "") {
           return yield* Effect.fail(asHttpError(401, "Authentication required"));
         }
 

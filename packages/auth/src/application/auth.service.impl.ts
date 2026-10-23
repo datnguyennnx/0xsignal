@@ -1,8 +1,6 @@
 import { Effect, Layer, Option } from "effect";
 import { AuthService } from "./auth.service";
-import type { JwtPayload } from "../domain/session";
-import { GoogleProvider } from "../infrastructure/providers/google.provider";
-import { GitHubProvider } from "../infrastructure/providers/github.provider";
+import { GoogleProvider, GitHubProvider } from "../infrastructure/providers";
 import { JwtService } from "../infrastructure/jwt.service";
 import { OAuthStateStore, AuthCodeStore } from "../infrastructure/state.store";
 import { UserRepo } from "../infrastructure/repos/user.repo";
@@ -14,7 +12,7 @@ import {
   TokenRevoked,
 } from "../domain/errors";
 import type { OAuthProvider } from "../domain/oauth-account";
-import { UserId } from "../domain/user";
+import { makeUserId } from "../domain/user";
 
 export const AuthServiceLayer: Layer.Layer<
   AuthService,
@@ -80,7 +78,7 @@ export const AuthServiceLayer: Layer.Layer<
             .fetchProfile(code, storedState.codeVerifier)
             .pipe(Effect.mapError((cause) => new OAuthCallbackFailed({ cause })));
           const linked = yield* oauthAccountRepo.createWithUser(profile);
-          const user = yield* userRepo.findById(UserId(linked.userId));
+          const user = yield* userRepo.findById(makeUserId(linked.userId));
           if (!user || user.status !== "active") {
             yield* Effect.fail(new UserSuspended({ userId: linked.userId }));
           }
@@ -92,7 +90,10 @@ export const AuthServiceLayer: Layer.Layer<
       exchangeCode: (code: string) =>
         Effect.gen(function* () {
           const stored = yield* authCodeStore.consume(code);
-          return yield* jwtService.sign({ sub: UserId(stored.userId), provider: stored.provider });
+          return yield* jwtService.sign({
+            sub: makeUserId(stored.userId),
+            provider: stored.provider,
+          });
         }),
 
       verifyToken: (accessToken: string) =>
@@ -120,10 +121,10 @@ export const AuthServiceLayer: Layer.Layer<
       logout: (refreshToken: string) =>
         Effect.gen(function* () {
           const maybePayload = yield* jwtService.verify(refreshToken, "refresh").pipe(
-            Effect.map((payload): Option.Option<JwtPayload> => Option.some(payload)),
+            Effect.map((payload) => Option.some(payload)),
             Effect.catchTags({
-              TokenExpired: () => Effect.succeed(Option.none<JwtPayload>()),
-              TokenInvalid: () => Effect.succeed(Option.none<JwtPayload>()),
+              TokenExpired: () => Effect.succeed(Option.none()),
+              TokenInvalid: () => Effect.succeed(Option.none()),
             }),
           );
 
@@ -136,7 +137,7 @@ export const AuthServiceLayer: Layer.Layer<
 
       getProfile: (userId: string) =>
         Effect.gen(function* () {
-          const account = yield* oauthAccountRepo.findByUserId(UserId(userId));
+          const account = yield* oauthAccountRepo.findByUserId(makeUserId(userId));
           if (!account) return null;
           return {
             userId: account.userId,
@@ -148,8 +149,8 @@ export const AuthServiceLayer: Layer.Layer<
 
       updateProfile: (userId, params) =>
         Effect.gen(function* () {
-          yield* oauthAccountRepo.updateDisplayName(UserId(userId), params.displayName);
-          const account = yield* oauthAccountRepo.findByUserId(UserId(userId));
+          yield* oauthAccountRepo.updateDisplayName(makeUserId(userId), params.displayName);
+          const account = yield* oauthAccountRepo.findByUserId(makeUserId(userId));
           if (!account) {
             return {
               userId,

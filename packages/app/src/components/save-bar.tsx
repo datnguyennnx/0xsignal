@@ -22,7 +22,7 @@ export function SaveBar({ open, onSave, onReset, isSaving, message }: SaveBarPro
               Reset
             </Button>
             <Button size="sm" onClick={onSave} disabled={isSaving}>
-              {isSaving ? "Saving…" : "Save changes"}
+              {isSaving === true ? "Saving…" : "Save changes"}
             </Button>
           </div>
         </div>

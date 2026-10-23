@@ -9,7 +9,7 @@ export interface ParseOptions {
 }
 
 const unfold = (body: string): string[] => {
-  const raw = body.replace(/\r\n/g, "\n").split("\n");
+  const raw = body.replaceAll("\r\n", "\n").split("\n");
   const lines: string[] = [];
   for (const line of raw) {
     if ((line.startsWith(" ") || line.startsWith("\t")) && lines.length > 0) {
@@ -30,7 +30,11 @@ const splitProperty = (line: string): { name: string; value: string } | null => 
 const propertyName = (rawName: string): string => (rawName.split(";")[0] ?? "").toUpperCase();
 
 const unescapeIcsText = (value: string): string =>
-  value.replace(/\\n/gi, " ").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\");
+  value
+    .replaceAll(/\\n/gi, " ")
+    .replaceAll("\\,", ",")
+    .replaceAll("\\;", ";")
+    .replaceAll("\\\\", "\\");
 
 const TZID_ALIASES: Record<string, string> = {
   "us-eastern": "America/New_York",
@@ -105,7 +109,7 @@ const parseIcsDate = (
   );
   if (dateTime[7] === "Z" || tzid === null) return { date: wallClock, allDay: false };
   const zone = resolveTimeZone(tzid);
-  return { date: zone ? toUtc(wallClock, zone) : wallClock, allDay: false };
+  return { date: zone === null ? wallClock : toUtc(wallClock, zone), allDay: false };
 };
 
 const isHighImpact = (title: string): boolean => {
@@ -138,7 +142,7 @@ const buildEvent = (block: readonly string[], options: ParseOptions): EconomicEv
 
   return normalizeEvent({
     source: "bls",
-    sourceEventId: uid !== "" ? uid : `${parsed.date.toISOString()}-${slugify(summary)}`,
+    sourceEventId: uid === "" ? `${parsed.date.toISOString()}-${slugify(summary)}` : uid,
     title: summary,
     country: "US",
     currency: "USD",

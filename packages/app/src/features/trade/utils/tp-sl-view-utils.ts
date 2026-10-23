@@ -18,10 +18,13 @@ export function toTpSlDisplay(order: OpenOrder): TpSlOrderDisplay {
   const triggerPx = extractTriggerPx(order);
 
   let triggerLabel = "N/A";
-  if (isTrigger && triggerPx) {
+  if (isTrigger && triggerPx !== undefined && triggerPx !== "") {
     const condition = resolveTriggerCondition(order);
     const formattedPx = formatPrice(Number(triggerPx));
-    triggerLabel = condition ? `${condition} ${formattedPx}` : `Trigger ${formattedPx}`;
+    triggerLabel =
+      condition !== undefined && condition !== ""
+        ? `${condition} ${formattedPx}`
+        : `Trigger ${formattedPx}`;
   }
 
   const priceLabel = isTrigger ? "Market" : formatPrice(Number(order.limitPx));

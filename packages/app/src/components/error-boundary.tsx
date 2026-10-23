@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return null;
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error("[ErrorBoundary]", error, errorInfo);
     this.props.onError?.(error, errorInfo);
   }
@@ -43,9 +43,9 @@ export class ErrorBoundary extends Component<Props, State> {
     this.props.onReset?.();
   };
 
-  render(): ReactNode {
+  override render(): ReactNode {
     if (this.state.hasError) {
-      if (this.props.fallback) {
+      if (this.props.fallback !== undefined && this.props.fallback !== null) {
         return this.props.fallback;
       }
 

@@ -26,5 +26,5 @@ export const marketWsLog = (
     return;
   }
 
-  console.info(JSON.stringify(payload));
+  process.stdout.write(`${JSON.stringify(payload)}\n`);
 };

@@ -4,7 +4,7 @@ import type { IndicatorDataPoint } from "../types";
 const emaSeries = (values: number[], period: number): number[] => {
   if (values.length === 0) return [];
   const alpha = 2 / (period + 1);
-  const output: number[] = new Array(values.length);
+  const output: number[] = Array.from({ length: values.length }, () => 0);
   output[0] = values[0];
   for (let i = 1; i < values.length; i++) {
     output[i] = values[i] * alpha + output[i - 1] * (1 - alpha);
@@ -13,7 +13,7 @@ const emaSeries = (values: number[], period: number): number[] => {
 };
 
 const stochasticNormalize = (values: number[], period: number): number[] => {
-  const output: number[] = new Array(values.length).fill(50);
+  const output: number[] = Array.from({ length: values.length }, () => 50);
   for (let i = 0; i < values.length; i++) {
     const start = Math.max(0, i - period + 1);
     let min = Number.POSITIVE_INFINITY;
@@ -163,8 +163,8 @@ export const calculateVortexSpread = (
     );
   }
 
-  let sumPlus = 0,
-    sumMinus = 0,
+  let sumMinus = 0,
+    sumPlus = 0,
     sumTr = 0;
   for (let i = 0; i < period; i++) {
     sumPlus += vmPlus[i];

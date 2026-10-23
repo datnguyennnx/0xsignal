@@ -4,21 +4,72 @@ import { normalizeSymbol } from "./symbol";
 import { HyperliquidClient } from "./client";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 import { HyperliquidProvider } from "./types";
-import type { HyperliquidAggregatedAsset, TickerPayload, OrderBookPayload } from "./types";
+import type {
+  Candle,
+  HyperliquidAggregatedAsset,
+  HyperliquidInfoClient,
+  PerpAnnotationResponse,
+  TickerPayload,
+  TickerSnapshot,
+  OrderBookPayload,
+} from "./types";
 import {
   getTickerSnapshot,
+  getTickerSnapshotByCacheKey,
   getAggregatedMarketsSnapshot,
+  tickerSnapshotCacheKey,
   toHyperliquidInfoClient,
 } from "./mapping";
 import { mapTickerFromSnapshot, resolveInternalSymbol, isPerpSymbol } from "./ticker-snapshot";
-import type { Candle } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
-import type { PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
 
 import { withDedup } from "./request-dedup";
 
 /** TTL for aggregated markets cache (60s) — REST metadata, NOT real-time data. */
 const AGGREGATED_MARKETS_TTL_MS = 60_000;
+
+/**
+ * Ticker snapshots are REST pictures, not the live feed: charts and the order
+ * book stream over WS, and the app's price query carries a 60s staleTime.
+ * 500ms collapses the widget burst on mount without letting a read observe a
+ * pre-mutation book; post-mutation callers pass `{ fresh: true }`.
+ */
+export const TICKER_SNAPSHOT_TTL_MS = 500;
+
+/**
+ * Keyed by upstream request set (all dexes, or one dex), so real cardinality is
+ * the dex count plus one. The bound keeps arbitrary symbol prefixes from
+ * growing the cache without limit.
+ */
+export const TICKER_SNAPSHOT_CACHE_CAPACITY = 64;
+
+type TickerSnapshotReadOptions = {
+  readonly fresh?: boolean | undefined;
+};
+
+export const makeTickerSnapshotCache = (
+  info: HyperliquidInfoClient,
+  limits: {
+    readonly capacity?: number | undefined;
+    readonly timeToLive?: Duration.Input | undefined;
+  } = {},
+): Effect.Effect<Cache.Cache<string, TickerSnapshot, HyperliquidError>> =>
+  Cache.make<string, TickerSnapshot, HyperliquidError>({
+    capacity: limits.capacity ?? TICKER_SNAPSHOT_CACHE_CAPACITY,
+    timeToLive: limits.timeToLive ?? Duration.millis(TICKER_SNAPSHOT_TTL_MS),
+    lookup: (key) => getTickerSnapshotByCacheKey(info, key),
+  });
+
+export const readTickerSnapshot = (
+  cache: Cache.Cache<string, TickerSnapshot, HyperliquidError>,
+  symbol?: string,
+  options?: TickerSnapshotReadOptions,
+): Effect.Effect<TickerSnapshot, HyperliquidError> =>
+  Effect.gen(function* () {
+    const key = tickerSnapshotCacheKey(symbol);
+    if (options?.fresh === true) yield* Cache.invalidate(cache, key);
+    return yield* Cache.get(cache, key);
+  });
 
 // Direct fetch helper with error mapping (no concurrency semaphore — SDK manages its own)
 const tryRequest = <A>(label: string, fn: () => Promise<A>): Effect.Effect<A, HyperliquidError> =>
@@ -28,9 +79,9 @@ const tryRequest = <A>(label: string, fn: () => Promise<A>): Effect.Effect<A, Hy
   });
 
 const parseDepthToSigFigs = (depth: number | null | undefined): 2 | 3 | 4 | 5 | null => {
-  const parsedDepth = depth != null ? Math.trunc(depth) : null;
+  const parsedDepth = depth === null || depth === undefined ? null : Math.trunc(depth);
   return parsedDepth === 2 || parsedDepth === 3 || parsedDepth === 4 || parsedDepth === 5
-    ? (parsedDepth as 2 | 3 | 4 | 5)
+    ? parsedDepth
     : null;
 };
 
@@ -42,6 +93,10 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
         const client = yield* HyperliquidClient;
         const hlInfo = toHyperliquidInfoClient(client.info);
         const spotIndexRef = yield* Ref.make<Record<string, string>>({});
+        const tickerSnapshotCache = yield* makeTickerSnapshotCache(hlInfo);
+
+        const readSnapshot = (symbol?: string, options?: TickerSnapshotReadOptions) =>
+          readTickerSnapshot(tickerSnapshotCache, symbol, options);
 
         // Aggregated markets cache — REST metadata (not real-time), refreshed every 60s
         const aggregatedCache = yield* Cache.make<
@@ -87,7 +142,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
         return HyperliquidProvider.of({
           getCandleSnapshot: (coin, interval, start, end) =>
             Effect.gen(function* () {
-              const ticker = yield* getTickerSnapshot(hlInfo, coin);
+              const ticker = yield* readSnapshot(coin);
 
               let internalSymbol: string;
               if (coin.includes("/")) {
@@ -119,7 +174,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
               return normalizeCandles(raw);
             }),
 
-          getAllMids: () => getTickerSnapshot(hlInfo).pipe(Effect.map((s) => s.allMids)),
+          getAllMids: () => readSnapshot().pipe(Effect.map((s) => s.allMids)),
 
           getAggregatedMarkets: () =>
             Cache.get(aggregatedCache, "aggregated").pipe(
@@ -134,14 +189,12 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
               }),
             ),
 
-          getTicker: (symbol) =>
-            getTickerSnapshot(hlInfo, symbol).pipe(
-              Effect.map((s) => mapTickerFromSnapshot(s, symbol)),
-            ),
+          getTicker: (symbol, options?: TickerSnapshotReadOptions) =>
+            readSnapshot(symbol, options).pipe(Effect.map((s) => mapTickerFromSnapshot(s, symbol))),
 
           getOrderBook: (symbol, depth) =>
             Effect.gen(function* () {
-              const ticker = yield* getTickerSnapshot(hlInfo, symbol);
+              const ticker = yield* readSnapshot(symbol);
 
               let internalSymbol: string;
               if (symbol.includes("/")) {
@@ -171,7 +224,7 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
 
           getTradeAnnotation: (symbol) =>
             Effect.gen(function* () {
-              const ticker = yield* getTickerSnapshot(hlInfo, symbol);
+              const ticker = yield* readSnapshot(symbol);
               const internalSymbol = resolveInternalSymbol(ticker, symbol);
               const isPerp = isPerpSymbol(ticker, symbol);
 

@@ -1,6 +1,6 @@
-import { Effect, Redacted, Schema } from "effect";
+import { Effect, Option, Redacted, Schema } from "effect";
 import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
-import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
+import type { CredentialVerifier } from "../../../application/hyperliquid/credential-verification";
 import { asHttpError, type HttpError } from "../error-response";
 import { CreateKeySchema } from "./credentials.schemas";
 
@@ -12,8 +12,9 @@ type KeyRouteHandler = (
   url: URL,
   accountRepo: AccountRepoService,
   credentialRepo: CredentialRepoService,
+  verifier: typeof CredentialVerifier.Service,
   userId?: string,
-) => Effect.Effect<Response, HttpError, HyperliquidClient>;
+) => Effect.Effect<Response, HttpError>;
 
 type BuildKeyRoutesParams = {
   readonly json: (body: unknown, status?: number, headers?: Record<string, string>) => Response;
@@ -32,15 +33,15 @@ export const buildKeyRoutes = ({
   {
     method: "POST",
     path: "/api/wallets/:accountId/keys",
-    handler: (request, url, _accountRepo, credentialRepo, userId) =>
+    handler: (request, url, _accountRepo, credentialRepo, _verifier, userId) =>
       Effect.gen(function* () {
-        if (!userId) {
+        if (userId === undefined || userId === "") {
           return yield* Effect.fail(asHttpError(401, "Authentication required"));
         }
 
         const accountId = url.pathname.split("/")[3]; // /api/wallets/:accountId/keys
 
-        const raw = yield* Effect.tryPromise({
+        const raw: unknown = yield* Effect.tryPromise({
           try: () => request.json(),
           catch: () => asHttpError(400, "Invalid request body"),
         });
@@ -89,9 +90,9 @@ export const buildKeyRoutes = ({
   {
     method: "GET",
     path: "/api/wallets/:accountId/keys",
-    handler: (_request, url, _accountRepo, credentialRepo, userId) =>
+    handler: (_request, url, _accountRepo, credentialRepo, _verifier, userId) =>
       Effect.gen(function* () {
-        if (!userId) {
+        if (userId === undefined || userId === "") {
           return yield* Effect.fail(asHttpError(401, "Authentication required"));
         }
 
@@ -102,11 +103,12 @@ export const buildKeyRoutes = ({
         const maybeCredential = yield* credentialRepo
           .getActiveForAccount(accountId, userId, "agent")
           .pipe(
-            Effect.catchTag("CredentialNotFound", () => Effect.succeed(null as never)),
+            Effect.map(Option.some),
+            Effect.catchTag("CredentialNotFound", () => Effect.succeed(Option.none())),
             Effect.mapError(mapServiceError),
           );
 
-        if (!maybeCredential) {
+        if (Option.isNone(maybeCredential)) {
           return json({ data: [] });
         }
 
@@ -121,7 +123,7 @@ export const buildKeyRoutes = ({
           createdAt,
           expiresAt,
           isRevoked,
-        } = maybeCredential;
+        } = maybeCredential.value;
 
         return json({
           data: [
@@ -145,9 +147,9 @@ export const buildKeyRoutes = ({
   {
     method: "POST",
     path: "/api/wallets/:accountId/keys/:credentialId/verify",
-    handler: (_request, url, _accountRepo, credentialRepo, userId) =>
+    handler: (_request, url, _accountRepo, credentialRepo, verifier, userId) =>
       Effect.gen(function* () {
-        if (!userId) {
+        if (userId === undefined || userId === "") {
           return yield* Effect.fail(asHttpError(401, "Authentication required"));
         }
 
@@ -172,17 +174,15 @@ export const buildKeyRoutes = ({
           Effect.mapError(mapServiceError),
         );
 
-        // Step 2: Call Hyperliquid Info API to verify the credential exists
-        const hlClient = yield* HyperliquidClient;
-        const hlState = yield* Effect.tryPromise({
-          try: () => hlClient.info.clearinghouseState({ user: decrypted.agentAddress }),
-          catch: (e) => {
-            const msg = e instanceof Error ? e.message : "Unknown error from Hyperliquid API";
-            return asHttpError(422, `Verification failed: ${msg}`);
-          },
-        }).pipe(Effect.mapError(mapServiceError));
+        // Step 2: Exchange-side existence check goes through the application
+        // port, never through the SDK.
+        const hasAccountState = yield* verifier
+          .hasAccountState(decrypted.agentAddress)
+          .pipe(
+            Effect.mapError((error) => asHttpError(422, `Verification failed: ${error.message}`)),
+          );
 
-        if (!hlState) {
+        if (!hasAccountState) {
           return yield* Effect.fail(
             asHttpError(422, "Verification failed: no account state returned from Hyperliquid"),
           );
@@ -218,9 +218,9 @@ export const buildKeyRoutes = ({
   {
     method: "DELETE",
     path: "/api/wallets/:accountId/keys/:credentialId",
-    handler: (_request, url, _accountRepo, credentialRepo, userId) =>
+    handler: (_request, url, _accountRepo, credentialRepo, _verifier, userId) =>
       Effect.gen(function* () {
-        if (!userId) {
+        if (userId === undefined || userId === "") {
           return yield* Effect.fail(asHttpError(401, "Authentication required"));
         }
 

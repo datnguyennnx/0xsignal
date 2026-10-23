@@ -12,7 +12,7 @@ const toEffectLogLevel = (level: AppLogLevel): "Debug" | "Info" | "Warn" | "Erro
     Match.exhaustive,
   );
 
-export const withLogLevel = (level: AppLogLevel) =>
+const withLogLevel = (level: AppLogLevel) =>
   Layer.succeed(MinimumLogLevel, toEffectLogLevel(level));
 
 export const devLoggerLayer = Layer.mergeAll(

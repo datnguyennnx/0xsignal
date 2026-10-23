@@ -13,11 +13,3 @@ export function useCalendarEvents(query: CalendarQuery) {
     staleTime: CALENDAR_STALE_TIME,
   });
 }
-
-export function useUpcomingEvents(hours: number) {
-  return useQuery({
-    queryKey: queryKeys.calendar.upcoming(hours),
-    queryFn: () => api.calendar.upcoming(hours),
-    staleTime: CALENDAR_STALE_TIME,
-  });
-}

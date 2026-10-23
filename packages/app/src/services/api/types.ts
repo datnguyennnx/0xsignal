@@ -1,8 +1,6 @@
-export type { ChartDataPoint, AggregatedMarket, MarketTicker } from "@0xsignal/shared";
 export type {
   ClearinghouseState,
   SpotClearinghouseState,
-  OpenOrder,
   FrontendOpenOrder,
   HistoricalOrderEntry,
   UserFill,
@@ -12,14 +10,7 @@ export type {
   UpdateLeverageRequest,
   CancelOrdersRequest,
 } from "@0xsignal/shared";
-export type {
-  PortfolioPeriod,
-  PortfolioPeriodKey,
-  PortfolioResponse,
-  UserVaultEquity,
-  UserFundingDelta,
-  UserFundingEntry,
-} from "@0xsignal/shared";
+export type { PortfolioResponse, UserVaultEquity, UserFundingEntry } from "@0xsignal/shared";
 
 export interface MarketPrice {
   readonly symbol: string;

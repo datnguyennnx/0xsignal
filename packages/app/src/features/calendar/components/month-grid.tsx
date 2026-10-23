@@ -3,16 +3,15 @@ import type { JSX } from "react";
 import type { EconomicEvent } from "@0xsignal/shared";
 
 import { MonthDayCell } from "./month-day-cell";
-import { dayKey, WEEK_STARTS_ON } from "../lib/date-utils";
-import type { EventsByDay } from "../types";
+import { dayKey, WEEK_STARTS_ON, type EventsByDay } from "../lib/date-utils";
 
 export interface MonthGridProps {
   days: Date[];
   monthDate: Date;
   selectedDate: Date;
   eventsByDay: EventsByDay;
-  onSelectDate(date: Date): void;
-  onEventClick?(event: EconomicEvent): void;
+  onSelectDate: (date: Date) => void;
+  onEventClick?: (event: EconomicEvent) => void;
 }
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

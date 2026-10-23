@@ -6,20 +6,11 @@ import type {
   PrimitivePaneViewZOrder,
   IChartApi,
   ISeriesApi,
-  Time,
+  SeriesType,
 } from "lightweight-charts";
+import { isUtcTimestamp } from "../lib/time";
 
-interface BitmapScope {
-  context: CanvasRenderingContext2D;
-  horizontalPixelRatio: number;
-  verticalPixelRatio: number;
-}
-
-interface RenderTarget {
-  useBitmapCoordinateSpace: (callback: (scope: BitmapScope) => void) => void;
-}
-
-export interface BandLevel {
+interface BandLevel {
   price: number;
   color: string;
   lineWidth: number;
@@ -41,135 +32,146 @@ interface RenderData {
   fills: { y1: number; y2: number; color: string }[];
 }
 
-class BandPaneRenderer implements IPrimitivePaneRenderer {
-  private _data: RenderData | null = null;
-
-  update(data: RenderData | null): void {
-    this._data = data;
-  }
-
-  draw(target: RenderTarget): void {
-    const data = this._data;
-    if (!data) return;
-
-    target.useBitmapCoordinateSpace((scope) => {
-      const ctx = scope.context;
-      const { x1, x2, levels, fills } = data;
-      const { horizontalPixelRatio, verticalPixelRatio } = scope;
-
-      const scaledX1 = Math.round(x1 * horizontalPixelRatio);
-      const scaledX2 = Math.round(x2 * horizontalPixelRatio);
-      const left = Math.min(scaledX1, scaledX2);
-      const right = Math.max(scaledX1, scaledX2);
-
-      for (const fill of fills) {
-        const top = Math.round(Math.min(fill.y1, fill.y2) * verticalPixelRatio);
-        const bottom = Math.round(Math.max(fill.y1, fill.y2) * verticalPixelRatio);
-        ctx.fillStyle = fill.color;
-        ctx.fillRect(left, top, right - left, bottom - top);
-      }
-
-      for (const { y, level } of levels) {
-        const scaledY = Math.round(y * verticalPixelRatio);
-        ctx.strokeStyle = level.color;
-        ctx.lineWidth = level.lineWidth * horizontalPixelRatio;
-
-        if (level.dashed) {
-          ctx.setLineDash([4 * horizontalPixelRatio, 4 * horizontalPixelRatio]);
-        }
-
-        ctx.beginPath();
-        ctx.moveTo(left, scaledY);
-        ctx.lineTo(right, scaledY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        if (level.label) {
-          const fontSize = Math.round(9 * horizontalPixelRatio);
-          ctx.font = `${fontSize}px sans-serif`;
-          ctx.fillStyle = level.color;
-          ctx.textBaseline = "bottom";
-          ctx.fillText(level.label, right + 4 * horizontalPixelRatio, scaledY);
-        }
-      }
-    });
-  }
+interface BandPaneRenderer extends IPrimitivePaneRenderer {
+  update: (data: RenderData | null) => void;
 }
 
-class BandPaneView implements IPrimitivePaneView {
-  private _renderer = new BandPaneRenderer();
-  update(data: RenderData | null): void {
-    this._renderer.update(data);
-  }
-
-  zOrder(): PrimitivePaneViewZOrder {
-    return "bottom";
-  }
-
-  renderer(): IPrimitivePaneRenderer {
-    return this._renderer;
-  }
+interface BandPaneView extends IPrimitivePaneView {
+  update: (data: RenderData | null) => void;
 }
 
-export class BandPrimitive implements ISeriesPrimitive<Time> {
-  private _paneView = new BandPaneView();
-  private _options: BandOptions;
-  private _chart: IChartApi | null = null;
-  private _series: ISeriesApi<"Candlestick"> | null = null;
+const createBandPaneRenderer = (): BandPaneRenderer => {
+  let data: RenderData | null = null;
+
+  return {
+    update: (next) => {
+      data = next;
+    },
+    draw: (target) => {
+      const renderData = data;
+      if (renderData === null) return;
+
+      target.useBitmapCoordinateSpace((scope) => {
+        const { x1, x2, levels, fills } = renderData;
+        const { horizontalPixelRatio, verticalPixelRatio, context: ctx } = scope;
+
+        const scaledX1 = Math.round(x1 * horizontalPixelRatio);
+        const scaledX2 = Math.round(x2 * horizontalPixelRatio);
+        const left = Math.min(scaledX1, scaledX2);
+        const right = Math.max(scaledX1, scaledX2);
+
+        for (const fill of fills) {
+          const top = Math.round(Math.min(fill.y1, fill.y2) * verticalPixelRatio);
+          const bottom = Math.round(Math.max(fill.y1, fill.y2) * verticalPixelRatio);
+          ctx.fillStyle = fill.color;
+          ctx.fillRect(left, top, right - left, bottom - top);
+        }
+
+        for (const { y, level } of levels) {
+          const scaledY = Math.round(y * verticalPixelRatio);
+          ctx.strokeStyle = level.color;
+          ctx.lineWidth = level.lineWidth * horizontalPixelRatio;
+
+          if (level.dashed === true) {
+            ctx.setLineDash([4 * horizontalPixelRatio, 4 * horizontalPixelRatio]);
+          }
+
+          ctx.beginPath();
+          ctx.moveTo(left, scaledY);
+          ctx.lineTo(right, scaledY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          if (level.label !== undefined && level.label !== "") {
+            const fontSize = Math.round(9 * horizontalPixelRatio);
+            ctx.font = `${fontSize}px sans-serif`;
+            ctx.fillStyle = level.color;
+            ctx.textBaseline = "bottom";
+            ctx.fillText(level.label, right + 4 * horizontalPixelRatio, scaledY);
+          }
+        }
+      });
+    },
+  };
+};
+
+const createBandPaneView = (): BandPaneView => {
+  const renderer = createBandPaneRenderer();
+
+  return {
+    update: (data) => {
+      renderer.update(data);
+    },
+    zOrder: (): PrimitivePaneViewZOrder => "bottom",
+    renderer: () => renderer,
+  };
+};
+
+export class BandPrimitive implements ISeriesPrimitive {
+  private paneView = createBandPaneView();
+  private options: BandOptions;
+  private chart: IChartApi | null = null;
+  private series: ISeriesApi<SeriesType> | null = null;
 
   constructor(options: BandOptions) {
-    this._options = options;
+    this.options = options;
   }
 
-  attached(param: SeriesAttachedParameter<Time>): void {
-    this._chart = param.chart;
-    this._series = param.series as ISeriesApi<"Candlestick">; // safe: only attached to candlestick series
+  attached(param: SeriesAttachedParameter): void {
+    this.chart = param.chart;
+    this.series = param.series;
   }
 
   detached(): void {
-    this._chart = null;
-    this._series = null;
+    this.chart = null;
+    this.series = null;
   }
 
   updateOptions(options: Partial<BandOptions>): void {
-    this._options = { ...this._options, ...options };
+    this.options = { ...this.options, ...options };
   }
 
   updateAllViews(): void {
-    if (!this._chart || !this._series) {
-      this._paneView.update(null);
+    const { chart, series } = this;
+    if (chart === null || series === null) {
+      this.paneView.update(null);
       return;
     }
 
-    const timeScale = this._chart.timeScale();
-    const x1 = timeScale.timeToCoordinate(this._options.startTime as Time); // safe: lightweight-charts branded type
-    const x2 = timeScale.timeToCoordinate(this._options.endTime as Time); // safe: lightweight-charts branded type
+    const timeScale = chart.timeScale();
+    const { startTime, endTime } = this.options;
+    if (!isUtcTimestamp(startTime) || !isUtcTimestamp(endTime)) {
+      this.paneView.update(null);
+      return;
+    }
+    const x1 = timeScale.timeToCoordinate(startTime);
+    const x2 = timeScale.timeToCoordinate(endTime);
 
     if (x1 === null || x2 === null) {
-      this._paneView.update(null);
+      this.paneView.update(null);
       return;
     }
 
     const levels: { y: number; level: BandLevel }[] = [];
-    for (const level of this._options.levels) {
-      const y = this._series.priceToCoordinate(level.price);
+    for (const level of this.options.levels) {
+      const y = series.priceToCoordinate(level.price);
       if (y !== null) {
         levels.push({ y, level });
       }
     }
 
     const fills: { y1: number; y2: number; color: string }[] = [];
-    if (this._options.fillBetween) {
-      for (const fill of this._options.fillBetween) {
-        const y1 = this._series.priceToCoordinate(fill.top);
-        const y2 = this._series.priceToCoordinate(fill.bottom);
+    if (this.options.fillBetween !== undefined) {
+      for (const fill of this.options.fillBetween) {
+        const y1 = series.priceToCoordinate(fill.top);
+        const y2 = series.priceToCoordinate(fill.bottom);
         if (y1 !== null && y2 !== null) {
           fills.push({ y1, y2, color: fill.color });
         }
       }
     }
 
-    this._paneView.update({
+    this.paneView.update({
       x1,
       x2,
       levels,
@@ -178,6 +180,6 @@ export class BandPrimitive implements ISeriesPrimitive<Time> {
   }
 
   paneViews(): readonly IPrimitivePaneView[] {
-    return [this._paneView];
+    return [this.paneView];
   }
 }

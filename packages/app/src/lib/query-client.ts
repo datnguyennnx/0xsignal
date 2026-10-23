@@ -13,11 +13,10 @@ export const queryClient = new QueryClient({
       gcTime: GC_TIMES.default,
 
       retry: (failureCount, error) => {
-        if (error instanceof Error) {
-          if (error.message.includes("404") || error.message.includes("Unauthorized")) {
-            return false;
-          }
-        }
+        const isTerminalFailure =
+          error instanceof Error &&
+          (error.message.includes("404") || error.message.includes("Unauthorized"));
+        if (isTerminalFailure) return false;
         return failureCount < 2;
       },
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),

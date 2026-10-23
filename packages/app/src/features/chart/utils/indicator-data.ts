@@ -1,6 +1,6 @@
 import type { BandIndicatorDataPoint, IndicatorDataPoint } from "@0xsignal/shared";
 
-export type IndicatorUpdateMode = "setData" | "append" | "replaceLast";
+type IndicatorUpdateMode = "setData" | "append" | "replaceLast";
 
 export interface IndicatorDataMeta {
   cacheKey: string;
@@ -10,21 +10,21 @@ export interface IndicatorDataMeta {
   lastTime: number;
 }
 
-export type LineRenderEntry = {
+type LineRenderEntry = {
   type: "line";
   data: IndicatorDataPoint[];
   lastPoint: IndicatorDataPoint | null;
   meta: IndicatorDataMeta;
 };
 
-export type HistogramRenderEntry = {
+type HistogramRenderEntry = {
   type: "histogram";
   data: IndicatorDataPoint[];
   lastPoint: IndicatorDataPoint | null;
   meta: IndicatorDataMeta;
 };
 
-export type BandRenderEntry = {
+type BandRenderEntry = {
   type: "band";
   data: BandIndicatorDataPoint[];
   lastPoint: BandIndicatorDataPoint | null;

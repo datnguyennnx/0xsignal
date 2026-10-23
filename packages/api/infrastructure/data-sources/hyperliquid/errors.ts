@@ -10,7 +10,7 @@ export class HyperliquidError extends Data.TaggedError("HyperliquidError")<{
 /**
  * Detect 429 rate-limit errors from raw Promise rejection causes.
  */
-export const isRateLimitedCause = (cause: unknown): boolean =>
+const isRateLimitedCause = (cause: unknown): boolean =>
   (cause !== null &&
     cause !== undefined &&
     typeof cause === "object" &&

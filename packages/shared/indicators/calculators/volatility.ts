@@ -74,10 +74,14 @@ export const calculateDonchianChannels = (
   const minDeque: number[] = [];
 
   for (let i = 0; i < data.length; i++) {
-    while (maxDeque.length && data[maxDeque[maxDeque.length - 1]].high <= data[i].high) {
+    while (maxDeque.length > 0) {
+      const lastIndex = maxDeque.at(-1);
+      if (lastIndex === undefined || data[lastIndex].high > data[i].high) break;
       maxDeque.pop();
     }
-    while (minDeque.length && data[minDeque[minDeque.length - 1]].low >= data[i].low) {
+    while (minDeque.length > 0) {
+      const lastIndex = minDeque.at(-1);
+      if (lastIndex === undefined || data[lastIndex].low < data[i].low) break;
       minDeque.pop();
     }
 
@@ -85,10 +89,10 @@ export const calculateDonchianChannels = (
     minDeque.push(i);
 
     const left = i - period + 1;
-    while (maxDeque.length && maxDeque[0] < left) {
+    while (maxDeque.length > 0 && maxDeque[0] < left) {
       maxDeque.shift();
     }
-    while (minDeque.length && minDeque[0] < left) {
+    while (minDeque.length > 0 && minDeque[0] < left) {
       minDeque.shift();
     }
 

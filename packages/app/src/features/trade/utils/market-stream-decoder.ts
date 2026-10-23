@@ -4,7 +4,7 @@ import { normalizeCandle } from "@0xsignal/shared";
 // ── Wire Contract Types (source of truth — from backend) ───────────
 
 /** Single orderbook level as received over the wire. */
-export interface RawL2Level {
+interface RawL2Level {
   readonly px: string;
   readonly sz: string;
   readonly n: number;
@@ -34,7 +34,7 @@ export interface L2BookDeltaPayload {
 }
 
 /** Decoded L2 book payload — preserves consumer contract shape. */
-export type L2BookPayload = L2BookSnapshotPayload | L2BookDeltaPayload;
+type L2BookPayload = L2BookSnapshotPayload | L2BookDeltaPayload;
 
 /** Meta fields that may accompany market stream messages. */
 export interface MarketStreamMeta {
@@ -47,8 +47,17 @@ export interface MarketStreamMeta {
 
 type DecodedMessage =
   | { kind: "ignore" }
-  | { kind: "control"; type: "ready" | "pong" | "reconnecting" | "error"; message?: string }
-  | { kind: "market"; channel: WsMarketChannel; payload: unknown; meta?: MarketStreamMeta };
+  | {
+      kind: "control";
+      type: "ready" | "pong" | "reconnecting" | "error";
+      message?: string | undefined;
+    }
+  | {
+      kind: "market";
+      channel: WsMarketChannel;
+      payload: unknown;
+      meta?: MarketStreamMeta | undefined;
+    };
 
 const CHANNELS: readonly WsMarketChannel[] = ["candle", "l2Book", "trades", "allMids"];
 
@@ -89,10 +98,12 @@ const findChannel = (value: unknown): WsMarketChannel | null => {
   if (typeof value.channel === "string" && isMarketChannel(value.channel)) {
     return value.channel;
   }
-  if (isRecord(value.payload)) {
-    if (typeof value.payload.channel === "string" && isMarketChannel(value.payload.channel)) {
-      return value.payload.channel;
-    }
+  if (
+    isRecord(value.payload) &&
+    typeof value.payload.channel === "string" &&
+    isMarketChannel(value.payload.channel)
+  ) {
+    return value.payload.channel;
   }
   return null;
 };
@@ -103,6 +114,25 @@ const hasCandleShape = (value: Record<string, unknown>): boolean =>
   value.h !== undefined &&
   value.l !== undefined &&
   value.c !== undefined;
+
+// The wire contract is trusted for level shape; only the container is validated.
+const isLevelArray = (value: unknown): value is readonly RawL2Level[] => Array.isArray(value);
+
+const isLevelsPair = (
+  value: unknown,
+): value is readonly [readonly RawL2Level[], readonly RawL2Level[]] =>
+  Array.isArray(value) && value.length === 2 && isLevelArray(value[0]) && isLevelArray(value[1]);
+
+export const isL2BookSnapshotPayload = (value: unknown): value is L2BookSnapshotPayload =>
+  isRecord(value) && value.type === "snapshot" && isLevelsPair(value.levels);
+
+export const isL2BookDeltaPayload = (value: unknown): value is L2BookDeltaPayload =>
+  isRecord(value) &&
+  value.type === "delta" &&
+  isRecord(value.delta) &&
+  isLevelArray(value.delta.changedBids) &&
+  isLevelArray(value.delta.changedAsks) &&
+  typeof value.delta.replace === "boolean";
 
 const extractCandlePayload = (value: unknown): unknown[] | null => {
   if (!isRecord(value)) {
@@ -131,26 +161,18 @@ const extractCandlePayload = (value: unknown): unknown[] | null => {
 const extractOrderbookPayload = (
   dataField: unknown,
   envelopeNSigFigs?: number,
-): { payload: L2BookPayload; nSigFigs?: number } | null => {
+): { payload: L2BookPayload; nSigFigs?: number | undefined } | null => {
   if (!isRecord(dataField)) return null;
 
   // ── Direct levels format (what the backend actually sends) ─────
   // The backend broadcasts every L2 event as a full snapshot via:
   //   { type: "market", channel: "l2Book", data: { levels: [[bids], [asks]] } }
   // This check must come FIRST since there are no typed wrapper keys.
-  if (
-    Array.isArray(dataField.levels) &&
-    dataField.levels.length === 2 &&
-    Array.isArray(dataField.levels[0]) &&
-    Array.isArray(dataField.levels[1])
-  ) {
+  if (isLevelsPair(dataField.levels)) {
     return {
       payload: {
         type: "snapshot",
-        levels: dataField.levels as unknown as readonly [
-          readonly RawL2Level[],
-          readonly RawL2Level[],
-        ],
+        levels: dataField.levels,
       },
       nSigFigs:
         typeof dataField.nSigFigs === "number" && Number.isFinite(dataField.nSigFigs)
@@ -163,16 +185,11 @@ const extractOrderbookPayload = (
   const snapshot = dataField.snapshot;
   if (isRecord(snapshot)) {
     const levels = snapshot.levels;
-    if (
-      Array.isArray(levels) &&
-      levels.length === 2 &&
-      Array.isArray(levels[0]) &&
-      Array.isArray(levels[1])
-    ) {
+    if (isLevelsPair(levels)) {
       return {
         payload: {
           type: "snapshot",
-          levels: levels as unknown as readonly [readonly RawL2Level[], readonly RawL2Level[]],
+          levels,
         },
         nSigFigs:
           typeof dataField.nSigFigs === "number" && Number.isFinite(dataField.nSigFigs)
@@ -187,13 +204,13 @@ const extractOrderbookPayload = (
   if (isRecord(delta)) {
     const changedBids = delta.changedBids;
     const changedAsks = delta.changedAsks;
-    if (Array.isArray(changedBids) && Array.isArray(changedAsks)) {
+    if (isLevelArray(changedBids) && isLevelArray(changedAsks)) {
       return {
         payload: {
           type: "delta",
           delta: {
-            changedBids: changedBids as unknown as readonly RawL2Level[],
-            changedAsks: changedAsks as unknown as readonly RawL2Level[],
+            changedBids,
+            changedAsks,
             replace: delta.replace === true,
           },
         },
@@ -232,7 +249,7 @@ export function decodeMarketWsMessage(
 
   const envelope = asEnvelope(parsed);
   const rootType = typeof envelope?.type === "string" ? envelope.type : null;
-  if (rootType && rootType !== "market") {
+  if (rootType !== null && rootType !== "" && rootType !== "market") {
     return { kind: "ignore" };
   }
 
@@ -272,7 +289,7 @@ export function decodeMarketWsMessage(
       kind: "market",
       channel,
       payload: result.payload,
-      meta: result.nSigFigs !== undefined ? { nSigFigs: result.nSigFigs } : undefined,
+      meta: result.nSigFigs === undefined ? undefined : { nSigFigs: result.nSigFigs },
     };
   }
 

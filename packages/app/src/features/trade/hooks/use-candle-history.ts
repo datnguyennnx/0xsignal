@@ -48,14 +48,13 @@ export function useCandleHistory(
   return useQuery({
     queryKey: queryKeys.market.candles(normalizedSymbol, hlInterval, limit),
     queryFn: () => fetchHistorical(normalizedSymbol, hlInterval, limit),
-    enabled: enabled && !!symbol,
+    enabled: enabled && symbol !== "",
     placeholderData: (previousData, previousQuery) => {
-      if (!previousData || !previousQuery) return undefined;
-      const prevKey = previousQuery.queryKey as unknown as string[];
-      if (prevKey[2] !== normalizedSymbol || prevKey[3] !== hlInterval) {
-        return undefined;
-      }
-      return previousData;
+      if (previousData === undefined || previousQuery === undefined) return previousData;
+      const prevKey = previousQuery.queryKey;
+      return prevKey[2] === normalizedSymbol && prevKey[3] === hlInterval
+        ? previousData
+        : undefined;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes (historical data is relatively static)
     gcTime: 15 * 60 * 1000,

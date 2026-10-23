@@ -28,7 +28,7 @@ export interface CalendarQuery {
   to?: string;
   impact?: CalendarImpact[];
   currency?: string[];
-  category?: CalendarCategory[];
+  category?: CalendarCategory[] | undefined;
   limit?: number;
 }
 

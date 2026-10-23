@@ -12,11 +12,17 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "oxlint .",
+    "lint:strict": "oxlint --max-warnings 0 .",
+    "lint:fix": "oxlint --fix .",
+    "lint:rules": "oxlint --print-config .",
     "typecheck": "turbo run typecheck",
     "start": "docker compose -f deploy/docker-compose.yml build && docker compose -f deploy/docker-compose.yml up -d",
     "down": "docker compose -f deploy/docker-compose.yml down",
-    "format": "oxfmt",
-    "format:check": "oxfmt --check",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "knip": "knip",
+    "knip:prod": "knip --production --strict",
+    "knip:fix": "knip --fix-type exports,types",
     "db:up": "docker compose -f deploy/dev/docker-compose.yml up -d",
     "db:down": "docker compose -f deploy/dev/docker-compose.yml down",
     "db:logs": "docker compose -f deploy/dev/docker-compose.yml logs -f postgres",
@@ -27,10 +33,12 @@
     "@types/node": "^26.2.0",
     "@types/pg": "^8.23.1",
     "husky": "^9.1.7",
+    "knip": "^6.42.1",
     "lint-staged": "^17.4.1",
     "oxfmt": "0.66.0",
     "oxlint": "1.81.0",
-    "turbo": "^2.11.7",
+    "oxlint-tsgolint": "latest",
+    "turbo": "^2.11.10",
     "typescript": "^7.0.2"
   },
   "lint-staged": {
@@ -41,8 +49,5 @@
     "*.{json,md,css}": [
       "oxfmt --write"
     ]
-  },
-  "dependencies": {
-    "@effect/sql-pg": "4.0.0-rc.112"
   }
 }

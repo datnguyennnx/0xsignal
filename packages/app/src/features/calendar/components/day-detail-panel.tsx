@@ -16,8 +16,10 @@ export interface DayDetailPanelProps {
   events: EconomicEvent[];
   isLoading?: boolean;
   isError?: boolean;
-  onRetry?(): void;
+  onRetry?: () => void;
 }
+
+const SKELETON_KEYS = ["event-1", "event-2", "event-3", "event-4"];
 
 function NowBar({ now }: { now: Date }): JSX.Element {
   return (
@@ -40,7 +42,7 @@ export function DayDetailPanel({
     day: "numeric",
   });
   const now = useNow();
-  const sorted = [...events].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+  const sorted = events.toSorted((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
   const showNowBar = isSameDay(date, now);
   const nowBarIndex = showNowBar
     ? sorted.findIndex((event) => event.scheduledAt > now.toISOString())
@@ -59,8 +61,8 @@ export function DayDetailPanel({
 
       {isLoading ? (
         <div className="flex flex-col gap-2">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-16 w-full" />
+          {SKELETON_KEYS.map((key) => (
+            <Skeleton key={key} className="h-16 w-full" />
           ))}
         </div>
       ) : isError ? (

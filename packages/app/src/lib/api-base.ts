@@ -1,21 +1,21 @@
+import { readAuthToken } from "./auth-token";
+
+export class UnauthenticatedError extends Error {
+  readonly _tag = "UnauthenticatedError";
+}
+
 const ensureApiBasePath = (value: string): string => {
   const normalized = value.replace(/\/+$/, "");
   return normalized.endsWith("/api") ? normalized : `${normalized}/api`;
 };
 
 export const resolveApiBase = (rawApiUrl: string | undefined, isDevMode: boolean): string => {
-  if (isDevMode || !rawApiUrl) {
+  if (isDevMode || rawApiUrl === undefined || rawApiUrl === "") {
     return "/api";
   }
 
   return ensureApiBasePath(rawApiUrl.trim());
 };
-
-import { useAuthStore } from "@/stores/use-auth-store";
-
-export class UnauthenticatedError extends Error {
-  readonly _tag = "UnauthenticatedError";
-}
 
 const AUTHED_PREFIXES = ["/exchange", "/auth/me", "/wallets"];
 
@@ -33,16 +33,16 @@ function matchAuthedPrefix(url: string): boolean {
   });
 }
 
-export async function apiFetch(url: string, options?: RequestInit): Promise<Response> {
+export function apiFetch(url: string, options?: RequestInit): Promise<Response> {
   const requiresAuth = matchAuthedPrefix(url);
-  const headers: HeadersInit = { ...options?.headers };
+  const headers = new Headers(options?.headers);
 
   if (requiresAuth) {
-    const token = useAuthStore.getState().token;
-    if (!token) {
+    const token = readAuthToken();
+    if (token === null || token === "") {
       throw new UnauthenticatedError("Authentication required for this action");
     }
-    (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   return fetch(url, { ...options, headers });

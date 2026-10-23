@@ -14,7 +14,7 @@ export const ChartOhlcOverlay = memo(({ data, precision }: ChartOhlcOverlayProps
   const { hoveredCandle } = useHoverState();
 
   // Use hovered candle OR last data point as fallback
-  const displayCandle = hoveredCandle || (data.length > 0 ? data[data.length - 1] : null);
+  const displayCandle = hoveredCandle ?? data.at(-1) ?? null;
 
   if (!displayCandle) return null;
 

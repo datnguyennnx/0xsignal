@@ -24,7 +24,7 @@ export function EventRow({ event, className }: EventRowProps): JSX.Element {
       <span className="min-w-0 flex-1 truncate text-[length:var(--text-data)] font-medium text-foreground">
         {event.title}
       </span>
-      {event.sourceUrl && (
+      {event.sourceUrl !== null && event.sourceUrl !== "" && (
         <ExternalLink
           className="size-3.5 shrink-0 self-center text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
           aria-hidden="true"
@@ -35,11 +35,11 @@ export function EventRow({ event, className }: EventRowProps): JSX.Element {
 
   const cardClass = cn(
     "group rounded-xl bg-muted p-3 transition-colors",
-    event.sourceUrl && "cursor-pointer hover:bg-muted/60",
+    event.sourceUrl !== null && event.sourceUrl !== "" && "cursor-pointer hover:bg-muted/60",
     className,
   );
 
-  if (event.sourceUrl) {
+  if (event.sourceUrl !== null && event.sourceUrl !== "") {
     return (
       <a
         href={event.sourceUrl}

@@ -1,13 +1,28 @@
 import { Duration, Effect, Layer, Schedule } from "effect";
-import type { HttpClient } from "effect/unstable/http";
-import type { PostgresConnectionPool } from "@0xsignal/auth";
 import { WhaleService } from "../../application/whales/contracts";
 import { whaleServiceLayer } from "../../application/whales/service";
 import { WhaleConfig, WhaleConfigLayer } from "../config/whale.config";
-import type { HyperliquidClient } from "../data-sources/hyperliquid/client";
+import { asRecord } from "../data-sources/parse-utils";
 import { WhaleSourcesLayer } from "../data-sources/hyperliquid/whale-source";
 import { ensureWhaleSchema } from "../db/schema/whale.schema";
 import { WhaleRepoLayer } from "../repos/whale.repo";
+
+const asText = (value: unknown): string | undefined =>
+  typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+    ? String(value)
+    : undefined;
+
+const causeOf = (value: unknown): unknown => {
+  const record = asRecord(value);
+  return record === null ? undefined : record.cause;
+};
+
+const messageOf = (value: unknown): string => {
+  if (value instanceof Error) return value.message;
+  const record = asRecord(value);
+  if (record !== null && "message" in record) return String(record.message);
+  return String(value);
+};
 
 // `discoverAndRefreshPositions` is a finite tick: it discovers candidate wallets
 // and refreshes their positions, then ends. `catch` logs a failed tick and
@@ -19,27 +34,21 @@ const describeCause = (cause: unknown): string => {
   if (cause === undefined || cause === null) return "";
   let current: unknown = cause;
   let guard = 0;
-  while (
-    current !== null &&
-    typeof current === "object" &&
-    "cause" in current &&
-    (current as { cause?: unknown }).cause !== undefined &&
-    guard < 20
-  ) {
-    current = (current as { cause?: unknown }).cause;
+  while (guard < 20) {
+    const next = causeOf(current);
+    if (next === undefined) break;
+    current = next;
     guard += 1;
   }
-  const message =
-    current instanceof Error
-      ? current.message
-      : current !== null && typeof current === "object" && "message" in current
-        ? String((current as { message?: unknown }).message)
-        : String(current);
-  const pg = current as { code?: unknown; detail?: unknown; constraint?: unknown };
+  const message = messageOf(current);
+  const record = asRecord(current);
   const fields: string[] = [];
-  if (pg.code !== undefined) fields.push(`code=${String(pg.code)}`);
-  if (pg.detail !== undefined) fields.push(`detail=${String(pg.detail)}`);
-  if (pg.constraint !== undefined) fields.push(`constraint=${String(pg.constraint)}`);
+  if (record !== null) {
+    for (const key of ["code", "detail", "constraint"]) {
+      const text = asText(record[key]);
+      if (text !== undefined) fields.push(`${key}=${text}`);
+    }
+  }
   return fields.length > 0 ? `${message} [${fields.join(", ")}]` : message;
 };
 
@@ -64,9 +73,10 @@ const WhaleDiscoveryLayer = Layer.effectDiscard(
 
 const WhaleSchemaLayer = Layer.effectDiscard(
   ensureWhaleSchema.pipe(
-    Effect.catch((error) =>
+    Effect.tapError((error) =>
       Effect.logWarning(`[whale] schema initialization skipped: ${error.message}`),
     ),
+    Effect.ignore,
   ),
 );
 
@@ -79,10 +89,6 @@ const WhaleStartupLayer = Layer.mergeAll(
   WhaleDiscoveryLayer.pipe(Layer.provide(WhaleServiceWithInfra)),
 );
 
-export const WhaleLayer: Layer.Layer<
-  WhaleService,
-  never,
-  PostgresConnectionPool | HyperliquidClient | HttpClient.HttpClient
-> = Layer.mergeAll(WhaleServiceWithInfra, WhaleStartupLayer).pipe(
+export const WhaleLayer = Layer.mergeAll(WhaleServiceWithInfra, WhaleStartupLayer).pipe(
   Layer.provideMerge(WhaleConfigLayer.pipe(Layer.orDie)),
 );

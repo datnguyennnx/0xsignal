@@ -11,18 +11,10 @@ import { toast } from "sonner";
 import { TableEmptyRow } from "@/components/table-empty-row";
 
 import { useUserFunding } from "@/hooks/use-user-funding";
-import { formatTime, fmtNum } from "@/features/trade/utils/shared-table-utils";
-import { formatCompactUsd, formatFundingPercent } from "@/core/utils/formatters";
-import { PosDirLabel } from "@/features/trade/components/shared-table-components";
-import {
-  c,
-  cNum,
-  cHead,
-  cHeadNum,
-  TABLE_HEAD_CLASS,
-} from "@/features/trade/utils/orderbook-table-classes";
+import { cHead, cHeadNum, TABLE_HEAD_CLASS } from "@/features/trade/utils/orderbook-table-classes";
 import { usePagination } from "@/hooks/use-pagination";
 import { Pagination } from "@/components/ui/pagination";
+import { FundingHistoryRows } from "./funding-history-rows";
 
 export function FundingHistoryTable() {
   const { data: funding, isLoading, isError } = useUserFunding();
@@ -59,25 +51,7 @@ export function FundingHistoryTable() {
           ) : !funding || funding.length === 0 ? (
             <TableEmptyRow colSpan={6} />
           ) : (
-            paginated.pageData.map((entry, idx) => {
-              const usdc = Number(entry.delta.usdc);
-              return (
-                <TableRow key={`${entry.hash}-${entry.time}-${idx}`}>
-                  <TableCell className={c}>{formatTime(entry.time)}</TableCell>
-                  <TableCell className={`${c} font-medium`}>{entry.delta.coin}</TableCell>
-                  <TableCell className={cNum}>{fmtNum(Number(entry.delta.szi))}</TableCell>
-                  <TableCell className={c}>
-                    <PosDirLabel szi={entry.delta.szi} />
-                  </TableCell>
-                  <TableCell className={`${cNum} ${usdc >= 0 ? "text-gain" : "text-loss"}`}>
-                    {formatCompactUsd(Math.abs(usdc))}
-                  </TableCell>
-                  <TableCell className={cNum}>
-                    {formatFundingPercent(Number(entry.delta.fundingRate))}
-                  </TableCell>
-                </TableRow>
-              );
-            })
+            <FundingHistoryRows entries={paginated.pageData} />
           )}
         </TableBody>
       </Table>

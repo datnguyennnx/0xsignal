@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
-import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
+import type { CredentialVerifier } from "../../../application/hyperliquid/credential-verification";
 import type { HttpError } from "../error-response";
 import { buildWalletRoutes } from "./wallets.routes";
 import { buildKeyRoutes } from "./keys.routes";
@@ -13,8 +13,9 @@ type CredentialRouteHandler = (
   url: URL,
   accountRepo: AccountRepoService,
   credentialRepo: CredentialRepoService,
+  verifier: typeof CredentialVerifier.Service,
   userId?: string,
-) => Effect.Effect<Response, HttpError, HyperliquidClient>;
+) => Effect.Effect<Response, HttpError>;
 
 type BuildCredentialRoutesParams = {
   readonly json: (body: unknown, status?: number, headers?: Record<string, string>) => Response;
@@ -32,11 +33,11 @@ export const buildCredentialRoutes = ({
   ...buildWalletRoutes({ json, mapServiceError }).map((route) => ({
     method: route.method,
     path: route.path,
-    handler: route.handler as CredentialRouteHandler,
+    handler: route.handler,
   })),
   ...buildKeyRoutes({ json, mapServiceError }).map((route) => ({
     method: route.method,
     path: route.path,
-    handler: route.handler as CredentialRouteHandler,
+    handler: route.handler,
   })),
 ];

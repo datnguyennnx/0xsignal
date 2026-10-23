@@ -7,6 +7,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatTime, fmtNum } from "../utils/shared-table-utils";
 import { DirLabel } from "./shared-table-components";
 
@@ -16,8 +17,29 @@ import {
   formatOrderValue,
   formatOrderPrice,
 } from "../utils/trigger-utils";
-import { c, cNum, cHead, cHeadNum, TABLE_HEAD_CLASS } from "../utils/orderbook-table-classes";
+import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import type { FrontendOpenOrder } from "@0xsignal/shared";
+
+const SKELETON_ROW_COUNT = 3;
+
+/** Same 1.5em line box as a loaded `c` cell, so a placeholder row is exactly one row tall. */
+function TableSkeletonRows({ columns }: { columns: number }) {
+  return (
+    <>
+      {Array.from({ length: SKELETON_ROW_COUNT }, (_, rowIndex) => (
+        <TableRow key={rowIndex} className="hover:bg-transparent">
+          <TableCell colSpan={columns} className={c}>
+            <div className="flex items-center gap-4">
+              {Array.from({ length: columns }, (_column, columnIndex) => (
+                <Skeleton key={columnIndex} className="h-[1.5em] flex-1" />
+              ))}
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+}
 
 interface OpenOrdersTableProps {
   isOoLoading: boolean;
@@ -66,17 +88,14 @@ export function OpenOrdersTable({
       </TableHeader>
       <TableBody>
         {isOoLoading ? (
-          <TableRow>
-            <TableCell colSpan={12} className="text-center py-6">
-              <span className={TABLE_HEAD_CLASS}>Loading...</span>
-            </TableCell>
-          </TableRow>
+          <TableSkeletonRows columns={12} />
         ) : !openOrders || openOrders.length === 0 ? (
           <TableEmptyRow colSpan={12} />
         ) : (
           openOrders.map((order) => {
             const sz = Number(order.sz);
-            const origSz = order.origSz ? Number(order.origSz) : sz;
+            const origSz =
+              order.origSz !== undefined && order.origSz !== "" ? Number(order.origSz) : sz;
             const limitPx = Number(order.limitPx);
             return (
               <TableRow key={`${order.oid}-${order.coin}`}>
@@ -87,7 +106,7 @@ export function OpenOrdersTable({
                   <DirLabel side={order.side} reduceOnly={order.reduceOnly} />
                 </TableCell>
                 <TableCell className={cNum}>{fmtNum(sz)}</TableCell>
-                <TableCell className={cNum}>{origSz !== sz ? fmtNum(origSz) : "—"}</TableCell>
+                <TableCell className={cNum}>{origSz === sz ? "—" : fmtNum(origSz)}</TableCell>
                 <TableCell className={cNum}>{formatOrderValue(order, sz, limitPx)}</TableCell>
                 <TableCell className={cNum}>{formatOrderPrice(order, limitPx)}</TableCell>
                 <TableCell className={c}>{order.reduceOnly ? "Yes" : "No"}</TableCell>
@@ -95,7 +114,9 @@ export function OpenOrdersTable({
                 <TableCell className={c}>
                   {order.children?.length > 0 ? (
                     <button
-                      onClick={() => onViewTpSl(order)}
+                      onClick={() => {
+                        onViewTpSl(order);
+                      }}
                       className="text-gain text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                     >
                       View
@@ -106,7 +127,9 @@ export function OpenOrdersTable({
                 </TableCell>
                 <TableCell className={cNum}>
                   <button
-                    onClick={() => onCancelOrder(order.coin, order.oid)}
+                    onClick={() => {
+                      onCancelOrder(order.coin, order.oid);
+                    }}
                     disabled={isCancelPending}
                     className="text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
                   >

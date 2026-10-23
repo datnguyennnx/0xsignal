@@ -21,7 +21,7 @@ import {
 export type HttpError = {
   readonly status: number;
   readonly message: string;
-  readonly code?: string;
+  readonly code?: string | undefined;
 };
 
 export const asHttpError = (status: number, message: string, code?: string): HttpError => ({
@@ -43,7 +43,7 @@ export const errorResponse = (error: unknown, corsHeaders: Record<string, string
   const body: Record<string, unknown> = {
     error: httpError.message || "Internal server error",
     status: httpError.status,
-    ...(httpError.code ? { code: httpError.code } : {}),
+    ...(httpError.code !== undefined && httpError.code !== "" ? { code: httpError.code } : {}),
   };
   return new Response(JSON.stringify(body), {
     status: httpError.status,
@@ -55,27 +55,27 @@ export const mapServiceError = (error: unknown): HttpError =>
   Match.value(error).pipe(
     // Application-level tagged errors
     Match.when(Match.instanceOf(ValidationError), (e) =>
-      asHttpError(400, e.message, toErrorCode(e._tag)),
+      asHttpError(400, e.message, toErrorCode("ValidationError")),
     ),
     Match.when(Match.instanceOf(NotFoundError), (e) =>
-      asHttpError(404, e.message, toErrorCode(e._tag)),
+      asHttpError(404, e.message, toErrorCode("NotFoundError")),
     ),
     Match.when(Match.instanceOf(ConflictError), (e) =>
-      asHttpError(409, e.message, toErrorCode(e._tag)),
+      asHttpError(409, e.message, toErrorCode("ConflictError")),
     ),
     Match.when(Match.instanceOf(InternalError), (e) =>
-      asHttpError(502, e.message, toErrorCode(e._tag)),
+      asHttpError(502, e.message, toErrorCode("InternalError")),
     ),
 
     // Domain-layer tagged errors
     Match.when(Match.instanceOf(HyperliquidValidationError), (e) =>
-      asHttpError(400, e.message, toErrorCode(e._tag)),
+      asHttpError(400, e.message, toErrorCode("HyperliquidValidationError")),
     ),
     Match.when(Match.instanceOf(InsufficientMarginError), (e) =>
-      asHttpError(400, e.message, toErrorCode(e._tag)),
+      asHttpError(400, e.message, toErrorCode("InsufficientMarginError")),
     ),
     Match.when(Match.instanceOf(HyperliquidInternalError), (e) =>
-      asHttpError(502, e.message, toErrorCode(e._tag)),
+      asHttpError(502, e.message, toErrorCode("HyperliquidInternalError")),
     ),
 
     // Auth-package tagged errors (use hardcoded messages)
@@ -99,7 +99,7 @@ export const mapServiceError = (error: unknown): HttpError =>
     Match.when(
       (e: unknown): e is { message: string; status?: number; code?: string } =>
         typeof e === "object" && e !== null && "message" in e,
-      (e) => asHttpError(e.status ?? 500, String(e.message), e.code ?? undefined),
+      (e) => asHttpError(e.status ?? 500, e.message, e.code ?? undefined),
     ),
 
     // Fallback for primitives, null, etc.

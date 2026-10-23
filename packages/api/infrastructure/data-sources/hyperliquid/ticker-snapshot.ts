@@ -67,10 +67,10 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
     });
   }
 
-  const fallbackMid = lookupSymbols.reduce<string | undefined>(
-    (found, s) => found ?? snapshot.allMids[s],
-    undefined,
-  );
+  let fallbackMid: string | undefined;
+  for (const candidate of lookupSymbols) {
+    fallbackMid ??= snapshot.allMids[candidate];
+  }
   const mid =
     toNumberOrNull(ctx?.midPx) ?? toNumberOrNull(ctx?.markPx) ?? toNumberOrNull(fallbackMid);
 

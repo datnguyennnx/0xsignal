@@ -1,7 +1,6 @@
 import { Layer } from "effect";
 import { AuthServiceLayer } from "./application/auth.service.impl";
-import { GoogleProviderLayer } from "./infrastructure/providers/google.provider";
-import { GitHubProviderLayer } from "./infrastructure/providers/github.provider";
+import { GoogleProviderLayer, GitHubProviderLayer } from "./infrastructure/providers";
 import { JwtServiceLayer } from "./infrastructure/jwt.service";
 import { OAuthStateStoreLayer, AuthCodeStoreLayer } from "./infrastructure/state.store";
 import { EncryptionServiceLayer } from "./infrastructure/encryption.service";

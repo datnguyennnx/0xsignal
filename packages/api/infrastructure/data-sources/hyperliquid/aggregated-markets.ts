@@ -10,9 +10,7 @@ import {
 import type { HyperliquidAggregatedAsset, PerpTradeAsset, HyperliquidInfoClient } from "./types";
 import { withDedup } from "./request-dedup";
 
-export function getSpotTokens(
-  info: HyperliquidInfoClient,
-): Effect.Effect<string[], HyperliquidError> {
+function getSpotTokens(info: HyperliquidInfoClient): Effect.Effect<string[], HyperliquidError> {
   return Effect.tryPromise({
     try: async () => {
       if (typeof info.spotMeta !== "function") return [];
@@ -31,10 +29,7 @@ const fetchAllDexMetas = (
     dexNames,
     (dexName) =>
       Effect.tryPromise({
-        try: () =>
-          info.metaAndAssetCtxs(dexName ? { dex: dexName } : undefined) as Promise<
-            [unknown, unknown]
-          >,
+        try: () => info.metaAndAssetCtxs(dexName ? { dex: dexName } : undefined),
         catch: (cause) =>
           toHyperliquidError(`Failed to fetch meta for dex "${dexName || "main"}"`, cause),
       }).pipe(
@@ -73,16 +68,16 @@ const buildCategoryMap = (rawPerpCats: Array<[string, string]>): Map<string, str
 
 const fetchOptionalData = (
   info: HyperliquidInfoClient,
-  preFetchedSpot: unknown | undefined,
-): Effect.Effect<{ spotRaw: unknown }, never> =>
+  preFetchedSpot: unknown,
+): Effect.Effect<{ spotRaw: unknown }> =>
   Effect.all({
     spotRaw:
-      preFetchedSpot !== undefined
-        ? Effect.succeed(preFetchedSpot)
-        : Effect.tryPromise({
+      preFetchedSpot === undefined
+        ? Effect.tryPromise({
             try: () => info.spotMetaAndAssetCtxs?.() ?? Promise.resolve(null),
             catch: (cause) => toHyperliquidError("Failed to fetch spot meta and asset ctxs", cause),
-          }).pipe(Effect.catch(() => Effect.succeed(null))),
+          }).pipe(Effect.catch(() => Effect.succeed(null)))
+        : Effect.succeed(preFetchedSpot),
   });
 
 export function getAggregatedMarketsSnapshot(
@@ -95,8 +90,7 @@ export function getAggregatedMarketsSnapshot(
   return Effect.gen(function* () {
     const { spotTokens: preFetchedTokens, spotMetaAndAssetCtxs: preFetchedSpot } = options ?? {};
 
-    const resolvedTokens =
-      preFetchedTokens !== undefined ? preFetchedTokens : yield* getSpotTokens(info);
+    const resolvedTokens = preFetchedTokens ?? (yield* getSpotTokens(info));
 
     const allResult = yield* Effect.all(
       {
@@ -107,9 +101,11 @@ export function getAggregatedMarketsSnapshot(
 
         rawPerpCats: Effect.tryPromise({
           try: () =>
-            (info.perpCategories?.() ?? Promise.resolve([])) as Promise<Array<[string, string]>>,
+            info.perpCategories === undefined
+              ? Promise.resolve<Array<[string, string]>>([])
+              : info.perpCategories(),
           catch: (cause) => toHyperliquidError("Failed to fetch categories", cause),
-        }).pipe(Effect.catch(() => Effect.succeed([] as Array<[string, string]>))),
+        }).pipe(Effect.catch(() => Effect.succeed<Array<[string, string]>>([]))),
 
         allMids: Effect.tryPromise({
           try: () => withDedup("allMids", () => info.allMids()),
@@ -120,7 +116,7 @@ export function getAggregatedMarketsSnapshot(
             schedule: Schedule.exponential("1 seconds"),
             while: (err: HyperliquidError) => err.kind === "RATE_LIMITED",
           }),
-          Effect.catch(() => Effect.succeed({} as Record<string, string>)),
+          Effect.catch(() => Effect.succeed<Record<string, string>>({})),
         ),
 
         optionalData: fetchOptionalData(info, preFetchedSpot),
@@ -153,7 +149,10 @@ export function getAggregatedMarketsSnapshot(
       globalIndex = nextIndex;
     }
 
-    const spotAssets = spotRaw ? parseSpotAssets(spotRaw, allMids, globalIndex) : [];
+    const spotAssets =
+      spotRaw === null || spotRaw === undefined
+        ? []
+        : parseSpotAssets(spotRaw, allMids, globalIndex);
 
     return sortAndDedupeAssets(perpAssets, spotAssets);
   });

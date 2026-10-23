@@ -54,7 +54,7 @@ export function OutcomesTable() {
             const posValue = Number(position.positionValue);
             const unrealizedPnl = Number(position.unrealizedPnl);
             const roe = Number(position.returnOnEquity) * 100;
-            const computedMarkPx = signedSz !== 0 ? entryPx + unrealizedPnl / signedSz : entryPx;
+            const computedMarkPx = signedSz === 0 ? entryPx : entryPx + unrealizedPnl / signedSz;
             const markPx = mids?.[position.coin] ?? computedMarkPx;
             const isLong = signedSz >= 0;
 

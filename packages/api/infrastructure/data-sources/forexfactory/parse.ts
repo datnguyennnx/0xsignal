@@ -2,7 +2,7 @@ import type { CalendarImpact, EconomicEvent } from "@0xsignal/shared";
 import { normalizeEvent, slugify } from "../../../application/calendar/normalizer";
 import { asRecord } from "../parse-utils";
 
-export const FOREXFACTORY_SOURCE_URL = "https://www.forexfactory.com/calendar";
+const FOREXFACTORY_SOURCE_URL = "https://www.forexfactory.com/calendar";
 export const FOREXFACTORY_FEED_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
 export const FOREXFACTORY_ATTRIBUTION = "ForexFactory";
 
@@ -45,13 +45,13 @@ const parseDate = (value: string): Date | null => {
 const buildEvent = (row: Record<string, unknown>, options: ParseOptions): EconomicEvent | null => {
   const title = asTrimmedString(row["title"]);
   const dateValue = asTrimmedString(row["date"]);
-  if (!title || !dateValue) return null;
+  if (title === null || dateValue === null) return null;
   const date = parseDate(dateValue);
   if (!date) return null;
 
   const rawCountry = asTrimmedString(row["country"]);
-  const currency = rawCountry && /^[A-Z]{3}$/.test(rawCountry) ? rawCountry : null;
-  const country = currency ? (CURRENCY_COUNTRY[currency] ?? currency) : "US";
+  const currency = rawCountry !== null && /^[A-Z]{3}$/.test(rawCountry) ? rawCountry : null;
+  const country = currency === null ? "US" : (CURRENCY_COUNTRY[currency] ?? currency);
 
   return normalizeEvent({
     source: "forexfactory",

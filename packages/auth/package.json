@@ -10,8 +10,10 @@
   },
   "scripts": {
     "build": "tsc -b tsconfig.json",
-    "typecheck": "tsc -b tsconfig.json --noEmit",
+    "typecheck": "tsc -b",
     "lint": "oxlint .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -24,7 +26,6 @@
     "jose": "^6.0.10"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.112",
     "@types/node": "^26.2.0",
     "typescript": "^7.0.2",
     "vitest": "5.0.0"

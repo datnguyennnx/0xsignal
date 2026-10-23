@@ -1,7 +1,29 @@
-import { Config, Context, Effect, Layer, Option } from "effect";
+import { Config, Context, Effect, Layer, Option, Predicate } from "effect";
 import * as arctic from "arctic";
 import type { OAuthProfile } from "../../domain/oauth-account";
 import { OAuthCallbackFailed } from "../../domain/errors";
+
+interface GoogleUserInfo {
+  readonly sub: string;
+  readonly email: string | null;
+  readonly name: string | null;
+  readonly picture: string | null;
+}
+
+const optionalString = (value: unknown): string | null =>
+  Predicate.isString(value) ? value : null;
+
+const toGoogleUserInfo = (value: unknown): GoogleUserInfo => {
+  if (!Predicate.isObject(value) || typeof value.sub !== "string") {
+    throw new TypeError("Malformed Google userinfo response");
+  }
+  return {
+    sub: value.sub,
+    email: optionalString(value.email),
+    name: optionalString(value.name),
+    picture: optionalString(value.picture),
+  };
+};
 
 export interface GoogleProviderPort {
   readonly generateState: () => Effect.Effect<string>;
@@ -24,7 +46,7 @@ const disabledGoogleProvider = GoogleProvider.of({
   fetchProfile: () => Effect.die(new Error("Google OAuth is not configured")),
 });
 
-export const GoogleProviderLayer: Layer.Layer<GoogleProvider, never, never> = Layer.effect(
+export const GoogleProviderLayer: Layer.Layer<GoogleProvider> = Layer.effect(
   GoogleProvider,
   Effect.gen(function* () {
     const maybeClientId = yield* Config.option(Config.string("GOOGLE_CLIENT_ID")).pipe(
@@ -66,7 +88,7 @@ export const GoogleProviderLayer: Layer.Layer<GoogleProvider, never, never> = La
       fetchProfile: (code, codeVerifier) =>
         Effect.tryPromise({
           try: async () => {
-            if (!codeVerifier) {
+            if (codeVerifier === null || codeVerifier === "") {
               throw new Error("Google OAuth requires a code verifier (PKCE)");
             }
             const tokens = await client.validateAuthorizationCode(code, codeVerifier);
@@ -74,12 +96,8 @@ export const GoogleProviderLayer: Layer.Layer<GoogleProvider, never, never> = La
             const res = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
               headers: { Authorization: `Bearer ${accessToken}` },
             });
-            const info = (await res.json()) as {
-              sub: string;
-              email?: string;
-              name?: string;
-              picture?: string;
-            };
+            const rawInfo: unknown = await res.json();
+            const info = toGoogleUserInfo(rawInfo);
             return {
               provider: "google" as const,
               providerUserId: info.sub,

@@ -1,23 +1,27 @@
-import { Config, Effect } from "effect";
+import { Config, Effect, Layer } from "effect";
 import { make as makeRuntime } from "effect/ManagedRuntime";
 import { AppLayer } from "../../infrastructure/layers/app.layer";
 import {
   MarketStreamHub,
   type MarketWsConnectionData,
-} from "../../infrastructure/streams/hyperliquid/hub";
-import { CorsService } from "./cors";
+} from "../../application/market-data/market-stream.contracts";
+import { CorsService, CorsServiceLayer } from "./cors";
 import { createFetchHandler } from "./fetch-handler";
-import { createWsEventHandlers } from "./ws/event-handlers";
+import { WS_IDLE_TIMEOUT_SECONDS, createWsEventHandlers } from "./ws/event-handlers";
 
 // Single runtime instance — all handlers share the same AppLayer
-const runtime = makeRuntime(AppLayer);
+const runtime = makeRuntime(AppLayer.pipe(Layer.provideMerge(CorsServiceLayer)));
 
 const serverProgram = Effect.gen(function* () {
   const PORT = yield* Config.int("PORT").pipe(Config.withDefault(9006));
   const cors = yield* CorsService;
   const marketStreamHub = yield* MarketStreamHub;
 
-  const fetchHandler = createFetchHandler(runtime, cors, marketStreamHub);
+  const fetchHandler = createFetchHandler(
+    (effect) => runtime.runPromise(effect),
+    cors,
+    marketStreamHub,
+  );
   const wsHandlers = createWsEventHandlers(marketStreamHub);
 
   yield* Effect.acquireRelease(
@@ -27,13 +31,15 @@ const serverProgram = Effect.gen(function* () {
         fetch: fetchHandler,
         websocket: wsHandlers,
         reusePort: true,
-        idleTimeout: 30,
+        // Kept in step with the handler heartbeat so the transport and the
+        // application agree on when a peer is gone.
+        idleTimeout: WS_IDLE_TIMEOUT_SECONDS,
       }),
     ),
     (s) =>
       Effect.gen(function* () {
         yield* Effect.logInfo("Shutting down server...");
-        yield* Effect.sync(() => s.stop());
+        yield* Effect.promise(() => s.stop());
       }),
   );
 
@@ -45,16 +51,18 @@ const serverProgram = Effect.gen(function* () {
 });
 
 const abortController = new AbortController();
-const shutdown = () => abortController.abort();
+const shutdown = () => {
+  abortController.abort();
+};
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-runtime
-  .runPromise(serverProgram.pipe(Effect.scoped), {
+try {
+  await runtime.runPromise(serverProgram.pipe(Effect.scoped), {
     signal: abortController.signal,
-  })
-  .catch((cause: unknown) => {
-    if (abortController.signal.aborted) process.exit(0);
-    console.error("Fatal error:", cause);
-    process.exit(1);
   });
+} catch (cause) {
+  if (abortController.signal.aborted) process.exit(0);
+  console.error("Fatal error:", cause);
+  process.exit(1);
+}

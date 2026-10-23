@@ -2,30 +2,38 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { Effect } from "effect";
 import { ValiError } from "valibot";
 import { ApiRequestError } from "@nktkas/hyperliquid/api/exchange";
+import type {
+  ExchangeClient,
+  ExchangeConfig,
+  HttpTransport,
+  HttpTransportOptions,
+} from "@nktkas/hyperliquid";
 import {
   mockInfoInstance,
   makeTestLayer,
+  makeMetaResponse,
   USER_A,
   ExchangeService,
   InsufficientMarginError,
   HyperliquidValidationError,
   AccountNotFound,
+  type AccountRepoShape,
 } from "./helpers";
 
 const mockExchangeInstance = vi.hoisted(() => ({
-  order: vi.fn(),
-  updateLeverage: vi.fn(),
-  cancel: vi.fn(),
+  order: vi.fn<ExchangeClient["order"]>(),
+  updateLeverage: vi.fn<ExchangeClient["updateLeverage"]>(),
+  cancel: vi.fn<ExchangeClient["cancel"]>(),
 }));
 
 vi.mock("@nktkas/hyperliquid", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@nktkas/hyperliquid")>();
   return {
     ...actual,
-    ExchangeClient: vi.fn(function () {
+    ExchangeClient: vi.fn<(config: ExchangeConfig) => typeof mockExchangeInstance>(function () {
       return mockExchangeInstance;
     }),
-    HttpTransport: vi.fn(),
+    HttpTransport: vi.fn<(options?: HttpTransportOptions) => HttpTransport>(),
   };
 });
 
@@ -37,7 +45,7 @@ describe("ExchangeService — order operations", () => {
 
   describe("placeOrder", () => {
     it("builds correct HL payload from generic input", async () => {
-      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
       mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
@@ -71,7 +79,7 @@ describe("ExchangeService — order operations", () => {
     });
 
     it("maps insufficient margin ApiRequestError to InsufficientMarginError", async () => {
-      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
       // SDK v0.33.0: ApiRequestError(response, message?)
       const error = new ApiRequestError(
         { status: "err", response: "insufficient margin for order" },
@@ -103,11 +111,11 @@ describe("ExchangeService — order operations", () => {
       );
 
       expect(result).toBeInstanceOf(InsufficientMarginError);
-      expect(result._tag).toBe("InsufficientMarginError");
+      expect(result).toHaveProperty("_tag", "InsufficientMarginError");
     });
 
     it("maps ValiError to HyperliquidValidationError", async () => {
-      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
       const error = new ValiError([
         {
           kind: "schema",
@@ -116,7 +124,7 @@ describe("ExchangeService — order operations", () => {
           expected: "",
           received: "",
           message: "Invalid payload",
-        } as any,
+        },
       ]);
       mockExchangeInstance.order.mockRejectedValueOnce(error);
 
@@ -144,11 +152,11 @@ describe("ExchangeService — order operations", () => {
       );
 
       expect(result).toBeInstanceOf(HyperliquidValidationError);
-      expect(result._tag).toBe("HyperliquidValidationError");
+      expect(result).toHaveProperty("_tag", "HyperliquidValidationError");
     });
 
     it("sends TP/SL child orders with r:true and opposite b direction", async () => {
-      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
       mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
@@ -195,14 +203,18 @@ describe("ExchangeService — order operations", () => {
       expect(callArg.orders[0].r).toBe(false);
       expect(callArg.orders[1].b).toBe(false);
       expect(callArg.orders[1].r).toBe(true);
-      expect(callArg.orders[1].t.trigger.tpsl).toBe("tp");
+      expect(callArg.orders[1].t).toEqual({
+        trigger: { isMarket: true, triggerPx: "110", tpsl: "tp" },
+      });
       expect(callArg.orders[2].b).toBe(false);
       expect(callArg.orders[2].r).toBe(true);
-      expect(callArg.orders[2].t.trigger.tpsl).toBe("sl");
+      expect(callArg.orders[2].t).toEqual({
+        trigger: { isMarket: true, triggerPx: "90", tpsl: "sl" },
+      });
     });
 
     it("enforces reduceOnly true for close position orders", async () => {
-      mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
       mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
 
       await Effect.runPromise(
@@ -241,7 +253,7 @@ describe("ExchangeService — order operations", () => {
             Effect.provide(
               makeTestLayer({
                 findPrimary: vi
-                  .fn()
+                  .fn<AccountRepoShape["findPrimary"]>()
                   .mockReturnValue(
                     Effect.fail(new AccountNotFound({ accountId: "primary@user-a/hyperliquid" })),
                   ),
@@ -252,7 +264,7 @@ describe("ExchangeService — order operations", () => {
       );
 
       expect(result).toBeInstanceOf(AccountNotFound);
-      expect(result._tag).toBe("AccountNotFound");
+      expect(result).toHaveProperty("_tag", "AccountNotFound");
     });
   });
 });

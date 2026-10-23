@@ -1,7 +1,34 @@
 import { Context, Effect, Layer } from "effect";
 import { PostgresConnectionPool } from "../db/postgres";
-import type { OAuthAccount, OAuthProfile } from "../../domain/oauth-account";
+import type { OAuthAccount, OAuthProfile, OAuthProvider } from "../../domain/oauth-account";
+import { makeUserId } from "../../domain/user";
 import type { UserId } from "../../domain/user";
+
+type OAuthAccountRow = {
+  readonly id: string;
+  readonly user_id: string;
+  readonly provider: OAuthProvider;
+  readonly provider_user_id: string;
+  readonly email: string | null;
+  readonly display_name: string | null;
+  readonly avatar_url: string | null;
+  readonly created_at: Date | string;
+  readonly updated_at: Date | string;
+};
+
+const makeId = () => crypto.randomUUID();
+
+const mapRow = (row: OAuthAccountRow): OAuthAccount => ({
+  id: row.id,
+  userId: makeUserId(row.user_id),
+  provider: row.provider,
+  providerUserId: row.provider_user_id,
+  email: row.email ?? null,
+  displayName: row.display_name ?? null,
+  avatarUrl: row.avatar_url ?? null,
+  createdAt: new Date(row.created_at),
+  updatedAt: new Date(row.updated_at),
+});
 
 export interface OAuthAccountRepoPort {
   readonly findByProvider: (
@@ -29,9 +56,6 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
         );
 
         const memoryAccounts = new Map<string, OAuthAccount>();
-
-        const makeId = () => crypto.randomUUID();
-        const makeUserId = (id: string) => id as UserId;
 
         return OAuthAccountRepo.of({
           findByProvider: (provider, providerUserId) =>
@@ -119,22 +143,10 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
         });
       }
 
-      const mapRow = (row: any): OAuthAccount => ({
-        id: row.id as string,
-        userId: row.user_id as UserId,
-        provider: row.provider as "google" | "github",
-        providerUserId: row.provider_user_id,
-        email: row.email ?? null,
-        displayName: row.display_name ?? null,
-        avatarUrl: row.avatar_url ?? null,
-        createdAt: new Date(row.created_at),
-        updatedAt: new Date(row.updated_at),
-      });
-
       return OAuthAccountRepo.of({
         findByProvider: (provider, providerUserId) =>
           Effect.tryPromise(async () => {
-            const result = await pg!.query(
+            const result = await pg.query<OAuthAccountRow>(
               "SELECT * FROM oauth_accounts WHERE provider = $1 AND provider_user_id = $2",
               [provider, providerUserId],
             );
@@ -143,7 +155,7 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
 
         findByUserId: (userId) =>
           Effect.tryPromise(async () => {
-            const result = await pg!.query(
+            const result = await pg.query<OAuthAccountRow>(
               "SELECT * FROM oauth_accounts WHERE user_id = $1 LIMIT 1",
               [userId],
             );
@@ -152,7 +164,7 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
 
         upsert: (profile, userId) =>
           Effect.tryPromise(async () => {
-            const result = await pg!.query(
+            const result = await pg.query<OAuthAccountRow>(
               `INSERT INTO oauth_accounts (user_id, provider, provider_user_id, email, display_name, avatar_url)
              VALUES ($1, $2, $3, $4, $5, $6)
              ON CONFLICT (provider, provider_user_id)
@@ -172,7 +184,7 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
 
         createWithUser: (profile) =>
           Effect.tryPromise(async () => {
-            const result = await pg!.query(
+            const result = await pg.query<{ readonly user_id: string }>(
               `WITH new_user AS (
                INSERT INTO users (status, created_at, updated_at)
                SELECT 'active', NOW(), NOW()
@@ -209,7 +221,7 @@ export const OAuthAccountRepoLayer: Layer.Layer<OAuthAccountRepo, never, Postgre
 
         updateDisplayName: (userId, displayName) =>
           Effect.tryPromise(async () => {
-            await pg!.query("UPDATE oauth_accounts SET display_name = $1 WHERE user_id = $2", [
+            await pg.query("UPDATE oauth_accounts SET display_name = $1 WHERE user_id = $2", [
               displayName,
               userId,
             ]);

@@ -41,18 +41,24 @@ async function probeImageUrl(url: string): Promise<string | null> {
     const ok = await new Promise<boolean>((resolve) => {
       const img = new Image();
       const timer = setTimeout(() => {
-        img.onload = null;
-        img.onerror = null;
         resolve(false);
       }, 4000);
-      img.onload = () => {
-        clearTimeout(timer);
-        resolve(true);
-      };
-      img.onerror = () => {
-        clearTimeout(timer);
-        resolve(false);
-      };
+      img.addEventListener(
+        "load",
+        () => {
+          clearTimeout(timer);
+          resolve(true);
+        },
+        { once: true },
+      );
+      img.addEventListener(
+        "error",
+        () => {
+          clearTimeout(timer);
+          resolve(false);
+        },
+        { once: true },
+      );
       img.src = url;
     });
     return ok ? url : null;
@@ -63,11 +69,13 @@ async function probeImageUrl(url: string): Promise<string | null> {
 
 async function resolveLogoUrl(symbol: string): Promise<string | null> {
   const candidates = getSymbolLogoCandidates(symbol);
-  for (const url of candidates) {
-    const result = await probeImageUrl(url);
-    if (result) return result;
-  }
-  return null;
+  // Probe sequentially, stopping at the first logo that loads.
+  const resolved = await candidates.reduce<Promise<string | null>>(async (previous, url) => {
+    const found = await previous;
+    if (found !== null) return found;
+    return probeImageUrl(url);
+  }, Promise.resolve(null));
+  return resolved;
 }
 
 export function useHyperliquidSymbolLogo(symbol: string) {

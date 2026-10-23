@@ -4,7 +4,6 @@ import { useHyperliquidWs } from "./use-hyperliquid-ws";
 import { normalizeSymbol } from "../lib/symbol";
 import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query-keys";
-import type { OrderBook } from "@0xsignal/shared";
 import { type L2BookLevel } from "@/core/utils/hyperliquid";
 import {
   useMarketDataStore,
@@ -13,7 +12,7 @@ import {
 } from "@/stores/use-market-data-store";
 
 export interface TickSizeOption {
-  value: number | 0;
+  value: number;
   label: string;
   nSigFigs: number | null;
   mantissa: number | null;
@@ -45,12 +44,21 @@ interface UseHyperliquidOrderbookOptions {
 }
 
 /** Normalize REST snapshot levels to L2BookLevel[] format. */
+const isL2LevelArray = (value: unknown): value is L2BookLevel[] => Array.isArray(value);
+
 function unwrapRestSnapshotLevels(levels: unknown): [L2BookLevel[], L2BookLevel[]] | null {
   if (!Array.isArray(levels) || levels.length !== 2) return null;
-  const bids = (levels[0] ?? []) as L2BookLevel[];
-  const asks = (levels[1] ?? []) as L2BookLevel[];
+  const bids: unknown = levels[0];
+  const asks: unknown = levels[1];
+  if (!isL2LevelArray(bids) || !isL2LevelArray(asks)) return null;
   return [bids, asks];
 }
+
+const isSigFigs = (value: number | null): value is 2 | 3 | 4 | 5 | null =>
+  value === null || value === 2 || value === 3 || value === 4 || value === 5;
+
+const toSubscriptionSigFigs = (value: number | null): 2 | 3 | 4 | 5 | undefined =>
+  isSigFigs(value) && value !== null ? value : undefined;
 
 export function useHyperliquidOrderbook(
   symbol: string,
@@ -74,12 +82,11 @@ export function useHyperliquidOrderbook(
   const wsHasReceivedData = useRef(false);
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
   const coinRef = useRef(coin);
+
+  // Keep the ref in sync and reset the WS received flag when coin changes,
+  // so the new coin gets its REST seed.
   useEffect(() => {
     coinRef.current = coin;
-  }, [coin]);
-
-  // Reset WS received flag when coin changes — allows REST seed for new coin
-  useEffect(() => {
     wsHasReceivedData.current = false;
   }, [coin]);
 
@@ -92,8 +99,8 @@ export function useHyperliquidOrderbook(
 
   const { data: restSnapshot } = useQuery({
     queryKey: queryKeys.market.orderbook.snapshot(symbol),
-    queryFn: () => api.getOrderbook(symbol, 20) as Promise<OrderBook>,
-    enabled: enabled && !!symbol,
+    queryFn: () => api.getOrderbook(symbol, 20),
+    enabled: enabled && symbol !== "",
     staleTime: Infinity,
     gcTime: 5 * 60 * 1000,
   });
@@ -113,11 +120,11 @@ export function useHyperliquidOrderbook(
   // the updated nSigFigs, triggering server-side aggregation by Hyperliquid.
   const subscription = useMemo(
     () =>
-      enabled && coin
+      enabled && coin !== ""
         ? {
             channel: "l2Book" as const,
             symbol: coin,
-            nSigFigs: (activeSigFigs as 2 | 3 | 4 | 5 | null) ?? undefined,
+            nSigFigs: toSubscriptionSigFigs(activeSigFigs),
           }
         : null,
     [enabled, coin, activeSigFigs],
@@ -139,9 +146,13 @@ export function useHyperliquidOrderbook(
 
   const ws = useHyperliquidWs({
     subscription,
-    enabled: enabled && !!symbol,
-    onError: (e) => setError(e.message),
-    onReconnect: fetchRestSnapshot,
+    enabled: enabled && symbol !== "",
+    onError: (e) => {
+      setError(e.message);
+    },
+    onReconnect: () => {
+      void fetchRestSnapshot();
+    },
   });
 
   // Mark WS data received when orderbook updates from store
@@ -160,50 +171,58 @@ export function useHyperliquidOrderbook(
   const REPLACE_COOLDOWN_MS = 3000;
 
   useEffect(() => {
-    if (!replaceRequestedAt || !enabled) return;
+    if (replaceRequestedAt === null || replaceRequestedAt === undefined || replaceRequestedAt === 0)
+      return;
+    if (!enabled) return;
     const now = Date.now();
     if (now - replaceLastHandledRef.current < REPLACE_COOLDOWN_MS) return;
     replaceLastHandledRef.current = now;
 
+    const fetchFallbackSnapshot = async () => {
+      try {
+        const c = coinRef.current;
+        if (!c) return;
+        const rawData = await api.getOrderbook(c, 20);
+        const levels = unwrapRestSnapshotLevels(rawData.orderbook?.levels);
+        if (levels) {
+          applySnapshot(c, levels);
+        }
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to fetch REST snapshot");
+      }
+    };
+
     if (ws.isConnected) {
-      ws.resubscribe({
+      void ws.resubscribe({
         channel: "l2Book",
         symbol: coin,
-        nSigFigs: (activeSigFigsRef.current as 2 | 3 | 4 | 5 | null) ?? undefined,
+        nSigFigs: toSubscriptionSigFigs(activeSigFigsRef.current),
       });
     } else {
       // Fallback to REST only if WS is disconnected
-      queueMicrotask(async () => {
-        try {
-          const c = coinRef.current;
-          if (!c) return;
-          const rawData = await api.getOrderbook(c, 20);
-          const levels = unwrapRestSnapshotLevels(rawData.orderbook?.levels);
-          if (levels) {
-            applySnapshot(c, levels);
-          }
-          setError(null);
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "Failed to fetch REST snapshot");
-        }
+      queueMicrotask(() => {
+        void fetchFallbackSnapshot();
       });
     }
   }, [replaceRequestedAt, enabled, ws, coin, applySnapshot]);
 
   const resubscribe = useCallback(
     (nSigFigs: number) => {
-      if (!coin || !ws.resubscribe) return;
+      if (coin === "") return;
 
       if (coinRef.current) {
         wsHasReceivedData.current = false;
       }
 
-      ws.resubscribe({
+      void ws.resubscribe({
         channel: "l2Book",
         symbol: coin,
-        nSigFigs: (activeSigFigsRef.current as 2 | 3 | 4 | 5 | null) ?? undefined,
+        nSigFigs: toSubscriptionSigFigs(activeSigFigsRef.current),
       });
-      if (!isControlled) setUncontrolledSigFigs(nSigFigs as 2 | 3 | 4 | 5);
+      if (!isControlled && isSigFigs(nSigFigs) && nSigFigs !== null) {
+        setUncontrolledSigFigs(nSigFigs);
+      }
     },
     [coin, ws, isControlled],
   );

@@ -10,7 +10,7 @@
  *
  * `timestamp` reflects the candle's open time. After JSON deserialization
  * on the client, `timestamp` arrives as an ISO-8601 string; server-side it
- * may be a `Date` object. Consumers should use `candleToChartDataPoint`
+ * may be a `Date` object. Consumers should use `normalizeCandle`
  * (from `@0xsignal/shared`) which handles all three formats transparently.
  */
 export interface Candle {
@@ -37,14 +37,18 @@ export interface MarketTicker {
 
 // Order Book
 
+/** Single L2 orderbook level as it appears on the wire. */
+export interface OrderBookLevel {
+  readonly px: string;
+  readonly sz: string;
+  readonly n: number;
+}
+
 export interface OrderBook {
   readonly symbol: string;
   readonly nSigFigs?: 2 | 3 | 4 | 5 | null;
   readonly orderbook?: {
-    readonly levels: readonly [
-      bids: { px: string; sz: string; n: number }[],
-      asks: { px: string; sz: string; n: number }[],
-    ];
+    readonly levels: readonly [bids: OrderBookLevel[], asks: OrderBookLevel[]];
   };
 }
 
@@ -76,9 +80,9 @@ export interface AggregatedMarket {
   readonly maxLeverage: number;
   readonly szDecimals: number;
   /** Spot-specific: circulating supply for market cap calculation. */
-  readonly circulatingSupply?: string;
+  readonly circulatingSupply?: string | undefined;
   /** Spot-specific: EVM contract address. */
-  readonly evmContract?: string;
+  readonly evmContract?: string | undefined;
 }
 
 // Coverage
@@ -140,7 +144,7 @@ export type WsMarketInterval = (typeof WS_MARKET_INTERVALS)[number];
 
 export interface WsMarketSubscription {
   readonly channel: WsMarketChannel;
-  readonly symbol?: string;
-  readonly interval?: WsMarketInterval;
-  readonly nSigFigs?: 2 | 3 | 4 | 5 | null;
+  readonly symbol?: string | undefined;
+  readonly interval?: WsMarketInterval | undefined;
+  readonly nSigFigs?: 2 | 3 | 4 | 5 | null | undefined;
 }

@@ -1,23 +1,7 @@
-import { Config, Context, Layer } from "effect";
+import { Config, Layer } from "effect";
+import { WhaleConfig, type WhaleConfigService } from "../../application/whales/config.contracts";
 
-export interface WhaleConfigService {
-  readonly whaleNotionalUsd: number;
-  readonly coinUniverse: ReadonlyArray<string>;
-  readonly discoveryNotionalUsd: number;
-  readonly pollIntervalMs: number;
-  readonly maxWalletsPerPoll: number;
-  readonly walletTtlMs: number;
-  readonly restWeightBudgetPerMin: number;
-  readonly leaderboardUrl: string;
-  readonly leaderboardTtlMs: number;
-  readonly seededWalletCap: number;
-  readonly walletRetentionMs: number;
-  readonly positionRetentionMs: number;
-}
-
-export class WhaleConfig extends Context.Service<WhaleConfig, WhaleConfigService>()(
-  "WhaleConfig",
-) {}
+export { WhaleConfig };
 
 // 0 disables the notional filter: every trade passes (show-all whale tape).
 const DEFAULT_WHALE_NOTIONAL_USD = 0;
@@ -47,7 +31,7 @@ const coinUniverseConfig: Config.Config<ReadonlyArray<string>> = Config.string(
   Config.withDefault(DEFAULT_COIN_UNIVERSE),
 );
 
-export const whaleConfig: Config.Config<WhaleConfigService> = Config.all({
+const whaleConfig: Config.Config<WhaleConfigService> = Config.all({
   whaleNotionalUsd: Config.number("WHALE_NOTIONAL_USD").pipe(
     Config.withDefault(DEFAULT_WHALE_NOTIONAL_USD),
   ),

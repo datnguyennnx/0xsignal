@@ -17,18 +17,25 @@ interface PaginationProps {
   className?: string;
 }
 
-const buildPageNumbers = (currentPage: number, totalPages: number) => {
-  const pages: (number | string)[] = [];
+const PAGE_SIZE_OPTIONS = [20, 50, 100];
+
+interface PageEntry {
+  key: string;
+  value: number | "ellipsis";
+}
+
+const buildPageNumbers = (currentPage: number, totalPages: number): PageEntry[] => {
+  const pages: PageEntry[] = [];
   if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) pages.push(i);
+    for (let i = 1; i <= totalPages; i++) pages.push({ key: `page-${i}`, value: i });
   } else {
-    pages.push(1);
-    if (currentPage > 3) pages.push("...");
+    pages.push({ key: "page-1", value: 1 });
+    if (currentPage > 3) pages.push({ key: "ellipsis-start", value: "ellipsis" });
     const start = Math.max(2, currentPage - 1);
     const end = Math.min(totalPages - 1, currentPage + 1);
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (currentPage < totalPages - 2) pages.push("...");
-    pages.push(totalPages);
+    for (let i = start; i <= end; i++) pages.push({ key: `page-${i}`, value: i });
+    if (currentPage < totalPages - 2) pages.push({ key: "ellipsis-end", value: "ellipsis" });
+    pages.push({ key: `page-${totalPages}`, value: totalPages });
   }
   return pages;
 };
@@ -40,7 +47,7 @@ export const Pagination = memo(function Pagination({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  pageSizeOptions = [20, 50, 100],
+  pageSizeOptions = PAGE_SIZE_OPTIONS,
   className,
 }: PaginationProps) {
   const start = (currentPage - 1) * pageSize + 1;
@@ -61,7 +68,9 @@ export const Pagination = memo(function Pagination({
       <div className="flex items-center gap-0.5 order-2">
         <button
           type="button"
-          onClick={() => onPageChange(currentPage - 1)}
+          onClick={() => {
+            onPageChange(currentPage - 1);
+          }}
           disabled={currentPage === 1}
           aria-label="Previous page"
           className={cn(
@@ -73,34 +82,42 @@ export const Pagination = memo(function Pagination({
           <ChevronLeft className="size-3.5" />
         </button>
 
-        {pageNumbers.map((page, i) =>
-          typeof page === "number" ? (
+        {pageNumbers.map(({ key, value }) => {
+          if (typeof value !== "number") {
+            return (
+              <span
+                key={key}
+                className="inline-flex items-center justify-center h-7 w-5 text-xs text-muted-foreground/60 select-none"
+              >
+                ...
+              </span>
+            );
+          }
+
+          return (
             <button
-              key={i}
+              key={key}
               type="button"
-              onClick={() => onPageChange(page)}
+              onClick={() => {
+                onPageChange(value);
+              }}
               className={cn(
                 "inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded text-xs tabular-nums transition-colors",
-                currentPage === page
+                currentPage === value
                   ? SELECTED_ITEM_CLASS
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
               )}
             >
-              {page}
+              {value}
             </button>
-          ) : (
-            <span
-              key={i}
-              className="inline-flex items-center justify-center h-7 w-5 text-xs text-muted-foreground/60 select-none"
-            >
-              ...
-            </span>
-          ),
-        )}
+          );
+        })}
 
         <button
           type="button"
-          onClick={() => onPageChange(currentPage + 1)}
+          onClick={() => {
+            onPageChange(currentPage + 1);
+          }}
           disabled={currentPage === totalPages}
           aria-label="Next page"
           className={cn(
@@ -120,7 +137,9 @@ export const Pagination = memo(function Pagination({
             size="sm"
             aria-label="Rows per page"
             value={pageSize.toString()}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            onChange={(e) => {
+              onPageSizeChange(Number(e.target.value));
+            }}
             wrapperClassName="min-w-[4rem] max-w-[4rem]"
             className="h-7 text-xs text-center px-1"
           >

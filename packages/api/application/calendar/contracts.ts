@@ -1,11 +1,7 @@
 import { Context, Data, type Effect } from "effect";
 import type { CalendarQuery, CalendarSource, EconomicEvent } from "@0xsignal/shared";
 
-export class CalendarSourceError extends Data.TaggedError("CalendarSourceError")<{
-  readonly source: CalendarSource;
-  readonly message: string;
-  readonly cause?: unknown;
-}> {}
+export { CalendarSourceError } from "./sources.contracts";
 
 export class CalendarServiceError extends Data.TaggedError("CalendarServiceError")<{
   readonly message: string;

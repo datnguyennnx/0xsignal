@@ -1,3 +1,4 @@
+/// <reference lib="es2023.array" />
 import type { IndicatorConfig } from "./types";
 import { TREND_INDICATORS } from "./catalog/trend";
 import { MOMENTUM_INDICATORS } from "./catalog/momentum";
@@ -80,7 +81,7 @@ export const createIndicatorInstanceId = (
   }
 
   const signature = Object.keys(params)
-    .sort()
+    .toSorted()
     .map((key) => `${key}${String(params[key]).replaceAll(".", "_")}`)
     .join("-");
 

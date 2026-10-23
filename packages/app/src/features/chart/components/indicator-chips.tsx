@@ -25,7 +25,13 @@ export const IndicatorChips = memo(function IndicatorChips({ indicators }: Indic
               indicator.visible ? "" : "text-muted-foreground",
             )}
           >
-            <LiquidGlass borderRadius="inherit" tint="var(--material-floating-tint)" />
+            {/* One chip per indicator: a displacement map per chip would re-filter the
+                row on every tick, so chips take the cheap blur instead. */}
+            <LiquidGlass
+              borderRadius="inherit"
+              refraction={false}
+              tint="var(--material-floating-tint)"
+            />
             <span className="h-2 w-2 rounded-full bg-foreground/60 shrink-0" />
             <span className="max-w-[clamp(5rem,25vw,7.5rem)] truncate">
               {toChipLabel(indicator)}

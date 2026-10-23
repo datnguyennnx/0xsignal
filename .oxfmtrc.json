@@ -3,6 +3,8 @@
   "semi": true,
   "trailingComma": "all",
   "singleQuote": false,
+  "jsxSingleQuote": false,
+  "quoteProps": "as-needed",
   "printWidth": 100,
   "tabWidth": 2,
   "useTabs": false,
@@ -10,6 +12,8 @@
   "endOfLine": "lf",
   "bracketSpacing": true,
   "bracketSameLine": false,
+  "objectWrap": "preserve",
+  "insertFinalNewline": true,
   "sortPackageJson": false,
   "ignorePatterns": [
     "node_modules",
@@ -19,6 +23,9 @@
     ".next",
     ".turbo",
     "out",
+    "coverage",
+    "*.tsbuildinfo",
+    "*.min.js",
     "*.log",
     "npm-debug.log*",
     "yarn-debug.log*",
@@ -30,13 +37,10 @@
     ".env.local",
     ".env.production.local",
     ".env.development.local",
-    ".vscode",
     ".idea",
-    "coverage",
-    "*.tsbuildinfo",
     "package-lock.json",
     "yarn.lock",
-    "bun.lockb",
+    "bun.lock",
     "*.d.ts.map"
   ]
 }

@@ -118,8 +118,8 @@ class GlassWebGLManager {
     if (this.entries.size >= GLASS_MAX_INSTANCES) return null;
     const ctx = entry.target.getContext("2d");
     if (!ctx) return null;
-    const texture = gl.createTexture();
-    if (!texture) return null;
+    const texture: WebGLTexture | null = gl.createTexture();
+    if (texture === null) return null;
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -182,14 +182,14 @@ class GlassWebGLManager {
     const vertex = this.compile(gl.VERTEX_SHADER, VERTEX_SOURCE);
     const fragment = this.compile(gl.FRAGMENT_SHADER, FRAGMENT_SOURCE);
     if (!vertex || !fragment) return;
-    const program = gl.createProgram();
-    if (!program) return;
+    const program: WebGLProgram | null = gl.createProgram();
+    if (program === null) return;
     gl.attachShader(program, vertex);
     gl.attachShader(program, fragment);
     gl.linkProgram(program);
     gl.deleteShader(vertex);
     gl.deleteShader(fragment);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    if (gl.getProgramParameter(program, gl.LINK_STATUS) !== true) {
       gl.deleteProgram(program);
       return;
     }
@@ -216,7 +216,7 @@ class GlassWebGLManager {
     if (!shader) return null;
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    if (gl.getShaderParameter(shader, gl.COMPILE_STATUS) !== true) {
       gl.deleteShader(shader);
       return null;
     }
@@ -317,9 +317,12 @@ function useManager(): GlassWebGLManager {
 }
 
 function asSource(node: Element | null): GlassSource | null {
-  if (!node) return null;
-  if (node.tagName === "IMG" || node.tagName === "VIDEO" || node.tagName === "CANVAS") {
-    return node as GlassSource;
+  if (
+    node instanceof HTMLImageElement ||
+    node instanceof HTMLVideoElement ||
+    node instanceof HTMLCanvasElement
+  ) {
+    return node;
   }
   return null;
 }
@@ -345,12 +348,22 @@ const PREFERENCE_QUERIES = [
 function useConstrainedPreferences(): boolean {
   const [constrained, setConstrained] = useState(false);
   useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return () => {};
+    }
     const lists = PREFERENCE_QUERIES.map((query) => window.matchMedia(query));
-    const update = () => setConstrained(lists.some((list) => list.matches));
+    const update = () => {
+      setConstrained(lists.some((list) => list.matches));
+    };
     update();
-    lists.forEach((list) => list.addEventListener("change", update));
-    return () => lists.forEach((list) => list.removeEventListener("change", update));
+    for (const list of lists) {
+      list.addEventListener("change", update);
+    }
+    return () => {
+      for (const list of lists) {
+        list.removeEventListener("change", update);
+      }
+    };
   }, []);
   return constrained;
 }
@@ -369,58 +382,70 @@ export function GlassSurface({
 }: GlassSurfaceProps): JSX.Element {
   const gl = useManager();
   const rawId = useId();
-  const filterId = useMemo(() => `glass-filter-${rawId.replace(/:/g, "")}`, [rawId]);
-  const backdropRef = useRef<HTMLSpanElement | null>(null);
+  const filterId = useMemo(() => `glass-filter-${rawId.replaceAll(":", "")}`, [rawId]);
+  const [backdropNode, setBackdropNode] = useState<HTMLSpanElement | null>(null);
+  const [failedTierInputs, setFailedTierInputs] = useState<string | null>(null);
   const targetRef = useRef<HTMLCanvasElement | null>(null);
   const constrained = useConstrainedPreferences();
-  const [tier, setTier] = useState<GlassRenderer>("css");
 
   const blur = optics?.blur ?? DEFAULT_BLUR;
   const distortion = optics?.distortion ?? DEFAULT_DISTORTION;
   const chromatic = optics?.chromatic ?? DEFAULT_CHROMATIC;
   const svgScale = optics?.displacement ?? DEFAULT_SVG_DISPLACEMENT;
+  const tint = optics?.tint;
   const radius = typeof borderRadius === "number" ? `${borderRadius}px` : borderRadius;
 
-  useEffect(() => {
-    const source = asSource(backdropRef.current?.firstElementChild ?? null);
+  const source = asSource(backdropNode?.firstElementChild ?? null);
+  const tierInputs = `${renderer}|${String(dimension?.width)}x${String(dimension?.height)}|${String(constrained)}`;
+  const webglFailed = failedTierInputs === tierInputs;
+
+  const tier: GlassRenderer = useMemo(() => {
     if (constrained || renderer === "css") {
-      setTier("css");
-      return;
+      return "css";
     }
     if (renderer === "svg") {
-      setTier(supportsSvgFilters() ? "svg" : "css");
-      return;
+      return supportsSvgFilters() ? "svg" : "css";
     }
-    if (source && gl.hasCapacity() && gl.available()) {
-      setTier("webgl");
-      return;
+    if (!webglFailed && source !== null && gl.hasCapacity()) {
+      return "webgl";
     }
-    if (renderer === "webgl") {
-      setTier(supportsSvgFilters() ? "svg" : "css");
-      return;
-    }
-    setTier(supportsSvgFilters() ? "svg" : "css");
-  }, [renderer, constrained, gl, backdrop]);
+    return supportsSvgFilters() ? "svg" : "css";
+  }, [constrained, renderer, webglFailed, source, gl]);
 
   useEffect(() => {
-    if (tier !== "webgl") return;
-    const target = targetRef.current;
-    const source = asSource(backdropRef.current?.firstElementChild ?? null);
-    if (!target || !source) {
-      setTier(supportsSvgFilters() ? "svg" : "css");
-      return;
+    let registeredId: number | null = null;
+    const demoteToFallback = () => {
+      setFailedTierInputs(tierInputs);
+    };
+    if (tier === "webgl") {
+      const target = targetRef.current;
+      const entrySource = asSource(backdropNode?.firstElementChild ?? null);
+      if (target === null || entrySource === null) {
+        demoteToFallback();
+      } else {
+        const width = Math.max(1, Math.round(dimension?.width ?? (target.clientWidth || 1)));
+        const height = Math.max(1, Math.round(dimension?.height ?? (target.clientHeight || 1)));
+        target.width = width;
+        target.height = height;
+        registeredId = gl.register({
+          source: entrySource,
+          target,
+          width,
+          height,
+          distortion,
+          chromatic,
+        });
+        if (registeredId === null) {
+          demoteToFallback();
+        }
+      }
     }
-    const width = Math.max(1, Math.round(dimension?.width ?? (target.clientWidth || 1)));
-    const height = Math.max(1, Math.round(dimension?.height ?? (target.clientHeight || 1)));
-    target.width = width;
-    target.height = height;
-    const id = gl.register({ source, target, width, height, distortion, chromatic });
-    if (id == null) {
-      setTier(supportsSvgFilters() ? "svg" : "css");
-      return;
-    }
-    return () => gl.unregister(id);
-  }, [tier, dimension, gl, distortion, chromatic]);
+    return () => {
+      if (registeredId !== null) {
+        gl.unregister(registeredId);
+      }
+    };
+  }, [tier, backdropNode, tierInputs, dimension, gl, distortion, chromatic]);
 
   const composited: CSSProperties = {
     position: style?.position ?? "relative",
@@ -433,8 +458,8 @@ export function GlassSurface({
       tier === "svg" ? `url(#${filterId})` : `blur(${blur}px) saturate(var(--glass-saturate, 1))`,
     WebkitBackdropFilter:
       tier === "svg" ? `url(#${filterId})` : `blur(${blur}px) saturate(var(--glass-saturate, 1))`,
-    ...(radius ? { borderRadius: radius } : null),
-    ...(optics?.tint ? { backgroundColor: optics.tint } : null),
+    ...(radius !== undefined && radius !== "" ? { borderRadius: radius } : null),
+    ...(tint !== undefined && tint !== "" ? { backgroundColor: tint } : null),
     ...style,
   };
 
@@ -449,12 +474,12 @@ export function GlassSurface({
       )}
       style={composited}
     >
-      {backdrop ? (
+      {backdrop !== undefined && backdrop !== null ? (
         <span
-          ref={backdropRef}
+          ref={setBackdropNode}
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 overflow-hidden"
-          style={radius ? { borderRadius: radius } : undefined}
+          style={radius !== undefined && radius !== "" ? { borderRadius: radius } : undefined}
         >
           {backdrop}
         </span>

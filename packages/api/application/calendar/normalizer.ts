@@ -12,7 +12,7 @@ export const stableId = (source: CalendarSource, sourceEventId: string): string 
   const input = `${source}:${sourceEventId}`;
   let hash = FNV_OFFSET;
   for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
+    hash ^= input.codePointAt(i) ?? 0;
     hash = Math.imul(hash, FNV_PRIME);
   }
   return `${source}_${(hash >>> 0).toString(16).padStart(8, "0")}`;
@@ -21,8 +21,8 @@ export const stableId = (source: CalendarSource, sourceEventId: string): string 
 export const slugify = (value: string): string =>
   value
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-+|-+$/g, "")
     .slice(0, 60);
 
 export interface EventFields {
@@ -42,7 +42,7 @@ export interface EventFields {
   readonly revised?: string | null;
   readonly sourceUrl?: string | null;
   readonly attribution: string;
-  readonly fetchedAt?: Date | string;
+  readonly fetchedAt?: Date | string | undefined;
 }
 
 const toIso = (value: Date | string): string => {

@@ -16,20 +16,20 @@ export function AuthCallbackPage() {
       const searchParams = new URLSearchParams(window.location.search);
       const code = searchParams.get("code");
 
-      if (!code) {
-        navigate("/trade/BTC", { replace: true });
+      if (code === null || code === "") {
+        void navigate("/trade/BTC", { replace: true });
         return;
       }
 
       try {
         const data = await api.exchangeCode(code);
         if (cancelled) return;
-        if (data && data.accessToken) {
+        if (data.accessToken) {
           useAuthStore.getState().setToken(data.accessToken);
 
           try {
             const profile = await api.getAuthMe();
-            if (profile && !cancelled) {
+            if (!cancelled) {
               useAuthStore.getState().setUser({
                 userId: profile.userId,
                 provider: profile.provider,
@@ -47,7 +47,7 @@ export function AuthCallbackPage() {
           }
 
           if (!cancelled) {
-            navigate("/trade/BTC", { replace: true });
+            void navigate("/trade/BTC", { replace: true });
           }
         }
       } catch (err) {
@@ -58,7 +58,7 @@ export function AuthCallbackPage() {
       }
     }
 
-    performCallback();
+    void performCallback();
 
     return () => {
       cancelled = true;
@@ -66,11 +66,11 @@ export function AuthCallbackPage() {
   }, [navigate]);
 
   useEffect(() => {
-    if (!error) return;
+    if (error === null) return;
     toast.error("Sign-in failed", { description: error });
   }, [error]);
 
-  if (error) {
+  if (error !== null) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-transparent">
         <ErrorState
@@ -79,29 +79,27 @@ export function AuthCallbackPage() {
           retryAction={() => {
             setError(null);
             const code = new URLSearchParams(window.location.search).get("code");
-            if (code) {
-              (async () => {
+            if (code !== null && code !== "") {
+              void (async () => {
                 try {
                   const data = await api.exchangeCode(code);
-                  if (data && data.accessToken) {
+                  if (data.accessToken) {
                     useAuthStore.getState().setToken(data.accessToken);
 
                     try {
                       const profile = await api.getAuthMe();
-                      if (profile) {
-                        useAuthStore.getState().setUser({
-                          userId: profile.userId,
-                          provider: profile.provider,
-                          avatarUrl: profile.avatarUrl,
-                          displayName: profile.displayName,
-                        });
-                      }
+                      useAuthStore.getState().setUser({
+                        userId: profile.userId,
+                        provider: profile.provider,
+                        avatarUrl: profile.avatarUrl,
+                        displayName: profile.displayName,
+                      });
                       await useAuthStore.getState().refreshWalletStatus();
                     } catch (profileErr) {
                       console.error("[Auth] Failed to fetch profile after login:", profileErr);
                     }
 
-                    navigate("/trade/BTC", { replace: true });
+                    void navigate("/trade/BTC", { replace: true });
                   }
                 } catch (err) {
                   console.error("[Auth] Token exchange failed:", err);
@@ -109,7 +107,7 @@ export function AuthCallbackPage() {
                 }
               })();
             } else {
-              navigate("/trade/BTC", { replace: true });
+              void navigate("/trade/BTC", { replace: true });
             }
           }}
         />

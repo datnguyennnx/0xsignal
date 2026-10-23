@@ -13,9 +13,9 @@ interface MarketTerminalHeaderProps {
   openInterest: number;
   fundingRate: number;
   fundingCountdown: string;
-  marketType?: "perp" | "spot";
-  marketCap?: number;
-  contractAddress?: string;
+  marketType?: "perp" | "spot" | undefined;
+  marketCap?: number | undefined;
+  contractAddress?: string | undefined;
 }
 
 export const MarketTerminalHeader = memo(function MarketTerminalHeader({
@@ -69,7 +69,7 @@ export const MarketTerminalHeader = memo(function MarketTerminalHeader({
       {isSpot && marketCap !== undefined && (
         <MetricItem label="Market Cap" value={formatCompactUsd(marketCap)} />
       )}
-      {isSpot && contractAddress && (
+      {isSpot && contractAddress !== undefined && contractAddress !== "" && (
         <div className="flex flex-col shrink-0">
           <span className="text-[length:var(--text-micro)] tracking-wider text-muted-foreground font-medium uppercase leading-none mb-1">
             Contract

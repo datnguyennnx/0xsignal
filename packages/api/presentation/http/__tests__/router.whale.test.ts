@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Context, Effect, Layer } from "effect";
+import { type Context, Effect, Layer } from "effect";
 import type { WhalePosition } from "@0xsignal/shared";
 import { MarketDataService } from "../../../application/market-data/contracts";
 import { HealthService } from "../../../application/health";
@@ -9,30 +9,15 @@ import { WhaleService } from "../../../application/whales/contracts";
 import { handleRequest } from "../router";
 
 const mockWhaleService = {
-  queryPositions: vi.fn(),
+  queryPositions: vi.fn<Context.Service.Shape<typeof WhaleService>["queryPositions"]>(),
 };
 
-const TestWhaleLayer = Layer.succeed(
-  WhaleService,
-  mockWhaleService as unknown as Context.Service.Shape<typeof WhaleService>,
-);
+const TestWhaleLayer = Layer.mock(WhaleService, mockWhaleService);
 
-const TestMarketDataLayer = Layer.succeed(
-  MarketDataService,
-  {} as unknown as Context.Service.Shape<typeof MarketDataService>,
-);
-const TestHealthLayer = Layer.succeed(
-  HealthService,
-  {} as unknown as Context.Service.Shape<typeof HealthService>,
-);
-const TestUserDataLayer = Layer.succeed(
-  UserDataService,
-  {} as unknown as Context.Service.Shape<typeof UserDataService>,
-);
-const TestExchangeLayer = Layer.succeed(
-  ExchangeService,
-  {} as unknown as Context.Service.Shape<typeof ExchangeService>,
-);
+const TestMarketDataLayer = Layer.mock(MarketDataService, {});
+const TestHealthLayer = Layer.mock(HealthService, {});
+const TestUserDataLayer = Layer.mock(UserDataService, {});
+const TestExchangeLayer = Layer.mock(ExchangeService, {});
 
 const baseLayers = Layer.mergeAll(
   TestMarketDataLayer,
@@ -47,6 +32,10 @@ const runRequest = (path: string, withWhale = true) =>
       Effect.provide(withWhale ? Layer.mergeAll(baseLayers, TestWhaleLayer) : baseLayers),
     ),
   );
+
+type LooseEnvelope = { data: Record<string, unknown> };
+
+const envelope = (data: Record<string, unknown>): LooseEnvelope => ({ data });
 
 const samplePosition: WhalePosition = {
   userAddress: "0xwhale",
@@ -73,9 +62,9 @@ describe("HTTP Whale Router", () => {
     const response = await runRequest("/api/whales/positions");
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      data: { positions: [], nextCursor: null, fetchedAt: expect.any(String) },
-    });
+    await expect(response.json()).resolves.toEqual(
+      envelope({ positions: [], nextCursor: null, fetchedAt: expect.any(String) }),
+    );
     expect(mockWhaleService.queryPositions).toHaveBeenCalledWith({
       sort: "notional",
       limit: 50,
@@ -90,13 +79,13 @@ describe("HTTP Whale Router", () => {
     const response = await runRequest("/api/whales/positions?side=sell&sort=funding&limit=10");
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      data: {
+    await expect(response.json()).resolves.toEqual(
+      envelope({
         positions: [samplePosition],
         nextCursor: "next",
         fetchedAt: expect.any(String),
-      },
-    });
+      }),
+    );
     expect(mockWhaleService.queryPositions).toHaveBeenCalledWith({
       side: "sell",
       sort: "funding",

@@ -5,8 +5,9 @@
  * by short-circuiting common payload shapes.
  */
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+import { asRecord, isUnknownArray } from "../../data-sources/parse-utils";
+
+const isRecord = (value: unknown): value is Record<string, unknown> => asRecord(value) !== null;
 
 const unwrapPayload = (value: unknown): unknown => {
   let current = value;
@@ -32,7 +33,7 @@ const extractOrderbookLevels = (value: unknown): unknown[] | null => {
   }
 
   // Fast paths for known shapes
-  if (Array.isArray(value.levels)) {
+  if (isUnknownArray(value.levels)) {
     return value.levels;
   }
 

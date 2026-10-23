@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { MarketStreamMeta, MarketSubscription } from "../lib/market-stream-client";
 import { useMarketDataStore } from "@/stores/use-market-data-store";
-import type { L2BookLevel } from "@/core/utils/hyperliquid";
-import type { L2BookSnapshotPayload, L2BookDeltaPayload } from "../utils/market-stream-decoder";
+import { isL2BookSnapshotPayload, isL2BookDeltaPayload } from "../utils/market-stream-decoder";
 
 export interface UseHyperliquidWsOptions {
   subscription: MarketSubscription | null;
@@ -22,6 +21,9 @@ interface WsSubscription {
   unsubscribe(): void;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 /**
  * Shared auto-routing logic: routes market stream messages to the Zustand store.
  * Used by both the initial subscription and the resubscribe path.
@@ -33,43 +35,28 @@ function routeMarketMessageToStore(
   symbol?: string,
 ): void {
   if (ch === "l2Book") {
-    const payload = data as Record<string, unknown>;
-    if (payload.type === "snapshot") {
-      const snap = payload as unknown as L2BookSnapshotPayload;
-      const symbolKey = meta?.coin ?? symbol ?? "unknown";
-      if (snap.levels && snap.levels.length === 2) {
-        useMarketDataStore
-          .getState()
-          .applyOrderbookSnapshot(symbolKey, [
-            snap.levels[0] as unknown as L2BookLevel[],
-            snap.levels[1] as unknown as L2BookLevel[],
-          ]);
-      }
-    } else if (payload.type === "delta") {
-      const delta = payload as unknown as L2BookDeltaPayload;
-      const symbolKey = meta?.coin ?? symbol ?? "unknown";
-      if (delta.delta.replace) {
+    const symbolKey = meta?.coin ?? symbol ?? "unknown";
+    if (isL2BookSnapshotPayload(data)) {
+      useMarketDataStore
+        .getState()
+        .applyOrderbookSnapshot(symbolKey, [[...data.levels[0]], [...data.levels[1]]]);
+    } else if (isL2BookDeltaPayload(data)) {
+      if (data.delta.replace) {
         useMarketDataStore.getState().requestOrderbookReplace(symbolKey);
       } else {
         useMarketDataStore
           .getState()
-          .applyOrderbookDelta(
-            symbolKey,
-            delta.delta.changedBids as unknown as readonly L2BookLevel[],
-            delta.delta.changedAsks as unknown as readonly L2BookLevel[],
-          );
+          .applyOrderbookDelta(symbolKey, data.delta.changedBids, data.delta.changedAsks);
       }
     }
-  } else if (ch === "allMids") {
-    if (data && typeof data === "object" && !Array.isArray(data)) {
-      const parsed: Record<string, number> = {};
-      for (const [coin, price] of Object.entries(data as Record<string, unknown>)) {
-        if (typeof price === "string") {
-          parsed[coin] = Number(price) || 0;
-        }
+  } else if (ch === "allMids" && isRecord(data)) {
+    const parsed: Record<string, number> = {};
+    for (const [coin, price] of Object.entries(data)) {
+      if (typeof price === "string") {
+        parsed[coin] = Number(price) || 0;
       }
-      useMarketDataStore.getState().setAllMids(parsed);
     }
+    useMarketDataStore.getState().setAllMids(parsed);
   }
   // candle and trades: caller must provide onMessage for now
 }
@@ -124,12 +111,12 @@ export function useHyperliquidWs({
       subRef.current = null;
     }
 
-    if (!enabled || !subscription || !client) {
-      return;
+    if (!enabled || subscription === null || !client) {
+      return () => {};
     }
 
     const { channel, symbol, nSigFigs, interval } = subscription;
-    if (!symbol && channel !== "allMids") return;
+    if ((symbol === undefined || symbol === "") && channel !== "allMids") return () => {};
 
     // Build a combined message handler that routes to store if no custom handler
     const handleMessage = (data: unknown, ch: string, meta?: MarketStreamMeta) => {
@@ -186,7 +173,7 @@ export function useHyperliquidWs({
       }
     };
 
-    subscribe();
+    void subscribe();
 
     return () => {
       ignore = true;
@@ -211,7 +198,7 @@ export function useHyperliquidWs({
       subRef.current = null;
 
       const { channel, symbol, nSigFigs, interval } = newSubscription;
-      if (!symbol && channel !== "allMids") return;
+      if ((symbol === undefined || symbol === "") && channel !== "allMids") return;
 
       try {
         const activeSub = await client.subscribe(

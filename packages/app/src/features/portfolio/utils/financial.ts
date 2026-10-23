@@ -1,7 +1,7 @@
 export function computeMaxDrawdown(history: [number, string][]): number | null {
   if (history.length < 2) return null;
-  let peak = -Infinity,
-    maxDd = 0;
+  let maxDd = 0;
+  let peak = -Infinity;
   for (const [, v] of history) {
     const val = Number(v);
     if (!Number.isFinite(val)) continue;

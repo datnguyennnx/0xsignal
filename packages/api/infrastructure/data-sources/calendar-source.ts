@@ -1,22 +1,17 @@
-import { Context, Effect } from "effect";
+import { Effect } from "effect";
 import {
   FetchHttpClient,
   HttpClient,
   HttpClientError,
   HttpClientRequest,
 } from "effect/unstable/http";
-import type { CalendarSource, EconomicEvent } from "@0xsignal/shared";
+import type { CalendarSource } from "@0xsignal/shared";
 import { CalendarSourceError } from "../../application/calendar/contracts";
 
-export interface CalendarSourceProvider {
-  readonly source: CalendarSource;
-  readonly fetchEvents: () => Effect.Effect<readonly EconomicEvent[], CalendarSourceError>;
-}
-
-export class CalendarSources extends Context.Service<
+export {
   CalendarSources,
-  readonly CalendarSourceProvider[]
->()("CalendarSources") {}
+  type CalendarSourceProvider,
+} from "../../application/calendar/sources.contracts";
 
 const fetchText = (
   url: string,

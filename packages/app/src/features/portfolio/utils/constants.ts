@@ -8,7 +8,7 @@ export const PERIOD_LABELS: Record<PortfolioPeriod, string> = {
 };
 
 export const PERIOD_KEYS: PortfolioPeriod[] = ["day", "week", "month", "allTime"];
-export const VALID_PERIODS: readonly string[] = PERIOD_KEYS;
+const VALID_PERIODS: readonly string[] = PERIOD_KEYS;
 
 export function isPortfolioPeriod(v: string): v is PortfolioPeriod {
   return VALID_PERIODS.includes(v);

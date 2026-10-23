@@ -6,8 +6,8 @@ export const tokenize = (value: string): string[] => {
   const blocks: string[] = [];
   const placeholders: string[] = [];
 
-  const replaced = value.replace(/\\begin\{[^}]*}[\s\S]*?\\end\{[^}]*}/g, (match) => {
-    const placeholder = `__BLOCK_${blocks.length}_${Math.random().toString(36).substring(2)}__`;
+  const replaced = value.replaceAll(/\\begin\{[^}]*}[\s\S]*?\\end\{[^}]*}/g, (match) => {
+    const placeholder = `__BLOCK_${blocks.length}_${Math.random().toString(36).slice(2)}__`;
     blocks.push(match);
     placeholders.push(placeholder);
     return placeholder;

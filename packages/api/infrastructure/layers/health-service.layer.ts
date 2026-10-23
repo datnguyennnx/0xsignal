@@ -25,11 +25,14 @@ export const healthServiceLayer = Layer.effect(
 
           const result = yield* Effect.tryPromise({
             try: async () => {
-              const res = await pool.query("SELECT 1 as health");
+              const res = await pool.query<Record<string, unknown>>("SELECT 1 as health");
               return res.rows[0]?.health === 1;
             },
             catch: (error) =>
-              new HealthError({ status: 500, message: `Health check failed: ${error}` }),
+              new HealthError({
+                status: 500,
+                message: `Health check failed: ${error instanceof Error ? error.message : String(error)}`,
+              }),
           });
 
           return {

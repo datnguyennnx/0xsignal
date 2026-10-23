@@ -1,41 +1,11 @@
-import { Context, Effect, Layer } from "effect";
+import { Effect, Layer } from "effect";
 import { HttpClient } from "effect/unstable/http";
 import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
+import { WhaleSources } from "../../../application/whales/sources.contracts";
 import { WhaleConfig } from "../../config/whale.config";
-import {
-  WhaleLeaderboard,
-  whaleLeaderboardLayer,
-  type WhaleLeaderboardProvider,
-} from "./whale-leaderboard";
-import {
-  WhalePositionPoller,
-  whalePositionPollerLayer,
-  type WhalePositionPollerProvider,
-} from "./whale-position-poller";
-import {
-  WhaleTradeStream,
-  whaleTradeStreamLayer,
-  type WhaleTradeStreamProvider,
-} from "./whale-trade-stream";
-
-/** Every upstream a whale ingest pass can read from. */
-export type WhaleSourceProvider =
-  | {
-      readonly kind: "trade-stream";
-      readonly stream: WhaleTradeStreamProvider;
-    }
-  | {
-      readonly kind: "position-poller";
-      readonly poller: WhalePositionPollerProvider;
-    }
-  | {
-      readonly kind: "leaderboard";
-      readonly leaderboard: WhaleLeaderboardProvider;
-    };
-
-export class WhaleSources extends Context.Service<WhaleSources, readonly WhaleSourceProvider[]>()(
-  "WhaleSources",
-) {}
+import { WhaleLeaderboard, whaleLeaderboardLayer } from "./whale-leaderboard";
+import { WhalePositionPoller, whalePositionPollerLayer } from "./whale-position-poller";
+import { WhaleTradeStream, whaleTradeStreamLayer } from "./whale-trade-stream";
 
 /**
  * Bundles the live trade-stream provider, the REST position poller and the

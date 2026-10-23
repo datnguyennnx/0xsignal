@@ -28,6 +28,7 @@ interface HistoryOrderTableProps {
 /* Trade History (fills) */
 
 export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTableProps) {
+  const seenFills = new Map<string, number>();
   return (
     <Table>
       <TableHeader>
@@ -52,14 +53,18 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
         ) : !fills || fills.length === 0 ? (
           <TableEmptyRow colSpan={8} />
         ) : (
-          fills.map((fill, idx) => {
+          fills.map((fill) => {
             const sz = Number(fill.sz);
             const px = Number(fill.px);
             const tradeValue = sz * px;
             const fee = Number(fill.fee);
-            const cpnl = fill.closedPnl ? Number(fill.closedPnl) : null;
+            const cpnl =
+              fill.closedPnl !== undefined && fill.closedPnl !== "" ? Number(fill.closedPnl) : null;
+            const fillKey = `${fill.hash}-${fill.time}`;
+            const occurrence = (seenFills.get(fillKey) ?? 0) + 1;
+            seenFills.set(fillKey, occurrence);
             return (
-              <TableRow key={`${fill.hash}-${fill.time}-${idx}`}>
+              <TableRow key={`${fillKey}#${occurrence}`}>
                 <TableCell className={c}>{formatTime(fill.time)}</TableCell>
                 <TableCell className={`${c} font-medium`}>{fill.coin}</TableCell>
                 <TableCell className={c}>
@@ -70,12 +75,12 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
                 <TableCell className={cNum}>{formatCompactUsd(tradeValue)}</TableCell>
                 <TableCell className={cNum}>{formatCompactUsd(fee)}</TableCell>
                 <TableCell className={cNum}>
-                  {cpnl !== null ? (
+                  {cpnl === null ? (
+                    "—"
+                  ) : (
                     <span className={cpnl >= 0 ? "text-gain" : "text-loss"}>
                       {formatCompactUsd(cpnl)}
                     </span>
-                  ) : (
-                    "—"
                   )}
                 </TableCell>
               </TableRow>
@@ -126,7 +131,8 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
             const isFilled = entry.status === "filled";
 
             const remainingSz = Number(o.sz) || 0;
-            const origSz = o.origSz ? Number(o.origSz) : remainingSz;
+            const origSz =
+              o.origSz !== undefined && o.origSz !== "" ? Number(o.origSz) : remainingSz;
             const limitPx = Number(o.limitPx) || 0;
 
             const sizeDisplay = remainingSz === 0 ? "—" : fmtNum(remainingSz);
@@ -156,7 +162,7 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
                 <TableCell className={c}>{ot}</TableCell>
                 <TableCell className={`${c} font-medium`}>{o.coin}</TableCell>
                 <TableCell className={c}>
-                  {o.dir ? (
+                  {o.dir !== undefined && o.dir !== "" ? (
                     <DirDisplay dir={o.dir} />
                   ) : (
                     <DirLabel side={o.side} reduceOnly={o.reduceOnly} />
@@ -166,7 +172,7 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
                 <TableCell className={cNum}>{origSizeDisplay}</TableCell>
                 <TableCell className={cNum}>{orderValueDisplay}</TableCell>
                 <TableCell className={cNum}>{priceDisplay}</TableCell>
-                <TableCell className={c}>{o.reduceOnly ? "Yes" : "No"}</TableCell>
+                <TableCell className={c}>{o.reduceOnly === true ? "Yes" : "No"}</TableCell>
                 <TableCell className={c}>{triggerDisplay}</TableCell>
                 <TableCell className={c}>—</TableCell>
                 <TableCell className={c}>{formatStatus(entry.status)}</TableCell>

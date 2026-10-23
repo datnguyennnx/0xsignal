@@ -42,7 +42,7 @@ export function IndicatorModal({
 
   const activeByBaseId = new Map<string, ActiveIndicator[]>();
   for (const indicator of activeIndicators) {
-    const list = activeByBaseId.get(indicator.config.id) || [];
+    const list = activeByBaseId.get(indicator.config.id) ?? [];
     list.push(indicator);
     activeByBaseId.set(indicator.config.id, list);
   }
@@ -70,13 +70,12 @@ export function IndicatorModal({
     : currentIndicators;
 
   const selectedIndicator =
-    filteredIndicators.find((indicator) => indicator.id === selectedId) ||
-    filteredIndicators[0] ||
+    filteredIndicators.find((indicator) => indicator.id === selectedId) ??
+    filteredIndicators.at(0) ??
     null;
 
-  const selectedActiveIndicators = selectedIndicator
-    ? activeByBaseId.get(selectedIndicator.id) || []
-    : [];
+  const selectedActiveIndicators =
+    selectedIndicator === null ? [] : (activeByBaseId.get(selectedIndicator.id) ?? []);
 
   const handleClose = useCallback(() => {
     onOpenChange(false);
@@ -171,7 +170,9 @@ export function IndicatorModal({
                   <Input
                     id={searchId}
                     value={query}
-                    onChange={(event) => setQuery(event.target.value)}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                    }}
                     placeholder="Find indicator..."
                     className="pl-9 pr-8 bg-muted border-border h-10 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-offset-0 text-secondary"
                   />
@@ -179,7 +180,9 @@ export function IndicatorModal({
                   {query && (
                     <button
                       type="button"
-                      onClick={() => setQuery("")}
+                      onClick={() => {
+                        setQuery("");
+                      }}
                       aria-label="Clear search"
                       className="absolute right-2 top-1/2 -translate-y-1/2 size-8 flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors"
                     >
@@ -194,13 +197,15 @@ export function IndicatorModal({
               {filteredIndicators.length > 0 ? (
                 <div className="space-y-0.5">
                   {filteredIndicators.map((indicator) => {
-                    const activeCount = activeByBaseId.get(indicator.id)?.length || 0;
+                    const activeCount = activeByBaseId.get(indicator.id)?.length ?? 0;
                     const isSelected = selectedIndicator?.id === indicator.id;
 
                     return (
                       <button
                         key={indicator.id}
-                        onClick={() => setSelectedId(indicator.id)}
+                        onClick={() => {
+                          setSelectedId(indicator.id);
+                        }}
                         className={cn(
                           "w-full flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-3 sm:py-2 rounded text-xs transition-[background-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
                           isSelected
@@ -268,7 +273,9 @@ export function IndicatorModal({
                 key={`${selectedIndicator.id}-config`}
                 indicator={selectedIndicator}
                 activeIndicators={selectedActiveIndicators}
-                onApply={(params) => onAddIndicator(selectedIndicator, params)}
+                onApply={(params) => {
+                  onAddIndicator(selectedIndicator, params);
+                }}
                 onRemoveInstance={onRemoveIndicator}
               />
             ) : (

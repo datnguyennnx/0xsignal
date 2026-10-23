@@ -1,29 +1,29 @@
+import { asRecord, isUnknownArray, stringAt } from "../parse-utils";
 import { normalizeSymbol } from "./symbol";
 import type { PerpTradeAsset } from "./types";
 
 interface DexMetaResult {
   readonly meta: {
     readonly universe: ReadonlyArray<Record<string, unknown>>;
-    readonly collateralToken?: number;
+    readonly collateralToken?: number | undefined;
   };
-  readonly assetCtxs: ReadonlyArray<Record<string, string | undefined>>;
+  readonly assetCtxs: ReadonlyArray<Record<string, unknown>>;
 }
 
+const toRecords = (values: readonly unknown[]): Record<string, unknown>[] =>
+  values.map((value) => asRecord(value) ?? {});
+
 function extractDexMetaResult(raw: unknown): DexMetaResult | null {
-  if (!Array.isArray(raw) || raw.length < 2) return null;
-  const [meta, assetCtxs] = raw;
-  if (
-    !meta ||
-    typeof meta !== "object" ||
-    meta === null ||
-    !("universe" in meta) ||
-    !Array.isArray((meta as Record<string, unknown>).universe)
-  ) {
-    return null;
-  }
+  if (!isUnknownArray(raw) || raw.length < 2) return null;
+  const meta = asRecord(raw[0]);
+  if (meta === null || !isUnknownArray(meta.universe)) return null;
+  const ctxs = raw[1];
   return {
-    meta: meta as DexMetaResult["meta"],
-    assetCtxs: Array.isArray(assetCtxs) ? (assetCtxs as DexMetaResult["assetCtxs"]) : [],
+    meta: {
+      universe: toRecords(meta.universe),
+      collateralToken: typeof meta.collateralToken === "number" ? meta.collateralToken : undefined,
+    },
+    assetCtxs: isUnknownArray(ctxs) ? toRecords(ctxs) : [],
   };
 }
 
@@ -64,14 +64,14 @@ const buildPerpAsset = (
   dexIdx: number,
   isMainDex: boolean,
   dexPrefix: string | null,
-  assetCtxs: ReadonlyArray<Record<string, string | undefined>>,
+  assetCtxs: ReadonlyArray<Record<string, unknown>>,
   allMids: Record<string, string>,
   categoryMap: ReadonlyMap<string, string>,
   quoteCurrency: string,
   globalIndex: number,
 ): PerpTradeAsset | null => {
   const rawName = typeof market.name === "string" ? market.name : "";
-  if (!rawName) return null;
+  if (rawName === "") return null;
 
   const coin = normalizeCoinName(rawName);
   const isDelisted = market.isDelisted === true;
@@ -79,7 +79,7 @@ const buildPerpAsset = (
   const maxLeverage = typeof market.maxLeverage === "number" ? market.maxLeverage : 10;
 
   const assetId = isMainDex ? globalIndex : 100000 + dexIdx * 10000 + i;
-  const rawCoin = dexPrefix ? `${dexPrefix}:${coin}` : coin;
+  const rawCoin = dexPrefix === null ? coin : `${dexPrefix}:${coin}`;
 
   const category =
     categoryMap.get(normalizeSymbol(rawCoin)) ??
@@ -89,11 +89,12 @@ const buildPerpAsset = (
   const displayCategory = getDisplayCategory(category);
 
   const ctx = assetCtxs[i] ?? {};
-  const markPx = allMids[rawCoin] ?? allMids[rawName] ?? allMids[coin] ?? ctx.markPx ?? "0";
-  const prevDayPx = ctx.prevDayPx ?? "0";
-  const openInterest = ctx.openInterest ?? "0";
-  const funding = ctx.funding ?? "0";
-  const dayNtlVlm = ctx.dayNtlVlm ?? "0";
+  const markPx =
+    allMids[rawCoin] ?? allMids[rawName] ?? allMids[coin] ?? stringAt(ctx, "markPx") ?? "0";
+  const prevDayPx = stringAt(ctx, "prevDayPx") ?? "0";
+  const openInterest = stringAt(ctx, "openInterest") ?? "0";
+  const funding = stringAt(ctx, "funding") ?? "0";
+  const dayNtlVlm = stringAt(ctx, "dayNtlVlm") ?? "0";
 
   return {
     coin,

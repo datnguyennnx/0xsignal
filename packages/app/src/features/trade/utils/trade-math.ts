@@ -17,7 +17,8 @@ export function computeAccruedFunding(
   fundingRate: number | undefined,
   isLong: boolean,
 ): number {
-  if (!fundingRate || !Number.isFinite(fundingRate)) return settledFunding;
+  if (fundingRate === undefined || fundingRate === 0 || !Number.isFinite(fundingRate))
+    return settledFunding;
   const msToNext = getNextFundingMs();
   const elapsedMs = FUNDING_INTERVAL_MS - Math.min(msToNext, FUNDING_INTERVAL_MS);
   const elapsedFraction = elapsedMs / FUNDING_INTERVAL_MS;

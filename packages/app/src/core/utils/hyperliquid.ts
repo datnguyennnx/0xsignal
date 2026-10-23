@@ -7,7 +7,7 @@ export const mapToHLInterval = (interval: string): HLInterval =>
   WS_MARKET_INTERVALS.find((v) => v === interval) ?? "1h";
 
 export const getIntervalMs = (interval: string): number => {
-  const value = parseInt(interval);
+  const value = Number(interval.replace(/[a-z]$/i, ""));
   const unit = interval.slice(-1);
   const mult: Record<string, number> = {
     m: 60_000,
@@ -47,6 +47,9 @@ export interface L2BookLevel {
   n: number;
 }
 
+const asNumbers = (levels: L2BookLevel[]): { price: number; size: number }[] =>
+  levels.map((l) => ({ price: Number(l.px), size: Number(l.sz) }));
+
 export function processRawL2Levels(
   rawBids: L2BookLevel[],
   rawAsks: L2BookLevel[],
@@ -54,21 +57,19 @@ export function processRawL2Levels(
 ): OrderbookData {
   // Pre-convert string px/sz to numbers ONCE (O(N)) so the sort comparator
   // and map use direct number comparison — avoiding O(N log N) parseFloat calls.
-  const asNumbers = (levels: L2BookLevel[]) =>
-    levels.map((l) => ({ price: parseFloat(l.px), size: parseFloat(l.sz) }));
 
   // Sort: bids descending by price, asks ascending by price.
   // Map.values() iterates in insertion order (not price order) after delta
   // application, so we must sort before slicing to ensure the visible window
   // contains the correct top-of-book levels.
   const bids = asNumbers(rawBids)
-    .sort((a, b) => b.price - a.price)
+    .toSorted((a, b) => b.price - a.price)
     .slice(0, maxDepth)
-    .map((l) => ({ ...l, total: 0 }));
+    .map((l) => ({ price: l.price, size: l.size, total: 0 }));
   const asks = asNumbers(rawAsks)
-    .sort((a, b) => a.price - b.price)
+    .toSorted((a, b) => a.price - b.price)
     .slice(0, maxDepth)
-    .map((l) => ({ ...l, total: 0 }));
+    .map((l) => ({ price: l.price, size: l.size, total: 0 }));
 
   let bidTotal = 0;
   for (let i = 0; i < bids.length; i++) {

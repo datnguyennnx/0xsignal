@@ -1,40 +1,66 @@
 import type { ApiCredential } from "../../domain/exchange-credential";
 
-/**
- * Converts a timestamp DB value to ISO string.
- */
-export const ts = (v: unknown): string =>
-  v instanceof Date ? v.toISOString() : v != null ? String(v) : (v as unknown as string);
+export type CredentialRow = {
+  readonly id: string;
+  readonly account_id: string;
+  readonly user_id: string;
+  readonly credential_subtype: ApiCredential["credentialSubtype"];
+  readonly label: string;
+  readonly agent_address: string | null;
+  readonly enc_agent_key: string | null;
+  readonly enc_eoa_key: string | null;
+  readonly derivation_path: string | null;
+  readonly permissions: readonly string[] | null;
+  readonly ip_whitelist: readonly string[] | null;
+  readonly expires_at: Date | string | null;
+  readonly last_used_at: Date | string | null;
+  readonly is_active: boolean;
+  readonly is_revoked: boolean;
+  readonly revoked_at: Date | string | null;
+  readonly revoked_reason: string | null;
+  readonly rotated_from: string | null;
+  readonly encryption_version: number;
+  readonly is_verified: boolean;
+  readonly verified_at: Date | string | null;
+  readonly metadata: Record<string, unknown> | null;
+  readonly created_at: Date | string;
+  readonly updated_at: Date | string;
+};
+
+const ts = (v: Date | string | null): string => {
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === "string") return v;
+  return "";
+};
 
 /**
  * Maps a raw DB row to an ApiCredential domain type.
  */
-export function mapCredentialRow(row: unknown): ApiCredential {
-  const r = row as Record<string, unknown>;
+export function mapCredentialRow(row: CredentialRow): ApiCredential {
   return {
-    id: r.id as string,
-    accountId: r.account_id as string,
-    userId: r.user_id as string,
-    credentialSubtype: r.credential_subtype as "agent" | "eoa" | "hardware",
-    label: r.label as string,
-    agentAddress: (r.agent_address as string | undefined) ?? undefined,
-    encAgentKey: (r.enc_agent_key as string | undefined) ?? undefined,
-    encEoaKey: (r.enc_eoa_key as string | undefined) ?? undefined,
-    derivationPath: (r.derivation_path as string | undefined) ?? undefined,
-    permissions: (r.permissions as readonly string[] | undefined) ?? [],
-    ipWhitelist: (r.ip_whitelist as readonly string[] | undefined) ?? undefined,
-    expiresAt: r.expires_at != null ? ts(r.expires_at) : undefined,
-    lastUsedAt: r.last_used_at != null ? ts(r.last_used_at) : undefined,
-    isActive: r.is_active as boolean,
-    isRevoked: r.is_revoked as boolean,
-    revokedAt: r.revoked_at != null ? ts(r.revoked_at) : undefined,
-    revokedReason: (r.revoked_reason as string | undefined) ?? undefined,
-    rotatedFrom: (r.rotated_from as string | undefined) ?? undefined,
-    encryptionVersion: r.encryption_version as number,
-    isVerified: r.is_verified as boolean,
-    verifiedAt: r.verified_at != null ? ts(r.verified_at) : undefined,
-    metadata: (r.metadata as Record<string, unknown>) ?? {},
-    createdAt: ts(r.created_at),
-    updatedAt: ts(r.updated_at),
+    id: row.id,
+    accountId: row.account_id,
+    userId: row.user_id,
+    credentialSubtype: row.credential_subtype,
+    label: row.label,
+    ...(row.agent_address !== null && { agentAddress: row.agent_address }),
+    ...(row.enc_agent_key !== null && { encAgentKey: row.enc_agent_key }),
+    ...(row.enc_eoa_key !== null && { encEoaKey: row.enc_eoa_key }),
+    ...(row.derivation_path !== null && { derivationPath: row.derivation_path }),
+    permissions: row.permissions ?? [],
+    ...(row.ip_whitelist !== null && { ipWhitelist: row.ip_whitelist }),
+    ...(row.expires_at !== null && { expiresAt: ts(row.expires_at) }),
+    ...(row.last_used_at !== null && { lastUsedAt: ts(row.last_used_at) }),
+    isActive: row.is_active,
+    isRevoked: row.is_revoked,
+    ...(row.revoked_at !== null && { revokedAt: ts(row.revoked_at) }),
+    ...(row.revoked_reason !== null && { revokedReason: row.revoked_reason }),
+    ...(row.rotated_from !== null && { rotatedFrom: row.rotated_from }),
+    encryptionVersion: row.encryption_version,
+    isVerified: row.is_verified,
+    ...(row.verified_at !== null && { verifiedAt: ts(row.verified_at) }),
+    metadata: row.metadata ?? {},
+    createdAt: ts(row.created_at),
+    updatedAt: ts(row.updated_at),
   };
 }

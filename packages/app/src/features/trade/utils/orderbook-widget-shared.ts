@@ -27,7 +27,7 @@ export function shouldApplyInitialPrecisionSync({
   return userPriceScaling?.symbol !== symbol;
 }
 
-export function getEffectivePriceScaling(
+function getEffectivePriceScaling(
   userPriceScaling: PriceScalingState | null,
   symbol: string,
   scalingOptions: ScalingOptionLike[],

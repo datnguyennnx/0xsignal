@@ -1,4 +1,12 @@
 import { Effect, Schema } from "effect";
+import type {
+  CancelEntry,
+  CancelOrdersRequest,
+  OrderType,
+  PlaceOrderEntry,
+  PlaceOrderRequest,
+  UpdateLeverageRequest,
+} from "@0xsignal/shared";
 import { ExchangeService } from "../../../application/exchange/contracts";
 import { asHttpError, type HttpError } from "../error-response";
 
@@ -20,7 +28,9 @@ type BuildExchangeRoutesParams = {
   readonly mapServiceError: (error: unknown) => HttpError;
 };
 
-export const OrderTypeSchema = Schema.Union([
+// Validators are projections of the shared contract, so a missing or retyped
+// field here fails to compile.
+const OrderTypeSchema: Schema.Decoder<OrderType> = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("limit"),
     timeInForce: Schema.Literals(["GTC", "IOC", "FOK", "Alo", "FrontendMarket"]),
@@ -33,7 +43,7 @@ export const OrderTypeSchema = Schema.Union([
   }),
 ]).pipe(Schema.toTaggedUnion("kind"));
 
-export const PlaceOrderEntrySchema = Schema.Struct({
+const PlaceOrderEntrySchema: Schema.Decoder<PlaceOrderEntry> = Schema.Struct({
   symbol: Schema.String,
   side: Schema.Literals(["buy", "sell"]),
   quantity: Schema.String,
@@ -42,23 +52,23 @@ export const PlaceOrderEntrySchema = Schema.Struct({
   orderType: OrderTypeSchema,
 });
 
-export const PlaceOrderRequestSchema = Schema.Struct({
+const PlaceOrderRequestSchema: Schema.Decoder<PlaceOrderRequest> = Schema.Struct({
   orders: Schema.Array(PlaceOrderEntrySchema).pipe(Schema.mutable),
   grouping: Schema.optional(Schema.Literals(["na", "normalTpsl", "positionTpsl"])),
 });
 
-export const UpdateLeverageRequestSchema = Schema.Struct({
+const UpdateLeverageRequestSchema: Schema.Decoder<UpdateLeverageRequest> = Schema.Struct({
   symbol: Schema.String,
   isCross: Schema.Boolean,
   leverage: Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))),
 });
 
-export const CancelEntrySchema = Schema.Struct({
+const CancelEntrySchema: Schema.Decoder<CancelEntry> = Schema.Struct({
   symbol: Schema.String,
   orderId: Schema.Number,
 });
 
-export const CancelOrdersRequestSchema = Schema.Struct({
+const CancelOrdersRequestSchema: Schema.Decoder<CancelOrdersRequest> = Schema.Struct({
   cancels: Schema.Array(CancelEntrySchema).pipe(Schema.mutable),
 });
 
@@ -75,11 +85,11 @@ export const buildExchangeRoutes = ({
     path: "/api/exchange/order",
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService, userId?: string) =>
       Effect.gen(function* () {
-        if (!userId) {
+        if (userId === undefined || userId === "") {
           return yield* Effect.fail(asHttpError(401, "Authentication required"));
         }
 
-        const raw = yield* Effect.tryPromise({
+        const raw: unknown = yield* Effect.tryPromise({
           try: () => request.json(),
           catch: () => asHttpError(400, "Invalid request body"),
         });
@@ -98,11 +108,11 @@ export const buildExchangeRoutes = ({
     path: "/api/exchange/leverage",
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService, userId?: string) =>
       Effect.gen(function* () {
-        if (!userId) {
+        if (userId === undefined || userId === "") {
           return yield* Effect.fail(asHttpError(401, "Authentication required"));
         }
 
-        const raw = yield* Effect.tryPromise({
+        const raw: unknown = yield* Effect.tryPromise({
           try: () => request.json(),
           catch: () => asHttpError(400, "Invalid request body"),
         });
@@ -121,11 +131,11 @@ export const buildExchangeRoutes = ({
     path: "/api/exchange/cancel",
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService, userId?: string) =>
       Effect.gen(function* () {
-        if (!userId) {
+        if (userId === undefined || userId === "") {
           return yield* Effect.fail(asHttpError(401, "Authentication required"));
         }
 
-        const raw = yield* Effect.tryPromise({
+        const raw: unknown = yield* Effect.tryPromise({
           try: () => request.json(),
           catch: () => asHttpError(400, "Invalid request body"),
         });

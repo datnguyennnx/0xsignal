@@ -1,31 +1,7 @@
 // Public API surface — named exports only, no wildcard re-exports
 export type { MarketPrice, UserFill, PlaceOrderRequest, UpdateLeverageRequest } from "./types";
-export { fetchJson, ApiError, NetworkError } from "./client";
-export { UnauthenticatedError } from "@/lib/api-base";
-export {
-  getMarkets,
-  getCandles,
-  getRecentChartLane,
-  getTicker,
-  getOrderbook,
-  getTradeAnnotation,
-  getMarketPrice,
-} from "./market";
-export {
-  getUserClearinghouseState,
-  getUserSpotClearinghouseState,
-  getUserFrontendOpenOrders,
-  getUserHistoricalOrders,
-  getUserFills,
-  getPortfolio,
-  getUserVaultEquities,
-  getUserFunding,
-} from "./user";
-export { exchangeCode, getAuthMe, logout, updateProfile, refreshToken } from "./auth";
-export { createCredential, listWallets, createWallet } from "./credentials";
-export { placeOrder, updateLeverage, cancelOrders } from "./exchange";
-export { getCalendar, getUpcomingCalendar } from "./calendar";
-export { getPositions } from "./whales";
+export { ApiError } from "@/lib/api-error";
+export { deriveAgentAddress } from "./credentials";
 
 import {
   getMarkets,

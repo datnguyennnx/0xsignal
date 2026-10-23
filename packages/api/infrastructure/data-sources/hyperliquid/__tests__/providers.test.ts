@@ -1,6 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { Effect, Layer } from "effect";
-import type { InfoClient } from "@nktkas/hyperliquid";
+import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 import {
   getCandleSnapshot,
   getAllMids,
@@ -11,17 +11,25 @@ import {
 import { HyperliquidClient } from "../client";
 
 const createMockInfoClient = () => ({
-  candleSnapshot: vi.fn(),
-  meta: vi.fn(),
-  metaAndAssetCtxs: vi.fn(),
-  allMids: vi.fn(),
-  perpCategories: vi.fn(),
-  l2Book: vi.fn(),
-  perpAnnotation: vi.fn(),
+  candleSnapshot: vi.fn<InfoClient["candleSnapshot"]>(),
+  meta: vi.fn<InfoClient["meta"]>(),
+  metaAndAssetCtxs: vi.fn<InfoClient["metaAndAssetCtxs"]>(),
+  allMids: vi.fn<InfoClient["allMids"]>(),
+  perpCategories: vi.fn<InfoClient["perpCategories"]>(),
+  l2Book: vi.fn<InfoClient["l2Book"]>(),
+  perpAnnotation: vi.fn<InfoClient["perpAnnotation"]>(),
 });
 
 // Fresh mock for each test using vi.restoreAllMocks in beforeEach
 let mockInfoClient: ReturnType<typeof createMockInfoClient>;
+
+const makeClientLayer = () =>
+  Layer.succeed(
+    HyperliquidClient,
+    HyperliquidClient.of({
+      info: Object.assign(new InfoClient({ transport: new HttpTransport() }), mockInfoClient),
+    }),
+  );
 
 describe("Hyperliquid Providers", () => {
   beforeEach(() => {
@@ -36,10 +44,7 @@ describe("Hyperliquid Providers", () => {
     mockInfoClient.allMids.mockResolvedValue({});
     mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [] }, []]);
 
-    const clientLayer = Layer.succeed(
-      HyperliquidClient,
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
-    );
+    const clientLayer = makeClientLayer();
 
     const program = getCandleSnapshot("BTC", "1m", 0, 2000);
     const result = await Effect.runPromise(program.pipe(Effect.provide(clientLayer)));
@@ -57,10 +62,7 @@ describe("Hyperliquid Providers", () => {
   it("should wrap HL SDK errors into HyperliquidError", async () => {
     mockInfoClient.allMids.mockRejectedValue(new Error("Rate Limit"));
 
-    const clientLayer = Layer.succeed(
-      HyperliquidClient,
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
-    );
+    const clientLayer = makeClientLayer();
 
     const program = getAllMids().pipe(Effect.provide(clientLayer));
 
@@ -83,10 +85,7 @@ describe("Hyperliquid Providers", () => {
     ]);
     mockInfoClient.allMids.mockResolvedValue({ BTC: "101.25" });
 
-    const clientLayer = Layer.succeed(
-      HyperliquidClient,
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
-    );
+    const clientLayer = makeClientLayer();
 
     const result = await Effect.runPromise(getTicker("btc").pipe(Effect.provide(clientLayer)));
 
@@ -106,10 +105,7 @@ describe("Hyperliquid Providers", () => {
     mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [{ name: "BTC" }] }, [{}]]);
     mockInfoClient.allMids.mockResolvedValue({ BTC: "101.25" });
 
-    const clientLayer = Layer.succeed(
-      HyperliquidClient,
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
-    );
+    const clientLayer = makeClientLayer();
 
     await expect(
       Effect.runPromise(getTicker("XRP").pipe(Effect.provide(clientLayer))),
@@ -125,10 +121,7 @@ describe("Hyperliquid Providers", () => {
       levels: [[], []],
     });
 
-    const clientLayer = Layer.succeed(
-      HyperliquidClient,
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
-    );
+    const clientLayer = makeClientLayer();
 
     const result = await Effect.runPromise(
       getOrderBook("eth", 3).pipe(Effect.provide(clientLayer)),
@@ -148,10 +141,7 @@ describe("Hyperliquid Providers", () => {
       levels: [[], []],
     });
 
-    const clientLayer = Layer.succeed(
-      HyperliquidClient,
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
-    );
+    const clientLayer = makeClientLayer();
 
     const result = await Effect.runPromise(
       getOrderBook("DEX:clusdt", 4).pipe(Effect.provide(clientLayer)),
@@ -171,10 +161,7 @@ describe("Hyperliquid Providers", () => {
       levels: [[], []],
     });
 
-    const clientLayer = Layer.succeed(
-      HyperliquidClient,
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
-    );
+    const clientLayer = makeClientLayer();
 
     const result = await Effect.runPromise(getOrderBook("btc").pipe(Effect.provide(clientLayer)));
 
@@ -190,10 +177,7 @@ describe("Hyperliquid Providers", () => {
       description: "Major market",
     });
 
-    const clientLayer = Layer.succeed(
-      HyperliquidClient,
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
-    );
+    const clientLayer = makeClientLayer();
 
     const result = await Effect.runPromise(
       getTradeAnnotation("sol").pipe(Effect.provide(clientLayer)),
@@ -212,10 +196,7 @@ describe("Hyperliquid Providers", () => {
     mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [{ name: "dex:CL" }] }, []]);
     mockInfoClient.perpAnnotation.mockResolvedValue({ category: "major" });
 
-    const clientLayer = Layer.succeed(
-      HyperliquidClient,
-      HyperliquidClient.of({ info: mockInfoClient as unknown as InfoClient }),
-    );
+    const clientLayer = makeClientLayer();
 
     const result = await Effect.runPromise(
       getTradeAnnotation("DEX:clusdt").pipe(Effect.provide(clientLayer)),

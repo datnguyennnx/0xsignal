@@ -35,7 +35,7 @@ export interface PlaceOrderEntry {
 
 export interface PlaceOrderRequest {
   readonly orders: PlaceOrderEntry[];
-  readonly grouping?: "na" | "normalTpsl" | "positionTpsl";
+  readonly grouping?: "na" | "normalTpsl" | "positionTpsl" | undefined;
 }
 
 // Update Leverage

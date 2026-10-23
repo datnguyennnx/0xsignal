@@ -4,16 +4,48 @@ import { INITIAL_LAYOUT, LAYOUT_STORAGE_KEY } from "@/features/asset-detail/util
 import { resolveCollisions, clampToMin } from "@/features/asset-detail/utils/collision";
 import type { LayoutItem } from "@/features/asset-detail/utils/types";
 
-// Structured Clone helper with JSON fallback (same as original layout-store.ts)
-const cloneDeep = <T>(value: T): T => {
-  try {
-    return structuredClone(value);
-  } catch {
-    return JSON.parse(JSON.stringify(value));
-  }
-};
-
 type PersistedLayout = { items: LayoutItem[] };
+
+interface PersistedLayoutState {
+  state: PersistedLayout;
+  version?: number;
+}
+
+function isLayoutItem(value: unknown): value is LayoutItem {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "i" in value &&
+    typeof value.i === "string" &&
+    "x" in value &&
+    typeof value.x === "number" &&
+    "y" in value &&
+    typeof value.y === "number" &&
+    "w" in value &&
+    typeof value.w === "number" &&
+    "h" in value &&
+    typeof value.h === "number"
+  );
+}
+
+function isLayoutItems(value: unknown): value is LayoutItem[] {
+  return Array.isArray(value) && value.every((item) => isLayoutItem(item));
+}
+
+function isPersistedLayout(value: unknown): value is PersistedLayout {
+  return (
+    typeof value === "object" && value !== null && "items" in value && isLayoutItems(value.items)
+  );
+}
+
+function isPersistedLayoutState(value: unknown): value is PersistedLayoutState {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "state" in value &&
+    isPersistedLayout(value.state)
+  );
+}
 
 const jsonStorage = createJSONStorage<PersistedLayout>(() => localStorage);
 
@@ -24,9 +56,10 @@ const layoutStorage: PersistStorage<PersistedLayout> | undefined = jsonStorage
       ...jsonStorage,
       getItem: (name) => {
         const value: unknown = jsonStorage.getItem(name);
-        return Array.isArray(value)
-          ? { state: value as unknown as PersistedLayout, version: 0 }
-          : (value as ReturnType<typeof jsonStorage.getItem>);
+        if (Array.isArray(value)) {
+          return isLayoutItems(value) ? { state: { items: value }, version: 0 } : null;
+        }
+        return isPersistedLayoutState(value) ? value : null;
       },
     }
   : undefined;
@@ -48,7 +81,7 @@ export interface LayoutStoreState {
 export const useLayoutStore = create<LayoutStoreState>()(
   persist(
     (set) => ({
-      items: cloneDeep(INITIAL_LAYOUT),
+      items: structuredClone(INITIAL_LAYOUT),
 
       updateLayoutItem: (id: string, patch: Partial<LayoutItem>) => {
         set((state) => ({
@@ -62,7 +95,7 @@ export const useLayoutStore = create<LayoutStoreState>()(
         interactionType?: "drag" | "resize",
         originalItem?: LayoutItem,
       ) => {
-        const clamped = items.map(clampToMin);
+        const clamped = items.map((item) => clampToMin(item));
         const resolved = resolveCollisions(clamped, activeItemId, interactionType, originalItem);
         set({ items: resolved });
       },
@@ -77,18 +110,20 @@ export const useLayoutStore = create<LayoutStoreState>()(
         } catch {
           // ignore
         }
-        set({ items: cloneDeep(INITIAL_LAYOUT) });
+        set({ items: structuredClone(INITIAL_LAYOUT) });
       },
     }),
     {
       name: LAYOUT_STORAGE_KEY,
-      version: 1,
+      version: 2,
       storage: layoutStorage,
       partialize: (state) => ({ items: state.items }),
-      migrate: (persisted, _version) => {
-        if (Array.isArray(persisted)) return { items: persisted as LayoutItem[] };
-        const items = (persisted as PersistedLayout | undefined)?.items;
-        return Array.isArray(items) ? { items } : { items: cloneDeep(INITIAL_LAYOUT) };
+      migrate: (persisted, version) => {
+        // v1 stored the stacked layout (positions as a full-width second row); its
+        // geometry cannot be mapped onto the viewport-locked columns, so reset it.
+        if (version < 2) return { items: structuredClone(INITIAL_LAYOUT) };
+        if (isPersistedLayout(persisted)) return { items: persisted.items };
+        return { items: structuredClone(INITIAL_LAYOUT) };
       },
     },
   ),

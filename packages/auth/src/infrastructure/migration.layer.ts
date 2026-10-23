@@ -7,6 +7,20 @@ import * as PgClientModule from "@effect/sql-pg/PgClient";
 import { PostgresConnectionPool } from "./db/postgres";
 import { runSqlMigrations } from "./migrations/sql-migration.runner";
 
+const runCleanup = (pg: import("pg").Pool) =>
+  Effect.tryPromise(async () => {
+    await pg.query("BEGIN");
+    try {
+      await pg.query("DELETE FROM oauth_states WHERE expires_at < NOW()");
+      await pg.query("DELETE FROM auth_codes WHERE expires_at < NOW()");
+      await pg.query("DELETE FROM refresh_token_blocklist WHERE expires_at < NOW()");
+      await pg.query("COMMIT");
+    } catch (e) {
+      await pg.query("ROLLBACK");
+      throw e;
+    }
+  }).pipe(Effect.orDie);
+
 export const MigrationLayer: Layer.Layer<never, never, PostgresConnectionPool | FileSystem | Path> =
   Layer.effectDiscard(
     Effect.gen(function* () {
@@ -26,20 +40,6 @@ export const MigrationLayer: Layer.Layer<never, never, PostgresConnectionPool | 
       yield* Effect.logInfo(
         `Auth SQL migrations applied: ${result.map(([id, name]) => `${id}_${name}`).join(", ")}`,
       );
-
-      const runCleanup = (pool: import("pg").Pool) =>
-        Effect.tryPromise(async () => {
-          await pool.query("BEGIN");
-          try {
-            await pool.query("DELETE FROM oauth_states WHERE expires_at < NOW()");
-            await pool.query("DELETE FROM auth_codes WHERE expires_at < NOW()");
-            await pool.query("DELETE FROM refresh_token_blocklist WHERE expires_at < NOW()");
-            await pool.query("COMMIT");
-          } catch (e) {
-            await pool.query("ROLLBACK");
-            throw e;
-          }
-        }).pipe(Effect.orDie);
 
       yield* runCleanup(pool);
 

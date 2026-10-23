@@ -1,7 +1,9 @@
+/// <reference lib="es2023.array" />
 import { Effect, Match } from "effect";
 import { SubscriptionClient, TransportError } from "@nktkas/hyperliquid";
 import type { ISubscription } from "@nktkas/hyperliquid";
 import type { HyperliquidAggregatedAsset } from "../../data-sources/hyperliquid/types";
+import { asRecord, isUnknownArray } from "../../data-sources/parse-utils";
 import {
   normalizeAllMidsData,
   normalizeCandleData,
@@ -13,6 +15,30 @@ import { type Bucket, type MarketWsConnectionData, WebSocketSubscribeError } fro
 import type { ServerWebSocket } from "bun";
 import { marketWsLog } from "./logging";
 
+interface L2Level {
+  readonly px: string;
+  readonly sz: string;
+  readonly n: number;
+}
+
+const isL2Level = (value: unknown): value is L2Level => {
+  const record = asRecord(value);
+  return (
+    record !== null &&
+    typeof record.px === "string" &&
+    typeof record.sz === "string" &&
+    typeof record.n === "number"
+  );
+};
+
+const sideLevels = (value: unknown): L2Level[] =>
+  isUnknownArray(value) ? value.filter((level) => isL2Level(level)) : [];
+
+const toBookLevels = (levels: unknown[]): [L2Level[], L2Level[]] => [
+  sideLevels(levels[0]),
+  sideLevels(levels[1]),
+];
+
 /**
  * Merge fast (5-level, 0.5s) and slow (20-level, 5s) orderbook levels
  * into a single combined snapshot. Fast levels are more up-to-date and
@@ -22,10 +48,10 @@ import { marketWsLog } from "./logging";
  * @returns merged levels sliced to maxDepth
  */
 function mergeL2Levels(
-  fast: readonly [unknown[], unknown[]],
-  slow: readonly [unknown[], unknown[]],
+  fast: readonly [L2Level[], L2Level[]],
+  slow: readonly [L2Level[], L2Level[]],
   maxDepth: number,
-): [unknown[], unknown[]] {
+): [L2Level[], L2Level[]] {
   return [
     mergeLevelSide(fast[0], slow[0], maxDepth, false), // bids: descending price
     mergeLevelSide(fast[1], slow[1], maxDepth, true), // asks: ascending price
@@ -38,28 +64,26 @@ function mergeL2Levels(
  * and sliced to maxDepth.
  */
 function mergeLevelSide(
-  fast: readonly unknown[],
-  slow: readonly unknown[],
+  fast: readonly L2Level[],
+  slow: readonly L2Level[],
   maxDepth: number,
   ascending: boolean,
-): unknown[] {
-  const map = new Map<string, { px: string; sz: string; n: number }>();
+): L2Level[] {
+  const map = new Map<string, L2Level>();
 
   // Insert slow first (provides deep book)
-  for (let i = 0; i < slow.length; i++) {
-    const level = slow[i] as { px: string; sz: string; n: number };
+  for (const level of slow) {
     map.set(level.px, level);
   }
 
   // Insert fast second — overwrites slow at same price with fresher data
-  for (let i = 0; i < fast.length; i++) {
-    const level = fast[i] as { px: string; sz: string; n: number };
+  for (const level of fast) {
     map.set(level.px, level);
   }
 
   // Sort by price: descending for bids, ascending for asks
-  const sorted = [...map.values()].sort((a, b) => {
-    return ascending ? parseFloat(a.px) - parseFloat(b.px) : parseFloat(b.px) - parseFloat(a.px);
+  const sorted = [...map.values()].toSorted((a, b) => {
+    return ascending ? Number(a.px) - Number(b.px) : Number(b.px) - Number(a.px);
   });
 
   return sorted.slice(0, maxDepth);
@@ -76,49 +100,52 @@ export function subscribeUpstream(
   let internalSymbol = subscription.symbol;
   const subSymbol = subscription.symbol;
 
-  const resolveSymbol =
-    aggregatedMarketsPromise && subSymbol
-      ? Effect.tryPromise({
-          try: () => aggregatedMarketsPromise,
-          catch: (error) =>
-            new WebSocketSubscribeError({
-              message: `Failed to resolve markets for "${subSymbol}": ${error instanceof Error ? error.message : String(error)}`,
-              symbol: subSymbol,
-            }),
-        }).pipe(
-          Effect.flatMap((markets) => {
-            if (!markets) return Effect.succeed(undefined);
-            const subUpper = subSymbol.toUpperCase();
-            const asset: HyperliquidAggregatedAsset | undefined = markets.find(
-              (m) => m.rawCoin === subSymbol || m.rawCoin.toUpperCase() === subUpper,
-            );
-            if (!asset) {
-              return Effect.fail(
-                new WebSocketSubscribeError({
-                  message: `Cannot subscribe to WebSocket for "${subSymbol}": not found in any market universe (perp, spot, or outcome).`,
-                  symbol: subSymbol,
-                }),
-              );
-            }
-            internalSymbol = asset.marketType === "spot" ? asset.name : asset.rawCoin;
-            return Effect.succeed(undefined);
-          }),
-          Effect.tapError((error) =>
-            Effect.sync(() => {
-              marketWsLog(
-                "symbol_resolution_failed",
-                {
-                  symbol: subSymbol,
-                  error: error instanceof Error ? error.message : String(error),
-                },
-                "warn",
-              );
-            }),
-          ),
-        )
-      : Effect.succeed(undefined);
+  const resolveSymbol = (): Effect.Effect<void, WebSocketSubscribeError> => {
+    const symbol = subSymbol;
+    if (aggregatedMarketsPromise === undefined || symbol === undefined || symbol === "") {
+      return Effect.void;
+    }
 
-  return resolveSymbol.pipe(
+    return Effect.tryPromise({
+      try: () => aggregatedMarketsPromise,
+      catch: (error) =>
+        new WebSocketSubscribeError({
+          message: `Failed to resolve markets for "${symbol}": ${error instanceof Error ? error.message : String(error)}`,
+          symbol,
+        }),
+    }).pipe(
+      Effect.flatMap((markets) => {
+        const subUpper = symbol.toUpperCase();
+        const asset: HyperliquidAggregatedAsset | undefined = markets.find(
+          (m) => m.rawCoin === symbol || m.rawCoin.toUpperCase() === subUpper,
+        );
+        if (!asset) {
+          return Effect.fail(
+            new WebSocketSubscribeError({
+              message: `Cannot subscribe to WebSocket for "${symbol}": not found in any market universe (perp, spot, or outcome).`,
+              symbol,
+            }),
+          );
+        }
+        internalSymbol = asset.marketType === "spot" ? asset.name : asset.rawCoin;
+        return Effect.void;
+      }),
+      Effect.tapError((error) =>
+        Effect.sync(() => {
+          marketWsLog(
+            "symbol_resolution_failed",
+            {
+              symbol,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            "warn",
+          );
+        }),
+      ),
+    );
+  };
+
+  return resolveSymbol().pipe(
     Effect.flatMap(() =>
       Match.value(subscription.channel).pipe(
         Match.when("candle", () =>
@@ -164,10 +191,10 @@ export function subscribeUpstream(
               const maxDepth = subscription.depth ?? 20;
 
               // Shared mutable state for the hybrid subscription
-              const fastSnapshot: { current: [unknown[], unknown[]] | null } = { current: null };
-              const slowSnapshot: { current: [unknown[], unknown[]] | null } = { current: null };
+              const fastSnapshot: { current: [L2Level[], L2Level[]] | null } = { current: null };
+              const slowSnapshot: { current: [L2Level[], L2Level[]] | null } = { current: null };
               const combinedSnapshot: {
-                current: { levels: [unknown[], unknown[]] } | null;
+                current: { levels: [L2Level[], L2Level[]] } | null;
               } = { current: null };
 
               /**
@@ -179,20 +206,7 @@ export function subscribeUpstream(
 
                 const merged = mergeL2Levels(fastSnapshot.current, slowSnapshot.current, maxDepth);
 
-                if (!combinedSnapshot.current) {
-                  // First merged snapshot — emit full snapshot
-                  combinedSnapshot.current = { levels: merged };
-                  broadcast(
-                    bucket,
-                    {
-                      type: "market",
-                      channel: "l2Book",
-                      nSigFigs,
-                      data: { snapshot: { levels: merged } },
-                    },
-                    detach,
-                  );
-                } else {
+                if (combinedSnapshot.current) {
                   // Compute delta against current combined snapshot
                   const prev = combinedSnapshot.current;
                   const delta = computeL2BookDelta(prev, { levels: merged });
@@ -225,6 +239,19 @@ export function subscribeUpstream(
 
                   // Update combined snapshot in-place
                   combinedSnapshot.current.levels = merged;
+                } else {
+                  // First merged snapshot — emit full snapshot
+                  combinedSnapshot.current = { levels: merged };
+                  broadcast(
+                    bucket,
+                    {
+                      type: "market",
+                      channel: "l2Book",
+                      nSigFigs,
+                      data: { snapshot: { levels: merged } },
+                    },
+                    detach,
+                  );
                 }
               };
 
@@ -237,56 +264,47 @@ export function subscribeUpstream(
                 onSubscriptionError?.(error);
               };
 
-              // Subscribe to fast (5 levels, 0.5s) — captures near-spread levels
-              const fastPromise = subscriptionClient.l2Book(
-                { coin, nSigFigs, fast: true },
-                (event) => {
-                  // Guard: server dispatches ALL l2Book events to ALL listeners
-                  // on the same channel. Only accept events tagged as fast.
-                  if (!event.fast) return;
-                  const rawLevels = normalizeL2BookData(event).levels;
-                  fastSnapshot.current = [
-                    Array.isArray(rawLevels?.[0]) ? rawLevels[0] : [],
-                    Array.isArray(rawLevels?.[1]) ? rawLevels[1] : [],
-                  ] as [unknown[], unknown[]];
-                  mergeAndBroadcast();
-                },
-                { onError },
-              );
+              // Subscribe one leg at a time: a failing fast leg must not leave
+              // an unawaited slow leg behind.
+              const subscribeLegs = async (): Promise<ISubscription> => {
+                const fastSub = await subscriptionClient.l2Book(
+                  { coin, nSigFigs, fast: true },
+                  (event) => {
+                    // Guard: server dispatches ALL l2Book events to ALL listeners
+                    // on the same channel. Only accept events tagged as fast.
+                    if (!event.fast) return;
+                    fastSnapshot.current = toBookLevels(normalizeL2BookData(event).levels);
+                    mergeAndBroadcast();
+                  },
+                  { onError },
+                );
 
-              // Subscribe to slow (20 levels, 5s) — provides full depth
-              const slowPromise = subscriptionClient.l2Book(
-                { coin, nSigFigs, fast: false },
-                (event) => {
-                  // Guard: server dispatches ALL l2Book events to ALL listeners
-                  // on the same channel. Only accept events NOT tagged as fast.
-                  if (event.fast) return;
-                  const rawLevels = normalizeL2BookData(event).levels;
-                  slowSnapshot.current = [
-                    Array.isArray(rawLevels?.[0]) ? rawLevels[0] : [],
-                    Array.isArray(rawLevels?.[1]) ? rawLevels[1] : [],
-                  ] as [unknown[], unknown[]];
-                  mergeAndBroadcast();
-                },
-                { onError },
-              );
+                try {
+                  const slowSub = await subscriptionClient.l2Book(
+                    { coin, nSigFigs, fast: false },
+                    (event) => {
+                      // Guard: server dispatches ALL l2Book events to ALL listeners
+                      // on the same channel. Only accept events NOT tagged as fast.
+                      if (event.fast) return;
+                      slowSnapshot.current = toBookLevels(normalizeL2BookData(event).levels);
+                      mergeAndBroadcast();
+                    },
+                    { onError },
+                  );
 
-              // Return composite subscription that unsubscribes both.
-              // Subscribe sequentially: if slow fails, fast is cleaned up.
-              return fastPromise.then((fastSub) =>
-                slowPromise
-                  .then((slowSub) => ({
-                    unsubscribe: () =>
-                      Promise.allSettled([fastSub.unsubscribe(), slowSub.unsubscribe()]).then(
-                        () => {},
-                      ),
-                  }))
-                  .catch((e: unknown) => {
-                    // Fast subscribed but slow failed — clean up fast to avoid leak
-                    fastSub.unsubscribe().catch(() => {});
-                    throw e;
-                  }),
-              );
+                  return {
+                    unsubscribe: async () => {
+                      await Promise.allSettled([fastSub.unsubscribe(), slowSub.unsubscribe()]);
+                    },
+                  };
+                } catch (error) {
+                  // Fast subscribed but slow failed — clean up fast to avoid leak
+                  await Promise.allSettled([fastSub.unsubscribe()]);
+                  throw error;
+                }
+              };
+
+              return subscribeLegs();
             },
             catch: (error) =>
               new WebSocketSubscribeError({
@@ -332,15 +350,17 @@ export function subscribeUpstream(
         Match.when("allMids", () =>
           Effect.tryPromise({
             try: () => {
-              const subFn = subscription.dex
-                ? (
-                    listener: (event: unknown) => void,
-                    options?: { onError?: (error: TransportError) => void },
-                  ) => subscriptionClient.allMids({ dex: subscription.dex }, listener, options)
-                : (
-                    listener: (event: unknown) => void,
-                    options?: { onError?: (error: TransportError) => void },
-                  ) => subscriptionClient.allMids(listener, options);
+              const dex = subscription.dex;
+              const subFn =
+                dex !== undefined && dex !== ""
+                  ? (
+                      listener: (event: unknown) => void,
+                      options?: { onError?: (error: TransportError) => void },
+                    ) => subscriptionClient.allMids({ dex }, listener, options)
+                  : (
+                      listener: (event: unknown) => void,
+                      options?: { onError?: (error: TransportError) => void },
+                    ) => subscriptionClient.allMids(listener, options);
 
               return subFn(
                 (event) => {
@@ -383,7 +403,7 @@ export function subscribeUpstream(
  * Reusable Map for delta computation to avoid GC pressure on every tick.
  * Safe because all calls are serial on the same event loop (single subscription callback).
  */
-const deltaMap = new Map<string, { px: string; sz: string; n: number }>();
+const deltaMap = new Map<string, L2Level>();
 
 /**
  * Compute an L2 orderbook delta between two snapshots.
@@ -394,11 +414,11 @@ const deltaMap = new Map<string, { px: string; sz: string; n: number }>();
  * Reuses a single Map across calls instead of allocating per tick.
  */
 function computeL2BookDelta(
-  prev: { levels: readonly [unknown[], unknown[]] },
-  curr: { levels: readonly [unknown[], unknown[]] },
+  prev: { levels: readonly [L2Level[], L2Level[]] },
+  curr: { levels: readonly [L2Level[], L2Level[]] },
 ): {
-  changedBids: readonly unknown[];
-  changedAsks: readonly unknown[];
+  changedBids: readonly L2Level[];
+  changedAsks: readonly L2Level[];
   replace: boolean;
 } {
   const changedBids = computeLevelChanges(prev.levels[0], curr.levels[0]);
@@ -421,27 +441,25 @@ function computeL2BookDelta(
  * O(n) — single pass per array.
  */
 function computeLevelChanges(
-  prev: readonly unknown[],
-  curr: readonly unknown[],
-): readonly unknown[] {
+  prev: readonly L2Level[],
+  curr: readonly L2Level[],
+): readonly L2Level[] {
   // Early exit — no prev data
   if (prev.length === 0) {
-    return curr.slice() as unknown[];
+    return curr.slice();
   }
 
   deltaMap.clear();
 
   // Index prev levels by price
-  for (let i = 0; i < prev.length; i++) {
-    const level = prev[i] as { px: string; sz: string; n: number };
+  for (const level of prev) {
     deltaMap.set(level.px, level);
   }
 
-  const changed: unknown[] = [];
+  const changed: L2Level[] = [];
 
   // Compare current levels against prev — single pass
-  for (let i = 0; i < curr.length; i++) {
-    const level = curr[i] as { px: string; sz: string; n: number };
+  for (const level of curr) {
     const prevLevel = deltaMap.get(level.px);
     if (!prevLevel || prevLevel.sz !== level.sz) {
       changed.push(level);

@@ -4,34 +4,41 @@ import { AuthService } from "../application/auth.service";
 import { withAuth } from "../presentation/require-auth";
 import { Session } from "../domain/session";
 import { TokenExpired } from "../domain/errors";
-import type { UserId } from "../domain/user";
-import type { OAuthProvider } from "../domain/oauth-account";
+import { makeUserId } from "../domain/user";
 
-const mockUserId = "user-1" as unknown as UserId;
+type AuthServiceShape = (typeof AuthService)["Service"];
+
+const mockUserId = makeUserId("user-1");
 const mockSession: Session = {
   userId: mockUserId,
-  provider: "google" as OAuthProvider,
+  provider: "google",
   jti: "jti-1",
 };
 
+const makeAuthServiceMock = () => ({
+  getAuthorizationUrl: vi.fn<AuthServiceShape["getAuthorizationUrl"]>(),
+  handleCallback: vi.fn<AuthServiceShape["handleCallback"]>(),
+  verifyToken: vi.fn<AuthServiceShape["verifyToken"]>(),
+  refreshTokens: vi.fn<AuthServiceShape["refreshTokens"]>(),
+  logout: vi.fn<AuthServiceShape["logout"]>(),
+});
+
+const makeHandlerMock = () =>
+  vi
+    .fn<(session: Session) => Effect.Effect<Response>>()
+    .mockImplementation((session: Session) =>
+      Effect.succeed(new Response(JSON.stringify({ userId: session.userId }), { status: 200 })),
+    );
+
 describe("withAuth guard", () => {
   it("extracts Bearer token and returns session on success", async () => {
-    const mockAuthService = {
-      getAuthorizationUrl: vi.fn(),
-      handleCallback: vi.fn(),
-      verifyToken: vi.fn().mockReturnValue(Effect.succeed(mockSession)),
-      refreshTokens: vi.fn(),
-      logout: vi.fn(),
-    };
+    const mockAuthService = makeAuthServiceMock();
+    mockAuthService.verifyToken.mockReturnValue(Effect.succeed(mockSession));
 
     const TestLayer = Layer.succeed(AuthService, mockAuthService);
     const runtime = ManagedRuntime.make(TestLayer);
 
-    const handler = vi
-      .fn()
-      .mockImplementation((session: Session) =>
-        Effect.succeed(new Response(JSON.stringify({ userId: session.userId }), { status: 200 })),
-      );
+    const handler = makeHandlerMock();
 
     const request = new Request("http://localhost/api/auth/me", {
       headers: { Authorization: "Bearer valid-token" },
@@ -41,25 +48,19 @@ describe("withAuth guard", () => {
     const result = await runtime.runPromise(guard(request));
 
     expect(result.status).toBe(200);
-    const body = await result.json();
-    expect(body.userId).toBe("user-1");
+    const body: unknown = await result.json();
+    expect(body).toMatchObject({ userId: "user-1" });
     expect(mockAuthService.verifyToken).toHaveBeenCalledWith("valid-token");
     expect(handler).toHaveBeenCalledWith(mockSession);
   });
 
   it("returns 401 when no token is present", async () => {
-    const mockAuthService = {
-      getAuthorizationUrl: vi.fn(),
-      handleCallback: vi.fn(),
-      verifyToken: vi.fn(),
-      refreshTokens: vi.fn(),
-      logout: vi.fn(),
-    };
+    const mockAuthService = makeAuthServiceMock();
 
     const TestLayer = Layer.succeed(AuthService, mockAuthService);
     const runtime = ManagedRuntime.make(TestLayer);
 
-    const handler = vi.fn();
+    const handler = makeHandlerMock();
     const request = new Request("http://localhost/api/auth/me");
     // No Authorization header
 
@@ -67,24 +68,19 @@ describe("withAuth guard", () => {
     const result = await runtime.runPromise(guard(request));
 
     expect(result.status).toBe(401);
-    const body = await result.json();
-    expect(body.error).toBe("Unauthorized");
+    const body: unknown = await result.json();
+    expect(body).toMatchObject({ error: "Unauthorized" });
     expect(handler).not.toHaveBeenCalled();
   });
 
   it("returns 401 when token is expired", async () => {
-    const mockAuthService = {
-      getAuthorizationUrl: vi.fn(),
-      handleCallback: vi.fn(),
-      verifyToken: vi.fn().mockReturnValue(Effect.fail(new TokenExpired())),
-      refreshTokens: vi.fn(),
-      logout: vi.fn(),
-    };
+    const mockAuthService = makeAuthServiceMock();
+    mockAuthService.verifyToken.mockReturnValue(Effect.fail(new TokenExpired()));
 
     const TestLayer = Layer.succeed(AuthService, mockAuthService);
     const runtime = ManagedRuntime.make(TestLayer);
 
-    const handler = vi.fn();
+    const handler = makeHandlerMock();
     const request = new Request("http://localhost/api/auth/me", {
       headers: { Authorization: "Bearer expired-token" },
     });
@@ -97,19 +93,14 @@ describe("withAuth guard", () => {
   });
 
   it("extracts token from cookie when no Authorization header", async () => {
-    const mockAuthService = {
-      getAuthorizationUrl: vi.fn(),
-      handleCallback: vi.fn(),
-      verifyToken: vi.fn().mockReturnValue(Effect.succeed(mockSession)),
-      refreshTokens: vi.fn(),
-      logout: vi.fn(),
-    };
+    const mockAuthService = makeAuthServiceMock();
+    mockAuthService.verifyToken.mockReturnValue(Effect.succeed(mockSession));
 
     const TestLayer = Layer.succeed(AuthService, mockAuthService);
     const runtime = ManagedRuntime.make(TestLayer);
 
     const handler = vi
-      .fn()
+      .fn<(session: Session) => Effect.Effect<Response>>()
       .mockImplementation(() => Effect.succeed(new Response("{}", { status: 200 })));
 
     const request = new Request("http://localhost/api/auth/me", {

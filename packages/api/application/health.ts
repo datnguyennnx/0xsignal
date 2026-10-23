@@ -1,16 +1,14 @@
-import { Context, Data, Effect } from "effect";
+import { Context, type Effect } from "effect";
+import type { HealthError } from "./errors";
 
-export type HealthStatus = {
+export { HealthError } from "./errors";
+
+type HealthStatus = {
   readonly status: "ok";
   readonly timestamp: Date;
   readonly uptime: number;
   readonly postgres: boolean;
 };
-
-export class HealthError extends Data.TaggedError("HealthError")<{
-  readonly status: number;
-  readonly message: string;
-}> {}
 
 export interface HealthServicePort {
   readonly check: () => Effect.Effect<HealthStatus, HealthError>;

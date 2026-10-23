@@ -7,7 +7,7 @@ function isNonNullObject(value: unknown): value is Record<string, unknown> {
 
 /** Extract trigger price from order. */
 export function extractTriggerPx(order: OpenOrder): string | undefined {
-  if (order.triggerPx) return order.triggerPx;
+  if (order.triggerPx !== undefined && order.triggerPx !== "") return order.triggerPx;
   const ot = order.orderType;
   if (isNonNullObject(ot) && "trigger" in ot) {
     const trigger = ot.trigger;
@@ -23,7 +23,7 @@ export function extractTriggerPx(order: OpenOrder): string | undefined {
  * Checks top-level triggerPx first, then infers from order type + side.
  */
 export function resolveTriggerCondition(order: OpenOrder): string | undefined {
-  if (order.triggerCondition) {
+  if (order.triggerCondition !== undefined && order.triggerCondition !== "") {
     const tc = order.triggerCondition.toLowerCase();
     if (tc.includes("above")) return "above";
     if (tc.includes("below")) return "below";
@@ -48,7 +48,7 @@ export function getOrderType(order: OpenOrder): string {
   if (isNonNullObject(ot)) {
     if ("limit" in ot) return "Limit";
     if ("trigger" in ot) {
-      if (order.triggerCondition) {
+      if (order.triggerCondition !== undefined && order.triggerCondition !== "") {
         const isAbove = order.triggerCondition.includes("above");
         if (order.side === "B" && isAbove) return "Stop Market";
         if (order.side === "B" && !isAbove) return "Take Profit Market";
@@ -75,10 +75,11 @@ export function getTriggerLabel(order: OpenOrder): string {
   if (ot !== "Stop Market" && ot !== "Take Profit Market") return "—";
 
   const triggerPx = extractTriggerPx(order);
-  if (!triggerPx) return "—";
+  if (triggerPx === undefined || triggerPx === "") return "—";
 
   const condition = resolveTriggerCondition(order);
-  if (!condition) return `Trigger ${formatPrice(Number(triggerPx))}`;
+  if (condition === undefined || condition === "")
+    return `Trigger ${formatPrice(Number(triggerPx))}`;
 
   return `Price ${condition} ${formatPrice(Number(triggerPx))}`;
 }
@@ -115,12 +116,13 @@ export function buildTpSlByCoinMap(
       const ot = getOrderType(child);
       const limitVal = Number(child.limitPx);
       const triggerVal = Number(child.triggerPx);
-      const priceNum = limitVal > 0 ? limitVal : triggerVal > 0 ? triggerVal : 0;
+      const priceNum =
+        limitVal > 0 ? limitVal : Number.isFinite(triggerVal) ? Math.max(triggerVal, 0) : 0;
       const px = formatPrice(priceNum);
       if (ot.includes("Take Profit")) tp = px;
       else if (ot.includes("Stop")) sl = px;
     }
-    if (tp || sl) {
+    if (tp !== null || sl !== null) {
       map[order.coin.toUpperCase()] = { tp, sl };
     }
   }

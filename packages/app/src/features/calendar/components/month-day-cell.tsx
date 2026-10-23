@@ -12,9 +12,9 @@ export interface MonthDayCellProps {
   isToday: boolean;
   isSelected: boolean;
   maxVisible?: number;
-  onSelect(date: Date): void;
-  onEventClick?(event: EconomicEvent): void;
-  onShowMore?(date: Date): void;
+  onSelect: (date: Date) => void;
+  onEventClick?: ((event: EconomicEvent) => void) | undefined;
+  onShowMore?: (date: Date) => void;
 }
 
 export function MonthDayCell({
@@ -33,59 +33,55 @@ export function MonthDayCell({
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      aria-pressed={isSelected}
-      onClick={() => onSelect(date)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect(date);
-        }
-      }}
       className={cn(
-        "flex min-h-[8rem] cursor-pointer flex-col gap-1.5 rounded-lg p-2 text-left transition-colors hover:bg-accent/40",
+        "relative flex min-h-[8rem] flex-col gap-1.5 rounded-lg p-2 text-left transition-colors hover:bg-accent/40",
         isSelected && "bg-accent text-accent-foreground",
         isToday && "ring-1 ring-primary/40 ring-inset",
         !isCurrentMonth && "bg-muted text-muted-foreground",
       )}
     >
-      <div className="flex justify-end">
+      <button
+        type="button"
+        aria-pressed={isSelected}
+        aria-label={`Select ${date.toLocaleDateString()}`}
+        onClick={() => {
+          onSelect(date);
+        }}
+        className="absolute inset-0 z-0 cursor-pointer rounded-lg focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
+      />
+
+      <div className="pointer-events-none relative z-10 flex justify-end">
         <span
           className={cn(
             "flex size-6 items-center justify-center rounded-full text-xs font-medium tabular-nums",
             isSelected
               ? "bg-primary text-primary-foreground"
-              : !isCurrentMonth
-                ? "text-muted-foreground"
-                : isToday
+              : isCurrentMonth
+                ? isToday
                   ? "text-primary"
-                  : "text-foreground",
+                  : "text-foreground"
+                : "text-muted-foreground",
           )}
         >
           {date.getDate()}
         </span>
       </div>
 
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="pointer-events-none relative z-10 flex min-w-0 flex-col gap-1">
         {visible.map((event) => (
-          <div
+          <EventChip
             key={event.id}
-            className="min-w-0"
-            onClick={(clickEvent) => clickEvent.stopPropagation()}
-          >
-            <EventChip event={event} onClick={onEventClick} />
-          </div>
+            event={event}
+            onClick={onEventClick}
+            className="pointer-events-auto min-w-0"
+          />
         ))}
 
         {overflow > 0 && (
           <button
             type="button"
-            onClick={(clickEvent) => {
-              clickEvent.stopPropagation();
-              onShowMore?.(date);
-            }}
-            className="rounded-md px-2 py-0.5 text-left text-[length:var(--text-micro)] font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+            onClick={() => onShowMore?.(date)}
+            className="pointer-events-auto rounded-md px-2 py-0.5 text-left text-[length:var(--text-micro)] font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
           >
             +{overflow} more
           </button>

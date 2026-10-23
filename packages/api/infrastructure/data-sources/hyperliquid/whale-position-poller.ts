@@ -67,7 +67,8 @@ const mapPosition = (
   const markPrice = marks[position.coin] ?? position.entryPx;
   const mark = parseNumber(markPrice);
   const notionalUsd = mark > 0 ? size * mark : Math.abs(parseNumber(position.positionValue));
-  const fundingFee = position.cumFunding ? parseNumber(position.cumFunding.sinceOpen) : undefined;
+  const fundingFee =
+    position.cumFunding === undefined ? undefined : parseNumber(position.cumFunding.sinceOpen);
 
   return {
     userAddress: address,
@@ -88,7 +89,7 @@ const mapPosition = (
   };
 };
 
-export interface WhalePollResult {
+interface WhalePollResult {
   readonly positions: WhalePosition[];
   /** Addresses fetched successfully; a wallet that failed after retries is absent. */
   readonly succeededAddresses: string[];
@@ -124,7 +125,7 @@ export const whalePositionPollerLayer: Layer.Layer<
         return yield* Effect.tryPromise({
           try: () => info.allMids(),
           catch: (cause) => toHyperliquidError("allMids failed", cause),
-        }).pipe(Effect.catch(() => Effect.succeed({} as Record<string, string>)));
+        }).pipe(Effect.catch(() => Effect.succeed<Record<string, string>>({})));
       });
 
     const fetchState = (address: string): Effect.Effect<ClearinghouseState, HyperliquidError> =>
@@ -168,7 +169,7 @@ export const whalePositionPollerLayer: Layer.Layer<
                 Effect.catch((error) =>
                   Effect.logWarning(
                     `[whale-position-poller] ${address} skipped: ${error.message}`,
-                  ).pipe(Effect.as(undefined)),
+                  ).pipe(Effect.asVoid),
                 ),
               ),
             ),

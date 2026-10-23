@@ -1,8 +1,15 @@
-import { Effect, Match } from "effect";
+import { Effect } from "effect";
 import { AccountNotFound } from "../../../domain/errors";
 
+type MasterWalletRow = { readonly wallet_address: string };
+
 export function isPgUniqueViolation(error: unknown): boolean {
-  return typeof error === "object" && error !== null && (error as any).code === "23505";
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === "23505"
+  );
 }
 
 export function resolveMasterWallet(
@@ -10,7 +17,7 @@ export function resolveMasterWallet(
   accountId: string,
 ): Effect.Effect<string, AccountNotFound> {
   return Effect.tryPromise(async () => {
-    const result = await pg.query(
+    const result = await pg.query<MasterWalletRow>(
       `WITH RECURSIVE chain AS (
          SELECT id, parent_id, node_type, wallet_address
          FROM exchange_accounts WHERE id = $1
@@ -29,11 +36,8 @@ export function resolveMasterWallet(
     }
     return result.rows[0].wallet_address;
   }).pipe(
-    Effect.catch((error: unknown): Effect.Effect<never, AccountNotFound, never> =>
-      Match.value(error).pipe(
-        Match.when({ _tag: "AccountNotFound" }, (e) => Effect.fail(e as AccountNotFound)),
-        Match.orElse(() => Effect.die(error)),
-      ),
+    Effect.catch((error: unknown) =>
+      error instanceof AccountNotFound ? Effect.fail(error) : Effect.die(error),
     ),
   );
 }

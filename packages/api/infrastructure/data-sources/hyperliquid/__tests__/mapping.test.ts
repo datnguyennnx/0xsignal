@@ -8,21 +8,44 @@ import {
   extractSpotTokens,
   sortAndDedupeAssets,
 } from "../market-aggregation";
+import type {
+  HyperliquidInfoClient,
+  PerpTradeAsset,
+  SpotTradeAsset,
+  TickerSnapshot,
+} from "../types";
+
+const baseAsset = (coin: string, rawCoin: string, dexPrefix: string | null, dayNtlVlm: string) => ({
+  coin,
+  rawCoin,
+  displaySymbol: coin,
+  dexPrefix,
+  isHip3: dexPrefix !== null,
+  quoteCurrency: "USDC",
+  name: coin,
+  dex: "HYPERLIQUID" as const,
+  assetId: 0,
+  dayNtlVlm,
+});
 
 describe("Hyperliquid Mapping", () => {
   const mockInfo = {
-    metaAndAssetCtxs: vi.fn().mockResolvedValue([null, null]),
-    allMids: vi.fn().mockResolvedValue({}),
-    perpCategories: vi.fn().mockResolvedValue([]),
-    perpDexs: vi.fn().mockResolvedValue([]),
-  } as any;
+    metaAndAssetCtxs: vi
+      .fn<HyperliquidInfoClient["metaAndAssetCtxs"]>()
+      .mockResolvedValue([null, null]),
+    allMids: vi.fn<HyperliquidInfoClient["allMids"]>().mockResolvedValue({}),
+    perpCategories: vi
+      .fn<NonNullable<HyperliquidInfoClient["perpCategories"]>>()
+      .mockResolvedValue([]),
+    perpDexs: vi.fn<NonNullable<HyperliquidInfoClient["perpDexs"]>>().mockResolvedValue([]),
+  };
 
   describe("mapTickerFromSnapshot", () => {
     const mockSnapshot = {
       universe: [{ name: "BTC", maxLeverage: 50 }],
       assetCtxs: [{ midPx: "50000", markPx: "50005" }],
       allMids: { BTC: "50000" },
-    } as any;
+    } satisfies TickerSnapshot;
 
     it("should map standard perp ticker correctly", () => {
       const result = mapTickerFromSnapshot(mockSnapshot, "BTC");
@@ -37,9 +60,11 @@ describe("Hyperliquid Mapping", () => {
   });
 
   describe("resolveInternalSymbol", () => {
-    const mockSnapshot = {
+    const mockSnapshot: TickerSnapshot = {
       universe: [{ name: "para:BTCD" }],
-    } as any;
+      assetCtxs: [],
+      allMids: {},
+    };
 
     it("should resolve builder perp", () => {
       expect(resolveInternalSymbol(mockSnapshot, "PARA:BTCD")).toBe("para:BTCD");
@@ -79,9 +104,11 @@ describe("Hyperliquid Mapping", () => {
   });
 
   describe("resolveInternalSymbol with normalization", () => {
-    const mockSnapshot = {
+    const mockSnapshot: TickerSnapshot = {
       universe: [{ name: "para:BTCD" }],
-    } as any;
+      assetCtxs: [],
+      allMids: {},
+    };
 
     it("should resolve with different casing and suffix", () => {
       expect(resolveInternalSymbol(mockSnapshot, "PARA:BTCD-USDT")).toBe("para:BTCD");
@@ -222,17 +249,34 @@ describe("Hyperliquid Mapping", () => {
       dexPrefix: string | null,
       dayNtlVlm: string,
       isDelisted = false,
-    ) => ({ coin, rawCoin, dexPrefix, dayNtlVlm, isDelisted, marketType: "perp" as const }) as any;
+    ): PerpTradeAsset => ({
+      ...baseAsset(coin, rawCoin, dexPrefix, dayNtlVlm),
+      isDelisted,
+      category: "perp",
+      displayCategory: "Perp",
+      marketType: "perp",
+      markPx: "0",
+      prevDayPx: "0",
+      openInterest: "0",
+      funding: "0",
+      maxLeverage: 1,
+      szDecimals: 0,
+    });
 
-    const makeSpot = (coin: string, rawCoin: string, dayNtlVlm: string) =>
-      ({
-        coin,
-        rawCoin,
-        dexPrefix: null,
-        dayNtlVlm,
-        isDelisted: false,
-        marketType: "spot" as const,
-      }) as any;
+    const makeSpot = (coin: string, rawCoin: string, dayNtlVlm: string): SpotTradeAsset => ({
+      ...baseAsset(coin, rawCoin, null, dayNtlVlm),
+      isDelisted: false,
+      category: "spot",
+      displayCategory: "Spot",
+      marketType: "spot",
+      markPx: "0",
+      prevDayPx: "0",
+      dayBaseVlm: "0",
+      maxLeverage: 1,
+      szDecimals: 0,
+      openInterest: "0",
+      funding: "0",
+    });
 
     it("orders perps before spot", () => {
       const perp = makePerp("BTC", "BTC", null, "100");

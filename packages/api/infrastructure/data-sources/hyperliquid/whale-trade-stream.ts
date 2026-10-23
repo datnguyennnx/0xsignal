@@ -4,6 +4,7 @@ import type { ISubscription } from "@nktkas/hyperliquid";
 import type { TradesEvent } from "@nktkas/hyperliquid/api/subscription";
 import type { WhaleSide, WhaleTrade } from "@0xsignal/shared";
 import { WhaleConfig } from "../../config/whale.config";
+import { BoundedTidSet } from "./bounded-tid-set";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 
 export interface WhaleTradeStreamProvider {
@@ -37,23 +38,11 @@ const toWhaleTrade = (trade: TradesEvent[number], minNotionalUsd: number): Whale
 
 const MAX_SEEN_TIDS = 10_000;
 
-class BoundedTidSet {
-  private readonly seen = new Map<number, true>();
-
-  constructor(private readonly max: number) {}
-
-  has(tid: number): boolean {
-    return this.seen.has(tid);
-  }
-
-  add(tid: number): void {
-    this.seen.set(tid, true);
-    if (this.seen.size > this.max) {
-      const oldest = this.seen.keys().next().value;
-      if (oldest !== undefined) this.seen.delete(oldest);
-    }
-  }
-}
+// A discovery tick drains the queue for at most 5s, so the cap only has to
+// absorb a burst, not a sustained consumer. Sliding keeps the newest trades:
+// the aggregation only samples recent whale activity, and the oldest backlog
+// could never be drained inside the window anyway.
+const TRADE_QUEUE_CAPACITY = 4_096;
 
 interface TradeCounters {
   seen: number;
@@ -84,11 +73,11 @@ const subscribeCoin = (
             seenTids.add(trade.tid);
             counters.seen += 1;
             const whale = toWhaleTrade(trade, minNotionalUsd);
-            if (whale !== null) {
+            if (whale === null) {
+              counters.dropped += 1;
+            } else {
               counters.accepted += 1;
               Queue.offerUnsafe(queue, whale);
-            } else {
-              counters.dropped += 1;
             }
           }
         },
@@ -96,13 +85,14 @@ const subscribeCoin = (
           // A confirmed subscription failing fires at most once and detaches the
           // listener, so propagate it: fail the bridge queue and let the consumer
           // restart rather than stall on a dead connection.
-          onError: (error) =>
+          onError: (error) => {
             Effect.runSync(
               Queue.fail(
                 queue,
                 toHyperliquidError(`Failed to subscribe to trades for ${coin}`, error),
               ),
-            ),
+            );
+          },
         },
       ),
     catch: (cause) => toHyperliquidError(`Failed to subscribe to trades for ${coin}`, cause),
@@ -120,7 +110,7 @@ const openTradeStream = (
   Stream.scoped(
     Stream.fromEffect(
       Effect.gen(function* () {
-        const queue = yield* Queue.unbounded<WhaleTrade, HyperliquidError>();
+        const queue = yield* Queue.sliding<WhaleTrade, HyperliquidError>(TRADE_QUEUE_CAPACITY);
         const seenTids = new BoundedTidSet(MAX_SEEN_TIDS);
         const counters: TradeCounters = { seen: 0, accepted: 0, dropped: 0 };
 
@@ -171,6 +161,9 @@ export const whaleTradeStreamLayer: Layer.Layer<WhaleTradeStream, never, WhaleCo
 
         return { transport, service } as const;
       }),
-      ({ transport }) => Effect.sync(() => transport.close()),
+      ({ transport }) =>
+        Effect.sync(() => {
+          transport.close();
+        }),
     ).pipe(Effect.map(({ service }) => service)),
   );

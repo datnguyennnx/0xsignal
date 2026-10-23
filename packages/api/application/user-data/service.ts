@@ -1,15 +1,3 @@
-import type {
-  ClearinghouseState,
-  SpotClearinghouseState,
-  OpenOrder,
-  FrontendOpenOrder,
-  HistoricalOrderEntry,
-  UserFill,
-  PortfolioResponse,
-  UserVaultEquity,
-  UserFundingEntry,
-  AggregatedMarket,
-} from "@0xsignal/shared";
 import { Effect, Layer } from "effect";
 import { HyperliquidClient } from "../hyperliquid/contracts";
 import { InternalError } from "../errors";
@@ -33,53 +21,32 @@ export const userDataServiceLayer = Layer.effect(
 
     return UserDataService.of({
       getClearinghouseState: (walletAddress) =>
-        callInfoApi("clearinghouseState", () =>
-          info.clearinghouseState({ user: walletAddress }),
-        ) as Effect.Effect<ClearinghouseState, AppError>,
+        callInfoApi("clearinghouseState", () => info.clearinghouseState({ user: walletAddress })),
 
       getSpotClearinghouseState: (walletAddress) =>
         callInfoApi("spotClearinghouseState", () =>
           info.spotClearinghouseState({ user: walletAddress }),
-        ) as Effect.Effect<SpotClearinghouseState, AppError>,
+        ),
 
       getOpenOrders: (walletAddress) =>
-        callInfoApi("openOrders", () => info.openOrders({ user: walletAddress })) as Effect.Effect<
-          OpenOrder[],
-          AppError
-        >,
+        callInfoApi("openOrders", () => info.openOrders({ user: walletAddress })),
 
       getFrontendOpenOrders: (walletAddress) =>
-        callInfoApi("frontendOpenOrders", () =>
-          info.frontendOpenOrders({ user: walletAddress }),
-        ) as Effect.Effect<FrontendOpenOrder[], AppError>,
+        callInfoApi("frontendOpenOrders", () => info.frontendOpenOrders({ user: walletAddress })),
 
-      getMeta: () =>
-        callInfoApi("meta", () => info.meta()) as unknown as Effect.Effect<
-          AggregatedMarket[],
-          AppError
-        >,
+      getMeta: () => callInfoApi("meta", () => info.meta()),
 
       getHistoricalOrders: (walletAddress) =>
-        callInfoApi("historicalOrders", () =>
-          info.historicalOrders({ user: walletAddress }),
-        ) as Effect.Effect<HistoricalOrderEntry[], AppError>,
+        callInfoApi("historicalOrders", () => info.historicalOrders({ user: walletAddress })),
 
       getUserFills: (walletAddress) =>
-        callInfoApi("userFills", () => info.userFills({ user: walletAddress })) as Effect.Effect<
-          UserFill[],
-          AppError
-        >,
+        callInfoApi("userFills", () => info.userFills({ user: walletAddress })),
 
       getPortfolio: (walletAddress) =>
-        callInfoApi("portfolio", () => info.portfolio({ user: walletAddress })) as Effect.Effect<
-          PortfolioResponse,
-          AppError
-        >,
+        callInfoApi("portfolio", () => info.portfolio({ user: walletAddress })),
 
       getUserVaultEquities: (walletAddress) =>
-        callInfoApi("userVaultEquities", () =>
-          info.userVaultEquities({ user: walletAddress }),
-        ) as Effect.Effect<UserVaultEquity[], AppError>,
+        callInfoApi("userVaultEquities", () => info.userVaultEquities({ user: walletAddress })),
 
       getUserFunding: (walletAddress, startTime?: number, endTime?: number) =>
         callInfoApi("userFunding", () => {
@@ -89,7 +56,7 @@ export const userDataServiceLayer = Layer.effect(
           if (startTime !== undefined) params.startTime = startTime;
           if (endTime !== undefined) params.endTime = endTime;
           return info.userFunding(params);
-        }) as Effect.Effect<UserFundingEntry[], AppError>,
+        }),
     });
   }),
 );

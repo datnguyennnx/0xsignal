@@ -50,6 +50,15 @@ function Row({
 const SURFACE =
   "h-full flex flex-col rounded-xl p-4 material-raised animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
 
+/** Loaded rows and skeleton rows share this stack so their heights cannot drift. */
+const ROW_STACK = "flex flex-col gap-[clamp(0.5rem,1vw,1rem)]";
+
+/** Loaded rows are one `text-compact` line box; the skeleton row matches it exactly. */
+const SKELETON_ROW =
+  "flex h-[1.5em] items-center justify-between text-[length:var(--text-compact)]";
+
+const SUMMARY_SKELETON_KEYS = Array.from({ length: 8 }, (_, index) => `summary-row-${index}`);
+
 export function PortfolioSummaryCard() {
   const [tf, setTf] = useState<PortfolioPeriod>("month");
 
@@ -77,9 +86,8 @@ export function PortfolioSummaryCard() {
     );
     const marginRatio = accountValue > 0 ? (marginUsed / accountValue) * 100 : 0;
     const leverage = accountValue > 0 ? ntlPos / accountValue : 0;
-    const pnl = period?.pnlHistory?.length
-      ? Number(period.pnlHistory[period.pnlHistory.length - 1][1])
-      : 0;
+    const lastPnl = period?.pnlHistory?.at(-1);
+    const pnl = lastPnl === undefined ? 0 : Number(lastPnl[1]);
     const volume = Number(period?.vlm) || 0;
     const maxDd = period ? computeMaxDrawdown(period.accountValueHistory) : null;
     return { accountValue, unrealizedPnl, marginRatio, leverage, pnl, volume, maxDd };
@@ -106,13 +114,13 @@ export function PortfolioSummaryCard() {
   if (isLoading) {
     return (
       <div className={SURFACE}>
-        <div className="p-0 flex justify-between items-center">
+        <div className="flex h-7 items-center justify-between">
           <Skeleton className="h-3.5 w-12" />
           <Skeleton className="h-5 w-9" />
         </div>
-        <div className="space-y-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex justify-between items-center">
+        <div className={cn("flex-1", ROW_STACK)}>
+          {SUMMARY_SKELETON_KEYS.map((key) => (
+            <div key={key} className={SKELETON_ROW}>
               <Skeleton className="h-[11px] w-[38%]" />
               <Skeleton className="h-[11px] w-[28%]" />
             </div>
@@ -158,7 +166,7 @@ export function PortfolioSummaryCard() {
         </NativeSelect>
       </div>
 
-      <div className="overflow-y-auto flex-1 flex flex-col gap-[clamp(0.5rem,1vw,1rem)]">
+      <div className={cn("overflow-y-auto flex-1", ROW_STACK)}>
         <Row
           label="PNL"
           value={perps && perps.pnl !== 0 ? formatSignedUsd(perps.pnl) : "$0.00"}

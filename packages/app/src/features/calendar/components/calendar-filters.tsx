@@ -15,7 +15,7 @@ export type CalendarCategoryFilterValue = "all" | CalendarCategory;
 
 export interface CalendarCategoryFilterProps {
   value: CalendarCategoryFilterValue;
-  onChange(v: CalendarCategoryFilterValue): void;
+  onChange: (v: CalendarCategoryFilterValue) => void;
 }
 
 const CATEGORY_OPTIONS: CalendarCategoryFilterValue[] = ["all", "macro", "fx", "crypto"];
@@ -45,7 +45,7 @@ export function CalendarCategoryFilter({
       <DropdownMenuContent align="end">
         <DropdownMenuRadioGroup
           value={value}
-          onValueChange={(next) => {
+          onValueChange={(next: string) => {
             if (isCategoryFilterValue(next)) onChange(next);
           }}
         >

@@ -4,7 +4,7 @@ import { asRecord } from "../parse-utils";
 
 export const SEC_EDGAR_SEARCH_URL =
   "https://efts.sec.gov/LATEST/search-index?q=%22etf%22&forms=S-1";
-export const SEC_EDGAR_SOURCE_URL =
+const SEC_EDGAR_SOURCE_URL =
   "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&type=S-1&output=atom";
 export const SEC_EDGAR_ATTRIBUTION = "U.S. SEC EDGAR";
 export const SEC_EDGAR_USER_AGENT = "0xsignal-calendar/1.0 (contact@0xsignal.example)";
@@ -18,17 +18,17 @@ const asTrimmedString = (value: unknown): string | null =>
 
 const firstString = (value: unknown): string | null => {
   const direct = asTrimmedString(value);
-  if (direct) return direct;
+  if (direct !== null) return direct;
   if (Array.isArray(value)) {
     for (const item of value) {
       const candidate = asTrimmedString(item);
-      if (candidate) return candidate;
+      if (candidate !== null) return candidate;
     }
   }
   return null;
 };
 
-const collapse = (value: string): string => value.replace(/\s+/g, " ").trim();
+const collapse = (value: string): string => value.replaceAll(/\s+/g, " ").trim();
 
 const parseDate = (value: string): Date | null => {
   const date = new Date(value);
@@ -39,7 +39,7 @@ const buildEvent = (hit: Record<string, unknown>, options: ParseOptions): Econom
   const source = asRecord(hit["_source"]);
   if (!source) return null;
   const fileDate = asTrimmedString(source["file_date"]);
-  if (!fileDate) return null;
+  if (fileDate === null) return null;
   const date = parseDate(fileDate);
   if (!date) return null;
 

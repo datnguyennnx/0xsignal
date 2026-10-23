@@ -1,10 +1,10 @@
 import type { Server } from "bun";
 import { Effect } from "effect";
-import type { ManagedRuntime } from "effect/ManagedRuntime";
-import type { MarketStreamHubPort } from "../../infrastructure/streams/hyperliquid/hub";
+import type { MarketStreamHubPort } from "../../application/market-data/market-stream.contracts";
 import { handleRequest } from "./router";
 import { errorResponse } from "./error-response";
 import { handleWsUpgrade } from "./ws/upgrade-handler";
+import type { HttpRequestServices } from "./route-contracts";
 
 /**
  * Shape of the CORS config object (resolved from CorsService in DI).
@@ -15,18 +15,23 @@ interface CorsConfig {
   readonly applyTo: (headers: Headers) => Headers;
 }
 
+/** Runs one request effect on the shared AppLayer runtime. */
+type RunRequest = (
+  effect: Effect.Effect<Response, never, HttpRequestServices>,
+) => Promise<Response>;
+
 /**
  * Creates the Bun `fetch` callback for the HTTP server, composing:
  * 1. WebSocket upgrade handling (delegated to `handleWsUpgrade`)
  * 2. HTTP routing (delegated to `handleRequest`)
  * 3. CORS and error handling
  *
- * @param runtime  ManagedRuntime (instantiated once at server entry)
+ * @param runRequest  Runner bound to the shared runtime
  * @param cors     Resolved CORS configuration
  * @param marketStreamHub  Resolved MarketStreamHub for WS upgrades
  */
 export const createFetchHandler = (
-  runtime: ManagedRuntime<unknown, unknown>,
+  runRequest: RunRequest,
   cors: CorsConfig,
   marketStreamHub: MarketStreamHubPort,
 ) => {
@@ -54,7 +59,7 @@ export const createFetchHandler = (
     if (req.method === "OPTIONS") return corsPreflight;
 
     try {
-      const response = await runtime.runPromise(
+      const response = await runRequest(
         Effect.gen(function* () {
           yield* Effect.logInfo(`${req.method} ${url.pathname}`);
           return yield* handleRequest(req);

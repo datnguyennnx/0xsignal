@@ -53,7 +53,9 @@ export const buildMarketDataRoutes = ({
       Effect.gen(function* () {
         const symbol = yield* parseRequiredString(url.searchParams, "symbol");
         const interval = yield* parseInterval(url.searchParams);
-        const exchange = url.searchParams.get("exchange")?.trim() || "Hyperliquid";
+        const exchangeParam = url.searchParams.get("exchange")?.trim();
+        const exchange =
+          exchangeParam === undefined || exchangeParam === "" ? "Hyperliquid" : exchangeParam;
         const startTime = yield* parseOptionalDate(url.searchParams, "start_time");
         const endTime = yield* parseOptionalDate(url.searchParams, "end_time");
         const limit = yield* parseOptionalPositiveInt(url.searchParams, "limit");
@@ -79,7 +81,9 @@ export const buildMarketDataRoutes = ({
       Effect.gen(function* () {
         const symbol = yield* parseRequiredString(url.searchParams, "symbol");
         const interval = yield* parseInterval(url.searchParams);
-        const exchange = url.searchParams.get("exchange")?.trim() || "Hyperliquid";
+        const exchangeParam = url.searchParams.get("exchange")?.trim();
+        const exchange =
+          exchangeParam === undefined || exchangeParam === "" ? "Hyperliquid" : exchangeParam;
         const endTime = yield* parseOptionalDate(url.searchParams, "end_time");
         const limit = yield* parseOptionalPositiveInt(url.searchParams, "limit");
 

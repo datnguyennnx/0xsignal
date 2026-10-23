@@ -50,7 +50,9 @@ export function IndicatorParamField({
       <div className="flex items-center bg-muted/40 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-ring/40 w-full">
         <button
           type="button"
-          onClick={() => adjust(-1)}
+          onClick={() => {
+            adjust(-1);
+          }}
           disabled={numeric !== null && numeric <= definition.min}
           aria-label={`Decrease ${definition.label}`}
           className="h-[clamp(1.75rem,3vh,2.25rem)] w-[clamp(1.75rem,2.5vw,2rem)] flex items-center justify-center hover:bg-accent/30 rounded-l transition-[background-color,transform] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none shrink-0"
@@ -66,13 +68,17 @@ export function IndicatorParamField({
           max={definition.max}
           step={definition.step}
           value={value}
-          onChange={(e) => onValueChange(e.target.value)}
+          onChange={(e) => {
+            onValueChange(e.target.value);
+          }}
           className="flex-1 h-[clamp(1.75rem,3vh,2.25rem)] px-1 text-center text-base sm:text-sm font-semibold bg-transparent text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 tabular-nums min-w-0"
         />
 
         <button
           type="button"
-          onClick={() => adjust(1)}
+          onClick={() => {
+            adjust(1);
+          }}
           disabled={numeric !== null && numeric >= definition.max}
           aria-label={`Increase ${definition.label}`}
           className="h-[clamp(1.75rem,3vh,2.25rem)] w-[clamp(1.75rem,2.5vw,2rem)] flex items-center justify-center hover:bg-accent/30 rounded-r transition-[background-color,transform] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none shrink-0"
@@ -81,7 +87,7 @@ export function IndicatorParamField({
         </button>
       </div>
 
-      {definition.description && (
+      {definition.description !== undefined && definition.description !== "" && (
         <p className="text-[length:var(--text-micro)] text-muted-foreground leading-tight">
           {definition.description}
         </p>

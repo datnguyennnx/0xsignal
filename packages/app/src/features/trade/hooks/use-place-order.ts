@@ -16,8 +16,8 @@ export function usePlaceOrder(onError?: (err: Error) => void) {
   return useMutation({
     mutationFn: (params: PlaceOrderRequest) => api.placeOrder(params),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
     },
-    onError,
+    ...(onError !== undefined && { onError }),
   });
 }

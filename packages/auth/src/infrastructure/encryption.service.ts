@@ -39,7 +39,7 @@ const disabledEncryptionService = EncryptionService.of({
   decrypt: () => Effect.die(new Error("Encryption is not configured (missing ENCRYPTION_SECRET)")),
 });
 
-export const EncryptionServiceLayer: Layer.Layer<EncryptionService, never, never> = Layer.effect(
+export const EncryptionServiceLayer: Layer.Layer<EncryptionService> = Layer.effect(
   EncryptionService,
   Effect.gen(function* () {
     const maybeSecret = yield* Config.option(Config.string("ENCRYPTION_SECRET")).pipe(Effect.orDie);
@@ -73,14 +73,14 @@ export const EncryptionServiceLayer: Layer.Layer<EncryptionService, never, never
                 const combined = new Uint8Array(iv.length + encrypted.byteLength);
                 combined.set(iv);
                 combined.set(new Uint8Array(encrypted), iv.length);
-                return btoa(String.fromCharCode(...combined));
+                return btoa(String.fromCodePoint(...combined));
               },
               catch: (cause) => new EncryptionFailed({ cause }),
             }),
           decrypt: (ciphertext) =>
             Effect.tryPromise({
               try: async () => {
-                const combined = Uint8Array.from(atob(ciphertext), (c) => c.charCodeAt(0));
+                const combined = Uint8Array.from(atob(ciphertext), (c) => c.codePointAt(0) ?? 0);
                 const iv = combined.slice(0, 12);
                 const data = combined.slice(12);
                 const decrypted = await crypto.subtle.decrypt({ name: ALGORITHM, iv }, key, data);

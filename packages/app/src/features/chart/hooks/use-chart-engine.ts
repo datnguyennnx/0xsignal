@@ -56,9 +56,16 @@ function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
     (typeof value === "object" || typeof value === "function") &&
     value !== null &&
     "then" in value &&
-    typeof (value as { then: unknown }).then === "function"
+    typeof value.then === "function"
   );
 }
+
+const sameCandle = (a: ChartDataPoint, b: ChartDataPoint): boolean =>
+  a.time === b.time &&
+  a.open === b.open &&
+  a.high === b.high &&
+  a.low === b.low &&
+  a.close === b.close;
 
 export const useChartEngine = ({
   containerRef,
@@ -80,9 +87,14 @@ export const useChartEngine = ({
   const loadMoreCallbackRef = useRef(onLoadMore);
   const hasMoreRef = useRef(hasMore);
   const onCrosshairMoveRef = useRef(onCrosshairMove);
+  const hoveredCandleRef = useRef<ChartDataPoint | null>(null);
   const prevIsDarkRef = useRef(isDark);
   const hasSeenLogicalRangeRef = useRef(false);
   const prevLogicalFromRef = useRef<number | null>(null);
+  // The container can be remounted (e.g. fullscreen toggle) while the ref
+  // object stays identical, so the actual element has to be tracked.
+  const activeElementRef = useRef<HTMLDivElement | null>(null);
+  const teardownRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     loadMoreCallbackRef.current = onLoadMore;
@@ -95,13 +107,11 @@ export const useChartEngine = ({
     priceFormatRef.current = priceFormat;
   }, [priceFormat]);
 
-  const initChart = useCallback(() => {
-    if (!containerRef.current || chartRef.current) return undefined;
-
+  const initChart = useCallback((container: HTMLDivElement) => {
     const c = getChartColors();
     const candle = getCandlestickColors();
 
-    const chart = createChart(containerRef.current, {
+    const chart = createChart(container, {
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
@@ -164,11 +174,15 @@ export const useChartEngine = ({
     );
 
     const panes = chart.panes();
-    if (panes[1]) panes[1].setHeight(VOLUME_PANE_HEIGHT);
+    if (panes.length > 1) panes[1].setHeight(VOLUME_PANE_HEIGHT);
 
     chartRef.current = chart;
     candlestickSeriesRef.current = candlestickSeries;
     volumeSeriesRef.current = volumeSeries;
+    hasSeenLogicalRangeRef.current = false;
+    prevLogicalFromRef.current = null;
+    isLoadingMoreRef.current = false;
+    hoveredCandleRef.current = null;
 
     // Trigger re-render after chart is ready
     setChartResult({ chart, candlestickSeries, volumeSeries });
@@ -215,22 +229,33 @@ export const useChartEngine = ({
 
     // autoSize handles resize — no manual ResizeObserver (causes disposed errors).
 
+    // The crosshair fires on every pointer move; publish only when the candle
+    // under the pointer actually changes, so hover never re-renders needlessly.
+    const publishHover = (next: ChartDataPoint | null): void => {
+      const previous = hoveredCandleRef.current;
+      if (previous === next) return;
+      if (previous !== null && next !== null && sameCandle(previous, next)) return;
+      hoveredCandleRef.current = next;
+      onCrosshairMoveRef.current(next);
+    };
+
     const handleCrosshairMove: MouseEventHandler<Time> = (param) => {
-      if (!param.time || !param.seriesData) {
-        onCrosshairMoveRef.current(null);
+      const { time } = param;
+      if (time === undefined || time === null || time === 0 || time === "") {
+        publishHover(null);
         return;
       }
-      const candleData = param.seriesData.get(candlestickSeries);
-      if (candleData && "open" in candleData) {
-        onCrosshairMoveRef.current({
-          time: param.time as number,
-          open: candleData.open,
-          high: candleData.high,
-          low: candleData.low,
-          close: candleData.close,
-          volume: 0,
-        });
-      }
+      const candleData = param.seriesData?.get(candlestickSeries);
+      if (candleData === undefined || !("open" in candleData)) return;
+      if (typeof time !== "number") return;
+      publishHover({
+        time,
+        open: candleData.open,
+        high: candleData.high,
+        low: candleData.low,
+        close: candleData.close,
+        volume: 0,
+      });
     };
 
     chart.subscribeCrosshairMove(handleCrosshairMove);
@@ -242,14 +267,32 @@ export const useChartEngine = ({
       chartRef.current = null;
       candlestickSeriesRef.current = null;
       volumeSeriesRef.current = null;
+      hoveredCandleRef.current = null;
       setChartResult({ chart: null, candlestickSeries: null, volumeSeries: null });
     };
-  }, [containerRef]);
+  }, []);
+
+  // Runs after every commit: re-initializes the engine when the container
+  // element itself changes (remount), tearing the previous chart down first.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container === activeElementRef.current && teardownRef.current !== null) return;
+
+    teardownRef.current?.();
+    teardownRef.current = null;
+    activeElementRef.current = container;
+
+    if (container === null) return;
+    teardownRef.current = initChart(container);
+  });
 
   useEffect(() => {
-    const cleanup = initChart();
-    return cleanup;
-  }, [initChart]);
+    return () => {
+      teardownRef.current?.();
+      teardownRef.current = null;
+      activeElementRef.current = null;
+    };
+  }, []);
 
   // Handle dynamic price format updates without re-creating the chart
   useEffect(() => {

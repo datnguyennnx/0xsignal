@@ -13,7 +13,7 @@ export interface CreateExchangeAccountParams {
   readonly parentId?: string;
   readonly walletAddress: string;
   readonly chain?: string;
-  readonly label?: string;
+  readonly label?: string | undefined;
   readonly color?: string;
   readonly sortOrder?: number;
   readonly metadata?: Record<string, unknown>;
@@ -34,16 +34,14 @@ export interface ExchangeAccountRepoPort {
   readonly findByUserId: (
     userId: string,
     exchangeSlug?: string,
-  ) => Effect.Effect<readonly ExchangeAccount[], never>;
+  ) => Effect.Effect<readonly ExchangeAccount[]>;
 
   readonly findPrimary: (
     userId: string,
     exchangeSlug: string,
   ) => Effect.Effect<ExchangeAccount, AccountNotFound>;
 
-  readonly findWithDescendants: (
-    accountId: string,
-  ) => Effect.Effect<readonly ExchangeAccount[], never>;
+  readonly findWithDescendants: (accountId: string) => Effect.Effect<readonly ExchangeAccount[]>;
 
   readonly resolveMasterWallet: (accountId: string) => Effect.Effect<string, AccountNotFound>;
 

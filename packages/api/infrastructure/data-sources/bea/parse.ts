@@ -75,7 +75,7 @@ export const parse = (body: string, options: ParseOptions = {}): readonly Econom
       for (const raw of dates) {
         const dateValue =
           typeof raw === "string" ? raw : pickString(asRecord(raw) ?? {}, DATE_KEYS);
-        if (!dateValue) continue;
+        if (dateValue === null) continue;
         const date = parseDate(dateValue);
         if (!date) continue;
         events.push(buildEvent(name, date, options));
@@ -89,7 +89,7 @@ export const parse = (body: string, options: ParseOptions = {}): readonly Econom
     if (!row) continue;
     const name = pickString(row, NAME_KEYS);
     const dateValue = pickString(row, DATE_KEYS);
-    if (!name || !dateValue) continue;
+    if (name === null || dateValue === null) continue;
     const date = parseDate(dateValue);
     if (!date) continue;
     events.push(buildEvent(name, date, options));

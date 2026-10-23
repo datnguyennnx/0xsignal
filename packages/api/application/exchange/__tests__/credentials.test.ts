@@ -1,5 +1,11 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { Effect, Layer, Redacted } from "effect";
+import type {
+  ExchangeClient,
+  ExchangeConfig,
+  HttpTransport,
+  HttpTransportOptions,
+} from "@nktkas/hyperliquid";
 import {
   mockInfoInstance,
   makeTestLayer,
@@ -7,6 +13,7 @@ import {
   makePlaceholderAccount,
   makePlaceholderCredential,
   makeDecryptedCredential,
+  makeMetaResponse,
   defaultMockAccountRepo,
   defaultMockCredRepo,
   VALID_PRIVATE_KEY,
@@ -16,28 +23,145 @@ import {
   ExchangeAccountRepo,
   ExchangeCredentialRepo,
   exchangeServiceLayer,
+  exchangeCredentialsLayer,
   AccountNotFound,
   CredentialNotFound,
   CredentialRevoked,
   CredentialExpired,
   CredentialUnverified,
+  type AccountRepoShape,
+  type CredRepoShape,
 } from "./helpers";
 
 const mockExchangeInstance = vi.hoisted(() => ({
-  order: vi.fn(),
-  updateLeverage: vi.fn(),
-  cancel: vi.fn(),
+  order: vi.fn<ExchangeClient["order"]>(),
+  updateLeverage: vi.fn<ExchangeClient["updateLeverage"]>(),
+  cancel: vi.fn<ExchangeClient["cancel"]>(),
 }));
 
 vi.mock("@nktkas/hyperliquid", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@nktkas/hyperliquid")>();
   return {
     ...actual,
-    ExchangeClient: vi.fn(function () {
+    ExchangeClient: vi.fn<(config: ExchangeConfig) => typeof mockExchangeInstance>(function () {
       return mockExchangeInstance;
     }),
-    HttpTransport: vi.fn(),
+    HttpTransport: vi.fn<(options?: HttpTransportOptions) => HttpTransport>(),
   };
+});
+
+const OLD_ID = "cred-old";
+const NEW_ID = "cred-new";
+const NEW_KEY = "0x" + "c".repeat(64);
+
+type LifecycleCred = {
+  id: string;
+  isVerified: boolean;
+  isRevoked: boolean;
+  isActive: boolean;
+};
+
+// Mock repos with stateful behaviour live at module scope so the test bodies stay assertion-only.
+
+const makeRotateRepo = (state: { oldActive: boolean }) => ({
+  ...defaultMockCredRepo,
+  rotate: vi.fn<CredRepoShape["rotate"]>().mockImplementation(() => {
+    state.oldActive = false;
+    return Effect.succeed(
+      makePlaceholderCredential({
+        id: NEW_ID,
+        encAgentKey: "enc:" + NEW_KEY,
+        rotatedFrom: OLD_ID,
+        isActive: true,
+      }),
+    );
+  }),
+  getActiveForAccount: vi.fn<CredRepoShape["getActiveForAccount"]>().mockImplementation(() => {
+    if (!state.oldActive) {
+      return Effect.succeed(
+        makePlaceholderCredential({ id: NEW_ID, rotatedFrom: OLD_ID, isActive: true }),
+      );
+    }
+    return Effect.succeed(makePlaceholderCredential({ id: OLD_ID }));
+  }),
+});
+
+const makeUserAwareGetActive = () =>
+  vi
+    .fn<CredRepoShape["getActiveForAccount"]>()
+    .mockImplementation((accountId: string, userId: string) => {
+      if (userId === USER_A) return Effect.succeed(makePlaceholderCredential({ userId: USER_A }));
+      return Effect.fail(new CredentialNotFound({ credentialId: `${accountId}/agent` }));
+    });
+
+const makeLifecycleRepo = (creds: Record<"old" | "new", LifecycleCred>) => ({
+  ...defaultMockCredRepo,
+  getActiveForAccount: vi.fn<CredRepoShape["getActiveForAccount"]>().mockImplementation(() => {
+    const active = Object.values(creds).find((c) => c.isActive && !c.isRevoked);
+    if (!active) return Effect.fail(new CredentialNotFound({ credentialId: "none" }));
+    return Effect.succeed(
+      makePlaceholderCredential({ id: active.id, isVerified: active.isVerified }),
+    );
+  }),
+  getDecryptedAgent: vi
+    .fn<CredRepoShape["getDecryptedAgent"]>()
+    .mockImplementation((id: string) => {
+      const cred = Object.values(creds).find((c) => c.id === id);
+      if (!cred || !cred.isActive) return Effect.fail(new CredentialNotFound({ credentialId: id }));
+      if (cred.isRevoked) return Effect.fail(new CredentialRevoked({ credentialId: id }));
+      if (!cred.isVerified) return Effect.fail(new CredentialUnverified({ credentialId: id }));
+      return Effect.succeed(makeDecryptedCredential());
+    }),
+  setVerified: vi.fn<CredRepoShape["setVerified"]>().mockImplementation((id: string) => {
+    const cred = Object.values(creds).find((c) => c.id === id);
+    if (cred) cred.isVerified = true;
+    return Effect.succeed(void 0);
+  }),
+  rotate: vi.fn<CredRepoShape["rotate"]>().mockImplementation(() => {
+    creds.old.isActive = false;
+    creds.new.isActive = true;
+    creds.new.isVerified = creds.old.isVerified;
+    return Effect.succeed(
+      makePlaceholderCredential({
+        id: "cred-lc-new",
+        rotatedFrom: "cred-lc-old",
+        isActive: true,
+      }),
+    );
+  }),
+  revoke: vi.fn<CredRepoShape["revoke"]>().mockImplementation((id: string) => {
+    const cred = Object.values(creds).find((c) => c.id === id);
+    if (cred) cred.isRevoked = true;
+    return Effect.succeed(void 0);
+  }),
+});
+
+const makeMultiUserAccountRepo = () => ({
+  ...defaultMockAccountRepo,
+  findPrimary: vi.fn<AccountRepoShape["findPrimary"]>().mockImplementation((userId: string) => {
+    if (userId === USER_A)
+      return Effect.succeed(makePlaceholderAccount({ userId: USER_A, walletAddress: "0xUSER_A" }));
+    if (userId === USER_B)
+      return Effect.succeed(makePlaceholderAccount({ userId: USER_B, walletAddress: "0xUSER_B" }));
+    return Effect.fail(new AccountNotFound({ accountId: userId }));
+  }),
+});
+
+const makeMultiUserCredRepo = (state: { userACalled: boolean; userBCalled: boolean }) => ({
+  ...defaultMockCredRepo,
+  getDecryptedAgent: vi
+    .fn<CredRepoShape["getDecryptedAgent"]>()
+    .mockImplementation((id: string, userId: string) => {
+      if (userId === USER_A) {
+        state.userACalled = true;
+        return Effect.succeed(makeDecryptedCredential({ walletAddress: "0xUSER_A" }));
+      }
+      if (userId === USER_B) {
+        state.userBCalled = true;
+        return Effect.succeed(makeDecryptedCredential({ walletAddress: "0xUSER_B" }));
+      }
+      return Effect.fail(new CredentialNotFound({ credentialId: id }));
+    }),
 });
 
 describe("ExchangeService — credential system", () => {
@@ -57,7 +181,7 @@ describe("ExchangeService — credential system", () => {
               {},
               {
                 getDecryptedAgent: vi
-                  .fn()
+                  .fn<CredRepoShape["getDecryptedAgent"]>()
                   .mockReturnValue(
                     Effect.fail(new CredentialUnverified({ credentialId: "cred-1" })),
                   ),
@@ -69,11 +193,11 @@ describe("ExchangeService — credential system", () => {
     );
 
     expect(result).toBeInstanceOf(CredentialUnverified);
-    expect(result._tag).toBe("CredentialUnverified");
+    expect(result).toHaveProperty("_tag", "CredentialUnverified");
   });
 
   it("TC-04: Verify and resolve — master wallet (happy path)", async () => {
-    mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+    mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
     mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
 
     const decryptedCred = makeDecryptedCredential({
@@ -83,7 +207,9 @@ describe("ExchangeService — credential system", () => {
       agentAddress: "0xAGENT",
     });
 
-    const getDecryptedAgentMock = vi.fn().mockReturnValue(Effect.succeed(decryptedCred));
+    const getDecryptedAgentMock = vi
+      .fn<CredRepoShape["getDecryptedAgent"]>()
+      .mockReturnValue(Effect.succeed(decryptedCred));
 
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -125,7 +251,7 @@ describe("ExchangeService — credential system", () => {
               {},
               {
                 getDecryptedAgent: vi
-                  .fn()
+                  .fn<CredRepoShape["getDecryptedAgent"]>()
                   .mockReturnValue(Effect.fail(new CredentialRevoked({ credentialId: "cred-1" }))),
               },
             ),
@@ -135,7 +261,7 @@ describe("ExchangeService — credential system", () => {
     );
 
     expect(result).toBeInstanceOf(CredentialRevoked);
-    expect(result._tag).toBe("CredentialRevoked");
+    expect(result).toHaveProperty("_tag", "CredentialRevoked");
   });
 
   it("TC-07: Expired credential blocked", async () => {
@@ -150,7 +276,7 @@ describe("ExchangeService — credential system", () => {
               {},
               {
                 getDecryptedAgent: vi
-                  .fn()
+                  .fn<CredRepoShape["getDecryptedAgent"]>()
                   .mockReturnValue(Effect.fail(new CredentialExpired({ credentialId: "cred-1" }))),
               },
             ),
@@ -160,12 +286,12 @@ describe("ExchangeService — credential system", () => {
     );
 
     expect(result).toBeInstanceOf(CredentialExpired);
-    expect(result._tag).toBe("CredentialExpired");
+    expect(result).toHaveProperty("_tag", "CredentialExpired");
   });
 
   it("TC-08: Cross-user isolation", async () => {
     const getDecryptedAgentMock = vi
-      .fn()
+      .fn<CredRepoShape["getDecryptedAgent"]>()
       .mockReturnValue(Effect.fail(new CredentialNotFound({ credentialId: "cred-1" })));
 
     const result = await Effect.runPromise(
@@ -178,43 +304,15 @@ describe("ExchangeService — credential system", () => {
     );
 
     expect(result).toBeInstanceOf(CredentialNotFound);
-    expect(result._tag).toBe("CredentialNotFound");
+    expect(result).toHaveProperty("_tag", "CredentialNotFound");
     expect(getDecryptedAgentMock).toHaveBeenCalled();
   });
 
   it("TC-09: Rotation chain", async () => {
-    const OLD_ID = "cred-old";
-    const NEW_ID = "cred-new";
-    const NEW_KEY = "0x" + "c".repeat(64);
+    const state = { oldActive: true };
+    const mockRotateRepo = makeRotateRepo(state);
 
-    let oldActive = true;
-    const mockRotateRepo = {
-      ...defaultMockCredRepo,
-      rotate: vi.fn().mockImplementation(() => {
-        oldActive = false;
-        return Effect.succeed(
-          makePlaceholderCredential({
-            id: NEW_ID,
-            encAgentKey: "enc:" + NEW_KEY,
-            rotatedFrom: OLD_ID,
-            isActive: true,
-          }),
-        );
-      }),
-      getActiveForAccount: vi.fn().mockImplementation(() => {
-        if (!oldActive) {
-          return Effect.succeed(
-            makePlaceholderCredential({ id: NEW_ID, rotatedFrom: OLD_ID, isActive: true }),
-          );
-        }
-        return Effect.succeed(makePlaceholderCredential({ id: OLD_ID }));
-      }),
-    };
-
-    const layer = Layer.succeed(
-      ExchangeCredentialRepo,
-      ExchangeCredentialRepo.of(mockRotateRepo as any),
-    );
+    const layer = Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(mockRotateRepo));
 
     const rotated = await Effect.runPromise(
       Effect.gen(function* () {
@@ -223,10 +321,10 @@ describe("ExchangeService — credential system", () => {
           userId: USER_A,
           accountId: "acct-1",
           credentialSubtype: "agent",
-          agentKey: NEW_KEY,
+          agentKey: Redacted.make(NEW_KEY),
           agentAddress: "0xAGENT_NEW",
           label: "Rotated Key",
-        } as any);
+        });
       }).pipe(Effect.provide(layer)),
     );
 
@@ -237,10 +335,10 @@ describe("ExchangeService — credential system", () => {
   });
 
   it("TC-11: markUsed does not block pipeline", async () => {
-    mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+    mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
     mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
 
-    const markUsedDelay = vi.fn().mockReturnValue(Effect.sync(() => {}));
+    const markUsedDelay = vi.fn<CredRepoShape["markUsed"]>().mockReturnValue(Effect.sync(() => {}));
 
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -275,7 +373,7 @@ describe("Security Boundary — vaultAddress forwarding", () => {
   });
 
   it("forwards vaultAddress as second arg on order()", async () => {
-    mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+    mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
     mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
 
     await Effect.runPromise(
@@ -302,7 +400,7 @@ describe("Security Boundary — vaultAddress forwarding", () => {
             {},
             {
               getDecryptedAgent: vi
-                .fn()
+                .fn<CredRepoShape["getDecryptedAgent"]>()
                 .mockReturnValue(
                   Effect.succeed(makeDecryptedCredential({ vaultAddress: "0xVAULT" })),
                 ),
@@ -316,7 +414,7 @@ describe("Security Boundary — vaultAddress forwarding", () => {
   });
 
   it("forwards vaultAddress as second arg on updateLeverage()", async () => {
-    mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+    mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
     mockExchangeInstance.updateLeverage.mockResolvedValueOnce({ response: "ok" });
 
     await Effect.runPromise(
@@ -332,7 +430,7 @@ describe("Security Boundary — vaultAddress forwarding", () => {
             {},
             {
               getDecryptedAgent: vi
-                .fn()
+                .fn<CredRepoShape["getDecryptedAgent"]>()
                 .mockReturnValue(
                   Effect.succeed(makeDecryptedCredential({ vaultAddress: "0xVAULT" })),
                 ),
@@ -348,7 +446,7 @@ describe("Security Boundary — vaultAddress forwarding", () => {
   });
 
   it("forwards vaultAddress as second arg on cancel()", async () => {
-    mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+    mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
     mockExchangeInstance.cancel.mockResolvedValueOnce({ response: "ok" });
 
     await Effect.runPromise(
@@ -361,7 +459,7 @@ describe("Security Boundary — vaultAddress forwarding", () => {
             {},
             {
               getDecryptedAgent: vi
-                .fn()
+                .fn<CredRepoShape["getDecryptedAgent"]>()
                 .mockReturnValue(
                   Effect.succeed(makeDecryptedCredential({ vaultAddress: "0xVAULT" })),
                 ),
@@ -383,7 +481,7 @@ describe("Security Boundary — vaultAddress omitted for wallet accounts", () =>
   });
 
   it("does NOT forward vaultAddress when undefined (wallet account)", async () => {
-    mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+    mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
     mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
 
     await Effect.runPromise(
@@ -410,7 +508,7 @@ describe("Security Boundary — vaultAddress omitted for wallet accounts", () =>
             {},
             {
               getDecryptedAgent: vi
-                .fn()
+                .fn<CredRepoShape["getDecryptedAgent"]>()
                 .mockReturnValue(
                   Effect.succeed(makeDecryptedCredential({ vaultAddress: undefined })),
                 ),
@@ -432,15 +530,9 @@ describe("Security Boundary — getActiveForAccount isolation", () => {
   it("cross-user isolation: USER_B cannot access USER_A credential", async () => {
     const isolationMock = {
       ...defaultMockCredRepo,
-      getActiveForAccount: vi.fn().mockImplementation((accountId: string, userId: string) => {
-        if (userId === USER_A) return Effect.succeed(makePlaceholderCredential({ userId: USER_A }));
-        return Effect.fail(new CredentialNotFound({ credentialId: `${accountId}/agent` }));
-      }),
+      getActiveForAccount: makeUserAwareGetActive(),
     };
-    const layer = Layer.succeed(
-      ExchangeCredentialRepo,
-      ExchangeCredentialRepo.of(isolationMock as any),
-    );
+    const layer = Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(isolationMock));
 
     const result = await Effect.runPromise(
       Effect.gen(function* () {
@@ -458,15 +550,12 @@ describe("Security Boundary — getActiveForAccount isolation", () => {
     const isolationMock = {
       ...defaultMockCredRepo,
       getActiveForAccount: vi
-        .fn()
+        .fn<CredRepoShape["getActiveForAccount"]>()
         .mockReturnValue(
           Effect.succeed(makePlaceholderCredential({ id: "cred-accessible", userId: USER_A })),
         ),
     };
-    const layer = Layer.succeed(
-      ExchangeCredentialRepo,
-      ExchangeCredentialRepo.of(isolationMock as any),
-    );
+    const layer = Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(isolationMock));
 
     const result = await Effect.runPromise(
       Effect.gen(function* () {
@@ -498,7 +587,7 @@ describe("Security Boundary — error sanitization", () => {
               {},
               {
                 getDecryptedAgent: vi
-                  .fn()
+                  .fn<CredRepoShape["getDecryptedAgent"]>()
                   .mockReturnValue(
                     Effect.fail(new CredentialNotFound({ credentialId: "cred-sanitized-id" })),
                   ),
@@ -510,12 +599,8 @@ describe("Security Boundary — error sanitization", () => {
     );
 
     expect(result).toBeInstanceOf(CredentialNotFound);
-    if ("credentialId" in (result as any)) {
-      expect((result as any).credentialId).not.toMatch(uuidPattern);
-    }
-    expect((result as any).message ?? "").not.toMatch(
-      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
-    );
+    expect(result).toHaveProperty("credentialId", expect.not.stringMatching(uuidPattern));
+    expect(result).toHaveProperty("message", expect.not.stringMatching(uuidPattern));
   });
 });
 
@@ -525,13 +610,15 @@ describe("Security Boundary — markUsed fire-and-forget", () => {
   });
 
   it("markUsed is triggered during credential resolution and does not block", async () => {
-    mockInfoInstance.meta.mockResolvedValueOnce({ universe: [{ name: "BTC" }] });
+    mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
     mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
-    const markUsedSpy = vi.fn();
-    const getDecryptedAgentWithMarkUsed = vi.fn().mockImplementation((id: string) => {
-      markUsedSpy(id);
-      return Effect.succeed(makeDecryptedCredential());
-    });
+    const markUsedSpy = vi.fn<(id: string) => void>();
+    const getDecryptedAgentWithMarkUsed = vi
+      .fn<CredRepoShape["getDecryptedAgent"]>()
+      .mockImplementation((id: string) => {
+        markUsedSpy(id);
+        return Effect.succeed(makeDecryptedCredential());
+      });
 
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -569,61 +656,23 @@ describe("Full credential lifecycle end-to-end", () => {
   });
 
   it("steps through create → unverified block → verify → trade → rotate → revoke", async () => {
-    const creds = {
+    const creds: Record<"old" | "new", LifecycleCred> = {
       old: { id: "cred-lc-old", isVerified: false, isRevoked: false, isActive: true },
       new: { id: "cred-lc-new", isVerified: false, isRevoked: false, isActive: false },
     };
 
-    const lifecycleMock = {
-      ...defaultMockCredRepo,
-      getActiveForAccount: vi.fn().mockImplementation(() => {
-        const active = Object.values(creds).find((c) => c.isActive && !c.isRevoked);
-        if (!active) return Effect.fail(new CredentialNotFound({ credentialId: "none" }));
-        return Effect.succeed(
-          makePlaceholderCredential({ id: active.id, isVerified: active.isVerified }),
-        );
-      }),
-      getDecryptedAgent: vi.fn().mockImplementation((id: string) => {
-        const cred = Object.values(creds).find((c) => c.id === id);
-        if (!cred || !cred.isActive)
-          return Effect.fail(new CredentialNotFound({ credentialId: id }));
-        if (cred.isRevoked) return Effect.fail(new CredentialRevoked({ credentialId: id }));
-        if (!cred.isVerified) return Effect.fail(new CredentialUnverified({ credentialId: id }));
-        return Effect.succeed(makeDecryptedCredential());
-      }),
-      setVerified: vi.fn().mockImplementation((id: string) => {
-        const cred = Object.values(creds).find((c) => c.id === id);
-        if (cred) cred.isVerified = true;
-        return Effect.succeed(void 0);
-      }),
-      rotate: vi.fn().mockImplementation(() => {
-        creds.old.isActive = false;
-        creds.new.isActive = true;
-        creds.new.isVerified = creds.old.isVerified;
-        return Effect.succeed(
-          makePlaceholderCredential({
-            id: "cred-lc-new",
-            rotatedFrom: "cred-lc-old",
-            isActive: true,
-          }),
-        );
-      }),
-      revoke: vi.fn().mockImplementation((id: string) => {
-        const cred = Object.values(creds).find((c) => c.id === id);
-        if (cred) cred.isRevoked = true;
-        return Effect.succeed(void 0);
-      }),
-    };
+    const lifecycleMock = makeLifecycleRepo(creds);
 
     const accountLayer = Layer.succeed(
       ExchangeAccountRepo,
-      ExchangeAccountRepo.of(defaultMockAccountRepo as any),
+      ExchangeAccountRepo.of(defaultMockAccountRepo),
     );
     const credLayer = Layer.succeed(
       ExchangeCredentialRepo,
-      ExchangeCredentialRepo.of(lifecycleMock as any),
+      ExchangeCredentialRepo.of(lifecycleMock),
     );
     const testLayer = exchangeServiceLayer.pipe(
+      Layer.provideMerge(exchangeCredentialsLayer),
       Layer.provideMerge(accountLayer),
       Layer.provideMerge(credLayer),
       Layer.provideMerge(makeMockHLClient()),
@@ -650,7 +699,7 @@ describe("Full credential lifecycle end-to-end", () => {
     expect(creds.old.isVerified).toBe(true);
 
     // Step 3: Trade succeeds after verification
-    mockInfoInstance.meta.mockResolvedValue({ universe: [{ name: "BTC" }] });
+    mockInfoInstance.meta.mockResolvedValue(makeMetaResponse(["BTC"]));
     mockExchangeInstance.order.mockResolvedValue({ response: "ok" });
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -682,9 +731,9 @@ describe("Full credential lifecycle end-to-end", () => {
           userId: USER_A,
           accountId: "acct-1",
           credentialSubtype: "agent",
-          agentKey: "0x" + "c".repeat(64),
+          agentKey: Redacted.make("0x" + "c".repeat(64)),
           agentAddress: "0xAGENT_NEW",
-        } as any);
+        });
       }).pipe(Effect.provide(testLayer)),
     );
     expect(rotated.id).toBe("cred-lc-new");
@@ -728,9 +777,11 @@ describe("Expired credential — decrypt never called", () => {
             makeTestLayer(
               {},
               {
-                getDecryptedAgent: vi.fn().mockImplementation((id: string) => {
-                  return Effect.fail(new CredentialExpired({ credentialId: id }));
-                }),
+                getDecryptedAgent: vi
+                  .fn<CredRepoShape["getDecryptedAgent"]>()
+                  .mockImplementation((id: string) => {
+                    return Effect.fail(new CredentialExpired({ credentialId: id }));
+                  }),
               },
             ),
           ),
@@ -748,47 +799,21 @@ describe("Concurrent/Multi-User isolation", () => {
   });
 
   it("two users with same exchange get isolated credentials", async () => {
-    mockInfoInstance.meta.mockResolvedValue({ universe: [{ name: "BTC" }] });
+    mockInfoInstance.meta.mockResolvedValue(makeMetaResponse(["BTC"]));
     mockExchangeInstance.order.mockResolvedValue({ response: "ok" });
 
-    const userAState = { called: false, wallet: "0xUSER_A" };
-    const userBState = { called: false, wallet: "0xUSER_B" };
+    const state = { userACalled: false, userBCalled: false };
 
-    const multiUserAccountRepo = {
-      ...defaultMockAccountRepo,
-      findPrimary: vi.fn().mockImplementation((userId: string) => {
-        if (userId === USER_A)
-          return Effect.succeed(
-            makePlaceholderAccount({ userId: USER_A, walletAddress: "0xUSER_A" }),
-          );
-        if (userId === USER_B)
-          return Effect.succeed(
-            makePlaceholderAccount({ userId: USER_B, walletAddress: "0xUSER_B" }),
-          );
-        return Effect.fail(new AccountNotFound({ accountId: userId }));
-      }),
-    };
-    const multiUserCredRepo = {
-      ...defaultMockCredRepo,
-      getDecryptedAgent: vi.fn().mockImplementation((id: string, userId: string) => {
-        if (userId === USER_A) {
-          userAState.called = true;
-          return Effect.succeed(makeDecryptedCredential({ walletAddress: "0xUSER_A" }));
-        }
-        if (userId === USER_B) {
-          userBState.called = true;
-          return Effect.succeed(makeDecryptedCredential({ walletAddress: "0xUSER_B" }));
-        }
-        return Effect.fail(new CredentialNotFound({ credentialId: id }));
-      }),
-    };
+    const multiUserAccountRepo = makeMultiUserAccountRepo();
+    const multiUserCredRepo = makeMultiUserCredRepo(state);
 
     const isolatedLayer = exchangeServiceLayer.pipe(
+      Layer.provideMerge(exchangeCredentialsLayer),
       Layer.provideMerge(
-        Layer.succeed(ExchangeAccountRepo, ExchangeAccountRepo.of(multiUserAccountRepo as any)),
+        Layer.succeed(ExchangeAccountRepo, ExchangeAccountRepo.of(multiUserAccountRepo)),
       ),
       Layer.provideMerge(
-        Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(multiUserCredRepo as any)),
+        Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(multiUserCredRepo)),
       ),
       Layer.provideMerge(makeMockHLClient()),
     );
@@ -836,34 +861,28 @@ describe("Concurrent/Multi-User isolation", () => {
 
     expect(resultA).toEqual({ response: "ok" });
     expect(resultB).toEqual({ response: "ok" });
-    expect(userAState.called).toBe(true);
-    expect(userBState.called).toBe(true);
+    expect(state.userACalled).toBe(true);
+    expect(state.userBCalled).toBe(true);
   });
 });
 
 // Group 6: Edge Cases
-
-it.todo(
-  "One agent credential should not sign for multiple sub-accounts under concurrency — nonce isolation rule",
-);
 
 describe("Negative/Defensive tests", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it.todo("Empty permissions array blocks all operations — permission check not yet implemented");
-
   it("invalid credential subtype (non-agent) fails with CredentialNotFound", async () => {
     const mockCredRepo = {
       ...defaultMockCredRepo,
       getActiveForAccount: vi
-        .fn()
+        .fn<CredRepoShape["getActiveForAccount"]>()
         .mockReturnValue(
           Effect.succeed(makePlaceholderCredential({ credentialSubtype: "hardware" })),
         ),
       getDecryptedAgent: vi
-        .fn()
+        .fn<CredRepoShape["getDecryptedAgent"]>()
         .mockImplementation((id: string) =>
           Effect.fail(new CredentialNotFound({ credentialId: id })),
         ),

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
-import { normalizeChartDataPoints } from "@0xsignal/shared";
 import { useHyperliquidWs } from "./use-hyperliquid-ws";
 import { useCandleHistory, fetchByRange } from "./use-candle-history";
 import { normalizeSymbol } from "../lib/symbol";
@@ -17,6 +16,8 @@ interface UseHyperliquidCandlesOptions {
 const LOAD_MORE_COOLDOWN = 1000;
 const LOAD_MORE_SPINNER_MIN_MS = 280;
 
+const isChartDataPointArray = (value: unknown): value is ChartDataPoint[] => Array.isArray(value);
+
 export function useHyperliquidCandles({
   symbol,
   interval,
@@ -24,7 +25,7 @@ export function useHyperliquidCandles({
   enabled = true,
 }: UseHyperliquidCandlesOptions) {
   const [isConnected, setIsConnected] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [wsError, setWsError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
 
@@ -37,8 +38,11 @@ export function useHyperliquidCandles({
   const intervalRef = useRef(interval);
   const historyIdentityRef = useRef<{ symbol: string; interval: string } | null>(null);
 
-  symbolRef.current = symbol;
-  intervalRef.current = interval;
+  useEffect(() => {
+    symbolRef.current = symbol;
+    intervalRef.current = interval;
+  }, [symbol, interval]);
+
   useEffect(() => {
     hasMoreRef.current = hasMore;
   }, [hasMore]);
@@ -55,11 +59,6 @@ export function useHyperliquidCandles({
   const { data: historyData, isLoading: historyLoading, error: historyError } = historical;
 
   useEffect(() => {
-    if (historyError)
-      setError(historyError instanceof Error ? historyError : new Error(String(historyError)));
-  }, [historyError]);
-
-  useEffect(() => {
     const previousIdentity = historyIdentityRef.current;
     const identityChanged =
       previousIdentity === null ||
@@ -68,12 +67,7 @@ export function useHyperliquidCandles({
 
     historyIdentityRef.current = { symbol, interval };
 
-    if (historyData) {
-      const normalized = normalizeChartDataPoints(historyData);
-      setCandleData(candleKey, normalized);
-    } else {
-      setCandleData(candleKey, []);
-    }
+    setCandleData(candleKey, historyData ?? []);
 
     if (identityChanged) {
       setHasMore(true);
@@ -85,11 +79,16 @@ export function useHyperliquidCandles({
   const hlInterval = useMemo(() => mapToHLInterval(interval), [interval]);
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
   const currentCoinRef = useRef(coin);
-  currentCoinRef.current = coin;
+
+  useEffect(() => {
+    currentCoinRef.current = coin;
+  }, [coin]);
 
   const subscription = useMemo(
     () =>
-      enabled && coin ? { channel: "candle" as const, symbol: coin, interval: hlInterval } : null,
+      enabled && coin !== ""
+        ? { channel: "candle" as const, symbol: coin, interval: hlInterval }
+        : null,
     [enabled, coin, hlInterval],
   );
 
@@ -104,21 +103,24 @@ export function useHyperliquidCandles({
       if (meta?.coin !== undefined && meta.coin !== currentCoinRef.current) return;
 
       // WS decoder returns ChartDataPoint[] shape
-      const converted = rawData as ChartDataPoint[];
-      if (converted.length > 0) {
-        appendCandles(candleKey, converted);
+      if (isChartDataPointArray(rawData) && rawData.length > 0) {
+        appendCandles(candleKey, rawData);
       }
     },
     [hlInterval, candleKey, appendCandles],
   );
 
-  const handleConnectionChange = useCallback((c: boolean) => setIsConnected(c), []);
-  const handleError = useCallback((e: Error) => setError(e), []);
+  const handleConnectionChange = useCallback((c: boolean) => {
+    setIsConnected(c);
+  }, []);
+  const handleError = useCallback((e: Error) => {
+    setWsError(e);
+  }, []);
 
   useHyperliquidWs({
     subscription,
     onMessage: handleMessage,
-    enabled: enabled && !!symbol,
+    enabled: enabled && symbol !== "",
     onConnectionChange: handleConnectionChange,
     onError: handleError,
   });
@@ -227,7 +229,7 @@ export function useHyperliquidCandles({
     data: storedCandles ?? [],
     isLoading: historyLoading,
     isConnected,
-    error,
+    error: wsError ?? historyError,
     loadMore,
     hasMore,
     isFetching,

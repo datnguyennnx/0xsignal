@@ -1,9 +1,6 @@
 import { Match, Schema } from "effect";
 import { WS_MARKET_INTERVALS } from "@0xsignal/shared";
 
-// Re-export shared interval constants/types as the single source of truth
-export { WS_MARKET_INTERVALS as MARKET_TIMEFRAMES };
-
 // Schema-based branded type — validation happens once at boundaries, not at call sites.
 // Use `Schema.decodeUnknownEffect(MarketTimeframeSchema)(raw)` at API/event edges.
 const MarketTimeframeSchema = Schema.Literals(WS_MARKET_INTERVALS).pipe(

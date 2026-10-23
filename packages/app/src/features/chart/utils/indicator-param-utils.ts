@@ -4,13 +4,6 @@ import {
   type IndicatorConfig,
 } from "@0xsignal/shared";
 
-export const formatParamValue = (value: number): string => {
-  if (Number.isInteger(value)) {
-    return `${value}`;
-  }
-  return value.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
-};
-
 export const parseParamInput = (value: string): number | null => {
   if (value.trim() === "") return null;
   const parsed = Number(value);
@@ -50,15 +43,4 @@ export const toChipLabel = (indicator: ActiveIndicator): string => {
     .join(" ");
 
   return summary ? `${indicator.config.name} ${summary}` : indicator.config.name;
-};
-
-export const getInstanceLabel = (activeIndicator: ActiveIndicator): string => {
-  const keys = activeIndicator.config.params.map((param) => param.key);
-  if (keys.length === 0) {
-    return "Default setup";
-  }
-
-  return keys
-    .map((key) => `${key}: ${formatParamValue(activeIndicator.params[key] ?? 0)}`)
-    .join(" • ");
 };

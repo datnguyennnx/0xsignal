@@ -1,47 +1,63 @@
 import type { ServerWebSocket } from "bun";
 import type { ISubscription } from "@nktkas/hyperliquid";
-import { Data, type Fiber, type Option } from "effect";
-import { type WsMarketChannel, type WsMarketInterval } from "@0xsignal/shared";
+import { Data, Effect, type Fiber, type Option, Ref, type Scope } from "effect";
+import type {
+  MarketWsConnectionData,
+  MarketWsConnectionSubscription,
+  MarketWsSubscription,
+} from "../../../application/market-data/market-stream.contracts";
+import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
 
-/**
- * Price level in the orderbook.
- */
-export interface L2Level {
-  readonly px: string;
-  readonly sz: string;
-  readonly n: number;
-}
+export type {
+  MarketWsConnectionData,
+  MarketWsConnectionSubscription,
+  MarketWsSubscription,
+} from "../../../application/market-data/market-stream.contracts";
+export { MarketStreamHub } from "../../../application/market-data/market-stream.contracts";
 
-/**
- * L2 orderbook event from the NKTAS SDK subscription.
- */
-export interface L2BookEvent {
-  readonly coin: string;
-  readonly time: number;
-  readonly levels: readonly [readonly L2Level[], readonly L2Level[]];
-  readonly spread?: string;
-  readonly fast?: true;
-}
-
-export type MarketWsSubscription = {
-  readonly channel: WsMarketChannel;
-  readonly symbol?: string;
-  readonly interval?: WsMarketInterval;
-  readonly nSigFigs?: 2 | 3 | 4 | 5 | null;
-  readonly fast?: boolean;
-  readonly depth?: number;
-  readonly dex?: string;
+export const normalizeMarketWsSubscription = (
+  subscription: MarketWsSubscription,
+): MarketWsSubscription => {
+  if (subscription.symbol === undefined || subscription.symbol === "") {
+    return subscription;
+  }
+  return { ...subscription, symbol: normalizeSymbol(subscription.symbol) };
 };
 
-export type MarketWsConnectionData = {
-  readonly id: string;
-  readonly bucketKey: string;
-  readonly subscription: MarketWsSubscription;
-};
+export const addMarketWsConnectionSubscription = (
+  subscriptions: Ref.Ref<Map<string, MarketWsConnectionSubscription>>,
+  subscription: MarketWsSubscription,
+  key: string,
+): Effect.Effect<void> =>
+  Ref.update(subscriptions, (m) => {
+    const existing = m.get(key);
+    m.set(key, {
+      subscription: existing?.subscription ?? subscription,
+      bucketKey: key,
+      refCount: (existing?.refCount ?? 0) + 1,
+    });
+    return m;
+  });
+
+/** Returns true when the connection dropped its last reference to the bucket. */
+export const removeMarketWsConnectionSubscription = (
+  subscriptions: Ref.Ref<Map<string, MarketWsConnectionSubscription>>,
+  key: string,
+): Effect.Effect<boolean> =>
+  Ref.modify(subscriptions, (m) => {
+    const existing = m.get(key);
+    if (existing === undefined) return [false, m] as const;
+    if (existing.refCount > 1) {
+      m.set(key, { ...existing, refCount: existing.refCount - 1 });
+      return [false, m] as const;
+    }
+    m.delete(key);
+    return [true, m] as const;
+  });
 
 export class WebSocketSubscribeError extends Data.TaggedError("WebSocketSubscribeError")<{
   readonly message: string;
-  readonly symbol?: string;
+  readonly symbol?: string | undefined;
 }> {}
 
 export type Bucket = {
@@ -51,11 +67,12 @@ export type Bucket = {
   readonly upstream: Option.Option<ISubscription>;
   readonly state: BucketState;
   readonly retryCount: number;
-  readonly restartFibers: Set<Fiber.Fiber<void, never>>;
-  firstMarketBroadcastLogged: boolean;
+  readonly subscribeFiber: Option.Option<Fiber.Fiber<void>>;
+  readonly scope: Scope.Scope;
 };
 
-export type BucketState =
+type BucketState =
   | { readonly _tag: "idle" }
   | { readonly _tag: "subscribing" }
+  | { readonly _tag: "restarting" }
   | { readonly _tag: "subscribed"; readonly upstream: ISubscription };

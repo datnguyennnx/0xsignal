@@ -12,26 +12,39 @@
  * - The underlying SDK calls are Promise-based
  * - Promise creation/completion is naturally atomic in JS
  * - No race conditions in single-threaded runtime
- * - No TypeScript complexity with generic Effect types
+ *
+ * Keys identify the exact upstream request (`metaAndAssetCtxs:<dex>`), so two
+ * callers that need the same read share it even when they asked for different
+ * symbols.
  */
+
+type AllMids = Record<string, string>;
+type PerpDexs = Array<null | { name: string }>;
+type MetaAndAssetCtxs = [unknown, unknown];
 
 const inFlight = new Map<string, Promise<unknown>>();
 
 /**
  * Wrap a Promise-returning function with in-flight dedup.
  *
- * @param key Unique identity for the request (e.g. "allMids").
+ * @param key Unique identity for the upstream request (e.g. "allMids").
  * @param fetcher The actual upstream call (returns a Promise).
  * @returns A Promise that resolves (or rejects) with the same result as fetcher,
  *          shared across all concurrent callers with the same key.
  */
-export const withDedup = <A>(key: string, fetcher: () => Promise<A>): Promise<A> => {
+export function withDedup(key: "allMids", fetcher: () => Promise<AllMids>): Promise<AllMids>;
+export function withDedup(key: "perpDexs", fetcher: () => Promise<PerpDexs>): Promise<PerpDexs>;
+export function withDedup(
+  key: `metaAndAssetCtxs:${string}`,
+  fetcher: () => Promise<MetaAndAssetCtxs>,
+): Promise<MetaAndAssetCtxs>;
+export function withDedup(key: string, fetcher: () => Promise<unknown>): Promise<unknown> {
   const existing = inFlight.get(key);
-  if (existing) return existing as Promise<A>;
+  if (existing !== undefined) return existing;
 
   const promise = fetcher().finally(() => {
-    inFlight.delete(key);
+    if (inFlight.get(key) === promise) inFlight.delete(key);
   });
   inFlight.set(key, promise);
   return promise;
-};
+}

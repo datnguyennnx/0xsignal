@@ -1,8 +1,8 @@
 import { type DisplayOrderbookLevel as OrderbookLevel } from "@/core/utils/hyperliquid";
 import { formatPriceWithNSigFigs, formatSize } from "@/core/utils/formatters";
 
-export const ROW_HEIGHT = 28;
-export const ROW_HEIGHT_CLASS = "h-7";
+/** Single source for the depth row box: rows, column header, spread strip and skeleton all use it. */
+export const ROW_HEIGHT_CLASS = "h-6";
 export const VISIBLE_ROWS = 20;
 
 export interface PopupData {

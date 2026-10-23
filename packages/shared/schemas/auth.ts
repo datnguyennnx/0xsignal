@@ -1,9 +1,9 @@
 /**
  * Auth boundary types — shared between auth backend and frontend app.
  *
- * SOURCE OF TRUTH: `packages/auth/src/presentation/auth.schemas.ts` defines
- * the `AuthMeResponseSchema` Effect Schema. This pure TypeScript interface is
- * manually kept in sync. When updating, ensure the fields match the Schema.
+ * Canonical declaration of the auth wire contract. The Effect Schema in
+ * `packages/auth/src/presentation/auth.schemas.ts` is annotated with this type,
+ * so the validator cannot drift from it.
  */
 
 // Auth Me Response

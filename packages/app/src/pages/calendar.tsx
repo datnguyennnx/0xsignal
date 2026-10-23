@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { JSX } from "react";
 import { useLocation } from "react-router-dom";
-import { CalendarBoard } from "@/features/calendar";
+import { CalendarBoard } from "@/features/calendar/components/calendar-board";
 import { ErrorBoundary } from "@/components/error-boundary";
 
 export function CalendarPage(): JSX.Element {
