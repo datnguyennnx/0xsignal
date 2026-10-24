@@ -69,7 +69,7 @@ function IndicatorConfigPanelInner({
   const activeCount = activeIndicators.length;
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden material-base">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-transparent">
       <div className="p-[clamp(1rem,2vw,1.5rem)]">
         <div className="flex items-start justify-between gap-[clamp(0.5rem,1vw,1rem)]">
           <div className="space-y-1">

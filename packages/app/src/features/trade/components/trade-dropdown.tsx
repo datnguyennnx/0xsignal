@@ -2,13 +2,9 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
-import { calculatePxDecimals } from "@/features/trade/utils/trade-formatters";
-import {
-  formatSize,
-  formatCompactUsd,
-  formatSignedPercent,
-  formatFundingPercent,
-} from "@/core/utils/formatters";
+import { computeOverlayPosition } from "@/features/trade/lib/overlay-position";
+import { formatTradeRows } from "@/features/trade/lib/format-trade-rows";
+import { withViewTransition } from "@/lib/view-transition";
 import type { CategoryTab, FormattedTrade, TradeDropdownProps } from "../utils/trade-dropdown";
 import { TradeDropdownTrigger } from "./trade-dropdown-trigger";
 import { TradeDropdownPanel } from "./trade-dropdown-panel";
@@ -102,32 +98,17 @@ const TradeDropdownFn = ({
   }, []);
 
   const handleOpen = useCallback(() => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-
-      let left = 8;
-      let top = rect.bottom + 8;
-
-      if (viewportWidth >= 640) {
-        left = Math.max(8, rect.left);
-        if (left + 700 > viewportWidth) {
-          left = Math.max(8, viewportWidth - 710);
-        }
+    withViewTransition(() => {
+      if (triggerRef.current) {
+        setPosition(
+          computeOverlayPosition(triggerRef.current.getBoundingClientRect(), {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          }),
+        );
       }
-
-      const dropdownHeight = 520;
-      if (top + dropdownHeight > viewportHeight - 20) {
-        top = rect.top - dropdownHeight - 8;
-      }
-      if (top < 20) {
-        top = 20;
-      }
-
-      setPosition({ top, left });
-    }
-    setIsOpen(true);
+      setIsOpen(true);
+    });
   }, []);
 
   const handleSelect = useCallback(
@@ -184,43 +165,10 @@ const TradeDropdownFn = ({
     };
   }, [isOpen, handleClose]);
 
-  const formattedTrades: FormattedTrade[] = useMemo(() => {
-    const currentRawCoinLower = currentSymbol.toLowerCase();
-    return filteredTrades.map((item) => {
-      const prevPx = Number(item.prevDayPx);
-      const markPx = Number(item.markPx);
-      const change = prevPx > 0 ? ((markPx - prevPx) / prevPx) * 100 : 0;
-      const oi = Number(item.openInterest);
-      const volume = Number(item.dayNtlVlm);
-      const funding = Number(item.funding);
-      const marketCap =
-        item.marketType === "spot" ? markPx * Number(item.circulatingSupply ?? 0) : 0;
-      const pxDec = calculatePxDecimals(item.szDecimals ?? 4);
-      return {
-        coin: item.coin,
-        rawCoin: item.rawCoin,
-        marketType: item.marketType,
-        displaySymbol: item.displaySymbol,
-        displayCategory: item.displayCategory,
-        markPx: item.markPx,
-        prevDayPx: item.prevDayPx,
-        openInterest: item.openInterest,
-        dayNtlVlm: item.dayNtlVlm,
-        funding: item.funding,
-        isHip3: item.isHip3,
-        category: item.category,
-        dexPrefix: item.dexPrefix,
-        changeValue: change,
-        changeFormatted: formatSignedPercent(change),
-        oiFormatted: formatSize(oi),
-        volumeFormatted: formatCompactUsd(volume),
-        fundingFormatted: formatFundingPercent(funding),
-        marketCapFormatted: marketCap > 0 ? formatCompactUsd(marketCap) : "--",
-        isActive: item.rawCoin.toLowerCase() === currentRawCoinLower,
-        pxDecimals: pxDec,
-      };
-    });
-  }, [filteredTrades, currentSymbol]);
+  const formattedTrades: FormattedTrade[] = useMemo(
+    () => formatTradeRows(filteredTrades, currentSymbol),
+    [filteredTrades, currentSymbol],
+  );
 
   return (
     <div className="relative" data-trade-dropdown>

@@ -1,7 +1,5 @@
-import { useRef, useCallback } from "react";
-import { LiquidGlass } from "@/components/glass";
+import { useRef, useState, useCallback, useEffect } from "react";
 
-import { useFullscreen } from "../hooks/use-fullscreen";
 import { useIndicators } from "../hooks/use-indicators";
 import { useChartFeed } from "../hooks/use-chart-feed";
 import { useChartRuntime } from "../hooks/use-chart-runtime";
@@ -15,11 +13,16 @@ interface TradingChartProps {
   onIntervalChange: (interval: string) => void;
 }
 
+const supportsNativeFullscreen =
+  typeof document !== "undefined" &&
+  typeof document.documentElement.requestFullscreen === "function";
+
 const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const { setHoveredCandle } = useHoverActions();
 
-  const { isFullscreen, toggleFullscreen, fullscreenContainerRef } = useFullscreen();
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const { candles, hasMoreCandles, handleLoadMore, markers } = useChartFeed({ symbol, interval });
 
   const {
@@ -43,17 +46,49 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     indicatorData,
   });
 
+  const toggleFullscreen = useCallback(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    if (!supportsNativeFullscreen) {
+      setIsFullscreen((prev) => !prev);
+      return;
+    }
+
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+      return;
+    }
+    // A refused request (permissions policy, stale activation) leaves state to the listener.
+    void panel.requestFullscreen().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!supportsNativeFullscreen) return () => {};
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === panelRef.current);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const isFallbackFullscreen = isFullscreen && !supportsNativeFullscreen;
+
   const handleIntervalChange = useCallback(
     (newInterval: string) => {
       if (newInterval === interval) return;
       onIntervalChange(newInterval);
-      if (isFullscreen) {
+      if (isFallbackFullscreen) {
         setTimeout(() => {
-          toggleFullscreen();
+          setIsFullscreen(false);
         }, INTERVAL_RESTORE_DELAY);
       }
     },
-    [interval, onIntervalChange, isFullscreen, toggleFullscreen],
+    [interval, onIntervalChange, isFallbackFullscreen],
   );
 
   const chartContent = (
@@ -77,22 +112,21 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   );
 
   // One stable element tree for both modes: swapping subtrees on fullscreen
-  // remounts the chart container, orphaning the chart instance.
+  // remounts the chart container, orphaning the chart instance. In native
+  // fullscreen the element itself is in the top layer, so its class list does
+  // not change; only the fallback needs the fixed overlay chrome.
   return (
     <div
-      ref={fullscreenContainerRef}
+      ref={panelRef}
       className={
-        isFullscreen
-          ? "fixed inset-0 z-50 material-overlay flex flex-col overflow-hidden"
-          : "relative isolate panel-contain flex flex-1 h-full flex-col rounded-xl p-3.5 bg-transparent"
+        isFallbackFullscreen
+          ? "fixed inset-0 z-50 tier-floating flex flex-col overflow-hidden"
+          : "chart-panel relative isolate panel-contain flex flex-1 h-full flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface"
       }
     >
-      {!isFullscreen && (
-        <LiquidGlass borderRadius="inherit" refraction tint="var(--material-raised-tint)" />
-      )}
       <div
         className={
-          isFullscreen
+          isFallbackFullscreen
             ? "w-full h-full max-w-8xl mx-auto flex flex-col"
             : "relative flex-1 flex flex-col gap-2.5"
         }

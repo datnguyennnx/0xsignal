@@ -31,7 +31,7 @@ export function EventChip({ event, onClick, className }: EventChipProps): JSX.El
   );
 
   const classes = cn(
-    "flex w-full items-center gap-1.5 overflow-hidden rounded-md border px-2 py-1 text-left text-xs transition-colors",
+    "flex w-full items-center gap-1.5 overflow-hidden rounded-[var(--radius-chip,0.375rem)] border px-2 py-1 text-left text-xs transition-colors",
     CATEGORY_STYLE[event.category],
     onClick && "cursor-pointer hover:border-foreground/40",
     className,

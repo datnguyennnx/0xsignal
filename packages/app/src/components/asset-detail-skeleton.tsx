@@ -5,7 +5,7 @@ import { cellWidth, GRID_GUTTER_FRACTION } from "@/features/asset-detail/utils/c
 /** Panel width as the percentage the live dashboard places it at (see ResizableWrapper). */
 const panelWidth = (columns: number): string =>
   `${((columns * cellWidth() + (columns - 1) * GRID_GUTTER_FRACTION) * 100).toFixed(2)}%`;
-const WIDE_COLUMNS = `${panelWidth(8)} ${panelWidth(2)} ${panelWidth(2)}`;
+const WIDE_COLUMNS = `${panelWidth(16)} ${panelWidth(5)} ${panelWidth(5)}`;
 const WIDE_COLUMN_GAP = `${(GRID_GUTTER_FRACTION * 100).toFixed(2)}%`;
 
 export function AssetDetailSkeleton() {
@@ -21,7 +21,7 @@ export function AssetDetailSkeleton() {
       </header>
       <div className="container-query flex-1 min-h-0 flex flex-col">
         {/* Wide: same column tracks, column gutter and chart/positions split as the
-            dashboard's initial layout (8/2/2 columns, 11/5 rows). */}
+            dashboard's initial layout (16/5/5 of 26 columns, 11/5 rows). */}
         <div
           className="hidden @[80rem]:grid flex-1 min-h-0 grid-rows-[minmax(0,1fr)]"
           style={{ gridTemplateColumns: WIDE_COLUMNS, columnGap: WIDE_COLUMN_GAP }}

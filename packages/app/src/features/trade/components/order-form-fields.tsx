@@ -133,7 +133,7 @@ export function OrderFormFields({
               onOrderTypeChange(type);
             }}
             className={cn(
-              "flex-1 pb-1.5 text-xs font-medium uppercase tracking-wider transition-colors",
+              "flex-1 pb-[var(--space-1,0.3125rem)] text-xs font-medium uppercase tracking-wider transition-colors",
               orderType === type
                 ? "border-b-2 border-foreground text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground/70",
@@ -144,21 +144,21 @@ export function OrderFormFields({
         ))}
       </div>
 
-      <div className="flex-1 flex flex-col gap-3">
-        <div className="relative flex h-9 rounded-md bg-muted p-0.5">
+      <div className="flex-1 flex flex-col">
+        <div className="relative flex h-[var(--field-h,2.75rem)] rounded-md bg-muted p-0.5 gap-1">
           <div
             className={cn(
-              "absolute inset-y-0.5 w-[calc(50%-0.25rem)] rounded-[5px] transition-transform duration-150 ease-premium",
+              "absolute inset-y-0.5 w-[calc(50%-0.25rem)] rounded-[0.3125rem] transition-transform duration-150 ease-premium",
               side === "buy"
                 ? "translate-x-0.5 bg-gain"
-                : "translate-x-[calc(100%+0.5rem)] bg-loss",
+                : "translate-x-[calc(100%+0.375rem)] bg-loss",
             )}
           />
           <button
             onClick={() => {
               onSideChange("buy");
             }}
-            className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer active:brightness-90"
+            className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[0.3125rem] transition-colors duration-200 cursor-pointer active:brightness-90"
           >
             <span className={side === "buy" ? "text-primary-foreground" : "text-muted-foreground"}>
               Buy / Long
@@ -168,7 +168,7 @@ export function OrderFormFields({
             onClick={() => {
               onSideChange("sell");
             }}
-            className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[5px] transition-colors duration-200 cursor-pointer active:brightness-90"
+            className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[0.3125rem] transition-colors duration-200 cursor-pointer active:brightness-90"
           >
             <span className={side === "sell" ? "text-primary-foreground" : "text-muted-foreground"}>
               Sell / Short
@@ -177,10 +177,10 @@ export function OrderFormFields({
         </div>
 
         {orderType === "limit" && (
-          <div className="space-y-1.5">
+          <div className="flex flex-col mt-[var(--space-4,1.5rem)]">
             <Label
               htmlFor="order-form-price"
-              className="text-xs uppercase tracking-wider text-muted-foreground font-normal"
+              className="mb-[var(--space-1,0.3125rem)] text-xs uppercase tracking-wider text-muted-foreground font-normal"
             >
               Price
             </Label>
@@ -192,15 +192,15 @@ export function OrderFormFields({
                 onPriceChange(e.target.value);
               }}
               placeholder="0.00"
-              className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
+              className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
               aria-invalid={priceInvalid}
             />
           </div>
         )}
 
-        <div className="flex flex-col gap-1.5">
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-[var(--space-2,0.75rem)] mt-[var(--space-4,1.5rem)]">
+          <div className="flex flex-col">
+            <div className="flex items-center justify-between mb-[var(--space-1,0.3125rem)]">
               <Label
                 htmlFor="order-form-size"
                 className="text-xs uppercase tracking-wider text-muted-foreground font-normal"
@@ -232,50 +232,48 @@ export function OrderFormFields({
               value={size}
               onChange={handleSizeChange}
               placeholder="0.00"
-              className="h-9 w-full text-base sm:text-sm tabular-nums bg-background/70 border-border/40 hover:border-border/60 transition-colors"
+              className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] w-full text-base sm:text-sm tabular-nums bg-background/70 border-border/40 hover:border-border/60 transition-colors"
             />
             {assetQtyDisplay !== null && (
-              <p className="text-[length:var(--text-micro)] text-muted-foreground tabular-nums text-right">
+              <p className="mt-[var(--space-1,0.3125rem)] text-[length:var(--text-micro)] text-muted-foreground tabular-nums text-right">
                 → {assetQtyDisplay}
               </p>
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Slider
-                value={[sliderPercent]}
-                onValueChange={handleSliderCommit}
-                min={0}
-                max={100}
-                step={1}
-                aria-label="Order size"
-                title="Order size"
-                className="flex-1 [&_[data-slot=slider-thumb]]:hover:ring-4 [&_[data-slot=slider-thumb]]:hover:ring-ring/40 [&_[data-slot=slider-track]]:hover:bg-muted/40 [&_[data-slot=slider-range]]:hover:brightness-110"
-              />
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={sliderPercent}
-                onChange={handlePctInputChange}
-                aria-label="Size percentage"
-                className="w-16 h-9 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40 px-1 shrink-0"
-              />
-              <span className="text-xs text-muted-foreground">%</span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Available to Trade</span>
-            <span className="text-xs tabular-nums text-foreground">
-              {formatCompactUsd(effectiveBalance)} {safeSizeAsset}
-            </span>
+          <div className="flex items-center gap-[var(--space-2,0.75rem)]">
+            <Slider
+              value={[sliderPercent]}
+              onValueChange={handleSliderCommit}
+              min={0}
+              max={100}
+              step={1}
+              aria-label="Order size"
+              title="Order size"
+              className="flex-1 [&_[data-slot=slider-thumb]]:hover:ring-4 [&_[data-slot=slider-thumb]]:hover:ring-ring/40 [&_[data-slot=slider-track]]:hover:bg-muted/40 [&_[data-slot=slider-range]]:hover:brightness-110"
+            />
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={sliderPercent}
+              onChange={handlePctInputChange}
+              aria-label="Size percentage"
+              className="w-16 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40 shrink-0"
+            />
+            <span className="text-xs text-muted-foreground">%</span>
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="relative flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)] cursor-pointer select-none group">
+        <div className="flex items-center justify-between mt-[var(--space-3,1.125rem)] py-[var(--space-1,0.3125rem)]">
+          <span className="text-xs text-muted-foreground">Available to Trade</span>
+          <span className="text-xs tabular-nums text-foreground">
+            {formatCompactUsd(effectiveBalance)} {safeSizeAsset}
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-[var(--space-2,0.75rem)] mt-[var(--space-4,1.5rem)]">
+          <label className="relative flex items-center gap-[var(--space-2,0.75rem)] py-[var(--space-1,0.3125rem)] cursor-pointer select-none group">
             <input
               type="checkbox"
               checked={reduceOnly}
@@ -297,8 +295,8 @@ export function OrderFormFields({
             </span>
           </label>
 
-          <div className="space-y-2.5">
-            <label className="relative flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)] cursor-pointer select-none group">
+          <div className="flex flex-col gap-[var(--space-2,0.75rem)]">
+            <label className="relative flex items-center gap-[var(--space-2,0.75rem)] py-[var(--space-1,0.3125rem)] cursor-pointer select-none group">
               <input
                 type="checkbox"
                 checked={tpSlEnabled}
@@ -323,8 +321,8 @@ export function OrderFormFields({
             </label>
 
             {showTpSl && (
-              <div className="flex flex-col gap-1.5 pl-4">
-                <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
+              <div className="flex flex-col gap-[var(--space-2,0.75rem)] pl-[var(--space-4,1.5rem)]">
+                <div className="flex items-center gap-[var(--space-2,0.75rem)]">
                   <div className="flex-1">
                     <label htmlFor="order-form-tp-price" className="sr-only">
                       Take profit price
@@ -337,10 +335,10 @@ export function OrderFormFields({
                         onTpPriceChange(e.target.value);
                       }}
                       placeholder="TP Price"
-                      className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
+                      className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
                     />
                   </div>
-                  <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
+                  <div className="flex items-center gap-[var(--space-1,0.3125rem)]">
                     <label htmlFor="order-form-tp-gain" className="sr-only">
                       Take profit gain percent
                     </label>
@@ -352,13 +350,13 @@ export function OrderFormFields({
                         onTpPercentChange(e.target.value);
                       }}
                       placeholder="Gain"
-                      className="w-20 h-9 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40"
+                      className="w-20 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40"
                     />
                     <span className="text-xs text-muted-foreground w-4">%</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
+                <div className="flex items-center gap-[var(--space-2,0.75rem)]">
                   <div className="flex-1">
                     <label htmlFor="order-form-sl-price" className="sr-only">
                       Stop loss price
@@ -371,10 +369,10 @@ export function OrderFormFields({
                         onSlPriceChange(e.target.value);
                       }}
                       placeholder="SL Price"
-                      className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
+                      className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
                     />
                   </div>
-                  <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
+                  <div className="flex items-center gap-[var(--space-1,0.3125rem)]">
                     <label htmlFor="order-form-sl-loss" className="sr-only">
                       Stop loss percent
                     </label>
@@ -386,7 +384,7 @@ export function OrderFormFields({
                         onSlPercentChange(e.target.value);
                       }}
                       placeholder="Loss"
-                      className="w-20 h-9 text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40"
+                      className="w-20 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40"
                     />
                     <span className="text-xs text-muted-foreground w-4">%</span>
                   </div>
@@ -396,7 +394,7 @@ export function OrderFormFields({
           </div>
         </div>
 
-        {footer}
+        <div className="mt-[var(--space-3,1.125rem)]">{footer}</div>
       </div>
     </>
   );

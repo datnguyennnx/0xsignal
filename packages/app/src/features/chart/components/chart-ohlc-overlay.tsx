@@ -1,7 +1,7 @@
 import { memo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { cn } from "cn";
-import { LiquidGlass } from "@/components/glass";
+import { Surface } from "@/components/surface/surface";
 import { formatPriceValue } from "../utils/price-format";
 import { useHoverState } from "../contexts/hover-context";
 
@@ -20,7 +20,11 @@ export const ChartOhlcOverlay = memo(({ data, precision }: ChartOhlcOverlayProps
 
   return (
     <div className="absolute top-2 left-2 right-2 z-30 px-2.5 py-1.5 bg-transparent rounded-lg text-[length:var(--text-data)] select-none overflow-x-auto scrollbar-hide w-fit">
-      <LiquidGlass borderRadius="inherit" tint="var(--material-raised-tint)" />
+      <Surface
+        tier="floating"
+        radius="overlay"
+        className="pointer-events-none absolute inset-0 -z-10"
+      />
       <div className="flex items-center gap-[clamp(0.4rem,0.7vw,0.75rem)] min-w-fit">
         <span className="text-muted-foreground">
           O{" "}

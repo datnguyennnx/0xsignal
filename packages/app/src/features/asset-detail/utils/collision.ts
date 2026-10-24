@@ -1,41 +1,22 @@
 import type { LayoutItem } from "./types";
 import { GRID_COLS, MAX_GRID_ROWS, panelMin } from "./constants";
 
-/**
- * NEW UNIT CONTRACT (S-6 fluid scaling): every width below is a FRACTION of
- * the container width (unitless, 0..1) — never pixels. Consumers must scale by
- * the container width or emit the value as a percentage / CSS `calc()`. No
- * caller subtracts a pixel gutter any more.
- */
+/** Every width here is a fraction of container width (0..1), never pixels. */
 
-/**
- * Inter-cell gutter as a fraction of container width — fluid analogue of the
- * legacy 8px GRID_GUTTER. It only equals 8px at a 1000px container
- * (0.008 * 1000 = 8); wider containers scale the gutter up, narrower down.
- */
+/** Inter-cell gutter as a fraction of container width (not doubled with the column change). */
 export const GRID_GUTTER_FRACTION = 0.008;
 
-/**
- * Per-column width as a fraction of the container width, gutters excluded.
- * At 12 columns and an 0.008 gutter each column spans
- * `(1 - 0.008 * 11) / 12` of the container.
- */
+/** Per-column width as a fraction of container width, gutters excluded. */
 export function cellWidth(): number {
   return (1 - GRID_GUTTER_FRACTION * (GRID_COLS - 1)) / GRID_COLS;
 }
 
-/**
- * Snap a delta — expressed as a fraction of container width — to whole grid
- * units. `cellFraction` is a per-column fraction from `cellWidth()`.
- */
+/** Snap a container-fraction delta to whole grid units. */
 export function snapToGridUnits(fractionDelta: number, cellFraction: number): number {
   return Math.round(fractionDelta / (cellFraction + GRID_GUTTER_FRACTION));
 }
 
-/**
- * Effective minimum footprint. The declarative per-panel floor wins over whatever
- * a persisted item declares, so an old layout cannot unlock an unusable size.
- */
+/** Declarative per-panel floor wins over a persisted item's stale minimum. */
 export function minCells(item: LayoutItem): { minW: number; minH: number } {
   const floor = panelMin(item.i);
   return {
@@ -44,12 +25,7 @@ export function minCells(item: LayoutItem): { minW: number; minH: number } {
   };
 }
 
-/**
- * Free corridor around a resizable item, as edge coordinates: the frame's left
- * edge may not pass `minX`, its right edge (`x + w`) not `maxX`, and likewise for
- * the vertical pair. Every handle clamps against these four values, so edges and
- * corners all consume one source of truth.
- */
+/** Free corridor around a resizable item as edge coordinates; every handle clamps to these. */
 export interface ResizeBounds {
   minX: number;
   maxX: number;
@@ -57,15 +33,8 @@ export interface ResizeBounds {
   maxY: number;
 }
 
-/**
- * Derive `ResizeBounds` from the nearest neighbour edge on each side — never a sum
- * of minimums, and no rule that differs per axis: the two passes are the same test
- * transposed.
- *
- * A corner grows on both axes at once, so a neighbour is only clear of the frame
- * once it is outside the whole reachable corridor, not merely the current row or
- * column band. Bounds only ever tighten, so the passes repeat until they settle.
- */
+/** Derive bounds from the nearest neighbour edge each side; passes repeat until
+ *  they settle, since a corner grows on both axes at once. */
 export function getResizeBounds(item: LayoutItem, others: LayoutItem[]): ResizeBounds {
   const itemRight = item.x + item.w;
   const itemBottom = item.y + item.h;
@@ -102,13 +71,8 @@ function isOverlapping(a: LayoutItem, b: LayoutItem): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
-/**
- * Resolve all grid collisions after a reposition.
- *
- * A resize frame is clamped against every neighbour before it is committed, so a
- * resize already produces a valid layout — resolving it would only move panels the
- * user did not touch. `_originalItem` stays in the signature for the caller.
- */
+/** Resolve grid collisions after a reposition; a resize is already clamped, so
+ *  it returns unchanged. */
 export function resolveCollisions(
   items: LayoutItem[],
   activeItemId?: string,

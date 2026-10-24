@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -22,6 +22,7 @@ import {
   type PortfolioPeriod,
 } from "../utils/constants";
 import { formatAxis, formatSignedUsd } from "@/core/utils/formatters";
+import { remToPx, subscribeRootFontSize } from "@/core/utils/rem";
 
 type ChartView = "account-value" | "pnl" | "perps-pnl";
 
@@ -74,7 +75,7 @@ function ChartTooltip({
 }
 
 const SURFACE =
-  "h-full flex flex-col rounded-xl p-4 material-raised animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
+  "h-full flex flex-col rounded-[var(--radius-panel)] p-4 tier-content animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
 
 /** Both branches size the plot area from this one token so they cannot drift. */
 const CHART_MIN_HEIGHT = "min-h-[clamp(120px,12vw,180px)]";
@@ -122,6 +123,20 @@ export function PortfolioPnLChart() {
     }
     return [min - range * 0.12, max + range * 0.12];
   }, [values]);
+
+  const [, bumpRootFontEpoch] = useState(0);
+  useEffect(
+    () =>
+      subscribeRootFontSize(() => {
+        bumpRootFontEpoch((n) => n + 1);
+      }),
+    [],
+  );
+
+  const chartMarginPx = remToPx(1);
+  const axisFontSizePx = remToPx(0.6875);
+  const yAxisWidthPx = Math.round(remToPx(3.5));
+  const tickGapPx = remToPx(2.5);
 
   const xAxisTicks = useMemo(() => {
     if (!values || values.length < 2) return null;
@@ -212,7 +227,10 @@ export function PortfolioPnLChart() {
         {chartData ? (
           <div className="w-full h-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 16, right: 16, bottom: 0, left: 0 }}>
+              <LineChart
+                data={chartData}
+                margin={{ top: chartMarginPx, right: chartMarginPx, bottom: 0, left: 0 }}
+              >
                 <CartesianGrid stroke="var(--chart-grid)" strokeOpacity={0.5} vertical={false} />
                 <XAxis
                   dataKey="time"
@@ -221,18 +239,18 @@ export function PortfolioPnLChart() {
                   scale="time"
                   axisLine={{ stroke: "var(--chart-border)", strokeWidth: 1 }}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: "var(--chart-text)" }}
+                  tick={{ fontSize: axisFontSizePx, fill: "var(--chart-text)" }}
                   tickFormatter={formatXAxisTick}
                   {...(xAxisTicks !== null && { ticks: xAxisTicks })}
-                  minTickGap={40}
+                  minTickGap={tickGapPx}
                 />
                 <YAxis
                   orientation="left"
                   axisLine={{ stroke: "var(--chart-border)", strokeWidth: 1 }}
                   tickLine={false}
-                  width={56}
+                  width={yAxisWidthPx}
                   tick={{
-                    fontSize: 11,
+                    fontSize: axisFontSizePx,
                     fill: "var(--chart-text)",
                     style: { fontVariantNumeric: "tabular-nums" },
                   }}

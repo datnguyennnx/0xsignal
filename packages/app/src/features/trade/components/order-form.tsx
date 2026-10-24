@@ -124,7 +124,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     !(orderType === "limit" && (!price || Number(price) <= 0));
 
   return (
-    <div className="h-full flex flex-col rounded-xl p-3.5 material-raised gap-3">
+    <div className="h-full flex flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-4,1.5rem)]">
       <OrderFormLeverage
         effectiveMarginMode={effectiveMarginMode}
         effectiveLeverage={effectiveLeverage}

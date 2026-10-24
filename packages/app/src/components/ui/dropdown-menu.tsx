@@ -3,8 +3,11 @@
 import * as React from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { cn } from "cn";
-import { LiquidGlass } from "@/components/glass";
+import { Surface, SurfaceContext } from "@/components/surface/surface";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
+
+/** A portalled overlay is not nested in the page's surfaces, whatever triggered it. */
+const PORTAL_ANCESTORS = [] as const;
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
   return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
@@ -30,25 +33,31 @@ function DropdownMenuContent({
   Pick<MenuPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
   return (
     <MenuPrimitive.Portal>
-      <MenuPrimitive.Positioner
-        className="isolate z-50 outline-none"
-        align={align}
-        alignOffset={alignOffset}
-        side={side}
-        sideOffset={sideOffset}
-      >
-        <MenuPrimitive.Popup
-          data-slot="dropdown-menu-content"
-          className={cn(
-            "z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-transparent p-1 text-popover-foreground duration-100 outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:overflow-hidden data-closed:fade-out-0 data-closed:zoom-out-95",
-            className,
-          )}
-          {...props}
+      <SurfaceContext.Provider value={PORTAL_ANCESTORS}>
+        <MenuPrimitive.Positioner
+          className="isolate z-50 outline-none"
+          align={align}
+          alignOffset={alignOffset}
+          side={side}
+          sideOffset={sideOffset}
         >
-          <LiquidGlass borderRadius="inherit" tint="var(--material-floating-tint)" />
-          {children}
-        </MenuPrimitive.Popup>
-      </MenuPrimitive.Positioner>
+          <MenuPrimitive.Popup
+            data-slot="dropdown-menu-content"
+            className={cn(
+              "z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-[var(--radius-overlay,0.875rem)] bg-transparent p-1 text-popover-foreground duration-100 outline-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:overflow-hidden data-closed:fade-out-0 data-closed:zoom-out-95",
+              className,
+            )}
+            {...props}
+          >
+            <Surface
+              tier="floating"
+              radius="overlay"
+              className="pointer-events-none absolute inset-0 -z-10"
+            />
+            {children}
+          </MenuPrimitive.Popup>
+        </MenuPrimitive.Positioner>
+      </SurfaceContext.Provider>
     </MenuPrimitive.Portal>
   );
 }
@@ -140,7 +149,7 @@ function DropdownMenuSubContent({
     <DropdownMenuContent
       data-slot="dropdown-menu-sub-content"
       className={cn(
-        "w-auto min-w-[96px] rounded-lg bg-transparent p-1 text-popover-foreground duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+        "w-auto min-w-[96px] rounded-[var(--radius-overlay,0.875rem)] bg-transparent p-1 text-popover-foreground duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
         className,
       )}
       align={align}

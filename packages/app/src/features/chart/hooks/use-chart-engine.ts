@@ -10,7 +10,8 @@ import {
   type Time,
 } from "lightweight-charts";
 import type { ChartDataPoint } from "@0xsignal/shared";
-import { VOLUME_PANE_HEIGHT } from "../utils/constants";
+import { remToPx, subscribeRootFontSize } from "@/core/utils/rem";
+import { getVolumePaneHeight } from "../utils/constants";
 import { toRgb } from "../lib/color";
 
 const readToken = (token: string): string =>
@@ -116,6 +117,7 @@ export const useChartEngine = ({
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
         textColor: c.text,
+        fontSize: remToPx(0.75),
         panes: { separatorColor: c.border, separatorHoverColor: c.grid, enableResize: true },
       },
       grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
@@ -174,7 +176,7 @@ export const useChartEngine = ({
     );
 
     const panes = chart.panes();
-    if (panes.length > 1) panes[1].setHeight(VOLUME_PANE_HEIGHT);
+    if (panes.length > 1) panes[1].setHeight(getVolumePaneHeight());
 
     chartRef.current = chart;
     candlestickSeriesRef.current = candlestickSeries;
@@ -305,6 +307,17 @@ export const useChartEngine = ({
       },
     });
   }, [priceFormat]);
+
+  useEffect(() => {
+    return subscribeRootFontSize(() => {
+      const chart = chartRef.current;
+      if (chart === null) return;
+      chart.applyOptions({ layout: { fontSize: remToPx(0.75) } });
+      // Pane height is rem-derived too, so it must follow the root scale.
+      const panes = chart.panes();
+      if (panes.length > 1) panes[1].setHeight(getVolumePaneHeight());
+    });
+  }, []);
 
   useEffect(() => {
     if (!chartRef.current) return;

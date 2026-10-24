@@ -30,7 +30,7 @@ export const OrderbookToolbar = memo(
     ];
 
     return (
-      <div className="flex items-center justify-between gap-[clamp(0.375rem,0.6vw,0.625rem)] shrink-0">
+      <div className="flex items-center justify-between gap-[var(--space-2,0.75rem)] shrink-0">
         <NativeSelect
           size="sm"
           aria-label="Coin"

@@ -16,7 +16,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
   const pitfalls = usage.pitfalls ?? [];
 
   return (
-    <div className={cn("flex flex-col h-full overflow-hidden material-base", className)}>
+    <div className={cn("flex flex-col h-full overflow-hidden bg-transparent", className)}>
       <div className="p-6 flex flex-col gap-[clamp(0.75rem,1vw,1.5rem)]">
         <div className="space-y-1">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -108,7 +108,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {hasText(indicator.implementationNotesForDev) ? (
-              <div className="p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl material-raised">
+              <div className="p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">
                   Implementation Spec
                 </p>

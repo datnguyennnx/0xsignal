@@ -1,6 +1,5 @@
-import { GRID_ROW_HEIGHT, GRID_GUTTER, GRID_ROW_PITCH_CSS } from "./constants";
-
-const REM_PX = 16;
+import { remToPx, subscribeRootFontSize } from "@/core/utils/rem";
+import { getGridGutter, getGridRowHeight, GRID_ROW_PITCH_CSS } from "./constants";
 
 /** Parse a plain CSS length ("40px" / "2.5rem") to pixels; 0 for anything else. */
 function parseLengthPx(value: string): number {
@@ -10,21 +9,20 @@ function parseLengthPx(value: string): number {
   if (!isRem && !isPx) return 0;
   const n = Number(isRem ? trimmed.slice(0, -3) : trimmed.slice(0, -2));
   if (!Number.isFinite(n)) return 0;
-  return isRem ? n * REM_PX : n;
+  return isRem ? remToPx(n) : n;
 }
 
 /**
  * The fit pitch is a viewport-derived calc(), so it can only change when the
- * viewport does. One epoch bump per window resize invalidates every cached
- * measurement without observing (and retaining) the measured elements.
+ * viewport (and with it the root font-size) does. One epoch bump per root
+ * font-size change invalidates every cached measurement without observing
+ * (and retaining) the measured elements.
  */
 let pitchEpoch = 0;
 
-if (typeof window !== "undefined") {
-  window.addEventListener("resize", () => {
-    pitchEpoch += 1;
-  });
-}
+subscribeRootFontSize(() => {
+  pitchEpoch += 1;
+});
 
 const pitchByContainer = new WeakMap<HTMLElement, { epoch: number; value: number }>();
 
@@ -47,7 +45,7 @@ function measureRowPitchPx(containerEl: HTMLElement): number {
   const declared = parseLengthPx(
     getComputedStyle(containerEl).getPropertyValue("--grid-row-height"),
   );
-  if (declared > 0) return declared + GRID_GUTTER;
+  if (declared > 0) return declared + getGridGutter();
 
   const probe = document.createElement("div");
   probe.style.cssText = `position:absolute;top:0;left:0;visibility:hidden;pointer-events:none;height:${GRID_ROW_PITCH_CSS}`;
@@ -56,5 +54,5 @@ function measureRowPitchPx(containerEl: HTMLElement): number {
   probe.remove();
   if (measured > 0) return measured;
 
-  return GRID_ROW_HEIGHT + GRID_GUTTER;
+  return getGridRowHeight() + getGridGutter();
 }

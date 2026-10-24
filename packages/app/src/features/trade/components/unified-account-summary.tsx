@@ -4,10 +4,10 @@ import { cn } from "cn";
 import { useUserBalances } from "../hooks/use-user-balances";
 
 /** Loaded rows stack with this gap; the skeleton uses it so the height matches. */
-const STACK = "flex flex-col gap-[clamp(0.5rem,1vw,1rem)]";
+const STACK = "flex flex-col gap-[var(--space-1,0.3125rem)]";
 
-/** One loaded row is a `text-xs` line box (16px). */
-const ROW = "flex h-4 items-center justify-between";
+/** Loaded rows and skeletons share this box, so both resolve to the same height. */
+const ROW = "flex items-center justify-between py-[var(--space-1,0.3125rem)]";
 
 const SKELETON_ROW_KEYS = ["value", "pnl", "ratio", "leverage"];
 
@@ -25,12 +25,12 @@ export function UnifiedAccountSummary() {
     return (
       <div className={STACK}>
         <div className={ROW}>
-          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-4 w-24" />
         </div>
         {SKELETON_ROW_KEYS.map((key) => (
           <div key={key} className={ROW}>
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-3 w-14" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-14" />
           </div>
         ))}
       </div>
@@ -39,7 +39,7 @@ export function UnifiedAccountSummary() {
 
   if (!marginSummary) {
     return (
-      <div className="flex items-center justify-between px-4 py-2.5">
+      <div className="flex items-center justify-between px-[var(--space-3,1.125rem)] py-[var(--space-1,0.3125rem)]">
         <span className="text-xs text-muted-foreground">Unified Account</span>
         <span className="text-xs text-muted-foreground">N/A</span>
       </div>
@@ -51,34 +51,34 @@ export function UnifiedAccountSummary() {
 
   return (
     <div className={STACK}>
-      <div className="flex items-center justify-between">
+      <div className={ROW}>
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Unified Account
         </span>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className={ROW}>
         <span className="text-xs text-muted-foreground">Portfolio Value</span>
         <span className="text-xs tabular-nums text-foreground">
           {formatCompactUsd(accountValue)}
         </span>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className={ROW}>
         <span className="text-xs text-muted-foreground">Unrealized PNL</span>
         <span className={cn("text-xs tabular-nums", pnlClass)}>
           {formatCompactUsd(totalUnrealizedPnl)}
         </span>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className={ROW}>
         <span className="text-xs text-muted-foreground">Account Ratio</span>
         <span className="text-xs tabular-nums text-foreground">
           {formatSignedPercent(accountRatio)}
         </span>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className={ROW}>
         <span className="text-xs text-muted-foreground">Account Leverage</span>
         <span className="text-xs tabular-nums text-foreground">{formatSize(accountLeverage)}x</span>
       </div>

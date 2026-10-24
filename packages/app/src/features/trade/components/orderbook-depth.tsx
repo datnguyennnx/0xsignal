@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   type DisplayOrderbookLevel as OrderbookLevel,
   type OrderbookData,
@@ -14,15 +15,14 @@ import {
 } from "@/core/utils/hyperliquid";
 import { getDepthStyle } from "../utils/orderbook-widget-shared";
 import { OVERLAY_PANEL_CLASS } from "@/lib/overlay-classes";
-import { cn } from "cn";
 import { formatPriceWithNSigFigs, formatSize, formatSignedPercent } from "@/core/utils/formatters";
 import {
   type PopupData,
   formatLevel,
   toQuoteDenom,
-  VISIBLE_ROWS,
   ROW_HEIGHT_CLASS,
 } from "../utils/orderbook-utils";
+import { useOrderbookRows } from "../hooks/use-orderbook-rows";
 
 type BookSide = "bid" | "ask";
 interface RowIndex {
@@ -118,7 +118,7 @@ const OrderRow = memo(
               }
             : undefined
         }
-        className={`${ROW_HEIGHT_CLASS} relative flex w-full items-center cursor-pointer text-left tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset bg-transparent border-0 ${
+        className={`${ROW_HEIGHT_CLASS} relative flex w-full items-center px-[var(--space-2,0.75rem)] gap-[var(--space-1,0.3125rem)] cursor-pointer text-left tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset bg-transparent border-0 ${
           isHovered ? "bg-muted/50" : "hover:bg-muted/30"
         }`}
         aria-label={rowAriaLabel}
@@ -166,12 +166,68 @@ const OrderRow = memo(
 OrderRow.displayName = "OrderRow";
 
 /** The spread strip's box, shared with the loading placeholder so both reserve one height. */
-export function OrderbookSpreadRow({ children }: { children: ReactNode }) {
+function OrderbookSpreadRow({ children }: { children: ReactNode }) {
   return (
     <div
-      className={`${ROW_HEIGHT_CLASS} flex items-center justify-center gap-[clamp(1.25rem,3vw,2.5rem)] shrink-0`}
+      className={`${ROW_HEIGHT_CLASS} flex items-center justify-center gap-[var(--space-2,0.75rem)] shrink-0`}
     >
       {children}
+    </div>
+  );
+}
+
+export function OrderbookColumnHeader({ pairFocus }: { pairFocus: string }) {
+  return (
+    <div
+      className={`${ROW_HEIGHT_CLASS} flex items-center px-[var(--space-2,0.75rem)] text-[length:var(--text-micro)] font-mono uppercase text-muted-foreground shrink-0`}
+    >
+      <span className="flex-1">Price</span>
+      <span className="flex-1 text-right">{pairFocus === "quote" ? "Value" : "Size"}</span>
+      <span className="flex-1 text-right">{pairFocus === "quote" ? "Total Val" : "Total"}</span>
+    </div>
+  );
+}
+
+function OrderbookPlaceholderRows({ count }: { count: number }) {
+  return (
+    <div className="flex-none overflow-hidden flex flex-col">
+      {Array.from({ length: count }, (_, index) => (
+        <div
+          key={index}
+          className={`${ROW_HEIGHT_CLASS} flex items-center gap-[var(--space-2,0.75rem)] shrink-0`}
+        >
+          <Skeleton className="h-2.5 flex-1" />
+          <Skeleton className="h-2.5 flex-1" />
+          <Skeleton className="h-2.5 flex-1" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Reserves the loaded book's box: toolbar + column header + both depth halves + spread. */
+export function OrderbookPlaceholder({ pairFocus }: { pairFocus: string }) {
+  const { bodyRef, rowsPerHalf } = useOrderbookRows();
+  const visibleRows = rowsPerHalf;
+
+  return (
+    <div className="relative isolate h-full flex flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-3,1.125rem)]">
+      <div className="flex items-center justify-between gap-[clamp(0.375rem,0.6vw,0.625rem)] shrink-0">
+        <Skeleton className="h-7 w-[4.5rem]" />
+        <Skeleton className="h-7 w-20" />
+      </div>
+      <OrderbookColumnHeader pairFocus={pairFocus} />
+      <div ref={bodyRef} className="flex flex-col flex-1 min-h-0 overflow-hidden justify-center">
+        <OrderbookPlaceholderRows count={visibleRows} />
+        <OrderbookSpreadRow>
+          <span className="text-[length:var(--text-micro)] font-medium text-muted-foreground">
+            Spread
+          </span>
+          <Skeleton className="h-3 w-12" />
+          <Skeleton className="h-3 w-10" />
+        </OrderbookSpreadRow>
+        <OrderbookPlaceholderRows count={visibleRows} />
+      </div>
     </div>
   );
 }
@@ -201,13 +257,18 @@ export function OrderbookDepth({
   onHover,
   onActivate,
 }: OrderbookDepthProps) {
+  const { bodyRef, rowsPerHalf, rowHeightPx } = useOrderbookRows();
+  const visibleRows = rowsPerHalf;
+  // Capping each half at the measured rows keeps a stale measurement from clipping a row mid-height.
+  const halfMaxHeightPx = visibleRows * rowHeightPx;
+
   // nSigFigs controls price display precision, not level grouping.
   // Levels arrive pre-aggregated from the server (Hyperliquid's own
   // nSigFigs grouping over the full deep orderbook). No client-side
   // aggregation needed — just slice to the visible window.
   const { visibleAsks, visibleBids, maxTotal } = useMemo(() => {
-    const rawAsks = orderbook.asks.slice(0, VISIBLE_ROWS);
-    const rawBids = orderbook.bids.slice(0, VISIBLE_ROWS);
+    const rawAsks = orderbook.asks.slice(0, visibleRows);
+    const rawBids = orderbook.bids.slice(0, visibleRows);
 
     const convAsks = pairFocus === "quote" ? rawAsks.map((level) => toQuoteDenom(level)) : rawAsks;
     const convBids = pairFocus === "quote" ? rawBids.map((level) => toQuoteDenom(level)) : rawBids;
@@ -218,7 +279,7 @@ export function OrderbookDepth({
     peakTotal = Math.round(peakTotal * 100) / 100;
 
     return { visibleAsks: convAsks, visibleBids: convBids, maxTotal: peakTotal };
-  }, [orderbook, pairFocus]);
+  }, [orderbook, pairFocus, visibleRows]);
 
   const { spread, spreadPercent } = useMemo(() => {
     if (orderbook.asks.length === 0 || orderbook.bids.length === 0) {
@@ -264,8 +325,11 @@ export function OrderbookDepth({
 
   return (
     <>
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col-reverse">
+      <div ref={bodyRef} className="flex flex-col flex-1 min-h-0 overflow-hidden justify-center">
+        <div
+          className="flex-none overflow-hidden flex flex-col-reverse"
+          style={{ maxHeight: halfMaxHeightPx > 0 ? halfMaxHeightPx : undefined }}
+        >
           {visibleAsks.map((level, index) => (
             <OrderRow
               key={priceKey("ask", level.price)}
@@ -284,18 +348,21 @@ export function OrderbookDepth({
         </div>
 
         <OrderbookSpreadRow>
-          <span className="text-[length:var(--text-micro)] font-medium text-muted-foreground">
+          <span className="px-[var(--space-2,0.75rem)] text-[length:var(--text-micro)] font-medium text-muted-foreground">
             Spread
           </span>
-          <span className="text-[length:var(--text-micro)] font-mono text-muted-foreground">
+          <span className="px-[var(--space-2,0.75rem)] text-[length:var(--text-micro)] font-mono text-muted-foreground">
             {formatPriceWithNSigFigs(spread, effectiveNSigFigs ?? 5)}
           </span>
-          <span className="text-[length:var(--text-micro)] font-mono text-muted-foreground">
+          <span className="px-[var(--space-2,0.75rem)] text-[length:var(--text-micro)] font-mono text-muted-foreground">
             {formatSignedPercent(spreadPercent)}
           </span>
         </OrderbookSpreadRow>
 
-        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col relative">
+        <div
+          className="flex-none overflow-hidden flex flex-col relative"
+          style={{ maxHeight: halfMaxHeightPx > 0 ? halfMaxHeightPx : undefined }}
+        >
           {visibleBids.map((level, index) => (
             <OrderRow
               key={priceKey("bid", level.price)}
@@ -319,10 +386,7 @@ export function OrderbookDepth({
         createPortal(
           <div
             id="orderbook-depth-details"
-            className={cn(
-              OVERLAY_PANEL_CLASS,
-              "fixed p-3 z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)] -translate-y-1/2",
-            )}
+            className={`${OVERLAY_PANEL_CLASS} fixed p-3 z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)] -translate-y-1/2`}
             style={{
               top: popupPosition.top,
               left: popupPosition.left,
@@ -335,7 +399,7 @@ export function OrderbookDepth({
               </span>
               <span className="text-xs text-muted-foreground">{symbol.toUpperCase()}</span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-[var(--space-2,0.75rem)]">
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">Price</span>
                 <span className="text-base font-mono font-medium">

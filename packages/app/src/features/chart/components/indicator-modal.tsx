@@ -88,12 +88,12 @@ export function IndicatorModal({
         showCloseButton={false}
         className={cn(
           MODAL_CONTENT_CLASS,
-          "max-w-[98vw] xl:max-w-[clamp(90rem,100vw,100rem)] w-fit h-[clamp(18rem,80dvh,60rem)] p-0 gap-0 rounded-lg animate-in fade-in duration-200 ease-premium",
+          "max-w-[98vw] xl:max-w-[clamp(90rem,100vw,100rem)] w-fit h-[clamp(18rem,80dvh,60rem)] p-0 gap-0 rounded-[var(--radius-overlay,0.875rem)] animate-in fade-in duration-200 ease-premium",
         )}
       >
         <DialogTitle className="sr-only">Indicator Settings</DialogTitle>
 
-        <div className="flex flex-col sm:flex-row h-full min-h-0">
+        <div className="flex flex-col sm:flex-row h-full min-h-0 divide-y sm:divide-y-0 sm:divide-x divide-[var(--tier-edge)]">
           {/* Column 1: Indicators Sidebar */}
           <div className="flex-[2] min-w-[clamp(10rem,15vw,14rem)] flex flex-col min-h-0 sm:max-h-[clamp(18rem,80dvh,60rem)]">
             <div className="p-4 sm:p-6 flex items-center justify-between sm:justify-start gap-[clamp(0.25rem,0.5vw,0.5rem)]">
@@ -141,7 +141,7 @@ export function IndicatorModal({
                       className={cn(
                         "text-[length:var(--text-data)] px-1 rounded tabular-nums font-bold",
                         category === cat.id
-                          ? "bg-background/20 opacity-60"
+                          ? "bg-foreground/10 opacity-60"
                           : "bg-muted text-muted-foreground/60",
                       )}
                     >
@@ -174,7 +174,7 @@ export function IndicatorModal({
                       setQuery(event.target.value);
                     }}
                     placeholder="Find indicator..."
-                    className="pl-9 pr-8 bg-muted border-border h-10 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-offset-0 text-secondary"
+                    className="pl-9 pr-8 bg-[color-mix(in_oklab,var(--ink)_8%,transparent)] border-border h-10 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-offset-0 text-secondary"
                   />
 
                   {query && (
@@ -250,7 +250,7 @@ export function IndicatorModal({
           </div>
 
           {/* Column 3: Insight Content */}
-          <div className="flex-[4] min-w-[clamp(18rem,30vw,28rem)] min-h-0 flex flex-col bg-background/30 max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-none">
+          <div className="flex-[4] min-w-[clamp(18rem,30vw,28rem)] min-h-0 flex flex-col max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-none">
             {selectedIndicator ? (
               <IndicatorInsightsPanel
                 key={`${selectedIndicator.id}-insights`}
@@ -267,7 +267,7 @@ export function IndicatorModal({
           </div>
 
           {/* Column 4: Inspector Sidepan */}
-          <div className="flex-[1] min-w-[clamp(14rem,16vw,18rem)] max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col min-h-0 shadow-[-1px_0_0_0_var(--border)]">
+          <div className="flex-[1] min-w-[clamp(14rem,16vw,18rem)] max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col min-h-0">
             {selectedIndicator ? (
               <IndicatorConfigPanel
                 key={`${selectedIndicator.id}-config`}

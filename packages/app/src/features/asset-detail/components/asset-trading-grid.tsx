@@ -12,7 +12,7 @@ const TradingChart = lazy(() =>
 );
 
 const ChartSkeleton = () => (
-  <div className="h-full w-full flex items-center justify-center material-raised rounded-xl">
+  <div className="h-full w-full flex items-center justify-center panel-surface rounded-[var(--radius-panel)]">
     <Skeleton className="h-full w-full rounded-xl bg-muted/50" />
   </div>
 );

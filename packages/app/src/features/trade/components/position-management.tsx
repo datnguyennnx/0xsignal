@@ -52,9 +52,9 @@ export function PositionManagement() {
   );
 
   return (
-    <div className="h-full min-h-0 flex flex-col overflow-y-auto rounded-xl p-4 material-raised gap-4">
+    <div className="h-full min-h-0 flex flex-col overflow-y-auto rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-4,1.5rem)]">
       {signingDisabled && (
-        <p className="mb-2 shrink-0 rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+        <p className="w-fit mb-2 shrink-0 rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
           Viewing another account — connect a wallet to trade.
         </p>
       )}
@@ -79,6 +79,9 @@ export function PositionManagement() {
           <TabTrigger value="funding-history">Funding History</TabTrigger>
           <TabTrigger value="order-history">Order History</TabTrigger>
         </TabsList>
+
+        {/* one scroll edge per view — Apple HIG scroll views */}
+        <div className="scroll-edge" aria-hidden="true" />
 
         <PositionManagementPanels
           signingDisabled={signingDisabled}

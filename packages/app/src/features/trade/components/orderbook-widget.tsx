@@ -1,67 +1,14 @@
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useHyperliquidOrderbook } from "@/features/trade/hooks/use-hyperliquid-orderbook";
 import { useTradeUIStore } from "@/stores/use-trade-ui-store";
-import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
-import { LiquidGlass } from "@/components/glass";
-import { type PopupData, ROW_HEIGHT_CLASS, VISIBLE_ROWS } from "../utils/orderbook-utils";
+import { type PopupData } from "../utils/orderbook-utils";
 import { OrderbookToolbar } from "./orderbook-toolbar";
-import { OrderbookDepth, OrderbookSpreadRow } from "./orderbook-depth";
+import { OrderbookColumnHeader, OrderbookDepth, OrderbookPlaceholder } from "./orderbook-depth";
 import { useOrderbookPrecision } from "../hooks/use-orderbook-precision";
 
 interface OrderbookWidgetProps {
   symbol: string;
-}
-
-function OrderbookColumnHeader({ pairFocus }: { pairFocus: string }) {
-  return (
-    <div
-      className={`${ROW_HEIGHT_CLASS} flex items-center text-[length:var(--text-micro)] font-mono uppercase text-muted-foreground shrink-0`}
-    >
-      <span className="flex-1">Price</span>
-      <span className="flex-1 text-right">{pairFocus === "quote" ? "Value" : "Size"}</span>
-      <span className="flex-1 text-right">{pairFocus === "quote" ? "Total Val" : "Total"}</span>
-    </div>
-  );
-}
-
-function OrderbookPlaceholderRows() {
-  return (
-    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-      {Array.from({ length: VISIBLE_ROWS }, (_, index) => (
-        <div key={index} className={`${ROW_HEIGHT_CLASS} flex items-center gap-2 shrink-0`}>
-          <Skeleton className="h-2.5 flex-1" />
-          <Skeleton className="h-2.5 flex-1" />
-          <Skeleton className="h-2.5 flex-1" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Reserves the loaded book's box: toolbar + column header + both depth halves + spread. */
-function OrderbookPlaceholder({ pairFocus }: { pairFocus: string }) {
-  return (
-    <div className="relative isolate h-full flex flex-col rounded-xl p-3.5 bg-transparent gap-2">
-      <LiquidGlass borderRadius="inherit" refraction tint="var(--material-raised-tint)" />
-      <div className="flex items-center justify-between gap-[clamp(0.375rem,0.6vw,0.625rem)] shrink-0">
-        <Skeleton className="h-7 w-[4.5rem]" />
-        <Skeleton className="h-7 w-20" />
-      </div>
-      <OrderbookColumnHeader pairFocus={pairFocus} />
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <OrderbookPlaceholderRows />
-        <OrderbookSpreadRow>
-          <span className="text-[length:var(--text-micro)] font-medium text-muted-foreground">
-            Spread
-          </span>
-          <Skeleton className="h-3 w-12" />
-          <Skeleton className="h-3 w-10" />
-        </OrderbookSpreadRow>
-        <OrderbookPlaceholderRows />
-      </div>
-    </div>
-  );
 }
 
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
@@ -189,8 +136,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   if (!hasBookData) {
     return (
-      <div className="relative isolate h-full flex flex-col rounded-xl p-3.5 bg-transparent">
-        <LiquidGlass borderRadius="inherit" refraction tint="var(--material-raised-tint)" />
+      <div className="relative isolate h-full flex flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface">
         <EmptyState
           variant="panel"
           title="No order book data"
@@ -203,9 +149,8 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   return (
     <div
       ref={widgetRef}
-      className="relative isolate panel-contain h-full flex flex-col rounded-xl p-3.5 bg-transparent gap-2"
+      className="relative isolate panel-contain h-full flex flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-3,1.125rem)]"
     >
-      <LiquidGlass borderRadius="inherit" refraction tint="var(--material-raised-tint)" />
       <OrderbookToolbar
         symbol={symbol}
         pairFocus={pairFocus}

@@ -1,3 +1,5 @@
+import { remToPx } from "@/core/utils/rem";
+
 export const DEFAULT_INTERVALS = [
   { value: "1m", label: "1m" },
   { value: "5m", label: "5m" },
@@ -19,6 +21,6 @@ export const ALL_INTERVALS = [
   { value: "1w", label: "1W" },
 ] as const;
 
-export const VOLUME_PANE_HEIGHT = 100;
+export const getVolumePaneHeight = (): number => remToPx(6.25);
 
 export const INTERVAL_RESTORE_DELAY = 100;

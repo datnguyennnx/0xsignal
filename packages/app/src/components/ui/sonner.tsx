@@ -14,10 +14,10 @@ import type { CSSProperties } from "react";
 const Toaster = ({ ...props }: ToasterProps) => {
   const theme = useAppStore((s) => s.theme) ?? "system";
   const cssVars: CSSProperties & Record<`--${string}`, string> = {
-    "--normal-bg": "var(--glass-bg)",
+    "--normal-bg": "var(--tier-floating-fill)",
     "--normal-text": "var(--popover-foreground)",
-    "--normal-border": "var(--glass-border)",
-    "--border-radius": "var(--radius)",
+    "--normal-border": "var(--tier-edge)",
+    "--border-radius": "var(--radius-overlay)",
   };
 
   return (
@@ -32,6 +32,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         loading: <Loader2Icon className="size-4 animate-spin" />,
       }}
       style={cssVars}
+      toastOptions={{ classNames: { toast: "tier-floating" } }}
       {...props}
     />
   );

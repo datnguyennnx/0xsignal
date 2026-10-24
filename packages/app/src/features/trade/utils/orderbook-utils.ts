@@ -2,8 +2,10 @@ import { type DisplayOrderbookLevel as OrderbookLevel } from "@/core/utils/hyper
 import { formatPriceWithNSigFigs, formatSize } from "@/core/utils/formatters";
 
 /** Single source for the depth row box: rows, column header, spread strip and skeleton all use it. */
-export const ROW_HEIGHT_CLASS = "h-6";
+export const ROW_HEIGHT_CLASS = "h-[var(--row-h,1.875rem)]";
 export const VISIBLE_ROWS = 20;
+/** Row height in rem; must stay in sync with ROW_HEIGHT_CLASS (1.875rem = its fallback). */
+export const DEFAULT_ROW_HEIGHT_REM = 1.875;
 
 export interface PopupData {
   price: number;
@@ -20,8 +22,7 @@ interface FormattedLevel extends OrderbookLevel {
   formattedTotal: string;
 }
 
-// Module-level cache: avoid object allocation per row per tick.
-// Keyed by price+nSigFigs identity — levels with same price produce same formatted output.
+// Module-level cache: avoid per-row allocation per tick, keyed by price+nSigFigs.
 const formatCache = new Map<string, FormattedLevel>();
 
 const makeFormatKey = (price: number, nSigFigs: number): string =>
@@ -41,7 +42,7 @@ export function formatLevel(level: OrderbookLevel, nSigFigs: number): FormattedL
     formattedTotal: level.price > 0 ? formatSize(level.total) : "-",
   };
 
-  // Evict oldest entry if cache grows (prevent leak over long sessions)
+  // Evict oldest entry to bound the cache over long sessions.
   if (formatCache.size > 500) {
     const firstKey = formatCache.keys().next().value;
     if (firstKey !== undefined) formatCache.delete(firstKey);
@@ -56,4 +57,17 @@ export function toQuoteDenom(level: OrderbookLevel): OrderbookLevel {
   const size = Math.round(level.price * level.size * 100) / 100;
   const total = Math.round(level.price * level.total * 100) / 100;
   return { ...level, size, total };
+}
+
+/** Rows per side that fit: spread row subtracted, rest split in two; 0 when none fit. */
+export function levelsPerHalf(bodyHeightPx: number, rowHeightPx: number): number {
+  if (
+    !Number.isFinite(bodyHeightPx) ||
+    !Number.isFinite(rowHeightPx) ||
+    rowHeightPx <= 0 ||
+    bodyHeightPx < 3 * rowHeightPx
+  ) {
+    return 0;
+  }
+  return Math.floor((bodyHeightPx - rowHeightPx) / (2 * rowHeightPx));
 }

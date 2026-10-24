@@ -53,7 +53,7 @@ export function SettingsPage() {
         </p>
       </div>
 
-      <div className="max-w-5xl mx-auto w-full material-raised p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl">
+      <div className="max-w-5xl mx-auto w-full tier-content p-[clamp(1rem,1.5vw,1.5rem)] rounded-[var(--radius-panel)]">
         <div className="grid grid-cols-1 md:grid-cols-12 w-full min-h-[300px]">
           <div className="col-span-1 md:col-span-3 md:border-r border-border/20 py-[clamp(1rem,1.5vw,1.5rem)] pr-[clamp(1rem,1.5vw,1.5rem)] flex flex-col gap-1">
             {SIDEBAR_ITEMS.map((item) => (

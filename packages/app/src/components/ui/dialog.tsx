@@ -3,13 +3,41 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { cn } from "cn";
 
 import { Button } from "@/components/ui/button";
-import { LiquidGlass } from "@/components/glass";
+import { Surface, SurfaceContext } from "@/components/surface/surface";
+import { withViewTransition } from "@/lib/view-transition";
 import { XIcon } from "lucide-react";
 
 export const MODAL_CONTENT_CLASS = "overflow-hidden";
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+/** A portalled overlay is not nested in the page's surfaces, whatever triggered it. */
+const PORTAL_ANCESTORS = [] as const;
+
+type DialogOpenChange = NonNullable<DialogPrimitive.Root.Props["onOpenChange"]>;
+
+function Dialog({ onOpenChange, ...props }: DialogPrimitive.Root.Props) {
+  const handleOpenChange = React.useCallback<DialogOpenChange>(
+    (open, eventDetails) => {
+      if (onOpenChange === undefined) return;
+      // Opening is the hierarchy change worth morphing; closing keeps its own
+      // exit animation so focus returns without waiting on a snapshot.
+      if (!open) {
+        onOpenChange(open, eventDetails);
+        return;
+      }
+      withViewTransition(() => {
+        onOpenChange(open, eventDetails);
+      });
+    },
+    [onOpenChange],
+  );
+
+  return (
+    <DialogPrimitive.Root
+      data-slot="dialog"
+      {...props}
+      {...(onOpenChange === undefined ? {} : { onOpenChange: handleOpenChange })}
+    />
+  );
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
@@ -47,27 +75,35 @@ function DialogContent({
 }) {
   return (
     <DialogPortal>
-      <DialogOverlay />
-      <DialogPrimitive.Popup
-        data-slot="dialog-content"
-        className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-hidden rounded-xl bg-transparent p-4 text-sm text-popover-foreground duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className,
-        )}
-        {...props}
-      >
-        <LiquidGlass borderRadius="inherit" tint="var(--material-overlay-tint)" />
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            render={<Button variant="ghost" className="absolute top-2 right-2" size="icon-sm" />}
-          >
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Popup>
+      <SurfaceContext.Provider value={PORTAL_ANCESTORS}>
+        <DialogOverlay />
+        <DialogPrimitive.Popup
+          data-slot="dialog-content"
+          className={cn(
+            // The popup morphs only inside the overlay container it already lives
+            // in — never out of the page content that triggered it.
+            "[view-transition-name:dialog] fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-hidden rounded-[var(--radius-overlay,0.875rem)] bg-transparent p-4 text-sm text-popover-foreground duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            className,
+          )}
+          {...props}
+        >
+          <Surface
+            tier="floating"
+            radius="overlay"
+            className="pointer-events-none absolute inset-0 -z-10"
+          />
+          {children}
+          {showCloseButton && (
+            <DialogPrimitive.Close
+              data-slot="dialog-close"
+              render={<Button variant="ghost" className="absolute top-2 right-2" size="icon-sm" />}
+            >
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          )}
+        </DialogPrimitive.Popup>
+      </SurfaceContext.Provider>
     </DialogPortal>
   );
 }
@@ -90,7 +126,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-[var(--radius-overlay,0.875rem)] border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
         className,
       )}
       {...props}

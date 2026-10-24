@@ -23,7 +23,7 @@ const ThemeCard = ({ value, label, theme, handleThemeChange, children }: ThemeCa
   >
     <div
       className={cn(
-        "relative w-full aspect-[16/10] rounded-xl overflow-hidden border transition-[transform,box-shadow,border-color] duration-200 shadow-sm hover:scale-[1.02] hover:shadow-md",
+        "relative w-full aspect-[16/10] rounded-xl overflow-hidden border transition-[transform,box-shadow,border-color] duration-200 shadow-[var(--shadow-e1)] hover:scale-[1.02] hover:shadow-[var(--shadow-e2)]",
         theme === value ? "border-foreground" : "border-border/20 hover:border-border/60",
       )}
     >

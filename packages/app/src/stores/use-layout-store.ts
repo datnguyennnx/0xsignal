@@ -1,10 +1,20 @@
 import { create } from "zustand";
 import { persist, createJSONStorage, type PersistStorage } from "zustand/middleware";
-import { INITIAL_LAYOUT, LAYOUT_STORAGE_KEY } from "@/features/asset-detail/utils/constants";
+import {
+  INITIAL_LAYOUT,
+  LAYOUT_STORAGE_KEY,
+  initialLayoutForViewport,
+} from "@/features/asset-detail/utils/constants";
 import { resolveCollisions, clampToMin } from "@/features/asset-detail/utils/collision";
 import type { LayoutItem } from "@/features/asset-detail/utils/types";
 
 type PersistedLayout = { items: LayoutItem[] };
+
+/** SSR has no viewport; the desktop preset is the safe first paint. */
+function viewportLayout(): LayoutItem[] {
+  if (typeof window === "undefined") return structuredClone(INITIAL_LAYOUT);
+  return initialLayoutForViewport(window.innerWidth, window.innerHeight);
+}
 
 interface PersistedLayoutState {
   state: PersistedLayout;
@@ -81,7 +91,7 @@ export interface LayoutStoreState {
 export const useLayoutStore = create<LayoutStoreState>()(
   persist(
     (set) => ({
-      items: structuredClone(INITIAL_LAYOUT),
+      items: viewportLayout(),
 
       updateLayoutItem: (id: string, patch: Partial<LayoutItem>) => {
         set((state) => ({
@@ -110,20 +120,22 @@ export const useLayoutStore = create<LayoutStoreState>()(
         } catch {
           // ignore
         }
-        set({ items: structuredClone(INITIAL_LAYOUT) });
+        set({ items: viewportLayout() });
       },
     }),
     {
       name: LAYOUT_STORAGE_KEY,
-      version: 2,
+      version: 6,
       storage: layoutStorage,
       partialize: (state) => ({ items: state.items }),
       migrate: (persisted, version) => {
         // v1 stored the stacked layout (positions as a full-width second row); its
         // geometry cannot be mapped onto the viewport-locked columns, so reset it.
-        if (version < 2) return { items: structuredClone(INITIAL_LAYOUT) };
+        // v2 predates the compact preset, v3 the 6/3/3 split, v4 the 12-column
+        // grid and v5 the 24-column grid — all in the wrong column space, so re-seed.
+        if (version < 6) return { items: viewportLayout() };
         if (isPersistedLayout(persisted)) return { items: persisted.items };
-        return { items: structuredClone(INITIAL_LAYOUT) };
+        return { items: viewportLayout() };
       },
     },
   ),

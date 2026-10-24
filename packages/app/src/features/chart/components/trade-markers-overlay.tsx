@@ -1,18 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import type { CSSProperties } from "react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import type { ChartDataPoint } from "@0xsignal/shared";
+import { getRootFontSizePx, subscribeRootFontSize } from "@/core/utils/rem";
 import { isUtcTimestamp } from "../lib/time";
 import {
   groupMarkersByCandle,
   buildTooltipText,
+  getMarkerMetrics,
   MAX_STACK_PER_CANDLE,
-  MARKER_DIAMETER,
-  MARKER_GAP,
-  MARKER_OFFSET_TOP,
-  TOOLTIP_GAP,
-  TOOLTIP_HEIGHT,
-  TOOLTIP_HALF_WIDTH,
-  OVERLAY_EDGE_PAD,
+  type MarkerMetrics,
   type LogicalTradeMarker,
   type MarkerGroup,
 } from "@/features/trade/utils/trade-markers";
@@ -54,9 +51,6 @@ interface StackEntry {
   overflowCount?: number;
 }
 
-const RADIUS = MARKER_DIAMETER / 2;
-const STEP = MARKER_DIAMETER + MARKER_GAP;
-
 const TOOLTIP_PLACEMENT_CLASS: Record<TooltipPlacement, string> = {
   above: "-translate-x-1/2 -translate-y-full",
   right: "-translate-y-1/2",
@@ -74,35 +68,37 @@ function placeTooltip(
   x: number,
   stackTopY: number,
   pane: { readonly width: number; readonly height: number },
+  metrics: MarkerMetrics,
 ): { tipX: number; tipY: number; tipPlacement: TooltipPlacement } {
+  const radius = metrics.markerDiameter / 2;
   const centerX = clamp(
     x,
-    OVERLAY_EDGE_PAD + TOOLTIP_HALF_WIDTH,
-    pane.width - OVERLAY_EDGE_PAD - TOOLTIP_HALF_WIDTH,
+    metrics.overlayEdgePad + metrics.tooltipHalfWidth,
+    pane.width - metrics.overlayEdgePad - metrics.tooltipHalfWidth,
   );
-  const aboveY = stackTopY - RADIUS - TOOLTIP_GAP;
+  const aboveY = stackTopY - radius - metrics.tooltipGap;
 
-  if (aboveY - TOOLTIP_HEIGHT >= OVERLAY_EDGE_PAD) {
+  if (aboveY - metrics.tooltipHeight >= metrics.overlayEdgePad) {
     return { tipX: centerX, tipY: aboveY, tipPlacement: "above" };
   }
 
   const sideY = clamp(
     stackTopY,
-    OVERLAY_EDGE_PAD + TOOLTIP_HEIGHT / 2,
-    pane.height - OVERLAY_EDGE_PAD - TOOLTIP_HEIGHT / 2,
+    metrics.overlayEdgePad + metrics.tooltipHeight / 2,
+    pane.height - metrics.overlayEdgePad - metrics.tooltipHeight / 2,
   );
-  const rightX = x + RADIUS + TOOLTIP_GAP;
-  if (rightX + TOOLTIP_HALF_WIDTH * 2 <= pane.width - OVERLAY_EDGE_PAD) {
+  const rightX = x + radius + metrics.tooltipGap;
+  if (rightX + metrics.tooltipHalfWidth * 2 <= pane.width - metrics.overlayEdgePad) {
     return { tipX: rightX, tipY: sideY, tipPlacement: "right" };
   }
-  const leftX = x - RADIUS - TOOLTIP_GAP;
-  if (leftX - TOOLTIP_HALF_WIDTH * 2 >= OVERLAY_EDGE_PAD) {
+  const leftX = x - radius - metrics.tooltipGap;
+  if (leftX - metrics.tooltipHalfWidth * 2 >= metrics.overlayEdgePad) {
     return { tipX: leftX, tipY: sideY, tipPlacement: "left" };
   }
   // No room beside the stack either: pin to the plot's top edge, still above the candle.
   return {
     tipX: centerX,
-    tipY: OVERLAY_EDGE_PAD + TOOLTIP_HEIGHT,
+    tipY: metrics.overlayEdgePad + metrics.tooltipHeight,
     tipPlacement: "above",
   };
 }
@@ -113,7 +109,10 @@ function buildPoints(
   series: ISeriesApi<"Candlestick">,
   groups: readonly MarkerGroup[],
   candleMap: Map<number, ChartDataPoint>,
+  metrics: MarkerMetrics,
 ): OverlayPoint[] {
+  const radius = metrics.markerDiameter / 2;
+  const step = metrics.markerDiameter + metrics.markerGap;
   const ts = chart.timeScale();
   const visibleRange = ts.getVisibleRange();
   const pane = chart.paneSize();
@@ -151,10 +150,10 @@ function buildPoints(
         // stay on the fill price, and drop the marker if that has no coordinate.
         const fillY = series.priceToCoordinate(m.price);
         if (fillY === null) continue;
-        y = fillY - RADIUS - MARKER_OFFSET_TOP;
-        while (stack.some((entry) => Math.abs(entry.y - y) < STEP)) y -= STEP;
+        y = fillY - radius - metrics.markerOffsetTop;
+        while (stack.some((entry) => Math.abs(entry.y - y) < step)) y -= step;
       } else {
-        y = highY - RADIUS - MARKER_OFFSET_TOP - stack.length * STEP;
+        y = highY - radius - metrics.markerOffsetTop - stack.length * step;
       }
       stack.push({
         key: `${group.time}:${m.id}`,
@@ -174,7 +173,7 @@ function buildPoints(
 
     if (hasOverflow) {
       const overflowCount = items.length - individualCount;
-      stackTopY -= STEP;
+      stackTopY -= step;
       stack.push({
         key: `overflow:${group.time}`,
         id: `overflow-${group.time}`,
@@ -186,7 +185,7 @@ function buildPoints(
       });
     }
 
-    const tip = placeTooltip(x, stackTopY, pane);
+    const tip = placeTooltip(x, stackTopY, pane, metrics);
     for (let i = 0; i < stack.length; i++) {
       result.push({ ...stack[i], x, ...tip });
     }
@@ -221,6 +220,26 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
   const [points, setPoints] = useState<OverlayPoint[]>([]);
   const [hovered, setHovered] = useState<OverlayPoint | null>(null);
 
+  // Root font size is fluid (16px → 24px); re-read it when the viewport changes
+  // so the bubble/tooltip geometry scales with the rest of the UI.
+  const [rootFontSizePx, setRootFontSizePx] = useState(getRootFontSizePx);
+  useEffect(() => {
+    const unsubscribe = subscribeRootFontSize(() => {
+      setRootFontSizePx(getRootFontSizePx());
+    });
+    return unsubscribe;
+  }, []);
+  const metrics = useMemo(() => getMarkerMetrics(rootFontSizePx), [rootFontSizePx]);
+  const markerSizeStyle = useMemo<CSSProperties>(
+    () =>
+      ({
+        width: metrics.markerDiameter,
+        height: metrics.markerDiameter,
+        "--hl-marker-size": `${metrics.markerDiameter}px`,
+      }) as CSSProperties,
+    [metrics],
+  );
+
   // Rebuilt only when the candle dataset identity changes (a tick), never on pan/zoom.
   const candleMap = useMemo(() => {
     const map = new Map<number, ChartDataPoint>();
@@ -235,9 +254,9 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
 
   const recalc = useCallback(() => {
     if (chart === null || series === null) return;
-    const result = buildPoints(chart, series, groups, candleMap);
+    const result = buildPoints(chart, series, groups, candleMap, metrics);
     setPoints((previous) => (pointsEqual(previous, result) ? previous : result));
-  }, [chart, series, groups, candleMap]);
+  }, [chart, series, groups, candleMap, metrics]);
 
   // Recalc on data change + subscribe to viewport/size events.
   useEffect(() => {
@@ -296,13 +315,16 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
           }}
         >
           {p.isOverflow === true ? (
-            <div className="hl-trade-marker hl-trade-marker--overflow">+{p.overflowCount}</div>
+            <div className="hl-trade-marker hl-trade-marker--overflow" style={markerSizeStyle}>
+              +{p.overflowCount}
+            </div>
           ) : (
             <div
               className={
                 "hl-trade-marker" +
                 (p.side === "buy" ? " hl-trade-marker--buy" : " hl-trade-marker--sell")
               }
+              style={markerSizeStyle}
             >
               {p.side === "buy" ? "B" : "S"}
             </div>

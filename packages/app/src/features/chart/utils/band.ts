@@ -8,6 +8,7 @@ import type {
   ISeriesApi,
   SeriesType,
 } from "lightweight-charts";
+import { remToPx } from "@/core/utils/rem";
 import { isUtcTimestamp } from "../lib/time";
 
 interface BandLevel {
@@ -73,7 +74,10 @@ const createBandPaneRenderer = (): BandPaneRenderer => {
           ctx.lineWidth = level.lineWidth * horizontalPixelRatio;
 
           if (level.dashed === true) {
-            ctx.setLineDash([4 * horizontalPixelRatio, 4 * horizontalPixelRatio]);
+            ctx.setLineDash([
+              remToPx(0.25) * horizontalPixelRatio,
+              remToPx(0.25) * horizontalPixelRatio,
+            ]);
           }
 
           ctx.beginPath();
@@ -83,11 +87,11 @@ const createBandPaneRenderer = (): BandPaneRenderer => {
           ctx.setLineDash([]);
 
           if (level.label !== undefined && level.label !== "") {
-            const fontSize = Math.round(9 * horizontalPixelRatio);
+            const fontSize = Math.round(remToPx(0.5625) * horizontalPixelRatio);
             ctx.font = `${fontSize}px sans-serif`;
             ctx.fillStyle = level.color;
             ctx.textBaseline = "bottom";
-            ctx.fillText(level.label, right + 4 * horizontalPixelRatio, scaledY);
+            ctx.fillText(level.label, right + remToPx(0.25) * horizontalPixelRatio, scaledY);
           }
         }
       });

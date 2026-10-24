@@ -17,7 +17,7 @@ export function IndicatorFormula({ value }: IndicatorFormulaProps) {
   const seen = new Map<string, number>();
 
   return (
-    <div className="rounded-xl material-base p-[clamp(0.75rem,1vw,1rem)] overflow-x-auto overscroll-none space-y-2">
+    <div className="rounded-xl bg-transparent p-[clamp(0.75rem,1vw,1rem)] overflow-x-auto overscroll-none space-y-2">
       {equations.map((eq) => {
         const occurrence = (seen.get(eq) ?? 0) + 1;
         seen.set(eq, occurrence);

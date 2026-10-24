@@ -8,6 +8,7 @@ import {
 
 import { usePortfolio, useUserVaultEquities } from "../hooks/use-portfolio-data";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollEdge } from "@/components/surface/scroll-edge";
 import {
   PERIOD_LABELS,
   PERIOD_KEYS,
@@ -48,7 +49,7 @@ function Row({
 }
 
 const SURFACE =
-  "h-full flex flex-col rounded-xl p-4 material-raised animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
+  "h-full flex flex-col rounded-[var(--radius-panel)] p-4 tier-content animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
 
 /** Loaded rows and skeleton rows share this stack so their heights cannot drift. */
 const ROW_STACK = "flex flex-col gap-[clamp(0.5rem,1vw,1rem)]";
@@ -167,6 +168,8 @@ export function PortfolioSummaryCard() {
       </div>
 
       <div className={cn("overflow-y-auto flex-1", ROW_STACK)}>
+        {/* one scroll edge per view — Apple HIG scroll views */}
+        <ScrollEdge />
         <Row
           label="PNL"
           value={perps && perps.pnl !== 0 ? formatSignedUsd(perps.pnl) : "$0.00"}

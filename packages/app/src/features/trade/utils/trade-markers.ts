@@ -90,20 +90,39 @@ export function mapFillsToLogicalMarkers(
   return markers;
 }
 
-export const MAX_STACK_PER_CANDLE = 5;
-export const MARKER_DIAMETER = 20;
-export const MARKER_GAP = 5;
-/** Pixel gap between the candle high and the bottom edge of the first bubble. */
-export const MARKER_OFFSET_TOP = 8;
+export const MAX_STACK_PER_CANDLE = 5 as const;
 
-/** Pixel gap between the top of the bubble stack and the tooltip box. */
-export const TOOLTIP_GAP = 6;
-/** Tooltip box height (14px × line-height 1.4 + 10px padding), rounded up. */
-export const TOOLTIP_HEIGHT = 32;
-/** Half the widest tooltip ("Close Short at $123,456.78") at the max font size. */
-export const TOOLTIP_HALF_WIDTH = 100;
-/** Breathing room between the tooltip and the edge of the plot, in px. */
-export const OVERLAY_EDGE_PAD = 4;
+/**
+ * Pixel geometry for the marker overlay, derived from the fluid root font size
+ * so it tracks the 16px@1080p → 24px@4K scale instead of freezing at 1080p.
+ */
+export interface MarkerMetrics {
+  readonly markerDiameter: number;
+  readonly markerGap: number;
+  /** Gap between the candle high and the bottom edge of the first bubble. */
+  readonly markerOffsetTop: number;
+  /** Gap between the top of the bubble stack and the tooltip box. */
+  readonly tooltipGap: number;
+  /** Tooltip box height (0.875rem × line-height 1.4 + padding), rounded up. */
+  readonly tooltipHeight: number;
+  /** Half the widest tooltip ("Close Short at $123,456.78") at the max font size. */
+  readonly tooltipHalfWidth: number;
+  /** Breathing room between the tooltip and the edge of the plot. */
+  readonly overlayEdgePad: number;
+}
+
+export function getMarkerMetrics(rootFontSizePx: number): MarkerMetrics {
+  const toPx = (rem: number): number => rem * rootFontSizePx;
+  return {
+    markerDiameter: toPx(1.25),
+    markerGap: toPx(0.3125),
+    markerOffsetTop: toPx(0.5),
+    tooltipGap: toPx(0.375),
+    tooltipHeight: toPx(2),
+    tooltipHalfWidth: toPx(6.25),
+    overlayEdgePad: toPx(0.25),
+  };
+}
 
 export function groupMarkersByCandle(markers: readonly LogicalTradeMarker[]): MarkerGroup[] {
   const map = new Map<number, LogicalTradeMarker[]>();
