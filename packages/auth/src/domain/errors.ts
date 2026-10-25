@@ -24,24 +24,6 @@ export class TokenRevoked extends Data.TaggedError("TokenRevoked")<Record<never,
 
 export class UserSuspended extends Data.TaggedError("UserSuspended")<{ userId: string }> {}
 
-export class EncryptionFailed extends Data.TaggedError("EncryptionFailed")<{ cause: unknown }> {}
-
-export class CredentialNotFound extends Data.TaggedError("CredentialNotFound")<{
-  readonly credentialId: string;
-}> {}
-
-export class CredentialRevoked extends Data.TaggedError("CredentialRevoked")<{
-  readonly credentialId: string;
-}> {}
-
-export class CredentialExpired extends Data.TaggedError("CredentialExpired")<{
-  readonly credentialId: string;
-}> {}
-
-export class CredentialUnverified extends Data.TaggedError("CredentialUnverified")<{
-  readonly credentialId: string;
-}> {}
-
 export class AccountNotFound extends Data.TaggedError("AccountNotFound")<{
   readonly accountId: string;
 }> {}
@@ -58,10 +40,5 @@ export type AuthError =
   | TokenInvalid
   | TokenRevoked
   | UserSuspended
-  | EncryptionFailed
-  | CredentialNotFound
-  | CredentialRevoked
-  | CredentialExpired
-  | CredentialUnverified
   | AccountNotFound
   | DuplicateLabel;

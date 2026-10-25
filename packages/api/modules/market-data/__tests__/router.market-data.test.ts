@@ -3,7 +3,6 @@ import { type Context, Effect, Layer } from "effect";
 import { MarketDataService } from "../../../modules/market-data";
 import { HealthService } from "../../../modules/health";
 import { UserDataService } from "../../../modules/user-data";
-import { ExchangeService } from "../../../modules/exchange";
 import { NotFoundError, InternalError } from "../../../shared/errors";
 import { handleRequest } from "../../../app";
 import { TestRouteEnvLayer } from "../../../app/__tests__/route-test-layer";
@@ -44,26 +43,11 @@ const mockUserDataService = {
 
 const TestUserDataLayer = Layer.mock(UserDataService, mockUserDataService);
 
-// Exchange layer is required by router.ts handleRequest but unused in market-data tests
-const mockExchangeService = {
-  placeOrder: vi.fn<Context.Service.Shape<typeof ExchangeService>["placeOrder"]>(),
-  updateLeverageAndMargin:
-    vi.fn<Context.Service.Shape<typeof ExchangeService>["updateLeverageAndMargin"]>(),
-  cancelOrders: vi.fn<Context.Service.Shape<typeof ExchangeService>["cancelOrders"]>(),
-};
-const TestExchangeLayer = Layer.succeed(ExchangeService, mockExchangeService);
-
 const runRequest = (path: string, method = "GET") =>
   Effect.runPromise(
     handleRequest(new Request(`http://localhost${path}`, { method })).pipe(
       Effect.provide(
-        Layer.mergeAll(
-          TestMarketDataLayer,
-          TestHealthLayer,
-          TestUserDataLayer,
-          TestExchangeLayer,
-          TestRouteEnvLayer,
-        ),
+        Layer.mergeAll(TestMarketDataLayer, TestHealthLayer, TestUserDataLayer, TestRouteEnvLayer),
       ),
     ),
   );
@@ -138,9 +122,6 @@ describe("HTTP Market Data Router", () => {
         openInterest: 500000,
         funding: 0.0001,
       }),
-    );
-    mockMarketDataService.getOrderBook.mockReturnValue(
-      Effect.succeed({ symbol: "BTC", orderbook: null }),
     );
     mockMarketDataService.getTradeAnnotation.mockReturnValue(
       Effect.succeed({ symbol: "BTC", annotation: null }),
@@ -265,36 +246,6 @@ describe("HTTP Market Data Router", () => {
         openInterest: 500000,
         funding: 0.0001,
       },
-    });
-  });
-
-  it("supports nSigFigs alias for orderbook precision", async () => {
-    const response = await runRequest("/api/orderbook?symbol=BTC&nSigFigs=4");
-
-    expect(response.status).toBe(200);
-    expect(mockMarketDataService.getOrderBook).toHaveBeenCalledWith("BTC", 4);
-  });
-
-  it("defaults to null nSigFigs (full precision) when no nSigFigs param", async () => {
-    const response = await runRequest("/api/orderbook?symbol=BTC");
-
-    expect(response.status).toBe(200);
-    expect(mockMarketDataService.getOrderBook).toHaveBeenCalledWith("BTC", null);
-  });
-
-  it("rejects unsupported orderbook precision values", async () => {
-    expect.hasAssertions();
-    await expectHttpFailure(runRequest("/api/orderbook?symbol=BTC&nSigFigs=6"), {
-      status: 400,
-      message: "nSigFigs",
-    });
-  });
-
-  it("rejects malformed orderbook precision values", async () => {
-    expect.hasAssertions();
-    await expectHttpFailure(runRequest("/api/orderbook?symbol=BTC&nSigFigs=2abc"), {
-      status: 400,
-      message: "nSigFigs",
     });
   });
 

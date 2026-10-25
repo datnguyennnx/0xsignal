@@ -4,7 +4,6 @@ import type { HttpError } from "../../platform/http/error-response";
 import {
   DEFAULT_EXCHANGE,
   parseMarketCandlesQuery,
-  parseMarketOrderBookQuery,
   parseMarketRecentCandlesQuery,
   parseMarketSymbolQuery,
 } from "./query";
@@ -14,7 +13,6 @@ type MarketDataHttpService = {
   readonly getCandles: (typeof MarketDataService.Service)["getCandles"];
   readonly getRecentCandles: (typeof MarketDataService.Service)["getRecentCandles"];
   readonly getTicker: (typeof MarketDataService.Service)["getTicker"];
-  readonly getOrderBook: (typeof MarketDataService.Service)["getOrderBook"];
   readonly getTradeAnnotation: (typeof MarketDataService.Service)["getTradeAnnotation"];
 };
 
@@ -95,18 +93,6 @@ export const buildMarketDataRoutes = ({
         const query = yield* parseMarketSymbolQuery(url.searchParams);
         const payload = yield* marketData
           .getTicker(query.symbol)
-          .pipe(Effect.mapError(mapServiceError));
-        return json({ data: payload });
-      }),
-  },
-  {
-    method: "GET",
-    path: "/api/orderbook",
-    handler: (_request, url, marketData) =>
-      Effect.gen(function* () {
-        const query = yield* parseMarketOrderBookQuery(url.searchParams);
-        const payload = yield* marketData
-          .getOrderBook(query.symbol, query.nSigFigs ?? null)
           .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),

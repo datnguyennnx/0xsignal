@@ -14,11 +14,9 @@ module.exports = {
       name: "no-circular",
       comment:
         "A cycle makes the layer direction meaningless. TODO: warn-only until the " +
-        "two known type-only cycles are broken (extract the repo ports out of the " +
-        "facade files): " +
-        "auth/.../exchange-account.repo.pg.ts:5 -> exchange-account.repo.ts:5 and " +
-        "auth/.../exchange-credential.repo.pg.ts:4 -> exchange-credential.repo.ts:20. " +
-        "Both reverse edges are `import type` of the port interface only.",
+        "known type-only cycle is broken (extract the repo port out of the facade " +
+        "file): auth/.../exchange-account.repo.pg.ts:5 -> exchange-account.repo.ts:5. " +
+        "The reverse edge is `import type` of the port interface only.",
       severity: "warn",
       from: {},
       to: { circular: true },

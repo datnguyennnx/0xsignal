@@ -4,7 +4,6 @@ import type { EconomicEvent } from "@0xsignal/shared";
 import { MarketDataService } from "../../../modules/market-data";
 import { HealthService } from "../../../modules/health";
 import { UserDataService } from "../../../modules/user-data";
-import { ExchangeService } from "../../../modules/exchange";
 import { CalendarService } from "../../../modules/calendar";
 import { handleRequest } from "../../../app";
 import { TestRouteEnvLayer } from "../../../app/__tests__/route-test-layer";
@@ -20,7 +19,6 @@ const TestCalendarLayer = Layer.succeed(CalendarService, mockCalendarService);
 const TestMarketDataLayer = Layer.mock(MarketDataService, {});
 const TestHealthLayer = Layer.mock(HealthService, {});
 const TestUserDataLayer = Layer.mock(UserDataService, {});
-const TestExchangeLayer = Layer.mock(ExchangeService, {});
 
 const runRequest = (path: string, method = "GET") =>
   Effect.runPromise(
@@ -30,7 +28,6 @@ const runRequest = (path: string, method = "GET") =>
           TestMarketDataLayer,
           TestHealthLayer,
           TestUserDataLayer,
-          TestExchangeLayer,
           TestCalendarLayer,
           TestRouteEnvLayer,
         ),
@@ -163,28 +160,5 @@ describe("HTTP Calendar Router", () => {
       currency: ["USD", "EUR"],
       limit: 25,
     });
-  });
-
-  it("routes /api/calendar/upcoming with default hours", async () => {
-    const response = await runRequest("/api/calendar/upcoming");
-
-    expect(response.status).toBe(200);
-    expect(mockCalendarService.upcoming).toHaveBeenCalledWith(24);
-  });
-
-  it("honors an explicit hours parameter", async () => {
-    const response = await runRequest("/api/calendar/upcoming?hours=48");
-
-    expect(response.status).toBe(200);
-    expect(mockCalendarService.upcoming).toHaveBeenCalledWith(48);
-  });
-
-  it("rejects a non-numeric hours parameter with a 400 naming the field", async () => {
-    const response = await runRequest("/api/calendar/upcoming?hours=soon");
-
-    expect(response.status).toBe(400);
-    const hoursBody = await bodyOf(response);
-    expect(Object.keys(hoursBody)).toEqual(["error"]);
-    expect(String(hoursBody["error"])).toContain("hours");
   });
 });

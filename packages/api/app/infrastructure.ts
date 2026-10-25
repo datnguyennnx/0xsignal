@@ -1,9 +1,6 @@
 import { Layer } from "effect";
 import { MigrationLayer } from "@0xsignal/auth";
-import {
-  credentialVerifierLayer,
-  hyperliquidClientLayer,
-} from "../integrations/hyperliquid/data-sources/client";
+import { hyperliquidClientLayer } from "../integrations/hyperliquid/data-sources/client";
 import { MarketStreamHubLayer } from "../integrations/hyperliquid/streams/hub";
 import { layer as hyperliquidRateLimiterLayer } from "../integrations/hyperliquid/rate-limit";
 import { CalendarLayer } from "../modules/calendar/layer";
@@ -18,7 +15,6 @@ export const InfrastructureLayer = Layer.mergeAll(
   marketCandleStoreLayer,
   MarketStreamHubLayer,
   healthServiceLayer,
-  credentialVerifierLayer,
   MigrationLayer,
   CalendarLayer,
   WhaleLayer,

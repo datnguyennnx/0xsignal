@@ -1,5 +1,8 @@
 import { Layer } from "effect";
-import { ExchangeService } from "./index";
-import { makeExchangeService } from "./service";
+import { OrderIntentService } from "./index";
+import { makeOrderIntentService } from "./intent-service";
+import { OrderIntentRepoLayer } from "./intent-repo.pg";
 
-export const exchangeServiceLayer = Layer.effect(ExchangeService, makeExchangeService());
+export const orderIntentServiceLayer = Layer.effect(OrderIntentService, makeOrderIntentService());
+
+export const orderIntentLayer = orderIntentServiceLayer.pipe(Layer.provide(OrderIntentRepoLayer));

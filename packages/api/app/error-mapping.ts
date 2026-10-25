@@ -13,6 +13,7 @@ import {
 } from "../shared/errors";
 import { CalendarServiceError } from "../modules/calendar";
 import { WhaleServiceError } from "../modules/whales";
+import { OrderIntentRepoError } from "../modules/exchange";
 import {
   OAuthCallbackFailed,
   OAuthStateExpired,
@@ -21,11 +22,6 @@ import {
   TokenInvalid,
   TokenRevoked,
   UserSuspended,
-  EncryptionFailed,
-  CredentialNotFound,
-  CredentialRevoked,
-  CredentialExpired,
-  CredentialUnverified,
   AccountNotFound,
   DuplicateLabel,
 } from "@0xsignal/auth";
@@ -45,15 +41,11 @@ const kinds: Record<string, ErrorKind> = {
   InsufficientMarginError: { status: 400, code: "INSUFFICIENT_MARGIN", retryable: false },
 
   NotFoundError: { status: 404, code: "NOT_FOUND", retryable: false },
-  CredentialNotFound: { status: 404, code: "NOT_FOUND", retryable: false },
   AccountNotFound: { status: 404, code: "NOT_FOUND", retryable: false },
 
   ConflictError: { status: 409, code: "CONFLICT", retryable: false },
   DuplicateLabel: { status: 409, code: "CONFLICT", retryable: false },
 
-  CredentialRevoked: { status: 403, code: "FORBIDDEN", retryable: false },
-  CredentialExpired: { status: 403, code: "FORBIDDEN", retryable: false },
-  CredentialUnverified: { status: 403, code: "FORBIDDEN", retryable: false },
   UserSuspended: { status: 403, code: "FORBIDDEN", retryable: false },
 
   TokenExpired: { status: 401, code: "UNAUTHORIZED", retryable: false },
@@ -69,7 +61,7 @@ const kinds: Record<string, ErrorKind> = {
 
   CalendarServiceError: { status: 500, code: "INTERNAL_ERROR", retryable: false },
   WhaleServiceError: { status: 500, code: "INTERNAL_ERROR", retryable: false },
-  EncryptionFailed: { status: 500, code: "INTERNAL_ERROR", retryable: false },
+  OrderIntentRepoError: { status: 500, code: "INTERNAL_ERROR", retryable: false },
 };
 
 const fromTag = (tag: string, message: string): HttpError => {
@@ -88,18 +80,6 @@ const fromRawStatus = (status: number, message: string, code?: string): HttpErro
 const mapRemainingError = (error: unknown): HttpError =>
   Match.value(error).pipe(
     // Auth-package tagged errors (use hardcoded messages)
-    Match.when(Match.instanceOf(CredentialNotFound), () =>
-      fromTag("CredentialNotFound", "Credential not found"),
-    ),
-    Match.when(Match.instanceOf(CredentialRevoked), () =>
-      fromTag("CredentialRevoked", "Credential revoked"),
-    ),
-    Match.when(Match.instanceOf(CredentialExpired), () =>
-      fromTag("CredentialExpired", "Credential expired"),
-    ),
-    Match.when(Match.instanceOf(CredentialUnverified), () =>
-      fromTag("CredentialUnverified", "Credential not verified"),
-    ),
     Match.when(Match.instanceOf(AccountNotFound), () =>
       fromTag("AccountNotFound", "Account not found"),
     ),
@@ -118,9 +98,6 @@ const mapRemainingError = (error: unknown): HttpError =>
     ),
     Match.when(Match.instanceOf(OAuthCallbackFailed), () =>
       fromTag("OAuthCallbackFailed", "OAuth callback failed"),
-    ),
-    Match.when(Match.instanceOf(EncryptionFailed), () =>
-      fromTag("EncryptionFailed", "Encryption failed"),
     ),
 
     // Plain objects with a message field
@@ -161,6 +138,9 @@ export const mapServiceError = (error: unknown): HttpError =>
       fromTag("CalendarServiceError", e.message),
     ),
     Match.when(Match.instanceOf(WhaleServiceError), (e) => fromTag("WhaleServiceError", e.message)),
+    Match.when(Match.instanceOf(OrderIntentRepoError), (e) =>
+      fromTag("OrderIntentRepoError", e.message),
+    ),
 
     Match.orElse(mapRemainingError),
   );

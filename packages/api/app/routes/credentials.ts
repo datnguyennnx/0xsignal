@@ -1,6 +1,5 @@
 import { Effect } from "effect";
-import { ExchangeAccountRepo, ExchangeCredentialRepo, withAuth } from "@0xsignal/auth";
-import { CredentialVerifier } from "../../integrations/hyperliquid/data-sources/credential-verifier";
+import { ExchangeAccountRepo, withAuth } from "@0xsignal/auth";
 import { buildCredentialRoutes } from "../../modules/credentials";
 import { json } from "../../platform/http/error-response";
 import type { Route } from "../../platform/http/route-contracts";
@@ -18,10 +17,8 @@ export const credentialRoutes: ReadonlyArray<Route<HttpRequestServices>> = build
     withDefectGuard(
       Effect.gen(function* () {
         const accountRepo = yield* ExchangeAccountRepo;
-        const credentialRepo = yield* ExchangeCredentialRepo;
-        const verifier = yield* CredentialVerifier;
         return yield* withAuth((session) =>
-          route.handler(request, url, accountRepo, credentialRepo, verifier, session.userId),
+          route.handler(request, url, accountRepo, session.userId),
         )(request);
       }),
     ),

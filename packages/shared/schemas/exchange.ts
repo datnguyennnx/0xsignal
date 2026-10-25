@@ -8,12 +8,14 @@
 
 export type OrderSide = "buy" | "sell";
 
+export type TimeInForce = "GTC" | "IOC" | "FOK" | "Alo" | "FrontendMarket";
+
 // Order Type
 
 export type OrderType =
   | {
       readonly kind: "limit";
-      readonly timeInForce: "GTC" | "IOC" | "FOK" | "Alo" | "FrontendMarket";
+      readonly timeInForce: TimeInForce;
     }
   | {
       readonly kind: "trigger";
@@ -55,4 +57,45 @@ export interface CancelEntry {
 
 export interface CancelOrdersRequest {
   readonly cancels: CancelEntry[];
+}
+
+// Order Intent (unsigned, recorded before the browser signs)
+
+export type OrderIntentOrderType = "limit" | "market";
+
+export type OrderIntentStatus = "pending" | "submitted" | "rejected" | "expired";
+
+export interface OrderIntentRequest {
+  readonly symbol: string;
+  readonly side: OrderSide;
+  readonly size: string;
+  readonly price: string | null;
+  readonly orderType: OrderIntentOrderType;
+  readonly timeInForce?: TimeInForce | undefined;
+  readonly reduceOnly?: boolean | undefined;
+  readonly slippageBps?: number | undefined;
+  readonly leverage?: number | undefined;
+}
+
+export interface OrderIntentValidation {
+  readonly assetIndex: number;
+  readonly symbol: string;
+  readonly sizeDecimals: number;
+  readonly priceDecimals: number;
+  readonly notionalUsd: number;
+}
+
+export interface OrderIntentResponse {
+  readonly intentId: string;
+  readonly intentHash: string;
+  readonly validated: OrderIntentValidation;
+}
+
+export type OrderIntentResultRequest = { readonly txHash: string } | { readonly error: string };
+
+export interface OrderIntentResultResponse {
+  readonly intentId: string;
+  readonly status: OrderIntentStatus;
+  readonly txHash: string | null;
+  readonly error: string | null;
 }

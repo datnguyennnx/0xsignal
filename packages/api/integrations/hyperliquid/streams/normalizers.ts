@@ -61,5 +61,4 @@ export const normalizeL2BookData = (event: unknown): { levels: unknown[] } => {
   };
 };
 
-export const normalizeTradesData = (event: unknown): unknown => unwrapPayload(event);
 export const normalizeAllMidsData = (event: unknown): unknown => unwrapPayload(event);

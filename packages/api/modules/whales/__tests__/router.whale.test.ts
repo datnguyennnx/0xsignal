@@ -4,7 +4,6 @@ import type { WhalePosition } from "@0xsignal/shared";
 import { MarketDataService } from "../../../modules/market-data";
 import { HealthService } from "../../../modules/health";
 import { UserDataService } from "../../../modules/user-data";
-import { ExchangeService } from "../../../modules/exchange";
 import { WhaleService } from "../../../modules/whales";
 import { handleRequest } from "../../../app";
 import { TestRouteEnvLayer } from "../../../app/__tests__/route-test-layer";
@@ -18,13 +17,11 @@ const TestWhaleLayer = Layer.mock(WhaleService, mockWhaleService);
 const TestMarketDataLayer = Layer.mock(MarketDataService, {});
 const TestHealthLayer = Layer.mock(HealthService, {});
 const TestUserDataLayer = Layer.mock(UserDataService, {});
-const TestExchangeLayer = Layer.mock(ExchangeService, {});
 
 const baseLayers = Layer.mergeAll(
   TestMarketDataLayer,
   TestHealthLayer,
   TestUserDataLayer,
-  TestExchangeLayer,
   TestRouteEnvLayer,
 );
 

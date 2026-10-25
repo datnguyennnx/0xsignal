@@ -4,14 +4,12 @@ import {
   AuthInfraLayer,
   AuthService,
   ExchangeAccountRepo,
-  ExchangeCredentialRepo,
   type PostgresConnectionPool,
 } from "@0xsignal/auth";
-import { exchangeCredentialsLayer } from "../integrations/hyperliquid/data-sources/exchange-credentials";
 import type { HyperliquidClient } from "../integrations/hyperliquid/data-sources/client";
 import type { HyperliquidRateLimiter } from "../integrations/hyperliquid/rate-limit";
-import { ExchangeService } from "../modules/exchange";
-import { exchangeServiceLayer } from "../modules/exchange/layer";
+import { OrderIntentService } from "../modules/exchange";
+import { orderIntentLayer } from "../modules/exchange/layer";
 import {
   MarketDataService,
   type MarketCandleStore,
@@ -24,21 +22,13 @@ import { userDataServiceLayer } from "../modules/user-data/layer";
 // The merged layer's provided services are named by their public API so the
 // declaration stays portable; requirements are the infra the auth layer needs.
 export const AppServicesLayer: Layer.Layer<
-  | AuthService
-  | ExchangeAccountRepo
-  | ExchangeCredentialRepo
-  | MarketDataService
-  | UserDataService
-  | ExchangeService,
+  AuthService | ExchangeAccountRepo | MarketDataService | UserDataService | OrderIntentService,
   never,
   | HyperliquidClient
   | HyperliquidRateLimiter
   | MarketCandleStore
   | MarketRemoteProvider
   | PostgresConnectionPool
-> = Layer.mergeAll(
-  marketDataServiceLayer,
-  userDataServiceLayer,
-  exchangeServiceLayer.pipe(Layer.provide(exchangeCredentialsLayer)),
-  authLayer,
-).pipe(Layer.provideMerge(AuthInfraLayer));
+> = Layer.mergeAll(marketDataServiceLayer, userDataServiceLayer, orderIntentLayer, authLayer).pipe(
+  Layer.provideMerge(AuthInfraLayer),
+);

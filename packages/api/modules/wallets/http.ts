@@ -1,21 +1,16 @@
 import { Effect, Schema } from "effect";
-import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
-import type { CredentialVerifier } from "../../integrations/hyperliquid/data-sources/credential-verifier";
+import { ExchangeAccountRepo } from "@0xsignal/auth";
 import { asHttpError, type HttpError } from "../../platform/http/error-response";
 import { requireUserId } from "../../platform/http/require-user";
 import { CreateWalletSchema, validateWalletAddress } from "../../shared/credential-schema";
 
 type AccountRepoService = typeof ExchangeAccountRepo.Service;
-type CredentialRepoService = typeof ExchangeCredentialRepo.Service;
 
-// userId is optional only to match CredentialHttpHandler; route-table gates every
-// wallet route behind requireAuthCredentials, which always supplies the session user.
+// userId is optional only because the route table supplies the session user.
 type WalletRouteHandler = (
   request: Request,
   url: URL,
   accountRepo: AccountRepoService,
-  credentialRepo: CredentialRepoService,
-  verifier: typeof CredentialVerifier.Service,
   userId?: string,
 ) => Effect.Effect<Response, HttpError>;
 
@@ -36,7 +31,7 @@ export const buildWalletRoutes = ({
   {
     method: "POST",
     path: "/api/wallets",
-    handler: (request, _url, accountRepo, _credentialRepo, _hlClient, userId) =>
+    handler: (request, _url, accountRepo, userId) =>
       Effect.gen(function* () {
         const uid = yield* requireUserId(userId);
 
@@ -85,7 +80,7 @@ export const buildWalletRoutes = ({
   {
     method: "GET",
     path: "/api/wallets",
-    handler: (_request, url, accountRepo, _credentialRepo, _hlClient, userId) =>
+    handler: (_request, url, accountRepo, userId) =>
       Effect.gen(function* () {
         const uid = yield* requireUserId(userId);
 
@@ -96,27 +91,6 @@ export const buildWalletRoutes = ({
         return json({
           data: accounts.map(({ metadata: _omit, ...safe }) => safe),
         });
-      }),
-  },
-
-  // DELETE /api/wallets/:accountId
-  {
-    method: "DELETE",
-    path: "/api/wallets/:accountId",
-    handler: (_request, url, accountRepo, _credentialRepo, _hlClient, userId) =>
-      Effect.gen(function* () {
-        const uid = yield* requireUserId(userId);
-
-        const accountId = url.pathname.split("/")[3]; // /api/wallets/:accountId
-
-        yield* accountRepo.deactivate(accountId, uid).pipe(
-          Effect.catchTag("AccountNotFound", () =>
-            Effect.fail(asHttpError(404, "Wallet not found")),
-          ),
-          Effect.mapError(mapServiceError),
-        );
-
-        return new Response(null, { status: 204 });
       }),
   },
 ];

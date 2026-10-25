@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 import { PostgresConnectionPool } from "../db/postgres";
-import type { ExchangeAccount } from "../../domain/exchange-credential";
+import type { ExchangeAccount } from "../../domain/exchange-account";
 import { AccountNotFound, DuplicateLabel } from "../../domain/errors";
 import { pgExchangeAccountRepo } from "./exchange-account.repo.pg";
 

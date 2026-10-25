@@ -29,14 +29,9 @@ const L2BookSchema = Schema.Struct({
   depth: Schema.optional(Schema.Number),
 });
 
-const TradesSchema = Schema.Struct({
-  channel: Schema.Literal("trades"),
-  symbol: Schema.NonEmptyString,
-});
-
 // Schema.Union picks the variant by the `channel` discriminator; fields that
 // belong to other variants are ignored rather than rejected.
-const SubscriptionSchema = Schema.Union([AllMidsSchema, CandleSchema, L2BookSchema, TradesSchema]);
+const SubscriptionSchema = Schema.Union([AllMidsSchema, CandleSchema, L2BookSchema]);
 
 export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult => {
   const channel = (params.get("channel") ?? params.get("type") ?? "").trim();

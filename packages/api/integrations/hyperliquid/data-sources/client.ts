@@ -3,7 +3,6 @@ import { Effect, Layer } from "effect";
 import { HyperliquidClient } from "./hyperliquid-client";
 
 export { HyperliquidClient };
-export { credentialVerifierLayer } from "./layer";
 
 export const hyperliquidClientLayer = Layer.effect(
   HyperliquidClient,

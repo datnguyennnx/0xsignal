@@ -9,8 +9,6 @@ import {
 const CALENDAR_IMPACTS = ["low", "medium", "high"] as const;
 const CALENDAR_CATEGORIES = ["macro", "crypto", "fx"] as const;
 
-export const DEFAULT_UPCOMING_HOURS = 24;
-
 const impactsFromQuery = NormalizedEnumList(CALENDAR_IMPACTS);
 
 const categoriesFromQuery = NormalizedEnumList(CALENDAR_CATEGORIES);
@@ -40,12 +38,5 @@ const calendarEventsQuery = Schema.Struct({
   limit: Schema.optionalKey(PositiveIntegerFromQuery),
 });
 
-const calendarUpcomingQuery = Schema.Struct({
-  hours: Schema.optionalKey(PositiveIntegerFromQuery),
-});
-
 export const parseCalendarQuery = (searchParams: URLSearchParams) =>
   parseQuery(searchParams, calendarEventsQuery);
-
-export const parseUpcomingHoursQuery = (searchParams: URLSearchParams) =>
-  parseQuery(searchParams, calendarUpcomingQuery);

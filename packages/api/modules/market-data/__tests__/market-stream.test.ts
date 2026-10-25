@@ -322,7 +322,6 @@ describe("Market WS subscription parser", () => {
     expect(buildMarketWsBucketKey({ channel: "l2Book", symbol: "ETH", nSigFigs: 5 })).toBe(
       "l2Book:ETH:5",
     );
-    expect(buildMarketWsBucketKey({ channel: "trades", symbol: "SOL" })).toBe("trades:SOL");
     expect(buildMarketWsBucketKey({ channel: "allMids" })).toBe("allMids:");
   });
 
@@ -417,35 +416,6 @@ describe("Market WS emitter contract", () => {
     // The fast leg is created first; the slow leg is created only afterwards.
     expect(legs.calls()).toBe(2);
     expect(fastUnsubscribed).toBe(1);
-  });
-
-  it("emits stable market envelope for trades", async () => {
-    const subscriptionClient = makeSubscriptionClient({
-      trades: (_params, onEvent) => {
-        onEvent([
-          {
-            coin: "SOL",
-            side: "B",
-            px: "100",
-            sz: "1",
-            time: 1,
-            hash: "0x00",
-            tid: 1,
-            users: ["0x00", "0x00"],
-          },
-        ]);
-        return Promise.resolve(stubUpstream);
-      },
-    });
-
-    const bucket = createBucket({ channel: "trades", symbol: "SOL" });
-
-    const upstream = await Effect.runPromise(
-      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach, () => bucket),
-    );
-
-    expect(upstream).toBeDefined();
-    expect(typeof upstream.unsubscribe).toBe("function");
   });
 
   it("emits stable market envelope for allMids", async () => {

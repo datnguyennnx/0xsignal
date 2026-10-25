@@ -1,7 +1,6 @@
-import { ExchangeAccountRepo, ExchangeCredentialRepo, type AuthService } from "@0xsignal/auth";
-import type { CredentialVerifier } from "../integrations/hyperliquid/data-sources/credential-verifier";
+import { ExchangeAccountRepo, type AuthService } from "@0xsignal/auth";
 import type { HyperliquidClient } from "../integrations/hyperliquid/data-sources/hyperliquid-client";
-import type { ExchangeService } from "../modules/exchange";
+import type { OrderIntentService } from "../modules/exchange";
 import type { HealthService } from "../modules/health";
 import type { MarketDataService, MarketStreamHub } from "../modules/market-data";
 import type { UserDataService } from "../modules/user-data";
@@ -10,11 +9,7 @@ import type { UserDataService } from "../modules/user-data";
  * Services the route handlers may depend on; the server runtime supplies all
  * of them through AppLayer, so handlers declare them instead of asserting.
  */
-export type RouteEnvironment =
-  | AuthService
-  | ExchangeAccountRepo
-  | ExchangeCredentialRepo
-  | CredentialVerifier;
+export type RouteEnvironment = AuthService | ExchangeAccountRepo;
 
 /** Services a request effect resolves from the shared runtime. */
 export type HttpRequestServices =
@@ -22,7 +17,7 @@ export type HttpRequestServices =
   | HealthService
   | MarketDataService
   | UserDataService
-  | ExchangeService;
+  | OrderIntentService;
 
 /**
  * Everything an HTTP request effect may require. AppLayer provides all of it;

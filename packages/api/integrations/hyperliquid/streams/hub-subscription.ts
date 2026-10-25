@@ -4,12 +4,7 @@ import { SubscriptionClient, TransportError } from "@nktkas/hyperliquid";
 import type { ISubscription } from "@nktkas/hyperliquid";
 import type { HyperliquidAggregatedAsset } from "../data-sources/types";
 import { asRecord, isUnknownArray } from "../../../shared/parsing";
-import {
-  normalizeAllMidsData,
-  normalizeCandleData,
-  normalizeL2BookData,
-  normalizeTradesData,
-} from "./normalizers";
+import { normalizeAllMidsData, normalizeCandleData, normalizeL2BookData } from "./normalizers";
 import { broadcast } from "./hub-broadcast";
 import { type Bucket, type MarketWsConnectionData, WebSocketSubscribeError } from "./hub-types";
 import type { ServerWebSocket } from "bun";
@@ -331,40 +326,6 @@ export function subscribeUpstream(
             catch: (error) =>
               new WebSocketSubscribeError({
                 message: `Failed to subscribe to l2Book: ${error instanceof Error ? error.message : String(error)}`,
-                symbol: subSymbol,
-              }),
-          }),
-        ),
-        Match.when("trades", () =>
-          Effect.tryPromise({
-            try: () =>
-              subscriptionClient.trades(
-                { coin: internalSymbol! },
-                (event) => {
-                  emitToLatest(
-                    resolveBucket,
-                    {
-                      type: "market",
-                      channel: "trades",
-                      data: normalizeTradesData(event),
-                    },
-                    detach,
-                  );
-                },
-                {
-                  onError: (error: TransportError) => {
-                    marketWsLog(
-                      "upstream_subscription_error",
-                      { bucketKey: bucket.key, channel: "trades", error: error.message },
-                      "error",
-                    );
-                    onSubscriptionError?.(error);
-                  },
-                },
-              ),
-            catch: (error) =>
-              new WebSocketSubscribeError({
-                message: `Failed to subscribe to trades: ${error instanceof Error ? error.message : String(error)}`,
                 symbol: subSymbol,
               }),
           }),

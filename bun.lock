@@ -28,8 +28,6 @@
         "@nktkas/hyperliquid": "0.33.3",
         "effect": "4.0.6",
         "pg": "^8.23.0",
-        "valibot": "^1.4.2",
-        "viem": "^2.47.6",
       },
       "devDependencies": {
         "@types/node": "^24.10.1",

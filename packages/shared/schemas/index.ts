@@ -37,9 +37,17 @@ export type {
 export type {
   OrderSide,
   OrderType,
+  TimeInForce,
   PlaceOrderEntry,
   PlaceOrderRequest,
   UpdateLeverageRequest,
   CancelEntry,
   CancelOrdersRequest,
+  OrderIntentOrderType,
+  OrderIntentStatus,
+  OrderIntentRequest,
+  OrderIntentValidation,
+  OrderIntentResponse,
+  OrderIntentResultRequest,
+  OrderIntentResultResponse,
 } from "./exchange";

@@ -3,7 +3,6 @@ import { type Context, Effect, Layer } from "effect";
 import { MarketDataService } from "../../../modules/market-data";
 import { HealthService } from "../../../modules/health";
 import { UserDataService } from "../../../modules/user-data";
-import { ExchangeService } from "../../../modules/exchange";
 import { handleRequest } from "../../../app";
 import { TestRouteEnvLayer } from "../../../app/__tests__/route-test-layer";
 
@@ -19,19 +18,12 @@ const TestUserDataLayer = Layer.mock(UserDataService, mockUserDataService);
 
 const TestMarketDataLayer = Layer.mock(MarketDataService, {});
 const TestHealthLayer = Layer.mock(HealthService, {});
-const TestExchangeLayer = Layer.mock(ExchangeService, {});
 
 const runRequest = (path: string) =>
   Effect.runPromise(
     handleRequest(new Request(`http://localhost${path}`)).pipe(
       Effect.provide(
-        Layer.mergeAll(
-          TestMarketDataLayer,
-          TestHealthLayer,
-          TestUserDataLayer,
-          TestExchangeLayer,
-          TestRouteEnvLayer,
-        ),
+        Layer.mergeAll(TestMarketDataLayer, TestHealthLayer, TestUserDataLayer, TestRouteEnvLayer),
       ),
     ),
   );

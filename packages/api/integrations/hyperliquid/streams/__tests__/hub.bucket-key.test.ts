@@ -9,7 +9,6 @@ describe("market stream hub bucket key", () => {
     expect(buildMarketWsBucketKey({ channel: "l2Book", symbol: "BTC", nSigFigs: 4 })).toBe(
       "l2Book:BTC:4",
     );
-    expect(buildMarketWsBucketKey({ channel: "trades", symbol: "ETH" })).toBe("trades:ETH");
     expect(buildMarketWsBucketKey({ channel: "allMids", dex: "test" })).toBe("allMids:test");
   });
 

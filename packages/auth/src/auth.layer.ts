@@ -3,11 +3,9 @@ import { AuthServiceLayer } from "./application/auth.service.impl";
 import { GoogleProviderLayer, GitHubProviderLayer } from "./infrastructure/providers";
 import { JwtServiceLayer } from "./infrastructure/jwt.service";
 import { OAuthStateStoreLayer, AuthCodeStoreLayer } from "./infrastructure/state.store";
-import { EncryptionServiceLayer } from "./infrastructure/encryption.service";
 import { UserRepoLayer } from "./infrastructure/repos/user.repo";
 import { OAuthAccountRepoLayer } from "./infrastructure/repos/oauth-account.repo";
 import { ExchangeAccountRepoLayer } from "./infrastructure/repos/exchange-account.repo";
-import { ExchangeCredentialRepoLayer } from "./infrastructure/repos/exchange-credential.repo";
 
 export const AuthInfraLayer = Layer.mergeAll(
   GoogleProviderLayer,
@@ -15,11 +13,9 @@ export const AuthInfraLayer = Layer.mergeAll(
   JwtServiceLayer,
   OAuthStateStoreLayer,
   AuthCodeStoreLayer,
-  EncryptionServiceLayer,
   UserRepoLayer,
   OAuthAccountRepoLayer,
   ExchangeAccountRepoLayer,
-  ExchangeCredentialRepoLayer.pipe(Layer.provideMerge(EncryptionServiceLayer)),
 );
 
 /* AuthInfraLayer is provided at AppLayer level for cross-layer access. */

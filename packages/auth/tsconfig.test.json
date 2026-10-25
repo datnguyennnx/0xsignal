@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "noEmit": true,
+    "tsBuildInfoFile": "./dist/tsconfig.test.tsbuildinfo",
+    "types": ["node"]
+  },
+  "include": ["./src/infrastructure/migrations/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

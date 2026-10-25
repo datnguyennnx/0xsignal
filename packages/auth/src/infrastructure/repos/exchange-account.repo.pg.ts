@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import type { ExchangeAccount } from "../../domain/exchange-credential";
+import type { ExchangeAccount } from "../../domain/exchange-account";
 import { AccountNotFound, DuplicateLabel } from "../../domain/errors";
 import { isPgUniqueViolation, resolveMasterWallet } from "./shared/pg-utils";
 import type { ExchangeAccountRepoPort } from "./exchange-account.repo";

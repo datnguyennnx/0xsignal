@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OAuthCallbackFailed, UserSuspended, EncryptionFailed } from "../domain/errors";
+import { OAuthCallbackFailed, UserSuspended } from "../domain/errors";
 
 describe("AuthError tagged errors", () => {
   it("OAuthCallbackFailed stores cause", () => {
@@ -11,11 +11,5 @@ describe("AuthError tagged errors", () => {
   it("UserSuspended stores userId", () => {
     const error = new UserSuspended({ userId: "abc-123" });
     expect(error.userId).toBe("abc-123");
-  });
-
-  it("EncryptionFailed stores cause", () => {
-    const cause = new Error("Crypto error");
-    const error = new EncryptionFailed({ cause });
-    expect(error.cause).toBe(cause);
   });
 });

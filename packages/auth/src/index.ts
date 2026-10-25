@@ -13,11 +13,6 @@ export {
   UserSuspended,
   AccountNotFound,
   DuplicateLabel,
-  CredentialNotFound,
-  CredentialRevoked,
-  CredentialExpired,
-  CredentialUnverified,
-  EncryptionFailed,
 } from "./domain/errors";
 
 export { AuthService } from "./application/auth.service";
@@ -31,4 +26,3 @@ export { MigrationLayer } from "./infrastructure/migration.layer";
 
 export { PostgresConnectionPool } from "./infrastructure/db/postgres";
 export { ExchangeAccountRepo } from "./infrastructure/repos/exchange-account.repo";
-export { ExchangeCredentialRepo } from "./infrastructure/repos/exchange-credential.repo";

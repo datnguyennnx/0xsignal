@@ -6,8 +6,6 @@ import {
   parseQuery,
 } from "../../platform/http/utils/param-parsers";
 
-const SIG_FIGS_RANGE_MESSAGE = "supported values are 2, 3, 4, 5";
-
 export const DEFAULT_EXCHANGE = "Hyperliquid";
 
 const requiredSymbol = TrimmedString.pipe(
@@ -16,13 +14,6 @@ const requiredSymbol = TrimmedString.pipe(
 
 const requiredInterval = MarketTimeframeSchema.pipe(
   Schema.annotateKey({ messageMissingKey: "Missing required query parameter: interval" }),
-);
-
-const sigFigsFromQuery = PositiveIntegerFromQuery.pipe(
-  Schema.check(
-    Schema.isGreaterThanOrEqualTo(2, { message: SIG_FIGS_RANGE_MESSAGE }),
-    Schema.isLessThanOrEqualTo(5, { message: SIG_FIGS_RANGE_MESSAGE }),
-  ),
 );
 
 const optionalExchange = {
@@ -54,11 +45,6 @@ const marketSymbolQuery = Schema.Struct({
   symbol: requiredSymbol,
 });
 
-const marketOrderBookQuery = Schema.Struct({
-  symbol: requiredSymbol,
-  nSigFigs: Schema.optionalKey(sigFigsFromQuery),
-});
-
 // `timeframe` predates `interval`; keep accepting it without duplicating the schema.
 const withIntervalAlias = (searchParams: URLSearchParams): URLSearchParams => {
   const alias = searchParams.get("timeframe");
@@ -77,6 +63,3 @@ export const parseMarketRecentCandlesQuery = (searchParams: URLSearchParams) =>
 
 export const parseMarketSymbolQuery = (searchParams: URLSearchParams) =>
   parseQuery(searchParams, marketSymbolQuery);
-
-export const parseMarketOrderBookQuery = (searchParams: URLSearchParams) =>
-  parseQuery(searchParams, marketOrderBookQuery);
