@@ -8,6 +8,13 @@ type IdRow = { readonly id: string };
 
 type CountRow = { readonly cnt: number };
 
+type WalletLockRow = {
+  readonly id: string;
+  readonly user_id: string;
+  readonly node_type: ExchangeAccount["nodeType"];
+  readonly verified_at: Date | string | null;
+};
+
 type ExchangeAccountRow = {
   readonly id: string;
   readonly user_id: string;
@@ -21,6 +28,7 @@ type ExchangeAccountRow = {
   readonly sort_order: number;
   readonly is_active: boolean;
   readonly is_primary: boolean;
+  readonly verified_at: Date | string | null;
   readonly metadata: Record<string, unknown> | null;
   readonly created_at: Date | string;
   readonly updated_at: Date | string;
@@ -45,6 +53,7 @@ function mapRow(row: ExchangeAccountRow): ExchangeAccount {
     sortOrder: row.sort_order,
     isActive: row.is_active,
     isPrimary: row.is_primary,
+    ...(row.verified_at !== null && { verifiedAt: ts(row.verified_at) }),
     metadata: row.metadata ?? {},
     createdAt: ts(row.created_at),
     updatedAt: ts(row.updated_at),
@@ -119,6 +128,114 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
               return Effect.fail(error);
             }
             if (error instanceof DuplicateLabel || error instanceof WalletAddressClaimed) {
+              return Effect.fail(error);
+            }
+            return Effect.die(error);
+          },
+        ),
+      ),
+
+    verifyWallet: (params) =>
+      Effect.tryPromise(async () => {
+        const client = await pg.connect();
+        try {
+          await client.query("BEGIN");
+
+          const locked = await client.query<WalletLockRow>(
+            `SELECT id, user_id, node_type, verified_at
+             FROM exchange_accounts
+             WHERE lower(wallet_address) = lower($1)
+             FOR UPDATE`,
+            [params.walletAddress],
+          );
+
+          const provenByOther = locked.rows.some(
+            (row) => row.user_id !== params.userId && row.verified_at !== null,
+          );
+          if (provenByOther) {
+            throw new WalletAddressClaimed({ walletAddress: params.walletAddress });
+          }
+
+          const exchangeResult = await client.query<IdRow>(
+            "SELECT id FROM exchanges WHERE slug = $1",
+            [params.exchangeSlug],
+          );
+          if (exchangeResult.rows.length === 0) {
+            throw new AccountNotFound({ accountId: `exchange:${params.exchangeSlug}` });
+          }
+          const exchangeId = exchangeResult.rows[0].id;
+
+          // A signature only ever transfers proof away from unverified rows; no
+          // row is deleted, so the operator can still audit the old links.
+          await client.query(
+            `UPDATE exchange_accounts
+             SET verified_at = NULL, verified_nonce = NULL
+             WHERE lower(wallet_address) = lower($1)
+               AND user_id <> $2
+               AND verified_at IS NOT NULL`,
+            [params.walletAddress, params.userId],
+          );
+
+          const own = locked.rows.find(
+            (row) => row.user_id === params.userId && row.node_type === "wallet",
+          );
+
+          let saved: ExchangeAccountRow;
+          if (own === undefined) {
+            const countResult = await client.query<CountRow>(
+              "SELECT COUNT(*)::int AS cnt FROM exchange_accounts WHERE user_id = $1 AND exchange_id = $2",
+              [params.userId, exchangeId],
+            );
+            const isFirst = countResult.rows[0].cnt === 0;
+            const inserted = await client.query<ExchangeAccountRow>(
+              `INSERT INTO exchange_accounts
+               (user_id, exchange_id, node_type, wallet_address, label, is_primary, verified_at, verified_nonce)
+               VALUES ($1, $2, 'wallet', $3, $4, $5, NOW(), $6)
+               RETURNING *`,
+              [
+                params.userId,
+                exchangeId,
+                params.walletAddress,
+                params.label ?? "",
+                isFirst,
+                params.nonce,
+              ],
+            );
+            saved = inserted.rows[0];
+          } else {
+            const updated = await client.query<ExchangeAccountRow>(
+              `UPDATE exchange_accounts
+               SET verified_at = NOW(), verified_nonce = $2
+               WHERE id = $1
+               RETURNING *`,
+              [own.id, params.nonce],
+            );
+            saved = updated.rows[0];
+          }
+
+          await client.query("COMMIT");
+          return mapRow(saved);
+        } catch (error: unknown) {
+          await client.query("ROLLBACK");
+          throw error;
+        } finally {
+          client.release();
+        }
+      }).pipe(
+        Effect.catch(
+          (
+            error: unknown,
+          ): Effect.Effect<never, AccountNotFound | DuplicateLabel | WalletAddressClaimed> => {
+            if (isPgUniqueViolation(error)) {
+              if (pgUniqueConstraint(error) === "uq_exchange_accounts_verified_wallet") {
+                return Effect.fail(
+                  new WalletAddressClaimed({ walletAddress: params.walletAddress }),
+                );
+              }
+              return Effect.fail(new DuplicateLabel({ label: params.label ?? "" }));
+            }
+            if (error instanceof AccountNotFound) return Effect.fail(error);
+            if (error instanceof WalletAddressClaimed || error instanceof DuplicateLabel) {
               return Effect.fail(error);
             }
             return Effect.die(error);

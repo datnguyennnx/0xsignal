@@ -19,7 +19,10 @@ const makeWalletAuthorizer =
       Effect.mapError(mapServiceError),
       Effect.flatMap((accounts) => {
         const requested = walletAddress.toLowerCase();
-        const owned = accounts.some((account) => account.walletAddress.toLowerCase() === requested);
+        const owned = accounts.some(
+          (account) =>
+            account.verifiedAt !== undefined && account.walletAddress.toLowerCase() === requested,
+        );
         return owned
           ? Effect.void
           : Effect.fail(

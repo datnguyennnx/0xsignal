@@ -19,11 +19,27 @@ export interface CreateExchangeAccountParams {
   readonly metadata?: Record<string, unknown>;
 }
 
+export interface VerifyWalletParams {
+  readonly userId: string;
+  readonly exchangeSlug: string;
+  readonly walletAddress: string;
+  readonly nonce: string;
+  readonly label?: string | undefined;
+}
+
 // Port interface
 
 export interface ExchangeAccountRepoPort {
   readonly create: (
     params: CreateExchangeAccountParams,
+  ) => Effect.Effect<ExchangeAccount, AccountNotFound | DuplicateLabel | WalletAddressClaimed>;
+
+  /**
+   * Records a proven signature for the wallet. The address's rows are locked so
+   * one signer at a time wins; an address proven by another user stays theirs.
+   */
+  readonly verifyWallet: (
+    params: VerifyWalletParams,
   ) => Effect.Effect<ExchangeAccount, AccountNotFound | DuplicateLabel | WalletAddressClaimed>;
 
   readonly findById: (

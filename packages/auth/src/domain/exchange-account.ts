@@ -16,6 +16,7 @@ const ExchangeAccountSchema = Schema.Struct({
   sortOrder: Schema.Number,
   isActive: Schema.Boolean,
   isPrimary: Schema.Boolean,
+  verifiedAt: Schema.optionalKey(Schema.String),
   metadata: Schema.Record(Schema.String, Schema.Unknown),
   createdAt: Schema.String,
   updatedAt: Schema.String,

@@ -35,6 +35,42 @@ const parseProvider = (url: URL): OAuthProvider | null => {
 
 const FRONTEND_URL_DEFAULT = "http://localhost:5173";
 
+const REFRESH_COOKIE_PATH = "Path=/api/auth";
+const REFRESH_COOKIE_MAX_AGE = "Max-Age=2592000";
+
+export const INSECURE_COOKIES_WARNING =
+  "[auth] INSECURE_COOKIES is enabled: the refresh cookie omits the Secure attribute. This is for local development only and must never be enabled in production.";
+
+export const isInsecureCookiesEnabled = (value: string | undefined): boolean =>
+  value !== undefined && (value.trim().toLowerCase() === "true" || value.trim() === "1");
+
+/**
+ * Secure is the default at every hostname; only an explicit flag opts out, and that
+ * opt-out is announced on every issuance so a misconfigured production deploy is loud.
+ */
+const resolveRefreshCookieAttributes = Effect.gen(function* () {
+  const raw = yield* Config.String("INSECURE_COOKIES").pipe(
+    Config.withDefault("false"),
+    Effect.catch(() => Effect.succeed("false")),
+  );
+  const insecure = isInsecureCookiesEnabled(raw);
+  if (insecure) {
+    yield* Effect.logWarning(INSECURE_COOKIES_WARNING);
+  }
+  // Strict works because the refresh call is a same-site XHR: the OAuth provider
+  // redirects to the frontend, which then calls /api/auth/token as a normal fetch.
+  const sameSite = "SameSite=Strict";
+  return insecure
+    ? `HttpOnly; ${sameSite}; ${REFRESH_COOKIE_PATH}`
+    : `HttpOnly; Secure; ${sameSite}; ${REFRESH_COOKIE_PATH}`;
+});
+
+const issuedRefreshCookie = (token: string, attributes: string): string =>
+  `refresh_token=${token}; ${attributes}; ${REFRESH_COOKIE_MAX_AGE}`;
+
+const clearedRefreshCookie = (attributes: string): string =>
+  `refresh_token=; ${attributes}; Max-Age=0`;
+
 export const buildAuthRoutes = (): readonly Route[] => [
   {
     method: "GET",
@@ -118,14 +154,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         const { code } = decoded.value;
         const tokens = yield* authService.exchangeCode(code);
 
-        const frontendUrl = yield* Config.String("FRONTEND_URL").pipe(
-          Effect.catch(() => Effect.succeed(FRONTEND_URL_DEFAULT)),
-        );
-        const normalizedFrontend = frontendUrl.replace(/\/+$/, "");
-        const isDev =
-          normalizedFrontend.includes("localhost") || normalizedFrontend.includes("127.0.0.1");
-        const secureFlag = isDev ? "" : " Secure;";
-        const cookie = `refresh_token=${tokens.refreshToken}; HttpOnly;${secureFlag} SameSite=Strict; Path=/api/auth; Max-Age=2592000`;
+        const attributes = yield* resolveRefreshCookieAttributes;
 
         return json(
           {
@@ -134,7 +163,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
             expiresIn: tokens.expiresIn,
           },
           200,
-          { "Set-Cookie": cookie },
+          { "Set-Cookie": issuedRefreshCookie(tokens.refreshToken, attributes) },
         );
       }).pipe(Effect.catch(() => Effect.succeed(json({ error: "Invalid or expired code" }, 400)))),
   },
@@ -152,14 +181,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
 
         const tokens = yield* authService.refreshTokens(refreshToken);
 
-        const frontendUrl = yield* Config.String("FRONTEND_URL").pipe(
-          Effect.catch(() => Effect.succeed(FRONTEND_URL_DEFAULT)),
-        );
-        const normalizedFrontend = frontendUrl.replace(/\/+$/, "");
-        const isDev =
-          normalizedFrontend.includes("localhost") || normalizedFrontend.includes("127.0.0.1");
-        const secureFlag = isDev ? "" : " Secure;";
-        const cookie = `refresh_token=${tokens.refreshToken}; HttpOnly;${secureFlag} SameSite=Strict; Path=/api/auth; Max-Age=2592000`;
+        const attributes = yield* resolveRefreshCookieAttributes;
 
         return json(
           {
@@ -168,13 +190,17 @@ export const buildAuthRoutes = (): readonly Route[] => [
             expiresIn: tokens.expiresIn,
           },
           200,
-          { "Set-Cookie": cookie },
+          { "Set-Cookie": issuedRefreshCookie(tokens.refreshToken, attributes) },
         );
       }).pipe(
-        Effect.catch(() => {
-          const cookie = `refresh_token=; HttpOnly; SameSite=Strict; Path=/api/auth; Max-Age=0`;
-          return Effect.succeed(json({ error: "Session expired" }, 401, { "Set-Cookie": cookie }));
-        }),
+        Effect.catch(() =>
+          Effect.gen(function* () {
+            const attributes = yield* resolveRefreshCookieAttributes;
+            return json({ error: "Session expired" }, 401, {
+              "Set-Cookie": clearedRefreshCookie(attributes),
+            });
+          }),
+        ),
       ),
   },
   {
@@ -188,8 +214,10 @@ export const buildAuthRoutes = (): readonly Route[] => [
         if (refreshToken !== undefined && refreshToken !== "") {
           yield* authService.logout(refreshToken).pipe(Effect.catch(() => Effect.void));
         }
-        const cookie = `refresh_token=; HttpOnly; SameSite=Strict; Path=/api/auth; Max-Age=0`;
-        return json({ message: "Logged out" }, 200, { "Set-Cookie": cookie });
+        const attributes = yield* resolveRefreshCookieAttributes;
+        return json({ message: "Logged out" }, 200, {
+          "Set-Cookie": clearedRefreshCookie(attributes),
+        });
       }),
   },
   {

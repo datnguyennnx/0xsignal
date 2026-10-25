@@ -9,6 +9,7 @@ interface ApiConsoleBodyProps {
   readonly view: ConsoleView;
   readonly isConnected: boolean;
   readonly address: `0x${string}` | undefined;
+  readonly needsReverification: boolean;
   readonly onConnect: () => void;
   readonly onSignIn: () => void;
   readonly onLinkWallet: () => void;
@@ -18,6 +19,7 @@ export function ApiConsoleBody({
   view,
   isConnected,
   address,
+  needsReverification,
   onConnect,
   onSignIn,
   onLinkWallet,
@@ -86,6 +88,21 @@ export function ApiConsoleBody({
 
       {view === "form" && (
         <div className="flex flex-col gap-[clamp(1rem,1.5vw,1.5rem)]">
+          {needsReverification && (
+            <div className="flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs">
+              <p className="flex items-center gap-2 font-medium text-foreground">
+                <ShieldCheck className="size-4 shrink-0 text-destructive" />
+                This wallet is not verified
+              </p>
+              <p className="text-muted-foreground">
+                Sign the verification message again to prove you control this wallet and restore
+                access to your account data.
+              </p>
+              <Button type="button" variant="outline" onClick={onLinkWallet}>
+                Re-verify wallet
+              </Button>
+            </div>
+          )}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Active wallet</p>
             <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground">

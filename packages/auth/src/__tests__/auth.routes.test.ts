@@ -1,7 +1,11 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { ConfigProvider, Effect, Layer, Logger, ManagedRuntime } from "effect";
 import { AuthService } from "../application/auth.service";
-import { buildAuthRoutes } from "../presentation/auth.routes";
+import {
+  buildAuthRoutes,
+  INSECURE_COOKIES_WARNING,
+  isInsecureCookiesEnabled,
+} from "../presentation/auth.routes";
 
 type AuthServiceShape = (typeof AuthService)["Service"];
 
@@ -17,9 +21,48 @@ const mockAuthService = {
 const TestLayer = Layer.succeed(AuthService, mockAuthService);
 const runtime = ManagedRuntime.make(TestLayer);
 
+const originalFrontendUrl = process.env.FRONTEND_URL;
+const originalInsecureCookies = process.env.INSECURE_COOKIES;
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+}
+
+function requireRoute(routes: ReturnType<typeof buildAuthRoutes>, path: string) {
+  const route = routes.find((candidate) => candidate.path === path);
+  if (route === undefined) throw new Error(`missing route: ${path}`);
+  return route;
+}
+
+function setCookieOf(response: Response): string {
+  return response.headers.get("Set-Cookie") ?? "";
+}
+
+function provideCurrentEnv<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> {
+  return effect.pipe(
+    Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
+  );
+}
+
+function postTokenRequest(): Request {
+  return new Request("http://localhost/api/auth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: "one-time-code-123" }),
+  });
+}
+
 describe("auth routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.INSECURE_COOKIES;
+    process.env.FRONTEND_URL = "https://app.example.com";
+  });
+
+  afterEach(() => {
+    restoreEnv("FRONTEND_URL", originalFrontendUrl);
+    restoreEnv("INSECURE_COOKIES", originalInsecureCookies);
   });
 
   it("returns redirect URL for GET /api/auth/:provider/login", async () => {
@@ -155,5 +198,65 @@ describe("auth routes", () => {
     expect(result.status).toBe(200);
     expect(result.headers.get("Set-Cookie")).toContain("refresh_token=;");
     expect(mockAuthService.logout).toHaveBeenCalledWith("refresh-token-123");
+  });
+
+  it("issues a Secure, SameSite refresh cookie whenever the insecure flag is off", async () => {
+    mockAuthService.exchangeCode.mockReturnValue(
+      Effect.succeed({
+        accessToken: "access-123",
+        refreshToken: "refresh-456",
+        tokenType: "Bearer",
+        expiresIn: 900,
+      }),
+    );
+
+    const routes = buildAuthRoutes();
+    const tokenRoute = requireRoute(routes, "/api/auth/token");
+    const result = await runtime.runPromise(
+      tokenRoute.handler(postTokenRequest()).pipe(provideCurrentEnv),
+    );
+    const cookie = setCookieOf(result);
+
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("Secure");
+    expect(cookie).toContain("SameSite=Strict");
+    expect(cookie).toContain("Path=/api/auth");
+  });
+
+  it("only drops Secure with the explicit flag, and warns when it does", async () => {
+    process.env.INSECURE_COOKIES = "true";
+    mockAuthService.exchangeCode.mockReturnValue(
+      Effect.succeed({
+        accessToken: "access-123",
+        refreshToken: "refresh-456",
+        tokenType: "Bearer",
+        expiresIn: 900,
+      }),
+    );
+
+    const logs: Array<{ level: string; message: string }> = [];
+    const sink = Logger.make<ReadonlyArray<string>, void>(({ logLevel, message }) => {
+      logs.push({ level: logLevel, message: message.join(" ") });
+    });
+
+    const routes = buildAuthRoutes();
+    const tokenRoute = requireRoute(routes, "/api/auth/token");
+    const result = await runtime.runPromise(
+      tokenRoute.handler(postTokenRequest()).pipe(provideCurrentEnv, Effect.withLogger(sink)),
+    );
+    const cookie = setCookieOf(result);
+
+    expect(cookie).not.toContain("Secure");
+    expect(cookie).toContain("SameSite=Strict");
+    expect(logs.some((entry) => entry.level === "Warn")).toBe(true);
+    expect(logs.some((entry) => entry.message.includes(INSECURE_COOKIES_WARNING))).toBe(true);
+  });
+
+  it("recognizes only explicit truthy env values", () => {
+    expect(isInsecureCookiesEnabled("true")).toBe(true);
+    expect(isInsecureCookiesEnabled(" TRUE ")).toBe(true);
+    expect(isInsecureCookiesEnabled("1")).toBe(true);
+    expect(isInsecureCookiesEnabled("false")).toBe(false);
+    expect(isInsecureCookiesEnabled("")).toBe(false);
   });
 });

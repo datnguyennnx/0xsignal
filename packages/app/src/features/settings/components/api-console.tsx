@@ -22,6 +22,7 @@ export function ApiConsole() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const hasLinkedWallet = useAuthStore((s) => s.hasLinkedWallet);
+  const hasUnverifiedWallet = useAuthStore((s) => s.hasUnverifiedWallet);
   const navigate = useNavigate();
   const { linkWallet } = useCredentialActions();
 
@@ -42,6 +43,7 @@ export function ApiConsole() {
         view={view}
         isConnected={isConnected}
         address={address}
+        needsReverification={hasUnverifiedWallet}
         onConnect={openConnectPrompt}
         onSignIn={() => {
           void navigate("/login");

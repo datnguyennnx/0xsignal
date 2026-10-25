@@ -199,11 +199,11 @@ export const buildWalletRoutes = ({
           .pipe(Effect.mapError(mapServiceError));
 
         const account = yield* accountRepo
-          .create({
+          .verifyWallet({
             userId: uid,
             exchangeSlug,
-            nodeType: "wallet",
             walletAddress,
+            nonce,
             label,
           })
           .pipe(
@@ -245,7 +245,9 @@ export const buildWalletRoutes = ({
         const accounts = yield* accountRepo.findByUserId(uid, exchangeSlug);
 
         return json({
-          data: accounts.map(({ metadata: _omit, ...safe }) => safe),
+          data: accounts.map(({ metadata: _omit, verifiedAt, ...safe }) =>
+            Object.assign({}, safe, { verified: verifiedAt !== undefined }),
+          ),
         });
       }),
   },

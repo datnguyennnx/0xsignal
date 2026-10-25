@@ -128,7 +128,7 @@ const makeChallengeLayer = () => {
   return { store, layer };
 };
 
-const accountFor = (walletAddress: string, userId: string): ExchangeAccount => ({
+const accountFor = (walletAddress: string, userId: string, verified = true): ExchangeAccount => ({
   id: `account-${walletAddress}`,
   userId,
   exchangeId: "exchange-1",
@@ -138,17 +138,26 @@ const accountFor = (walletAddress: string, userId: string): ExchangeAccount => (
   sortOrder: 0,
   isActive: true,
   isPrimary: true,
+  ...(verified && { verifiedAt: "2026-01-01T00:00:00.000Z" }),
   metadata: {},
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
 });
 
+type WalletRow = {
+  id: string;
+  userId: string;
+  walletAddress: string;
+  verifiedAt?: string;
+};
+
 type EnvOptions = {
-  readonly claimFailsFor?: string;
+  readonly initialRows?: ReadonlyArray<WalletRow>;
 };
 
 const makeEnv = (options?: EnvOptions) => {
   const challenge = makeChallengeLayer();
+  const walletRows: WalletRow[] = [...(options?.initialRows ?? [])];
 
   const layer = Layer.mergeAll(
     Layer.mock(MarketDataService, {}),
@@ -160,16 +169,43 @@ const makeEnv = (options?: EnvOptions) => {
     }),
     Layer.mock(AgentRegistrationRepo, {}),
     Layer.mock(ExchangeAccountRepo, {
-      create: (params) =>
-        params.userId === options?.claimFailsFor
-          ? Effect.fail(new WalletAddressClaimed({ walletAddress: params.walletAddress }))
-          : Effect.succeed(accountFor(params.walletAddress, params.userId)),
-      findByUserId: () => Effect.succeed([]),
+      verifyWallet: (params) =>
+        Effect.suspend(() => {
+          const address = params.walletAddress.toLowerCase();
+          const rows = walletRows.filter((row) => row.walletAddress.toLowerCase() === address);
+          const provenByOther = rows.some(
+            (row) => row.userId !== params.userId && row.verifiedAt !== undefined,
+          );
+          if (provenByOther) {
+            return Effect.fail(new WalletAddressClaimed({ walletAddress: params.walletAddress }));
+          }
+          for (const row of rows) {
+            if (row.userId !== params.userId) delete row.verifiedAt;
+          }
+          const own = rows.find((row) => row.userId === params.userId);
+          if (own === undefined) {
+            walletRows.push({
+              id: `account-${params.walletAddress}`,
+              userId: params.userId,
+              walletAddress: params.walletAddress,
+              verifiedAt: "2026-01-02T00:00:00.000Z",
+            });
+          } else {
+            own.verifiedAt = "2026-01-02T00:00:00.000Z";
+          }
+          return Effect.succeed(accountFor(params.walletAddress, params.userId));
+        }),
+      findByUserId: (userId) =>
+        Effect.succeed(
+          walletRows
+            .filter((row) => row.userId === userId)
+            .map((row) => accountFor(row.walletAddress, row.userId, row.verifiedAt !== undefined)),
+        ),
     }),
     challenge.layer,
   );
 
-  return { store: challenge.store, layer };
+  return { store: challenge.store, walletRows, layer };
 };
 
 const request = (path: string, init?: RequestInit): Request =>
@@ -190,6 +226,14 @@ const ChallengeResponseSchema = Schema.Struct({
     message: Schema.String,
     expiresAt: Schema.String,
   }),
+});
+
+const WalletListSchema = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      verified: Schema.Boolean,
+    }),
+  ),
 });
 
 const readChallenge = async (
@@ -346,8 +390,17 @@ describe("HTTP Wallet Ownership Router", () => {
     expect(await errorText(replay)).toContain("already used");
   });
 
-  it("returns 409, not 500, when a second user claims the same address", async () => {
-    const env = makeEnv({ claimFailsFor: USER_B });
+  it("returns 409 when another user has already proven the address", async () => {
+    const env = makeEnv({
+      initialRows: [
+        {
+          id: "account-a",
+          userId: USER_A,
+          walletAddress: WALLET_A.address,
+          verifiedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    });
 
     const challengeResponse = await run(
       env,
@@ -368,5 +421,51 @@ describe("HTTP Wallet Ownership Router", () => {
 
     expect(response.status).toBe(409);
     expect(await errorText(response)).toContain("already linked");
+    expect(env.walletRows.filter((row) => row.verifiedAt !== undefined)).toHaveLength(1);
+  });
+
+  it("transfers proof from unverified rows without deleting them", async () => {
+    const env = makeEnv({
+      initialRows: [
+        {
+          id: "account-a",
+          userId: USER_A,
+          walletAddress: WALLET_A.address,
+        },
+      ],
+    });
+
+    const challengeResponse = await run(
+      env,
+      "/api/wallets/challenge",
+      postJson("token-b", { address: WALLET_A.address }),
+    );
+    const challenge = await readChallenge(challengeResponse);
+    const signature = await WALLET_A.signMessage({ message: challenge.message });
+
+    const response = await run(
+      env,
+      "/api/wallets",
+      postJson(
+        "token-b",
+        linkBody({ address: WALLET_A.address, nonce: challenge.nonce, signature }),
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(env.walletRows).toHaveLength(2);
+
+    const [previous, current] = env.walletRows;
+    expect(previous.userId).toBe(USER_A);
+    expect(previous.verifiedAt).toBeUndefined();
+    expect(current.userId).toBe(USER_B);
+    expect(current.verifiedAt).toBeDefined();
+
+    const listResponse = await run(env, "/api/wallets", {
+      headers: { Authorization: "Bearer token-a" },
+    });
+    const listBody: unknown = await listResponse.json();
+    const decoded = Schema.decodeUnknownSync(WalletListSchema)(listBody);
+    expect(decoded.data).toEqual([{ verified: false }]);
   });
 });
