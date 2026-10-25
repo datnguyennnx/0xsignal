@@ -1,7 +1,7 @@
-import { Cache, Duration, Effect, Layer, Match, Ref, Schedule } from "effect";
+import { Cache, Duration, Effect, Match, Ref, Schedule } from "effect";
 import { normalizeCandles, parseHlRawCandles, toHlInterval } from "./normalizer";
 import { normalizeSymbol } from "./symbol";
-import { HyperliquidClient } from "./client";
+import { HyperliquidClient } from "./hyperliquid-client";
 import { HyperliquidError, TickerSnapshotError, toHyperliquidError } from "./errors";
 import { HyperliquidProvider } from "./types";
 import type {
@@ -85,178 +85,175 @@ const parseDepthToSigFigs = (depth: number | null | undefined): 2 | 3 | 4 | 5 | 
     : null;
 };
 
-export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, HyperliquidClient> =
-  Layer.effect(
-    HyperliquidProvider,
-    Effect.scoped(
-      Effect.gen(function* () {
-        const client = yield* HyperliquidClient;
-        const hlInfo = toHyperliquidInfoClient(client.info);
-        const spotIndexRef = yield* Ref.make<Record<string, string>>({});
-        const tickerSnapshotCache = yield* makeTickerSnapshotCache(hlInfo);
+export const makeHyperliquidProvider = () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const client = yield* HyperliquidClient;
+      const hlInfo = toHyperliquidInfoClient(client.info);
+      const spotIndexRef = yield* Ref.make<Record<string, string>>({});
+      const tickerSnapshotCache = yield* makeTickerSnapshotCache(hlInfo);
 
-        const readSnapshot = (symbol?: string, options?: TickerSnapshotReadOptions) =>
-          readTickerSnapshot(tickerSnapshotCache, symbol, options);
+      const readSnapshot = (symbol?: string, options?: TickerSnapshotReadOptions) =>
+        readTickerSnapshot(tickerSnapshotCache, symbol, options);
 
-        // Aggregated markets cache — REST metadata (not real-time), refreshed every 60s
-        const aggregatedCache = yield* Cache.make<
-          string,
-          readonly HyperliquidAggregatedAsset[],
-          HyperliquidError
-        >({
-          capacity: 1,
-          timeToLive: Duration.millis(AGGREGATED_MARKETS_TTL_MS),
-          lookup: () => getAggregatedMarketsSnapshot(hlInfo),
-        });
+      // Aggregated markets cache — REST metadata (not real-time), refreshed every 60s
+      const aggregatedCache = yield* Cache.make<
+        string,
+        readonly HyperliquidAggregatedAsset[],
+        HyperliquidError
+      >({
+        capacity: 1,
+        timeToLive: Duration.millis(AGGREGATED_MARKETS_TTL_MS),
+        lookup: () => getAggregatedMarketsSnapshot(hlInfo),
+      });
 
-        // Periodic background refresh of aggregated markets + spot index
-        const refreshPipeline = Effect.gen(function* () {
-          const aggregatedMarkets = yield* getAggregatedMarketsSnapshot(hlInfo);
+      // Periodic background refresh of aggregated markets + spot index
+      const refreshPipeline = Effect.gen(function* () {
+        const aggregatedMarkets = yield* getAggregatedMarketsSnapshot(hlInfo);
 
-          const spotIndex: Record<string, string> = {};
-          for (const asset of aggregatedMarkets) {
-            if (asset.marketType === "spot") {
-              spotIndex[asset.rawCoin] = asset.name;
-            }
+        const spotIndex: Record<string, string> = {};
+        for (const asset of aggregatedMarkets) {
+          if (asset.marketType === "spot") {
+            spotIndex[asset.rawCoin] = asset.name;
           }
-          yield* Ref.set(spotIndexRef, spotIndex);
-          yield* Cache.set(aggregatedCache, "aggregated", aggregatedMarkets);
-        });
+        }
+        yield* Ref.set(spotIndexRef, spotIndex);
+        yield* Cache.set(aggregatedCache, "aggregated", aggregatedMarkets);
+      });
 
-        yield* Effect.forkScoped(
-          refreshPipeline.pipe(
-            Effect.catch((err) =>
-              Effect.logError(
-                "[Hyperliquid] Unified refresh failed",
-                Match.value(err).pipe(
-                  Match.when(Match.instanceOf(HyperliquidError), (e) => e.message),
-                  Match.when(Match.instanceOf(Error), (e) => e.message),
-                  Match.orElse(() => String(err)),
-                ),
+      yield* Effect.forkScoped(
+        refreshPipeline.pipe(
+          Effect.catch((err) =>
+            Effect.logError(
+              "[Hyperliquid] Unified refresh failed",
+              Match.value(err).pipe(
+                Match.when(Match.instanceOf(HyperliquidError), (e) => e.message),
+                Match.when(Match.instanceOf(Error), (e) => e.message),
+                Match.orElse(() => String(err)),
               ),
             ),
-            Effect.repeat(Schedule.spaced("24 seconds")),
           ),
-        );
+          Effect.repeat(Schedule.spaced("24 seconds")),
+        ),
+      );
 
-        return HyperliquidProvider.of({
-          getCandleSnapshot: (coin, interval, start, end) =>
-            Effect.gen(function* () {
-              const ticker = yield* readSnapshot(coin);
+      return HyperliquidProvider.of({
+        getCandleSnapshot: (coin, interval, start, end) =>
+          Effect.gen(function* () {
+            const ticker = yield* readSnapshot(coin);
 
-              let internalSymbol: string;
-              if (coin.includes("/")) {
-                // Force aggregated cache to be populated (ticker resolution)
-                yield* Cache.get(aggregatedCache, "aggregated");
-                internalSymbol = (yield* Ref.get(spotIndexRef))[coin] ?? coin;
-              } else {
-                internalSymbol = resolveInternalSymbol(ticker, coin);
-              }
+            let internalSymbol: string;
+            if (coin.includes("/")) {
+              // Force aggregated cache to be populated (ticker resolution)
+              yield* Cache.get(aggregatedCache, "aggregated");
+              internalSymbol = (yield* Ref.get(spotIndexRef))[coin] ?? coin;
+            } else {
+              internalSymbol = resolveInternalSymbol(ticker, coin);
+            }
 
-              const candles = yield* tryRequest(
-                `Failed to fetch candles for ${coin} (${interval})`,
-                () =>
-                  client.info.candleSnapshot({
-                    coin: internalSymbol,
-                    interval: toHlInterval(interval),
-                    startTime: start,
-                    endTime: end,
-                  }),
-              );
+            const candles = yield* tryRequest(
+              `Failed to fetch candles for ${coin} (${interval})`,
+              () =>
+                client.info.candleSnapshot({
+                  coin: internalSymbol,
+                  interval: toHlInterval(interval),
+                  startTime: start,
+                  endTime: end,
+                }),
+            );
 
-              const raw = yield* parseHlRawCandles(candles).pipe(
-                Effect.catchTag("NormalizationError", (e) =>
-                  Effect.fail(
-                    new HyperliquidError({ message: `Candle normalization failed: ${e.message}` }),
-                  ),
+            const raw = yield* parseHlRawCandles(candles).pipe(
+              Effect.catchTag("NormalizationError", (e) =>
+                Effect.fail(
+                  new HyperliquidError({ message: `Candle normalization failed: ${e.message}` }),
                 ),
-              );
-              return normalizeCandles(raw);
-            }),
+              ),
+            );
+            return normalizeCandles(raw);
+          }),
 
-          getAllMids: () => readSnapshot().pipe(Effect.map((s) => s.allMids)),
+        getAllMids: () => readSnapshot().pipe(Effect.map((s) => s.allMids)),
 
-          getAggregatedMarkets: () =>
-            Cache.get(aggregatedCache, "aggregated").pipe(
-              Effect.tap((markets) => {
-                const spotIndex: Record<string, string> = {};
-                for (const asset of markets) {
-                  if (asset.marketType === "spot") {
-                    spotIndex[asset.rawCoin] = asset.name;
-                  }
+        getAggregatedMarkets: () =>
+          Cache.get(aggregatedCache, "aggregated").pipe(
+            Effect.tap((markets) => {
+              const spotIndex: Record<string, string> = {};
+              for (const asset of markets) {
+                if (asset.marketType === "spot") {
+                  spotIndex[asset.rawCoin] = asset.name;
                 }
-                return Ref.set(spotIndexRef, spotIndex);
-              }),
-            ),
+              }
+              return Ref.set(spotIndexRef, spotIndex);
+            }),
+          ),
 
-          getTicker: (symbol, options?: TickerSnapshotReadOptions) =>
-            readSnapshot(symbol, options).pipe(
-              // The port declares HyperliquidError, so the snapshot error is translated here
-              // instead of widening the port (that widening ripples into the layer adapter).
-              Effect.flatMap((s) =>
-                Effect.fromResult(mapTickerFromSnapshot(s, symbol)).pipe(
-                  Effect.mapError(
-                    (error) => new HyperliquidError({ message: error.message, kind: error.kind }),
-                  ),
+        getTicker: (symbol, options?: TickerSnapshotReadOptions) =>
+          readSnapshot(symbol, options).pipe(
+            // The port declares HyperliquidError, so the snapshot error is translated here
+            // instead of widening the port (that widening ripples into the layer adapter).
+            Effect.flatMap((s) =>
+              Effect.fromResult(mapTickerFromSnapshot(s, symbol)).pipe(
+                Effect.mapError(
+                  (error) => new HyperliquidError({ message: error.message, kind: error.kind }),
                 ),
               ),
             ),
+          ),
 
-          getOrderBook: (symbol, depth) =>
-            Effect.gen(function* () {
-              const ticker = yield* readSnapshot(symbol);
+        getOrderBook: (symbol, depth) =>
+          Effect.gen(function* () {
+            const ticker = yield* readSnapshot(symbol);
 
-              let internalSymbol: string;
-              if (symbol.includes("/")) {
-                yield* Cache.get(aggregatedCache, "aggregated");
-                internalSymbol = (yield* Ref.get(spotIndexRef))[symbol] ?? symbol;
-              } else {
-                internalSymbol = resolveInternalSymbol(ticker, symbol);
-              }
+            let internalSymbol: string;
+            if (symbol.includes("/")) {
+              yield* Cache.get(aggregatedCache, "aggregated");
+              internalSymbol = (yield* Ref.get(spotIndexRef))[symbol] ?? symbol;
+            } else {
+              internalSymbol = resolveInternalSymbol(ticker, symbol);
+            }
 
-              const nSigFigs = parseDepthToSigFigs(depth);
+            const nSigFigs = parseDepthToSigFigs(depth);
 
-              const orderbook = yield* tryRequest(`Failed to fetch orderbook for ${symbol}`, () =>
-                client.info.l2Book({ coin: internalSymbol, nSigFigs }),
+            const orderbook = yield* tryRequest(`Failed to fetch orderbook for ${symbol}`, () =>
+              client.info.l2Book({ coin: internalSymbol, nSigFigs }),
+            );
+
+            if (!orderbook) {
+              return yield* Effect.fail(
+                new HyperliquidError({
+                  message: `Orderbook not available for ${internalSymbol}`,
+                  kind: "NOT_FOUND",
+                }),
               );
+            }
 
-              if (!orderbook) {
-                return yield* Effect.fail(
-                  new HyperliquidError({
-                    message: `Orderbook not available for ${internalSymbol}`,
-                    kind: "NOT_FOUND",
-                  }),
-                );
-              }
+            return { symbol: normalizeSymbol(symbol), nSigFigs, orderbook };
+          }),
 
-              return { symbol: normalizeSymbol(symbol), nSigFigs, orderbook };
-            }),
+        getTradeAnnotation: (symbol) =>
+          Effect.gen(function* () {
+            const ticker = yield* readSnapshot(symbol);
+            const internalSymbol = resolveInternalSymbol(ticker, symbol);
+            const isPerp = isPerpSymbol(ticker, symbol);
 
-          getTradeAnnotation: (symbol) =>
-            Effect.gen(function* () {
-              const ticker = yield* readSnapshot(symbol);
-              const internalSymbol = resolveInternalSymbol(ticker, symbol);
-              const isPerp = isPerpSymbol(ticker, symbol);
-
-              if (!isPerp) {
-                return yield* Effect.fail(
-                  new HyperliquidError({
-                    message: `Asset not supported or not found in perpetuals universe: ${symbol}`,
-                    kind: "NOT_FOUND",
-                  }),
-                );
-              }
-
-              const annotation = yield* tryRequest(
-                `Failed to fetch trade annotation for ${symbol}`,
-                () => client.info.perpAnnotation({ coin: internalSymbol }),
+            if (!isPerp) {
+              return yield* Effect.fail(
+                new HyperliquidError({
+                  message: `Asset not supported or not found in perpetuals universe: ${symbol}`,
+                  kind: "NOT_FOUND",
+                }),
               );
+            }
 
-              return { symbol: normalizeSymbol(symbol), annotation };
-            }),
-        });
-      }),
-    ),
+            const annotation = yield* tryRequest(
+              `Failed to fetch trade annotation for ${symbol}`,
+              () => client.info.perpAnnotation({ coin: internalSymbol }),
+            );
+
+            return { symbol: normalizeSymbol(symbol), annotation };
+          }),
+      });
+    }),
   );
 
 // Standalone query functions — direct SDK calls without layer-scoped cache.

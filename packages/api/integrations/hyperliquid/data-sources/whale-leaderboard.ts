@@ -1,8 +1,8 @@
-import { Context, Effect, Layer, Ref } from "effect";
+import { Clock, Context, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 import type { WhaleLeaderboardRow } from "@0xsignal/shared";
 import { WhaleConfig } from "../../../modules/whales";
-import { asRecord } from "../../../integrations/calendar-sources/parse";
+import { asRecord } from "../../../shared/parsing";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 
 export interface WhaleLeaderboardProvider {
@@ -67,7 +67,7 @@ export const whaleLeaderboardLayer: Layer.Layer<
 
     const fetchLeaderboard = (): Effect.Effect<WhaleLeaderboardRow[], HyperliquidError> =>
       Effect.gen(function* () {
-        const now = Date.now();
+        const now = yield* Clock.currentTimeMillis;
         const cached = yield* Ref.get(cache);
         if (cached !== null && cached.expiresAt > now) return cached.rows;
 
@@ -92,7 +92,7 @@ export const whaleLeaderboardLayer: Layer.Layer<
         );
 
         const rows = parseLeaderboard(payload, cap);
-        yield* Ref.set(cache, { rows, expiresAt: Date.now() + ttlMs });
+        yield* Ref.set(cache, { rows, expiresAt: (yield* Clock.currentTimeMillis) + ttlMs });
         return rows;
       });
 

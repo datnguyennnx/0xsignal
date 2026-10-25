@@ -1,6 +1,6 @@
 import type { EconomicEvent } from "@0xsignal/shared";
 import { normalizeEvent, slugify } from "../../../modules/calendar";
-import { asRecord } from "../parse";
+import { asRecord } from "../../../shared/parsing";
 
 export const SEC_EDGAR_SEARCH_URL =
   "https://efts.sec.gov/LATEST/search-index?q=%22etf%22&forms=S-1";

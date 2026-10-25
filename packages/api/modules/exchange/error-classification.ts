@@ -28,7 +28,7 @@ export const toHlTif = (tif: string): Effect.Effect<HlTif, HyperliquidValidation
   if (mapped !== undefined) return Effect.succeed(mapped);
   const message =
     tif === "FOK"
-      ? "FOK không được hỗ trợ bởi Hyperliquid: không có time-in-force fill-or-kill, từ chối thay vì hạ cấp thành lệnh chờ Gtc"
+      ? "FOK is not supported by Hyperliquid: there is no fill-or-kill time-in-force, so reject instead of downgrading to a resting Gtc order"
       : `Unsupported timeInForce: ${tif}`;
   return Effect.fail(new HyperliquidValidationError({ message, input: tif }));
 };

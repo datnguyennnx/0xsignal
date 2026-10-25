@@ -1,4 +1,4 @@
-import { Context, Data, Duration, Effect, Layer, Predicate, Ref, Schedule } from "effect";
+import { Clock, Context, Data, Duration, Effect, Layer, Predicate, Ref, Schedule } from "effect";
 import type { ClearinghouseState, WhalePosition, WhaleSide } from "@0xsignal/shared";
 import { HyperliquidClient } from "./hyperliquid-client";
 import { WhaleConfig } from "../../../modules/whales";
@@ -36,7 +36,8 @@ const makeTokenBucket = (capacityPerMin: number): Effect.Effect<TokenBucket> =>
   Effect.gen(function* () {
     const capacity = Math.max(1, capacityPerMin);
     const refillPerMs = capacity / 60_000;
-    const state = yield* Ref.make<readonly [number, number]>([capacity, Date.now()]);
+    const now = yield* Clock.currentTimeMillis;
+    const state = yield* Ref.make<readonly [number, number]>([capacity, now]);
 
     const acquire = (weight: number): Effect.Effect<void, RateLimitBudgetExhaustedError> =>
       Effect.gen(function* () {
@@ -52,11 +53,11 @@ const makeTokenBucket = (capacityPerMin: number): Effect.Effect<TokenBucket> =>
         }
 
         const attempt = Effect.gen(function* () {
-          const now = Date.now();
+          const attemptNow = yield* Clock.currentTimeMillis;
           const [tokens, lastRefill] = yield* Ref.get(state);
-          const available = Math.min(capacity, tokens + (now - lastRefill) * refillPerMs);
+          const available = Math.min(capacity, tokens + (attemptNow - lastRefill) * refillPerMs);
           if (available >= weight) {
-            yield* Ref.set(state, [available - weight, now]);
+            yield* Ref.set(state, [available - weight, attemptNow]);
             return true;
           }
           const waitMs = Math.max(1, Math.ceil((weight - available) / refillPerMs));

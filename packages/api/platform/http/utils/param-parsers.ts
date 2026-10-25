@@ -1,4 +1,4 @@
-import { Effect, Result, Schema, SchemaGetter } from "effect";
+import { Effect, Result, Schema, SchemaGetter, SchemaIssue } from "effect";
 import { asHttpError, type HttpError } from "../error-response";
 
 export const TrimmedString = Schema.Trim;
@@ -22,18 +22,19 @@ const membership = <const Values extends ReadonlyArray<string>>(values: Values) 
   return isMember;
 };
 
+const expectedValues = (values: ReadonlyArray<string>): string =>
+  `expected one of: ${values.join(", ")}`;
+
 const decodeMember = <const Values extends ReadonlyArray<string>>(
   values: Values,
   token: string,
-): Values[number] => {
-  const isMember = membership(values);
+): Effect.Effect<Values[number], SchemaIssue.Issue> => {
   const normalized = normalizeQueryToken(token);
-  if (isMember(normalized)) return normalized;
-  throw new Error(`Unreachable: ${token} passed validation but is not a member`);
+  const member = values.find((value) => value === normalized);
+  return member === undefined
+    ? Effect.fail(new SchemaIssue.InvalidValue({ message: expectedValues(values) }, token))
+    : Effect.succeed(member);
 };
-
-const expectedValues = (values: ReadonlyArray<string>): string =>
-  `expected one of: ${values.join(", ")}`;
 
 export const NormalizedEnum = <const Values extends ReadonlyArray<string>>(values: Values) => {
   const isMember = membership(values);
@@ -44,7 +45,7 @@ export const NormalizedEnum = <const Values extends ReadonlyArray<string>>(value
       ),
     ),
     Schema.decodeTo(Schema.Literals(values), {
-      decode: SchemaGetter.transform((raw: string) => decodeMember(values, raw)),
+      decode: SchemaGetter.transformEffect((raw: string) => decodeMember(values, raw)),
       encode: SchemaGetter.transform((value: Values[number]) => value),
     }),
   );
@@ -61,8 +62,8 @@ export const NormalizedEnumList = <const Values extends ReadonlyArray<string>>(v
       ),
     ),
     Schema.decodeTo(Schema.Array(Schema.Literals(values)).pipe(Schema.mutable), {
-      decode: SchemaGetter.transform((raw: string) =>
-        splitQueryList(raw).map((token) => decodeMember(values, token)),
+      decode: SchemaGetter.transformEffect((raw: string) =>
+        Effect.all(splitQueryList(raw).map((token) => decodeMember(values, token))),
       ),
       encode: SchemaGetter.transform((items: Values[number][]) => items.join(",")),
     }),

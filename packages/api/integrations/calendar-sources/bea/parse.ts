@@ -1,6 +1,6 @@
 import type { EconomicEvent } from "@0xsignal/shared";
 import { normalizeEvent, slugify } from "../../../modules/calendar";
-import { asRecord } from "../parse";
+import { asRecord } from "../../../shared/parsing";
 
 export const BEA_SOURCE_URL = "https://apps.bea.gov/API/signup/release_dates.json";
 export const BEA_ATTRIBUTION = "U.S. Bureau of Economic Analysis";

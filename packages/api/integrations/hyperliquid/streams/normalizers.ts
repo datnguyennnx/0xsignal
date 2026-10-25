@@ -5,7 +5,7 @@
  * by short-circuiting common payload shapes.
  */
 
-import { asRecord, isUnknownArray } from "../../../integrations/calendar-sources/parse";
+import { asRecord, isUnknownArray } from "../../../shared/parsing";
 
 const isRecord = (value: unknown): value is Record<string, unknown> => asRecord(value) !== null;
 

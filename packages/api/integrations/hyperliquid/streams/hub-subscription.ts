@@ -3,7 +3,7 @@ import { Effect, Match } from "effect";
 import { SubscriptionClient, TransportError } from "@nktkas/hyperliquid";
 import type { ISubscription } from "@nktkas/hyperliquid";
 import type { HyperliquidAggregatedAsset } from "../data-sources/types";
-import { asRecord, isUnknownArray } from "../../../integrations/calendar-sources/parse";
+import { asRecord, isUnknownArray } from "../../../shared/parsing";
 import {
   normalizeAllMidsData,
   normalizeCandleData,

@@ -2,7 +2,7 @@
 import { Data, Effect, Match, Predicate } from "effect";
 import { type Candle, type WsMarketInterval } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../modules/market-data";
-import { asRecord } from "../../../integrations/calendar-sources/parse";
+import { asRecord } from "../../../shared/parsing";
 
 export class NormalizationError extends Data.TaggedError("NormalizationError")<{
   readonly message: string;

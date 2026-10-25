@@ -1,9 +1,4 @@
-import {
-  asRecord,
-  isUnknownArray,
-  numberAt,
-  stringAt,
-} from "../../../integrations/calendar-sources/parse";
+import { asRecord, isUnknownArray, numberAt, stringAt } from "../../../shared/parsing";
 import type { SpotTradeAsset } from "./types";
 
 export function parseSpotAssets(

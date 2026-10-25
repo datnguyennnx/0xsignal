@@ -1,6 +1,6 @@
 import type { CalendarImpact, EconomicEvent } from "@0xsignal/shared";
 import { normalizeEvent, slugify } from "../../../modules/calendar";
-import { asRecord } from "../parse";
+import { asRecord } from "../../../shared/parsing";
 
 const FOREXFACTORY_SOURCE_URL = "https://www.forexfactory.com/calendar";
 export const FOREXFACTORY_FEED_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";

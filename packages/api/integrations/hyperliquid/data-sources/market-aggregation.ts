@@ -1,10 +1,5 @@
 /// <reference lib="es2023.array" />
-import {
-  asRecord,
-  isUnknownArray,
-  numberAt,
-  stringAt,
-} from "../../../integrations/calendar-sources/parse";
+import { asRecord, isUnknownArray, numberAt, stringAt } from "../../../shared/parsing";
 import type {
   HyperliquidAggregatedAsset,
   MarketAssetCtxItem,
