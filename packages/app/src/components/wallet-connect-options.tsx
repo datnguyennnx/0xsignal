@@ -1,14 +1,16 @@
-import { useConnect, useConnectors } from "wagmi";
+import { useConnect, useConnectors, useSignMessage } from "wagmi";
 import { Metamask, Coinbase } from "@thesvg/react";
 import { toast } from "sonner";
 import { AlertTriangleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { api } from "@/services/api";
+import { ApiError } from "@/services/api";
+import { linkWalletWithSignature } from "@/services/wallet/link";
 import { useAuthStore } from "@/stores/use-auth-store";
 
 export function WalletConnectOptions() {
   const refreshWalletStatus = useAuthStore((s) => s.refreshWalletStatus);
+  const { mutateAsync: signMessageAsync } = useSignMessage();
 
   const { mutate, isPending } = useConnect({
     mutation: {
@@ -28,9 +30,14 @@ export function WalletConnectOptions() {
 
         if (address !== undefined && address !== "") {
           try {
-            await api.createWallet({ walletAddress: address });
-          } catch {
-            // Wallet may already be linked — that's fine
+            await linkWalletWithSignature(address, signMessageAsync);
+          } catch (err) {
+            // A wallet already linked to this account is not a new failure.
+            if (!(err instanceof ApiError && err.status === 409)) {
+              toast.error("Wallet ownership verification failed", {
+                description: "Sign the message in your wallet to prove you own it, then try again.",
+              });
+            }
           }
           void refreshWalletStatus();
         }

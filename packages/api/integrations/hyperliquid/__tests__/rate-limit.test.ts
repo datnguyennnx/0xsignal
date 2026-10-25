@@ -222,4 +222,22 @@ describe("HyperliquidRateLimiter", () => {
     expect(result.stillWaiting).toBe(true);
     expect(result.secondBatchMillis).toBe(40_000);
   });
+
+  it("refuses a bounded candle acquire instead of sleeping past its max wait", async () => {
+    const program = Effect.gen(function* () {
+      const limiter = yield* makeLimiter({ perSecond: 20, perMinute: 1200, burstCapacity: 100 });
+      yield* limiter.acquire(100);
+      const start = yield* Clock.currentTimeMillis;
+      const error = yield* limiter.acquire(100, { maxWaitMillis: 2_000 }).pipe(Effect.flip);
+      return { error, elapsedMillis: (yield* Clock.currentTimeMillis) - start };
+    });
+
+    const result = await Effect.runPromise(Effect.provide(program, TestClock.layer()));
+
+    // 100 weight at 20/s needs 5s to refill, which is past the 2s bound, so the
+    // acquire fails without advancing the test clock at all.
+    expect(Predicate.isTagged(result.error, "RateLimitBudgetExhaustedError")).toBe(true);
+    expect(result.error.message).toContain("2000ms");
+    expect(result.elapsedMillis).toBe(0);
+  });
 });

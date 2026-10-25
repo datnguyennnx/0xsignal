@@ -41,6 +41,10 @@ mock.module("wagmi", () => ({
   useConnect: () => ({ mutate: () => {}, isPending: false }),
   useConnectors: () => [],
   useDisconnect: () => ({ mutate: () => {} }),
+  useSignMessage: () => ({
+    signMessageAsync: () => Promise.resolve("0x"),
+    mutateAsync: () => Promise.resolve("0x"),
+  }),
 }));
 
 const { PositionManagement } = await import("./position-management");

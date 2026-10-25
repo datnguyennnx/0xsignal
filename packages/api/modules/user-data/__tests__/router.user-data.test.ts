@@ -4,6 +4,7 @@ import {
   AuthService,
   ExchangeAccountRepo,
   AgentRegistrationRepo,
+  WalletChallengeRepo,
   makeUserId,
   type ExchangeAccount,
   type Session,
@@ -55,6 +56,7 @@ const makeLayer = (ownedWallets: ReadonlyArray<string>) =>
       findByUserId: () => Effect.succeed(ownedWallets.map((wallet) => accountFor(wallet))),
     }),
     Layer.mock(AgentRegistrationRepo, {}),
+    Layer.mock(WalletChallengeRepo, {}),
   );
 
 const runRequest = (path: string, token?: string) =>

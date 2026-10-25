@@ -11,7 +11,26 @@ export function listWallets() {
   >(`${API_BASE}/wallets`);
 }
 
-export function createWallet(params: { walletAddress: string; label?: string }) {
+export interface WalletChallenge {
+  readonly nonce: string;
+  readonly message: string;
+  readonly expiresAt: string;
+}
+
+export function requestWalletChallenge(address: string) {
+  return fetchJson<WalletChallenge>(`${API_BASE}/wallets/challenge`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ address }),
+  });
+}
+
+export function createWallet(params: {
+  walletAddress: string;
+  nonce: string;
+  signature: string;
+  label?: string;
+}) {
   return fetchJson<{
     accountId: string;
     walletAddress: string;
@@ -22,6 +41,8 @@ export function createWallet(params: { walletAddress: string; label?: string }) 
     body: JSON.stringify({
       exchangeSlug: "hyperliquid",
       walletAddress: params.walletAddress,
+      nonce: params.nonce,
+      signature: params.signature,
       label: params.label,
     }),
   });
