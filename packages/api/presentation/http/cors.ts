@@ -12,7 +12,7 @@ export class CorsService extends Context.Service<
 export const CorsServiceLayer = Layer.effect(
   CorsService,
   Effect.gen(function* () {
-    const frontendUrl = yield* Config.string("FRONTEND_URL").pipe(
+    const frontendUrl = yield* Config.String("FRONTEND_URL").pipe(
       Config.withDefault("http://localhost:5173"),
     );
 

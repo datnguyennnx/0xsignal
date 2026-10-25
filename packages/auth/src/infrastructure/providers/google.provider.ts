@@ -49,13 +49,13 @@ const disabledGoogleProvider = GoogleProvider.of({
 export const GoogleProviderLayer: Layer.Layer<GoogleProvider> = Layer.effect(
   GoogleProvider,
   Effect.gen(function* () {
-    const maybeClientId = yield* Config.option(Config.string("GOOGLE_CLIENT_ID")).pipe(
+    const maybeClientId = yield* Config.option(Config.String("GOOGLE_CLIENT_ID")).pipe(
       Effect.orDie,
     );
-    const maybeClientSecret = yield* Config.option(Config.string("GOOGLE_CLIENT_SECRET")).pipe(
+    const maybeClientSecret = yield* Config.option(Config.String("GOOGLE_CLIENT_SECRET")).pipe(
       Effect.orDie,
     );
-    const maybeRedirectUri = yield* Config.option(Config.string("GOOGLE_REDIRECT_URI")).pipe(
+    const maybeRedirectUri = yield* Config.option(Config.String("GOOGLE_REDIRECT_URI")).pipe(
       Effect.orDie,
     );
 

@@ -70,7 +70,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
 
         const result = yield* authService.handleCallback({ provider, code, state });
 
-        const frontendUrl = yield* Config.string("FRONTEND_URL").pipe(
+        const frontendUrl = yield* Config.String("FRONTEND_URL").pipe(
           Effect.catch(() => Effect.succeed(FRONTEND_URL_DEFAULT)),
         );
 
@@ -118,7 +118,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
         const { code } = decoded.value;
         const tokens = yield* authService.exchangeCode(code);
 
-        const frontendUrl = yield* Config.string("FRONTEND_URL").pipe(
+        const frontendUrl = yield* Config.String("FRONTEND_URL").pipe(
           Effect.catch(() => Effect.succeed(FRONTEND_URL_DEFAULT)),
         );
         const normalizedFrontend = frontendUrl.replace(/\/+$/, "");
@@ -152,7 +152,7 @@ export const buildAuthRoutes = (): readonly Route[] => [
 
         const tokens = yield* authService.refreshTokens(refreshToken);
 
-        const frontendUrl = yield* Config.string("FRONTEND_URL").pipe(
+        const frontendUrl = yield* Config.String("FRONTEND_URL").pipe(
           Effect.catch(() => Effect.succeed(FRONTEND_URL_DEFAULT)),
         );
         const normalizedFrontend = frontendUrl.replace(/\/+$/, "");

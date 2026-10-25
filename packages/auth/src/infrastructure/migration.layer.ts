@@ -1,8 +1,8 @@
-import { Effect, Layer, Schedule } from "effect";
+import { Config, Effect, Layer, Option, Schedule } from "effect";
 import { FileSystem } from "effect/FileSystem";
 import { Path } from "effect/Path";
-import * as Reactivity from "effect/unstable/reactivity/Reactivity";
-import { SqlClient } from "effect/unstable/sql/SqlClient";
+import * as Reactivity from "effect/reactivity/Reactivity";
+import { SqlClient } from "effect/sql/SqlClient";
 import * as PgClientModule from "@effect/sql-pg/PgClient";
 import { PostgresConnectionPool } from "./db/postgres";
 import { runSqlMigrations } from "./migrations/sql-migration.runner";
@@ -30,8 +30,16 @@ export const MigrationLayer: Layer.Layer<never, never, PostgresConnectionPool | 
         return;
       }
 
-      const pgClient = yield* PgClientModule.fromPool({
-        acquire: Effect.succeed(pool),
+      const maybeUrl = yield* Config.option(
+        Config.Redacted("DATABASE_URL").pipe(Config.orElse(() => Config.Redacted("POSTGRES_URL"))),
+      );
+      if (Option.isNone(maybeUrl)) {
+        yield* Effect.logInfo("No DATABASE_URL configured — skipping auth migrations");
+        return;
+      }
+
+      const pgClient = yield* PgClientModule.make({
+        url: maybeUrl.value,
         spanAttributes: { "db.operation": "auth-migration" },
       });
 

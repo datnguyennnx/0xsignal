@@ -68,7 +68,7 @@ export type Bucket = {
   readonly state: BucketState;
   readonly retryCount: number;
   readonly subscribeFiber: Option.Option<Fiber.Fiber<void>>;
-  readonly scope: Scope.Scope;
+  readonly scope: Scope.Closeable;
 };
 
 type BucketState =

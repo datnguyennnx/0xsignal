@@ -42,7 +42,7 @@ const disabledEncryptionService = EncryptionService.of({
 export const EncryptionServiceLayer: Layer.Layer<EncryptionService> = Layer.effect(
   EncryptionService,
   Effect.gen(function* () {
-    const maybeSecret = yield* Config.option(Config.string("ENCRYPTION_SECRET")).pipe(Effect.orDie);
+    const maybeSecret = yield* Config.option(Config.String("ENCRYPTION_SECRET")).pipe(Effect.orDie);
     if (Option.isNone(maybeSecret)) {
       yield* Effect.logWarning("ENCRYPTION_SECRET not set — encryption disabled");
       return disabledEncryptionService;

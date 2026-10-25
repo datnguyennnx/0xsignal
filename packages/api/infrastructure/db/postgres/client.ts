@@ -15,7 +15,7 @@ export const postgresConnectionPoolLayer = Layer.effect(
   Effect.acquireRelease(
     Effect.gen(function* () {
       const maybeUrl = yield* Config.option(
-        Config.string("DATABASE_URL").pipe(Config.orElse(() => Config.string("POSTGRES_URL"))),
+        Config.String("DATABASE_URL").pipe(Config.orElse(() => Config.String("POSTGRES_URL"))),
       );
 
       if (Option.isNone(maybeUrl)) {

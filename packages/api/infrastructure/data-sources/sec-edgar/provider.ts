@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 import { CalendarSourceError } from "../../../application/calendar/contracts";
 import { getJson } from "../../http/rest-client";
 import type { CalendarSourceProvider } from "../calendar-source";

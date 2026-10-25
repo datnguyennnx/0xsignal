@@ -72,13 +72,13 @@ const disabledGitHubProvider = GitHubProvider.of({
 export const GitHubProviderLayer: Layer.Layer<GitHubProvider> = Layer.effect(
   GitHubProvider,
   Effect.gen(function* () {
-    const maybeClientId = yield* Config.option(Config.string("GITHUB_CLIENT_ID")).pipe(
+    const maybeClientId = yield* Config.option(Config.String("GITHUB_CLIENT_ID")).pipe(
       Effect.orDie,
     );
-    const maybeClientSecret = yield* Config.option(Config.string("GITHUB_CLIENT_SECRET")).pipe(
+    const maybeClientSecret = yield* Config.option(Config.String("GITHUB_CLIENT_SECRET")).pipe(
       Effect.orDie,
     );
-    const maybeRedirectUri = yield* Config.option(Config.string("GITHUB_REDIRECT_URI")).pipe(
+    const maybeRedirectUri = yield* Config.option(Config.String("GITHUB_REDIRECT_URI")).pipe(
       Effect.orDie,
     );
 

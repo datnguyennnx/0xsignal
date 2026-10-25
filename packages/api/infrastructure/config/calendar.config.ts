@@ -12,7 +12,7 @@ export class CalendarConfig extends Context.Service<CalendarConfig, CalendarConf
 const DEFAULT_REFRESH_MINUTES = 1440;
 
 const refreshMinutesConfig = (envSuffix: string): Config.Config<number> =>
-  Config.int(`CALENDAR_REFRESH_MINUTES_${envSuffix}`).pipe(
+  Config.Int(`CALENDAR_REFRESH_MINUTES_${envSuffix}`).pipe(
     Config.withDefault(DEFAULT_REFRESH_MINUTES),
   );
 

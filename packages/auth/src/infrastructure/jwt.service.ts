@@ -66,7 +66,7 @@ export class JwtService extends Context.Service<JwtService, JwtServicePort>()("J
 export const JwtServiceLayer: Layer.Layer<JwtService, never, PostgresConnectionPool> = Layer.effect(
   JwtService,
   Effect.gen(function* () {
-    const maybeSecret = yield* Config.option(Config.string("JWT_SECRET")).pipe(Effect.orDie);
+    const maybeSecret = yield* Config.option(Config.String("JWT_SECRET")).pipe(Effect.orDie);
 
     if (Option.isNone(maybeSecret)) {
       yield* Effect.logWarning(

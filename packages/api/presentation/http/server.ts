@@ -13,7 +13,7 @@ import { WS_IDLE_TIMEOUT_SECONDS, createWsEventHandlers } from "./ws/event-handl
 const runtime = makeRuntime(AppLayer.pipe(Layer.provideMerge(CorsServiceLayer)));
 
 const serverProgram = Effect.gen(function* () {
-  const PORT = yield* Config.int("PORT").pipe(Config.withDefault(9006));
+  const PORT = yield* Config.Int("PORT").pipe(Config.withDefault(9006));
   const cors = yield* CorsService;
   const marketStreamHub = yield* MarketStreamHub;
 

@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Ref } from "effect";
-import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest } from "effect/http";
 import type { WhaleLeaderboardRow } from "@0xsignal/shared";
 import { WhaleConfig } from "../../config/whale.config";
 import { asRecord } from "../parse-utils";

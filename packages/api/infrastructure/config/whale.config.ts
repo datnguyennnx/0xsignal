@@ -19,7 +19,7 @@ const DEFAULT_SEEDED_WALLET_CAP = 1000;
 const DEFAULT_WALLET_RETENTION_MS = 86_400_000;
 const DEFAULT_POSITION_RETENTION_MS = 86_400_000;
 
-const coinUniverseConfig: Config.Config<ReadonlyArray<string>> = Config.string(
+const coinUniverseConfig: Config.Config<ReadonlyArray<string>> = Config.String(
   "WHALE_COIN_UNIVERSE",
 ).pipe(
   Config.map((csv) =>
@@ -32,36 +32,36 @@ const coinUniverseConfig: Config.Config<ReadonlyArray<string>> = Config.string(
 );
 
 const whaleConfig: Config.Config<WhaleConfigService> = Config.all({
-  whaleNotionalUsd: Config.number("WHALE_NOTIONAL_USD").pipe(
+  whaleNotionalUsd: Config.Number("WHALE_NOTIONAL_USD").pipe(
     Config.withDefault(DEFAULT_WHALE_NOTIONAL_USD),
   ),
   coinUniverse: coinUniverseConfig,
-  discoveryNotionalUsd: Config.number("WHALE_DISCOVERY_NOTIONAL_USD").pipe(
+  discoveryNotionalUsd: Config.Number("WHALE_DISCOVERY_NOTIONAL_USD").pipe(
     Config.withDefault(DEFAULT_DISCOVERY_NOTIONAL_USD),
   ),
-  pollIntervalMs: Config.number("WHALE_POLL_INTERVAL_MS").pipe(
+  pollIntervalMs: Config.Number("WHALE_POLL_INTERVAL_MS").pipe(
     Config.withDefault(DEFAULT_POLL_INTERVAL_MS),
   ),
-  maxWalletsPerPoll: Config.number("WHALE_MAX_WALLETS_PER_POLL").pipe(
+  maxWalletsPerPoll: Config.Number("WHALE_MAX_WALLETS_PER_POLL").pipe(
     Config.withDefault(DEFAULT_MAX_WALLETS_PER_POLL),
   ),
-  walletTtlMs: Config.number("WHALE_WALLET_TTL_MS").pipe(Config.withDefault(DEFAULT_WALLET_TTL_MS)),
-  restWeightBudgetPerMin: Config.number("WHALE_REST_WEIGHT_BUDGET_PER_MIN").pipe(
+  walletTtlMs: Config.Number("WHALE_WALLET_TTL_MS").pipe(Config.withDefault(DEFAULT_WALLET_TTL_MS)),
+  restWeightBudgetPerMin: Config.Number("WHALE_REST_WEIGHT_BUDGET_PER_MIN").pipe(
     Config.withDefault(DEFAULT_REST_WEIGHT_BUDGET_PER_MIN),
   ),
-  leaderboardUrl: Config.string("WHALE_LEADERBOARD_URL").pipe(
+  leaderboardUrl: Config.String("WHALE_LEADERBOARD_URL").pipe(
     Config.withDefault(DEFAULT_LEADERBOARD_URL),
   ),
-  leaderboardTtlMs: Config.number("WHALE_LEADERBOARD_TTL_MS").pipe(
+  leaderboardTtlMs: Config.Number("WHALE_LEADERBOARD_TTL_MS").pipe(
     Config.withDefault(DEFAULT_LEADERBOARD_TTL_MS),
   ),
-  seededWalletCap: Config.number("WHALE_SEEDED_WALLET_CAP").pipe(
+  seededWalletCap: Config.Number("WHALE_SEEDED_WALLET_CAP").pipe(
     Config.withDefault(DEFAULT_SEEDED_WALLET_CAP),
   ),
-  walletRetentionMs: Config.number("WHALE_WALLET_RETENTION_MS").pipe(
+  walletRetentionMs: Config.Number("WHALE_WALLET_RETENTION_MS").pipe(
     Config.withDefault(DEFAULT_WALLET_RETENTION_MS),
   ),
-  positionRetentionMs: Config.number("WHALE_POSITION_RETENTION_MS").pipe(
+  positionRetentionMs: Config.Number("WHALE_POSITION_RETENTION_MS").pipe(
     Config.withDefault(DEFAULT_POSITION_RETENTION_MS),
   ),
 });

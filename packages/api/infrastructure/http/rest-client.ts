@@ -1,5 +1,5 @@
 import { Cause, Duration, Effect, Schedule } from "effect";
-import { HttpClient, HttpClientError, HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientError, HttpClientRequest } from "effect/http";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const RETRY_TIMES = 3;

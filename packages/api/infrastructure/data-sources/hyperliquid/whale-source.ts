@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { HttpClient } from "effect/unstable/http";
+import { HttpClient } from "effect/http";
 import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
 import { WhaleSources } from "../../../application/whales/sources.contracts";
 import { WhaleConfig } from "../../config/whale.config";

@@ -1,10 +1,5 @@
 import { Effect } from "effect";
-import {
-  FetchHttpClient,
-  HttpClient,
-  HttpClientError,
-  HttpClientRequest,
-} from "effect/unstable/http";
+import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from "effect/http";
 import type { CalendarSource } from "@0xsignal/shared";
 import { CalendarSourceError } from "../../application/calendar/contracts";
 
