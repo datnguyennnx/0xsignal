@@ -1,11 +1,13 @@
-import { Cache, Duration, Effect, Layer, Match, Schedule } from "effect";
+import { Cache, Duration, Effect, Layer } from "effect";
 import type { ExchangeClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../hyperliquid/contracts";
 import { ExchangeService, type ExchangeError } from "./contracts";
 import { ExchangeCredentials } from "./credentials.contracts";
-import { HyperliquidInternalError } from "../../domain/errors";
+import { HyperliquidInternalError, HyperliquidValidationError } from "../../domain/errors";
 import { classifyExchangeError, toHlTif } from "./error-classification";
 import { buildCoinToAsset } from "./asset-index";
+
+const MARKET_TIME_IN_FORCE: ReadonlySet<string> = new Set(["FrontendMarket", "Market"]);
 
 const withExchangeClient = <A>(
   userId: string,
@@ -66,11 +68,26 @@ export const exchangeServiceLayer = Layer.effect(
             Effect.gen(function* () {
               const hlOrders = yield* Effect.forEach(params.orders, (o) =>
                 Effect.gen(function* () {
+                  const zeroPrice = Number(o.price) === 0;
+                  const marketClose =
+                    o.reduceOnly &&
+                    o.orderType.kind === "limit" &&
+                    MARKET_TIME_IN_FORCE.has(o.orderType.timeInForce);
+                  if (zeroPrice && !marketClose) {
+                    return yield* Effect.fail(
+                      new HyperliquidValidationError({
+                        message: "price must be > 0 unless closing with a market order",
+                        symbol: o.symbol,
+                        input: { price: o.price, reduceOnly: o.reduceOnly },
+                      }),
+                    );
+                  }
+
                   const a = coinToAsset.get(o.symbol);
                   if (a === undefined) {
                     return yield* Effect.fail(
-                      new HyperliquidInternalError({
-                        message: `Unknown coin: ${o.symbol}`,
+                      new HyperliquidValidationError({
+                        message: `Symbol not supported on Hyperliquid: ${o.symbol}`,
                         symbol: o.symbol,
                       }),
                     );
@@ -83,7 +100,9 @@ export const exchangeServiceLayer = Layer.effect(
                     r: o.reduceOnly,
                     t:
                       o.orderType.kind === "limit"
-                        ? ({ limit: { tif: toHlTif(o.orderType.timeInForce) } } as const)
+                        ? ({
+                            limit: { tif: yield* toHlTif(o.orderType.timeInForce) },
+                          } as const)
                         : ({
                             trigger: {
                               isMarket: o.orderType.isMarket,
@@ -105,19 +124,13 @@ export const exchangeServiceLayer = Layer.effect(
                   ),
                 catch: classifyExchangeError,
               }).pipe(
-                Effect.retry({
-                  schedule: Schedule.exponential("200 millis").pipe(Schedule.upTo({ times: 3 })),
-                  while: (error) =>
-                    Match.value(error).pipe(
-                      Match.tag("HyperliquidInternalError", () => true),
-                      Match.orElse(() => false),
-                    ),
-                }),
+                // No retry on submit: without an idempotency key a timeout cannot tell
+                // "already sent" from "never sent", so a retry risks a duplicate order.
                 Effect.timeout("30 seconds"),
                 Effect.catchTag("TimeoutError", () =>
                   Effect.fail(
                     new HyperliquidInternalError({
-                      message: "Exchange order timed out",
+                      message: "Exchange order outcome unknown: timed out",
                       endpoint: "exchange.order()",
                     }),
                   ),
@@ -136,8 +149,8 @@ export const exchangeServiceLayer = Layer.effect(
               const assetIndex = coinToAsset.get(params.symbol);
               if (assetIndex === undefined) {
                 return yield* Effect.fail(
-                  new HyperliquidInternalError({
-                    message: `Unknown coin: ${params.symbol}`,
+                  new HyperliquidValidationError({
+                    message: `Symbol not supported on Hyperliquid: ${params.symbol}`,
                     symbol: params.symbol,
                   }),
                 );
@@ -157,19 +170,12 @@ export const exchangeServiceLayer = Layer.effect(
                   ),
                 catch: classifyExchangeError,
               }).pipe(
-                Effect.retry({
-                  schedule: Schedule.exponential("200 millis").pipe(Schedule.upTo({ times: 3 })),
-                  while: (error) =>
-                    Match.value(error).pipe(
-                      Match.tag("HyperliquidInternalError", () => true),
-                      Match.orElse(() => false),
-                    ),
-                }),
+                // No retry: a timed-out leverage update may already have applied.
                 Effect.timeout("30 seconds"),
                 Effect.catchTag("TimeoutError", () =>
                   Effect.fail(
                     new HyperliquidInternalError({
-                      message: "Exchange leverage update timed out",
+                      message: "Exchange leverage update outcome unknown: timed out",
                       endpoint: "exchange.updateLeverage()",
                       symbol: params.symbol,
                     }),
@@ -191,8 +197,8 @@ export const exchangeServiceLayer = Layer.effect(
                 const a = coinToAsset.get(c.symbol);
                 if (a === undefined) {
                   return yield* Effect.fail(
-                    new HyperliquidInternalError({
-                      message: `Unknown coin: ${c.symbol}`,
+                    new HyperliquidValidationError({
+                      message: `Symbol not supported on Hyperliquid: ${c.symbol}`,
                       symbol: c.symbol,
                     }),
                   );
@@ -206,19 +212,12 @@ export const exchangeServiceLayer = Layer.effect(
                 try: () => exchange.cancel({ cancels }, cancelOpts),
                 catch: classifyExchangeError,
               }).pipe(
-                Effect.retry({
-                  schedule: Schedule.exponential("200 millis").pipe(Schedule.upTo({ times: 3 })),
-                  while: (error) =>
-                    Match.value(error).pipe(
-                      Match.tag("HyperliquidInternalError", () => true),
-                      Match.orElse(() => false),
-                    ),
-                }),
+                // No retry: a timed-out cancel may already have been applied.
                 Effect.timeout("30 seconds"),
                 Effect.catchTag("TimeoutError", () =>
                   Effect.fail(
                     new HyperliquidInternalError({
-                      message: "Exchange cancel timed out",
+                      message: "Exchange cancel outcome unknown: timed out",
                       endpoint: "exchange.cancel()",
                     }),
                   ),

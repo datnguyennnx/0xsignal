@@ -16,6 +16,7 @@ import {
   ExchangeService,
   InsufficientMarginError,
   HyperliquidValidationError,
+  HyperliquidInternalError,
   AccountNotFound,
   type AccountRepoShape,
 } from "./helpers";
@@ -241,6 +242,131 @@ describe("ExchangeService — order operations", () => {
 
       const callArg = mockExchangeInstance.order.mock.calls[0][0];
       expect(callArg.orders[0].r).toBe(true);
+    });
+
+    it("forwards price 0 when a market order closes a position", async () => {
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
+      mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* ExchangeService;
+          return yield* svc.placeOrder(
+            {
+              orders: [
+                {
+                  symbol: "BTC",
+                  side: "sell",
+                  price: "0",
+                  quantity: "0.5",
+                  reduceOnly: true,
+                  orderType: { kind: "limit", timeInForce: "FrontendMarket" },
+                },
+              ],
+            },
+            USER_A,
+          );
+        }).pipe(Effect.provide(makeTestLayer())),
+      );
+
+      const callArg = mockExchangeInstance.order.mock.calls[0][0];
+      expect(callArg.orders[0].p).toBe("0");
+      expect(callArg.orders[0].t).toEqual({ limit: { tif: "FrontendMarket" } });
+    });
+
+    it("rejects price 0 when the order is not reduce-only", async () => {
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* ExchangeService;
+          return yield* svc.placeOrder(
+            {
+              orders: [
+                {
+                  symbol: "BTC",
+                  side: "buy",
+                  price: "0",
+                  quantity: "0.5",
+                  reduceOnly: false,
+                  orderType: { kind: "limit", timeInForce: "FrontendMarket" },
+                },
+              ],
+            },
+            USER_A,
+          );
+        })
+          .pipe(Effect.provide(makeTestLayer()))
+          .pipe(Effect.flip),
+      );
+
+      expect(result).toBeInstanceOf(HyperliquidValidationError);
+      expect(result).toHaveProperty(
+        "message",
+        "price must be > 0 unless closing with a market order",
+      );
+      expect(mockExchangeInstance.order).not.toHaveBeenCalled();
+    });
+
+    it("rejects price 0 for a reduce-only limit order", async () => {
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* ExchangeService;
+          return yield* svc.placeOrder(
+            {
+              orders: [
+                {
+                  symbol: "BTC",
+                  side: "sell",
+                  price: "0.00",
+                  quantity: "0.5",
+                  reduceOnly: true,
+                  orderType: { kind: "limit", timeInForce: "GTC" },
+                },
+              ],
+            },
+            USER_A,
+          );
+        })
+          .pipe(Effect.provide(makeTestLayer()))
+          .pipe(Effect.flip),
+      );
+
+      expect(result).toBeInstanceOf(HyperliquidValidationError);
+      expect(mockExchangeInstance.order).not.toHaveBeenCalled();
+    });
+
+    it("does not retry submit after HyperliquidInternalError", async () => {
+      mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
+      mockExchangeInstance.order.mockRejectedValueOnce(new Error("upstream exploded"));
+
+      const result = await Effect.runPromise(
+        Effect.gen(function* () {
+          const svc = yield* ExchangeService;
+          return yield* svc.placeOrder(
+            {
+              orders: [
+                {
+                  symbol: "BTC",
+                  side: "buy",
+                  price: "100",
+                  quantity: "0.5",
+                  reduceOnly: false,
+                  orderType: { kind: "limit", timeInForce: "GTC" },
+                },
+              ],
+            },
+            USER_A,
+          );
+        })
+          .pipe(Effect.provide(makeTestLayer()))
+          .pipe(Effect.flip),
+      );
+
+      expect(result).toBeInstanceOf(HyperliquidInternalError);
+      expect(mockExchangeInstance.order).toHaveBeenCalledOnce();
     });
 
     it("fails with AccountNotFound when primary account not found", async () => {

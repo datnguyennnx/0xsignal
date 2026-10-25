@@ -1,4 +1,4 @@
-import { Match, Predicate } from "effect";
+import { Effect, Match, Predicate } from "effect";
 import { ValidationError, HttpRequestError, TransportError } from "@nktkas/hyperliquid";
 import { ApiRequestError } from "@nktkas/hyperliquid/api/exchange";
 import { ValiError, type BaseIssue, type BaseSchema } from "valibot";
@@ -8,15 +8,29 @@ import {
   InsufficientMarginError,
 } from "../../domain/errors";
 
-export const toHlTif = (tif: string): "Gtc" | "Ioc" | "Alo" | "FrontendMarket" => {
-  const map: Record<string, "Gtc" | "Ioc" | "Alo" | "FrontendMarket"> = {
-    GTC: "Gtc",
-    IOC: "Ioc",
-    FOK: "Gtc",
-    Alo: "Alo",
-    FrontendMarket: "FrontendMarket",
-  };
-  return map[tif] ?? "Gtc";
+export type HlTif = "Gtc" | "Ioc" | "Alo" | "FrontendMarket";
+
+// Hyperliquid's order schema accepts only these four TIF values; FOK has no
+// equivalent, and mapping it to Gtc would turn a kill-or-nothing order into a
+// resting order, so it must fail loudly instead.
+const hlTifByOrderType: Record<string, HlTif> = {
+  GTC: "Gtc",
+  IOC: "Ioc",
+  ALO: "Alo",
+  Alo: "Alo",
+  PostOnly: "Alo",
+  FrontendMarket: "FrontendMarket",
+  Market: "FrontendMarket",
+};
+
+export const toHlTif = (tif: string): Effect.Effect<HlTif, HyperliquidValidationError> => {
+  const mapped = hlTifByOrderType[tif];
+  if (mapped !== undefined) return Effect.succeed(mapped);
+  const message =
+    tif === "FOK"
+      ? "FOK không được hỗ trợ bởi Hyperliquid: không có time-in-force fill-or-kill, từ chối thay vì hạ cấp thành lệnh chờ Gtc"
+      : `Unsupported timeInForce: ${tif}`;
+  return Effect.fail(new HyperliquidValidationError({ message, input: tif }));
 };
 
 const isValiError = (

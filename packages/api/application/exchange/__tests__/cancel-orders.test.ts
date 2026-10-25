@@ -12,7 +12,7 @@ import {
   makeMetaResponse,
   USER_A,
   ExchangeService,
-  HyperliquidInternalError,
+  HyperliquidValidationError,
 } from "./helpers";
 
 const mockExchangeInstance = vi.hoisted(() => ({
@@ -88,7 +88,7 @@ describe("ExchangeService — order operations", () => {
       );
     });
 
-    it("fails with HyperliquidInternalError for unknown symbol", async () => {
+    it("fails with HyperliquidValidationError for unknown symbol", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
 
       const result = await Effect.runPromise(
@@ -100,8 +100,8 @@ describe("ExchangeService — order operations", () => {
           .pipe(Effect.flip),
       );
 
-      expect(result).toBeInstanceOf(HyperliquidInternalError);
-      expect(result).toHaveProperty("_tag", "HyperliquidInternalError");
+      expect(result).toBeInstanceOf(HyperliquidValidationError);
+      expect(result).toHaveProperty("_tag", "HyperliquidValidationError");
     });
   });
 });
