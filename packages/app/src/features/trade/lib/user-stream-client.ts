@@ -1,101 +1,67 @@
-import type {
-  ClearinghouseState,
-  FrontendOpenOrder,
-  SpotClearinghouseState,
-  UserFill,
-} from "@0xsignal/shared";
-import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
+// The leader tab streams user data browser-direct; other tabs reuse its socket.
+import {
+  createTabCoordinator,
+  type RemoteSubscriptionRequest,
+  type TabChannel,
+  type TabCoordinator,
+} from "./user-stream-coordination";
+import { createHyperliquidUpstream } from "./user-stream-upstream";
+import {
+  USER_STREAM_LIMITS,
+  type ClearinghouseStreamEvent,
+  type OpenOrdersStreamEvent,
+  type SpotStateStreamEvent,
+  type UpstreamSubscription,
+  type UserFillsStreamEvent,
+  type UserStreamChannel,
+  type UserStreamClient,
+  type UserStreamConnectionState,
+  type UserStreamFailure,
+  type UserStreamFailureKind,
+  type UserStreamSubscription,
+  type UserStreamUpstream,
+  type UserStreamWireEvent,
+} from "./user-stream-types";
 
-/**
- * Browser-direct Hyperliquid user stream.
- *
- * Per-user data goes straight from this tab to Hyperliquid so each end user's
- * IP consumes its own budget. The backend WS hub stays market-only.
- */
+export { mergeUserFills, USER_STREAM_LIMITS } from "./user-stream-types";
+export type {
+  ClearinghouseStreamEvent,
+  OpenOrdersStreamEvent,
+  SpotStateStreamEvent,
+  UpstreamSubscription,
+  UserFillsStreamEvent,
+  UserStreamClient,
+  UserStreamConnectionState,
+  UserStreamFailure,
+  UserStreamUpstream,
+} from "./user-stream-types";
 
-const USER_STREAM_WS_URL = "wss://api.hyperliquid.xyz/ws";
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
 
-/**
- * Documented per-IP limits. The SDK's internal guard allows 15 unique users;
- * the published cap is 10, so the app enforces the stricter number itself.
- */
-export const USER_STREAM_LIMITS: {
-  readonly uniqueUsers: number;
-  readonly connections: number;
-  readonly subscriptions: number;
-} = {
-  uniqueUsers: 10,
-  connections: 10,
-  subscriptions: 1000,
-};
+const isWireEvent = (value: unknown): value is UserStreamWireEvent =>
+  isRecord(value) && "data" in value;
 
-export type UserStreamChannel = "clearinghouseState" | "spotState" | "userFills" | "openOrders";
+const isClearinghouseEvent = (event: UserStreamWireEvent): event is ClearinghouseStreamEvent =>
+  isRecord(event.data) && "marginSummary" in event.data;
 
-export type UserStreamConnectionState = "idle" | "connecting" | "open" | "closed";
+const isSpotStateEvent = (event: UserStreamWireEvent): event is SpotStateStreamEvent =>
+  isRecord(event.data) && "balances" in event.data;
 
-// Full-state channels carry no snapshot flag on the wire: every message is a
-// complete replacement, so they are surfaced as snapshots. userFills is the
-// only incremental channel.
-export interface ClearinghouseStreamEvent {
-  readonly data: ClearinghouseState;
-  readonly isSnapshot: true;
-}
+const isUserFillsEvent = (event: UserStreamWireEvent): event is UserFillsStreamEvent =>
+  Array.isArray(event.data);
 
-export interface SpotStateStreamEvent {
-  readonly data: SpotClearinghouseState;
-  readonly isSnapshot: true;
-}
+const isOpenOrdersEvent = (event: UserStreamWireEvent): event is OpenOrdersStreamEvent =>
+  Array.isArray(event.data);
 
-export interface UserFillsStreamEvent {
-  readonly data: UserFill[];
-  readonly isSnapshot: boolean;
-}
+const isUserStreamChannel = (value: string): value is UserStreamChannel =>
+  value === "clearinghouseState" ||
+  value === "spotState" ||
+  value === "userFills" ||
+  value === "openOrders";
 
-export interface OpenOrdersStreamEvent {
-  readonly data: FrontendOpenOrder[];
-  readonly isSnapshot: true;
-}
-
-export interface UserStreamEventMap {
-  clearinghouseState: ClearinghouseStreamEvent;
-  spotState: SpotStateStreamEvent;
-  userFills: UserFillsStreamEvent;
-  openOrders: OpenOrdersStreamEvent;
-}
-
-export interface UserStreamSubscription {
-  unsubscribe(): void;
-}
-
-export interface UpstreamSubscription {
-  unsubscribe(): Promise<void>;
-}
-
-/**
- * The SDK-facing seam. Tests inject a fake so caps, refcounts and snapshot
- * handling are exercised without a socket.
- */
-export interface UserStreamUpstream {
-  subscribeClearinghouseState(
-    user: string,
-    listener: (event: ClearinghouseStreamEvent) => void,
-  ): Promise<UpstreamSubscription>;
-  subscribeSpotState(
-    user: string,
-    listener: (event: SpotStateStreamEvent) => void,
-  ): Promise<UpstreamSubscription>;
-  subscribeUserFills(
-    user: string,
-    listener: (event: UserFillsStreamEvent) => void,
-  ): Promise<UpstreamSubscription>;
-  subscribeOpenOrders(
-    user: string,
-    listener: (event: OpenOrdersStreamEvent) => void,
-  ): Promise<UpstreamSubscription>;
-  getConnectionState(): UserStreamConnectionState;
-  onConnectionStateChange(listener: (state: UserStreamConnectionState) => void): () => void;
-  dispose(): void;
-}
+const isUserStreamConnectionState = (value: string): value is UserStreamConnectionState =>
+  value === "idle" || value === "connecting" || value === "open" || value === "closed";
 
 export class UserStreamLimitError extends Error {
   constructor(message: string) {
@@ -104,25 +70,11 @@ export class UserStreamLimitError extends Error {
   }
 }
 
-export interface UserStreamClient {
-  subscribeClearinghouseState(
-    user: string,
-    listener: (event: ClearinghouseStreamEvent) => void,
-  ): Promise<UserStreamSubscription>;
-  subscribeSpotState(
-    user: string,
-    listener: (event: SpotStateStreamEvent) => void,
-  ): Promise<UserStreamSubscription>;
-  subscribeUserFills(
-    user: string,
-    listener: (event: UserFillsStreamEvent) => void,
-  ): Promise<UserStreamSubscription>;
-  subscribeOpenOrders(
-    user: string,
-    listener: (event: OpenOrdersStreamEvent) => void,
-  ): Promise<UserStreamSubscription>;
-  getConnectionState(): UserStreamConnectionState;
-  onConnectionStateChange(listener: (state: UserStreamConnectionState) => void): () => void;
+class UserStreamAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UserStreamAuthError";
+  }
 }
 
 interface ClearinghouseHolder {
@@ -147,6 +99,23 @@ interface OpenOrdersHolder {
 
 type ListenerHolder = ClearinghouseHolder | SpotStateHolder | UserFillsHolder | OpenOrdersHolder;
 
+const noop = (): void => {};
+
+const remoteHolder = (channel: UserStreamChannel): ListenerHolder => {
+  switch (channel) {
+    case "clearinghouseState":
+      return { channel, listener: noop };
+    case "spotState":
+      return { channel, listener: noop };
+    case "userFills":
+      return { channel, listener: noop };
+    case "openOrders":
+      return { channel, listener: noop };
+    default:
+      throw new Error(`Unsupported user stream channel: ${String(channel)}`);
+  }
+};
+
 interface SharedSubscription {
   readonly key: string;
   readonly user: string;
@@ -154,145 +123,148 @@ interface SharedSubscription {
   refCount: number;
   readonly holders: Set<ListenerHolder>;
   backing: Promise<UpstreamSubscription> | null;
+  /** Which tab owns the upstream socket for this subscription. */
+  backingMode: "upstream" | "broadcast";
 }
 
-/** Snapshot replaces, update merges newest-first and de-duplicates by fill id. */
-export function mergeUserFills(
-  current: readonly UserFill[] | undefined,
-  event: UserFillsStreamEvent,
-): UserFill[] {
-  if (event.isSnapshot || current === undefined) return [...event.data];
-
-  const seen = new Set(current.map((fill) => fill.tid));
-  const merged = [...event.data.filter((fill) => !seen.has(fill.tid)), ...current];
-  merged.sort((a, b) => b.time - a.time);
-  return merged;
-}
-
-// Outcome-market balances omit `token` on the wire; the shared contract always
-// carries one, so the missing id is normalised rather than dropping the balance.
-type WireSpotBalance =
-  | {
-      readonly coin: string;
-      readonly token: number;
-      readonly total: string;
-      readonly hold: string;
-      readonly entryNtl: string;
-    }
-  | {
-      readonly coin: string;
-      readonly total: string;
-      readonly hold: string;
-      readonly entryNtl: string;
-    };
-
-const toSpotBalances = (balances: readonly WireSpotBalance[]): SpotClearinghouseState["balances"] =>
-  balances.map((balance) =>
-    "token" in balance
-      ? {
-          coin: balance.coin,
-          token: balance.token,
-          total: balance.total,
-          hold: balance.hold,
-          entryNtl: balance.entryNtl,
-        }
-      : {
-          coin: balance.coin,
-          token: 0,
-          total: balance.total,
-          hold: balance.hold,
-          entryNtl: balance.entryNtl,
-        },
-  );
-
-function createHyperliquidUpstream(): UserStreamUpstream {
-  const transport = new WebSocketTransport({ url: USER_STREAM_WS_URL });
-  const client = new SubscriptionClient({ transport });
-  const socket = transport.socket;
-
-  let state: UserStreamConnectionState = "connecting";
-  const stateListeners = new Set<(value: UserStreamConnectionState) => void>();
-  const setState = (next: UserStreamConnectionState): void => {
-    if (state === next) return;
-    state = next;
-    for (const listener of stateListeners) listener(next);
-  };
-
-  socket.addEventListener("open", () => {
-    setState("open");
-  });
-  socket.addEventListener("close", () => {
-    setState("connecting");
-  });
-  socket.terminationSignal.addEventListener(
-    "abort",
-    () => {
-      setState("closed");
-    },
-    { once: true },
-  );
-
-  const spotSubscription = (
-    user: string,
-    listener: (event: SpotStateStreamEvent) => void,
-  ): Promise<UpstreamSubscription> =>
-    client.spotState({ user }, (event) => {
-      listener({
-        data: { ...event.spotState, balances: toSpotBalances(event.spotState.balances) },
-        isSnapshot: true,
-      });
-    });
-
-  return {
-    subscribeClearinghouseState: (user, listener) =>
-      client.clearinghouseState({ user }, (event) => {
-        listener({ data: event.clearinghouseState, isSnapshot: true });
-      }),
-    subscribeSpotState: spotSubscription,
-    subscribeUserFills: (user, listener) =>
-      client.userFills({ user }, (event) => {
-        listener({ data: event.fills, isSnapshot: event.isSnapshot === true });
-      }),
-    subscribeOpenOrders: (user, listener) =>
-      client.openOrders({ user }, (event) => {
-        listener({ data: event.orders, isSnapshot: true });
-      }),
-    getConnectionState: () => state,
-    onConnectionStateChange: (listener) => {
-      stateListeners.add(listener);
-      return () => {
-        stateListeners.delete(listener);
-      };
-    },
-    dispose: () => {
-      stateListeners.clear();
-      transport.close();
-      state = "closed";
-    },
-  };
-}
+const deliverToShared = (shared: SharedSubscription, event: UserStreamWireEvent): void => {
+  switch (shared.channel) {
+    case "clearinghouseState":
+      if (!isClearinghouseEvent(event)) return;
+      for (const holder of shared.holders) {
+        if (holder.channel === "clearinghouseState") holder.listener(event);
+      }
+      return;
+    case "spotState":
+      if (!isSpotStateEvent(event)) return;
+      for (const holder of shared.holders) {
+        if (holder.channel === "spotState") holder.listener(event);
+      }
+      return;
+    case "userFills":
+      if (!isUserFillsEvent(event)) return;
+      for (const holder of shared.holders) {
+        if (holder.channel === "userFills") holder.listener(event);
+      }
+      return;
+    case "openOrders":
+      if (!isOpenOrdersEvent(event)) return;
+      for (const holder of shared.holders) {
+        if (holder.channel === "openOrders") holder.listener(event);
+      }
+  }
+};
 
 export interface UserStreamClientOptions {
   readonly createUpstream?: () => UserStreamUpstream;
+  readonly createBroadcastChannel?: (name: string) => TabChannel;
+  readonly tabId?: string;
+  readonly electionDelayMs?: number;
 }
+
+const hasBroadcastChannel = (): boolean => typeof BroadcastChannel !== "undefined";
+
+const createBroadcastTabChannel = (name: string): TabChannel => {
+  const channel = new BroadcastChannel(name);
+  const send = channel.postMessage.bind(channel);
+  return {
+    send: (message) => {
+      send(message);
+    },
+    close: () => {
+      channel.close();
+    },
+    addEventListener: (type, listener) => {
+      channel.addEventListener(type, (event) => {
+        listener(event);
+      });
+    },
+  };
+};
 
 export function createUserStreamClient(options: UserStreamClientOptions = {}): UserStreamClient {
   const createUpstream = options.createUpstream ?? createHyperliquidUpstream;
+  // An injected upstream marks an isolated client (tests, non-browser hosts);
+  // only the real client joins the cross-tab election.
+  const createChannel =
+    options.createBroadcastChannel ??
+    (options.createUpstream === undefined && hasBroadcastChannel()
+      ? createBroadcastTabChannel
+      : null);
 
   const sharedSubscriptions = new Map<string, SharedSubscription>();
   const activeUsers = new Set<string>();
   const stateListeners = new Set<(value: UserStreamConnectionState) => void>();
+  const failureListeners = new Set<(failure: UserStreamFailure | null) => void>();
+  const remoteSubscriptions = new Map<
+    string,
+    { readonly handle: UserStreamSubscription; readonly tabs: Set<string> }
+  >();
 
   let upstream: UserStreamUpstream | null = null;
   let liveConnections = 0;
   let state: UserStreamConnectionState = "idle";
   let detachUpstreamState: (() => void) | null = null;
+  let detachUpstreamError: (() => void) | null = null;
+  let lastFailure: UserStreamFailure | null = null;
 
   const setState = (next: UserStreamConnectionState): void => {
     if (state === next) return;
     state = next;
     for (const listener of stateListeners) listener(next);
+    if (next === "open") clearFailure();
+    if (coordinator !== null && coordinator.role() === "leader") {
+      coordinator.postLeaderState(next);
+    }
   };
+
+  const clearFailure = (): void => {
+    if (lastFailure === null) return;
+    lastFailure = null;
+    for (const listener of failureListeners) listener(null);
+  };
+
+  const reportFailure = (kind: UserStreamFailureKind, message: string): void => {
+    if (lastFailure?.kind === kind && lastFailure.message === message) return;
+    lastFailure = { kind, message };
+    for (const listener of failureListeners) listener(lastFailure);
+  };
+
+  const deliver = (key: string, event: UserStreamWireEvent): void => {
+    const shared = sharedSubscriptions.get(key);
+    if (shared !== undefined) deliverToShared(shared, event);
+  };
+
+  const coordinator: TabCoordinator<UserStreamWireEvent> | null =
+    createChannel === null
+      ? null
+      : createTabCoordinator<UserStreamWireEvent>({
+          createChannel,
+          tabId: options.tabId ?? crypto.randomUUID(),
+          electionDelayMs: options.electionDelayMs ?? 250,
+          isEvent: isWireEvent,
+          onPromote: () => {
+            rehomeAll("upstream");
+          },
+          onDemote: () => {
+            rehomeAll("broadcast");
+          },
+          onRemoteSubscribe: (request, tabId) => {
+            void addRemote(request, tabId);
+          },
+          onRemoteUnsubscribe: (request, tabId) => {
+            removeRemote(request.key, tabId);
+          },
+          onRemoteTabGone: (tabId) => {
+            for (const key of remoteSubscriptions.keys()) removeRemote(key, tabId);
+          },
+          onRemoteData: (key, event) => {
+            deliver(key, event);
+          },
+          onLeaderState: (next) => {
+            if (isUserStreamConnectionState(next)) setState(next);
+          },
+        });
 
   const ensureUpstream = (): UserStreamUpstream => {
     if (upstream !== null) return upstream;
@@ -305,6 +277,10 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
     upstream = next;
     liveConnections += 1;
     detachUpstreamState = next.onConnectionStateChange(setState);
+    detachUpstreamError =
+      next.onError?.((error) => {
+        reportFailure("socket-closed", error.message);
+      }) ?? null;
     setState(next.getConnectionState());
     return next;
   };
@@ -316,6 +292,8 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
     liveConnections -= 1;
     detachUpstreamState?.();
     detachUpstreamState = null;
+    detachUpstreamError?.();
+    detachUpstreamError = null;
     current.dispose();
     setState("idle");
   };
@@ -359,41 +337,120 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
   };
 
   const startBacking = (shared: SharedSubscription): Promise<UpstreamSubscription> => {
+    if (coordinator !== null && coordinator.role() !== "leader") {
+      shared.backingMode = "broadcast";
+      coordinator.postSubscribe({
+        key: shared.key,
+        user: shared.user,
+        channel: shared.channel,
+      });
+      return Promise.resolve({
+        unsubscribe: () => {
+          coordinator?.postUnsubscribe({
+            key: shared.key,
+            user: shared.user,
+            channel: shared.channel,
+          });
+          return Promise.resolve();
+        },
+      });
+    }
+
+    shared.backingMode = "upstream";
     const current = ensureUpstream();
+
     switch (shared.channel) {
       case "clearinghouseState":
         return current.subscribeClearinghouseState(shared.user, (event) => {
           for (const holder of shared.holders) {
             if (holder.channel === "clearinghouseState") holder.listener(event);
           }
+          coordinator?.postData(shared.key, event);
         });
       case "spotState":
         return current.subscribeSpotState(shared.user, (event) => {
           for (const holder of shared.holders) {
             if (holder.channel === "spotState") holder.listener(event);
           }
+          coordinator?.postData(shared.key, event);
         });
       case "userFills":
         return current.subscribeUserFills(shared.user, (event) => {
           for (const holder of shared.holders) {
             if (holder.channel === "userFills") holder.listener(event);
           }
+          coordinator?.postData(shared.key, event);
         });
       case "openOrders":
         return current.subscribeOpenOrders(shared.user, (event) => {
           for (const holder of shared.holders) {
             if (holder.channel === "openOrders") holder.listener(event);
           }
+          coordinator?.postData(shared.key, event);
         });
       default:
         throw new Error(`Unsupported user stream channel: ${String(shared.channel)}`);
     }
   };
 
+  /** Swaps every local subscription between the owned socket and the leader. */
+  const rehomeAll = (target: "upstream" | "broadcast"): void => {
+    for (const shared of sharedSubscriptions.values()) {
+      if (shared.backingMode === target) continue;
+      const previous = shared.backing;
+      shared.backing = null;
+      if (previous !== null) {
+        void previous.then((subscription) => subscription.unsubscribe()).catch(() => null);
+      }
+      try {
+        const next = startBacking(shared);
+        shared.backing = next;
+        void next.catch((error: unknown) => {
+          reportFailure(
+            "subscribe-rejected",
+            error instanceof Error ? error.message : String(error),
+          );
+        });
+      } catch (error) {
+        reportFailure("subscribe-rejected", error instanceof Error ? error.message : String(error));
+      }
+    }
+  };
+
+  const addRemote = async (request: RemoteSubscriptionRequest, tabId: string): Promise<void> => {
+    const existing = remoteSubscriptions.get(request.key);
+    if (existing !== undefined) {
+      existing.tabs.add(tabId);
+      return;
+    }
+    if (!isUserStreamChannel(request.channel)) return;
+    try {
+      const handle = await acquire(remoteHolder(request.channel), request.user);
+      remoteSubscriptions.set(request.key, { handle, tabs: new Set([tabId]) });
+    } catch (error) {
+      reportFailure("subscribe-rejected", error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const removeRemote = (key: string, tabId: string): void => {
+    const entry = remoteSubscriptions.get(key);
+    if (entry === undefined) return;
+    entry.tabs.delete(tabId);
+    if (entry.tabs.size > 0) return;
+    remoteSubscriptions.delete(key);
+    entry.handle.unsubscribe();
+  };
+
   const acquire = async (
     holder: ListenerHolder,
     rawUser: string,
   ): Promise<UserStreamSubscription> => {
+    if (rawUser.trim() === "") {
+      reportFailure("auth-required", "A wallet address is required for the user stream");
+      throw new UserStreamAuthError("A wallet address is required for the user stream");
+    }
+    if (coordinator !== null) await coordinator.whenReady();
+
     const user = rawUser.toLowerCase();
     const key = `${holder.channel}:${user}`;
 
@@ -422,6 +479,7 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
       refCount: 1,
       holders: new Set([holder]),
       backing: null,
+      backingMode: "upstream",
     };
     sharedSubscriptions.set(key, shared);
     activeUsers.add(user);
@@ -434,6 +492,7 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
       sharedSubscriptions.delete(key);
       removeUserIfUnused(user);
       if (sharedSubscriptions.size === 0) disposeUpstream();
+      reportFailure("subscribe-rejected", error instanceof Error ? error.message : String(error));
       throw error;
     }
 
@@ -453,50 +512,30 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
         stateListeners.delete(listener);
       };
     },
+    getLastFailure: () => lastFailure,
+    onFailureChange: (listener) => {
+      failureListeners.add(listener);
+      return () => {
+        failureListeners.delete(listener);
+      };
+    },
+    reportFailure,
+    dispose: () => {
+      coordinator?.dispose();
+      for (const entry of remoteSubscriptions.values()) entry.handle.unsubscribe();
+      remoteSubscriptions.clear();
+      for (const shared of sharedSubscriptions.values()) {
+        const backing = shared.backing;
+        shared.backing = null;
+        if (backing !== null) {
+          void backing.then((subscription) => subscription.unsubscribe()).catch(() => null);
+        }
+      }
+      sharedSubscriptions.clear();
+      activeUsers.clear();
+      disposeUpstream();
+      stateListeners.clear();
+      failureListeners.clear();
+    },
   };
-}
-
-let defaultClient: UserStreamClient | null = null;
-
-function getDefaultClient(): UserStreamClient {
-  defaultClient ??= createUserStreamClient();
-  return defaultClient;
-}
-
-export function subscribeClearinghouseState(
-  user: string,
-  listener: (event: ClearinghouseStreamEvent) => void,
-): Promise<UserStreamSubscription> {
-  return getDefaultClient().subscribeClearinghouseState(user, listener);
-}
-
-export function subscribeSpotState(
-  user: string,
-  listener: (event: SpotStateStreamEvent) => void,
-): Promise<UserStreamSubscription> {
-  return getDefaultClient().subscribeSpotState(user, listener);
-}
-
-export function subscribeUserFills(
-  user: string,
-  listener: (event: UserFillsStreamEvent) => void,
-): Promise<UserStreamSubscription> {
-  return getDefaultClient().subscribeUserFills(user, listener);
-}
-
-export function subscribeOpenOrders(
-  user: string,
-  listener: (event: OpenOrdersStreamEvent) => void,
-): Promise<UserStreamSubscription> {
-  return getDefaultClient().subscribeOpenOrders(user, listener);
-}
-
-export function getUserStreamConnectionState(): UserStreamConnectionState {
-  return getDefaultClient().getConnectionState();
-}
-
-export function onUserStreamConnectionStateChange(
-  listener: (state: UserStreamConnectionState) => void,
-): () => void {
-  return getDefaultClient().onConnectionStateChange(listener);
 }

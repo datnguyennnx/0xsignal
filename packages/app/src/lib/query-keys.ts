@@ -30,6 +30,7 @@ export const queryKeys = {
 
   user: {
     all: ["user"] as const,
+    agentRegistrations: () => ["user", "agentRegistrations"] as const,
     clearinghouseState: (address: string) => ["user", "clearinghouseState", address] as const,
     spotClearinghouseState: (address: string) =>
       ["user", "spotClearinghouseState", address] as const,

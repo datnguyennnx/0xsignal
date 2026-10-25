@@ -10,6 +10,7 @@ import {
   getUserStreamConnectionState,
   mergeUserFills,
   onUserStreamConnectionStateChange,
+  reportUserStreamFailure,
   subscribeClearinghouseState,
   subscribeOpenOrders,
   subscribeSpotState,
@@ -18,7 +19,8 @@ import {
   type UserStreamConnectionState,
   type UserStreamEventMap,
   type UserStreamSubscription,
-} from "../lib/user-stream-client";
+} from "../lib/user-stream-default";
+import { createRestFallbackGate, type RestFallbackGate } from "../lib/rest-fallback-gate";
 
 const isPresent = (value: string | null | undefined): boolean =>
   value !== null && value !== undefined && value !== "";
@@ -89,8 +91,14 @@ function useUserStream<K extends UserStreamChannel>(
           setConfirmation({ user, confirmed: true });
           return true;
         })
-        .catch(() => {
-          if (!cancelled) setConfirmation({ user, confirmed: false });
+        .catch((error: unknown) => {
+          if (!cancelled) {
+            setConfirmation({ user, confirmed: false });
+            reportUserStreamFailure(
+              "subscribe-rejected",
+              error instanceof Error ? error.message : String(error),
+            );
+          }
           return false;
         });
     }
@@ -111,6 +119,34 @@ function useUserStream<K extends UserStreamChannel>(
   );
 }
 
+/**
+ * REST stays closed while the stream is racing to open, opens once the grace
+ * window expires with no confirmation, and opens immediately after a confirmed
+ * stream disconnects so an outage never leaves consumers on stale data.
+ */
+function useUserRestFallback(live: boolean, enabled: boolean, user: string): boolean {
+  const [allowed, setAllowed] = useState(false);
+  const gateRef = useRef<RestFallbackGate | null>(null);
+
+  useEffect(() => {
+    const gate = createRestFallbackGate(() => {
+      setAllowed(true);
+    });
+    gateRef.current = gate;
+    return () => {
+      gate.dispose();
+      gateRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!enabled || user === "") return;
+    gateRef.current?.setLive(live);
+  }, [enabled, user, live]);
+
+  return allowed;
+}
+
 export function useClearinghouseState(enabled: boolean = true) {
   const gate = useUserQueryGate(enabled);
   const queryClient = useQueryClient();
@@ -124,11 +160,12 @@ export function useClearinghouseState(enabled: boolean = true) {
       queryClient.setQueryData(key, event.data);
     },
   );
+  const restAllowed = useUserRestFallback(live, gate.enabled, gate.walletAddress);
 
   return useQuery({
     queryKey: key,
     queryFn: () => api.getUserClearinghouseState(gate.walletAddress),
-    enabled: gate.enabled,
+    enabled: gate.enabled && restAllowed,
     staleTime: live ? Infinity : 10 * 1000,
     refetchOnWindowFocus: !live,
   });
@@ -147,11 +184,12 @@ export function useSpotClearinghouseState(enabled: boolean = true) {
       queryClient.setQueryData<SpotClearinghouseState>(key, event.data);
     },
   );
+  const restAllowed = useUserRestFallback(live, gate.enabled, gate.walletAddress);
 
   return useQuery({
     queryKey: key,
     queryFn: () => api.getUserSpotClearinghouseState(gate.walletAddress),
-    enabled: gate.enabled,
+    enabled: gate.enabled && restAllowed,
     staleTime: live ? Infinity : 10 * 1000,
     refetchOnWindowFocus: !live,
   });
@@ -170,11 +208,12 @@ export function useOpenOrders(enabled: boolean = true) {
       queryClient.setQueryData<FrontendOpenOrder[]>(key, event.data);
     },
   );
+  const restAllowed = useUserRestFallback(live, gate.enabled, gate.walletAddress);
 
   return useQuery({
     queryKey: key,
     queryFn: () => api.getUserFrontendOpenOrders(gate.walletAddress),
-    enabled: gate.enabled,
+    enabled: gate.enabled && restAllowed,
     staleTime: live ? Infinity : 30 * 1000,
     refetchOnWindowFocus: !live,
   });
@@ -204,11 +243,12 @@ export function useUserFills(enabled: boolean = true) {
       queryClient.setQueryData<UserFill[]>(key, (previous) => mergeUserFills(previous, event));
     },
   );
+  const restAllowed = useUserRestFallback(live, gate.enabled, gate.walletAddress);
 
   return useQuery({
     queryKey: key,
     queryFn: () => api.getUserFills(gate.walletAddress),
-    enabled: gate.enabled,
+    enabled: gate.enabled && restAllowed,
     staleTime: live ? Infinity : 30 * 1000,
     refetchOnWindowFocus: !live,
   });

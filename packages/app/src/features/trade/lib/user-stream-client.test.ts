@@ -14,6 +14,7 @@ import {
   type UpstreamSubscription,
   type UserFillsStreamEvent,
   type UserStreamConnectionState,
+  type UserStreamFailure,
   type UserStreamUpstream,
 } from "./user-stream-client";
 
@@ -38,6 +39,8 @@ const flush = (): Promise<void> =>
 
 const noop = (): void => {};
 
+const failureKind = (failure: UserStreamFailure | null): string | null => failure?.kind ?? null;
+
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : "");
 
 class FakeUpstream implements UserStreamUpstream {
@@ -51,6 +54,7 @@ class FakeUpstream implements UserStreamUpstream {
   userFillsSubscribes = 0;
   unsubscribeCount = 0;
   disposed = false;
+  rejectUserFills = false;
 
   subscribeClearinghouseState(
     _user: string,
@@ -73,6 +77,7 @@ class FakeUpstream implements UserStreamUpstream {
     listener: (event: UserFillsStreamEvent) => void,
   ): Promise<UpstreamSubscription> {
     this.userFillsSubscribes += 1;
+    if (this.rejectUserFills) return Promise.reject(new Error("subscribe rejected"));
     this.fillsListeners.push(listener);
     return Promise.resolve(this.makeSubscription());
   }
@@ -220,5 +225,39 @@ describe("user-stream-client connection state", () => {
 
     subscription.unsubscribe();
     stop();
+  });
+});
+
+describe("user-stream-client failure model", () => {
+  test("a rejected subscribe is observable, not swallowed", async () => {
+    const upstream = new FakeUpstream();
+    upstream.rejectUserFills = true;
+    const client = makeClient(upstream);
+    const failures: Array<string | null> = [];
+    client.onFailureChange((failure) => {
+      failures.push(failureKind(failure));
+    });
+
+    const caught = await client
+      .subscribeUserFills(address(1), noop)
+      .then(() => null)
+      .catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(client.getLastFailure()?.kind).toBe("subscribe-rejected");
+    expect(failures).toEqual(["subscribe-rejected"]);
+  });
+
+  test("an empty user surfaces the typed auth-less failure", async () => {
+    const upstream = new FakeUpstream();
+    const client = makeClient(upstream);
+
+    const caught = await client
+      .subscribeClearinghouseState("", noop)
+      .then(() => null)
+      .catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(client.getLastFailure()?.kind).toBe("auth-required");
   });
 });

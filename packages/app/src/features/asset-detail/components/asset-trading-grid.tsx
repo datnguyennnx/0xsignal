@@ -6,6 +6,7 @@ import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
 import { PositionManagement } from "@/features/trade/components/position-management";
 import { OrderForm } from "@/features/trade/components/order-form";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
+import { UserStreamFailureAlert } from "@/features/trade/components/user-stream-failure-alert";
 import { DashboardGrid, DashboardPanel } from "./dashboard-grid";
 
 const TradingChart = lazy(() =>
@@ -117,6 +118,9 @@ export function AssetTradingGrid({
 
   return (
     <div ref={containerRef} className="container-query flex-1 min-h-0 flex flex-col">
+      <div className="flex items-center justify-end gap-2 pb-1">
+        <UserStreamFailureAlert />
+      </div>
       {isWide ? (
         /* ===== WIDE (container ≥ 80rem): layout-driven canvas =====
            Panels are absolutely placed inside a canvas whose height follows the row count,
