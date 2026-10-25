@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Cache, Effect } from "effect";
+import { TestClock } from "effect/testing";
 import type { HyperliquidInfoClient } from "../../../../integrations/hyperliquid/data-sources/types";
 import {
   getTickerSnapshot,
@@ -105,9 +106,32 @@ describe("ticker snapshot coalescing and TTL cache", () => {
     expect(await Effect.runPromise(Cache.has(cache, tickerSnapshotCacheKey("c:COIN")))).toBe(true);
   });
 
-  it("keeps the production bounds short and explicit", () => {
-    expect(TICKER_SNAPSHOT_TTL_MS).toBeGreaterThanOrEqual(250);
-    expect(TICKER_SNAPSHOT_TTL_MS).toBeLessThanOrEqual(1000);
+  it("serves a read 1s later from cache and rebuilds only past the 5s TTL", async () => {
+    const info = makeInfo();
+    const program = Effect.gen(function* () {
+      const cache = yield* Effect.provide(makeTickerSnapshotCache(info), rateLimiterUnlimited);
+
+      yield* readTickerSnapshot(cache, "BTC");
+      yield* TestClock.adjust("1 second");
+      yield* readTickerSnapshot(cache, "BTC");
+      const buildsAfterOneSecond = vi.mocked(info.metaAndAssetCtxs).mock.calls.length;
+
+      yield* TestClock.adjust("5 seconds");
+      yield* readTickerSnapshot(cache, "BTC");
+      return {
+        buildsAfterOneSecond,
+        buildsAfterSixSeconds: vi.mocked(info.metaAndAssetCtxs).mock.calls.length,
+      };
+    });
+
+    const builds = await Effect.runPromise(Effect.provide(program, TestClock.layer()));
+
+    expect(builds.buildsAfterOneSecond).toBe(1);
+    expect(builds.buildsAfterSixSeconds).toBe(2);
+  });
+
+  it("keeps the production bounds explicit", () => {
+    expect(TICKER_SNAPSHOT_TTL_MS).toBe(5_000);
     expect(TICKER_SNAPSHOT_CACHE_CAPACITY).toBeGreaterThan(0);
     expect(TICKER_SNAPSHOT_CACHE_CAPACITY).toBeLessThanOrEqual(256);
   });

@@ -41,12 +41,11 @@ import { withDedup } from "./request-dedup";
 const AGGREGATED_MARKETS_TTL_MS = 60_000;
 
 /**
- * Ticker snapshots are REST pictures, not the live feed: charts and the order
- * book stream over WS, and the app's price query carries a 60s staleTime.
- * 500ms collapses the widget burst on mount without letting a read observe a
- * pre-mutation book; post-mutation callers pass `{ fresh: true }`.
+ * Ticker snapshots are REST pictures, not the live feed: prices arrive on the
+ * WS `allMids` stream, so this only has to collapse a widget burst on mount.
+ * A read that must not observe a pre-mutation book passes `{ fresh: true }`.
  */
-export const TICKER_SNAPSHOT_TTL_MS = 500;
+export const TICKER_SNAPSHOT_TTL_MS = 5_000;
 
 /**
  * Keyed by upstream request set (all dexes, or one dex), so real cardinality is
