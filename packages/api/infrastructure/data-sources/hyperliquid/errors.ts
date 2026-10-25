@@ -7,6 +7,11 @@ export class HyperliquidError extends Data.TaggedError("HyperliquidError")<{
   readonly cause?: unknown;
 }> {}
 
+export class TickerSnapshotError extends Data.TaggedError("TickerSnapshotError")<{
+  readonly message: string;
+  readonly kind: "BAD_REQUEST" | "NOT_FOUND";
+}> {}
+
 /**
  * Detect 429 rate-limit errors from raw Promise rejection causes.
  */

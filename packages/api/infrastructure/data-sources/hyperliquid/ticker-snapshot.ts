@@ -1,5 +1,6 @@
+import { Result } from "effect";
 import { normalizeSymbol, parseSymbol } from "./symbol";
-import { HyperliquidError } from "./errors";
+import { TickerSnapshotError } from "./errors";
 import type { MarketAssetCtxItem, TickerPayload, TickerSnapshot } from "./types";
 
 const toNumberOrNull = (value: unknown): number | null => {
@@ -13,13 +14,16 @@ const toNumberOrNull = (value: unknown): number | null => {
   return null;
 };
 
-export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string): TickerPayload => {
+export const mapTickerFromSnapshot = (
+  snapshot: TickerSnapshot,
+  symbol: string,
+): Result.Result<TickerPayload, TickerSnapshotError> => {
   // Spot symbols not in perp universe. Return mid price from allMids,
   // set prevDayPx/dayNtlVlm to null (unknown) rather than 0 (misleading).
   if (parseSymbol(symbol).kind === "spot") {
     const spotMid = snapshot.allMids[symbol];
     const midPx = toNumberOrNull(spotMid) ?? 0;
-    return {
+    return Result.succeed({
       symbol,
       mid: midPx,
       markPx: midPx,
@@ -28,15 +32,17 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
       dayNtlVlm: null,
       openInterest: 0,
       funding: 0,
-    };
+    });
   }
 
   const normalizedSymbol = normalizeSymbol(symbol);
   if (!normalizedSymbol) {
-    throw new HyperliquidError({
-      message: "Symbol is required",
-      kind: "BAD_REQUEST",
-    });
+    return Result.fail(
+      new TickerSnapshotError({
+        message: "Symbol is required",
+        kind: "BAD_REQUEST",
+      }),
+    );
   }
 
   // Build lookup candidates:
@@ -61,10 +67,12 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
   const hasAllMidsSymbol = lookupSymbols.some((s) => typeof snapshot.allMids[s] === "string");
 
   if (!ctx && !hasAllMidsSymbol) {
-    throw new HyperliquidError({
-      message: `Symbol not found: ${symbol}`,
-      kind: "NOT_FOUND",
-    });
+    return Result.fail(
+      new TickerSnapshotError({
+        message: `Symbol not found: ${symbol}`,
+        kind: "NOT_FOUND",
+      }),
+    );
   }
 
   let fallbackMid: string | undefined;
@@ -74,7 +82,7 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
   const mid =
     toNumberOrNull(ctx?.midPx) ?? toNumberOrNull(ctx?.markPx) ?? toNumberOrNull(fallbackMid);
 
-  return {
+  return Result.succeed({
     symbol: normalizedSymbol,
     mid,
     markPx: toNumberOrNull(ctx?.markPx) ?? mid,
@@ -83,7 +91,7 @@ export const mapTickerFromSnapshot = (snapshot: TickerSnapshot, symbol: string):
     dayNtlVlm: toNumberOrNull(ctx?.dayNtlVlm),
     openInterest: toNumberOrNull(ctx?.openInterest) ?? 0,
     funding: toNumberOrNull(ctx?.funding) ?? 0,
-  };
+  });
 };
 
 export const isPerpSymbol = (snapshot: TickerSnapshot, symbol: string): boolean => {

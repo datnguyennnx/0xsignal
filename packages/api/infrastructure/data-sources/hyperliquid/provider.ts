@@ -2,7 +2,7 @@ import { Cache, Duration, Effect, Layer, Match, Ref, Schedule } from "effect";
 import { normalizeCandles, parseHlRawCandles, toHlInterval } from "./normalizer";
 import { normalizeSymbol } from "./symbol";
 import { HyperliquidClient } from "./client";
-import { HyperliquidError, toHyperliquidError } from "./errors";
+import { HyperliquidError, TickerSnapshotError, toHyperliquidError } from "./errors";
 import { HyperliquidProvider } from "./types";
 import type {
   Candle,
@@ -190,7 +190,17 @@ export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, H
             ),
 
           getTicker: (symbol, options?: TickerSnapshotReadOptions) =>
-            readSnapshot(symbol, options).pipe(Effect.map((s) => mapTickerFromSnapshot(s, symbol))),
+            readSnapshot(symbol, options).pipe(
+              // The port declares HyperliquidError, so the snapshot error is translated here
+              // instead of widening the port (that widening ripples into the layer adapter).
+              Effect.flatMap((s) =>
+                Effect.fromResult(mapTickerFromSnapshot(s, symbol)).pipe(
+                  Effect.mapError(
+                    (error) => new HyperliquidError({ message: error.message, kind: error.kind }),
+                  ),
+                ),
+              ),
+            ),
 
           getOrderBook: (symbol, depth) =>
             Effect.gen(function* () {
@@ -300,12 +310,12 @@ export const getAllMids = (): Effect.Effect<
 
 export const getTicker = (
   symbol: string,
-): Effect.Effect<TickerPayload, HyperliquidError, HyperliquidClient> =>
+): Effect.Effect<TickerPayload, HyperliquidError | TickerSnapshotError, HyperliquidClient> =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
     const hlInfo = toHyperliquidInfoClient(info);
     const snapshot = yield* getTickerSnapshot(hlInfo);
-    return mapTickerFromSnapshot(snapshot, symbol);
+    return yield* Effect.fromResult(mapTickerFromSnapshot(snapshot, symbol));
   });
 
 export const getOrderBook = (

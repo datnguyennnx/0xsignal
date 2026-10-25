@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { Effect } from "effect";
+import { Effect, Option, Result } from "effect";
 import { getTickerSnapshot } from "../mapping";
 import {
   mapTickerFromSnapshot,
@@ -14,6 +14,14 @@ import type {
   SpotTradeAsset,
   TickerSnapshot,
 } from "../types";
+
+const failureOf = <A, E>(result: Result.Result<A, E>): E =>
+  Option.getOrThrow(
+    Result.match(result, {
+      onSuccess: () => Option.none<E>(),
+      onFailure: (error) => Option.some(error),
+    }),
+  );
 
 const baseAsset = (coin: string, rawCoin: string, dexPrefix: string | null, dayNtlVlm: string) => ({
   coin,
@@ -48,14 +56,16 @@ describe("Hyperliquid Mapping", () => {
     } satisfies TickerSnapshot;
 
     it("should map standard perp ticker correctly", () => {
-      const result = mapTickerFromSnapshot(mockSnapshot, "BTC");
+      const result = Result.getOrThrow(mapTickerFromSnapshot(mockSnapshot, "BTC"));
       expect(result.symbol).toBe("BTC");
       expect(result.mid).toBe(50000);
       expect(result.markPx).toBe(50005);
     });
 
-    it("should throw NOT_FOUND for unknown symbol", () => {
-      expect(() => mapTickerFromSnapshot(mockSnapshot, "UNKNOWN")).toThrow(/Symbol not found/);
+    it("should fail with NOT_FOUND for unknown symbol", () => {
+      const error = failureOf(mapTickerFromSnapshot(mockSnapshot, "UNKNOWN"));
+      expect(error).toMatchObject({ _tag: "TickerSnapshotError", kind: "NOT_FOUND" });
+      expect(error.message).toMatch(/Symbol not found/);
     });
   });
 
