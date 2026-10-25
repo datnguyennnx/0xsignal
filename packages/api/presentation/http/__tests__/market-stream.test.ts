@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Deferred, Effect, Option, Ref, Scope } from "effect";
+import { Deferred, Effect, Option, Predicate, Ref, Scope } from "effect";
 import type { ServerWebSocket, ServerWebSocketSendStatus, WebSocketReadyState } from "bun";
 import {
   type ISubscription,
@@ -10,6 +10,7 @@ import { buildMarketWsBucketKey } from "../../../infrastructure/streams/hyperliq
 import { parseMarketWsSubscription } from "../ws/subscription-parser";
 import {
   detachClient,
+  type MarketStreamError,
   MarketStreamHub,
   type Bucket,
   type MarketWsConnectionData,
@@ -680,6 +681,23 @@ describe("Market WS hub lifecycle", () => {
 
     expect(transportClosed).toBe(true);
   });
+
+  it("surfaces a send failure as a MarketStreamError", async () => {
+    const harness = makeTestHarness();
+
+    const program = Effect.gen(function* () {
+      const hub = yield* MarketStreamHub;
+      const ws = new StubSocket(hub.createConnectionData(), () => {
+        throw new Error("socket gone");
+      });
+
+      const error = yield* hub.handleOpen(ws).pipe(Effect.flip);
+      expect(Predicate.isTagged(error, "MarketStreamError")).toBe(true);
+      expect(error.code).toBe("SEND_FAILED");
+    });
+
+    await Effect.runPromise(Effect.provide(program, harness.layer));
+  });
 });
 
 const makePerpAsset = (rawCoin: string) => ({
@@ -788,7 +806,7 @@ type SubscriptionFrameHub = {
   readonly handleMessage: (
     ws: ServerWebSocket<MarketWsConnectionData>,
     raw: string | Uint8Array,
-  ) => Effect.Effect<void>;
+  ) => Effect.Effect<void, MarketStreamError>;
 };
 
 const sendSubscriptionFrame = (
@@ -796,9 +814,13 @@ const sendSubscriptionFrame = (
   ws: StubSocket,
   type: "subscribe" | "unsubscribe",
   subscription: MarketWsSubscription,
-): Effect.Effect<void> => hub.handleMessage(ws, JSON.stringify({ type, subscription }));
+): Effect.Effect<void, MarketStreamError> =>
+  hub.handleMessage(ws, JSON.stringify({ type, subscription }));
 
-const subscribeAll = (hub: SubscriptionFrameHub, ws: StubSocket): Effect.Effect<void> =>
+const subscribeAll = (
+  hub: SubscriptionFrameHub,
+  ws: StubSocket,
+): Effect.Effect<void, MarketStreamError> =>
   Effect.gen(function* () {
     for (const subscription of MULTI_SUBSCRIPTIONS) {
       yield* sendSubscriptionFrame(hub, ws, "subscribe", subscription);

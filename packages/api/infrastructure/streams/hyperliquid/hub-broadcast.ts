@@ -1,4 +1,6 @@
 import type { ServerWebSocket } from "bun";
+import { Effect } from "effect";
+import { MarketStreamError } from "../../../application/market-data/market-stream.contracts";
 import { type Bucket, type MarketWsConnectionData } from "./hub-types";
 
 /**
@@ -34,6 +36,23 @@ export function broadcast(
 export function send(ws: ServerWebSocket<MarketWsConnectionData>, payload: unknown) {
   ws.send(JSON.stringify(payload));
 }
+
+/** Synchronous sends throw on a dead peer; surface that as a typed port error. */
+export const sendFrame = (
+  ws: ServerWebSocket<MarketWsConnectionData>,
+  payload: unknown,
+): Effect.Effect<void, MarketStreamError> =>
+  Effect.try({
+    try: () => {
+      send(ws, payload);
+    },
+    catch: (cause) =>
+      new MarketStreamError({
+        message: cause instanceof Error ? cause.message : "socket send failed",
+        code: "SEND_FAILED",
+        cause,
+      }),
+  });
 
 export function toText(raw: string | Buffer | Uint8Array): string {
   if (typeof raw === "string") return raw;

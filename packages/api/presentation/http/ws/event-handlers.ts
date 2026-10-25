@@ -1,6 +1,7 @@
 import type { ServerWebSocket } from "bun";
 import { Effect, Exit, Scope } from "effect";
 import type {
+  MarketStreamError,
   MarketStreamHubPort,
   MarketWsConnectionData,
 } from "../../../application/market-data/market-stream.contracts";
@@ -49,10 +50,23 @@ export const createWsEventHandlers = (marketStreamHub: MarketStreamHubPort) => {
     if (ws.readyState === 1) ws.terminate();
   };
 
-  const dispatch = (ws: MarketWs, effect: Effect.Effect<void>, reason: string): void => {
+  const dispatch = (
+    ws: MarketWs,
+    effect: Effect.Effect<void, MarketStreamError>,
+    reason: string,
+  ): void => {
     const connection = connections.get(ws);
     const program = connection === undefined ? effect : Scope.provide(connection.scope)(effect);
-    Effect.runPromise(program).catch((err) => {
+    // The socket callback cannot return an error, so a typed port failure is
+    // logged and terminated here instead of escaping the handler.
+    const handled = program.pipe(
+      Effect.catchTag("MarketStreamError", (error) =>
+        Effect.sync(() => {
+          fail(ws, reason, error);
+        }),
+      ),
+    );
+    Effect.runPromise(handled).catch((err) => {
       fail(ws, reason, err);
     });
   };

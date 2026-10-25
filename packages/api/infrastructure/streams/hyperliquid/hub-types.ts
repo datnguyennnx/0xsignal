@@ -14,7 +14,10 @@ export type {
   MarketWsConnectionSubscription,
   MarketWsSubscription,
 } from "../../../application/market-data/market-stream.contracts";
-export { MarketStreamHub } from "../../../application/market-data/market-stream.contracts";
+export {
+  MarketStreamHub,
+  MarketStreamError,
+} from "../../../application/market-data/market-stream.contracts";
 
 export const normalizeMarketWsSubscription = (
   subscription: MarketWsSubscription,

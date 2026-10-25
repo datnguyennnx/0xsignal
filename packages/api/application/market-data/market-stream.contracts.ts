@@ -1,6 +1,13 @@
 import type { ServerWebSocket } from "bun";
-import { Context, type Effect, type Ref } from "effect";
+import { Context, Data, type Effect, type Ref } from "effect";
 import type { WsMarketChannel, WsMarketInterval } from "@0xsignal/shared";
+
+/** A WS port call failed after the connection was accepted. */
+export class MarketStreamError extends Data.TaggedError("MarketStreamError")<{
+  readonly message: string;
+  readonly code: "SEND_FAILED";
+  readonly cause?: unknown;
+}> {}
 
 export type MarketWsSubscription = {
   readonly channel: WsMarketChannel;
@@ -27,12 +34,16 @@ export type MarketWsConnectionData = {
 
 export interface MarketStreamHubPort {
   readonly createConnectionData: (initial?: MarketWsSubscription) => MarketWsConnectionData;
-  readonly handleOpen: (ws: ServerWebSocket<MarketWsConnectionData>) => Effect.Effect<void>;
-  readonly handleClose: (ws: ServerWebSocket<MarketWsConnectionData>) => Effect.Effect<void>;
+  readonly handleOpen: (
+    ws: ServerWebSocket<MarketWsConnectionData>,
+  ) => Effect.Effect<void, MarketStreamError>;
+  readonly handleClose: (
+    ws: ServerWebSocket<MarketWsConnectionData>,
+  ) => Effect.Effect<void, MarketStreamError>;
   readonly handleMessage: (
     ws: ServerWebSocket<MarketWsConnectionData>,
     raw: string | Buffer | Uint8Array,
-  ) => Effect.Effect<void>;
+  ) => Effect.Effect<void, MarketStreamError>;
 }
 
 export class MarketStreamHub extends Context.Service<MarketStreamHub, MarketStreamHubPort>()(

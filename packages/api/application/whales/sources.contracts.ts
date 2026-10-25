@@ -1,13 +1,26 @@
-import { Context, type Effect, type Stream } from "effect";
+import { Context, Data, type Effect, type Stream } from "effect";
 import type { WhaleLeaderboardRow, WhalePosition, WhaleTrade } from "@0xsignal/shared";
 
-/** The minimum an upstream failure must expose: the application only logs it. */
-interface WhaleSourceFailure {
+export type WhaleSourceKind = "trade-stream" | "position-poller" | "leaderboard";
+
+/** An upstream whale source failed for a reason other than rate limiting. */
+export class WhaleSourceUnavailableError extends Data.TaggedError("WhaleSourceUnavailableError")<{
   readonly message: string;
-}
+  readonly source: WhaleSourceKind;
+  readonly cause?: unknown;
+}> {}
+
+/** An upstream whale source refused the call because its rate budget is spent. */
+export class WhaleSourceRateLimitedError extends Data.TaggedError("WhaleSourceRateLimitedError")<{
+  readonly message: string;
+  readonly source: WhaleSourceKind;
+  readonly cause?: unknown;
+}> {}
+
+export type WhaleSourceError = WhaleSourceUnavailableError | WhaleSourceRateLimitedError;
 
 interface WhaleTradeStreamPort {
-  readonly trades: () => Stream.Stream<WhaleTrade, WhaleSourceFailure>;
+  readonly trades: () => Stream.Stream<WhaleTrade, WhaleSourceError>;
 }
 
 interface WhalePositionPollerPort {
@@ -17,15 +30,12 @@ interface WhalePositionPollerPort {
       /** Addresses fetched successfully; a wallet that failed is absent. */
       readonly succeededAddresses: readonly string[];
     },
-    WhaleSourceFailure
+    WhaleSourceError
   >;
 }
 
 interface WhaleLeaderboardPort {
-  readonly fetchLeaderboard: () => Effect.Effect<
-    readonly WhaleLeaderboardRow[],
-    WhaleSourceFailure
-  >;
+  readonly fetchLeaderboard: () => Effect.Effect<readonly WhaleLeaderboardRow[], WhaleSourceError>;
 }
 
 /** Every upstream a whale ingest pass can read from. */

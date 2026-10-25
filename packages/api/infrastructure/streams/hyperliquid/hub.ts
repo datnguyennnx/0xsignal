@@ -20,7 +20,7 @@ import { marketWsLog } from "./logging";
 import { buildMarketWsBucketKey } from "./bucket-key";
 import { HyperliquidProvider } from "../../data-sources/hyperliquid/types";
 import { subscribeUpstream } from "./hub-subscription";
-import { send, toText } from "./hub-broadcast";
+import { send, sendFrame, toText } from "./hub-broadcast";
 import { parseMarketWsFrame } from "../../../application/market-data/subscription-parser";
 
 const MAX_RESTART_RETRIES = 3;
@@ -208,14 +208,14 @@ export const makeMarketStreamHubLayer = (
 
               if (entries.length === 0) {
                 const now = yield* Clock.currentTimeMillis;
-                send(ws, { type: "ready", connectionId: ws.data.id, timestamp: now });
+                yield* sendFrame(ws, { type: "ready", connectionId: ws.data.id, timestamp: now });
                 return;
               }
 
               const [first, ...rest] = entries;
               const joined = yield* joinBucket(ws, first.subscription, first.bucketKey);
               const now = yield* Clock.currentTimeMillis;
-              send(ws, {
+              yield* sendFrame(ws, {
                 type: "ready",
                 subscription: joined.bucket.subscription,
                 connectionId: ws.data.id,
@@ -243,7 +243,7 @@ export const makeMarketStreamHubLayer = (
               const payload = toText(raw).trim();
               if (payload === "ping") {
                 const now = yield* Clock.currentTimeMillis;
-                send(ws, { type: "pong", timestamp: now });
+                yield* sendFrame(ws, { type: "pong", timestamp: now });
                 return;
               }
               if (payload.length === 0) return;
@@ -251,7 +251,7 @@ export const makeMarketStreamHubLayer = (
               const frame = parseMarketWsFrame(payload);
               if (frame.kind === "unsupported") {
                 const now = yield* Clock.currentTimeMillis;
-                send(ws, {
+                yield* sendFrame(ws, {
                   type: "error",
                   code: "unsupported_message",
                   message: "Only ping, subscribe, and unsubscribe messages are supported.",
@@ -262,7 +262,7 @@ export const makeMarketStreamHubLayer = (
 
               if (frame.kind === "invalid_subscription") {
                 const now = yield* Clock.currentTimeMillis;
-                send(ws, {
+                yield* sendFrame(ws, {
                   type: "error",
                   code: "invalid_subscription",
                   message: frame.message,
@@ -278,7 +278,7 @@ export const makeMarketStreamHubLayer = (
                 yield* addMarketWsConnectionSubscription(ws.data.subscriptions, subscription, key);
                 const joined = yield* joinBucket(ws, subscription, key);
                 if (joined.created) yield* startBucket(joined.bucket);
-                send(ws, { type: "subscribed", subscription });
+                yield* sendFrame(ws, { type: "subscribed", subscription });
                 return;
               }
 
@@ -287,7 +287,7 @@ export const makeMarketStreamHubLayer = (
                 key,
               );
               if (released) yield* releaseClient(ws, key);
-              send(ws, { type: "unsubscribed", subscription });
+              yield* sendFrame(ws, { type: "unsubscribed", subscription });
             }),
         });
 
