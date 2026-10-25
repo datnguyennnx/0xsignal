@@ -215,6 +215,9 @@ export function subscribeUpstream(
               const combinedSnapshot: {
                 current: { levels: [L2Level[], L2Level[]] } | null;
               } = { current: null };
+              // Scratch space owned by this subscription so two l2Book buckets
+              // can never interleave their delta computation.
+              const deltaScratch = new Map<string, L2Level>();
 
               /**
                * Merge the latest fast and slow snapshots, then broadcast
@@ -228,7 +231,7 @@ export function subscribeUpstream(
                 if (combinedSnapshot.current) {
                   // Compute delta against current combined snapshot
                   const prev = combinedSnapshot.current;
-                  const delta = computeL2BookDelta(prev, { levels: merged });
+                  const delta = computeL2BookDelta(prev, { levels: merged }, deltaScratch);
 
                   if (delta.replace) {
                     // >50% of visible levels changed — broadcast full snapshot replacement
@@ -419,29 +422,24 @@ export function subscribeUpstream(
 }
 
 /**
- * Reusable Map for delta computation to avoid GC pressure on every tick.
- * Safe because all calls are serial on the same event loop (single subscription callback).
- */
-const deltaMap = new Map<string, L2Level>();
-
-/**
  * Compute an L2 orderbook delta between two snapshots.
  * Returns only the levels that changed (price, size changes or new levels).
  * If >50% of visible levels changed, sends a full snapshot replacement marker.
  *
- * Optimized for zero GC allocation in the common case (few changed levels).
- * Reuses a single Map across calls instead of allocating per tick.
+ * Optimized for zero GC allocation in the common case (few changed levels):
+ * the caller passes a scratch Map that is reused across ticks.
  */
 function computeL2BookDelta(
   prev: { levels: readonly [L2Level[], L2Level[]] },
   curr: { levels: readonly [L2Level[], L2Level[]] },
+  scratch: Map<string, L2Level>,
 ): {
   changedBids: readonly L2Level[];
   changedAsks: readonly L2Level[];
   replace: boolean;
 } {
-  const changedBids = computeLevelChanges(prev.levels[0], curr.levels[0]);
-  const changedAsks = computeLevelChanges(prev.levels[1], curr.levels[1]);
+  const changedBids = computeLevelChanges(prev.levels[0], curr.levels[0], scratch);
+  const changedAsks = computeLevelChanges(prev.levels[1], curr.levels[1], scratch);
 
   const totalBids = Math.max(prev.levels[0].length, 1);
   const totalAsks = Math.max(prev.levels[1].length, 1);
@@ -456,39 +454,40 @@ function computeL2BookDelta(
 
 /**
  * Compute which levels changed between two level arrays.
- * Reuses a shared Map to avoid per-call GC pressure.
+ * Reuses the caller's scratch Map to avoid per-call GC pressure.
  * O(n) — single pass per array.
  */
 function computeLevelChanges(
   prev: readonly L2Level[],
   curr: readonly L2Level[],
+  scratch: Map<string, L2Level>,
 ): readonly L2Level[] {
   // Early exit — no prev data
   if (prev.length === 0) {
     return curr.slice();
   }
 
-  deltaMap.clear();
+  scratch.clear();
 
   // Index prev levels by price
   for (const level of prev) {
-    deltaMap.set(level.px, level);
+    scratch.set(level.px, level);
   }
 
   const changed: L2Level[] = [];
 
   // Compare current levels against prev — single pass
   for (const level of curr) {
-    const prevLevel = deltaMap.get(level.px);
+    const prevLevel = scratch.get(level.px);
     if (!prevLevel || prevLevel.sz !== level.sz) {
       changed.push(level);
     }
-    deltaMap.delete(level.px);
+    scratch.delete(level.px);
   }
 
   // Remaining entries in the map are deleted levels — include with sz="0"
-  if (deltaMap.size > 0) {
-    for (const [, level] of deltaMap) {
+  if (scratch.size > 0) {
+    for (const [, level] of scratch) {
       changed.push({ px: level.px, sz: "0", n: 0 });
     }
   }
