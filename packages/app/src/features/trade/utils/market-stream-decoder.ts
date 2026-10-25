@@ -59,7 +59,7 @@ type DecodedMessage =
       meta?: MarketStreamMeta | undefined;
     };
 
-const CHANNELS: readonly WsMarketChannel[] = ["candle", "l2Book", "trades", "allMids"];
+const CHANNELS: readonly WsMarketChannel[] = ["candle", "l2Book", "allMids"];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -293,23 +293,18 @@ export function decodeMarketWsMessage(
     };
   }
 
-  // trades / allMids — passthrough
+  // allMids — passthrough
   return { kind: "market", channel, payload: rootPayload };
 }
 
-// ── Payload unwrappers (trades, tickers) ────────────────────────────
-
-const unwrapTradePayload = (value: unknown): unknown => {
-  if (!isRecord(value)) return value;
-  return value.tradeAnnotation ?? value.annotation ?? value;
-};
+// ── Payload unwrapper (tickers) ─────────────────────────────────────
 
 const unwrapTickerPayload = (value: unknown): unknown => {
   if (!isRecord(value)) return value;
   return value.ticker ?? value.allMids ?? value.mids ?? value;
 };
 
-export { unwrapTradePayload, unwrapTickerPayload };
+export { unwrapTickerPayload };
 
 export const convertToCandlePayload = (value: unknown): ChartDataPoint[] => {
   // Single-pass: no intermediate filter/map arrays. Collect raw items first,

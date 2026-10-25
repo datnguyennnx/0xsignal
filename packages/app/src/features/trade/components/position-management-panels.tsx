@@ -47,9 +47,8 @@ export function PositionManagementPanels({
       <TabsContent
         value="positions"
         className={`flex-1 min-h-0 data-active:flex data-active:flex-col${
-          signingDisabled && !readOnly ? " pointer-events-none opacity-60" : ""
+          signingDisabled && !readOnly ? " opacity-60" : ""
         }`}
-        title={signingDisabled && !readOnly ? "Connect a wallet to trade" : undefined}
       >
         <PositionsTab
           positions={positions}
@@ -72,9 +71,8 @@ export function PositionManagementPanels({
       <TabsContent
         value="open-orders"
         className={`flex-1 min-h-0 data-active:flex data-active:flex-col${
-          signingDisabled && !readOnly ? " pointer-events-none opacity-60" : ""
+          signingDisabled && !readOnly ? " opacity-60" : ""
         }`}
-        title={signingDisabled && !readOnly ? "Connect a wallet to trade" : undefined}
       >
         <OpenOrdersTab
           readOnlyAddress={readOnlyAddress}

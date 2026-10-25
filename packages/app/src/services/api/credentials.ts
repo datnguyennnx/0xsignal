@@ -26,3 +26,16 @@ export function createWallet(params: { walletAddress: string; label?: string }) 
     }),
   });
 }
+
+export interface AgentRegistration {
+  readonly agentAddress: string;
+  readonly label?: string;
+  readonly expiresAt?: string;
+  readonly isVerified: boolean;
+  readonly createdAt: string;
+  readonly status: "active" | "expired";
+}
+
+export function listAgentRegistrations() {
+  return fetchJson<AgentRegistration[]>(`${API_BASE}/wallets/agent-registrations`);
+}

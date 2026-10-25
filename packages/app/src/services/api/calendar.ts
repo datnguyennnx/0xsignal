@@ -12,7 +12,3 @@ export function getCalendar(q: CalendarQuery): Promise<CalendarApiResponse> {
   const qs = query.toString();
   return fetchJson<CalendarApiResponse>(`${API_BASE}/calendar?${qs}`);
 }
-
-export function getUpcomingCalendar(hours: number): Promise<CalendarApiResponse> {
-  return fetchJson<CalendarApiResponse>(`${API_BASE}/calendar/upcoming?hours=${hours}`);
-}

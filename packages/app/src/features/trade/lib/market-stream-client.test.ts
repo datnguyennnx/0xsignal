@@ -271,10 +271,10 @@ describe("market-stream-client reconnect", () => {
 
     const client = createMarketStreamClient();
     const candle = makeCallbacks("candle");
-    const trades = makeCallbacks("trades");
+    const mids = makeCallbacks("allMids");
 
     await subscribe(client, { channel: "candle", symbol: "BTC", interval: "1m" }, candle.callbacks);
-    await subscribe(client, { channel: "trades", symbol: "ETH" }, trades.callbacks);
+    await subscribe(client, { channel: "allMids" }, mids.callbacks);
 
     const first = sockets[0];
     first?.open();
@@ -290,19 +290,19 @@ describe("market-stream-client reconnect", () => {
 
     expect(second?.sent).toEqual([
       { type: "subscribe", subscription: { channel: "candle", symbol: "BTC", interval: "1m" } },
-      { type: "subscribe", subscription: { channel: "trades", symbol: "ETH" } },
+      { type: "subscribe", subscription: { channel: "allMids" } },
     ]);
 
     const reconnectStart = log.indexOf("candle:connected:false");
     expect(log.slice(reconnectStart)).toEqual([
       "candle:connected:false",
-      "trades:connected:false",
+      "allMids:connected:false",
       "send:subscribe:candle",
-      "send:subscribe:trades",
+      "send:subscribe:allMids",
       "candle:connected:true",
-      "trades:connected:true",
+      "allMids:connected:true",
       "candle:reconnect",
-      "trades:reconnect",
+      "allMids:reconnect",
     ]);
   });
 });

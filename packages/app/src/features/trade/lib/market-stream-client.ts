@@ -5,7 +5,6 @@ import type { WsMarketSubscription } from "@0xsignal/shared";
 import {
   decodeMarketWsMessage,
   convertToCandlePayload,
-  unwrapTradePayload,
   unwrapTickerPayload,
   type MarketStreamMeta,
 } from "../utils/market-stream-decoder";
@@ -77,7 +76,6 @@ interface MarketStreamCallbacks {
 const toWireSubscription = (subscription: WsMarketSubscription): WsMarketSubscription => {
   const symbol = normalizeSymbol(subscription.symbol ?? "");
   if (subscription.channel === "allMids") return { channel: "allMids" };
-  if (subscription.channel === "trades") return { channel: "trades", symbol };
   if (subscription.channel === "l2Book") {
     return {
       channel: "l2Book",
@@ -91,7 +89,6 @@ const toWireSubscription = (subscription: WsMarketSubscription): WsMarketSubscri
 /** Mirrors the server bucket key so duplicate identities share one refcount. */
 const buildSubscriptionKey = (subscription: WsMarketSubscription): string => {
   if (subscription.channel === "allMids") return "allMids";
-  if (subscription.channel === "trades") return `trades:${subscription.symbol ?? ""}`;
   if (subscription.channel === "l2Book") {
     return `l2Book:${subscription.symbol ?? ""}:${subscription.nSigFigs ?? "raw"}`;
   }
@@ -167,11 +164,6 @@ const deliverMarketMessage = (
 ): void => {
   if (decoded.channel === "l2Book") {
     callbacks.onMessage(decoded.payload, "l2Book", decoded.meta);
-    return;
-  }
-
-  if (decoded.channel === "trades") {
-    callbacks.onMessage(unwrapTradePayload(decoded.payload), "trades");
     return;
   }
 
@@ -392,8 +384,8 @@ export interface MarketStreamClient {
 export function createMarketStreamClient(): MarketStreamClient {
   return {
     subscribe: (subscription, callbacks) => {
-      // Only default interval for candle channel — l2Book, trades, and allMids
-      // must not carry an interval param (the backend rejects l2Book with interval).
+      // Only default interval for candle channel — l2Book and allMids must not
+      // carry an interval param (the backend rejects l2Book with interval).
       const normalizedSubscription =
         subscription.channel === "candle"
           ? { ...subscription, interval: mapToHLInterval(subscription.interval ?? "1m") }
