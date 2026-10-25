@@ -1,13 +1,25 @@
-import { Effect, Option } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { HealthService } from "../../application/health";
 import { MarketDataService } from "../../application/market-data/contracts";
 import { UserDataService } from "../../application/user-data/contracts";
 import { ExchangeService } from "../../application/exchange/contracts";
 import { CalendarService } from "../../application/calendar/contracts";
 import { WhaleService } from "../../application/whales/contracts";
-import type { HttpError } from "./error-response";
+import { asHttpError, errorResponse, type HttpError } from "./error-response";
 import { json, routes } from "./route-table";
 import type { HttpRequestServices } from "./route-contracts";
+
+const HttpErrorSchema = Schema.Struct({
+  status: Schema.Int,
+  message: Schema.String,
+  code: Schema.optional(Schema.String),
+  retryable: Schema.Boolean,
+});
+
+const decodeHttpError = Schema.decodeUnknownOption(HttpErrorSchema, { onExcessProperty: "error" });
+
+const internalErrorResponse = (): Response =>
+  errorResponse(asHttpError(500, "Internal server error"), {});
 
 const matchPath = (pattern: string, path: string): boolean => {
   if (pattern === path) return true;
@@ -55,12 +67,18 @@ export const handleRequest = (
       whale,
     );
   }).pipe(
-    Effect.catch((error: HttpError) => {
-      const body: Record<string, unknown> = { error: error.message };
-      if (error.code !== undefined && error.code !== "") {
-        body.code = error.code;
+    Effect.catch((error: unknown) => {
+      const decoded = decodeHttpError(error);
+      if (Option.isNone(decoded)) {
+        return Effect.succeed(internalErrorResponse());
       }
-      return Effect.succeed(json(body, error.status));
+
+      const httpError: HttpError = decoded.value;
+      const body: Record<string, unknown> = { error: httpError.message };
+      if (httpError.code !== undefined && httpError.code !== "") {
+        body.code = httpError.code;
+      }
+      return Effect.succeed(json(body, httpError.status));
     }),
   );
 };
