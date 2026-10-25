@@ -1,5 +1,10 @@
 /// <reference lib="es2023.array" />
-import { asRecord, isUnknownArray, numberAt, stringAt } from "../parse-utils";
+import {
+  asRecord,
+  isUnknownArray,
+  numberAt,
+  stringAt,
+} from "../../../infrastructure/data-sources/parse-utils";
 import type {
   HyperliquidAggregatedAsset,
   MarketAssetCtxItem,

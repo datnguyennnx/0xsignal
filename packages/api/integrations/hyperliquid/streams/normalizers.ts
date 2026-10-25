@@ -5,7 +5,7 @@
  * by short-circuiting common payload shapes.
  */
 
-import { asRecord, isUnknownArray } from "../../data-sources/parse-utils";
+import { asRecord, isUnknownArray } from "../../../infrastructure/data-sources/parse-utils";
 
 const isRecord = (value: unknown): value is Record<string, unknown> => asRecord(value) !== null;
 

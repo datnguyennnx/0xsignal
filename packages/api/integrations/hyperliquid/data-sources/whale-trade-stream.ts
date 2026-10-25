@@ -3,7 +3,7 @@ import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
 import type { ISubscription } from "@nktkas/hyperliquid";
 import type { TradesEvent } from "@nktkas/hyperliquid/api/subscription";
 import type { WhaleSide, WhaleTrade } from "@0xsignal/shared";
-import { WhaleConfig } from "../../config/whale.config";
+import { WhaleConfig } from "../../../infrastructure/config/whale.config";
 import { BoundedTidSet } from "./bounded-tid-set";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 

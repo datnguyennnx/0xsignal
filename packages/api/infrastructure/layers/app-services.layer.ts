@@ -17,8 +17,8 @@ import {
 } from "../../application/market-data/contracts";
 import { UserDataService } from "../../application/user-data/contracts";
 import { ExchangeService } from "../../application/exchange/contracts";
-import { exchangeCredentialsLayer } from "../data-sources/hyperliquid/exchange-credentials";
-import type { HyperliquidClient } from "../data-sources/hyperliquid/client";
+import { exchangeCredentialsLayer } from "../../integrations/hyperliquid/data-sources/exchange-credentials";
+import type { HyperliquidClient } from "../../integrations/hyperliquid/data-sources/client";
 
 // The merged layer's provided services are named by their public API so the
 // declaration stays portable; requirements are the infra the auth layer needs.

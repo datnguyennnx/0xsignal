@@ -6,7 +6,7 @@ import type {
   MarketWsConnectionSubscription,
   MarketWsSubscription,
 } from "../../../application/market-data/market-stream.contracts";
-import { normalizeSymbol } from "../../data-sources/hyperliquid/symbol";
+import { normalizeSymbol } from "../data-sources/symbol";
 import { marketWsLog } from "./logging";
 
 export type {

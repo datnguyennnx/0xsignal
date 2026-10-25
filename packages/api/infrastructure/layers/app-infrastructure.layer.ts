@@ -9,8 +9,8 @@ import { postgresConnectionPoolLayer } from "../db/postgres/client";
 import {
   credentialVerifierLayer,
   hyperliquidClientLayer,
-} from "../data-sources/hyperliquid/client";
-import { MarketStreamHubLayer } from "../streams/hyperliquid/hub";
+} from "../../integrations/hyperliquid/data-sources/client";
+import { MarketStreamHubLayer } from "../../integrations/hyperliquid/streams/hub";
 
 // marketRemoteProviderLayer is provided once here so both MarketStreamHubLayer
 // and marketCandleStoreLayer resolve MarketRemoteProvider from the same instance.

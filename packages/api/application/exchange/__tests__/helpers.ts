@@ -4,7 +4,7 @@ import { HttpTransport, InfoClient, type ExchangeClient } from "@nktkas/hyperliq
 import { HyperliquidClient } from "../../hyperliquid/contracts";
 import { ExchangeService } from "../contracts";
 import { exchangeServiceLayer } from "../service";
-import { exchangeCredentialsLayer } from "../../../infrastructure/data-sources/hyperliquid/exchange-credentials";
+import { exchangeCredentialsLayer } from "../../../integrations/hyperliquid/data-sources/exchange-credentials";
 import {
   HyperliquidValidationError,
   InsufficientMarginError,

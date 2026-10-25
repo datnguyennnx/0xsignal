@@ -1,8 +1,8 @@
 import { Effect, Layer, Match } from "effect";
 import { MarketRemoteProvider, MarketProviderError } from "../../application/market-data/contracts";
-import { hyperliquidProviderLayer } from "../data-sources/hyperliquid/provider";
-import { HyperliquidProvider } from "../data-sources/hyperliquid/types";
-import { HyperliquidError } from "../data-sources/hyperliquid/errors";
+import { hyperliquidProviderLayer } from "../../integrations/hyperliquid/data-sources/provider";
+import { HyperliquidProvider } from "../../integrations/hyperliquid/data-sources/types";
+import { HyperliquidError } from "../../integrations/hyperliquid/data-sources/errors";
 
 const mapHyperliquidError = (e: HyperliquidError): MarketProviderError =>
   new MarketProviderError({

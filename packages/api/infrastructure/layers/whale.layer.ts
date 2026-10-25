@@ -3,7 +3,7 @@ import { WhaleService } from "../../application/whales/contracts";
 import { whaleServiceLayer } from "../../application/whales/service";
 import { WhaleConfig, WhaleConfigLayer } from "../config/whale.config";
 import { asRecord } from "../data-sources/parse-utils";
-import { WhaleSourcesLayer } from "../data-sources/hyperliquid/whale-source";
+import { WhaleSourcesLayer } from "../../integrations/hyperliquid/data-sources/whale-source";
 import { ensureWhaleSchema } from "../db/schema/whale.schema";
 import { WhaleRepoLayer } from "../repos/whale.repo";
 

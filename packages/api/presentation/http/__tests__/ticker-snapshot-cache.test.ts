@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { Cache, Effect } from "effect";
-import type { HyperliquidInfoClient } from "../../../infrastructure/data-sources/hyperliquid/types";
+import type { HyperliquidInfoClient } from "../../../integrations/hyperliquid/data-sources/types";
 import {
   getTickerSnapshot,
   tickerSnapshotCacheKey,
-} from "../../../infrastructure/data-sources/hyperliquid/mapping";
+} from "../../../integrations/hyperliquid/data-sources/mapping";
 import {
   TICKER_SNAPSHOT_CACHE_CAPACITY,
   TICKER_SNAPSHOT_TTL_MS,
   makeTickerSnapshotCache,
   readTickerSnapshot,
-} from "../../../infrastructure/data-sources/hyperliquid/provider";
+} from "../../../integrations/hyperliquid/data-sources/provider";
 
 const makeInfo = (): HyperliquidInfoClient => ({
   allMids: vi.fn<HyperliquidInfoClient["allMids"]>().mockResolvedValue({ BTC: "100" }),

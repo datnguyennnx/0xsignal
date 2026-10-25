@@ -8,7 +8,7 @@ import {
   WhaleSourceRateLimitedError,
   WhaleSourceUnavailableError,
 } from "../../../application/whales/sources.contracts";
-import { WhaleConfig } from "../../config/whale.config";
+import { WhaleConfig } from "../../../infrastructure/config/whale.config";
 import { WhaleLeaderboard, whaleLeaderboardLayer } from "./whale-leaderboard";
 import { WhalePositionPoller, whalePositionPollerLayer } from "./whale-position-poller";
 import { WhaleTradeStream, whaleTradeStreamLayer } from "./whale-trade-stream";

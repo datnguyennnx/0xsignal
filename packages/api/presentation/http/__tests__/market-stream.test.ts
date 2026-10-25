@@ -6,7 +6,7 @@ import {
   type ISubscriptionTransport,
   SubscriptionClient,
 } from "@nktkas/hyperliquid";
-import { buildMarketWsBucketKey } from "../../../infrastructure/streams/hyperliquid/bucket-key";
+import { buildMarketWsBucketKey } from "../../../integrations/hyperliquid/streams/bucket-key";
 import { parseMarketWsSubscription } from "../ws/subscription-parser";
 import {
   detachClient,
@@ -16,13 +16,13 @@ import {
   type MarketWsConnectionData,
   type MarketWsConnectionSubscription,
   type MarketWsSubscription,
-} from "../../../infrastructure/streams/hyperliquid/hub-types";
-import { makeMarketStreamHubLayer } from "../../../infrastructure/streams/hyperliquid/hub";
-import { subscribeUpstream } from "../../../infrastructure/streams/hyperliquid/hub-subscription";
+} from "../../../integrations/hyperliquid/streams/hub-types";
+import { makeMarketStreamHubLayer } from "../../../integrations/hyperliquid/streams/hub";
+import { subscribeUpstream } from "../../../integrations/hyperliquid/streams/hub-subscription";
 import {
   MAX_CLIENT_BUFFER_BYTES,
   broadcast,
-} from "../../../infrastructure/streams/hyperliquid/hub-broadcast";
+} from "../../../integrations/hyperliquid/streams/hub-broadcast";
 
 const stubUpstream: ISubscription = { unsubscribe: () => Promise.resolve() };
 

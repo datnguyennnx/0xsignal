@@ -1,4 +1,9 @@
-import { asRecord, isUnknownArray, numberAt, stringAt } from "../parse-utils";
+import {
+  asRecord,
+  isUnknownArray,
+  numberAt,
+  stringAt,
+} from "../../../infrastructure/data-sources/parse-utils";
 import type { SpotTradeAsset } from "./types";
 
 export function parseSpotAssets(

@@ -18,7 +18,7 @@ import {
 } from "./hub-types";
 import { marketWsLog } from "./logging";
 import { buildMarketWsBucketKey } from "./bucket-key";
-import { HyperliquidProvider } from "../../data-sources/hyperliquid/types";
+import { HyperliquidProvider } from "../data-sources/types";
 import { subscribeUpstream } from "./hub-subscription";
 import { send, sendFrame, toText } from "./hub-broadcast";
 import { parseMarketWsFrame } from "../../../application/market-data/subscription-parser";
