@@ -7,6 +7,7 @@ export function listWallets() {
       walletAddress: string;
       label: string;
       isPrimary: boolean;
+      verified: boolean;
     }>
   >(`${API_BASE}/wallets`);
 }

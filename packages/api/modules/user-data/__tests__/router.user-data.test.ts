@@ -23,7 +23,7 @@ const USER_ID = makeUserId("user-1");
 
 const SESSION: Session = { userId: USER_ID, provider: "google", jti: "jti-1" };
 
-const accountFor = (walletAddress: string): ExchangeAccount => ({
+const accountFor = (walletAddress: string, verified = true): ExchangeAccount => ({
   id: `account-${walletAddress}`,
   userId: USER_ID,
   exchangeId: "exchange-1",
@@ -33,6 +33,7 @@ const accountFor = (walletAddress: string): ExchangeAccount => ({
   sortOrder: 0,
   isActive: true,
   isPrimary: true,
+  ...(verified && { verifiedAt: "2026-01-01T00:00:00.000Z" }),
   metadata: {},
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
@@ -45,7 +46,7 @@ const mockUserDataService = {
 
 const TestUserDataLayer = Layer.mock(UserDataService, mockUserDataService);
 
-const makeLayer = (ownedWallets: ReadonlyArray<string>) =>
+const makeLayer = (ownedWallets: ReadonlyArray<string>, verified = true) =>
   Layer.mergeAll(
     TestUserDataLayer,
     Layer.mock(MarketDataService, {}),
@@ -53,20 +54,21 @@ const makeLayer = (ownedWallets: ReadonlyArray<string>) =>
     Layer.mock(OrderIntentService, {}),
     Layer.mock(AuthService, { verifyToken: () => Effect.succeed(SESSION) }),
     Layer.mock(ExchangeAccountRepo, {
-      findByUserId: () => Effect.succeed(ownedWallets.map((wallet) => accountFor(wallet))),
+      findByUserId: () =>
+        Effect.succeed(ownedWallets.map((wallet) => accountFor(wallet, verified))),
     }),
     Layer.mock(AgentRegistrationRepo, {}),
     Layer.mock(WalletChallengeRepo, {}),
   );
 
-const runRequest = (path: string, token?: string) =>
+const runRequest = (path: string, token?: string, verified = true) =>
   Effect.runPromise(
     handleRequest(
       new Request(
         `http://localhost${path}`,
         token === undefined ? {} : { headers: { Authorization: `Bearer ${token}` } },
       ),
-    ).pipe(Effect.provide(makeLayer([WALLET, OTHER_WALLET]))),
+    ).pipe(Effect.provide(makeLayer([WALLET, OTHER_WALLET], verified))),
   );
 
 const errorText = async (response: Response): Promise<string> =>
@@ -104,6 +106,18 @@ describe("HTTP User Data Router", () => {
 
     expect(response.status).toBe(200);
     expect(mockUserDataService.getUserFills).toHaveBeenCalledWith(WALLET);
+  });
+
+  it("rejects an own row that was never proven by signature", async () => {
+    const response = await runRequest(
+      `/api/user/fills?walletAddress=${WALLET}`,
+      "valid-token",
+      false,
+    );
+
+    expect(response.status).toBe(403);
+    expect(await errorText(response)).toContain("does not belong to the authenticated user");
+    expect(mockUserDataService.getUserFills).not.toHaveBeenCalled();
   });
 
   it("passes a valid wallet address through", async () => {
