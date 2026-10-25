@@ -19,7 +19,11 @@ type RouteHandler = (
   request: Request,
   url: URL,
   userData: UserDataHttpService,
+  authorizeWallet: WalletAuthorizer,
 ) => Effect.Effect<Response, HttpError>;
+
+/** Rejects a wallet that does not belong to the authenticated user. */
+export type WalletAuthorizer = (walletAddress: string) => Effect.Effect<void, HttpError>;
 
 type BuildUserDataRoutesParams = {
   readonly json: (body: unknown, status?: number, headers?: Record<string, string>) => Response;
@@ -57,9 +61,10 @@ export const buildUserDataRoutes = ({
   {
     method: "GET",
     path: "/api/user/clearinghouse-state",
-    handler: (_request, url, userData) =>
+    handler: (_request, url, userData, authorizeWallet) =>
       Effect.gen(function* () {
         const walletAddress = yield* requireWalletAddress(url);
+        yield* authorizeWallet(walletAddress);
         const payload = yield* userData
           .getClearinghouseState(walletAddress)
           .pipe(Effect.mapError(mapServiceError));
@@ -69,9 +74,10 @@ export const buildUserDataRoutes = ({
   {
     method: "GET",
     path: "/api/user/spot-clearinghouse-state",
-    handler: (_request, url, userData) =>
+    handler: (_request, url, userData, authorizeWallet) =>
       Effect.gen(function* () {
         const walletAddress = yield* requireWalletAddress(url);
+        yield* authorizeWallet(walletAddress);
         const payload = yield* userData
           .getSpotClearinghouseState(walletAddress)
           .pipe(Effect.mapError(mapServiceError));
@@ -81,9 +87,10 @@ export const buildUserDataRoutes = ({
   {
     method: "GET",
     path: "/api/user/frontend-open-orders",
-    handler: (_request, url, userData) =>
+    handler: (_request, url, userData, authorizeWallet) =>
       Effect.gen(function* () {
         const walletAddress = yield* requireWalletAddress(url);
+        yield* authorizeWallet(walletAddress);
         const payload = yield* userData
           .getFrontendOpenOrders(walletAddress)
           .pipe(Effect.mapError(mapServiceError));
@@ -93,9 +100,10 @@ export const buildUserDataRoutes = ({
   {
     method: "GET",
     path: "/api/user/historical-orders",
-    handler: (_request, url, userData) =>
+    handler: (_request, url, userData, authorizeWallet) =>
       Effect.gen(function* () {
         const walletAddress = yield* requireWalletAddress(url);
+        yield* authorizeWallet(walletAddress);
         const payload = yield* userData
           .getHistoricalOrders(walletAddress)
           .pipe(Effect.mapError(mapServiceError));
@@ -105,9 +113,10 @@ export const buildUserDataRoutes = ({
   {
     method: "GET",
     path: "/api/user/fills",
-    handler: (_request, url, userData) =>
+    handler: (_request, url, userData, authorizeWallet) =>
       Effect.gen(function* () {
         const walletAddress = yield* requireWalletAddress(url);
+        yield* authorizeWallet(walletAddress);
         const payload = yield* userData
           .getUserFills(walletAddress)
           .pipe(Effect.mapError(mapServiceError));
@@ -117,9 +126,10 @@ export const buildUserDataRoutes = ({
   {
     method: "GET",
     path: "/api/user/portfolio",
-    handler: (_request, url, userData) =>
+    handler: (_request, url, userData, authorizeWallet) =>
       Effect.gen(function* () {
         const walletAddress = yield* requireWalletAddress(url);
+        yield* authorizeWallet(walletAddress);
         const payload = yield* userData
           .getPortfolio(walletAddress)
           .pipe(Effect.mapError(mapServiceError));
@@ -129,9 +139,10 @@ export const buildUserDataRoutes = ({
   {
     method: "GET",
     path: "/api/user/vault-equities",
-    handler: (_request, url, userData) =>
+    handler: (_request, url, userData, authorizeWallet) =>
       Effect.gen(function* () {
         const walletAddress = yield* requireWalletAddress(url);
+        yield* authorizeWallet(walletAddress);
         const payload = yield* userData
           .getUserVaultEquities(walletAddress)
           .pipe(Effect.mapError(mapServiceError));
@@ -141,9 +152,10 @@ export const buildUserDataRoutes = ({
   {
     method: "GET",
     path: "/api/user/funding",
-    handler: (_request, url, userData) =>
+    handler: (_request, url, userData, authorizeWallet) =>
       Effect.gen(function* () {
         const query = yield* parseQuery(url.searchParams, userDataFundingQuery);
+        yield* authorizeWallet(query.walletAddress);
         const payload = yield* userData
           .getUserFunding(query.walletAddress, query.startTime, query.endTime)
           .pipe(Effect.mapError(mapServiceError));
