@@ -20,6 +20,7 @@
     "down": "docker compose -f deploy/docker-compose.yml down",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
+    "depcruise": "bun --bun ./node_modules/.bin/depcruise \"packages/**/*.ts\" --config .dependency-cruiser.cjs",
     "knip": "knip",
     "knip:prod": "knip --production --strict",
     "knip:fix": "knip --fix-type exports,types",
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@types/node": "^26.2.0",
     "@types/pg": "^8.23.1",
+    "dependency-cruiser": "^18.7.0",
     "husky": "^9.1.7",
     "knip": "^6.42.1",
     "lint-staged": "^17.4.1",

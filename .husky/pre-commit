@@ -10,6 +10,9 @@ bun run format:check
 echo "==> lint:strict: lint gate (0 errors, 0 warnings allowed)"
 bun run lint:strict
 
+echo "==> depcruise: import-graph guard (errors block, warns reported)"
+bun run depcruise
+
 echo "==> typecheck: turbo run typecheck"
 bun run typecheck
 

@@ -16,6 +16,9 @@
     ".": {
       "entry": [],
       "project": [],
+      // The depcruise script invokes the binary through `bun --bun
+      // ./node_modules/.bin/...`, so knip cannot match it to the package name.
+      "ignoreDependencies": ["dependency-cruiser"],
     },
     "packages/app": {
       "entry": [
