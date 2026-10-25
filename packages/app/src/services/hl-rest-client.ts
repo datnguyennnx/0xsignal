@@ -1,14 +1,17 @@
 import { HttpRequestError, HttpTransport, InfoClient, ValidationError } from "@nktkas/hyperliquid";
 import type { HistoricalOrdersResponse, UserFundingResponse } from "@nktkas/hyperliquid/api/info";
-import type {
-  ClearinghouseState,
-  HistoricalOrderEntry,
-  OpenOrder,
-  PortfolioResponse,
-  SpotClearinghouseState,
-  UserFill,
-  UserFundingEntry,
-  UserVaultEquity,
+import {
+  normalizeCandle,
+  type ChartDataPoint,
+  type ClearinghouseState,
+  type HistoricalOrderEntry,
+  type OpenOrder,
+  type PortfolioResponse,
+  type SpotClearinghouseState,
+  type UserFill,
+  type UserFundingEntry,
+  type UserVaultEquity,
+  type WsMarketInterval,
 } from "@0xsignal/shared";
 import { ApiError } from "@/lib/api-error";
 import { api } from "@/services/api";
@@ -114,6 +117,29 @@ export function getPortfolio(user: string): Promise<PortfolioResponse> {
     },
     () => api.getPortfolio(user),
   );
+}
+
+export interface CandleSnapshotParams {
+  readonly coin: string;
+  readonly interval: WsMarketInterval;
+  readonly startTime: number;
+  readonly endTime: number;
+}
+
+/**
+ * Direct `candleSnapshot` read. The caller owns the fallback route so a recent bootstrap
+ * and an older backfill each return to the endpoint matching their window; an application
+ * error rejects rather than resolving to an empty page.
+ */
+export function getCandleSnapshot(
+  params: CandleSnapshotParams,
+  backend: () => Promise<ChartDataPoint[]>,
+): Promise<ChartDataPoint[]> {
+  return readWithFallback<ChartDataPoint[]>(async () => {
+    const data = await getInfoClient().candleSnapshot(params);
+    ensureArrayResult(data, "candleSnapshot");
+    return data.flatMap((candle) => normalizeCandle(candle) ?? []);
+  }, backend);
 }
 
 /** Direct-only: third-party reads must never reach the authenticated backend route. */

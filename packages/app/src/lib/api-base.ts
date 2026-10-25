@@ -17,7 +17,7 @@ export const resolveApiBase = (rawApiUrl: string | undefined, isDevMode: boolean
   return ensureApiBasePath(rawApiUrl.trim());
 };
 
-const AUTHED_PREFIXES = ["/exchange", "/auth/me", "/wallets"];
+const AUTHED_PREFIXES = ["/exchange", "/auth/me", "/wallets", "/user"];
 
 /** Checks /exchange and /api/exchange patterns to handle relative dev URLs and absolute production URLs. */
 function matchAuthedPrefix(url: string): boolean {

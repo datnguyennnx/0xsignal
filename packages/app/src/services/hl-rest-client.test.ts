@@ -1,10 +1,12 @@
 /// <reference types="bun-types" />
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { ApiError } from "../lib/api-error";
+import { registerAuthTokenBridge } from "../lib/auth-token";
 
 import {
   DIRECT_READS,
+  getCandleSnapshot,
   getHistoricalOrders,
   getPortfolio,
   getUserFunding,
@@ -18,6 +20,7 @@ const realFetch = globalThis.fetch;
 interface CapturedRequest {
   readonly url: string;
   readonly body: unknown;
+  readonly authorization: string | null;
 }
 
 type FetchHandler = (url: string, body: unknown) => Response | Promise<Response>;
@@ -53,12 +56,18 @@ const errorStatus = (error: unknown): number | undefined => {
   return typeof status === "number" ? status : undefined;
 };
 
+const rejectFallback = (): Promise<never> => Promise.reject(new Error("must not fall back"));
+
 function stubFetch(handler: FetchHandler): CapturedRequest[] {
   const calls: CapturedRequest[] = [];
   const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const body: unknown = typeof init?.body === "string" ? JSON.parse(init.body) : null;
-    calls.push({ url, body });
+    calls.push({
+      url,
+      body,
+      authorization: new Headers(init?.headers).get("Authorization"),
+    });
     const response = await handler(url, body);
     return response;
   };
@@ -92,9 +101,15 @@ const portfolioFixture = [
   ["perpAllTime", portfolioPeriod("8")],
 ];
 
+beforeEach(() => {
+  // Every backend fallback now targets /api/user/*, which requires the session token.
+  registerAuthTokenBridge({ read: () => "test-session-token", write: () => {} });
+});
+
 afterEach(() => {
   globalThis.fetch = realFetch;
   DIRECT_READS.enabled = true;
+  registerAuthTokenBridge({ read: () => null, write: () => {} });
 });
 
 describe("browser-direct Hyperliquid reads", () => {
@@ -221,6 +236,75 @@ describe("browser-direct Hyperliquid reads", () => {
 
     expect(errorStatus(failure)).toBe(429);
     expect(callsTo(calls, "/api/user/historical-orders")).toHaveLength(0);
+  });
+
+  test("candle snapshots go browser-direct with the resolved coin and no Authorization", async () => {
+    const raw = [
+      {
+        t: 1_700_000_000_000,
+        T: 1_700_000_300_000,
+        s: "BTC",
+        i: "1h",
+        o: "1",
+        c: "2",
+        h: "3",
+        l: "0.5",
+        v: "10",
+        n: 3,
+      },
+    ];
+    const calls = stubFetch(directOrBackend(raw));
+
+    const result = await getCandleSnapshot(
+      { coin: "BTC", interval: "1h", startTime: 1_700_000_000_000, endTime: 1_700_000_300_000 },
+      rejectFallback,
+    );
+
+    expect(callsTo(calls, HL_INFO_URL)).toHaveLength(1);
+    expect(calls[0]?.body).toEqual({
+      type: "candleSnapshot",
+      req: {
+        coin: "BTC",
+        interval: "1h",
+        startTime: 1_700_000_000_000,
+        endTime: 1_700_000_300_000,
+      },
+    });
+    expect(calls[0]?.authorization).toBeNull();
+    expect(result).toEqual([
+      { time: 1_700_000_000, open: 1, high: 3, low: 0.5, close: 2, volume: 10 },
+    ]);
+  });
+
+  test("a candle network failure falls back to the caller's backend route", async () => {
+    const calls = stubFetch(() => {
+      throw new TypeError("network down");
+    });
+    const fallbackResult = [{ time: 1, open: 1, high: 1, low: 1, close: 1, volume: 1 }];
+
+    const result = await getCandleSnapshot(
+      { coin: "BTC", interval: "1h", startTime: 1, endTime: 2 },
+      () => Promise.resolve(fallbackResult),
+    );
+
+    expect(result).toEqual(fallbackResult);
+    expect(callsTo(calls, HL_INFO_URL)).toHaveLength(1);
+  });
+
+  test("a candle application error rejects instead of returning an empty list", async () => {
+    stubFetch(() => jsonResponse({ error: "Invalid coin" }));
+    let fallbackCalls = 0;
+
+    const failure: unknown = await getCandleSnapshot(
+      { coin: "NOPE", interval: "1h", startTime: 1, endTime: 2 },
+      () => {
+        fallbackCalls += 1;
+        return Promise.resolve([]);
+      },
+    ).catch((cause: unknown) => cause);
+
+    expect(errorMessage(failure)).toBe("Invalid coin");
+    expect(fallbackCalls).toBe(0);
   });
 
   test("the rollback flag routes every read through the backend", async () => {

@@ -1,18 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { api } from "@/services/api";
+import { getCandleSnapshot } from "@/services/hl-rest-client";
 import { queryKeys } from "@/lib/query-keys";
 import { normalizeSymbol } from "../lib/symbol";
-import { mapToHLInterval, type HLInterval } from "@/core/utils/hyperliquid";
+import { resolveHlCoin } from "../lib/hl-market-stream";
+import { getIntervalMs, mapToHLInterval, type HLInterval } from "@/core/utils/hyperliquid";
 
 export async function fetchHistorical(symbol: string, interval: HLInterval, limit: number) {
   // Let the failure reject so the chart can tell an upstream outage apart from a
   // genuinely empty window, which resolves to `[]`.
-  const candles = await api.getRecentChartLane({
-    symbol,
-    interval,
-    limit,
-  });
+  const backend = () => api.getRecentChartLane({ symbol, interval, limit });
+  const coin = await resolveHlCoin(symbol);
+  if (coin === null) return (await backend()).slice(-limit);
+
+  const endTime = Date.now();
+  const candles = await getCandleSnapshot(
+    { coin, interval, startTime: endTime - limit * getIntervalMs(interval), endTime },
+    backend,
+  );
   return candles.slice(-limit);
 }
 
@@ -22,12 +28,10 @@ export function fetchByRange(
   startTime: number,
   endTime: number,
 ): Promise<ChartDataPoint[]> {
-  return api.getCandles({
-    symbol,
-    interval,
-    startTime,
-    endTime,
-  });
+  const backend = () => api.getCandles({ symbol, interval, startTime, endTime });
+  return resolveHlCoin(symbol).then((coin) =>
+    coin === null ? backend() : getCandleSnapshot({ coin, interval, startTime, endTime }, backend),
+  );
 }
 
 export function useCandleHistory(
