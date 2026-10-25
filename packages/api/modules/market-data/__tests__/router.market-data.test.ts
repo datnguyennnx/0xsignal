@@ -35,10 +35,8 @@ const mockUserDataService = {
     vi.fn<Context.Service.Shape<typeof UserDataService>["getClearinghouseState"]>(),
   getSpotClearinghouseState:
     vi.fn<Context.Service.Shape<typeof UserDataService>["getSpotClearinghouseState"]>(),
-  getOpenOrders: vi.fn<Context.Service.Shape<typeof UserDataService>["getOpenOrders"]>(),
   getFrontendOpenOrders:
     vi.fn<Context.Service.Shape<typeof UserDataService>["getFrontendOpenOrders"]>(),
-  getMeta: vi.fn<Context.Service.Shape<typeof UserDataService>["getMeta"]>(),
   getHistoricalOrders:
     vi.fn<Context.Service.Shape<typeof UserDataService>["getHistoricalOrders"]>(),
   getUserFills: vi.fn<Context.Service.Shape<typeof UserDataService>["getUserFills"]>(),

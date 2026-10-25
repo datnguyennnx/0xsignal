@@ -44,18 +44,6 @@ const mockClearinghouseState = {
   time: Date.now(),
 };
 
-const mockOpenOrders = [
-  {
-    coin: "ETH",
-    side: "B" as const,
-    limitPx: "2500",
-    sz: "1.5",
-    oid: 1001,
-    timestamp: Date.now() - 60000,
-    origSz: "1.5",
-  },
-];
-
 const mockHistoricalOrders: Awaited<ReturnType<InfoClient["historicalOrders"]>> = [
   {
     order: {
@@ -204,7 +192,6 @@ const makePortfolio = (): Awaited<ReturnType<InfoClient["portfolio"]>> => {
 
 type InfoMethod =
   | "clearinghouseState"
-  | "openOrders"
   | "historicalOrders"
   | "userFills"
   | "frontendOpenOrders"
@@ -221,9 +208,6 @@ const makeMockLayer = (overrides?: Partial<Pick<InfoClient, InfoMethod>>) => {
       .mockImplementation(
         overrides?.clearinghouseState ?? (() => Promise.resolve(mockClearinghouseState)),
       ),
-    openOrders: vi
-      .fn<InfoClient["openOrders"]>()
-      .mockImplementation(overrides?.openOrders ?? (() => Promise.resolve(mockOpenOrders))),
     historicalOrders: vi
       .fn<InfoClient["historicalOrders"]>()
       .mockImplementation(
@@ -302,39 +286,6 @@ describe("UserDataService", () => {
 
       expect(result).toHaveProperty("_tag", "InternalError");
       expect(result).toHaveProperty("message", "clearinghouseState failed");
-    });
-  });
-
-  describe("getOpenOrders", () => {
-    it("returns open orders array", async () => {
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const svc = yield* UserDataService;
-          return yield* svc.getOpenOrders(WALLET);
-        }).pipe(Effect.provide(makeTestLayer())),
-      );
-
-      expect(result).toHaveLength(1);
-      expect(result[0].coin).toBe("ETH");
-      expect(result[0].side).toBe("B");
-    });
-
-    it("returns typed error when SDK call fails", async () => {
-      const errorLayer = makeTestLayer({
-        openOrders: () => Promise.reject(new Error("Network error")),
-      });
-
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const svc = yield* UserDataService;
-          return yield* svc.getOpenOrders(WALLET);
-        })
-          .pipe(Effect.provide(errorLayer))
-          .pipe(Effect.flip),
-      );
-
-      expect(result).toHaveProperty("_tag", "InternalError");
-      expect(result).toHaveProperty("message", "openOrders failed");
     });
   });
 
@@ -450,44 +401,6 @@ describe("UserDataService", () => {
     });
   });
 
-  describe("getMeta", () => {
-    it("returns universe with szDecimals and maxLeverage for size truncation", async () => {
-      const layer = makeTestLayer({
-        meta: () => Promise.resolve(mockMeta),
-      });
-
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const svc = yield* UserDataService;
-          return yield* svc.getMeta();
-        }).pipe(Effect.provide(layer)),
-      );
-
-      expect(result).toHaveProperty("universe", mockMeta.universe);
-      expect(result).toHaveProperty("universe.0.name", "BTC");
-      expect(result).toHaveProperty("universe.0.szDecimals", 5);
-      expect(result).toHaveProperty("universe.0.maxLeverage", 50);
-    });
-
-    it("returns typed error when SDK call fails", async () => {
-      const errorLayer = makeTestLayer({
-        meta: () => Promise.reject(new Error("Failed to fetch")),
-      });
-
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const svc = yield* UserDataService;
-          return yield* svc.getMeta();
-        })
-          .pipe(Effect.provide(errorLayer))
-          .pipe(Effect.flip),
-      );
-
-      expect(result).toHaveProperty("_tag", "InternalError");
-      expect(result).toHaveProperty("message", "meta failed");
-    });
-  });
-
   describe("getPortfolio", () => {
     it("fetches portfolio using wallet address", async () => {
       const mockPortfolio = makePortfolio();
@@ -555,7 +468,6 @@ describe("UserDataService", () => {
             spy(params.user);
             return Promise.resolve(mockClearinghouseState);
           }),
-        openOrders: vi.fn<InfoClient["openOrders"]>(),
         historicalOrders: vi.fn<InfoClient["historicalOrders"]>(),
         userFills: vi.fn<InfoClient["userFills"]>(),
         frontendOpenOrders: vi.fn<InfoClient["frontendOpenOrders"]>(),

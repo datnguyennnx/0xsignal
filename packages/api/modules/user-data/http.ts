@@ -7,9 +7,7 @@ import { parseQuery } from "../../platform/http/utils/param-parsers";
 type UserDataHttpService = {
   readonly getClearinghouseState: (typeof UserDataService.Service)["getClearinghouseState"];
   readonly getSpotClearinghouseState: (typeof UserDataService.Service)["getSpotClearinghouseState"];
-  readonly getOpenOrders: (typeof UserDataService.Service)["getOpenOrders"];
   readonly getFrontendOpenOrders: (typeof UserDataService.Service)["getFrontendOpenOrders"];
-  readonly getMeta: (typeof UserDataService.Service)["getMeta"];
   readonly getHistoricalOrders: (typeof UserDataService.Service)["getHistoricalOrders"];
   readonly getUserFills: (typeof UserDataService.Service)["getUserFills"];
   readonly getPortfolio: (typeof UserDataService.Service)["getPortfolio"];
@@ -82,18 +80,6 @@ export const buildUserDataRoutes = ({
   },
   {
     method: "GET",
-    path: "/api/user/open-orders",
-    handler: (_request, url, userData) =>
-      Effect.gen(function* () {
-        const walletAddress = yield* requireWalletAddress(url);
-        const payload = yield* userData
-          .getOpenOrders(walletAddress)
-          .pipe(Effect.mapError(mapServiceError));
-        return json({ data: payload });
-      }),
-  },
-  {
-    method: "GET",
     path: "/api/user/frontend-open-orders",
     handler: (_request, url, userData) =>
       Effect.gen(function* () {
@@ -101,15 +87,6 @@ export const buildUserDataRoutes = ({
         const payload = yield* userData
           .getFrontendOpenOrders(walletAddress)
           .pipe(Effect.mapError(mapServiceError));
-        return json({ data: payload });
-      }),
-  },
-  {
-    method: "GET",
-    path: "/api/user/meta",
-    handler: (_request, _url, userData) =>
-      Effect.gen(function* () {
-        const payload = yield* userData.getMeta().pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),
   },

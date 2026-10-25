@@ -46,17 +46,10 @@ export const userDataServiceLayer = Layer.effect(
           info.spotClearinghouseState({ user: walletAddress }),
         ),
 
-      getOpenOrders: (walletAddress) =>
-        infoCall("openOrders", UNLISTED_INFO_WEIGHT, () =>
-          info.openOrders({ user: walletAddress }),
-        ),
-
       getFrontendOpenOrders: (walletAddress) =>
         infoCall("frontendOpenOrders", INFO_WEIGHTS.frontendOpenOrders, () =>
           info.frontendOpenOrders({ user: walletAddress }),
         ),
-
-      getMeta: () => infoCall("meta", INFO_WEIGHTS.meta, () => info.meta()),
 
       getHistoricalOrders: (walletAddress) =>
         infoCall("historicalOrders", UNLISTED_INFO_WEIGHT, () =>

@@ -1,7 +1,6 @@
 import { Context, type Effect } from "effect";
 import type {
   ClearinghouseState,
-  OpenOrder,
   FrontendOpenOrder,
   UserFill,
   PortfolioResponse,
@@ -9,7 +8,6 @@ import type {
 } from "@0xsignal/shared";
 import type {
   HistoricalOrdersResponse,
-  MetaResponse,
   SpotClearinghouseStateResponse,
   UserFundingResponse,
 } from "@nktkas/hyperliquid/api/info";
@@ -24,11 +22,9 @@ export class UserDataService extends Context.Service<
     readonly getSpotClearinghouseState: (
       walletAddress: string,
     ) => Effect.Effect<SpotClearinghouseStateResponse, AppError>;
-    readonly getOpenOrders: (walletAddress: string) => Effect.Effect<OpenOrder[], AppError>;
     readonly getFrontendOpenOrders: (
       walletAddress: string,
     ) => Effect.Effect<FrontendOpenOrder[], AppError>;
-    readonly getMeta: () => Effect.Effect<MetaResponse, AppError>;
     readonly getHistoricalOrders: (
       walletAddress: string,
     ) => Effect.Effect<HistoricalOrdersResponse, AppError>;
