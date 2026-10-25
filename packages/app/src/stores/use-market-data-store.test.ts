@@ -85,6 +85,71 @@ describe("appendCandles", () => {
   });
 });
 
+describe("mergeHistoryCandles", () => {
+  beforeEach(() => {
+    useMarketDataStore.setState({ candleData: {} });
+  });
+
+  test("a history page cannot regress a live forming bar on an equal timestamp", () => {
+    const key = "race:1m";
+
+    // Live frames land first, then a fetch that was requested earlier resolves.
+    useMarketDataStore.getState().appendCandles(key, [bar(100, 10), bar(200, 25)]);
+    useMarketDataStore.getState().mergeHistoryCandles(key, [bar(100, 10), bar(200, 20)]);
+
+    expect(candles(key).map((candle) => candle.time)).toEqual([100, 200]);
+    expect(candles(key)[1]?.close).toBe(25);
+  });
+
+  test("an older history page prepends bars and keeps the live tail intact", () => {
+    const key = "backfill:1m";
+
+    useMarketDataStore.getState().appendCandles(key, [bar(300, 30), bar(400, 40)]);
+    useMarketDataStore.getState().mergeHistoryCandles(key, [bar(100, 10), bar(200, 20)]);
+
+    expect(candles(key).map((candle) => candle.time)).toEqual([100, 200, 300, 400]);
+    expect(candles(key).at(-1)?.close).toBe(40);
+  });
+
+  test("an identity switch merges a history page over existing live frames", () => {
+    const key = "switch:1m";
+
+    useMarketDataStore.getState().appendCandles(key, [bar(300, 30)]);
+    useMarketDataStore.getState().mergeHistoryCandles(key, [bar(100, 10), bar(300, 31)]);
+
+    expect(candles(key).map((candle) => candle.time)).toEqual([100, 300]);
+    // Not wiped, and the live bar's close survives the tie.
+    expect(candles(key)[1]?.close).toBe(30);
+  });
+
+  test("uses the history array wholesale only when the key is empty", () => {
+    const key = "fresh:1m";
+
+    useMarketDataStore.getState().mergeHistoryCandles(key, [bar(100, 10), bar(200, 20)]);
+
+    expect(candles(key).map((candle) => candle.time)).toEqual([100, 200]);
+  });
+
+  test("stays time-sorted and keeps one bar per timestamp", () => {
+    const key = "dedupe:history:1m";
+
+    useMarketDataStore.getState().mergeHistoryCandles(key, [bar(100, 10), bar(200, 20)]);
+    useMarketDataStore
+      .getState()
+      .mergeHistoryCandles(key, [
+        bar(50, 5),
+        bar(100, 11),
+        bar(100, 12),
+        bar(200, 21),
+        bar(200, 22),
+      ]);
+
+    const times = candles(key).map((candle) => candle.time);
+    expect(times).toEqual([50, 100, 200]);
+    expect(new Set(times).size).toBe(times.length);
+  });
+});
+
 describe("orderbook flush gate", () => {
   type FrameCallback = (time: number) => void;
 

@@ -56,8 +56,11 @@ export interface MarketDataState {
   /** Bulk-replace all mid prices. */
   setAllMids: (mids: Record<string, number>) => void;
 
-  /** Append candle data for a symbol+interval identity. */
+  /** Append live candle data for a symbol+interval identity. */
   appendCandles: (key: string, candles: readonly ChartDataPoint[]) => void;
+
+  /** Merge a history page; existing bars win ties so live frames never regress. */
+  mergeHistoryCandles: (key: string, candles: readonly ChartDataPoint[]) => void;
 
   /** Overwrite candle data (for historical load). */
   setCandleData: (key: string, candles: ChartDataPoint[]) => void;
@@ -210,6 +213,61 @@ function scheduleFlush() {
   });
 }
 
+/**
+ * O(n) merge of two time-sorted arrays, emitting each timestamp once. `preferExisting`
+ * keeps the bar already stored on a tie; otherwise the incoming bar wins.
+ */
+function mergeSortedBars(
+  existing: readonly ChartDataPoint[],
+  incoming: readonly ChartDataPoint[],
+  preferExisting: boolean,
+): ChartDataPoint[] {
+  const result: ChartDataPoint[] = [];
+  const push = (item: ChartDataPoint): void => {
+    const previous = result.at(-1);
+    if (previous !== undefined && previous.time === item.time) {
+      if (!preferExisting) result[result.length - 1] = item;
+      return;
+    }
+    result.push(item);
+  };
+
+  let i = 0;
+  let j = 0;
+  while (i < existing.length && j < incoming.length) {
+    const left = existing[i];
+    const right = incoming[j];
+    if (left.time < right.time) {
+      push(left);
+      i++;
+    } else if (left.time > right.time) {
+      push(right);
+      j++;
+    } else {
+      push(preferExisting ? left : right);
+      i++;
+      j++;
+    }
+  }
+  while (i < existing.length) push(existing[i++]);
+  while (j < incoming.length) push(incoming[j++]);
+  return result;
+}
+
+/** Write one key and apply the candle LRU eviction, bounding the buffer. */
+function writeCandleKey(
+  current: Record<string, ChartDataPoint[]>,
+  key: string,
+  bars: ChartDataPoint[],
+  evictedKeys: readonly string[],
+): Record<string, ChartDataPoint[]> {
+  const bounded =
+    bars.length > MAX_BUFFERED_CANDLES ? bars.slice(bars.length - EVICT_TARGET) : bars;
+  const candleData = { ...current, [key]: bounded };
+  for (const evictedKey of evictedKeys) delete candleData[evictedKey];
+  return candleData;
+}
+
 // ── Store ────────────────────────────────────────────────────────────
 
 export const useMarketDataStore = create<MarketDataState>()(
@@ -305,39 +363,28 @@ export const useMarketDataStore = create<MarketDataState>()(
     // ── Candle append (O(n) merge of time-sorted arrays) ────────
     appendCandles: (key, candles) => {
       const evictedKeys = touchCandleKey(key);
-      set((state) => {
-        const existing = state.candleData[key] ?? [];
-        const result: ChartDataPoint[] = [];
-        let i = 0;
-        let j = 0;
-        while (i < existing.length && j < candles.length) {
-          if (existing[i].time < candles[j].time) {
-            result.push(existing[i]);
-            i++;
-          } else if (existing[i].time > candles[j].time) {
-            result.push(candles[j]);
-            j++;
-          } else {
-            // Same timestamp — new data wins
-            result.push(candles[j]);
-            i++;
-            j++;
-          }
-        }
-        const lastTime = () => result.at(-1)?.time;
-        while (i < existing.length && existing[i].time !== lastTime()) result.push(existing[i++]);
-        while (j < candles.length && candles[j].time !== lastTime()) result.push(candles[j++]);
+      set((state) => ({
+        candleData: writeCandleKey(
+          state.candleData,
+          key,
+          mergeSortedBars(state.candleData[key] ?? [], candles, false),
+          evictedKeys,
+        ),
+      }));
+      evictRetiredSymbols(evictedKeys);
+    },
 
-        // Evict oldest if beyond MAX_BUFFERED_CANDLES
-        const evicted =
-          result.length > MAX_BUFFERED_CANDLES
-            ? result.slice(result.length - EVICT_TARGET)
-            : result;
-
-        const candleData = { ...state.candleData, [key]: evicted };
-        for (const evictedKey of evictedKeys) delete candleData[evictedKey];
-        return { candleData };
-      });
+    // ── History merge: stored bars win ties, live frames are never regressed ──
+    mergeHistoryCandles: (key, candles) => {
+      const evictedKeys = touchCandleKey(key);
+      set((state) => ({
+        candleData: writeCandleKey(
+          state.candleData,
+          key,
+          mergeSortedBars(state.candleData[key] ?? [], candles, true),
+          evictedKeys,
+        ),
+      }));
       evictRetiredSymbols(evictedKeys);
     },
 

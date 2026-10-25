@@ -55,7 +55,7 @@ export function useHyperliquidCandles({
   // ── Read from store ───────────────────────────────────────────────
   const candleKey = `${normalizeSymbol(symbol)}:${interval}`;
   const storedCandles = useCandleData(candleKey);
-  const setCandleData = useMarketDataStore((s) => s.setCandleData);
+  const mergeHistoryCandles = useMarketDataStore((s) => s.mergeHistoryCandles);
   const appendCandles = useMarketDataStore((s) => s.appendCandles);
 
   // ── Historical data via React Query ───────────────────────────────
@@ -73,7 +73,9 @@ export function useHyperliquidCandles({
     historyIdentityRef.current = { symbol, interval };
 
     if (identityChanged) {
-      setCandleData(candleKey, historyData ?? []);
+      // Frames may already have landed on this key. Merge rather than replace so a
+      // history page that resolves late cannot wipe them (wholesale only when empty).
+      if (historyData !== undefined) mergeHistoryCandles(candleKey, historyData);
       setHasMore(true);
       // The recent page spans the last `limit` bars ending now; backfill must stop there.
       rangeAnchorRef.current = {
@@ -86,9 +88,9 @@ export function useHyperliquidCandles({
 
     if (historyData === undefined) return;
 
-    // A backfill may have landed before the recent page resolved; merge instead of
-    // replacing so its older bars survive.
-    appendCandles(candleKey, historyData);
+    // A backfill may have landed before the recent page resolved, and live frames may
+    // already have updated the forming bar: merge without regressing either.
+    mergeHistoryCandles(candleKey, historyData);
 
     if (historyData.length > 0) {
       const historyEarliestMs = historyData[0].time * 1000;
@@ -103,7 +105,7 @@ export function useHyperliquidCandles({
         earliestMs: Math.min(anchorEarliestMs, historyEarliestMs),
       };
     }
-  }, [historyData, symbol, interval, candleKey, limit, setCandleData, appendCandles]);
+  }, [historyData, symbol, interval, candleKey, limit, mergeHistoryCandles]);
 
   // ── WS subscription ───────────────────────────────────────────────
 
