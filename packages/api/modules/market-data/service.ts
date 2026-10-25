@@ -96,17 +96,19 @@ export const makeMarketDataService = () =>
           const endTime = query.endTime ?? new Date(startedAt);
           const expectedCount = Math.trunc(requestedLimit);
           const startTime = new Date(
-            endTime.getTime() - (expectedCount - 1) * getTimeframeMs(query.timeframe),
+            endTime.getTime() - expectedCount * getTimeframeMs(query.timeframe),
           );
 
-          const snapshotCandles = yield* remoteProvider
-            .getCandleSnapshot(
-              query.symbol,
-              query.timeframe,
-              startTime.getTime(),
-              endTime.getTime(),
-            )
-            .pipe(Effect.mapError(mapMarketInfraError("Failed to fetch recent candle snapshot")));
+          const snapshotCandles = yield* candleRepo
+            .getCandles({
+              symbol: query.symbol,
+              exchange,
+              timeframe: query.timeframe,
+              startTime,
+              endTime,
+              disableLimitForRange: true,
+            })
+            .pipe(Effect.mapError(mapMarketInfraError("Failed to load recent candles")));
 
           const recentCandles = snapshotCandles.slice(-expectedCount);
           const coverage: CoverageResult = {

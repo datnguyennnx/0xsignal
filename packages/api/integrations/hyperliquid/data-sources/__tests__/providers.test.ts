@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Schema, Cache } from "effect";
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 import { MarketTimeframeSchema } from "../../../../modules/market-data";
 import {
@@ -8,6 +8,8 @@ import {
   getTicker,
   getOrderBook,
   getTradeAnnotation,
+  makePerpAnnotationCache,
+  PERP_ANNOTATION_TTL_MS,
 } from "../provider";
 import { HyperliquidClient } from "../client";
 import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
@@ -291,5 +293,27 @@ describe("Hyperliquid Providers", () => {
     // But the return symbol is normalized from the input
     expect(result.symbol).toBe("dex:CL");
     expect(result.annotation).toEqual({ category: "major", description: "Major market" });
+  });
+
+  it("caches perp annotations and coalesces concurrent misses", async () => {
+    mockInfoClient.perpAnnotation.mockResolvedValue({
+      category: "major",
+      description: "Major market",
+    });
+
+    const cache = await Effect.runPromise(
+      makePerpAnnotationCache(mockInfoClient, () => Effect.void),
+    );
+
+    const [first, second] = await Effect.runPromise(
+      Effect.all([Cache.get(cache, "SOL"), Cache.get(cache, "SOL")], {
+        concurrency: "unbounded",
+      }),
+    );
+    await Effect.runPromise(Cache.get(cache, "SOL"));
+
+    expect(mockInfoClient.perpAnnotation).toHaveBeenCalledTimes(1);
+    expect(first).toEqual(second);
+    expect(PERP_ANNOTATION_TTL_MS).toBe(60 * 60 * 1_000);
   });
 });

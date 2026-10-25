@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 import { Cache, Effect } from "effect";
 import { TestClock } from "effect/testing";
 import type { HyperliquidInfoClient } from "../../../../integrations/hyperliquid/data-sources/types";
@@ -14,7 +14,15 @@ import {
 } from "../../../../integrations/hyperliquid/data-sources/provider";
 import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
 
-const makeInfo = (): HyperliquidInfoClient => ({
+/**
+ * Bun's `vi` shim omits `vi.mocked`, so the mock surface is carried in the
+ * return type instead of being recovered by a cast at the assertion site.
+ */
+type MockedInfoClient = {
+  readonly [K in keyof HyperliquidInfoClient]: Mock<NonNullable<HyperliquidInfoClient[K]>>;
+};
+
+const makeInfo = (): MockedInfoClient => ({
   allMids: vi.fn<HyperliquidInfoClient["allMids"]>().mockResolvedValue({ BTC: "100" }),
   metaAndAssetCtxs: vi
     .fn<HyperliquidInfoClient["metaAndAssetCtxs"]>()
@@ -114,13 +122,13 @@ describe("ticker snapshot coalescing and TTL cache", () => {
       yield* readTickerSnapshot(cache, "BTC");
       yield* TestClock.adjust("1 second");
       yield* readTickerSnapshot(cache, "BTC");
-      const buildsAfterOneSecond = vi.mocked(info.metaAndAssetCtxs).mock.calls.length;
+      const buildsAfterOneSecond = info.metaAndAssetCtxs.mock.calls.length;
 
       yield* TestClock.adjust("5 seconds");
       yield* readTickerSnapshot(cache, "BTC");
       return {
         buildsAfterOneSecond,
-        buildsAfterSixSeconds: vi.mocked(info.metaAndAssetCtxs).mock.calls.length,
+        buildsAfterSixSeconds: info.metaAndAssetCtxs.mock.calls.length,
       };
     });
 

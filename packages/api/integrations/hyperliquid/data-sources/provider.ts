@@ -36,6 +36,7 @@ import { mapTickerFromSnapshot, resolveInternalSymbol, isPerpSymbol } from "./ti
 import type { MarketTimeframe } from "../../../modules/market-data";
 
 import { withDedup } from "./request-dedup";
+import { guardWithLeaderLock, MARKETS_REFRESH_LOCK_KEY } from "../../../platform/db/leader-lock";
 
 /** TTL for aggregated markets cache (60s) — REST metadata, NOT real-time data. */
 const AGGREGATED_MARKETS_TTL_MS = 60_000;
@@ -100,6 +101,33 @@ const parseDepthToSigFigs = (depth: number | null | undefined): 2 | 3 | 4 | 5 | 
     : null;
 };
 
+/**
+ * The frontend treats the annotation as 1-hour-stale, so a 1-hour TTL costs no
+ * freshness. Keyed by the resolved coin, and Effect's Cache coalesces misses.
+ */
+export const PERP_ANNOTATION_TTL_MS = 60 * 60 * 1_000;
+const PERP_ANNOTATION_CACHE_CAPACITY = 512;
+
+export type PerpAnnotationSource = {
+  readonly perpAnnotation: (params: { coin: string }) => Promise<PerpAnnotationResponse>;
+};
+
+export const makePerpAnnotationCache = (
+  info: PerpAnnotationSource,
+  acquire: () => Effect.Effect<void, HyperliquidError>,
+): Effect.Effect<Cache.Cache<string, PerpAnnotationResponse, HyperliquidError>> =>
+  Cache.make({
+    capacity: PERP_ANNOTATION_CACHE_CAPACITY,
+    timeToLive: Duration.millis(PERP_ANNOTATION_TTL_MS),
+    lookup: (coin: string) =>
+      Effect.gen(function* () {
+        yield* acquire();
+        return yield* tryRequest(`Failed to fetch trade annotation for ${coin}`, () =>
+          info.perpAnnotation({ coin }),
+        );
+      }),
+  });
+
 const toMarketError = (error: TickerSnapshotError): HyperliquidError =>
   new HyperliquidError({
     message: error.message,
@@ -141,6 +169,10 @@ export const makeHyperliquidProvider = () =>
 
       const readSnapshot = (symbol?: string, options?: TickerSnapshotReadOptions) =>
         readTickerSnapshot(tickerSnapshotCache, symbol, options);
+
+      const annotationCache = yield* makePerpAnnotationCache(client.info, () =>
+        acquireFor(UNLISTED_INFO_WEIGHT),
+      );
 
       type ResolvedQuery = { readonly snapshot: TickerSnapshot; readonly symbol: string };
 
@@ -200,7 +232,7 @@ export const makeHyperliquidProvider = () =>
       });
 
       yield* Effect.forkScoped(
-        refreshPipeline.pipe(
+        guardWithLeaderLock(MARKETS_REFRESH_LOCK_KEY, refreshPipeline).pipe(
           Effect.catch((err) =>
             Effect.logError(
               "[Hyperliquid] Unified refresh failed",
@@ -301,11 +333,7 @@ export const makeHyperliquidProvider = () =>
               );
             }
 
-            yield* acquireFor(UNLISTED_INFO_WEIGHT);
-            const annotation = yield* tryRequest(
-              `Failed to fetch trade annotation for ${symbol}`,
-              () => client.info.perpAnnotation({ coin: resolved.symbol }),
-            );
+            const annotation = yield* Cache.get(annotationCache, resolved.symbol);
 
             return { symbol: normalizeSymbol(symbol), annotation };
           }),

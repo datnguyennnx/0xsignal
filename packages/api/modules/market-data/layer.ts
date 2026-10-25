@@ -1,10 +1,12 @@
-import { Clock, Effect, Layer, Match } from "effect";
+import { Effect, Layer, Match } from "effect";
 import {
   MarketCandleStore,
   MarketDataService,
   MarketProviderError,
   MarketRemoteProvider,
 } from "./index";
+import { CandleCache } from "./candle-cache";
+import { makeCandleStore } from "./market-candle-store";
 import { makeMarketDataService } from "./service";
 import { hyperliquidProviderLayer } from "../../integrations/hyperliquid/data-sources/layer";
 import { HyperliquidProvider } from "../../integrations/hyperliquid/data-sources/types";
@@ -12,24 +14,14 @@ import { HyperliquidError } from "../../integrations/hyperliquid/data-sources/er
 
 export const marketDataServiceLayer = Layer.effect(MarketDataService, makeMarketDataService());
 
+export { candleCacheLayer } from "./candle-cache";
+
 export const marketCandleStoreLayer = Layer.effect(
   MarketCandleStore,
   Effect.gen(function* () {
+    const cache = yield* CandleCache;
     const provider = yield* MarketRemoteProvider;
-    return MarketCandleStore.of({
-      getCandles: (query) =>
-        Effect.gen(function* () {
-          const now = yield* Clock.currentTimeMillis;
-          const startTime = query.startTime?.getTime() ?? now - 24 * 60 * 60 * 1000;
-          const endTime = query.endTime?.getTime() ?? now;
-          return yield* provider.getCandleSnapshot(
-            query.symbol,
-            query.timeframe,
-            startTime,
-            endTime,
-          );
-        }),
-    });
+    return MarketCandleStore.of(makeCandleStore(cache, provider));
   }),
 );
 
