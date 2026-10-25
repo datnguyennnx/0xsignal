@@ -1,21 +1,29 @@
 import { Schema } from "effect";
 
+export const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+const EVM_PRIVATE_KEY_RE = /^0x[a-fA-F0-9]{64}$/;
+const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+const EVM_ADDRESS = Schema.String.pipe(
+  Schema.check(Schema.isPattern(EVM_ADDRESS_RE, { message: "expected 0x-prefixed 40-char hex" })),
+);
+const EVM_PRIVATE_KEY = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(EVM_PRIVATE_KEY_RE, { message: "expected 0x-prefixed 64-char hex" }),
+  ),
+);
+
 export const CreateWalletSchema = Schema.Struct({
   exchangeSlug: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
-  walletAddress: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  walletAddress: EVM_ADDRESS,
   label: Schema.optional(Schema.String),
 });
 
 export const CreateKeySchema = Schema.Struct({
-  agentAddress: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
-  agentPrivateKey: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
+  agentAddress: EVM_ADDRESS,
+  agentPrivateKey: EVM_PRIVATE_KEY,
   label: Schema.optional(Schema.String),
 });
-
-// Wallet address validation
-
-export const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
-const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 const EVM_EXCHANGES = new Set(["hyperliquid"]);
 
