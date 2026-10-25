@@ -23,7 +23,10 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
   const { setHoveredCandle } = useHoverActions();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { candles, hasMoreCandles, handleLoadMore, markers } = useChartFeed({ symbol, interval });
+  const { candles, hasMoreCandles, handleLoadMore, markers, candleError } = useChartFeed({
+    symbol,
+    interval,
+  });
 
   const {
     activeIndicators,
@@ -96,6 +99,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
       chart={chart}
       candlestickSeries={candlestickSeries}
       candles={candles ?? []}
+      loadError={candleError !== null}
       markers={markers}
       pxDecimals={precision.pxDecimals}
       interval={interval}

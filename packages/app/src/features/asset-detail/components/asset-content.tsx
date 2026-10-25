@@ -55,36 +55,37 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
     };
   }, []);
 
-  // Real-time mark price from WebSocket (allMids channel)
-  const liveMarkPrice = useMemo(() => {
-    // 1. WebSocket allMids real-time stream (handles perp "xyz:TSLA" and spot "PURR/USDC")
-    if (allMids[symbol]) return allMids[symbol];
-    // Fall back to normalized uppercase for backward compat
-    const upper = symbol.toUpperCase();
-    if (allMids[upper]) return allMids[upper];
-    // 2. Aggregated markets list — spot prices from spotMetaAndAssetCtxs
+  // The header presents this number as "Price" for spot and "Mark" for perps.
+  // allMids is a MID, so it can only back the spot "Price"; perps keep markPx.
+  // Presence in the live WS map is the recency signal available (no timestamp is stored).
+  const livePrice = useMemo(() => {
+    if (isSpot) {
+      const wsMid = allMids[symbol] ?? allMids[symbol.toUpperCase()];
+      if (wsMid !== undefined && wsMid > 0) return wsMid;
+    }
+    // Aggregated markets list — spot prices from spotMetaAndAssetCtxs
     //    This is the authoritative source for spot mark prices when WebSocket
     //    hasn't delivered data yet (cold load) or allMids doesn't include spot pairs.
     if (isNonEmpty(tradeAsset?.markPx)) return Number(tradeAsset.markPx);
-    // 3. REST API ticker (last resort — returns zeros for spots without allMids data)
-    return price?.markPx || price?.price || 0;
-  }, [allMids, symbol, price, tradeAsset]);
+    // REST API ticker (last resort)
+    return price.markPx || price.price || 0;
+  }, [allMids, isSpot, symbol, price, tradeAsset]);
 
   const tradePrevDayPx = tradeAsset?.prevDayPx;
   const circulatingSupply = tradeAsset?.circulatingSupply;
 
   return (
     <MarketTerminalHeader
-      markPrice={liveMarkPrice}
+      markPrice={livePrice}
       oraclePrice={price?.midPx || price?.markPx || 0}
       change24hAbs={
         isSpot && isNonEmpty(tradePrevDayPx)
-          ? liveMarkPrice - Number(tradePrevDayPx)
+          ? livePrice - Number(tradePrevDayPx)
           : (price?.markPx || price?.price || 0) - (price?.prevDayPx || 0)
       }
       change24hPct={
         isSpot && isNonEmpty(tradePrevDayPx) && Number(tradePrevDayPx) > 0
-          ? ((liveMarkPrice - Number(tradePrevDayPx)) / Number(tradePrevDayPx)) * 100
+          ? ((livePrice - Number(tradePrevDayPx)) / Number(tradePrevDayPx)) * 100
           : price?.change24h || 0
       }
       volume24h={isSpot ? Number(tradeAsset?.dayNtlVlm ?? 0) : price?.volume24h || 0}
@@ -93,9 +94,7 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
       fundingCountdown={fundingCountdown}
       marketType={tradeAsset?.marketType}
       marketCap={
-        isSpot && isNonEmpty(circulatingSupply)
-          ? liveMarkPrice * Number(circulatingSupply)
-          : undefined
+        isSpot && isNonEmpty(circulatingSupply) ? livePrice * Number(circulatingSupply) : undefined
       }
       contractAddress={isSpot ? tradeAsset?.evmContract : undefined}
     />

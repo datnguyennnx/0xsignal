@@ -100,31 +100,21 @@ export function getTradeAnnotation(symbol: string) {
 
 export async function getMarketPrice(symbol: string): Promise<MarketPrice> {
   const normalizedSymbol = normalizeSymbol(symbol);
-  let markPx = 0;
-  let midPx = 0;
-  let prevDayPx = 0;
-  let volume24h = 0;
-  let openInterest = 0;
-  let funding = 0;
-  let resolvedSymbol = normalizedSymbol;
+  // A failed ticker must reject: fabricated zeros are indistinguishable from a real
+  // price of 0 and they defeat the React Query error path that renders the retry state.
+  const ticker = await getTicker(normalizedSymbol);
 
-  try {
-    const ticker = await getTicker(normalizedSymbol);
-
-    const mid = toNumberOrNull(ticker.mid ?? ticker.midPx ?? ticker.markPx) ?? 0;
-    markPx = toNumberOrNull(ticker.markPx) ?? mid;
-    midPx = toNumberOrNull(ticker.midPx) ?? mid;
-    prevDayPx = toNumberOrNull(ticker.prevDayPx) ?? markPx;
-    volume24h = toNumberOrNull(ticker.dayNtlVlm) ?? 0;
-    openInterest = toNumberOrNull(ticker.openInterest) ?? 0;
-    funding = toNumberOrNull(ticker.funding) ?? 0;
-    resolvedSymbol =
-      typeof ticker.symbol === "string" && ticker.symbol.trim().length > 0
-        ? ticker.symbol
-        : normalizedSymbol;
-  } catch {
-    // Logged
-  }
+  const mid = toNumberOrNull(ticker.mid ?? ticker.midPx ?? ticker.markPx) ?? 0;
+  const markPx = toNumberOrNull(ticker.markPx) ?? mid;
+  const midPx = toNumberOrNull(ticker.midPx) ?? mid;
+  const prevDayPx = toNumberOrNull(ticker.prevDayPx) ?? markPx;
+  const volume24h = toNumberOrNull(ticker.dayNtlVlm) ?? 0;
+  const openInterest = toNumberOrNull(ticker.openInterest) ?? 0;
+  const funding = toNumberOrNull(ticker.funding) ?? 0;
+  const resolvedSymbol =
+    typeof ticker.symbol === "string" && ticker.symbol.trim().length > 0
+      ? ticker.symbol
+      : normalizedSymbol;
 
   const price = markPx || midPx;
   const change24h = prevDayPx > 0 ? ((price - prevDayPx) / prevDayPx) * 100 : 0;

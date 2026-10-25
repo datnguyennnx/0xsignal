@@ -13,6 +13,7 @@ interface ChartCanvasProps {
   chart: IChartApi | null;
   candlestickSeries: ISeriesApi<"Candlestick"> | null;
   candles: ChartDataPoint[];
+  loadError: boolean;
   markers: readonly LogicalTradeMarker[];
   pxDecimals: number;
   interval: string;
@@ -31,6 +32,7 @@ export function ChartCanvas({
   chart,
   candlestickSeries,
   candles,
+  loadError,
   markers,
   pxDecimals,
   interval,
@@ -76,6 +78,13 @@ export function ChartCanvas({
             <IndicatorChips indicators={activeIndicators} />
             <ChartOhlcOverlay data={candles} precision={pxDecimals} />
           </>
+        ) : loadError ? (
+          <EmptyState
+            variant="chart"
+            title="Couldn't load chart"
+            description="The history request failed. Check your connection and try again."
+            className="absolute inset-0 pointer-events-none"
+          />
         ) : (
           <EmptyState
             variant="chart"
