@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { RAW_PRICE_NSIG_FIGS } from "@/core/utils/formatters";
 
 interface ScalingOptionLike {
   value: number;
@@ -50,6 +51,11 @@ export function getEffectiveNSigFigs(
   const raw = getEffectivePriceScaling(userPriceScaling, symbol, scalingOptions);
   if (raw === 0) return null; // Raw / no aggregation
   return raw;
+}
+
+/** Rows, spread strip and hover popup all render "Raw" at this precision. */
+export function resolveBookDisplayNSigFigs(effectiveNSigFigs: number | null): number {
+  return effectiveNSigFigs ?? RAW_PRICE_NSIG_FIGS;
 }
 
 // Module-level depth style cache to avoid object allocation per row per tick

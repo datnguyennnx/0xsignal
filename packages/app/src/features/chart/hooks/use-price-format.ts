@@ -11,12 +11,12 @@ function calcMinMove(pxDecimals: number): number {
   return Math.pow(10, -pxDecimals);
 }
 
-export const usePriceFormat = (pxDecimals: number, nSigFigs: number): PriceFormatResult => {
+export const usePriceFormat = (pxDecimals: number): PriceFormatResult => {
   return useMemo(
     () => ({
       minMove: calcMinMove(pxDecimals),
-      formatter: (price: number) => formatChartPrice(price, nSigFigs),
+      formatter: (price: number) => formatChartPrice(price),
     }),
-    [pxDecimals, nSigFigs],
+    [pxDecimals],
   );
 };

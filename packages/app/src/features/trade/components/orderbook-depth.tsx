@@ -9,7 +9,7 @@ import {
 import { createPortal } from "react-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type OrderbookData, priceKey } from "@/core/utils/hyperliquid";
-import { getDepthStyle } from "../utils/orderbook-widget-shared";
+import { getDepthStyle, resolveBookDisplayNSigFigs } from "../utils/orderbook-widget-shared";
 import { OVERLAY_PANEL_CLASS } from "@/lib/overlay-classes";
 import { formatPriceWithNSigFigs, formatSize, formatSignedPercent } from "@/core/utils/formatters";
 import {
@@ -263,6 +263,7 @@ export function OrderbookDepth({
 }: OrderbookDepthProps) {
   const { bodyRef, rowsPerHalf, rowHeightPx } = useOrderbookRows();
   const visibleRows = rowsPerHalf;
+  const displayNSigFigs = resolveBookDisplayNSigFigs(effectiveNSigFigs);
   // Capping each half at the measured rows keeps a stale measurement from clipping a row mid-height.
   const halfMaxHeightPx = visibleRows * rowHeightPx;
 
@@ -348,7 +349,7 @@ export function OrderbookDepth({
               isInRange={isRowInHighlightRange("ask", index)}
               onHover={onHover}
               onActivate={onActivate}
-              nSigFigs={effectiveNSigFigs ?? 5}
+              nSigFigs={displayNSigFigs}
             />
           ))}
         </div>
@@ -358,7 +359,7 @@ export function OrderbookDepth({
             Spread
           </span>
           <span className="px-[var(--space-2,0.75rem)] text-[length:var(--text-micro)] font-mono text-muted-foreground">
-            {formatPriceWithNSigFigs(spread, effectiveNSigFigs ?? 5)}
+            {formatPriceWithNSigFigs(spread, displayNSigFigs)}
           </span>
           <span className="px-[var(--space-2,0.75rem)] text-[length:var(--text-micro)] font-mono text-muted-foreground">
             {formatSignedPercent(spreadPercent)}
@@ -383,7 +384,7 @@ export function OrderbookDepth({
               isInRange={isRowInHighlightRange("bid", index)}
               onHover={onHover}
               onActivate={onActivate}
-              nSigFigs={effectiveNSigFigs ?? 5}
+              nSigFigs={displayNSigFigs}
             />
           ))}
         </div>
@@ -411,7 +412,7 @@ export function OrderbookDepth({
               <div className="flex justify-between">
                 <span className="text-xs text-muted-foreground">Price</span>
                 <span className="text-base font-mono font-medium">
-                  {formatPriceWithNSigFigs(popupData.price, effectiveNSigFigs ?? 5)}
+                  {formatPriceWithNSigFigs(popupData.price, displayNSigFigs)}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -436,7 +437,7 @@ export function OrderbookDepth({
                       <span className="text-xs text-muted-foreground">Avg Price</span>
                       <span className="text-sm font-mono font-medium">
                         {popupData.avgPrice !== undefined && popupData.avgPrice !== 0
-                          ? formatPriceWithNSigFigs(popupData.avgPrice, effectiveNSigFigs ?? 5)
+                          ? formatPriceWithNSigFigs(popupData.avgPrice, displayNSigFigs)
                           : "-"}
                       </span>
                     </div>

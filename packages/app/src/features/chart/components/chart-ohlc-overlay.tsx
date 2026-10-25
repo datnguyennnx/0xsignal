@@ -7,10 +7,9 @@ import { useHoverState } from "../contexts/hover-context";
 
 interface ChartOhlcOverlayProps {
   data: ChartDataPoint[];
-  nSigFigs: number;
 }
 
-export const ChartOhlcOverlay = memo(({ data, nSigFigs }: ChartOhlcOverlayProps) => {
+export const ChartOhlcOverlay = memo(({ data }: ChartOhlcOverlayProps) => {
   const { hoveredCandle } = useHoverState();
 
   // Use hovered candle OR last data point as fallback
@@ -29,20 +28,14 @@ export const ChartOhlcOverlay = memo(({ data, nSigFigs }: ChartOhlcOverlayProps)
         <span className="text-muted-foreground">
           O{" "}
           <span className="text-foreground tabular-nums">
-            {formatChartPrice(displayCandle.open, nSigFigs)}
+            {formatChartPrice(displayCandle.open)}
           </span>
         </span>
         <span className="text-muted-foreground">
-          H{" "}
-          <span className="text-gain tabular-nums">
-            {formatChartPrice(displayCandle.high, nSigFigs)}
-          </span>
+          H <span className="text-gain tabular-nums">{formatChartPrice(displayCandle.high)}</span>
         </span>
         <span className="text-muted-foreground">
-          L{" "}
-          <span className="text-loss tabular-nums">
-            {formatChartPrice(displayCandle.low, nSigFigs)}
-          </span>
+          L <span className="text-loss tabular-nums">{formatChartPrice(displayCandle.low)}</span>
         </span>
         <span className="text-muted-foreground">
           C{" "}
@@ -52,7 +45,7 @@ export const ChartOhlcOverlay = memo(({ data, nSigFigs }: ChartOhlcOverlayProps)
               "tabular-nums",
             )}
           >
-            {formatChartPrice(displayCandle.close, nSigFigs)}
+            {formatChartPrice(displayCandle.close)}
           </span>
         </span>
       </div>

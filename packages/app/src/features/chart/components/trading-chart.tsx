@@ -37,7 +37,7 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     hasActiveOverlays,
   } = useIndicators({ data: candles ?? [] });
 
-  const { chart, candlestickSeries, nSigFigs } = useChartRuntime({
+  const { chart, candlestickSeries } = useChartRuntime({
     containerRef: chartContainerRef,
     symbol,
     interval,
@@ -101,7 +101,6 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
       candles={candles ?? []}
       loadError={candleError !== null}
       markers={markers}
-      nSigFigs={nSigFigs}
       interval={interval}
       onIntervalChange={handleIntervalChange}
       activeIndicators={activeIndicators}

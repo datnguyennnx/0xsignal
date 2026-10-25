@@ -1,5 +1,13 @@
 export const MAX_SIG_FIGS = 5;
 
+/**
+ * The order book's "Raw" selector renders at this fixed sig-fig count, not at
+ * unbounded precision: every book surface substitutes it when no aggregation
+ * is requested. Chart prices are pinned to it so the selector never restyles
+ * the chart.
+ */
+export const RAW_PRICE_NSIG_FIGS = MAX_SIG_FIGS;
+
 /** Re-exported so display-only consumers need a single formatting module. */
 export { truncateAddress } from "./address";
 
