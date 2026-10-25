@@ -1,9 +1,13 @@
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 import { fetchSourceText, type CalendarSourceProvider } from "../calendar-source";
 import { FOREXFACTORY_FEED_URL, parse } from "./parse";
 
 export const forexFactoryProvider: CalendarSourceProvider = {
   source: "forexfactory",
   fetchEvents: () =>
-    fetchSourceText("forexfactory", FOREXFACTORY_FEED_URL).pipe(Effect.map((body) => parse(body))),
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      const body = yield* fetchSourceText("forexfactory", FOREXFACTORY_FEED_URL);
+      return parse(body, { now });
+    }),
 };

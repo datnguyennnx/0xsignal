@@ -7,7 +7,7 @@ export const FOREXFACTORY_FEED_URL = "https://nfs.faireconomy.media/ff_calendar_
 export const FOREXFACTORY_ATTRIBUTION = "ForexFactory";
 
 export interface ParseOptions {
-  readonly fetchedAt?: string | Date;
+  readonly now: number;
 }
 
 const CURRENCY_COUNTRY: Record<string, string> = {
@@ -53,24 +53,26 @@ const buildEvent = (row: Record<string, unknown>, options: ParseOptions): Econom
   const currency = rawCountry !== null && /^[A-Z]{3}$/.test(rawCountry) ? rawCountry : null;
   const country = currency === null ? "US" : (CURRENCY_COUNTRY[currency] ?? currency);
 
-  return normalizeEvent({
-    source: "forexfactory",
-    sourceEventId: `${date.toISOString()}-${currency ?? "xx"}-${slugify(title)}`,
-    title,
-    country,
-    currency,
-    category: "fx",
-    impact: parseImpact(row["impact"]),
-    scheduledAt: date,
-    forecast: asTrimmedString(row["forecast"]),
-    previous: asTrimmedString(row["previous"]),
-    sourceUrl: FOREXFACTORY_SOURCE_URL,
-    attribution: FOREXFACTORY_ATTRIBUTION,
-    fetchedAt: options.fetchedAt,
-  });
+  return normalizeEvent(
+    {
+      source: "forexfactory",
+      sourceEventId: `${date.toISOString()}-${currency ?? "xx"}-${slugify(title)}`,
+      title,
+      country,
+      currency,
+      category: "fx",
+      impact: parseImpact(row["impact"]),
+      scheduledAt: date,
+      forecast: asTrimmedString(row["forecast"]),
+      previous: asTrimmedString(row["previous"]),
+      sourceUrl: FOREXFACTORY_SOURCE_URL,
+      attribution: FOREXFACTORY_ATTRIBUTION,
+    },
+    options.now,
+  );
 };
 
-export const parse = (body: string, options: ParseOptions = {}): readonly EconomicEvent[] => {
+export const parse = (body: string, options: ParseOptions): readonly EconomicEvent[] => {
   if (typeof body !== "string" || body.trim() === "") return [];
 
   let data: unknown;

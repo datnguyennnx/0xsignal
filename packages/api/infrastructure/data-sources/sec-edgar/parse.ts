@@ -10,7 +10,7 @@ export const SEC_EDGAR_ATTRIBUTION = "U.S. SEC EDGAR";
 export const SEC_EDGAR_USER_AGENT = "0xsignal-calendar/1.0 (contact@0xsignal.example)";
 
 export interface ParseOptions {
-  readonly fetchedAt?: string | Date;
+  readonly now: number;
 }
 
 const asTrimmedString = (value: unknown): string | null =>
@@ -48,23 +48,25 @@ const buildEvent = (hit: Record<string, unknown>, options: ParseOptions): Econom
   const title = collapse(`${name} ${form}`);
   if (title === "") return null;
 
-  return normalizeEvent({
-    source: "sec-edgar",
-    sourceEventId: asTrimmedString(hit["_id"]) ?? `${date.toISOString()}-${slugify(title)}`,
-    title,
-    country: "US",
-    currency: null,
-    category: "crypto",
-    impact: "medium",
-    scheduledAt: date,
-    allDay: true,
-    sourceUrl: SEC_EDGAR_SOURCE_URL,
-    attribution: SEC_EDGAR_ATTRIBUTION,
-    fetchedAt: options.fetchedAt,
-  });
+  return normalizeEvent(
+    {
+      source: "sec-edgar",
+      sourceEventId: asTrimmedString(hit["_id"]) ?? `${date.toISOString()}-${slugify(title)}`,
+      title,
+      country: "US",
+      currency: null,
+      category: "crypto",
+      impact: "medium",
+      scheduledAt: date,
+      allDay: true,
+      sourceUrl: SEC_EDGAR_SOURCE_URL,
+      attribution: SEC_EDGAR_ATTRIBUTION,
+    },
+    options.now,
+  );
 };
 
-export const parse = (body: string, options: ParseOptions = {}): readonly EconomicEvent[] => {
+export const parse = (body: string, options: ParseOptions): readonly EconomicEvent[] => {
   if (typeof body !== "string" || body.trim() === "") return [];
 
   let data: unknown;

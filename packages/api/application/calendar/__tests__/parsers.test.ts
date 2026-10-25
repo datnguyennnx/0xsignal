@@ -15,6 +15,10 @@ import {
   SEC_EDGAR_ATTRIBUTION,
 } from "../../../infrastructure/data-sources/sec-edgar/parse";
 
+// A fixed instant keeps every parser test independent of the machine clock.
+const NOW = Date.UTC(2026, 9, 1, 12, 0, 0);
+const NOW_ISO = "2026-10-01T12:00:00.000Z";
+
 const BLS_ICS = [
   "BEGIN:VCALENDAR",
   "VERSION:2.0",
@@ -162,21 +166,24 @@ describe("stableId", () => {
 
 describe("normalizeEvent", () => {
   it("derives the id from stableId and normalizes optionals", () => {
-    const event = normalizeEvent({
-      source: "bea",
-      sourceEventId: "abc",
-      title: "GDP",
-      country: "US",
-      currency: "USD",
-      category: "macro",
-      impact: "medium",
-      scheduledAt: new Date("2026-01-30T00:00:00.000Z"),
-      attribution: "x",
-      fetchedAt: new Date("2026-01-01T00:00:00.000Z"),
-    });
+    const event = normalizeEvent(
+      {
+        source: "bea",
+        sourceEventId: "abc",
+        title: "GDP",
+        country: "US",
+        currency: "USD",
+        category: "macro",
+        impact: "medium",
+        scheduledAt: new Date("2026-01-30T00:00:00.000Z"),
+        attribution: "x",
+      },
+      Date.parse("2026-01-01T00:00:00.000Z"),
+    );
 
     expect(event.id).toBe(stableId("bea", "abc"));
     expect(event.scheduledAt).toBe("2026-01-30T00:00:00.000Z");
+    expect(event.fetchedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(event.period).toBeNull();
     expect(event.allDay).toBe(false);
   });
@@ -184,13 +191,14 @@ describe("normalizeEvent", () => {
 
 describe("parseBls", () => {
   it("parses ICS VEVENTs with impact rules and ISO dates", () => {
-    const events = parseBls(BLS_ICS);
+    const events = parseBls(BLS_ICS, { now: NOW });
 
     expect(events).toHaveLength(3);
     expect(events.every((event) => event.source === "bls")).toBe(true);
     expect(events.every((event) => event.category === "macro")).toBe(true);
     expect(events.every((event) => event.currency === "USD")).toBe(true);
     expect(events.every((event) => event.attribution === BLS_ATTRIBUTION)).toBe(true);
+    expect(events.every((event) => event.fetchedAt === NOW_ISO)).toBe(true);
 
     const cpi = events.find((event) => event.title === "Consumer Price Index");
     expect(cpi?.impact).toBe("high");
@@ -207,7 +215,7 @@ describe("parseBls", () => {
   });
 
   it("converts TZID local times to UTC and survives folded lines", () => {
-    const events = parseBls(BLS_ICS_REAL);
+    const events = parseBls(BLS_ICS_REAL, { now: NOW });
 
     expect(events).toHaveLength(2);
 
@@ -220,25 +228,26 @@ describe("parseBls", () => {
   });
 
   it("returns [] for empty or invalid input", () => {
-    expect(parseBls("")).toEqual([]);
-    expect(parseBls("not an ics feed")).toEqual([]);
+    expect(parseBls("", { now: NOW })).toEqual([]);
+    expect(parseBls("not an ics feed", { now: NOW })).toEqual([]);
   });
 });
 
 describe("parseBea", () => {
   it("parses the release_dates array", () => {
-    const events = parseBea(BEA_JSON);
+    const events = parseBea(BEA_JSON, { now: NOW });
 
     expect(events).toHaveLength(2);
     expect(events.every((event) => event.source === "bea")).toBe(true);
     expect(events.every((event) => event.attribution === BEA_ATTRIBUTION)).toBe(true);
     expect(events.every((event) => event.impact === "medium")).toBe(true);
+    expect(events.every((event) => event.fetchedAt === NOW_ISO)).toBe(true);
     expect(events[0]?.title).toBe("Personal Income and Outlays");
     expect(events[0]?.scheduledAt).toBe("2026-01-30T00:00:00.000Z");
   });
 
   it("parses the live nested release-name -> release_dates object", () => {
-    const events = parseBea(BEA_REAL_JSON);
+    const events = parseBea(BEA_REAL_JSON, { now: NOW });
 
     expect(events).toHaveLength(4);
     expect(events.every((event) => event.source === "bea")).toBe(true);
@@ -256,19 +265,22 @@ describe("parseBea", () => {
   });
 
   it("accepts a bare array and survives malformed JSON", () => {
-    expect(parseBea('[{"description":"Retail sales","date":"2026-03-16"}]')).toHaveLength(1);
-    expect(parseBea("{ not json")).toEqual([]);
-    expect(parseBea("")).toEqual([]);
+    expect(
+      parseBea('[{"description":"Retail sales","date":"2026-03-16"}]', { now: NOW }),
+    ).toHaveLength(1);
+    expect(parseBea("{ not json", { now: NOW })).toEqual([]);
+    expect(parseBea("", { now: NOW })).toEqual([]);
   });
 });
 
 describe("parseFed", () => {
   it("extracts FOMC ranges and attributes the active year", () => {
-    const events = parseFed(FED_HTML);
+    const events = parseFed(FED_HTML, { now: NOW });
 
     expect(events).toHaveLength(3);
     expect(events.every((event) => event.source === "federal-reserve")).toBe(true);
     expect(events.every((event) => event.attribution === FED_ATTRIBUTION)).toBe(true);
+    expect(events.every((event) => event.fetchedAt === NOW_ISO)).toBe(true);
     expect(events.every((event) => event.impact === "high")).toBe(true);
     expect(events.every((event) => event.title === "FOMC Meeting")).toBe(true);
 
@@ -277,19 +289,20 @@ describe("parseFed", () => {
   });
 
   it("returns [] for junk input", () => {
-    expect(parseFed("")).toEqual([]);
-    expect(parseFed("<html><body>No meetings here</body></html>")).toEqual([]);
+    expect(parseFed("", { now: NOW })).toEqual([]);
+    expect(parseFed("<html><body>No meetings here</body></html>", { now: NOW })).toEqual([]);
   });
 });
 
 describe("parseForexFactory", () => {
   it("maps the weekly feed array into fx events", () => {
-    const events = parseForexFactory(FOREXFACTORY_JSON);
+    const events = parseForexFactory(FOREXFACTORY_JSON, { now: NOW });
 
     expect(events).toHaveLength(3);
     expect(events.every((event) => event.source === "forexfactory")).toBe(true);
     expect(events.every((event) => event.attribution === FOREXFACTORY_ATTRIBUTION)).toBe(true);
     expect(events.every((event) => event.category === "fx")).toBe(true);
+    expect(events.every((event) => event.fetchedAt === NOW_ISO)).toBe(true);
 
     const sentiment = events.find((event) => event.title === "Prelim UoM Consumer Sentiment");
     expect(sentiment?.currency).toBe("USD");
@@ -313,21 +326,22 @@ describe("parseForexFactory", () => {
   });
 
   it("returns [] for empty, non-array, or malformed input", () => {
-    expect(parseForexFactory("")).toEqual([]);
-    expect(parseForexFactory("not json")).toEqual([]);
-    expect(parseForexFactory("{}")).toEqual([]);
-    expect(parseForexFactory('[{"title":"No date"}]')).toEqual([]);
+    expect(parseForexFactory("", { now: NOW })).toEqual([]);
+    expect(parseForexFactory("not json", { now: NOW })).toEqual([]);
+    expect(parseForexFactory("{}", { now: NOW })).toEqual([]);
+    expect(parseForexFactory('[{"title":"No date"}]', { now: NOW })).toEqual([]);
   });
 });
 
 describe("parseSecEdgar", () => {
   it("maps full-text hits into crypto S-1 events", () => {
-    const events = parseSecEdgar(SEC_EDGAR_JSON);
+    const events = parseSecEdgar(SEC_EDGAR_JSON, { now: NOW });
 
     expect(events).toHaveLength(2);
     expect(events.every((event) => event.source === "sec-edgar")).toBe(true);
     expect(events.every((event) => event.attribution === SEC_EDGAR_ATTRIBUTION)).toBe(true);
     expect(events.every((event) => event.category === "crypto")).toBe(true);
+    expect(events.every((event) => event.fetchedAt === NOW_ISO)).toBe(true);
     expect(events.every((event) => event.country === "US")).toBe(true);
     expect(events.every((event) => event.currency === null)).toBe(true);
     expect(events.every((event) => event.impact === "medium")).toBe(true);
@@ -346,21 +360,23 @@ describe("parseSecEdgar", () => {
           hits: [{ _source: { display_names: ["Acme Crypto ETF"], file_date: "2026-10-06" } }],
         },
       }),
+      { now: NOW },
     );
     expect(events).toHaveLength(1);
     expect(events[0]?.title).toBe("Acme Crypto ETF S-1");
 
-    expect(parseSecEdgar("")).toEqual([]);
-    expect(parseSecEdgar("not json")).toEqual([]);
-    expect(parseSecEdgar("{}")).toEqual([]);
-    expect(parseSecEdgar('{"hits":{}}')).toEqual([]);
+    expect(parseSecEdgar("", { now: NOW })).toEqual([]);
+    expect(parseSecEdgar("not json", { now: NOW })).toEqual([]);
+    expect(parseSecEdgar("{}", { now: NOW })).toEqual([]);
+    expect(parseSecEdgar('{"hits":{}}', { now: NOW })).toEqual([]);
   });
 });
 
 describe("parse determinism", () => {
   it("produces identical ids across repeated runs", () => {
-    const first = parseBls(BLS_ICS).map((event) => event.id);
-    const second = parseBls(BLS_ICS).map((event) => event.id);
+    const first = parseBls(BLS_ICS, { now: NOW });
+    const second = parseBls(BLS_ICS, { now: NOW });
+    expect(first.map((event) => event.id)).toEqual(second.map((event) => event.id));
     expect(first).toEqual(second);
   });
 

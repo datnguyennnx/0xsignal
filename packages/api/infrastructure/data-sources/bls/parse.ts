@@ -5,7 +5,7 @@ export const BLS_SOURCE_URL = "https://www.bls.gov/schedule/news_release/bls.ics
 export const BLS_ATTRIBUTION = "U.S. Bureau of Labor Statistics";
 
 export interface ParseOptions {
-  readonly fetchedAt?: string | Date;
+  readonly now: number;
 }
 
 const unfold = (body: string): string[] => {
@@ -140,23 +140,25 @@ const buildEvent = (block: readonly string[], options: ParseOptions): EconomicEv
   const parsed = parseIcsDate(dtstart, extractTzid(dtstartName));
   if (!parsed) return null;
 
-  return normalizeEvent({
-    source: "bls",
-    sourceEventId: uid === "" ? `${parsed.date.toISOString()}-${slugify(summary)}` : uid,
-    title: summary,
-    country: "US",
-    currency: "USD",
-    category: "macro",
-    impact: isHighImpact(summary) ? "high" : "medium",
-    scheduledAt: parsed.date,
-    allDay: parsed.allDay,
-    sourceUrl: BLS_SOURCE_URL,
-    attribution: BLS_ATTRIBUTION,
-    fetchedAt: options.fetchedAt,
-  });
+  return normalizeEvent(
+    {
+      source: "bls",
+      sourceEventId: uid === "" ? `${parsed.date.toISOString()}-${slugify(summary)}` : uid,
+      title: summary,
+      country: "US",
+      currency: "USD",
+      category: "macro",
+      impact: isHighImpact(summary) ? "high" : "medium",
+      scheduledAt: parsed.date,
+      allDay: parsed.allDay,
+      sourceUrl: BLS_SOURCE_URL,
+      attribution: BLS_ATTRIBUTION,
+    },
+    options.now,
+  );
 };
 
-export const parse = (body: string, options: ParseOptions = {}): readonly EconomicEvent[] => {
+export const parse = (body: string, options: ParseOptions): readonly EconomicEvent[] => {
   if (typeof body !== "string" || body.trim() === "") return [];
 
   const events: EconomicEvent[] = [];

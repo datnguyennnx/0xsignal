@@ -42,7 +42,6 @@ export interface EventFields {
   readonly revised?: string | null;
   readonly sourceUrl?: string | null;
   readonly attribution: string;
-  readonly fetchedAt?: Date | string | undefined;
 }
 
 const toIso = (value: Date | string): string => {
@@ -50,7 +49,7 @@ const toIso = (value: Date | string): string => {
   return Number.isNaN(date.getTime()) ? new Date(0).toISOString() : date.toISOString();
 };
 
-export const normalizeEvent = (fields: EventFields): EconomicEvent => ({
+export const normalizeEvent = (fields: EventFields, now: number): EconomicEvent => ({
   id: stableId(fields.source, fields.sourceEventId),
   source: fields.source,
   sourceEventId: fields.sourceEventId,
@@ -68,5 +67,5 @@ export const normalizeEvent = (fields: EventFields): EconomicEvent => ({
   revised: fields.revised ?? null,
   sourceUrl: fields.sourceUrl ?? null,
   attribution: fields.attribution,
-  fetchedAt: toIso(fields.fetchedAt ?? new Date()),
+  fetchedAt: toIso(new Date(now)),
 });

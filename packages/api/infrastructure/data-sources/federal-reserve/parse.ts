@@ -5,7 +5,7 @@ export const FED_SOURCE_URL = "https://www.federalreserve.gov/monetarypolicy/fom
 export const FED_ATTRIBUTION = "Board of Governors of the Federal Reserve System";
 
 export interface ParseOptions {
-  readonly fetchedAt?: string | Date;
+  readonly now: number;
 }
 
 const MONTHS = [
@@ -47,7 +47,7 @@ const yearForIndex = (positions: readonly YearPosition[], index: number): number
   return year;
 };
 
-export const parse = (body: string, options: ParseOptions = {}): readonly EconomicEvent[] => {
+export const parse = (body: string, options: ParseOptions): readonly EconomicEvent[] => {
   if (typeof body !== "string" || body.trim() === "") return [];
 
   const text = body
@@ -72,21 +72,23 @@ export const parse = (body: string, options: ParseOptions = {}): readonly Econom
     if (Number.isNaN(date.getTime())) continue;
 
     events.push(
-      normalizeEvent({
-        source: "federal-reserve",
-        sourceEventId: `${year}-${String(month + 1).padStart(2, "0")}-${String(startDay).padStart(2, "0")}`,
-        title: "FOMC Meeting",
-        country: "US",
-        currency: "USD",
-        category: "macro",
-        impact: "high",
-        scheduledAt: date,
-        allDay: true,
-        period: `${match[1]} ${startDay}-${endDay}, ${year}`,
-        sourceUrl: FED_SOURCE_URL,
-        attribution: FED_ATTRIBUTION,
-        fetchedAt: options.fetchedAt,
-      }),
+      normalizeEvent(
+        {
+          source: "federal-reserve",
+          sourceEventId: `${year}-${String(month + 1).padStart(2, "0")}-${String(startDay).padStart(2, "0")}`,
+          title: "FOMC Meeting",
+          country: "US",
+          currency: "USD",
+          category: "macro",
+          impact: "high",
+          scheduledAt: date,
+          allDay: true,
+          period: `${match[1]} ${startDay}-${endDay}, ${year}`,
+          sourceUrl: FED_SOURCE_URL,
+          attribution: FED_ATTRIBUTION,
+        },
+        options.now,
+      ),
     );
   }
   return events;

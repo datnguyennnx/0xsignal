@@ -6,7 +6,7 @@ export const BEA_SOURCE_URL = "https://apps.bea.gov/API/signup/release_dates.jso
 export const BEA_ATTRIBUTION = "U.S. Bureau of Economic Analysis";
 
 export interface ParseOptions {
-  readonly fetchedAt?: string | Date;
+  readonly now: number;
 }
 
 const pickString = (row: Record<string, unknown>, keys: readonly string[]): string | null => {
@@ -38,22 +38,24 @@ const parseDate = (value: string): Date | null => {
 };
 
 const buildEvent = (name: string, date: Date, options: ParseOptions): EconomicEvent =>
-  normalizeEvent({
-    source: "bea",
-    sourceEventId: `${date.toISOString()}-${slugify(name)}`,
-    title: name,
-    country: "US",
-    currency: "USD",
-    category: "macro",
-    impact: "medium",
-    scheduledAt: date,
-    allDay: true,
-    sourceUrl: BEA_SOURCE_URL,
-    attribution: BEA_ATTRIBUTION,
-    fetchedAt: options.fetchedAt,
-  });
+  normalizeEvent(
+    {
+      source: "bea",
+      sourceEventId: `${date.toISOString()}-${slugify(name)}`,
+      title: name,
+      country: "US",
+      currency: "USD",
+      category: "macro",
+      impact: "medium",
+      scheduledAt: date,
+      allDay: true,
+      sourceUrl: BEA_SOURCE_URL,
+      attribution: BEA_ATTRIBUTION,
+    },
+    options.now,
+  );
 
-export const parse = (body: string, options: ParseOptions = {}): readonly EconomicEvent[] => {
+export const parse = (body: string, options: ParseOptions): readonly EconomicEvent[] => {
   if (typeof body !== "string" || body.trim() === "") return [];
 
   let data: unknown;
