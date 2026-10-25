@@ -1,73 +1,51 @@
-import type { CalendarCategory, CalendarImpact, CalendarQuery } from "@0xsignal/shared";
+import { Schema, SchemaGetter } from "effect";
+import {
+  NormalizedEnumList,
+  PositiveIntegerFromQuery,
+  parseQuery,
+  splitQueryList,
+} from "../utils/param-parsers";
 
-const IMPACTS: readonly CalendarImpact[] = ["low", "medium", "high"];
-const CATEGORIES: readonly CalendarCategory[] = ["macro", "crypto", "fx"];
+const CALENDAR_IMPACTS = ["low", "medium", "high"] as const;
+const CALENDAR_CATEGORIES = ["macro", "crypto", "fx"] as const;
 
-const DEFAULT_UPCOMING_HOURS = 24;
+export const DEFAULT_UPCOMING_HOURS = 24;
 
-const isImpact = (value: string): value is CalendarImpact =>
-  (IMPACTS as readonly string[]).includes(value);
+const impactsFromQuery = NormalizedEnumList(CALENDAR_IMPACTS);
 
-const isCategory = (value: string): value is CalendarCategory =>
-  (CATEGORIES as readonly string[]).includes(value);
+const categoriesFromQuery = NormalizedEnumList(CALENDAR_CATEGORIES);
 
-const parseIsoDate = (raw: string | null): string | undefined => {
-  if (raw === null) return undefined;
-  const value = raw.trim();
-  if (value === "") return undefined;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-};
+const currenciesFromQuery = Schema.String.pipe(
+  Schema.decodeTo(Schema.Array(Schema.String).pipe(Schema.mutable), {
+    decode: SchemaGetter.transform((raw: string) =>
+      splitQueryList(raw).map((token) => token.toUpperCase()),
+    ),
+    encode: SchemaGetter.transform((currency: string[]) => currency.join(",")),
+  }),
+);
 
-const parsePositiveInt = (raw: string | null): number | undefined => {
-  if (raw === null) return undefined;
-  const value = raw.trim();
-  if (!/^\d+$/.test(value)) return undefined;
-  const parsed = Math.trunc(Number(value));
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-};
+const isoInstantFromQuery = Schema.DateFromString.pipe(
+  Schema.decodeTo(Schema.String, {
+    decode: SchemaGetter.transform((date: Date) => date.toISOString()),
+    encode: SchemaGetter.transform((iso: string) => new Date(iso)),
+  }),
+);
 
-const parseEnumList = <T extends string>(
-  raw: string | null,
-  isMember: (value: string) => value is T,
-): T[] | undefined => {
-  if (raw === null) return undefined;
-  const values = raw
-    .split(",")
-    .map((token) => token.trim().toLowerCase())
-    .filter((token) => isMember(token));
-  return values.length > 0 ? values : undefined;
-};
+const calendarEventsQuery = Schema.Struct({
+  from: Schema.optionalKey(isoInstantFromQuery),
+  to: Schema.optionalKey(isoInstantFromQuery),
+  impact: Schema.optionalKey(impactsFromQuery),
+  category: Schema.optionalKey(categoriesFromQuery),
+  currency: Schema.optionalKey(currenciesFromQuery),
+  limit: Schema.optionalKey(PositiveIntegerFromQuery),
+});
 
-const parseCurrencyList = (raw: string | null): string[] | undefined => {
-  if (raw === null) return undefined;
-  const values = raw
-    .split(",")
-    .map((token) => token.trim().toUpperCase())
-    .filter((token) => token !== "");
-  return values.length > 0 ? values : undefined;
-};
+const calendarUpcomingQuery = Schema.Struct({
+  hours: Schema.optionalKey(PositiveIntegerFromQuery),
+});
 
-export const parseCalendarQuery = (params: URLSearchParams): CalendarQuery => {
-  const query: CalendarQuery = {};
+export const parseCalendarQuery = (searchParams: URLSearchParams) =>
+  parseQuery(searchParams, calendarEventsQuery);
 
-  const from = parseIsoDate(params.get("from"));
-  if (from !== undefined) query.from = from;
-  const to = parseIsoDate(params.get("to"));
-  if (to !== undefined) query.to = to;
-
-  const impact = parseEnumList(params.get("impact"), isImpact);
-  if (impact !== undefined) query.impact = impact;
-  const category = parseEnumList(params.get("category"), isCategory);
-  if (category !== undefined) query.category = category;
-  const currency = parseCurrencyList(params.get("currency"));
-  if (currency !== undefined) query.currency = currency;
-
-  const limit = parsePositiveInt(params.get("limit"));
-  if (limit !== undefined) query.limit = limit;
-
-  return query;
-};
-
-export const parseUpcomingHours = (params: URLSearchParams): number =>
-  parsePositiveInt(params.get("hours")) ?? DEFAULT_UPCOMING_HOURS;
+export const parseUpcomingHoursQuery = (searchParams: URLSearchParams) =>
+  parseQuery(searchParams, calendarUpcomingQuery);

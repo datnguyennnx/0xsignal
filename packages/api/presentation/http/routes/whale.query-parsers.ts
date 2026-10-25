@@ -1,86 +1,43 @@
-import { Effect, Option } from "effect";
+import { Effect, Schema } from "effect";
 import {
-  type WhalePositionSort,
-  type WhalePositionsQuery,
-  type WhaleSide,
   WHALE_POSITIONS_LIMIT_DEFAULT,
   WHALE_POSITIONS_LIMIT_MAX,
   WHALE_POSITIONS_LIMIT_MIN,
 } from "@0xsignal/shared";
-import { asHttpError, type HttpError } from "../error-response";
+import {
+  NormalizedEnum,
+  PositiveIntegerFromQuery,
+  TrimmedString,
+  parseQuery,
+} from "../utils/param-parsers";
 
-// Absent optional value: built through Option so the absence is explicit.
-const noNumber = Option.getOrUndefined(Option.none<number>());
+const whaleSide = NormalizedEnum(["buy", "sell"]);
 
-const badRequest = (message: string): Effect.Effect<never, HttpError> =>
-  Effect.fail(asHttpError(400, message));
+const whaleSort = NormalizedEnum(["notional", "pnl", "funding"]);
 
-const parseOptionalPositiveInt = (
-  raw: string | null,
-  key: string,
-): Effect.Effect<number | undefined, HttpError> => {
-  if (raw === null) return Effect.succeed(noNumber);
-  const value = raw.trim();
-  if (value === "") return Effect.succeed(noNumber);
-  if (!/^\d+$/.test(value)) return badRequest(`Invalid ${key}: ${raw}`);
+const whalePositionsQuery = Schema.Struct({
+  symbol: Schema.optionalKey(TrimmedString),
+  side: Schema.optionalKey(whaleSide),
+  pnlMin: Schema.optionalKey(Schema.FiniteFromString),
+  pnlMax: Schema.optionalKey(Schema.FiniteFromString),
+  fundingMin: Schema.optionalKey(Schema.FiniteFromString),
+  sort: Schema.optionalKey(whaleSort),
+  limit: Schema.optionalKey(PositiveIntegerFromQuery),
+  cursor: Schema.optionalKey(TrimmedString),
+});
 
-  const parsed = Math.trunc(Number(value));
-  return parsed > 0 ? Effect.succeed(parsed) : badRequest(`Invalid ${key}: ${raw}`);
-};
+const clampLimit = (limit: number | undefined): number =>
+  Math.min(
+    Math.max(limit ?? WHALE_POSITIONS_LIMIT_DEFAULT, WHALE_POSITIONS_LIMIT_MIN),
+    WHALE_POSITIONS_LIMIT_MAX,
+  );
 
-const parseOptionalNumber = (
-  raw: string | null,
-  key: string,
-): Effect.Effect<number | undefined, HttpError> => {
-  if (raw === null) return Effect.succeed(noNumber);
-  const value = raw.trim();
-  if (value === "") return Effect.succeed(noNumber);
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Effect.succeed(parsed) : badRequest(`Invalid ${key}: ${raw}`);
-};
-
-const SORT_VALUES: readonly WhalePositionSort[] = ["notional", "pnl", "funding"];
-const SIDE_VALUES: readonly WhaleSide[] = ["buy", "sell"];
-
-const isSide = (value: string): value is WhaleSide =>
-  (SIDE_VALUES as readonly string[]).includes(value);
-
-const isSort = (value: string): value is WhalePositionSort =>
-  (SORT_VALUES as readonly string[]).includes(value);
-
-export const parseWhalePositionsQuery = (
-  params: URLSearchParams,
-): Effect.Effect<WhalePositionsQuery, HttpError> =>
-  Effect.gen(function* () {
-    const query: WhalePositionsQuery = {};
-
-    const symbol = params.get("symbol")?.trim();
-    if (symbol !== undefined && symbol !== "") query.symbol = symbol;
-    const cursor = params.get("cursor")?.trim();
-    if (cursor !== undefined && cursor !== "") query.cursor = cursor;
-
-    const side = params.get("side")?.trim();
-    if (side !== undefined && side !== "") {
-      if (isSide(side)) query.side = side;
-      else yield* badRequest(`Invalid side: ${side}`);
-    }
-
-    const pnlMin = yield* parseOptionalNumber(params.get("pnlMin"), "pnlMin");
-    if (pnlMin !== undefined) query.pnlMin = pnlMin;
-    const pnlMax = yield* parseOptionalNumber(params.get("pnlMax"), "pnlMax");
-    if (pnlMax !== undefined) query.pnlMax = pnlMax;
-    const fundingMin = yield* parseOptionalNumber(params.get("fundingMin"), "fundingMin");
-    if (fundingMin !== undefined) query.fundingMin = fundingMin;
-
-    const sort = params.get("sort")?.trim();
-    query.sort = sort !== undefined && isSort(sort) ? sort : "notional";
-
-    const limit = yield* parseOptionalPositiveInt(params.get("limit"), "limit");
-    query.limit = Math.min(
-      Math.max(limit ?? WHALE_POSITIONS_LIMIT_DEFAULT, WHALE_POSITIONS_LIMIT_MIN),
-      WHALE_POSITIONS_LIMIT_MAX,
-    );
-
-    return query;
-  });
+export const parseWhalePositionsQuery = (searchParams: URLSearchParams) =>
+  parseQuery(searchParams, whalePositionsQuery).pipe(
+    Effect.map((query) =>
+      Object.assign(query, {
+        sort: query.sort ?? "notional",
+        limit: clampLimit(query.limit),
+      }),
+    ),
+  );

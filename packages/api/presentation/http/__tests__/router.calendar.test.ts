@@ -42,6 +42,14 @@ type LooseEnvelope = { data: Record<string, unknown> };
 
 const envelope = (data: Record<string, unknown>): LooseEnvelope => ({ data });
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const bodyOf = async (response: Response): Promise<Record<string, unknown>> => {
+  const parsed: unknown = await response.json();
+  return isRecord(parsed) ? { ...parsed } : {};
+};
+
 const sampleEvent: EconomicEvent = {
   id: "bls-1",
   source: "bls",
@@ -97,13 +105,46 @@ describe("HTTP Calendar Router", () => {
     );
   });
 
-  it("ignores invalid query tokens instead of failing", async () => {
-    const response = await runRequest(
-      "/api/calendar?impact=bogus,high&category=nonsense&limit=abc&from=not-a-date",
-    );
+  it("rejects an unknown impact token with a 400 naming the field", async () => {
+    const response = await runRequest("/api/calendar?impact=bogus,high");
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(400);
+    const body = await bodyOf(response);
+    expect(typeof body["error"]).toBe("string");
+    expect(String(body["error"])).toContain("impact");
+  });
+
+  it("accepts case-varied enum filters and normalizes them", async () => {
+    const upperImpact = await runRequest("/api/calendar?impact=HIGH");
+    expect(upperImpact.status).toBe(200);
     expect(mockCalendarService.query).toHaveBeenCalledWith({ impact: ["high"] });
+
+    const mixedImpact = await runRequest("/api/calendar?impact=High");
+    expect(mixedImpact.status).toBe(200);
+    expect(mockCalendarService.query).toHaveBeenCalledWith({ impact: ["high"] });
+
+    const mixedCategory = await runRequest("/api/calendar?category=MACRO");
+    expect(mixedCategory.status).toBe(200);
+    expect(mockCalendarService.query).toHaveBeenCalledWith({ category: ["macro"] });
+  });
+
+  it("rejects an unknown impact token even when it looks normalized", async () => {
+    const response = await runRequest("/api/calendar?impact=unknownToken");
+
+    expect(response.status).toBe(400);
+    const body = await bodyOf(response);
+    expect(typeof body["error"]).toBe("string");
+    expect(String(body["error"])).toContain("impact");
+  });
+
+  it("rejects a malformed limit or date with a 400 naming the field", async () => {
+    const invalidLimit = await runRequest("/api/calendar?limit=abc");
+    expect(invalidLimit.status).toBe(400);
+    expect(JSON.stringify(await invalidLimit.json())).toContain("limit");
+
+    const invalidDate = await runRequest("/api/calendar?from=not-a-date");
+    expect(invalidDate.status).toBe(400);
+    expect(JSON.stringify(await invalidDate.json())).toContain("from");
   });
 
   it("passes parsed filters through", async () => {
@@ -132,5 +173,12 @@ describe("HTTP Calendar Router", () => {
 
     expect(response.status).toBe(200);
     expect(mockCalendarService.upcoming).toHaveBeenCalledWith(48);
+  });
+
+  it("rejects a non-numeric hours parameter with a 400 naming the field", async () => {
+    const response = await runRequest("/api/calendar/upcoming?hours=soon");
+
+    expect(response.status).toBe(400);
+    expect(JSON.stringify(await response.json())).toContain("hours");
   });
 });

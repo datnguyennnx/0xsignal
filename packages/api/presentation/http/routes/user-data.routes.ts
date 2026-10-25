@@ -1,7 +1,8 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { UserDataService } from "../../../application/user-data/contracts";
-import { asHttpError, type HttpError } from "../error-response";
+import type { HttpError } from "../error-response";
 import { EVM_ADDRESS_RE } from "./credentials.schemas";
+import { parseQuery } from "../utils/param-parsers";
 
 type UserDataHttpService = {
   readonly getClearinghouseState: (typeof UserDataService.Service)["getClearinghouseState"];
@@ -27,18 +28,25 @@ type BuildUserDataRoutesParams = {
   readonly mapServiceError: (error: unknown) => HttpError;
 };
 
-const requireWalletAddress = (url: URL): Effect.Effect<string, HttpError> => {
-  const walletAddress = url.searchParams.get("walletAddress");
-  if (walletAddress === null || walletAddress === "") {
-    return Effect.fail(asHttpError(400, "walletAddress query parameter is required"));
-  }
-  if (!EVM_ADDRESS_RE.test(walletAddress)) {
-    return Effect.fail(
-      asHttpError(400, "Invalid walletAddress format (expected 0x-prefixed 40-char hex)"),
-    );
-  }
-  return Effect.succeed(walletAddress);
-};
+const walletAddressFromQuery = Schema.String.pipe(
+  Schema.check(Schema.isPattern(EVM_ADDRESS_RE, { message: "expected 0x-prefixed 40-char hex" })),
+  Schema.annotateKey({ messageMissingKey: "walletAddress query parameter is required" }),
+);
+
+const userDataWalletQuery = Schema.Struct({
+  walletAddress: walletAddressFromQuery,
+});
+
+const userDataFundingQuery = Schema.Struct({
+  walletAddress: walletAddressFromQuery,
+  startTime: Schema.optionalKey(Schema.FiniteFromString),
+  endTime: Schema.optionalKey(Schema.FiniteFromString),
+});
+
+const requireWalletAddress = (url: URL): Effect.Effect<string, HttpError> =>
+  parseQuery(url.searchParams, userDataWalletQuery).pipe(
+    Effect.map((query) => query.walletAddress),
+  );
 
 export const buildUserDataRoutes = ({
   json,
@@ -158,15 +166,9 @@ export const buildUserDataRoutes = ({
     path: "/api/user/funding",
     handler: (_request, url, userData) =>
       Effect.gen(function* () {
-        const walletAddress = yield* requireWalletAddress(url);
-        const startTime = url.searchParams.get("startTime");
-        const endTime = url.searchParams.get("endTime");
+        const query = yield* parseQuery(url.searchParams, userDataFundingQuery);
         const payload = yield* userData
-          .getUserFunding(
-            walletAddress,
-            startTime === null || startTime === "" ? undefined : Number(startTime),
-            endTime === null || endTime === "" ? undefined : Number(endTime),
-          )
+          .getUserFunding(query.walletAddress, query.startTime, query.endTime)
           .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),

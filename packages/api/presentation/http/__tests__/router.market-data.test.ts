@@ -87,7 +87,10 @@ const expectHttpFailure = async (
   // handleRequest returns Response objects for all outcomes (including errors)
   if (result instanceof Response) {
     const body: unknown = await result.json();
-    expect({ status: result.status, message: errorMessage(body) }).toEqual(expected);
+    expect(result.status).toBe(expected.status);
+    expect(String(errorMessage(body))).toContain(expected.message);
+    if (!isRecord(body)) throw new Error("Expected a JSON error body");
+    expect(typeof body["error"]).toBe("string");
     return;
   }
 
@@ -95,7 +98,9 @@ const expectHttpFailure = async (
   if (isRecord(result)) {
     const candidate = result;
     if (typeof candidate.status === "number" && typeof candidate.message === "string") {
-      expect({ status: candidate.status, message: candidate.message }).toEqual(expected);
+      expect(candidate.status).toBe(expected.status);
+      expect(candidate.message).toContain(expected.message);
+      expect(typeof candidate.retryable).toBe("boolean");
       return;
     }
   }
@@ -227,8 +232,33 @@ describe("HTTP Market Data Router", () => {
     expect.hasAssertions();
     await expectHttpFailure(runRequest("/api/candles?symbol=BTC&interval=1m&limit=2abc"), {
       status: 400,
-      message: "Invalid integer for limit: 2abc",
+      message: "limit",
     });
+  });
+
+  it("rejects an unparseable start_time with a 400 naming the field", async () => {
+    expect.hasAssertions();
+    await expectHttpFailure(
+      runRequest("/api/candles?symbol=BTC&interval=1m&start_time=not-a-date"),
+      { status: 400, message: "start_time" },
+    );
+  });
+
+  it("rejects a missing interval with a 400 naming the field", async () => {
+    expect.hasAssertions();
+    await expectHttpFailure(runRequest("/api/candles?symbol=BTC"), {
+      status: 400,
+      message: "interval",
+    });
+  });
+
+  it("defaults the exchange when it is omitted", async () => {
+    const response = await runRequest("/api/candles?symbol=BTC&interval=1m");
+
+    expect(response.status).toBe(200);
+    expect(mockMarketDataService.getCandles).toHaveBeenCalledWith(
+      expect.objectContaining({ exchange: "Hyperliquid" }),
+    );
   });
 
   it("routes /api/ticker preserving app-facing metrics fields", async () => {
@@ -268,7 +298,7 @@ describe("HTTP Market Data Router", () => {
     expect.hasAssertions();
     await expectHttpFailure(runRequest("/api/orderbook?symbol=BTC&nSigFigs=6"), {
       status: 400,
-      message: "Invalid nSigFigs: 6. Supported values are 2, 3, 4, 5.",
+      message: "nSigFigs",
     });
   });
 
@@ -276,7 +306,7 @@ describe("HTTP Market Data Router", () => {
     expect.hasAssertions();
     await expectHttpFailure(runRequest("/api/orderbook?symbol=BTC&nSigFigs=2abc"), {
       status: 400,
-      message: "Invalid nSigFigs: 2abc. Supported values are 2, 3, 4, 5.",
+      message: "nSigFigs",
     });
   });
 

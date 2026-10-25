@@ -2,11 +2,11 @@ import { Effect } from "effect";
 import { MarketDataService } from "../../../application/market-data/contracts";
 import type { HttpError } from "../error-response";
 import {
-  parseInterval,
-  parseOptionalDate,
-  parseOptionalPositiveInt,
-  parseOptionalSigFigs,
-  parseRequiredString,
+  DEFAULT_EXCHANGE,
+  parseMarketCandlesQuery,
+  parseMarketOrderBookQuery,
+  parseMarketRecentCandlesQuery,
+  parseMarketSymbolQuery,
 } from "./market-data.query-parsers";
 
 type MarketDataHttpService = {
@@ -51,23 +51,16 @@ export const buildMarketDataRoutes = ({
     path: "/api/candles",
     handler: (_request, url, marketData) =>
       Effect.gen(function* () {
-        const symbol = yield* parseRequiredString(url.searchParams, "symbol");
-        const interval = yield* parseInterval(url.searchParams);
-        const exchangeParam = url.searchParams.get("exchange")?.trim();
-        const exchange =
-          exchangeParam === undefined || exchangeParam === "" ? "Hyperliquid" : exchangeParam;
-        const startTime = yield* parseOptionalDate(url.searchParams, "start_time");
-        const endTime = yield* parseOptionalDate(url.searchParams, "end_time");
-        const limit = yield* parseOptionalPositiveInt(url.searchParams, "limit");
+        const query = yield* parseMarketCandlesQuery(url.searchParams);
 
         const payload = yield* marketData
           .getCandles({
-            symbol,
-            exchange,
-            timeframe: interval,
-            startTime,
-            endTime,
-            limit,
+            symbol: query.symbol,
+            exchange: query.exchange ?? DEFAULT_EXCHANGE,
+            timeframe: query.interval,
+            startTime: query.start_time,
+            endTime: query.end_time,
+            limit: query.limit,
           })
           .pipe(Effect.mapError(mapServiceError));
 
@@ -79,21 +72,15 @@ export const buildMarketDataRoutes = ({
     path: "/api/candles/recent",
     handler: (_request, url, marketData) =>
       Effect.gen(function* () {
-        const symbol = yield* parseRequiredString(url.searchParams, "symbol");
-        const interval = yield* parseInterval(url.searchParams);
-        const exchangeParam = url.searchParams.get("exchange")?.trim();
-        const exchange =
-          exchangeParam === undefined || exchangeParam === "" ? "Hyperliquid" : exchangeParam;
-        const endTime = yield* parseOptionalDate(url.searchParams, "end_time");
-        const limit = yield* parseOptionalPositiveInt(url.searchParams, "limit");
+        const query = yield* parseMarketRecentCandlesQuery(url.searchParams);
 
         const payload = yield* marketData
           .getRecentCandles({
-            symbol,
-            exchange,
-            timeframe: interval,
-            endTime,
-            limit,
+            symbol: query.symbol,
+            exchange: query.exchange ?? DEFAULT_EXCHANGE,
+            timeframe: query.interval,
+            endTime: query.end_time,
+            limit: query.limit,
           })
           .pipe(Effect.mapError(mapServiceError));
 
@@ -105,8 +92,10 @@ export const buildMarketDataRoutes = ({
     path: "/api/ticker",
     handler: (_request, url, marketData) =>
       Effect.gen(function* () {
-        const symbol = yield* parseRequiredString(url.searchParams, "symbol");
-        const payload = yield* marketData.getTicker(symbol).pipe(Effect.mapError(mapServiceError));
+        const query = yield* parseMarketSymbolQuery(url.searchParams);
+        const payload = yield* marketData
+          .getTicker(query.symbol)
+          .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),
   },
@@ -115,10 +104,9 @@ export const buildMarketDataRoutes = ({
     path: "/api/orderbook",
     handler: (_request, url, marketData) =>
       Effect.gen(function* () {
-        const symbol = yield* parseRequiredString(url.searchParams, "symbol");
-        const precision = yield* parseOptionalSigFigs(url.searchParams, "nSigFigs");
+        const query = yield* parseMarketOrderBookQuery(url.searchParams);
         const payload = yield* marketData
-          .getOrderBook(symbol, precision)
+          .getOrderBook(query.symbol, query.nSigFigs ?? null)
           .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),
@@ -128,9 +116,9 @@ export const buildMarketDataRoutes = ({
     path: "/api/trade-annotation",
     handler: (_request, url, marketData) =>
       Effect.gen(function* () {
-        const symbol = yield* parseRequiredString(url.searchParams, "symbol");
+        const query = yield* parseMarketSymbolQuery(url.searchParams);
         const payload = yield* marketData
-          .getTradeAnnotation(symbol)
+          .getTradeAnnotation(query.symbol)
           .pipe(Effect.mapError(mapServiceError));
         return json({ data: payload });
       }),

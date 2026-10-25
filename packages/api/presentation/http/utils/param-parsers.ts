@@ -1,23 +1,91 @@
-const INTEGER_PATTERN = /^[+-]?\d+$/;
+import { Effect, Result, Schema, SchemaGetter } from "effect";
+import { asHttpError, type HttpError } from "../error-response";
 
-export const parseOptionalSigFigsParam = (
-  params: URLSearchParams,
-  key: string,
-): 2 | 3 | 4 | 5 | undefined | null => {
-  const rawValue = params.get(key);
-  if (rawValue === null || rawValue === "") {
-    return undefined;
-  }
+export const TrimmedString = Schema.Trim;
 
-  const value = rawValue.trim();
-  if (!INTEGER_PATTERN.test(value)) {
-    return null;
-  }
+const IntegerFromQuery = Schema.FiniteFromString.pipe(Schema.check(Schema.isInt()));
 
-  const parsed = Math.trunc(Number(value));
-  if (parsed === 2 || parsed === 3 || parsed === 4 || parsed === 5) {
-    return parsed;
-  }
+export const PositiveIntegerFromQuery = IntegerFromQuery.pipe(
+  Schema.check(Schema.isGreaterThan(0)),
+);
 
-  return null;
+const normalizeQueryToken = (token: string): string => token.trim().toLowerCase();
+
+export const splitQueryList = (raw: string): string[] =>
+  raw
+    .split(",")
+    .map((token) => token.trim())
+    .filter((token) => token !== "");
+
+const membership = <const Values extends ReadonlyArray<string>>(values: Values) => {
+  const isMember = (token: string): token is Values[number] => values.some((v) => v === token);
+  return isMember;
 };
+
+const decodeMember = <const Values extends ReadonlyArray<string>>(
+  values: Values,
+  token: string,
+): Values[number] => {
+  const isMember = membership(values);
+  const normalized = normalizeQueryToken(token);
+  if (isMember(normalized)) return normalized;
+  throw new Error(`Unreachable: ${token} passed validation but is not a member`);
+};
+
+const expectedValues = (values: ReadonlyArray<string>): string =>
+  `expected one of: ${values.join(", ")}`;
+
+export const NormalizedEnum = <const Values extends ReadonlyArray<string>>(values: Values) => {
+  const isMember = membership(values);
+  return Schema.String.pipe(
+    Schema.check(
+      Schema.makeFilter(
+        (raw: string) => isMember(normalizeQueryToken(raw)) || expectedValues(values),
+      ),
+    ),
+    Schema.decodeTo(Schema.Literals(values), {
+      decode: SchemaGetter.transform((raw: string) => decodeMember(values, raw)),
+      encode: SchemaGetter.transform((value: Values[number]) => value),
+    }),
+  );
+};
+
+export const NormalizedEnumList = <const Values extends ReadonlyArray<string>>(values: Values) => {
+  const isMember = membership(values);
+  return Schema.String.pipe(
+    Schema.check(
+      Schema.makeFilter(
+        (raw: string) =>
+          splitQueryList(raw).every((token) => isMember(normalizeQueryToken(token))) ||
+          expectedValues(values),
+      ),
+    ),
+    Schema.decodeTo(Schema.Array(Schema.Literals(values)).pipe(Schema.mutable), {
+      decode: SchemaGetter.transform((raw: string) =>
+        splitQueryList(raw).map((token) => decodeMember(values, token)),
+      ),
+      encode: SchemaGetter.transform((items: Values[number][]) => items.join(",")),
+    }),
+  );
+};
+
+const toQueryRecord = (searchParams: URLSearchParams): Record<string, string> => {
+  const record: Record<string, string> = {};
+  for (const [key, value] of searchParams) {
+    // Every route treats a blank parameter as if the client had omitted it.
+    if (value.trim() !== "") record[key] = value;
+  }
+  return record;
+};
+
+const formatDecodeFailure = (error: Schema.SchemaError): string =>
+  error.message.replaceAll(/\n\s+/g, " ");
+
+export const parseQuery = <S extends Schema.ConstraintDecoder<unknown>>(
+  searchParams: URLSearchParams,
+  schema: S,
+): Effect.Effect<S["Type"], HttpError> =>
+  Result.match(Schema.decodeUnknownResult(schema)(toQueryRecord(searchParams)), {
+    onFailure: (error) => Effect.fail(asHttpError(400, formatDecodeFailure(error))),
+    onSuccess: (value) => Effect.succeed(value),
+  });

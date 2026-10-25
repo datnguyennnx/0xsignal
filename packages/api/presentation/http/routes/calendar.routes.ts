@@ -1,7 +1,11 @@
 import { Clock, Effect } from "effect";
 import { CalendarService } from "../../../application/calendar/contracts";
 import type { HttpError } from "../error-response";
-import { parseCalendarQuery, parseUpcomingHours } from "./calendar.query-parsers";
+import {
+  DEFAULT_UPCOMING_HOURS,
+  parseCalendarQuery,
+  parseUpcomingHoursQuery,
+} from "./calendar.query-parsers";
 
 type CalendarHttpService = {
   readonly query: (typeof CalendarService.Service)["query"];
@@ -32,9 +36,8 @@ export const buildCalendarRoutes = ({
     path: "/api/calendar",
     handler: (_request, url, calendar) =>
       Effect.gen(function* () {
-        const events = yield* calendar
-          .query(parseCalendarQuery(url.searchParams))
-          .pipe(Effect.mapError(mapServiceError));
+        const query = yield* parseCalendarQuery(url.searchParams);
+        const events = yield* calendar.query(query).pipe(Effect.mapError(mapServiceError));
 
         const fetchedAt = new Date(yield* Clock.currentTimeMillis).toISOString();
         return json({
@@ -51,8 +54,9 @@ export const buildCalendarRoutes = ({
     path: "/api/calendar/upcoming",
     handler: (_request, url, calendar) =>
       Effect.gen(function* () {
+        const query = yield* parseUpcomingHoursQuery(url.searchParams);
         const events = yield* calendar
-          .upcoming(parseUpcomingHours(url.searchParams))
+          .upcoming(query.hours ?? DEFAULT_UPCOMING_HOURS)
           .pipe(Effect.mapError(mapServiceError));
 
         const fetchedAt = new Date(yield* Clock.currentTimeMillis).toISOString();

@@ -40,34 +40,45 @@ describe("parseWhalePositionsQuery", () => {
     });
   });
 
-  it("rejects an invalid side with a 400", async () => {
+  it("rejects an invalid side with a 400 naming the field", async () => {
     const error = await parseError("side=hodl");
 
     expect(error.status).toBe(400);
-    expect(error.message).toBe("Invalid side: hodl");
+    expect(error.message).toContain("side");
+    expect(error.retryable).toBe(false);
   });
 
-  it("falls back to the default sort for an unrecognized sort token", async () => {
-    const query = await parse("sort=alphabetical");
+  it("rejects an unrecognized sort token with a 400 naming the field", async () => {
+    const error = await parseError("sort=alphabetical");
 
-    expect(query.sort).toBe("notional");
+    expect(error.status).toBe(400);
+    expect(error.message).toContain("sort");
+    expect(error.retryable).toBe(false);
   });
 
   it.each(["pnlMin", "pnlMax", "fundingMin"])(
-    "rejects a non-numeric %s with a 400",
+    "rejects a non-numeric %s with a 400 naming the field",
     async (key) => {
       const error = await parseError(`${key}=abc`);
 
       expect(error.status).toBe(400);
-      expect(error.message).toBe(`Invalid ${key}: abc`);
+      expect(error.message).toContain(key);
+      expect(error.retryable).toBe(false);
     },
   );
 
-  it("rejects a non-positive limit with a 400", async () => {
+  it("rejects a non-positive limit with a 400 naming the field", async () => {
     const error = await parseError("limit=0");
 
     expect(error.status).toBe(400);
-    expect(error.message).toBe("Invalid limit: 0");
+    expect(error.message).toContain("limit");
+    expect(error.retryable).toBe(false);
+  });
+
+  it("trims enum filters before validating them", async () => {
+    const query = await parse("side=buy%20&sort=pnl%20");
+
+    expect(query).toMatchObject({ side: "buy", sort: "pnl" });
   });
 
   it("clamps limit into the shared MIN/MAX bounds", async () => {

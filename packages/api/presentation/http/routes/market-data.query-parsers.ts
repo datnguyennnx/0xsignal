@@ -1,86 +1,78 @@
-import { Effect, Option, Schema } from "effect";
-import { asHttpError, type HttpError } from "../error-response";
-import { parseOptionalSigFigsParam } from "../utils/param-parsers";
-import { MarketTimeframeSchema, type MarketTimeframe } from "../../../domain/market-data/timeframe";
+import { Schema } from "effect";
+import { MarketTimeframeSchema } from "../../../domain/market-data/timeframe";
+import { PositiveIntegerFromQuery, TrimmedString, parseQuery } from "../utils/param-parsers";
 
-// Absent optional value: built through Option so the absence is explicit.
-const noDate = Option.getOrUndefined(Option.none<Date>());
-const noNumber = Option.getOrUndefined(Option.none<number>());
+const SIG_FIGS_RANGE_MESSAGE = "supported values are 2, 3, 4, 5";
 
-const badRequest = (message: string): Effect.Effect<never, HttpError> =>
-  Effect.fail(asHttpError(400, message));
+export const DEFAULT_EXCHANGE = "Hyperliquid";
 
-export const parseRequiredString = (
-  params: URLSearchParams,
-  key: string,
-): Effect.Effect<string, HttpError> => {
-  const value = params.get(key)?.trim();
-  if (value === undefined || value === "") {
-    return badRequest(`Missing required query parameter: ${key}`);
-  }
-  return Effect.succeed(value);
+const requiredSymbol = TrimmedString.pipe(
+  Schema.annotateKey({ messageMissingKey: "Missing required query parameter: symbol" }),
+);
+
+const requiredInterval = MarketTimeframeSchema.pipe(
+  Schema.annotateKey({ messageMissingKey: "Missing required query parameter: interval" }),
+);
+
+const sigFigsFromQuery = PositiveIntegerFromQuery.pipe(
+  Schema.check(
+    Schema.isGreaterThanOrEqualTo(2, { message: SIG_FIGS_RANGE_MESSAGE }),
+    Schema.isLessThanOrEqualTo(5, { message: SIG_FIGS_RANGE_MESSAGE }),
+  ),
+);
+
+const optionalExchange = {
+  exchange: Schema.optionalKey(TrimmedString),
 };
 
-export const parseOptionalDate = (
-  params: URLSearchParams,
-  key: string,
-): Effect.Effect<Date | undefined, HttpError> => {
-  const value = params.get(key);
-  if (value === null || value === "") {
-    return Effect.succeed(noDate);
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return badRequest(`Invalid date for ${key}: ${value}`);
-  }
-
-  return Effect.succeed(parsed);
+const windowEnd = {
+  end_time: Schema.optionalKey(Schema.DateFromString),
 };
 
-export const parseOptionalPositiveInt = (
-  params: URLSearchParams,
-  key: string,
-): Effect.Effect<number | undefined, HttpError> => {
-  const rawValue = params.get(key);
-  if (rawValue === null || rawValue === "") {
-    return Effect.succeed(noNumber);
-  }
+const marketCandlesQuery = Schema.Struct({
+  symbol: requiredSymbol,
+  interval: requiredInterval,
+  ...optionalExchange,
+  start_time: Schema.optionalKey(Schema.DateFromString),
+  ...windowEnd,
+  limit: Schema.optionalKey(PositiveIntegerFromQuery),
+});
 
-  const value = rawValue.trim();
-  if (!/^[+-]?\d+$/.test(value)) {
-    return badRequest(`Invalid integer for ${key}: ${rawValue}`);
-  }
+const marketRecentCandlesQuery = Schema.Struct({
+  symbol: requiredSymbol,
+  interval: requiredInterval,
+  ...optionalExchange,
+  ...windowEnd,
+  limit: Schema.optionalKey(PositiveIntegerFromQuery),
+});
 
-  const parsed = Math.trunc(Number(value));
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return badRequest(`Invalid integer for ${key}: ${rawValue}`);
-  }
+const marketSymbolQuery = Schema.Struct({
+  symbol: requiredSymbol,
+});
 
-  return Effect.succeed(parsed);
+const marketOrderBookQuery = Schema.Struct({
+  symbol: requiredSymbol,
+  nSigFigs: Schema.optionalKey(sigFigsFromQuery),
+});
+
+// `timeframe` predates `interval`; keep accepting it without duplicating the schema.
+const withIntervalAlias = (searchParams: URLSearchParams): URLSearchParams => {
+  const alias = searchParams.get("timeframe");
+  if (alias === null || searchParams.has("interval")) return searchParams;
+
+  const resolved = new URLSearchParams(searchParams);
+  resolved.set("interval", alias);
+  return resolved;
 };
 
-export const parseOptionalSigFigs = (
-  params: URLSearchParams,
-  key: string,
-): Effect.Effect<2 | 3 | 4 | 5 | null, HttpError> => {
-  const value = parseOptionalSigFigsParam(params, key);
-  if (value === null) {
-    return badRequest(`Invalid ${key}: ${params.get(key)}. Supported values are 2, 3, 4, 5.`);
-  }
+export const parseMarketCandlesQuery = (searchParams: URLSearchParams) =>
+  parseQuery(withIntervalAlias(searchParams), marketCandlesQuery);
 
-  // undefined (not provided) → null (full precision default)
-  return Effect.succeed(value ?? null);
-};
+export const parseMarketRecentCandlesQuery = (searchParams: URLSearchParams) =>
+  parseQuery(withIntervalAlias(searchParams), marketRecentCandlesQuery);
 
-export const parseInterval = (
-  params: URLSearchParams,
-): Effect.Effect<MarketTimeframe, HttpError> => {
-  const value = params.get("interval") ?? params.get("timeframe");
-  if (value === null || value === "") {
-    return badRequest("Missing required query parameter: interval");
-  }
-  return Schema.decodeUnknownEffect(MarketTimeframeSchema)(value).pipe(
-    Effect.mapError(() => asHttpError(400, `Unsupported interval: ${value}`)),
-  );
-};
+export const parseMarketSymbolQuery = (searchParams: URLSearchParams) =>
+  parseQuery(searchParams, marketSymbolQuery);
+
+export const parseMarketOrderBookQuery = (searchParams: URLSearchParams) =>
+  parseQuery(searchParams, marketOrderBookQuery);

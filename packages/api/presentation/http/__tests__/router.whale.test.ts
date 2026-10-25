@@ -95,6 +95,13 @@ describe("HTTP Whale Router", () => {
     });
   });
 
+  it("returns 400 when the side is not a known value", async () => {
+    const response = await runRequest("/api/whales/positions?side=hodl");
+
+    expect(response.status).toBe(400);
+    expect(JSON.stringify(await response.json())).toContain("side");
+  });
+
   it("returns 503 when the whale service is unwired", async () => {
     const response = await runRequest("/api/whales/positions", false);
 
