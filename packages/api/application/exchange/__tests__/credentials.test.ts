@@ -129,7 +129,10 @@ const makeLifecycleRepo = (creds: Record<"old" | "new", LifecycleCred>) => ({
       }),
     );
   }),
-  revoke: vi.fn<CredRepoShape["revoke"]>().mockImplementation((id: string) => {
+  revoke: vi.fn<CredRepoShape["revoke"]>().mockImplementation((id: string, accountId: string) => {
+    if (accountId !== "acct-1") {
+      return Effect.fail(new CredentialNotFound({ credentialId: id }));
+    }
     const cred = Object.values(creds).find((c) => c.id === id);
     if (cred) cred.isRevoked = true;
     return Effect.succeed(void 0);
@@ -163,6 +166,15 @@ const makeMultiUserCredRepo = (state: { userACalled: boolean; userBCalled: boole
       return Effect.fail(new CredentialNotFound({ credentialId: id }));
     }),
 });
+
+const makeAccountScopedRevoke = (expectedAccountId: string, state: { revoked: boolean }) =>
+  vi.fn<CredRepoShape["revoke"]>().mockImplementation((id: string, accountId: string) =>
+    accountId === expectedAccountId
+      ? Effect.sync(() => {
+          state.revoked = true;
+        })
+      : Effect.fail(new CredentialNotFound({ credentialId: id })),
+  );
 
 describe("ExchangeService — credential system", () => {
   beforeEach(() => {
@@ -743,7 +755,7 @@ describe("Full credential lifecycle end-to-end", () => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const repo = yield* ExchangeCredentialRepo;
-        yield* repo.revoke("cred-lc-new", "compromised", USER_A);
+        yield* repo.revoke("cred-lc-new", "acct-1", "compromised", USER_A);
       }).pipe(Effect.provide(testLayer)),
     );
 
@@ -756,6 +768,34 @@ describe("Full credential lifecycle end-to-end", () => {
         .pipe(Effect.flip),
     );
     expect(revokedResult).toBeInstanceOf(CredentialNotFound);
+  });
+});
+
+describe("revoke — account scoping", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects a mismatched accountId with CredentialNotFound and leaves the credential active", async () => {
+    const state = { revoked: false };
+    const revoke = makeAccountScopedRevoke("acct-1", state);
+    const layer = Layer.succeed(
+      ExchangeCredentialRepo,
+      ExchangeCredentialRepo.of({ ...defaultMockCredRepo, revoke }),
+    );
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const repo = yield* ExchangeCredentialRepo;
+        return yield* repo.revoke("cred-1", "acct-other", "compromised", USER_A);
+      })
+        .pipe(Effect.provide(layer))
+        .pipe(Effect.flip),
+    );
+
+    expect(result).toBeInstanceOf(CredentialNotFound);
+    expect(revoke).toHaveBeenCalledWith("cred-1", "acct-other", "compromised", USER_A);
+    expect(state.revoked).toBe(false);
   });
 });
 

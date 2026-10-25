@@ -70,6 +70,7 @@ export interface ExchangeCredentialRepoPort {
 
   readonly revoke: (
     id: string,
+    accountId: string,
     reason: string,
     userId: string,
   ) => Effect.Effect<void, CredentialNotFound>;

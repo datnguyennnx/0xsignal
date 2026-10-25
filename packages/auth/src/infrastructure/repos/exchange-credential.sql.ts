@@ -87,7 +87,7 @@ export const DEACTIVATE_CREDENTIAL_SQL =
 
 export const REVOKE_CREDENTIAL_SQL = `UPDATE api_credentials
            SET is_revoked = true, revoked_at = NOW(), revoked_reason = $1
-           WHERE id = $2 AND user_id = $3
+           WHERE id = $2 AND user_id = $3 AND account_id = $4
            RETURNING id`;
 
 export const VERIFY_CREDENTIAL_SQL = `UPDATE api_credentials

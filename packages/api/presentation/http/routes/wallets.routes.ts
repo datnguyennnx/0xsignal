@@ -2,11 +2,14 @@ import { Effect, Schema } from "effect";
 import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
 import type { CredentialVerifier } from "../../../application/hyperliquid/credential-verification";
 import { asHttpError, type HttpError } from "../error-response";
+import { requireUserId } from "../require-user";
 import { CreateWalletSchema, validateWalletAddress } from "./credentials.schemas";
 
 type AccountRepoService = typeof ExchangeAccountRepo.Service;
 type CredentialRepoService = typeof ExchangeCredentialRepo.Service;
 
+// userId is optional only to match CredentialHttpHandler; route-table gates every
+// wallet route behind requireAuthCredentials, which always supplies the session user.
 type WalletRouteHandler = (
   request: Request,
   url: URL,
@@ -35,9 +38,7 @@ export const buildWalletRoutes = ({
     path: "/api/wallets",
     handler: (request, _url, accountRepo, _credentialRepo, _hlClient, userId) =>
       Effect.gen(function* () {
-        if (userId === undefined || userId === "") {
-          return yield* Effect.fail(asHttpError(401, "Authentication required"));
-        }
+        const uid = yield* requireUserId(userId);
 
         const raw: unknown = yield* Effect.tryPromise({
           try: () => request.json(),
@@ -57,7 +58,7 @@ export const buildWalletRoutes = ({
 
         const account = yield* accountRepo
           .create({
-            userId,
+            userId: uid,
             exchangeSlug,
             nodeType: "wallet",
             walletAddress,
@@ -86,13 +87,11 @@ export const buildWalletRoutes = ({
     path: "/api/wallets",
     handler: (_request, url, accountRepo, _credentialRepo, _hlClient, userId) =>
       Effect.gen(function* () {
-        if (userId === undefined || userId === "") {
-          return yield* Effect.fail(asHttpError(401, "Authentication required"));
-        }
+        const uid = yield* requireUserId(userId);
 
         const exchangeSlug = url.searchParams.get("exchangeSlug") ?? undefined;
 
-        const accounts = yield* accountRepo.findByUserId(userId, exchangeSlug);
+        const accounts = yield* accountRepo.findByUserId(uid, exchangeSlug);
 
         return json({
           data: accounts.map(({ metadata: _omit, ...safe }) => safe),
@@ -106,13 +105,11 @@ export const buildWalletRoutes = ({
     path: "/api/wallets/:accountId",
     handler: (_request, url, accountRepo, _credentialRepo, _hlClient, userId) =>
       Effect.gen(function* () {
-        if (userId === undefined || userId === "") {
-          return yield* Effect.fail(asHttpError(401, "Authentication required"));
-        }
+        const uid = yield* requireUserId(userId);
 
         const accountId = url.pathname.split("/")[3]; // /api/wallets/:accountId
 
-        yield* accountRepo.deactivate(accountId, userId).pipe(
+        yield* accountRepo.deactivate(accountId, uid).pipe(
           Effect.catchTag("AccountNotFound", () =>
             Effect.fail(asHttpError(404, "Wallet not found")),
           ),

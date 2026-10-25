@@ -2,6 +2,7 @@ import { Effect, Option, Redacted, Schema } from "effect";
 import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
 import type { CredentialVerifier } from "../../../application/hyperliquid/credential-verification";
 import { asHttpError, type HttpError } from "../error-response";
+import { requireUserId } from "../require-user";
 import { CreateKeySchema } from "./credentials.schemas";
 
 type AccountRepoService = typeof ExchangeAccountRepo.Service;
@@ -33,11 +34,9 @@ export const buildKeyRoutes = ({
   {
     method: "POST",
     path: "/api/wallets/:accountId/keys",
-    handler: (request, url, _accountRepo, credentialRepo, _verifier, userId) =>
+    handler: (request, url, _accountRepo, credentialRepo, _verifier, authUserId) =>
       Effect.gen(function* () {
-        if (userId === undefined || userId === "") {
-          return yield* Effect.fail(asHttpError(401, "Authentication required"));
-        }
+        const userId = yield* requireUserId(authUserId);
 
         const accountId = url.pathname.split("/")[3]; // /api/wallets/:accountId/keys
 
@@ -90,11 +89,9 @@ export const buildKeyRoutes = ({
   {
     method: "GET",
     path: "/api/wallets/:accountId/keys",
-    handler: (_request, url, _accountRepo, credentialRepo, _verifier, userId) =>
+    handler: (_request, url, _accountRepo, credentialRepo, _verifier, authUserId) =>
       Effect.gen(function* () {
-        if (userId === undefined || userId === "") {
-          return yield* Effect.fail(asHttpError(401, "Authentication required"));
-        }
+        const userId = yield* requireUserId(authUserId);
 
         const accountId = url.pathname.split("/")[3]; // /api/wallets/:accountId/keys
 
@@ -147,11 +144,9 @@ export const buildKeyRoutes = ({
   {
     method: "POST",
     path: "/api/wallets/:accountId/keys/:credentialId/verify",
-    handler: (_request, url, _accountRepo, credentialRepo, verifier, userId) =>
+    handler: (_request, url, _accountRepo, credentialRepo, verifier, authUserId) =>
       Effect.gen(function* () {
-        if (userId === undefined || userId === "") {
-          return yield* Effect.fail(asHttpError(401, "Authentication required"));
-        }
+        const userId = yield* requireUserId(authUserId);
 
         const pathParts = url.pathname.split("/");
         const credentialId = pathParts[5]; // /api/wallets/:aid/keys/:cid/verify
@@ -218,16 +213,17 @@ export const buildKeyRoutes = ({
   {
     method: "DELETE",
     path: "/api/wallets/:accountId/keys/:credentialId",
-    handler: (_request, url, _accountRepo, credentialRepo, _verifier, userId) =>
+    handler: (_request, url, _accountRepo, credentialRepo, _verifier, authUserId) =>
       Effect.gen(function* () {
-        if (userId === undefined || userId === "") {
-          return yield* Effect.fail(asHttpError(401, "Authentication required"));
-        }
+        const userId = yield* requireUserId(authUserId);
 
         const pathParts = url.pathname.split("/");
         const credentialId = pathParts[5]; // /api/wallets/:aid/keys/:cid
+        const accountId = pathParts[3]; // /api/wallets/:aid/keys/:cid
 
-        yield* credentialRepo.revoke(credentialId, "user_initiated", userId).pipe(
+        // Ownership/scope is enforced by the repo; a mismatched accountId
+        // surfaces as CredentialNotFound (404).
+        yield* credentialRepo.revoke(credentialId, accountId, "user_initiated", userId).pipe(
           Effect.catchTag("CredentialNotFound", () =>
             Effect.fail(asHttpError(404, "Credential not found")),
           ),

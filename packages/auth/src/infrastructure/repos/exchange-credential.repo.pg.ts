@@ -131,9 +131,14 @@ export function pgExchangeCredentialRepo(
         return mapCredentialRow(newRow);
       }),
 
-    revoke: (id, reason, userId) =>
+    revoke: (id, accountId, reason, userId) =>
       Effect.tryPromise(async () => {
-        const result = await pg.query<IdRow>(REVOKE_CREDENTIAL_SQL, [reason, id, userId]);
+        const result = await pg.query<IdRow>(REVOKE_CREDENTIAL_SQL, [
+          reason,
+          id,
+          userId,
+          accountId,
+        ]);
         if (result.rows.length === 0) {
           throw new CredentialNotFound({ credentialId: id });
         }
@@ -141,6 +146,7 @@ export function pgExchangeCredentialRepo(
         Effect.tap(() =>
           writeCredentialAudit(pg, "revoked", {
             userId,
+            accountId,
             credentialId: id,
             context: { reason },
           }),
