@@ -20,7 +20,6 @@ const config: WhaleConfigService = {
   leaderboardUrl: "http://localhost",
   leaderboardTtlMs: 0,
   seededWalletCap: 10,
-  walletRetentionMs: 60_000,
   positionRetentionMs: 60_000,
 };
 
@@ -46,23 +45,13 @@ const makeHarness = (): Harness => {
   const polls: string[][] = [];
   const reached = Deferred.makeUnsafe<void>();
   const release = Deferred.makeUnsafe<void>();
-  let upsertCalls = 0;
+  let pollCalls = 0;
   let streamCalls = 0;
 
   const repoLayer = Layer.succeed(WhaleRepo, {
-    upsertWallets: () =>
-      Effect.gen(function* () {
-        upsertCalls += 1;
-        if (upsertCalls === 1) {
-          Deferred.doneUnsafe(reached, Effect.void);
-          yield* Deferred.await(release);
-        }
-        return 0;
-      }),
     upsertPositions: () => Effect.succeed(0),
     deleteClosedPositions: () => Effect.succeed(0),
     queryPositions: () => Effect.succeed<WhalePositionsPage>({ positions: [], nextCursor: null }),
-    pruneWallets: () => Effect.succeed(0),
     deletePositionsForAddresses: () => Effect.succeed(0),
     pruneStalePositions: () => Effect.succeed(0),
   });
@@ -80,10 +69,16 @@ const makeHarness = (): Harness => {
     {
       kind: "position-poller" as const,
       poller: {
-        pollPositions: (addresses: string[]) => {
-          polls.push([...addresses]);
-          return Effect.succeed({ positions: [], succeededAddresses: addresses });
-        },
+        pollPositions: (addresses: string[]) =>
+          Effect.gen(function* () {
+            pollCalls += 1;
+            if (pollCalls === 1) {
+              Deferred.doneUnsafe(reached, Effect.void);
+              yield* Deferred.await(release);
+            }
+            polls.push([...addresses]);
+            return { positions: [], succeededAddresses: addresses };
+          }),
       },
     },
     {

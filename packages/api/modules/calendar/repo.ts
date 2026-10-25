@@ -14,6 +14,8 @@ export interface CalendarRepoPort {
   readonly query: (q: CalendarQuery) => Effect.Effect<readonly EconomicEvent[], CalendarRepoError>;
 
   readonly upcoming: (hours: number) => Effect.Effect<readonly EconomicEvent[], CalendarRepoError>;
+
+  readonly deleteOlderThan: (cutoffMillis: number) => Effect.Effect<number, CalendarRepoError>;
 }
 
 export class CalendarRepo extends Context.Service<CalendarRepo, CalendarRepoPort>()(

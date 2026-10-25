@@ -22,7 +22,6 @@ const config: WhaleConfigService = {
   leaderboardUrl: "http://localhost",
   leaderboardTtlMs: 0,
   seededWalletCap: 10,
-  walletRetentionMs: 60_000,
   positionRetentionMs: 60_000,
 };
 

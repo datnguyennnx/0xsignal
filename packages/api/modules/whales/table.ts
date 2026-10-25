@@ -40,20 +40,6 @@ const SCHEMA_STATEMENTS: readonly string[] = [
   `CREATE INDEX IF NOT EXISTS whale_positions_side_idx
     ON whale_positions (side)`,
 
-  `CREATE TABLE IF NOT EXISTS whale_wallets (
-    address text PRIMARY KEY,
-    last_trade_at timestamptz,
-    last_notional_usd numeric
-  )`,
-
-  `ALTER TABLE whale_wallets
-    ADD COLUMN IF NOT EXISTS last_trade_at timestamptz,
-    ADD COLUMN IF NOT EXISTS last_notional_usd numeric`,
-
-  `ALTER TABLE whale_wallets
-    ALTER COLUMN last_trade_at DROP NOT NULL,
-    ALTER COLUMN last_notional_usd DROP NOT NULL`,
-
   `ALTER TABLE whale_positions
     ADD COLUMN IF NOT EXISTS user_address text,
     ADD COLUMN IF NOT EXISTS coin text,

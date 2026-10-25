@@ -6,12 +6,6 @@ export class WhaleRepoError extends Data.TaggedError("WhaleRepoError")<{
   readonly cause?: unknown;
 }> {}
 
-interface WhaleWalletInput {
-  readonly address: string;
-  readonly lastTradeAt?: string;
-  readonly lastNotionalUsd?: number;
-}
-
 export interface WhalePositionKey {
   readonly userAddress: string;
   readonly coin: string;
@@ -23,10 +17,6 @@ export interface WhalePositionsPage {
 }
 
 export interface WhaleRepoPort {
-  readonly upsertWallets: (
-    wallets: readonly WhaleWalletInput[],
-  ) => Effect.Effect<number, WhaleRepoError>;
-
   readonly upsertPositions: (
     positions: readonly WhalePosition[],
   ) => Effect.Effect<number, WhaleRepoError>;
@@ -38,8 +28,6 @@ export interface WhaleRepoPort {
   readonly queryPositions: (
     q: WhalePositionsQuery,
   ) => Effect.Effect<WhalePositionsPage, WhaleRepoError>;
-
-  readonly pruneWallets: (before: Date) => Effect.Effect<number, WhaleRepoError>;
 
   readonly deletePositionsForAddresses: (
     addresses: readonly string[],

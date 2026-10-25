@@ -204,13 +204,6 @@ export const makeWhaleService = () =>
           }
 
           // Retention is best-effort: a prune outage must not abort the tick.
-          yield* repo.pruneWallets(new Date(now - config.walletRetentionMs)).pipe(
-            Effect.mapError(mapRepoError("Failed to prune stale whale wallets")),
-            Effect.catch((error) =>
-              Effect.logWarning(`[whale] wallet prune failed, continuing: ${error.message}`),
-            ),
-          );
-
           yield* repo.pruneStalePositions(new Date(now - config.positionRetentionMs)).pipe(
             Effect.mapError(mapRepoError("Failed to prune stale whale positions")),
             Effect.catch((error) =>
@@ -220,15 +213,6 @@ export const makeWhaleService = () =>
 
           const trackedNow = yield* Ref.get(tracked);
           if (trackedNow.size === 0) return;
-
-          const walletInputs = Array.from(trackedNow, ([address, meta]) => ({
-            address,
-            lastTradeAt: new Date(meta.lastSeenAt).toISOString(),
-            lastNotionalUsd: meta.lastNotionalUsd,
-          }));
-          yield* repo
-            .upsertWallets(walletInputs)
-            .pipe(Effect.mapError(mapRepoError("Failed to upsert whale wallets")));
 
           const addresses = Array.from(trackedNow.entries())
             .toSorted((a, b) => b[1].lastSeenAt - a[1].lastSeenAt)

@@ -23,12 +23,6 @@ const chunked = <T>(values: readonly T[]): T[][] => {
 const sum = (counts: readonly number[]): number =>
   counts.reduce((total, count) => total + count, 0);
 
-const WALLET_COLUMNS = ["address", "last_trade_at", "last_notional_usd"];
-const WALLET_ASSIGNMENTS = [
-  "last_trade_at = EXCLUDED.last_trade_at",
-  "last_notional_usd = EXCLUDED.last_notional_usd",
-];
-
 const POSITION_COLUMNS = [
   "user_address",
   "coin",
@@ -61,20 +55,6 @@ type Pool = NonNullable<import("pg").Pool>;
 
 function pgWhaleRepo(pg: Pool): WhaleRepoPort {
   return {
-    upsertWallets: (wallets) =>
-      Effect.tryPromise({
-        try: () =>
-          batchedUpsert(
-            pg,
-            "whale_wallets",
-            WALLET_COLUMNS,
-            "(address)",
-            WALLET_ASSIGNMENTS,
-            wallets.map((w) => [w.address, w.lastTradeAt ?? null, w.lastNotionalUsd ?? null]),
-          ),
-        catch: (cause) => new WhaleRepoError({ message: "Failed to upsert whale wallets", cause }),
-      }),
-
     upsertPositions: (positions) =>
       Effect.tryPromise({
         try: () =>
@@ -103,12 +83,6 @@ function pgWhaleRepo(pg: Pool): WhaleRepoPort {
         catch: (cause) => new WhaleRepoError({ message: "Failed to query whale positions", cause }),
       }),
 
-    pruneWallets: (before) =>
-      Effect.tryPromise({
-        try: () => pruneWallets(pg, before),
-        catch: (cause) => new WhaleRepoError({ message: "Failed to prune whale wallets", cause }),
-      }),
-
     deletePositionsForAddresses: (addresses) =>
       Effect.tryPromise({
         try: () => deletePositionsForAddresses(pg, addresses),
@@ -123,13 +97,6 @@ function pgWhaleRepo(pg: Pool): WhaleRepoPort {
           new WhaleRepoError({ message: "Failed to prune stale whale positions", cause }),
       }),
   };
-}
-
-// A wallet is stale when its most recent activity, `last_trade_at`, predates
-// the cutoff. Wallets with no recorded trade are never pruned.
-async function pruneWallets(pg: Pool, before: Date): Promise<number> {
-  const result = await pg.query("DELETE FROM whale_wallets WHERE last_trade_at < $1", [before]);
-  return result.rowCount ?? 0;
 }
 
 async function deletePositionsForAddresses(

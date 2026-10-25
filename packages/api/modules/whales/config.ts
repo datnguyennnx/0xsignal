@@ -10,7 +10,6 @@ export interface WhaleConfigService {
   readonly leaderboardUrl: string;
   readonly leaderboardTtlMs: number;
   readonly seededWalletCap: number;
-  readonly walletRetentionMs: number;
   readonly positionRetentionMs: number;
 }
 
@@ -31,7 +30,6 @@ const DEFAULT_WALLET_TTL_MS = 3_600_000;
 const DEFAULT_LEADERBOARD_URL = "https://stats-data.hyperliquid.xyz/Mainnet/leaderboard";
 const DEFAULT_LEADERBOARD_TTL_MS = 300_000;
 const DEFAULT_SEEDED_WALLET_CAP = 1000;
-const DEFAULT_WALLET_RETENTION_MS = 86_400_000;
 const DEFAULT_POSITION_RETENTION_MS = 86_400_000;
 
 const coinUniverseConfig: Config.Config<ReadonlyArray<string>> = Config.String(
@@ -84,9 +82,6 @@ const whaleConfig: Config.Config<WhaleConfigService> = Config.all({
   ),
   seededWalletCap: Config.Number("WHALE_SEEDED_WALLET_CAP").pipe(
     Config.withDefault(DEFAULT_SEEDED_WALLET_CAP),
-  ),
-  walletRetentionMs: Config.Number("WHALE_WALLET_RETENTION_MS").pipe(
-    Config.withDefault(DEFAULT_WALLET_RETENTION_MS),
   ),
   positionRetentionMs: Config.Number("WHALE_POSITION_RETENTION_MS").pipe(
     Config.withDefault(DEFAULT_POSITION_RETENTION_MS),

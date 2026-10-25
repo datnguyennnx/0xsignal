@@ -31,6 +31,8 @@ SELECT * FROM economic_events
 WHERE scheduled_at >= now() AND scheduled_at <= now() + make_interval(hours => $1::int)
 ORDER BY scheduled_at ASC`;
 
+const PRUNE_SQL = `DELETE FROM economic_events WHERE scheduled_at < to_timestamp($1::bigint / 1000.0)`;
+
 const DEFAULT_QUERY_LIMIT = 500;
 
 function pgCalendarRepo(pg: NonNullable<import("pg").Pool>): CalendarRepoPort {
@@ -109,6 +111,13 @@ function pgCalendarRepo(pg: NonNullable<import("pg").Pool>): CalendarRepoPort {
         },
         catch: (cause) =>
           new CalendarRepoError({ message: "Failed to load upcoming economic events", cause }),
+      }),
+
+    deleteOlderThan: (cutoffMillis) =>
+      Effect.tryPromise({
+        try: async () => (await pg.query(PRUNE_SQL, [cutoffMillis])).rowCount ?? 0,
+        catch: (cause) =>
+          new CalendarRepoError({ message: "Economic event retention prune failed", cause }),
       }),
   };
 }
