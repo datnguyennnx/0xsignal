@@ -4,11 +4,14 @@ import type { ISubscription, TransportError } from "@nktkas/hyperliquid";
 import type { ServerWebSocket } from "bun";
 import {
   addMarketWsConnectionSubscription,
+  closeQuietly,
+  detachClient,
   MarketStreamHub,
   type MarketWsConnectionData,
   type MarketWsConnectionSubscription,
   type MarketWsSubscription,
   normalizeMarketWsSubscription,
+  removeBucketClient,
   removeMarketWsConnectionSubscription,
   WebSocketSubscribeError,
   type Bucket,
@@ -34,18 +37,6 @@ const unsubscribeQuietly = (subscription: ISubscription): Effect.Effect<void> =>
     ),
   );
 
-const closeQuietly = (
-  ws: ServerWebSocket<MarketWsConnectionData>,
-  code: number,
-  reason: string,
-): void => {
-  try {
-    ws.close(code, reason);
-  } catch {
-    // the peer already closed the socket
-  }
-};
-
 const sendQuietly = (ws: ServerWebSocket<MarketWsConnectionData>, payload: unknown): void => {
   try {
     send(ws, payload);
@@ -55,14 +46,6 @@ const sendQuietly = (ws: ServerWebSocket<MarketWsConnectionData>, payload: unkno
 };
 
 type JoinedBucket = { readonly bucket: Bucket; readonly created: boolean };
-
-export const detachClient =
-  (bucket: Bucket) =>
-  (ws: ServerWebSocket<MarketWsConnectionData>): void => {
-    if (!bucket.clients.delete(ws)) return;
-    marketWsLog("ws_client_detached", { bucketKey: bucket.key, connectionId: ws.data.id }, "warn");
-    closeQuietly(ws, 1013, "client too slow");
-  };
 
 type MarketStreamHubClient = {
   readonly subscriptionClient: SubscriptionClient;
@@ -135,18 +118,18 @@ export const makeMarketStreamHubLayer = (
               scope: yield* Scope.make(),
             };
 
-            // Mutating an existing clients Set in-place keeps the upstream
-            // callback's bucket reference valid for the new client.
+            // Copy-on-write: an earlier Ref.get snapshot must not see this join.
             const joined = yield* Ref.modify(
               buckets,
               (m): readonly [JoinedBucket, Map<string, Bucket>] => {
                 const existing = m.get(key);
                 if (existing !== undefined) {
-                  existing.clients.add(ws);
-                  return [{ bucket: existing, created: false }, m];
+                  const clients = new Set([...existing.clients, ws]);
+                  const updated: Bucket = { ...existing, clients };
+                  return [{ bucket: updated, created: false }, new Map(m).set(key, updated)];
                 }
-                m.set(key, candidate);
-                return [{ bucket: candidate, created: true }, m];
+                const created = new Map(m).set(key, candidate);
+                return [{ bucket: candidate, created: true }, created];
               },
             );
 
@@ -172,7 +155,7 @@ export const makeMarketStreamHubLayer = (
                 provider,
                 buckets,
                 bucket.key,
-                detachClient(bucket),
+                detachClient(buckets, bucket.key),
               ),
               bucket.scope,
             );
@@ -182,8 +165,8 @@ export const makeMarketStreamHubLayer = (
               if (current === undefined || current.scope !== bucket.scope) {
                 return [false, m] as const;
               }
-              m.set(bucket.key, { ...current, subscribeFiber: Option.some(fiber) });
-              return [true, m] as const;
+              const subscribed: Bucket = { ...current, subscribeFiber: Option.some(fiber) };
+              return [true, new Map(m).set(bucket.key, subscribed)] as const;
             });
 
             if (!registered) yield* Scope.close(bucket.scope, Exit.void);
@@ -194,21 +177,19 @@ export const makeMarketStreamHubLayer = (
           key: string,
         ): Effect.Effect<void> =>
           Effect.gen(function* () {
-            const map = yield* Ref.get(buckets);
-            const existing = map.get(key);
-
-            if (existing === undefined) return;
-            const bucket = existing;
+            const released = yield* Ref.modify(buckets, (m) => removeBucketClient(m, key, ws));
+            if (released.bucket === undefined) return;
+            const bucket = released.bucket;
 
             // A slow client may already be detached; still own bucket cleanup.
-            bucket.clients.delete(ws);
             if (bucket.clients.size > 0) return;
 
             // Remove before interrupting so the in-flight subscribe observes
             // an unowned bucket and unsubscribes instead of re-inserting.
             yield* Ref.update(buckets, (m) => {
-              m.delete(key);
-              return m;
+              const next = new Map(m);
+              next.delete(key);
+              return next;
             });
 
             if (Option.isSome(bucket.subscribeFiber)) {
@@ -344,13 +325,21 @@ const resolveAndSubscribe = (
   provider: typeof HyperliquidProvider.Service,
   bucket: Bucket,
   detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
+  resolveBucket: () => Bucket | undefined,
   onSubscriptionError?: (error: TransportError) => void,
 ): Effect.Effect<ISubscription, WebSocketSubscribeError> => {
   const subSymbol = subscription.symbol;
 
   if (subSymbol === undefined || subSymbol === "") {
     // No symbol means allMids or similar — subscribe directly
-    return subscribeUpstream(bucket, subscriptionClient, undefined, detach, onSubscriptionError);
+    return subscribeUpstream(
+      bucket,
+      subscriptionClient,
+      undefined,
+      detach,
+      resolveBucket,
+      onSubscriptionError,
+    );
   }
 
   return Effect.gen(function* () {
@@ -368,6 +357,7 @@ const resolveAndSubscribe = (
       subscriptionClient,
       Promise.resolve(markets),
       detach,
+      resolveBucket,
       onSubscriptionError,
     );
   });
@@ -390,8 +380,8 @@ const ensureUpstream = (
       const current = m.get(key);
       if (current === undefined || current.scope !== bucket.scope) return [false, m] as const;
       if (!Predicate.isTagged(current.state, "idle")) return [false, m] as const;
-      m.set(key, { ...current, state: { _tag: "subscribing" } });
-      return [true, m] as const;
+      const subscribing: Bucket = { ...current, state: { _tag: "subscribing" } };
+      return [true, new Map(m).set(key, subscribing)] as const;
     });
     if (!claimed) return;
 
@@ -419,6 +409,8 @@ const ensureUpstream = (
       provider,
       bucket,
       detach,
+      // Emits resolve the bucket by key: this value is only the claim token.
+      () => Ref.getUnsafe(buckets).get(key),
       onSubscriptionError,
     ).pipe(
       Effect.flatMap((sub) =>
@@ -438,13 +430,12 @@ const ensureUpstream = (
           yield* Ref.update(buckets, (m) => {
             const latest = m.get(key);
             if (latest === undefined || latest.scope !== bucket.scope) return m;
-            m.set(key, {
+            return new Map(m).set(key, {
               ...latest,
               upstream: Option.some(sub),
               state: { _tag: "subscribed", upstream: sub },
               retryCount: 0,
             });
-            return m;
           });
         }),
       ),
@@ -468,13 +459,12 @@ const ensureUpstream = (
               return [undefined, m] as const;
             }
             if (!Predicate.isTagged(current.state, "subscribing")) return [undefined, m] as const;
-            const next: Bucket = {
+            const failedBucket: Bucket = {
               ...current,
               state: { _tag: "idle" },
               retryCount: current.retryCount + 1,
             };
-            m.set(key, next);
-            return [next, m] as const;
+            return [failedBucket, new Map(m).set(key, failedBucket)] as const;
           });
           if (failed === undefined) return;
 
@@ -495,10 +485,10 @@ const ensureUpstream = (
             });
             closeQuietly(client, 1011, "upstream unavailable");
           }
-          failed.clients.clear();
           yield* Ref.update(buckets, (m) => {
-            m.delete(key);
-            return m;
+            const next = new Map(m);
+            next.delete(key);
+            return next;
           });
         }),
       ),
@@ -519,9 +509,8 @@ const restartBucket = (
       if (current === undefined) return [undefined, m] as const;
       if (Predicate.isTagged(current.state, "idle")) return [undefined, m] as const;
       if (Predicate.isTagged(current.state, "restarting")) return [undefined, m] as const;
-      const next: Bucket = { ...current, state: { _tag: "restarting" } };
-      m.set(key, next);
-      return [next, m] as const;
+      const restarting: Bucket = { ...current, state: { _tag: "restarting" } };
+      return [restarting, new Map(m).set(key, restarting)] as const;
     });
     if (claimed === undefined) return;
 
@@ -540,8 +529,8 @@ const restartBucket = (
       const current = m.get(key);
       if (current === undefined || current.scope !== claimed.scope) return [false, m] as const;
       if (!Predicate.isTagged(current.state, "restarting")) return [false, m] as const;
-      m.set(key, { ...current, upstream: Option.none(), state: { _tag: "idle" } });
-      return [true, m] as const;
+      const idle: Bucket = { ...current, upstream: Option.none(), state: { _tag: "idle" } };
+      return [true, new Map(m).set(key, idle)] as const;
     });
     if (!reset) return;
 

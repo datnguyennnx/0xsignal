@@ -15,6 +15,24 @@ import { type Bucket, type MarketWsConnectionData, WebSocketSubscribeError } fro
 import type { ServerWebSocket } from "bun";
 import { marketWsLog } from "./logging";
 
+type ResolveBucket = () => Bucket | undefined;
+
+/**
+ * Resolve the bucket from the Ref at emit time. A join replaces the bucket
+ * object, so a bucket captured when the upstream subscribed goes stale and
+ * every client that joined afterwards would never receive a frame.
+ * A missing bucket means the last client left: drop the frame.
+ */
+const emitToLatest = (
+  resolveBucket: ResolveBucket,
+  payload: unknown,
+  detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
+): void => {
+  const current = resolveBucket();
+  if (current === undefined) return;
+  broadcast(current, payload, detach);
+};
+
 interface L2Level {
   readonly px: string;
   readonly sz: string;
@@ -94,6 +112,7 @@ export function subscribeUpstream(
   subscriptionClient: SubscriptionClient,
   aggregatedMarketsPromise: Promise<readonly HyperliquidAggregatedAsset[]> | undefined,
   detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
+  resolveBucket: ResolveBucket,
   onSubscriptionError?: (error: TransportError) => void,
 ): Effect.Effect<ISubscription, WebSocketSubscribeError> {
   const { subscription } = bucket;
@@ -154,8 +173,8 @@ export function subscribeUpstream(
               subscriptionClient.candle(
                 { coin: internalSymbol!, interval: subscription.interval! },
                 (event) => {
-                  broadcast(
-                    bucket,
+                  emitToLatest(
+                    resolveBucket,
                     {
                       type: "market",
                       channel: "candle",
@@ -213,8 +232,8 @@ export function subscribeUpstream(
 
                   if (delta.replace) {
                     // >50% of visible levels changed — broadcast full snapshot replacement
-                    broadcast(
-                      bucket,
+                    emitToLatest(
+                      resolveBucket,
                       {
                         type: "market",
                         channel: "l2Book",
@@ -225,8 +244,8 @@ export function subscribeUpstream(
                     );
                   } else if (delta.changedBids.length > 0 || delta.changedAsks.length > 0) {
                     // Partial change — send delta for incremental update
-                    broadcast(
-                      bucket,
+                    emitToLatest(
+                      resolveBucket,
                       {
                         type: "market",
                         channel: "l2Book",
@@ -242,8 +261,8 @@ export function subscribeUpstream(
                 } else {
                   // First merged snapshot — emit full snapshot
                   combinedSnapshot.current = { levels: merged };
-                  broadcast(
-                    bucket,
+                  emitToLatest(
+                    resolveBucket,
                     {
                       type: "market",
                       channel: "l2Book",
@@ -319,8 +338,8 @@ export function subscribeUpstream(
               subscriptionClient.trades(
                 { coin: internalSymbol! },
                 (event) => {
-                  broadcast(
-                    bucket,
+                  emitToLatest(
+                    resolveBucket,
                     {
                       type: "market",
                       channel: "trades",
@@ -364,8 +383,8 @@ export function subscribeUpstream(
 
               return subFn(
                 (event) => {
-                  broadcast(
-                    bucket,
+                  emitToLatest(
+                    resolveBucket,
                     {
                       type: "market",
                       channel: "allMids",

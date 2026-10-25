@@ -9,16 +9,14 @@ import {
 import { buildMarketWsBucketKey } from "../../../infrastructure/streams/hyperliquid/bucket-key";
 import { parseMarketWsSubscription } from "../ws/subscription-parser";
 import {
+  detachClient,
   MarketStreamHub,
   type Bucket,
   type MarketWsConnectionData,
   type MarketWsConnectionSubscription,
   type MarketWsSubscription,
 } from "../../../infrastructure/streams/hyperliquid/hub-types";
-import {
-  detachClient,
-  makeMarketStreamHubLayer,
-} from "../../../infrastructure/streams/hyperliquid/hub";
+import { makeMarketStreamHubLayer } from "../../../infrastructure/streams/hyperliquid/hub";
 import { subscribeUpstream } from "../../../infrastructure/streams/hyperliquid/hub-subscription";
 import {
   MAX_CLIENT_BUFFER_BYTES,
@@ -357,7 +355,7 @@ describe("Market WS emitter contract", () => {
     const bucket = createBucket({ channel: "candle", symbol: "BTC", interval: "1m" });
 
     const upstream = await Effect.runPromise(
-      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach),
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach, () => bucket),
     );
 
     expect(upstream).toBeDefined();
@@ -379,7 +377,7 @@ describe("Market WS emitter contract", () => {
     const bucket = createBucket({ channel: "l2Book", symbol: "ETH", nSigFigs: 4 });
 
     const upstream = await Effect.runPromise(
-      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach),
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach, () => bucket),
     );
 
     expect(upstream).toBeDefined();
@@ -398,7 +396,9 @@ describe("Market WS emitter contract", () => {
     const bucket = createBucket({ channel: "l2Book", symbol: "ETH", nSigFigs: 4 });
 
     await expect(
-      Effect.runPromise(subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach)),
+      Effect.runPromise(
+        subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach, () => bucket),
+      ),
     ).rejects.toBeDefined();
 
     // The fast leg is created first; the slow leg is created only afterwards.
@@ -417,7 +417,7 @@ describe("Market WS emitter contract", () => {
     const bucket = createBucket({ channel: "trades", symbol: "SOL" });
 
     const upstream = await Effect.runPromise(
-      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach),
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach, () => bucket),
     );
 
     expect(upstream).toBeDefined();
@@ -433,7 +433,7 @@ describe("Market WS emitter contract", () => {
     const bucket = createBucket({ channel: "allMids" });
 
     const upstream = await Effect.runPromise(
-      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach),
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach, () => bucket),
     );
 
     expect(upstream).toBeDefined();
@@ -475,10 +475,15 @@ describe("Market WS fire-and-forget broadcast", () => {
     );
 
     const bucket = makeBucket(candleSubscription, [mockWs]);
+    const buckets = Ref.makeUnsafe(new Map([[bucket.key, bucket]]));
 
-    broadcast(bucket, { type: "market", channel: "candle", data: [] }, detachClient(bucket));
+    broadcast(
+      bucket,
+      { type: "market", channel: "candle", data: [] },
+      detachClient(buckets, bucket.key),
+    );
 
-    expect(bucket.clients.has(mockWs)).toBe(false);
+    expect(Ref.getUnsafe(buckets).get(bucket.key)?.clients.has(mockWs)).toBe(false);
     expect(mockWs.closed).toEqual({ code: 1013, reason: "client too slow" });
   });
 
@@ -488,10 +493,15 @@ describe("Market WS fire-and-forget broadcast", () => {
     });
 
     const bucket = makeBucket(candleSubscription, [mockWs]);
+    const buckets = Ref.makeUnsafe(new Map([[bucket.key, bucket]]));
 
-    broadcast(bucket, { type: "market", channel: "candle", data: [] }, detachClient(bucket));
+    broadcast(
+      bucket,
+      { type: "market", channel: "candle", data: [] },
+      detachClient(buckets, bucket.key),
+    );
 
-    expect(bucket.clients.has(mockWs)).toBe(false);
+    expect(Ref.getUnsafe(buckets).get(bucket.key)?.clients.has(mockWs)).toBe(false);
     expect(mockWs.closed).toEqual({ code: 1013, reason: "client too slow" });
   });
 
@@ -508,12 +518,8 @@ describe("Market WS fire-and-forget broadcast", () => {
 
     const bucket = makeBucket(candleSubscription, [faultyWs, healthyWs]);
 
-    const detach = (ws: StubSocket) => {
-      bucket.clients.delete(ws);
-    };
-
     const payload = { type: "market", channel: "candle", data: [{ t: 1 }] };
-    broadcast(bucket, payload, detach);
+    broadcast(bucket, payload, noopDetach);
 
     // Healthy client still gets the message
     expect(sentMessages).toEqual([JSON.stringify(payload)]);
@@ -758,7 +764,7 @@ const MULTI_SUBSCRIPTIONS: readonly MarketWsSubscription[] = [
 type SubscriptionFrameHub = {
   readonly handleMessage: (
     ws: ServerWebSocket<MarketWsConnectionData>,
-    raw: string | Buffer | Uint8Array,
+    raw: string | Uint8Array,
   ) => Effect.Effect<void>;
 };
 
@@ -918,12 +924,8 @@ describe("Market WS multiplexed subscriptions", () => {
 
       const buckets = requireDefined(harness.captured.buckets, "hub did not expose its buckets");
       yield* waitFor(() => bucketHasUpstream(buckets, "allMids:"));
-      const bucket = requireDefined(
-        Ref.getUnsafe(buckets).get("allMids:"),
-        "allMids bucket missing",
-      );
 
-      detachClient(bucket)(ws);
+      detachClient(buckets, "allMids:")(ws);
       yield* hub.handleClose(ws);
       yield* waitForEmptyBuckets(buckets);
 

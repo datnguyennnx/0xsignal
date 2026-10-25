@@ -100,10 +100,11 @@ const makeWhaleService = () =>
 
         const now = Date.now();
         yield* Ref.update(tracked, (map) => {
+          const next = new Map(map);
           for (const row of seeded) {
-            map.set(row.ethAddress, { lastSeenAt: now, lastNotionalUsd: row.accountValue });
+            next.set(row.ethAddress, { lastSeenAt: now, lastNotionalUsd: row.accountValue });
           }
-          return map;
+          return next;
         });
       });
 
@@ -154,15 +155,14 @@ const makeWhaleService = () =>
           yield* stream.stream.trades().pipe(
             Stream.filter((trade) => trade.notionalUsd >= config.discoveryNotionalUsd),
             Stream.tap((trade) =>
-              // In-place: `tracked` is only read once the sampling window
-              // closes, so no fiber observes a partially updated snapshot.
-              Ref.update(tracked, (map) => {
-                map.set(trade.user, {
+              // Copy-on-write: a tick parked on an earlier snapshot must not
+              // see wallets nominated after that snapshot.
+              Ref.update(tracked, (map) =>
+                new Map(map).set(trade.user, {
                   lastSeenAt: Date.now(),
                   lastNotionalUsd: trade.notionalUsd,
-                });
-                return map;
-              }),
+                }),
+              ),
             ),
             Stream.runDrain,
             Effect.mapError(mapRepoError("Failed to consume the whale trade stream for discovery")),
@@ -179,13 +179,14 @@ const makeWhaleService = () =>
           // returned so their stored positions can be reclaimed in the DB.
           const dropped = yield* Ref.modify(tracked, (map) => {
             const expired: string[] = [];
-            for (const [address, meta] of map) {
+            const next = new Map(map);
+            for (const [address, meta] of next) {
               if (now - meta.lastSeenAt > config.walletTtlMs) {
-                map.delete(address);
+                next.delete(address);
                 expired.push(address);
               }
             }
-            return [expired, map] as const;
+            return [expired, next] as const;
           });
 
           if (dropped.length > 0) {
