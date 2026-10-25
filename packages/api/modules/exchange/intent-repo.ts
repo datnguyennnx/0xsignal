@@ -65,6 +65,8 @@ export interface OrderIntentRepoPort {
     close: OrderIntentClose,
     nowMillis: number,
   ) => Effect.Effect<OrderIntentRecord | null, OrderIntentRepoError>;
+
+  readonly deleteOlderThan: (cutoffMillis: number) => Effect.Effect<number, OrderIntentRepoError>;
 }
 
 export class OrderIntentRepo extends Context.Service<OrderIntentRepo, OrderIntentRepoPort>()(

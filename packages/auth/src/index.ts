@@ -1,4 +1,7 @@
 export type { UserId, User, UserStatus } from "./domain/user";
+export { makeUserId } from "./domain/user";
+export type { ExchangeAccount } from "./domain/exchange-account";
+export type { AgentRegistration } from "./domain/agent-registration";
 export type { OAuthProvider, OAuthAccount, OAuthProfile } from "./domain/oauth-account";
 export type { Session, JwtPayload, AuthTokens } from "./domain/session";
 export type { AuthError } from "./domain/errors";
@@ -26,3 +29,4 @@ export { MigrationLayer } from "./infrastructure/migration.layer";
 
 export { PostgresConnectionPool } from "./infrastructure/db/postgres";
 export { ExchangeAccountRepo } from "./infrastructure/repos/exchange-account.repo";
+export { AgentRegistrationRepo } from "./infrastructure/repos/agent-registration.repo";

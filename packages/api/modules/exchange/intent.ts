@@ -3,6 +3,9 @@ import type { OrderIntentRequest } from "@0xsignal/shared";
 
 export const INTENT_TTL_MS = 2 * 60 * 1000;
 
+/** Terminal intents are audit history, not live state: keep one bounded window. */
+export const ORDER_INTENT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
 const canonicalIntent = (input: OrderIntentRequest): string =>
   JSON.stringify({
     symbol: input.symbol,

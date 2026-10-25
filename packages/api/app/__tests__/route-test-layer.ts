@@ -5,5 +5,6 @@ import { OrderIntentService } from "../../modules/exchange";
 export const TestRouteEnvLayer = Layer.mergeAll(
   Layer.mock(auth.AuthService, {}),
   Layer.mock(auth.ExchangeAccountRepo, {}),
+  Layer.mock(auth.AgentRegistrationRepo, {}),
   Layer.mock(OrderIntentService, {}),
 );

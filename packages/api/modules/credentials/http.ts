@@ -1,14 +1,11 @@
 import { Effect } from "effect";
-import { ExchangeAccountRepo } from "@0xsignal/auth";
 import type { HttpError } from "../../platform/http/error-response";
-import { buildWalletRoutes } from "../wallets";
-
-type AccountRepoService = typeof ExchangeAccountRepo.Service;
+import { buildWalletRoutes, type WalletRouteDeps } from "../wallets";
 
 type CredentialRouteHandler = (
   request: Request,
   url: URL,
-  accountRepo: AccountRepoService,
+  deps: WalletRouteDeps,
   userId?: string,
 ) => Effect.Effect<Response, HttpError>;
 

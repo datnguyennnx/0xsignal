@@ -1,1 +1,1 @@
-export { buildWalletRoutes } from "./http";
+export { buildWalletRoutes, type WalletRouteDeps } from "./http";

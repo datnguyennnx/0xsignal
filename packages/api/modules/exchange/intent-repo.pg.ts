@@ -37,6 +37,8 @@ WHERE id = $1 AND user_id = $2 AND status = 'pending'
   AND created_at > to_timestamp($6::bigint / 1000.0) - make_interval(secs => $7::int)
 RETURNING ${COLUMNS}`;
 
+const PRUNE_SQL = "DELETE FROM order_intents WHERE created_at < to_timestamp($1::bigint / 1000.0)";
+
 interface OrderIntentRow {
   [column: string]: unknown;
   id: string;
@@ -132,6 +134,16 @@ export const OrderIntentRepoLayer: Layer.Layer<OrderIntentRepo, never, PostgresC
             nowMillis,
             TTL_SECONDS,
           ]).pipe(Effect.map((rows) => (rows[0] === undefined ? null : mapRow(rows[0])))),
+
+        deleteOlderThan: (cutoffMillis) =>
+          Effect.tryPromise({
+            try: async () => (await pool.query(PRUNE_SQL, [cutoffMillis])).rowCount ?? 0,
+            catch: (cause) =>
+              new OrderIntentRepoError({
+                message: "Order intent retention prune failed",
+                cause,
+              }),
+          }),
       });
     }),
   );

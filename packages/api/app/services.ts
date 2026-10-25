@@ -4,6 +4,7 @@ import {
   AuthInfraLayer,
   AuthService,
   ExchangeAccountRepo,
+  AgentRegistrationRepo,
   type PostgresConnectionPool,
 } from "@0xsignal/auth";
 import type { HyperliquidClient } from "../integrations/hyperliquid/data-sources/client";
@@ -22,7 +23,12 @@ import { userDataServiceLayer } from "../modules/user-data/layer";
 // The merged layer's provided services are named by their public API so the
 // declaration stays portable; requirements are the infra the auth layer needs.
 export const AppServicesLayer: Layer.Layer<
-  AuthService | ExchangeAccountRepo | MarketDataService | UserDataService | OrderIntentService,
+  | AuthService
+  | ExchangeAccountRepo
+  | AgentRegistrationRepo
+  | MarketDataService
+  | UserDataService
+  | OrderIntentService,
   never,
   | HyperliquidClient
   | HyperliquidRateLimiter

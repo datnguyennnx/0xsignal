@@ -6,6 +6,7 @@ import { OAuthStateStoreLayer, AuthCodeStoreLayer } from "./infrastructure/state
 import { UserRepoLayer } from "./infrastructure/repos/user.repo";
 import { OAuthAccountRepoLayer } from "./infrastructure/repos/oauth-account.repo";
 import { ExchangeAccountRepoLayer } from "./infrastructure/repos/exchange-account.repo";
+import { AgentRegistrationRepoLayer } from "./infrastructure/repos/agent-registration.repo";
 
 export const AuthInfraLayer = Layer.mergeAll(
   GoogleProviderLayer,
@@ -16,6 +17,7 @@ export const AuthInfraLayer = Layer.mergeAll(
   UserRepoLayer,
   OAuthAccountRepoLayer,
   ExchangeAccountRepoLayer,
+  AgentRegistrationRepoLayer,
 );
 
 /* AuthInfraLayer is provided at AppLayer level for cross-layer access. */

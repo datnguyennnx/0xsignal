@@ -77,6 +77,8 @@ const makeInMemoryRepo = (): { repo: OrderIntentRepoShape; rows: OrderIntentReco
         };
         return replace(row, next);
       }),
+
+    deleteOlderThan: () => Effect.succeed(0),
   };
 
   return { repo, rows };
