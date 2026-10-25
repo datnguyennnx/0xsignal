@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Deferred, Effect, Option, Ref, Scope } from "effect";
-import type { ServerWebSocket, ServerWebSocketSendStatus } from "bun";
+import type { ServerWebSocket, ServerWebSocketSendStatus, WebSocketReadyState } from "bun";
 import {
   type ISubscription,
   type ISubscriptionTransport,
@@ -68,21 +68,27 @@ class StubSocket implements ServerWebSocket<MarketWsConnectionData> {
     private readonly bufferedAmount = 0,
   ) {}
 
-  send(data: string | BufferSource): ServerWebSocketSendStatus {
+  send(
+    data: string | ArrayBufferLike | ArrayBufferView,
+    _compress?: boolean,
+  ): ServerWebSocketSendStatus {
     if (typeof data === "string") this.onSend(data);
     return 0;
   }
 
-  sendText(data: string): ServerWebSocketSendStatus {
-    return this.send(data);
+  sendText(data: string, compress?: boolean): ServerWebSocketSendStatus {
+    return this.send(data, compress);
   }
 
-  sendBinary(data: BufferSource): ServerWebSocketSendStatus {
-    return this.send(data);
+  sendBinary(
+    data: ArrayBufferLike | ArrayBufferView,
+    compress?: boolean,
+  ): ServerWebSocketSendStatus {
+    return this.send(data, compress);
   }
 
   close(code?: number, reason?: string): void {
-    this.closed = { code, reason };
+    this.closed = code === undefined ? {} : reason === undefined ? { code } : { code, reason };
   }
   terminate(): void {}
 
@@ -347,7 +353,7 @@ describe("Market WS emitter contract", () => {
   it("emits stable market envelope for candle", async () => {
     const subscriptionClient = makeSubscriptionClient({
       candle: (_params, onEvent) => {
-        onEvent({ data: { payload: [{ t: 1, o: "1", h: "2", l: "0", c: "1", v: "3" }] } });
+        onEvent({ t: 1, T: 2, s: "BTC", i: "1m", o: "1", c: "1", h: "2", l: "0", v: "3", n: 1 });
         return Promise.resolve(stubUpstream);
       },
     });
@@ -369,7 +375,11 @@ describe("Market WS emitter contract", () => {
         callCount++;
         // Hybrid model: l2Book is called twice (fast + slow).
         // First call (fast) and second call (slow) both fire the event.
-        onEvent({ data: { orderbook: { levels: [[{ px: "100", sz: "1" }], []] } } });
+        onEvent({
+          coin: "ETH",
+          time: 1,
+          levels: [[{ px: "100", sz: "1", n: 1 }], []],
+        });
         return Promise.resolve(stubUpstream);
       },
     });
@@ -409,7 +419,18 @@ describe("Market WS emitter contract", () => {
   it("emits stable market envelope for trades", async () => {
     const subscriptionClient = makeSubscriptionClient({
       trades: (_params, onEvent) => {
-        onEvent({ payload: [{ side: "B", px: "100", sz: "1" }] });
+        onEvent([
+          {
+            coin: "SOL",
+            side: "B",
+            px: "100",
+            sz: "1",
+            time: 1,
+            hash: "0x00",
+            tid: 1,
+            users: ["0x00", "0x00"],
+          },
+        ]);
         return Promise.resolve(stubUpstream);
       },
     });
@@ -700,7 +721,7 @@ const makeTestHarness = () => {
 
   const subscriptionClient = makeSubscriptionClient({
     candle: (_params, onEvent) => {
-      onEvent({ data: { payload: [{ t: 1, o: "1", h: "2", l: "0", c: "1", v: "3" }] } });
+      onEvent({ t: 1, T: 2, s: "BTC", i: "1m", o: "1", c: "1", h: "2", l: "0", v: "3", n: 1 });
       return Promise.resolve({
         unsubscribe: () => {
           unsubscribed.push("candle");
@@ -711,8 +732,10 @@ const makeTestHarness = () => {
     l2Book: (params, onEvent) => {
       const fast = params.fast === true;
       onEvent({
-        data: { orderbook: { levels: [[{ px: "100", sz: "1", n: 1 }], []] } },
-        fast,
+        coin: "ETH",
+        time: 1,
+        levels: [[{ px: "100", sz: "1", n: 1 }], []],
+        ...(fast ? { fast: true } : {}),
       });
       return Promise.resolve({
         unsubscribe: () => {

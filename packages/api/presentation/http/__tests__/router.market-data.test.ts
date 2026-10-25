@@ -6,6 +6,7 @@ import { UserDataService } from "../../../application/user-data/contracts";
 import { ExchangeService } from "../../../application/exchange/contracts";
 import { NotFoundError, InternalError } from "../../../application/errors";
 import { handleRequest } from "../router";
+import { TestRouteEnvLayer } from "./route-test-layer";
 
 const mockMarketDataService = {
   getCandles: vi.fn<Context.Service.Shape<typeof MarketDataService>["getCandles"]>(),
@@ -58,7 +59,13 @@ const runRequest = (path: string, method = "GET") =>
   Effect.runPromise(
     handleRequest(new Request(`http://localhost${path}`, { method })).pipe(
       Effect.provide(
-        Layer.mergeAll(TestMarketDataLayer, TestHealthLayer, TestUserDataLayer, TestExchangeLayer),
+        Layer.mergeAll(
+          TestMarketDataLayer,
+          TestHealthLayer,
+          TestUserDataLayer,
+          TestExchangeLayer,
+          TestRouteEnvLayer,
+        ),
       ),
     ),
   );
@@ -100,7 +107,7 @@ describe("HTTP Market Data Router", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockMarketDataService.discoverMarkets.mockReturnValue(Effect.succeed({ universe: [] }));
+    mockMarketDataService.discoverMarkets.mockReturnValue(Effect.succeed([]));
     mockMarketDataService.getCandles.mockReturnValue(
       Effect.succeed({
         candles: [],
@@ -167,7 +174,7 @@ describe("HTTP Market Data Router", () => {
     const response = await runRequest("/api/markets");
     expect(response.status).toBe(200);
     expect(mockMarketDataService.discoverMarkets).toHaveBeenCalledTimes(1);
-    await expect(response.json()).resolves.toEqual({ data: { universe: [] } });
+    await expect(response.json()).resolves.toEqual({ data: [] });
   });
 
   it("routes /api/health preserving status payload shape", async () => {

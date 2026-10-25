@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
+import { MarketTimeframeSchema } from "../../../../domain/market-data/timeframe";
 import {
   getCandleSnapshot,
   getAllMids,
@@ -9,6 +10,30 @@ import {
   getTradeAnnotation,
 } from "../provider";
 import { HyperliquidClient } from "../client";
+
+type Meta = Awaited<ReturnType<InfoClient["meta"]>>;
+type AssetCtx = Awaited<ReturnType<InfoClient["metaAndAssetCtxs"]>>[1][number];
+
+const metaResponse = (names: readonly string[]): Meta => ({
+  universe: names.map((name) => ({ name, szDecimals: 2, maxLeverage: 50, marginTableId: 0 })),
+  marginTables: [],
+  collateralToken: 0,
+});
+
+const assetCtx = (
+  values: Pick<
+    AssetCtx,
+    "markPx" | "midPx" | "prevDayPx" | "dayNtlVlm" | "openInterest" | "funding"
+  >,
+): AssetCtx => ({
+  ...values,
+  premium: null,
+  oraclePx: values.markPx,
+  impactPxs: null,
+  dayBaseVlm: "0",
+});
+
+const timeframe = Schema.decodeUnknownSync(MarketTimeframeSchema)("1m");
 
 const createMockInfoClient = () => ({
   candleSnapshot: vi.fn<InfoClient["candleSnapshot"]>(),
@@ -39,14 +64,14 @@ describe("Hyperliquid Providers", () => {
 
   it("getCandleSnapshot should call SDK and normalize results", async () => {
     mockInfoClient.candleSnapshot.mockResolvedValue([
-      { t: 1000, o: "1", h: "2", l: "0.5", c: "1.5", v: "10" },
+      { t: 1000, T: 2000, s: "BTC", i: "1m", o: "1", h: "2", l: "0.5", c: "1.5", v: "10", n: 5 },
     ]);
     mockInfoClient.allMids.mockResolvedValue({});
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [] }, []]);
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse([]), []]);
 
     const clientLayer = makeClientLayer();
 
-    const program = getCandleSnapshot("BTC", "1m", 0, 2000);
+    const program = getCandleSnapshot("BTC", timeframe, 0, 2000);
     const result = await Effect.runPromise(program.pipe(Effect.provide(clientLayer)));
 
     expect(mockInfoClient.candleSnapshot).toHaveBeenCalledWith({
@@ -71,16 +96,16 @@ describe("Hyperliquid Providers", () => {
 
   it("getTicker should map allMids into stable payload", async () => {
     mockInfoClient.metaAndAssetCtxs.mockResolvedValue([
-      { universe: [{ name: "BTC" }] },
+      metaResponse(["BTC"]),
       [
-        {
+        assetCtx({
           markPx: "101",
           midPx: "101.25",
           prevDayPx: "99",
           dayNtlVlm: "10000",
           openInterest: "2500",
           funding: "0.0002",
-        },
+        }),
       ],
     ]);
     mockInfoClient.allMids.mockResolvedValue({ BTC: "101.25" });
@@ -102,7 +127,19 @@ describe("Hyperliquid Providers", () => {
   });
 
   it("getTicker should return not found when symbol does not exist", async () => {
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [{ name: "BTC" }] }, [{}]]);
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([
+      metaResponse(["BTC"]),
+      [
+        assetCtx({
+          markPx: "101",
+          midPx: "101.25",
+          prevDayPx: "99",
+          dayNtlVlm: "10000",
+          openInterest: "2500",
+          funding: "0.0002",
+        }),
+      ],
+    ]);
     mockInfoClient.allMids.mockResolvedValue({ BTC: "101.25" });
 
     const clientLayer = makeClientLayer();
@@ -114,7 +151,7 @@ describe("Hyperliquid Providers", () => {
 
   it("getOrderBook should call l2Book with normalized symbol", async () => {
     mockInfoClient.allMids.mockResolvedValue({});
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [] }, []]);
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse([]), []]);
     mockInfoClient.l2Book.mockResolvedValue({
       coin: "ETH",
       time: 123,
@@ -134,7 +171,7 @@ describe("Hyperliquid Providers", () => {
 
   it("getOrderBook should keep builder-perp dex lowercase while normalizing coin", async () => {
     mockInfoClient.allMids.mockResolvedValue({});
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [] }, []]);
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse([]), []]);
     mockInfoClient.l2Book.mockResolvedValue({
       coin: "dex:CL",
       time: 123,
@@ -154,7 +191,7 @@ describe("Hyperliquid Providers", () => {
 
   it("getOrderBook defaults to null nSigFigs (full precision) when depth not specified", async () => {
     mockInfoClient.allMids.mockResolvedValue({});
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [] }, []]);
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse([]), []]);
     mockInfoClient.l2Book.mockResolvedValue({
       coin: "BTC",
       time: 123,
@@ -170,7 +207,7 @@ describe("Hyperliquid Providers", () => {
   });
 
   it("getTradeAnnotation should call perpAnnotation", async () => {
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [{ name: "SOL" }] }, []]);
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse(["SOL"]), []]);
     mockInfoClient.allMids.mockResolvedValue({ SOL: "100" });
     mockInfoClient.perpAnnotation.mockResolvedValue({
       category: "major",
@@ -193,8 +230,11 @@ describe("Hyperliquid Providers", () => {
 
   it("getTradeAnnotation should preserve builder-perp canonical symbol", async () => {
     mockInfoClient.allMids.mockResolvedValue({});
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [{ name: "dex:CL" }] }, []]);
-    mockInfoClient.perpAnnotation.mockResolvedValue({ category: "major" });
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse(["dex:CL"]), []]);
+    mockInfoClient.perpAnnotation.mockResolvedValue({
+      category: "major",
+      description: "Major market",
+    });
 
     const clientLayer = makeClientLayer();
 
@@ -207,6 +247,6 @@ describe("Hyperliquid Providers", () => {
     expect(mockInfoClient.perpAnnotation).toHaveBeenCalledWith({ coin: "dex:CL" });
     // But the return symbol is normalized from the input
     expect(result.symbol).toBe("dex:CL");
-    expect(result.annotation).toEqual({ category: "major" });
+    expect(result.annotation).toEqual({ category: "major", description: "Major market" });
   });
 });

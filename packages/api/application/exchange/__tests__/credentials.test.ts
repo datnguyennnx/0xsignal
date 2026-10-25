@@ -16,6 +16,9 @@ import {
   makeMetaResponse,
   defaultMockAccountRepo,
   defaultMockCredRepo,
+  ORDER_OK,
+  CANCEL_OK,
+  LEVERAGE_OK,
   VALID_PRIVATE_KEY,
   USER_A,
   USER_B,
@@ -210,12 +213,11 @@ describe("ExchangeService — credential system", () => {
 
   it("TC-04: Verify and resolve — master wallet (happy path)", async () => {
     mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
-    mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
+    mockExchangeInstance.order.mockResolvedValueOnce(ORDER_OK);
 
     const decryptedCred = makeDecryptedCredential({
       privateKey: Redacted.make(VALID_PRIVATE_KEY),
       walletAddress: "0xMASTER",
-      vaultAddress: undefined,
       agentAddress: "0xAGENT",
     });
 
@@ -348,7 +350,7 @@ describe("ExchangeService — credential system", () => {
 
   it("TC-11: markUsed does not block pipeline", async () => {
     mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
-    mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
+    mockExchangeInstance.order.mockResolvedValueOnce(ORDER_OK);
 
     const markUsedDelay = vi.fn<CredRepoShape["markUsed"]>().mockReturnValue(Effect.sync(() => {}));
 
@@ -386,7 +388,7 @@ describe("Security Boundary — vaultAddress forwarding", () => {
 
   it("forwards vaultAddress as second arg on order()", async () => {
     mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
-    mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
+    mockExchangeInstance.order.mockResolvedValueOnce(ORDER_OK);
 
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -427,7 +429,7 @@ describe("Security Boundary — vaultAddress forwarding", () => {
 
   it("forwards vaultAddress as second arg on updateLeverage()", async () => {
     mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
-    mockExchangeInstance.updateLeverage.mockResolvedValueOnce({ response: "ok" });
+    mockExchangeInstance.updateLeverage.mockResolvedValueOnce(LEVERAGE_OK);
 
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -459,7 +461,7 @@ describe("Security Boundary — vaultAddress forwarding", () => {
 
   it("forwards vaultAddress as second arg on cancel()", async () => {
     mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
-    mockExchangeInstance.cancel.mockResolvedValueOnce({ response: "ok" });
+    mockExchangeInstance.cancel.mockResolvedValueOnce(CANCEL_OK);
 
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -494,7 +496,7 @@ describe("Security Boundary — vaultAddress omitted for wallet accounts", () =>
 
   it("does NOT forward vaultAddress when undefined (wallet account)", async () => {
     mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
-    mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
+    mockExchangeInstance.order.mockResolvedValueOnce(ORDER_OK);
 
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -521,9 +523,7 @@ describe("Security Boundary — vaultAddress omitted for wallet accounts", () =>
             {
               getDecryptedAgent: vi
                 .fn<CredRepoShape["getDecryptedAgent"]>()
-                .mockReturnValue(
-                  Effect.succeed(makeDecryptedCredential({ vaultAddress: undefined })),
-                ),
+                .mockReturnValue(Effect.succeed(makeDecryptedCredential())),
             },
           ),
         ),
@@ -623,7 +623,7 @@ describe("Security Boundary — markUsed fire-and-forget", () => {
 
   it("markUsed is triggered during credential resolution and does not block", async () => {
     mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
-    mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
+    mockExchangeInstance.order.mockResolvedValueOnce(ORDER_OK);
     const markUsedSpy = vi.fn<(id: string) => void>();
     const getDecryptedAgentWithMarkUsed = vi
       .fn<CredRepoShape["getDecryptedAgent"]>()
@@ -712,7 +712,7 @@ describe("Full credential lifecycle end-to-end", () => {
 
     // Step 3: Trade succeeds after verification
     mockInfoInstance.meta.mockResolvedValue(makeMetaResponse(["BTC"]));
-    mockExchangeInstance.order.mockResolvedValue({ response: "ok" });
+    mockExchangeInstance.order.mockResolvedValue(ORDER_OK);
     await Effect.runPromise(
       Effect.gen(function* () {
         const svc = yield* ExchangeService;
@@ -840,7 +840,7 @@ describe("Concurrent/Multi-User isolation", () => {
 
   it("two users with same exchange get isolated credentials", async () => {
     mockInfoInstance.meta.mockResolvedValue(makeMetaResponse(["BTC"]));
-    mockExchangeInstance.order.mockResolvedValue({ response: "ok" });
+    mockExchangeInstance.order.mockResolvedValue(ORDER_OK);
 
     const state = { userACalled: false, userBCalled: false };
 
@@ -899,8 +899,8 @@ describe("Concurrent/Multi-User isolation", () => {
       ]).pipe(Effect.provide(isolatedLayer)),
     );
 
-    expect(resultA).toEqual({ response: "ok" });
-    expect(resultB).toEqual({ response: "ok" });
+    expect(resultA).toEqual(ORDER_OK);
+    expect(resultB).toEqual(ORDER_OK);
     expect(state.userACalled).toBe(true);
     expect(state.userBCalled).toBe(true);
   });

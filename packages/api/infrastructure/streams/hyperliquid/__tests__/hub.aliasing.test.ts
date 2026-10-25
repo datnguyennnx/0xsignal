@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Effect, Ref } from "effect";
-import type { ServerWebSocket, ServerWebSocketSendStatus } from "bun";
+import type { ServerWebSocket, ServerWebSocketSendStatus, WebSocketReadyState } from "bun";
 import {
   SubscriptionClient,
   type ISubscription,
@@ -61,7 +61,7 @@ class StubSocket implements ServerWebSocket<MarketWsConnectionData> {
     return 0;
   }
   close(code?: number, reason?: string): void {
-    this.closed = { code, reason };
+    this.closed = code === undefined ? {} : reason === undefined ? { code } : { code, reason };
   }
   terminate(): void {}
   ping(): ServerWebSocketSendStatus {

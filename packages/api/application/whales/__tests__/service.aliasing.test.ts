@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { Deferred, Effect, Fiber, Layer, Stream } from "effect";
-import type { WhalePositionsPage, WhaleTrade } from "@0xsignal/shared";
+import type { WhaleTrade } from "@0xsignal/shared";
 import { WhaleService } from "../contracts";
 import { WhaleConfig, type WhaleConfigService } from "../config.contracts";
-import { WhaleRepo } from "../repo.contracts";
+import { WhaleRepo, type WhalePositionsPage } from "../repo.contracts";
 import { WhaleSources } from "../sources.contracts";
 import { whaleServiceLayer } from "../service";
 

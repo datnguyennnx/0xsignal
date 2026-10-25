@@ -12,6 +12,7 @@ import {
   mockInfoInstance,
   makeTestLayer,
   makeMetaResponse,
+  ORDER_OK,
   USER_A,
   ExchangeService,
   InsufficientMarginError,
@@ -47,7 +48,7 @@ describe("ExchangeService — order operations", () => {
   describe("placeOrder", () => {
     it("builds correct HL payload from generic input", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
-      mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
+      mockExchangeInstance.order.mockResolvedValueOnce(ORDER_OK);
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -158,7 +159,7 @@ describe("ExchangeService — order operations", () => {
 
     it("sends TP/SL child orders with r:true and opposite b direction", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
-      mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
+      mockExchangeInstance.order.mockResolvedValueOnce(ORDER_OK);
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -216,7 +217,7 @@ describe("ExchangeService — order operations", () => {
 
     it("enforces reduceOnly true for close position orders", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
-      mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
+      mockExchangeInstance.order.mockResolvedValueOnce(ORDER_OK);
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -246,7 +247,7 @@ describe("ExchangeService — order operations", () => {
 
     it("forwards price 0 when a market order closes a position", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC"]));
-      mockExchangeInstance.order.mockResolvedValueOnce({ response: "ok" });
+      mockExchangeInstance.order.mockResolvedValueOnce(ORDER_OK);
 
       await Effect.runPromise(
         Effect.gen(function* () {

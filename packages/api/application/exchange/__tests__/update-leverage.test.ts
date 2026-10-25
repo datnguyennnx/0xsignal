@@ -10,6 +10,7 @@ import {
   mockInfoInstance,
   makeTestLayer,
   makeMetaResponse,
+  LEVERAGE_OK,
   USER_A,
   ExchangeService,
 } from "./helpers";
@@ -39,7 +40,7 @@ describe("ExchangeService — order operations", () => {
   describe("updateLeverageAndMargin", () => {
     it("sends isCross and leverage for cross margin mode", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC", "ETH"]));
-      mockExchangeInstance.updateLeverage.mockResolvedValueOnce({ response: "ok" });
+      mockExchangeInstance.updateLeverage.mockResolvedValueOnce(LEVERAGE_OK);
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -63,7 +64,7 @@ describe("ExchangeService — order operations", () => {
 
     it("sends isCross and leverage for isolated margin mode", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC", "ETH", "SOL"]));
-      mockExchangeInstance.updateLeverage.mockResolvedValueOnce({ response: "ok" });
+      mockExchangeInstance.updateLeverage.mockResolvedValueOnce(LEVERAGE_OK);
 
       await Effect.runPromise(
         Effect.gen(function* () {

@@ -14,6 +14,14 @@ const createMockInfoClient = () => ({
   perpAnnotation: vi.fn<InfoClient["perpAnnotation"]>(),
 });
 
+type Meta = Awaited<ReturnType<InfoClient["meta"]>>;
+
+const metaResponse = (names: readonly string[]): Meta => ({
+  universe: names.map((name) => ({ name, szDecimals: 2, maxLeverage: 50, marginTableId: 0 })),
+  marginTables: [],
+  collateralToken: 0,
+});
+
 let mockInfoClient: ReturnType<typeof createMockInfoClient>;
 
 const makeClientLayer = () =>
@@ -39,7 +47,7 @@ describe("getTicker malformed snapshot", () => {
   });
 
   it("surfaces TickerSnapshotError as a typed failure instead of a defect", async () => {
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([{ universe: [{ name: "BTC" }] }, []]);
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse(["BTC"]), []]);
     mockInfoClient.allMids.mockResolvedValue({ BTC: "101.25" });
 
     const exit = await Effect.runPromiseExit(

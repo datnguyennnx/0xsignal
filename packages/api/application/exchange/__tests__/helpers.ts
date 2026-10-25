@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import { type Context, Effect, Layer, Redacted } from "effect";
-import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
+import { HttpTransport, InfoClient, type ExchangeClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../../hyperliquid/contracts";
 import { ExchangeService } from "../contracts";
 import { exchangeServiceLayer } from "../service";
@@ -35,6 +35,23 @@ type AccountRecord = Effect.Success<ReturnType<AccountRepoShape["create"]>>;
 type CredentialRecord = Effect.Success<ReturnType<CredRepoShape["create"]>>;
 type DecryptedAgent = Effect.Success<ReturnType<CredRepoShape["getDecryptedAgent"]>>;
 type MetaResponse = Awaited<ReturnType<InfoClient["meta"]>>;
+
+// SDK success payloads — the exchange service returns these verbatim.
+
+export const ORDER_OK: Awaited<ReturnType<ExchangeClient["order"]>> = {
+  status: "ok",
+  response: { type: "order", data: { statuses: ["waitingForFill"] } },
+};
+
+export const CANCEL_OK: Awaited<ReturnType<ExchangeClient["cancel"]>> = {
+  status: "ok",
+  response: { type: "cancel", data: { statuses: ["success"] } },
+};
+
+export const LEVERAGE_OK: Awaited<ReturnType<ExchangeClient["updateLeverage"]>> = {
+  status: "ok",
+  response: { type: "default" },
+};
 
 // Mock instances
 
@@ -98,7 +115,6 @@ export const makePlaceholderCredential = (
 export const makeDecryptedCredential = (overrides?: Partial<DecryptedAgent>): DecryptedAgent => ({
   privateKey: Redacted.make(VALID_PRIVATE_KEY),
   walletAddress: "0xMASTER",
-  vaultAddress: undefined,
   agentAddress: "0xAGENT",
   exchange: "hyperliquid",
   permissions: [],
@@ -147,6 +163,12 @@ export const defaultMockCredRepo = {
   revoke: vi.fn<CredRepoShape["revoke"]>().mockReturnValue(Effect.succeed(void 0)),
   setVerified: vi.fn<CredRepoShape["setVerified"]>().mockReturnValue(Effect.succeed(void 0)),
   markUsed: vi.fn<CredRepoShape["markUsed"]>().mockReturnValue(Effect.succeed(void 0)),
+  getForVerification: vi
+    .fn<CredRepoShape["getForVerification"]>()
+    .mockReturnValue(Effect.die(new Error("not implemented"))),
+  recordAuditEvent: vi
+    .fn<CredRepoShape["recordAuditEvent"]>()
+    .mockReturnValue(Effect.succeed(void 0)),
 };
 
 // Test layer factory

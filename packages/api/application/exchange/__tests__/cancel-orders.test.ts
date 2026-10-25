@@ -10,6 +10,7 @@ import {
   mockInfoInstance,
   makeTestLayer,
   makeMetaResponse,
+  CANCEL_OK,
   USER_A,
   ExchangeService,
   HyperliquidValidationError,
@@ -40,7 +41,7 @@ describe("ExchangeService — order operations", () => {
   describe("cancelOrders", () => {
     it("cancels a single order by symbol and orderId", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC", "ETH"]));
-      mockExchangeInstance.cancel.mockResolvedValueOnce({ response: "ok" });
+      mockExchangeInstance.cancel.mockResolvedValueOnce(CANCEL_OK);
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -60,7 +61,7 @@ describe("ExchangeService — order operations", () => {
 
     it("cancels multiple orders across different symbols", async () => {
       mockInfoInstance.meta.mockResolvedValueOnce(makeMetaResponse(["BTC", "ETH", "SOL"]));
-      mockExchangeInstance.cancel.mockResolvedValueOnce({ response: "ok" });
+      mockExchangeInstance.cancel.mockResolvedValueOnce(CANCEL_OK);
 
       await Effect.runPromise(
         Effect.gen(function* () {

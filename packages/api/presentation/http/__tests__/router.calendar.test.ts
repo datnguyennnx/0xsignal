@@ -7,6 +7,7 @@ import { UserDataService } from "../../../application/user-data/contracts";
 import { ExchangeService } from "../../../application/exchange/contracts";
 import { CalendarService } from "../../../application/calendar/contracts";
 import { handleRequest } from "../router";
+import { TestRouteEnvLayer } from "./route-test-layer";
 
 const mockCalendarService = {
   ingest: vi.fn<Context.Service.Shape<typeof CalendarService>["ingest"]>(),
@@ -31,6 +32,7 @@ const runRequest = (path: string, method = "GET") =>
           TestUserDataLayer,
           TestExchangeLayer,
           TestCalendarLayer,
+          TestRouteEnvLayer,
         ),
       ),
     ),

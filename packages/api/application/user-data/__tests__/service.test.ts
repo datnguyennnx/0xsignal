@@ -55,7 +55,7 @@ const mockOpenOrders = [
   },
 ];
 
-const mockHistoricalOrders = [
+const mockHistoricalOrders: Awaited<ReturnType<InfoClient["historicalOrders"]>> = [
   {
     order: {
       coin: "BTC",
@@ -65,7 +65,7 @@ const mockHistoricalOrders = [
       oid: 5001,
       timestamp: Date.now() - 3600000,
       origSz: "0.1",
-      orderType: { limit: {} },
+      orderType: "Limit",
       triggerCondition: "",
       triggerPx: "",
       isTrigger: false,
@@ -100,7 +100,7 @@ const mockUserFills = [
   },
 ];
 
-const mockFrontendOpenOrders = [
+const mockFrontendOpenOrders: Awaited<ReturnType<InfoClient["frontendOpenOrders"]>> = [
   {
     coin: "BTC",
     side: "B" as const,
@@ -187,6 +187,20 @@ const mockMeta = {
   collateralToken: 0,
 };
 
+const makePortfolio = (): Awaited<ReturnType<InfoClient["portfolio"]>> => {
+  const data = { accountValueHistory: [], pnlHistory: [], vlm: "0" };
+  return [
+    ["day", data],
+    ["week", data],
+    ["month", data],
+    ["allTime", data],
+    ["perpDay", data],
+    ["perpWeek", data],
+    ["perpMonth", data],
+    ["perpAllTime", data],
+  ];
+};
+
 type InfoMethod =
   | "clearinghouseState"
   | "openOrders"
@@ -232,13 +246,13 @@ const makeMockLayer = (overrides?: Partial<Pick<InfoClient, InfoMethod>>) => {
       .mockImplementation(overrides?.meta ?? (() => Promise.resolve(mockMeta))),
     portfolio: vi
       .fn<InfoClient["portfolio"]>()
-      .mockImplementation(overrides?.portfolio ?? (() => Promise.resolve({}))),
+      .mockImplementation(overrides?.portfolio ?? (() => Promise.resolve(makePortfolio()))),
     userVaultEquities: vi
       .fn<InfoClient["userVaultEquities"]>()
-      .mockImplementation(overrides?.userVaultEquities ?? (() => Promise.resolve({}))),
+      .mockImplementation(overrides?.userVaultEquities ?? (() => Promise.resolve([]))),
     userFunding: vi
       .fn<InfoClient["userFunding"]>()
-      .mockImplementation(overrides?.userFunding ?? (() => Promise.resolve({}))),
+      .mockImplementation(overrides?.userFunding ?? (() => Promise.resolve([]))),
   };
   const client = HyperliquidClient.of({
     info: Object.assign(new InfoClient({ transport: new HttpTransport() }), info),
@@ -472,7 +486,7 @@ describe("UserDataService", () => {
 
   describe("getPortfolio", () => {
     it("fetches portfolio using wallet address", async () => {
-      const mockPortfolio = { portfolio: "data" };
+      const mockPortfolio = makePortfolio();
       const layer = makeTestLayer({
         meta: () => Promise.resolve(mockMeta),
         portfolio: () => Promise.resolve(mockPortfolio),
@@ -491,7 +505,7 @@ describe("UserDataService", () => {
 
   describe("getUserVaultEquities", () => {
     it("fetches vault equities using wallet address", async () => {
-      const mockEquities = { equities: [] };
+      const mockEquities: Awaited<ReturnType<InfoClient["userVaultEquities"]>> = [];
       const layer = makeTestLayer({
         userVaultEquities: () => Promise.resolve(mockEquities),
       });
@@ -509,7 +523,7 @@ describe("UserDataService", () => {
 
   describe("getUserFunding", () => {
     it("fetches funding with optional time range", async () => {
-      const mockFunding = { funding: [] };
+      const mockFunding: Awaited<ReturnType<InfoClient["userFunding"]>> = [];
       const layer = makeTestLayer({
         userFunding: () => Promise.resolve(mockFunding),
       });

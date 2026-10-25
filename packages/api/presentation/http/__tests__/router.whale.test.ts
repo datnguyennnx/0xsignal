@@ -7,6 +7,7 @@ import { UserDataService } from "../../../application/user-data/contracts";
 import { ExchangeService } from "../../../application/exchange/contracts";
 import { WhaleService } from "../../../application/whales/contracts";
 import { handleRequest } from "../router";
+import { TestRouteEnvLayer } from "./route-test-layer";
 
 const mockWhaleService = {
   queryPositions: vi.fn<Context.Service.Shape<typeof WhaleService>["queryPositions"]>(),
@@ -24,6 +25,7 @@ const baseLayers = Layer.mergeAll(
   TestHealthLayer,
   TestUserDataLayer,
   TestExchangeLayer,
+  TestRouteEnvLayer,
 );
 
 const runRequest = (path: string, withWhale = true) =>

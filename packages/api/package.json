@@ -11,7 +11,7 @@
     "lint": "oxlint .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "test": "vitest run",
     "test:watch": "vitest"
