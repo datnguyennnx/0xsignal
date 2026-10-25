@@ -11,13 +11,15 @@ import {
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 import { ResetLayoutButton } from "@/components/reset-layout-button";
 import { useAppStore } from "@/stores/use-app-store";
-import { truncateAddress } from "@/core/utils/address";
+import { useWhaleAddress } from "@/hooks/use-effective-address";
 import { useConnection, useDisconnect } from "wagmi";
+
+const shortAddress = (value: string): string => `${value.slice(0, 6)}…${value.slice(-4)}`;
 
 export function UserNav() {
   const { address, isConnected } = useConnection();
   const { mutate: disconnect } = useDisconnect();
-  const activeAddress = useAppStore((s) => s.activeAddress);
+  const whaleAddress = useWhaleAddress();
   const isConnectWalletOpen = useAppStore((s) => s.connectWalletOpen["user-nav"] ?? false);
   const openConnectWallet = useCallback(() => {
     useAppStore.getState().openConnectWallet("user-nav");
@@ -25,55 +27,56 @@ export function UserNav() {
   const closeConnectWallet = useCallback(() => {
     useAppStore.getState().closeConnectWallet("user-nav");
   }, []);
-  const clearActiveAddress = useCallback(() => {
-    useAppStore.getState().clearActiveAddress();
-  }, []);
   const navigate = useNavigate();
 
   return (
     <div className="flex items-center gap-2">
-      {activeAddress !== null && activeAddress !== "" ? (
+      {whaleAddress === undefined ? (
+        isConnected && address !== undefined ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="outline" size="sm" className="h-8 px-3 text-xs" />}
+            >
+              {shortAddress(address)}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={10}>
+              <DropdownMenuItem
+                onClick={() => {
+                  disconnect();
+                }}
+                className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-accent transition-colors rounded-md"
+              >
+                Disconnect
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button
+            variant="default"
+            className="h-8 px-3 text-xs font-medium"
+            onClick={openConnectWallet}
+          >
+            Connect Wallet
+          </Button>
+        )
+      ) : (
         <DropdownMenu>
           <DropdownMenuTrigger
             render={<Button variant="outline" size="sm" className="h-8 px-3 text-xs" />}
           >
-            {truncateAddress(activeAddress)}
+            {shortAddress(whaleAddress)}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={10}>
             <DropdownMenuItem
-              onClick={clearActiveAddress}
+              onClick={() => {
+                void navigate("/portfolio");
+              }}
               className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-accent transition-colors rounded-md"
             >
               Exit read-only
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ) : isConnected && address !== undefined ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<Button variant="outline" size="sm" className="h-8 px-3 text-xs" />}
-          >
-            {truncateAddress(address)}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={10}>
-            <DropdownMenuItem
-              onClick={() => {
-                disconnect();
-              }}
-              className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-accent transition-colors rounded-md"
-            >
-              Disconnect
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : (
-        <Button
-          variant="default"
-          className="h-8 px-3 text-xs font-medium"
-          onClick={openConnectWallet}
-        >
-          Connect Wallet
-        </Button>
       )}
 
       <ResetLayoutButton />

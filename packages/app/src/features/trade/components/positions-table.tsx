@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import { PnLDisplay } from "./shared-table-components";
-import { computeAccruedFunding } from "../utils/trade-math";
+import { computeAccruedFunding, deriveMarkPrice } from "../utils/trade-math";
 
 import { useNavigate } from "react-router-dom";
 
@@ -50,26 +50,30 @@ function TpSlCell({ tpSl }: { tpSl: { tp: string | null; sl: string | null } | u
 
 interface PositionsTableProps {
   isChLoading: boolean;
-  positions: Array<{
-    position: {
-      coin: string;
-      szi: string;
-      entryPx: string;
-      positionValue: string;
-      liquidationPx: string | null;
-      marginUsed: string;
-      unrealizedPnl: string;
-      returnOnEquity: string;
-      cumFunding: { sinceOpen: string };
-      leverage?: { type: "cross" | "isolated"; value?: number };
-    };
-  }>;
+  positions: PositionRow[];
   fundingRates?: Record<string, number>;
   tpSlByCoin?: Record<string, { tp: string | null; sl: string | null }>;
   onCloseMarket?: (coin: string, size: string, isLong: boolean) => void;
   onCloseLimit?: (position: { coin: string; sz: number; isLong: boolean; markPx: number }) => void;
   mids?: Record<string, number>;
+  /** A third party's account: render rows only, never an action affordance. */
+  readOnly?: boolean;
 }
+
+export type PositionRow = {
+  position: {
+    coin: string;
+    szi: string;
+    entryPx: string;
+    positionValue: string;
+    liquidationPx: string | null;
+    marginUsed: string;
+    unrealizedPnl: string;
+    returnOnEquity: string;
+    cumFunding: { sinceOpen: string };
+    leverage?: { type: "cross" | "isolated"; value?: number };
+  };
+};
 
 export function PositionsTable({
   isChLoading,
@@ -79,8 +83,10 @@ export function PositionsTable({
   mids,
   tpSlByCoin,
   fundingRates,
+  readOnly = false,
 }: PositionsTableProps) {
   const navigate = useNavigate();
+  const columnCount = readOnly ? 10 : 12;
   return (
     <Table>
       <TableHeader>
@@ -95,15 +101,15 @@ export function PositionsTable({
           <TableHead className={cHeadNum}>Margin</TableHead>
           <TableHead className={cHeadNum}>Mode</TableHead>
           <TableHead className={cHeadNum}>Funding</TableHead>
-          <TableHead className={cHead}>Close All</TableHead>
-          <TableHead className={cHead}>TP/SL</TableHead>
+          {!readOnly && <TableHead className={cHead}>Close All</TableHead>}
+          {!readOnly && <TableHead className={cHead}>TP/SL</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
         {isChLoading ? (
-          <TableSkeletonRows columns={12} />
+          <TableSkeletonRows columns={columnCount} />
         ) : positions.length === 0 ? (
-          <TableEmptyRow colSpan={12} />
+          <TableEmptyRow colSpan={columnCount} />
         ) : (
           positions.map(({ position }) => {
             const signedSz = Number(position.szi);
@@ -124,7 +130,9 @@ export function PositionsTable({
               isLong,
             );
             const computedMarkPx = signedSz === 0 ? entryPx : entryPx + unrealizedPnl / signedSz;
-            const markPx = mids?.[position.coin] ?? computedMarkPx;
+            const markPx = readOnly
+              ? deriveMarkPrice(position.positionValue, signedSz)
+              : (mids?.[position.coin] ?? computedMarkPx);
 
             return (
               <TableRow key={position.coin}>
@@ -147,7 +155,9 @@ export function PositionsTable({
                 </TableCell>
                 <TableCell className={cNum}>{formatCompactUsd(posValue)}</TableCell>
                 <TableCell className={cNum}>{formatPrice(entryPx)}</TableCell>
-                <TableCell className={cNum}>{formatPrice(markPx)}</TableCell>
+                <TableCell className={cNum}>
+                  {markPx === null ? "—" : formatPrice(markPx)}
+                </TableCell>
                 <TableCell className={cNum}>
                   <PnLDisplay usd={unrealizedPnl} pct={roe} />
                 </TableCell>
@@ -163,30 +173,39 @@ export function PositionsTable({
                 <TableCell className={`${cNum} ${totalFunding >= 0 ? "text-gain" : "text-loss"}`}>
                   {formatCompactUsd(totalFunding)}
                 </TableCell>
-                <TableCell className={c}>
-                  <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
-                    <button
-                      type="button"
-                      onClick={() => onCloseMarket?.(position.coin, position.szi, signedSz >= 0)}
-                      className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
-                    >
-                      Market
-                    </button>
-                    <span className="text-xs text-muted-foreground/60">/</span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onCloseLimit?.({ coin: position.coin, sz, isLong: signedSz >= 0, markPx })
-                      }
-                      className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
-                    >
-                      Limit
-                    </button>
-                  </div>
-                </TableCell>
-                <TableCell className={c}>
-                  <TpSlCell tpSl={tpSlByCoin?.[position.coin]} />
-                </TableCell>
+                {!readOnly && (
+                  <TableCell className={c}>
+                    <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
+                      <button
+                        type="button"
+                        onClick={() => onCloseMarket?.(position.coin, position.szi, signedSz >= 0)}
+                        className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
+                      >
+                        Market
+                      </button>
+                      <span className="text-xs text-muted-foreground/60">/</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onCloseLimit?.({
+                            coin: position.coin,
+                            sz,
+                            isLong: signedSz >= 0,
+                            markPx: markPx ?? computedMarkPx,
+                          })
+                        }
+                        className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
+                      >
+                        Limit
+                      </button>
+                    </div>
+                  </TableCell>
+                )}
+                {!readOnly && (
+                  <TableCell className={c}>
+                    <TpSlCell tpSl={tpSlByCoin?.[position.coin]} />
+                  </TableCell>
+                )}
               </TableRow>
             );
           })

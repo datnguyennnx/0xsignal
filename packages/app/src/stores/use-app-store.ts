@@ -27,28 +27,24 @@ const applyThemeClass = (resolved: "dark" | "light") => {
   root.classList.add(resolved);
 };
 
-interface PersistedAppState {
-  theme: Theme | null;
-  activeAddress: string | null;
-  viewedAddress: string | null;
-}
-
 function isTheme(value: unknown): value is Theme {
   return value === "dark" || value === "light" || value === "system";
 }
 
-function readPersistedAppState(value: unknown): PersistedAppState {
-  if (typeof value !== "object" || value === null) {
-    return { theme: null, activeAddress: null, viewedAddress: null };
-  }
+/**
+ * Legacy versions persisted `activeAddress`/`viewedAddress`. They are deliberately
+ * dropped here: a viewed wallet must never survive into the next session, because
+ * the store has no way to prove it belongs to the connected account.
+ */
+export function migratePersistedAppState(value: unknown): { theme: Theme } {
+  if (typeof value !== "object" || value === null) return { theme: "dark" };
   const theme = "theme" in value ? value.theme : undefined;
-  const activeAddress = "activeAddress" in value ? value.activeAddress : undefined;
-  const viewedAddress = "viewedAddress" in value ? value.viewedAddress : undefined;
-  return {
-    theme: isTheme(theme) ? theme : null,
-    activeAddress: typeof activeAddress === "string" ? activeAddress : null,
-    viewedAddress: typeof viewedAddress === "string" ? viewedAddress : null,
-  };
+  return { theme: isTheme(theme) ? theme : "dark" };
+}
+
+/** Only the theme is durable; addresses belong to the session or the route. */
+export function selectPersistedAppState(state: { theme: Theme }): { theme: Theme } {
+  return { theme: state.theme };
 }
 
 /** Keep in sync with backend MARKET_SCHEMA_VERSION (cache.ts). Bump when payload shape changes. */
@@ -62,15 +58,12 @@ export interface AppStoreState {
   connectWalletOpen: Record<string, boolean>;
   dirtyFormPaths: Set<string>;
   marketSchemaVersion: number;
-  activeAddress: string | null;
 
   setTheme: (theme: Theme) => void;
   setSystemTheme: (sys: "dark" | "light") => void;
   openConnectWallet: (key: string) => void;
   closeConnectWallet: (key: string) => void;
   isConnectWalletOpen: (key: string) => boolean;
-  setActiveAddress: (address: string) => void;
-  clearActiveAddress: () => void;
   markDirty: (path: string) => void;
   markClean: (path: string) => void;
   hasUnsavedChanges: () => boolean;
@@ -95,7 +88,6 @@ export const useAppStore = create<AppStoreState>()(
           connectWalletOpen: {},
           dirtyFormPaths: new Set<string>(),
           marketSchemaVersion: FRONTEND_MARKET_SCHEMA_VERSION,
-          activeAddress: null,
 
           setTheme: (newTheme: Theme) => {
             localStorage.setItem("vite-ui-theme", newTheme);
@@ -126,14 +118,6 @@ export const useAppStore = create<AppStoreState>()(
 
           isConnectWalletOpen: (key: string) => {
             return get().connectWalletOpen[key] ?? false;
-          },
-
-          setActiveAddress: (address: string) => {
-            set({ activeAddress: address });
-          },
-
-          clearActiveAddress: () => {
-            set({ activeAddress: null });
           },
 
           markDirty: (path: string) => {
@@ -167,21 +151,11 @@ export const useAppStore = create<AppStoreState>()(
       },
       {
         name: "0xsignal-app-store",
-        version: 1,
-        partialize: (state) => ({ theme: state.theme, activeAddress: state.activeAddress }),
-        migrate: (persistedState, version) => {
-          const persisted = readPersistedAppState(persistedState);
-          if (version < 1) {
-            return {
-              theme: persisted.theme ?? "dark",
-              activeAddress: persisted.viewedAddress ?? null,
-            };
-          }
-          return {
-            theme: persisted.theme ?? "dark",
-            activeAddress: persisted.activeAddress ?? null,
-          };
-        },
+        // v2 dropped the persisted address fields; the bump makes any stored v1 blob
+        // pass through migrate, which discards the address instead of rehydrating it.
+        version: 2,
+        partialize: (state) => selectPersistedAppState(state),
+        migrate: (persistedState) => migratePersistedAppState(persistedState),
         onRehydrateStorage: () => {
           return (state) => {
             if (!state) return;

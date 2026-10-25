@@ -91,8 +91,16 @@ function TwapFillHistoryTable() {
  * Extracted from position-management.tsx to encapsulate
  * the sub-tab state and rendering logic.
  */
-export function TwapContent() {
+export function TwapContent({ readOnly = false }: { readOnly?: boolean } = {}) {
   const [twapSubTab, setTwapSubTab] = useState<TwapSubTab>("active");
+
+  if (readOnly) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        TWAP orders aren&apos;t available for public accounts.
+      </p>
+    );
+  }
 
   return (
     <>

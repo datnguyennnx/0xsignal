@@ -1,10 +1,12 @@
 import { useCallback } from "react";
-import { useOpenOrders, useCancelOrdersMutation } from "./use-user-data";
+import { useOpenOrders } from "./use-user-data";
+import { useCancelOrdersMutation } from "./use-cancel-orders-mutation";
 import { usePlaceOrder } from "./use-place-order";
 import { useHyperliquidMeta } from "./use-hyperliquid-meta";
 import { formatOrderSize } from "../utils/trade-math";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { useAppStore } from "@/stores/use-app-store";
+import { toast } from "sonner";
 
 interface UsePositionActionsParams {
   signingDisabled: boolean;
@@ -15,7 +17,7 @@ export function usePositionActions({ signingDisabled }: UsePositionActionsParams
     useAppStore.getState().openConnectWallet("trade-position-management");
   }, []);
 
-  const { data: openOrders } = useOpenOrders();
+  const { data: openOrders } = useOpenOrders(!signingDisabled);
   const cancelOrdersMutation = useCancelOrdersMutation();
   const { getPrecision } = useHyperliquidMeta();
 
@@ -23,7 +25,9 @@ export function usePositionActions({ signingDisabled }: UsePositionActionsParams
     (err: Error) => {
       if (err instanceof UnauthenticatedError) {
         openConnectWallet();
+        return;
       }
+      toast.error(err.message);
     },
     [openConnectWallet],
   );

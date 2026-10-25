@@ -9,20 +9,30 @@ import {
 import { TableEmptyRow } from "@/components/table-empty-row";
 import { c, cNum, cHead, cHeadNum, TABLE_HEAD_CLASS } from "../utils/orderbook-table-classes";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
-import { useUserBalances } from "../hooks/use-user-balances";
+import { useUserBalances, useWhaleBalances } from "../hooks/use-user-balances";
 import { useAllMids } from "../hooks/use-all-mids";
 import { PnLDisplay } from "./shared-table-components";
 
 /**
  * Outcomes tab — displays current positions with their PnL and close actions.
  *
- * Data sourced from the clearinghouse state via useUserBalances.
+ * Data sourced from the clearinghouse state. A third party's account reads the
+ * public clearinghouse endpoint, so no authenticated `user/*` call is ever made.
  * This mirrors a subset of the PositionsTable columns (excludes liq. price,
  * margin, funding, TP/SL) and provides a focused view of position outcomes.
  */
-export function OutcomesTable() {
-  const { isChLoading, positions } = useUserBalances();
+export function OutcomesTable({
+  readOnlyAddress,
+}: {
+  readOnlyAddress?: string | undefined;
+} = {}) {
+  const readOnly = readOnlyAddress !== undefined;
+  const own = useUserBalances(!readOnly);
+  const whale = useWhaleBalances(readOnlyAddress);
+  const { isChLoading, positions } = readOnly ? whale : own;
   const mids = useAllMids();
+  const showCloseAll = !readOnly;
+  const columnCount = showCloseAll ? 7 : 6;
 
   return (
     <Table>
@@ -34,18 +44,18 @@ export function OutcomesTable() {
           <TableHead className={cHeadNum}>Entry Price</TableHead>
           <TableHead className={cHeadNum}>Mark Price</TableHead>
           <TableHead className={cHeadNum}>PNL (ROE %)</TableHead>
-          <TableHead className={cHead}>Close All</TableHead>
+          {showCloseAll && <TableHead className={cHead}>Close All</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>
         {isChLoading ? (
           <TableRow>
-            <TableCell colSpan={7} className="text-center py-6">
+            <TableCell colSpan={columnCount} className="text-center py-6">
               <span className={TABLE_HEAD_CLASS}>Loading...</span>
             </TableCell>
           </TableRow>
         ) : positions.length === 0 ? (
-          <TableEmptyRow colSpan={7} />
+          <TableEmptyRow colSpan={columnCount} />
         ) : (
           positions.map(({ position }) => {
             const signedSz = Number(position.szi);
@@ -73,11 +83,13 @@ export function OutcomesTable() {
                 <TableCell className={cNum}>
                   <PnLDisplay usd={unrealizedPnl} pct={roe} />
                 </TableCell>
-                <TableCell className={c}>
-                  <span className="text-sm font-medium text-muted-foreground/60 uppercase tracking-wider">
-                    —
-                  </span>
-                </TableCell>
+                {showCloseAll && (
+                  <TableCell className={c}>
+                    <span className="text-sm font-medium text-muted-foreground/60 uppercase tracking-wider">
+                      —
+                    </span>
+                  </TableCell>
+                )}
               </TableRow>
             );
           })

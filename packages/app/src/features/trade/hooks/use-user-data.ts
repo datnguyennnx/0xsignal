@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FrontendOpenOrder, SpotClearinghouseState, UserFill } from "@0xsignal/shared";
 import { api } from "@/services/api";
+import { getHistoricalOrders } from "@/services/hl-rest-client";
 import { queryKeys } from "@/lib/query-keys";
-import { useEffectiveAddress } from "@/hooks/use-effective-address";
+import { useOwnAddress } from "@/hooks/use-effective-address";
 import { useAuthStore } from "@/stores/use-auth-store";
 import {
   getUserStreamConnectionState,
@@ -24,11 +25,11 @@ const isPresent = (value: string | null | undefined): boolean =>
 
 /** User data is both wallet-scoped and auth-scoped; either missing half means no request. */
 function useUserQueryGate(enabled: boolean) {
-  const effectiveAddress = useEffectiveAddress();
+  const ownAddress = useOwnAddress();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return {
-    walletAddress: effectiveAddress ?? "",
-    enabled: enabled && isAuthenticated && isPresent(effectiveAddress),
+    walletAddress: ownAddress ?? "",
+    enabled: enabled && isAuthenticated && isPresent(ownAddress),
   };
 }
 
@@ -183,7 +184,7 @@ export function useHistoricalOrders(enabled: boolean = true) {
   const gate = useUserQueryGate(enabled);
   return useQuery({
     queryKey: queryKeys.user.historicalOrders(gate.walletAddress),
-    queryFn: () => api.getUserHistoricalOrders(gate.walletAddress),
+    queryFn: () => getHistoricalOrders(gate.walletAddress),
     enabled: gate.enabled,
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -210,15 +211,5 @@ export function useUserFills(enabled: boolean = true) {
     enabled: gate.enabled,
     staleTime: live ? Infinity : 30 * 1000,
     refetchOnWindowFocus: !live,
-  });
-}
-
-export function useCancelOrdersMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (params: Parameters<typeof api.cancelOrders>[0]) => api.cancelOrders(params),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
-    },
   });
 }

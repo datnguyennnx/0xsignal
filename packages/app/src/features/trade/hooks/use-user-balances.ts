@@ -1,5 +1,10 @@
 import { useMemo } from "react";
+import type { ClearinghouseState, SpotClearinghouseState } from "@0xsignal/shared";
 import { useClearinghouseState, useSpotClearinghouseState } from "./use-user-data";
+import {
+  useWhaleClearinghouseState,
+  useWhaleSpotClearinghouseState,
+} from "@/features/portfolio/hooks/use-portfolio-data";
 
 export interface UserBalances {
   positions: Array<{
@@ -34,10 +39,30 @@ export interface UserBalances {
   isChLoading: boolean;
 }
 
-export function useUserBalances(): UserBalances {
-  const { data: chData, isLoading: isChLoading } = useClearinghouseState();
-  const { data: spotData } = useSpotClearinghouseState();
+export function useUserBalances(enabled: boolean = true): UserBalances {
+  const { data: chData, isLoading: isChLoading } = useClearinghouseState(enabled);
+  const { data: spotData } = useSpotClearinghouseState(enabled);
+  return useMemo(
+    () => buildUserBalances(chData, spotData, isChLoading),
+    [chData, spotData, isChLoading],
+  );
+}
 
+/** Read-only balance view for a third party, fed only by the public readers. */
+export function useWhaleBalances(address?: string): UserBalances {
+  const { data: chData, isLoading: isChLoading } = useWhaleClearinghouseState(address);
+  const { data: spotData } = useWhaleSpotClearinghouseState(address);
+  return useMemo(
+    () => buildUserBalances(chData, spotData, isChLoading),
+    [chData, spotData, isChLoading],
+  );
+}
+
+function buildUserBalances(
+  chData: ClearinghouseState | undefined,
+  spotData: SpotClearinghouseState | undefined,
+  isChLoading: boolean,
+): UserBalances {
   const positions = chData?.assetPositions;
   const marginSummary = chData?.marginSummary;
   const withdrawable = chData?.withdrawable;
@@ -65,30 +90,16 @@ export function useUserBalances(): UserBalances {
   const balanceCount = marginSummary ? 2 + (positions?.length ?? 0) : 0;
   const positionsCount = positions?.length ?? 0;
 
-  return useMemo(
-    () => ({
-      positions: positions ?? [],
-      marginSummary,
-      usdcTotalBalance,
-      usdcAvailableBalance,
-      totalUnrealizedPnl,
-      effectiveAccountTotal,
-      effectiveAvailableBalance,
-      balanceCount,
-      positionsCount,
-      isChLoading,
-    }),
-    [
-      positions,
-      marginSummary,
-      usdcTotalBalance,
-      usdcAvailableBalance,
-      totalUnrealizedPnl,
-      effectiveAccountTotal,
-      effectiveAvailableBalance,
-      balanceCount,
-      positionsCount,
-      isChLoading,
-    ],
-  );
+  return {
+    positions: positions ?? [],
+    marginSummary,
+    usdcTotalBalance,
+    usdcAvailableBalance,
+    totalUnrealizedPnl,
+    effectiveAccountTotal,
+    effectiveAvailableBalance,
+    balanceCount,
+    positionsCount,
+    isChLoading,
+  };
 }

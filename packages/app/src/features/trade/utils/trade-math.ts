@@ -28,6 +28,21 @@ export function computeAccruedFunding(
 }
 
 /**
+ * Mark implied by the exchange's mark-based notional. `positionValue` carries no
+ * separate mark price, so divide it by the absolute size; a flat position has
+ * no mark and yields `null` rather than `NaN`/`Infinity`.
+ */
+export function deriveMarkPrice(
+  positionValue: string | number,
+  szi: string | number,
+): number | null {
+  const value = Number(positionValue);
+  const size = Math.abs(Number(szi));
+  if (!Number.isFinite(value) || !Number.isFinite(size) || size === 0) return null;
+  return Math.abs(value) / size;
+}
+
+/**
  * Buffer applied to max size to account for taker fees.
  * Prevents orders from being rejected due to insufficient margin
  * after fee deduction.

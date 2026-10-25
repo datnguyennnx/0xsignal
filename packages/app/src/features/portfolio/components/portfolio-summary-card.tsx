@@ -6,7 +6,12 @@ import {
   useSpotClearinghouseState,
 } from "@/features/trade/hooks/use-user-data";
 
-import { usePortfolio, useUserVaultEquities } from "../hooks/use-portfolio-data";
+import {
+  usePortfolio,
+  useUserVaultEquities,
+  useWhalePortfolio,
+  useWhaleVaultEquities,
+} from "../hooks/use-portfolio-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollEdge } from "@/components/surface/scroll-edge";
 import {
@@ -60,13 +65,28 @@ const SKELETON_ROW =
 
 const SUMMARY_SKELETON_KEYS = Array.from({ length: 8 }, (_, index) => `summary-row-${index}`);
 
-export function PortfolioSummaryCard() {
+export function PortfolioSummaryCard({
+  readOnlyAddress,
+}: {
+  readOnlyAddress?: string | undefined;
+}) {
   const [tf, setTf] = useState<PortfolioPeriod>("month");
+  const isOwn = readOnlyAddress === undefined;
 
-  const { data: portfolio, isLoading: pfLoading, isError: pfError } = usePortfolio();
-  const { data: chData, isLoading: chLoading } = useClearinghouseState();
-  const { data: spotData, isLoading: spotLoading } = useSpotClearinghouseState();
-  const { data: vaultData, isLoading: vaultLoading } = useUserVaultEquities();
+  const ownPortfolio = usePortfolio(isOwn);
+  const whalePortfolio = useWhalePortfolio(readOnlyAddress);
+  const {
+    data: portfolio,
+    isLoading: pfLoading,
+    isError: pfError,
+  } = isOwn ? ownPortfolio : whalePortfolio;
+
+  const { data: chData, isLoading: chLoading } = useClearinghouseState(isOwn);
+  const { data: spotData, isLoading: spotLoading } = useSpotClearinghouseState(isOwn);
+
+  const ownVaults = useUserVaultEquities(isOwn);
+  const whaleVaults = useWhaleVaultEquities(readOnlyAddress);
+  const { data: vaultData, isLoading: vaultLoading } = isOwn ? ownVaults : whaleVaults;
 
   const isLoading = pfLoading || chLoading || spotLoading || vaultLoading;
 
@@ -76,12 +96,13 @@ export function PortfolioSummaryCard() {
   }, [portfolio, tf]);
 
   const perps = useMemo(() => {
-    if (!chData?.marginSummary) return null;
-    const ms = chData.marginSummary;
-    const accountValue = Number(ms.accountValue);
-    const marginUsed = Number(ms.totalMarginUsed);
-    const ntlPos = Number(ms.totalNtlPos);
-    const unrealizedPnl = (chData.assetPositions ?? []).reduce(
+    const lastAccountValue = period?.accountValueHistory?.at(-1);
+    const portfolioAccountValue = lastAccountValue === undefined ? 0 : Number(lastAccountValue[1]);
+    const marginSummary = chData?.marginSummary;
+    const accountValue = marginSummary ? Number(marginSummary.accountValue) : portfolioAccountValue;
+    const marginUsed = Number(marginSummary?.totalMarginUsed ?? 0);
+    const ntlPos = Number(marginSummary?.totalNtlPos ?? 0);
+    const unrealizedPnl = (chData?.assetPositions ?? []).reduce(
       (s, p) => s + Number(p.position.unrealizedPnl),
       0,
     );
@@ -172,20 +193,20 @@ export function PortfolioSummaryCard() {
         <ScrollEdge />
         <Row
           label="PNL"
-          value={perps && perps.pnl !== 0 ? formatSignedUsd(perps.pnl) : "$0.00"}
-          accent={perps && perps.pnl > 0 ? "gain" : perps && perps.pnl < 0 ? "loss" : null}
+          value={perps.pnl === 0 ? "$0.00" : formatSignedUsd(perps.pnl)}
+          accent={perps.pnl > 0 ? "gain" : perps.pnl < 0 ? "loss" : null}
         />
-        <Row label="Volume" value={perps ? formatCompactUsd(perps.volume) : "$0.00"} />
+        <Row label="Volume" value={formatCompactUsd(perps.volume)} />
         <Row
           label="Max Drawdown"
-          value={perps && perps.maxDd !== null ? formatSignedPercent(perps.maxDd * 100) : "0.00%"}
-          accent={perps && perps.maxDd !== null && perps.maxDd < 0 ? "loss" : null}
+          value={perps.maxDd === null ? "0.00%" : formatSignedPercent(perps.maxDd * 100)}
+          accent={perps.maxDd !== null && perps.maxDd < 0 ? "loss" : null}
         />
         <Row
           label="Total Equity"
-          value={formatCompactUsd((perps?.accountValue ?? 0) + (spot?.totalUsdc ?? 0))}
+          value={formatCompactUsd(perps.accountValue + (spot?.totalUsdc ?? 0))}
         />
-        <Row label="Trading Equity" value={formatCompactUsd(perps?.accountValue ?? 0)} />
+        <Row label="Trading Equity" value={formatCompactUsd(perps.accountValue)} />
         <Row label="Vault Equity" value={formatCompactUsd(vaults?.totalEquity ?? 0)} />
         <Row label="Earn Balance" value="$0.00" />
         <Row label="Staking Account" value="0 HYPE" />

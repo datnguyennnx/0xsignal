@@ -13,7 +13,7 @@ import { cn } from "cn";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { EmptyState } from "@/components/empty-state";
 
-import { usePortfolio } from "../hooks/use-portfolio-data";
+import { usePortfolio, useWhalePortfolio } from "../hooks/use-portfolio-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   PERIOD_LABELS,
@@ -80,8 +80,11 @@ const SURFACE =
 /** Both branches size the plot area from this one token so they cannot drift. */
 const CHART_MIN_HEIGHT = "min-h-[clamp(120px,12vw,180px)]";
 
-export function PortfolioPnLChart() {
-  const { data: portfolio, isLoading, isError } = usePortfolio();
+export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: string | undefined }) {
+  const isOwn = readOnlyAddress === undefined;
+  const ownPortfolio = usePortfolio(isOwn);
+  const whalePortfolio = useWhalePortfolio(readOnlyAddress);
+  const { data: portfolio, isLoading, isError } = isOwn ? ownPortfolio : whalePortfolio;
 
   const [chartView, setChartView] = useState<ChartView>("account-value");
   const [timePeriod, setTimePeriod] = useState<PortfolioPeriod>("month");

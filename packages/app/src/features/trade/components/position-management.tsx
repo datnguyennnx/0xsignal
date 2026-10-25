@@ -1,18 +1,35 @@
 import { useState, useCallback } from "react";
 import { Tabs, TabsList } from "@/components/ui/tabs";
-import type { FrontendOpenOrder } from "@0xsignal/shared";
 import { useOpenOrders } from "../hooks/use-user-data";
-import { useUserBalances } from "../hooks/use-user-balances";
+import { useUserBalances, useWhaleBalances } from "../hooks/use-user-balances";
 import { TabTrigger } from "./shared-table-components";
 import { useIsSigningDisabled } from "@/hooks/use-effective-address";
 import { PositionManagementPanels } from "./position-management-panels";
-import { PositionManagementModals } from "./position-management-modals";
+import { PositionManagementModals, type TpSlOrder } from "./position-management-modals";
 import { usePositionActions } from "../hooks/use-position-actions";
+import {
+  useWhaleClearinghouseState,
+  useWhaleOpenOrders,
+} from "@/features/portfolio/hooks/use-portfolio-data";
 
-export function PositionManagement() {
-  const signingDisabled = useIsSigningDisabled();
-  const { balanceCount, positionsCount, isChLoading } = useUserBalances();
-  const { data: openOrders, isLoading: isOoLoading } = useOpenOrders();
+export function PositionManagement({ readOnlyAddress }: { readOnlyAddress?: string | undefined }) {
+  const readOnly = readOnlyAddress !== undefined;
+  const signingDisabled = useIsSigningDisabled() || readOnly;
+  const whaleState = useWhaleClearinghouseState(readOnlyAddress);
+  const ownBalances = useUserBalances(!readOnly);
+  const whaleBalances = useWhaleBalances(readOnlyAddress);
+  const {
+    balanceCount,
+    positionsCount: ownPositionsCount,
+    isChLoading: isOwnChLoading,
+    positions: ownPositions,
+  } = readOnly ? whaleBalances : ownBalances;
+  const positions = readOnly ? (whaleState.data?.assetPositions ?? []) : ownPositions;
+  const positionsCount = readOnly ? positions.length : ownPositionsCount;
+  const isChLoading = readOnly ? whaleState.isLoading : isOwnChLoading;
+  const ownOpenOrders = useOpenOrders(!readOnly);
+  const whaleOpenOrders = useWhaleOpenOrders(readOnlyAddress);
+  const { data: openOrders, isLoading: isOoLoading } = readOnly ? whaleOpenOrders : ownOpenOrders;
   const {
     handleCancelOrder,
     handleCancelAllConfirm,
@@ -31,7 +48,7 @@ export function PositionManagement() {
     markPx: number;
   } | null>(null);
 
-  const [tpSlModalOrder, setTpSlModalOrder] = useState<FrontendOpenOrder | null>(null);
+  const [tpSlModalOrder, setTpSlModalOrder] = useState<TpSlOrder | null>(null);
 
   const openOrdersCount = openOrders?.length ?? 0;
 
@@ -85,6 +102,10 @@ export function PositionManagement() {
 
         <PositionManagementPanels
           signingDisabled={signingDisabled}
+          positions={positions}
+          isChLoading={isChLoading}
+          readOnly={readOnly}
+          readOnlyAddress={readOnlyAddress}
           onCloseMarket={handleCloseMarket}
           onCloseLimit={setCloseLimitPosition}
           onCancelOrder={handleCancelOrder}

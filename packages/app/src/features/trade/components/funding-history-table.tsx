@@ -11,22 +11,30 @@ import { toast } from "sonner";
 import { TableEmptyRow } from "@/components/table-empty-row";
 
 import { useUserFunding } from "@/hooks/use-user-funding";
+import { useWhaleFunding } from "@/features/portfolio/hooks/use-portfolio-data";
 import { cHead, cHeadNum, TABLE_HEAD_CLASS } from "@/features/trade/utils/orderbook-table-classes";
 import { usePagination } from "@/hooks/use-pagination";
 import { Pagination } from "@/components/ui/pagination";
 import { FundingHistoryRows } from "./funding-history-rows";
 
-export function FundingHistoryTable() {
-  const { data: funding, isLoading, isError } = useUserFunding();
+export function FundingHistoryTable({
+  readOnlyAddress,
+}: {
+  readOnlyAddress?: string | undefined;
+} = {}) {
+  const readOnly = readOnlyAddress !== undefined;
+  const own = useUserFunding(undefined, undefined, !readOnly);
+  const whale = useWhaleFunding(readOnlyAddress);
+  const { data: funding, isLoading, isError } = readOnly ? whale : own;
   const paginated = usePagination(funding ?? [], 20);
 
   useEffect(() => {
-    if (isError) {
+    if (isError && !readOnly) {
       toast.error("Couldn't load funding history", {
         description: "Check your connection and try again.",
       });
     }
-  }, [isError]);
+  }, [isError, readOnly]);
 
   return (
     <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]">

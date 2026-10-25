@@ -1,16 +1,23 @@
 import { useHistoricalOrders, useUserFills } from "../hooks/use-user-data";
-import { useUserBalances } from "../hooks/use-user-balances";
+import { useUserBalances, useWhaleBalances } from "../hooks/use-user-balances";
+import {
+  useWhaleFills,
+  useWhaleHistoricalOrders,
+} from "@/features/portfolio/hooks/use-portfolio-data";
 import { usePagination } from "@/hooks/use-pagination";
 import { Pagination } from "@/components/ui/pagination";
 import { HistoryOrderTable, TradeHistoryTable } from "./order-history-table";
 import { BalanceTable } from "./balance-table";
 
 /**
- * Wrapper for the Order History tab content.
- * Internally calls useHistoricalOrders() and manages its own pagination state.
+ * Wrapper for the Order History tab content. Read-only mode reads the third
+ * party's records from the public endpoint instead of the own-account route.
  */
-export function OrderHistoryTab() {
-  const { data: histOrders, isLoading: isHistLoading } = useHistoricalOrders();
+export function OrderHistoryTab({ readOnlyAddress }: { readOnlyAddress?: string | undefined }) {
+  const readOnly = readOnlyAddress !== undefined;
+  const own = useHistoricalOrders(!readOnly);
+  const whale = useWhaleHistoricalOrders(readOnlyAddress);
+  const { data: histOrders, isLoading: isHistLoading } = readOnly ? whale : own;
   const paginated = usePagination(histOrders ?? [], 20);
 
   return (
@@ -29,11 +36,14 @@ export function OrderHistoryTab() {
 }
 
 /**
- * Wrapper for the Trade History tab content.
- * Internally calls useUserFills() and manages its own pagination state.
+ * Wrapper for the Trade History tab content. Read-only mode reads the third
+ * party's fills from the public endpoint.
  */
-export function TradeHistoryTab() {
-  const { data: fills, isLoading: isFillsLoading } = useUserFills();
+export function TradeHistoryTab({ readOnlyAddress }: { readOnlyAddress?: string | undefined }) {
+  const readOnly = readOnlyAddress !== undefined;
+  const own = useUserFills(!readOnly);
+  const whale = useWhaleFills(readOnlyAddress);
+  const { data: fills, isLoading: isFillsLoading } = readOnly ? whale : own;
   const paginated = usePagination(fills ?? [], 20);
 
   return (
@@ -52,11 +62,13 @@ export function TradeHistoryTab() {
 }
 
 /**
- * Wrapper for the Balances tab content.
- * Internally calls useUserBalances() instead of receiving data via props
- * from a shared parent state blob.
+ * Wrapper for the Balances tab content. Read-only mode derives the same shape
+ * from the public clearinghouse and spot reads.
  */
-export function BalancesTab() {
+export function BalancesTab({ readOnlyAddress }: { readOnlyAddress?: string | undefined }) {
+  const readOnly = readOnlyAddress !== undefined;
+  const own = useUserBalances(!readOnly);
+  const whale = useWhaleBalances(readOnlyAddress);
   const {
     isChLoading,
     marginSummary,
@@ -66,7 +78,7 @@ export function BalancesTab() {
     totalUnrealizedPnl,
     effectiveAccountTotal,
     effectiveAvailableBalance,
-  } = useUserBalances();
+  } = readOnly ? whale : own;
 
   return (
     <BalanceTable

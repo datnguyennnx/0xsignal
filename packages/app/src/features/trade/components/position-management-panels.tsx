@@ -4,11 +4,16 @@ import { FundingHistoryTable } from "./funding-history-table";
 import { OutcomesTable } from "./outcomes-table";
 import { BalancesTab, OrderHistoryTab, TradeHistoryTab } from "./position-tabs";
 import { PositionsTab } from "./positions-tab";
+import type { PositionRow } from "./positions-table";
 import { OpenOrdersTab } from "./open-orders-tab";
 import { TwapContent } from "./twap-content";
 
 interface PositionManagementPanelsProps {
   signingDisabled: boolean;
+  positions: PositionRow[];
+  isChLoading: boolean;
+  readOnly: boolean;
+  readOnlyAddress?: string | undefined;
   onCloseMarket: (coin: string, size: string, isLong: boolean) => void;
   onCloseLimit: (position: { coin: string; sz: number; isLong: boolean; markPx: number }) => void;
   onCancelOrder: (coin: string, oid: number) => void;
@@ -19,6 +24,10 @@ interface PositionManagementPanelsProps {
 
 export function PositionManagementPanels({
   signingDisabled,
+  positions,
+  isChLoading,
+  readOnly,
+  readOnlyAddress,
   onCloseMarket,
   onCloseLimit,
   onCancelOrder,
@@ -32,17 +41,20 @@ export function PositionManagementPanels({
         value="balances"
         className="flex-1 min-h-0 data-active:flex data-active:flex-col"
       >
-        <BalancesTab />
+        <BalancesTab readOnlyAddress={readOnlyAddress} />
       </TabsContent>
 
       <TabsContent
         value="positions"
         className={`flex-1 min-h-0 data-active:flex data-active:flex-col${
-          signingDisabled ? " pointer-events-none opacity-60" : ""
+          signingDisabled && !readOnly ? " pointer-events-none opacity-60" : ""
         }`}
-        title={signingDisabled ? "Connect a wallet to trade" : undefined}
+        title={signingDisabled && !readOnly ? "Connect a wallet to trade" : undefined}
       >
         <PositionsTab
+          positions={positions}
+          isChLoading={isChLoading}
+          readOnly={readOnly}
           onCloseMarket={onCloseMarket}
           onCloseLimit={(pos) => {
             onCloseLimit(pos);
@@ -54,17 +66,18 @@ export function PositionManagementPanels({
         value="outcomes"
         className="flex-1 min-h-0 data-active:flex data-active:flex-col"
       >
-        <OutcomesTable />
+        <OutcomesTable readOnlyAddress={readOnlyAddress} />
       </TabsContent>
 
       <TabsContent
         value="open-orders"
         className={`flex-1 min-h-0 data-active:flex data-active:flex-col${
-          signingDisabled ? " pointer-events-none opacity-60" : ""
+          signingDisabled && !readOnly ? " pointer-events-none opacity-60" : ""
         }`}
-        title={signingDisabled ? "Connect a wallet to trade" : undefined}
+        title={signingDisabled && !readOnly ? "Connect a wallet to trade" : undefined}
       >
         <OpenOrdersTab
+          readOnlyAddress={readOnlyAddress}
           onCancelOrder={onCancelOrder}
           onViewTpSl={(order) => {
             onViewTpSl(order);
@@ -77,28 +90,28 @@ export function PositionManagementPanels({
       </TabsContent>
 
       <TabsContent value="twap" className="flex-1 min-h-0 data-active:flex data-active:flex-col">
-        <TwapContent />
+        <TwapContent readOnly={readOnly} />
       </TabsContent>
 
       <TabsContent
         value="trade-history"
         className="flex-1 min-h-0 data-active:flex data-active:flex-col"
       >
-        <TradeHistoryTab />
+        <TradeHistoryTab readOnlyAddress={readOnlyAddress} />
       </TabsContent>
 
       <TabsContent
         value="funding-history"
         className="flex-1 min-h-0 data-active:flex data-active:flex-col"
       >
-        <FundingHistoryTable />
+        <FundingHistoryTable readOnlyAddress={readOnlyAddress} />
       </TabsContent>
 
       <TabsContent
         value="order-history"
         className="flex-1 min-h-0 data-active:flex data-active:flex-col"
       >
-        <OrderHistoryTab />
+        <OrderHistoryTab readOnlyAddress={readOnlyAddress} />
       </TabsContent>
     </>
   );

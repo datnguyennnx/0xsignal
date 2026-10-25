@@ -8,6 +8,8 @@ import { toTpSlDisplay } from "../utils/tp-sl-view-utils";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
 import { useAppStore } from "@/stores/use-app-store";
 
+export type TpSlOrder = FrontendOpenOrder;
+
 interface CloseLimitPosition {
   coin: string;
   sz: number;

@@ -1,16 +1,21 @@
+import { useParams } from "react-router-dom";
 import { useConnection } from "wagmi";
-import { useAppStore } from "@/stores/use-app-store";
+import { selectAccountView, type AccountView } from "@/hooks/account-view";
 
-export function useEffectiveAddress(): string | undefined {
-  const activeAddress = useAppStore((s) => s.activeAddress);
-  const { address: connectedAddress } = useConnection();
-  return activeAddress ?? connectedAddress;
+function useAccountView(): AccountView {
+  const { address } = useConnection();
+  const { address: routeAddress } = useParams<{ address: string }>();
+  return selectAccountView({ routeAddress, connectionAddress: address });
+}
+
+export function useOwnAddress(): string | undefined {
+  return useAccountView().ownAddress;
+}
+
+export function useWhaleAddress(): string | undefined {
+  return useAccountView().whaleAddress;
 }
 
 export function useIsSigningDisabled(): boolean {
-  const activeAddress = useAppStore((s) => s.activeAddress);
-  const { address: connectedAddress } = useConnection();
-  return (
-    activeAddress != null && activeAddress.toLowerCase() !== (connectedAddress?.toLowerCase() ?? "")
-  );
+  return useAccountView().signingDisabled;
 }

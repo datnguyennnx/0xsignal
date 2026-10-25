@@ -18,9 +18,14 @@ import {
   formatOrderPrice,
 } from "../utils/trigger-utils";
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
-import type { FrontendOpenOrder } from "@0xsignal/shared";
+import type { FrontendOpenOrder, OpenOrder } from "@0xsignal/shared";
 
 const SKELETON_ROW_COUNT = 3;
+
+/** Child TP/SL orders only exist on the enriched own-account read. */
+function isFrontendOpenOrder(order: OpenOrder): order is FrontendOpenOrder {
+  return "children" in order && Array.isArray(order.children);
+}
 
 /** Same 1.5em line box as a loaded `c` cell, so a placeholder row is exactly one row tall. */
 function TableSkeletonRows({ columns }: { columns: number }) {
@@ -43,12 +48,14 @@ function TableSkeletonRows({ columns }: { columns: number }) {
 
 interface OpenOrdersTableProps {
   isOoLoading: boolean;
-  openOrders: FrontendOpenOrder[] | undefined;
+  openOrders: OpenOrder[] | undefined;
   onCancelOrder: (coin: string, oid: number) => void;
   onViewTpSl: (order: FrontendOpenOrder) => void;
   onCancelAll: () => void;
   isCancelPending: boolean;
   orderCount: number;
+  /** A third party's account: render rows only, no cancel or TP/SL affordance. */
+  readOnly?: boolean;
 }
 
 export function OpenOrdersTable({
@@ -59,7 +66,9 @@ export function OpenOrdersTable({
   onCancelAll,
   isCancelPending,
   orderCount,
+  readOnly = false,
 }: OpenOrdersTableProps) {
+  const columnCount = readOnly ? 11 : 12;
   return (
     <Table>
       <TableHeader>
@@ -75,22 +84,24 @@ export function OpenOrdersTable({
           <TableHead className={cHead}>Reduce Only</TableHead>
           <TableHead className={cHead}>Trigger Conditions</TableHead>
           <TableHead className={cHead}>TP/SL</TableHead>
-          <TableHead className={cHeadNum}>
-            <button
-              onClick={onCancelAll}
-              disabled={orderCount === 0 || isCancelPending}
-              className="text-xs font-medium uppercase tracking-wider transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Cancel All
-            </button>
-          </TableHead>
+          {!readOnly && (
+            <TableHead className={cHeadNum}>
+              <button
+                onClick={onCancelAll}
+                disabled={orderCount === 0 || isCancelPending}
+                className="text-xs font-medium uppercase tracking-wider transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Cancel All
+              </button>
+            </TableHead>
+          )}
         </TableRow>
       </TableHeader>
       <TableBody>
         {isOoLoading ? (
-          <TableSkeletonRows columns={12} />
+          <TableSkeletonRows columns={columnCount} />
         ) : !openOrders || openOrders.length === 0 ? (
-          <TableEmptyRow colSpan={12} />
+          <TableEmptyRow colSpan={columnCount} />
         ) : (
           openOrders.map((order) => {
             const sz = Number(order.sz);
@@ -100,7 +111,7 @@ export function OpenOrdersTable({
             return (
               <TableRow key={`${order.oid}-${order.coin}`}>
                 <TableCell className={c}>{formatTime(order.timestamp)}</TableCell>
-                <TableCell className={c}>{getOrderType(order)}</TableCell>
+                <TableCell className={c}>{readOnly ? "—" : getOrderType(order)}</TableCell>
                 <TableCell className={`${c} font-medium`}>{order.coin}</TableCell>
                 <TableCell className={c}>
                   <DirLabel side={order.side} reduceOnly={order.reduceOnly} />
@@ -109,10 +120,10 @@ export function OpenOrdersTable({
                 <TableCell className={cNum}>{origSz === sz ? "—" : fmtNum(origSz)}</TableCell>
                 <TableCell className={cNum}>{formatOrderValue(order, sz, limitPx)}</TableCell>
                 <TableCell className={cNum}>{formatOrderPrice(order, limitPx)}</TableCell>
-                <TableCell className={c}>{order.reduceOnly ? "Yes" : "No"}</TableCell>
+                <TableCell className={c}>{order.reduceOnly === true ? "Yes" : "No"}</TableCell>
                 <TableCell className={c}>{getTriggerLabel(order)}</TableCell>
                 <TableCell className={c}>
-                  {order.children?.length > 0 ? (
+                  {!readOnly && isFrontendOpenOrder(order) && order.children.length > 0 ? (
                     <button
                       onClick={() => {
                         onViewTpSl(order);
@@ -125,17 +136,19 @@ export function OpenOrdersTable({
                     "—"
                   )}
                 </TableCell>
-                <TableCell className={cNum}>
-                  <button
-                    onClick={() => {
-                      onCancelOrder(order.coin, order.oid);
-                    }}
-                    disabled={isCancelPending}
-                    className="text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
-                  >
-                    Cancel
-                  </button>
-                </TableCell>
+                {!readOnly && (
+                  <TableCell className={cNum}>
+                    <button
+                      onClick={() => {
+                        onCancelOrder(order.coin, order.oid);
+                      }}
+                      disabled={isCancelPending}
+                      className="text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                    >
+                      Cancel
+                    </button>
+                  </TableCell>
+                )}
               </TableRow>
             );
           })

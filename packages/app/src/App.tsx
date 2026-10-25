@@ -25,8 +25,8 @@ const SettingsPage = lazy(() =>
   import("@/pages/settings").then((m) => ({ default: m.SettingsPage })),
 );
 const WhalesPage = lazy(() => import("@/pages/whales").then((m) => ({ default: m.WhalesPage })));
-const WhaleAddressRedirect = lazy(() =>
-  import("@/pages/whale-detail").then((m) => ({ default: m.WhaleAddressRedirect })),
+const WhaleDetailPage = lazy(() =>
+  import("@/pages/whale-detail").then((m) => ({ default: m.WhaleDetailPage })),
 );
 const LoginPage = lazy(() => import("@/pages/login").then((m) => ({ default: m.LoginPage })));
 const AuthCallbackPage = lazy(() =>
@@ -117,7 +117,7 @@ export function App() {
               <Route path="/portfolio" element={<PortfolioPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/whales" element={<WhalesPage />} />
-              <Route path="/whales/:address" element={<WhaleAddressRedirect />} />
+              <Route path="/whales/:address" element={<WhaleDetailPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>

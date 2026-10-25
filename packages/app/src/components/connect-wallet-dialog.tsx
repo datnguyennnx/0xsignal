@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useConnection } from "wagmi";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { useAppStore } from "@/stores/use-app-store";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { WalletConnectOptions } from "@/components/wallet-connect-options";
 import { cn } from "cn";
-import { ADDRESS_PATTERN, truncateAddress } from "@/core/utils/address";
+import { ADDRESS_PATTERN } from "@/core/utils/address";
 
 interface ConnectWalletDialogProps {
   open: boolean;
@@ -22,9 +22,7 @@ interface ConnectWalletDialogProps {
 }
 
 export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogProps) {
-  const setActiveAddress = useAppStore((s) => s.setActiveAddress);
-  const activeAddress = useAppStore((s) => s.activeAddress);
-  const clearActiveAddress = useAppStore((s) => s.clearActiveAddress);
+  const navigate = useNavigate();
   const [addressInput, setAddressInput] = useState("");
   const [addressError, setAddressError] = useState<string | null>(null);
 
@@ -35,8 +33,8 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
       setAddressError("Enter a valid address (0x followed by 40 hex characters).");
       return;
     }
-    setActiveAddress(address);
     onOpenChange(false);
+    void navigate(`/whales/${address}`);
   };
 
   const { isConnected } = useConnection();
@@ -46,11 +44,10 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
   // if the user is already connected — that would cause a flash).
   useEffect(() => {
     if (open && isConnected && !wasConnectedRef.current) {
-      clearActiveAddress();
       onOpenChange(false);
     }
     wasConnectedRef.current = isConnected;
-  }, [isConnected, open, onOpenChange, clearActiveAddress]);
+  }, [isConnected, open, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -68,24 +65,6 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
             <span className="shrink-0 text-xs text-muted-foreground">or</span>
             <Separator className="flex-1" />
           </div>
-          {activeAddress !== null && activeAddress !== "" && (
-            <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-2">
-              <span className="text-xs text-muted-foreground">
-                Viewing read-only: {truncateAddress(activeAddress)}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 shrink-0 px-2"
-                onClick={() => {
-                  clearActiveAddress();
-                }}
-              >
-                Exit
-              </Button>
-            </div>
-          )}
           <form className="flex flex-col gap-2.5" onSubmit={handleAddressSubmit}>
             <Input
               value={addressInput}

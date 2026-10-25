@@ -1,18 +1,29 @@
 import { useEffect } from "react";
 import { Navigate, useParams } from "react-router-dom";
-import { isValidAddress } from "@/core/utils/address";
-import { useAppStore } from "@/stores/use-app-store";
+import { isValidAddress, truncateAddress } from "@/core/utils/address";
+import { PortfolioView } from "@/features/portfolio/components/portfolio-view";
 
-// Old /whales/:address links still resolve; the address moves into the store so /portfolio
-// renders that wallet instead of whichever address was active before.
-export function WhaleAddressRedirect() {
+/**
+ * Read-only portfolio for a third-party wallet. The address comes from the route
+ * and is passed down as a prop; it is never written to a store or an auth call.
+ */
+export function WhaleDetailPage() {
   const { address } = useParams<{ address: string }>();
-  const setActiveAddress = useAppStore((s) => s.setActiveAddress);
-  const hasValidAddress = address !== undefined && address !== "" && isValidAddress(address);
+  const selected = address !== undefined && isValidAddress(address) ? address : undefined;
 
   useEffect(() => {
-    if (hasValidAddress && address !== undefined) setActiveAddress(address);
-  }, [address, hasValidAddress, setActiveAddress]);
+    document.title = "Whale | 0xsignal";
+  }, []);
 
-  return <Navigate to={hasValidAddress ? "/portfolio" : "/whales"} replace />;
+  if (selected === undefined) return <Navigate to="/whales" replace />;
+
+  return (
+    <div className="container-fluid py-6 space-y-6 animate-in fade-in duration-200 ease-premium">
+      <h1 className="sr-only">Whale portfolio</h1>
+      <p className="rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground w-fit">
+        Read-only: {truncateAddress(selected)}
+      </p>
+      <PortfolioView readOnlyAddress={selected} />
+    </div>
+  );
 }
