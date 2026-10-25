@@ -17,7 +17,7 @@ export function useChartFeed({ symbol, interval }: UseChartFeedParams) {
     data: candles,
     loadMore: loadMoreCandles,
     hasMore: hasMoreCandles,
-  } = useHyperliquidCandles({ symbol, interval: mapToHLInterval(interval), limit: 350 });
+  } = useHyperliquidCandles({ symbol, interval: mapToHLInterval(interval), limit: 250 });
 
   const handleLoadMore = useCallback(async () => {
     await loadMoreCandles();

@@ -37,6 +37,11 @@ export function useHyperliquidCandles({
   const symbolRef = useRef(symbol);
   const intervalRef = useRef(interval);
   const historyIdentityRef = useRef<{ symbol: string; interval: string } | null>(null);
+  const rangeAnchorRef = useRef<{
+    symbol: string;
+    interval: string;
+    earliestMs: number;
+  } | null>(null);
 
   useEffect(() => {
     symbolRef.current = symbol;
@@ -67,12 +72,38 @@ export function useHyperliquidCandles({
 
     historyIdentityRef.current = { symbol, interval };
 
-    setCandleData(candleKey, historyData ?? []);
-
     if (identityChanged) {
+      setCandleData(candleKey, historyData ?? []);
       setHasMore(true);
+      // The recent page spans the last `limit` bars ending now; backfill must stop there.
+      rangeAnchorRef.current = {
+        symbol,
+        interval,
+        earliestMs: Date.now() - limit * getIntervalMs(interval),
+      };
+      return;
     }
-  }, [historyData, symbol, interval, candleKey, setCandleData]);
+
+    if (historyData === undefined) return;
+
+    // A backfill may have landed before the recent page resolved; merge instead of
+    // replacing so its older bars survive.
+    appendCandles(candleKey, historyData);
+
+    if (historyData.length > 0) {
+      const historyEarliestMs = historyData[0].time * 1000;
+      const anchor = rangeAnchorRef.current;
+      const anchorEarliestMs =
+        anchor !== null && anchor.symbol === symbol && anchor.interval === interval
+          ? anchor.earliestMs
+          : historyEarliestMs;
+      rangeAnchorRef.current = {
+        symbol,
+        interval,
+        earliestMs: Math.min(anchorEarliestMs, historyEarliestMs),
+      };
+    }
+  }, [historyData, symbol, interval, candleKey, limit, setCandleData, appendCandles]);
 
   // ── WS subscription ───────────────────────────────────────────────
 
@@ -159,19 +190,25 @@ export function useHyperliquidCandles({
       if (isFetchingRef.current || !hasMoreRef.current) return;
       if (Date.now() - lastLoadMoreTimeRef.current < LOAD_MORE_COOLDOWN) return;
 
-      const currentData = storedCandles ?? [];
-      if (currentData.length === 0) return;
-
       const targetSymbol = symbolRef.current;
       const targetInterval = intervalRef.current;
+      const intervalMs = getIntervalMs(targetInterval);
+
+      // The requested frontier is known before the recent page resolves: either the
+      // tracked backfill boundary or the start of the pending `limit`-bar window.
+      const anchor = rangeAnchorRef.current;
+      const anchorEarliestMs =
+        anchor !== null && anchor.symbol === targetSymbol && anchor.interval === targetInterval
+          ? anchor.earliestMs
+          : Date.now() - limit * intervalMs;
+      const endTime = anchorEarliestMs - 1;
+      const startTime = endTime - count * intervalMs;
 
       isFetchingRef.current = true;
       setFetchingWithMinimumDuration(true);
       lastLoadMoreTimeRef.current = Date.now();
 
       const hlInt = mapToHLInterval(targetInterval);
-      const endTime = currentData[0].time * 1000 - 1;
-      const startTime = endTime - count * getIntervalMs(targetInterval);
 
       try {
         const older = await fetchByRange(targetSymbol, hlInt, startTime, endTime);
@@ -186,17 +223,19 @@ export function useHyperliquidCandles({
           return;
         }
 
-        const existing = new Set(currentData.map((d) => d.time));
+        // Move the frontier behind this request so the next window cannot overlap it.
+        rangeAnchorRef.current = {
+          symbol: targetSymbol,
+          interval: targetInterval,
+          earliestMs: startTime,
+        };
+
+        const existing = new Set((storedCandles ?? []).map((d) => d.time));
         const filtered = older.filter((d) => !existing.has(d.time));
 
         if (filtered.length === 0) {
           const earliestFetchedTime = older[0]?.time;
-          const currentEarliestTime = currentData[0]?.time;
-          if (
-            earliestFetchedTime === undefined ||
-            currentEarliestTime === undefined ||
-            earliestFetchedTime >= currentEarliestTime
-          ) {
+          if (earliestFetchedTime === undefined || earliestFetchedTime * 1000 >= anchorEarliestMs) {
             setHasMore(false);
           }
           return;
@@ -211,7 +250,7 @@ export function useHyperliquidCandles({
         setFetchingWithMinimumDuration(false);
       }
     },
-    [storedCandles, setFetchingWithMinimumDuration, candleKey, appendCandles],
+    [storedCandles, setFetchingWithMinimumDuration, candleKey, appendCandles, limit],
   );
 
   // ── Cleanup ────────────────────────────────────────────────────────

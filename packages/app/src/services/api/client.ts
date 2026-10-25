@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from "@0xsignal/shared";
-import { writeAuthToken } from "@/lib/auth-token";
+import { readAuthToken, writeAuthToken } from "@/lib/auth-token";
 import { ApiError } from "@/lib/api-error";
 import { resolveApiBase, apiFetch, UnauthenticatedError } from "@/lib/api-base";
 
@@ -47,11 +47,48 @@ async function parseErrorBody(response: Response): Promise<ApiErrorBody | null> 
   }
 }
 
-/** Token refresh dedup: single in-flight request with auto-reset. */
+const REFRESH_ENDPOINT = "/auth/refresh";
+
+function isRefreshEndpoint(url: string): boolean {
+  const path = url.startsWith("http") ? new URL(url).pathname : url.split("?")[0];
+  return path === REFRESH_ENDPOINT || path.endsWith(REFRESH_ENDPOINT);
+}
+
+interface SilentRefreshDecision {
+  readonly url: string;
+  readonly status: number;
+  readonly isRetry: boolean;
+  readonly authToken: string | null;
+}
+
+/**
+ * A silent refresh is only meaningful for a non-refresh request that had a token and
+ * has not already been replayed. Without a token there is no session hint to recover.
+ */
+export function shouldAttemptSilentRefresh({
+  url,
+  status,
+  isRetry,
+  authToken,
+}: SilentRefreshDecision): boolean {
+  if (status !== 401 || isRetry) return false;
+  if (isRefreshEndpoint(url)) return false;
+  return authToken !== null && authToken !== "";
+}
+
+/**
+ * Token refresh dedup: one in-flight request. A failure is latched against the token
+ * it was attempted with, so later 401s cannot retry it once per request; a new login
+ * token clears the latch by simply differing.
+ */
 const refreshManager = {
   activePromise: null as Promise<boolean> | null,
+  failedForToken: null as string | null,
 
   attempt(): Promise<boolean> {
+    const currentToken = readAuthToken();
+    if (currentToken === null || currentToken === "") return Promise.resolve(false);
+    if (this.failedForToken === currentToken) return Promise.resolve(false);
     if (this.activePromise !== null) {
       return this.activePromise;
     }
@@ -65,14 +102,17 @@ const refreshManager = {
         if (res.ok) {
           const body = await readPayload(res);
           const data = isRecord(body) && "data" in body ? body.data : body;
-          const token = isRecord(data) ? data.accessToken : undefined;
-          if (typeof token === "string" && token !== "") {
-            writeAuthToken(token);
+          const nextToken = isRecord(data) ? data.accessToken : undefined;
+          if (typeof nextToken === "string" && nextToken !== "") {
+            writeAuthToken(nextToken);
+            this.failedForToken = null;
             return true;
           }
         }
+        this.failedForToken = currentToken;
         return false;
       } catch {
+        this.failedForToken = currentToken;
         return false;
       } finally {
         this.activePromise = null;
@@ -82,10 +122,6 @@ const refreshManager = {
     return this.activePromise;
   },
 };
-
-function attemptSilentRefresh(): Promise<boolean> {
-  return refreshManager.attempt();
-}
 
 export async function fetchJson<T>(
   url: string,
@@ -99,8 +135,14 @@ export async function fetchJson<T>(
     });
 
     if (!response.ok) {
-      if (response.status === 401 && !isRetry) {
-        const refreshed = await attemptSilentRefresh();
+      const shouldRefresh = shouldAttemptSilentRefresh({
+        url,
+        status: response.status,
+        isRetry,
+        authToken: readAuthToken(),
+      });
+      if (shouldRefresh) {
+        const refreshed = await refreshManager.attempt();
         if (refreshed) {
           return await fetchJson<T>(url, options, true);
         }
