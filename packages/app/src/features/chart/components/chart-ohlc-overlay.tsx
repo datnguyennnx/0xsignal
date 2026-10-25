@@ -2,15 +2,15 @@ import { memo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { cn } from "cn";
 import { Surface } from "@/components/surface/surface";
-import { formatPriceValue } from "../utils/price-format";
+import { formatChartPrice } from "../utils/price-format";
 import { useHoverState } from "../contexts/hover-context";
 
 interface ChartOhlcOverlayProps {
   data: ChartDataPoint[];
-  precision: number;
+  nSigFigs: number;
 }
 
-export const ChartOhlcOverlay = memo(({ data, precision }: ChartOhlcOverlayProps) => {
+export const ChartOhlcOverlay = memo(({ data, nSigFigs }: ChartOhlcOverlayProps) => {
   const { hoveredCandle } = useHoverState();
 
   // Use hovered candle OR last data point as fallback
@@ -29,19 +29,19 @@ export const ChartOhlcOverlay = memo(({ data, precision }: ChartOhlcOverlayProps
         <span className="text-muted-foreground">
           O{" "}
           <span className="text-foreground tabular-nums">
-            {formatPriceValue(displayCandle.open, precision)}
+            {formatChartPrice(displayCandle.open, nSigFigs)}
           </span>
         </span>
         <span className="text-muted-foreground">
           H{" "}
           <span className="text-gain tabular-nums">
-            {formatPriceValue(displayCandle.high, precision)}
+            {formatChartPrice(displayCandle.high, nSigFigs)}
           </span>
         </span>
         <span className="text-muted-foreground">
           L{" "}
           <span className="text-loss tabular-nums">
-            {formatPriceValue(displayCandle.low, precision)}
+            {formatChartPrice(displayCandle.low, nSigFigs)}
           </span>
         </span>
         <span className="text-muted-foreground">
@@ -52,7 +52,7 @@ export const ChartOhlcOverlay = memo(({ data, precision }: ChartOhlcOverlayProps
               "tabular-nums",
             )}
           >
-            {formatPriceValue(displayCandle.close, precision)}
+            {formatChartPrice(displayCandle.close, nSigFigs)}
           </span>
         </span>
       </div>

@@ -47,29 +47,48 @@ export interface L2BookLevel {
   n: number;
 }
 
-const asNumbers = (levels: L2BookLevel[]): { price: number; size: number }[] =>
-  levels.map((l) => ({ price: Number(l.px), size: Number(l.sz) }));
+/** The protocol ceiling: l2Book sends at most 20 levels per side (5 on fast). */
+export const MAX_BOOK_DEPTH = 20;
+
+const isPriceOrdered = (levels: readonly DisplayOrderbookLevel[], descending: boolean): boolean => {
+  for (let i = 1; i < levels.length; i += 1) {
+    const previous = levels[i - 1].price;
+    const current = levels[i].price;
+    if (descending ? current > previous : current < previous) return false;
+  }
+  return true;
+};
+
+function buildSide(
+  raw: readonly L2BookLevel[],
+  descending: boolean,
+  maxDepth: number,
+): DisplayOrderbookLevel[] {
+  // One allocation per level: parse, order, and truncate in a single pass.
+  const levels: DisplayOrderbookLevel[] = raw.map((level) => ({
+    price: Number(level.px),
+    size: Number(level.sz),
+    total: 0,
+  }));
+
+  // Hyperliquid sends levels sorted; only pay for the sort when a delta map
+  // handed us an unordered window.
+  if (!isPriceOrdered(levels, descending)) {
+    levels.sort(descending ? (a, b) => b.price - a.price : (a, b) => a.price - b.price);
+  }
+  levels.length = Math.min(levels.length, maxDepth);
+  return levels;
+}
 
 export function processRawL2Levels(
   rawBids: L2BookLevel[],
   rawAsks: L2BookLevel[],
-  maxDepth = 20,
+  maxDepth = MAX_BOOK_DEPTH,
 ): OrderbookData {
-  // Pre-convert string px/sz to numbers ONCE (O(N)) so the sort comparator
-  // and map use direct number comparison — avoiding O(N log N) parseFloat calls.
+  const bids = buildSide(rawBids, true, maxDepth);
+  const asks = buildSide(rawAsks, false, maxDepth);
 
-  // Sort: bids descending by price, asks ascending by price.
-  // Map.values() iterates in insertion order (not price order) after delta
-  // application, so we must sort before slicing to ensure the visible window
-  // contains the correct top-of-book levels.
-  const bids = asNumbers(rawBids)
-    .toSorted((a, b) => b.price - a.price)
-    .slice(0, maxDepth)
-    .map((l) => ({ price: l.price, size: l.size, total: 0 }));
-  const asks = asNumbers(rawAsks)
-    .toSorted((a, b) => a.price - b.price)
-    .slice(0, maxDepth)
-    .map((l) => ({ price: l.price, size: l.size, total: 0 }));
+  // Cumulative totals are computed exactly once per update, not per render.
 
   let bidTotal = 0;
   for (let i = 0; i < bids.length; i++) {

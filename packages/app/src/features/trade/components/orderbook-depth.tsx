@@ -8,11 +8,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  type DisplayOrderbookLevel as OrderbookLevel,
-  type OrderbookData,
-  priceKey,
-} from "@/core/utils/hyperliquid";
+import { type OrderbookData, priceKey } from "@/core/utils/hyperliquid";
 import { getDepthStyle } from "../utils/orderbook-widget-shared";
 import { OVERLAY_PANEL_CLASS } from "@/lib/overlay-classes";
 import { formatPriceWithNSigFigs, formatSize, formatSignedPercent } from "@/core/utils/formatters";
@@ -31,7 +27,10 @@ interface RowIndex {
 }
 
 interface OrderRowProps {
-  level: OrderbookLevel;
+  price: number;
+  size: number;
+  total: number;
+  depthPercent: number;
   side: BookSide;
   index: number;
   isHovered: boolean;
@@ -39,13 +38,18 @@ interface OrderRowProps {
   isInRange: boolean;
   onHover: (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => void;
   onActivate: (side: BookSide, index: number) => void;
-  maxTotal: number;
   nSigFigs: number;
 }
 
+const depthPercentOf = (total: number, maxTotal: number): number =>
+  maxTotal > 0 ? Math.round((total / maxTotal) * 1000) / 10 : 0;
+
 const OrderRow = memo(
   ({
-    level,
+    price,
+    size,
+    total,
+    depthPercent,
     side,
     index,
     isHovered,
@@ -53,18 +57,15 @@ const OrderRow = memo(
     isInRange,
     onHover,
     onActivate,
-    maxTotal,
     nSigFigs,
   }: OrderRowProps) => {
     // formatLevel uses module-level cache — stable output for same price+nSigFigs
-    const formatted = useMemo(() => formatLevel(level, nSigFigs), [level, nSigFigs]);
+    const formatted = useMemo(
+      () => formatLevel(price, size, total, nSigFigs),
+      [price, size, total, nSigFigs],
+    );
 
-    // Depth bar — stabilised to prevent jitter from float drift
-    const depthStyle = useMemo(() => {
-      const depthPercent = maxTotal > 0 ? (level.total / maxTotal) * 100 : 0;
-      const stable = Math.round(depthPercent * 10) / 10;
-      return getDepthStyle(stable, side);
-    }, [level.total, maxTotal, side]);
+    const depthStyle = useMemo(() => getDepthStyle(depthPercent, side), [depthPercent, side]);
 
     // Stable event handlers — created once, never recreated per row
     const handleMouseEnter = useCallback(
@@ -92,27 +93,27 @@ const OrderRow = memo(
     }, [onHover]);
 
     const rowAriaLabel =
-      level.price > 0
+      price > 0
         ? `${side} level, price ${formatted.formattedPrice}, size ${formatted.formattedSize}, total ${formatted.formattedTotal}`
         : undefined;
 
     return (
       <button
         type="button"
-        disabled={level.price <= 0}
-        aria-pressed={level.price > 0 ? isPinned : undefined}
+        disabled={price <= 0}
+        aria-pressed={price > 0 ? isPinned : undefined}
         data-orderbook-row
-        data-price={level.price}
-        data-size={level.size}
-        data-total={level.total}
+        data-price={price}
+        data-size={size}
+        data-total={total}
         data-side={side}
         data-index={index}
-        onMouseEnter={level.price > 0 ? handleMouseEnter : undefined}
-        onMouseLeave={level.price > 0 ? handleMouseLeave : undefined}
-        onFocus={level.price > 0 ? handleMouseEnter : undefined}
-        onBlur={level.price > 0 ? handleMouseLeave : undefined}
+        onMouseEnter={price > 0 ? handleMouseEnter : undefined}
+        onMouseLeave={price > 0 ? handleMouseLeave : undefined}
+        onFocus={price > 0 ? handleMouseEnter : undefined}
+        onBlur={price > 0 ? handleMouseLeave : undefined}
         onClick={
-          level.price > 0
+          price > 0
             ? () => {
                 onActivate(side, index);
               }
@@ -122,12 +123,12 @@ const OrderRow = memo(
           isHovered ? "bg-muted/50" : "hover:bg-muted/30"
         }`}
         aria-label={rowAriaLabel}
-        aria-describedby={level.price > 0 && isHovered ? "orderbook-depth-details" : undefined}
+        aria-describedby={price > 0 && isHovered ? "orderbook-depth-details" : undefined}
       >
         {isInRange && (
           <div className="absolute inset-0 z-[5] pointer-events-none bg-foreground/5 dark:bg-foreground/10" />
         )}
-        {level.price > 0 && (
+        {price > 0 && (
           <div
             className={`absolute inset-y-0 right-0 z-0 opacity-20 pointer-events-none ${
               side === "bid" ? "bg-gain" : "bg-loss"
@@ -137,7 +138,7 @@ const OrderRow = memo(
         )}
         <span
           className={`relative z-10 flex-1 text-[length:var(--text-micro)] font-mono font-medium ${
-            level.price === 0 ? "text-muted-foreground" : side === "bid" ? "text-gain" : "text-loss"
+            price === 0 ? "text-muted-foreground" : side === "bid" ? "text-gain" : "text-loss"
           }`}
         >
           {formatted.formattedPrice}
@@ -152,15 +153,18 @@ const OrderRow = memo(
     );
   },
   (prev, next) =>
-    prev.level.price === next.level.price &&
-    prev.level.size === next.level.size &&
-    prev.level.total === next.level.total &&
+    prev.price === next.price &&
+    prev.size === next.size &&
+    prev.total === next.total &&
+    prev.depthPercent === next.depthPercent &&
     prev.side === next.side &&
+    prev.index === next.index &&
     prev.isHovered === next.isHovered &&
     prev.isPinned === next.isPinned &&
     prev.isInRange === next.isInRange &&
     prev.nSigFigs === next.nSigFigs &&
-    prev.maxTotal === next.maxTotal,
+    prev.onHover === next.onHover &&
+    prev.onActivate === next.onActivate,
 );
 
 OrderRow.displayName = "OrderRow";
@@ -333,7 +337,10 @@ export function OrderbookDepth({
           {visibleAsks.map((level, index) => (
             <OrderRow
               key={priceKey("ask", level.price)}
-              level={level}
+              price={level.price}
+              size={level.size}
+              total={level.total}
+              depthPercent={depthPercentOf(level.total, maxTotal)}
               side="ask"
               index={index}
               isHovered={isRowHovered("ask", index)}
@@ -341,7 +348,6 @@ export function OrderbookDepth({
               isInRange={isRowInHighlightRange("ask", index)}
               onHover={onHover}
               onActivate={onActivate}
-              maxTotal={maxTotal}
               nSigFigs={effectiveNSigFigs ?? 5}
             />
           ))}
@@ -366,7 +372,10 @@ export function OrderbookDepth({
           {visibleBids.map((level, index) => (
             <OrderRow
               key={priceKey("bid", level.price)}
-              level={level}
+              price={level.price}
+              size={level.size}
+              total={level.total}
+              depthPercent={depthPercentOf(level.total, maxTotal)}
               side="bid"
               index={index}
               isHovered={isRowHovered("bid", index)}
@@ -374,7 +383,6 @@ export function OrderbookDepth({
               isInRange={isRowInHighlightRange("bid", index)}
               onHover={onHover}
               onActivate={onActivate}
-              maxTotal={maxTotal}
               nSigFigs={effectiveNSigFigs ?? 5}
             />
           ))}

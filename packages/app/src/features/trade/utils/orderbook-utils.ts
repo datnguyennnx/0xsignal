@@ -28,18 +28,25 @@ const formatCache = new Map<string, FormattedLevel>();
 const makeFormatKey = (price: number, nSigFigs: number): string =>
   `${price.toFixed(8)}-${nSigFigs}`;
 
-export function formatLevel(level: OrderbookLevel, nSigFigs: number): FormattedLevel {
-  const key = makeFormatKey(level.price, nSigFigs);
+export function formatLevel(
+  price: number,
+  size: number,
+  total: number,
+  nSigFigs: number,
+): FormattedLevel {
+  const key = makeFormatKey(price, nSigFigs);
   const cached = formatCache.get(key);
-  if (cached && cached.size === level.size && cached.total === level.total) {
+  if (cached && cached.size === size && cached.total === total) {
     return cached;
   }
 
   const formatted: FormattedLevel = {
-    ...level,
-    formattedPrice: level.price > 0 ? formatPriceWithNSigFigs(level.price, nSigFigs) : "-",
-    formattedSize: level.price > 0 ? formatSize(level.size) : "-",
-    formattedTotal: level.price > 0 ? formatSize(level.total) : "-",
+    price,
+    size,
+    total,
+    formattedPrice: price > 0 ? formatPriceWithNSigFigs(price, nSigFigs) : "-",
+    formattedSize: price > 0 ? formatSize(size) : "-",
+    formattedTotal: price > 0 ? formatSize(total) : "-",
   };
 
   // Evict oldest entry to bound the cache over long sessions.

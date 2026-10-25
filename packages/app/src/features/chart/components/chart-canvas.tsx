@@ -15,7 +15,7 @@ interface ChartCanvasProps {
   candles: ChartDataPoint[];
   loadError: boolean;
   markers: readonly LogicalTradeMarker[];
-  pxDecimals: number;
+  nSigFigs: number;
   interval: string;
   onIntervalChange: (interval: string) => void;
   activeIndicators: ActiveIndicator[];
@@ -34,7 +34,7 @@ export function ChartCanvas({
   candles,
   loadError,
   markers,
-  pxDecimals,
+  nSigFigs,
   interval,
   onIntervalChange,
   activeIndicators,
@@ -76,7 +76,7 @@ export function ChartCanvas({
               candles={candles}
             />
             <IndicatorChips indicators={activeIndicators} />
-            <ChartOhlcOverlay data={candles} precision={pxDecimals} />
+            <ChartOhlcOverlay data={candles} nSigFigs={nSigFigs} />
           </>
         ) : loadError ? (
           <EmptyState

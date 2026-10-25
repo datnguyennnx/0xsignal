@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { MAX_BOOK_DEPTH } from "@/core/utils/hyperliquid";
 import { remToPx, subscribeRootFontSize } from "@/core/utils/rem";
 import { DEFAULT_ROW_HEIGHT_REM, levelsPerHalf, VISIBLE_ROWS } from "../utils/orderbook-utils";
 
@@ -15,7 +16,7 @@ export function useOrderbookRows(): {
   rowHeightPx: number;
 } {
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const [rowsPerHalf, setRowsPerHalf] = useState<number>(VISIBLE_ROWS);
+  const [rowsPerHalf, setRowsPerHalf] = useState<number>(Math.min(VISIBLE_ROWS, MAX_BOOK_DEPTH));
   const [rowHeightPx, setRowHeightPx] = useState<number>(() => remToPx(DEFAULT_ROW_HEIGHT_REM));
 
   useLayoutEffect(() => {
@@ -25,7 +26,8 @@ export function useOrderbookRows(): {
     const apply = () => {
       const heightPx = element.getBoundingClientRect().height;
       const nextRowHeightPx = readRowHeightPx(element);
-      const next = levelsPerHalf(heightPx, nextRowHeightPx);
+      // Fit as many rows as the container allows, never past the protocol cap.
+      const next = Math.min(levelsPerHalf(heightPx, nextRowHeightPx), MAX_BOOK_DEPTH);
       setRowHeightPx((prev) => (prev === nextRowHeightPx ? prev : nextRowHeightPx));
       setRowsPerHalf((prev) => (prev === next ? prev : next));
     };

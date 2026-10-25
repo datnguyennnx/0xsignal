@@ -1,6 +1,7 @@
 import { useMemo, type RefObject } from "react";
 import type { ActiveIndicator, ChartDataPoint } from "@0xsignal/shared";
 import { useAppStore } from "@/stores/use-app-store";
+import { useTradeUIStore } from "@/stores/use-trade-ui-store";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { usePriceFormat } from "./use-price-format";
 import { useChartEngine } from "./use-chart-engine";
@@ -39,7 +40,12 @@ export function useChartRuntime({
   const isDark = resolvedTheme === "dark";
   const { getPrecision } = useHyperliquidMeta();
   const precision = useMemo(() => getPrecision(symbol), [symbol, getPrecision]);
-  const priceFormat = usePriceFormat(precision.pxDecimals);
+  const storedNSigFigs = useTradeUIStore((s) => s.nSigFigs);
+  const nSigFigs = useMemo(
+    () => Math.max(2, Math.min(5, Math.round(storedNSigFigs ?? 5))),
+    [storedNSigFigs],
+  );
+  const priceFormat = usePriceFormat(precision.pxDecimals, nSigFigs);
 
   const { chart, candlestickSeries, volumeSeries } = useChartEngine({
     containerRef,
@@ -67,5 +73,5 @@ export function useChartRuntime({
     indicatorData,
   });
 
-  return { chart, candlestickSeries, volumeSeries, precision };
+  return { chart, candlestickSeries, volumeSeries, nSigFigs };
 }

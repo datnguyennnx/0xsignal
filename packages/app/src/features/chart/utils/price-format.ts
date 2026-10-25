@@ -1,6 +1,7 @@
-import { formatPrice } from "@/core/utils/formatters";
+import { formatPriceWithNSigFigs } from "@/core/utils/formatters";
 
-export function formatPriceValue(price: number, pxDecimals: number): string {
-  if (!Number.isFinite(price) || price === 0) return "0";
-  return formatPrice(price, pxDecimals);
+/** Chart-side price renderer; must stay byte-identical to the orderbook. */
+export function formatChartPrice(price: number, nSigFigs: number): string {
+  if (!Number.isFinite(price)) return "—";
+  return formatPriceWithNSigFigs(price, nSigFigs);
 }

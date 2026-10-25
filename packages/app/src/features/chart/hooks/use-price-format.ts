@@ -1,28 +1,22 @@
 import { useMemo } from "react";
 
-import { formatAxis } from "@/core/utils/formatters";
+import { formatChartPrice } from "../utils/price-format";
 
 export interface PriceFormatResult {
-  precision: number;
   minMove: number;
-  formatter?: (price: number) => string;
-}
-
-function formatPriceAxis(price: number, _pxDecimals: number): string {
-  if (!Number.isFinite(price) || price === 0) return "0";
-  return formatAxis(price);
+  formatter: (price: number) => string;
 }
 
 function calcMinMove(pxDecimals: number): number {
   return Math.pow(10, -pxDecimals);
 }
 
-export const usePriceFormat = (pxDecimals: number): PriceFormatResult => {
-  return useMemo(() => {
-    return {
-      precision: pxDecimals,
+export const usePriceFormat = (pxDecimals: number, nSigFigs: number): PriceFormatResult => {
+  return useMemo(
+    () => ({
       minMove: calcMinMove(pxDecimals),
-      formatter: (price: number) => formatPriceAxis(price, pxDecimals),
-    };
-  }, [pxDecimals]);
+      formatter: (price: number) => formatChartPrice(price, nSigFigs),
+    }),
+    [pxDecimals, nSigFigs],
+  );
 };

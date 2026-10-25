@@ -4,20 +4,17 @@ import { subscribeWithSelector } from "zustand/middleware";
 import type { MarketStreamClient } from "@/features/trade/lib/market-stream-client";
 import { createBrowserMarketStreamClient } from "@/features/trade/lib/hl-market-stream";
 import { replaceBookLevels } from "@/features/trade/lib/orderbook-book";
-import { processRawL2Levels, type OrderbookData, type L2BookLevel } from "@/core/utils/hyperliquid";
+import {
+  MAX_BOOK_DEPTH,
+  processRawL2Levels,
+  type DisplayOrderbookLevel,
+  type OrderbookData,
+  type L2BookLevel,
+} from "@/core/utils/hyperliquid";
 import type { ChartDataPoint } from "@0xsignal/shared";
 
 // ── Constants ──────────────────────────────────────────────────────
 
-/**
- * Maximum number of orderbook levels to keep per side (bids/asks).
- *
- * Hyperliquid returns at most 20 levels per side on both REST and WS.
- * Must be >= VISIBLE_ROWS (20) to ensure client-side aggregation
- * (aggregateLevels) has enough raw levels to produce 20 visible rows
- * after grouping by price bucket.
- */
-const MAX_DEPTH = 20;
 const MAX_BUFFERED_CANDLES = 10_000;
 const EVICT_TARGET = 5_000;
 /** Active candle key + the previously viewed ones (bounded LRU). */
@@ -157,6 +154,21 @@ function getOrCreateRawState(symbol: string) {
   return state;
 }
 
+/**
+ * Compares the visible window level by level. A top-of-book-only check misses
+ * frames that move deeper levels, and those frames are never replayed.
+ */
+function sameLevels(
+  a: readonly DisplayOrderbookLevel[],
+  b: readonly DisplayOrderbookLevel[],
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i]?.price !== b[i]?.price || a[i]?.size !== b[i]?.size) return false;
+  }
+  return true;
+}
+
 function scheduleFlush() {
   if (flushRafId !== null) return;
   flushRafId = requestAnimationFrame(() => {
@@ -169,15 +181,14 @@ function scheduleFlush() {
       if (raw) {
         const rawBids = Array.from(raw.bids.values());
         const rawAsks = Array.from(raw.asks.values());
-        updates[symbol] = processRawL2Levels(rawBids, rawAsks, MAX_DEPTH);
+        updates[symbol] = processRawL2Levels(rawBids, rawAsks, MAX_BOOK_DEPTH);
       }
     }
     dirtySymbols.clear();
 
-    // Always propagate dirty symbols to the store. The rAF throttle
-    // already limits updates to ~60fps, so additional diffing is
-    // unnecessary and risks skipping genuine size changes at the same
-    // top-of-book price, causing stale orderbook display.
+    // The full-window comparison keeps the rAF conflation useful: a dirty
+    // symbol is only written when its visible book actually moved, so
+    // consumers skip re-renders on frames that produce identical data.
     useMarketDataStore.setState((state) => {
       const current = state.orderbookData;
       const merged: Record<string, OrderbookData> = {};
@@ -185,19 +196,14 @@ function scheduleFlush() {
       for (const [symbol, data] of Object.entries(updates)) {
         const existing = current[symbol];
         if (
-          existing === undefined ||
-          existing.bids.length !== data.bids.length ||
-          existing.asks.length !== data.asks.length ||
-          data.bids.length === 0 ||
-          data.asks.length === 0 ||
-          existing.bids[0]?.price !== data.bids[0]?.price ||
-          existing.bids[0]?.size !== data.bids[0]?.size ||
-          existing.asks[0]?.price !== data.asks[0]?.price ||
-          existing.asks[0]?.size !== data.asks[0]?.size
+          existing !== undefined &&
+          sameLevels(existing.bids, data.bids) &&
+          sameLevels(existing.asks, data.asks)
         ) {
-          merged[symbol] = data;
-          anyChanged = true;
+          continue;
         }
+        merged[symbol] = data;
+        anyChanged = true;
       }
       return anyChanged ? { orderbookData: { ...current, ...merged } } : state;
     });
