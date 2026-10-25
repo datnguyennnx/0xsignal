@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { User, Palette, Terminal } from "lucide-react";
 import { cn } from "cn";
 import { ApiConsole } from "@/features/settings/components/api-console";
+import { AgentRegistrationsWarning } from "@/features/settings/components/agent-registrations-warning";
 import { AppearanceSettings } from "@/features/settings/components/appearance";
 import { ProfileSettings } from "@/features/settings/components/profile";
 
@@ -51,6 +52,10 @@ export function SettingsPage() {
         <p className="text-[length:var(--text-data)] text-muted-foreground">
           Configure your account preferences, themes, and exchange credentials.
         </p>
+      </div>
+
+      <div className="max-w-5xl mx-auto w-full">
+        <AgentRegistrationsWarning />
       </div>
 
       <div className="max-w-5xl mx-auto w-full tier-content p-[clamp(1rem,1.5vw,1.5rem)] rounded-[var(--radius-panel)]">
