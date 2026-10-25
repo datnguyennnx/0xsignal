@@ -5,7 +5,7 @@ import { WhaleService } from "../index";
 import { WhaleConfig, type WhaleConfigService } from "../config";
 import { WhaleRepo, type WhalePositionsPage } from "../repo";
 import { WhaleSources } from "../sources";
-import { whaleServiceLayer } from "../service";
+import { whaleServiceLayer } from "../layer";
 
 const SEED_WALLET = "0xseed";
 const TRADE_WALLET = "0xtrade";

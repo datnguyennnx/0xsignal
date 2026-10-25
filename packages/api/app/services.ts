@@ -10,15 +10,15 @@ import {
 import { exchangeCredentialsLayer } from "../integrations/hyperliquid/data-sources/exchange-credentials";
 import type { HyperliquidClient } from "../integrations/hyperliquid/data-sources/client";
 import { ExchangeService } from "../modules/exchange";
-import { exchangeServiceLayer } from "../modules/exchange/service";
+import { exchangeServiceLayer } from "../modules/exchange/layer";
 import {
   MarketDataService,
   type MarketCandleStore,
   type MarketRemoteProvider,
 } from "../modules/market-data";
-import { marketDataServiceLayer } from "../modules/market-data/service";
+import { marketDataServiceLayer } from "../modules/market-data/layer";
 import { UserDataService } from "../modules/user-data";
-import { userDataServiceLayer } from "../modules/user-data/service";
+import { userDataServiceLayer } from "../modules/user-data/layer";
 
 // The merged layer's provided services are named by their public API so the
 // declaration stays portable; requirements are the infra the auth layer needs.

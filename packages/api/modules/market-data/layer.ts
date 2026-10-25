@@ -1,8 +1,16 @@
 import { Clock, Effect, Layer, Match } from "effect";
-import { MarketCandleStore, MarketProviderError, MarketRemoteProvider } from "./index";
-import { hyperliquidProviderLayer } from "../../integrations/hyperliquid/data-sources/provider";
+import {
+  MarketCandleStore,
+  MarketDataService,
+  MarketProviderError,
+  MarketRemoteProvider,
+} from "./index";
+import { makeMarketDataService } from "./service";
+import { hyperliquidProviderLayer } from "../../integrations/hyperliquid/data-sources/layer";
 import { HyperliquidProvider } from "../../integrations/hyperliquid/data-sources/types";
 import { HyperliquidError } from "../../integrations/hyperliquid/data-sources/errors";
+
+export const marketDataServiceLayer = Layer.effect(MarketDataService, makeMarketDataService());
 
 export const marketCandleStoreLayer = Layer.effect(
   MarketCandleStore,

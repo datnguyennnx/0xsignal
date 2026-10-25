@@ -1,4 +1,4 @@
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import type { CalendarQuery, CalendarSource, EconomicEvent } from "@0xsignal/shared";
 import { CalendarRepo } from "./repo";
 import { CalendarSources } from "./sources";
@@ -11,7 +11,7 @@ const mapRepoError =
 
 const NO_EVENTS: readonly EconomicEvent[] = [];
 
-const makeCalendarService = () =>
+export const makeCalendarService = () =>
   Effect.gen(function* () {
     const repo = yield* CalendarRepo;
     const providers = yield* CalendarSources;
@@ -67,9 +67,3 @@ const makeCalendarService = () =>
           .pipe(Effect.mapError(mapRepoError("Failed to load upcoming calendar events"))),
     });
   });
-
-export const calendarServiceLayer: Layer.Layer<
-  CalendarService,
-  never,
-  CalendarRepo | CalendarSources
-> = Layer.effect(CalendarService, makeCalendarService());

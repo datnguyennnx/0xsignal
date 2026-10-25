@@ -1,4 +1,4 @@
-import { Cache, Duration, Effect, Layer } from "effect";
+import { Cache, Duration, Effect } from "effect";
 import type { ExchangeClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../../integrations/hyperliquid/data-sources/hyperliquid-client";
 import { ExchangeService } from "./index";
@@ -34,8 +34,7 @@ const getCachedMetaInner = (
 ): Effect.Effect<{ universe: Array<{ name: string }> }, HyperliquidInternalError> =>
   Cache.get(cache, "meta");
 
-export const exchangeServiceLayer = Layer.effect(
-  ExchangeService,
+export const makeExchangeService = () =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
     const credentials = yield* ExchangeCredentials;
@@ -227,5 +226,4 @@ export const exchangeServiceLayer = Layer.effect(
             }),
         ),
     });
-  }),
-);
+  });

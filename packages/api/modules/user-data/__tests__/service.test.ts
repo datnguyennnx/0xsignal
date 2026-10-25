@@ -3,7 +3,7 @@ import { Effect, Layer } from "effect";
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../../../integrations/hyperliquid/data-sources/hyperliquid-client";
 import { UserDataService } from "../index";
-import { userDataServiceLayer } from "../service";
+import { userDataServiceLayer } from "../layer";
 
 const WALLET = "0xabc123";
 

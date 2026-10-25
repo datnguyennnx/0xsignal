@@ -1,4 +1,4 @@
-import { Clock, Effect, Layer } from "effect";
+import { Clock, Effect } from "effect";
 import { NotFoundError, ValidationError } from "../../shared/errors";
 import type { CoverageResult } from "@0xsignal/shared";
 import { MarketCandleStore, MarketDataService, MarketRemoteProvider } from "./index";
@@ -8,7 +8,7 @@ import { getTimeframeMs } from "./timeframe";
 import { DEFAULT_RECENT_CANDLES, MAX_RANGE_CANDLES, MAX_RECENT_CANDLES } from "./policies";
 import { mapMarketInfraError } from "./error-mapping";
 
-const makeMarketDataService = () =>
+export const makeMarketDataService = () =>
   Effect.gen(function* () {
     const candleRepo = yield* MarketCandleStore;
     const remoteProvider = yield* MarketRemoteProvider;
@@ -169,5 +169,3 @@ const makeMarketDataService = () =>
             ),
     });
   });
-
-export const marketDataServiceLayer = Layer.effect(MarketDataService, makeMarketDataService());

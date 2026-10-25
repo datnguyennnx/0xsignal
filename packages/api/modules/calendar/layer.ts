@@ -1,11 +1,16 @@
 import { Duration, Effect, Layer, Schedule } from "effect";
 import type { PostgresConnectionPool } from "@0xsignal/auth";
 import { CalendarService } from "./index";
-import { calendarServiceLayer } from "./service";
+import { makeCalendarService } from "./service";
 import { CalendarConfig, CalendarConfigLayer } from "./config";
+import type { CalendarRepo } from "./repo";
+import type { CalendarSources } from "./sources";
 import { CalendarSourcesLayer } from "../../integrations/calendar-sources/layer";
 import { ensureCalendarSchema } from "./table";
 import { CalendarRepoLayer } from "./repo.pg";
+
+const calendarServiceLayer: Layer.Layer<CalendarService, never, CalendarRepo | CalendarSources> =
+  Layer.effect(CalendarService, makeCalendarService());
 
 // A single ingest pass covers every source, so it runs at the fastest
 // configured cadence rather than once per source.

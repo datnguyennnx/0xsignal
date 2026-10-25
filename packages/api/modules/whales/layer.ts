@@ -1,11 +1,19 @@
 import { Duration, Effect, Layer, Schedule } from "effect";
 import { WhaleService } from "./index";
-import { whaleServiceLayer } from "./service";
+import { makeWhaleService } from "./service";
 import { WhaleConfig, WhaleConfigLayer } from "./config";
-import { asRecord } from "../../integrations/calendar-sources/parse";
+import type { WhaleRepo } from "./repo";
+import type { WhaleSources } from "./sources";
+import { asRecord } from "../../shared/parsing";
 import { WhaleSourcesLayer } from "../../integrations/hyperliquid/data-sources/whale-source";
 import { ensureWhaleSchema } from "./table";
 import { WhaleRepoLayer } from "./repo.pg";
+
+export const whaleServiceLayer: Layer.Layer<
+  WhaleService,
+  never,
+  WhaleRepo | WhaleSources | WhaleConfig
+> = Layer.effect(WhaleService, makeWhaleService());
 
 const asText = (value: unknown): string | undefined =>
   typeof value === "string" || typeof value === "number" || typeof value === "boolean"

@@ -1,5 +1,5 @@
 /// <reference lib="es2023.array" />
-import { Clock, Duration, Effect, Layer, Ref, Stream } from "effect";
+import { Clock, Duration, Effect, Ref, Stream } from "effect";
 import {
   WHALE_POSITIONS_LIMIT_MAX,
   type WhalePosition,
@@ -56,7 +56,7 @@ const mapRepoError =
   (cause: unknown): WhaleServiceError =>
     new WhaleServiceError({ message, cause });
 
-const makeWhaleService = () =>
+export const makeWhaleService = () =>
   Effect.gen(function* () {
     const repo = yield* WhaleRepo;
     const providers = yield* WhaleSources;
@@ -286,9 +286,3 @@ const makeWhaleService = () =>
           .pipe(Effect.mapError(mapRepoError("Failed to query whale positions"))),
     });
   });
-
-export const whaleServiceLayer: Layer.Layer<
-  WhaleService,
-  never,
-  WhaleRepo | WhaleSources | WhaleConfig
-> = Layer.effect(WhaleService, makeWhaleService());

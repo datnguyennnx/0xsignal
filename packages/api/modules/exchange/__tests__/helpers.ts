@@ -3,7 +3,7 @@ import { type Context, Effect, Layer, Redacted } from "effect";
 import { HttpTransport, InfoClient, type ExchangeClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../../../integrations/hyperliquid/data-sources/hyperliquid-client";
 import { ExchangeService } from "../index";
-import { exchangeServiceLayer } from "../service";
+import { exchangeServiceLayer } from "../layer";
 import { exchangeCredentialsLayer } from "../../../integrations/hyperliquid/data-sources/exchange-credentials";
 import {
   HyperliquidValidationError,
