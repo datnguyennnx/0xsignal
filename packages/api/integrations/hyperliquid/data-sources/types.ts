@@ -62,6 +62,15 @@ export type TickerSnapshot = {
   readonly universe: ReadonlyArray<MarketUniverseItem>;
   readonly assetCtxs: ReadonlyArray<MarketAssetCtxItem>;
   readonly allMids: Readonly<Record<string, string>>;
+  /** Index-aligned with `MarketUniverseItem.dexIndex`; "" is the main dex. */
+  readonly dexNames?: ReadonlyArray<string> | undefined;
+  /** Present only for all-dex snapshots; maps a spot token to its pair query name. */
+  readonly spotPairs?: ReadonlyArray<SpotPairRef> | undefined;
+};
+
+export type SpotPairRef = {
+  readonly token: string;
+  readonly queryName: string;
 };
 
 export class HyperliquidProvider extends Context.Service<

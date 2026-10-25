@@ -1,4 +1,4 @@
-import { Config, Context, Layer } from "effect";
+import { Config, ConfigProvider, Context, Effect, Layer } from "effect";
 
 export interface WhaleConfigService {
   readonly whaleNotionalUsd: number;
@@ -23,9 +23,10 @@ const DEFAULT_WHALE_NOTIONAL_USD = 0;
 const DEFAULT_COIN_UNIVERSE: ReadonlyArray<string> = ["BTC", "ETH", "SOL"];
 const DEFAULT_DISCOVERY_NOTIONAL_USD = 250_000;
 const DEFAULT_POLL_INTERVAL_MS = 60_000;
-// 150 wallets x weight 2 = 300 per tick, leaving headroom on the shared IP
-// budget for the read path (tickers, order books) instead of starving it.
-const DEFAULT_MAX_WALLETS_PER_POLL = 150;
+// Hard ceiling: the shared 1200 weight/min upstream budget, not a preference.
+// 50 wallets x weight 2 + allMids weight 2 = 102 weight per tick.
+const MAX_WALLETS_PER_POLL_CEILING = 50;
+const DEFAULT_MAX_WALLETS_PER_POLL = MAX_WALLETS_PER_POLL_CEILING;
 const DEFAULT_WALLET_TTL_MS = 3_600_000;
 const DEFAULT_LEADERBOARD_URL = "https://stats-data.hyperliquid.xyz/Mainnet/leaderboard";
 const DEFAULT_LEADERBOARD_TTL_MS = 300_000;
@@ -45,6 +46,23 @@ const coinUniverseConfig: Config.Config<ReadonlyArray<string>> = Config.String(
   Config.withDefault(DEFAULT_COIN_UNIVERSE),
 );
 
+const maxWalletsPerPollConfig: Config.Config<number> = Config.Number(
+  "WHALE_MAX_WALLETS_PER_POLL",
+).pipe(
+  Config.withDefault(DEFAULT_MAX_WALLETS_PER_POLL),
+  Config.mapEffect((value) =>
+    Number.isInteger(value) && value >= 0 && value <= MAX_WALLETS_PER_POLL_CEILING
+      ? Effect.succeed(value)
+      : Effect.fail(
+          new Config.ConfigError(
+            new ConfigProvider.SourceError({
+              message: `WHALE_MAX_WALLETS_PER_POLL=${value} must be an integer in [0, ${MAX_WALLETS_PER_POLL_CEILING}]: the ceiling is the shared 1200 weight/min upstream budget`,
+            }),
+          ),
+        ),
+  ),
+);
+
 const whaleConfig: Config.Config<WhaleConfigService> = Config.all({
   whaleNotionalUsd: Config.Number("WHALE_NOTIONAL_USD").pipe(
     Config.withDefault(DEFAULT_WHALE_NOTIONAL_USD),
@@ -56,9 +74,7 @@ const whaleConfig: Config.Config<WhaleConfigService> = Config.all({
   pollIntervalMs: Config.Number("WHALE_POLL_INTERVAL_MS").pipe(
     Config.withDefault(DEFAULT_POLL_INTERVAL_MS),
   ),
-  maxWalletsPerPoll: Config.Number("WHALE_MAX_WALLETS_PER_POLL").pipe(
-    Config.withDefault(DEFAULT_MAX_WALLETS_PER_POLL),
-  ),
+  maxWalletsPerPoll: maxWalletsPerPollConfig,
   walletTtlMs: Config.Number("WHALE_WALLET_TTL_MS").pipe(Config.withDefault(DEFAULT_WALLET_TTL_MS)),
   leaderboardUrl: Config.String("WHALE_LEADERBOARD_URL").pipe(
     Config.withDefault(DEFAULT_LEADERBOARD_URL),

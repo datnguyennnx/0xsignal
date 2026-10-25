@@ -11,6 +11,7 @@ import {
 } from "../provider";
 import { HyperliquidClient } from "../client";
 import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
+import type { HyperliquidInfoClient } from "../types";
 
 type Meta = Awaited<ReturnType<InfoClient["meta"]>>;
 type AssetCtx = Awaited<ReturnType<InfoClient["metaAndAssetCtxs"]>>[1][number];
@@ -36,12 +37,23 @@ const assetCtx = (
 
 const timeframe = Schema.decodeUnknownSync(MarketTimeframeSchema)("1m");
 
+const metaByDex =
+  (namesByDex: Record<string, readonly string[]>) =>
+  (params?: { dex?: string }): Promise<[unknown, unknown]> => {
+    const names = namesByDex[params?.dex ?? ""] ?? [];
+    return Promise.resolve([metaResponse(names), []]);
+  };
+
 const createMockInfoClient = () => ({
   candleSnapshot: vi.fn<InfoClient["candleSnapshot"]>(),
   meta: vi.fn<InfoClient["meta"]>(),
-  metaAndAssetCtxs: vi.fn<InfoClient["metaAndAssetCtxs"]>(),
-  allMids: vi.fn<InfoClient["allMids"]>(),
-  perpCategories: vi.fn<InfoClient["perpCategories"]>(),
+  metaAndAssetCtxs: vi.fn<HyperliquidInfoClient["metaAndAssetCtxs"]>(),
+  allMids: vi.fn<HyperliquidInfoClient["allMids"]>(),
+  perpCategories: vi.fn<NonNullable<HyperliquidInfoClient["perpCategories"]>>(),
+  perpDexs: vi.fn<NonNullable<HyperliquidInfoClient["perpDexs"]>>().mockResolvedValue([]),
+  spotMeta: vi
+    .fn<NonNullable<HyperliquidInfoClient["spotMeta"]>>()
+    .mockResolvedValue({ universe: [], tokens: [] }),
   l2Book: vi.fn<InfoClient["l2Book"]>(),
   perpAnnotation: vi.fn<InfoClient["perpAnnotation"]>(),
 });
@@ -153,9 +165,36 @@ describe("Hyperliquid Providers", () => {
     ).rejects.toThrow("Symbol not found: XRP");
   });
 
+  it("getTicker resolves a coin that only exists on a builder dex", async () => {
+    mockInfoClient.perpDexs.mockResolvedValue([{ name: "xyz" }]);
+    mockInfoClient.metaAndAssetCtxs.mockImplementation(
+      metaByDex({ "": ["BTC"], xyz: ["xyz:ONLY"] }),
+    );
+    mockInfoClient.allMids.mockResolvedValue({ "xyz:ONLY": "5" });
+
+    const result = await Effect.runPromise(
+      getTicker("ONLY").pipe(Effect.provide(makeClientLayer())),
+    );
+
+    expect(result.symbol).toBe("xyz:ONLY");
+    expect(result.mid).toBe(5);
+  });
+
+  it("getTicker reports an ambiguity when two builder dexes share a coin", async () => {
+    mockInfoClient.perpDexs.mockResolvedValue([{ name: "xyz" }, { name: "abc" }]);
+    mockInfoClient.metaAndAssetCtxs.mockImplementation(
+      metaByDex({ "": ["BTC"], xyz: ["xyz:ONLY"], abc: ["abc:ONLY"] }),
+    );
+    mockInfoClient.allMids.mockResolvedValue({});
+
+    await expect(
+      Effect.runPromise(getTicker("ONLY").pipe(Effect.provide(makeClientLayer()))),
+    ).rejects.toThrow("ambig");
+  });
+
   it("getOrderBook should call l2Book with normalized symbol", async () => {
     mockInfoClient.allMids.mockResolvedValue({});
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse([]), []]);
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse(["ETH"]), []]);
     mockInfoClient.l2Book.mockResolvedValue({
       coin: "ETH",
       time: 123,
@@ -175,7 +214,7 @@ describe("Hyperliquid Providers", () => {
 
   it("getOrderBook should keep builder-perp dex lowercase while normalizing coin", async () => {
     mockInfoClient.allMids.mockResolvedValue({});
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse([]), []]);
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse(["dex:CL"]), []]);
     mockInfoClient.l2Book.mockResolvedValue({
       coin: "dex:CL",
       time: 123,
@@ -195,7 +234,7 @@ describe("Hyperliquid Providers", () => {
 
   it("getOrderBook defaults to null nSigFigs (full precision) when depth not specified", async () => {
     mockInfoClient.allMids.mockResolvedValue({});
-    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse([]), []]);
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse(["BTC"]), []]);
     mockInfoClient.l2Book.mockResolvedValue({
       coin: "BTC",
       time: 123,

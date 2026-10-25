@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import { type Context, Effect, Layer, Redacted } from "effect";
 import { HttpTransport, InfoClient, type ExchangeClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../../../integrations/hyperliquid/data-sources/hyperliquid-client";
+import { layerUnlimited as rateLimiterUnlimited } from "../../../integrations/hyperliquid/rate-limit";
 import { ExchangeService } from "../index";
 import { exchangeServiceLayer } from "../layer";
 import { exchangeCredentialsLayer } from "../../../integrations/hyperliquid/data-sources/exchange-credentials";
@@ -187,6 +188,7 @@ export const makeTestLayer = (
       Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(mergedCred)),
     ),
     Layer.provideMerge(makeMockHLClient()),
+    Layer.provideMerge(rateLimiterUnlimited),
   );
 };
 

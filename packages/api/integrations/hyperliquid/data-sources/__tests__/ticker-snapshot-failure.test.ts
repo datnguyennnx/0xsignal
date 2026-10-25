@@ -11,6 +11,8 @@ const createMockInfoClient = () => ({
   metaAndAssetCtxs: vi.fn<InfoClient["metaAndAssetCtxs"]>(),
   allMids: vi.fn<InfoClient["allMids"]>(),
   perpCategories: vi.fn<InfoClient["perpCategories"]>(),
+  perpDexs: vi.fn<NonNullable<InfoClient["perpDexs"]>>().mockResolvedValue([]),
+  spotMeta: vi.fn<InfoClient["spotMeta"]>().mockResolvedValue({ universe: [], tokens: [] }),
   l2Book: vi.fn<InfoClient["l2Book"]>(),
   perpAnnotation: vi.fn<InfoClient["perpAnnotation"]>(),
 });

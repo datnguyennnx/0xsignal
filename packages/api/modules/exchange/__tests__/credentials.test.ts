@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { Effect, Layer, Redacted } from "effect";
+import { layerUnlimited as rateLimiterUnlimited } from "../../../integrations/hyperliquid/rate-limit";
 import type {
   ExchangeClient,
   ExchangeConfig,
@@ -688,6 +689,7 @@ describe("Full credential lifecycle end-to-end", () => {
       Layer.provideMerge(accountLayer),
       Layer.provideMerge(credLayer),
       Layer.provideMerge(makeMockHLClient()),
+      Layer.provideMerge(rateLimiterUnlimited),
     );
 
     // Step 1: Unverified credential blocks trading
@@ -856,6 +858,7 @@ describe("Concurrent/Multi-User isolation", () => {
         Layer.succeed(ExchangeCredentialRepo, ExchangeCredentialRepo.of(multiUserCredRepo)),
       ),
       Layer.provideMerge(makeMockHLClient()),
+      Layer.provideMerge(rateLimiterUnlimited),
     );
 
     const [resultA, resultB] = await Effect.runPromise(

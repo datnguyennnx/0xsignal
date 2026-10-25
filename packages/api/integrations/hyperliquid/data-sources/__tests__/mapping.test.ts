@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { Effect, Option, Result } from "effect";
+import { Cause, Effect, Exit, Option, Result } from "effect";
 import { getTickerSnapshot } from "../mapping";
+import { HyperliquidError } from "../errors";
 import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
 import {
   mapTickerFromSnapshot,
@@ -78,11 +79,13 @@ describe("Hyperliquid Mapping", () => {
     };
 
     it("should resolve builder perp", () => {
-      expect(resolveInternalSymbol(mockSnapshot, "PARA:BTCD")).toBe("para:BTCD");
+      expect(Result.getOrThrow(resolveInternalSymbol(mockSnapshot, "PARA:BTCD"))).toBe("para:BTCD");
     });
 
-    it("should return same symbol for unknown", () => {
-      expect(resolveInternalSymbol(mockSnapshot, "ETH")).toBe("ETH");
+    it("should fail with NOT_FOUND instead of passing an unknown symbol through", () => {
+      const error = failureOf(resolveInternalSymbol(mockSnapshot, "ETH"));
+      expect(error).toMatchObject({ _tag: "TickerSnapshotError", kind: "NOT_FOUND" });
+      expect(error.message).toContain("Symbol not found: ETH");
     });
   });
 
@@ -101,6 +104,27 @@ describe("Hyperliquid Mapping", () => {
       expect(result.universe[0].name).toBe("BTC");
       expect(result.universe[1].name).toBe("xyz:EUR");
       expect(result.universe[1].dexIndex).toBe(1);
+    });
+
+    it("should fail the snapshot on a rate-limited metadata fetch, not degrade to empty", async () => {
+      mockInfo.perpDexs.mockResolvedValue([]);
+      mockInfo.metaAndAssetCtxs.mockRejectedValue(
+        new HyperliquidError({ message: "rate limited", kind: "RATE_LIMITED" }),
+      );
+
+      const exit = await Effect.runPromiseExit(
+        Effect.provide(getTickerSnapshot(mockInfo), rateLimiterUnlimited),
+      );
+
+      expect(Exit.isFailure(exit)).toBe(true);
+      const cause = Option.getOrThrow(
+        Exit.match(exit, {
+          onSuccess: () => Option.none<Cause.Cause<HyperliquidError>>(),
+          onFailure: (value) => Option.some(value),
+        }),
+      );
+      const failures = cause.reasons.filter(Cause.isFailReason).map((reason) => reason.error);
+      expect(failures).toContainEqual(expect.objectContaining({ kind: "RATE_LIMITED" }));
     });
 
     it("should handle partial DEX failures", async () => {
@@ -126,7 +150,9 @@ describe("Hyperliquid Mapping", () => {
     };
 
     it("should resolve with different casing and suffix", () => {
-      expect(resolveInternalSymbol(mockSnapshot, "PARA:BTCD-USDT")).toBe("para:BTCD");
+      expect(Result.getOrThrow(resolveInternalSymbol(mockSnapshot, "PARA:BTCD-USDT"))).toBe(
+        "para:BTCD",
+      );
     });
   });
 

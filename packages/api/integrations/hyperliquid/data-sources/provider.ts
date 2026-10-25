@@ -1,14 +1,21 @@
-import { Cache, Duration, Effect, Match, Ref, Schedule } from "effect";
-import { normalizeCandles, parseHlRawCandles, toHlInterval } from "./normalizer";
-import { normalizeSymbol } from "./symbol";
+import { Cache, Duration, Effect, Match, Ref, Result, Schedule } from "effect";
+import {
+  candleCountForRange,
+  normalizeCandles,
+  parseHlRawCandles,
+  toHlInterval,
+} from "./normalizer";
+import { normalizeSymbol, parseSymbol } from "./symbol";
 import { HyperliquidClient } from "./hyperliquid-client";
 import { HyperliquidError, TickerSnapshotError, toHyperliquidError } from "./errors";
 import {
-  acquireInfoWeight,
+  acquireCandleSnapshot,
+  acquireInfo,
+  acquireUnlistedInfo,
   HyperliquidRateLimiter,
-  INFO_REQUEST_WEIGHT,
   type RateLimitBudgetExhaustedError,
 } from "../rate-limit";
+import { INFO_WEIGHTS, UNLISTED_INFO_WEIGHT, candleSnapshotWeight } from "../weights";
 import { HyperliquidProvider } from "./types";
 import type {
   Candle,
@@ -94,6 +101,25 @@ const parseDepthToSigFigs = (depth: number | null | undefined): 2 | 3 | 4 | 5 | 
     : null;
 };
 
+const toMarketError = (error: TickerSnapshotError): HyperliquidError =>
+  new HyperliquidError({
+    message: error.message,
+    kind: error.kind,
+    reason: error.reason,
+    symbol: error.symbol,
+    tried: error.tried,
+    dexes: error.dexes,
+    candidates: error.candidates,
+    resolved: error.resolved,
+    cause: error,
+  });
+
+/** A bare name may live on a builder dex or in the spot universe. */
+const canLiveOnAnotherDex = (symbol: string): boolean => {
+  const normalized = normalizeSymbol(symbol);
+  return parseSymbol(symbol).kind === "perp" && !normalized.includes(":") && !symbol.includes("/");
+};
+
 export const makeHyperliquidProvider = () =>
   Effect.scoped(
     Effect.gen(function* () {
@@ -102,17 +128,56 @@ export const makeHyperliquidProvider = () =>
       const hlInfo = toHyperliquidInfoClient(client.info);
       const spotIndexRef = yield* Ref.make<Record<string, string>>({});
       const tickerSnapshotCache = yield* makeTickerSnapshotCache(hlInfo);
-      const acquire = limiter
-        .acquire(INFO_REQUEST_WEIGHT)
-        .pipe(
+      const acquireFor = (weight: number) =>
+        limiter.acquire(weight).pipe(
           Effect.mapError(
             (error: RateLimitBudgetExhaustedError) =>
-              new HyperliquidError({ message: error.message, kind: "RATE_LIMITED", cause: error }),
+              new HyperliquidError({
+                message: error.message,
+                kind: "RATE_LIMITED",
+                cause: error,
+              }),
           ),
         );
 
       const readSnapshot = (symbol?: string, options?: TickerSnapshotReadOptions) =>
         readTickerSnapshot(tickerSnapshotCache, symbol, options);
+
+      type ResolvedQuery = { readonly snapshot: TickerSnapshot; readonly symbol: string };
+
+      const resolveQuery = (
+        symbol: string,
+        options?: TickerSnapshotReadOptions,
+      ): Effect.Effect<ResolvedQuery, HyperliquidError> =>
+        Effect.gen(function* () {
+          const scoped = yield* readSnapshot(symbol, options);
+          const scopedResult = resolveInternalSymbol(scoped, symbol);
+          if (Result.isSuccess(scopedResult)) {
+            return { snapshot: scoped, symbol: scopedResult.success };
+          }
+          if (!canLiveOnAnotherDex(symbol)) {
+            return yield* Effect.fail(toMarketError(scopedResult.failure));
+          }
+          const allDexs = yield* readSnapshot();
+          const allResult = resolveInternalSymbol(allDexs, symbol);
+          if (Result.isSuccess(allResult)) {
+            return { snapshot: allDexs, symbol: allResult.success };
+          }
+          return yield* Effect.fail(toMarketError(allResult.failure));
+        });
+
+      // Spot pair identifiers need the spot universe's query name ("@1"), which the
+      // aggregated markets index already carries; perps go through resolveQuery.
+      const resolveSpotPairCoin = (symbol: string): Effect.Effect<string, HyperliquidError> =>
+        Effect.gen(function* () {
+          yield* Cache.get(aggregatedCache, "aggregated");
+          return (yield* Ref.get(spotIndexRef))[symbol] ?? symbol;
+        });
+
+      const resolveQueryCoin = (symbol: string): Effect.Effect<string, HyperliquidError> =>
+        symbol.includes("/")
+          ? resolveSpotPairCoin(symbol)
+          : resolveQuery(symbol).pipe(Effect.map((resolved) => resolved.symbol));
 
       // Aggregated markets cache — REST metadata (not real-time), refreshed every 60s
       const aggregatedCache = yield* Cache.make({
@@ -154,18 +219,9 @@ export const makeHyperliquidProvider = () =>
       return HyperliquidProvider.of({
         getCandleSnapshot: (coin, interval, start, end) =>
           Effect.gen(function* () {
-            const ticker = yield* readSnapshot(coin);
+            const internalSymbol = yield* resolveQueryCoin(coin);
 
-            let internalSymbol: string;
-            if (coin.includes("/")) {
-              // Force aggregated cache to be populated (ticker resolution)
-              yield* Cache.get(aggregatedCache, "aggregated");
-              internalSymbol = (yield* Ref.get(spotIndexRef))[coin] ?? coin;
-            } else {
-              internalSymbol = resolveInternalSymbol(ticker, coin);
-            }
-
-            yield* acquire;
+            yield* acquireFor(candleSnapshotWeight(candleCountForRange(interval, start, end)));
             const candles = yield* tryRequest(
               `Failed to fetch candles for ${coin} (${interval})`,
               () =>
@@ -203,33 +259,19 @@ export const makeHyperliquidProvider = () =>
           ),
 
         getTicker: (symbol, options?: TickerSnapshotReadOptions) =>
-          readSnapshot(symbol, options).pipe(
-            // The port declares HyperliquidError, so the snapshot error is translated here
-            // instead of widening the port (that widening ripples into the layer adapter).
-            Effect.flatMap((s) =>
-              Effect.fromResult(mapTickerFromSnapshot(s, symbol)).pipe(
-                Effect.mapError(
-                  (error) => new HyperliquidError({ message: error.message, kind: error.kind }),
-                ),
-              ),
-            ),
-          ),
+          Effect.gen(function* () {
+            const resolved = yield* resolveQuery(symbol, options);
+            return yield* Effect.fromResult(
+              mapTickerFromSnapshot(resolved.snapshot, resolved.symbol),
+            ).pipe(Effect.mapError(toMarketError));
+          }),
 
         getOrderBook: (symbol, depth) =>
           Effect.gen(function* () {
-            const ticker = yield* readSnapshot(symbol);
-
-            let internalSymbol: string;
-            if (symbol.includes("/")) {
-              yield* Cache.get(aggregatedCache, "aggregated");
-              internalSymbol = (yield* Ref.get(spotIndexRef))[symbol] ?? symbol;
-            } else {
-              internalSymbol = resolveInternalSymbol(ticker, symbol);
-            }
-
+            const internalSymbol = yield* resolveQueryCoin(symbol);
             const nSigFigs = parseDepthToSigFigs(depth);
 
-            yield* acquire;
+            yield* acquireFor(INFO_WEIGHTS.l2Book);
             const orderbook = yield* tryRequest(`Failed to fetch orderbook for ${symbol}`, () =>
               client.info.l2Book({ coin: internalSymbol, nSigFigs }),
             );
@@ -248,9 +290,8 @@ export const makeHyperliquidProvider = () =>
 
         getTradeAnnotation: (symbol) =>
           Effect.gen(function* () {
-            const ticker = yield* readSnapshot(symbol);
-            const internalSymbol = resolveInternalSymbol(ticker, symbol);
-            const isPerp = isPerpSymbol(ticker, symbol);
+            const resolved = yield* resolveQuery(symbol);
+            const isPerp = isPerpSymbol(resolved.snapshot, resolved.symbol);
 
             if (!isPerp) {
               return yield* Effect.fail(
@@ -261,10 +302,10 @@ export const makeHyperliquidProvider = () =>
               );
             }
 
-            yield* acquire;
+            yield* acquireFor(UNLISTED_INFO_WEIGHT);
             const annotation = yield* tryRequest(
               `Failed to fetch trade annotation for ${symbol}`,
-              () => client.info.perpAnnotation({ coin: internalSymbol }),
+              () => client.info.perpAnnotation({ coin: resolved.symbol }),
             );
 
             return { symbol: normalizeSymbol(symbol), annotation };
@@ -284,7 +325,7 @@ export const getCandleSnapshot = (
 ): Effect.Effect<Candle[], HyperliquidError, HyperliquidClient | HyperliquidRateLimiter> =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
-    yield* acquireInfoWeight;
+    yield* acquireCandleSnapshot(candleCountForRange(interval, startTime, endTime));
     const candles = yield* Effect.tryPromise({
       try: () =>
         info.candleSnapshot({
@@ -311,7 +352,7 @@ export const getAllMids = (): Effect.Effect<
 > =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
-    yield* acquireInfoWeight;
+    yield* acquireInfo("allMids");
     return yield* Effect.tryPromise({
       try: () => withDedup("allMids", () => info.allMids()),
       catch: (cause) => toHyperliquidError("Failed to fetch all mids", cause),
@@ -335,7 +376,8 @@ export const getTicker = (
     const { info } = yield* HyperliquidClient;
     const hlInfo = toHyperliquidInfoClient(info);
     const snapshot = yield* getTickerSnapshot(hlInfo);
-    return yield* Effect.fromResult(mapTickerFromSnapshot(snapshot, symbol));
+    const internalSymbol = yield* Effect.fromResult(resolveInternalSymbol(snapshot, symbol));
+    return yield* Effect.fromResult(mapTickerFromSnapshot(snapshot, internalSymbol));
   });
 
 export const getOrderBook = (
@@ -346,11 +388,13 @@ export const getOrderBook = (
     const { info } = yield* HyperliquidClient;
     const hlInfo = toHyperliquidInfoClient(info);
     const snapshot = yield* getTickerSnapshot(hlInfo);
-    const internalSymbol = resolveInternalSymbol(snapshot, symbol);
+    const internalSymbol = yield* Effect.fromResult(resolveInternalSymbol(snapshot, symbol)).pipe(
+      Effect.mapError(toMarketError),
+    );
 
     const nSigFigs = parseDepthToSigFigs(depth);
 
-    yield* acquireInfoWeight;
+    yield* acquireInfo("l2Book");
     const orderbook = yield* Effect.tryPromise({
       try: () => info.l2Book({ coin: internalSymbol, nSigFigs }),
       catch: (cause) =>
@@ -380,8 +424,10 @@ export const getTradeAnnotation = (
     const { info } = yield* HyperliquidClient;
     const hlInfo = toHyperliquidInfoClient(info);
     const snapshot = yield* getTickerSnapshot(hlInfo);
-    const internalSymbol = resolveInternalSymbol(snapshot, symbol);
-    const isPerp = isPerpSymbol(snapshot, symbol);
+    const internalSymbol = yield* Effect.fromResult(resolveInternalSymbol(snapshot, symbol)).pipe(
+      Effect.mapError(toMarketError),
+    );
+    const isPerp = isPerpSymbol(snapshot, internalSymbol);
     if (!isPerp) {
       return yield* Effect.fail(
         new HyperliquidError({
@@ -390,7 +436,7 @@ export const getTradeAnnotation = (
         }),
       );
     }
-    yield* acquireInfoWeight;
+    yield* acquireUnlistedInfo;
     const annotation = yield* Effect.tryPromise({
       try: () => info.perpAnnotation({ coin: internalSymbol }),
       catch: (cause) =>

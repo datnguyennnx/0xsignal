@@ -1,6 +1,7 @@
 import { Cache, Duration, Effect } from "effect";
 import type { ExchangeClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../../integrations/hyperliquid/data-sources/hyperliquid-client";
+import { acquireInfoFor, HyperliquidRateLimiter } from "../../integrations/hyperliquid/rate-limit";
 import { ExchangeService } from "./index";
 import type { ExchangeError } from "./errors";
 import { ExchangeCredentials } from "./credentials";
@@ -38,6 +39,7 @@ export const makeExchangeService = () =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
     const credentials = yield* ExchangeCredentials;
+    const limiter = yield* HyperliquidRateLimiter;
 
     const metaCache = yield* Cache.make<
       string,
@@ -47,15 +49,27 @@ export const makeExchangeService = () =>
       capacity: 1,
       timeToLive: Duration.minutes(5),
       lookup: () =>
-        Effect.tryPromise({
-          try: () => info.meta(),
-          catch: (e) =>
-            new HyperliquidInternalError({
-              message: "Failed to fetch market metadata",
-              cause: e,
-              endpoint: "info.meta()",
+        acquireInfoFor(limiter, "meta").pipe(
+          Effect.mapError(
+            (error) =>
+              new HyperliquidInternalError({
+                message: `meta rate limited: ${error.message}`,
+                cause: error,
+                endpoint: "info.meta()",
+              }),
+          ),
+          Effect.flatMap(() =>
+            Effect.tryPromise({
+              try: () => info.meta(),
+              catch: (e) =>
+                new HyperliquidInternalError({
+                  message: "Failed to fetch market metadata",
+                  cause: e,
+                  endpoint: "info.meta()",
+                }),
             }),
-        }),
+          ),
+        ),
     });
 
     return ExchangeService.of({

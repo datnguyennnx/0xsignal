@@ -1,9 +1,7 @@
 import { Effect, Layer } from "effect";
 import { HyperliquidClient } from "../../integrations/hyperliquid/data-sources/hyperliquid-client";
-import {
-  HyperliquidRateLimiter,
-  INFO_REQUEST_WEIGHT,
-} from "../../integrations/hyperliquid/rate-limit";
+import { HyperliquidRateLimiter } from "../../integrations/hyperliquid/rate-limit";
+import { INFO_WEIGHTS, UNLISTED_INFO_WEIGHT } from "../../integrations/hyperliquid/weights";
 import { InternalError } from "../../shared/errors";
 import type { AppError } from "../../shared/errors";
 import { UserDataService } from "./index";
@@ -24,8 +22,12 @@ export const userDataServiceLayer = Layer.effect(
     const { info } = yield* HyperliquidClient;
     const limiter = yield* HyperliquidRateLimiter;
 
-    const infoCall = <A>(label: string, fn: () => Promise<A>): Effect.Effect<A, AppError> =>
-      limiter.acquire(INFO_REQUEST_WEIGHT).pipe(
+    const infoCall = <A>(
+      label: string,
+      weight: number,
+      fn: () => Promise<A>,
+    ): Effect.Effect<A, AppError> =>
+      limiter.acquire(weight).pipe(
         Effect.mapError(
           (error) =>
             new InternalError({ message: `${label} rate limited: ${error.message}`, cause: error }),
@@ -35,35 +37,49 @@ export const userDataServiceLayer = Layer.effect(
 
     return UserDataService.of({
       getClearinghouseState: (walletAddress) =>
-        infoCall("clearinghouseState", () => info.clearinghouseState({ user: walletAddress })),
+        infoCall("clearinghouseState", INFO_WEIGHTS.clearinghouseState, () =>
+          info.clearinghouseState({ user: walletAddress }),
+        ),
 
       getSpotClearinghouseState: (walletAddress) =>
-        infoCall("spotClearinghouseState", () =>
+        infoCall("spotClearinghouseState", INFO_WEIGHTS.spotClearinghouseState, () =>
           info.spotClearinghouseState({ user: walletAddress }),
         ),
 
       getOpenOrders: (walletAddress) =>
-        infoCall("openOrders", () => info.openOrders({ user: walletAddress })),
+        infoCall("openOrders", UNLISTED_INFO_WEIGHT, () =>
+          info.openOrders({ user: walletAddress }),
+        ),
 
       getFrontendOpenOrders: (walletAddress) =>
-        infoCall("frontendOpenOrders", () => info.frontendOpenOrders({ user: walletAddress })),
+        infoCall("frontendOpenOrders", INFO_WEIGHTS.frontendOpenOrders, () =>
+          info.frontendOpenOrders({ user: walletAddress }),
+        ),
 
-      getMeta: () => infoCall("meta", () => info.meta()),
+      getMeta: () => infoCall("meta", INFO_WEIGHTS.meta, () => info.meta()),
 
       getHistoricalOrders: (walletAddress) =>
-        infoCall("historicalOrders", () => info.historicalOrders({ user: walletAddress })),
+        infoCall("historicalOrders", UNLISTED_INFO_WEIGHT, () =>
+          info.historicalOrders({ user: walletAddress }),
+        ),
 
       getUserFills: (walletAddress) =>
-        infoCall("userFills", () => info.userFills({ user: walletAddress })),
+        infoCall("userFills", INFO_WEIGHTS.userFills, () =>
+          info.userFills({ user: walletAddress }),
+        ),
 
       getPortfolio: (walletAddress) =>
-        infoCall("portfolio", () => info.portfolio({ user: walletAddress })),
+        infoCall("portfolio", UNLISTED_INFO_WEIGHT, () => info.portfolio({ user: walletAddress })),
 
+      // The published table names `vaultEquities`, not `userVaultEquities`;
+      // charge the unlisted flat estimate rather than borrow the 20 of another endpoint.
       getUserVaultEquities: (walletAddress) =>
-        infoCall("userVaultEquities", () => info.userVaultEquities({ user: walletAddress })),
+        infoCall("userVaultEquities", UNLISTED_INFO_WEIGHT, () =>
+          info.userVaultEquities({ user: walletAddress }),
+        ),
 
       getUserFunding: (walletAddress, startTime?: number, endTime?: number) =>
-        infoCall("userFunding", () => {
+        infoCall("userFunding", UNLISTED_INFO_WEIGHT, () => {
           const params: { user: string; startTime?: number; endTime?: number } = {
             user: walletAddress,
           };

@@ -73,6 +73,34 @@ export function toHlInterval(timeframe: MarketTimeframe): HlInterval {
   );
 }
 
+const MINUTE_MILLIS = 60_000;
+const HOUR_MILLIS = 60 * MINUTE_MILLIS;
+const DAY_MILLIS = 24 * HOUR_MILLIS;
+
+/** Range width in candles; drives the count-aware `candleSnapshot` weight. */
+export function candleCountForRange(
+  timeframe: MarketTimeframe,
+  startTime: number,
+  endTime: number,
+): number {
+  const intervalMillis = Match.value(timeframe).pipe(
+    Match.when("1m", () => MINUTE_MILLIS),
+    Match.when("3m", () => 3 * MINUTE_MILLIS),
+    Match.when("5m", () => 5 * MINUTE_MILLIS),
+    Match.when("15m", () => 15 * MINUTE_MILLIS),
+    Match.when("30m", () => 30 * MINUTE_MILLIS),
+    Match.when("1h", () => HOUR_MILLIS),
+    Match.when("2h", () => 2 * HOUR_MILLIS),
+    Match.when("4h", () => 4 * HOUR_MILLIS),
+    Match.when("8h", () => 8 * HOUR_MILLIS),
+    Match.when("12h", () => 12 * HOUR_MILLIS),
+    Match.when("1d", () => DAY_MILLIS),
+    Match.when("1w", () => 7 * DAY_MILLIS),
+    Match.exhaustive,
+  );
+  return Math.max(0, Math.floor((endTime - startTime) / intervalMillis) + 1);
+}
+
 export function normalizeCandle(hlCandle: HlRawCandle): Candle {
   return {
     timestamp: new Date(hlCandle.t),

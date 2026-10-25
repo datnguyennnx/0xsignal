@@ -3,9 +3,10 @@ import type { InfoClient } from "@nktkas/hyperliquid";
 import { normalizeSymbol } from "./symbol";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 import { processMetaResults } from "./market-aggregation";
-import type { TickerSnapshot, HyperliquidInfoClient } from "./types";
+import { extractSpotPairRefs } from "./spot-parser";
+import type { SpotPairRef, TickerSnapshot, HyperliquidInfoClient } from "./types";
 import { withDedup } from "./request-dedup";
-import { acquireInfoWeight, type HyperliquidRateLimiter } from "../rate-limit";
+import { acquireInfo, acquireUnlistedInfo, type HyperliquidRateLimiter } from "../rate-limit";
 
 /**
  * Narrow an InfoClient (from @nktkas/hyperliquid) to HyperliquidInfoClient.
@@ -18,25 +19,31 @@ export { getAggregatedMarketsSnapshot } from "./aggregated-markets";
  * Fetch allMids with in-flight dedup. One attempt per call: pacing belongs to
  * the shared limiter, and retrying a 429 here only multiplies the burst.
  */
+/** A refusal must surface: degrading it to empty would read downstream as "unknown symbol". */
+const isRateLimited = (error: HyperliquidError): boolean => error.kind === "RATE_LIMITED";
+
 const fetchAllMids = (
   info: HyperliquidInfoClient,
-): Effect.Effect<Record<string, string>, never, HyperliquidRateLimiter> =>
+): Effect.Effect<Record<string, string>, HyperliquidError, HyperliquidRateLimiter> =>
   Effect.gen(function* () {
-    yield* acquireInfoWeight;
+    yield* acquireInfo("allMids");
     return yield* Effect.tryPromise({
       try: () => withDedup("allMids", () => info.allMids()),
       catch: (cause) => toHyperliquidError("Failed to fetch mids", cause),
     });
   }).pipe(
     Effect.tapError((e) => Effect.logWarning(`[mapping] allMids fetch failed: ${String(e)}`)),
-    Effect.catch(() => Effect.succeed<Record<string, string>>({})),
+    Effect.catchIf(
+      (error) => !isRateLimited(error),
+      () => Effect.succeed<Record<string, string>>({}),
+    ),
   );
 
 const fetchPerpDexs = (
   info: HyperliquidInfoClient,
-): Effect.Effect<Array<null | { name: string }>, never, HyperliquidRateLimiter> =>
+): Effect.Effect<Array<null | { name: string }>, HyperliquidError, HyperliquidRateLimiter> =>
   Effect.gen(function* () {
-    yield* acquireInfoWeight;
+    yield* acquireUnlistedInfo;
     return yield* Effect.tryPromise({
       try: () => withDedup("perpDexs", () => info.perpDexs?.() ?? Promise.resolve([])),
       catch: (cause) => toHyperliquidError("Failed to fetch perp DEXs", cause),
@@ -45,7 +52,10 @@ const fetchPerpDexs = (
     Effect.tapError((e) =>
       Effect.logWarning(`[mapping] perpDexs fetch failed, falling back to empty: ${String(e)}`),
     ),
-    Effect.catch(() => Effect.succeed([] as Array<null | { name: string }>)),
+    Effect.catchIf(
+      (error) => !isRateLimited(error),
+      () => Effect.succeed([] as Array<null | { name: string }>),
+    ),
   );
 
 const fetchBaseSnapshot = (
@@ -53,7 +63,7 @@ const fetchBaseSnapshot = (
   skipPerpDexs = false,
 ): Effect.Effect<
   [Array<null | { name: string }>, Record<string, string>],
-  never,
+  HyperliquidError,
   HyperliquidRateLimiter
 > =>
   Effect.all(
@@ -67,9 +77,9 @@ const fetchBaseSnapshot = (
 const fetchMetaAndAssetCtxs = (
   info: HyperliquidInfoClient,
   dexName: string,
-): Effect.Effect<[unknown, unknown], never, HyperliquidRateLimiter> =>
+): Effect.Effect<[unknown, unknown], HyperliquidError, HyperliquidRateLimiter> =>
   Effect.gen(function* () {
-    yield* acquireInfoWeight;
+    yield* acquireInfo("metaAndAssetCtxs");
     return yield* Effect.tryPromise({
       try: () =>
         withDedup(`metaAndAssetCtxs:${dexName}`, () =>
@@ -77,7 +87,34 @@ const fetchMetaAndAssetCtxs = (
         ),
       catch: (cause) => toHyperliquidError(`Failed to fetch meta for ${dexName || "main"}`, cause),
     });
-  }).pipe(Effect.catch(() => Effect.succeed<[unknown, unknown]>([null, null])));
+  }).pipe(
+    // Only a builder dex may be skipped; a refusal or a main-dex failure must
+    // surface instead of becoming an empty snapshot that reads as "unknown symbol".
+    Effect.catchIf(
+      (error) => dexName !== "" && !isRateLimited(error),
+      () => Effect.succeed<[unknown, unknown]>([null, null]),
+    ),
+  );
+
+/** Spot token → owning pair query name, used by bare-symbol resolution. */
+const fetchSpotPairs = (
+  info: HyperliquidInfoClient,
+): Effect.Effect<ReadonlyArray<SpotPairRef>, HyperliquidError, HyperliquidRateLimiter> =>
+  Effect.gen(function* () {
+    if (typeof info.spotMeta !== "function") return [];
+    const spotMeta = info.spotMeta;
+    yield* acquireInfo("spotMeta");
+    return yield* Effect.tryPromise({
+      try: () => spotMeta.call(info),
+      catch: (cause) => toHyperliquidError("Failed to fetch spot meta", cause),
+    }).pipe(
+      Effect.map(extractSpotPairRefs),
+      Effect.catchIf(
+        (error) => !isRateLimited(error),
+        () => Effect.succeed<ReadonlyArray<SpotPairRef>>([]),
+      ),
+    );
+  });
 
 /** One cache identity per distinct upstream request set: every dex, or one dex. */
 const ALL_DEXS_SCOPE = "*";
@@ -113,11 +150,13 @@ const fetchTickerSnapshot = (
   Effect.gen(function* () {
     const includeAllDexs = scope === ALL_DEXS_SCOPE;
     const [perpDexs, allMids] = yield* fetchBaseSnapshot(info, !includeAllDexs);
+    const dexNames = dexNamesForScope(scope, perpDexs);
 
     const metaResults = yield* Effect.all(
-      dexNamesForScope(scope, perpDexs).map((dexName) => fetchMetaAndAssetCtxs(info, dexName)),
+      dexNames.map((dexName) => fetchMetaAndAssetCtxs(info, dexName)),
       { concurrency: 3 },
     );
+    const spotPairs = includeAllDexs ? yield* fetchSpotPairs(info) : undefined;
 
     const { flattenedUniverse, flattenedAssetCtxs } = processMetaResults(metaResults);
 
@@ -125,6 +164,8 @@ const fetchTickerSnapshot = (
       universe: flattenedUniverse,
       assetCtxs: flattenedAssetCtxs,
       allMids,
+      dexNames,
+      spotPairs,
     };
   });
 

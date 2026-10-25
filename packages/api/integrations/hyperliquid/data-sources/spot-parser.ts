@@ -1,5 +1,31 @@
 import { asRecord, isUnknownArray, numberAt, stringAt } from "../../../shared/parsing";
-import type { SpotTradeAsset } from "./types";
+import type { SpotPairRef, SpotTradeAsset } from "./types";
+
+/** Maps each spot base token to the query name of the pair that owns it. */
+export function extractSpotPairRefs(raw: unknown): SpotPairRef[] {
+  const resp = asRecord(raw);
+  if (resp === null || !isUnknownArray(resp.universe) || !isUnknownArray(resp.tokens)) return [];
+
+  const tokens = resp.tokens.map((token) => asRecord(token) ?? {});
+  const refs: SpotPairRef[] = [];
+
+  for (const entry of resp.universe) {
+    const record = asRecord(entry) ?? {};
+    const queryName = record.name;
+    const tokenIndices = record.tokens;
+    if (typeof queryName !== "string") continue;
+    if (!isUnknownArray(tokenIndices)) continue;
+
+    const baseIndex = tokenIndices[0];
+    if (typeof baseIndex !== "number" || baseIndex < 0 || baseIndex >= tokens.length) continue;
+
+    const token = stringAt(tokens[baseIndex], "name");
+    if (token === undefined || token === "") continue;
+    refs.push({ token, queryName });
+  }
+
+  return refs;
+}
 
 export function parseSpotAssets(
   raw: unknown,

@@ -3,11 +3,8 @@ import type { ClearinghouseState, WhalePosition, WhaleSide } from "@0xsignal/sha
 import { HyperliquidClient } from "./hyperliquid-client";
 import { WhaleConfig } from "../../../modules/whales";
 import { HyperliquidError, toHyperliquidError } from "./errors";
-import {
-  HyperliquidRateLimiter,
-  INFO_REQUEST_WEIGHT,
-  type RateLimitBudgetExhaustedError,
-} from "../rate-limit";
+import { HyperliquidRateLimiter, type RateLimitBudgetExhaustedError } from "../rate-limit";
+import { INFO_WEIGHTS } from "../weights";
 
 type AssetPosition = ClearinghouseState["assetPositions"][number];
 
@@ -34,8 +31,10 @@ const mapPosition = (
   if (size === 0) return null;
 
   const side: WhaleSide = signedSize < 0 ? "sell" : "buy";
-  const markPrice = marks[position.coin] ?? position.entryPx;
-  const mark = parseNumber(markPrice);
+  // A missing mark stays missing: substituting entryPx would render a fabricated
+  // valuation. `positionValue` is the exchange's own mark-based USD notional.
+  const markPrice = marks[position.coin];
+  const mark = parseNumber(markPrice, Number.NaN);
   const notionalUsd = mark > 0 ? size * mark : Math.abs(parseNumber(position.positionValue));
   const fundingFee =
     position.cumFunding === undefined ? undefined : parseNumber(position.cumFunding.sinceOpen);
@@ -93,25 +92,25 @@ export const whalePositionPollerLayer: Layer.Layer<
     const config = yield* WhaleConfig;
     const limiter = yield* HyperliquidRateLimiter;
 
+    // Marks are required: a rate-limited allMids must fail the tick rather than
+    // downgrade every position to an entry-price valuation.
     const fetchMarks = (): Effect.Effect<
       Readonly<Record<string, string>>,
-      RateLimitBudgetExhaustedError
+      WhalePositionPollerError
     > =>
       Effect.gen(function* () {
-        yield* limiter.acquire(INFO_REQUEST_WEIGHT);
+        yield* limiter.acquire(INFO_WEIGHTS.allMids);
         return yield* Effect.tryPromise({
           try: () => info.allMids(),
           catch: (cause) => toHyperliquidError("allMids failed", cause),
-        }).pipe(
-          Effect.catchTag("HyperliquidError", () => Effect.succeed<Record<string, string>>({})),
-        );
+        });
       });
 
     const fetchState = (
       address: string,
     ): Effect.Effect<ClearinghouseState, WhalePositionPollerError> =>
       Effect.gen(function* () {
-        yield* limiter.acquire(INFO_REQUEST_WEIGHT);
+        yield* limiter.acquire(INFO_WEIGHTS.clearinghouseState);
         return yield* Effect.tryPromise({
           try: () => info.clearinghouseState({ user: address }),
           catch: (cause) => toHyperliquidError(`clearinghouseState failed for ${address}`, cause),

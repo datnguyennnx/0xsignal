@@ -1,4 +1,4 @@
-import { Effect, Schedule } from "effect";
+import { Effect } from "effect";
 import { normalizeSymbol } from "./symbol";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 import {
@@ -9,22 +9,40 @@ import {
 } from "./market-aggregation";
 import type { HyperliquidAggregatedAsset, PerpTradeAsset, HyperliquidInfoClient } from "./types";
 import { withDedup } from "./request-dedup";
-import { acquireInfoWeight, type HyperliquidRateLimiter } from "../rate-limit";
+import { acquireInfo, acquireUnlistedInfo, type HyperliquidRateLimiter } from "../rate-limit";
+
+/** A refusal must surface: an exhausted budget is not a missing symbol or empty list. */
+const isRateLimited = (error: HyperliquidError): boolean => error.kind === "RATE_LIMITED";
+
+/** Degrade only failures that are safe to hide; a rate-limit refusal always propagates. */
+const degradeUnlessRateLimited = <A, F, R>(
+  effect: Effect.Effect<A, HyperliquidError, R>,
+  fallback: F,
+  shouldDegrade: (error: HyperliquidError) => boolean = () => true,
+): Effect.Effect<A | F, HyperliquidError, R> =>
+  effect.pipe(
+    Effect.catch((error) =>
+      shouldDegrade(error) && !isRateLimited(error) ? Effect.succeed(fallback) : Effect.fail(error),
+    ),
+  );
 
 function getSpotTokens(
   info: HyperliquidInfoClient,
 ): Effect.Effect<string[], HyperliquidError, HyperliquidRateLimiter> {
-  return Effect.gen(function* () {
-    yield* acquireInfoWeight;
-    return yield* Effect.tryPromise({
-      try: async () => {
-        if (typeof info.spotMeta !== "function") return [];
-        const raw = await info.spotMeta();
-        return extractSpotTokens(raw);
-      },
-      catch: (cause) => toHyperliquidError("Failed to fetch spot meta", cause),
-    });
-  }).pipe(Effect.catch(() => Effect.succeed([] as string[])));
+  return degradeUnlessRateLimited(
+    Effect.gen(function* () {
+      yield* acquireInfo("spotMeta");
+      return yield* Effect.tryPromise({
+        try: async () => {
+          if (typeof info.spotMeta !== "function") return [];
+          const raw = await info.spotMeta();
+          return extractSpotTokens(raw);
+        },
+        catch: (cause) => toHyperliquidError("Failed to fetch spot meta", cause),
+      });
+    }),
+    [],
+  );
 }
 
 const fetchAllDexMetas = (
@@ -34,28 +52,28 @@ const fetchAllDexMetas = (
   Effect.forEach(
     dexNames,
     (dexName) =>
-      Effect.gen(function* () {
-        yield* acquireInfoWeight;
-        return yield* Effect.tryPromise({
-          try: () => info.metaAndAssetCtxs(dexName ? { dex: dexName } : undefined),
-          catch: (cause) =>
-            toHyperliquidError(`Failed to fetch meta for dex "${dexName || "main"}"`, cause),
-        });
-      }).pipe(
-        Effect.catch((err) => {
-          if (dexName === "") {
-            return Effect.fail(
-              new HyperliquidError({
-                message: `Main DEX meta fetch failed: ${err.message}`,
-                kind: "UPSTREAM",
-                cause: err,
-              }),
-            );
-          }
-          return Effect.logWarning(`[Hyperliquid] Skipping dex "${dexName}": ${err.message}`).pipe(
-            Effect.as(null),
-          );
-        }),
+      degradeUnlessRateLimited(
+        Effect.gen(function* () {
+          yield* acquireInfo("metaAndAssetCtxs");
+          return yield* Effect.tryPromise({
+            try: () =>
+              withDedup(`metaAndAssetCtxs:${dexName}`, () =>
+                info.metaAndAssetCtxs(dexName ? { dex: dexName } : undefined),
+              ),
+            catch: (cause) =>
+              toHyperliquidError(`Failed to fetch meta for dex "${dexName || "main"}"`, cause),
+          });
+        }).pipe(
+          Effect.tapError((error) =>
+            dexName !== "" && !isRateLimited(error)
+              ? Effect.logWarning(`[Hyperliquid] Skipping dex "${dexName}": ${error.message}`)
+              : Effect.void,
+          ),
+        ),
+        null,
+        // Only a builder dex may be skipped: other dexes still render, but a main-dex
+        // failure must surface instead of reading as an empty market list.
+        () => dexName !== "",
       ),
     { concurrency: 3 },
   );
@@ -78,18 +96,21 @@ const buildCategoryMap = (rawPerpCats: Array<[string, string]>): Map<string, str
 const fetchOptionalData = (
   info: HyperliquidInfoClient,
   preFetchedSpot: unknown,
-): Effect.Effect<{ spotRaw: unknown }, never, HyperliquidRateLimiter> =>
+): Effect.Effect<{ spotRaw: unknown }, HyperliquidError, HyperliquidRateLimiter> =>
   Effect.all({
     spotRaw:
       preFetchedSpot === undefined
-        ? Effect.gen(function* () {
-            yield* acquireInfoWeight;
-            return yield* Effect.tryPromise({
-              try: () => info.spotMetaAndAssetCtxs?.() ?? Promise.resolve(null),
-              catch: (cause) =>
-                toHyperliquidError("Failed to fetch spot meta and asset ctxs", cause),
-            });
-          }).pipe(Effect.catch(() => Effect.succeed(null)))
+        ? degradeUnlessRateLimited(
+            Effect.gen(function* () {
+              yield* acquireInfo("spotMetaAndAssetCtxs");
+              return yield* Effect.tryPromise({
+                try: () => info.spotMetaAndAssetCtxs?.() ?? Promise.resolve(null),
+                catch: (cause) =>
+                  toHyperliquidError("Failed to fetch spot meta and asset ctxs", cause),
+              });
+            }),
+            null,
+          )
         : Effect.succeed(preFetchedSpot),
   });
 
@@ -107,38 +128,44 @@ export function getAggregatedMarketsSnapshot(
 
     const allResult = yield* Effect.all(
       {
-        dexNamesResult: Effect.gen(function* () {
-          yield* acquireInfoWeight;
-          return yield* Effect.tryPromise({
-            try: () => info.perpDexs?.() ?? Promise.resolve([]),
-            catch: (cause) => toHyperliquidError("Failed to fetch perp DEXs", cause),
-          });
-        }).pipe(Effect.catch(() => Effect.succeed([] as Array<null | { name: string }>))),
-
-        rawPerpCats: Effect.gen(function* () {
-          yield* acquireInfoWeight;
-          return yield* Effect.tryPromise({
-            try: () =>
-              info.perpCategories === undefined
-                ? Promise.resolve<Array<[string, string]>>([])
-                : info.perpCategories(),
-            catch: (cause) => toHyperliquidError("Failed to fetch categories", cause),
-          });
-        }).pipe(Effect.catch(() => Effect.succeed<Array<[string, string]>>([]))),
-
-        allMids: Effect.gen(function* () {
-          yield* acquireInfoWeight;
-          return yield* Effect.tryPromise({
-            try: () => withDedup("allMids", () => info.allMids()),
-            catch: (cause) => toHyperliquidError("Failed to fetch mids", cause),
-          });
-        }).pipe(
-          Effect.retry({
-            times: 2,
-            schedule: Schedule.exponential("1 seconds"),
-            while: (err: HyperliquidError) => err.kind === "RATE_LIMITED",
+        dexNamesResult: degradeUnlessRateLimited(
+          Effect.gen(function* () {
+            yield* acquireUnlistedInfo;
+            return yield* Effect.tryPromise({
+              try: () => info.perpDexs?.() ?? Promise.resolve([]),
+              catch: (cause) => toHyperliquidError("Failed to fetch perp DEXs", cause),
+            });
           }),
-          Effect.catch(() => Effect.succeed<Record<string, string>>({})),
+          [],
+        ),
+
+        rawPerpCats: degradeUnlessRateLimited(
+          Effect.gen(function* () {
+            yield* acquireUnlistedInfo;
+            return yield* Effect.tryPromise({
+              try: () =>
+                info.perpCategories === undefined
+                  ? Promise.resolve<Array<[string, string]>>([])
+                  : info.perpCategories(),
+              catch: (cause) => toHyperliquidError("Failed to fetch categories", cause),
+            });
+          }),
+          [],
+        ),
+
+        allMids: degradeUnlessRateLimited(
+          Effect.gen(function* () {
+            yield* acquireInfo("allMids");
+            return yield* Effect.tryPromise({
+              try: () => withDedup("allMids", () => info.allMids()),
+              catch: (cause) => toHyperliquidError("Failed to fetch mids", cause),
+            });
+          }).pipe(
+            Effect.tapError((error: HyperliquidError) =>
+              Effect.logWarning(`[markets] allMids fetch failed: ${error.message}`),
+            ),
+          ),
+          {},
         ),
 
         optionalData: fetchOptionalData(info, preFetchedSpot),
