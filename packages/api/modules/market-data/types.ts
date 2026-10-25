@@ -19,7 +19,6 @@ export type CandleQuery = {
   readonly startTime?: Date | undefined;
   readonly endTime?: Date | undefined;
   readonly limit?: number | undefined;
-  readonly disableLimitForRange?: boolean;
 };
 
 export type RecentCandleQuery = {

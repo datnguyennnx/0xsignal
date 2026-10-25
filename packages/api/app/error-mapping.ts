@@ -24,6 +24,11 @@ import {
   UserSuspended,
   AccountNotFound,
   DuplicateLabel,
+  WalletAddressClaimed,
+  WalletChallengeNotFound,
+  WalletChallengeExpired,
+  WalletChallengeUsed,
+  WalletChallengeAddressMismatch,
 } from "@0xsignal/auth";
 import { asHttpError, type HttpError } from "../platform/http/error-response";
 
@@ -35,6 +40,13 @@ type ErrorKind = {
 
 const UNKNOWN_KIND: ErrorKind = { status: 500, code: "INTERNAL_ERROR", retryable: false };
 
+/**
+ * A 503 means the shared Hyperliquid budget is spent or the upstream is
+ * overloaded. Both refill on a rolling minute, so name that window instead of
+ * letting clients retry straight into the same refusal.
+ */
+const SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS = 60;
+
 const kinds: Record<string, ErrorKind> = {
   ValidationError: { status: 400, code: "VALIDATION_ERROR", retryable: false },
   HyperliquidValidationError: { status: 400, code: "VALIDATION_ERROR", retryable: false },
@@ -45,6 +57,12 @@ const kinds: Record<string, ErrorKind> = {
 
   ConflictError: { status: 409, code: "CONFLICT", retryable: false },
   DuplicateLabel: { status: 409, code: "CONFLICT", retryable: false },
+  WalletAddressClaimed: { status: 409, code: "CONFLICT", retryable: false },
+
+  WalletChallengeNotFound: { status: 400, code: "VALIDATION_ERROR", retryable: false },
+  WalletChallengeExpired: { status: 400, code: "VALIDATION_ERROR", retryable: false },
+  WalletChallengeUsed: { status: 400, code: "VALIDATION_ERROR", retryable: false },
+  WalletChallengeAddressMismatch: { status: 400, code: "VALIDATION_ERROR", retryable: false },
 
   UserSuspended: { status: 403, code: "FORBIDDEN", retryable: false },
 
@@ -66,14 +84,26 @@ const kinds: Record<string, ErrorKind> = {
 
 const fromTag = (tag: string, message: string): HttpError => {
   const kind = kinds[tag] ?? UNKNOWN_KIND;
-  return { status: kind.status, message, code: kind.code, retryable: kind.retryable };
+  return {
+    status: kind.status,
+    message,
+    code: kind.code,
+    retryable: kind.retryable,
+    retryAfterSeconds: kind.status === 503 ? SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS : undefined,
+  };
 };
 
 // A raw SDK 429 is upstream overload, never a client-side 429. Surface 503 so
 // callers back off instead of treating the response as their own rate limit.
 const fromRawStatus = (status: number, message: string, code?: string): HttpError =>
   status === 429
-    ? { status: 503, message, code: "SERVICE_UNAVAILABLE", retryable: true }
+    ? {
+        status: 503,
+        message,
+        code: "SERVICE_UNAVAILABLE",
+        retryable: true,
+        retryAfterSeconds: SERVICE_UNAVAILABLE_RETRY_AFTER_SECONDS,
+      }
     : asHttpError(status, message, code);
 
 // Split across two matches: a single Match pipe takes at most 20 arms.
@@ -98,6 +128,21 @@ const mapRemainingError = (error: unknown): HttpError =>
     ),
     Match.when(Match.instanceOf(OAuthCallbackFailed), () =>
       fromTag("OAuthCallbackFailed", "OAuth callback failed"),
+    ),
+    Match.when(Match.instanceOf(WalletChallengeNotFound), () =>
+      fromTag("WalletChallengeNotFound", "No valid wallet challenge; request a new one"),
+    ),
+    Match.when(Match.instanceOf(WalletChallengeExpired), () =>
+      fromTag("WalletChallengeExpired", "Wallet challenge expired; request a new one"),
+    ),
+    Match.when(Match.instanceOf(WalletChallengeUsed), () =>
+      fromTag("WalletChallengeUsed", "Wallet challenge already used; request a new one"),
+    ),
+    Match.when(Match.instanceOf(WalletChallengeAddressMismatch), () =>
+      fromTag("WalletChallengeAddressMismatch", "Wallet challenge does not match this address"),
+    ),
+    Match.when(Match.instanceOf(WalletAddressClaimed), () =>
+      fromTag("WalletAddressClaimed", "Wallet address already linked to another account"),
     ),
 
     // Plain objects with a message field

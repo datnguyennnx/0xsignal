@@ -1,4 +1,9 @@
-import { AgentRegistrationRepo, ExchangeAccountRepo, type AuthService } from "@0xsignal/auth";
+import {
+  AgentRegistrationRepo,
+  ExchangeAccountRepo,
+  WalletChallengeRepo,
+  type AuthService,
+} from "@0xsignal/auth";
 import type { HyperliquidClient } from "../integrations/hyperliquid/data-sources/hyperliquid-client";
 import type { OrderIntentService } from "../modules/exchange";
 import type { HealthService } from "../modules/health";
@@ -9,7 +14,11 @@ import type { UserDataService } from "../modules/user-data";
  * Services the route handlers may depend on; the server runtime supplies all
  * of them through AppLayer, so handlers declare them instead of asserting.
  */
-export type RouteEnvironment = AuthService | ExchangeAccountRepo | AgentRegistrationRepo;
+export type RouteEnvironment =
+  | AuthService
+  | ExchangeAccountRepo
+  | AgentRegistrationRepo
+  | WalletChallengeRepo;
 
 /** Services a request effect resolves from the shared runtime. */
 export type HttpRequestServices =

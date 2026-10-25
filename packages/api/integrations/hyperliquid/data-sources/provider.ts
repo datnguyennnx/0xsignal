@@ -12,7 +12,9 @@ import {
   acquireCandleSnapshot,
   acquireInfo,
   acquireUnlistedInfo,
+  CANDLE_ADMISSION_MAX_WAIT_MS,
   HyperliquidRateLimiter,
+  type AcquireOptions,
   type RateLimitBudgetExhaustedError,
 } from "../rate-limit";
 import { INFO_WEIGHTS, UNLISTED_INFO_WEIGHT, candleSnapshotWeight } from "../weights";
@@ -155,8 +157,8 @@ export const makeHyperliquidProvider = () =>
       const hlInfo = toHyperliquidInfoClient(client.info);
       const spotIndexRef = yield* Ref.make<Record<string, string>>({});
       const tickerSnapshotCache = yield* makeTickerSnapshotCache(hlInfo);
-      const acquireFor = (weight: number) =>
-        limiter.acquire(weight).pipe(
+      const acquireFor = (weight: number, options?: AcquireOptions) =>
+        limiter.acquire(weight, options).pipe(
           Effect.mapError(
             (error: RateLimitBudgetExhaustedError) =>
               new HyperliquidError({
@@ -252,7 +254,9 @@ export const makeHyperliquidProvider = () =>
           Effect.gen(function* () {
             const internalSymbol = yield* resolveQueryCoin(coin);
 
-            yield* acquireFor(candleSnapshotWeight(candleCountForRange(interval, start, end)));
+            yield* acquireFor(candleSnapshotWeight(candleCountForRange(interval, start, end)), {
+              maxWaitMillis: CANDLE_ADMISSION_MAX_WAIT_MS,
+            });
             const candles = yield* tryRequest(
               `Failed to fetch candles for ${coin} (${interval})`,
               () =>
@@ -352,7 +356,9 @@ export const getCandleSnapshot = (
 ): Effect.Effect<Candle[], HyperliquidError, HyperliquidClient | HyperliquidRateLimiter> =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
-    yield* acquireCandleSnapshot(candleCountForRange(interval, startTime, endTime));
+    yield* acquireCandleSnapshot(candleCountForRange(interval, startTime, endTime), {
+      maxWaitMillis: CANDLE_ADMISSION_MAX_WAIT_MS,
+    });
     const candles = yield* Effect.tryPromise({
       try: () =>
         info.candleSnapshot({

@@ -5,6 +5,7 @@ import {
   AuthService,
   ExchangeAccountRepo,
   AgentRegistrationRepo,
+  WalletChallengeRepo,
   type PostgresConnectionPool,
 } from "@0xsignal/auth";
 import type { HyperliquidClient } from "../integrations/hyperliquid/data-sources/client";
@@ -26,6 +27,7 @@ export const AppServicesLayer: Layer.Layer<
   | AuthService
   | ExchangeAccountRepo
   | AgentRegistrationRepo
+  | WalletChallengeRepo
   | MarketDataService
   | UserDataService
   | OrderIntentService,

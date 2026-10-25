@@ -5,7 +5,6 @@ import {
   MarketProviderError,
   MarketRemoteProvider,
 } from "./index";
-import { CandleCache } from "./candle-cache";
 import { makeCandleStore } from "./market-candle-store";
 import { makeMarketDataService } from "./service";
 import { hyperliquidProviderLayer } from "../../integrations/hyperliquid/data-sources/layer";
@@ -14,14 +13,11 @@ import { HyperliquidError } from "../../integrations/hyperliquid/data-sources/er
 
 export const marketDataServiceLayer = Layer.effect(MarketDataService, makeMarketDataService());
 
-export { candleCacheLayer } from "./candle-cache";
-
 export const marketCandleStoreLayer = Layer.effect(
   MarketCandleStore,
   Effect.gen(function* () {
-    const cache = yield* CandleCache;
     const provider = yield* MarketRemoteProvider;
-    return MarketCandleStore.of(makeCandleStore(cache, provider));
+    return MarketCandleStore.of(makeCandleStore(provider));
   }),
 );
 

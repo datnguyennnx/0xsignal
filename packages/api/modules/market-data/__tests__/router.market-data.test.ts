@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Context, Effect, Layer } from "effect";
-import { MarketDataService } from "../../../modules/market-data";
+import { MarketDataService, MarketProviderError } from "../../../modules/market-data";
+import { mapMarketInfraError } from "../../../modules/market-data/error-mapping";
 import { HealthService } from "../../../modules/health";
 import { UserDataService } from "../../../modules/user-data";
 import { NotFoundError, InternalError } from "../../../shared/errors";
@@ -175,6 +176,24 @@ describe("HTTP Market Data Router", () => {
         limit: 50,
       }),
     );
+  });
+
+  it("returns 503 with Retry-After when the candle budget is exhausted", async () => {
+    mockMarketDataService.getCandles.mockReturnValue(
+      Effect.fail(
+        mapMarketInfraError("Failed to load candles")(
+          new MarketProviderError({
+            kind: "RATE_LIMITED",
+            message: "REST weight 103 is not admissible within 2000ms",
+          }),
+        ),
+      ),
+    );
+
+    const response = await runRequest("/api/candles?symbol=BTC&interval=1m");
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("60");
   });
 
   it("returns 400 for invalid candle query", async () => {

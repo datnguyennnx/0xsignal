@@ -44,7 +44,20 @@ interface ResolvedLimits {
 }
 
 export interface HyperliquidRateLimiterService {
-  readonly acquire: (weight: number) => Effect.Effect<void, RateLimitBudgetExhaustedError>;
+  readonly acquire: (
+    weight: number,
+    options?: AcquireOptions,
+  ) => Effect.Effect<void, RateLimitBudgetExhaustedError>;
+}
+
+export interface AcquireOptions {
+  /**
+   * Total time this acquire may spend waiting. Omitted means wait as long as
+   * the rolling window needs; that is right for cheap info calls, which must
+   * eventually run. Expensive upstream calls bound it so a caller cannot park
+   * the shared budget and stall every other tenant.
+   */
+  readonly maxWaitMillis?: number | undefined;
 }
 
 export class HyperliquidRateLimiter extends Context.Service<
@@ -56,6 +69,12 @@ const DEFAULT_WEIGHT_PER_SECOND = 20;
 const DEFAULT_WEIGHT_PER_MINUTE = 1200;
 /** Burst bucket: one page load is ~236 weight; a whale tick adds ~302. */
 const DEFAULT_BURST_WEIGHT = 400;
+/**
+ * A candle range is caller-controlled and can cost ~103 weight, so its wait is
+ * capped: past this the request fails fast as unavailable instead of sleeping
+ * and holding budget that every other tenant needs.
+ */
+export const CANDLE_ADMISSION_MAX_WAIT_MS = 2_000;
 const MILLIS_PER_SECOND = 1_000;
 /** Hard budget window. Supply is `perMinute` per rolling 60s, not burst + refill. */
 const WINDOW_MILLIS = 60_000;
@@ -94,7 +113,10 @@ export const makeLimiter = (limits: LimiterLimits): Effect.Effect<HyperliquidRat
       window: [],
     });
 
-    const acquire = (weight: number): Effect.Effect<void, RateLimitBudgetExhaustedError> =>
+    const acquire = (
+      weight: number,
+      options?: AcquireOptions,
+    ): Effect.Effect<void, RateLimitBudgetExhaustedError> =>
       Effect.gen(function* () {
         if (weight <= 0) return;
 
@@ -111,12 +133,25 @@ export const makeLimiter = (limits: LimiterLimits): Effect.Effect<HyperliquidRat
           return;
         }
 
+        let waitedMillis = 0;
         while (true) {
           const atMillis = yield* Clock.currentTimeMillis;
           const outcome = yield* Ref.modify(state, (previous) =>
             decide(previous, weight, atMillis, resolved),
           );
           if (outcome.waitMillis === 0) return;
+          const maxWaitMillis = options?.maxWaitMillis;
+          if (maxWaitMillis !== undefined && waitedMillis + outcome.waitMillis > maxWaitMillis) {
+            yield* Effect.fail(
+              new RateLimitBudgetExhaustedError({
+                message: `REST weight ${weight} is not admissible within ${maxWaitMillis}ms`,
+                weight,
+                capacityPerMin: resolved.perMinute,
+              }),
+            );
+            return;
+          }
+          waitedMillis += outcome.waitMillis;
           // Sleep outside the atomic refill, so a light wait never queues behind
           // a heavy one and every waiter recomputes its own wait independently.
           yield* Effect.sleep(Duration.millis(outcome.waitMillis));
@@ -220,10 +255,11 @@ const waitForWindow = (
 /** Reports a limiter refusal as a rate-limited upstream error. */
 const acquireWeight = (
   weight: number,
+  options?: AcquireOptions,
 ): Effect.Effect<void, HyperliquidError, HyperliquidRateLimiter> =>
   Effect.gen(function* () {
     const limiter = yield* HyperliquidRateLimiter;
-    yield* limiter.acquire(weight).pipe(
+    yield* limiter.acquire(weight, options).pipe(
       Effect.mapError(
         (error) =>
           new HyperliquidError({
@@ -244,8 +280,9 @@ export const acquireInfo = (
 /** Candle weight grows with the requested item count. Do not use `acquireInfo`. */
 export const acquireCandleSnapshot = (
   count: number,
+  options?: AcquireOptions,
 ): Effect.Effect<void, HyperliquidError, HyperliquidRateLimiter> =>
-  acquireWeight(candleSnapshotWeight(count));
+  acquireWeight(candleSnapshotWeight(count), options);
 
 /** Same charge against an already-resolved limiter, for layers that hold the instance. */
 export const acquireInfoFor = (

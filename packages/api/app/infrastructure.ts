@@ -5,11 +5,7 @@ import { MarketStreamHubLayer } from "../integrations/hyperliquid/streams/hub";
 import { layer as hyperliquidRateLimiterLayer } from "../integrations/hyperliquid/rate-limit";
 import { CalendarLayer } from "../modules/calendar/layer";
 import { healthServiceLayer } from "../modules/health/layer";
-import {
-  candleCacheLayer,
-  marketCandleStoreLayer,
-  marketRemoteProviderLayer,
-} from "../modules/market-data/layer";
+import { marketCandleStoreLayer, marketRemoteProviderLayer } from "../modules/market-data/layer";
 import { WhaleLayer } from "../modules/whales/layer";
 import { leaderLockLayer, postgresConnectionPoolLayer } from "../platform/db";
 
@@ -24,7 +20,6 @@ export const InfrastructureLayer = Layer.mergeAll(
   WhaleLayer,
 ).pipe(
   Layer.provideMerge(marketRemoteProviderLayer),
-  Layer.provideMerge(candleCacheLayer),
   Layer.provideMerge(leaderLockLayer),
   Layer.provideMerge(hyperliquidRateLimiterLayer),
   Layer.provideMerge(hyperliquidClientLayer),

@@ -12,6 +12,8 @@ export type HttpError = {
   readonly message: string;
   readonly code?: string | undefined;
   readonly retryable: boolean;
+  /** Set on a 503 so the response carries `Retry-After`. */
+  readonly retryAfterSeconds?: number | undefined;
 };
 
 export const asHttpError = (
@@ -26,6 +28,11 @@ export const asHttpError = (
   retryable,
 });
 
+export const retryAfterHeader = (httpError: HttpError): Record<string, string> =>
+  httpError.retryAfterSeconds === undefined
+    ? {}
+    : { "Retry-After": String(httpError.retryAfterSeconds) };
+
 export const errorResponse = (
   httpError: HttpError,
   corsHeaders: Record<string, string>,
@@ -38,6 +45,6 @@ export const errorResponse = (
   };
   return new Response(JSON.stringify(body), {
     status: httpError.status,
-    headers: { "Content-Type": "application/json", ...corsHeaders },
+    headers: { "Content-Type": "application/json", ...corsHeaders, ...retryAfterHeader(httpError) },
   });
 };

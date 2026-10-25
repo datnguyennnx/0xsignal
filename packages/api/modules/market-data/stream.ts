@@ -9,10 +9,8 @@ export class MarketStreamError extends Data.TaggedError("MarketStreamError")<{
   readonly cause?: unknown;
 }> {}
 
-type MarketWsChannel = Exclude<WsMarketChannel, "trades">;
-
 export type MarketWsSubscription = {
-  readonly channel: MarketWsChannel;
+  readonly channel: WsMarketChannel;
   readonly symbol?: string | undefined;
   readonly interval?: WsMarketInterval | undefined;
   readonly nSigFigs?: 2 | 3 | 4 | 5 | null | undefined;

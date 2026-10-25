@@ -50,7 +50,6 @@ export const makeMarketDataService = () =>
               ...query,
               startTime,
               endTime,
-              disableLimitForRange: Boolean(query.startTime && query.endTime),
             })
             .pipe(Effect.mapError(mapMarketInfraError("Failed to load candles")));
 
@@ -62,7 +61,7 @@ export const makeMarketDataService = () =>
             missingWindows: [],
           };
 
-          return { candles, provenance: "Candle Store", coverage };
+          return { candles, provenance: "Hyperliquid Snapshot (Range via Backend)", coverage };
         }),
 
       getRecentCandles: (query: RecentCandleQuery) =>
@@ -106,7 +105,6 @@ export const makeMarketDataService = () =>
               timeframe: query.timeframe,
               startTime,
               endTime,
-              disableLimitForRange: true,
             })
             .pipe(Effect.mapError(mapMarketInfraError("Failed to load recent candles")));
 

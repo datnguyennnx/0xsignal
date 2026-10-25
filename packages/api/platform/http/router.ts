@@ -1,5 +1,11 @@
 import { Effect, Option, Schema } from "effect";
-import { asHttpError, errorResponse, json, type HttpError } from "./error-response";
+import {
+  asHttpError,
+  errorResponse,
+  json,
+  retryAfterHeader,
+  type HttpError,
+} from "./error-response";
 import type { Route } from "./route-contracts";
 
 const HttpErrorSchema = Schema.Struct({
@@ -7,6 +13,7 @@ const HttpErrorSchema = Schema.Struct({
   message: Schema.String,
   code: Schema.optional(Schema.String),
   retryable: Schema.Boolean,
+  retryAfterSeconds: Schema.optional(Schema.Int),
 });
 
 const decodeHttpError = Schema.decodeUnknownOption(HttpErrorSchema, { onExcessProperty: "error" });
@@ -57,7 +64,7 @@ export const createRouter = <R>(
         if (httpError.code !== undefined && httpError.code !== "") {
           body.code = httpError.code;
         }
-        return Effect.succeed(json(body, httpError.status));
+        return Effect.succeed(json(body, httpError.status, retryAfterHeader(httpError)));
       }),
     );
 };
