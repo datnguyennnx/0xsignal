@@ -11,6 +11,7 @@ import {
   makeTickerSnapshotCache,
   readTickerSnapshot,
 } from "../../../../integrations/hyperliquid/data-sources/provider";
+import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
 
 const makeInfo = (): HyperliquidInfoClient => ({
   allMids: vi.fn<HyperliquidInfoClient["allMids"]>().mockResolvedValue({ BTC: "100" }),
@@ -23,7 +24,9 @@ const makeInfo = (): HyperliquidInfoClient => ({
 describe("ticker snapshot coalescing and TTL cache", () => {
   it("coalesces concurrent identical reads into one upstream request", async () => {
     const info = makeInfo();
-    const cache = await Effect.runPromise(makeTickerSnapshotCache(info));
+    const cache = await Effect.runPromise(
+      Effect.provide(makeTickerSnapshotCache(info), rateLimiterUnlimited),
+    );
 
     const [first, second] = await Effect.runPromise(
       Effect.all([readTickerSnapshot(cache, "BTC"), readTickerSnapshot(cache, "BTC")], {
@@ -40,9 +43,12 @@ describe("ticker snapshot coalescing and TTL cache", () => {
     const info = makeInfo();
 
     await Effect.runPromise(
-      Effect.all([getTickerSnapshot(info, "BTC"), getTickerSnapshot(info, "xyz:ABC")], {
-        concurrency: "unbounded",
-      }),
+      Effect.provide(
+        Effect.all([getTickerSnapshot(info, "BTC"), getTickerSnapshot(info, "xyz:ABC")], {
+          concurrency: "unbounded",
+        }),
+        rateLimiterUnlimited,
+      ),
     );
 
     expect(info.allMids).toHaveBeenCalledTimes(1);
@@ -51,7 +57,9 @@ describe("ticker snapshot coalescing and TTL cache", () => {
 
   it("serves repeat reads inside the TTL without hitting upstream", async () => {
     const info = makeInfo();
-    const cache = await Effect.runPromise(makeTickerSnapshotCache(info));
+    const cache = await Effect.runPromise(
+      Effect.provide(makeTickerSnapshotCache(info), rateLimiterUnlimited),
+    );
 
     await Effect.runPromise(readTickerSnapshot(cache, "BTC"));
     await Effect.runPromise(readTickerSnapshot(cache, "ETH"));
@@ -62,7 +70,9 @@ describe("ticker snapshot coalescing and TTL cache", () => {
 
   it("bypasses the cache on the fresh path and refreshes it", async () => {
     const info = makeInfo();
-    const cache = await Effect.runPromise(makeTickerSnapshotCache(info));
+    const cache = await Effect.runPromise(
+      Effect.provide(makeTickerSnapshotCache(info), rateLimiterUnlimited),
+    );
 
     await Effect.runPromise(readTickerSnapshot(cache, "BTC"));
     await Effect.runPromise(readTickerSnapshot(cache, "BTC", { fresh: true }));
@@ -77,7 +87,10 @@ describe("ticker snapshot coalescing and TTL cache", () => {
   it("evicts the oldest snapshot at capacity", async () => {
     const info = makeInfo();
     const cache = await Effect.runPromise(
-      makeTickerSnapshotCache(info, { capacity: 2, timeToLive: "1 hour" }),
+      Effect.provide(
+        makeTickerSnapshotCache(info, { capacity: 2, timeToLive: "1 hour" }),
+        rateLimiterUnlimited,
+      ),
     );
 
     await Effect.runPromise(

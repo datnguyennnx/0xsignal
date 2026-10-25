@@ -24,12 +24,22 @@ export class NotFoundError extends Data.TaggedError("NotFoundError")<{
   readonly cause?: unknown;
 }> {}
 
+export class ServiceUnavailableError extends Data.TaggedError("ServiceUnavailableError")<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}
+
 export class ValidationError extends Data.TaggedError("ValidationError")<{
   readonly message: string;
   readonly cause?: unknown;
 }> {}
 
-export type AppError = NotFoundError | ConflictError | ValidationError | InternalError;
+export type AppError =
+  | NotFoundError
+  | ConflictError
+  | ValidationError
+  | InternalError
+  | ServiceUnavailableError;
 
 /**
  * Exchange-domain failures. The classifier in

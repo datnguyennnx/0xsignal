@@ -3,10 +3,15 @@ import { normalizeCandles, parseHlRawCandles, toHlInterval } from "./normalizer"
 import { normalizeSymbol } from "./symbol";
 import { HyperliquidClient } from "./hyperliquid-client";
 import { HyperliquidError, TickerSnapshotError, toHyperliquidError } from "./errors";
+import {
+  acquireInfoWeight,
+  HyperliquidRateLimiter,
+  INFO_REQUEST_WEIGHT,
+  type RateLimitBudgetExhaustedError,
+} from "../rate-limit";
 import { HyperliquidProvider } from "./types";
 import type {
   Candle,
-  HyperliquidAggregatedAsset,
   HyperliquidInfoClient,
   PerpAnnotationResponse,
   TickerPayload,
@@ -53,11 +58,15 @@ export const makeTickerSnapshotCache = (
     readonly capacity?: number | undefined;
     readonly timeToLive?: Duration.Input | undefined;
   } = {},
-): Effect.Effect<Cache.Cache<string, TickerSnapshot, HyperliquidError>> =>
-  Cache.make<string, TickerSnapshot, HyperliquidError>({
+): Effect.Effect<
+  Cache.Cache<string, TickerSnapshot, HyperliquidError>,
+  never,
+  HyperliquidRateLimiter
+> =>
+  Cache.make({
     capacity: limits.capacity ?? TICKER_SNAPSHOT_CACHE_CAPACITY,
     timeToLive: limits.timeToLive ?? Duration.millis(TICKER_SNAPSHOT_TTL_MS),
-    lookup: (key) => getTickerSnapshotByCacheKey(info, key),
+    lookup: (key: string) => getTickerSnapshotByCacheKey(info, key),
   });
 
 export const readTickerSnapshot = (
@@ -89,19 +98,24 @@ export const makeHyperliquidProvider = () =>
   Effect.scoped(
     Effect.gen(function* () {
       const client = yield* HyperliquidClient;
+      const limiter = yield* HyperliquidRateLimiter;
       const hlInfo = toHyperliquidInfoClient(client.info);
       const spotIndexRef = yield* Ref.make<Record<string, string>>({});
       const tickerSnapshotCache = yield* makeTickerSnapshotCache(hlInfo);
+      const acquire = limiter
+        .acquire(INFO_REQUEST_WEIGHT)
+        .pipe(
+          Effect.mapError(
+            (error: RateLimitBudgetExhaustedError) =>
+              new HyperliquidError({ message: error.message, kind: "RATE_LIMITED", cause: error }),
+          ),
+        );
 
       const readSnapshot = (symbol?: string, options?: TickerSnapshotReadOptions) =>
         readTickerSnapshot(tickerSnapshotCache, symbol, options);
 
       // Aggregated markets cache — REST metadata (not real-time), refreshed every 60s
-      const aggregatedCache = yield* Cache.make<
-        string,
-        readonly HyperliquidAggregatedAsset[],
-        HyperliquidError
-      >({
+      const aggregatedCache = yield* Cache.make({
         capacity: 1,
         timeToLive: Duration.millis(AGGREGATED_MARKETS_TTL_MS),
         lookup: () => getAggregatedMarketsSnapshot(hlInfo),
@@ -151,6 +165,7 @@ export const makeHyperliquidProvider = () =>
               internalSymbol = resolveInternalSymbol(ticker, coin);
             }
 
+            yield* acquire;
             const candles = yield* tryRequest(
               `Failed to fetch candles for ${coin} (${interval})`,
               () =>
@@ -214,6 +229,7 @@ export const makeHyperliquidProvider = () =>
 
             const nSigFigs = parseDepthToSigFigs(depth);
 
+            yield* acquire;
             const orderbook = yield* tryRequest(`Failed to fetch orderbook for ${symbol}`, () =>
               client.info.l2Book({ coin: internalSymbol, nSigFigs }),
             );
@@ -245,6 +261,7 @@ export const makeHyperliquidProvider = () =>
               );
             }
 
+            yield* acquire;
             const annotation = yield* tryRequest(
               `Failed to fetch trade annotation for ${symbol}`,
               () => client.info.perpAnnotation({ coin: internalSymbol }),
@@ -264,9 +281,10 @@ export const getCandleSnapshot = (
   interval: MarketTimeframe,
   startTime: number,
   endTime: number,
-): Effect.Effect<Candle[], HyperliquidError, HyperliquidClient> =>
+): Effect.Effect<Candle[], HyperliquidError, HyperliquidClient | HyperliquidRateLimiter> =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
+    yield* acquireInfoWeight;
     const candles = yield* Effect.tryPromise({
       try: () =>
         info.candleSnapshot({
@@ -289,10 +307,11 @@ export const getCandleSnapshot = (
 export const getAllMids = (): Effect.Effect<
   Record<string, string>,
   HyperliquidError,
-  HyperliquidClient
+  HyperliquidClient | HyperliquidRateLimiter
 > =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
+    yield* acquireInfoWeight;
     return yield* Effect.tryPromise({
       try: () => withDedup("allMids", () => info.allMids()),
       catch: (cause) => toHyperliquidError("Failed to fetch all mids", cause),
@@ -307,7 +326,11 @@ export const getAllMids = (): Effect.Effect<
 
 export const getTicker = (
   symbol: string,
-): Effect.Effect<TickerPayload, HyperliquidError | TickerSnapshotError, HyperliquidClient> =>
+): Effect.Effect<
+  TickerPayload,
+  HyperliquidError | TickerSnapshotError,
+  HyperliquidClient | HyperliquidRateLimiter
+> =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
     const hlInfo = toHyperliquidInfoClient(info);
@@ -318,7 +341,7 @@ export const getTicker = (
 export const getOrderBook = (
   symbol: string,
   depth?: number,
-): Effect.Effect<OrderBookPayload, HyperliquidError, HyperliquidClient> =>
+): Effect.Effect<OrderBookPayload, HyperliquidError, HyperliquidClient | HyperliquidRateLimiter> =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
     const hlInfo = toHyperliquidInfoClient(info);
@@ -327,6 +350,7 @@ export const getOrderBook = (
 
     const nSigFigs = parseDepthToSigFigs(depth);
 
+    yield* acquireInfoWeight;
     const orderbook = yield* Effect.tryPromise({
       try: () => info.l2Book({ coin: internalSymbol, nSigFigs }),
       catch: (cause) =>
@@ -350,7 +374,7 @@ export const getTradeAnnotation = (
 ): Effect.Effect<
   { symbol: string; annotation: PerpAnnotationResponse },
   HyperliquidError,
-  HyperliquidClient
+  HyperliquidClient | HyperliquidRateLimiter
 > =>
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
@@ -366,6 +390,7 @@ export const getTradeAnnotation = (
         }),
       );
     }
+    yield* acquireInfoWeight;
     const annotation = yield* Effect.tryPromise({
       try: () => info.perpAnnotation({ coin: internalSymbol }),
       catch: (cause) =>

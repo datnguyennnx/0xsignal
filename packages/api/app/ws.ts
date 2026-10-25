@@ -7,7 +7,7 @@ import {
   WS_IDLE_TIMEOUT_SECONDS,
 } from "../modules/market-data/ws";
 import { asHttpError, type HttpError } from "../platform/http/error-response";
-import type { SocketConnection, WsSetup } from "../platform/http/ws";
+import type { RunSocketWork, SocketConnection, WsSetup } from "../platform/http/ws";
 
 const toWsHttpError = (error: { readonly message: string }): HttpError =>
   asHttpError(500, error.message);
@@ -20,9 +20,12 @@ const socketConnection = (hub: MarketStreamHubPort): SocketConnection<MarketWsCo
 
 // The transport sees only this opaque setup; the concrete market-data hub is
 // adapted here, at the composition root.
-export const createWsSetup = (hub: MarketStreamHubPort): WsSetup<MarketWsConnectionData> => ({
+export const createWsSetup = (
+  hub: MarketStreamHubPort,
+  run: RunSocketWork,
+): WsSetup<MarketWsConnectionData> => ({
   path: MARKET_WS_PATH,
   idleTimeoutSeconds: WS_IDLE_TIMEOUT_SECONDS,
   upgrade: (url, req, server) => upgradeMarketWs(url, req, server, hub),
-  handlers: createWsEventHandlers(socketConnection(hub)),
+  handlers: createWsEventHandlers(socketConnection(hub), run),
 });

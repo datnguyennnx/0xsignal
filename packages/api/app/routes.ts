@@ -11,7 +11,7 @@ import { whaleRoutes } from "./routes/whales";
 
 type AppEnv = HttpRequestServices;
 
-export const routes: Array<Route<AppEnv>> = [
+export const routes: Array<Route<AppEnv, unknown>> = [
   ...healthRoutes,
   ...marketDataRoutes,
   ...calendarRoutes,

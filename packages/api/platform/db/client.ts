@@ -1,4 +1,4 @@
-import { Config, Data, Effect, Layer, Option } from "effect";
+import { Config, Data, Effect, Layer, Option, Queue, type Scope, Stream } from "effect";
 import { Pool } from "pg";
 
 import { PostgresConnectionPool } from "@0xsignal/auth";
@@ -8,8 +8,34 @@ class PostgresConnectionError extends Data.TaggedError("PostgresConnectionError"
   readonly cause?: unknown;
 }> {}
 
+/** The pg surface the error bridge needs, so it can be exercised without a live pool. */
+export interface PoolErrorSource {
+  readonly on: (event: "error", listener: (err: Error) => void) => unknown;
+}
+
+/** Bounded so a pool that fails in a tight loop cannot grow memory without limit. */
+const POOL_ERROR_QUEUE_CAPACITY = 256;
+
+// pg emits "error" from a Node event emitter, outside any Effect. The handler
+// only enqueues; a fiber in the layer scope logs, so the log runs in the layer's
+// context instead of a freshly started runtime.
+export const bridgePoolErrors = (pool: PoolErrorSource): Effect.Effect<void, never, Scope.Scope> =>
+  Effect.gen(function* () {
+    const errors = yield* Queue.sliding<Error>(POOL_ERROR_QUEUE_CAPACITY);
+    yield* Stream.fromQueue(errors).pipe(
+      Stream.runForEach((err) =>
+        Effect.logError(`Unexpected PostgreSQL pool error: ${err.message}`),
+      ),
+      Effect.forkScoped,
+    );
+
+    pool.on("error", (err) => {
+      Queue.offerUnsafe(errors, err);
+    });
+  });
+
 // Layer that creates the pool via acquireRelease (optional — null if unconfigured)
-// Direct pg.Pool (no @effect/sql-pg) + runSync bridge for pool "error" events.
+// Direct pg.Pool (no @effect/sql-pg).
 export const postgresConnectionPoolLayer = Layer.effect(
   PostgresConnectionPool,
   Effect.acquireRelease(
@@ -29,14 +55,7 @@ export const postgresConnectionPoolLayer = Layer.effect(
         connectionTimeoutMillis: 10000,
       });
 
-      // Bridge Pattern: Effect.runSync in 3rd-party event callback
-      // pg.Pool emits "error" events from a non-Effect context (Node event
-      // emitter). We cannot yield* inside this callback. Effect.runSync is
-      // the correct way to log an Effect within a synchronous event handler.
-      // This is an acceptable bridge pattern — documented as such.
-      pool.on("error", (err: Error) => {
-        Effect.runSync(Effect.logError(`Unexpected PostgreSQL pool error: ${err.message}`));
-      });
+      yield* bridgePoolErrors(pool);
 
       return pool;
     }),

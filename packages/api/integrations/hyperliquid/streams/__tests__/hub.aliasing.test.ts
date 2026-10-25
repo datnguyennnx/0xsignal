@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { Effect, Ref } from "effect";
+import { Effect, Fiber, Queue, Ref } from "effect";
+import { TestClock } from "effect/testing";
 import type { ServerWebSocket, ServerWebSocketSendStatus, WebSocketReadyState } from "bun";
 import {
   SubscriptionClient,
   type ISubscription,
   type ISubscriptionTransport,
 } from "@nktkas/hyperliquid";
-import { makeMarketStreamHubLayer } from "../hub";
+import { makeMarketStreamHubLayer, MAX_SUBSCRIBE_ATTEMPTS, subscribeRetrySchedule } from "../hub";
 import {
-  detachClient,
+  applyDetach,
+  type DetachRequest,
+  enqueueDetach,
   MarketStreamHub,
   type Bucket,
   type MarketWsConnectionData,
@@ -202,7 +205,9 @@ describe("market stream hub buckets aliasing", () => {
       const before = requireBucket(buckets, "allMids:");
       expect(before.clients.size).toBe(2);
 
-      detachClient(buckets, "allMids:")(dropped);
+      const requests = yield* Queue.unbounded<DetachRequest>();
+      enqueueDetach(requests, "allMids:")(dropped);
+      yield* applyDetach(buckets, yield* Queue.take(requests));
 
       const after = requireBucket(buckets, "allMids:");
       expect(after.clients.size).toBe(1);
@@ -246,5 +251,27 @@ describe("market stream hub buckets aliasing", () => {
     });
 
     await Effect.runPromise(program.pipe(Effect.provide(layer)));
+  });
+});
+
+describe("Market WS subscribe retries", () => {
+  it("evaluates exactly MAX_SUBSCRIBE_ATTEMPTS times when the subscribe keeps failing", async () => {
+    let attempts = 0;
+
+    const program = Effect.gen(function* () {
+      const fiber = yield* Effect.gen(function* () {
+        attempts += 1;
+        return yield* Effect.fail("subscribe failed");
+      }).pipe(Effect.retry(subscribeRetrySchedule), Effect.exit, Effect.forkChild);
+
+      yield* TestClock.adjust("1 hour");
+      yield* Fiber.await(fiber);
+    });
+
+    await Effect.runPromise(Effect.provide(program, TestClock.layer()));
+
+    // Retries plus the initial evaluation must equal the budget; a hardcoded
+    // `upTo({ times: 3 })` allowed a fourth attempt.
+    expect(attempts).toBe(MAX_SUBSCRIBE_ATTEMPTS);
   });
 });

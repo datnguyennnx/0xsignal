@@ -84,8 +84,17 @@
       }
     },
     {
-      // The composition root is the one place that may wire everything together.
-      "files": ["packages/api/app.ts"],
+      // Imports are the composition root's job: naming every port in one place
+      // is what these files are for, so the dependency count is not a smell.
+      "files": ["packages/api/app.ts", "packages/api/app/services.ts"],
+      "rules": {
+        "import/max-dependencies": "off"
+      }
+    },
+    {
+      // The provider is the one adapter that composes the limiter, mapping,
+      // dedup and normalizer ports; splitting it would scatter one contract.
+      "files": ["packages/api/integrations/hyperliquid/data-sources/provider.ts"],
       "rules": {
         "import/max-dependencies": "off"
       }

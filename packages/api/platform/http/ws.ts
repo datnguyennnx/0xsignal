@@ -28,3 +28,13 @@ export interface WsSetup<D> {
   readonly upgrade: (url: URL, req: Request, server: Server<D>) => Response | undefined;
   readonly handlers: WsEventHandlers<D>;
 }
+
+/**
+ * Starts socket work on the application runtime. Bun invokes the socket
+ * callbacks outside any Effect context, so the composition root supplies this
+ * boundary and the handler logic never starts a runtime of its own.
+ */
+export type RunSocketWork = (
+  effect: Effect.Effect<void, unknown>,
+  onError: (error: unknown) => void,
+) => void;

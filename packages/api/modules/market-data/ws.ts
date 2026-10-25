@@ -1,7 +1,7 @@
 import type { ServerWebSocket } from "bun";
 import { Effect, Exit, Scope } from "effect";
 import type { HttpError } from "../../platform/http/error-response";
-import type { SocketConnection, WsEventHandlers } from "../../platform/http/ws";
+import type { RunSocketWork, SocketConnection, WsEventHandlers } from "../../platform/http/ws";
 import { handleWsUpgrade, type WsUpgradeServer } from "../../platform/http/ws/upgrade";
 import type { MarketStreamHubPort, MarketWsConnectionData, MarketWsSubscription } from "./stream";
 import { parseMarketWsSubscription } from "./subscription-parser";
@@ -23,92 +23,131 @@ interface Connection {
   missedPongs: number;
 }
 
-export const createWsEventHandlers = <D>(connection: SocketConnection<D>): WsEventHandlers<D> => {
-  // Bun hands each callback the socket only, so connection lifetime cannot live
-  // in an Effect context; the handler tracks it instead.
-  const connections = new Map<Ws<D>, Connection>();
+type HandlerContext<D> = {
+  readonly connection: SocketConnection<D>;
+  readonly run: RunSocketWork;
+  readonly connections: Map<Ws<D>, Connection>;
+};
 
-  const release = (ws: Ws<D>, reason: string): void => {
-    const current = connections.get(ws);
-    if (current === undefined) return;
-    // Removing first picks a single winner between the close callback, a
-    // callback error, and the heartbeat deadline.
-    connections.delete(ws);
+const closeConnection = <D>(
+  { connections, run, connection }: HandlerContext<D>,
+  ws: Ws<D>,
+  reason: string,
+): void => {
+  const current = connections.get(ws);
+  if (current === undefined) return;
+  // Removing first picks a single winner between the close callback, a
+  // callback error, and the heartbeat deadline.
+  connections.delete(ws);
 
-    const shutdown = connection
-      .handleClose(ws)
-      .pipe(Effect.ensuring(Scope.close(current.scope, Exit.void)));
+  const shutdown = connection
+    .handleClose(ws)
+    .pipe(Effect.ensuring(Scope.close(current.scope, Exit.void)));
 
-    Effect.runPromise(Scope.provide(current.scope)(shutdown)).catch((err) => {
-      console.error(`[WS ${reason} Finalizer Error]:`, err);
-    });
-  };
+  run(Scope.provide(current.scope)(shutdown), (err) => {
+    console.error(`[WS ${reason} Finalizer Error]:`, err);
+  });
+};
 
-  const fail = (ws: Ws<D>, reason: string, err: unknown): void => {
-    console.error(`[WS ${reason} Error]:`, err);
-    release(ws, reason);
-    if (ws.readyState === 1) ws.terminate();
-  };
+const failConnection = <D>(
+  context: HandlerContext<D>,
+  ws: Ws<D>,
+  reason: string,
+  err: unknown,
+): void => {
+  console.error(`[WS ${reason} Error]:`, err);
+  closeConnection(context, ws, reason);
+  if (ws.readyState === 1) ws.terminate();
+};
 
-  const dispatch = (ws: Ws<D>, effect: Effect.Effect<void, HttpError>, reason: string): void => {
-    const current = connections.get(ws);
-    const program = current === undefined ? effect : Scope.provide(current.scope)(effect);
-    // The socket callback cannot return an error, so a typed port failure is
-    // logged and terminated here instead of escaping the handler.
-    const handled = program.pipe(
-      Effect.catch((error) =>
-        Effect.sync(() => {
-          fail(ws, reason, error);
-        }),
-      ),
-    );
-    Effect.runPromise(handled).catch((err) => {
-      fail(ws, reason, err);
-    });
-  };
+const dispatch = <D>(
+  context: HandlerContext<D>,
+  ws: Ws<D>,
+  effect: Effect.Effect<void, HttpError>,
+  reason: string,
+): void => {
+  const current = context.connections.get(ws);
+  const program = current === undefined ? effect : Scope.provide(current.scope)(effect);
+  // The socket callback cannot return an error, so a typed port failure is
+  // logged and terminated here instead of escaping the handler.
+  const handled = program.pipe(
+    Effect.catch((error) =>
+      Effect.sync(() => {
+        failConnection(context, ws, reason, error);
+      }),
+    ),
+  );
+  context.run(handled, (err) => {
+    failConnection(context, ws, reason, err);
+  });
+};
 
-  const heartbeat = (ws: Ws<D>, current: Connection): Effect.Effect<void> =>
-    Effect.gen(function* () {
-      while (connections.get(ws) === current) {
-        yield* Effect.sleep(WS_PING_INTERVAL_MS);
-        if (connections.get(ws) !== current) return;
-        if (current.missedPongs >= WS_MISSED_PONG_LIMIT) {
-          // A peer that stopped answering pings may never emit `close`, so the
-          // scope is finalized here rather than left to the transport.
-          release(ws, "Heartbeat");
-          if (ws.readyState === 1) ws.terminate();
-          return;
-        }
-        if (ws.readyState !== 1) {
-          release(ws, "Heartbeat");
-          return;
-        }
-        current.missedPongs += 1;
-        ws.ping();
+const heartbeatLoop = <D>(
+  context: HandlerContext<D>,
+  ws: Ws<D>,
+  current: Connection,
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    while (context.connections.get(ws) === current) {
+      yield* Effect.sleep(WS_PING_INTERVAL_MS);
+      if (context.connections.get(ws) !== current) return;
+      if (current.missedPongs >= WS_MISSED_PONG_LIMIT) {
+        // A peer that stopped answering pings may never emit `close`, so the
+        // scope is finalized here rather than left to the transport.
+        closeConnection(context, ws, "Heartbeat");
+        if (ws.readyState === 1) ws.terminate();
+        return;
       }
-    });
+      if (ws.readyState !== 1) {
+        closeConnection(context, ws, "Heartbeat");
+        return;
+      }
+      current.missedPongs += 1;
+      ws.ping();
+    }
+  });
+
+const registerConnection = <D>(context: HandlerContext<D>, ws: Ws<D>): void => {
+  const current: Connection = {
+    scope: Scope.makeUnsafe("sequential"),
+    missedPongs: 0,
+  };
+  context.connections.set(ws, current);
+  context.run(
+    heartbeatLoop(context, ws, current).pipe(Effect.forkIn(current.scope), Effect.asVoid),
+    (err) => {
+      failConnection(context, ws, "Heartbeat", err);
+    },
+  );
+  dispatch(context, ws, context.connection.handleOpen(ws), "Open");
+};
+
+const resolveConnection = <D>(
+  connections: Map<Ws<D>, Connection>,
+  ws: Ws<D>,
+): Connection | undefined => connections.get(ws);
+
+export const createWsEventHandlers = <D>(
+  connection: SocketConnection<D>,
+  run: RunSocketWork,
+): WsEventHandlers<D> => {
+  // The registry is mutated only from Bun socket callbacks and the
+  // per-connection heartbeat, both on the single JS thread.
+  const context: HandlerContext<D> = { connection, run, connections: new Map() };
 
   return {
     open(ws: Ws<D>) {
-      const current: Connection = {
-        scope: Scope.makeUnsafe("sequential"),
-        missedPongs: 0,
-      };
-      connections.set(ws, current);
-      Effect.runPromise(Effect.forkIn(heartbeat(ws, current), current.scope)).catch((err) => {
-        fail(ws, "Heartbeat", err);
-      });
-      dispatch(ws, connection.handleOpen(ws), "Open");
+      registerConnection(context, ws);
     },
     message(ws: Ws<D>, message: string | Buffer) {
-      dispatch(ws, connection.handleMessage(ws, message), "Message");
+      dispatch(context, ws, connection.handleMessage(ws, message), "Message");
     },
     pong(ws: Ws<D>) {
-      const current = connections.get(ws);
+      const current = resolveConnection(context.connections, ws);
       if (current !== undefined) current.missedPongs = 0;
     },
     close(ws: Ws<D>) {
-      release(ws, "Close");
+      closeConnection(context, ws, "Close");
     },
   };
 };

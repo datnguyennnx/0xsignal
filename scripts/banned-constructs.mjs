@@ -10,13 +10,16 @@ const root = process.env.BANNED_CONSTRUCTS_ROOT ?? defaultRoot;
 const baselinePath = fileURLToPath(new URL("./banned-constructs.baseline.txt", import.meta.url));
 const writeBaseline = process.argv.includes("--write-baseline");
 
+/** @param {string} path */
 const isTest = (path) => path.includes("/__tests__/") || path.endsWith(".test.ts");
 
+/** @type {Array<{ id: string, pattern: RegExp, allowed: (path: string) => boolean }>} */
 const RULES = [
   {
     id: "no-run-effect",
+    // Tests exist to run effects; only production entry points may.
     pattern: /Effect\.run(?:Promise|Sync|Fork|SyncWith|PromiseWith)\s*\(/,
-    allowed: (path) => path === "main.ts" || path.startsWith("app/"),
+    allowed: (path) => path === "main.ts" || path.startsWith("app/") || isTest(path),
   },
   {
     id: "no-console",
@@ -35,6 +38,7 @@ const RULES = [
   },
 ];
 
+/** @param {string} dir @returns {string[]} */
 const walk = (dir) => {
   const files = [];
   for (const entry of readdirSync(dir)) {
@@ -46,11 +50,14 @@ const walk = (dir) => {
   return files;
 };
 
+/** @param {string[]} lines @param {number} index @param {string} id */
 const allowlisted = (lines, index, id) =>
   lines[index].includes(`lint-allow: ${id}`) ||
   (index > 0 && lines[index - 1].includes(`lint-allow: ${id}`));
 
+/** @returns {string[]} */
 const scan = () => {
+  /** @type {string[]} */
   const hits = [];
   for (const file of walk(root)) {
     const path = relative(root, file).split("\\").join("/");

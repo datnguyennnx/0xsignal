@@ -1,10 +1,11 @@
-import { Duration, Effect, Schedule } from "effect";
+import { Effect } from "effect";
 import type { InfoClient } from "@nktkas/hyperliquid";
 import { normalizeSymbol } from "./symbol";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 import { processMetaResults } from "./market-aggregation";
 import type { TickerSnapshot, HyperliquidInfoClient } from "./types";
 import { withDedup } from "./request-dedup";
+import { acquireInfoWeight, type HyperliquidRateLimiter } from "../rate-limit";
 
 /**
  * Narrow an InfoClient (from @nktkas/hyperliquid) to HyperliquidInfoClient.
@@ -13,53 +14,52 @@ export const toHyperliquidInfoClient = (info: InfoClient): HyperliquidInfoClient
 
 export { getAggregatedMarketsSnapshot } from "./aggregated-markets";
 
-const MIDS_RETRY_MAX = 3;
-const MIDS_RETRY_BASE = Duration.seconds(1);
-
 /**
- * Fetch allMids with in-flight dedup + exponential backoff on 429.
+ * Fetch allMids with in-flight dedup. One attempt per call: pacing belongs to
+ * the shared limiter, and retrying a 429 here only multiplies the burst.
  */
-const fetchAllMidsWithRetry = (
+const fetchAllMids = (
   info: HyperliquidInfoClient,
-): Effect.Effect<Record<string, string>> =>
-  Effect.tryPromise({
-    try: () => withDedup("allMids", () => info.allMids()),
-    catch: (cause) => toHyperliquidError("Failed to fetch mids", cause),
+): Effect.Effect<Record<string, string>, never, HyperliquidRateLimiter> =>
+  Effect.gen(function* () {
+    yield* acquireInfoWeight;
+    return yield* Effect.tryPromise({
+      try: () => withDedup("allMids", () => info.allMids()),
+      catch: (cause) => toHyperliquidError("Failed to fetch mids", cause),
+    });
   }).pipe(
-    Effect.retry({
-      times: MIDS_RETRY_MAX - 1,
-      schedule: Schedule.exponential(MIDS_RETRY_BASE),
-      while: (err: HyperliquidError) => err.kind === "RATE_LIMITED",
-    }),
-    Effect.tapError((e) =>
-      Effect.logWarning(`[mapping] allMids fetch failed after retries: ${String(e)}`),
-    ),
+    Effect.tapError((e) => Effect.logWarning(`[mapping] allMids fetch failed: ${String(e)}`)),
     Effect.catch(() => Effect.succeed<Record<string, string>>({})),
   );
 
-const withPerpDexsDedup = (info: HyperliquidInfoClient): Promise<Array<null | { name: string }>> =>
-  withDedup("perpDexs", () => info.perpDexs?.() ?? Promise.resolve([]));
+const fetchPerpDexs = (
+  info: HyperliquidInfoClient,
+): Effect.Effect<Array<null | { name: string }>, never, HyperliquidRateLimiter> =>
+  Effect.gen(function* () {
+    yield* acquireInfoWeight;
+    return yield* Effect.tryPromise({
+      try: () => withDedup("perpDexs", () => info.perpDexs?.() ?? Promise.resolve([])),
+      catch: (cause) => toHyperliquidError("Failed to fetch perp DEXs", cause),
+    });
+  }).pipe(
+    Effect.tapError((e) =>
+      Effect.logWarning(`[mapping] perpDexs fetch failed, falling back to empty: ${String(e)}`),
+    ),
+    Effect.catch(() => Effect.succeed([] as Array<null | { name: string }>)),
+  );
 
 const fetchBaseSnapshot = (
   info: HyperliquidInfoClient,
   skipPerpDexs = false,
-): Effect.Effect<[Array<null | { name: string }>, Record<string, string>]> =>
+): Effect.Effect<
+  [Array<null | { name: string }>, Record<string, string>],
+  never,
+  HyperliquidRateLimiter
+> =>
   Effect.all(
     [
-      skipPerpDexs
-        ? Effect.succeed([] as Array<null | { name: string }>)
-        : Effect.tryPromise({
-            try: () => withPerpDexsDedup(info),
-            catch: (cause) => toHyperliquidError("Failed to fetch perp DEXs", cause),
-          }).pipe(
-            Effect.tapError((e) =>
-              Effect.logWarning(
-                `[mapping] perpDexs fetch failed, falling back to empty: ${String(e)}`,
-              ),
-            ),
-            Effect.catch(() => Effect.succeed([] as Array<null | { name: string }>)),
-          ),
-      fetchAllMidsWithRetry(info),
+      skipPerpDexs ? Effect.succeed([] as Array<null | { name: string }>) : fetchPerpDexs(info),
+      fetchAllMids(info),
     ],
     { concurrency: 3 },
   );
@@ -67,13 +67,16 @@ const fetchBaseSnapshot = (
 const fetchMetaAndAssetCtxs = (
   info: HyperliquidInfoClient,
   dexName: string,
-): Effect.Effect<[unknown, unknown]> =>
-  Effect.tryPromise({
-    try: () =>
-      withDedup(`metaAndAssetCtxs:${dexName}`, () =>
-        info.metaAndAssetCtxs(dexName ? { dex: dexName } : undefined),
-      ),
-    catch: (cause) => toHyperliquidError(`Failed to fetch meta for ${dexName || "main"}`, cause),
+): Effect.Effect<[unknown, unknown], never, HyperliquidRateLimiter> =>
+  Effect.gen(function* () {
+    yield* acquireInfoWeight;
+    return yield* Effect.tryPromise({
+      try: () =>
+        withDedup(`metaAndAssetCtxs:${dexName}`, () =>
+          info.metaAndAssetCtxs(dexName ? { dex: dexName } : undefined),
+        ),
+      catch: (cause) => toHyperliquidError(`Failed to fetch meta for ${dexName || "main"}`, cause),
+    });
   }).pipe(Effect.catch(() => Effect.succeed<[unknown, unknown]>([null, null])));
 
 /** One cache identity per distinct upstream request set: every dex, or one dex. */
@@ -106,7 +109,7 @@ const dexNamesForScope = (
 const fetchTickerSnapshot = (
   info: HyperliquidInfoClient,
   scope: string,
-): Effect.Effect<TickerSnapshot, HyperliquidError> =>
+): Effect.Effect<TickerSnapshot, HyperliquidError, HyperliquidRateLimiter> =>
   Effect.gen(function* () {
     const includeAllDexs = scope === ALL_DEXS_SCOPE;
     const [perpDexs, allMids] = yield* fetchBaseSnapshot(info, !includeAllDexs);
@@ -128,10 +131,11 @@ const fetchTickerSnapshot = (
 export const getTickerSnapshotByCacheKey = (
   info: HyperliquidInfoClient,
   key: string,
-): Effect.Effect<TickerSnapshot, HyperliquidError> => fetchTickerSnapshot(info, key);
+): Effect.Effect<TickerSnapshot, HyperliquidError, HyperliquidRateLimiter> =>
+  fetchTickerSnapshot(info, key);
 
 export const getTickerSnapshot = (
   info: HyperliquidInfoClient,
   symbol?: string,
-): Effect.Effect<TickerSnapshot, HyperliquidError> =>
+): Effect.Effect<TickerSnapshot, HyperliquidError, HyperliquidRateLimiter> =>
   fetchTickerSnapshot(info, tickerSnapshotCacheKey(symbol));

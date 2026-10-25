@@ -22,10 +22,10 @@ describe("mapMarketInfraError", () => {
     expect(result).toMatchObject({ _tag: "InternalError", message: "upstream error" });
   });
 
-  it("maps RATE_LIMITED kind to InternalError", () => {
+  it("maps RATE_LIMITED kind to ServiceUnavailableError", () => {
     const err = new MarketProviderError({ kind: "RATE_LIMITED", message: "rate limited" });
     const result = mapMarketInfraError("fallback")(err);
-    expect(result).toMatchObject({ _tag: "InternalError", message: "rate limited" });
+    expect(result).toMatchObject({ _tag: "ServiceUnavailableError", message: "rate limited" });
   });
 
   it("maps INTERNAL kind to InternalError", () => {

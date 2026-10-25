@@ -16,6 +16,9 @@ bun run depcruise
 echo "==> banned constructs: rules the linters cannot express"
 bun scripts/banned-constructs.mjs
 
+echo "==> no-bypass: inline suppressions are banned (fix the code or change config)"
+bun scripts/no-bypass.mjs
+
 echo "==> typecheck: turbo run typecheck"
 bun run typecheck
 

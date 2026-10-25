@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Queue, Stream } from "effect";
+import { Cause, Context, Effect, Layer, Queue, Stream } from "effect";
 import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
 import type { ISubscription } from "@nktkas/hyperliquid";
 import type { TradesEvent } from "@nktkas/hyperliquid/api/subscription";
@@ -86,11 +86,9 @@ const subscribeCoin = (
           // listener, so propagate it: fail the bridge queue and let the consumer
           // restart rather than stall on a dead connection.
           onError: (error) => {
-            Effect.runSync(
-              Queue.fail(
-                queue,
-                toHyperliquidError(`Failed to subscribe to trades for ${coin}`, error),
-              ),
+            Queue.failCauseUnsafe(
+              queue,
+              Cause.fail(toHyperliquidError(`Failed to subscribe to trades for ${coin}`, error)),
             );
           },
         },
@@ -102,7 +100,7 @@ const subscribeCoin = (
  * Cold stream: each run opens one `trades` subscription per coin over the
  * shared transport and tears them down when the consuming scope closes.
  */
-const openTradeStream = (
+export const openTradeStream = (
   subscriptionClient: SubscriptionClient,
   coinUniverse: ReadonlyArray<string>,
   minNotionalUsd: number,

@@ -16,7 +16,7 @@ export function WhalesPage(): JSX.Element {
 
   const handleSelectWallet = (address: string) => {
     setActiveAddress(address);
-    void navigate(`/whales/${address}`);
+    void navigate("/portfolio");
   };
 
   return (

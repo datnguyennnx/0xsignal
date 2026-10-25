@@ -9,6 +9,7 @@ import {
 } from "@0xsignal/auth";
 import { exchangeCredentialsLayer } from "../integrations/hyperliquid/data-sources/exchange-credentials";
 import type { HyperliquidClient } from "../integrations/hyperliquid/data-sources/client";
+import type { HyperliquidRateLimiter } from "../integrations/hyperliquid/rate-limit";
 import { ExchangeService } from "../modules/exchange";
 import { exchangeServiceLayer } from "../modules/exchange/layer";
 import {
@@ -30,7 +31,11 @@ export const AppServicesLayer: Layer.Layer<
   | UserDataService
   | ExchangeService,
   never,
-  HyperliquidClient | MarketCandleStore | MarketRemoteProvider | PostgresConnectionPool
+  | HyperliquidClient
+  | HyperliquidRateLimiter
+  | MarketCandleStore
+  | MarketRemoteProvider
+  | PostgresConnectionPool
 > = Layer.mergeAll(
   marketDataServiceLayer,
   userDataServiceLayer,

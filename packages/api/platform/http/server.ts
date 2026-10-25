@@ -10,7 +10,7 @@ import type { WsSetup } from "./ws";
 
 export interface ServerDeps<R, D> {
   readonly runtime: ManagedRuntime<R, unknown>;
-  readonly routes: ReadonlyArray<Route<R>>;
+  readonly routes: ReadonlyArray<Route<R, unknown>>;
   readonly cors: CorsConfig;
   readonly ws: WsSetup<D>;
   readonly mapError: (error: unknown) => HttpError;

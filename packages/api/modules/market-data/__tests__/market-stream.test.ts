@@ -9,7 +9,6 @@ import {
 import { buildMarketWsBucketKey } from "../../../integrations/hyperliquid/streams/bucket-key";
 import { parseMarketWsSubscription } from "../../../modules/market-data";
 import {
-  detachClient,
   type MarketStreamError,
   MarketStreamHub,
   type Bucket,
@@ -61,13 +60,16 @@ class StubSocket implements ServerWebSocket<MarketWsConnectionData> {
   readonly subscriptions: string[] = [];
   readonly remoteAddress = "127.0.0.1";
   readonly readyState: WebSocketReadyState = 1;
+  bufferedAmount: number;
   closed: { readonly code?: number; readonly reason?: string } | undefined;
 
   constructor(
     readonly data: MarketWsConnectionData,
     private readonly onSend: (text: string) => void,
-    private readonly bufferedAmount = 0,
-  ) {}
+    bufferedAmount = 0,
+  ) {
+    this.bufferedAmount = bufferedAmount;
+  }
 
   send(
     data: string | ArrayBufferLike | ArrayBufferView,
@@ -487,7 +489,7 @@ describe("Market WS fire-and-forget broadcast", () => {
     expect(sentMessages).toEqual([JSON.stringify(payload)]);
   });
 
-  it("closes and detaches a client whose send buffer exceeds the ceiling", () => {
+  it("reports a client whose send buffer exceeds the ceiling for detach", () => {
     const mockWs = makeClient(
       emptyConnectionData("conn-slow"),
       () => {
@@ -497,34 +499,28 @@ describe("Market WS fire-and-forget broadcast", () => {
     );
 
     const bucket = makeBucket(candleSubscription, [mockWs]);
-    const buckets = Ref.makeUnsafe(new Map([[bucket.key, bucket]]));
+    const detached: ServerWebSocket<MarketWsConnectionData>[] = [];
 
-    broadcast(
-      bucket,
-      { type: "market", channel: "candle", data: [] },
-      detachClient(buckets, bucket.key),
-    );
+    broadcast(bucket, { type: "market", channel: "candle", data: [] }, (ws) => {
+      detached.push(ws);
+    });
 
-    expect(Ref.getUnsafe(buckets).get(bucket.key)?.clients.has(mockWs)).toBe(false);
-    expect(mockWs.closed).toEqual({ code: 1013, reason: "client too slow" });
+    expect(detached).toEqual([mockWs]);
   });
 
-  it("closes and detaches a client whose send throws", () => {
+  it("reports a client whose send throws for detach", () => {
     const mockWs = makeClient(emptyConnectionData("conn-faulty"), () => {
       throw new Error("buffer full");
     });
 
     const bucket = makeBucket(candleSubscription, [mockWs]);
-    const buckets = Ref.makeUnsafe(new Map([[bucket.key, bucket]]));
+    const detached: ServerWebSocket<MarketWsConnectionData>[] = [];
 
-    broadcast(
-      bucket,
-      { type: "market", channel: "candle", data: [] },
-      detachClient(buckets, bucket.key),
-    );
+    broadcast(bucket, { type: "market", channel: "candle", data: [] }, (ws) => {
+      detached.push(ws);
+    });
 
-    expect(Ref.getUnsafe(buckets).get(bucket.key)?.clients.has(mockWs)).toBe(false);
-    expect(mockWs.closed).toEqual({ code: 1013, reason: "client too slow" });
+    expect(detached).toEqual([mockWs]);
   });
 
   it("sends to a healthy client even when another client throws", () => {
@@ -953,28 +949,29 @@ describe("Market WS multiplexed subscriptions", () => {
     await Effect.runPromise(Effect.provide(program, harness.layer));
   });
 
-  it("cleans up a bucket after a slow client is detached and closed", async () => {
+  it("releases an emptied bucket when its last client is detached", async () => {
     const harness = makeTestHarness();
-    const frames: Record<string, unknown>[] = [];
 
     const program = Effect.gen(function* () {
       const hub = yield* MarketStreamHub;
-      const ws = new StubSocket(hub.createConnectionData(), (text) => {
-        frames.push(parseTestFrame(text));
-      });
+      const slow = new StubSocket(hub.createConnectionData(), () => {});
 
-      yield* hub.handleOpen(ws);
-      yield* sendSubscriptionFrame(hub, ws, "subscribe", { channel: "allMids" });
-      yield* waitFor(() => countMarketFrames(frames, "allMids") > 0);
+      yield* hub.handleOpen(slow);
+      yield* sendSubscriptionFrame(hub, slow, "subscribe", { channel: "allMids" });
 
       const buckets = requireDefined(harness.captured.buckets, "hub did not expose its buckets");
       yield* waitFor(() => bucketHasUpstream(buckets, "allMids:"));
 
-      detachClient(buckets, "allMids:")(ws);
-      yield* hub.handleClose(ws);
-      yield* waitForEmptyBuckets(buckets);
+      // Only now does the client stop reading; the subscribe handshake has
+      // already completed, so the detach below is the broadcast path.
+      slow.bufferedAmount = MAX_CLIENT_BUFFER_BYTES + 1;
+      harness.emitAllMids();
+      yield* waitFor(() => slow.closed !== undefined);
+      expect(slow.closed).toEqual({ code: 1013, reason: "client too slow" });
 
-      expect((yield* Ref.get(buckets)).size).toBe(0);
+      // The drain releases the bucket, not just the client; otherwise the
+      // upstream subscription and scope outlive every reader.
+      yield* waitFor(() => Ref.getUnsafe(buckets).size === 0);
       expect(harness.unsubscribed).toContain("allMids");
     });
 

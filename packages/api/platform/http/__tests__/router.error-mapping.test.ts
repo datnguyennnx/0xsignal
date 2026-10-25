@@ -6,7 +6,7 @@ import { UserDataService } from "../../../modules/user-data";
 import { ExchangeService } from "../../../modules/exchange";
 import { asHttpError } from "../../../platform/http/error-response";
 import { handleRequest, routes } from "../../../app";
-import { injectUnhandledFailure, TestRouteEnvLayer } from "../../../app/__tests__/route-test-layer";
+import { TestRouteEnvLayer } from "../../../app/__tests__/route-test-layer";
 
 const TestServices = Layer.mergeAll(
   Layer.mock(MarketDataService, {}),
@@ -34,9 +34,10 @@ const requestWithHandlerFailure = async (handlerFailure: HandlerFailure): Promis
   }
 };
 
-// Simulates a runtime failure that bypasses the handler's declared error type.
+// The route array is typed `Route<AppEnv, unknown>`, so an arbitrary failure
+// enters the handler's error channel with no assertion.
 const requestWithUnhandledFailure = (failure: unknown): Promise<Response> =>
-  requestWithHandlerFailure(injectUnhandledFailure(failure));
+  requestWithHandlerFailure(Effect.fail(failure));
 
 const bodyOf = async (response: Response): Promise<Record<string, unknown>> => {
   const parsed: unknown = await response.json();

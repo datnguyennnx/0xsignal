@@ -4,10 +4,11 @@ import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../hyperliquid-client";
 import { WhaleConfig, type WhaleConfigService } from "../../../../modules/whales";
 import {
+  HyperliquidRateLimiter,
   RateLimitBudgetExhaustedError,
-  WhalePositionPoller,
-  whalePositionPollerLayer,
-} from "../whale-position-poller";
+  makeLimiter,
+} from "../../rate-limit";
+import { WhalePositionPoller, whalePositionPollerLayer } from "../whale-position-poller";
 
 const config: WhaleConfigService = {
   whaleNotionalUsd: 0,
@@ -16,8 +17,6 @@ const config: WhaleConfigService = {
   pollIntervalMs: 5_000,
   maxWalletsPerPoll: 10,
   walletTtlMs: 60_000,
-  // Each call costs weight 2, so this budget cannot ever grant a call.
-  restWeightBudgetPerMin: 1,
   leaderboardUrl: "http://localhost",
   leaderboardTtlMs: 0,
   seededWalletCap: 10,
@@ -33,6 +32,8 @@ const layer = whalePositionPollerLayer.pipe(
         HyperliquidClient.of({ info: new InfoClient({ transport: new HttpTransport() }) }),
       ),
       Layer.succeed(WhaleConfig, config),
+      // Weight 2 can never fit a per-minute ceiling of 1.
+      Layer.effect(HyperliquidRateLimiter, makeLimiter({ perSecond: 20, perMinute: 1 })),
     ),
   ),
 );

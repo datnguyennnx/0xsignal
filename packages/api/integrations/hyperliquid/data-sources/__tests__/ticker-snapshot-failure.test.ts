@@ -3,6 +3,7 @@ import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 import { getTicker } from "../provider";
 import { HyperliquidClient } from "../client";
+import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
 
 const createMockInfoClient = () => ({
   candleSnapshot: vi.fn<InfoClient["candleSnapshot"]>(),
@@ -25,11 +26,14 @@ const metaResponse = (names: readonly string[]): Meta => ({
 let mockInfoClient: ReturnType<typeof createMockInfoClient>;
 
 const makeClientLayer = () =>
-  Layer.succeed(
-    HyperliquidClient,
-    HyperliquidClient.of({
-      info: Object.assign(new InfoClient({ transport: new HttpTransport() }), mockInfoClient),
-    }),
+  Layer.mergeAll(
+    Layer.succeed(
+      HyperliquidClient,
+      HyperliquidClient.of({
+        info: Object.assign(new InfoClient({ transport: new HttpTransport() }), mockInfoClient),
+      }),
+    ),
+    rateLimiterUnlimited,
   );
 
 const failureCause = <A, E>(exit: Exit.Exit<A, E>): Cause.Cause<E> =>

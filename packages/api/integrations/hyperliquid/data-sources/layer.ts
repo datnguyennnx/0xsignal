@@ -4,9 +4,13 @@ import { HyperliquidProvider } from "./types";
 import { makeHyperliquidProvider } from "./provider";
 import { CredentialVerifier } from "./credential-verifier";
 import { CredentialVerificationError } from "./credential-verifier.error";
+import type { HyperliquidRateLimiter } from "../rate-limit";
 
-export const hyperliquidProviderLayer: Layer.Layer<HyperliquidProvider, never, HyperliquidClient> =
-  Layer.effect(HyperliquidProvider, makeHyperliquidProvider());
+export const hyperliquidProviderLayer: Layer.Layer<
+  HyperliquidProvider,
+  never,
+  HyperliquidClient | HyperliquidRateLimiter
+> = Layer.effect(HyperliquidProvider, makeHyperliquidProvider());
 
 export const credentialVerifierLayer: Layer.Layer<CredentialVerifier, never, HyperliquidClient> =
   Layer.effect(

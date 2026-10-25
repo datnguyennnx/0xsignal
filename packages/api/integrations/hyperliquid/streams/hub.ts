@@ -1,11 +1,27 @@
-import { Clock, Effect, Exit, Fiber, Layer, Option, Predicate, Ref, Schedule, Scope } from "effect";
+import {
+  Clock,
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  Option,
+  Predicate,
+  Queue,
+  Ref,
+  Schedule,
+  Scope,
+  Stream,
+} from "effect";
 import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
 import type { ISubscription, TransportError } from "@nktkas/hyperliquid";
 import type { ServerWebSocket } from "bun";
 import {
   addMarketWsConnectionSubscription,
+  applyDetach,
   closeQuietly,
-  detachClient,
+  enqueueDetach,
+  type DetachRequest,
+  joinBucket,
   MarketStreamHub,
   type MarketWsConnectionData,
   type MarketWsConnectionSubscription,
@@ -13,6 +29,8 @@ import {
   normalizeMarketWsSubscription,
   removeBucketClient,
   removeMarketWsConnectionSubscription,
+  teardownBucket,
+  unsubscribeQuietly,
   WebSocketSubscribeError,
   type Bucket,
 } from "./hub-types";
@@ -23,19 +41,21 @@ import { subscribeUpstream } from "./hub-subscription";
 import { send, sendFrame, toText } from "./hub-broadcast";
 import { parseMarketWsFrame } from "../../../modules/market-data";
 
-const MAX_RESTART_RETRIES = 3;
+/** One initial subscribe plus this many retries, so the threshold and the schedule count attempts. */
+export const MAX_SUBSCRIBE_ATTEMPTS = 3;
 
-const unsubscribeQuietly = (subscription: ISubscription): Effect.Effect<void> =>
-  Effect.tryPromise({
-    try: () => subscription.unsubscribe(),
-    catch: (error) => error,
-  }).pipe(
-    Effect.catch((error) =>
-      Effect.logWarning(
-        `Upstream unsubscribe failed: ${error instanceof Error ? error.message : String(error)}`,
-      ),
-    ),
-  );
+export const subscribeRetrySchedule = Schedule.exponential("500 millis").pipe(
+  Schedule.upTo({ times: MAX_SUBSCRIBE_ATTEMPTS - 1 }),
+);
+
+/** Upper bound on clients sharing one bucket; sizes the detach queue. */
+const MAX_CLIENTS_PER_BUCKET = 1024;
+
+/** Applies queued sync-callback work sequentially; the caller owns the scope. */
+const drainQueue = <A>(
+  requests: Queue.Queue<A>,
+  handle: (item: A) => Effect.Effect<void>,
+): Effect.Effect<void> => Stream.fromQueue(requests).pipe(Stream.runForEach(handle));
 
 const sendQuietly = (ws: ServerWebSocket<MarketWsConnectionData>, payload: unknown): void => {
   try {
@@ -44,8 +64,6 @@ const sendQuietly = (ws: ServerWebSocket<MarketWsConnectionData>, payload: unkno
     // dead peer — broadcast detaches it on the next frame
   }
 };
-
-type JoinedBucket = { readonly bucket: Bucket; readonly created: boolean };
 
 type MarketStreamHubClient = {
   readonly subscriptionClient: SubscriptionClient;
@@ -80,6 +98,15 @@ export const makeMarketStreamHubLayer = (
         const buckets: Ref.Ref<Map<string, Bucket>> = yield* Ref.make(new Map<string, Bucket>());
         options.onAcquire?.(buckets);
 
+        // Broadcast calls detach from sync SDK callbacks; a fiber in the layer
+        // scope applies each request instead of the callback starting a runtime.
+        // One slot per client a bucket can hold; a burst beyond that rejects
+        // the request, and the enqueue side closes that socket and logs.
+        const detachRequests = yield* Queue.dropping<DetachRequest>(MAX_CLIENTS_PER_BUCKET);
+        yield* Effect.forkScoped(
+          drainQueue(detachRequests, (request) => applyDetach(buckets, request)),
+        );
+
         // Bridge Pattern: connectionSeq counter uses plain number instead of Ref
         // because createConnectionData is a sync function called from non-Effect
         // context (Bun WebSocket upgrade handler). A Ref-based approach would
@@ -101,61 +128,33 @@ export const makeMarketStreamHubLayer = (
           };
         };
 
-        const joinBucket = (
-          ws: ServerWebSocket<MarketWsConnectionData>,
-          subscription: MarketWsSubscription,
-          key: string,
-        ): Effect.Effect<JoinedBucket> =>
-          Effect.gen(function* () {
-            const candidate: Bucket = {
-              key,
-              subscription,
-              clients: new Set<ServerWebSocket<MarketWsConnectionData>>([ws]),
-              upstream: Option.none<ISubscription>(),
-              state: { _tag: "idle" },
-              retryCount: 0,
-              subscribeFiber: Option.none(),
-              scope: yield* Scope.make(),
-            };
-
-            // Copy-on-write: an earlier Ref.get snapshot must not see this join.
-            const joined = yield* Ref.modify(
-              buckets,
-              (m): readonly [JoinedBucket, Map<string, Bucket>] => {
-                const existing = m.get(key);
-                if (existing !== undefined) {
-                  const clients = new Set([...existing.clients, ws]);
-                  const updated: Bucket = { ...existing, clients };
-                  return [{ bucket: updated, created: false }, new Map(m).set(key, updated)];
-                }
-                const created = new Map(m).set(key, candidate);
-                return [{ bucket: candidate, created: true }, created];
-              },
-            );
-
-            if (joined.created) {
-              marketWsLog("ws_open", {
-                connectionId: ws.data.id,
-                bucketKey: key,
-                channel: subscription.channel,
-                clientsInBucket: 1,
-              });
-            } else {
-              yield* Scope.close(candidate.scope, Exit.void);
-            }
-
-            return joined;
-          });
-
         const startBucket = (bucket: Bucket): Effect.Effect<void> =>
           Effect.gen(function* () {
+            const detach = enqueueDetach(detachRequests, bucket.key);
+            // The SDK reports subscription failures on a sync callback; the
+            // bucket scope owns the drain so a closed bucket never restarts.
+            // Coalescing is correct here: only the latest failure matters.
+            const restartRequests = yield* Queue.sliding<string>(1);
+            const restart = (reason: string): Effect.Effect<void> =>
+              restartBucket(
+                subscriptionClient,
+                provider,
+                buckets,
+                bucket.key,
+                reason,
+                detach,
+                restartRequests,
+              );
+            yield* Effect.forkIn(drainQueue(restartRequests, restart), bucket.scope);
+
             const fiber = yield* Effect.forkIn(
               ensureUpstream(
                 subscriptionClient,
                 provider,
                 buckets,
                 bucket.key,
-                detachClient(buckets, bucket.key),
+                detach,
+                restartRequests,
               ),
               bucket.scope,
             );
@@ -177,26 +176,8 @@ export const makeMarketStreamHubLayer = (
           key: string,
         ): Effect.Effect<void> =>
           Effect.gen(function* () {
-            const released = yield* Ref.modify(buckets, (m) => removeBucketClient(m, key, ws));
-            if (released.bucket === undefined) return;
-            const bucket = released.bucket;
-
-            // A slow client may already be detached; still own bucket cleanup.
-            if (bucket.clients.size > 0) return;
-
-            // Remove before interrupting so the in-flight subscribe observes
-            // an unowned bucket and unsubscribes instead of re-inserting.
-            yield* Ref.update(buckets, (m) => {
-              const next = new Map(m);
-              next.delete(key);
-              return next;
-            });
-
-            if (Option.isSome(bucket.subscribeFiber)) {
-              yield* Fiber.interrupt(bucket.subscribeFiber.value);
-            }
-            yield* Scope.close(bucket.scope, Exit.void);
-            if (Option.isSome(bucket.upstream)) yield* unsubscribeQuietly(bucket.upstream.value);
+            yield* Ref.update(buckets, (m) => removeBucketClient(m, key, ws)[1]);
+            yield* teardownBucket(buckets, key);
           });
 
         const service = MarketStreamHub.of({
@@ -213,7 +194,7 @@ export const makeMarketStreamHubLayer = (
               }
 
               const [first, ...rest] = entries;
-              const joined = yield* joinBucket(ws, first.subscription, first.bucketKey);
+              const joined = yield* joinBucket(buckets, ws, first.subscription, first.bucketKey);
               const now = yield* Clock.currentTimeMillis;
               yield* sendFrame(ws, {
                 type: "ready",
@@ -224,7 +205,7 @@ export const makeMarketStreamHubLayer = (
               if (joined.created) yield* startBucket(joined.bucket);
 
               for (const entry of rest) {
-                const other = yield* joinBucket(ws, entry.subscription, entry.bucketKey);
+                const other = yield* joinBucket(buckets, ws, entry.subscription, entry.bucketKey);
                 if (other.created) yield* startBucket(other.bucket);
               }
             }),
@@ -276,7 +257,7 @@ export const makeMarketStreamHubLayer = (
 
               if (frame.action === "subscribe") {
                 yield* addMarketWsConnectionSubscription(ws.data.subscriptions, subscription, key);
-                const joined = yield* joinBucket(ws, subscription, key);
+                const joined = yield* joinBucket(buckets, ws, subscription, key);
                 if (joined.created) yield* startBucket(joined.bucket);
                 yield* sendFrame(ws, { type: "subscribed", subscription });
                 return;
@@ -363,12 +344,18 @@ const resolveAndSubscribe = (
   });
 };
 
+/**
+ * Starts the upstream subscription for a bucket. No-op when the bucket is gone
+ * or another fiber already claimed it, so a queued restart can never resurrect
+ * a closed bucket.
+ */
 const ensureUpstream = (
   subscriptionClient: SubscriptionClient,
   provider: typeof HyperliquidProvider.Service,
   buckets: Ref.Ref<Map<string, Bucket>>,
   key: string,
   detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
+  restartRequests: Queue.Queue<string>,
 ): Effect.Effect<void> =>
   Effect.gen(function* () {
     const map = yield* Ref.get(buckets);
@@ -393,14 +380,9 @@ const ensureUpstream = (
         { bucketKey: key, channel: subChannel, error: error.message },
         "error",
       );
-      // Sync SDK callback: park the restart in the bucket scope so closing the
-      // bucket (or the layer) also stops it.
-      Effect.runFork(
-        Effect.forkIn(
-          restartBucket(subscriptionClient, provider, buckets, key, error.message, detach),
-          bucket.scope,
-        ),
-      );
+      // Sync SDK callback: park the restart in the bucket's queue so the drain
+      // fiber restarts it, and closing the bucket also stops it.
+      Queue.offerUnsafe(restartRequests, error.message);
     };
 
     yield* resolveAndSubscribe(
@@ -442,9 +424,7 @@ const ensureUpstream = (
       // A close must not land between resolving the subscription and deciding
       // whether the bucket still owns it.
       Effect.uninterruptible,
-      Effect.retry({
-        schedule: Schedule.exponential("500 millis").pipe(Schedule.upTo({ times: 3 })),
-      }),
+      Effect.retry({ schedule: subscribeRetrySchedule }),
       Effect.catch((error) =>
         Effect.gen(function* () {
           marketWsLog(
@@ -468,19 +448,28 @@ const ensureUpstream = (
           });
           if (failed === undefined) return;
 
-          if (failed.retryCount < MAX_RESTART_RETRIES) {
+          if (failed.retryCount < MAX_SUBSCRIBE_ATTEMPTS) {
             yield* Effect.sleep("1 second");
-            yield* ensureUpstream(subscriptionClient, provider, buckets, key, detach);
+            yield* ensureUpstream(
+              subscriptionClient,
+              provider,
+              buckets,
+              key,
+              detach,
+              restartRequests,
+            );
             return;
           }
 
-          yield* Effect.logError(`Max retries (${MAX_RESTART_RETRIES}) exceeded for ${key}`);
+          yield* Effect.logError(
+            `Max subscribe attempts (${MAX_SUBSCRIBE_ATTEMPTS}) exceeded for ${key}`,
+          );
           const now = yield* Clock.currentTimeMillis;
           for (const client of failed.clients) {
             sendQuietly(client, {
               type: "error",
               code: "max_retries_exceeded",
-              message: `Max retries (${MAX_RESTART_RETRIES}) exceeded for ${key}`,
+              message: `Max subscribe attempts (${MAX_SUBSCRIBE_ATTEMPTS}) exceeded for ${key}`,
               timestamp: now,
             });
             closeQuietly(client, 1011, "upstream unavailable");
@@ -502,6 +491,7 @@ const restartBucket = (
   key: string,
   reason: string,
   detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
+  restartRequests: Queue.Queue<string>,
 ): Effect.Effect<void> =>
   Effect.gen(function* () {
     const claimed = yield* Ref.modify(buckets, (m) => {
@@ -534,5 +524,5 @@ const restartBucket = (
     });
     if (!reset) return;
 
-    yield* ensureUpstream(subscriptionClient, provider, buckets, key, detach);
+    yield* ensureUpstream(subscriptionClient, provider, buckets, key, detach, restartRequests);
   });

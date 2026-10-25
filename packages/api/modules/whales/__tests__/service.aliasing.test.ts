@@ -17,7 +17,6 @@ const config: WhaleConfigService = {
   pollIntervalMs: 5_000,
   maxWalletsPerPoll: 10,
   walletTtlMs: 60_000,
-  restWeightBudgetPerMin: 100,
   leaderboardUrl: "http://localhost",
   leaderboardTtlMs: 0,
   seededWalletCap: 10,

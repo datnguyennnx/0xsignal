@@ -7,7 +7,6 @@ export interface WhaleConfigService {
   readonly pollIntervalMs: number;
   readonly maxWalletsPerPoll: number;
   readonly walletTtlMs: number;
-  readonly restWeightBudgetPerMin: number;
   readonly leaderboardUrl: string;
   readonly leaderboardTtlMs: number;
   readonly seededWalletCap: number;
@@ -24,11 +23,10 @@ const DEFAULT_WHALE_NOTIONAL_USD = 0;
 const DEFAULT_COIN_UNIVERSE: ReadonlyArray<string> = ["BTC", "ETH", "SOL"];
 const DEFAULT_DISCOVERY_NOTIONAL_USD = 250_000;
 const DEFAULT_POLL_INTERVAL_MS = 60_000;
-const DEFAULT_MAX_WALLETS_PER_POLL = 400;
+// 150 wallets x weight 2 = 300 per tick, leaving headroom on the shared IP
+// budget for the read path (tickers, order books) instead of starving it.
+const DEFAULT_MAX_WALLETS_PER_POLL = 150;
 const DEFAULT_WALLET_TTL_MS = 3_600_000;
-// Each clearinghouseState call costs REST weight 2, so this budget caps roughly
-// restWeightBudgetPerMin / 2 clearinghouseState polls per minute.
-const DEFAULT_REST_WEIGHT_BUDGET_PER_MIN = 1200;
 const DEFAULT_LEADERBOARD_URL = "https://stats-data.hyperliquid.xyz/Mainnet/leaderboard";
 const DEFAULT_LEADERBOARD_TTL_MS = 300_000;
 const DEFAULT_SEEDED_WALLET_CAP = 1000;
@@ -62,9 +60,6 @@ const whaleConfig: Config.Config<WhaleConfigService> = Config.all({
     Config.withDefault(DEFAULT_MAX_WALLETS_PER_POLL),
   ),
   walletTtlMs: Config.Number("WHALE_WALLET_TTL_MS").pipe(Config.withDefault(DEFAULT_WALLET_TTL_MS)),
-  restWeightBudgetPerMin: Config.Number("WHALE_REST_WEIGHT_BUDGET_PER_MIN").pipe(
-    Config.withDefault(DEFAULT_REST_WEIGHT_BUDGET_PER_MIN),
-  ),
   leaderboardUrl: Config.String("WHALE_LEADERBOARD_URL").pipe(
     Config.withDefault(DEFAULT_LEADERBOARD_URL),
   ),

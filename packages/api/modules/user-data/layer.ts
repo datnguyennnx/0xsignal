@@ -1,5 +1,9 @@
 import { Effect, Layer } from "effect";
 import { HyperliquidClient } from "../../integrations/hyperliquid/data-sources/hyperliquid-client";
+import {
+  HyperliquidRateLimiter,
+  INFO_REQUEST_WEIGHT,
+} from "../../integrations/hyperliquid/rate-limit";
 import { InternalError } from "../../shared/errors";
 import type { AppError } from "../../shared/errors";
 import { UserDataService } from "./index";
@@ -18,38 +22,48 @@ export const userDataServiceLayer = Layer.effect(
   UserDataService,
   Effect.gen(function* () {
     const { info } = yield* HyperliquidClient;
+    const limiter = yield* HyperliquidRateLimiter;
+
+    const infoCall = <A>(label: string, fn: () => Promise<A>): Effect.Effect<A, AppError> =>
+      limiter.acquire(INFO_REQUEST_WEIGHT).pipe(
+        Effect.mapError(
+          (error) =>
+            new InternalError({ message: `${label} rate limited: ${error.message}`, cause: error }),
+        ),
+        Effect.flatMap(() => callInfoApi(label, fn)),
+      );
 
     return UserDataService.of({
       getClearinghouseState: (walletAddress) =>
-        callInfoApi("clearinghouseState", () => info.clearinghouseState({ user: walletAddress })),
+        infoCall("clearinghouseState", () => info.clearinghouseState({ user: walletAddress })),
 
       getSpotClearinghouseState: (walletAddress) =>
-        callInfoApi("spotClearinghouseState", () =>
+        infoCall("spotClearinghouseState", () =>
           info.spotClearinghouseState({ user: walletAddress }),
         ),
 
       getOpenOrders: (walletAddress) =>
-        callInfoApi("openOrders", () => info.openOrders({ user: walletAddress })),
+        infoCall("openOrders", () => info.openOrders({ user: walletAddress })),
 
       getFrontendOpenOrders: (walletAddress) =>
-        callInfoApi("frontendOpenOrders", () => info.frontendOpenOrders({ user: walletAddress })),
+        infoCall("frontendOpenOrders", () => info.frontendOpenOrders({ user: walletAddress })),
 
-      getMeta: () => callInfoApi("meta", () => info.meta()),
+      getMeta: () => infoCall("meta", () => info.meta()),
 
       getHistoricalOrders: (walletAddress) =>
-        callInfoApi("historicalOrders", () => info.historicalOrders({ user: walletAddress })),
+        infoCall("historicalOrders", () => info.historicalOrders({ user: walletAddress })),
 
       getUserFills: (walletAddress) =>
-        callInfoApi("userFills", () => info.userFills({ user: walletAddress })),
+        infoCall("userFills", () => info.userFills({ user: walletAddress })),
 
       getPortfolio: (walletAddress) =>
-        callInfoApi("portfolio", () => info.portfolio({ user: walletAddress })),
+        infoCall("portfolio", () => info.portfolio({ user: walletAddress })),
 
       getUserVaultEquities: (walletAddress) =>
-        callInfoApi("userVaultEquities", () => info.userVaultEquities({ user: walletAddress })),
+        infoCall("userVaultEquities", () => info.userVaultEquities({ user: walletAddress })),
 
       getUserFunding: (walletAddress, startTime?: number, endTime?: number) =>
-        callInfoApi("userFunding", () => {
+        infoCall("userFunding", () => {
           const params: { user: string; startTime?: number; endTime?: number } = {
             user: walletAddress,
           };

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { Effect, Option, Result } from "effect";
 import { getTickerSnapshot } from "../mapping";
+import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
 import {
   mapTickerFromSnapshot,
   resolveInternalSymbol,
@@ -92,7 +93,9 @@ describe("Hyperliquid Mapping", () => {
         .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
         .mockResolvedValueOnce([{ universe: [{ name: "xyz:EUR" }] }, [{ midPx: "1.1" }]]); // xyz
 
-      const result = await Effect.runPromise(getTickerSnapshot(mockInfo));
+      const result = await Effect.runPromise(
+        Effect.provide(getTickerSnapshot(mockInfo), rateLimiterUnlimited),
+      );
 
       expect(result.universe).toHaveLength(2);
       expect(result.universe[0].name).toBe("BTC");
@@ -106,7 +109,9 @@ describe("Hyperliquid Mapping", () => {
         .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
         .mockRejectedValueOnce(new Error("DEX Offline"));
 
-      const result = await Effect.runPromise(getTickerSnapshot(mockInfo));
+      const result = await Effect.runPromise(
+        Effect.provide(getTickerSnapshot(mockInfo), rateLimiterUnlimited),
+      );
 
       expect(result.universe).toHaveLength(1); // Only main DEX succeeded
       expect(result.universe[0].name).toBe("BTC");

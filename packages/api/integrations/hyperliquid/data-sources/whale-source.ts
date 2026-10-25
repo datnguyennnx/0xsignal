@@ -12,6 +12,7 @@ import { WhaleConfig } from "../../../modules/whales";
 import { WhaleLeaderboard, whaleLeaderboardLayer } from "./whale-leaderboard";
 import { WhalePositionPoller, whalePositionPollerLayer } from "./whale-position-poller";
 import { WhaleTradeStream, whaleTradeStreamLayer } from "./whale-trade-stream";
+import type { HyperliquidRateLimiter } from "../rate-limit";
 
 /**
  * The adapter input: any tagged upstream failure with a message. The adapter
@@ -39,7 +40,7 @@ export const toWhaleSourceError =
 export const WhaleSourcesLayer: Layer.Layer<
   WhaleSources,
   never,
-  HyperliquidClient | WhaleConfig | HttpClient.HttpClient
+  HyperliquidClient | WhaleConfig | HttpClient.HttpClient | HyperliquidRateLimiter
 > = Layer.effect(
   WhaleSources,
   Effect.gen(function* () {

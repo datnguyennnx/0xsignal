@@ -1,6 +1,12 @@
 import { Match } from "effect";
 import { MarketProviderError } from "./index";
-import { NotFoundError, ValidationError, InternalError, type AppError } from "../../shared/errors";
+import {
+  NotFoundError,
+  ValidationError,
+  InternalError,
+  ServiceUnavailableError,
+  type AppError,
+} from "../../shared/errors";
 
 export const mapMarketInfraError =
   (fallbackMessage: string) =>
@@ -12,7 +18,10 @@ export const mapMarketInfraError =
       ),
       Match.when("NOT_FOUND", () => new NotFoundError({ message: error.message, cause: error })),
       Match.when("UPSTREAM", () => new InternalError({ message: error.message, cause: error })),
-      Match.when("RATE_LIMITED", () => new InternalError({ message: error.message, cause: error })),
+      Match.when(
+        "RATE_LIMITED",
+        () => new ServiceUnavailableError({ message: error.message, cause: error }),
+      ),
       Match.when("INTERNAL", () => new InternalError({ message: error.message, cause: error })),
       Match.orElse(() => new InternalError({ message: fallbackMessage, cause: error })),
     );

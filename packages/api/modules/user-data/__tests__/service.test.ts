@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 import { HyperliquidClient } from "../../../integrations/hyperliquid/data-sources/hyperliquid-client";
+import { layerUnlimited as rateLimiterUnlimited } from "../../../integrations/hyperliquid/rate-limit";
 import { UserDataService } from "../index";
 import { userDataServiceLayer } from "../layer";
 
@@ -261,7 +262,10 @@ const makeMockLayer = (overrides?: Partial<Pick<InfoClient, InfoMethod>>) => {
 };
 
 const makeTestLayer = (mockOverrides?: Parameters<typeof makeMockLayer>[0]) =>
-  userDataServiceLayer.pipe(Layer.provideMerge(makeMockLayer(mockOverrides)));
+  userDataServiceLayer.pipe(
+    Layer.provideMerge(makeMockLayer(mockOverrides)),
+    Layer.provideMerge(rateLimiterUnlimited),
+  );
 
 describe("UserDataService", () => {
   beforeEach(() => {
@@ -568,6 +572,7 @@ describe("UserDataService", () => {
 
       const testLayer = userDataServiceLayer.pipe(
         Layer.provideMerge(Layer.succeed(HyperliquidClient, customClient)),
+        Layer.provideMerge(rateLimiterUnlimited),
       );
 
       await Effect.runPromise(

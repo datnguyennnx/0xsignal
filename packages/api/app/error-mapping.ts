@@ -1,5 +1,11 @@
 import { Match } from "effect";
-import { NotFoundError, ConflictError, ValidationError, InternalError } from "../shared/errors";
+import {
+  NotFoundError,
+  ConflictError,
+  ValidationError,
+  InternalError,
+  ServiceUnavailableError,
+} from "../shared/errors";
 import {
   HyperliquidValidationError,
   InsufficientMarginError,
@@ -59,6 +65,7 @@ const kinds: Record<string, ErrorKind> = {
 
   InternalError: { status: 502, code: "BAD_GATEWAY", retryable: true },
   HyperliquidInternalError: { status: 502, code: "BAD_GATEWAY", retryable: true },
+  ServiceUnavailableError: { status: 503, code: "SERVICE_UNAVAILABLE", retryable: true },
 
   CalendarServiceError: { status: 500, code: "INTERNAL_ERROR", retryable: false },
   WhaleServiceError: { status: 500, code: "INTERNAL_ERROR", retryable: false },
@@ -69,6 +76,13 @@ const fromTag = (tag: string, message: string): HttpError => {
   const kind = kinds[tag] ?? UNKNOWN_KIND;
   return { status: kind.status, message, code: kind.code, retryable: kind.retryable };
 };
+
+// A raw SDK 429 is upstream overload, never a client-side 429. Surface 503 so
+// callers back off instead of treating the response as their own rate limit.
+const fromRawStatus = (status: number, message: string, code?: string): HttpError =>
+  status === 429
+    ? { status: 503, message, code: "SERVICE_UNAVAILABLE", retryable: true }
+    : asHttpError(status, message, code);
 
 // Split across two matches: a single Match pipe takes at most 20 arms.
 const mapRemainingError = (error: unknown): HttpError =>
@@ -113,7 +127,7 @@ const mapRemainingError = (error: unknown): HttpError =>
     Match.when(
       (e: unknown): e is { message: string; status?: number; code?: string } =>
         typeof e === "object" && e !== null && "message" in e,
-      (e) => asHttpError(e.status ?? 500, e.message, e.code ?? undefined),
+      (e) => fromRawStatus(e.status ?? 500, e.message, e.code ?? undefined),
     ),
 
     // Fallback for primitives, null, etc.
@@ -127,6 +141,9 @@ export const mapServiceError = (error: unknown): HttpError =>
     Match.when(Match.instanceOf(NotFoundError), (e) => fromTag("NotFoundError", e.message)),
     Match.when(Match.instanceOf(ConflictError), (e) => fromTag("ConflictError", e.message)),
     Match.when(Match.instanceOf(InternalError), (e) => fromTag("InternalError", e.message)),
+    Match.when(Match.instanceOf(ServiceUnavailableError), (e) =>
+      fromTag("ServiceUnavailableError", e.message),
+    ),
 
     // Domain-layer tagged errors
     Match.when(Match.instanceOf(HyperliquidValidationError), (e) =>

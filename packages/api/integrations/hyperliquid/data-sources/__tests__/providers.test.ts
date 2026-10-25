@@ -10,6 +10,7 @@ import {
   getTradeAnnotation,
 } from "../provider";
 import { HyperliquidClient } from "../client";
+import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
 
 type Meta = Awaited<ReturnType<InfoClient["meta"]>>;
 type AssetCtx = Awaited<ReturnType<InfoClient["metaAndAssetCtxs"]>>[1][number];
@@ -49,11 +50,14 @@ const createMockInfoClient = () => ({
 let mockInfoClient: ReturnType<typeof createMockInfoClient>;
 
 const makeClientLayer = () =>
-  Layer.succeed(
-    HyperliquidClient,
-    HyperliquidClient.of({
-      info: Object.assign(new InfoClient({ transport: new HttpTransport() }), mockInfoClient),
-    }),
+  Layer.mergeAll(
+    Layer.succeed(
+      HyperliquidClient,
+      HyperliquidClient.of({
+        info: Object.assign(new InfoClient({ transport: new HttpTransport() }), mockInfoClient),
+      }),
+    ),
+    rateLimiterUnlimited,
   );
 
 describe("Hyperliquid Providers", () => {

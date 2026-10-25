@@ -26,7 +26,7 @@ const matchPath = (pattern: string, path: string): boolean => {
 };
 
 export const createRouter = <R>(
-  routes: ReadonlyArray<Route<R>>,
+  routes: ReadonlyArray<Route<R, unknown>>,
 ): ((request: Request) => Effect.Effect<Response, never, R>) => {
   return (request) =>
     Effect.gen(function* () {
