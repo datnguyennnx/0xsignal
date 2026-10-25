@@ -5,7 +5,6 @@ import type {
   CandleResponse,
   ChartDataPoint,
   MarketTicker,
-  OrderBook,
   RecentCandleResponse,
   WsMarketInterval,
 } from "@0xsignal/shared";
@@ -78,12 +77,6 @@ export function getTicker(symbol: string) {
   return fetchJson<MarketTicker>(
     `${API_BASE}/ticker?symbol=${encodeURIComponent(normalizeSymbol(symbol))}`,
   );
-}
-
-export function getOrderbook(symbol: string, depth?: number): Promise<OrderBook> {
-  const query = new URLSearchParams({ symbol: normalizeSymbol(symbol) });
-  if (depth !== undefined) query.set("depth", String(depth));
-  return fetchJson<OrderBook>(`${API_BASE}/orderbook?${query.toString()}`);
 }
 
 export function getTradeAnnotation(symbol: string) {

@@ -1,14 +1,12 @@
 // Public API surface — named exports only, no wildcard re-exports
 export type { MarketPrice, UserFill, PlaceOrderRequest, UpdateLeverageRequest } from "./types";
 export { ApiError } from "@/lib/api-error";
-export { deriveAgentAddress } from "./credentials";
 
 import {
   getMarkets,
   getCandles,
   getRecentChartLane,
   getTicker,
-  getOrderbook,
   getTradeAnnotation,
   getMarketPrice,
 } from "./market";
@@ -23,8 +21,7 @@ import {
   getUserFunding,
 } from "./user";
 import { exchangeCode, getAuthMe, logout, updateProfile, refreshToken } from "./auth";
-import { createCredential, listWallets, createWallet } from "./credentials";
-import { placeOrder, updateLeverage, cancelOrders } from "./exchange";
+import { listWallets, createWallet } from "./credentials";
 import { getCalendar, getUpcomingCalendar } from "./calendar";
 import { getPositions } from "./whales";
 
@@ -33,7 +30,6 @@ export const api = {
   getCandles,
   getRecentChartLane,
   getTicker,
-  getOrderbook,
   getTradeAnnotation,
   getMarketPrice,
   getUserClearinghouseState,
@@ -49,12 +45,8 @@ export const api = {
   logout,
   updateProfile,
   refreshToken,
-  createCredential,
   listWallets,
   createWallet,
-  placeOrder,
-  updateLeverage,
-  cancelOrders,
   calendar: {
     get: getCalendar,
     upcoming: getUpcomingCalendar,

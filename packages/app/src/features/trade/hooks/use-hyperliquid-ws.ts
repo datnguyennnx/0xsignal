@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { MarketStreamMeta, MarketSubscription } from "../lib/market-stream-client";
 import { useMarketDataStore } from "@/stores/use-market-data-store";
+import { orderbookStoreKey } from "../lib/orderbook-book";
 import { isL2BookSnapshotPayload, isL2BookDeltaPayload } from "../utils/market-stream-decoder";
 
 export interface UseHyperliquidWsOptions {
@@ -33,20 +34,24 @@ function routeMarketMessageToStore(
   ch: string,
   meta?: MarketStreamMeta,
   symbol?: string,
+  requestedNSigFigs?: number | null,
 ): void {
   if (ch === "l2Book") {
-    const symbolKey = meta?.coin ?? symbol ?? "unknown";
+    const key = orderbookStoreKey(
+      symbol !== undefined && symbol !== "" ? symbol : (meta?.coin ?? "unknown"),
+      meta?.nSigFigs ?? requestedNSigFigs ?? null,
+    );
     if (isL2BookSnapshotPayload(data)) {
       useMarketDataStore
         .getState()
-        .applyOrderbookSnapshot(symbolKey, [[...data.levels[0]], [...data.levels[1]]]);
+        .applyOrderbookSnapshot(key, [[...data.levels[0]], [...data.levels[1]]]);
     } else if (isL2BookDeltaPayload(data)) {
       if (data.delta.replace) {
-        useMarketDataStore.getState().requestOrderbookReplace(symbolKey);
+        useMarketDataStore.getState().requestOrderbookReplace(key);
       } else {
         useMarketDataStore
           .getState()
-          .applyOrderbookDelta(symbolKey, data.delta.changedBids, data.delta.changedAsks);
+          .applyOrderbookDelta(key, data.delta.changedBids, data.delta.changedAsks);
       }
     }
   } else if (ch === "allMids" && isRecord(data)) {
@@ -129,7 +134,7 @@ export function useHyperliquidWs({
       }
 
       // Auto-route to store based on channel
-      routeMarketMessageToStore(data, ch, meta, symbol);
+      routeMarketMessageToStore(data, ch, meta, symbol, nSigFigs);
     };
 
     const subscribe = async () => {
@@ -211,7 +216,7 @@ export function useHyperliquidWs({
                 return;
               }
               // Auto-route to store (same as initial subscription)
-              routeMarketMessageToStore(data, ch, meta, symbol);
+              routeMarketMessageToStore(data, ch, meta, symbol, nSigFigs);
             },
             onConnectionChange: (connected) => {
               if (!isMountedRef.current || generationRef.current !== generation) return;

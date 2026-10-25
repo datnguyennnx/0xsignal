@@ -5,11 +5,7 @@ export type {
   HistoricalOrderEntry,
   UserFill,
 } from "@0xsignal/shared";
-export type {
-  PlaceOrderRequest,
-  UpdateLeverageRequest,
-  CancelOrdersRequest,
-} from "@0xsignal/shared";
+export type { PlaceOrderRequest, UpdateLeverageRequest } from "@0xsignal/shared";
 export type { PortfolioResponse, UserVaultEquity, UserFundingEntry } from "@0xsignal/shared";
 
 export interface MarketPrice {

@@ -59,6 +59,19 @@ export const queryKeys = {
 
   whales: {
     all: ["whales"] as const,
+    portfolio: (address: string) => [...queryKeys.whales.all, "portfolio", address] as const,
+    clearinghouseState: (address: string) =>
+      [...queryKeys.whales.all, "clearinghouseState", address] as const,
+    spotClearinghouseState: (address: string) =>
+      [...queryKeys.whales.all, "spotClearinghouseState", address] as const,
+    openOrders: (address: string) => [...queryKeys.whales.all, "openOrders", address] as const,
+    historicalOrders: (address: string) =>
+      [...queryKeys.whales.all, "historicalOrders", address] as const,
+    fills: (address: string) => [...queryKeys.whales.all, "fills", address] as const,
+    userFunding: (address: string, startTime?: number, endTime?: number) =>
+      [...queryKeys.whales.all, "userFunding", address, startTime, endTime] as const,
+    vaultEquities: (address: string) =>
+      [...queryKeys.whales.all, "vaultEquities", address] as const,
     positions: (q: WhalePositionsQuery) =>
       [
         ...queryKeys.whales.all,

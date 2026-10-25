@@ -1,10 +1,9 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
-import {
-  createMarketStreamClient,
-  type MarketStreamClient,
-} from "@/features/trade/lib/market-stream-client";
+import type { MarketStreamClient } from "@/features/trade/lib/market-stream-client";
+import { createBrowserMarketStreamClient } from "@/features/trade/lib/hl-market-stream";
+import { replaceBookLevels } from "@/features/trade/lib/orderbook-book";
 import { processRawL2Levels, type OrderbookData, type L2BookLevel } from "@/core/utils/hyperliquid";
 import type { ChartDataPoint } from "@0xsignal/shared";
 
@@ -39,9 +38,6 @@ export interface MarketDataState {
   allMids: Record<string, number>;
   /** Per-key candle data (key = "symbol:interval"). */
   candleData: Record<string, ChartDataPoint[]>;
-
-  /** Timestamp of last REST snapshot replacement request per symbol. */
-  orderbookReplaceRequested: Record<string, number>;
 
   // ── Actions ────────────────────────────────────────────────────────
 
@@ -106,14 +102,10 @@ function evictOrderbookSymbol(symbol: string): void {
   if (orderIndex !== -1) orderbookSymbolOrder.splice(orderIndex, 1);
 
   useMarketDataStore.setState((state) => {
-    if (!(symbol in state.orderbookData) && !(symbol in state.orderbookReplaceRequested)) {
-      return state;
-    }
+    if (!(symbol in state.orderbookData)) return state;
     const orderbookData = { ...state.orderbookData };
-    const orderbookReplaceRequested = { ...state.orderbookReplaceRequested };
     delete orderbookData[symbol];
-    delete orderbookReplaceRequested[symbol];
-    return { orderbookData, orderbookReplaceRequested };
+    return { orderbookData };
   });
 }
 
@@ -220,13 +212,12 @@ export const useMarketDataStore = create<MarketDataState>()(
     orderbookData: {},
     allMids: {},
     candleData: {},
-    orderbookReplaceRequested: {},
 
     // ── Initialize WS client singleton ──────────────────────────
     initializeStreamClient: () => {
       const existing = get().marketStreamClient;
       if (existing) return existing;
-      const client = createMarketStreamClient();
+      const client = createBrowserMarketStreamClient();
       set({ marketStreamClient: client });
       return client;
     },
@@ -234,10 +225,8 @@ export const useMarketDataStore = create<MarketDataState>()(
     // ── L2 Snapshot ─────────────────────────────────────────────
     applyOrderbookSnapshot: (symbol, levels) => {
       const raw = getOrCreateRawState(symbol);
-      raw.bids.clear();
-      raw.asks.clear();
-      for (const l of levels[0] ?? []) raw.bids.set(l.px, l);
-      for (const l of levels[1] ?? []) raw.asks.set(l.px, l);
+      replaceBookLevels(raw.bids, levels[0] ?? []);
+      replaceBookLevels(raw.asks, levels[1] ?? []);
       dirtySymbols.add(symbol);
       scheduleFlush();
     },
@@ -281,12 +270,6 @@ export const useMarketDataStore = create<MarketDataState>()(
     // ── Request replace ─────────────────────────────────────────
     requestOrderbookReplace: (symbol) => {
       touchOrderbookSymbol(symbol);
-      set((state) => ({
-        orderbookReplaceRequested: {
-          ...state.orderbookReplaceRequested,
-          [symbol]: Date.now(),
-        },
-      }));
     },
 
     // ── All mids ────────────────────────────────────────────────
@@ -394,7 +377,3 @@ export const useAllMidsData = (): Record<string, number> => useMarketDataStore((
 /** Subscribe to candle data for a given key (e.g. "BTC:1m"). */
 export const useCandleData = (key: string): ChartDataPoint[] | undefined =>
   useMarketDataStore((s) => s.candleData[key]);
-
-/** Check if a given symbol has requested a REST snapshot replacement. */
-export const useOrderbookReplaceRequested = (symbol: string): number | undefined =>
-  useMarketDataStore((s) => s.orderbookReplaceRequested[symbol]);
