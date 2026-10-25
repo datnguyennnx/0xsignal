@@ -32,6 +32,28 @@ export class DuplicateLabel extends Data.TaggedError("DuplicateLabel")<{
   readonly label: string;
 }> {}
 
+export class WalletAddressClaimed extends Data.TaggedError("WalletAddressClaimed")<{
+  readonly walletAddress: string;
+}> {}
+
+export class WalletChallengeNotFound extends Data.TaggedError("WalletChallengeNotFound")<{
+  readonly nonce: string;
+}> {}
+
+export class WalletChallengeExpired extends Data.TaggedError("WalletChallengeExpired")<{
+  readonly nonce: string;
+}> {}
+
+export class WalletChallengeUsed extends Data.TaggedError("WalletChallengeUsed")<{
+  readonly nonce: string;
+}> {}
+
+export class WalletChallengeAddressMismatch extends Data.TaggedError(
+  "WalletChallengeAddressMismatch",
+)<{
+  readonly nonce: string;
+}> {}
+
 export type AuthError =
   | OAuthStateMismatch
   | OAuthStateExpired
@@ -41,4 +63,9 @@ export type AuthError =
   | TokenRevoked
   | UserSuspended
   | AccountNotFound
-  | DuplicateLabel;
+  | DuplicateLabel
+  | WalletAddressClaimed
+  | WalletChallengeNotFound
+  | WalletChallengeExpired
+  | WalletChallengeUsed
+  | WalletChallengeAddressMismatch;

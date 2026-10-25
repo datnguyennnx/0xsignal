@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from "effect";
 import { PostgresConnectionPool } from "../db/postgres";
 import type { ExchangeAccount } from "../../domain/exchange-account";
-import { AccountNotFound, DuplicateLabel } from "../../domain/errors";
+import { AccountNotFound, DuplicateLabel, WalletAddressClaimed } from "../../domain/errors";
 import { pgExchangeAccountRepo } from "./exchange-account.repo.pg";
 
 // Input types
@@ -24,7 +24,7 @@ export interface CreateExchangeAccountParams {
 export interface ExchangeAccountRepoPort {
   readonly create: (
     params: CreateExchangeAccountParams,
-  ) => Effect.Effect<ExchangeAccount, AccountNotFound | DuplicateLabel>;
+  ) => Effect.Effect<ExchangeAccount, AccountNotFound | DuplicateLabel | WalletAddressClaimed>;
 
   readonly findById: (
     id: string,

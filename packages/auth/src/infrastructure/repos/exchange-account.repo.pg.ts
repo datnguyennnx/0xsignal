@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import type { ExchangeAccount } from "../../domain/exchange-account";
-import { AccountNotFound, DuplicateLabel } from "../../domain/errors";
-import { isPgUniqueViolation, resolveMasterWallet } from "./shared/pg-utils";
+import { AccountNotFound, DuplicateLabel, WalletAddressClaimed } from "../../domain/errors";
+import { isPgUniqueViolation, pgUniqueConstraint, resolveMasterWallet } from "./shared/pg-utils";
 import type { ExchangeAccountRepoPort } from "./exchange-account.repo";
 
 type IdRow = { readonly id: string };
@@ -103,18 +103,27 @@ export function pgExchangeAccountRepo(pg: NonNullable<import("pg").Pool>): Excha
 
         return mapRow(insertResult.rows[0]);
       }).pipe(
-        Effect.catch((error: unknown): Effect.Effect<never, AccountNotFound | DuplicateLabel> => {
-          if (isPgUniqueViolation(error)) {
-            return Effect.fail(new DuplicateLabel({ label: params.label ?? "" }));
-          }
-          if (error instanceof AccountNotFound) {
-            return Effect.fail(error);
-          }
-          if (error instanceof DuplicateLabel) {
-            return Effect.fail(error);
-          }
-          return Effect.die(error);
-        }),
+        Effect.catch(
+          (
+            error: unknown,
+          ): Effect.Effect<never, AccountNotFound | DuplicateLabel | WalletAddressClaimed> => {
+            if (isPgUniqueViolation(error)) {
+              if (pgUniqueConstraint(error) === "uq_exchange_accounts_wallet_address") {
+                return Effect.fail(
+                  new WalletAddressClaimed({ walletAddress: params.walletAddress }),
+                );
+              }
+              return Effect.fail(new DuplicateLabel({ label: params.label ?? "" }));
+            }
+            if (error instanceof AccountNotFound) {
+              return Effect.fail(error);
+            }
+            if (error instanceof DuplicateLabel || error instanceof WalletAddressClaimed) {
+              return Effect.fail(error);
+            }
+            return Effect.die(error);
+          },
+        ),
       ),
 
     findById: (id, userId) =>

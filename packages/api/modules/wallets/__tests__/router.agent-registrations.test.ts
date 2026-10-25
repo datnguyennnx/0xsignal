@@ -5,6 +5,7 @@ import {
   AgentRegistrationRepo,
   AuthService,
   ExchangeAccountRepo,
+  WalletChallengeRepo,
   makeUserId,
   type AgentRegistration,
   type Session,
@@ -66,6 +67,7 @@ const makeLayer = (rowsByUser: Record<string, readonly AgentRegistration[]>) =>
       verifyToken: (token) => Effect.succeed(token === "token-b" ? SESSION_B : SESSION_A),
     }),
     Layer.mock(ExchangeAccountRepo, {}),
+    Layer.mock(WalletChallengeRepo, {}),
     Layer.mock(AgentRegistrationRepo, {
       listByUserId: (userId) => Effect.succeed(rowsByUser[userId] ?? []),
     }),

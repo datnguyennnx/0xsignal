@@ -12,6 +12,13 @@ export function isPgUniqueViolation(error: unknown): boolean {
   );
 }
 
+/** Name of the violated unique constraint, when the driver exposes one. */
+export function pgUniqueConstraint(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("constraint" in error)) return undefined;
+  const constraint = (error as { readonly constraint?: unknown }).constraint;
+  return typeof constraint === "string" ? constraint : undefined;
+}
+
 export function resolveMasterWallet(
   pg: NonNullable<import("pg").Pool>,
   accountId: string,
