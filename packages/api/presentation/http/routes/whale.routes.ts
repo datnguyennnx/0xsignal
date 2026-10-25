@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 import { WhaleService } from "../../../application/whales/contracts";
 import type { HttpError } from "../error-response";
 import { parseWhalePositionsQuery } from "./whale.query-parsers";
@@ -34,11 +34,12 @@ export const buildWhaleRoutes = ({
         const query = yield* parseWhalePositionsQuery(url.searchParams);
         const page = yield* whale.queryPositions(query).pipe(Effect.mapError(mapServiceError));
 
+        const fetchedAt = new Date(yield* Clock.currentTimeMillis).toISOString();
         return json({
           data: {
             positions: page.positions,
             nextCursor: page.nextCursor,
-            fetchedAt: new Date().toISOString(),
+            fetchedAt,
           },
         });
       }),

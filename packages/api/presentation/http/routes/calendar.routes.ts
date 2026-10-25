@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 import { CalendarService } from "../../../application/calendar/contracts";
 import type { HttpError } from "../error-response";
 import { parseCalendarQuery, parseUpcomingHours } from "./calendar.query-parsers";
@@ -36,11 +36,12 @@ export const buildCalendarRoutes = ({
           .query(parseCalendarQuery(url.searchParams))
           .pipe(Effect.mapError(mapServiceError));
 
+        const fetchedAt = new Date(yield* Clock.currentTimeMillis).toISOString();
         return json({
           data: {
             events,
             sources: [...new Set(events.map((event) => event.source))],
-            fetchedAt: new Date().toISOString(),
+            fetchedAt,
           },
         });
       }),
@@ -54,11 +55,12 @@ export const buildCalendarRoutes = ({
           .upcoming(parseUpcomingHours(url.searchParams))
           .pipe(Effect.mapError(mapServiceError));
 
+        const fetchedAt = new Date(yield* Clock.currentTimeMillis).toISOString();
         return json({
           data: {
             events,
             sources: [...new Set(events.map((event) => event.source))],
-            fetchedAt: new Date().toISOString(),
+            fetchedAt,
           },
         });
       }),

@@ -1,4 +1,4 @@
-import { Effect, Option, Redacted, Schema } from "effect";
+import { Clock, Effect, Option, Redacted, Schema } from "effect";
 import { ExchangeAccountRepo, ExchangeCredentialRepo } from "@0xsignal/auth";
 import type { CredentialVerifier } from "../../../application/hyperliquid/credential-verification";
 import { asHttpError, type HttpError } from "../error-response";
@@ -200,10 +200,11 @@ export const buildKeyRoutes = ({
         });
 
         // Step 5: Return success
+        const verifiedAt = new Date(yield* Clock.currentTimeMillis).toISOString();
         return json({
           data: {
             isVerified: true,
-            verifiedAt: new Date().toISOString(),
+            verifiedAt,
           },
         });
       }),

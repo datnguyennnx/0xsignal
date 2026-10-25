@@ -1,5 +1,5 @@
 /// <reference lib="es2023.array" />
-import { Duration, Effect, Layer, Ref, Stream } from "effect";
+import { Clock, Duration, Effect, Layer, Ref, Stream } from "effect";
 import {
   WHALE_POSITIONS_LIMIT_MAX,
   type WhalePosition,
@@ -98,7 +98,7 @@ const makeWhaleService = () =>
         const seeded = rows.toSorted((a, b) => b.accountValue - a.accountValue).slice(0, cap);
         if (seeded.length === 0) return;
 
-        const now = Date.now();
+        const now = yield* Clock.currentTimeMillis;
         yield* Ref.update(tracked, (map) => {
           const next = new Map(map);
           for (const row of seeded) {
@@ -157,12 +157,15 @@ const makeWhaleService = () =>
             Stream.tap((trade) =>
               // Copy-on-write: a tick parked on an earlier snapshot must not
               // see wallets nominated after that snapshot.
-              Ref.update(tracked, (map) =>
-                new Map(map).set(trade.user, {
-                  lastSeenAt: Date.now(),
-                  lastNotionalUsd: trade.notionalUsd,
-                }),
-              ),
+              Effect.gen(function* () {
+                const seenAt = yield* Clock.currentTimeMillis;
+                yield* Ref.update(tracked, (map) =>
+                  new Map(map).set(trade.user, {
+                    lastSeenAt: seenAt,
+                    lastNotionalUsd: trade.notionalUsd,
+                  }),
+                );
+              }),
             ),
             Stream.runDrain,
             Effect.mapError(mapRepoError("Failed to consume the whale trade stream for discovery")),
@@ -174,7 +177,7 @@ const makeWhaleService = () =>
             ),
           );
 
-          const now = Date.now();
+          const now = yield* Clock.currentTimeMillis;
           // The sweep drops expired wallets from memory; their addresses are
           // returned so their stored positions can be reclaimed in the DB.
           const dropped = yield* Ref.modify(tracked, (map) => {
@@ -201,14 +204,14 @@ const makeWhaleService = () =>
           }
 
           // Retention is best-effort: a prune outage must not abort the tick.
-          yield* repo.pruneWallets(new Date(Date.now() - config.walletRetentionMs)).pipe(
+          yield* repo.pruneWallets(new Date(now - config.walletRetentionMs)).pipe(
             Effect.mapError(mapRepoError("Failed to prune stale whale wallets")),
             Effect.catch((error) =>
               Effect.logWarning(`[whale] wallet prune failed, continuing: ${error.message}`),
             ),
           );
 
-          yield* repo.pruneStalePositions(new Date(Date.now() - config.positionRetentionMs)).pipe(
+          yield* repo.pruneStalePositions(new Date(now - config.positionRetentionMs)).pipe(
             Effect.mapError(mapRepoError("Failed to prune stale whale positions")),
             Effect.catch((error) =>
               Effect.logWarning(`[whale] position prune failed, continuing: ${error.message}`),
