@@ -6,6 +6,7 @@ import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 import { useAppStore } from "@/stores/use-app-store";
 
 interface OrderFormLeverageProps {
+  signingDisabled?: boolean;
   effectiveMarginMode: "cross" | "isolated";
   effectiveLeverage: number;
   onMarginModeOpenChange: (open: boolean) => void;
@@ -23,6 +24,7 @@ interface OrderFormLeverageProps {
 }
 
 export function OrderFormLeverage({
+  signingDisabled = false,
   effectiveMarginMode,
   effectiveLeverage,
   onMarginModeOpenChange,
@@ -46,6 +48,7 @@ export function OrderFormLeverage({
   return (
     <>
       <LeverageMarginBar
+        disabled={signingDisabled}
         effectiveMarginMode={effectiveMarginMode}
         effectiveLeverage={effectiveLeverage}
         onOpenMarginMode={() => {

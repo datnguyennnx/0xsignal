@@ -15,6 +15,7 @@ interface SizeAssetOption {
 }
 
 interface OrderFormFieldsProps {
+  disabled?: boolean;
   orderType: "market" | "limit";
   onOrderTypeChange: (orderType: "market" | "limit") => void;
   side: "buy" | "sell";
@@ -51,6 +52,7 @@ interface OrderFormFieldsProps {
 }
 
 export function OrderFormFields({
+  disabled = false,
   orderType,
   onOrderTypeChange,
   side,
@@ -124,7 +126,7 @@ export function OrderFormFields({
   };
 
   return (
-    <>
+    <fieldset disabled={disabled} className="contents">
       <div className="flex shrink-0">
         {(["market", "limit"] as const).map((type) => (
           <button
@@ -396,6 +398,6 @@ export function OrderFormFields({
 
         <div className="mt-[var(--space-3,1.125rem)]">{footer}</div>
       </div>
-    </>
+    </fieldset>
   );
 }

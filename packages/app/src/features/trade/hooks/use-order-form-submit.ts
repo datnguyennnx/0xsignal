@@ -5,7 +5,12 @@ import type { PlaceOrderEntry } from "@0xsignal/shared";
 import { usePlaceOrder } from "./use-place-order";
 import { formatOrderSize } from "../utils/trade-math";
 import { UnauthenticatedError } from "@/lib/api-base";
+import {
+  BLOCKED_SIGNATURE_MESSAGE,
+  findBlockedSignatureError,
+} from "@/services/exchange/typed-data-guard";
 import { useAppStore } from "@/stores/use-app-store";
+import { useIsSigningDisabled } from "@/hooks/use-effective-address";
 
 interface UseOrderFormSubmitParams {
   symbol: string;
@@ -36,6 +41,7 @@ export function useOrderFormSubmit({
   slPrice,
   onPriceInvalid,
 }: UseOrderFormSubmitParams) {
+  const signingDisabled = useIsSigningDisabled();
   const openConnectWallet = useCallback(() => {
     useAppStore.getState().openConnectWallet("trade-order-form");
   }, []);
@@ -44,13 +50,20 @@ export function useOrderFormSubmit({
     (err: Error) => {
       if (err instanceof UnauthenticatedError) {
         openConnectWallet();
+        return;
       }
+      if (findBlockedSignatureError(err) !== null) {
+        toast.error(BLOCKED_SIGNATURE_MESSAGE);
+        return;
+      }
+      toast.error(err.message);
     },
     [openConnectWallet],
   );
   const placeOrderMutation = usePlaceOrder(handlePlaceOrderError);
 
   const handlePlaceOrder = () => {
+    if (signingDisabled) return;
     if (orderType === "limit" && (!price || Number(price) <= 0)) {
       onPriceInvalid();
       toast.error("Enter a price greater than 0.");
@@ -110,5 +123,5 @@ export function useOrderFormSubmit({
     placeOrderMutation.mutate(payload);
   };
 
-  return { handlePlaceOrder, isPending: placeOrderMutation.isPending };
+  return { handlePlaceOrder, isPending: placeOrderMutation.isPending, signingDisabled };
 }

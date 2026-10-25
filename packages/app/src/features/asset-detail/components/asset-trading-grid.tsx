@@ -5,6 +5,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
 import { PositionManagement } from "@/features/trade/components/position-management";
 import { OrderForm } from "@/features/trade/components/order-form";
+import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { DashboardGrid, DashboardPanel } from "./dashboard-grid";
 
 const TradingChart = lazy(() =>
@@ -69,6 +70,8 @@ export function AssetTradingGrid({
   const chartSymbol = symbol.toUpperCase();
   const containerRef = useRef<HTMLDivElement>(null);
   const isWide = useWideContainer(containerRef);
+  const { getAssetIndex, isLoading: metaLoading } = useHyperliquidMeta();
+  const assetIndex = getAssetIndex(symbol);
 
   const chartPanel = showChartSkeleton ? (
     <Skeleton className="h-full w-full rounded-lg" />
@@ -91,11 +94,20 @@ export function AssetTradingGrid({
     </ErrorBoundary>
   );
 
-  const orderformPanel = (
-    <ErrorBoundary resetKey={symbol}>
-      <OrderForm symbol={symbol} markPrice={markPrice} />
-    </ErrorBoundary>
-  );
+  const orderformPanel =
+    assetIndex === null ? (
+      <ErrorBoundary resetKey={symbol}>
+        <div className="h-full flex items-center justify-center rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface text-center text-[length:var(--text-compact)] text-muted-foreground">
+          {metaLoading
+            ? "Resolving market metadata…"
+            : `Trading is disabled: no Hyperliquid asset index is known for ${symbol}.`}
+        </div>
+      </ErrorBoundary>
+    ) : (
+      <ErrorBoundary resetKey={symbol}>
+        <OrderForm symbol={symbol} assetIndex={assetIndex} markPrice={markPrice} />
+      </ErrorBoundary>
+    );
 
   const positionsPanel = (
     <ErrorBoundary resetKey={symbol}>

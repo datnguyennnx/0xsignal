@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query-keys";
 import { parseSymbol } from "../lib/symbol";
+import { buildAssetIndexMap, resolveAssetIndex } from "../lib/asset-index";
 import { calculatePxDecimals, MAX_DECIMALS_PERP, MAX_SIG_FIGS } from "../utils/trade-formatters";
 
 export interface AssetPrecision {
@@ -43,6 +44,11 @@ export function useHyperliquidMeta() {
     return map;
   }, [data]);
 
+  const assetIndexMap = useMemo(() => {
+    if (!Array.isArray(data)) return new Map<string, number>();
+    return buildAssetIndexMap(data);
+  }, [data]);
+
   const getPrecision = useCallback(
     (sym: string): AssetPrecision => {
       const parsed = parseSymbol(sym);
@@ -54,5 +60,10 @@ export function useHyperliquidMeta() {
     [precisionMap],
   );
 
-  return { meta: data, isLoading, error, getPrecision, precisionMap };
+  const getAssetIndex = useCallback(
+    (sym: string): number | null => resolveAssetIndex(assetIndexMap, sym),
+    [assetIndexMap],
+  );
+
+  return { meta: data, isLoading, error, getPrecision, getAssetIndex, precisionMap };
 }

@@ -1,5 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type PlaceOrderRequest } from "@/services/api";
+import { useConnection } from "wagmi";
+import type { PlaceOrderRequest } from "@/services/api";
+import { submitPlaceOrder } from "@/services/exchange";
+import { UnauthenticatedError } from "@/lib/api-base";
 import { queryKeys } from "@/lib/query-keys";
 
 /**
@@ -12,9 +15,20 @@ import { queryKeys } from "@/lib/query-keys";
  */
 export function usePlaceOrder(onError?: (err: Error) => void) {
   const queryClient = useQueryClient();
+  const { address, chainId } = useConnection();
 
   return useMutation({
-    mutationFn: (params: PlaceOrderRequest) => api.placeOrder(params),
+    mutationFn: (params: PlaceOrderRequest) => {
+      if (address === undefined) {
+        throw new UnauthenticatedError("Connect a wallet to place an order");
+      }
+      return submitPlaceOrder(params, {
+        address,
+        chainId,
+        provider: window.ethereum,
+        confirm: (message) => window.confirm(message),
+      });
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
     },

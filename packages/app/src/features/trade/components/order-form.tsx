@@ -11,11 +11,11 @@ import { useOrderFormSubmit } from "../hooks/use-order-form-submit";
 
 interface OrderFormProps {
   symbol: string;
-  assetIndex?: number;
+  assetIndex: number;
   markPrice?: number;
 }
 
-export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormProps) {
+export function OrderForm({ symbol, assetIndex, markPrice = 0 }: OrderFormProps) {
   const { data: chData } = useClearinghouseState();
   const { data: spotData } = useSpotClearinghouseState();
   const { getPrecision } = useHyperliquidMeta();
@@ -101,7 +101,7 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
     : (sizeAssetOptions[0]?.value ?? "USDC");
   const effectiveBalance = sizeAssetOptions.find((o) => o.value === safeSizeAsset)?.balance ?? 0;
 
-  const { handlePlaceOrder, isPending } = useOrderFormSubmit({
+  const { handlePlaceOrder, isPending, signingDisabled } = useOrderFormSubmit({
     symbol,
     side,
     orderType,
@@ -119,85 +119,98 @@ export function OrderForm({ symbol, assetIndex = 0, markPrice = 0 }: OrderFormPr
   });
 
   const canPlace =
+    !signingDisabled &&
     Number(size) > 0 &&
     usablePrice > 0 &&
     !(orderType === "limit" && (!price || Number(price) <= 0));
 
   return (
     <div className="h-full flex flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-4,1.5rem)]">
-      <OrderFormLeverage
-        effectiveMarginMode={effectiveMarginMode}
-        effectiveLeverage={effectiveLeverage}
-        onMarginModeOpenChange={setMarginModeOpen}
-        onAdjustLeverageOpenChange={setAdjustLeverageOpen}
-        adjustLeverageOpen={adjustLeverageOpen}
-        marginModeOpen={marginModeOpen}
-        currentLeverage={currentLeverageFromChain}
-        currentMarginMode={currentMarginTypeFromChain}
-        maxLeverage={maxLeverage}
-        assetIndex={assetIndex}
-        symbol={symbol}
-        hasPosition={currentAssetPosition !== undefined}
-        onConfirmLeverage={setOverrideLeverage}
-        onConfirmMarginMode={setOverrideMarginMode}
-      />
+      {signingDisabled && (
+        <p className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+          Read-only view — trading is disabled while inspecting another account.
+        </p>
+      )}
+      <div
+        aria-disabled={signingDisabled}
+        className={signingDisabled ? "contents pointer-events-none opacity-60" : "contents"}
+      >
+        <OrderFormLeverage
+          signingDisabled={signingDisabled}
+          effectiveMarginMode={effectiveMarginMode}
+          effectiveLeverage={effectiveLeverage}
+          onMarginModeOpenChange={setMarginModeOpen}
+          onAdjustLeverageOpenChange={setAdjustLeverageOpen}
+          adjustLeverageOpen={adjustLeverageOpen}
+          marginModeOpen={marginModeOpen}
+          currentLeverage={currentLeverageFromChain}
+          currentMarginMode={currentMarginTypeFromChain}
+          maxLeverage={maxLeverage}
+          assetIndex={assetIndex}
+          symbol={symbol}
+          hasPosition={currentAssetPosition !== undefined}
+          onConfirmLeverage={setOverrideLeverage}
+          onConfirmMarginMode={setOverrideMarginMode}
+        />
 
-      <OrderFormFields
-        orderType={orderType}
-        onOrderTypeChange={setOrderType}
-        side={side}
-        onSideChange={setSide}
-        price={price}
-        onPriceChange={(value) => {
-          setPrice(value);
-          setPriceInvalid(false);
-        }}
-        priceInvalid={priceInvalid}
-        size={size}
-        onSizeChange={setSize}
-        sliderPercent={sliderPercent}
-        onSliderPercentChange={setSliderPercent}
-        effectiveBalance={effectiveBalance}
-        effectiveLeverage={effectiveLeverage}
-        sizeAssetOptions={sizeAssetOptions}
-        safeSizeAsset={safeSizeAsset}
-        onSizeAssetChange={setSizeAsset}
-        szDecimals={szDecimals}
-        normalizedSymbol={normalizedSymbol}
-        usablePrice={usablePrice}
-        reduceOnly={reduceOnly}
-        onReduceOnlyChange={(checked) => {
-          setReduceOnly(checked);
-          if (checked) setTpSlEnabled(false);
-        }}
-        tpSlEnabled={tpSlEnabled}
-        onTpSlEnabledChange={(enabled) => {
-          setTpSlEnabled(enabled);
-          if (enabled) setReduceOnly(false);
-        }}
-        showTpSl={showTpSl}
-        tpPrice={tpPrice}
-        tpPercent={tpPercent}
-        slPrice={slPrice}
-        slPercent={slPercent}
-        onTpPriceChange={handleTpPriceChange}
-        onTpPercentChange={handleTpPercentChange}
-        onSlPriceChange={handleSlPriceChange}
-        onSlPercentChange={handleSlPercentChange}
-        footer={
-          <OrderFormSummary
-            orderValue={orderValue}
-            marginRequired={marginRequired}
-            sizeAsset={safeSizeAsset}
-            canPlace={canPlace}
-            isPending={isPending}
-            onPlaceOrder={handlePlaceOrder}
-          />
-        }
-      />
+        <OrderFormFields
+          disabled={signingDisabled}
+          orderType={orderType}
+          onOrderTypeChange={setOrderType}
+          side={side}
+          onSideChange={setSide}
+          price={price}
+          onPriceChange={(value) => {
+            setPrice(value);
+            setPriceInvalid(false);
+          }}
+          priceInvalid={priceInvalid}
+          size={size}
+          onSizeChange={setSize}
+          sliderPercent={sliderPercent}
+          onSliderPercentChange={setSliderPercent}
+          effectiveBalance={effectiveBalance}
+          effectiveLeverage={effectiveLeverage}
+          sizeAssetOptions={sizeAssetOptions}
+          safeSizeAsset={safeSizeAsset}
+          onSizeAssetChange={setSizeAsset}
+          szDecimals={szDecimals}
+          normalizedSymbol={normalizedSymbol}
+          usablePrice={usablePrice}
+          reduceOnly={reduceOnly}
+          onReduceOnlyChange={(checked) => {
+            setReduceOnly(checked);
+            if (checked) setTpSlEnabled(false);
+          }}
+          tpSlEnabled={tpSlEnabled}
+          onTpSlEnabledChange={(enabled) => {
+            setTpSlEnabled(enabled);
+            if (enabled) setReduceOnly(false);
+          }}
+          showTpSl={showTpSl}
+          tpPrice={tpPrice}
+          tpPercent={tpPercent}
+          slPrice={slPrice}
+          slPercent={slPercent}
+          onTpPriceChange={handleTpPriceChange}
+          onTpPercentChange={handleTpPercentChange}
+          onSlPriceChange={handleSlPriceChange}
+          onSlPercentChange={handleSlPercentChange}
+          footer={
+            <OrderFormSummary
+              orderValue={orderValue}
+              marginRequired={marginRequired}
+              sizeAsset={safeSizeAsset}
+              canPlace={canPlace}
+              isPending={isPending}
+              onPlaceOrder={handlePlaceOrder}
+            />
+          }
+        />
 
-      <div className="shrink-0">
-        <UnifiedAccountSummary />
+        <div className="shrink-0">
+          <UnifiedAccountSummary />
+        </div>
       </div>
     </div>
   );

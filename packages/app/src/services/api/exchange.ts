@@ -1,26 +1,31 @@
+import type {
+  OrderIntentRequest,
+  OrderIntentResponse,
+  OrderIntentResultRequest,
+  OrderIntentResultResponse,
+} from "@0xsignal/shared";
 import { API_BASE, fetchJson } from "./client";
-import type { PlaceOrderRequest, UpdateLeverageRequest, CancelOrdersRequest } from "./types";
 
-export function placeOrder(params: PlaceOrderRequest) {
-  return fetchJson(`${API_BASE}/exchange/order`, {
+/** Records the unsigned intent before the browser opens the wallet. */
+export function requestOrderIntent(input: OrderIntentRequest): Promise<OrderIntentResponse> {
+  return fetchJson<OrderIntentResponse>(`${API_BASE}/exchange/intent`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
+    body: JSON.stringify(input),
   });
 }
 
-export function updateLeverage(params: UpdateLeverageRequest) {
-  return fetchJson(`${API_BASE}/exchange/leverage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-}
-
-export function cancelOrders(params: CancelOrdersRequest) {
-  return fetchJson(`${API_BASE}/exchange/cancel`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
+/** Reports the signed action's id (or the rejection) for the audit trail. */
+export function reportOrderIntentResult(
+  intentId: string,
+  result: OrderIntentResultRequest,
+): Promise<OrderIntentResultResponse> {
+  return fetchJson<OrderIntentResultResponse>(
+    `${API_BASE}/exchange/intent/${encodeURIComponent(intentId)}/result`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(result),
+    },
+  );
 }

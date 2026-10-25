@@ -30,6 +30,7 @@ export function AdjustLeverageModal({
   onOpenChange,
   currentLeverage,
   maxLeverage,
+  assetIndex,
   isCross,
   symbol = "this asset",
   hasPosition = false,
@@ -39,6 +40,7 @@ export function AdjustLeverageModal({
   const { isPending, confirm, isConnectWalletOpen, closeConnectWallet } = useAdjustLeverageMutation(
     {
       symbol,
+      assetIndex,
       isCross,
       leverage,
       onConfirm,

@@ -28,6 +28,7 @@ export function MarginModeModal({
   open,
   onOpenChange,
   currentMode,
+  assetIndex,
   currentLeverage,
   symbol = "this asset",
   onConfirm,
@@ -35,6 +36,7 @@ export function MarginModeModal({
   const [mode, setMode] = useState<"cross" | "isolated">(currentMode);
   const { isPending, confirm, isConnectWalletOpen, closeConnectWallet } = useMarginModeMutation({
     symbol,
+    assetIndex,
     leverage: currentLeverage,
     mode,
     onConfirm,
