@@ -13,6 +13,9 @@ bun run lint:strict
 echo "==> depcruise: import-graph guard (errors block, warns reported)"
 bun run depcruise
 
+echo "==> banned constructs: rules the linters cannot express"
+bun scripts/banned-constructs.mjs
+
 echo "==> typecheck: turbo run typecheck"
 bun run typecheck
 

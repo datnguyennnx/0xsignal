@@ -53,6 +53,31 @@ module.exports = {
       to: { path: "^packages/(api|auth|app)/" },
     },
     {
+      name: "logic-is-pure",
+      comment:
+        "logic.ts is pure decision code: no Effect runtime, no platform, no " +
+        "integrations, no app wiring and no other module's internals.",
+      severity: "error",
+      from: { path: "^packages/api/.*logic\\.ts$" },
+      to: {
+        path: [
+          "^packages/api/(platform|integrations|app)/",
+          "^node_modules/(effect|@effect|bun)/",
+          "^node:",
+        ],
+      },
+    },
+    {
+      name: "logic-no-other-module",
+      comment: "A module's logic.ts may only import from its own module.",
+      severity: "error",
+      from: { path: "^packages/api/modules/([^/]+)/.*logic\\.ts$" },
+      to: {
+        path: "^packages/api/modules/",
+        pathNot: "^packages/api/modules/$1/",
+      },
+    },
+    {
       name: "integrations-no-modules",
       comment:
         "Integrations are adapters; composition of modules happens above them. " +
