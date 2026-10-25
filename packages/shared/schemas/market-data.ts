@@ -123,7 +123,7 @@ export interface HealthStatus {
 
 // WebSocket Market Stream
 
-export type WsMarketChannel = "candle" | "l2Book" | "trades" | "allMids";
+export type WsMarketChannel = "candle" | "l2Book" | "allMids";
 
 export const WS_MARKET_INTERVALS = [
   "1m",

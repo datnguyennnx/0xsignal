@@ -17,7 +17,7 @@ function apiConnectSources(rawApiUrl: string | undefined): readonly string[] {
   return [url.origin, `${wsProtocol}//${url.host}`];
 }
 
-export function buildContentSecurityPolicy(rawApiUrl: string | undefined): string {
+export function buildContentSecurityPolicy(rawApiUrl?: string): string {
   const connectSources = ["'self'", ...apiConnectSources(rawApiUrl), ...STATIC_CONNECT_SOURCES];
   return [
     "default-src 'self'",

@@ -162,7 +162,7 @@ function loadCoinIndex(): Promise<Map<string, string>> {
   return coinIndexRequest;
 }
 
-async function resolveHlCoin(symbol: string): Promise<string | null> {
+export async function resolveHlCoin(symbol: string): Promise<string | null> {
   const normalized = normalizeSymbol(symbol);
   if (normalized === "") return null;
   try {
@@ -263,7 +263,7 @@ const directKey = (subscription: WsMarketSubscription): string => {
   if (subscription.channel === "candle") {
     return `candle:${subscription.symbol ?? ""}:${subscription.interval ?? ""}`;
   }
-  return `${subscription.channel}:${subscription.symbol ?? ""}`;
+  return subscription.channel;
 };
 
 export function createDirectMarketStream(

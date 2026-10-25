@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useConnection } from "wagmi";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -13,7 +14,6 @@ import {
   MODAL_CONTENT_CLASS,
 } from "@/components/ui/dialog";
 import { WalletConnectOptions } from "@/components/wallet-connect-options";
-import { cn } from "cn";
 import { ADDRESS_PATTERN } from "@/core/utils/address";
 
 interface ConnectWalletDialogProps {
@@ -31,6 +31,7 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
     const address = addressInput.trim();
     if (!ADDRESS_PATTERN.test(address)) {
       setAddressError("Enter a valid address (0x followed by 40 hex characters).");
+      toast.error("Enter a valid address (0x followed by 40 hex characters).");
       return;
     }
     onOpenChange(false);
@@ -52,7 +53,7 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn(MODAL_CONTENT_CLASS, "sm:max-w-sm p-5 gap-[clamp(0.5rem,1vw,1rem)]")}
+        className={`${MODAL_CONTENT_CLASS} sm:max-w-sm p-5 gap-[clamp(0.5rem,1vw,1rem)]`}
       >
         <DialogHeader className="text-left">
           <DialogTitle>Connect Wallet</DialogTitle>
@@ -78,9 +79,6 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
               aria-invalid={addressError !== null && addressError !== "" ? true : undefined}
               aria-label="Wallet address"
             />
-            {addressError !== null && addressError !== "" && (
-              <p className="text-sm text-destructive">{addressError}</p>
-            )}
             <Button
               type="submit"
               variant="default"

@@ -63,7 +63,7 @@ function routeMarketMessageToStore(
     }
     useMarketDataStore.getState().setAllMids(parsed);
   }
-  // candle and trades: caller must provide onMessage for now
+  // candle: caller must provide onMessage for now
 }
 
 export function useHyperliquidWs({
