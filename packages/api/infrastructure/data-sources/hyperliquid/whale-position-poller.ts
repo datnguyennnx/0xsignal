@@ -1,4 +1,4 @@
-import { Context, Duration, Effect, Layer, Ref, Schedule } from "effect";
+import { Context, Data, Duration, Effect, Layer, Predicate, Ref, Schedule } from "effect";
 import type { ClearinghouseState, WhalePosition, WhaleSide } from "@0xsignal/shared";
 import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
 import { WhaleConfig } from "../../config/whale.config";
@@ -11,9 +11,20 @@ const REST_WEIGHT_PER_CALL = 2;
 const MAX_CONCURRENCY = 5;
 const RETRY_MAX = 3;
 const CAPACITY_REFILL_CEILING_MS = 1_000;
+// The slowest legitimate refill (capacity 1, weight 1) needs 60 one-second
+// waits; this cap leaves room for concurrent callers and still terminates.
+const MAX_BUDGET_WAIT_ATTEMPTS = 600;
+
+export class RateLimitBudgetExhaustedError extends Data.TaggedError(
+  "RateLimitBudgetExhaustedError",
+)<{
+  readonly message: string;
+  readonly weight: number;
+  readonly capacityPerMin: number;
+}> {}
 
 interface TokenBucket {
-  readonly acquire: (weight: number) => Effect.Effect<void>;
+  readonly acquire: (weight: number) => Effect.Effect<void, RateLimitBudgetExhaustedError>;
 }
 
 /**
@@ -27,20 +38,46 @@ const makeTokenBucket = (capacityPerMin: number): Effect.Effect<TokenBucket> =>
     const refillPerMs = capacity / 60_000;
     const state = yield* Ref.make<readonly [number, number]>([capacity, Date.now()]);
 
-    const acquire = (weight: number): Effect.Effect<void> =>
+    const acquire = (weight: number): Effect.Effect<void, RateLimitBudgetExhaustedError> =>
       Effect.gen(function* () {
-        let granted = false;
-        while (!granted) {
+        // A weight above capacity can never be granted by any amount of waiting.
+        if (weight > capacity) {
+          yield* Effect.fail(
+            new RateLimitBudgetExhaustedError({
+              message: `REST weight ${weight} exceeds the per-minute budget ${capacity}`,
+              weight,
+              capacityPerMin: capacity,
+            }),
+          );
+        }
+
+        const attempt = Effect.gen(function* () {
           const now = Date.now();
           const [tokens, lastRefill] = yield* Ref.get(state);
           const available = Math.min(capacity, tokens + (now - lastRefill) * refillPerMs);
           if (available >= weight) {
             yield* Ref.set(state, [available - weight, now]);
-            granted = true;
-          } else {
-            const waitMs = Math.max(1, Math.ceil((weight - available) / refillPerMs));
-            yield* Effect.sleep(Duration.millis(Math.min(waitMs, CAPACITY_REFILL_CEILING_MS)));
+            return true;
           }
+          const waitMs = Math.max(1, Math.ceil((weight - available) / refillPerMs));
+          yield* Effect.sleep(Duration.millis(Math.min(waitMs, CAPACITY_REFILL_CEILING_MS)));
+          return false;
+        });
+
+        const granted = yield* attempt.pipe(
+          Effect.repeat({
+            schedule: Schedule.recurs(MAX_BUDGET_WAIT_ATTEMPTS),
+            until: (done) => done,
+          }),
+        );
+        if (!granted) {
+          yield* Effect.fail(
+            new RateLimitBudgetExhaustedError({
+              message: `REST weight ${weight} unavailable after ${MAX_BUDGET_WAIT_ATTEMPTS} waits`,
+              weight,
+              capacityPerMin: capacity,
+            }),
+          );
         }
       });
 
@@ -95,8 +132,12 @@ interface WhalePollResult {
   readonly succeededAddresses: string[];
 }
 
+type WhalePositionPollerError = HyperliquidError | RateLimitBudgetExhaustedError;
+
 export interface WhalePositionPollerProvider {
-  readonly pollPositions: (addresses: string[]) => Effect.Effect<WhalePollResult, HyperliquidError>;
+  readonly pollPositions: (
+    addresses: string[],
+  ) => Effect.Effect<WhalePollResult, WhalePositionPollerError>;
 }
 
 export class WhalePositionPoller extends Context.Service<
@@ -119,16 +160,23 @@ export const whalePositionPollerLayer: Layer.Layer<
     const config = yield* WhaleConfig;
     const bucket = yield* makeTokenBucket(config.restWeightBudgetPerMin);
 
-    const fetchMarks = (): Effect.Effect<Readonly<Record<string, string>>> =>
+    const fetchMarks = (): Effect.Effect<
+      Readonly<Record<string, string>>,
+      RateLimitBudgetExhaustedError
+    > =>
       Effect.gen(function* () {
         yield* bucket.acquire(REST_WEIGHT_PER_CALL);
         return yield* Effect.tryPromise({
           try: () => info.allMids(),
           catch: (cause) => toHyperliquidError("allMids failed", cause),
-        }).pipe(Effect.catch(() => Effect.succeed<Record<string, string>>({})));
+        }).pipe(
+          Effect.catchTag("HyperliquidError", () => Effect.succeed<Record<string, string>>({})),
+        );
       });
 
-    const fetchState = (address: string): Effect.Effect<ClearinghouseState, HyperliquidError> =>
+    const fetchState = (
+      address: string,
+    ): Effect.Effect<ClearinghouseState, WhalePositionPollerError> =>
       Effect.gen(function* () {
         yield* bucket.acquire(REST_WEIGHT_PER_CALL);
         return yield* Effect.tryPromise({
@@ -139,7 +187,8 @@ export const whalePositionPollerLayer: Layer.Layer<
         Effect.retry({
           times: RETRY_MAX,
           schedule: Schedule.exponential("250 millis").pipe(Schedule.jittered),
-          while: (error: HyperliquidError) => error.kind === "RATE_LIMITED",
+          while: (error: WhalePositionPollerError) =>
+            Predicate.isTagged(error, "HyperliquidError") && error.kind === "RATE_LIMITED",
         }),
       );
 
@@ -166,7 +215,7 @@ export const whalePositionPollerLayer: Layer.Layer<
                     )
                     .filter((position): position is WhalePosition => position !== null),
                 })),
-                Effect.catch((error) =>
+                Effect.catchTag("HyperliquidError", (error) =>
                   Effect.logWarning(
                     `[whale-position-poller] ${address} skipped: ${error.message}`,
                   ).pipe(Effect.asVoid),
