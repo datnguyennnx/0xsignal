@@ -1,7 +1,7 @@
 import { Context, Data, Duration, Effect, Layer, Predicate, Ref, Schedule } from "effect";
 import type { ClearinghouseState, WhalePosition, WhaleSide } from "@0xsignal/shared";
-import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
-import { WhaleConfig } from "../../../infrastructure/config/whale.config";
+import { HyperliquidClient } from "./hyperliquid-client";
+import { WhaleConfig } from "../../../modules/whales";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 
 type AssetPosition = ClearinghouseState["assetPositions"][number];

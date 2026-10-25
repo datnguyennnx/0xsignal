@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { Effect, Layer, Predicate } from "effect";
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
-import { HyperliquidClient } from "../../../../application/hyperliquid/contracts";
-import {
-  WhaleConfig,
-  type WhaleConfigService,
-} from "../../../../application/whales/config.contracts";
+import { HyperliquidClient } from "../hyperliquid-client";
+import { WhaleConfig, type WhaleConfigService } from "../../../../modules/whales";
 import {
   RateLimitBudgetExhaustedError,
   WhalePositionPoller,

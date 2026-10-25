@@ -1,9 +1,9 @@
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 import { Effect, Layer } from "effect";
-import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
+import { HyperliquidClient } from "./hyperliquid-client";
 
 export { HyperliquidClient };
-export { credentialVerifierLayer } from "./credential-verifier.layer";
+export { credentialVerifierLayer } from "./layer";
 
 export const hyperliquidClientLayer = Layer.effect(
   HyperliquidClient,

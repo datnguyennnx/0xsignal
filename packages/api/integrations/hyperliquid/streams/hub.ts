@@ -21,7 +21,7 @@ import { buildMarketWsBucketKey } from "./bucket-key";
 import { HyperliquidProvider } from "../data-sources/types";
 import { subscribeUpstream } from "./hub-subscription";
 import { send, sendFrame, toText } from "./hub-broadcast";
-import { parseMarketWsFrame } from "../../../application/market-data/subscription-parser";
+import { parseMarketWsFrame } from "../../../modules/market-data";
 
 const MAX_RESTART_RETRIES = 3;
 

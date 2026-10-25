@@ -1,6 +1,6 @@
 import { Context, type Effect } from "effect";
 import type { AggregatedMarket, Candle, MarketTicker } from "@0xsignal/shared";
-import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
+import type { MarketTimeframe } from "../../../modules/market-data";
 import type { L2BookResponse, PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
 import type { HyperliquidError } from "./errors";
 

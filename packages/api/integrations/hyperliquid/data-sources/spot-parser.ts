@@ -3,7 +3,7 @@ import {
   isUnknownArray,
   numberAt,
   stringAt,
-} from "../../../infrastructure/data-sources/parse-utils";
+} from "../../../integrations/calendar-sources/parse";
 import type { SpotTradeAsset } from "./types";
 
 export function parseSpotAssets(

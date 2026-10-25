@@ -82,6 +82,13 @@
       "env": {
         "browser": true
       }
+    },
+    {
+      // The composition root is the one place that may wire everything together.
+      "files": ["packages/api/app.ts"],
+      "rules": {
+        "import/max-dependencies": "off"
+      }
     }
   ],
   "ignorePatterns": [

@@ -5,7 +5,7 @@ import type {
   MarketWsConnectionData,
   MarketWsConnectionSubscription,
   MarketWsSubscription,
-} from "../../../application/market-data/market-stream.contracts";
+} from "../../../modules/market-data";
 import { normalizeSymbol } from "../data-sources/symbol";
 import { marketWsLog } from "./logging";
 
@@ -13,11 +13,8 @@ export type {
   MarketWsConnectionData,
   MarketWsConnectionSubscription,
   MarketWsSubscription,
-} from "../../../application/market-data/market-stream.contracts";
-export {
-  MarketStreamHub,
-  MarketStreamError,
-} from "../../../application/market-data/market-stream.contracts";
+} from "../../../modules/market-data";
+export { MarketStreamHub, MarketStreamError } from "../../../modules/market-data";
 
 export const normalizeMarketWsSubscription = (
   subscription: MarketWsSubscription,

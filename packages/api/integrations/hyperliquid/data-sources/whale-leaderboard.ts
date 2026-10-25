@@ -1,8 +1,8 @@
 import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 import type { WhaleLeaderboardRow } from "@0xsignal/shared";
-import { WhaleConfig } from "../../../infrastructure/config/whale.config";
-import { asRecord } from "../../../infrastructure/data-sources/parse-utils";
+import { WhaleConfig } from "../../../modules/whales";
+import { asRecord } from "../../../integrations/calendar-sources/parse";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 
 export interface WhaleLeaderboardProvider {

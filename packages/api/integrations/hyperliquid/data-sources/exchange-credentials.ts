@@ -5,10 +5,10 @@ import { ExchangeAccountRepo } from "@0xsignal/auth";
 import { ExchangeCredentialRepo } from "@0xsignal/auth";
 import {
   ExchangeCredentials,
+  type ExchangeError,
   type ResolvedExchangeCredentials,
-} from "../../../application/exchange/credentials.contracts";
-import type { ExchangeError } from "../../../application/exchange/contracts";
-import { HyperliquidInternalError } from "../../../domain/errors";
+} from "../../../modules/exchange";
+import { HyperliquidInternalError } from "../../../shared/errors";
 
 const isPrivateKeyHex = (value: string): value is `0x${string}` =>
   /^0x[0-9a-fA-F]{64}$/.test(value);

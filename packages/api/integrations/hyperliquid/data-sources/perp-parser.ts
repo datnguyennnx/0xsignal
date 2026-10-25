@@ -1,8 +1,4 @@
-import {
-  asRecord,
-  isUnknownArray,
-  stringAt,
-} from "../../../infrastructure/data-sources/parse-utils";
+import { asRecord, isUnknownArray, stringAt } from "../../../integrations/calendar-sources/parse";
 import { normalizeSymbol } from "./symbol";
 import type { PerpTradeAsset } from "./types";
 

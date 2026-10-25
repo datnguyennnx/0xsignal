@@ -1,6 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import { Effect } from "effect";
-import { MarketStreamError } from "../../../application/market-data/market-stream.contracts";
+import { MarketStreamError } from "../../../modules/market-data";
 import { type Bucket, type MarketWsConnectionData } from "./hub-types";
 
 /**

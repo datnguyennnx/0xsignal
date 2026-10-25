@@ -32,12 +32,12 @@ COPY packages/shared ./packages/shared
 RUN bun run --cwd /app/packages/api typecheck
 
 # Build with minification
-RUN bun build packages/api/presentation/http/server.ts \
+RUN bun build packages/api/main.ts \
     --target=bun \
     --minify \
     --outdir=./dist
 
-# Same layout as the local build: dist/server.js resolves SQL from dist/sql
+# Same layout as the local build: dist/main.js resolves SQL from dist/sql
 RUN mkdir -p ./dist/sql && cp -r packages/auth/src/infrastructure/migrations/sql/. ./dist/sql/
 
 # Stage 3: Production dependencies only
@@ -80,4 +80,4 @@ EXPOSE 9006
 HEALTHCHECK --interval=30s --timeout=2s --start-period=5s --retries=3 \
     CMD bun -e "fetch('http://localhost:9006/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-CMD ["bun", "run", "dist/server.js"]
+CMD ["bun", "run", "dist/main.js"]

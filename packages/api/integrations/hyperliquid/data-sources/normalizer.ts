@@ -1,8 +1,8 @@
 /// <reference lib="es2023.array" />
 import { Data, Effect, Match, Predicate } from "effect";
 import { type Candle, type WsMarketInterval } from "@0xsignal/shared";
-import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
-import { asRecord } from "../../../infrastructure/data-sources/parse-utils";
+import type { MarketTimeframe } from "../../../modules/market-data";
+import { asRecord } from "../../../integrations/calendar-sources/parse";
 
 export class NormalizationError extends Data.TaggedError("NormalizationError")<{
   readonly message: string;

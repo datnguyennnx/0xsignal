@@ -21,7 +21,7 @@ import {
   toHyperliquidInfoClient,
 } from "./mapping";
 import { mapTickerFromSnapshot, resolveInternalSymbol, isPerpSymbol } from "./ticker-snapshot";
-import type { MarketTimeframe } from "../../../domain/market-data/timeframe";
+import type { MarketTimeframe } from "../../../modules/market-data";
 
 import { withDedup } from "./request-dedup";
 

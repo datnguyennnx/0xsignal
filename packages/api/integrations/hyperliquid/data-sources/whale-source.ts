@@ -1,14 +1,14 @@
 import { Effect, Layer, Predicate, Stream } from "effect";
 import { HttpClient } from "effect/http";
-import { HyperliquidClient } from "../../../application/hyperliquid/contracts";
+import { HyperliquidClient } from "./hyperliquid-client";
 import {
   WhaleSources,
   type WhaleSourceError,
   type WhaleSourceKind,
   WhaleSourceRateLimitedError,
   WhaleSourceUnavailableError,
-} from "../../../application/whales/sources.contracts";
-import { WhaleConfig } from "../../../infrastructure/config/whale.config";
+} from "../../../modules/whales";
+import { WhaleConfig } from "../../../modules/whales";
 import { WhaleLeaderboard, whaleLeaderboardLayer } from "./whale-leaderboard";
 import { WhalePositionPoller, whalePositionPollerLayer } from "./whale-position-poller";
 import { WhaleTradeStream, whaleTradeStreamLayer } from "./whale-trade-stream";

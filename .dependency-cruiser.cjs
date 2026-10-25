@@ -54,10 +54,16 @@ module.exports = {
     },
     {
       name: "integrations-no-modules",
-      comment: "Integrations are adapters; composition of modules happens above them.",
+      comment:
+        "Integrations are adapters; composition of modules happens above them. " +
+        "They may import a module's public surface (index.ts) because depending " +
+        "on a published port is inversion, not internal coupling.",
       severity: "error",
       from: { path: "^packages/api/integrations/" },
-      to: { path: "^packages/api/modules/" },
+      to: {
+        path: "^packages/api/modules/",
+        pathNot: "^packages/api/modules/[^/]+/index\\.ts$",
+      },
     },
     {
       name: "platform-no-modules",

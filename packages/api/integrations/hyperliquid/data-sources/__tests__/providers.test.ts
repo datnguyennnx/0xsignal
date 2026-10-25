@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { Effect, Layer, Schema } from "effect";
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
-import { MarketTimeframeSchema } from "../../../../domain/market-data/timeframe";
+import { MarketTimeframeSchema } from "../../../../modules/market-data";
 import {
   getCandleSnapshot,
   getAllMids,

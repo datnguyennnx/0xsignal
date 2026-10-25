@@ -4,7 +4,7 @@ import {
   isUnknownArray,
   numberAt,
   stringAt,
-} from "../../../infrastructure/data-sources/parse-utils";
+} from "../../../integrations/calendar-sources/parse";
 import type {
   HyperliquidAggregatedAsset,
   MarketAssetCtxItem,
