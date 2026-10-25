@@ -7,14 +7,9 @@ import type {
   PlaceOrderRequest,
   UpdateLeverageRequest,
 } from "@0xsignal/shared";
-import { ExchangeService } from "../../../application/exchange/contracts";
 import { asHttpError, type HttpError } from "../error-response";
-
-type ExchangeHttpService = {
-  readonly placeOrder: (typeof ExchangeService.Service)["placeOrder"];
-  readonly updateLeverageAndMargin: (typeof ExchangeService.Service)["updateLeverageAndMargin"];
-  readonly cancelOrders: (typeof ExchangeService.Service)["cancelOrders"];
-};
+import { requireUserId } from "../require-user";
+import type { ExchangeHttpService } from "../route-contracts";
 
 type RouteHandler = (
   request: Request,
@@ -43,11 +38,30 @@ const OrderTypeSchema: Schema.Decoder<OrderType> = Schema.Union([
   }),
 ]).pipe(Schema.toTaggedUnion("kind"));
 
+const DECIMAL_AMOUNT_RE = /^(?=.*[1-9])\d+(\.\d+)?$/;
+const NON_NEGATIVE_DECIMAL_RE = /^\d+(\.\d+)?$/;
+
+const DecimalAmountSchema: Schema.Codec<string, string> = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(DECIMAL_AMOUNT_RE, { message: "expected a positive decimal string" }),
+  ),
+);
+
+// "0" is syntactically valid for price; whether it is admissible depends on
+// reduceOnly and timeInForce, which only the exchange service can judge.
+const NonNegativeDecimalSchema: Schema.Codec<string, string> = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(NON_NEGATIVE_DECIMAL_RE, {
+      message: "expected a non-negative decimal string",
+    }),
+  ),
+);
+
 const PlaceOrderEntrySchema: Schema.Decoder<PlaceOrderEntry> = Schema.Struct({
   symbol: Schema.String,
   side: Schema.Literals(["buy", "sell"]),
-  quantity: Schema.String,
-  price: Schema.String,
+  quantity: DecimalAmountSchema,
+  price: NonNegativeDecimalSchema,
   reduceOnly: Schema.Boolean,
   orderType: OrderTypeSchema,
 });
@@ -60,12 +74,14 @@ const PlaceOrderRequestSchema: Schema.Decoder<PlaceOrderRequest> = Schema.Struct
 const UpdateLeverageRequestSchema: Schema.Decoder<UpdateLeverageRequest> = Schema.Struct({
   symbol: Schema.String,
   isCross: Schema.Boolean,
-  leverage: Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))),
+  leverage: Schema.Number.pipe(
+    Schema.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(100)),
+  ),
 });
 
 const CancelEntrySchema: Schema.Decoder<CancelEntry> = Schema.Struct({
   symbol: Schema.String,
-  orderId: Schema.Number,
+  orderId: Schema.Number.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0))),
 });
 
 const CancelOrdersRequestSchema: Schema.Decoder<CancelOrdersRequest> = Schema.Struct({
@@ -85,9 +101,7 @@ export const buildExchangeRoutes = ({
     path: "/api/exchange/order",
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService, userId?: string) =>
       Effect.gen(function* () {
-        if (userId === undefined || userId === "") {
-          return yield* Effect.fail(asHttpError(401, "Authentication required"));
-        }
+        const sessionUserId = yield* requireUserId(userId);
 
         const raw: unknown = yield* Effect.tryPromise({
           try: () => request.json(),
@@ -97,7 +111,7 @@ export const buildExchangeRoutes = ({
         const payload = yield* Schema.decodeUnknownEffect(PlaceOrderRequestSchema)(raw).pipe(
           Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`)),
           Effect.flatMap((body) =>
-            exchange.placeOrder(body, userId).pipe(Effect.mapError(mapServiceError)),
+            exchange.placeOrder(body, sessionUserId).pipe(Effect.mapError(mapServiceError)),
           ),
         );
         return json({ data: payload });
@@ -108,9 +122,7 @@ export const buildExchangeRoutes = ({
     path: "/api/exchange/leverage",
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService, userId?: string) =>
       Effect.gen(function* () {
-        if (userId === undefined || userId === "") {
-          return yield* Effect.fail(asHttpError(401, "Authentication required"));
-        }
+        const sessionUserId = yield* requireUserId(userId);
 
         const raw: unknown = yield* Effect.tryPromise({
           try: () => request.json(),
@@ -120,7 +132,9 @@ export const buildExchangeRoutes = ({
         const payload = yield* Schema.decodeUnknownEffect(UpdateLeverageRequestSchema)(raw).pipe(
           Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`)),
           Effect.flatMap((body) =>
-            exchange.updateLeverageAndMargin(body, userId).pipe(Effect.mapError(mapServiceError)),
+            exchange
+              .updateLeverageAndMargin(body, sessionUserId)
+              .pipe(Effect.mapError(mapServiceError)),
           ),
         );
         return json({ data: payload });
@@ -131,9 +145,7 @@ export const buildExchangeRoutes = ({
     path: "/api/exchange/cancel",
     handler: (request: Request, _url: URL, exchange: ExchangeHttpService, userId?: string) =>
       Effect.gen(function* () {
-        if (userId === undefined || userId === "") {
-          return yield* Effect.fail(asHttpError(401, "Authentication required"));
-        }
+        const sessionUserId = yield* requireUserId(userId);
 
         const raw: unknown = yield* Effect.tryPromise({
           try: () => request.json(),
@@ -143,7 +155,7 @@ export const buildExchangeRoutes = ({
         const payload = yield* Schema.decodeUnknownEffect(CancelOrdersRequestSchema)(raw).pipe(
           Effect.mapError((err) => asHttpError(400, `Invalid request body: ${err.message}`)),
           Effect.flatMap((body) =>
-            exchange.cancelOrders(body, userId).pipe(Effect.mapError(mapServiceError)),
+            exchange.cancelOrders(body, sessionUserId).pipe(Effect.mapError(mapServiceError)),
           ),
         );
         return json({ data: payload });
