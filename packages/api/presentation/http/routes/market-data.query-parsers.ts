@@ -8,7 +8,7 @@ const noDate = Option.getOrUndefined(Option.none<Date>());
 const noNumber = Option.getOrUndefined(Option.none<number>());
 
 const badRequest = (message: string): Effect.Effect<never, HttpError> =>
-  Effect.fail({ status: 400, message });
+  Effect.fail(asHttpError(400, message));
 
 export const parseRequiredString = (
   params: URLSearchParams,

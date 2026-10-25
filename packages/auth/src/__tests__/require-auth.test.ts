@@ -92,6 +92,58 @@ describe("withAuth guard", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it("passes a typed status error through instead of masking it as 500", async () => {
+    const mockAuthService = makeAuthServiceMock();
+    mockAuthService.verifyToken.mockReturnValue(Effect.succeed(mockSession));
+
+    const TestLayer = Layer.succeed(AuthService, mockAuthService);
+    const runtime = ManagedRuntime.make(TestLayer);
+
+    const httpError = {
+      status: 404,
+      message: "Credential not found",
+      code: "NOT_FOUND",
+      retryable: false,
+    };
+    const handler = vi
+      .fn<(session: Session) => Effect.Effect<Response, typeof httpError>>()
+      .mockReturnValue(Effect.fail(httpError));
+
+    const request = new Request("http://localhost/api/keys/cred-1", {
+      headers: { Authorization: "Bearer valid-token" },
+    });
+
+    const guard = withAuth(handler);
+    const result = await runtime.runPromise(guard(request));
+
+    expect(result.status).toBe(404);
+    const body: unknown = await result.json();
+    expect(body).toMatchObject({ error: "Credential not found", code: "NOT_FOUND" });
+  });
+
+  it("returns 500 when the handler dies", async () => {
+    const mockAuthService = makeAuthServiceMock();
+    mockAuthService.verifyToken.mockReturnValue(Effect.succeed(mockSession));
+
+    const TestLayer = Layer.succeed(AuthService, mockAuthService);
+    const runtime = ManagedRuntime.make(TestLayer);
+
+    const handler = vi
+      .fn<(session: Session) => Effect.Effect<Response>>()
+      .mockReturnValue(Effect.die(new Error("boom")));
+
+    const request = new Request("http://localhost/api/auth/me", {
+      headers: { Authorization: "Bearer valid-token" },
+    });
+
+    const guard = withAuth(handler);
+    const result = await runtime.runPromise(guard(request));
+
+    expect(result.status).toBe(500);
+    const body: unknown = await result.json();
+    expect(body).toMatchObject({ error: "Internal error" });
+  });
+
   it("extracts token from cookie when no Authorization header", async () => {
     const mockAuthService = makeAuthServiceMock();
     mockAuthService.verifyToken.mockReturnValue(Effect.succeed(mockSession));

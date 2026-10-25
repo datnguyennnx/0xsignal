@@ -1,11 +1,11 @@
-import { Effect } from "effect";
+import { Cause, Effect } from "effect";
 import {
   buildAuthRoutes,
   withAuth,
   ExchangeAccountRepo,
   ExchangeCredentialRepo,
 } from "@0xsignal/auth";
-import { mapServiceError } from "./error-response";
+import { asHttpError, mapServiceError } from "./error-response";
 import {
   CredentialVerifier,
   type AuthRouteHandler,
@@ -41,52 +41,72 @@ const internalErrorResponse = (): Response =>
     headers: { "Content-Type": "application/json" },
   });
 
+// Typed failures keep their own status via the router; only defects and
+// interruptions are indistinguishable from a crash and become 500s here.
+const withDefectGuard = <E, R>(
+  effect: Effect.Effect<Response, E, R>,
+): Effect.Effect<Response, E, R> =>
+  effect.pipe(
+    Effect.catchCause((cause) =>
+      Cause.hasDies(cause) || Cause.hasInterrupts(cause)
+        ? Effect.succeed(internalErrorResponse())
+        : Effect.failCause(cause),
+    ),
+  );
+
 // Auth routes handle their own errors internally; always returns a Response
 // Services (AuthService, ExchangeAccountRepo, ExchangeCredentialRepo) are
 // provided by AppLayer at the top level.
 const adaptAuthRoute =
   (handler: (request: Request) => Effect.Effect<Response, never, RouteEnvironment>): RouteHandler =>
   (request) =>
-    handler(request).pipe(Effect.catchCause(() => Effect.succeed(internalErrorResponse())));
+    withDefectGuard(handler(request));
 
 // Requires a valid auth session before executing
 const requireAuth =
   (routeHandler: AuthRouteHandler): RouteHandler =>
   (request, url, marketData, health, userData, exchange, calendar, whale) =>
-    withAuth((session) =>
-      routeHandler(
-        request,
-        url,
-        marketData,
-        health,
-        userData,
-        exchange,
-        calendar,
-        whale,
-        session.userId,
-      ),
-    )(request).pipe(Effect.catchCause(() => Effect.succeed(internalErrorResponse())));
+    withDefectGuard(
+      withAuth((session) =>
+        routeHandler(
+          request,
+          url,
+          marketData,
+          health,
+          userData,
+          exchange,
+          calendar,
+          whale,
+          session.userId,
+        ),
+      )(request),
+    );
 
 // Resolves the credential repositories before the auth session is checked, so
 // the auth wrapper only has to supply AuthService.
 const requireAuthCredentials =
   (handler: CredentialHttpHandler): RouteHandler =>
   (request, url, _marketData, _health, _userData, _exchange, _calendar, _whale) =>
-    Effect.gen(function* () {
-      const accountRepo = yield* ExchangeAccountRepo;
-      const credentialRepo = yield* ExchangeCredentialRepo;
-      const verifier = yield* CredentialVerifier;
-      return yield* withAuth((session) =>
-        handler(request, url, accountRepo, credentialRepo, verifier, session.userId),
-      )(request);
-    });
+    withDefectGuard(
+      Effect.gen(function* () {
+        const accountRepo = yield* ExchangeAccountRepo;
+        const credentialRepo = yield* ExchangeCredentialRepo;
+        const verifier = yield* CredentialVerifier;
+        return yield* withAuth((session) =>
+          handler(request, url, accountRepo, credentialRepo, verifier, session.userId),
+        )(request);
+      }),
+    );
 
 export const routes: Array<{ method: string; path: string; handler: RouteHandler }> = [
   {
     method: "GET",
     path: "/api/health",
     handler: (_request, _url, _marketData, health) =>
-      health.check().pipe(Effect.map((body) => json({ data: body }))),
+      health.check().pipe(
+        Effect.map((body) => json({ data: body })),
+        Effect.mapError((e) => asHttpError(e.status, e.message)),
+      ),
   },
   ...buildMarketDataRoutes({
     json,

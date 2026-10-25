@@ -1,9 +1,45 @@
-import { Effect, Match } from "effect";
+import { Cause, Effect, Match, Option } from "effect";
 import { AuthService } from "../application/auth.service";
 import type { Session } from "../domain/session";
 
 const isPresent = (value: string | undefined): value is string =>
   value !== undefined && value !== "";
+
+type StatusError = {
+  readonly status: number;
+  readonly message?: string | undefined;
+  readonly code?: string | undefined;
+};
+
+const isStatusError = (error: unknown): error is StatusError =>
+  typeof error === "object" &&
+  error !== null &&
+  "status" in error &&
+  typeof error.status === "number";
+
+const internalErrorResponse = (): Response =>
+  new Response(JSON.stringify({ error: "Internal error" }), {
+    status: 500,
+    headers: { "Content-Type": "application/json" },
+  });
+
+const toErrorResponse = (error: unknown): Response => {
+  if (!isStatusError(error)) return internalErrorResponse();
+  const body: Record<string, unknown> = { error: error.message ?? "Internal error" };
+  if (error.code !== undefined && error.code !== "") {
+    body.code = error.code;
+  }
+  return new Response(JSON.stringify(body), {
+    status: error.status,
+    headers: { "Content-Type": "application/json" },
+  });
+};
+
+const toFailureResponse = (cause: Cause.Cause<unknown>): Response => {
+  if (Cause.hasDies(cause) || Cause.hasInterrupts(cause)) return internalErrorResponse();
+  const failure = Cause.findErrorOption(cause);
+  return Option.isSome(failure) ? toErrorResponse(failure.value) : internalErrorResponse();
+};
 
 export const withAuth =
   <E>(handler: (session: Session) => Effect.Effect<Response, E, AuthService>) =>
@@ -50,14 +86,7 @@ export const withAuth =
         ),
         Match.orElse((s) =>
           handler(s.session).pipe(
-            Effect.catch(() =>
-              Effect.succeed(
-                new Response(JSON.stringify({ error: "Internal error" }), {
-                  status: 500,
-                  headers: { "Content-Type": "application/json" },
-                }),
-              ),
-            ),
+            Effect.catchCause((cause) => Effect.succeed(toFailureResponse(cause))),
           ),
         ),
       );
