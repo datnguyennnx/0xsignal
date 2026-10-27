@@ -31,6 +31,9 @@
       ],
       "project": ["src/**/*.{ts,tsx,css}"],
       // Consumed from CSS, not JS: src/index.css @imports both, with the @tailwindcss/vite plugin wired in vite.config.ts. Do not delete these packages.
+      // Knip resolves import statements, not Vite `resolve.alias` string targets, so
+      // this shim (aliased for `node:worker_threads` in vite.config.ts) is invisible to it. Do not delete it.
+      "ignore": ["src/lib/node-worker-threads-shim.ts"],
     },
     "packages/api": {
       "project": ["**/*.ts"],

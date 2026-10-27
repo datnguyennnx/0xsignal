@@ -3,7 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import { visualizer } from "rollup-plugin-visualizer";
-import { buildContentSecurityPolicy } from "./src/lib/content-security-policy";
+import { buildContentSecurityPolicy } from "./src/lib/content-security-policy.ts";
 
 /**
  * Strict CSP ships in the built index.html. Dev omits it because Vite's React
@@ -46,7 +46,13 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: {
       dedupe: ["react", "react-dom", "viem", "wagmi"],
-      alias: { "@": path.resolve(import.meta.dirname, "./src") },
+      alias: {
+        "@": path.resolve(import.meta.dirname, "./src"),
+        "node:worker_threads": path.resolve(
+          import.meta.dirname,
+          "./src/lib/node-worker-threads-shim.ts",
+        ),
+      },
     },
     // Every entry is reachable from the first paint (main.tsx -> App.tsx -> use-auth-store
     // -> the api barrel), so pre-bundling them up front removes the discovery reload.

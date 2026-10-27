@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo run dev --parallel",
+    "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "oxlint .",
@@ -45,8 +45,8 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
-      "oxfmt --write",
-      "oxlint --fix"
+      "oxlint --fix",
+      "oxfmt --write"
     ],
     "*.{json,md,css}": [
       "oxfmt --write"
