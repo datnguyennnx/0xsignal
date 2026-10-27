@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Effect } from "effect";
-import type { ServerWebSocket, ServerWebSocketSendStatus, WebSocketReadyState } from "bun";
+import type { ServerWebSocket, WebSocketReadyState } from "bun";
 import { asHttpError } from "../../../platform/http/error-response";
 import { createWsEventHandlers } from "../ws";
 import type { SocketConnection } from "../../../platform/http/ws";
@@ -8,54 +8,81 @@ import type { RunSocketWork } from "../../../platform/http/ws";
 
 type Data = { readonly id: string };
 
+type HandlerSocket = ServerWebSocket<Data>;
+type SendArg = Parameters<HandlerSocket["send"]>[0];
+type SendBinaryArg = Parameters<HandlerSocket["sendBinary"]>[0];
+type SendStatus = ReturnType<HandlerSocket["send"]>;
+type PingArg = Parameters<HandlerSocket["ping"]>[0];
+
 class StubSocket implements ServerWebSocket<Data> {
   readonly subscriptions: string[] = [];
   readonly remoteAddress = "127.0.0.1";
   readonly readyState: WebSocketReadyState = 1;
+  binaryType?: "nodebuffer" | "arraybuffer" | "uint8array" | "blob";
   terminated = false;
   pings = 0;
+  private paused = false;
 
   constructor(readonly data: Data) {}
 
-  send(): ServerWebSocketSendStatus {
+  get isPaused(): boolean {
+    return this.paused;
+  }
+
+  send(_data: SendArg, _compress?: boolean): SendStatus {
     return 0;
   }
-  sendText(): ServerWebSocketSendStatus {
+  sendText(_data: string, _compress?: boolean): SendStatus {
     return 0;
   }
-  sendBinary(): ServerWebSocketSendStatus {
+  sendBinary(_data: SendBinaryArg, _compress?: boolean): SendStatus {
     return 0;
   }
-  close(): void {}
+  close(_code?: number, _reason?: string): void {}
   terminate(): void {
     this.terminated = true;
   }
-  ping(): ServerWebSocketSendStatus {
+  ping(_data?: PingArg): SendStatus {
     this.pings += 1;
     return 0;
   }
-  pong(): ServerWebSocketSendStatus {
+  pong(_data?: PingArg): SendStatus {
     return 0;
   }
-  publish(): ServerWebSocketSendStatus {
+  publish(_topic: string, _data: SendArg, _compress?: boolean): SendStatus {
     return 0;
   }
-  publishText(): ServerWebSocketSendStatus {
+  publishText(_topic: string, _data: string, _compress?: boolean): SendStatus {
     return 0;
   }
-  publishBinary(): ServerWebSocketSendStatus {
+  publishBinary(_topic: string, _data: SendBinaryArg, _compress?: boolean): SendStatus {
     return 0;
   }
-  subscribe(): void {}
-  unsubscribe(): void {}
-  isSubscribed(): boolean {
-    return false;
+  subscribe(topic: string): boolean {
+    if (this.subscriptions.includes(topic)) return false;
+    this.subscriptions.push(topic);
+    return true;
   }
-  cork<T>(_callback: (ws: ServerWebSocket<T>) => T): T {
+  unsubscribe(topic: string): boolean {
+    const index = this.subscriptions.indexOf(topic);
+    if (index === -1) return false;
+    this.subscriptions.splice(index, 1);
+    return true;
+  }
+  isSubscribed(topic: string): boolean {
+    return this.subscriptions.includes(topic);
+  }
+  cork<R = unknown>(_callback: (ws: HandlerSocket) => R): R {
     throw new Error("not implemented");
   }
   getBufferedAmount(): number {
     return 0;
+  }
+  pause(): void {
+    this.paused = true;
+  }
+  resume(): void {
+    this.paused = false;
   }
 }
 

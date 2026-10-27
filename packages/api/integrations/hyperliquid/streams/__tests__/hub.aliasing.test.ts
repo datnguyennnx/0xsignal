@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Effect, Fiber, Queue, Ref } from "effect";
 import { TestClock } from "effect/testing";
-import type { ServerWebSocket, ServerWebSocketSendStatus, WebSocketReadyState } from "bun";
+import type { ServerWebSocket, WebSocketReadyState } from "bun";
 import {
   SubscriptionClient,
   type ISubscription,
@@ -44,54 +44,87 @@ const stubProvider = {
   getTradeAnnotation: () => Effect.die("unused"),
 };
 
+type HubSocket = ServerWebSocket<MarketWsConnectionData>;
+type SendArg = Parameters<HubSocket["send"]>[0];
+type SendBinaryArg = Parameters<HubSocket["sendBinary"]>[0];
+type SendStatus = ReturnType<HubSocket["send"]>;
+type PingArg = Parameters<HubSocket["ping"]>[0];
+
 class StubSocket implements ServerWebSocket<MarketWsConnectionData> {
   readonly subscriptions: string[] = [];
   readonly sent: string[] = [];
   readonly remoteAddress = "127.0.0.1";
   readonly readyState: WebSocketReadyState = 1;
+  binaryType?: "nodebuffer" | "arraybuffer" | "uint8array" | "blob";
   closed: { readonly code?: number; readonly reason?: string } | undefined;
+  private paused = false;
 
   constructor(readonly data: MarketWsConnectionData) {}
 
-  send(payload: string | Uint8Array): ServerWebSocketSendStatus {
-    this.sent.push(typeof payload === "string" ? payload : new TextDecoder().decode(payload));
+  get isPaused(): boolean {
+    return this.paused;
+  }
+
+  send(data: SendArg, _compress?: boolean): SendStatus {
+    this.sent.push(
+      typeof data === "string"
+        ? data
+        : data instanceof Blob
+          ? "[blob]"
+          : new TextDecoder().decode(data),
+    );
     return 0;
   }
-  sendText(): ServerWebSocketSendStatus {
-    return 0;
+  sendText(data: string, _compress?: boolean): SendStatus {
+    return this.send(data);
   }
-  sendBinary(): ServerWebSocketSendStatus {
-    return 0;
+  sendBinary(data: SendBinaryArg, _compress?: boolean): SendStatus {
+    return this.send(data);
   }
   close(code?: number, reason?: string): void {
     this.closed = code === undefined ? {} : reason === undefined ? { code } : { code, reason };
   }
   terminate(): void {}
-  ping(): ServerWebSocketSendStatus {
+  ping(_data?: PingArg): SendStatus {
     return 0;
   }
-  pong(): ServerWebSocketSendStatus {
+  pong(_data?: PingArg): SendStatus {
     return 0;
   }
-  publish(): ServerWebSocketSendStatus {
+  publish(_topic: string, _data: SendArg, _compress?: boolean): SendStatus {
     return 0;
   }
-  publishText(): ServerWebSocketSendStatus {
+  publishText(_topic: string, _data: string, _compress?: boolean): SendStatus {
     return 0;
   }
-  publishBinary(): ServerWebSocketSendStatus {
+  publishBinary(_topic: string, _data: SendBinaryArg, _compress?: boolean): SendStatus {
     return 0;
   }
-  subscribe(): void {}
-  unsubscribe(): void {}
-  isSubscribed(): boolean {
-    return false;
+  subscribe(topic: string): boolean {
+    if (this.subscriptions.includes(topic)) return false;
+    this.subscriptions.push(topic);
+    return true;
   }
-  cork<T>(_callback: (ws: ServerWebSocket<T>) => T): T {
+  unsubscribe(topic: string): boolean {
+    const index = this.subscriptions.indexOf(topic);
+    if (index === -1) return false;
+    this.subscriptions.splice(index, 1);
+    return true;
+  }
+  isSubscribed(topic: string): boolean {
+    return this.subscriptions.includes(topic);
+  }
+  cork<R = unknown>(_callback: (ws: ServerWebSocket<MarketWsConnectionData>) => R): R {
     throw new Error("not implemented");
   }
   getBufferedAmount(): number {
     return 0;
+  }
+  pause(): void {
+    this.paused = true;
+  }
+  resume(): void {
+    this.paused = false;
   }
 }
 
