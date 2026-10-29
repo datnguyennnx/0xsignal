@@ -19,8 +19,8 @@ import {
   ROW_HEIGHT_CLASS,
 } from "../utils/orderbook-utils";
 import { useOrderbookRows } from "../hooks/use-orderbook-rows";
-import { OrderRowCells } from "./orderbook-depth-row-cells";
-import { buildRowAriaLabel } from "./orderbook-depth-row-aria";
+import { OrderRowCells } from "./orderbook-row-cells";
+import { buildRowAriaLabel } from "./orderbook-row-label";
 
 type BookSide = "bid" | "ask";
 interface RowIndex {

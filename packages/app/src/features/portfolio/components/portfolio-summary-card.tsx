@@ -19,12 +19,12 @@ import {
   type PortfolioPeriod,
 } from "../utils/constants";
 import { computeMaxDrawdown } from "../utils/financial";
-import { SURFACE } from "./portfolio-summary-card.constants";
+import { SURFACE } from "./portfolio-summary.constants";
 import {
   PortfolioSummaryError,
   PortfolioSummarySections,
   PortfolioSummarySkeleton,
-} from "./portfolio-summary-card-sections";
+} from "./portfolio-summary-sections";
 
 export function PortfolioSummaryCard({
   readOnlyAddress,

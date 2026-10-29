@@ -4,7 +4,7 @@ import type { MarketPrice } from "@/services/api";
 const isNonEmpty = (value: string | null | undefined): value is string =>
   typeof value === "string" && value !== "";
 
-export interface MarketHeaderDerivedValues {
+export interface MarketHeaderValues {
   readonly markPrice: number;
   readonly oraclePrice: number;
   readonly change24hAbs: number;
@@ -17,7 +17,7 @@ export interface MarketHeaderDerivedValues {
   readonly contractAddress: string | undefined;
 }
 
-export interface MarketHeaderDerivationInputs {
+export interface MarketHeaderInput {
   readonly isSpot: boolean;
   readonly livePrice: number;
   readonly price: MarketPrice;
@@ -29,7 +29,7 @@ export function deriveMarketHeaderValues({
   livePrice,
   price,
   tradeAsset,
-}: MarketHeaderDerivationInputs): MarketHeaderDerivedValues {
+}: MarketHeaderInput): MarketHeaderValues {
   const tradePrevDayPx = tradeAsset?.prevDayPx;
   const circulatingSupply = tradeAsset?.circulatingSupply;
 

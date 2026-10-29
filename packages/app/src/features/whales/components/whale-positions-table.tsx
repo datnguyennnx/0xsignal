@@ -24,10 +24,7 @@ import {
 
 import { useWhalePositions } from "../hooks/use-whale-positions";
 import { WhalePositionFiltersBar } from "./whale-position-filters";
-import {
-  DEFAULT_WHALE_FILTERS,
-  type WhalePositionFilters,
-} from "./whale-position-filters.constants";
+import { DEFAULT_WHALE_FILTERS, type WhalePositionFilters } from "./whale-filter-defaults";
 
 const HEAD_CLASS =
   "bg-muted text-[length:var(--text-data)] text-muted-foreground uppercase tracking-wider";

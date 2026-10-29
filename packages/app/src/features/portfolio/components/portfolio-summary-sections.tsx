@@ -9,7 +9,7 @@ import {
   SKELETON_ROW,
   SUMMARY_SKELETON_KEYS,
   SURFACE,
-} from "./portfolio-summary-card.constants";
+} from "./portfolio-summary.constants";
 
 interface SummaryRowProps {
   label: string;

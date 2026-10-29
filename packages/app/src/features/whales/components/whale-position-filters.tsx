@@ -4,7 +4,7 @@ import type { WhalePositionSort } from "@0xsignal/shared";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
-import type { SideFilter, WhalePositionFilters } from "./whale-position-filters.constants";
+import type { SideFilter, WhalePositionFilters } from "./whale-filter-defaults";
 
 const SELECT_CLASS =
   "border-border/40 bg-background/70 text-sm hover:bg-muted/40 focus-visible:ring-ring/40";

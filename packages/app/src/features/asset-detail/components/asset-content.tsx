@@ -6,7 +6,7 @@ import { useAllMids } from "@/features/trade/hooks/use-all-mids";
 import { useHyperliquidSymbolLogo } from "@/features/trade/hooks/use-hyperliquid-symbol-logo";
 import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
 import { useTradeList, type TradeListData } from "@/features/trade/hooks/use-trade-list";
-import { deriveMarketHeaderValues } from "./asset-content-live-market-header.derivations";
+import { deriveMarketHeaderValues } from "./market-header-values";
 import { AssetTradingGrid } from "./asset-trading-grid";
 import { MarketTerminalHeader } from "./market-terminal-header";
 import { getNextFundingMs, toCountdown } from "../utils/format";
