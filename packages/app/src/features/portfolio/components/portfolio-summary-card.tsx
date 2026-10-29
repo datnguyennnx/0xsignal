@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import { cn } from "cn";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import {
   useClearinghouseState,
@@ -12,8 +11,6 @@ import {
   useWhalePortfolio,
   useWhaleVaultEquities,
 } from "../hooks/use-portfolio-data";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollEdge } from "@/components/surface/scroll-edge";
 import {
   PERIOD_LABELS,
   PERIOD_KEYS,
@@ -22,48 +19,12 @@ import {
   type PortfolioPeriod,
 } from "../utils/constants";
 import { computeMaxDrawdown } from "../utils/financial";
-import { formatCompactUsd, formatSignedPercent, formatSignedUsd } from "@/core/utils/formatters";
-
-function Row({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: "gain" | "loss" | "warn" | null;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-[length:var(--text-data)] font-medium text-muted-foreground tracking-wide">
-        {label}
-      </span>
-      <span
-        className={cn(
-          "text-[length:var(--text-compact)] tabular-nums font-medium",
-          accent === "gain" && "text-gain",
-          accent === "loss" && "text-loss",
-          accent === "warn" && "text-warn",
-          !accent && "text-foreground",
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-const SURFACE =
-  "h-full flex flex-col rounded-[var(--radius-panel)] p-4 tier-content animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
-
-/** Loaded rows and skeleton rows share this stack so their heights cannot drift. */
-const ROW_STACK = "flex flex-col gap-[clamp(0.5rem,1vw,1rem)]";
-
-/** Loaded rows are one `text-compact` line box; the skeleton row matches it exactly. */
-const SKELETON_ROW =
-  "flex h-[1.5em] items-center justify-between text-[length:var(--text-compact)]";
-
-const SUMMARY_SKELETON_KEYS = Array.from({ length: 8 }, (_, index) => `summary-row-${index}`);
+import { SURFACE } from "./portfolio-summary-card.constants";
+import {
+  PortfolioSummaryError,
+  PortfolioSummarySections,
+  PortfolioSummarySkeleton,
+} from "./portfolio-summary-card-sections";
 
 export function PortfolioSummaryCard({
   readOnlyAddress,
@@ -134,34 +95,11 @@ export function PortfolioSummaryCard({
   }, [vaultData]);
 
   if (isLoading) {
-    return (
-      <div className={SURFACE}>
-        <div className="flex h-7 items-center justify-between">
-          <Skeleton className="h-3.5 w-12" />
-          <Skeleton className="h-5 w-9" />
-        </div>
-        <div className={cn("flex-1", ROW_STACK)}>
-          {SUMMARY_SKELETON_KEYS.map((key) => (
-            <div key={key} className={SKELETON_ROW}>
-              <Skeleton className="h-[11px] w-[38%]" />
-              <Skeleton className="h-[11px] w-[28%]" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <PortfolioSummarySkeleton />;
   }
 
   if (pfError) {
-    return (
-      <div className={SURFACE}>
-        <div className="flex-1 flex items-center justify-center">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">
-            Unable to load
-          </span>
-        </div>
-      </div>
-    );
+    return <PortfolioSummaryError />;
   }
 
   return (
@@ -188,29 +126,7 @@ export function PortfolioSummaryCard({
         </NativeSelect>
       </div>
 
-      <div className={cn("overflow-y-auto flex-1", ROW_STACK)}>
-        {/* one scroll edge per view — Apple HIG scroll views */}
-        <ScrollEdge />
-        <Row
-          label="PNL"
-          value={perps.pnl === 0 ? "$0.00" : formatSignedUsd(perps.pnl)}
-          accent={perps.pnl > 0 ? "gain" : perps.pnl < 0 ? "loss" : null}
-        />
-        <Row label="Volume" value={formatCompactUsd(perps.volume)} />
-        <Row
-          label="Max Drawdown"
-          value={perps.maxDd === null ? "0.00%" : formatSignedPercent(perps.maxDd * 100)}
-          accent={perps.maxDd !== null && perps.maxDd < 0 ? "loss" : null}
-        />
-        <Row
-          label="Total Equity"
-          value={formatCompactUsd(perps.accountValue + (spot?.totalUsdc ?? 0))}
-        />
-        <Row label="Trading Equity" value={formatCompactUsd(perps.accountValue)} />
-        <Row label="Vault Equity" value={formatCompactUsd(vaults?.totalEquity ?? 0)} />
-        <Row label="Earn Balance" value="$0.00" />
-        <Row label="Staking Account" value="0 HYPE" />
-      </div>
+      <PortfolioSummarySections perps={perps} spot={spot} vaults={vaults} />
     </div>
   );
 }
