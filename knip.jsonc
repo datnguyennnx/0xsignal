@@ -40,9 +40,6 @@
     },
     "packages/auth": {
       "project": ["src/**/*.ts"],
-      // The host app owns the pool and declares pg; auth only names its type and
-      // builds one in the migration regression test.
-      "ignoreDependencies": ["pg"],
       "ignoreExportsUsedInFile": {
         "type": true,
         "interface": true,
