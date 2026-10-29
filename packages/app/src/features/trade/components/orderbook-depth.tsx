@@ -19,6 +19,8 @@ import {
   ROW_HEIGHT_CLASS,
 } from "../utils/orderbook-utils";
 import { useOrderbookRows } from "../hooks/use-orderbook-rows";
+import { OrderRowCells } from "./orderbook-depth-row-cells";
+import { buildRowAriaLabel } from "./orderbook-depth-row-aria";
 
 type BookSide = "bid" | "ask";
 interface RowIndex {
@@ -92,10 +94,7 @@ const OrderRow = memo(
       onHover(null, null);
     }, [onHover]);
 
-    const rowAriaLabel =
-      price > 0
-        ? `${side} level, price ${formatted.formattedPrice}, size ${formatted.formattedSize}, total ${formatted.formattedTotal}`
-        : undefined;
+    const rowAriaLabel = buildRowAriaLabel(price, side, formatted);
 
     return (
       <button
@@ -125,30 +124,13 @@ const OrderRow = memo(
         aria-label={rowAriaLabel}
         aria-describedby={price > 0 && isHovered ? "orderbook-depth-details" : undefined}
       >
-        {isInRange && (
-          <div className="absolute inset-0 z-[5] pointer-events-none bg-foreground/5 dark:bg-foreground/10" />
-        )}
-        {price > 0 && (
-          <div
-            className={`absolute inset-y-0 right-0 z-0 opacity-20 pointer-events-none ${
-              side === "bid" ? "bg-gain" : "bg-loss"
-            }`}
-            style={depthStyle}
-          />
-        )}
-        <span
-          className={`relative z-10 flex-1 text-[length:var(--text-micro)] font-mono font-medium ${
-            price === 0 ? "text-muted-foreground" : side === "bid" ? "text-gain" : "text-loss"
-          }`}
-        >
-          {formatted.formattedPrice}
-        </span>
-        <span className="relative z-10 flex-1 text-right text-[length:var(--text-micro)] font-mono text-muted-foreground">
-          {formatted.formattedSize}
-        </span>
-        <span className="relative z-10 flex-1 text-right text-[length:var(--text-micro)] font-mono text-muted-foreground">
-          {formatted.formattedTotal}
-        </span>
+        <OrderRowCells
+          price={price}
+          side={side}
+          isInRange={isInRange}
+          depthStyle={depthStyle}
+          formatted={formatted}
+        />
       </button>
     );
   },
