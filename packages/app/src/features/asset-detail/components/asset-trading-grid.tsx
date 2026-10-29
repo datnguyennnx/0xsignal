@@ -7,7 +7,8 @@ import { PositionManagement } from "@/features/trade/components/position-managem
 import { OrderForm } from "@/features/trade/components/order-form";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { UserStreamFailureAlert } from "@/features/trade/components/user-stream-failure-alert";
-import { DashboardGrid, DashboardPanel } from "./dashboard-grid";
+import { DashboardGrid } from "./dashboard-grid";
+import { DashboardPanel } from "./dashboard-panel";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart })),

@@ -6,8 +6,6 @@ import {
   isValidElement,
   useCallback,
   useMemo,
-  createContext,
-  useContext,
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
@@ -15,6 +13,8 @@ import { cn } from "cn";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useLayoutStore } from "@/stores/use-layout-store";
 import { ResizableWrapper } from "./resizable-wrapper";
+import { DashboardGridContext } from "./dashboard-grid-context";
+import { DashboardPanel, type DashboardPanelProps } from "./dashboard-panel";
 import { useLiftAndFloat } from "../hooks/use-lift-and-float";
 import { cellWidth, GRID_GUTTER_FRACTION, getResizeBounds, minCells } from "../utils/collision";
 import { DEFAULT_ROW_COUNT, GRID_ROW_HEIGHT_FIT_CSS, gridRowsHeightCss } from "../utils/constants";
@@ -27,27 +27,6 @@ const Z = {
   dropPreview: 40,
   glassShell: 50,
 } as const;
-
-// Context to detect if DashboardPanel is rendered inside DashboardGrid
-const DashboardGridContext = createContext(false);
-
-interface DashboardPanelProps {
-  id: string;
-  children: React.ReactNode;
-}
-
-export function DashboardPanel({ children }: DashboardPanelProps) {
-  // Check if rendered inside DashboardGrid
-  // This component is a data-descriptor — its children are extracted and rendered
-  // by DashboardGrid. It should never be mounted as a standalone component.
-  if (!useContext(DashboardGridContext)) {
-    throw new Error(
-      "DashboardPanel is a data-descriptor that must be a direct child of DashboardGrid. " +
-        'It cannot be rendered standalone. Use <DashboardGrid><DashboardPanel id="...">...</DashboardPanel></DashboardGrid>.',
-    );
-  }
-  return children;
-}
 
 export function DashboardGrid({ children, className = "", panelNames }: DashboardGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -236,4 +215,3 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
 }
 
 DashboardGrid.displayName = "DashboardGrid";
-DashboardPanel.displayName = "DashboardPanel";
