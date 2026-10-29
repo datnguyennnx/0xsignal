@@ -23,11 +23,11 @@ import {
 } from "@/core/utils/formatters";
 
 import { useWhalePositions } from "../hooks/use-whale-positions";
+import { WhalePositionFiltersBar } from "./whale-position-filters";
 import {
   DEFAULT_WHALE_FILTERS,
-  WhalePositionFiltersBar,
   type WhalePositionFilters,
-} from "./whale-position-filters";
+} from "./whale-position-filters.constants";
 
 const HEAD_CLASS =
   "bg-muted text-[length:var(--text-data)] text-muted-foreground uppercase tracking-wider";

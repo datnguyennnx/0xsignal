@@ -1,22 +1,10 @@
 import type { JSX } from "react";
-import type { WhalePositionSort, WhaleSide } from "@0xsignal/shared";
+import type { WhalePositionSort } from "@0xsignal/shared";
 
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
-type SideFilter = "all" | WhaleSide;
-
-export interface WhalePositionFilters {
-  symbol: string;
-  side: SideFilter;
-  sort: WhalePositionSort;
-}
-
-export const DEFAULT_WHALE_FILTERS: WhalePositionFilters = {
-  symbol: "",
-  side: "all",
-  sort: "notional",
-};
+import type { SideFilter, WhalePositionFilters } from "./whale-position-filters.constants";
 
 const SELECT_CLASS =
   "border-border/40 bg-background/70 text-sm hover:bg-muted/40 focus-visible:ring-ring/40";
