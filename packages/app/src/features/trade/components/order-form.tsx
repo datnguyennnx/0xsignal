@@ -1,13 +1,9 @@
-import { useState, useMemo } from "react";
-import { useClearinghouseState, useSpotClearinghouseState } from "../hooks/use-user-data";
-import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
-import { useTpSlOrchestration } from "../hooks/use-tp-sl-orchestration";
-import { useLeverageMarginState } from "../hooks/use-leverage-margin-state";
 import { UnifiedAccountSummary } from "./unified-account-summary";
 import { OrderFormLeverage } from "./order-form-leverage";
 import { OrderFormFields } from "./order-form-fields";
 import { OrderFormSummary } from "./order-form-summary";
-import { useOrderFormSubmit } from "../hooks/use-order-form-submit";
+import { useOrderFormState } from "./order-form-state";
+import { canPlace, frameClass } from "./order-form-derivations";
 
 interface OrderFormProps {
   symbol: string;
@@ -16,20 +12,6 @@ interface OrderFormProps {
 }
 
 export function OrderForm({ symbol, assetIndex, markPrice = 0 }: OrderFormProps) {
-  const { data: chData } = useClearinghouseState();
-  const { data: spotData } = useSpotClearinghouseState();
-  const { getPrecision } = useHyperliquidMeta();
-  const { szDecimals, maxLeverage } = getPrecision(symbol);
-
-  // Normalize: URL param may be lowercase ("btc") but API returns uppercase ("BTC")
-  const normalizedSymbol = symbol.toUpperCase();
-  const currentAssetPosition = chData?.assetPositions?.find(
-    (ap) => ap.position.coin === normalizedSymbol,
-  );
-  const currentLeverageFromChain = currentAssetPosition?.position?.leverage?.value ?? 20;
-  const currentMarginTypeFromChain: "cross" | "isolated" =
-    currentAssetPosition?.position?.leverage?.type === "isolated" ? "isolated" : "cross";
-
   const {
     adjustLeverageOpen,
     setAdjustLeverageOpen,
@@ -39,28 +21,28 @@ export function OrderForm({ symbol, assetIndex, markPrice = 0 }: OrderFormProps)
     setOverrideMarginMode,
     effectiveLeverage,
     effectiveMarginMode,
-  } = useLeverageMarginState({
+    szDecimals,
+    maxLeverage,
+    normalizedSymbol,
+    currentAssetPosition,
     currentLeverageFromChain,
     currentMarginTypeFromChain,
-  });
-
-  const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [orderType, setOrderType] = useState<"market" | "limit">("market");
-  const [size, setSize] = useState("");
-  const [sliderPercent, setSliderPercent] = useState(0);
-  const [price, setPrice] = useState("");
-  const [priceInvalid, setPriceInvalid] = useState(false);
-
-  const [sizeAsset, setSizeAsset] = useState("USDC");
-
-  const currentPrice = markPrice || Number(price) || 0;
-  const usablePrice = currentPrice > 0 ? currentPrice : orderType === "limit" ? Number(price) : 0;
-  const orderValue = Number(size) || 0;
-  const marginRequired = effectiveLeverage > 0 ? orderValue / effectiveLeverage : 0;
-  const isLong = side === "buy";
-  const entryPrice = orderType === "limit" ? Number(price) || 0 : markPrice || 0;
-
-  const {
+    side,
+    setSide,
+    orderType,
+    setOrderType,
+    size,
+    setSize,
+    price,
+    setPrice,
+    priceInvalid,
+    setPriceInvalid,
+    sliderPercent,
+    setSliderPercent,
+    setSizeAsset,
+    usablePrice,
+    orderValue,
+    marginRequired,
     tpSlEnabled,
     setTpSlEnabled,
     tpPrice,
@@ -74,55 +56,15 @@ export function OrderForm({ symbol, assetIndex, markPrice = 0 }: OrderFormProps)
     reduceOnly,
     setReduceOnly,
     showTpSl,
-  } = useTpSlOrchestration({ entryPrice, effectiveLeverage, isLong });
+    sizeAssetOptions,
+    safeSizeAsset,
+    effectiveBalance,
+    handlePlaceOrder,
+    isPending,
+    signingDisabled,
+  } = useOrderFormState({ symbol, markPrice });
 
-  const marginSummary = chData?.marginSummary;
-  const accountValue = Number(marginSummary?.accountValue ?? 0);
-  const perpsUsdc = Number(chData?.withdrawable ?? 0);
-  const spotUsdc = Number(spotData?.balances?.find((b) => b.coin === "USDC")?.total ?? 0);
-
-  const sizeAssetOptions: Array<{ value: string; label: string; balance: number }> = useMemo(() => {
-    const map = new Map<string, number>();
-    if (accountValue > 0) map.set("USDC", perpsUsdc);
-    for (const b of spotData?.balances ?? []) {
-      const bal = Number(b.total);
-      if (bal > 0) map.set(b.coin, bal);
-    }
-    if (!map.has("USDC") && spotUsdc > 0) map.set("USDC", spotUsdc);
-    return Array.from(map.entries()).map(([coin, bal]) => ({
-      value: coin,
-      label: coin,
-      balance: bal,
-    }));
-  }, [accountValue, perpsUsdc, spotUsdc, spotData]);
-
-  const safeSizeAsset = sizeAssetOptions.some((o) => o.value === sizeAsset)
-    ? sizeAsset
-    : (sizeAssetOptions[0]?.value ?? "USDC");
-  const effectiveBalance = sizeAssetOptions.find((o) => o.value === safeSizeAsset)?.balance ?? 0;
-
-  const { handlePlaceOrder, isPending, signingDisabled } = useOrderFormSubmit({
-    symbol,
-    side,
-    orderType,
-    price,
-    size,
-    usablePrice,
-    szDecimals,
-    reduceOnly,
-    showTpSl,
-    tpPrice,
-    slPrice,
-    onPriceInvalid: () => {
-      setPriceInvalid(true);
-    },
-  });
-
-  const canPlace =
-    !signingDisabled &&
-    Number(size) > 0 &&
-    usablePrice > 0 &&
-    !(orderType === "limit" && (!price || Number(price) <= 0));
+  const orderCanPlace = canPlace({ signingDisabled, size, usablePrice, orderType, price });
 
   return (
     <div className="h-full flex flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-4,1.5rem)]">
@@ -131,10 +73,7 @@ export function OrderForm({ symbol, assetIndex, markPrice = 0 }: OrderFormProps)
           Read-only view — trading is disabled while inspecting another account.
         </p>
       )}
-      <div
-        aria-disabled={signingDisabled}
-        className={signingDisabled ? "contents pointer-events-none opacity-60" : "contents"}
-      >
+      <div aria-disabled={signingDisabled} className={frameClass(signingDisabled)}>
         <OrderFormLeverage
           signingDisabled={signingDisabled}
           effectiveMarginMode={effectiveMarginMode}
@@ -201,7 +140,7 @@ export function OrderForm({ symbol, assetIndex, markPrice = 0 }: OrderFormProps)
               orderValue={orderValue}
               marginRequired={marginRequired}
               sizeAsset={safeSizeAsset}
-              canPlace={canPlace}
+              canPlace={orderCanPlace}
               isPending={isPending}
               onPlaceOrder={handlePlaceOrder}
             />
