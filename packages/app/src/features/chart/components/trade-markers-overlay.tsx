@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useEffectEvent, useMemo } from "react";
 import type { CSSProperties } from "react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import type { ChartDataPoint } from "@0xsignal/shared";
@@ -252,13 +252,13 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
   // Grouping is pure marker data; viewport events must not redo it.
   const groups = useMemo(() => groupMarkersByCandle(markers), [markers]);
 
-  const recalc = useCallback(() => {
+  const redrawMarkers = useEffectEvent(() => {
     if (chart === null || series === null) return;
     const result = buildPoints(chart, series, groups, candleMap, metrics);
     setPoints((previous) => (pointsEqual(previous, result) ? previous : result));
-  }, [chart, series, groups, candleMap, metrics]);
+  });
 
-  // Recalc on data change + subscribe to viewport/size events.
+  // Redraw on data change + subscribe to viewport/size events.
   useEffect(() => {
     if (chart === null || series === null) return () => {};
 
@@ -271,7 +271,7 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
       if (disposed || frame !== 0) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
-        if (!disposed) recalc();
+        if (!disposed) redrawMarkers();
       });
     };
 
@@ -291,7 +291,7 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
       ts.unsubscribeVisibleLogicalRangeChange(scheduleRecalc);
       ts.unsubscribeSizeChange(scheduleRecalc);
     };
-  }, [chart, series, recalc]);
+  }, [chart, series]);
 
   // Derive tooltip from the live point set: hide if the hovered marker is gone,
   // and follow its current geometry while the viewport moves.

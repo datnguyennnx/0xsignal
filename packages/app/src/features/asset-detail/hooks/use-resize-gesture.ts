@@ -3,6 +3,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useLayoutEffect,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { LayoutItem, ResizeHandleAxis } from "../utils/types";
@@ -56,16 +57,6 @@ interface GestureState {
   committed: ResizeFrame;
   limits: GestureLimits;
   frame: ResizeFrame;
-}
-
-interface WindowHandlers {
-  move: (e: PointerEvent) => void;
-  up: (e: PointerEvent) => void;
-  cancel: (e: PointerEvent) => void;
-  lostCapture: (e: PointerEvent) => void;
-  key: (e: KeyboardEvent) => void;
-  blur: () => void;
-  contextMenu: (e: Event) => void;
 }
 
 interface UseResizeGestureOptions {
@@ -177,7 +168,6 @@ export function useResizeGesture({
   onResizeCommit,
 }: UseResizeGestureOptions): UseResizeGestureReturn {
   const gestureRef = useRef<GestureState | null>(null);
-  const handlersRef = useRef<WindowHandlers | null>(null);
 
   // Latest pointer position and the frame that will be painted in the same tick.
   const pendingMoveRef = useRef<{ clientX: number; clientY: number } | null>(null);
@@ -199,19 +189,6 @@ export function useResizeGesture({
     commitRef.current = onResizeCommit;
   });
 
-  const detachWindowListeners = useCallback(() => {
-    const handlers = handlersRef.current;
-    if (handlers === null) return;
-    handlersRef.current = null;
-    window.removeEventListener("pointermove", handlers.move, true);
-    window.removeEventListener("pointerup", handlers.up, true);
-    window.removeEventListener("pointercancel", handlers.cancel, true);
-    window.removeEventListener("lostpointercapture", handlers.lostCapture, true);
-    window.removeEventListener("keydown", handlers.key, true);
-    window.removeEventListener("blur", handlers.blur);
-    window.removeEventListener("contextmenu", handlers.contextMenu, true);
-  }, []);
-
   const flushMove = useCallback(() => {
     moveFrameRef.current = 0;
     const pending = pendingMoveRef.current;
@@ -229,99 +206,114 @@ export function useResizeGesture({
    * The one terminal path. `commit` false restores the frame the gesture started
    * from, so a cancelled gesture can never leave the panel at a half-dragged size.
    */
-  const endGesture = useCallback(
-    (commit: boolean, clientX?: number, clientY?: number) => {
+  const endGesture = useCallback((commit: boolean, clientX?: number, clientY?: number) => {
+    const gesture = gestureRef.current;
+    if (gesture === null) return;
+    gestureRef.current = null;
+
+    if (moveFrameRef.current !== 0) {
+      cancelAnimationFrame(moveFrameRef.current);
+      moveFrameRef.current = 0;
+    }
+    pendingMoveRef.current = null;
+
+    if (gesture.captureEl.hasPointerCapture(gesture.pointerId)) {
+      gesture.captureEl.releasePointerCapture(gesture.pointerId);
+    }
+    unlockPageInteraction();
+
+    const final =
+      commit && clientX !== undefined && clientY !== undefined
+        ? computeFrame(gesture, clientX, clientY)
+        : commit
+          ? gesture.frame
+          : gesture.committed;
+
+    // Paint the committed frame before React can render it: the ghost and the
+    // stored layout are the same numbers, so release never snaps.
+    applyFrameRef.current(final);
+
+    activeCornerRef.current = null;
+    setActiveCorner(null);
+    setIsResizing(false);
+
+    if (!sameFrame(final, gesture.committed)) {
+      commitRef.current(gesture.id, final.x, final.y, final.w, final.h);
+    }
+  }, []);
+
+  /**
+   * A gesture owns its window listeners for exactly as long as it is active: this
+   * effect registers them and its teardown removes that same registration. Layout
+   * phase so attachment lands in the pointerdown flush, before the next pointermove.
+   */
+  useLayoutEffect(() => {
+    if (!isResizing) return void 0;
+
+    const onPointerMove = (e: PointerEvent) => {
       const gesture = gestureRef.current;
-      if (gesture === null) return;
-      gestureRef.current = null;
-
-      if (moveFrameRef.current !== 0) {
-        cancelAnimationFrame(moveFrameRef.current);
-        moveFrameRef.current = 0;
-      }
-      pendingMoveRef.current = null;
-      detachWindowListeners();
-
-      if (gesture.captureEl.hasPointerCapture(gesture.pointerId)) {
-        gesture.captureEl.releasePointerCapture(gesture.pointerId);
-      }
-      unlockPageInteraction();
-
-      const final =
-        commit && clientX !== undefined && clientY !== undefined
-          ? computeFrame(gesture, clientX, clientY)
-          : commit
-            ? gesture.frame
-            : gesture.committed;
-
-      // Paint the committed frame before React can render it: the ghost and the
-      // stored layout are the same numbers, so release never snaps.
-      applyFrameRef.current(final);
-
-      activeCornerRef.current = null;
-      setActiveCorner(null);
-      setIsResizing(false);
-
-      if (!sameFrame(final, gesture.committed)) {
-        commitRef.current(gesture.id, final.x, final.y, final.w, final.h);
-      }
-    },
-    [detachWindowListeners],
-  );
-
-  const attachWindowListeners = useCallback(() => {
-    if (handlersRef.current !== null) return;
-
-    const handlers: WindowHandlers = {
-      move: (e) => {
-        const gesture = gestureRef.current;
-        if (gesture === null || e.pointerId !== gesture.pointerId) return;
-        if (e.cancelable) e.preventDefault();
-        pendingMoveRef.current = { clientX: e.clientX, clientY: e.clientY };
-        if (moveFrameRef.current !== 0) return;
-        moveFrameRef.current = requestAnimationFrame(flushMove);
-      },
-      up: (e) => {
-        const gesture = gestureRef.current;
-        if (gesture === null || e.pointerId !== gesture.pointerId) return;
-        endGesture(true, e.clientX, e.clientY);
-      },
-      cancel: (e) => {
-        const gesture = gestureRef.current;
-        if (gesture === null || e.pointerId !== gesture.pointerId) return;
-        endGesture(false);
-      },
-      lostCapture: (e) => {
-        const gesture = gestureRef.current;
-        if (gesture === null || e.pointerId !== gesture.pointerId) return;
-        endGesture(true);
-      },
-      key: (e) => {
-        if (e.key !== "Escape" || gestureRef.current === null) return;
-        e.preventDefault();
-        endGesture(false);
-      },
-      blur: () => {
-        endGesture(true);
-      },
-      contextMenu: (e) => {
-        if (gestureRef.current === null) return;
-        e.preventDefault();
-        endGesture(false);
-      },
+      if (gesture === null || e.pointerId !== gesture.pointerId) return;
+      if (e.cancelable) e.preventDefault();
+      pendingMoveRef.current = { clientX: e.clientX, clientY: e.clientY };
+      if (moveFrameRef.current !== 0) return;
+      moveFrameRef.current = requestAnimationFrame(flushMove);
     };
 
-    handlersRef.current = handlers;
+    const onPointerUp = (e: PointerEvent) => {
+      const gesture = gestureRef.current;
+      if (gesture === null || e.pointerId !== gesture.pointerId) return;
+      endGesture(true, e.clientX, e.clientY);
+    };
+
+    const onPointerCancel = (e: PointerEvent) => {
+      const gesture = gestureRef.current;
+      if (gesture === null || e.pointerId !== gesture.pointerId) return;
+      endGesture(false);
+    };
+
+    const onLostPointerCapture = (e: PointerEvent) => {
+      const gesture = gestureRef.current;
+      if (gesture === null || e.pointerId !== gesture.pointerId) return;
+      endGesture(true);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || gestureRef.current === null) return;
+      e.preventDefault();
+      endGesture(false);
+    };
+
+    const onWindowBlur = () => {
+      endGesture(true);
+    };
+
+    const onContextMenu = (e: Event) => {
+      if (gestureRef.current === null) return;
+      e.preventDefault();
+      endGesture(false);
+    };
+
     // Capture phase: a handler inside the panel tree that stops propagation can
     // never strand the gesture without a terminal event.
-    window.addEventListener("pointermove", handlers.move, { passive: false, capture: true });
-    window.addEventListener("pointerup", handlers.up, true);
-    window.addEventListener("pointercancel", handlers.cancel, true);
-    window.addEventListener("lostpointercapture", handlers.lostCapture, true);
-    window.addEventListener("keydown", handlers.key, true);
-    window.addEventListener("blur", handlers.blur);
-    window.addEventListener("contextmenu", handlers.contextMenu, true);
-  }, [endGesture, flushMove]);
+    const moveOptions = { passive: false, capture: true };
+    window.addEventListener("pointermove", onPointerMove, moveOptions);
+    window.addEventListener("pointerup", onPointerUp, true);
+    window.addEventListener("pointercancel", onPointerCancel, true);
+    window.addEventListener("lostpointercapture", onLostPointerCapture, true);
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("blur", onWindowBlur);
+    window.addEventListener("contextmenu", onContextMenu, true);
+
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove, moveOptions);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerCancel, true);
+      window.removeEventListener("lostpointercapture", onLostPointerCapture, true);
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("blur", onWindowBlur);
+      window.removeEventListener("contextmenu", onContextMenu, true);
+    };
+  }, [isResizing, endGesture, flushMove]);
 
   const handlePointerDown = useCallback(
     (axis: ResizeHandleAxis) => (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -373,23 +365,8 @@ export function useResizeGesture({
       setActiveCorner(axis);
       setIsResizing(true);
       lockPageInteraction(axis);
-      attachWindowListeners();
     },
-    [
-      id,
-      item.x,
-      item.y,
-      item.w,
-      item.h,
-      minW,
-      minH,
-      maxW,
-      maxH,
-      minX,
-      minY,
-      containerWidth,
-      attachWindowListeners,
-    ],
+    [id, item.x, item.y, item.w, item.h, minW, minH, maxW, maxH, minX, minY, containerWidth],
   );
 
   const applyHover = useCallback(() => {
@@ -475,12 +452,11 @@ export function useResizeGesture({
       hoverFrameRef.current = 0;
       pendingMoveRef.current = null;
       pendingHoverRef.current = null;
-      detachWindowListeners();
       // Only a gesture that actually locked the page may unlock it.
       if (gestureRef.current !== null) unlockPageInteraction();
       gestureRef.current = null;
     };
-  }, [detachWindowListeners]);
+  }, []);
 
   return {
     isResizing,

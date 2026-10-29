@@ -1,5 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import type { MarketStreamMeta, MarketSubscription } from "../lib/market-stream-client";
+import { useEffect, useRef, useState } from "react";
+import type {
+  MarketStreamClient,
+  MarketStreamMeta,
+  MarketSubscription,
+} from "../lib/market-stream-client";
 import { useMarketDataStore } from "@/stores/use-market-data-store";
 import { orderbookStoreKey } from "../lib/orderbook-book";
 import { isL2BookSnapshotPayload, isL2BookDeltaPayload } from "../utils/market-stream-decoder";
@@ -27,7 +31,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Shared auto-routing logic: routes market stream messages to the Zustand store.
- * Used by both the initial subscription and the resubscribe path.
  */
 function routeMarketMessageToStore(
   data: unknown,
@@ -64,6 +67,17 @@ function routeMarketMessageToStore(
     useMarketDataStore.getState().setAllMids(parsed);
   }
   // candle: caller must provide onMessage for now
+}
+
+type MarketStreamCallbacks = Parameters<MarketStreamClient["subscribe"]>[1];
+
+function openSubscription(
+  client: MarketStreamClient,
+  subscription: MarketSubscription,
+  callbacks: MarketStreamCallbacks,
+): Promise<WsSubscription> {
+  const { channel, symbol, nSigFigs, interval } = subscription;
+  return client.subscribe({ channel, symbol, interval, nSigFigs }, callbacks);
 }
 
 export function useHyperliquidWs({
@@ -108,6 +122,7 @@ export function useHyperliquidWs({
   // Subscription effect
   useEffect(() => {
     let ignore = false;
+    let activeSub: WsSubscription | null = null;
     const generation = generationRef.current + 1;
     generationRef.current = generation;
 
@@ -120,7 +135,7 @@ export function useHyperliquidWs({
       return () => {};
     }
 
-    const { channel, symbol, nSigFigs, interval } = subscription;
+    const { channel, symbol, nSigFigs } = subscription;
     if ((symbol === undefined || symbol === "") && channel !== "allMids") return () => {};
 
     // Build a combined message handler that routes to store if no custom handler
@@ -137,38 +152,37 @@ export function useHyperliquidWs({
       routeMarketMessageToStore(data, ch, meta, symbol, nSigFigs);
     };
 
-    const subscribe = async () => {
-      try {
-        const activeSub = await client.subscribe(
-          { channel, symbol, interval, nSigFigs },
-          {
-            onMessage: handleMessage,
-            onConnectionChange: (connected) => {
-              if (!ignore && isMountedRef.current && generationRef.current === generation) {
-                setIsConnected(connected);
-                onConnectionChangeRef.current?.(connected);
-              }
-            },
-            onError: (err) => {
-              if (!ignore && isMountedRef.current && generationRef.current === generation) {
-                setIsConnected(false);
-                onConnectionChangeRef.current?.(false);
-                onErrorRef.current?.(err);
-              }
-            },
-            onReconnect: () => {
-              if (!ignore && isMountedRef.current && generationRef.current === generation) {
-                onReconnectRef.current?.();
-              }
-            },
-          },
-        );
-
+    const sub = openSubscription(client, subscription, {
+      onMessage: handleMessage,
+      onConnectionChange: (connected) => {
         if (!ignore && isMountedRef.current && generationRef.current === generation) {
-          subRef.current = activeSub;
-        } else {
-          activeSub.unsubscribe();
+          setIsConnected(connected);
+          onConnectionChangeRef.current?.(connected);
         }
+      },
+      onError: (err) => {
+        if (!ignore && isMountedRef.current && generationRef.current === generation) {
+          setIsConnected(false);
+          onConnectionChangeRef.current?.(false);
+          onErrorRef.current?.(err);
+        }
+      },
+      onReconnect: () => {
+        if (!ignore && isMountedRef.current && generationRef.current === generation) {
+          onReconnectRef.current?.();
+        }
+      },
+    });
+
+    void (async () => {
+      try {
+        const created = await sub;
+        if (ignore || !isMountedRef.current || generationRef.current !== generation) {
+          created.unsubscribe();
+          return;
+        }
+        activeSub = created;
+        subRef.current = created;
       } catch (err) {
         if (!ignore && isMountedRef.current && generationRef.current === generation) {
           setIsConnected(false);
@@ -176,80 +190,20 @@ export function useHyperliquidWs({
           onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
         }
       }
-    };
-
-    void subscribe();
+    })();
 
     return () => {
       ignore = true;
       generationRef.current = generationRef.current + 1;
-      if (subRef.current) {
-        subRef.current.unsubscribe();
-        subRef.current = null;
+      if (activeSub !== null) {
+        activeSub.unsubscribe();
+        if (subRef.current === activeSub) subRef.current = null;
+        activeSub = null;
       }
       setIsConnected(false);
       onConnectionChangeRef.current?.(false);
     };
   }, [enabled, subscription, client]);
 
-  const resubscribe = useCallback(
-    async (newSubscription: MarketSubscription) => {
-      if (!client || !isConnected) return;
-
-      const generation = generationRef.current + 1;
-      generationRef.current = generation;
-
-      if (subRef.current) subRef.current.unsubscribe();
-      subRef.current = null;
-
-      const { channel, symbol, nSigFigs, interval } = newSubscription;
-      if ((symbol === undefined || symbol === "") && channel !== "allMids") return;
-
-      try {
-        const activeSub = await client.subscribe(
-          { channel, symbol, interval, nSigFigs },
-          {
-            onMessage: (data, ch, meta) => {
-              if (!isMountedRef.current || generationRef.current !== generation) return;
-              if (onMessageRef.current) {
-                onMessageRef.current(data, ch, meta);
-                return;
-              }
-              // Auto-route to store (same as initial subscription)
-              routeMarketMessageToStore(data, ch, meta, symbol, nSigFigs);
-            },
-            onConnectionChange: (connected) => {
-              if (!isMountedRef.current || generationRef.current !== generation) return;
-              setIsConnected(connected);
-              onConnectionChangeRef.current?.(connected);
-            },
-            onError: (err) => {
-              if (!isMountedRef.current || generationRef.current !== generation) return;
-              setIsConnected(false);
-              onConnectionChangeRef.current?.(false);
-              onErrorRef.current?.(err);
-            },
-            onReconnect: () => {
-              if (isMountedRef.current && generationRef.current === generation) {
-                onReconnectRef.current?.();
-              }
-            },
-          },
-        );
-
-        if (!isMountedRef.current || generationRef.current !== generation) {
-          activeSub.unsubscribe();
-          return;
-        }
-
-        subRef.current = activeSub;
-      } catch (err) {
-        if (!isMountedRef.current || generationRef.current !== generation) return;
-        onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
-      }
-    },
-    [isConnected, client],
-  );
-
-  return { resubscribe, isConnected, subscription };
+  return { isConnected, subscription };
 }
