@@ -25,3 +25,6 @@ bun run typecheck
 echo "==> knip: dead code / unused dependency gate (blocking)"
 
 bun run knip
+
+echo "==> doctor: React diagnostics on issues introduced vs base (blocks on warnings)"
+bun run doctor

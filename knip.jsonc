@@ -6,11 +6,11 @@
     "dependencies": "error",
     "unlisted": "error",
     "binaries": "error",
-    "exports": "warn",
-    "types": "warn",
+    "exports": "error",
+    "types": "error",
     "unresolved": "warn",
     "duplicates": "off",
-    "cycles": "warn",
+    "cycles": "off",
   },
   "workspaces": {
     ".": {

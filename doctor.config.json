@@ -1,0 +1,23 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "adoptExistingLintConfig": true,
+  "blocking": "warning",
+  "supplyChain": { "enabled": false },
+  "categories": {
+    "Accessibility": "off"
+  },
+  "rules": {
+    "react-doctor/exhaustive-deps": "off",
+    "react-doctor/jsx-key": "off",
+    "react-doctor/jsx-no-comment-textnodes": "off",
+    "react-doctor/jsx-no-duplicate-props": "off",
+    "react-doctor/jsx-no-undef": "off",
+    "react-doctor/jsx-props-no-spread-multi": "off",
+    "react-doctor/no-string-refs": "off",
+    "react-doctor/unused-file": "off",
+    "react-doctor/unused-export": "off",
+    "react-doctor/unused-type": "off",
+    "react-doctor/unused-dependency": "off",
+    "react-doctor/circular-dependency": "off"
+  }
+}

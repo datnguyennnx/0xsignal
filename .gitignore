@@ -32,3 +32,6 @@ dist-ssr
 .env.*.local
 !.env.example
 .opencode
+
+# react-doctor tool output
+.react-doctor/
