@@ -186,7 +186,7 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
             <ErrorBoundary resetKey={draggedItemId}>
               <div
                 ref={phantomRef}
-                className="fixed left-0 top-0 pointer-events-none will-change-transform"
+                className="fixed left-0 top-0 pointer-events-none"
                 style={{
                   width: `${(draggedLayoutItem.w * cw + (draggedLayoutItem.w - 1) * GRID_GUTTER_FRACTION) * 100}%`,
                   height: `calc(${draggedLayoutItem.h} * var(--grid-row-height) + ${draggedLayoutItem.h - 1} * 0.5rem)`,
