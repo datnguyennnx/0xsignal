@@ -8,6 +8,25 @@ export const MAX_SIG_FIGS = 5;
  */
 export const RAW_PRICE_NSIG_FIGS = MAX_SIG_FIGS;
 
+const usdTwoDecimalsFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const compactUsdFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumFractionDigits: 2,
+});
+
+const compactNumberFormatter = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 /** Re-exported so display-only consumers need a single formatting module. */
 export { truncateAddress } from "./address";
 
@@ -54,19 +73,9 @@ const isFiniteNumber = (value: number | null | undefined): value is number =>
 export const formatCompactUsd = (value: number | null | undefined): string => {
   if (!isFiniteNumber(value)) return "—";
   if (Math.abs(value) < 10_000) {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
+    return usdTwoDecimalsFormatter.format(value);
   }
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 2,
-  }).format(value);
+  return compactUsdFormatter.format(value);
 };
 
 /**
@@ -95,10 +104,7 @@ export const formatSignedUsd = (value: number | null | undefined): string => {
 export const formatAxis = (value: number | null | undefined): string => {
   if (!isFiniteNumber(value)) return "—";
   if (Math.abs(value) >= 10_000) {
-    return new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(value);
+    return compactNumberFormatter.format(value);
   }
   return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
 };
