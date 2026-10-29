@@ -28,7 +28,9 @@
     "db:down": "docker compose -f deploy/dev/docker-compose.yml down",
     "db:logs": "docker compose -f deploy/dev/docker-compose.yml logs -f postgres",
     "clean:all": "rm -rf node_modules packages/*/node_modules packages/*/dist",
-    "prepare": "husky"
+    "prepare": "husky",
+    "doctor": "react-doctor --scope changed --blocking warning --no-score --no-supply-chain --include-untracked",
+    "doctor:full": "react-doctor --blocking error --no-score --no-supply-chain"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
@@ -40,6 +42,7 @@
     "oxfmt": "0.66.0",
     "oxlint": "1.81.0",
     "oxlint-tsgolint": "latest",
+    "react-doctor": "^0.9.18",
     "turbo": "^2.11.10",
     "typescript": "^7.0.2"
   },
