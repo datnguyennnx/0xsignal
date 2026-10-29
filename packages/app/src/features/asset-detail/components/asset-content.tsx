@@ -6,6 +6,7 @@ import { useAllMids } from "@/features/trade/hooks/use-all-mids";
 import { useHyperliquidSymbolLogo } from "@/features/trade/hooks/use-hyperliquid-symbol-logo";
 import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
 import { useTradeList, type TradeListData } from "@/features/trade/hooks/use-trade-list";
+import { deriveMarketHeaderValues } from "./asset-content-live-market-header.derivations";
 import { AssetTradingGrid } from "./asset-trading-grid";
 import { MarketTerminalHeader } from "./market-terminal-header";
 import { getNextFundingMs, toCountdown } from "../utils/format";
@@ -71,32 +72,21 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
     return price.markPx || price.price || 0;
   }, [allMids, isSpot, symbol, price, tradeAsset]);
 
-  const tradePrevDayPx = tradeAsset?.prevDayPx;
-  const circulatingSupply = tradeAsset?.circulatingSupply;
+  const derived = deriveMarketHeaderValues({ isSpot, livePrice, price, tradeAsset });
 
   return (
     <MarketTerminalHeader
-      markPrice={livePrice}
-      oraclePrice={price?.midPx || price?.markPx || 0}
-      change24hAbs={
-        isSpot && isNonEmpty(tradePrevDayPx)
-          ? livePrice - Number(tradePrevDayPx)
-          : (price?.markPx || price?.price || 0) - (price?.prevDayPx || 0)
-      }
-      change24hPct={
-        isSpot && isNonEmpty(tradePrevDayPx) && Number(tradePrevDayPx) > 0
-          ? ((livePrice - Number(tradePrevDayPx)) / Number(tradePrevDayPx)) * 100
-          : price?.change24h || 0
-      }
-      volume24h={isSpot ? Number(tradeAsset?.dayNtlVlm ?? 0) : price?.volume24h || 0}
-      openInterest={price?.openInterest || 0}
-      fundingRate={price?.funding || 0}
+      markPrice={derived.markPrice}
+      oraclePrice={derived.oraclePrice}
+      change24hAbs={derived.change24hAbs}
+      change24hPct={derived.change24hPct}
+      volume24h={derived.volume24h}
+      openInterest={derived.openInterest}
+      fundingRate={derived.fundingRate}
       fundingCountdown={fundingCountdown}
-      marketType={tradeAsset?.marketType}
-      marketCap={
-        isSpot && isNonEmpty(circulatingSupply) ? livePrice * Number(circulatingSupply) : undefined
-      }
-      contractAddress={isSpot ? tradeAsset?.evmContract : undefined}
+      marketType={derived.marketType}
+      marketCap={derived.marketCap}
+      contractAddress={derived.contractAddress}
     />
   );
 });
