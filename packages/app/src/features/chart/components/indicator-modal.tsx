@@ -1,13 +1,15 @@
 import { useState, useCallback, useId } from "react";
 import { AVAILABLE_INDICATORS, type ActiveIndicator, type IndicatorConfig } from "@0xsignal/shared";
-import { Layers, Activity, Search, Sparkles, X } from "lucide-react";
 import { cn } from "cn";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle, MODAL_CONTENT_CLASS } from "@/components/ui/dialog";
-import { ContentUnavailable } from "@/components/content-unavailable";
 import { EmptyState } from "@/components/empty-state";
 import { IndicatorConfigPanel } from "./config-panel";
 import { IndicatorInsightsPanel } from "./insights-panel";
+import {
+  IndicatorModalCategoryList,
+  type IndicatorCategory,
+} from "./indicator-modal-category-list";
+import { IndicatorModalExplorer } from "./indicator-modal-explorer";
 
 interface IndicatorModalProps {
   activeIndicators: ActiveIndicator[];
@@ -16,14 +18,6 @@ interface IndicatorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-type Category = "active" | "overlays" | "oscillators";
-
-const categories: { id: Category; label: string; icon: typeof Sparkles }[] = [
-  { id: "active", label: "Active", icon: Sparkles },
-  { id: "overlays", label: "Overlays", icon: Layers },
-  { id: "oscillators", label: "Oscillators", icon: Activity },
-];
 
 const overlayIndicators = AVAILABLE_INDICATORS.filter((i) => i.overlayOnPrice);
 const oscillatorIndicators = AVAILABLE_INDICATORS.filter((i) => !i.overlayOnPrice);
@@ -35,7 +29,7 @@ export function IndicatorModal({
   open,
   onOpenChange,
 }: IndicatorModalProps) {
-  const [category, setCategory] = useState<Category>("active");
+  const [category, setCategory] = useState<IndicatorCategory>("active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const searchId = useId();
@@ -77,10 +71,30 @@ export function IndicatorModal({
   const selectedActiveIndicators =
     selectedIndicator === null ? [] : (activeByBaseId.get(selectedIndicator.id) ?? []);
 
+  const categoryCounts: Record<IndicatorCategory, number> = {
+    active: activeIndicators.length,
+    overlays: overlayIndicators.length,
+    oscillators: oscillatorIndicators.length,
+  };
+
   const handleClose = useCallback(() => {
     onOpenChange(false);
     setSelectedId(null);
   }, [onOpenChange]);
+
+  const handleSelectCategory = (next: IndicatorCategory) => {
+    setCategory(next);
+    setQuery("");
+    setSelectedId(null);
+  };
+
+  const handleQueryChange = (next: string) => {
+    setQuery(next);
+  };
+
+  const handleSelectIndicator = (indicatorId: string) => {
+    setSelectedId(indicatorId);
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -95,159 +109,26 @@ export function IndicatorModal({
 
         <div className="flex flex-col sm:flex-row h-full min-h-0 divide-y sm:divide-y-0 sm:divide-x divide-[var(--tier-edge)]">
           {/* Column 1: Indicators Sidebar */}
-          <div className="flex-[2] min-w-[clamp(10rem,15vw,14rem)] flex flex-col min-h-0 sm:max-h-[clamp(18rem,80dvh,60rem)]">
-            <div className="p-4 sm:p-6 flex items-center justify-between sm:justify-start gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-              <h2 className="text-xs font-semibold text-muted-foreground">Indicators</h2>
-              <button
-                onClick={handleClose}
-                aria-label="Close"
-                className="sm:hidden p-2 flex items-center justify-center tap-highlight rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-              >
-                <X className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5 min-h-0 scrollbar-none overscroll-none">
-              {categories.map((cat) => {
-                const Icon = cat.icon;
-                const count =
-                  cat.id === "active"
-                    ? activeIndicators.length
-                    : cat.id === "overlays"
-                      ? overlayIndicators.length
-                      : oscillatorIndicators.length;
-
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => {
-                      setCategory(cat.id);
-                      setQuery("");
-                      setSelectedId(null);
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-[clamp(0.3rem,0.6vw,0.625rem)] px-3 py-3 sm:py-2 rounded text-xs transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                      category === cat.id
-                        ? "bg-accent text-foreground font-semibold"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent/50 font-medium",
-                    )}
-                  >
-                    <Icon
-                      className={cn("w-3.5 h-3.5 shrink-0", category === cat.id && "text-primary")}
-                      aria-hidden="true"
-                    />
-                    <span className="flex-1 text-left truncate">{cat.label}</span>
-                    <span
-                      className={cn(
-                        "text-[length:var(--text-data)] px-1 rounded tabular-nums font-bold",
-                        category === cat.id
-                          ? "bg-foreground/10 opacity-60"
-                          : "bg-muted text-muted-foreground/60",
-                      )}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <IndicatorModalCategoryList
+            category={category}
+            counts={categoryCounts}
+            onSelectCategory={handleSelectCategory}
+            onClose={handleClose}
+          />
 
           {/* Column 2: Indicator Explorer */}
-          <div className="flex-[2] min-w-[clamp(12rem,18vw,16rem)] max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col min-h-0">
-            {!(category === "active" && activeIndicatorConfigs.length === 0) && (
-              <div className="p-4">
-                <div className="relative">
-                  <Search
-                    className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60 pointer-events-none"
-                    aria-hidden="true"
-                  />
-
-                  <label htmlFor={searchId} className="sr-only">
-                    Search indicators
-                  </label>
-
-                  <Input
-                    id={searchId}
-                    value={query}
-                    onChange={(event) => {
-                      setQuery(event.target.value);
-                    }}
-                    placeholder="Find indicator..."
-                    className="pl-9 pr-8 bg-[color-mix(in_oklab,var(--ink)_8%,transparent)] border-border h-10 text-sm rounded-xl focus-visible:ring-1 focus-visible:ring-offset-0 text-secondary"
-                  />
-
-                  {query && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQuery("");
-                      }}
-                      aria-label="Clear search"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 size-8 flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors"
-                    >
-                      <X className="size-4" aria-hidden="true" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto px-3 py-2 min-h-0 scrollbar-none overscroll-none">
-              {filteredIndicators.length > 0 ? (
-                <div className="space-y-0.5">
-                  {filteredIndicators.map((indicator) => {
-                    const activeCount = activeByBaseId.get(indicator.id)?.length ?? 0;
-                    const isSelected = selectedIndicator?.id === indicator.id;
-
-                    return (
-                      <button
-                        key={indicator.id}
-                        onClick={() => {
-                          setSelectedId(indicator.id);
-                        }}
-                        className={cn(
-                          "w-full flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-3 sm:py-2 rounded text-xs transition-[background-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                          isSelected
-                            ? "bg-accent text-foreground font-semibold"
-                            : "hover:bg-accent/50 text-muted-foreground hover:text-foreground font-medium transition-[background-color,color] duration-150",
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "w-1.5 h-1.5 rounded-full shrink-0 transition-[background-color,transform]",
-                            activeCount > 0 ? "bg-foreground" : "bg-muted-foreground/20",
-                            isSelected && "scale-105",
-                          )}
-                        />
-                        <span className="flex-1 text-left truncate">{indicator.name}</span>
-                        {activeCount > 0 ? (
-                          <span className="text-[length:var(--text-data)] font-bold text-muted-foreground/60 px-1">
-                            {activeCount}
-                          </span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="min-h-full flex items-center justify-center">
-                  {normalizedQuery ? (
-                    <ContentUnavailable
-                      variant="no-results"
-                      description={`No indicators match "${normalizedQuery}".`}
-                    />
-                  ) : (
-                    <EmptyState
-                      variant="panel"
-                      title="No Indicators"
-                      description="No indicators in this category."
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+          <IndicatorModalExplorer
+            category={category}
+            activeIndicatorCount={activeIndicatorConfigs.length}
+            searchId={searchId}
+            query={query}
+            normalizedQuery={normalizedQuery}
+            indicators={filteredIndicators}
+            selectedIndicator={selectedIndicator}
+            activeByBaseId={activeByBaseId}
+            onQueryChange={handleQueryChange}
+            onSelectIndicator={handleSelectIndicator}
+          />
 
           {/* Column 3: Insight Content */}
           <div className="flex-[4] min-w-[clamp(18rem,30vw,28rem)] min-h-0 flex flex-col max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-none">
