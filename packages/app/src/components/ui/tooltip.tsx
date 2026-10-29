@@ -2,7 +2,8 @@
 
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 import { cn } from "cn";
-import { Surface, SurfaceContext } from "@/components/surface/surface";
+import { Surface } from "@/components/surface/surface";
+import { SurfaceContext } from "@/components/surface/surface-context";
 
 /** A portalled overlay is not nested in the page's surfaces, whatever triggered it. */
 const PORTAL_ANCESTORS = [] as const;

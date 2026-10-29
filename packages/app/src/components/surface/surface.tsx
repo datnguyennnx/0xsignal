@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { useContext, useEffect, useMemo } from "react";
 import type { ComponentPropsWithoutRef, CSSProperties, ElementType, JSX } from "react";
 import { cn } from "cn";
+import { SurfaceContext } from "./surface-context";
 import {
   assertSurfacePlacement,
   TIER_CLASS,
@@ -30,9 +31,6 @@ const PAINT_UTILITIES = [
   "fill-",
   "stroke-",
 ] as const;
-
-/** Ancestor tier stack, nearest last. Read by nested surfaces for placement checks. */
-export const SurfaceContext = createContext<readonly Tier[]>([]);
 
 export type SurfaceProps = ComponentPropsWithoutRef<"div"> & {
   tier: Tier;

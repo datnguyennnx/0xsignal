@@ -3,7 +3,8 @@
 import * as React from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { cn } from "cn";
-import { Surface, SurfaceContext } from "@/components/surface/surface";
+import { SurfaceContext } from "@/components/surface/surface-context";
+import { Surface } from "@/components/surface/surface";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
 
 /** A portalled overlay is not nested in the page's surfaces, whatever triggered it. */

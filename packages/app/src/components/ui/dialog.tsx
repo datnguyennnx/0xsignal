@@ -3,7 +3,8 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { cn } from "cn";
 
 import { Button } from "@/components/ui/button";
-import { Surface, SurfaceContext } from "@/components/surface/surface";
+import { Surface } from "@/components/surface/surface";
+import { SurfaceContext } from "@/components/surface/surface-context";
 import { withViewTransition } from "@/lib/view-transition";
 import { XIcon } from "lucide-react";
 
