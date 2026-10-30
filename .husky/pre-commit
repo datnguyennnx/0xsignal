@@ -1,15 +1,18 @@
 #!/bin/sh
 set -e
 
+# Only mutating stage (oxlint --fix, oxfmt --write); a read-only gate ahead of it
+# would fail on files this step is about to repair, so it stays first.
 echo "==> lint-staged: format + autofix staged files"
 bunx lint-staged
 
-echo "==> format:check: catch drift outside the staged set"
-bun run format:check
+echo "==> knip: dead code / unused dependency gate (blocking)"
+bun run knip
 
 echo "==> lint:strict: lint gate (0 errors, 0 warnings allowed)"
 bun run lint:strict
 
+# Lint family: depcruise, banned-constructs and no-bypass all judge source shape, not output.
 echo "==> depcruise: import-graph guard (errors block, warns reported)"
 bun run depcruise
 
@@ -19,12 +22,32 @@ bun scripts/banned-constructs.mjs
 echo "==> no-bypass: inline suppressions are banned (fix the code or change config)"
 bun scripts/no-bypass.mjs
 
+echo "==> doctor: React diagnostics on the working-tree change set (blocks on warnings)"
+bun run doctor
+
+# :check, never the writing `format`, so the hook cannot mutate the worktree.
+echo "==> format:check: catch drift outside the staged set"
+bun run format:check
+
+# build subsumes most of typecheck's tsc work but not packages/api's tsconfig.test.json, so both stay.
 echo "==> typecheck: turbo run typecheck"
 bun run typecheck
 
-echo "==> knip: dead code / unused dependency gate (blocking)"
+echo "==> build: turbo run build"
+bun run build
 
-bun run knip
+# Partial staging (git add -p) is a real workflow, so divergence warns instead of
+# failing: a file staged and then edited would commit bytes no stage above read.
+# Only staged paths can diverge, so the unstaged set is filtered down to the index.
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+if [ -n "$staged" ]; then
+  # Unquoted $staged word-splits into pathspecs: filenames here are kebab-case with
+  # no spaces, globs or newlines, so the split is safe for this repo.
+  diverged=$(git diff --name-only --diff-filter=ACMR -- $staged)
+  if [ -n "$diverged" ]; then
+    printf '==> WARNING: these staged files differ from their working-tree content:\n' >&2
+    printf '%s\n' "$diverged" | sed 's/^/    /' >&2
+    printf '==> WARNING: the gates above checked the disk version, not the index; run "git add" before committing.\n' >&2
+  fi
+fi
 
-echo "==> doctor: React diagnostics on issues introduced vs base (blocks on warnings)"
-bun run doctor

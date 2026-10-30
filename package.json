@@ -20,7 +20,7 @@
     "down": "docker compose -f deploy/docker-compose.yml down",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "depcruise": "bun --bun ./node_modules/.bin/depcruise \"packages/**/*.ts\" \"packages/**/*.tsx\" --config .dependency-cruiser.cjs --cache",
+    "depcruise": "bun --bun ./node_modules/.bin/depcruise \"packages/**/*.ts\" \"packages/**/*.tsx\" --config .dependency-cruiser.cjs --cache --cache-strategy content",
     "knip": "knip",
     "knip:prod": "knip --production --strict",
     "knip:fix": "knip --fix-type exports,types",

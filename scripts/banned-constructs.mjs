@@ -1,14 +1,13 @@
 #!/usr/bin/env bun
 // Greps for constructs the linters cannot express. Every hit must be either
 // fixed, allowlisted inline, or recorded in the checked-in baseline.
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const defaultRoot = fileURLToPath(new URL("../packages/api", import.meta.url));
 const root = process.env.BANNED_CONSTRUCTS_ROOT ?? defaultRoot;
 const baselinePath = fileURLToPath(new URL("./banned-constructs.baseline.txt", import.meta.url));
-const writeBaseline = process.argv.includes("--write-baseline");
 
 /** @param {string} path */
 const isTest = (path) => path.includes("/__tests__/") || path.endsWith(".test.ts");
@@ -75,12 +74,6 @@ const scan = () => {
 };
 
 const hits = scan();
-
-if (writeBaseline) {
-  writeFileSync(baselinePath, `${hits.join("\n")}\n`);
-  console.log(`baseline written: ${hits.length} entries -> ${baselinePath}`);
-  process.exit(0);
-}
 
 const baseline = readFileSync(baselinePath, "utf8")
   .split("\n")

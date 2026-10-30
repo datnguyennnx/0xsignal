@@ -18,6 +18,11 @@ const TOKENS = [
   "--no-verify",
 ];
 
+// Hook files carry no extension, so the extension filter below cannot see them.
+// Their whole job is to block, so any escape hatch written into one is a bypass.
+const HOOK_TOKENS = ["--no-verify", "HUSKY=0", "HUSKY", "set +e", "|| true"];
+const HOOK_EXIT_ZERO = /^\s*exit\s+0\s*$/;
+
 // The scanner and the rule table must spell the tokens to match them.
 const SKIPPED_FILES = new Set(["scripts/no-bypass.mjs", "scripts/banned-constructs.mjs"]);
 const SKIPPED_DIRS = new Set([
@@ -62,13 +67,26 @@ const isScannable = (path) =>
   !path.split("/").some((segment) => SKIPPED_DIRS.has(segment)) &&
   SOURCE_EXTENSIONS.has(extname(path));
 
+/** @param {string} path */
+const isHook = (path) =>
+  path.startsWith(".husky/") && !path.startsWith(".husky/_/") && path.split("/").length === 2;
+
 /** @returns {string[]} */
 const scan = () => {
   /** @type {string[]} */
   const hits = [];
-  for (const file of trackedFiles().filter((path) => isScannable(path))) {
+  for (const file of trackedFiles()) {
+    const hook = isHook(file);
+    if (!hook && !isScannable(file)) continue;
     const lines = readFileSync(join(root, file), "utf8").split("\n");
     lines.forEach((line, index) => {
+      if (hook) {
+        for (const token of HOOK_TOKENS) {
+          if (line.includes(token)) hits.push(`${file}:${index + 1} ${token}`);
+        }
+        if (HOOK_EXIT_ZERO.test(line)) hits.push(`${file}:${index + 1} exit 0`);
+        return;
+      }
       for (const token of TOKENS) {
         if (line.includes(token)) hits.push(`${file}:${index + 1} ${token}`);
       }
