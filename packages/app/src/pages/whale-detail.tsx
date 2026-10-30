@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Navigate, useParams } from "react-router-dom";
-import { isValidAddress, truncateAddress } from "@/core/utils/address";
+import { isValidAddress } from "@/core/utils/address";
 import { PortfolioView } from "@/features/portfolio/components/portfolio-view";
 
 /**
@@ -20,9 +20,6 @@ export function WhaleDetailPage() {
   return (
     <div className="container-fluid py-6 space-y-6 animate-in fade-in duration-200 ease-premium">
       <h1 className="sr-only">Whale portfolio</h1>
-      <p className="rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground w-fit">
-        Read-only: {truncateAddress(selected)}
-      </p>
       <PortfolioView readOnlyAddress={selected} />
     </div>
   );

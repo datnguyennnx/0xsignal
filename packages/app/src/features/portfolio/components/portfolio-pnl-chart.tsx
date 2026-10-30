@@ -177,7 +177,11 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
         <EmptyState
           variant="chart"
           title="No data"
-          description="Connect your wallet to see your PnL history."
+          description={
+            isOwn
+              ? "Connect your wallet to see your PnL history."
+              : "No PnL history for this account."
+          }
         />
       </div>
     );
