@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, useDeferredValue } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
@@ -25,6 +25,7 @@ const TradeDropdownFn = ({
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
   const [category, setCategory] = useState<CategoryTab>("all");
   const [sortBy, setSortBy] = useState<"name" | "change">("name");
   const [sortDesc, setSortDesc] = useState(false);
@@ -51,7 +52,7 @@ const TradeDropdownFn = ({
   const filteredTrades = useMemo(() => {
     if (!isOpen || !trades) return [];
 
-    return filterTradeAssets(trades, category, query).toSorted((a, b) => {
+    return filterTradeAssets(trades, category, deferredQuery).toSorted((a, b) => {
       if (sortBy === "name") {
         return sortDesc ? b.coin.localeCompare(a.coin) : a.coin.localeCompare(b.coin);
       }
@@ -63,7 +64,7 @@ const TradeDropdownFn = ({
         : 0;
       return sortDesc ? changeB - changeA : changeA - changeB;
     });
-  }, [isOpen, trades, category, query, sortBy, sortDesc]);
+  }, [isOpen, trades, category, deferredQuery, sortBy, sortDesc]);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);

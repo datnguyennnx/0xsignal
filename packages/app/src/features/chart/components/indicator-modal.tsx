@@ -1,4 +1,4 @@
-import { useState, useCallback, useId } from "react";
+import { useState, useCallback, useId, useDeferredValue } from "react";
 import { AVAILABLE_INDICATORS, type ActiveIndicator, type IndicatorConfig } from "@0xsignal/shared";
 import { cn } from "cn";
 import { Dialog, DialogContent, DialogTitle, MODAL_CONTENT_CLASS } from "@/components/ui/dialog";
@@ -32,6 +32,7 @@ export function IndicatorModal({
   const [category, setCategory] = useState<IndicatorCategory>("active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
   const searchId = useId();
 
   const activeByBaseId = new Map<string, ActiveIndicator[]>();
@@ -52,7 +53,7 @@ export function IndicatorModal({
         ? overlayIndicators
         : oscillatorIndicators;
 
-  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = deferredQuery.trim().toLowerCase();
   const filteredIndicators = normalizedQuery
     ? currentIndicators.filter((indicator) => {
         return (
