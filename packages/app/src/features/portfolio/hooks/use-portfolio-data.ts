@@ -21,6 +21,10 @@ import {
 } from "@/services/hl-rest-client";
 import { queryKeys } from "@/lib/query-keys";
 import { useOwnAddress } from "@/hooks/use-effective-address";
+import { useWhaleAccountStream } from "./use-whale-account-stream";
+
+/** Pace of the public REST read while the whale stream is not confirmed. */
+const WHALE_REST_FALLBACK_MS = 30 * 1000;
 
 export function usePortfolio(enabled: boolean = true) {
   const ownAddress = useOwnAddress();
@@ -91,37 +95,50 @@ export function whaleClearinghouseStateQuery(address?: string): WhaleClearinghou
 }
 
 export function useWhaleClearinghouseState(address?: string) {
-  return useQuery(whaleClearinghouseStateQuery(address));
+  const { live, restAllowed } = useWhaleAccountStream(address).clearinghouseState;
+  const base = whaleClearinghouseStateQuery(address);
+  return useQuery({
+    ...base,
+    staleTime: live ? Infinity : base.staleTime,
+    refetchOnWindowFocus: !live,
+    refetchInterval: restAllowed && !live ? WHALE_REST_FALLBACK_MS : false,
+  });
 }
 
 /** Public spot balances for a third party; address-gated, never auth-gated. */
 export function useWhaleSpotClearinghouseState(address?: string) {
+  const { live, restAllowed } = useWhaleAccountStream(address).spotState;
   return useQuery<SpotClearinghouseState>({
     queryKey: queryKeys.whales.spotClearinghouseState(address ?? ""),
     queryFn: () => getSpotClearinghouseStatePublic(address ?? ""),
     enabled: address !== undefined && address !== "",
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: live ? Infinity : 30 * 1000,
+    refetchOnWindowFocus: !live,
+    refetchInterval: restAllowed && !live ? WHALE_REST_FALLBACK_MS : false,
   });
 }
 
 export function useWhaleOpenOrders(address?: string) {
+  const { live, restAllowed } = useWhaleAccountStream(address).openOrders;
   return useQuery<OpenOrder[]>({
     queryKey: queryKeys.whales.openOrders(address ?? ""),
     queryFn: () => getOpenOrdersPublic(address ?? ""),
     enabled: address !== undefined && address !== "",
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: live ? Infinity : 30 * 1000,
+    refetchOnWindowFocus: !live,
+    refetchInterval: restAllowed && !live ? WHALE_REST_FALLBACK_MS : false,
   });
 }
 
 export function useWhaleFills(address?: string) {
+  const { live, restAllowed } = useWhaleAccountStream(address).userFills;
   return useQuery<UserFill[]>({
     queryKey: queryKeys.whales.fills(address ?? ""),
     queryFn: () => getUserFillsPublic(address ?? ""),
     enabled: address !== undefined && address !== "",
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: live ? Infinity : 30 * 1000,
+    refetchOnWindowFocus: !live,
+    refetchInterval: restAllowed && !live ? WHALE_REST_FALLBACK_MS : false,
   });
 }
 
