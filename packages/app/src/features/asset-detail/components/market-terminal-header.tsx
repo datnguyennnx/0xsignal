@@ -36,7 +36,7 @@ export const MarketTerminalHeader = memo(function MarketTerminalHeader({
   const isSpot = marketType === "spot";
 
   return (
-    <div className="flex items-center gap-6 flex-1 min-w-0 overflow-x-auto scrollbar-hide">
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
       <MetricItem label={isSpot ? "Price" : "Mark"} value={formatPrice(markPrice)} />
       {!isSpot && <MetricItem label="Oracle" value={formatPrice(oraclePrice)} />}
       <MetricItem

@@ -77,7 +77,7 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
   // tick lands reads as a broken market, so the pre-data header stays neutral.
   if (!(livePrice > 0)) {
     return (
-      <div className="flex items-center gap-6 flex-1 min-w-0">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <MetricItem label={isSpot ? "Price" : "Mark"} value="—" />
       </div>
     );
@@ -164,8 +164,8 @@ export const AssetContent = memo(function AssetContent({
       ref={regionRef}
       className="container-fluid flex flex-col min-h-[var(--trading-region-height)]"
     >
-      <header ref={headerRef} className="shrink-0 flex flex-col gap-2">
-        <div className="flex items-center w-full min-w-0">
+      <header ref={headerRef} className="container-query shrink-0 flex flex-col">
+        <div className="flex flex-wrap items-center w-full min-w-0 gap-y-2">
           <TradeDropdown
             currentSymbol={symbol}
             logoUrl={logoUrl ?? undefined}
@@ -176,10 +176,12 @@ export const AssetContent = memo(function AssetContent({
             }}
           />
           <LiveMarketHeader symbol={symbol} isSpot={isSpot} price={price} tradeAsset={tradeAsset} />
+          {isNonEmpty(description) && (
+            <p className="basis-full text-right text-xs text-muted-foreground leading-relaxed line-clamp-2 @[80rem]:grow @[80rem]:basis-72 @[80rem]:min-w-72 @[80rem]:ml-6">
+              {description}
+            </p>
+          )}
         </div>
-        {isNonEmpty(description) && (
-          <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">{description}</p>
-        )}
       </header>
 
       <TradingGrid
