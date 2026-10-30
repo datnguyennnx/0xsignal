@@ -5,7 +5,12 @@ import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { computeOverlayPosition } from "@/features/trade/lib/overlay-position";
 import { formatTradeRows } from "@/features/trade/lib/format-trade-rows";
 import { withViewTransition } from "@/lib/view-transition";
-import type { CategoryTab, FormattedTrade, TradeDropdownProps } from "../utils/trade-dropdown";
+import {
+  filterTradeAssets,
+  type CategoryTab,
+  type FormattedTrade,
+  type TradeDropdownProps,
+} from "../utils/trade-dropdown";
 import { TradeDropdownTrigger } from "./trade-dropdown-trigger";
 import { TradeDropdownPanel } from "./trade-dropdown-panel";
 
@@ -46,36 +51,7 @@ const TradeDropdownFn = ({
   const filteredTrades = useMemo(() => {
     if (!trades) return [];
 
-    let filtered = trades;
-
-    if (category !== "all") {
-      if (category === "perps") {
-        filtered = filtered.filter((f) => f.marketType === "perp");
-      } else if (category === "spot") {
-        filtered = filtered.filter((f) => f.marketType === "spot");
-      } else if (category === "tradfi") {
-        filtered = filtered.filter((f) =>
-          ["stocks", "forex", "commodities", "indices"].includes(f.category),
-        );
-      } else if (category === "hip3") {
-        filtered = filtered.filter((f) => f.isHip3);
-      } else if (category === "trending") {
-        filtered = filtered
-          .toSorted((a, b) => Number(b.dayNtlVlm) - Number(a.dayNtlVlm))
-          .slice(0, 10);
-      } else {
-        filtered = filtered.filter((f) => f.category === category);
-      }
-    }
-
-    if (query) {
-      const q = query.toLowerCase();
-      filtered = filtered.filter(
-        (f) => f.coin.toLowerCase().includes(q) || f.displaySymbol.toLowerCase().includes(q),
-      );
-    }
-
-    filtered = filtered.toSorted((a, b) => {
+    return filterTradeAssets(trades, category, query).toSorted((a, b) => {
       if (sortBy === "name") {
         return sortDesc ? b.coin.localeCompare(a.coin) : a.coin.localeCompare(b.coin);
       }
@@ -87,8 +63,6 @@ const TradeDropdownFn = ({
         : 0;
       return sortDesc ? changeB - changeA : changeA - changeB;
     });
-
-    return filtered;
   }, [trades, category, query, sortBy, sortDesc]);
 
   const handleClose = useCallback(() => {

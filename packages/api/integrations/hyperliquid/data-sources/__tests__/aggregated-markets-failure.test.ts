@@ -69,7 +69,7 @@ describe("getAggregatedMarketsSnapshot rate-limit propagation", () => {
 
   it("surfaces a rate-limited builder-dex fetch instead of silently skipping that dex", async () => {
     const info = createMockInfoClient();
-    info.perpDexs.mockResolvedValue([{ name: "xyz" }]);
+    info.perpDexs.mockResolvedValue([null, { name: "xyz" }]);
     info.metaAndAssetCtxs
       .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, []])
       .mockRejectedValueOnce(rateLimited());
@@ -82,7 +82,7 @@ describe("getAggregatedMarketsSnapshot rate-limit propagation", () => {
 
   it("still renders the remaining dexes when one builder dex fails for a non-rate-limit reason", async () => {
     const info = createMockInfoClient();
-    info.perpDexs.mockResolvedValue([{ name: "xyz" }]);
+    info.perpDexs.mockResolvedValue([null, { name: "xyz" }]);
     info.metaAndAssetCtxs
       .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, []])
       .mockRejectedValueOnce(new Error("DEX offline"));
@@ -93,5 +93,38 @@ describe("getAggregatedMarketsSnapshot rate-limit propagation", () => {
     );
 
     expect(result.some((asset) => asset.rawCoin === "BTC")).toBe(true);
+  });
+
+  it("uses the perpDexs position as the builder dex id offset", async () => {
+    const info = createMockInfoClient();
+    info.perpDexs.mockResolvedValue([null, { name: "xyz" }]);
+    info.metaAndAssetCtxs
+      .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, []])
+      .mockResolvedValueOnce([{ universe: [{ name: "EUR" }] }, []]);
+
+    const result = await Effect.runPromise(
+      Effect.provide(getAggregatedMarketsSnapshot(infoAsClient(info)), rateLimiterUnlimited),
+    );
+
+    expect(result.find((asset) => asset.rawCoin === "BTC")?.assetId).toBe(0);
+    // xyz sits at perpDexs[1] → 100000 + 1 * 10000 + 0.
+    expect(result.find((asset) => asset.rawCoin === "xyz:EUR")?.assetId).toBe(110000);
+  });
+
+  it("leaves every other id unchanged when a builder dex fails", async () => {
+    const info = createMockInfoClient();
+    info.perpDexs.mockResolvedValue([null, { name: "offline" }, { name: "xyz" }]);
+    info.metaAndAssetCtxs
+      .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, []])
+      .mockRejectedValueOnce(new Error("DEX offline"))
+      .mockResolvedValueOnce([{ universe: [{ name: "EUR" }] }, []]);
+
+    const result = await Effect.runPromise(
+      Effect.provide(getAggregatedMarketsSnapshot(infoAsClient(info)), rateLimiterUnlimited),
+    );
+
+    expect(result.find((asset) => asset.rawCoin === "BTC")?.assetId).toBe(0);
+    // The skipped dex keeps its slot: xyz stays at position 2, not re-counted to 1.
+    expect(result.find((asset) => asset.rawCoin === "xyz:EUR")?.assetId).toBe(120000);
   });
 });

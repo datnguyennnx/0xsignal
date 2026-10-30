@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { AggregatedMarket } from "@0xsignal/shared";
 
 export interface TradeDropdownProps {
   currentSymbol: string;
@@ -73,4 +74,47 @@ export interface ColumnDef {
   /** Fraction of available space (relative to other columns). */
   fr: number;
   render: (item: FormattedTrade) => ReactNode;
+}
+
+type TradeAsset = AggregatedMarket;
+
+const TRADFI_CATEGORIES = new Set(["stocks", "forex", "commodities", "indices"]);
+const SEARCH_SEPARATORS = /[\s/:_-]+/g;
+
+/** The API categorises pre-launch markets as "preipo"; the tab id stays "prelaunch". */
+const API_CATEGORY_BY_TAB: Partial<Record<CategoryTab, string>> = { prelaunch: "preipo" };
+
+/** Separators carry no meaning to a searching user: "PURR USDC" must find "PURR/USDC". */
+const normalizeSearch = (value: string): string =>
+  value.toLowerCase().replace(SEARCH_SEPARATORS, "");
+
+const matchesCategory = (asset: TradeAsset, tab: CategoryTab): boolean => {
+  if (tab === "all" || tab === "trending") return true;
+  if (tab === "perps") return asset.marketType === "perp";
+  if (tab === "spot") return asset.marketType === "spot";
+  if (tab === "tradfi") return TRADFI_CATEGORIES.has(asset.category);
+  if (tab === "hip3") return asset.isHip3;
+  return asset.category === (API_CATEGORY_BY_TAB[tab] ?? tab);
+};
+
+const matchesSearch = (asset: TradeAsset, needle: string): boolean =>
+  [asset.coin, asset.rawCoin, asset.displaySymbol, asset.name].some((field) =>
+    normalizeSearch(field).includes(needle),
+  );
+
+export function filterTradeAssets(
+  assets: readonly TradeAsset[],
+  category: CategoryTab,
+  query: string,
+): TradeAsset[] {
+  let filtered = assets.filter((asset) => matchesCategory(asset, category));
+
+  if (category === "trending") {
+    filtered = filtered.toSorted((a, b) => Number(b.dayNtlVlm) - Number(a.dayNtlVlm)).slice(0, 10);
+  }
+
+  const needle = normalizeSearch(query);
+  if (needle === "") return filtered;
+
+  return filtered.filter((asset) => matchesSearch(asset, needle));
 }

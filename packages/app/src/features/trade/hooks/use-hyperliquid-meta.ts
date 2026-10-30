@@ -2,6 +2,7 @@ import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query-keys";
+import type { AggregatedMarket } from "@0xsignal/shared";
 import { parseSymbol } from "../lib/symbol";
 import { buildAssetIndexMap, resolveAssetIndex } from "../lib/asset-index";
 import { calculatePxDecimals, MAX_DECIMALS_PERP, MAX_SIG_FIGS } from "../utils/trade-formatters";
@@ -12,11 +13,45 @@ export interface AssetPrecision {
   maxLeverage: number;
 }
 
-const DEFAULT: AssetPrecision = {
+export const DEFAULT_PRECISION: AssetPrecision = {
   pxDecimals: Math.min(MAX_SIG_FIGS, MAX_DECIMALS_PERP - 4),
   szDecimals: 4,
   maxLeverage: 50,
 };
+
+/** One key rule: `parseSymbol` keeps the dex prefix (lowercased), then uppercase. */
+function precisionKey(symbol: string): string {
+  return parseSymbol(symbol).coin.toUpperCase();
+}
+
+export function buildPrecisionMap(
+  assets: readonly AggregatedMarket[],
+): Map<string, AssetPrecision> {
+  const map = new Map<string, AssetPrecision>();
+  for (const asset of assets) {
+    if (asset.isDelisted) continue;
+    const sz = asset.szDecimals ?? 4;
+    const precision: AssetPrecision = {
+      pxDecimals: calculatePxDecimals(sz),
+      szDecimals: sz,
+      maxLeverage: asset.maxLeverage ?? 50,
+    };
+    // `coin` is bare even on a builder dex (`xyz:TSLA` → `TSLA`), so that key would
+    // land on the main-dex entry of the same name; only `rawCoin` names the builder market.
+    const identifiers = asset.dexPrefix === null ? [asset.coin, asset.rawCoin] : [asset.rawCoin];
+    for (const identifier of identifiers) {
+      map.set(precisionKey(identifier), precision);
+    }
+  }
+  return map;
+}
+
+export function lookupPrecision(
+  map: ReadonlyMap<string, AssetPrecision>,
+  sym: string,
+): AssetPrecision {
+  return map.get(precisionKey(sym)) ?? DEFAULT_PRECISION;
+}
 
 export function useHyperliquidMeta() {
   const { data, isLoading, error } = useQuery({
@@ -28,20 +63,8 @@ export function useHyperliquidMeta() {
   });
 
   const precisionMap = useMemo(() => {
-    const map = new Map<string, AssetPrecision>();
-    if (!Array.isArray(data)) return map;
-    for (const asset of data) {
-      if (asset.isDelisted) continue;
-      const sz = asset.szDecimals ?? 4;
-      const pxDec = calculatePxDecimals(sz);
-      const ml = asset.maxLeverage ?? 50;
-      map.set(asset.coin.toUpperCase(), {
-        pxDecimals: pxDec,
-        szDecimals: sz,
-        maxLeverage: ml,
-      });
-    }
-    return map;
+    if (!Array.isArray(data)) return new Map<string, AssetPrecision>();
+    return buildPrecisionMap(data);
   }, [data]);
 
   const assetIndexMap = useMemo(() => {
@@ -50,13 +73,7 @@ export function useHyperliquidMeta() {
   }, [data]);
 
   const getPrecision = useCallback(
-    (sym: string): AssetPrecision => {
-      const parsed = parseSymbol(sym);
-      // For builder perps, lookup using the original coin format (dex:coin)
-      // For regular perps, lookup using uppercase
-      const lookupKey = parsed.kind === "builderPerp" ? parsed.coin : parsed.coin.toUpperCase();
-      return precisionMap.get(lookupKey) ?? DEFAULT;
-    },
+    (sym: string): AssetPrecision => lookupPrecision(precisionMap, sym),
     [precisionMap],
   );
 

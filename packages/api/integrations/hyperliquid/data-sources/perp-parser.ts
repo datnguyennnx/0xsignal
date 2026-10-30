@@ -68,7 +68,6 @@ const buildPerpAsset = (
   allMids: Record<string, string>,
   categoryMap: ReadonlyMap<string, string>,
   quoteCurrency: string,
-  globalIndex: number,
 ): PerpTradeAsset | null => {
   const rawName = typeof market.name === "string" ? market.name : "";
   if (rawName === "") return null;
@@ -78,7 +77,9 @@ const buildPerpAsset = (
   const szDecimals = typeof market.szDecimals === "number" ? market.szDecimals : 4;
   const maxLeverage = typeof market.maxLeverage === "number" ? market.maxLeverage : 10;
 
-  const assetId = isMainDex ? globalIndex : 100000 + dexIdx * 10000 + i;
+  // The id is the entry's position in its dex universe, never a running count:
+  // an empty-name entry must not shift anyone else's id.
+  const assetId = isMainDex ? i : 100000 + dexIdx * 10000 + i;
   const rawCoin = dexPrefix === null ? coin : `${dexPrefix}:${coin}`;
 
   const category =
@@ -127,10 +128,9 @@ export function parsePerpAssets(
   allMids: Record<string, string>,
   categoryMap: ReadonlyMap<string, string>,
   resolvedTokens: string[],
-  startIndex: number,
-): [PerpTradeAsset[], number] {
+): PerpTradeAsset[] {
   const dex = extractDexMetaResult(rawResult);
-  if (!dex) return [[], startIndex];
+  if (!dex) return [];
 
   const { meta, assetCtxs } = dex;
   const universe = meta.universe;
@@ -138,7 +138,6 @@ export function parsePerpAssets(
   const dexPrefix = isMainDex ? null : dexName;
   const quoteCurrency = getQuoteCurrency(meta.collateralToken, resolvedTokens);
 
-  let globalIndex = startIndex;
   const assets: PerpTradeAsset[] = [];
 
   for (let i = 0; i < universe.length; i++) {
@@ -152,12 +151,10 @@ export function parsePerpAssets(
       allMids,
       categoryMap,
       quoteCurrency,
-      globalIndex,
     );
     if (asset === null) continue;
     assets.push(asset);
-    globalIndex++;
   }
 
-  return [assets, globalIndex];
+  return assets;
 }

@@ -6,6 +6,7 @@ import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
 import {
   mapTickerFromSnapshot,
   resolveInternalSymbol,
+  parsePerpAssets,
   parseSpotAssets,
   extractSpotTokens,
   sortAndDedupeAssets,
@@ -37,6 +38,9 @@ const baseAsset = (coin: string, rawCoin: string, dexPrefix: string | null, dayN
   assetId: 0,
   dayNtlVlm,
 });
+
+const parsePerpFixture = (dexName: string, dexIdx: number, universe: Record<string, unknown>[]) =>
+  parsePerpAssets(dexName, dexIdx, [{ universe }, []], {}, new Map(), []);
 
 describe("Hyperliquid Mapping", () => {
   const mockInfo = {
@@ -209,29 +213,46 @@ describe("Hyperliquid Mapping", () => {
       "@2": "0.00005",
     };
 
-    it("skips zero-volume pairs, includes active canonical + non-canonical", () => {
+    it("emits every pair, including a zero-volume one", () => {
       const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
-      const result = parseSpotAssets(raw, allMids, 0);
-      // PURR (vol=1000) and HFUN (vol=500) included; LICK (vol=0) filtered
-      expect(result).toHaveLength(2);
-      expect(result[0].coin).toBe("PURR");
-      expect(result[1].coin).toBe("HFUN");
+      const result = parseSpotAssets(raw, allMids);
+      // Zero volume is not a delisting: LICK (vol=0) is still tradable.
+      expect(result.map((a) => a.coin)).toEqual(["PURR", "HFUN", "LICK"]);
+    });
+
+    it("sets the id from 10000 + the pair universe index", () => {
+      const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
+      const result = parseSpotAssets(raw, allMids);
+      expect(result.map((a) => a.assetId)).toEqual([10000, 10001, 10002]);
     });
 
     it("resolves token names and quote currency correctly", () => {
       const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
-      const result = parseSpotAssets(raw, allMids, 0);
+      const result = parseSpotAssets(raw, allMids);
 
       const hfun = result.find((a) => a.coin === "HFUN")!;
       expect(hfun.rawCoin).toBe("HFUN/USDC");
-      expect(hfun.displaySymbol).toBe("HFUN-USDC");
+      expect(hfun.displaySymbol).toBe("HFUN/USDC");
+      // The wire identifier streams under "@1"; only the display name is rebuilt.
+      expect(hfun.name).toBe("@1");
       expect(hfun.quoteCurrency).toBe("USDC");
       expect(hfun.marketType).toBe("spot");
     });
 
+    it("builds the display name from the token pair, never the @N query name", () => {
+      const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
+      const result = parseSpotAssets(raw, allMids);
+
+      const hfun = result.find((a) => a.coin === "HFUN")!;
+      expect(hfun.displaySymbol).toBe("HFUN/USDC");
+      expect(hfun.displaySymbol).not.toBe("@1");
+      // A readable upstream name is kept as-is.
+      expect(result.find((a) => a.coin === "PURR")?.displaySymbol).toBe("PURR/USDC");
+    });
+
     it("reads prices from allMids using entry.name", () => {
       const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
-      const result = parseSpotAssets(raw, allMids, 0);
+      const result = parseSpotAssets(raw, allMids);
 
       const purr = result.find((a) => a.coin === "PURR")!;
       expect(purr.markPx).toBe("0.0895"); // from allMids["PURR/USDC"]
@@ -242,25 +263,69 @@ describe("Hyperliquid Mapping", () => {
 
     it("falls back to ctx fields when allMids missing", () => {
       const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
-      const result = parseSpotAssets(raw, {}, 0);
+      const result = parseSpotAssets(raw, {});
 
       const purr = result.find((a) => a.coin === "PURR")!;
       expect(purr.markPx).toBe("0.09"); // from ctx.markPx
     });
 
-    it("filters zero-volume dead pairs", () => {
+    it("keeps a zero-volume pair with its volume intact", () => {
       const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
-      const result = parseSpotAssets(raw, allMids, 0);
-      // LICK has dayNtlVlm=0 → filtered out
-      expect(result.find((a) => a.coin === "LICK")).toBeUndefined();
-      // PURR has dayNtlVlm=1000 → included
-      expect(result.find((a) => a.coin === "PURR")).toBeDefined();
+      const result = parseSpotAssets(raw, allMids);
+      const lick = result.find((a) => a.coin === "LICK");
+      expect(lick).toBeDefined();
+      expect(lick?.dayNtlVlm).toBe("0");
     });
 
     it("returns empty for invalid input", () => {
-      expect(parseSpotAssets(null, {}, 0)).toEqual([]);
-      expect(parseSpotAssets("bad", {}, 0)).toEqual([]);
-      expect(parseSpotAssets([], {}, 0)).toEqual([]);
+      expect(parseSpotAssets(null, {})).toEqual([]);
+      expect(parseSpotAssets("bad", {})).toEqual([]);
+      expect(parseSpotAssets([], {})).toEqual([]);
+    });
+  });
+
+  describe("parsePerpAssets", () => {
+    it("sets a main-dex id from its position in the universe", () => {
+      const result = parsePerpFixture("", 0, [{ name: "BTC" }, { name: "ETH" }]);
+      expect(result.map((a) => a.assetId)).toEqual([0, 1]);
+    });
+
+    it("does not shift later ids when an entry has an empty name", () => {
+      const result = parsePerpFixture("", 0, [{ name: "BTC" }, { name: "" }, { name: "ETH" }]);
+      expect(result.map((a) => [a.coin, a.assetId])).toEqual([
+        ["BTC", 0],
+        ["ETH", 2],
+      ]);
+    });
+
+    it("sets a builder-dex id from 100000 + perpDexs position * 10000 + universe index", () => {
+      const result = parsePerpFixture("xyz", 1, [{ name: "EUR" }, { name: "TSLA" }]);
+      expect(result.map((a) => a.assetId)).toEqual([110000, 110001]);
+    });
+
+    it("keeps every id inside its market band", () => {
+      const main = parsePerpFixture("", 0, [{ name: "BTC" }]);
+      const builder = parsePerpFixture("xyz", 1, [{ name: "EUR" }]);
+      const spot = parseSpotAssets(
+        [
+          {
+            universe: [{ tokens: [1, 0], name: "@1", index: 3 }],
+            tokens: [{ name: "USDC" }, { name: "HYPE" }],
+          },
+          [],
+        ],
+        {},
+      );
+
+      for (const asset of main) expect(asset.assetId).toBeLessThan(10000);
+      for (const asset of builder) {
+        expect(asset.assetId).toBeGreaterThanOrEqual(110000);
+        expect(asset.assetId).toBeLessThan(100000000);
+      }
+      for (const asset of spot) {
+        expect(asset.assetId).toBeGreaterThanOrEqual(10000);
+        expect(asset.assetId).toBeLessThan(100000);
+      }
     });
   });
 

@@ -78,11 +78,25 @@ const fetchAllDexMetas = (
     { concurrency: 3 },
   );
 
-const fetchDexNames = (
+interface DexRef {
+  readonly name: string;
+  readonly dexIdx: number;
+}
+
+// The perpDexs array position is the dex index used in HIP-3 ids: element 0 is the
+// main dex (null), and every builder dex keeps its own position even when another
+// builder dex is skipped, so a failed fetch cannot shift anyone else's id.
+const toDexRefs = (
   dexNamesResult: ReadonlyArray<null | { readonly name: string }> | undefined,
-): string[] => {
+): DexRef[] => {
   const raw: ReadonlyArray<null | { readonly name: string }> = dexNamesResult ?? [];
-  return ["", ...raw.filter((d): d is { readonly name: string } => d !== null).map((d) => d.name)];
+  const refs: DexRef[] = [{ name: "", dexIdx: 0 }];
+  for (let i = 1; i < raw.length; i++) {
+    const dex = raw[i];
+    if (dex === null) continue;
+    refs.push({ name: dex.name, dexIdx: i });
+  }
+  return refs;
 };
 
 const buildCategoryMap = (rawPerpCats: Array<[string, string]>): Map<string, string> => {
@@ -176,32 +190,25 @@ export function getAggregatedMarketsSnapshot(
     const { dexNamesResult, rawPerpCats, allMids, optionalData } = allResult;
     const { spotRaw } = optionalData;
 
-    const dexNames = fetchDexNames(dexNamesResult);
+    const dexRefs = toDexRefs(dexNamesResult);
     const categoryMap = buildCategoryMap(rawPerpCats);
 
-    const rawMetas = yield* fetchAllDexMetas(info, dexNames);
+    const rawMetas = yield* fetchAllDexMetas(
+      info,
+      dexRefs.map((ref) => ref.name),
+    );
 
-    let globalIndex = 0;
     const perpAssets: PerpTradeAsset[] = [];
 
-    for (let dexIdx = 0; dexIdx < dexNames.length; dexIdx++) {
-      const [parsed, nextIndex] = parsePerpAssets(
-        dexNames[dexIdx],
-        dexIdx,
-        rawMetas[dexIdx],
-        allMids,
-        categoryMap,
-        resolvedTokens,
-        globalIndex,
+    for (let i = 0; i < dexRefs.length; i++) {
+      const { name, dexIdx } = dexRefs[i];
+      perpAssets.push(
+        ...parsePerpAssets(name, dexIdx, rawMetas[i], allMids, categoryMap, resolvedTokens),
       );
-      perpAssets.push(...parsed);
-      globalIndex = nextIndex;
     }
 
     const spotAssets =
-      spotRaw === null || spotRaw === undefined
-        ? []
-        : parseSpotAssets(spotRaw, allMids, globalIndex);
+      spotRaw === null || spotRaw === undefined ? [] : parseSpotAssets(spotRaw, allMids);
 
     return sortAndDedupeAssets(perpAssets, spotAssets);
   });

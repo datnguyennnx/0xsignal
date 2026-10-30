@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "cn";
+import { splitDisplaySymbol } from "../utils/display-symbol";
 
 const LOGO_SLOT_CLASS = "w-5 h-5 shrink-0";
 const LABEL_SLOT_CLASS = "flex items-baseline min-w-[5.5rem]";
@@ -26,6 +27,9 @@ export function TradeDropdownTrigger({
   logoUrl,
   contentId,
 }: TradeDropdownTriggerProps) {
+  const symbolParts =
+    displaySymbol !== undefined && displaySymbol !== "" ? splitDisplaySymbol(displaySymbol) : null;
+
   return (
     <button
       type="button"
@@ -50,19 +54,21 @@ export function TradeDropdownTrigger({
         <span aria-hidden="true" className={cn(LOGO_SLOT_CLASS, "rounded-full bg-muted/60")} />
       )}
       <span className={LABEL_SLOT_CLASS}>
-        {displaySymbol !== undefined && displaySymbol !== "" ? (
-          <>
-            <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
-              {displaySymbol.split("-")[0]}
-            </span>
-            <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
-              -{displaySymbol.split("-").slice(1).join("-")}
-            </span>
-          </>
-        ) : (
+        {symbolParts === null ? (
           <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
             {displayLabel}
           </span>
+        ) : (
+          <>
+            <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
+              {symbolParts.base}
+            </span>
+            {symbolParts.quote !== "" && (
+              <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
+                -{symbolParts.quote}
+              </span>
+            )}
+          </>
         )}
       </span>
       <ChevronDown

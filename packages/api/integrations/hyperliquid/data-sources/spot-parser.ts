@@ -27,11 +27,7 @@ export function extractSpotPairRefs(raw: unknown): SpotPairRef[] {
   return refs;
 }
 
-export function parseSpotAssets(
-  raw: unknown,
-  allMids: Record<string, string>,
-  existingCount: number,
-): SpotTradeAsset[] {
+export function parseSpotAssets(raw: unknown, allMids: Record<string, string>): SpotTradeAsset[] {
   if (!isUnknownArray(raw) || raw.length < 2) return [];
 
   const meta = asRecord(raw[0]);
@@ -65,15 +61,16 @@ export function parseSpotAssets(
 
     const quoteCurrency =
       quoteToken === undefined ? "USDC" : (stringAt(quoteToken, "name") ?? "USDC");
-    const displaySymbol = `${coin}-${quoteCurrency}`;
+    // `entryName` is the wire identifier ("@1" for non-canonical pairs), not a label.
+    // The token names are the only readable source for the display name.
+    const hasReadableName = entryName !== "" && !entryName.startsWith("@");
+    const displaySymbol = hasReadableName ? entryName : `${coin}/${quoteCurrency}`;
     const ctx = ctxs[i] ?? {};
 
     const markPx = allMids[entryName] ?? stringAt(ctx, "markPx") ?? "0";
     const prevDayPx = stringAt(ctx, "prevDayPx") ?? "0";
     const dayNtlVlm = stringAt(ctx, "dayNtlVlm") ?? "0";
     const dayBaseVlm = stringAt(ctx, "dayBaseVlm") ?? "0";
-    // Skip pairs with zero trading volume — they are dead listings with no trades
-    if (Number(dayNtlVlm) === 0) continue;
     const circulatingSupply = stringAt(ctx, "circulatingSupply");
     const totalSupply = stringAt(ctx, "totalSupply");
     const szDecimals =
@@ -102,7 +99,7 @@ export function parseSpotAssets(
       szDecimals,
       openInterest: "0",
       funding: "0",
-      assetId: 200_000 + existingCount + i,
+      assetId: 10000 + (typeof entry.index === "number" ? entry.index : i),
       isDelisted: false,
       dex: "HYPERLIQUID",
       marketType: "spot",
