@@ -49,7 +49,6 @@ mock.module("wagmi", () => ({
 
 const { PositionManagement } = await import("./position-management");
 const { BalancesTab, OrderHistoryTab, TradeHistoryTab } = await import("./position-tabs");
-const { OutcomesTable } = await import("./outcomes-table");
 const { OpenOrdersTab } = await import("./open-orders-tab");
 const { PositionsTab } = await import("./positions-tab");
 const { FundingHistoryTable } = await import("./funding-history-table");
@@ -97,7 +96,6 @@ const renderWhalePanels = (): { html: string; client: QueryClient } =>
         onCloseMarket={noop}
         onCloseLimit={noop}
       />
-      <OutcomesTable readOnlyAddress={WHALE} />
       <OpenOrdersTab
         readOnlyAddress={WHALE}
         onCancelOrder={noop}
@@ -142,19 +140,6 @@ describe("whale panel tree has no auth-gated read", () => {
       expect(query.queryKey).toContain(WHALE);
       expect(isEnabled(query)).toBe(true);
     }
-  });
-
-  test("the outcomes tab reads the whale publicly and drops the dead close column", () => {
-    const { client, html } = renderTree(<OutcomesTable readOnlyAddress={WHALE} />);
-
-    const clearinghouse = requiredWhaleQuery(client, "clearinghouseState");
-    expect(clearinghouse.queryKey).toContain(WHALE);
-    expect(isEnabled(clearinghouse)).toBe(true);
-    for (const query of userQueries(client)) {
-      expect(isEnabled(query)).toBe(false);
-    }
-    expect(html).not.toContain("Close All");
-    expect(html).toContain("PNL (ROE %)");
   });
 
   test("the management shell opens no own-account query in read-only mode", () => {

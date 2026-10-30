@@ -1,7 +1,6 @@
 import { TabsContent } from "@/components/ui/tabs";
 import type { FrontendOpenOrder } from "@0xsignal/shared";
 import { FundingHistoryTable } from "./funding-history-table";
-import { OutcomesTable } from "./outcomes-table";
 import { BalancesTab, OrderHistoryTab, TradeHistoryTab } from "./position-tabs";
 import { PositionsTab } from "./positions-tab";
 import type { PositionRow } from "./positions-table";
@@ -59,13 +58,6 @@ export function PositionManagementPanels({
             onCloseLimit(pos);
           }}
         />
-      </TabsContent>
-
-      <TabsContent
-        value="outcomes"
-        className="flex-1 min-h-0 data-active:flex data-active:flex-col"
-      >
-        <OutcomesTable readOnlyAddress={readOnlyAddress} />
       </TabsContent>
 
       <TabsContent

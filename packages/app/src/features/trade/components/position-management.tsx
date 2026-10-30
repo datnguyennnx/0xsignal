@@ -87,7 +87,6 @@ export function PositionManagement({ readOnlyAddress }: { readOnlyAddress?: stri
           <TabTrigger value="positions" count={isChLoading ? undefined : positionsCount}>
             Positions
           </TabTrigger>
-          <TabTrigger value="outcomes">Outcomes</TabTrigger>
           <TabTrigger value="open-orders" count={isOoLoading ? undefined : openOrdersCount}>
             Open Orders
           </TabTrigger>
