@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { MainLayout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { Toaster } from "@/components/ui/sonner";
+import { AppToasters } from "@/components/app-toasters";
 import { usePreloadRoutes } from "@/lib/preload-routes";
 import { useAppStore } from "@/stores/use-app-store";
 import { useAuthStore } from "@/stores/use-auth-store";
@@ -122,7 +122,7 @@ export function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
-          <Toaster />
+          <AppToasters />
         </BrowserRouter>
       </TooltipProvider>
     </ErrorBoundary>
