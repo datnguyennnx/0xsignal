@@ -22,9 +22,13 @@ const ChartSkeleton = () => (
 
 const WIDE_BREAKPOINT_REM = 80;
 
-/** Measures the container itself, since the two layouts must never be mounted together. */
-function useWideContainer(ref: RefObject<HTMLDivElement | null>): boolean {
-  const [isWide, setIsWide] = useState(false);
+/**
+ * Measures the container itself, since the two layouts must never be mounted together, and
+ * stays `null` until the first measurement: a provisional layout would mount the whole panel
+ * tree — chart included — only to unmount it once the real width lands.
+ */
+function useContainerMode(ref: RefObject<HTMLDivElement | null>): "wide" | "narrow" | null {
+  const [mode, setMode] = useState<"wide" | "narrow" | null>(null);
 
   useLayoutEffect(() => {
     const element = ref.current;
@@ -33,7 +37,7 @@ function useWideContainer(ref: RefObject<HTMLDivElement | null>): boolean {
     );
     const breakpointPx = (Number.isFinite(rootFontSize) ? rootFontSize : 16) * WIDE_BREAKPOINT_REM;
     const update = (width: number): void => {
-      setIsWide(width >= breakpointPx);
+      setMode(width >= breakpointPx ? "wide" : "narrow");
     };
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -41,7 +45,11 @@ function useWideContainer(ref: RefObject<HTMLDivElement | null>): boolean {
       }
     });
 
-    if (element !== null) {
+    if (element === null) {
+      setMode("narrow");
+    } else {
+      // Read while the tree is still unrendered: `inline-size` containment means the
+      // container's own width never depends on its children, so this is the settled width.
       update(element.getBoundingClientRect().width);
       observer.observe(element);
     }
@@ -51,7 +59,7 @@ function useWideContainer(ref: RefObject<HTMLDivElement | null>): boolean {
     };
   }, [ref]);
 
-  return isWide;
+  return mode;
 }
 
 interface AssetTradingGridProps {
@@ -71,7 +79,7 @@ export function AssetTradingGrid({
 }: AssetTradingGridProps) {
   const chartSymbol = symbol.toUpperCase();
   const containerRef = useRef<HTMLDivElement>(null);
-  const isWide = useWideContainer(containerRef);
+  const mode = useContainerMode(containerRef);
   const { getAssetIndex, isLoading: metaLoading } = useHyperliquidMeta();
   const assetIndex = getAssetIndex(symbol);
 
@@ -122,7 +130,7 @@ export function AssetTradingGrid({
       <div className="flex items-center justify-end gap-2 pb-1">
         <UserStreamFailureAlert />
       </div>
-      {isWide ? (
+      {mode === "wide" ? (
         /* ===== WIDE (container ≥ 80rem): layout-driven canvas =====
            Panels are absolutely placed inside a canvas whose height follows the row count,
            so the default row band fills the region and a bigger user layout grows the
@@ -140,7 +148,7 @@ export function AssetTradingGrid({
             </DashboardPanel>
           </DashboardGrid>
         </div>
-      ) : (
+      ) : mode === "narrow" ? (
         /* ===== NARROW (container < 80rem): 2×2 Grid =====
            Definite 1fr/1fr tracks — the split the pre-hydration skeleton reserves — so
            late data cannot resize the rows. */
@@ -163,7 +171,7 @@ export function AssetTradingGrid({
             {orderformPanel}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
