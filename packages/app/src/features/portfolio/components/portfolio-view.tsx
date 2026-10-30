@@ -23,7 +23,7 @@ export function PortfolioView({ readOnlyAddress }: { readOnlyAddress?: string | 
       </div>
 
       <ErrorBoundary resetKey={pathname}>
-        <PositionManagement readOnlyAddress={readOnlyAddress} />
+        <PositionManagement readOnlyAddress={readOnlyAddress} variant="flow" />
       </ErrorBoundary>
     </>
   );

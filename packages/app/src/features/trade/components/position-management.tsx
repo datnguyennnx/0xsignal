@@ -12,7 +12,28 @@ import {
   useWhaleOpenOrders,
 } from "@/features/portfolio/hooks/use-portfolio-data";
 
-export function PositionManagement({ readOnlyAddress }: { readOnlyAddress?: string | undefined }) {
+const PANEL_SURFACE =
+  "rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-4,1.5rem)]";
+
+const ROOT_CLASS = {
+  fill: `h-full min-h-0 flex flex-col overflow-y-auto ${PANEL_SURFACE}`,
+  flow: `flex flex-col ${PANEL_SURFACE}`,
+};
+
+const TABS_SURFACE = "flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]";
+
+const TABS_CLASS = {
+  fill: `flex-1 min-h-0 ${TABS_SURFACE}`,
+  flow: TABS_SURFACE,
+};
+
+export function PositionManagement({
+  readOnlyAddress,
+  variant = "fill",
+}: {
+  readOnlyAddress?: string | undefined;
+  variant?: "fill" | "flow";
+}) {
   const readOnly = readOnlyAddress !== undefined;
   const signingDisabled = useIsSigningDisabled() || readOnly;
   const whaleState = useWhaleClearinghouseState(readOnlyAddress);
@@ -69,17 +90,13 @@ export function PositionManagement({ readOnlyAddress }: { readOnlyAddress?: stri
   );
 
   return (
-    <div className="h-full min-h-0 flex flex-col overflow-y-auto rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-4,1.5rem)]">
+    <div className={ROOT_CLASS[variant]}>
       {signingDisabled && (
         <p className="w-fit mb-2 shrink-0 rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
           Viewing another account — connect a wallet to trade.
         </p>
       )}
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="flex-1 min-h-0 flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]"
-      >
+      <Tabs value={activeTab} onValueChange={setActiveTab} className={TABS_CLASS[variant]}>
         <TabsList className="shrink-0 flex gap-[clamp(0.5rem,0.8vw,0.75rem)]">
           <TabTrigger value="balances" count={isChLoading ? undefined : balanceCount}>
             Balances
