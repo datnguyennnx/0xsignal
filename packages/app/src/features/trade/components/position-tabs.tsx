@@ -6,6 +6,7 @@ import {
 } from "@/features/portfolio/hooks/use-portfolio-data";
 import { usePagination } from "@/hooks/use-pagination";
 import { Pagination } from "@/components/ui/pagination";
+import { useCoinContextPanel } from "@/components/app-side-panel";
 import { HistoryOrderTable, TradeHistoryTable } from "./order-history-table";
 import { BalanceTable } from "./balance-table";
 
@@ -79,6 +80,7 @@ export function BalancesTab({ readOnlyAddress }: { readOnlyAddress?: string | un
     effectiveAccountTotal,
     effectiveAvailableBalance,
   } = readOnly ? whale : own;
+  const { openCoin } = useCoinContextPanel();
 
   return (
     <BalanceTable
@@ -90,6 +92,7 @@ export function BalancesTab({ readOnlyAddress }: { readOnlyAddress?: string | un
       totalUnrealizedPnl={totalUnrealizedPnl}
       effectiveAccountTotal={effectiveAccountTotal}
       effectiveAvailableBalance={effectiveAvailableBalance}
+      onSelectCoin={readOnly ? openCoin : undefined}
     />
   );
 }

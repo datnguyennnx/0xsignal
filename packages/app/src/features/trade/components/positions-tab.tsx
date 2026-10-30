@@ -1,10 +1,18 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { useCoinContextPanel } from "@/components/app-side-panel";
+import { useMarketDataStore } from "@/stores/use-market-data-store";
 import { useOpenOrders } from "../hooks/use-user-data";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
-import { useAllMids } from "../hooks/use-all-mids";
+import { useHyperliquidWs } from "../hooks/use-hyperliquid-ws";
 import { buildFundingRatesMap } from "../utils/trade-math";
 import { buildTpSlByCoinMap } from "../utils/trigger-utils";
 import { PositionsTable, type PositionRow } from "./positions-table";
+
+const ALL_MIDS_SUBSCRIPTION = { channel: "allMids" as const } as const;
+
+function reportAllMidsError(error: Error): void {
+  console.error("allMids WS error:", error);
+}
 
 interface PositionsTabProps {
   positions: PositionRow[];
@@ -25,12 +33,26 @@ export function PositionsTab({
   onCloseMarket,
   onCloseLimit,
 }: PositionsTabProps) {
-  const mids = useAllMids();
+  // A third party's table never reads mids, so it must not subscribe to them.
+  const mids = useMarketDataStore((state) => (readOnly ? undefined : state.allMids));
+  const allMidsSubscription = useMemo(() => (readOnly ? null : ALL_MIDS_SUBSCRIPTION), [readOnly]);
+  useHyperliquidWs({
+    subscription: allMidsSubscription,
+    enabled: !readOnly,
+    onError: reportAllMidsError,
+  });
   const { meta } = useHyperliquidMeta();
   const { data: openOrders } = useOpenOrders(!readOnly);
+  const { openCoin } = useCoinContextPanel();
 
   const fundingRates = useMemo(() => buildFundingRatesMap(meta), [meta]);
   const tpSlByCoin = useMemo(() => buildTpSlByCoinMap(openOrders), [openOrders]);
+  const handleCloseLimit = useCallback(
+    (position: { coin: string; sz: number; isLong: boolean; markPx: number }) => {
+      onCloseLimit(position);
+    },
+    [onCloseLimit],
+  );
 
   return (
     <PositionsTable
@@ -40,7 +62,8 @@ export function PositionsTab({
       fundingRates={fundingRates}
       tpSlByCoin={tpSlByCoin}
       onCloseMarket={onCloseMarket}
-      onCloseLimit={onCloseLimit}
+      onCloseLimit={handleCloseLimit}
+      onSelectCoin={readOnly ? openCoin : undefined}
       readOnly={readOnly}
     />
   );

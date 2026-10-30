@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompactUsd } from "@/core/utils/formatters";
 
 import { c, cNum } from "../utils/orderbook-table-classes";
-import { PnLDisplay } from "./shared-table-components";
+import { PnLDisplay, PosDirLabel } from "./shared-table-components";
 
 const SKELETON_ROW_COUNT = 2;
 
@@ -41,6 +41,7 @@ export interface BalanceTableBodyProps {
   positions: Array<{
     position: {
       coin: string;
+      szi: string;
       positionValue: string;
       unrealizedPnl: string;
       returnOnEquity: string;
@@ -51,6 +52,8 @@ export interface BalanceTableBodyProps {
   totalUnrealizedPnl: number;
   effectiveAccountTotal: number;
   effectiveAvailableBalance: number;
+  /** When set, a coin click is taken over here instead of doing nothing. */
+  onSelectCoin?: ((coin: string) => void) | undefined;
 }
 
 export function BalanceTableBody({
@@ -62,11 +65,12 @@ export function BalanceTableBody({
   totalUnrealizedPnl,
   effectiveAccountTotal,
   effectiveAvailableBalance,
+  onSelectCoin,
 }: BalanceTableBodyProps) {
   if (isChLoading) {
     return (
       <TableBody>
-        <TableSkeletonRows columns={9} />
+        <TableSkeletonRows columns={10} />
       </TableBody>
     );
   }
@@ -74,7 +78,7 @@ export function BalanceTableBody({
   if (!marginSummary) {
     return (
       <TableBody>
-        <TableEmptyRow colSpan={9} />
+        <TableEmptyRow colSpan={10} />
       </TableBody>
     );
   }
@@ -83,8 +87,7 @@ export function BalanceTableBody({
     <TableBody>
       <TableRow>
         <TableCell className={`${c} font-medium`}>USDC</TableCell>
-        <TableCell className={cNum}>{formatCompactUsd(usdcTotalBalance)}</TableCell>
-        <TableCell className={cNum}>{formatCompactUsd(usdcAvailableBalance)}</TableCell>
+        <TableCell className={c}>—</TableCell>
         <TableCell className={cNum}>{formatCompactUsd(usdcTotalBalance)}</TableCell>
         <TableCell className={cNum}>
           {totalUnrealizedPnl === 0 ? (
@@ -95,6 +98,8 @@ export function BalanceTableBody({
             </span>
           )}
         </TableCell>
+        <TableCell className={cNum}>{formatCompactUsd(usdcTotalBalance)}</TableCell>
+        <TableCell className={cNum}>{formatCompactUsd(usdcAvailableBalance)}</TableCell>
         <TableCell className={c}>—</TableCell>
         <TableCell className={c}>—</TableCell>
         <TableCell className={c}>—</TableCell>
@@ -103,8 +108,7 @@ export function BalanceTableBody({
 
       <TableRow>
         <TableCell className={`${c} font-medium`}>Account</TableCell>
-        <TableCell className={cNum}>{formatCompactUsd(effectiveAccountTotal)}</TableCell>
-        <TableCell className={cNum}>{formatCompactUsd(effectiveAvailableBalance)}</TableCell>
+        <TableCell className={c}>—</TableCell>
         <TableCell className={cNum}>
           {formatCompactUsd(Number(marginSummary.accountValue))}
         </TableCell>
@@ -117,6 +121,8 @@ export function BalanceTableBody({
             </span>
           )}
         </TableCell>
+        <TableCell className={cNum}>{formatCompactUsd(effectiveAccountTotal)}</TableCell>
+        <TableCell className={cNum}>{formatCompactUsd(effectiveAvailableBalance)}</TableCell>
         <TableCell className={c}>—</TableCell>
         <TableCell className={c}>—</TableCell>
         <TableCell className={c}>—</TableCell>
@@ -129,13 +135,30 @@ export function BalanceTableBody({
         const roe = Number(position.returnOnEquity) * 100;
         return (
           <TableRow key={position.coin}>
-            <TableCell className={`${c} font-medium`}>{position.coin}</TableCell>
-            <TableCell className={cNum}>{formatCompactUsd(posValue + upnl)}</TableCell>
-            <TableCell className={cNum}>—</TableCell>
+            <TableCell className={`${c} font-medium`}>
+              {onSelectCoin === undefined ? (
+                position.coin
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectCoin?.(position.coin);
+                  }}
+                  className="relative overflow-hidden flex items-center w-full text-left cursor-pointer transition-colors hover:text-foreground rounded px-1 -mx-1"
+                >
+                  <span className="relative z-10">{position.coin}</span>
+                </button>
+              )}
+            </TableCell>
+            <TableCell className={c}>
+              <PosDirLabel szi={position.szi} />
+            </TableCell>
             <TableCell className={cNum}>{formatCompactUsd(posValue + upnl)}</TableCell>
             <TableCell className={cNum}>
               {upnl === 0 ? "—" : <PnLDisplay usd={upnl} pct={roe} />}
             </TableCell>
+            <TableCell className={cNum}>{formatCompactUsd(posValue + upnl)}</TableCell>
+            <TableCell className={cNum}>—</TableCell>
             <TableCell className={c}>—</TableCell>
             <TableCell className={c}>—</TableCell>
             <TableCell className={c}>—</TableCell>

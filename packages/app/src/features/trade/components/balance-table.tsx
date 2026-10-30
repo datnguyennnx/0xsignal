@@ -14,16 +14,18 @@ export function BalanceTable({
   totalUnrealizedPnl,
   effectiveAccountTotal,
   effectiveAvailableBalance,
+  onSelectCoin,
 }: BalanceTableProps) {
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead className={cHead}>Coin</TableHead>
-          <TableHead className={cHeadNum}>Total Balance</TableHead>
-          <TableHead className={cHeadNum}>Available Balance</TableHead>
+          <TableHead className={cHead}>Side</TableHead>
           <TableHead className={cHeadNum}>USDC Value</TableHead>
           <TableHead className={cHeadNum}>PNL (ROE %)</TableHead>
+          <TableHead className={cHeadNum}>Total Balance</TableHead>
+          <TableHead className={cHeadNum}>Available Balance</TableHead>
           <TableHead className={cHead}>Send</TableHead>
           <TableHead className={cHead}>Transfer</TableHead>
           <TableHead className={cHead}>Repay</TableHead>
@@ -39,6 +41,7 @@ export function BalanceTable({
         totalUnrealizedPnl={totalUnrealizedPnl}
         effectiveAccountTotal={effectiveAccountTotal}
         effectiveAvailableBalance={effectiveAvailableBalance}
+        onSelectCoin={onSelectCoin}
       />
     </Table>
   );
