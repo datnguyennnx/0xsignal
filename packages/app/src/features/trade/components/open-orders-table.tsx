@@ -8,7 +8,8 @@ import {
 } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatTime, fmtNum } from "../utils/shared-table-utils";
+import { formatSize } from "@/core/utils/formatters";
+import { formatTime } from "../utils/shared-table-utils";
 import { DirLabel } from "./shared-table-components";
 
 import {
@@ -116,8 +117,8 @@ export function OpenOrdersTable({
                 <TableCell className={c}>
                   <DirLabel side={order.side} reduceOnly={order.reduceOnly} />
                 </TableCell>
-                <TableCell className={cNum}>{fmtNum(sz)}</TableCell>
-                <TableCell className={cNum}>{origSz === sz ? "—" : fmtNum(origSz)}</TableCell>
+                <TableCell className={cNum}>{formatSize(sz)}</TableCell>
+                <TableCell className={cNum}>{origSz === sz ? "—" : formatSize(origSz)}</TableCell>
                 <TableCell className={cNum}>{formatOrderValue(order, sz, limitPx)}</TableCell>
                 <TableCell className={cNum}>{formatOrderPrice(order, limitPx)}</TableCell>
                 <TableCell className={c}>{order.reduceOnly === true ? "Yes" : "No"}</TableCell>

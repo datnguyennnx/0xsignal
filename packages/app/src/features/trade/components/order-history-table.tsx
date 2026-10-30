@@ -8,8 +8,8 @@ import {
 } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
 
-import { formatPrice, formatCompactUsd } from "@/core/utils/formatters";
-import { formatTime, fmtNum, formatStatus } from "../utils/shared-table-utils";
+import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
+import { formatTime, formatStatus } from "../utils/shared-table-utils";
 import { DirLabel, DirDisplay } from "./shared-table-components";
 import { getOrderType, getTriggerLabel, formatOrderValue } from "../utils/trigger-utils";
 import { c, cNum, cHead, cHeadNum, TABLE_HEAD_CLASS } from "../utils/orderbook-table-classes";
@@ -71,7 +71,7 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
                   <DirDisplay dir={fill.dir} />
                 </TableCell>
                 <TableCell className={cNum}>{formatPrice(px)}</TableCell>
-                <TableCell className={cNum}>{fmtNum(sz)}</TableCell>
+                <TableCell className={cNum}>{formatSize(sz)}</TableCell>
                 <TableCell className={cNum}>{formatCompactUsd(tradeValue)}</TableCell>
                 <TableCell className={cNum}>{formatCompactUsd(fee)}</TableCell>
                 <TableCell className={cNum}>
@@ -135,8 +135,8 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
               o.origSz !== undefined && o.origSz !== "" ? Number(o.origSz) : remainingSz;
             const limitPx = Number(o.limitPx) || 0;
 
-            const sizeDisplay = remainingSz === 0 ? "—" : fmtNum(remainingSz);
-            const origSizeDisplay = isFilled ? fmtNum(origSz) : "—";
+            const sizeDisplay = remainingSz === 0 ? "—" : formatSize(remainingSz);
+            const origSizeDisplay = isFilled ? formatSize(origSz) : "—";
 
             let orderValueDisplay: string;
             if (isTrigger) {

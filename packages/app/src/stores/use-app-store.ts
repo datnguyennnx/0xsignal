@@ -53,11 +53,9 @@ const MARKET_SCHEMA_KEY = "0xsignal_market_schema_version";
 
 export interface AppStoreState {
   theme: Theme;
-  resolvedTheme: "dark" | "light";
   systemTheme: "dark" | "light";
   connectWalletOpen: Record<string, boolean>;
   dirtyFormPaths: Set<string>;
-  marketSchemaVersion: number;
 
   setTheme: (theme: Theme) => void;
   setSystemTheme: (sys: "dark" | "light") => void;
@@ -83,25 +81,23 @@ export const useAppStore = create<AppStoreState>()(
 
         return {
           theme: initialTheme,
-          resolvedTheme: initialResolved,
           systemTheme: initialSystemTheme,
           connectWalletOpen: {},
           dirtyFormPaths: new Set<string>(),
-          marketSchemaVersion: FRONTEND_MARKET_SCHEMA_VERSION,
 
           setTheme: (newTheme: Theme) => {
             localStorage.setItem("vite-ui-theme", newTheme);
             const systemTheme = get().systemTheme;
             const resolved = newTheme === "system" ? systemTheme : newTheme;
             applyThemeClass(resolved);
-            set({ theme: newTheme, resolvedTheme: resolved });
+            set({ theme: newTheme });
           },
 
           setSystemTheme: (sys: "dark" | "light") => {
             const theme = get().theme;
             const resolved = theme === "system" ? sys : theme;
             applyThemeClass(resolved);
-            set({ systemTheme: sys, resolvedTheme: resolved });
+            set({ systemTheme: sys });
           },
 
           openConnectWallet: (key: string) => {
@@ -160,7 +156,6 @@ export const useAppStore = create<AppStoreState>()(
           return (state) => {
             if (!state) return;
             const resolved = state.theme === "system" ? state.systemTheme : state.theme;
-            state.resolvedTheme = resolved;
             applyThemeClass(resolved);
           };
         },

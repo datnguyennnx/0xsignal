@@ -1,18 +1,11 @@
-import type { ChangeEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { cn } from "cn";
 import { CheckIcon } from "lucide-react";
-import { MARGIN_BUFFER, formatOrderSize } from "../utils/trade-math";
 import { formatCompactUsd } from "@/core/utils/formatters";
-
-interface SizeAssetOption {
-  value: string;
-  label: string;
-  balance: number;
-}
+import type { SizeAssetOption } from "./order-form-derivations";
+import { OrderSizeField } from "./order-size-field";
 
 interface OrderFormFieldsProps {
   disabled?: boolean;
@@ -25,8 +18,6 @@ interface OrderFormFieldsProps {
   priceInvalid: boolean;
   size: string;
   onSizeChange: (size: string) => void;
-  sliderPercent: number;
-  onSliderPercentChange: (percent: number) => void;
   effectiveBalance: number;
   effectiveLeverage: number;
   sizeAssetOptions: SizeAssetOption[];
@@ -62,8 +53,6 @@ export function OrderFormFields({
   priceInvalid,
   size,
   onSizeChange,
-  sliderPercent,
-  onSliderPercentChange,
   effectiveBalance,
   effectiveLeverage,
   sizeAssetOptions,
@@ -87,44 +76,6 @@ export function OrderFormFields({
   onSlPercentChange,
   footer,
 }: OrderFormFieldsProps) {
-  const maxNotional = effectiveBalance * effectiveLeverage * MARGIN_BUFFER;
-
-  const assetQtyDisplay =
-    !usablePrice || !Number(size)
-      ? null
-      : `${formatOrderSize(Number(size) / usablePrice, szDecimals)} ${normalizedSymbol}`;
-
-  const applyPercent = (pct: number) => {
-    onSliderPercentChange(pct);
-    if (effectiveBalance <= 0 || effectiveLeverage <= 0) {
-      onSizeChange("0.00");
-    } else {
-      onSizeChange(((maxNotional * pct) / 100).toFixed(2));
-    }
-  };
-
-  const handleSliderCommit = (value: number | readonly number[]) => {
-    const pct = typeof value === "number" ? value : (value[0] ?? 0);
-    applyPercent(pct);
-  };
-
-  const handlePctInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const pct = Math.min(100, Math.max(0, Number(raw) || 0));
-    applyPercent(pct);
-  };
-
-  const handleSizeChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    onSizeChange(val);
-    const numVal = Number(val);
-    if (numVal > 0 && maxNotional > 0) {
-      onSliderPercentChange(Math.min(100, Math.round((numVal / maxNotional) * 100)));
-    } else {
-      onSliderPercentChange(0);
-    }
-  };
-
   return (
     <fieldset disabled={disabled} className="contents">
       <div className="flex shrink-0">
@@ -201,70 +152,18 @@ export function OrderFormFields({
         )}
 
         <div className="flex flex-col gap-[var(--space-2,0.75rem)] mt-[var(--space-4,1.5rem)]">
-          <div className="flex flex-col">
-            <div className="flex items-center justify-between mb-[var(--space-1,0.3125rem)]">
-              <Label
-                htmlFor="order-form-size"
-                className="text-xs uppercase tracking-wider text-muted-foreground font-normal"
-              >
-                Size ({safeSizeAsset})
-              </Label>
-              {sizeAssetOptions.length > 1 && (
-                <NativeSelect
-                  size="sm"
-                  aria-label="Size asset"
-                  value={safeSizeAsset}
-                  onChange={(e) => {
-                    onSizeAssetChange(e.target.value);
-                  }}
-                  wrapperClassName="min-w-0"
-                  className="h-6 w-20 text-[length:var(--text-micro)] border-border/40 bg-background/70 text-muted-foreground tabular-nums"
-                >
-                  {sizeAssetOptions.map((opt) => (
-                    <NativeSelectOption key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              )}
-            </div>
-            <Input
-              id="order-form-size"
-              type="number"
-              value={size}
-              onChange={handleSizeChange}
-              placeholder="0.00"
-              className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] w-full text-base sm:text-sm tabular-nums bg-background/70 border-border/40 hover:border-border/60 transition-colors"
-            />
-            {assetQtyDisplay !== null && (
-              <p className="mt-[var(--space-1,0.3125rem)] text-[length:var(--text-micro)] text-muted-foreground tabular-nums text-right">
-                → {assetQtyDisplay}
-              </p>
-            )}
-          </div>
-
-          <div className="flex items-center gap-[var(--space-2,0.75rem)]">
-            <Slider
-              value={[sliderPercent]}
-              onValueChange={handleSliderCommit}
-              min={0}
-              max={100}
-              step={1}
-              aria-label="Order size"
-              title="Order size"
-              className="flex-1 [&_[data-slot=slider-thumb]]:hover:ring-4 [&_[data-slot=slider-thumb]]:hover:ring-ring/40 [&_[data-slot=slider-track]]:hover:bg-muted/40 [&_[data-slot=slider-range]]:hover:brightness-110"
-            />
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={sliderPercent}
-              onChange={handlePctInputChange}
-              aria-label="Size percentage"
-              className="w-16 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40 shrink-0"
-            />
-            <span className="text-xs text-muted-foreground">%</span>
-          </div>
+          <OrderSizeField
+            size={size}
+            onSizeChange={onSizeChange}
+            effectiveBalance={effectiveBalance}
+            effectiveLeverage={effectiveLeverage}
+            usablePrice={usablePrice}
+            szDecimals={szDecimals}
+            normalizedSymbol={normalizedSymbol}
+            safeSizeAsset={safeSizeAsset}
+            sizeAssetOptions={sizeAssetOptions}
+            onSizeAssetChange={onSizeAssetChange}
+          />
         </div>
 
         <div className="flex items-center justify-between mt-[var(--space-3,1.125rem)] py-[var(--space-1,0.3125rem)]">

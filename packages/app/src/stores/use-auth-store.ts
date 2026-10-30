@@ -54,7 +54,6 @@ export interface AuthStoreState {
   user: AuthMeResponse | null;
   hasLinkedWallet: boolean;
   hasUnverifiedWallet: boolean;
-  tokenExpiresAt: number | null;
 
   // Actions
   setToken: (token: string | null) => void;
@@ -76,7 +75,6 @@ export const useAuthStore = create<AuthStoreState>()(
         user: null,
         hasLinkedWallet: false,
         hasUnverifiedWallet: false,
-        tokenExpiresAt: null,
 
         setToken: (token: string | null) => {
           set({ token, isAuthenticated: token !== null });

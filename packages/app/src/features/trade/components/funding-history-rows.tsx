@@ -1,7 +1,7 @@
 import { TableRow, TableCell } from "@/components/ui/table";
 import type { UserFundingEntry } from "@0xsignal/shared";
-import { formatTime, fmtNum } from "@/features/trade/utils/shared-table-utils";
-import { formatCompactUsd, formatFundingPercent } from "@/core/utils/formatters";
+import { formatTime } from "@/features/trade/utils/shared-table-utils";
+import { formatCompactUsd, formatFundingPercent, formatSize } from "@/core/utils/formatters";
 import { PosDirLabel } from "@/features/trade/components/shared-table-components";
 import { c, cNum } from "@/features/trade/utils/orderbook-table-classes";
 
@@ -23,7 +23,7 @@ export function FundingHistoryRows({ entries }: FundingHistoryRowsProps) {
           <TableRow key={`${entryKey}#${occurrence}`}>
             <TableCell className={c}>{formatTime(entry.time)}</TableCell>
             <TableCell className={`${c} font-medium`}>{entry.delta.coin}</TableCell>
-            <TableCell className={cNum}>{fmtNum(Number(entry.delta.szi))}</TableCell>
+            <TableCell className={cNum}>{formatSize(Number(entry.delta.szi))}</TableCell>
             <TableCell className={c}>
               <PosDirLabel szi={entry.delta.szi} />
             </TableCell>

@@ -69,9 +69,7 @@ export function OrderFormLeverage({
         isCross={currentMarginMode === "cross"}
         symbol={symbol}
         hasPosition={hasPosition}
-        onConfirm={(newLev) => {
-          onConfirmLeverage(newLev);
-        }}
+        onConfirm={onConfirmLeverage}
       />
       <MarginModeModal
         open={marginModeOpen}
@@ -80,9 +78,7 @@ export function OrderFormLeverage({
         assetIndex={assetIndex}
         currentLeverage={currentLeverage}
         symbol={symbol}
-        onConfirm={(newMode) => {
-          onConfirmMarginMode(newMode);
-        }}
+        onConfirm={onConfirmMarginMode}
       />
       {isConnectWalletOpen && (
         <ConnectWalletDialog

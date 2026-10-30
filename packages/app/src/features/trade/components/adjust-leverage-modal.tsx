@@ -48,7 +48,14 @@ export function AdjustLeverageModal({
     },
   );
 
-  // Adjust state during render when the modal is reopened for another asset.
+  // Adjust state during render: the component stays mounted while closed, so the draft
+  // must be reset on the open transition, not only when the asset's leverage changes.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    if (open) setLeverage(currentLeverage);
+  }
+
   const [prevCurrentLeverage, setPrevCurrentLeverage] = useState(currentLeverage);
   if (prevCurrentLeverage !== currentLeverage) {
     setPrevCurrentLeverage(currentLeverage);

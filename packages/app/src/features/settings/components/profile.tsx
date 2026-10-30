@@ -13,11 +13,19 @@ export function ProfileSettings() {
   const isLoading = useAuthStore((s) => s.isLoading);
   const signOut = useAuthStore((s) => s.signOut);
   const navigate = useNavigate();
-  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
+  const userDisplayName = user?.displayName ?? "";
+  const [displayName, setDisplayName] = useState(userDisplayName);
+  const [baselineDisplayName, setBaselineDisplayName] = useState(userDisplayName);
   const [isSaving, setIsSaving] = useState(false);
 
-  const initialDisplayName = user?.displayName ?? "";
-  const hasChanges = displayName !== initialDisplayName;
+  // Adjust state during render when the store rehydrates a different name.
+  const [prevUserDisplayName, setPrevUserDisplayName] = useState(userDisplayName);
+  if (prevUserDisplayName !== userDisplayName) {
+    setPrevUserDisplayName(userDisplayName);
+    setBaselineDisplayName(userDisplayName);
+  }
+
+  const hasChanges = displayName !== baselineDisplayName;
   useFormDirtyTracker("settings-profile", hasChanges);
 
   const handleSave = async () => {
@@ -33,6 +41,8 @@ export function ProfileSettings() {
     setIsSaving(true);
     try {
       await api.updateProfile({ displayName: trimmed });
+      setDisplayName(trimmed);
+      setBaselineDisplayName(trimmed);
       toast.success("Profile updated");
     } catch (err) {
       console.error("[Settings] Failed to update profile:", err);
@@ -43,7 +53,7 @@ export function ProfileSettings() {
   };
 
   const handleReset = () => {
-    setDisplayName(initialDisplayName);
+    setDisplayName(baselineDisplayName);
   };
 
   if (isLoading) {

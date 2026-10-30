@@ -1,5 +1,3 @@
-import { formatSize } from "@/core/utils/formatters";
-
 /** Format ms timestamp → "MM/DD/YYYY - HH:mm:ss". */
 export function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -24,9 +22,4 @@ export function formatStatus(status: string): string {
       if (status.toLowerCase().includes("cancel")) return "Canceled";
       return status.charAt(0).toUpperCase() + status.slice(1);
   }
-}
-
-/** Compact number: M/K/raw with decreasing precision for small values. */
-export function fmtNum(n: number): string {
-  return formatSize(n);
 }

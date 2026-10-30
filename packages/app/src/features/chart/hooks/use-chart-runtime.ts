@@ -35,8 +35,9 @@ export function useChartRuntime({
   activeIndicators,
   indicatorData,
 }: UseChartRuntimeParams) {
-  const resolvedTheme = useAppStore((s) => s.resolvedTheme);
-  const isDark = resolvedTheme === "dark";
+  const theme = useAppStore((s) => s.theme);
+  const systemTheme = useAppStore((s) => s.systemTheme);
+  const isDark = (theme === "system" ? systemTheme : theme) === "dark";
   const { getPrecision } = useHyperliquidMeta();
   const precision = useMemo(() => getPrecision(symbol), [symbol, getPrecision]);
   const priceFormat = usePriceFormat(precision.pxDecimals);

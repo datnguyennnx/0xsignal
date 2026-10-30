@@ -47,7 +47,6 @@ export function useOrderFormState({ symbol, markPrice }: UseOrderFormStateOption
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [size, setSize] = useState("");
-  const [sliderPercent, setSliderPercent] = useState(0);
   const [price, setPrice] = useState("");
   const [priceInvalid, setPriceInvalid] = useState(false);
 
@@ -130,8 +129,6 @@ export function useOrderFormState({ symbol, markPrice }: UseOrderFormStateOption
     setPrice,
     priceInvalid,
     setPriceInvalid,
-    sliderPercent,
-    setSliderPercent,
     sizeAsset,
     setSizeAsset,
     usablePrice,

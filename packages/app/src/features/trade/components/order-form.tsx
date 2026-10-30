@@ -37,8 +37,6 @@ export function OrderForm({ symbol, assetIndex, markPrice = 0 }: OrderFormProps)
     setPrice,
     priceInvalid,
     setPriceInvalid,
-    sliderPercent,
-    setSliderPercent,
     setSizeAsset,
     usablePrice,
     orderValue,
@@ -106,8 +104,6 @@ export function OrderForm({ symbol, assetIndex, markPrice = 0 }: OrderFormProps)
           priceInvalid={priceInvalid}
           size={size}
           onSizeChange={setSize}
-          sliderPercent={sliderPercent}
-          onSliderPercentChange={setSliderPercent}
           effectiveBalance={effectiveBalance}
           effectiveLeverage={effectiveLeverage}
           sizeAssetOptions={sizeAssetOptions}
