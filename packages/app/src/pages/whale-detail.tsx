@@ -18,7 +18,7 @@ export function WhaleDetailPage() {
   if (selected === undefined) return <Navigate to="/whales" replace />;
 
   return (
-    <div className="container-fluid py-6 space-y-6 animate-in fade-in duration-200 ease-premium">
+    <div className="container-fluid space-y-6 animate-in fade-in duration-200 ease-premium">
       <h1 className="sr-only">Whale portfolio</h1>
       <PortfolioView readOnlyAddress={selected} />
     </div>
