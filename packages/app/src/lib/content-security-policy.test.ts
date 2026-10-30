@@ -1,7 +1,10 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 
-import { buildContentSecurityPolicy } from "./content-security-policy";
+import {
+  buildContentSecurityPolicy,
+  buildContentSecurityPolicyReportOnly,
+} from "./content-security-policy";
 
 describe("buildContentSecurityPolicy", () => {
   test("includes the configured absolute API origin and its websocket form", () => {
@@ -17,5 +20,28 @@ describe("buildContentSecurityPolicy", () => {
 
   test("emits frame-ancestors for the edge to enforce", () => {
     expect(buildContentSecurityPolicy("")).toContain("frame-ancestors 'none'");
+  });
+});
+
+describe("buildContentSecurityPolicyReportOnly", () => {
+  test("keeps every enforced directive when adding trusted types", () => {
+    const reportOnly = buildContentSecurityPolicyReportOnly("https://api.example.com/v1");
+    for (const directive of buildContentSecurityPolicy("https://api.example.com/v1").split("; ")) {
+      expect(reportOnly).toContain(directive);
+    }
+  });
+
+  test("ships trusted types only on the report-only policy", () => {
+    expect(buildContentSecurityPolicyReportOnly("")).toContain(
+      "trusted-types default; require-trusted-types-for 'script'",
+    );
+    expect(buildContentSecurityPolicy("")).not.toContain("require-trusted-types-for");
+    expect(buildContentSecurityPolicy("")).not.toMatch(/(?:^|; )trusted-types /);
+  });
+
+  test("derives connect-src for the report-only policy too", () => {
+    const reportOnly = buildContentSecurityPolicyReportOnly("https://api.example.com/v1");
+    expect(reportOnly).toContain("connect-src 'self' https://api.example.com");
+    expect(reportOnly).toContain("wss://api.example.com");
   });
 });
