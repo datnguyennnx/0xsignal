@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useLayoutEffect } from "reac
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useAssetPrice } from "@/features/asset-detail/hooks/use-asset-price";
-import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
+import { useDocumentTitle, formatAssetTitle } from "@/hooks/use-document-title";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { useMarketDataStore } from "@/stores/use-market-data-store";
 import {
@@ -75,7 +75,7 @@ export function AssetDetail() {
     const fallbackPrice =
       nonZeroPrice(asset?.price?.price) ?? nonZeroPrice(asset?.price?.markPx) ?? 0;
     if (assetSymbol === "" && fallbackPrice === 0) return "";
-    return formatPerpTitle(assetSymbol === "" ? routeSymbol : assetSymbol, fallbackPrice, 4);
+    return formatAssetTitle(assetSymbol === "" ? routeSymbol : assetSymbol, fallbackPrice);
   }, [asset, symbol]);
 
   useDocumentTitle({ title: documentTitle });

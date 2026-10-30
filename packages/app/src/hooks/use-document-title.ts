@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { formatCompactUsd } from "@/core/utils/formatters";
+import { formatPriceWithNSigFigs, RAW_PRICE_NSIG_FIGS } from "@/core/utils/formatters";
 
 interface UseDocumentTitleOptions {
   title: string;
@@ -19,6 +19,9 @@ export function useDocumentTitle({
   }, [title, suffix, separator]);
 }
 
-export function formatPerpTitle(symbol: string, price: number, _pxDecimals: number): string {
-  return `${symbol} ${formatCompactUsd(price)}`;
+export function formatAssetTitle(symbol: string, price: number | null | undefined): string {
+  // A non-positive price drives Math.log10 to -Infinity, so the sig-fig
+  // formatter would ask for an unbounded decimal count.
+  if (price == null || !Number.isFinite(price) || price <= 0) return symbol;
+  return `${formatPriceWithNSigFigs(price, RAW_PRICE_NSIG_FIGS)} | ${symbol}`;
 }
