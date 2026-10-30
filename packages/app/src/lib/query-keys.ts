@@ -86,6 +86,7 @@ export const queryKeys = {
         q.limit,
         q.cursor,
       ] as const,
+    coin: (coin: string) => [...queryKeys.whales.all, "coin", coin] as const,
   },
 
   exchange: {

@@ -1,4 +1,8 @@
-import type { WhalePositionsApiResponse, WhalePositionsQuery } from "@0xsignal/shared";
+import {
+  WHALE_POSITIONS_LIMIT_MAX,
+  type WhalePositionsApiResponse,
+  type WhalePositionsQuery,
+} from "@0xsignal/shared";
 import { API_BASE, fetchJson } from "./client";
 
 export function getPositions(params?: WhalePositionsQuery): Promise<WhalePositionsApiResponse> {
@@ -13,4 +17,12 @@ export function getPositions(params?: WhalePositionsQuery): Promise<WhalePositio
   if (params?.cursor !== undefined) query.set("cursor", params.cursor);
   const qs = query.toString();
   return fetchJson<WhalePositionsApiResponse>(`${API_BASE}/whales/positions?${qs}`);
+}
+
+/**
+ * One coin's tracked positions. `whale_positions` is keyed `(user_address, coin)`,
+ * so the endpoint's 200-row cap covers a single coin in one page.
+ */
+export function getCoinPositions(coin: string): Promise<WhalePositionsApiResponse> {
+  return getPositions({ symbol: coin, limit: WHALE_POSITIONS_LIMIT_MAX });
 }

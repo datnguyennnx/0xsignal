@@ -2,6 +2,7 @@ import { useMemo, useState, type JSX } from "react";
 import type { WhalePosition, WhalePositionsQuery } from "@0xsignal/shared";
 import { cn } from "cn";
 
+import { useCoinContextPanel } from "@/components/app-side-panel";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -77,6 +78,7 @@ export function WhalePositionsTable({
   className,
 }: WhalePositionsTableProps): JSX.Element {
   const [filters, setFilters] = useState<WhalePositionFilters>(DEFAULT_WHALE_FILTERS);
+  const { openCoin } = useCoinContextPanel();
 
   const query = useMemo<WhalePositionsQuery>(
     () => ({
@@ -196,7 +198,19 @@ export function WhalePositionsTable({
                     {truncateAddress(position.userAddress)}
                   </Button>
                 </TableCell>
-                <TableCell className="font-medium">{position.coin}</TableCell>
+                <TableCell className="font-medium">
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openCoin(position.coin);
+                    }}
+                    className="h-auto p-0 font-medium"
+                  >
+                    {position.coin}
+                  </Button>
+                </TableCell>
                 <TableCell>
                   <span className={position.side === "buy" ? "text-gain" : "text-loss"}>
                     {position.side === "buy" ? "Long" : "Short"}

@@ -15,14 +15,18 @@ import {
   CalendarDayPanel,
 } from "@/features/calendar/components/calendar-day-panel";
 import { dayKey } from "@/features/calendar/lib/date-utils";
+import { CoinContextPanel } from "@/features/whales/components/coin-context-panel";
 import {
   derivePanelDescriptor,
   withPanelParams,
   withoutPanelParams,
 } from "@/lib/side-panel-params";
 
+const COIN_CONTEXT_PANEL = "coin";
+
 const PANEL_REGISTRY: SidePanelRegistry = {
   [CALENDAR_DAY_PANEL]: { component: CalendarDayPanel, title: "Day detail" },
+  [COIN_CONTEXT_PANEL]: { component: CoinContextPanel, title: "Coin market" },
 };
 
 const isKnownPanelKind = (kind: string): boolean => Object.hasOwn(PANEL_REGISTRY, kind);
@@ -82,6 +86,29 @@ export function useCalendarDayPanel(): CalendarDayPanelControls {
   );
 
   return { selectedDate, selectDay, openDay };
+}
+
+export interface CoinContextPanelControls {
+  activeCoin: string | null;
+  openCoin: (coin: string) => void;
+  close: () => void;
+}
+
+export function useCoinContextPanel(): CoinContextPanelControls {
+  const { descriptor } = useSidePanel();
+  const openPanel = useOpenPanel();
+  const close = usePanelClose();
+
+  const activeCoin = descriptor?.kind === COIN_CONTEXT_PANEL ? descriptor.id : null;
+
+  const openCoin = useCallback(
+    (coin: string) => {
+      openPanel(COIN_CONTEXT_PANEL, coin);
+    },
+    [openPanel],
+  );
+
+  return { activeCoin, openCoin, close };
 }
 
 export function AppSidePanelProvider({ children }: { children: ReactNode }) {

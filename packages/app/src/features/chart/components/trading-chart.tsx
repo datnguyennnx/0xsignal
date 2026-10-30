@@ -5,28 +5,44 @@ import { useChartFeed } from "../hooks/use-chart-feed";
 import { useChartRuntime } from "../hooks/use-chart-runtime";
 import { HoverProvider, useHoverActions } from "../contexts/hover-context";
 import { INTERVAL_RESTORE_DELAY } from "../utils/constants";
+import { usePriceLines, type ChartPriceLine } from "../lib/price-lines";
 import { ChartCanvas } from "./chart-canvas";
+import type { LogicalTradeMarker } from "@/features/trade/utils/trade-markers";
 
 interface TradingChartProps {
   symbol: string;
   interval: string;
   onIntervalChange: (interval: string) => void;
+  priceLines?: readonly ChartPriceLine[] | undefined;
+  /** Fills to draw; omit for the viewer's own feed. */
+  markers?: readonly LogicalTradeMarker[] | undefined;
 }
 
 const supportsNativeFullscreen =
   typeof document !== "undefined" &&
   typeof document.documentElement.requestFullscreen === "function";
 
-const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartProps) => {
+const TradingChartInner = ({
+  symbol,
+  interval,
+  onIntervalChange,
+  priceLines,
+  markers: markersOverride,
+}: TradingChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const { setHoveredCandle } = useHoverActions();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { candles, hasMoreCandles, handleLoadMore, markers, candleError } = useChartFeed({
-    symbol,
-    interval,
-  });
+  const {
+    candles,
+    hasMoreCandles,
+    handleLoadMore,
+    markers: feedMarkers,
+    candleError,
+  } = useChartFeed({ symbol, interval, fillsEnabled: markersOverride === undefined });
+
+  const markers = markersOverride ?? feedMarkers;
 
   const {
     activeIndicators,
@@ -48,6 +64,8 @@ const TradingChartInner = ({ symbol, interval, onIntervalChange }: TradingChartP
     activeIndicators,
     indicatorData,
   });
+
+  usePriceLines(chart, candlestickSeries, priceLines);
 
   const toggleFullscreen = useCallback(() => {
     const panel = panelRef.current;

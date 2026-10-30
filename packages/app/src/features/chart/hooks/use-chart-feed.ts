@@ -8,11 +8,13 @@ import { mapToHLInterval } from "@/core/utils/hyperliquid";
 interface UseChartFeedParams {
   symbol: string;
   interval: string;
+  /** False when the caller draws someone else's markers: the viewer's fills only get discarded. */
+  fillsEnabled?: boolean;
 }
 
 const EMPTY_FILLS: readonly HyperliquidFill[] = [];
 
-export function useChartFeed({ symbol, interval }: UseChartFeedParams) {
+export function useChartFeed({ symbol, interval, fillsEnabled = true }: UseChartFeedParams) {
   const {
     data: candles,
     error: candleError,
@@ -25,7 +27,7 @@ export function useChartFeed({ symbol, interval }: UseChartFeedParams) {
   }, [loadMoreCandles]);
 
   // Trade markers: HTML overlay (B/S circles)
-  const { data: rawFills } = useUserFills();
+  const { data: rawFills } = useUserFills(fillsEnabled);
   const fills = useMemo<readonly HyperliquidFill[]>(() => {
     if (!rawFills) return EMPTY_FILLS;
 
