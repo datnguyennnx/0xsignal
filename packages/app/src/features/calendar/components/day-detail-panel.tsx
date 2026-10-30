@@ -49,7 +49,7 @@ export function DayDetailPanel({
     : -1;
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col gap-3 rounded-[var(--radius-panel)] tier-content p-4">
+    <div className="flex h-full flex-col gap-3">
       <h3 className="flex items-baseline justify-between gap-2 text-sm font-medium tracking-tight text-foreground">
         <span>{heading}</span>
         {!isLoading && !isError && (
@@ -94,6 +94,6 @@ export function DayDetailPanel({
           {showNowBar && nowBarIndex === -1 && <NowBar now={now} />}
         </div>
       )}
-    </aside>
+    </div>
   );
 }

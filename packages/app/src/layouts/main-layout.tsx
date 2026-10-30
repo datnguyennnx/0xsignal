@@ -1,5 +1,7 @@
 import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { AppSidePanelProvider } from "@/components/app-side-panel";
+import { SidePanelRegion } from "@/components/side-panel";
 import { UserNav } from "@/components/user-nav";
 import { cn } from "cn";
 const NAV_ITEMS = [
@@ -13,49 +15,60 @@ export function MainLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   return (
-    <div className="flex flex-col min-h-dvh p-[var(--app-page-pad)] gap-[var(--app-page-gap)] bg-transparent">
-      <a
-        href="#main-content"
-        className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-4 focus-visible:left-4 focus-visible:z-[60] focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        Skip to content
-      </a>
+    <AppSidePanelProvider>
+      <div className="flex min-h-dvh w-full bg-transparent">
+        <div className="flex flex-1 min-w-0 flex-col p-[var(--app-page-pad)] gap-[var(--app-page-gap)]">
+          <a
+            href="#main-content"
+            className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-4 focus-visible:left-4 focus-visible:z-[60] focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Skip to content
+          </a>
 
-      <header className="shrink-0 z-50">
-        <div className="container-fluid">
-          <div className="flex items-center justify-between h-[var(--app-header-height)]">
-            <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <p className="text-base font-semibold tracking-tight">0xsignal</p>
-            </Link>
+          <header className="shrink-0 z-50">
+            <div className="container-fluid">
+              <div className="flex items-center justify-between h-[var(--app-header-height)]">
+                <Link
+                  to="/"
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                >
+                  <p className="text-base font-semibold tracking-tight">0xsignal</p>
+                </Link>
 
-            <nav className="flex items-center gap-6">
-              {NAV_ITEMS.map((item) => {
-                const isActive = location.pathname.startsWith(item.path);
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={cn(
-                      "text-sm font-medium transition-colors",
-                      isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+                <nav className="flex items-center gap-6">
+                  {NAV_ITEMS.map((item) => {
+                    const isActive = location.pathname.startsWith(item.path);
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        className={cn(
+                          "text-sm font-medium transition-colors",
+                          isActive
+                            ? "text-foreground"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </nav>
 
-            <div className="flex items-center gap-3">
-              <UserNav />
+                <div className="flex items-center gap-3">
+                  <UserNav />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </header>
+          </header>
 
-      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col min-h-0">
-        {children}
-      </main>
-    </div>
+          <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col min-h-0 min-w-0">
+            {children}
+          </main>
+        </div>
+
+        <SidePanelRegion />
+      </div>
+    </AppSidePanelProvider>
   );
 }
