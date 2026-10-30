@@ -34,7 +34,7 @@ export function MonthDayCell({
   return (
     <div
       className={cn(
-        "relative flex min-h-[8rem] flex-col gap-1.5 rounded-[calc(var(--radius-panel,0.875rem)-0.25rem)] p-2 text-left transition-colors hover:bg-accent/40",
+        "relative flex min-h-[8rem] flex-col gap-1.5 rounded-[calc(var(--radius-panel,0.875rem)-0.25rem)] p-1 m-2 text-left transition-colors hover:bg-accent/40",
         isSelected && "bg-accent text-accent-foreground",
         isToday && "ring-1 ring-primary/40 ring-inset",
         !isCurrentMonth && "bg-muted text-muted-foreground",
@@ -47,7 +47,7 @@ export function MonthDayCell({
         onClick={() => {
           onSelect(date);
         }}
-        className="absolute inset-0 z-0 cursor-pointer rounded-[calc(var(--radius-panel,0.875rem)-0.25rem)] focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
+        className="absolute inset-0 z-0 cursor-pointer rounded-[calc(var(--radius-panel,0.875rem)-0.25rem)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       />
 
       <div className="pointer-events-none relative z-10 flex justify-end">

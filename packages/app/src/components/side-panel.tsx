@@ -3,6 +3,7 @@ import { XIcon } from "lucide-react";
 import { cn } from "cn";
 
 import { Button } from "@/components/ui/button";
+import { Surface } from "@/components/surface/surface";
 
 export interface PanelComponentProps {
   id: string;
@@ -56,7 +57,7 @@ function hasOpenOverlay() {
 }
 
 const REGION_CLASS =
-  "sticky top-0 flex shrink-0 self-start overflow-hidden bg-background transition-[width,min-width,opacity,padding] duration-300 ease-in-out max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-40 max-md:w-[min(20rem,90vw)] max-md:min-w-0 max-md:transition-none";
+  "sticky top-0 flex shrink-0 self-start overflow-hidden transition-[width,min-width,opacity,padding] duration-300 ease-in-out max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-40 max-md:w-[min(20rem,90vw)] max-md:min-w-0 max-md:transition-none";
 
 const REGION_OPEN_CLASS =
   "h-dvh w-1/5 min-w-[280px] p-2 opacity-100 max-md:h-dvh max-md:animate-in max-md:fade-in-0 max-md:slide-in-from-right max-md:duration-200";
@@ -134,7 +135,7 @@ function SidePanelRegion({ id = DEFAULT_REGION_ID, title, className }: SidePanel
           aria-hidden="true"
           tabIndex={-1}
           onClick={close}
-          className="fixed inset-0 z-30 cursor-default bg-overlay md:hidden"
+          className="scrim fixed inset-0 z-30 cursor-default md:hidden"
         />
       )}
       <div
@@ -143,12 +144,12 @@ function SidePanelRegion({ id = DEFAULT_REGION_ID, title, className }: SidePanel
         className={cn(REGION_CLASS, isOpen ? REGION_OPEN_CLASS : REGION_CLOSED_CLASS)}
       >
         {isOpen && descriptor && Comp && (
-          <aside
+          <Surface
+            as="aside"
+            tier="solid"
+            radius="panel"
             aria-label={label}
-            className={cn(
-              "flex h-full w-full flex-col overflow-hidden rounded-[var(--radius-panel)] bg-card shadow-[var(--shadow-e1)]",
-              className,
-            )}
+            className={cn("flex h-full w-full flex-col overflow-hidden", className)}
           >
             <div className="flex items-center justify-between gap-2 p-4">
               <div className="min-w-0 flex-1 truncate font-bold">{resolvedTitle}</div>
@@ -159,7 +160,7 @@ function SidePanelRegion({ id = DEFAULT_REGION_ID, title, className }: SidePanel
             <div className="flex-1 overflow-y-auto p-4">
               <Comp id={descriptor.id} variant="panel" />
             </div>
-          </aside>
+          </Surface>
         )}
       </div>
     </>

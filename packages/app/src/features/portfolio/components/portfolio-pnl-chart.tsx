@@ -9,7 +9,7 @@ import {
   Tooltip,
 } from "recharts";
 
-import { cn } from "cn";
+import { Surface } from "@/components/surface/surface";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { EmptyState } from "@/components/empty-state";
 
@@ -23,6 +23,7 @@ import {
 } from "../utils/constants";
 import { formatAxis, formatSignedUsd } from "@/core/utils/formatters";
 import { remToPx, subscribeRootFontSize } from "@/core/utils/rem";
+import { SELECT_COMPACT_CLASS } from "@/lib/state-classes";
 
 type ChartView = "account-value" | "pnl" | "perps-pnl";
 
@@ -56,17 +57,14 @@ function ChartTooltip({
   }
 
   return (
-    <div className="pointer-events-none rounded border border-[color:var(--tooltip-border)] bg-[color:var(--tooltip-bg)] px-2.5 py-1.5">
+    <div className="pointer-events-none rounded border border-[color:var(--data-tooltip-border)] bg-[color:var(--data-tooltip-bg)] px-2.5 py-1.5">
       {dateStr && (
-        <span className="block text-[length:var(--text-data)] leading-normal text-[color:var(--chart-text)]">
+        <span className="block text-[length:var(--text-data)] leading-normal text-[color:var(--data-axis)]">
           {dateStr}
         </span>
       )}
       <span
-        className={cn(
-          "block text-[length:var(--text-data)] font-semibold leading-normal tabular-nums",
-          val >= 0 ? "text-gain" : "text-loss",
-        )}
+        className={`block text-[length:var(--text-data)] font-semibold leading-normal tabular-nums ${val >= 0 ? "text-gain" : "text-loss"}`}
       >
         {formatSignedUsd(val)}
       </span>
@@ -75,7 +73,7 @@ function ChartTooltip({
 }
 
 const SURFACE =
-  "h-full flex flex-col rounded-[var(--radius-panel)] p-4 tier-content animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
+  "h-full flex flex-col p-4 animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
 
 /** Both branches size the plot area from this one token so they cannot drift. */
 const CHART_MIN_HEIGHT = "min-h-[clamp(120px,12vw,180px)]";
@@ -155,7 +153,7 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
 
   if (isLoading) {
     return (
-      <div className={SURFACE}>
+      <Surface tier="content" className={SURFACE}>
         <div className="flex h-7 items-center justify-between">
           <div className="flex gap-[clamp(0.4rem,0.7vw,0.75rem)]">
             <Skeleton className="h-3.5 w-16" />
@@ -164,16 +162,16 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
           </div>
           <Skeleton className="h-3.5 w-14" />
         </div>
-        <div className={cn("flex flex-1 items-center justify-center", CHART_MIN_HEIGHT)}>
-          <Skeleton className={cn("w-full", CHART_MIN_HEIGHT)} />
+        <div className={`flex flex-1 items-center justify-center ${CHART_MIN_HEIGHT}`}>
+          <Skeleton className={`w-full ${CHART_MIN_HEIGHT}`} />
         </div>
-      </div>
+      </Surface>
     );
   }
 
   if (isError || !portfolio) {
     return (
-      <div className={SURFACE}>
+      <Surface tier="content" className={SURFACE}>
         <EmptyState
           variant="chart"
           title="No data"
@@ -183,12 +181,12 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
               : "No PnL history for this account."
           }
         />
-      </div>
+      </Surface>
     );
   }
 
   return (
-    <div className={SURFACE}>
+    <Surface tier="content" className={SURFACE}>
       <div className="flex items-end justify-between">
         <div className="flex items-end">
           {VIEW_KEYS.map((key) => {
@@ -199,12 +197,11 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
                 onClick={() => {
                   setChartView(key);
                 }}
-                className={cn(
-                  "text-[length:var(--text-compact)] font-medium px-2.5 pb-2 cursor-pointer transition-colors -mb-px",
+                className={`text-[length:var(--text-compact)] font-medium px-2.5 pb-2 cursor-pointer transition-colors -mb-px ${
                   active
                     ? "text-foreground border-b-2 border-foreground"
-                    : "text-muted-foreground border-transparent hover:text-foreground",
-                )}
+                    : "text-muted-foreground border-transparent hover:text-foreground"
+                }`}
               >
                 {VIEW_LABELS[key]}
               </button>
@@ -220,7 +217,7 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
             const val = e.target.value;
             setTimePeriod(isPortfolioPeriod(val) ? val : "month");
           }}
-          className="h-7 min-w-[4.5rem] text-xs tabular-nums border-border/40 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/40"
+          className={SELECT_COMPACT_CLASS}
         >
           {PERIOD_KEYS.map((p) => (
             <NativeSelectOption key={p} value={p}>
@@ -230,7 +227,7 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
         </NativeSelect>
       </div>
 
-      <div className={cn("flex flex-1 items-center justify-center", CHART_MIN_HEIGHT)}>
+      <div className={`flex flex-1 items-center justify-center ${CHART_MIN_HEIGHT}`}>
         {chartData ? (
           <div className="w-full h-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -238,27 +235,27 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
                 data={chartData}
                 margin={{ top: chartMarginPx, right: chartMarginPx, bottom: 0, left: 0 }}
               >
-                <CartesianGrid stroke="var(--chart-grid)" strokeOpacity={0.5} vertical={false} />
+                <CartesianGrid stroke="var(--data-grid)" strokeOpacity={0.5} vertical={false} />
                 <XAxis
                   dataKey="time"
                   type="number"
                   domain={["dataMin", "dataMax"]}
                   scale="time"
-                  axisLine={{ stroke: "var(--chart-border)", strokeWidth: 1 }}
+                  axisLine={{ stroke: "var(--data-grid)", strokeWidth: 1 }}
                   tickLine={false}
-                  tick={{ fontSize: axisFontSizePx, fill: "var(--chart-text)" }}
+                  tick={{ fontSize: axisFontSizePx, fill: "var(--data-axis)" }}
                   tickFormatter={formatXAxisTick}
                   {...(xAxisTicks !== null && { ticks: xAxisTicks })}
                   minTickGap={tickGapPx}
                 />
                 <YAxis
                   orientation="left"
-                  axisLine={{ stroke: "var(--chart-border)", strokeWidth: 1 }}
+                  axisLine={{ stroke: "var(--data-grid)", strokeWidth: 1 }}
                   tickLine={false}
                   width={yAxisWidthPx}
                   tick={{
                     fontSize: axisFontSizePx,
-                    fill: "var(--chart-text)",
+                    fill: "var(--data-axis)",
                     style: { fontVariantNumeric: "tabular-nums" },
                   }}
                   tickFormatter={formatAxis}
@@ -268,7 +265,7 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
                 <Tooltip
                   content={<ChartTooltip />}
                   cursor={{
-                    stroke: "var(--chart-crosshair)",
+                    stroke: "var(--data-crosshair)",
                     strokeWidth: 1,
                     strokeDasharray: "3 3",
                   }}
@@ -290,6 +287,6 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
           <EmptyState variant="chart" />
         )}
       </div>
-    </div>
+    </Surface>
   );
 }

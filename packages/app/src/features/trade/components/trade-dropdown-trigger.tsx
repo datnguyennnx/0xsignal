@@ -34,7 +34,7 @@ export function TradeDropdownTrigger({
     <button
       type="button"
       ref={triggerRef}
-      className="flex items-center gap-[clamp(0.2rem,0.4vw,0.375rem)] cursor-pointer px-2 py-1 rounded transition-colors hover:bg-muted/30"
+      className="flex items-center gap-[clamp(0.2rem,0.4vw,0.375rem)] cursor-pointer px-2 py-1 rounded transition-colors hover:bg-muted/40"
       onClick={onToggle}
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}

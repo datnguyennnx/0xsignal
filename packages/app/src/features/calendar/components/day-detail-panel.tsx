@@ -5,6 +5,7 @@ import { format, isSameDay } from "date-fns";
 
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useNow } from "../hooks/use-now";
@@ -23,9 +24,12 @@ const SKELETON_KEYS = ["event-1", "event-2", "event-3", "event-4"];
 
 function NowBar({ now }: { now: Date }): JSX.Element {
   return (
-    <span className="self-start rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+    <Badge
+      variant="secondary"
+      className="self-start bg-muted font-normal text-muted-foreground tabular-nums"
+    >
       now {format(now, "h:mm a")}
-    </span>
+    </Badge>
   );
 }
 

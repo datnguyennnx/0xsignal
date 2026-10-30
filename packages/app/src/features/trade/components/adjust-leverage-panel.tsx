@@ -44,7 +44,7 @@ export function AdjustLeveragePanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-md border border-border/20 bg-muted/40 px-3 py-2">
+      <div className="flex items-center justify-between rounded-md border border-border/25 bg-muted/40 px-3 py-2">
         <span className="text-[length:var(--text-compact)] text-muted-foreground">Current</span>
         <span className="text-[length:var(--text-compact)] tabular-nums text-foreground">
           {currentLeverage}x — {isCross ? "Cross" : "Isolated"}
@@ -52,7 +52,7 @@ export function AdjustLeveragePanel({
       </div>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between rounded-md border border-border/20 bg-muted/40 px-3 py-2">
+        <div className="flex items-center justify-between rounded-md border border-border/25 bg-muted/40 px-3 py-2">
           <Label
             htmlFor="adjust-leverage-input"
             className="text-[length:var(--text-compact)] font-normal text-muted-foreground"

@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { SELECTED_CARD_CLASS } from "@/lib/state-classes";
 import { cn } from "cn";
 
@@ -46,9 +47,12 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
               >
                 Isolated
               </span>
-              <span className="text-[length:var(--text-data)] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+              <Badge
+                variant="secondary"
+                className="h-5.5 leading-normal rounded px-1.5 font-normal bg-muted text-muted-foreground"
+              >
                 Recommended
-              </span>
+              </Badge>
             </div>
             <p className="text-[length:var(--text-compact)] text-muted-foreground leading-relaxed max-w-sm">
               {MODE_CONFIG.isolated.description}

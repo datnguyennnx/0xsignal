@@ -24,7 +24,7 @@ export function LeverageMarginBar({
       <button
         onClick={onOpenMarginMode}
         disabled={disabled}
-        className="flex-1 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-xs font-medium text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/30 rounded border border-border/40 transition-colors truncate active:scale-[0.97] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
+        className="flex-1 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-xs font-medium text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/40 rounded border border-border/40 transition-colors truncate active:scale-[0.97] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
         type="button"
       >
         {effectiveMarginMode === "cross" ? "Cross" : "Isolated"}
@@ -32,7 +32,7 @@ export function LeverageMarginBar({
       <button
         onClick={onOpenLeverage}
         disabled={disabled}
-        className="flex-1 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-xs tabular-nums text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/30 rounded border border-border/40 transition-colors active:scale-[0.97] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
+        className="flex-1 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-xs tabular-nums text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/40 rounded border border-border/40 transition-colors active:scale-[0.97] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
         type="button"
       >
         {effectiveLeverage}x

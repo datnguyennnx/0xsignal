@@ -48,7 +48,7 @@ export const IndicatorButton = memo(function IndicatorButton({
         aria-expanded={isOpen}
         className={cn(
           "gap-[clamp(0.2rem,0.4vw,0.375rem)] px-2 sm:px-3 border-border/40 focus-visible:ring-ring/40",
-          !isOpen && "bg-background/70 hover:bg-muted/40",
+          !isOpen && "bg-background/80 hover:bg-muted/40",
           className,
         )}
       >
@@ -59,7 +59,7 @@ export const IndicatorButton = memo(function IndicatorButton({
             variant={isOpen ? "secondary" : "default"}
             className={cn(
               "px-1 sm:px-1.5 py-0 text-[length:var(--text-data)] h-4 min-w-[1rem] tabular-nums select-none",
-              isOpen && "bg-background/20 text-background",
+              isOpen && "bg-background/25 text-background",
             )}
           >
             {indicatorCount}

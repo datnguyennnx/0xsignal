@@ -101,17 +101,17 @@
       }
     },
     {
-      // Composition seams: the table, the dashboard grid, the asset page and the
-      // order book each name the whole set of feature hooks and presentational
-      // blocks that make up one surface, so the count is the surface, not a smell.
-      "files": [
-        "packages/app/src/features/whales/components/whale-positions-table.tsx",
-        "packages/app/src/features/asset-detail/components/dashboard-grid.tsx",
-        "packages/app/src/features/asset-detail/components/asset-content.tsx",
-        "packages/app/src/features/trade/components/orderbook-depth.tsx"
-      ],
+      // Feature components are composition seams: one surface names every hook, block and adapter it renders, so the count is the surface, not a smell.
+      "files": ["packages/app/src/features/**/components/**/*.tsx"],
       "rules": {
-        "import/max-dependencies": "off"
+        "import/max-dependencies": ["warn", { "max": 15 }]
+      }
+    },
+    {
+      // A composite chart is a single image to assistive tech, and only a wrapper element can carry that one accessible name.
+      "files": ["packages/app/src/features/whales/components/long-short-donut.tsx"],
+      "rules": {
+        "jsx-a11y/prefer-tag-over-role": "off"
       }
     }
   ],

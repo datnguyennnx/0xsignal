@@ -12,7 +12,6 @@ import {
 import type { ChartPriceLine } from "@/features/chart/lib/price-lines";
 
 import {
-  LADDER_MARK_BAND,
   mergeNearbyLevels,
   parsePx,
   type CoinMarket,
@@ -23,8 +22,6 @@ import { useWhaleCoinMarkers } from "../hooks/use-whale-coin-markers";
 const TradingChart = lazy(() =>
   import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart })),
 );
-
-const EMPTY_CAPTION_CLASS = "px-3 pt-1 text-[11px] text-muted-foreground";
 
 /** The whale's own row from their clearinghouse state, not from the crowd page. */
 export type SubjectPosition = ClearinghouseState["assetPositions"][number]["position"];
@@ -89,22 +86,6 @@ function subjectLines(subjectPosition: SubjectPosition | undefined): ChartPriceL
   return lines;
 }
 
-/** The crowd row count separates "none in band" from "no rows for this coin". */
-function levelCaption(
-  subjectCount: number,
-  crowdCount: number,
-  crowdRowCount: number,
-): string | null {
-  if (crowdCount > 0) return null;
-  if (subjectCount > 0) {
-    return `No tracked liquidation from other whales within ${LADDER_MARK_BAND * 100}% of price.`;
-  }
-  if (crowdRowCount > 0) {
-    return `No tracked liquidation within ${LADDER_MARK_BAND * 100}% of price.`;
-  }
-  return "No tracked level for this coin yet.";
-}
-
 function CoinPriceDialogBody({
   coin,
   markPx,
@@ -117,15 +98,16 @@ function CoinPriceDialogBody({
 
   const markers = useWhaleCoinMarkers(address, coin, interval);
 
-  const { priceLines, caption } = useMemo(() => {
-    if (markPx === null) return { priceLines: undefined, caption: null };
-    const crowd = crowdLines(mergeNearbyLevels(summary.ladder, markPx));
-    const subject = subjectLines(subjectPosition);
-    return {
-      priceLines: [...crowd, ...subject],
-      caption: levelCaption(subject.length, crowd.length, summary.long.count + summary.short.count),
-    };
-  }, [markPx, summary, subjectPosition]);
+  const priceLines = useMemo(
+    () =>
+      markPx === null
+        ? undefined
+        : [
+            ...crowdLines(mergeNearbyLevels(summary.ladder, markPx)),
+            ...subjectLines(subjectPosition),
+          ],
+    [markPx, summary, subjectPosition],
+  );
 
   return (
     <>
@@ -144,7 +126,6 @@ function CoinPriceDialogBody({
             />
           </div>
         </Suspense>
-        {caption !== null && <p className={EMPTY_CAPTION_CLASS}>{caption}</p>}
       </div>
     </>
   );
@@ -163,14 +144,10 @@ export function CoinPriceDialog({
       {/* Insets and auto margins, not a translate: a transform makes the popup a containing block. */}
       <DialogContent
         showCloseButton={false}
-        className="inset-0! m-auto h-[min(80dvh,54rem)] max-w-[min(92vw,80rem)] grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden rounded-[20px] border border-white/10 p-0 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.65)] ring-1 ring-inset ring-white/10 [translate:none]! sm:max-w-[min(92vw,80rem)]"
+        className="inset-0! m-auto h-[min(80dvh,54rem)] max-w-[min(92vw,80rem)] grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden p-0 [translate:none]! sm:max-w-[min(92vw,80rem)]"
       >
-        {/* Glass sits below the content, so no backdrop-filter ancestor breaks nested overlays. */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 rounded-[inherit] bg-card/60 backdrop-blur-2xl backdrop-saturate-150"
-        />
-        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[inherit]">
+        {/* DialogContent paints a solid surface over the scrim; this is layout only. */}
+        <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
           <CoinPriceDialogBody
             coin={coin}
             markPx={markPx}
@@ -178,14 +155,6 @@ export function CoinPriceDialog({
             subjectPosition={subjectPosition}
           />
         </div>
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-10 rounded-[inherit] ring-1 ring-inset ring-white/10"
-        />
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-linear-to-r from-transparent via-white/20 to-transparent"
-        />
       </DialogContent>
     </Dialog>
   );

@@ -2,6 +2,7 @@ import { lazy, Suspense, useLayoutEffect, useRef, useState, type RefObject } fro
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Surface } from "@/components/surface/surface";
 import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
 import { PositionManagement } from "@/features/trade/components/position-management";
 import { OrderForm } from "@/features/trade/components/order-form";
@@ -14,9 +15,9 @@ const TradingChart = lazy(() =>
 );
 
 const ChartSkeleton = () => (
-  <div className="h-full w-full flex items-center justify-center panel-surface rounded-[var(--radius-panel)]">
-    <Skeleton className="h-full w-full rounded-xl bg-muted/50" />
-  </div>
+  <Surface tier="content" className="h-full w-full flex items-center justify-center">
+    <Skeleton className="h-full w-full rounded-xl bg-muted/60" />
+  </Surface>
 );
 
 const WIDE_BREAKPOINT_REM = 80;
@@ -106,11 +107,14 @@ export function AssetTradingGrid({
   const orderformPanel =
     assetIndex === null ? (
       <ErrorBoundary resetKey={symbol}>
-        <div className="h-full flex items-center justify-center rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface text-center text-[length:var(--text-compact)] text-muted-foreground">
+        <Surface
+          tier="content"
+          className="h-full flex items-center justify-center p-[var(--panel-pad,1.08rem)] text-center text-[length:var(--text-compact)] text-muted-foreground"
+        >
           {metaLoading
             ? "Resolving market metadata…"
             : `Trading is disabled: no Hyperliquid asset index is known for ${symbol}.`}
-        </div>
+        </Surface>
       </ErrorBoundary>
     ) : (
       <ErrorBoundary resetKey={symbol}>

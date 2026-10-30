@@ -7,7 +7,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import type { SideFilter, WhalePositionFilters } from "./whale-filter-defaults";
 
 const SELECT_CLASS =
-  "border-border/40 bg-background/70 text-sm hover:bg-muted/40 focus-visible:ring-ring/40";
+  "border-border/40 bg-background/80 text-sm hover:bg-muted/40 focus-visible:ring-ring/40";
 
 const SIDE_OPTIONS: { value: SideFilter; label: string }[] = [
   { value: "all", label: "All Sides" },

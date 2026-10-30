@@ -2,6 +2,7 @@ import type { CalendarCategory, EconomicEvent } from "@0xsignal/shared";
 import type { JSX } from "react";
 
 import { cn } from "cn";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SELECTED_ITEM_CLASS } from "@/lib/state-classes";
 
 export interface EventChipProps {
@@ -39,16 +40,22 @@ export function EventChip({ event, onClick, className }: EventChipProps): JSX.El
 
   if (onClick) {
     return (
-      <button
-        type="button"
-        title={event.title}
-        className={classes}
-        onClick={() => {
-          onClick(event);
-        }}
-      >
-        {content}
-      </button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              className={classes}
+              onClick={() => {
+                onClick(event);
+              }}
+            >
+              {content}
+            </button>
+          }
+        />
+        <TooltipContent>{event.title}</TooltipContent>
+      </Tooltip>
     );
   }
 

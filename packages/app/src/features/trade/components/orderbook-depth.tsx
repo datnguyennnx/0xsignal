@@ -10,7 +10,7 @@ import { createPortal } from "react-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type OrderbookData, priceKey } from "@/core/utils/hyperliquid";
 import { getDepthStyle, resolveBookDisplayNSigFigs } from "../utils/orderbook-widget-shared";
-import { OVERLAY_PANEL_CLASS } from "@/lib/overlay-classes";
+import { Surface } from "@/components/surface/surface";
 import { formatPriceWithNSigFigs, formatSize, formatSignedPercent } from "@/core/utils/formatters";
 import {
   type PopupData,
@@ -119,7 +119,7 @@ const OrderRow = memo(
             : undefined
         }
         className={`${ROW_HEIGHT_CLASS} relative flex w-full items-center px-[var(--space-2,0.75rem)] gap-[var(--space-1,0.3125rem)] cursor-pointer text-left tabular-nums select-none shrink-0 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset bg-transparent border-0 ${
-          isHovered ? "bg-muted/50" : "hover:bg-muted/30"
+          isHovered ? "bg-muted/60" : "hover:bg-muted/40"
         }`}
         aria-label={rowAriaLabel}
         aria-describedby={price > 0 && isHovered ? "orderbook-depth-details" : undefined}
@@ -197,7 +197,11 @@ export function OrderbookPlaceholder({ pairFocus }: { pairFocus: string }) {
   const visibleRows = rowsPerHalf;
 
   return (
-    <div className="relative isolate h-full flex flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-3,1.125rem)]">
+    <Surface
+      tier="content"
+      radius="panel"
+      className="relative isolate h-full flex flex-col p-[var(--panel-pad,1.08rem)] gap-[var(--space-3,1.125rem)]"
+    >
       <div className="flex items-center justify-between gap-[clamp(0.375rem,0.6vw,0.625rem)] shrink-0">
         <Skeleton className="h-7 w-[4.5rem]" />
         <Skeleton className="h-7 w-20" />
@@ -214,7 +218,7 @@ export function OrderbookPlaceholder({ pairFocus }: { pairFocus: string }) {
         </OrderbookSpreadRow>
         <OrderbookPlaceholderRows count={visibleRows} />
       </div>
-    </div>
+    </Surface>
   );
 }
 
@@ -375,9 +379,12 @@ export function OrderbookDepth({
       {popupData &&
         popupPosition &&
         createPortal(
-          <div
+          <Surface
             id="orderbook-depth-details"
-            className={`${OVERLAY_PANEL_CLASS} fixed p-3 z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)] -translate-y-1/2`}
+            tier="floating"
+            radius="overlay"
+            blur={false}
+            className="fixed p-3 z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)] -translate-y-1/2 text-popover-foreground"
             style={{
               top: popupPosition.top,
               left: popupPosition.left,
@@ -432,7 +439,7 @@ export function OrderbookDepth({
                   </>
                 )}
             </div>
-          </div>,
+          </Surface>,
           document.body,
         )}
     </>

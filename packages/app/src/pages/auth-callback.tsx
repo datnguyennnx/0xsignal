@@ -117,7 +117,7 @@ export function AuthCallbackPage() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-transparent">
-      <div className="h-6 w-6 border-2 border-foreground/20 rounded-full animate-spin" />
+      <div className="h-6 w-6 border-2 border-foreground/25 rounded-full animate-spin" />
     </div>
   );
 }

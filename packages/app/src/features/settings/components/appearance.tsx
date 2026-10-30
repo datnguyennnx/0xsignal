@@ -24,7 +24,7 @@ const ThemeCard = ({ value, label, theme, handleThemeChange, children }: ThemeCa
     <div
       className={cn(
         "relative w-full aspect-[16/10] rounded-xl overflow-hidden border transition-[transform,box-shadow,border-color] duration-200 shadow-[var(--shadow-e1)] hover:scale-[1.02] hover:shadow-[var(--shadow-e2)]",
-        theme === value ? "border-foreground" : "border-border/20 hover:border-border/60",
+        theme === value ? "border-foreground" : "border-border/25 hover:border-border/60",
       )}
     >
       {children}
@@ -60,12 +60,12 @@ export function AppearanceSettings() {
         <ThemeCard value="light" label="Light Mode" theme={theme} handleThemeChange={setTheme}>
           <div className="light h-full w-full bg-card">
             <div className="h-4 bg-background flex items-center gap-1 px-2">
-              <span className="size-1.5 rounded-full bg-red-300" />
-              <span className="size-1.5 rounded-full bg-yellow-300" />
-              <span className="size-1.5 rounded-full bg-green-300" />
+              <span className="size-1.5 rounded-full bg-loss/60" />
+              <span className="size-1.5 rounded-full bg-warn/60" />
+              <span className="size-1.5 rounded-full bg-gain/60" />
             </div>
             <div className="flex items-center justify-center h-[calc(100%-16px)]">
-              <span className="text-sm font-bold text-foreground/90 font-display">Aa</span>
+              <span className="text-sm font-bold text-foreground/80 font-display">Aa</span>
             </div>
           </div>
         </ThemeCard>
@@ -73,12 +73,12 @@ export function AppearanceSettings() {
         <ThemeCard value="dark" label="Dark Mode" theme={theme} handleThemeChange={setTheme}>
           <div className="dark h-full w-full bg-card">
             <div className="h-4 bg-background flex items-center gap-1 px-2">
-              <span className="size-1.5 rounded-full bg-red-500/70" />
-              <span className="size-1.5 rounded-full bg-yellow-500/70" />
-              <span className="size-1.5 rounded-full bg-green-500/70" />
+              <span className="size-1.5 rounded-full bg-loss/80" />
+              <span className="size-1.5 rounded-full bg-warn/80" />
+              <span className="size-1.5 rounded-full bg-gain/80" />
             </div>
             <div className="flex items-center justify-center h-[calc(100%-16px)]">
-              <span className="text-sm font-bold text-foreground/90 font-display">Aa</span>
+              <span className="text-sm font-bold text-foreground/80 font-display">Aa</span>
             </div>
           </div>
         </ThemeCard>
@@ -87,22 +87,22 @@ export function AppearanceSettings() {
           <div className="flex h-full w-full">
             <div className="light flex-1 bg-card border-r border-border">
               <div className="h-4 bg-background flex items-center gap-1 px-1.5">
-                <span className="size-1.5 rounded-full bg-red-300" />
-                <span className="size-1.5 rounded-full bg-yellow-300" />
-                <span className="size-1.5 rounded-full bg-green-300" />
+                <span className="size-1.5 rounded-full bg-loss/60" />
+                <span className="size-1.5 rounded-full bg-warn/60" />
+                <span className="size-1.5 rounded-full bg-gain/60" />
               </div>
               <div className="flex items-center justify-center h-[calc(100%-16px)]">
-                <span className="text-sm font-bold text-foreground/90 font-display">Aa</span>
+                <span className="text-sm font-bold text-foreground/80 font-display">Aa</span>
               </div>
             </div>
             <div className="dark flex-1 bg-card">
               <div className="h-4 bg-background flex items-center gap-1 px-1.5">
-                <span className="size-1.5 rounded-full bg-red-500/70" />
-                <span className="size-1.5 rounded-full bg-yellow-500/70" />
-                <span className="size-1.5 rounded-full bg-green-500/70" />
+                <span className="size-1.5 rounded-full bg-loss/80" />
+                <span className="size-1.5 rounded-full bg-warn/80" />
+                <span className="size-1.5 rounded-full bg-gain/80" />
               </div>
               <div className="flex items-center justify-center h-[calc(100%-16px)]">
-                <span className="text-sm font-bold text-foreground/90 font-display">Aa</span>
+                <span className="text-sm font-bold text-foreground/80 font-display">Aa</span>
               </div>
             </div>
           </div>

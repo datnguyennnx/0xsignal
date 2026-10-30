@@ -268,16 +268,16 @@ export function Modal({
           aria-describedby={ariaDescribedBy}
           tabIndex={-1}
           className={cn(
-            "fixed inset-0 m-auto grid w-full max-w-[calc(100%-2rem)] gap-4 overflow-hidden rounded-[var(--radius-overlay,0.875rem)] bg-transparent p-4 text-sm text-popover-foreground duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "fixed inset-0 m-auto grid w-full max-w-[calc(100%-2rem)] gap-4 overflow-hidden rounded-[var(--radius-overlay)] border-0 bg-transparent p-4 text-sm text-popover-foreground duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             className,
           )}
           style={{ zIndex: MODAL_LAYER + 1 }}
           {...stateAttributes}
         >
           <Surface
-            tier="floating"
+            tier="solid"
             radius="overlay"
-            className="pointer-events-none absolute inset-0 -z-10"
+            className="pointer-events-none absolute inset-0 -z-10 glass-no-specular"
           />
           {children}
         </dialog>

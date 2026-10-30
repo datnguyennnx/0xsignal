@@ -22,12 +22,13 @@ export const IndicatorChips = memo(function IndicatorChips({ indicators }: Indic
             key={indicator.instanceId}
             className={cn(
               "relative flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)] rounded-xl bg-transparent px-2 py-1 text-[length:var(--text-micro)] shrink-0",
-              indicator.visible ? "" : "text-muted-foreground",
+              indicator.visible ? "text-foreground" : "text-muted-foreground",
             )}
           >
             <Surface
               tier="floating"
               radius="overlay"
+              blur={false}
               className="pointer-events-none absolute inset-0 -z-10"
             />
             <span className="h-2 w-2 rounded-full bg-foreground/60 shrink-0" />

@@ -1,6 +1,5 @@
 // lightweight-charts only parses hex and rgb()/rgba(); CSS tokens resolve to oklch().
 
-const FALLBACK = "#000";
 const HEX_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const RGB_RE = /^rgba?\([^()]*\)$/i;
 const OKLCH_RE = /^oklch\(([^)]*)\)$/i;
@@ -96,19 +95,51 @@ const parseChannels = (value: string): Channels | null => {
   return null;
 };
 
+const FALLBACK_TOKEN = "--ink";
+/** --ink flips with the theme, so a failed read stays legible on both; grey is the last-resort triple. */
+const FALLBACK_CHANNELS: Channels = { r: 99, g: 99, b: 99, a: 1 };
+
+const toColorString = (channels: Channels): string =>
+  channels.a >= 1
+    ? toHex(channels)
+    : `rgba(${channels.r}, ${channels.g}, ${channels.b}, ${roundAlpha(channels.a)})`;
+
+const fallbackChannels = (): Channels => {
+  if (typeof document === "undefined") return FALLBACK_CHANNELS;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(FALLBACK_TOKEN);
+  return parseChannels(raw.trim()) ?? FALLBACK_CHANNELS;
+};
+
 export const toRgb = (input: string): string => {
   const value = input.trim();
-  if (!value) return FALLBACK;
   if (HEX_RE.test(value) || RGB_RE.test(value)) return value;
-  const oklch = OKLCH_RE.exec(value);
-  if (!oklch) return FALLBACK;
-  const channels = parseOklch(oklch[1]);
-  if (!channels) return FALLBACK;
-  if (channels.a >= 1) return toHex(channels);
-  return `rgba(${channels.r}, ${channels.g}, ${channels.b}, ${roundAlpha(channels.a)})`;
+  const channels = parseChannels(value);
+  return toColorString(channels ?? fallbackChannels());
 };
 
 export const toRgba = (input: string, alpha: number): string => {
-  const channels = parseChannels(input.trim()) ?? { r: 0, g: 0, b: 0, a: 1 };
+  const channels = parseChannels(input.trim()) ?? fallbackChannels();
   return `rgba(${channels.r}, ${channels.g}, ${channels.b}, ${roundAlpha(alpha)})`;
+};
+
+const SERIES_TOKENS = [
+  "--data-1",
+  "--data-2",
+  "--data-3",
+  "--data-4",
+  "--data-5",
+  "--data-6",
+  "--data-7",
+  "--data-8",
+] as const;
+
+/** Series identity, never gain/loss: the hash only picks a slot of the categorical ramp. */
+export const getSeriesColor = (seed: string): string => {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = Math.imul(hash, 31) + (seed.codePointAt(i) ?? 0);
+  }
+  if (typeof document === "undefined") return toRgb("");
+  const token = SERIES_TOKENS[Math.abs(hash) % SERIES_TOKENS.length];
+  return toRgb(getComputedStyle(document.documentElement).getPropertyValue(token));
 };

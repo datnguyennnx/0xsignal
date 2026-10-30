@@ -7,6 +7,7 @@ import { HoverProvider, useHoverActions } from "../contexts/hover-context";
 import { INTERVAL_RESTORE_DELAY } from "../utils/constants";
 import { usePriceLines, type ChartPriceLine } from "../lib/price-lines";
 import { ChartCanvas } from "./chart-canvas";
+import { Surface } from "@/components/surface/surface";
 import type { LogicalTradeMarker } from "@/features/trade/utils/trade-markers";
 
 interface TradingChartProps {
@@ -132,23 +133,29 @@ const TradingChartInner = ({
     />
   );
 
-  // One stable element tree for both modes: swapping subtrees on fullscreen
-  // remounts the chart container, orphaning the chart instance. In native
-  // fullscreen the element itself is in the top layer, so its class list does
-  // not change; only the fallback needs the fixed overlay chrome.
+  // One tree for both modes: a fullscreen remount would orphan the chart instance.
   return (
     <div
       ref={panelRef}
       className={
         isFallbackFullscreen
-          ? "fixed inset-0 z-50 tier-floating flex flex-col overflow-hidden"
-          : "chart-panel relative isolate panel-contain flex flex-1 h-full flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface"
+          ? "fixed inset-0 z-50 isolate flex flex-col overflow-hidden"
+          : "chart-panel relative isolate panel-contain flex flex-1 h-full flex-col p-[var(--panel-pad,1.08rem)]"
       }
     >
+      <Surface
+        tier={isFallbackFullscreen ? "solid" : "content"}
+        radius="panel"
+        className={
+          isFallbackFullscreen
+            ? "pointer-events-none absolute inset-0 -z-10 rounded-none glass-no-specular"
+            : "pointer-events-none absolute inset-0 -z-10 glass-no-specular"
+        }
+      />
       <div
         className={
           isFallbackFullscreen
-            ? "w-full h-full max-w-8xl mx-auto flex flex-col"
+            ? "relative w-full h-full max-w-8xl mx-auto flex flex-col"
             : "relative flex-1 flex flex-col gap-2.5"
         }
       >

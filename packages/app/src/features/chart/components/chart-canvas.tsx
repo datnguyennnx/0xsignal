@@ -60,7 +60,7 @@ export function ChartCanvas({
         />
       </ChartHeader>
 
-      <div className="flex-1 relative overflow-hidden rounded-lg">
+      <div className="flex-1 relative overflow-hidden rounded-[var(--radius-panel)]">
         <div
           ref={chartContainerRef}
           className={`absolute inset-0 will-change-transform${hasCandles ? "" : " invisible"}`}

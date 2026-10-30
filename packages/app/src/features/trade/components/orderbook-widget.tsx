@@ -2,6 +2,7 @@ import { memo, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useHyperliquidOrderbook } from "@/features/trade/hooks/use-hyperliquid-orderbook";
 import { useTradeUIStore } from "@/stores/use-trade-ui-store";
 import { EmptyState } from "@/components/empty-state";
+import { Surface } from "@/components/surface/surface";
 import { type PopupData } from "../utils/orderbook-utils";
 import { OrderbookToolbar } from "./orderbook-toolbar";
 import { OrderbookColumnHeader, OrderbookDepth, OrderbookPlaceholder } from "./orderbook-depth";
@@ -136,21 +137,30 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   if (!hasBookData) {
     return (
-      <div className="relative isolate h-full flex flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface">
+      <Surface
+        tier="content"
+        radius="panel"
+        className="relative isolate h-full flex flex-col p-[var(--panel-pad,1.08rem)]"
+      >
         <EmptyState
           variant="panel"
           title="No order book data"
           description="Waiting for the book to populate."
         />
-      </div>
+      </Surface>
     );
   }
 
   return (
     <div
       ref={widgetRef}
-      className="relative isolate panel-contain h-full flex flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-3,1.125rem)]"
+      className="relative isolate panel-contain h-full flex flex-col p-[var(--panel-pad,1.08rem)] gap-[var(--space-3,1.125rem)]"
     >
+      <Surface
+        tier="content"
+        radius="panel"
+        className="pointer-events-none absolute inset-0 -z-10"
+      />
       <OrderbookToolbar
         symbol={symbol}
         pairFocus={pairFocus}

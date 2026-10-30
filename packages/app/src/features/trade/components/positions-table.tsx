@@ -8,6 +8,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
@@ -189,16 +190,20 @@ const PositionRowView = memo(function PositionRowView({
       {!readOnly && (
         <TableCell className={c}>
           <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="auto"
               onClick={() => onCloseMarket?.(position.coin, position.szi, signedSz >= 0)}
-              className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
+              className="text-sm text-foreground hover:text-foreground/80 hover:no-underline"
             >
               Market
-            </button>
+            </Button>
             <span className="text-xs text-muted-foreground/60">/</span>
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="auto"
               onClick={() =>
                 onCloseLimit?.({
                   coin: position.coin,
@@ -207,10 +212,10 @@ const PositionRowView = memo(function PositionRowView({
                   markPx: markPx ?? computedMarkPx,
                 })
               }
-              className="text-sm font-medium text-foreground hover:text-foreground/70 transition-colors"
+              className="text-sm text-foreground hover:text-foreground/80 hover:no-underline"
             >
               Limit
-            </button>
+            </Button>
           </div>
         </TableCell>
       )}

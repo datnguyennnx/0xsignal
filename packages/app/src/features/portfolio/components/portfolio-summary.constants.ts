@@ -1,5 +1,5 @@
 export const SURFACE =
-  "h-full flex flex-col rounded-[var(--radius-panel)] p-4 tier-content animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
+  "h-full flex flex-col p-4 animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
 
 /** Loaded rows and skeleton rows share this stack so their heights cannot drift. */
 export const ROW_STACK = "flex flex-col gap-[clamp(0.5rem,1vw,1rem)]";

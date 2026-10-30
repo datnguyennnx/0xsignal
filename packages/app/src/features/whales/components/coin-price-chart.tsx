@@ -12,7 +12,7 @@ import CoinPriceSparkline from "./coin-price-sparkline";
 const SPARKLINE_CANDLES = 48;
 const SPARKLINE_HEIGHT_PX = 44;
 const BUTTON_CLASS =
-  "block w-full cursor-pointer rounded-md outline-none focus-visible:ring-1 focus-visible:ring-ring/60";
+  "block w-full cursor-pointer rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 const FALLBACK_BUTTON_CLASS =
   "flex w-full cursor-not-allowed items-center justify-center rounded-md text-xs text-muted-foreground";
 
@@ -50,17 +50,28 @@ export function CoinPriceChart({
   const lastClose = candles.at(-1)?.close;
   const price = markPx ?? lastClose ?? null;
   const delta = deltaLabel(firstClose, lastClose);
+  const deltaTone = delta?.startsWith("+") === true ? "text-gain" : "text-loss";
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="text-[28px] leading-none font-semibold tabular-nums">
-          {price === null ? "—" : formatPrice(price)}
-        </span>
-        {delta !== null && (
-          <span className="text-[11px] tabular-nums text-muted-foreground">{delta}</span>
-        )}
-        <span className="text-[11px] text-muted-foreground">{countLabel(rows.length)}</span>
+      {/* Price and count cannot share a 232px row, so each row pairs two short values. */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-xl leading-none font-semibold">{coin.toUpperCase()}</h2>
+          <span className="whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+            {countLabel(rows.length)}
+          </span>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="min-w-0 whitespace-nowrap text-[28px] leading-none font-semibold tabular-nums">
+            {price === null ? "—" : formatPrice(price)}
+          </span>
+          {delta !== null && (
+            <span className={`shrink-0 whitespace-nowrap text-[11px] tabular-nums ${deltaTone}`}>
+              {delta}
+            </span>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -70,6 +81,10 @@ export function CoinPriceChart({
           type="button"
           aria-label={`Open ${coin} chart`}
           className={BUTTON_CLASS}
+          // Pointer clicks must not focus the trigger, else the keyboard ring shows on click.
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
           onClick={() => {
             setOpen(true);
           }}

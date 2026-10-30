@@ -2,6 +2,7 @@ import { isSameDay, isSameMonth } from "date-fns";
 import type { JSX } from "react";
 import type { EconomicEvent } from "@0xsignal/shared";
 
+import { Surface } from "@/components/surface/surface";
 import { MonthDayCell } from "./month-day-cell";
 import { dayKey, WEEK_STARTS_ON, type EventsByDay } from "../lib/date-utils";
 
@@ -32,7 +33,7 @@ export function MonthGrid({
   const today = new Date();
 
   return (
-    <div className="flex w-full flex-col gap-1 overflow-hidden rounded-[var(--radius-panel)] tier-content">
+    <Surface tier="content" className="flex w-full flex-col gap-1 overflow-hidden">
       <div className="grid grid-cols-7 gap-1">
         {HEADER_LABELS.map((label) => (
           <div
@@ -58,6 +59,6 @@ export function MonthGrid({
           />
         ))}
       </div>
-    </div>
+    </Surface>
   );
 }

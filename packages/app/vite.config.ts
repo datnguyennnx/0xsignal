@@ -89,6 +89,9 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: "esnext",
+      // CSS needs concrete browser targets: with `esnext` the prefix pass treats support as
+      // universal and strips `-webkit-backdrop-filter`, which Safari still requires.
+      cssTarget: ["chrome111", "firefox128", "safari16.4"],
       sourcemap: false,
       cssCodeSplit: true,
       reportCompressedSize: true,

@@ -6,7 +6,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { getCoinPositions } from "@/services/api/whales";
 
 const LADDER_DEPTH = 5;
-export const LADDER_MARK_BAND = 0.3;
+const LADDER_MARK_BAND = 0.3;
 const SHARE_PERCENT_FLOOR = 1;
 const NO_ROWS: readonly WhalePosition[] = [];
 

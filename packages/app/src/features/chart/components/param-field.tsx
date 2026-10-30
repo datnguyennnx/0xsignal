@@ -1,6 +1,8 @@
 import { useCallback, useId } from "react";
 import type { IndicatorParamDefinition } from "@0xsignal/shared";
 import { Plus, Minus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { parseParamInput } from "../utils/indicator-param-utils";
 
 interface IndicatorParamFieldProps {
@@ -48,19 +50,21 @@ export function IndicatorParamField({
       </div>
 
       <div className="flex items-center bg-muted/40 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-ring/40 w-full">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           onClick={() => {
             adjust(-1);
           }}
           disabled={numeric !== null && numeric <= definition.min}
           aria-label={`Decrease ${definition.label}`}
-          className="h-[clamp(1.75rem,3vh,2.25rem)] w-[clamp(1.75rem,2.5vw,2rem)] flex items-center justify-center hover:bg-accent/30 rounded-l transition-[background-color,transform] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none shrink-0"
+          className="min-h-[clamp(1.75rem,3vh,2.25rem)] min-w-[clamp(1.75rem,2.5vw,2rem)] shrink-0 rounded-l rounded-r-none hover:bg-accent/40 transition-[background-color,transform] duration-150 active:scale-[0.97]"
         >
           <Minus className="size-3.5 opacity-50" aria-hidden="true" />
-        </button>
+        </Button>
 
-        <input
+        <Input
           id={inputId}
           type="number"
           inputMode="decimal"
@@ -71,20 +75,22 @@ export function IndicatorParamField({
           onChange={(e) => {
             onValueChange(e.target.value);
           }}
-          className="flex-1 h-[clamp(1.75rem,3vh,2.25rem)] px-1 text-center text-base sm:text-sm font-semibold bg-transparent text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 tabular-nums min-w-0"
+          className="flex-1 h-[clamp(1.75rem,3vh,2.25rem)] rounded-none border-0 px-1 py-0 text-center text-base sm:text-sm font-semibold text-foreground tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:ring-0 dark:bg-transparent"
         />
 
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           onClick={() => {
             adjust(1);
           }}
           disabled={numeric !== null && numeric >= definition.max}
           aria-label={`Increase ${definition.label}`}
-          className="h-[clamp(1.75rem,3vh,2.25rem)] w-[clamp(1.75rem,2.5vw,2rem)] flex items-center justify-center hover:bg-accent/30 rounded-r transition-[background-color,transform] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none shrink-0"
+          className="min-h-[clamp(1.75rem,3vh,2.25rem)] min-w-[clamp(1.75rem,2.5vw,2rem)] shrink-0 rounded-l-none rounded-r hover:bg-accent/40 transition-[background-color,transform] duration-150 active:scale-[0.97]"
         >
           <Plus className="size-3.5 opacity-50" aria-hidden="true" />
-        </button>
+        </Button>
       </div>
 
       {definition.description !== undefined && definition.description !== "" && (

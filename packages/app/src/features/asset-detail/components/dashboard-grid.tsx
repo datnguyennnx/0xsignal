@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import { cn } from "cn";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Surface } from "@/components/surface/surface";
 import { useLayoutStore } from "@/stores/use-layout-store";
 import { ResizableWrapper } from "./resizable-wrapper";
 import { DashboardGridContext } from "./dashboard-grid-context";
@@ -165,8 +166,8 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
             className={cn(
               "absolute pointer-events-none z-40 rounded-xl border-2 border-dashed transition-none",
               previewState.isValid
-                ? "border-primary/40 bg-primary/[0.06]"
-                : "border-destructive/60 bg-destructive/[0.08]",
+                ? "border-primary/40 bg-primary/5"
+                : "border-destructive/60 bg-destructive/10",
             )}
             style={{
               left: `${previewState.gridX * cellStep * 100}%`,
@@ -194,7 +195,11 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
                 }}
                 aria-hidden="true"
               >
-                <div className="h-full w-full material-raised rounded-lg flex items-center justify-center">
+                <Surface
+                  tier="floating"
+                  radius="control"
+                  className="h-full w-full flex items-center justify-center"
+                >
                   <div className="text-center px-4">
                     <div className="flex items-center justify-center gap-2 mb-1">
                       <div className="size-2 rounded-full bg-muted-foreground animate-pulse" />
@@ -204,7 +209,7 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
                     </div>
                     <p className="text-xs text-muted-foreground">Dragging to reorder</p>
                   </div>
-                </div>
+                </Surface>
               </div>
             </ErrorBoundary>,
             document.body,

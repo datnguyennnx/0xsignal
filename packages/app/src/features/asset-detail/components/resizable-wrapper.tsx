@@ -36,6 +36,14 @@ function isCornerAxis(axis: ResizeHandleAxis): boolean {
   return axis === "nw" || axis === "ne" || axis === "sw" || axis === "se";
 }
 
+function dragMarker(axis: ResizeHandleAxis, active: ResizeHandleAxis | null): "" | undefined {
+  return active === axis ? "" : undefined;
+}
+
+/** Centred short grip; colour-only fade so reduced motion needs no special case. */
+const EDGE_PILL =
+  "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/0 transition-colors duration-150 group-hover:bg-foreground/25 group-data-[resizing]:bg-foreground/40";
+
 /**
  * Horizontal geometry is container-relative (fractions → %); vertical uses the
  * shared fluid row pitch. Percentage `left` (not a px transform) resolves against
@@ -120,8 +128,7 @@ export const ResizableWrapper = memo(function ResizableWrapper({
   const style = useMemo<CSSProperties>(
     () => ({
       ...geometry,
-      transition:
-        isResizing || isDragged ? "none" : "box-shadow 120ms ease, border-color 120ms ease",
+      transition: isResizing || isDragged ? "none" : "box-shadow 120ms ease",
     }),
     [geometry, isResizing, isDragged],
   );
@@ -142,15 +149,14 @@ export const ResizableWrapper = memo(function ResizableWrapper({
   }, [isDragged]);
 
   const isActive = isResizing || isDragged || isHovered;
+  const resizingAxis = isResizing ? activeCorner : null;
 
   return (
     <div
       ref={wrapperRef}
-      className={`absolute panel-contain rounded-xl border bg-transparent overflow-hidden ${
-        isResizing || isDragged
-          ? "select-none border-foreground/40 shadow-xl z-50"
-          : "border-transparent"
-      } ${isDragged ? "pointer-events-none" : ""} ${isHovered && !isResizing && !isDragged ? "border-foreground/20" : ""} ${isDragged ? "opacity-30" : "opacity-100"} ${className}`}
+      className={`absolute panel-contain rounded-[var(--radius-panel)] bg-transparent overflow-hidden ${
+        isResizing || isDragged ? "select-none shadow-[var(--shadow-e3)] z-50" : ""
+      } ${isDragged ? "pointer-events-none" : ""} ${isDragged ? "opacity-30" : "opacity-100"} ${className}`}
       style={style}
       onPointerMove={handlePanelMouseMove}
       onMouseEnter={() => {
@@ -158,7 +164,21 @@ export const ResizableWrapper = memo(function ResizableWrapper({
       }}
       onMouseLeave={handlePanelMouseLeave}
     >
-      <div className="h-full w-full overflow-x-hidden overflow-y-auto rounded-xl">{children}</div>
+      <div className="h-full w-full overflow-x-hidden overflow-y-auto rounded-[var(--radius-panel)]">
+        {children}
+      </div>
+
+      {/* Inset ring rides the tier rim's arc, above it, so hover/drag adds no second edge. */}
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 z-10 rounded-[var(--radius-panel)] ring-1 ring-inset transition-shadow duration-150 ${
+          isResizing || isDragged
+            ? "ring-foreground/40"
+            : isHovered
+              ? "ring-foreground/25"
+              : "ring-transparent"
+        }`}
+      />
 
       {/* Drag Handle — Grip icon for repositioning */}
       <div
@@ -170,18 +190,34 @@ export const ResizableWrapper = memo(function ResizableWrapper({
         <GripHorizontal className="size-4 text-foreground/60" />
       </div>
 
-      {/* Edge resize handles — 10px hit area, visible only while idle */}
+      {/* Edge grips: 10px hit strips, short centred pill lit on hover and while dragging */}
       <div
         className="group absolute top-0 left-2.5 right-2.5 h-2.5 cursor-ns-resize z-10 touch-none"
+        data-resizing={dragMarker("n", resizingAxis)}
         onPointerDown={handlePointerDown("n")}
       >
-        <span className="pointer-events-none absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-foreground/0 transition-colors duration-150 group-hover:bg-foreground/25" />
+        <span className={`${EDGE_PILL} h-[3px] w-8`} />
       </div>
       <div
         className="group absolute bottom-0 left-2.5 right-2.5 h-2.5 cursor-ns-resize z-10 touch-none"
+        data-resizing={dragMarker("s", resizingAxis)}
         onPointerDown={handlePointerDown("s")}
       >
-        <span className="pointer-events-none absolute inset-x-0 bottom-1/2 h-0.5 translate-y-1/2 rounded-full bg-foreground/0 transition-colors duration-150 group-hover:bg-foreground/25" />
+        <span className={`${EDGE_PILL} h-[3px] w-8`} />
+      </div>
+      <div
+        className="group absolute left-0 top-3 bottom-3 w-2.5 cursor-ew-resize z-10 touch-none"
+        data-resizing={dragMarker("w", resizingAxis)}
+        onPointerDown={handlePointerDown("w")}
+      >
+        <span className={`${EDGE_PILL} h-8 w-[3px]`} />
+      </div>
+      <div
+        className="group absolute right-0 top-3 bottom-3 w-2.5 cursor-ew-resize z-10 touch-none"
+        data-resizing={dragMarker("e", resizingAxis)}
+        onPointerDown={handlePointerDown("e")}
+      >
+        <span className={`${EDGE_PILL} h-8 w-[3px]`} />
       </div>
 
       {/* Resize handles — L-shaped corner brackets shown near corners */}

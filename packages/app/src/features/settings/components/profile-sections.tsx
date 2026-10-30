@@ -76,7 +76,7 @@ export function ProfileCard({
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-4">
-          <Avatar className="size-14 ring-1 ring-border/20">
+          <Avatar className="size-14 ring-1 ring-border/25">
             {avatarUrl !== null && avatarUrl !== "" ? (
               <AvatarImage src={avatarUrl} alt="Avatar" />
             ) : (

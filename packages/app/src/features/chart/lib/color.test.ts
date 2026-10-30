@@ -1,3 +1,4 @@
+/// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 
 import { toRgb, toRgba } from "./color";
@@ -11,8 +12,8 @@ describe("toRgb", () => {
     expect(toRgb("oklch(0 0 0)")).toBe("#000000");
   });
 
-  test("maps a mid oklch to a neutral grey", () => {
-    expect(toRgb("oklch(0.5 0 0)")).toBe("#636363");
+  test("maps a known chromatic oklch to its exact rgb", () => {
+    expect(toRgb("oklch(0.628 0.2577 29.23)")).toBe("#ff0000");
   });
 
   test("passes hex through unchanged", () => {
@@ -25,14 +26,15 @@ describe("toRgb", () => {
     expect(toRgb("rgba(1, 2, 3, 0.5)")).toBe("rgba(1, 2, 3, 0.5)");
   });
 
-  test("falls back to #000 for anything else", () => {
-    expect(toRgb("color-mix(in srgb, red, blue)")).toBe("#000");
-    expect(toRgb("transparent")).toBe("#000");
-    expect(toRgb("")).toBe("#000");
+  test("falls back to the ink stand-in on invalid input", () => {
+    expect(toRgb("color-mix(in srgb, red, blue)")).toBe("#636363");
+    expect(toRgb("transparent")).toBe("#636363");
+    expect(toRgb("oklch(0.5 abc 0)")).toBe("#636363");
+    expect(toRgb("")).toBe("#636363");
   });
 
   test("preserves alpha from oklch tokens", () => {
-    expect(toRgb("oklch(0.58 0.19 145 / 0.15)")).toMatch(/^rgba\(\d+, \d+, \d+, 0\.15\)$/);
+    expect(toRgb("oklch(0.628 0.2577 29.23 / 0.15)")).toBe("rgba(255, 0, 0, 0.15)");
   });
 });
 
@@ -42,6 +44,6 @@ describe("toRgba", () => {
   });
 
   test("applies alpha to an oklch token", () => {
-    expect(toRgba("oklch(0.6 0 0)", 0.5)).toMatch(/^rgba\(\d+, \d+, \d+, 0\.5\)$/);
+    expect(toRgba("oklch(0.628 0.2577 29.23)", 0.5)).toBe("rgba(255, 0, 0, 0.5)");
   });
 });

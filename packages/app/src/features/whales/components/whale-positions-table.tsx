@@ -193,7 +193,7 @@ export function WhalePositionsTable({
                       e.stopPropagation();
                       onSelectWallet(position.userAddress);
                     }}
-                    className="h-auto p-0"
+                    size="auto"
                   >
                     {truncateAddress(position.userAddress)}
                   </Button>
@@ -206,7 +206,7 @@ export function WhalePositionsTable({
                       e.stopPropagation();
                       openCoin(position.coin);
                     }}
-                    className="h-auto p-0 font-medium"
+                    size="auto"
                   >
                     {position.coin}
                   </Button>

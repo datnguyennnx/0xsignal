@@ -11,19 +11,27 @@ export const TIER_CLASS: Record<Tier, string> = {
 export type Variant = "regular" | "clear" | "identity";
 
 export const VARIANT_CLASS: Record<Variant, string> = {
-  regular: "variant-regular",
+  regular: "",
   clear: "variant-clear",
   identity: "tier-identity",
 };
 
+/** One rendered surface in the ancestor stack, outermost first. */
+export interface SurfaceFrame {
+  tier: Tier;
+  /** Dev caller label, e.g. `coin-price-dialog.tsx:171`; empty in production. */
+  owner: string;
+}
+
 interface TierContract {
   layer: "content" | "floating" | "backdrop";
+  /** Nesting guard only: solid, content and control drop their depth-0 blur when nested. */
   blur: boolean;
   /** Placement rule in prose; the runtime guards below enforce the hard parts. */
   allowedOn: string;
 }
 
-// Record<Tier, …> makes a missing tier a type error.
+// Only data-glass-depth="0" blurs; nested tiers paint a translucent fill instead.
 const TIER_CONTRACT: Record<Tier, TierContract> = {
   solid: {
     layer: "content",
@@ -33,7 +41,8 @@ const TIER_CONTRACT: Record<Tier, TierContract> = {
   content: {
     layer: "content",
     blur: false,
-    allowedOn: "inside a solid region; never carries its own material",
+    allowedOn:
+      "page content tiles; paints --glass-fill with the hairline edge and shared lift exactly as solid does, so the two differ only in semantic intent",
   },
   control: {
     layer: "content",
@@ -64,39 +73,62 @@ export interface SurfacePlacement {
   variant: Variant;
   overMedia: boolean;
   dim: boolean;
+  /** Caller label, so the failure names the file/component that wrote the surface. */
+  owner?: string;
 }
 
-/** Dev-only placement check; pure, so safe in an effect and unit-testable. */
-export function assertSurfacePlacement(input: SurfacePlacement, ancestorTiers: Tier[]): void {
-  if (process.env.NODE_ENV === "production") return;
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
-  const { tier, variant, overMedia, dim } = input;
+/** Legibility hints: dev throws so the call site gets fixed, prod warns instead of blanking the app. */
+function fail(message: string): void {
+  if (IS_PRODUCTION) {
+    console.warn(`[surface] ${message}`);
+    return;
+  }
+  throw new Error(message);
+}
+
+/** Correctness violations throw in every build, so none can ship silently. */
+function violation(message: string): never {
+  throw new Error(message);
+}
+
+const at = (owner: string | undefined): string =>
+  owner === undefined || owner === "" ? "" : ` at ${owner}`;
+
+/** Pure, so it is safe to call during render; a glass-on-glass stack throws in production too. */
+export function assertSurfacePlacement(
+  input: SurfacePlacement,
+  ancestors: readonly SurfaceFrame[],
+): void {
+  const { tier, variant, overMedia, dim, owner } = input;
 
   // Identity paints nothing, so no placement rule can apply.
   if (variant === "identity") return;
 
   if (BLUR_TIERS.has(tier)) {
-    const glassAncestor = ancestorTiers.find((ancestor) => BLUR_TIERS.has(ancestor));
+    const glassAncestor = ancestors.find((ancestor) => BLUR_TIERS.has(ancestor.tier));
     if (glassAncestor !== undefined) {
-      throw new Error(
-        `Tier "${tier}" cannot be nested inside "${glassAncestor}": glass on glass destroys legibility.`,
+      // A nested backdrop-filter costs 2^(N-1) paint passes, so it fails the render, not warns.
+      violation(
+        `tier "${tier}"${at(owner)} sits ${ancestors.length} deep inside tier "${glassAncestor.tier}"${at(glassAncestor.owner)}: glass on glass destroys legibility. Use tier="content" for the inner layer.`,
       );
     }
   }
 
-  if (tier === "scrim" && ancestorTiers.includes("scrim")) {
-    throw new Error('Tier "scrim" cannot be nested inside another "scrim".');
+  if (tier === "scrim" && ancestors.some((ancestor) => ancestor.tier === "scrim")) {
+    fail(`tier "scrim"${at(owner)} is nested inside another "scrim": one scrim per stack.`);
   }
 
   if (variant === "clear") {
     if (!overMedia) {
-      throw new Error(
-        'Variant "clear" requires overMedia: it is only legible over media-rich backdrops.',
+      fail(
+        `variant "clear"${at(owner)} requires overMedia: it is only legible over media-rich backdrops.`,
       );
     }
     if (BLUR_TIERS.has(tier) && !dim) {
-      throw new Error(
-        'Variant "clear" on a blur tier requires dim: Apple prescribes a 35% dimming layer.',
+      fail(
+        `variant "clear" on tier "${tier}"${at(owner)} requires dim: Apple prescribes a 35% dimming layer.`,
       );
     }
   }

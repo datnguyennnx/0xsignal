@@ -59,7 +59,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
                       key={tip}
                       className="text-sm leading-relaxed text-muted-foreground flex gap-[clamp(0.25rem,0.5vw,0.5rem)]"
                     >
-                      <span className="text-foreground/30">•</span> {tip}
+                      <span className="text-foreground/40">•</span> {tip}
                     </li>
                   ))}
                 </ul>
@@ -75,7 +75,7 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
                       key={pitfall}
                       className="text-sm leading-relaxed text-muted-foreground flex gap-[clamp(0.25rem,0.5vw,0.5rem)]"
                     >
-                      <span className="text-foreground/30">•</span> {pitfall}
+                      <span className="text-foreground/40">•</span> {pitfall}
                     </li>
                   ))}
                 </ul>

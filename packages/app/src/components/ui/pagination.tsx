@@ -61,7 +61,7 @@ export const Pagination = memo(function Pagination({
         className,
       )}
     >
-      <span className="text-xs text-muted-foreground tabular-nums order-1">
+      <span className="text-[length:var(--control-text-xs)] text-muted-foreground tabular-nums order-1">
         {formatAxis(start)}–{formatAxis(end)} of {formatAxis(totalItems)}
       </span>
 
@@ -74,7 +74,7 @@ export const Pagination = memo(function Pagination({
           disabled={currentPage === 1}
           aria-label="Previous page"
           className={cn(
-            "inline-flex items-center justify-center h-7 w-7 rounded text-xs transition-colors",
+            "inline-flex items-center justify-center size-[var(--control-h-sm)] rounded-[var(--control-radius-xs)] text-[length:var(--control-text-xs)] transition-colors",
             "text-muted-foreground hover:text-foreground hover:bg-muted/40",
             "disabled:pointer-events-none disabled:opacity-30",
           )}
@@ -87,7 +87,7 @@ export const Pagination = memo(function Pagination({
             return (
               <span
                 key={key}
-                className="inline-flex items-center justify-center h-7 w-5 text-xs text-muted-foreground/60 select-none"
+                className="inline-flex items-center justify-center h-[var(--control-h-sm)] w-5 text-[length:var(--control-text-xs)] text-muted-foreground/60 select-none"
               >
                 ...
               </span>
@@ -102,7 +102,7 @@ export const Pagination = memo(function Pagination({
                 onPageChange(value);
               }}
               className={cn(
-                "inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded text-xs tabular-nums transition-colors",
+                "inline-flex items-center justify-center h-[var(--control-h-sm)] min-w-[var(--control-h-sm)] rounded-[var(--control-radius-xs)] text-[length:var(--control-text-xs)] tabular-nums transition-colors",
                 currentPage === value
                   ? SELECTED_ITEM_CLASS
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
@@ -121,7 +121,7 @@ export const Pagination = memo(function Pagination({
           disabled={currentPage === totalPages}
           aria-label="Next page"
           className={cn(
-            "inline-flex items-center justify-center h-7 w-7 rounded text-xs transition-colors",
+            "inline-flex items-center justify-center size-[var(--control-h-sm)] rounded-[var(--control-radius-xs)] text-[length:var(--control-text-xs)] transition-colors",
             "text-muted-foreground hover:text-foreground hover:bg-muted/40",
             "disabled:pointer-events-none disabled:opacity-30",
           )}
@@ -132,7 +132,9 @@ export const Pagination = memo(function Pagination({
 
       {onPageSizeChange && (
         <div className="flex items-center gap-2 order-3">
-          <span className="text-xs text-muted-foreground tabular-nums">Show</span>
+          <span className="text-[length:var(--control-text-xs)] text-muted-foreground tabular-nums">
+            Show
+          </span>
           <NativeSelect
             size="sm"
             aria-label="Rows per page"
@@ -141,7 +143,7 @@ export const Pagination = memo(function Pagination({
               onPageSizeChange(Number(e.target.value));
             }}
             wrapperClassName="min-w-[4rem] max-w-[4rem]"
-            className="h-7 text-xs text-center px-1"
+            className="h-[var(--control-h-sm)] px-[var(--control-px-xs)] text-center text-[length:var(--control-text-xs)]"
           >
             {pageSizeOptions.map((size) => (
               <NativeSelectOption key={size} value={size.toString()}>

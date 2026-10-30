@@ -2,6 +2,7 @@ import { Search, X } from "lucide-react";
 import type { ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
 import { cn } from "cn";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import type { IndicatorCategory } from "./indicator-modal-category-list";
 
 interface IndicatorModalExplorerProps {
@@ -59,16 +60,18 @@ export function IndicatorModalExplorer({
             />
 
             {query && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => {
                   onQueryChange("");
                 }}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 size-8 flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors"
+                className="absolute right-2 top-[calc(50%-1rem)] text-muted-foreground/60 hover:bg-transparent hover:text-foreground dark:hover:bg-transparent transition-colors"
               >
                 <X className="size-4" aria-hidden="true" />
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -91,13 +94,13 @@ export function IndicatorModalExplorer({
                     "w-full flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3 py-3 sm:py-2 rounded text-xs transition-[background-color,color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
                     isSelected
                       ? "bg-accent text-foreground font-semibold"
-                      : "hover:bg-accent/50 text-muted-foreground hover:text-foreground font-medium transition-[background-color,color] duration-150",
+                      : "hover:bg-accent/60 text-muted-foreground hover:text-foreground font-medium transition-[background-color,color] duration-150",
                   )}
                 >
                   <div
                     className={cn(
                       "w-1.5 h-1.5 rounded-full shrink-0 transition-[background-color,transform]",
-                      activeCount > 0 ? "bg-foreground" : "bg-muted-foreground/20",
+                      activeCount > 0 ? "bg-foreground" : "bg-muted-foreground/25",
                       isSelected && "scale-105",
                     )}
                   />

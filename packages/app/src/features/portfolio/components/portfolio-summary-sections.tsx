@@ -1,6 +1,7 @@
 import { cn } from "cn";
 
 import { ScrollEdge } from "@/components/surface/scroll-edge";
+import { Surface } from "@/components/surface/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompactUsd, formatSignedPercent, formatSignedUsd } from "@/core/utils/formatters";
 
@@ -40,7 +41,7 @@ function SummaryRow({ label, value, accent }: SummaryRowProps) {
 
 export function PortfolioSummarySkeleton() {
   return (
-    <div className={SURFACE}>
+    <Surface tier="content" className={SURFACE}>
       <div className="flex h-7 items-center justify-between">
         <Skeleton className="h-3.5 w-12" />
         <Skeleton className="h-5 w-9" />
@@ -53,19 +54,19 @@ export function PortfolioSummarySkeleton() {
           </div>
         ))}
       </div>
-    </div>
+    </Surface>
   );
 }
 
 export function PortfolioSummaryError() {
   return (
-    <div className={SURFACE}>
+    <Surface tier="content" className={SURFACE}>
       <div className="flex-1 flex items-center justify-center">
         <span className="text-xs uppercase tracking-widest text-muted-foreground">
           Unable to load
         </span>
       </div>
-    </div>
+    </Surface>
   );
 }
 

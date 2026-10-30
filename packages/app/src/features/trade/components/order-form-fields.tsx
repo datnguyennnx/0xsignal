@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Toggle } from "@/components/ui/toggle";
 import { cn } from "cn";
 import { CheckIcon } from "lucide-react";
 import { formatCompactUsd } from "@/core/utils/formatters";
@@ -89,7 +90,7 @@ export function OrderFormFields({
               "flex-1 pb-[var(--space-1,0.3125rem)] text-xs font-medium uppercase tracking-wider transition-colors",
               orderType === type
                 ? "border-b-2 border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground/70",
+                : "border-transparent text-muted-foreground hover:text-foreground/80",
             )}
           >
             {type === "market" ? "Market" : "Limit"}
@@ -107,26 +108,30 @@ export function OrderFormFields({
                 : "translate-x-[calc(100%+0.375rem)] bg-loss",
             )}
           />
-          <button
-            onClick={() => {
+          <Toggle
+            pressed={side === "buy"}
+            onPressedChange={() => {
               onSideChange("buy");
             }}
-            className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[0.3125rem] transition-colors duration-200 cursor-pointer active:brightness-90"
+            size="sm"
+            className="relative z-10 h-full min-w-0 flex-1 cursor-pointer rounded-[0.3125rem] px-0 text-xs font-semibold uppercase tracking-wider transition-colors duration-200 hover:bg-transparent aria-pressed:bg-transparent active:brightness-90"
           >
             <span className={side === "buy" ? "text-primary-foreground" : "text-muted-foreground"}>
               Buy / Long
             </span>
-          </button>
-          <button
-            onClick={() => {
+          </Toggle>
+          <Toggle
+            pressed={side === "sell"}
+            onPressedChange={() => {
               onSideChange("sell");
             }}
-            className="relative flex-1 z-10 h-full text-xs font-semibold uppercase tracking-wider rounded-[0.3125rem] transition-colors duration-200 cursor-pointer active:brightness-90"
+            size="sm"
+            className="relative z-10 h-full min-w-0 flex-1 cursor-pointer rounded-[0.3125rem] px-0 text-xs font-semibold uppercase tracking-wider transition-colors duration-200 hover:bg-transparent aria-pressed:bg-transparent active:brightness-90"
           >
             <span className={side === "sell" ? "text-primary-foreground" : "text-muted-foreground"}>
               Sell / Short
             </span>
-          </button>
+          </Toggle>
         </div>
 
         {orderType === "limit" && (
@@ -145,7 +150,7 @@ export function OrderFormFields({
                 onPriceChange(e.target.value);
               }}
               placeholder="0.00"
-              className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
+              className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm tabular-nums bg-background/80 border-border/40"
               aria-invalid={priceInvalid}
             />
           </div>
@@ -236,7 +241,7 @@ export function OrderFormFields({
                         onTpPriceChange(e.target.value);
                       }}
                       placeholder="TP Price"
-                      className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
+                      className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm tabular-nums bg-background/80 border-border/40"
                     />
                   </div>
                   <div className="flex items-center gap-[var(--space-1,0.3125rem)]">
@@ -251,7 +256,7 @@ export function OrderFormFields({
                         onTpPercentChange(e.target.value);
                       }}
                       placeholder="Gain"
-                      className="w-20 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40"
+                      className="w-20 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm text-center tabular-nums bg-background/80 border-border/40"
                     />
                     <span className="text-xs text-muted-foreground w-4">%</span>
                   </div>
@@ -270,7 +275,7 @@ export function OrderFormFields({
                         onSlPriceChange(e.target.value);
                       }}
                       placeholder="SL Price"
-                      className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
+                      className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm tabular-nums bg-background/80 border-border/40"
                     />
                   </div>
                   <div className="flex items-center gap-[var(--space-1,0.3125rem)]">
@@ -285,7 +290,7 @@ export function OrderFormFields({
                         onSlPercentChange(e.target.value);
                       }}
                       placeholder="Loss"
-                      className="w-20 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40"
+                      className="w-20 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm text-center tabular-nums bg-background/80 border-border/40"
                     />
                     <span className="text-xs text-muted-foreground w-4">%</span>
                   </div>

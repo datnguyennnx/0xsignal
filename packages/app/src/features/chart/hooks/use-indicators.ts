@@ -7,6 +7,7 @@ import {
 } from "@0xsignal/shared";
 import { useIndicatorData } from "./use-indicator-data";
 import type { IndicatorRenderEntry } from "../utils/indicator-data";
+import { getSeriesColor } from "../lib/color";
 
 interface UseIndicatorsProps {
   data?: ChartDataPoint[];
@@ -20,8 +21,6 @@ interface UseIndicatorsResult {
   handleResetAll: () => void;
   hasActiveOverlays: boolean;
 }
-
-import { getStableColor } from "@/core/utils/theme";
 
 export const useIndicators = ({ data = [] }: UseIndicatorsProps): UseIndicatorsResult => {
   const [activeIndicators, setActiveIndicators] = useState<ActiveIndicator[]>([]);
@@ -56,7 +55,7 @@ export const useIndicators = ({ data = [] }: UseIndicatorsProps): UseIndicatorsR
             config,
             params,
             visible: true,
-            color: getStableColor(instanceId),
+            color: getSeriesColor(instanceId),
           },
         ];
       });

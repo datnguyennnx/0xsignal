@@ -1,4 +1,5 @@
 import { UnifiedAccountSummary } from "./unified-account-summary";
+import { Surface } from "@/components/surface/surface";
 import { OrderFormLeverage } from "./order-form-leverage";
 import { OrderFormFields } from "./order-form-fields";
 import { OrderFormSummary } from "./order-form-summary";
@@ -65,7 +66,11 @@ export function OrderForm({ symbol, assetIndex, markPrice = 0 }: OrderFormProps)
   const orderCanPlace = canPlace({ signingDisabled, size, usablePrice, orderType, price });
 
   return (
-    <div className="h-full flex flex-col rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-4,1.5rem)]">
+    <Surface
+      tier="content"
+      radius="panel"
+      className="h-full flex flex-col p-[var(--panel-pad,1.08rem)] gap-[var(--space-4,1.5rem)]"
+    >
       {signingDisabled && (
         <p className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
           Read-only view — trading is disabled while inspecting another account.
@@ -147,6 +152,6 @@ export function OrderForm({ symbol, assetIndex, markPrice = 0 }: OrderFormProps)
           <UnifiedAccountSummary />
         </div>
       </div>
-    </div>
+    </Surface>
   );
 }

@@ -126,7 +126,7 @@ export function IndicatorModal({
         Indicator Settings
       </h2>
 
-      <div className="flex flex-col xl:flex-row h-full min-h-0 max-xl:overflow-y-auto max-xl:[&>*:first-child]:w-full max-xl:[&>*:first-child]:max-w-none divide-y xl:divide-y-0 xl:divide-x divide-[var(--tier-edge)]">
+      <div className="flex flex-col xl:flex-row h-full min-h-0 max-xl:overflow-y-auto max-xl:[&>*:first-child]:w-full max-xl:[&>*:first-child]:max-w-none divide-y xl:divide-y-0 xl:divide-x divide-border">
         <IndicatorModalCategoryList
           category={category}
           counts={categoryCounts}

@@ -68,7 +68,7 @@ export function MarginModeModal({
         <div className="space-y-3">
           <MarginModeOptions mode={mode} onModeChange={setMode} />
 
-          <div className="flex items-center justify-between px-3 py-2 bg-background/70 rounded-md border border-border/20">
+          <div className="flex items-center justify-between px-3 py-2 bg-background/80 rounded-md border border-border/25">
             <span className="text-[length:var(--text-data)] text-muted-foreground">
               Leverage for {symbol}
             </span>

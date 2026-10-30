@@ -1,36 +1,39 @@
-import { lazy, Suspense, type JSX } from "react";
+import { lazy, Suspense, useMemo, type JSX } from "react";
+import type { WhalePosition } from "@0xsignal/shared";
 import { useParams } from "react-router-dom";
 
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import type { PanelComponentProps } from "@/components/side-panel";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCompactUsd, formatFundingPercent, formatPrice } from "@/core/utils/formatters";
+import { formatCompactUsd, formatFundingPercent } from "@/core/utils/formatters";
 import { useWhaleClearinghouseState } from "@/features/portfolio/hooks/use-portfolio-data";
 
 import { useCoinAsset } from "../hooks/use-coin-asset";
 import {
-  meaningfulSharePercent,
-  parsePx,
   rankOnSide,
   sharePercent,
-  sharePercentLabel,
   trackedInterestAnchor,
   useCoinMarket,
   type CoinMarket,
   type SideRank,
 } from "../hooks/use-coin-market";
+import { WhaleVolumeCard } from "./whale-volume-card";
 
-// Kept dynamic: the panel is in the entry chunk and the chart is the only
-// recharts consumer on this path.
+// Kept dynamic: the panel is in the entry chunk, so neither recharts surface
+// may be imported statically here.
 const CoinPriceChart = lazy(() =>
   import("./coin-price-chart").then((chartModule) => ({ default: chartModule.CoinPriceChart })),
 );
+const LongShortDonut = lazy(() =>
+  import("./long-short-donut").then((donutModule) => ({ default: donutModule.LongShortDonut })),
+);
 
 const SKELETON_ROWS = ["coin-context-1", "coin-context-2", "coin-context-3"] as const;
-const SECTION_LABEL_CLASS = "text-xs font-normal text-muted-foreground";
+const GROUP_CLASS = "flex flex-col gap-2";
+const GROUP_LABEL_CLASS = "text-xs font-normal text-muted-foreground";
 const CAPTION_CLASS = "text-[11px] text-muted-foreground";
-const WHALE_BAR_MIN_WIDTH_PERCENT = 2;
+const WHALE_LIMIT = 10;
 
 interface MarketStatsSource {
   funding: string;
@@ -44,137 +47,52 @@ function toNumber(value: string | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function ordinal(value: number): string {
-  const tens = value % 100;
-  if (tens >= 11 && tens <= 13) return `${value}th`;
-  const units = value % 10;
-  if (units === 1) return `${value}st`;
-  if (units === 2) return `${value}nd`;
-  if (units === 3) return `${value}rd`;
-  return `${value}th`;
+function GroupLabel({ children }: { children: string }): JSX.Element {
+  return <h3 className={GROUP_LABEL_CLASS}>{children}</h3>;
 }
 
-function SectionLabel({ children }: { children: string }): JSX.Element {
-  return <h3 className={SECTION_LABEL_CLASS}>{children}</h3>;
+interface WhaleAggregate {
+  long: number;
+  short: number;
+  firstSide: "long" | "short";
 }
 
-function SideRow({ label, side }: { label: string; side: CoinMarket["long"] }): JSX.Element {
-  return (
-    <div className="flex items-baseline gap-1.5 text-xs text-muted-foreground">
-      <span>{label}</span>
-      <span className="text-sm tabular-nums text-foreground">
-        {formatCompactUsd(side.notional)}
-      </span>
-      <span>· {side.count}</span>
-    </div>
-  );
+interface WhaleRow {
+  address: string;
+  side: "long" | "short";
+  notional: number;
 }
 
-interface LongShortSplitProps {
-  summary: CoinMarket;
-  openInterestUsd: number | null;
-}
+/** One row per whale: its own split picks the side, a tie falling back to its first position. */
+function toWhaleRows(rows: readonly WhalePosition[]): WhaleRow[] {
+  const whales = new Map<string, WhaleAggregate>();
 
-function LongShortSplit({ summary, openInterestUsd }: LongShortSplitProps): JSX.Element {
-  const total = summary.long.notional + summary.short.notional;
-  const longPct = sharePercent(summary.long.notional, total);
-  const shortPct = sharePercent(summary.short.notional, total);
-  const biasPct = longPct === null ? null : longPct >= 50 ? longPct : 100 - longPct;
-  const biasSide = longPct !== null && longPct >= 50 ? "long" : "short";
-  const biasTone = biasPct === null ? "" : biasSide === "long" ? "text-gain" : "text-loss";
-  const anchor = trackedInterestAnchor(
-    summary.long.notional,
-    summary.short.notional,
-    openInterestUsd,
-  );
+  for (const row of rows) {
+    const side: "long" | "short" = row.side === "buy" ? "long" : "short";
+    const key = row.userAddress.toLowerCase();
+    const whale = whales.get(key);
 
-  return (
-    <section className="flex flex-col gap-2.5">
-      <p className={`text-xl leading-none font-medium tabular-nums ${biasTone}`}>
-        {biasPct === null ? "—" : `${biasPct.toFixed(1)}% ${biasSide}`}
-      </p>
-      {longPct !== null && (
-        <>
-          <div className="flex justify-between text-xs tabular-nums text-muted-foreground">
-            <span>{sharePercentLabel(longPct)}</span>
-            <span>{sharePercentLabel(shortPct)}</span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-[2px] bg-muted">
-            <div className="flex h-full">
-              <div className="bg-gain opacity-70" style={{ width: `${longPct}%` }} />
-              <div className="bg-loss opacity-70" style={{ width: `${100 - longPct}%` }} />
-            </div>
-          </div>
-        </>
-      )}
-      {anchor !== null && <p className={CAPTION_CLASS}>{anchor}</p>}
-      <div className="flex flex-col gap-2">
-        <SideRow label="Long" side={summary.long} />
-        <SideRow label="Short" side={summary.short} />
-      </div>
-    </section>
-  );
-}
+    if (whale === undefined) {
+      whales.set(key, {
+        long: side === "long" ? row.notionalUsd : 0,
+        short: side === "short" ? row.notionalUsd : 0,
+        firstSide: side,
+      });
+      continue;
+    }
 
-interface WhaleShareSubject {
-  entryPx: string;
-  positionValue: string;
-}
-
-interface WhaleShareProps {
-  ranked: SideRank | null;
-  subject: WhaleShareSubject | undefined;
-  summary: CoinMarket;
-  coin: string;
-}
-
-function whaleHeadline(ranked: SideRank): string {
-  const sideWord = ranked.side === "buy" ? "longs" : "shorts";
-  const place = ranked.rank === 1 ? "Largest" : `${ordinal(ranked.rank)} largest`;
-  return `${place} of ${ranked.count} ${sideWord}`;
-}
-
-/** No rank means either no position at all or one outside the tracked page; only the subject settles which. */
-function untrackedCopy(subject: WhaleShareSubject): string {
-  const entry = parsePx(subject.entryPx);
-  const notional = Number(subject.positionValue);
-  const parts = ["Below the tracked threshold"];
-  if (entry !== null) parts.push(`Entry ${formatPrice(entry)}`);
-  if (Number.isFinite(notional) && notional > 0) parts.push(formatCompactUsd(notional));
-  return parts.join(" · ");
-}
-
-function WhaleShare({ ranked, subject, summary, coin }: WhaleShareProps): JSX.Element {
-  if (ranked === null) {
-    return (
-      <section className="flex flex-col gap-2">
-        <SectionLabel>This whale</SectionLabel>
-        <p className="text-sm text-muted-foreground">
-          {subject === undefined ? `Not holding ${coin}` : untrackedCopy(subject)}
-        </p>
-      </section>
-    );
+    if (side === "long") whale.long += row.notionalUsd;
+    else whale.short += row.notionalUsd;
   }
 
-  const sideWord = ranked.side === "buy" ? "long" : "short";
-  const sideTotal = ranked.side === "buy" ? summary.long.notional : summary.short.notional;
-  const percent = meaningfulSharePercent(ranked.notional, sideTotal);
-  const rawShare = sharePercent(ranked.notional, sideTotal) ?? 0;
-  const barWidth = Math.min(100, Math.max(WHALE_BAR_MIN_WIDTH_PERCENT, rawShare));
-
-  return (
-    <section className="flex flex-col gap-2">
-      <SectionLabel>This whale</SectionLabel>
-      <p className="text-sm font-medium tabular-nums">{whaleHeadline(ranked)}</p>
-      <div className="h-1 w-full overflow-hidden rounded-[2px] bg-muted">
-        <div className="h-full rounded-[2px] bg-foreground/40" style={{ width: `${barWidth}%` }} />
-      </div>
-      <p className="text-xs tabular-nums text-muted-foreground">
-        {percent === null ? "<1%" : `${percent.toFixed(1)}%`} of tracked {sideWord} ·{" "}
-        {formatCompactUsd(ranked.notional)}
-      </p>
-    </section>
-  );
+  return [...whales]
+    .map(([address, whale]) => ({
+      address,
+      side:
+        whale.long === whale.short ? whale.firstSide : whale.long > whale.short ? "long" : "short",
+      notional: whale.long + whale.short,
+    }))
+    .toSorted((a, b) => b.notional - a.notional);
 }
 
 function StatRow({ label, value }: { label: string; value: string }): JSX.Element {
@@ -194,9 +112,9 @@ function MarketStats({
   openInterestUsd: number | null;
 }): JSX.Element {
   return (
-    <section className="flex flex-col gap-2">
-      <SectionLabel>Market</SectionLabel>
-      <dl className="flex flex-col gap-2.5">
+    <section className={GROUP_CLASS}>
+      <GroupLabel>Market</GroupLabel>
+      <dl className="flex flex-col gap-2">
         <StatRow label="Funding" value={formatFundingPercent(toNumber(asset?.funding))} />
         <StatRow label="Open interest" value={formatCompactUsd(openInterestUsd)} />
         <StatRow label="24h volume" value={formatCompactUsd(toNumber(asset?.dayNtlVlm))} />
@@ -259,6 +177,54 @@ function crowdPlaceholder({
   return null;
 }
 
+interface WhaleCards {
+  whales: readonly WhaleRow[];
+  subjectAddress: string | undefined;
+  subjectMeta:
+    | {
+        rank: number;
+        total: number;
+        side: "long" | "short";
+        sharePercent: number;
+      }
+    | undefined;
+}
+
+/** The subject may rank outside the tracked page's top 25, so its card is appended last. */
+function toWhaleCards(
+  rows: readonly WhaleRow[],
+  whaleAddress: string | null,
+  ranked: SideRank | null,
+  summary: CoinMarket,
+): WhaleCards {
+  const listed = rows.slice(0, WHALE_LIMIT);
+  if (whaleAddress === null) {
+    return { whales: listed, subjectAddress: undefined, subjectMeta: undefined };
+  }
+
+  const subjectAddress = whaleAddress.toLowerCase();
+  const subject = rows.find((whale) => whale.address === subjectAddress);
+  const subjectMeta: WhaleCards["subjectMeta"] =
+    ranked === null
+      ? undefined
+      : {
+          rank: ranked.rank,
+          total: ranked.count,
+          side: ranked.side === "buy" ? "long" : "short",
+          sharePercent:
+            sharePercent(
+              ranked.notional,
+              ranked.side === "buy" ? summary.long.notional : summary.short.notional,
+            ) ?? 0,
+        };
+
+  return {
+    whales: subject === undefined || listed.includes(subject) ? listed : [...listed, subject],
+    subjectAddress,
+    subjectMeta,
+  };
+}
+
 export function CoinContextPanel({ id }: PanelComponentProps): JSX.Element {
   // Verbatim: the route id is the query key and the lookup key, so `kPEPE` and
   // `xyz:GOLD` must not be case-folded or stripped on the way to the API.
@@ -272,6 +238,7 @@ export function CoinContextPanel({ id }: PanelComponentProps): JSX.Element {
   const openInterestUsd =
     openInterestUnits === null || markPx === null ? null : openInterestUnits * markPx;
   const { rows, summary, isLoading, isError, refetch } = useCoinMarket(coin, markPx);
+  const whaleBreakdown = useMemo(() => toWhaleRows(rows), [rows]);
   const { data: clearinghouse } = useWhaleClearinghouseState(whaleAddress ?? undefined);
   // The whale's own row, not the crowd page: a whale outside the largest 200
   // still has an entry and a liquidation, and the panel must draw both.
@@ -300,11 +267,16 @@ export function CoinContextPanel({ id }: PanelComponentProps): JSX.Element {
   }
 
   const ranked = whaleAddress === null ? null : rankOnSide(rows, whaleAddress);
+  const whaleCards = toWhaleCards(whaleBreakdown, whaleAddress, ranked, summary);
+  const anchor = trackedInterestAnchor(
+    summary.long.notional,
+    summary.short.notional,
+    openInterestUsd,
+  );
 
   return (
-    <div className="flex h-full flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-xl leading-none font-semibold">{coin.toUpperCase()}</h2>
+    <div className="flex flex-col gap-4">
+      <header>
         <Suspense fallback={<Skeleton className="h-40 w-full" />}>
           <CoinPriceChart
             coin={coin}
@@ -314,14 +286,27 @@ export function CoinContextPanel({ id }: PanelComponentProps): JSX.Element {
             subjectPosition={subjectPosition}
           />
         </Suspense>
-      </div>
-      <LongShortSplit summary={summary} openInterestUsd={openInterestUsd} />
-      {whaleAddress !== null && (
-        <WhaleShare ranked={ranked} subject={subjectPosition} summary={summary} coin={coin} />
-      )}
+      </header>
       <MarketStats asset={asset} openInterestUsd={openInterestUsd} />
-      {summary.truncated && (
-        <p className={CAPTION_CLASS}>Showing the 200 largest tracked positions.</p>
+      <section className={GROUP_CLASS}>
+        <GroupLabel>Tracked split</GroupLabel>
+        <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+          <LongShortDonut long={summary.long} short={summary.short} />
+        </Suspense>
+        {anchor !== null && <p className={CAPTION_CLASS}>{anchor}</p>}
+        {summary.truncated && (
+          <p className={CAPTION_CLASS}>Showing the 200 largest tracked positions.</p>
+        )}
+      </section>
+      {whaleCards.whales.length > 0 && (
+        <section className={GROUP_CLASS}>
+          <GroupLabel>Whales</GroupLabel>
+          <WhaleVolumeCard
+            whales={whaleCards.whales}
+            subjectAddress={whaleCards.subjectAddress}
+            subjectMeta={whaleCards.subjectMeta}
+          />
+        </section>
       )}
     </div>
   );

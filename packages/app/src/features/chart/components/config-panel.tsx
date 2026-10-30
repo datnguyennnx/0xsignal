@@ -130,7 +130,7 @@ function IndicatorConfigPanelInner({
 
           <Button
             size="sm"
-            className="min-h-[clamp(2.5rem,5vh,3rem)] text-xs font-semibold rounded-lg active:scale-[0.97] bg-foreground text-background hover:bg-foreground/85"
+            className="min-h-[clamp(2.5rem,5vh,3rem)] text-xs font-semibold rounded-lg active:scale-[0.97] bg-foreground text-background hover:bg-foreground/80"
             onClick={handleApply}
           >
             <Plus className="size-3.5" />

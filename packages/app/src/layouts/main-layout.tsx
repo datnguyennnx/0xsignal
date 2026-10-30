@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { AppSidePanelProvider } from "@/components/app-side-panel";
 import { SidePanelRegion } from "@/components/side-panel";
 import { UserNav } from "@/components/user-nav";
+import { Surface } from "@/components/surface/surface";
 import { cn } from "cn";
 const NAV_ITEMS = [
   { path: "/trade", label: "Trade" },
@@ -20,9 +21,11 @@ export function MainLayout({ children }: { children: ReactNode }) {
         <div className="flex flex-1 min-w-0 flex-col p-[var(--app-page-pad)] gap-[var(--app-page-gap)]">
           <a
             href="#main-content"
-            className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-4 focus-visible:left-4 focus-visible:z-[60] focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-4 focus-visible:left-4 focus-visible:z-[60]"
           >
-            Skip to content
+            <Surface tier="control" radius="control" className="px-4 py-2 text-sm font-medium">
+              Skip to content
+            </Surface>
           </a>
 
           <header className="shrink-0 z-50">

@@ -24,7 +24,7 @@ function NativeSelect({
         data-slot="native-select"
         data-size={size}
         className={cn(
-          "h-8 w-full min-w-0 appearance-none rounded-md tier-control px-2.5 pr-8 text-base sm:text-sm leading-none tabular-nums tracking-[0.01em] text-foreground transition-[background-color,border-color,color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground hover:bg-muted/35 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40 data-[size=sm]:h-7 data-[size=sm]:px-2 data-[size=sm]:pr-7 dark:bg-input/20 dark:hover:bg-input/40 dark:[color-scheme:dark]",
+          "h-[var(--control-h-md)] w-full min-w-0 appearance-none rounded-[var(--control-radius-md)] tier-control px-[var(--control-px-md)] pr-[calc(var(--control-px-lg)+var(--control-px-md)+var(--control-px-xs))] text-[length:var(--control-text-md)] leading-none tabular-nums tracking-[0.01em] text-foreground transition-[background-color,border-color,color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground hover:bg-muted/40 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40 data-[size=sm]:h-[var(--control-h-sm)] data-[size=sm]:px-[var(--control-px-sm)] data-[size=sm]:pr-[calc(var(--control-px-md)+var(--control-px-sm)+var(--control-px-xs))] dark:bg-input/25 dark:hover:bg-input/40 dark:[color-scheme:dark]",
           "focus-visible:border-ring/60 focus-visible:ring-[2px] focus-visible:ring-ring/40",
           "aria-invalid:border-destructive aria-invalid:ring-destructive/25",
           className,
@@ -44,7 +44,7 @@ function NativeSelectOption({ className, ...props }: React.ComponentProps<"optio
   return (
     <option
       data-slot="native-select-option"
-      className={cn("bg-[Canvas] text-[CanvasText]", className)}
+      className={cn("bg-[color:Canvas] text-[color:CanvasText]", className)}
       {...props}
     />
   );
@@ -54,7 +54,7 @@ function NativeSelectOptGroup({ className, ...props }: React.ComponentProps<"opt
   return (
     <optgroup
       data-slot="native-select-optgroup"
-      className={cn("bg-[Canvas] text-[CanvasText]", className)}
+      className={cn("bg-[color:Canvas] text-[color:CanvasText]", className)}
       {...props}
     />
   );

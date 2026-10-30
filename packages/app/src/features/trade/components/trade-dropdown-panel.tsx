@@ -1,9 +1,10 @@
 import type { RefObject } from "react";
 import { Search, X } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Surface } from "@/components/surface/surface";
 import { cn } from "cn";
-import { OVERLAY_PANEL_CLASS } from "@/lib/overlay-classes";
 import { MarketHeader, MarketRow, MarketRowSkeleton } from "./trade-dropdown.columns";
 import { getColumns } from "../utils/trade-dropdown-columns";
 import { TAB_ORDER, TAB_TO_CATEGORY } from "../utils/trade-dropdown";
@@ -47,12 +48,12 @@ export function TradeDropdownPanel({
   const columns = getColumns(category);
 
   return (
-    <div
+    <Surface
       id={id}
-      className={cn(
-        OVERLAY_PANEL_CLASS,
-        "fixed z-50 w-[calc(100vw-16px)] sm:w-[90vw] max-w-[56rem]",
-      )}
+      tier="floating"
+      radius="overlay"
+      blur={false}
+      className="fixed z-50 w-[calc(100vw-16px)] sm:w-[90vw] max-w-[56rem] text-popover-foreground"
       style={{ top: position.top, left: position.left }}
     >
       <div className="p-3">
@@ -72,16 +73,18 @@ export function TradeDropdownPanel({
             className="pl-9 pr-8 bg-muted border-border h-10 text-sm rounded-lg focus:ring-1 focus:ring-offset-0"
           />
           {query && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-xs"
               onClick={() => {
                 onQueryChange("");
               }}
               aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center text-muted-foreground/60 hover:text-foreground bg-transparent border-none cursor-pointer tap-highlight"
+              className="absolute right-2 top-1/2 size-4 -translate-y-1/2 cursor-pointer rounded-none border-0 text-muted-foreground/60 hover:bg-transparent tap-highlight dark:hover:bg-transparent"
             >
               <X className="w-4 h-4" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -156,6 +159,6 @@ export function TradeDropdownPanel({
           </div>
         )}
       </div>
-    </div>
+    </Surface>
   );
 }

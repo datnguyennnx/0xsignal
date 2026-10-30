@@ -18,18 +18,18 @@ const readToken = (token: string): string =>
   toRgb(getComputedStyle(document.documentElement).getPropertyValue(token).trim());
 
 const getChartColors = () => ({
-  grid: readToken("--chart-grid"),
-  text: readToken("--chart-text"),
-  border: readToken("--chart-border"),
-  crosshair: readToken("--chart-crosshair"),
-  volume: readToken("--chart-grid"),
+  grid: readToken("--data-grid"),
+  text: readToken("--data-axis"),
+  border: readToken("--data-grid"),
+  crosshair: readToken("--data-crosshair"),
+  volume: readToken("--data-volume"),
 });
 
 const getCandlestickColors = () => ({
-  upColor: readToken("--candle-up"),
-  downColor: readToken("--candle-down"),
-  wickUpColor: readToken("--candle-up"),
-  wickDownColor: readToken("--candle-down"),
+  upColor: readToken("--data-up"),
+  downColor: readToken("--data-down"),
+  wickUpColor: readToken("--data-up"),
+  wickDownColor: readToken("--data-down"),
 });
 
 interface UseChartEngineProps {

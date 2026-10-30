@@ -7,6 +7,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatSize } from "@/core/utils/formatters";
 import { formatTime } from "../utils/shared-table-utils";
@@ -87,13 +88,16 @@ export function OpenOrdersTable({
           <TableHead className={cHead}>TP/SL</TableHead>
           {!readOnly && (
             <TableHead className={cHeadNum}>
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="auto"
                 onClick={onCancelAll}
                 disabled={orderCount === 0 || isCancelPending}
-                className="text-xs font-medium uppercase tracking-wider transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="text-xs uppercase tracking-wider hover:bg-transparent hover:text-inherit disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-auto dark:hover:bg-transparent"
               >
                 Cancel All
-              </button>
+              </Button>
             </TableHead>
           )}
         </TableRow>
@@ -125,29 +129,35 @@ export function OpenOrdersTable({
                 <TableCell className={c}>{getTriggerLabel(order)}</TableCell>
                 <TableCell className={c}>
                   {!readOnly && isFrontendOpenOrder(order) && order.children.length > 0 ? (
-                    <button
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="auto"
                       onClick={() => {
                         onViewTpSl(order);
                       }}
-                      className="text-gain text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                      className="cursor-pointer text-sm text-gain underline-offset-2"
                     >
                       View
-                    </button>
+                    </Button>
                   ) : (
                     "—"
                   )}
                 </TableCell>
                 {!readOnly && (
                   <TableCell className={cNum}>
-                    <button
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="auto"
                       onClick={() => {
                         onCancelOrder(order.coin, order.oid);
                       }}
                       disabled={isCancelPending}
-                      className="text-sm font-medium rounded-sm underline-offset-2 transition-colors cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+                      className="cursor-pointer text-sm text-inherit underline-offset-2 disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40 disabled:pointer-events-auto"
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </TableCell>
                 )}
               </TableRow>

@@ -183,8 +183,7 @@ export const useIndicatorOverlay = ({
       const last = bandData.at(-1);
       if (first === undefined || last === undefined) return;
 
-      const safeColor =
-        color !== undefined && color !== "" ? color : readToken("--chart-crosshair");
+      const safeColor = color !== undefined && color !== "" ? color : readToken("--data-crosshair");
 
       let bandRef = bandPrimitiveRefs.current.get(instanceId);
       if (bandRef === undefined && mainSeries !== null && mainSeries !== undefined) {

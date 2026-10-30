@@ -8,6 +8,7 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import { useAppStore } from "@/stores/use-app-store";
+import { TIER_CLASS } from "@/components/surface/tiers";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import type { CSSProperties } from "react";
 
@@ -32,7 +33,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
         loading: <Loader2Icon className="size-4 animate-spin" />,
       }}
       style={cssVars}
-      toastOptions={{ classNames: { toast: "tier-floating" } }}
+      // Sonner only accepts class strings per toast, so the tier is applied by its constant.
+      toastOptions={{ classNames: { toast: TIER_CLASS.floating } }}
       {...props}
     />
   );

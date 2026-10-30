@@ -44,7 +44,7 @@ export function UserNav() {
                 onClick={() => {
                   disconnect();
                 }}
-                className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-accent transition-colors rounded-md"
+                className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-accent transition-colors rounded-md"
               >
                 Disconnect
               </DropdownMenuItem>
@@ -71,7 +71,7 @@ export function UserNav() {
               onClick={() => {
                 void navigate("/portfolio");
               }}
-              className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-accent transition-colors rounded-md"
+              className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-accent transition-colors rounded-md"
             >
               Exit read-only
             </DropdownMenuItem>

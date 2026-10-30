@@ -14,4 +14,4 @@ export interface DashboardGridProps {
   panelNames?: Record<string, string>;
 }
 
-export type ResizeHandleAxis = "nw" | "n" | "ne" | "sw" | "s" | "se";
+export type ResizeHandleAxis = "nw" | "n" | "ne" | "e" | "sw" | "s" | "se" | "w";

@@ -1,6 +1,5 @@
 import { memo } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
-import { cn } from "cn";
 import { Surface } from "@/components/surface/surface";
 import { formatChartPrice } from "../utils/price-format";
 import { useHoverState } from "../contexts/hover-context";
@@ -22,6 +21,7 @@ export const ChartOhlcOverlay = memo(({ data }: ChartOhlcOverlayProps) => {
       <Surface
         tier="floating"
         radius="overlay"
+        blur={false}
         className="pointer-events-none absolute inset-0 -z-10"
       />
       <div className="flex items-center gap-[clamp(0.4rem,0.7vw,0.75rem)] min-w-fit">
@@ -32,19 +32,20 @@ export const ChartOhlcOverlay = memo(({ data }: ChartOhlcOverlayProps) => {
           </span>
         </span>
         <span className="text-muted-foreground">
-          H <span className="text-gain tabular-nums">{formatChartPrice(displayCandle.high)}</span>
+          H{" "}
+          <span className="text-foreground tabular-nums">
+            {formatChartPrice(displayCandle.high)}
+          </span>
         </span>
         <span className="text-muted-foreground">
-          L <span className="text-loss tabular-nums">{formatChartPrice(displayCandle.low)}</span>
+          L{" "}
+          <span className="text-foreground tabular-nums">
+            {formatChartPrice(displayCandle.low)}
+          </span>
         </span>
         <span className="text-muted-foreground">
           C{" "}
-          <span
-            className={cn(
-              displayCandle.close >= displayCandle.open ? "text-gain" : "text-loss",
-              "tabular-nums",
-            )}
-          >
+          <span className="text-foreground tabular-nums">
             {formatChartPrice(displayCandle.close)}
           </span>
         </span>

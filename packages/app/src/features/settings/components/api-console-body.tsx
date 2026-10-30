@@ -1,5 +1,6 @@
 import { Terminal, Plug, Lock, RefreshCw, ShieldCheck } from "lucide-react";
 
+import { Surface } from "@/components/surface/surface";
 import { Button } from "@/components/ui/button";
 import { truncateAddress } from "@/core/utils/formatters";
 
@@ -105,9 +106,13 @@ export function ApiConsoleBody({
           )}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Active wallet</p>
-            <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+            <Surface
+              tier="control"
+              radius="control"
+              className="flex h-10 w-full items-center px-3 py-2 text-sm text-muted-foreground"
+            >
               {isConnected && address !== undefined ? truncateAddress(address) : "Not connected"}
-            </div>
+            </Surface>
           </div>
           <div className="flex items-start gap-2 rounded-md border border-input p-3 text-xs text-muted-foreground">
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />

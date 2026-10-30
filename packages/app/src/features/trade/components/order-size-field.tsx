@@ -93,7 +93,7 @@ export function OrderSizeField({
                 onSizeAssetChange(e.target.value);
               }}
               wrapperClassName="min-w-0"
-              className="h-6 w-20 text-[length:var(--text-micro)] border-border/40 bg-background/70 text-muted-foreground tabular-nums"
+              className="h-6 w-20 text-[length:var(--text-micro)] text-muted-foreground tabular-nums"
             >
               {sizeAssetOptions.map((opt) => (
                 <NativeSelectOption key={opt.value} value={opt.value}>
@@ -109,7 +109,7 @@ export function OrderSizeField({
           value={size}
           onChange={handleSizeChange}
           placeholder="0.00"
-          className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] w-full text-base sm:text-sm tabular-nums bg-background/70 border-border/40 hover:border-border/60 transition-colors"
+          className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] w-full text-base sm:text-sm tabular-nums bg-background/80 border-border/40 hover:border-border/60 transition-colors"
         />
         {assetQtyDisplay !== null && (
           <p className="mt-[var(--space-1,0.3125rem)] text-[length:var(--text-micro)] text-muted-foreground tabular-nums text-right">
@@ -136,7 +136,7 @@ export function OrderSizeField({
           value={sliderPercent}
           onChange={handlePctInputChange}
           aria-label="Size percentage"
-          className="w-16 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm text-center tabular-nums bg-background/70 border-border/40 shrink-0"
+          className="w-16 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm text-center tabular-nums bg-background/80 border-border/40 shrink-0"
         />
         <span className="text-xs text-muted-foreground">%</span>
       </div>

@@ -109,16 +109,19 @@ export function CloseLimitModal({
                   setPrice(e.target.value);
                 }}
                 placeholder="0.00"
-                className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/40 pr-14"
+                className="h-9 text-base sm:text-sm tabular-nums bg-background/80 border-border/40 pr-14"
               />
-              <button
+              <Button
+                type="button"
+                variant="link"
+                size="auto"
                 onClick={() => {
                   if (position !== null) setPrice(position.markPx.toFixed(2));
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-foreground hover:text-foreground/70 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[length:var(--control-text-xs)] text-foreground hover:text-foreground/80 hover:no-underline"
               >
                 Mid
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -131,7 +134,7 @@ export function CloseLimitModal({
               value={size}
               onChange={handleSizeChange}
               placeholder="0.00"
-              className="h-9 text-base sm:text-sm tabular-nums bg-background/70 border-border/40"
+              className="h-9 text-base sm:text-sm tabular-nums bg-background/80 border-border/40"
             />
           </div>
 

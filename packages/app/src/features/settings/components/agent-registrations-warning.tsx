@@ -41,7 +41,7 @@ export function AgentRegistrationsBanner({ registrations }: AgentRegistrationsBa
               <span className="text-muted-foreground">
                 expires {formatExpiry(registration.expiresAt)}
               </span>
-              <span className={registration.status === "active" ? "text-amber-500" : undefined}>
+              <span className={registration.status === "active" ? "text-warn" : undefined}>
                 {registration.status === "active" ? "active" : "expired"}
               </span>
             </li>

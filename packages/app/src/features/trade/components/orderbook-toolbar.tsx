@@ -39,7 +39,7 @@ export const OrderbookToolbar = memo(
             onPairFocusChange(e.target.value);
           }}
           wrapperClassName="min-w-[4rem] max-w-[6rem]"
-          className="h-7 w-full min-w-0 border-border/40 bg-background/70 text-[length:var(--text-micro)] font-semibold tracking-[0.01em]"
+          className="h-7 w-full min-w-0 text-[length:var(--text-micro)] font-semibold tracking-[0.01em]"
         >
           {coinOptions.map((opt) => (
             <NativeSelectOption key={opt.value} value={opt.value}>
@@ -55,7 +55,7 @@ export const OrderbookToolbar = memo(
             onNSigFigsChange(Number(e.target.value));
           }}
           wrapperClassName="min-w-fit"
-          className="h-7 w-full min-w-0 border-border/40 bg-background/70 text-[length:var(--text-micro)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
+          className="h-7 w-full min-w-0 text-[length:var(--text-micro)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
         >
           {scalingOptions.map((opt) => (
             <NativeSelectOption key={opt.value} value={opt.value.toString()}>

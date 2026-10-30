@@ -20,6 +20,8 @@ export const CORNER_HIT_BOX_PX = 24;
 const CURSOR_BY_AXIS: Record<ResizeHandleAxis, string> = {
   n: "ns-resize",
   s: "ns-resize",
+  e: "ew-resize",
+  w: "ew-resize",
   ne: "nesw-resize",
   sw: "nesw-resize",
   nw: "nwse-resize",

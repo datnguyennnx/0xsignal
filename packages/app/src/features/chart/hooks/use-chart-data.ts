@@ -7,9 +7,9 @@ import { toUtcTimestamps, type UtcDated } from "../lib/time";
 const readToken = (token: string): string =>
   toRgb(getComputedStyle(document.documentElement).getPropertyValue(token).trim());
 
-const getVolumeColors = (): { gain: string; loss: string } => ({
-  gain: readToken("--gain"),
-  loss: readToken("--loss"),
+const getVolumeColors = (): { up: string; down: string } => ({
+  up: readToken("--data-up"),
+  down: readToken("--data-down"),
 });
 
 interface UseChartDataProps {
@@ -33,12 +33,12 @@ const toCandlestickData = (points: UtcDated<ChartDataPoint>[]): CandlestickData[
 
 const toVolumeHistogramData = (
   points: UtcDated<ChartDataPoint>[],
-  colors: { gain: string; loss: string },
+  colors: { up: string; down: string },
 ): HistogramData[] =>
   points.map((point) => ({
     time: point.time,
     value: point.volume,
-    color: point.close >= point.open ? colors.gain : colors.loss,
+    color: point.close >= point.open ? colors.up : colors.down,
   }));
 
 export const useChartData = ({
@@ -176,7 +176,7 @@ export const useChartData = ({
         time: currentLastCandle.time,
         value: currentLastCandle.volume,
         color:
-          currentLastCandle.close >= currentLastCandle.open ? volumeColors.gain : volumeColors.loss,
+          currentLastCandle.close >= currentLastCandle.open ? volumeColors.up : volumeColors.down,
       });
 
       prevLastCandleRef.current = { ...currentLastCandle };
@@ -200,7 +200,7 @@ export const useChartData = ({
         volumeSeries.update({
           time: c.time,
           value: c.volume,
-          color: c.close >= c.open ? volumeColors.gain : volumeColors.loss,
+          color: c.close >= c.open ? volumeColors.up : volumeColors.down,
         });
       }
 

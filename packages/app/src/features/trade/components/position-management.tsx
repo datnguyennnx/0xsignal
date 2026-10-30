@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Surface } from "@/components/surface/surface";
 import { Tabs, TabsList } from "@/components/ui/tabs";
 import { useOpenOrders } from "../hooks/use-user-data";
 import { useUserBalances, useWhaleBalances } from "../hooks/use-user-balances";
@@ -12,8 +13,7 @@ import {
   useWhaleOpenOrders,
 } from "@/features/portfolio/hooks/use-portfolio-data";
 
-const PANEL_SURFACE =
-  "rounded-[var(--radius-panel)] p-[var(--panel-pad,1.08rem)] panel-surface gap-[var(--space-4,1.5rem)]";
+const PANEL_SURFACE = "p-[var(--panel-pad,1.08rem)] gap-[var(--space-4,1.5rem)]";
 
 const ROOT_CLASS = {
   fill: `h-full min-h-0 flex flex-col overflow-y-auto ${PANEL_SURFACE}`,
@@ -90,7 +90,7 @@ export function PositionManagement({
   );
 
   return (
-    <div className={ROOT_CLASS[variant]}>
+    <Surface tier="content" radius="panel" className={ROOT_CLASS[variant]}>
       {signingDisabled && (
         <p className="w-fit mb-2 shrink-0 rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
           Viewing another account — connect a wallet to trade.
@@ -152,6 +152,6 @@ export function PositionManagement({
         onConfirmLimitClose={handleCloseLimitConfirm}
         isPlacePending={isPlacePending}
       />
-    </div>
+    </Surface>
   );
 }

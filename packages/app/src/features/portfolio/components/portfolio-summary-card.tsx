@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Surface } from "@/components/surface/surface";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import {
   useClearinghouseState,
@@ -20,6 +21,7 @@ import {
 } from "../utils/constants";
 import { computeMaxDrawdown } from "../utils/financial";
 import { SURFACE } from "./portfolio-summary.constants";
+import { SELECT_COMPACT_CLASS } from "@/lib/state-classes";
 import {
   PortfolioSummaryError,
   PortfolioSummarySections,
@@ -103,7 +105,7 @@ export function PortfolioSummaryCard({
   }
 
   return (
-    <div className={SURFACE}>
+    <Surface tier="content" className={SURFACE}>
       <div className="flex items-center justify-between">
         <span className="text-[length:var(--text-compact)] font-medium tracking-wider text-muted-foreground">
           Perps + Spot + Vaults
@@ -116,7 +118,7 @@ export function PortfolioSummaryCard({
             const val = e.target.value;
             setTf(isPortfolioPeriod(val) ? val : "month");
           }}
-          className="h-7 min-w-[4.5rem] text-xs tabular-nums border-border/40 bg-background/70 hover:bg-muted/40 focus-visible:ring-ring/40"
+          className={SELECT_COMPACT_CLASS}
         >
           {PERIOD_KEYS.map((p) => (
             <NativeSelectOption key={p} value={p}>
@@ -127,6 +129,6 @@ export function PortfolioSummaryCard({
       </div>
 
       <PortfolioSummarySections perps={perps} spot={spot} vaults={vaults} />
-    </div>
+    </Surface>
   );
 }

@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { Tier } from "./tiers";
+import type { SurfaceFrame } from "./tiers";
 
-/** Ancestor tier stack, nearest last. Read by nested surfaces for placement checks. */
-export const SurfaceContext = createContext<readonly Tier[]>([]);
+/** Ancestor surface stack, outermost first; portals reset it to an empty array. */
+export const SurfaceContext = createContext<readonly SurfaceFrame[]>([]);
