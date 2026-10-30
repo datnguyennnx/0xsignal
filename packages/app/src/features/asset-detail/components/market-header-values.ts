@@ -32,6 +32,9 @@ export function deriveMarketHeaderValues({
 }: MarketHeaderInput): MarketHeaderValues {
   const tradePrevDayPx = tradeAsset?.prevDayPx;
   const circulatingSupply = tradeAsset?.circulatingSupply;
+  // Hyperliquid reports `openInterest` in coin units; the header shows USD = units × mark.
+  const openInterestUsd =
+    Number.isFinite(livePrice) && livePrice > 0 ? (price?.openInterest || 0) * livePrice : 0;
 
   return {
     markPrice: livePrice,
@@ -45,7 +48,7 @@ export function deriveMarketHeaderValues({
         ? ((livePrice - Number(tradePrevDayPx)) / Number(tradePrevDayPx)) * 100
         : price?.change24h || 0,
     volume24h: isSpot ? Number(tradeAsset?.dayNtlVlm ?? 0) : price?.volume24h || 0,
-    openInterest: price?.openInterest || 0,
+    openInterest: openInterestUsd,
     fundingRate: price?.funding || 0,
     marketType: tradeAsset?.marketType,
     marketCap:
