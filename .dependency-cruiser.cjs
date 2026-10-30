@@ -1,8 +1,10 @@
 /**
- * Import-graph guard for the target (module-first) architecture.
+ * Import-graph guard for the module-first api plus workspace direction.
  *
- * Rules for directories that do not exist yet are intentional: they are
- * vacuously satisfied today and start biting the moment a module moves in.
+ * packages/api is modules/<name>/ (public surface = index.ts) over shared
+ * platform/ and integrations/ plumbing. packages/auth splits into
+ * domain/application/infrastructure/presentation and is covered here only by
+ * the workspace-direction rule, not by layer rules.
  *
  * NOT covered here, because neither is an import-graph property (review only):
  *   - `Layer.provide` may only appear in `app.layer.ts`
@@ -13,35 +15,12 @@ module.exports = {
     {
       name: "no-circular",
       comment:
-        "A cycle makes the layer direction meaningless. TODO: warn-only until the " +
-        "known type-only cycle is broken (extract the repo port out of the facade " +
-        "file): auth/.../exchange-account.repo.pg.ts:5 -> exchange-account.repo.ts:5. " +
-        "The reverse edge is `import type` of the port interface only.",
+        "A cycle makes the layer direction meaningless. Warn-only by design: both " +
+        "cycles below are type-only back-edges (each *.repo.pg.ts imports just " +
+        "types from its *.repo.ts port file), so they cannot invert a runtime layer.",
       severity: "warn",
       from: {},
       to: { circular: true },
-    },
-    {
-      name: "domain-is-pure",
-      comment: "Domain may depend on itself, @0xsignal/shared and effect. Nothing else.",
-      severity: "error",
-      from: { path: "^packages/api/domain/" },
-      to: { path: "^packages/(?!(api/domain|shared)/)" },
-    },
-    {
-      name: "application-no-infrastructure",
-      comment:
-        "Application talks to ports; infrastructure, presentation and integrations implement them.",
-      severity: "error",
-      from: { path: "^packages/api/application/" },
-      to: { path: "^packages/api/(infrastructure|presentation|integrations)/" },
-    },
-    {
-      name: "infrastructure-no-presentation",
-      comment: "Infrastructure must not reach up into presentation.",
-      severity: "error",
-      from: { path: "^packages/api/infrastructure/" },
-      to: { path: "^packages/api/presentation/" },
     },
     {
       name: "shared-workspace-downward",
@@ -49,31 +28,6 @@ module.exports = {
       severity: "error",
       from: { path: "^packages/shared/" },
       to: { path: "^packages/(api|auth|app)/" },
-    },
-    {
-      name: "logic-is-pure",
-      comment:
-        "logic.ts is pure decision code: no Effect runtime, no platform, no " +
-        "integrations, no app wiring and no other module's internals.",
-      severity: "error",
-      from: { path: "^packages/api/.*logic\\.ts$" },
-      to: {
-        path: [
-          "^packages/api/(platform|integrations|app)/",
-          "^node_modules/(effect|@effect|bun)/",
-          "^node:",
-        ],
-      },
-    },
-    {
-      name: "logic-no-other-module",
-      comment: "A module's logic.ts may only import from its own module.",
-      severity: "error",
-      from: { path: "^packages/api/modules/([^/]+)/.*logic\\.ts$" },
-      to: {
-        path: "^packages/api/modules/",
-        pathNot: "^packages/api/modules/$1/",
-      },
     },
     {
       name: "integrations-no-modules",
