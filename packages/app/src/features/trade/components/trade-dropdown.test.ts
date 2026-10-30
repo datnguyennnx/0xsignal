@@ -9,7 +9,7 @@ import {
   lookupPrecision,
 } from "../hooks/use-hyperliquid-meta";
 import { selectListedAssets } from "../hooks/use-trade-list";
-import { filterTradeAssets } from "../utils/trade-dropdown";
+import { filterTradeAssets, isLiveMarket } from "../utils/trade-dropdown";
 import { calculatePxDecimals } from "../utils/trade-formatters";
 
 const market = (overrides: Partial<AggregatedMarket> = {}): AggregatedMarket => ({
@@ -30,7 +30,7 @@ const market = (overrides: Partial<AggregatedMarket> = {}): AggregatedMarket => 
   prevDayPx: "100",
   openInterest: "0",
   funding: "0",
-  dayNtlVlm: "0",
+  dayNtlVlm: "1000000",
   maxLeverage: 10,
   szDecimals: 4,
   ...overrides,
@@ -92,11 +92,53 @@ describe("asset dropdown search", () => {
   });
 });
 
-describe("asset dropdown delisting", () => {
-  test("delisted rows never reach the dropdown", () => {
-    const payload = [market({ coin: "BTC" }), market({ coin: "OLD", isDelisted: true })];
+describe("shared market list select", () => {
+  test("the select drops a delisted row even when it has volume", () => {
+    const payload = [
+      market({ coin: "BTC" }),
+      market({ coin: "OLD", isDelisted: true, dayNtlVlm: "999999" }),
+    ];
 
     expect(coins(selectListedAssets(payload).assets)).toEqual(["BTC"]);
+  });
+
+  test("the select keeps a zero-volume row because liveness is the dropdown's concern", () => {
+    const payload = [market({ coin: "BTC" }), market({ coin: "DEAD", dayNtlVlm: "0.0" })];
+
+    expect(coins(selectListedAssets(payload).assets)).toEqual(["BTC", "DEAD"]);
+  });
+});
+
+describe("asset dropdown liveness", () => {
+  test("a zero-volume row is not live", () => {
+    expect(isLiveMarket(market({ dayNtlVlm: "0.0" }))).toBe(false);
+  });
+
+  test("a row with a missing volume is not live", () => {
+    const noVolume = market({ coin: "NOVOL" });
+    Reflect.deleteProperty(noVolume, "dayNtlVlm");
+
+    expect(isLiveMarket(noVolume)).toBe(false);
+  });
+
+  test("NaN, negative and non-numeric volumes are not live", () => {
+    expect(isLiveMarket(market({ dayNtlVlm: "not-a-number" }))).toBe(false);
+    expect(isLiveMarket(market({ dayNtlVlm: "-500" }))).toBe(false);
+    expect(isLiveMarket(market({ dayNtlVlm: "Infinity" }))).toBe(false);
+  });
+
+  test("a row with positive volume is live", () => {
+    expect(isLiveMarket(market({ dayNtlVlm: "0.5" }))).toBe(true);
+  });
+
+  test("the dropdown's live list keeps only volume-bearing rows of the selected set", () => {
+    const payload = [
+      market({ coin: "BTC" }),
+      market({ coin: "OLD", isDelisted: true, dayNtlVlm: "999999" }),
+      market({ coin: "DEAD", dayNtlVlm: "0.0" }),
+    ];
+
+    expect(coins(selectListedAssets(payload).assets.filter(isLiveMarket))).toEqual(["BTC"]);
   });
 });
 

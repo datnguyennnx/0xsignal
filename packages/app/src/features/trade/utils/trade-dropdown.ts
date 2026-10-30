@@ -102,6 +102,12 @@ const matchesSearch = (asset: TradeAsset, needle: string): boolean =>
     normalizeSearch(field).includes(needle),
   );
 
+/** Wire values are decimal strings, so coerce before deciding; a dead market reports "0". */
+export function isLiveMarket(asset: TradeAsset): boolean {
+  const volume = Number(asset.dayNtlVlm);
+  return Number.isFinite(volume) && volume > 0;
+}
+
 export function filterTradeAssets(
   assets: readonly TradeAsset[],
   category: CategoryTab,

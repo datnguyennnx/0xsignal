@@ -8,11 +8,13 @@ export interface TradeListData {
 }
 
 /**
- * The dropdown's single delisting gate. The API keeps emitting delisted rows
- * because other consumers need them.
+ * Drops delisted rows only. Liveness is the dropdown's concern: the asset page
+ * resolves its header data from this same list, so dead markets must survive.
  */
 export function selectListedAssets(payload: readonly AggregatedMarket[]): TradeListData {
-  return { assets: payload.filter((a) => !a.isDelisted) };
+  return {
+    assets: payload.filter((a) => !a.isDelisted),
+  };
 }
 
 /**

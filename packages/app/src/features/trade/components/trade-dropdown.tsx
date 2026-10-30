@@ -7,6 +7,7 @@ import { formatTradeRows } from "@/features/trade/lib/format-trade-rows";
 import { withViewTransition } from "@/lib/view-transition";
 import {
   filterTradeAssets,
+  isLiveMarket,
   type CategoryTab,
   type FormattedTrade,
   type TradeDropdownProps,
@@ -49,10 +50,15 @@ const TradeDropdownFn = ({
         : currentSymbol;
   const trades = data?.assets;
 
-  const filteredTrades = useMemo(() => {
+  const liveTrades = useMemo(() => {
     if (!isOpen || !trades) return [];
+    return trades.filter((asset) => isLiveMarket(asset));
+  }, [isOpen, trades]);
 
-    return filterTradeAssets(trades, category, deferredQuery).toSorted((a, b) => {
+  const filteredTrades = useMemo(() => {
+    if (!isOpen) return [];
+
+    return filterTradeAssets(liveTrades, category, deferredQuery).toSorted((a, b) => {
       if (sortBy === "name") {
         return sortDesc ? b.coin.localeCompare(a.coin) : a.coin.localeCompare(b.coin);
       }
@@ -64,7 +70,7 @@ const TradeDropdownFn = ({
         : 0;
       return sortDesc ? changeB - changeA : changeA - changeB;
     });
-  }, [isOpen, trades, category, deferredQuery, sortBy, sortDesc]);
+  }, [isOpen, liveTrades, category, deferredQuery, sortBy, sortDesc]);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
