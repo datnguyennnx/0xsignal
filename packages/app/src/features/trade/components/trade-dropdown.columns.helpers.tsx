@@ -39,6 +39,8 @@ export function HeaderCell({
   const sortField = col.id === "change" ? "change" : col.id === "symbol" ? "name" : undefined;
 
   if (sortField) {
+    const isRight = col.align === "right";
+    const icon = <SortIcon sortBy={sortBy} sortField={sortField} sortDesc={sortDesc} />;
     return (
       <button
         type="button"
@@ -46,18 +48,24 @@ export function HeaderCell({
           onSort(sortField);
         }}
         className={cn(
-          "hover:text-foreground transition-colors flex items-center gap-[clamp(0.15rem,0.3vw,0.25rem)] cursor-pointer bg-transparent border-none p-0 w-full whitespace-nowrap",
-          col.align === "right" && "justify-end",
+          "hover:text-foreground transition-colors flex min-w-0 items-center gap-[clamp(0.15rem,0.3vw,0.25rem)] cursor-pointer bg-transparent border-none p-0 w-full whitespace-nowrap",
+          isRight && "justify-end",
         )}
       >
-        <span className="truncate">{col.label}</span>
-        <SortIcon sortBy={sortBy} sortField={sortField} sortDesc={sortDesc} />
+        {isRight && icon}
+        <span className="min-w-0 truncate">{col.label}</span>
+        {!isRight && icon}
       </button>
     );
   }
 
   return (
-    <span className={cn("w-full whitespace-nowrap", col.align === "right" && "text-right block")}>
+    <span
+      className={cn(
+        "block w-full min-w-0 truncate",
+        col.align === "right" ? "text-right" : "text-left",
+      )}
+    >
       {col.label}
     </span>
   );
