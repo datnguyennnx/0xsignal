@@ -24,7 +24,6 @@ function IndicatorConfigPanelInner({
   onApply,
   onRemoveInstance,
 }: IndicatorConfigPanelProps) {
-  // Track selected instance - null means "new/default"
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(() => {
     if (activeIndicators.length > 0) {
       return activeIndicators[0].instanceId;
@@ -32,10 +31,8 @@ function IndicatorConfigPanelInner({
     return null;
   });
 
-  // Track local edits when user manually changes form fields
   const [localEdits, setLocalEdits] = useState<Record<string, string> | null>(null);
 
-  // Derive form values from selected instance or defaults - no effect needed
   const selectedInstance = useMemo(
     () => activeIndicators.find((i) => i.instanceId === selectedInstanceId) ?? null,
     [activeIndicators, selectedInstanceId],
@@ -47,7 +44,6 @@ function IndicatorConfigPanelInner({
     [indicator, selectedInstance],
   );
 
-  // Merge local edits (if any) on top of memoized formValues so keystrokes are reflected
   const effectiveValues = useMemo(() => {
     if (!localEdits) return formValues;
     return { ...formValues, ...localEdits };
@@ -56,7 +52,6 @@ function IndicatorConfigPanelInner({
   const parsedParamsForCurrentForm = parseFormValues(indicator, formValues);
   const derivedInstanceId = createIndicatorInstanceId(indicator, parsedParamsForCurrentForm);
 
-  // Cheap terminal derivation: consumed only inline in JSX, so no memo.
   const matchingActiveInstance = activeIndicators.find(
     (entry) => entry.instanceId === derivedInstanceId,
   );
@@ -72,17 +67,15 @@ function IndicatorConfigPanelInner({
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-transparent">
       <div className="p-[clamp(1rem,2vw,1.5rem)]">
         <div className="flex items-start justify-between gap-[clamp(0.5rem,1vw,1rem)]">
-          <div className="space-y-1">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              Indicator Settings
-            </h3>
+          <div className="min-w-0 space-y-1">
+            <h3 className="text-sm font-semibold text-foreground">Indicator Settings</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
               Configure parameters for this technical indicator.
             </p>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-xs text-muted-foreground font-medium">{activeCount} active</span>
-          </div>
+          <span className="shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground tabular-nums">
+            {activeCount} active
+          </span>
         </div>
       </div>
 
@@ -96,12 +89,10 @@ function IndicatorConfigPanelInner({
                   definition={paramDef}
                   value={effectiveValues[paramDef.key] ?? ""}
                   onValueChange={(next) => {
-                    // Capture user edits into local state so form reflects keystrokes
                     setLocalEdits((prev) => {
                       const merged = { ...(prev ?? formValues), [paramDef.key]: next };
                       return merged;
                     });
-                    // When user edits a field, switch to "new" mode since params no longer match any instance
                     if (selectedInstanceId !== null) setSelectedInstanceId(null);
                   }}
                 />
@@ -111,6 +102,7 @@ function IndicatorConfigPanelInner({
             <div className="flex items-center justify-center min-h-[clamp(10rem,30dvh,14rem)]">
               <EmptyState
                 variant="panel"
+                className="min-w-0 px-4"
                 title="Fixed Model"
                 description="This strategy utilizes fixed institutional logic and does not require manual parameter adjustment."
               />
@@ -120,7 +112,7 @@ function IndicatorConfigPanelInner({
       </div>
 
       <div className="p-[clamp(1rem,2vw,1.5rem)]">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <Button
             variant="ghost"
             size="sm"
@@ -150,11 +142,7 @@ function IndicatorConfigPanelInner({
   );
 }
 
-/**
- * Outer wrapper that keys the inner form by indicator.id so all local state
- * (localEdits, selectedInstanceId) resets naturally when switching indicators,
- * eliminating the need for a useEffect-based reset (React 19 pattern).
- */
+/** Keys the inner form by `indicator.id` so local state resets when the indicator changes. */
 export function IndicatorConfigPanel(props: IndicatorConfigPanelProps) {
   return <IndicatorConfigPanelInner key={props.indicator.id} {...props} />;
 }

@@ -1,8 +1,9 @@
 import { useState, useCallback, useId, useDeferredValue } from "react";
 import { AVAILABLE_INDICATORS, type ActiveIndicator, type IndicatorConfig } from "@0xsignal/shared";
 import { cn } from "cn";
-import { Dialog, DialogContent, DialogTitle, MODAL_CONTENT_CLASS } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
+import { Modal, type ModalDismissReason } from "@/components/ui/modal";
 import { IndicatorConfigPanel } from "./config-panel";
 import { IndicatorInsightsPanel } from "./insights-panel";
 import {
@@ -11,12 +12,16 @@ import {
 } from "./indicator-modal-category-list";
 import { IndicatorModalExplorer } from "./indicator-modal-explorer";
 
+/** `DialogContent`'s box defaults, restated at the panel's own width so no `sm:` cap survives. */
+const PANEL_CONTENT_CLASS =
+  "max-w-[98vw] sm:max-w-[98vw] gap-0 overflow-hidden rounded-[var(--radius-overlay,0.875rem)] bg-transparent p-0 text-sm text-popover-foreground";
+
 interface IndicatorModalProps {
   activeIndicators: ActiveIndicator[];
   onAddIndicator: (indicator: IndicatorConfig, params?: Record<string, number>) => void;
   onRemoveIndicator: (indicatorId: string) => void;
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange: (open: boolean, reason?: ModalDismissReason) => void;
 }
 
 const overlayIndicators = AVAILABLE_INDICATORS.filter((i) => i.overlayOnPrice);
@@ -34,6 +39,7 @@ export function IndicatorModal({
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const searchId = useId();
+  const titleId = useId();
 
   const activeByBaseId = new Map<string, ActiveIndicator[]>();
   for (const indicator of activeIndicators) {
@@ -78,10 +84,17 @@ export function IndicatorModal({
     oscillators: oscillatorIndicators.length,
   };
 
-  const handleClose = useCallback(() => {
-    onOpenChange(false);
-    setSelectedId(null);
-  }, [onOpenChange]);
+  const handleOpenChange = useCallback(
+    (next: boolean, reason?: ModalDismissReason) => {
+      onOpenChange(next, reason);
+      if (!next) setSelectedId(null);
+    },
+    [onOpenChange],
+  );
+
+  const handleRequestClose = useCallback(() => {
+    handleOpenChange(false, "close-press");
+  }, [handleOpenChange]);
 
   const handleSelectCategory = (next: IndicatorCategory) => {
     setCategory(next);
@@ -98,59 +111,53 @@ export function IndicatorModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent
-        showCloseButton={false}
-        className={cn(
-          MODAL_CONTENT_CLASS,
-          "max-w-[98vw] xl:max-w-[clamp(90rem,100vw,100rem)] w-fit h-[clamp(18rem,80dvh,60rem)] p-0 gap-0 rounded-[var(--radius-overlay,0.875rem)] animate-in fade-in duration-200 ease-premium",
-        )}
-      >
-        <DialogTitle className="sr-only">Indicator Settings</DialogTitle>
+    <Modal
+      open={open}
+      aria-labelledby={titleId}
+      onOpenChange={(next, details) => {
+        handleOpenChange(next, details.reason);
+      }}
+      className={cn(
+        PANEL_CONTENT_CLASS,
+        "xl:max-w-[clamp(90rem,100vw,100rem)] h-[clamp(18rem,80dvh,60rem)] animate-in fade-in duration-200 ease-premium",
+      )}
+    >
+      <h2 id={titleId} className="sr-only">
+        Indicator Settings
+      </h2>
 
-        <div className="flex flex-col sm:flex-row h-full min-h-0 divide-y sm:divide-y-0 sm:divide-x divide-[var(--tier-edge)]">
-          {/* Column 1: Indicators Sidebar */}
-          <IndicatorModalCategoryList
-            category={category}
-            counts={categoryCounts}
-            onSelectCategory={handleSelectCategory}
-            onClose={handleClose}
-          />
+      <div className="flex flex-col xl:flex-row h-full min-h-0 max-xl:overflow-y-auto max-xl:[&>*:first-child]:w-full max-xl:[&>*:first-child]:max-w-none divide-y xl:divide-y-0 xl:divide-x divide-[var(--tier-edge)]">
+        <IndicatorModalCategoryList
+          category={category}
+          counts={categoryCounts}
+          onSelectCategory={handleSelectCategory}
+          onClose={handleRequestClose}
+        />
 
-          {/* Column 2: Indicator Explorer */}
-          <IndicatorModalExplorer
-            category={category}
-            activeIndicatorCount={activeIndicatorConfigs.length}
-            searchId={searchId}
-            query={query}
-            normalizedQuery={normalizedQuery}
-            indicators={filteredIndicators}
-            selectedIndicator={selectedIndicator}
-            activeByBaseId={activeByBaseId}
-            onQueryChange={handleQueryChange}
-            onSelectIndicator={handleSelectIndicator}
-          />
+        <IndicatorModalExplorer
+          category={category}
+          activeIndicatorCount={activeIndicatorConfigs.length}
+          searchId={searchId}
+          query={query}
+          normalizedQuery={normalizedQuery}
+          indicators={filteredIndicators}
+          selectedIndicator={selectedIndicator}
+          activeByBaseId={activeByBaseId}
+          onQueryChange={handleQueryChange}
+          onSelectIndicator={handleSelectIndicator}
+        />
 
-          {/* Column 3: Insight Content */}
-          <div className="flex-[4] min-w-[clamp(18rem,30vw,28rem)] min-h-0 flex flex-col max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-none">
-            {selectedIndicator ? (
+        {selectedIndicator && (
+          <>
+            <div className="flex-none min-w-0 flex flex-col xl:min-h-0 xl:flex-1">
               <IndicatorInsightsPanel
                 key={`${selectedIndicator.id}-insights`}
                 indicator={selectedIndicator}
                 className="scrollbar-none px-2 flex-1"
               />
-            ) : (
-              <EmptyState
-                variant="panel"
-                title="No Indicator Selected"
-                description="Select an indicator from the list to view its details."
-              />
-            )}
-          </div>
+            </div>
 
-          {/* Column 4: Inspector Sidepan */}
-          <div className="flex-[1] min-w-[clamp(14rem,16vw,18rem)] max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col min-h-0">
-            {selectedIndicator ? (
+            <div className="w-full shrink-0 min-h-0 xl:w-fit xl:min-w-[15rem] xl:max-w-[19rem] flex flex-col">
               <IndicatorConfigPanel
                 key={`${selectedIndicator.id}-config`}
                 indicator={selectedIndicator}
@@ -160,12 +167,48 @@ export function IndicatorModal({
                 }}
                 onRemoveInstance={onRemoveIndicator}
               />
-            ) : (
-              <div className="h-full" />
-            )}
+            </div>
+          </>
+        )}
+
+        {selectedIndicator === null && (
+          <div className="flex-none min-w-0 flex flex-col xl:min-h-0 xl:flex-1">
+            <EmptyState
+              variant="panel"
+              fill
+              className="mx-auto w-full max-w-md"
+              title={normalizedQuery ? "No indicators match" : "No indicators active yet"}
+              description={
+                normalizedQuery
+                  ? `Nothing matches "${normalizedQuery}".`
+                  : "Add an overlay or oscillator to track it on the chart."
+              }
+              action={
+                normalizedQuery ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      handleQueryChange("");
+                    }}
+                  >
+                    Clear search
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      handleSelectCategory("overlays");
+                    }}
+                  >
+                    Browse Overlays
+                  </Button>
+                )
+              }
+            />
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        )}
+      </div>
+    </Modal>
   );
 }

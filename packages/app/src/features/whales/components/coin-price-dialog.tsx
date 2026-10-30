@@ -20,8 +20,6 @@ import {
 } from "../hooks/use-coin-market";
 import { useWhaleCoinMarkers } from "../hooks/use-whale-coin-markers";
 
-// Reached only when the dialog mounts. `DialogContent` has no `keepMounted`, so
-// closing unmounts the chart and its cleanup disposes the canvas.
 const TradingChart = lazy(() =>
   import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart })),
 );
@@ -61,10 +59,6 @@ function crowdLines(ladder: readonly MergedLevel[]): ChartPriceLine[] {
   }));
 }
 
-/**
- * The subject's own levels carry no band and no side guard: a distant
- * liquidation is their real risk, and a price line never moves the autoscale.
- */
 function subjectLines(subjectPosition: SubjectPosition | undefined): ChartPriceLine[] {
   if (subjectPosition === undefined) return [];
 
@@ -95,11 +89,7 @@ function subjectLines(subjectPosition: SubjectPosition | undefined): ChartPriceL
   return lines;
 }
 
-/**
- * An empty ladder means either no tracked level in band, or none for this coin.
- * The crowd row count separates the two: rows exist but their levels all sit
- * outside the band reads differently from a coin with no tracked rows at all.
- */
+/** The crowd row count separates "none in band" from "no rows for this coin". */
 function levelCaption(
   subjectCount: number,
   crowdCount: number,
@@ -121,8 +111,7 @@ function CoinPriceDialogBody({
   summary,
   subjectPosition,
 }: Omit<CoinPriceDialogProps, "open" | "onOpenChange">): JSX.Element {
-  // The chart's own header owns the interval; the prop is required, so it needs
-  // a local mirror.
+  // The chart's own header owns the interval; the prop is required, so it needs a local mirror.
   const [interval, setChartInterval] = useState("1h");
   const { address } = useParams<{ address?: string }>();
 
@@ -144,9 +133,7 @@ function CoinPriceDialogBody({
       <div className="flex h-full min-h-0 flex-col">
         <Suspense fallback={<Skeleton className="min-h-0 flex-1" />}>
           <div className="min-h-0 flex-1">
-            {/* The dialog outlives a coin switch, so the chart is keyed to the
-                symbol: without it the engine reuses the previous coin's candles
-                and clips this coin's lines outside the old price scale. */}
+            {/* The dialog outlives a coin switch, so the chart is keyed to the symbol. */}
             <TradingChart
               key={coin}
               symbol={coin}
@@ -173,10 +160,16 @@ export function CoinPriceDialog({
 }: CoinPriceDialogProps): JSX.Element {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* Insets and auto margins, not a translate: a transform makes the popup a containing block. */}
       <DialogContent
         showCloseButton={false}
-        className="h-[min(80dvh,54rem)] max-w-[min(92vw,80rem)] grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden rounded-[20px] border border-white/10 bg-card/60 p-0 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.65)] ring-1 ring-inset ring-white/10 backdrop-blur-2xl backdrop-saturate-150 sm:max-w-[min(92vw,80rem)]"
+        className="inset-0! m-auto h-[min(80dvh,54rem)] max-w-[min(92vw,80rem)] grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden rounded-[20px] border border-white/10 p-0 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.65)] ring-1 ring-inset ring-white/10 [translate:none]! sm:max-w-[min(92vw,80rem)]"
       >
+        {/* Glass sits below the content, so no backdrop-filter ancestor breaks nested overlays. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 rounded-[inherit] bg-card/60 backdrop-blur-2xl backdrop-saturate-150"
+        />
         <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[inherit]">
           <CoinPriceDialogBody
             coin={coin}
@@ -187,11 +180,11 @@ export function CoinPriceDialog({
         </div>
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] ring-1 ring-inset ring-white/10"
+          className="pointer-events-none absolute inset-0 z-10 rounded-[inherit] ring-1 ring-inset ring-white/10"
         />
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-linear-to-r from-transparent via-white/20 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-linear-to-r from-transparent via-white/20 to-transparent"
         />
       </DialogContent>
     </Dialog>

@@ -2,8 +2,6 @@ import { Search, X } from "lucide-react";
 import type { ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
 import { cn } from "cn";
 import { Input } from "@/components/ui/input";
-import { ContentUnavailable } from "@/components/content-unavailable";
-import { EmptyState } from "@/components/empty-state";
 import type { IndicatorCategory } from "./indicator-modal-category-list";
 
 interface IndicatorModalExplorerProps {
@@ -31,9 +29,14 @@ export function IndicatorModalExplorer({
   onQueryChange,
   onSelectIndicator,
 }: IndicatorModalExplorerProps) {
+  const searchVisible = !(category === "active" && activeIndicatorCount === 0 && !normalizedQuery);
+
+  // A searchless, listless column would read as a blank strip.
+  if (!searchVisible && indicators.length === 0) return null;
+
   return (
-    <div className="flex-[2] min-w-[clamp(12rem,18vw,16rem)] max-h-[clamp(14rem,60dvh,32rem)] sm:max-h-[clamp(18rem,80dvh,60rem)] flex flex-col min-h-0">
-      {!(category === "active" && activeIndicatorCount === 0) && (
+    <div className="w-full shrink-0 min-h-0 xl:w-[clamp(15rem,18vw,18rem)] flex flex-col">
+      {searchVisible && (
         <div className="p-4">
           <div className="relative">
             <Search
@@ -71,8 +74,8 @@ export function IndicatorModalExplorer({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-3 py-2 min-h-0 scrollbar-none overscroll-none">
-        {indicators.length > 0 ? (
+      {indicators.length > 0 && (
+        <div className="flex-1 overflow-y-auto px-3 py-2 min-h-0 scrollbar-none overscroll-none">
           <div className="space-y-0.5">
             {indicators.map((indicator) => {
               const activeCount = activeByBaseId.get(indicator.id)?.length ?? 0;
@@ -108,23 +111,8 @@ export function IndicatorModalExplorer({
               );
             })}
           </div>
-        ) : (
-          <div className="min-h-full flex items-center justify-center">
-            {normalizedQuery ? (
-              <ContentUnavailable
-                variant="no-results"
-                description={`No indicators match "${normalizedQuery}".`}
-              />
-            ) : (
-              <EmptyState
-                variant="panel"
-                title="No Indicators"
-                description="No indicators in this category."
-              />
-            )}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

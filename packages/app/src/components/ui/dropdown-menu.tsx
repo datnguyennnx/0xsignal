@@ -10,6 +10,9 @@ import { ChevronRightIcon, CheckIcon } from "lucide-react";
 /** A portalled overlay is not nested in the page's surfaces, whatever triggered it. */
 const PORTAL_ANCESTORS = [] as const;
 
+/** Must clear a dialog popup at `110 + depth*2 + 1`; 200 holds through realistic nesting. */
+const POPOVER_LAYER = 200;
+
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
   return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
 }
@@ -36,7 +39,8 @@ function DropdownMenuContent({
     <MenuPrimitive.Portal>
       <SurfaceContext.Provider value={PORTAL_ANCESTORS}>
         <MenuPrimitive.Positioner
-          className="isolate z-50 outline-none"
+          className="isolate outline-none"
+          style={{ zIndex: POPOVER_LAYER }}
           align={align}
           alignOffset={alignOffset}
           side={side}

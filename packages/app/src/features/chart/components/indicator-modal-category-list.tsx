@@ -23,7 +23,7 @@ export function IndicatorModalCategoryList({
   onClose,
 }: IndicatorModalCategoryListProps) {
   return (
-    <div className="flex-[2] min-w-[clamp(10rem,15vw,14rem)] flex flex-col min-h-0 sm:max-h-[clamp(18rem,80dvh,60rem)]">
+    <div className="w-fit shrink-0 min-w-[11rem] max-w-[17rem] max-sm:w-full max-sm:max-w-none flex flex-col min-h-0 sm:max-h-[clamp(18rem,80dvh,60rem)]">
       <div className="p-4 sm:p-6 flex items-center justify-between sm:justify-start gap-[clamp(0.25rem,0.5vw,0.5rem)]">
         <h2 className="text-xs font-semibold text-muted-foreground">Indicators</h2>
         <button

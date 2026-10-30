@@ -8,6 +8,9 @@ import { SurfaceContext } from "@/components/surface/surface-context";
 /** A portalled overlay is not nested in the page's surfaces, whatever triggered it. */
 const PORTAL_ANCESTORS = [] as const;
 
+/** Must clear a dialog popup at `110 + depth*2 + 1`; 200 holds through realistic nesting. */
+const POPOVER_LAYER = 200;
+
 function TooltipProvider({ delay = 0, ...props }: TooltipPrimitive.Provider.Props) {
   return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />;
 }
@@ -38,7 +41,8 @@ function TooltipContent({
           alignOffset={alignOffset}
           side={side}
           sideOffset={sideOffset}
-          className="isolate z-50"
+          className="isolate"
+          style={{ zIndex: POPOVER_LAYER }}
         >
           <TooltipPrimitive.Popup
             data-slot="tooltip-content"
