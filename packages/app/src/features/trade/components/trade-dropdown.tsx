@@ -31,7 +31,7 @@ const TradeDropdownFn = ({
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data, isLoading, error } = useTradeList();
+  const { data, isLoading, error } = useTradeList(isOpen);
 
   useEffect(() => {
     if (!error) return;
@@ -49,7 +49,7 @@ const TradeDropdownFn = ({
   const trades = data?.assets;
 
   const filteredTrades = useMemo(() => {
-    if (!trades) return [];
+    if (!isOpen || !trades) return [];
 
     return filterTradeAssets(trades, category, query).toSorted((a, b) => {
       if (sortBy === "name") {
@@ -63,7 +63,7 @@ const TradeDropdownFn = ({
         : 0;
       return sortDesc ? changeB - changeA : changeA - changeB;
     });
-  }, [trades, category, query, sortBy, sortDesc]);
+  }, [isOpen, trades, category, query, sortBy, sortDesc]);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
@@ -139,10 +139,10 @@ const TradeDropdownFn = ({
     };
   }, [isOpen, handleClose]);
 
-  const formattedTrades: FormattedTrade[] = useMemo(
-    () => formatTradeRows(filteredTrades, currentSymbol),
-    [filteredTrades, currentSymbol],
-  );
+  const formattedTrades = useMemo((): FormattedTrade[] => {
+    if (!isOpen) return [];
+    return formatTradeRows(filteredTrades, currentSymbol);
+  }, [isOpen, filteredTrades, currentSymbol]);
 
   return (
     <div className="relative" data-trade-dropdown>

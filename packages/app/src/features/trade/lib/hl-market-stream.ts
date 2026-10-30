@@ -83,22 +83,14 @@ export interface DirectMarketSink {
 const toError = (error: unknown): Error =>
   error instanceof Error ? error : new Error(String(error));
 
+const onErrorOption = (onError: (error: Error) => void) => ({ onError });
+
 function createHyperliquidSink(): DirectMarketSink {
   const transport = new WebSocketTransport({ url: HL_MARKET_WS_URL });
   const client = new SubscriptionClient({ transport });
 
   return {
-    allMids: (listener, onError) =>
-      client.allMids(
-        (event) => {
-          listener(event);
-        },
-        {
-          onError: (error) => {
-            onError(error);
-          },
-        },
-      ),
+    allMids: (listener, onError) => client.allMids(listener, onErrorOption(onError)),
     l2Book: (params, listener, onError) => {
       const payload = {
         coin: params.coin,
@@ -113,25 +105,10 @@ function createHyperliquidSink(): DirectMarketSink {
           if (bookFrameLeg(event) !== wantedLeg) return;
           listener(event);
         },
-        {
-          onError: (error) => {
-            onError(error);
-          },
-        },
+        onErrorOption(onError),
       );
     },
-    candle: (params, listener, onError) =>
-      client.candle(
-        params,
-        (event) => {
-          listener(event);
-        },
-        {
-          onError: (error) => {
-            onError(error);
-          },
-        },
-      ),
+    candle: (params, listener, onError) => client.candle(params, listener, onErrorOption(onError)),
   };
 }
 
@@ -139,10 +116,18 @@ function createHyperliquidSink(): DirectMarketSink {
 
 let coinIndex: Map<string, string> | null = null;
 let coinIndexRequest: Promise<Map<string, string>> | null = null;
+let coinIndexLoader: (() => ReturnType<typeof getMarkets>) | null = null;
+
+/** The app bootstrap injects a cache-backed loader; the direct fetch stays the fallback. */
+export function setCoinIndexLoader(loader: (() => ReturnType<typeof getMarkets>) | null): void {
+  coinIndexLoader = loader;
+  coinIndex = null;
+  coinIndexRequest = null;
+}
 
 function loadCoinIndex(): Promise<Map<string, string>> {
   if (coinIndex !== null) return Promise.resolve(coinIndex);
-  coinIndexRequest ??= getMarkets()
+  coinIndexRequest ??= (coinIndexLoader ?? getMarkets)()
     .then((markets) => {
       const index = new Map<string, string>();
       for (const market of markets) {
