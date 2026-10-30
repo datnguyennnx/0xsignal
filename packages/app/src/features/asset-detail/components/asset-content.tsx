@@ -9,6 +9,7 @@ import { useTradeList, type TradeListData } from "@/features/trade/hooks/use-tra
 import { deriveMarketHeaderValues } from "./market-header-values";
 import { AssetTradingGrid } from "./asset-trading-grid";
 import { MarketTerminalHeader } from "./market-terminal-header";
+import { MetricItem } from "./metric-item";
 import { getNextFundingMs, toCountdown } from "../utils/format";
 
 const isNonEmpty = (value: string | null | undefined): value is string =>
@@ -71,6 +72,16 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
     // REST API ticker (last resort)
     return price.markPx || price.price || 0;
   }, [allMids, isSpot, symbol, price, tradeAsset]);
+
+  // A zeroed placeholder ticker is not a quote: painting "$0.0000" until the first
+  // tick lands reads as a broken market, so the pre-data header stays neutral.
+  if (!(livePrice > 0)) {
+    return (
+      <div className="flex items-center gap-6 flex-1 min-w-0">
+        <MetricItem label={isSpot ? "Price" : "Mark"} value="—" />
+      </div>
+    );
+  }
 
   const derived = deriveMarketHeaderValues({ isSpot, livePrice, price, tradeAsset });
 
@@ -151,7 +162,7 @@ export const AssetContent = memo(function AssetContent({
   return (
     <div
       ref={regionRef}
-      className="container-fluid flex flex-col min-h-[var(--trading-region-height)] animate-in fade-in duration-200 ease-premium"
+      className="container-fluid flex flex-col min-h-[var(--trading-region-height)]"
     >
       <header ref={headerRef} className="shrink-0 flex flex-col gap-2">
         <div className="flex items-center w-full min-w-0">

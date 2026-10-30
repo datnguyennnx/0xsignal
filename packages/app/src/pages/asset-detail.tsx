@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { normalizeSymbol } from "@/features/trade/lib/symbol";
 import { useAssetPrice } from "@/features/asset-detail/hooks/use-asset-price";
 import { useDocumentTitle, formatPerpTitle } from "@/hooks/use-document-title";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -11,6 +10,7 @@ import {
   type AssetViewModel,
 } from "@/features/asset-detail/components/asset-content";
 import { AssetDetailError, AssetDetailSkeleton } from "@/components/asset-detail-skeleton";
+import { resolveAssetView, resolveCanonicalRoute } from "./asset-detail-view";
 
 function nonZeroPrice(value: number | undefined): number | undefined {
   return value !== undefined && value !== 0 ? value : undefined;
@@ -25,13 +25,12 @@ export function AssetDetail() {
   // Spot route /:base/:quote → rawCoin = "base/quote" (e.g., "PURR/USDC")
   const rawCoin = (quote !== undefined && quote !== "" ? `${base}/${quote}` : symbol) ?? "";
 
-  const normalizedRoute = normalizeSymbol(rawCoin);
+  const canonicalRoute = resolveCanonicalRoute(rawCoin);
   useEffect(() => {
-    if (rawCoin && rawCoin !== normalizedRoute) {
-      const path = normalizedRoute;
-      void navigate(`/trade/${path}`, { replace: true });
+    if (canonicalRoute !== null) {
+      void navigate(`/trade/${canonicalRoute}`, { replace: true });
     }
-  }, [rawCoin, normalizedRoute, navigate]);
+  }, [canonicalRoute, navigate]);
 
   // Lazy-init market stream client synchronously before paint so child
   // components (AssetContent → useAllMids → useHyperliquidWs) find the
@@ -48,12 +47,7 @@ export function AssetDetail() {
     setInterval(newInterval);
   }, []);
 
-  const {
-    data: fetchedAsset,
-    isLoading: assetLoading,
-    error: assetError,
-    refetch: refetchAsset,
-  } = useAssetPrice(rawCoin);
+  const { data: fetchedAsset, error: assetError, refetch: refetchAsset } = useAssetPrice(rawCoin);
 
   const handleRetry = useCallback(() => {
     void refetchAsset();
@@ -67,13 +61,13 @@ export function AssetDetail() {
   }, [assetError, symbol]);
 
   const asset = useMemo<AssetViewModel | null>(
-    () => (fetchedAsset ? { symbol: fetchedAsset.symbol, price: fetchedAsset } : null),
-    [fetchedAsset],
+    () => resolveAssetView(rawCoin, fetchedAsset),
+    [rawCoin, fetchedAsset],
   );
 
-  // Only show full-page skeleton during initial asset fetch.
-  // Widgets handle their own loading states independently.
-  const showSkeleton = !asset && assetLoading;
+  // Only a missing route symbol leaves nothing to paint. The ticker is a
+  // background refinement, so a pending fetch never holds the page back.
+  const showSkeleton = asset === null;
 
   const documentTitle = useMemo(() => {
     const assetSymbol = asset?.symbol.toUpperCase() ?? "";
@@ -88,22 +82,12 @@ export function AssetDetail() {
 
   if (showSkeleton) return <AssetDetailSkeleton />;
 
-  if (assetError || (!fetchedAsset && !assetLoading)) {
+  if (assetError) {
     return (
       <AssetDetailError
-        title={
-          assetError
-            ? `Couldn't load ${symbol?.toUpperCase() ?? "this asset"}. Check your connection and try again.`
-            : `No data for ${symbol?.toUpperCase()}`
-        }
+        title={`Couldn't load ${symbol?.toUpperCase() ?? "this asset"}. Check your connection and try again.`}
         onRetry={handleRetry}
       />
-    );
-  }
-
-  if (!asset) {
-    return (
-      <AssetDetailError title={`No data for ${symbol?.toUpperCase()}`} onRetry={handleRetry} />
     );
   }
 

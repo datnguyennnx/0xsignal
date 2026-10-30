@@ -53,11 +53,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="flex-1 flex flex-col min-h-0 animate-in fade-in duration-200 ease-premium"
-      >
+      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col min-h-0">
         {children}
       </main>
     </div>
