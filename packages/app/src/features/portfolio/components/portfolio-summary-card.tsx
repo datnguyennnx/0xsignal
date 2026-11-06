@@ -15,10 +15,11 @@ import {
 import {
   PERIOD_LABELS,
   PERIOD_KEYS,
-  TF_INDEX,
+  findPeriodEntry,
   isPortfolioPeriod,
   type PortfolioPeriod,
 } from "../utils/constants";
+import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
 import { computeMaxDrawdown } from "../utils/financial";
 import { SURFACE } from "./portfolio-summary.constants";
 import { SELECT_COMPACT_CLASS } from "@/lib/state-classes";
@@ -55,7 +56,7 @@ export function PortfolioSummaryCard({
 
   const period = useMemo(() => {
     if (!portfolio) return null;
-    return portfolio[TF_INDEX[tf]]?.[1] ?? null;
+    return findPeriodEntry(portfolio, tf) ?? null;
   }, [portfolio, tf]);
 
   const perps = useMemo(() => {
@@ -73,7 +74,7 @@ export function PortfolioSummaryCard({
   const spot = useMemo(() => {
     if (!spotData?.balances) return null;
     const totalUsdc = spotData.balances.reduce(
-      (s, b) => s + (b.coin === "USDC" ? Number(b.total) : 0),
+      (s, b) => s + (b.coin === QUOTE_ASSET ? Number(b.total) : 0),
       0,
     );
     return { totalUsdc };

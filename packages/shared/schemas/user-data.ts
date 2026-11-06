@@ -154,15 +154,22 @@ export interface PortfolioPeriod {
   readonly vlm: string;
 }
 
-export type PortfolioPeriodKey =
-  | "day"
-  | "week"
-  | "month"
-  | "allTime"
-  | "perpDay"
-  | "perpWeek"
-  | "perpMonth"
-  | "perpAllTime";
+/**
+ * Wire order of the eight portfolio periods. The tuple slot is the index into
+ * this list, so consumers must look up by name instead of doing positional math.
+ */
+export const PORTFOLIO_PERIOD_KEYS = [
+  "day",
+  "week",
+  "month",
+  "allTime",
+  "perpDay",
+  "perpWeek",
+  "perpMonth",
+  "perpAllTime",
+] as const;
+
+export type PortfolioPeriodKey = (typeof PORTFOLIO_PERIOD_KEYS)[number];
 
 export type PortfolioResponse = readonly [
   readonly [PortfolioPeriodKey, PortfolioPeriod],

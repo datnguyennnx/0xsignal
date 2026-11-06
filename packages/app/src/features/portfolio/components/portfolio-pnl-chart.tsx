@@ -18,6 +18,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   PERIOD_LABELS,
   PERIOD_KEYS,
+  periodSlot,
+  PERPS_PERIOD,
   isPortfolioPeriod,
   type PortfolioPeriod,
 } from "../utils/constants";
@@ -89,11 +91,8 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
 
   const values = useMemo<[number, number][] | null>(() => {
     if (!portfolio) return null;
-    const periodIndex =
-      chartView === "perps-pnl"
-        ? PERIOD_KEYS.indexOf(timePeriod) + 4
-        : PERIOD_KEYS.indexOf(timePeriod);
-    const entry = portfolio[periodIndex];
+    const periodKey = chartView === "perps-pnl" ? PERPS_PERIOD[timePeriod] : timePeriod;
+    const entry = portfolio[periodSlot(periodKey)];
     if (entry === undefined) return null;
     const period = entry[1];
     const rawData: [number, string][] =

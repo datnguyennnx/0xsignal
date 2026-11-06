@@ -1,4 +1,5 @@
 import type { ClearinghouseState, SpotClearinghouseState } from "@0xsignal/shared";
+import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
 
 type AssetPosition = ClearinghouseState["assetPositions"][number];
 
@@ -36,7 +37,7 @@ export function deriveAccountBalances(
 ): AccountBalances {
   const accountValue = Number(chData?.marginSummary?.accountValue ?? 0);
   const perpsUsdc = Number(chData?.withdrawable ?? 0);
-  const spotUsdc = Number(spotData?.balances?.find((b) => b.coin === "USDC")?.total ?? 0);
+  const spotUsdc = Number(spotData?.balances?.find((b) => b.coin === QUOTE_ASSET)?.total ?? 0);
   return { accountValue, perpsUsdc, spotUsdc };
 }
 
@@ -53,12 +54,12 @@ export function buildSizeAssetOptions(
   spotData: SpotClearinghouseState | undefined,
 ): SizeAssetOption[] {
   const map = new Map<string, number>();
-  if (accountValue > 0) map.set("USDC", perpsUsdc);
+  if (accountValue > 0) map.set(QUOTE_ASSET, perpsUsdc);
   for (const b of spotData?.balances ?? []) {
     const bal = Number(b.total);
     if (bal > 0) map.set(b.coin, bal);
   }
-  if (!map.has("USDC") && spotUsdc > 0) map.set("USDC", spotUsdc);
+  if (!map.has(QUOTE_ASSET) && spotUsdc > 0) map.set(QUOTE_ASSET, spotUsdc);
   return Array.from(map.entries()).map(([coin, bal]) => ({
     value: coin,
     label: coin,
@@ -77,7 +78,7 @@ export function deriveSizeAssetSelection(
 ): SizeAssetSelection {
   const safeSizeAsset = options.some((o) => o.value === sizeAsset)
     ? sizeAsset
-    : (options[0]?.value ?? "USDC");
+    : (options[0]?.value ?? QUOTE_ASSET);
   const effectiveBalance = options.find((o) => o.value === safeSizeAsset)?.balance ?? 0;
   return { safeSizeAsset, effectiveBalance };
 }

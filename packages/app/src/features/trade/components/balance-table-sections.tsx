@@ -4,6 +4,7 @@ import { formatCompactUsd } from "@/core/utils/formatters";
 
 import { c, cNum } from "../utils/orderbook-table-classes";
 import { PnLDisplay, PosDirLabel, TableSkeletonRows } from "./shared-table-components";
+import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
 
 export interface BalanceTableBodyProps {
   isChLoading: boolean;
@@ -95,7 +96,7 @@ export function BalanceTableBody({
   return (
     <TableBody>
       <SummaryRow
-        label="USDC"
+        label={QUOTE_ASSET}
         value={usdcTotalBalance}
         pnl={totalUnrealizedPnl}
         total={usdcTotalBalance}

@@ -2,6 +2,7 @@ import { memo } from "react";
 import { parseSymbol } from "@0xsignal/shared";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import type { TickSizeOption } from "../hooks/use-hyperliquid-orderbook";
+import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
 
 interface OrderbookToolbarProps {
   symbol: string;
@@ -23,7 +24,7 @@ export const OrderbookToolbar = memo(
   }: OrderbookToolbarProps) => {
     const parsed = parseSymbol(symbol);
     const base = parsed.coin.toUpperCase();
-    const quote = parsed.kind === "spot" ? (parsed.quote ?? "USDC") : "USDC";
+    const quote = parsed.kind === "spot" ? (parsed.quote ?? QUOTE_ASSET) : QUOTE_ASSET;
     const coinOptions = [
       { value: "base", label: base },
       { value: "quote", label: quote },

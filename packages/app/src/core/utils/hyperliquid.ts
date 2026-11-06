@@ -2,6 +2,9 @@ import { type WsMarketInterval, WS_MARKET_INTERVALS } from "@0xsignal/shared";
 
 export type HLInterval = WsMarketInterval;
 
+/** The single settlement/quote currency the app assumes across trading surfaces. */
+export const QUOTE_ASSET = "USDC";
+
 export const mapToHLInterval = (interval: string): HLInterval =>
   WS_MARKET_INTERVALS.find((v) => v === interval) ?? "1h";
 
