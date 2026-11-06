@@ -19,23 +19,6 @@ export interface L2BookSnapshotPayload {
   levels: readonly [readonly RawL2Level[], readonly RawL2Level[]];
 }
 
-/**
- * L2 book delta — subsequent messages after snapshot.
- * Shape: { type: "delta", delta: { changedBids, changedAsks, replace } }
- */
-export interface L2BookDeltaPayload {
-  type: "delta";
-  delta: {
-    changedBids: readonly RawL2Level[];
-    changedAsks: readonly RawL2Level[];
-    /** When true, frontend must re-fetch full REST snapshot. */
-    replace: boolean;
-  };
-}
-
-/** Decoded L2 book payload — preserves consumer contract shape. */
-type L2BookPayload = L2BookSnapshotPayload | L2BookDeltaPayload;
-
 /** Meta fields that may accompany market stream messages. */
 export interface MarketStreamMeta {
   nSigFigs?: number;
@@ -108,15 +91,10 @@ const findChannel = (value: unknown): WsMarketChannel | null => {
   return null;
 };
 
-const hasCandleShape = (value: Record<string, unknown>): boolean =>
-  (typeof value.t === "number" || typeof value.t === "string") &&
-  value.o !== undefined &&
-  value.h !== undefined &&
-  value.l !== undefined &&
-  value.c !== undefined;
-
 // The wire contract is trusted for level shape; only the container is validated.
 const isLevelArray = (value: unknown): value is readonly RawL2Level[] => Array.isArray(value);
+
+const isUnknownArray = (value: unknown): value is unknown[] => Array.isArray(value);
 
 const isLevelsPair = (
   value: unknown,
@@ -126,25 +104,34 @@ const isLevelsPair = (
 export const isL2BookSnapshotPayload = (value: unknown): value is L2BookSnapshotPayload =>
   isRecord(value) && value.type === "snapshot" && isLevelsPair(value.levels);
 
-export const isL2BookDeltaPayload = (value: unknown): value is L2BookDeltaPayload =>
+interface CandleWire extends Record<string, unknown> {
+  t: unknown;
+  o: unknown;
+  c: unknown;
+  h: unknown;
+  l: unknown;
+  v: unknown;
+}
+
+const hasCandleShape = (value: unknown): value is CandleWire =>
   isRecord(value) &&
-  value.type === "delta" &&
-  isRecord(value.delta) &&
-  isLevelArray(value.delta.changedBids) &&
-  isLevelArray(value.delta.changedAsks) &&
-  typeof value.delta.replace === "boolean";
+  "t" in value &&
+  "o" in value &&
+  "c" in value &&
+  "h" in value &&
+  "l" in value &&
+  "v" in value;
 
 const extractCandlePayload = (value: unknown): unknown[] | null => {
-  if (!isRecord(value)) {
-    if (Array.isArray(value)) return value as unknown[];
-    return null;
-  }
-  if (Array.isArray(value.data)) return value.data as unknown[];
-  if (Array.isArray(value.candles)) return value.candles as unknown[];
-  if (Array.isArray(value.candle)) return value.candle as unknown[];
+  if (isUnknownArray(value)) return value;
+  if (!isRecord(value)) return null;
   if (hasCandleShape(value)) return [value];
-  if (isRecord(value.data) && hasCandleShape(value.data)) return [value.data];
-  if (isRecord(value.candle) && hasCandleShape(value.candle)) return [value.candle];
+  if (hasCandleShape(value.data)) return [value.data];
+  if (isUnknownArray(value.data)) return value.data;
+  if (isUnknownArray(value.candles)) return value.candles;
+  if (isUnknownArray(value.candle)) return value.candle;
+  if (isRecord(value.candle)) return [value.candle];
+  if (isRecord(value.data)) return extractCandlePayload(value.data);
   return null;
 };
 
@@ -153,21 +140,15 @@ const extractCandlePayload = (value: unknown): unknown[] | null => {
  *
  * The backend sends levels directly in the `data` envelope:
  *   { levels: [[bids], [asks]] }
- *
- * Future backend versions may add typed wrappers:
- *   snapshot: { snapshot: { levels: [[bids], [asks]] } }
- *   delta:   { delta: { changedBids, changedAsks, replace } }
  */
 const extractOrderbookPayload = (
   dataField: unknown,
   envelopeNSigFigs?: number,
-): { payload: L2BookPayload; nSigFigs?: number | undefined } | null => {
+): { payload: L2BookSnapshotPayload; nSigFigs?: number | undefined } | null => {
   if (!isRecord(dataField)) return null;
 
-  // ── Direct levels format (what the backend actually sends) ─────
   // The backend broadcasts every L2 event as a full snapshot via:
   //   { type: "market", channel: "l2Book", data: { levels: [[bids], [asks]] } }
-  // This check must come FIRST since there are no typed wrapper keys.
   if (isLevelsPair(dataField.levels)) {
     return {
       payload: {
@@ -179,47 +160,6 @@ const extractOrderbookPayload = (
           ? dataField.nSigFigs
           : envelopeNSigFigs,
     };
-  }
-
-  // ── Typed snapshot path (future backend format) ───────────────
-  const snapshot = dataField.snapshot;
-  if (isRecord(snapshot)) {
-    const levels = snapshot.levels;
-    if (isLevelsPair(levels)) {
-      return {
-        payload: {
-          type: "snapshot",
-          levels,
-        },
-        nSigFigs:
-          typeof dataField.nSigFigs === "number" && Number.isFinite(dataField.nSigFigs)
-            ? dataField.nSigFigs
-            : envelopeNSigFigs,
-      };
-    }
-  }
-
-  // ── Typed delta path (future backend format) ──────────────────
-  const delta = dataField.delta;
-  if (isRecord(delta)) {
-    const changedBids = delta.changedBids;
-    const changedAsks = delta.changedAsks;
-    if (isLevelArray(changedBids) && isLevelArray(changedAsks)) {
-      return {
-        payload: {
-          type: "delta",
-          delta: {
-            changedBids,
-            changedAsks,
-            replace: delta.replace === true,
-          },
-        },
-        nSigFigs:
-          typeof dataField.nSigFigs === "number" && Number.isFinite(dataField.nSigFigs)
-            ? dataField.nSigFigs
-            : envelopeNSigFigs,
-      };
-    }
   }
 
   return null;

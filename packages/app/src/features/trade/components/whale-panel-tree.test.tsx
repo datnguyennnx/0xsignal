@@ -1,5 +1,5 @@
 /// <reference types="bun-types" />
-import { afterAll, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { QueryClient, QueryClientProvider, type Query } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -8,35 +8,27 @@ import { MemoryRouter } from "react-router-dom";
 const OWN = "0x0000000000000000000000000000000000000001";
 const WHALE = "0x0000000000000000000000000000000000000002";
 
-// The whale route is simulated with the viewer signed in and connected, which is
-// the state where an unaddressed user hook would leak the viewer's own account.
-// Zustand reads `getInitialState` on the server, so a real store cannot be signed
-// in for an SSR render; this stub is the signed-in gate the route must not reach.
-mock.module("@/stores/use-auth-store", () => {
-  const state = { isAuthenticated: true };
-  const useAuthStore = <T,>(selector: (snapshot: typeof state) => T): T => selector(state);
-  Object.assign(useAuthStore, {
-    getState: () => state,
-    setState: () => {},
-    subscribe: () => () => {},
+// The exchange bundle reads window.localStorage at import time; these tests only
+// exercise the server-rendered tree, so a minimal storage shim is enough.
+if (globalThis.window === undefined) {
+  Object.defineProperty(globalThis, "window", {
+    value: {
+      localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+      location: { pathname: "/", origin: "http://localhost", protocol: "http:", host: "localhost" },
+      matchMedia: () => ({
+        matches: false,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    },
+    configurable: true,
+    writable: true,
   });
-  return { useAuthStore };
-});
+}
 
-mock.module("@/hooks/use-effective-address", () => ({
-  useOwnAddress: () => OWN,
-  useWhaleAddress: () => WHALE,
-  useIsSigningDisabled: () => true,
-}));
-
-// The exchange bundle touches `window` at import time; the shell only needs the
-// mutation surfaces, which this test never invokes.
-mock.module("@/services/exchange", () => ({
-  submitCancelOrders: () => Promise.resolve(),
-  submitPlaceOrder: () => Promise.resolve(),
-}));
-
-mock.module("wagmi", () => ({
+const wagmiStubs = () => ({
   useConnection: () => ({ isConnected: false }),
   useConnect: () => ({ mutate: () => {}, isPending: false }),
   useConnectors: () => [],
@@ -45,7 +37,13 @@ mock.module("wagmi", () => ({
     signMessageAsync: () => Promise.resolve("0x"),
     mutateAsync: () => Promise.resolve("0x"),
   }),
-}));
+});
+
+mock.module("wagmi", wagmiStubs);
+
+const authStoreModule = await import("@/stores/use-auth-store");
+const effectiveAddressModule = await import("@/hooks/use-effective-address");
+const exchangeModule = await import("@/services/exchange");
 
 const { PositionManagement } = await import("./position-management");
 const { BalancesTab, OrderHistoryTab, TradeHistoryTab } = await import("./position-tabs");
@@ -53,6 +51,31 @@ const { OpenOrdersTab } = await import("./open-orders-tab");
 const { PositionsTab } = await import("./positions-tab");
 const { FundingHistoryTable } = await import("./funding-history-table");
 const { TwapContent } = await import("./twap-content");
+
+// The whale route is simulated with the viewer signed in and connected, which is
+// the state where an unaddressed user hook would leak the viewer's own account.
+// The stubs are installed per test so `mock.restore()` in afterEach leaves the
+// modules the next file in this Bun process sees untouched.
+const installStubs = (): void => {
+  mock.module("wagmi", wagmiStubs);
+
+  const state = { ...authStoreModule.useAuthStore.getState(), isAuthenticated: true };
+  function fakeUseAuthStore(): typeof state;
+  function fakeUseAuthStore<T>(selector: (snapshot: typeof state) => T): T;
+  function fakeUseAuthStore<T>(selector?: (snapshot: typeof state) => T): T | typeof state {
+    return selector === undefined ? state : selector(state);
+  }
+  spyOn(authStoreModule, "useAuthStore").mockImplementation(
+    Object.assign(fakeUseAuthStore, authStoreModule.useAuthStore, { getState: () => state }),
+  );
+
+  spyOn(effectiveAddressModule, "useOwnAddress").mockReturnValue(OWN);
+  spyOn(effectiveAddressModule, "useWhaleAddress").mockReturnValue(WHALE);
+  spyOn(effectiveAddressModule, "useIsSigningDisabled").mockReturnValue(true);
+
+  spyOn(exchangeModule, "submitPlaceOrder").mockImplementation(() => Promise.resolve());
+  spyOn(exchangeModule, "submitCancelOrders").mockResolvedValue("0x");
+};
 
 const renderTree = (element: ReactElement): { html: string; client: QueryClient } => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -110,8 +133,16 @@ const renderWhalePanels = (): { html: string; client: QueryClient } =>
     </>,
   );
 
-afterAll(() => {
+beforeEach(() => {
+  installStubs();
+});
+
+afterEach(() => {
   mock.restore();
+});
+
+afterAll(() => {
+  delete (globalThis as { window?: unknown }).window;
 });
 
 describe("whale panel tree has no auth-gated read", () => {

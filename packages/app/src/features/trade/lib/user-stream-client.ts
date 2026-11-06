@@ -23,19 +23,6 @@ import {
   type UserStreamWireEvent,
 } from "./user-stream-types";
 
-export { mergeUserFills, USER_STREAM_LIMITS } from "./user-stream-types";
-export type {
-  ClearinghouseStreamEvent,
-  OpenOrdersStreamEvent,
-  SpotStateStreamEvent,
-  UpstreamSubscription,
-  UserFillsStreamEvent,
-  UserStreamClient,
-  UserStreamConnectionState,
-  UserStreamFailure,
-  UserStreamUpstream,
-} from "./user-stream-types";
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 

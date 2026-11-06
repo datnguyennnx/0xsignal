@@ -55,6 +55,14 @@ describe("read-only position panels", () => {
   test("remain readable and scrollable instead of blocking pointer events", () => {
     const positions = renderReadOnlyPanel("positions");
     const openOrders = renderReadOnlyPanel("open-orders");
+
+    // The negative checks below are only meaningful if the active panel actually
+    // rendered; a regex miss in panelClassOf would otherwise pass silently.
+    expect(panelClassOf(positions)).toContain("flex-1");
+    expect(panelClassOf(openOrders)).toContain("flex-1");
+    expect(positions).toContain("Mark Price");
+    expect(openOrders).toContain("Trigger Conditions");
+
     expect(panelClassOf(positions)).not.toContain("pointer-events-none");
     expect(panelClassOf(openOrders)).not.toContain("pointer-events-none");
     expect(positions).not.toContain("Connect a wallet to trade");

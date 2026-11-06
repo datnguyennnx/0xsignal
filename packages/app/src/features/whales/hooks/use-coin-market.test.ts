@@ -1,10 +1,9 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
-import type { WhalePosition } from "@0xsignal/shared";
+
+import { position } from "../../../test/fixtures";
 
 import {
-  LADDER_MERGE_TOLERANCE_PCT,
-  meaningfulSharePercent,
   mergeNearbyLevels,
   rankOnSide,
   sharePercent,
@@ -12,21 +11,6 @@ import {
   summarizeCoinMarket,
   trackedInterestAnchor,
 } from "./use-coin-market";
-
-const position = (overrides: Partial<WhalePosition> = {}): WhalePosition => ({
-  userAddress: "0x0000000000000000000000000000000000000001",
-  coin: "ETH",
-  side: "buy",
-  size: 1,
-  notionalUsd: 1_000,
-  entryPx: "2000",
-  liquidationPx: "1500",
-  markPrice: "2000",
-  unrealizedPnl: 0,
-  unrealizedPnlPct: 0,
-  entryTime: "2026-01-01T00:00:00.000Z",
-  ...overrides,
-});
 
 describe("summarizeCoinMarket", () => {
   test("partitions long and short notional with counts", () => {
@@ -200,25 +184,12 @@ describe("sharePercent", () => {
   });
 });
 
-describe("meaningfulSharePercent", () => {
-  test("returns the share when it is at least one percent", () => {
-    expect(meaningfulSharePercent(12.4, 100)).toBeCloseTo(12.4);
-    expect(meaningfulSharePercent(1, 100)).toBeCloseTo(1);
-  });
-
-  test("returns null when the share falls below one percent", () => {
-    expect(meaningfulSharePercent(0.4, 100)).toBeNull();
-    expect(meaningfulSharePercent(534.78, 3_540_000)).toBeNull();
-  });
-});
-
 describe("split share floor", () => {
-  test("drops the split segment whose raw share rounds to 0.0%", () => {
+  test("a split segment's raw share rounds to 0.0%", () => {
     const long = 500;
     const total = long + 3_540_000;
 
     expect(sharePercent(long, total)?.toFixed(1)).toBe("0.0");
-    expect(meaningfulSharePercent(long, total)).toBeNull();
   });
 });
 
@@ -310,7 +281,6 @@ describe("mergeNearbyLevels", () => {
 
     expect(merged.map((level) => level.price)).toEqual([78_087, 77_800]);
     expect(merged.map((level) => level.count)).toEqual([1, 1]);
-    expect(LADDER_MERGE_TOLERANCE_PCT).toBe(0.0015);
   });
 
   test("never merges opposite sides at the same price", () => {

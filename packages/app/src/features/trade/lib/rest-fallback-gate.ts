@@ -8,7 +8,6 @@ export const USER_STREAM_REST_GRACE_MS = 800;
 export interface RestFallbackGate {
   /** Mark the stream live (`true`) or unconfirmed (`false`). */
   setLive(live: boolean): void;
-  isRestEnabled(): boolean;
   dispose(): void;
 }
 
@@ -51,7 +50,6 @@ export function createRestFallbackGate(
       if (hasBeenLive) open();
       else schedule();
     },
-    isRestEnabled: () => opened,
     dispose: clear,
   };
 }

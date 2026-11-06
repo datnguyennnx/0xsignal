@@ -1,5 +1,5 @@
 /// <reference types="bun-types" />
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 
 import type { WsMarketSubscription } from "@0xsignal/shared";
 
@@ -80,7 +80,7 @@ class FakeWebSocket {
 
 const nativeWebSocket = globalThis.WebSocket;
 
-beforeAll(() => {
+beforeEach(() => {
   Object.defineProperty(globalThis, "WebSocket", {
     value: FakeWebSocket,
     configurable: true,
@@ -88,7 +88,7 @@ beforeAll(() => {
   });
 });
 
-afterAll(() => {
+afterEach(() => {
   Object.defineProperty(globalThis, "WebSocket", {
     value: nativeWebSocket,
     configurable: true,
@@ -122,9 +122,6 @@ const makeCallbacks = (label: string) => {
     },
     onError: (error) => {
       log.push(`${label}:error:${error.message}`);
-    },
-    onReconnect: () => {
-      log.push(`${label}:reconnect`);
     },
   };
   return { received, callbacks };
@@ -244,7 +241,18 @@ describe("market-stream-client routing", () => {
       channel: "candle",
       coin: "BTC",
       interval: "1m",
-      data: { candles: [{ t: 1_700_000_000, o: "100", h: "110", l: "90", c: "105", v: "12.5" }] },
+      data: {
+        t: 1_700_000_000,
+        T: 1_700_000_059,
+        s: "BTC",
+        i: "1m",
+        o: "100",
+        c: "105",
+        h: "110",
+        l: "90",
+        v: "12.5",
+        n: 1,
+      },
     });
 
     expect(btc.received).toEqual([
@@ -263,10 +271,46 @@ describe("market-stream-client routing", () => {
     expect(depthFive.received).toHaveLength(1);
     expect(depthThree.received).toEqual([]);
   });
+
+  test("routes a candle frame whose data is an array", async () => {
+    const client = createMarketStreamClient();
+    const btc = makeCallbacks("btc");
+
+    await subscribe(client, { channel: "candle", symbol: "BTC", interval: "1m" }, btc.callbacks);
+    sockets[0]?.open();
+
+    sockets[0]?.message({
+      channel: "candle",
+      coin: "BTC",
+      interval: "1m",
+      data: [
+        {
+          t: 1_700_000_000,
+          T: 1_700_000_059,
+          s: "BTC",
+          i: "1m",
+          o: "100",
+          c: "105",
+          h: "110",
+          l: "90",
+          v: "12.5",
+          n: 1,
+        },
+      ],
+    });
+
+    expect(btc.received).toEqual([
+      {
+        channel: "candle",
+        data: [{ time: 1_700_000_000, open: 100, high: 110, low: 90, close: 105, volume: 12.5 }],
+        meta: { coin: "BTC", interval: "1m" },
+      },
+    ]);
+  });
 });
 
 describe("market-stream-client reconnect", () => {
-  test("re-subscribes every active subscription before reconnect callbacks run", async () => {
+  test("re-subscribes every active subscription on reconnect", async () => {
     jest.useFakeTimers();
 
     const client = createMarketStreamClient();
@@ -301,8 +345,6 @@ describe("market-stream-client reconnect", () => {
       "send:subscribe:allMids",
       "candle:connected:true",
       "allMids:connected:true",
-      "candle:reconnect",
-      "allMids:reconnect",
     ]);
   });
 });

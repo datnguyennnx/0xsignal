@@ -1,8 +1,17 @@
 /// <reference types="bun-types" />
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
+import type { HistoricalOrderEntry, PortfolioPeriod, PortfolioResponse } from "@0xsignal/shared";
+
 import { ApiError } from "../lib/api-error";
 import { registerAuthTokenBridge } from "../lib/auth-token";
+import {
+  HL_INFO_URL,
+  type CapturedRequest,
+  type FetchHandler,
+  jsonResponse,
+  stubFetch,
+} from "../test/fixtures";
 
 import {
   DIRECT_READS,
@@ -14,22 +23,7 @@ import {
 } from "./hl-rest-client";
 
 const USER = "0x0000000000000000000000000000000000000000";
-const HL_INFO_URL = "https://api.hyperliquid.xyz";
 const realFetch = globalThis.fetch;
-
-interface CapturedRequest {
-  readonly url: string;
-  readonly body: unknown;
-  readonly authorization: string | null;
-}
-
-type FetchHandler = (url: string, body: unknown) => Response | Promise<Response>;
-
-const jsonResponse = (payload: unknown, status = 200): Response =>
-  new Response(JSON.stringify(payload), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 
 /** Direct Hyperliquid replies go out raw; the backend wraps them in `{ data }`. */
 const directOrBackend = (payload: unknown): FetchHandler => {
@@ -58,39 +52,16 @@ const errorStatus = (error: unknown): number | undefined => {
 
 const rejectFallback = (): Promise<never> => Promise.reject(new Error("must not fall back"));
 
-function stubFetch(handler: FetchHandler): CapturedRequest[] {
-  const calls: CapturedRequest[] = [];
-  const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    const body: unknown = typeof init?.body === "string" ? JSON.parse(init.body) : null;
-    calls.push({
-      url,
-      body,
-      authorization: new Headers(init?.headers).get("Authorization"),
-    });
-    const response = await handler(url, body);
-    return response;
-  };
-  globalThis.fetch = stub;
-  return calls;
-}
-
 const callsTo = (calls: CapturedRequest[], prefix: string): CapturedRequest[] =>
   calls.filter((call) => call.url.startsWith(prefix));
 
-interface PortfolioPeriodFixture {
-  readonly accountValueHistory: [number, string][];
-  readonly pnlHistory: [number, string][];
-  readonly vlm: string;
-}
-
-const portfolioPeriod = (vlm: string): PortfolioPeriodFixture => ({
+const portfolioPeriod = (vlm: string): PortfolioPeriod => ({
   accountValueHistory: [[1_700_000_000_000, "1000"]],
   pnlHistory: [[1_700_000_000_000, "10"]],
   vlm,
 });
 
-const portfolioFixture = [
+const portfolioFixture: PortfolioResponse = [
   ["day", portfolioPeriod("1")],
   ["week", portfolioPeriod("2")],
   ["month", portfolioPeriod("3")],
@@ -125,7 +96,7 @@ describe("browser-direct Hyperliquid reads", () => {
   });
 
   test("historical orders sends the documented body and keeps the old entry shape", async () => {
-    const entry = {
+    const entry: HistoricalOrderEntry = {
       order: {
         coin: "BTC",
         side: "A",

@@ -22,10 +22,10 @@ describe("persisted app store", () => {
   });
 
   test("the live store exposes no address fields", () => {
-    const state: Record<string, unknown> = useAppStore.getState();
-    expect(state["activeAddress"]).toBeUndefined();
-    expect(state["setActiveAddress"]).toBeUndefined();
-    expect(state["clearActiveAddress"]).toBeUndefined();
+    const state = useAppStore.getState();
+    expect(Object.hasOwn(state, "activeAddress")).toBe(false);
+    expect(Object.hasOwn(state, "setActiveAddress")).toBe(false);
+    expect(Object.hasOwn(state, "clearActiveAddress")).toBe(false);
   });
 
   test("partialize keeps only the theme", () => {

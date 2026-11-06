@@ -3,10 +3,9 @@ import { describe, expect, test } from "bun:test";
 
 import type { UserFill } from "@0xsignal/shared";
 
+import { createUserStreamClient, UserStreamLimitError } from "./user-stream-client";
 import {
-  createUserStreamClient,
   mergeUserFills,
-  UserStreamLimitError,
   USER_STREAM_LIMITS,
   type ClearinghouseStreamEvent,
   type OpenOrdersStreamEvent,
@@ -16,7 +15,7 @@ import {
   type UserStreamConnectionState,
   type UserStreamFailure,
   type UserStreamUpstream,
-} from "./user-stream-client";
+} from "./user-stream-types";
 
 const address = (index: number): string => `0x${index.toString(16).padStart(40, "0")}`;
 

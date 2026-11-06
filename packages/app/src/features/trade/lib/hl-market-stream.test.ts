@@ -17,6 +17,7 @@ import { useMarketDataStore } from "../../../stores/use-market-data-store";
 
 beforeEach(() => {
   useMarketStreamStatus.setState({ source: "direct", state: "idle", reason: null });
+  useMarketDataStore.setState({ orderbookData: {} });
 });
 
 interface SinkCalls {

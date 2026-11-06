@@ -65,8 +65,6 @@ interface MarketStreamCallbacks {
   onMessage: (data: unknown, channel: string, meta?: MarketStreamMeta) => void;
   onConnectionChange?: (connected: boolean) => void;
   onError?: (error: Error) => void;
-  /** Fires when the WebSocket successfully reconnects after a disconnect. */
-  onReconnect?: () => void;
 }
 
 // ── Subscription identity ────────────────────────────────────────────
@@ -219,7 +217,6 @@ const dispatchMessage = (entry: SharedConnection, raw: string): void => {
 function attachSharedListeners(entry: SharedConnection, socket: WebSocket): void {
   socket.addEventListener("open", () => {
     if (entry.cancelled || entry.socket !== socket) return;
-    const isReconnect = entry.reconnectAttempt > 0;
     entry.reconnectAttempt = 0;
 
     // Re-register every active subscription before notifying reconnect handlers.
@@ -228,10 +225,6 @@ function attachSharedListeners(entry: SharedConnection, socket: WebSocket): void
     }
 
     forEachRegistration(entry, (callbacks) => callbacks.onConnectionChange?.(true));
-
-    if (isReconnect) {
-      forEachRegistration(entry, (callbacks) => callbacks.onReconnect?.());
-    }
   });
 
   socket.addEventListener("message", (event: MessageEvent<string>) => {

@@ -44,7 +44,6 @@ export interface MarketStreamCallbacks {
   onMessage: (data: unknown, channel: string, meta?: MarketStreamMeta) => void;
   onConnectionChange?: (connected: boolean) => void;
   onError?: (error: Error) => void;
-  onReconnect?: () => void;
 }
 
 interface DirectHandle {
@@ -461,7 +460,6 @@ export function createBrowserMarketStreamClient(
       updateStatus({ source: "backend", state: "offline", reason: error.message });
       callbacks.onError?.(error);
     },
-    ...(callbacks.onReconnect !== undefined && { onReconnect: callbacks.onReconnect }),
   });
 
   const getDirect = (): DirectMarketStream => {

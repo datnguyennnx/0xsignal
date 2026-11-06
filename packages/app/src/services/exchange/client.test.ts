@@ -74,9 +74,10 @@ describe("assertExchangeEnvelope", () => {
 describe("signGuardedAction", () => {
   test("rejects a non-allowlisted action before the signer is invoked", () => {
     let signerCalls = 0;
+    const signature: `0x${string}` = `0x${"11".repeat(65)}`;
     const sign = (): Promise<`0x${string}`> => {
       signerCalls += 1;
-      return Promise.resolve(`0x${"11".repeat(65)}`);
+      return Promise.resolve(signature);
     };
 
     expect(() => signGuardedAction({ type: "usdClassTransfer", amount: "1" }, sign)).toThrow(

@@ -3,24 +3,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 
 import { apiFetch } from "./api-base";
 import { registerAuthTokenBridge } from "./auth-token";
+import { stubFetch } from "../test/fixtures";
 
 const realFetch = globalThis.fetch;
 const TOKEN = "test-session-token";
-
-interface CapturedCall {
-  readonly url: string;
-  readonly authorization: string | null;
-}
-
-const stubFetch = (): CapturedCall[] => {
-  const calls: CapturedCall[] = [];
-  globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    calls.push({ url, authorization: new Headers(init?.headers).get("Authorization") });
-    return Promise.resolve(new Response("{}", { status: 200 }));
-  };
-  return calls;
-};
 
 afterEach(() => {
   globalThis.fetch = realFetch;

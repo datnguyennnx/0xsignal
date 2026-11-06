@@ -6,8 +6,6 @@ import { mergePersistedAuthState, selectPersistedAuthState, useAuthStore } from 
 
 const originalFetch = globalThis.fetch;
 
-type Fetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
-
 function urlOf(input: string | URL | Request): string {
   return input instanceof Request ? input.url : String(input);
 }
@@ -15,8 +13,8 @@ function urlOf(input: string | URL | Request): string {
 function successFetch(
   refreshCalls: string[],
   captureAuthHeader: (header: string | null) => void,
-): Fetcher {
-  return (input, init) => {
+): typeof fetch {
+  const fetcher = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = urlOf(input);
     if (url.endsWith("/auth/refresh")) {
       refreshCalls.push(url);
@@ -40,6 +38,7 @@ function successFetch(
     }
     return Promise.reject(new Error(`unexpected request: ${url}`));
   };
+  return Object.assign(fetcher, { preconnect: (_url: string | URL) => {} });
 }
 
 function failingRefreshFetch(input: string | URL | Request): Promise<Response> {
@@ -65,12 +64,20 @@ function resetStore(): void {
   });
 }
 
-function waitFor(predicate: () => boolean): Promise<void> {
-  return new Promise<void>((resolve) => {
+const WAIT_TIMEOUT_MS = 2_000;
+
+function waitFor(predicate: () => boolean, timeoutMs = WAIT_TIMEOUT_MS): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const deadline = Date.now() + timeoutMs;
     const interval = setInterval(() => {
       if (predicate()) {
         clearInterval(interval);
         resolve();
+        return;
+      }
+      if (Date.now() >= deadline) {
+        clearInterval(interval);
+        reject(new Error(`waitFor timed out after ${timeoutMs}ms`));
       }
     }, 5);
   });
@@ -119,9 +126,9 @@ describe("auth store token handling", () => {
 
   test("a fresh mount refreshes exactly once and attaches the token", async () => {
     const refreshCalls: string[] = [];
-    let authHeader: string | null = null;
+    const seen: { authHeader: string | null } = { authHeader: null };
     globalThis.fetch = successFetch(refreshCalls, (value) => {
-      authHeader = value;
+      seen.authHeader = value;
     });
 
     const cancel = useAuthStore.getState().initialize();
@@ -129,7 +136,7 @@ describe("auth store token handling", () => {
     cancel();
 
     expect(refreshCalls).toHaveLength(1);
-    expect(authHeader).toBe("Bearer fresh-token");
+    expect(seen.authHeader).toBe("Bearer fresh-token");
     expect(useAuthStore.getState().token).toBe("fresh-token");
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
     expect(useAuthStore.getState().user?.userId).toBe("user-1");
@@ -137,7 +144,9 @@ describe("auth store token handling", () => {
 
   test("a failed refresh signs out without an error toast", async () => {
     const toastError = spyOn(toast, "error");
-    globalThis.fetch = failingRefreshFetch;
+    globalThis.fetch = Object.assign(failingRefreshFetch, {
+      preconnect: (_url: string | URL) => {},
+    });
 
     const cancel = useAuthStore.getState().initialize();
     await waitFor(() => !useAuthStore.getState().isLoading);

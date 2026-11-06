@@ -5,6 +5,8 @@ import { formatTradeRows } from "../lib/format-trade-rows";
 import { splitDisplaySymbol } from "../utils/display-symbol";
 import { getColumns } from "../utils/trade-dropdown-columns";
 
+import { market } from "../../../test/fixtures";
+
 const SHAPES = ["BTC", "xyz:EUR", "HFUN/USDC"] as const;
 
 const renderedSymbol = (symbol: string): string => {
@@ -30,17 +32,17 @@ describe("trigger symbol label", () => {
 });
 
 describe("symbol column", () => {
-  const render = getColumns("perp").find((col) => col.id === "symbol")!.render;
+  const render = getColumns("perps").find((col) => col.id === "symbol")!.render;
 
   test("every shape survives row formatting verbatim", () => {
     for (const symbol of SHAPES) {
       const [row] = formatTradeRows(
         [
-          {
+          market({
             coin: symbol,
             rawCoin: symbol,
-            marketType: "perp",
             displaySymbol: symbol,
+            marketType: "perp",
             displayCategory: "Crypto",
             dexPrefix: null,
             isHip3: false,
@@ -51,7 +53,7 @@ describe("symbol column", () => {
             funding: "0",
             dayNtlVlm: "0",
             szDecimals: 4,
-          },
+          }),
         ],
         symbol,
       );

@@ -13,9 +13,10 @@ afterEach(() => {
 const jsonResponse = (body: unknown, status: number, statusText: string): Response =>
   new Response(JSON.stringify(body), { status, statusText });
 
-const respondWith = (body: unknown, status: number, statusText: string): typeof fetch => {
-  return () => Promise.resolve(jsonResponse(body, status, statusText));
-};
+const respondWith = (body: unknown, status: number, statusText: string): typeof fetch =>
+  Object.assign(() => Promise.resolve(jsonResponse(body, status, statusText)), {
+    preconnect: (_url: string | URL) => {},
+  });
 
 const capture = async (promise: Promise<unknown>): Promise<unknown> => {
   try {

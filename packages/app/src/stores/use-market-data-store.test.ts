@@ -20,8 +20,9 @@ const bookLevelField = (
   index: number,
   field: "price" | "size" | "total",
 ): unknown => {
-  const state: Record<string, unknown> = useMarketDataStore.getState();
-  const books = state["orderbookData"];
+  const rawState: unknown = useMarketDataStore.getState();
+  if (!isRecord(rawState)) return undefined;
+  const books = rawState["orderbookData"];
   if (!isRecord(books)) return undefined;
   const book = books[symbol];
   if (!isRecord(book)) return undefined;
@@ -57,7 +58,7 @@ describe("appendCandles", () => {
   test("merges a newer sorted batch without dropping history", () => {
     const key = "merge:1m";
 
-    useMarketDataStore.getState().setCandleData(key, [bar(100, 10), bar(200, 20)]);
+    useMarketDataStore.setState({ candleData: { [key]: [bar(100, 10), bar(200, 20)] } });
     useMarketDataStore.getState().appendCandles(key, [bar(150, 15), bar(250, 25)]);
 
     expect(candles(key).map((candle) => candle.time)).toEqual([100, 150, 200, 250]);
@@ -66,7 +67,7 @@ describe("appendCandles", () => {
   test("keeps one bar per timestamp and lets the newer payload win", () => {
     const key = "dedupe:1m";
 
-    useMarketDataStore.getState().setCandleData(key, [bar(100, 10), bar(200, 20)]);
+    useMarketDataStore.setState({ candleData: { [key]: [bar(100, 10), bar(200, 20)] } });
     useMarketDataStore.getState().appendCandles(key, [bar(200, 99), bar(300, 30)]);
 
     const result = candles(key);
@@ -77,7 +78,7 @@ describe("appendCandles", () => {
   test("replaces the last bar in place when the stream updates it", () => {
     const key = "last:1m";
 
-    useMarketDataStore.getState().setCandleData(key, [bar(100, 10), bar(200, 20)]);
+    useMarketDataStore.setState({ candleData: { [key]: [bar(100, 10), bar(200, 20)] } });
     useMarketDataStore.getState().appendCandles(key, [bar(200, 21)]);
 
     expect(candles(key).map((candle) => candle.time)).toEqual([100, 200]);
@@ -175,6 +176,9 @@ describe("orderbook flush gate", () => {
   });
 
   afterEach(() => {
+    globalThis.cancelAnimationFrame(1);
+    pendingFrame = null;
+    useMarketDataStore.setState({ orderbookData: {} });
     globalThis.requestAnimationFrame = originalRequestAnimationFrame;
     globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
   });
