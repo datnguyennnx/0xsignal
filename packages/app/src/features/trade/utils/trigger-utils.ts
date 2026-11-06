@@ -5,17 +5,44 @@ function isNonNullObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** One wire-to-number boundary for every trigger field. */
+function toNumber(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * Wire `orderType` discriminants. `trigger` is resolved to Stop/TP by condition;
+ * the rest pass through. An object with no known key is a contract breach.
+ */
+const OBJECT_ORDER_TYPES = [
+  ["limit", "Limit"],
+  ["trigger", "Trigger"],
+  ["algo", "Algo"],
+  ["ioc", "IOC"],
+] as const;
+
+function primitiveOrderType(order: OpenOrder): string {
+  if (typeof order.orderType === "string") return order.orderType;
+  const ot = order.orderType;
+  if (!isNonNullObject(ot)) {
+    throw new Error(`Unknown order type: ${JSON.stringify(order.orderType)}`);
+  }
+  for (const [key, label] of OBJECT_ORDER_TYPES) {
+    if (key in ot) return label;
+  }
+  throw new Error(`Unknown order type: ${Object.keys(ot).join(", ")}`);
+}
+
 /** Extract trigger price from order. */
 export function extractTriggerPx(order: OpenOrder): string | undefined {
   if (order.triggerPx !== undefined && order.triggerPx !== "") return order.triggerPx;
   const ot = order.orderType;
-  if (isNonNullObject(ot) && "trigger" in ot) {
-    const trigger = ot.trigger;
-    if (isNonNullObject(trigger) && typeof trigger.triggerPx === "string") return trigger.triggerPx;
-    if (isNonNullObject(trigger) && typeof trigger.triggerPx === "number")
-      return String(trigger.triggerPx);
-  }
-  return undefined;
+  if (!isNonNullObject(ot) || !("trigger" in ot)) return undefined;
+  const trigger = ot.trigger;
+  if (!isNonNullObject(trigger) || trigger.triggerPx === undefined) return undefined;
+  const px = toNumber(trigger.triggerPx);
+  return px > 0 ? String(px) : undefined;
 }
 
 /**
@@ -30,37 +57,29 @@ export function resolveTriggerCondition(order: OpenOrder): string | undefined {
     return order.triggerCondition;
   }
 
-  // Infer from order type + side
-  const ot = getOrderType(order);
-  if (ot === "Stop Market") return order.side === "B" ? "above" : "below";
-  if (ot === "Take Profit Market") return order.side === "B" ? "below" : "above";
+  const ot = primitiveOrderType(order);
+  if (ot === "Stop Market" || ot === "Trigger") {
+    return order.side === "B" ? "above" : "below";
+  }
+  if (ot === "Take Profit Market") {
+    return order.side === "B" ? "below" : "above";
+  }
 
   return undefined;
 }
 
 export function getOrderType(order: OpenOrder): string {
-  // FrontendOpenOrderSchema: orderType is a native string
-  if (typeof order.orderType === "string") {
-    return order.orderType;
+  const base = primitiveOrderType(order);
+  if (base !== "Trigger") return base;
+
+  const condition = resolveTriggerCondition(order);
+  if (condition === "above") {
+    return order.side === "B" ? "Stop Market" : "Take Profit Market";
   }
-  // orderType is a nested object
-  const ot = order.orderType;
-  if (isNonNullObject(ot)) {
-    if ("limit" in ot) return "Limit";
-    if ("trigger" in ot) {
-      if (order.triggerCondition !== undefined && order.triggerCondition !== "") {
-        const isAbove = order.triggerCondition.includes("above");
-        if (order.side === "B" && isAbove) return "Stop Market";
-        if (order.side === "B" && !isAbove) return "Take Profit Market";
-        if (order.side === "A" && isAbove) return "Take Profit Market";
-        if (order.side === "A" && !isAbove) return "Stop Market";
-      }
-      return "Stop Market";
-    }
-    if ("algo" in ot) return "Algo";
-    if ("ioc" in ot) return "IOC";
+  if (condition === "below") {
+    return order.side === "B" ? "Take Profit Market" : "Stop Market";
   }
-  return "Limit";
+  return "Stop Market";
 }
 
 export function getTriggerLabel(order: OpenOrder): string {
@@ -72,9 +91,9 @@ export function getTriggerLabel(order: OpenOrder): string {
 
   const condition = resolveTriggerCondition(order);
   if (condition === undefined || condition === "")
-    return `Trigger ${formatPrice(Number(triggerPx))}`;
+    return `Trigger ${formatPrice(toNumber(triggerPx))}`;
 
-  return `Price ${condition} ${formatPrice(Number(triggerPx))}`;
+  return `Price ${condition} ${formatPrice(toNumber(triggerPx))}`;
 }
 
 /** "Market" for trigger orders, or canonical currency for Limit. */
@@ -107,10 +126,9 @@ export function buildTpSlByCoinMap(
     let sl: string | null = null;
     for (const child of order.children) {
       const ot = getOrderType(child);
-      const limitVal = Number(child.limitPx);
-      const triggerVal = Number(child.triggerPx);
-      const priceNum =
-        limitVal > 0 ? limitVal : Number.isFinite(triggerVal) ? Math.max(triggerVal, 0) : 0;
+      const limitVal = toNumber(child.limitPx);
+      const triggerVal = toNumber(child.triggerPx);
+      const priceNum = limitVal > 0 ? limitVal : Math.max(triggerVal, 0);
       const px = formatPrice(priceNum);
       if (ot.includes("Take Profit")) tp = px;
       else if (ot.includes("Stop")) sl = px;

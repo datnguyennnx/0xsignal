@@ -22,6 +22,9 @@ const MAX_CANDLE_KEYS = 4;
 /** Bounded orderbook state per symbol (active + recently viewed). */
 const MAX_ORDERBOOK_SYMBOLS = 6;
 
+/** A level is removed when its parsed size is zero, never by string equality. */
+const isZeroLevelSize = (size: string): boolean => Number(size) <= 0;
+
 // ── Store interface ──────────────────────────────────────────────────
 
 export interface MarketDataState {
@@ -298,7 +301,7 @@ export const useMarketDataStore = create<MarketDataState>()(
       let changed = false;
 
       for (const change of changedBids) {
-        if (change.sz === "0" || change.sz === "0.0") {
+        if (isZeroLevelSize(change.sz)) {
           if (raw.bids.delete(change.px)) changed = true;
         } else {
           // Skip update if size hasn't changed — avoids unnecessary flushes
@@ -311,7 +314,7 @@ export const useMarketDataStore = create<MarketDataState>()(
       }
 
       for (const change of changedAsks) {
-        if (change.sz === "0" || change.sz === "0.0") {
+        if (isZeroLevelSize(change.sz)) {
           if (raw.asks.delete(change.px)) changed = true;
         } else {
           const old = raw.asks.get(change.px);
