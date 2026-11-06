@@ -1,13 +1,15 @@
-import { AVAILABLE_INDICATORS, getIndicatorBaseId } from "./config";
-import { INDICATOR_OUTPUT } from "./constants";
+import { getIndicatorBaseId } from "./config";
+import { INDICATOR_OUTPUT, INDICATOR_REGISTRY } from "./constants";
 
-export const BAND_INDICATOR_IDS = AVAILABLE_INDICATORS.filter(
-  (indicator) => indicator.output === INDICATOR_OUTPUT.BAND,
-).map((indicator) => indicator.id);
+const definitions = Object.values(INDICATOR_REGISTRY);
 
-export const HISTOGRAM_INDICATOR_IDS = AVAILABLE_INDICATORS.filter(
-  (indicator) => indicator.output === INDICATOR_OUTPUT.HISTOGRAM,
-).map((indicator) => indicator.id);
+export const BAND_INDICATOR_IDS: string[] = definitions
+  .filter((definition) => definition.catalog.output === INDICATOR_OUTPUT.BAND)
+  .map((definition) => definition.id);
+
+export const HISTOGRAM_INDICATOR_IDS: string[] = definitions
+  .filter((definition) => definition.catalog.output === INDICATOR_OUTPUT.HISTOGRAM)
+  .map((definition) => definition.id);
 
 export const isBandIndicator = (indicatorId: string): boolean => {
   const baseId = getIndicatorBaseId(indicatorId);
