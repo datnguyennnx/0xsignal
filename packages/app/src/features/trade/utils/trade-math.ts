@@ -105,11 +105,6 @@ export function lossPercentFromPrice(
   return (diff / entryPrice) * leverage * 100;
 }
 
-/**
- * Format order size by **truncating** (floor) to prevent exceeding available margin.
- * Does NOT round half-up.
- * @example formatOrderSize(1.23456, 3) // → "1.234"
- */
 export function formatOrderSize(size: number, _szDecimals: number): string {
   return formatSize(size);
 }

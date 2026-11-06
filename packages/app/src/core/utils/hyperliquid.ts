@@ -1,6 +1,5 @@
 import { type WsMarketInterval, WS_MARKET_INTERVALS } from "@0xsignal/shared";
 
-// Re-export shared interval type as the canonical interval type
 export type HLInterval = WsMarketInterval;
 
 export const mapToHLInterval = (interval: string): HLInterval =>
@@ -64,7 +63,6 @@ function buildSide(
   descending: boolean,
   maxDepth: number,
 ): DisplayOrderbookLevel[] {
-  // One allocation per level: parse, order, and truncate in a single pass.
   const levels: DisplayOrderbookLevel[] = raw.map((level) => ({
     price: Number(level.px),
     size: Number(level.sz),
@@ -87,8 +85,6 @@ export function processRawL2Levels(
 ): OrderbookData {
   const bids = buildSide(rawBids, true, maxDepth);
   const asks = buildSide(rawAsks, false, maxDepth);
-
-  // Cumulative totals are computed exactly once per update, not per render.
 
   let bidTotal = 0;
   for (let i = 0; i < bids.length; i++) {

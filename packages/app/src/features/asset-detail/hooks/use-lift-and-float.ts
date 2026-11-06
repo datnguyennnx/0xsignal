@@ -128,7 +128,6 @@ export function useLiftAndFloat({
     // Track latest delta for rAF-throttled phantom DOM update
     latestDeltaRef.current = { dx, dy };
 
-    // Schedule rAF for phantom DOM update (throttled to vsync)
     if (!rafIdRef.current) {
       rafIdRef.current = requestAnimationFrame(() => {
         rafIdRef.current = 0;
@@ -155,8 +154,6 @@ export function useLiftAndFloat({
       layoutRef.current,
     );
 
-    // Only update if grid position or validity changed; comparing against the ref
-    // avoids queueing a React update at all for sub-cell movement.
     const previous = previewStateRef.current;
     if (
       previous?.gridX === projected.gridX &&
@@ -194,7 +191,6 @@ export function useLiftAndFloat({
       onRepositionCommitRef.current(ds.draggedItemId, commitX, commitY);
     }
 
-    // Clean up document listeners via refs (stable identity, no cycle)
     const moveHandler = handleMoveRef.current;
     if (moveHandler) {
       document.removeEventListener("pointermove", moveHandler);
@@ -270,7 +266,6 @@ export function useLiftAndFloat({
       setIsDragging(true);
       setDraggedItemId(id);
 
-      // Attach document-level listeners via refs (stable identity)
       const moveHandler = handleMoveRef.current;
       const upHandler = pointerUpRef.current;
       if (moveHandler) document.addEventListener("pointermove", moveHandler);

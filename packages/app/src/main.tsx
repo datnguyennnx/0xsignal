@@ -8,8 +8,6 @@ import { config } from "./config/web3";
 import { queryClient } from "./lib/query-client";
 import { initAppStore } from "./stores/use-app-store";
 
-// Stylesheets are imported for the injection side effect; the bindings keep the
-// style imports assigned while the entry still declares what it pulls in.
 void appStyles;
 void katexStyles;
 

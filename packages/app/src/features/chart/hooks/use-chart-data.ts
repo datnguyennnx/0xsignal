@@ -56,7 +56,6 @@ export const useChartData = ({
   const prevLastTimeRef = useRef<number | null>(null);
   const prevLastCandleRef = useRef<ChartDataPoint | null>(null);
   const prevIsDarkRef = useRef(isDark);
-  // Fast-path: skip full comparison when data identity is unchanged
   const stableIdentityRef = useRef<{
     len: number;
     firstTime: number;
@@ -78,7 +77,6 @@ export const useChartData = ({
     if (lastPoint === undefined) return;
     const currentLastTime = lastPoint.time;
 
-    // Fast-path: skip full comparison when identity is unchanged
     const identity = stableIdentityRef.current;
     if (
       identity &&
@@ -110,7 +108,6 @@ export const useChartData = ({
     const prevFirstTime = prevFirstTimeRef.current;
     const prevLastTime = prevLastTimeRef.current;
 
-    // Case 1: Initial load
     if (!initialDataLoadedRef.current) {
       candlestickSeries.setData(toCandlestickData(points));
       volumeSeries.setData(toVolumeHistogramData(points, volumeColors));
@@ -127,7 +124,6 @@ export const useChartData = ({
       return;
     }
 
-    // Case 2: Historical data prepended (loadMore)
     if (prevFirstTime !== null && currentFirstTime < prevFirstTime) {
       const timeScale = chart?.timeScale();
       // Use time-based range — survives data prepend without index shifting
@@ -151,7 +147,6 @@ export const useChartData = ({
       return;
     }
 
-    // Case 3: Real-time update on same last candle
     const prevCandle = prevLastCandleRef.current;
     const isSameLastTimestamp = prevLastTime !== null && currentLastTime === prevLastTime;
     const isSameLength = data.length === prevDataLenRef.current;
@@ -183,7 +178,6 @@ export const useChartData = ({
       return;
     }
 
-    // Case 4: New candle(s) appended via WS
     if (prevLastTime !== null && currentLastTime > prevLastTime) {
       const startIndex = Math.max(prevDataLenRef.current, 0);
       const newCandles = points.slice(startIndex);
@@ -211,7 +205,6 @@ export const useChartData = ({
       return;
     }
 
-    // Case 5: Dataset replaced (interval/symbol switch or non-incremental source refresh)
     if (
       prevFirstTime !== null &&
       prevLastTime !== null &&
@@ -227,7 +220,6 @@ export const useChartData = ({
       return;
     }
 
-    // Case 6: No meaningful change
     prevDataLenRef.current = data.length;
     prevFirstTimeRef.current = currentFirstTime;
     prevLastTimeRef.current = currentLastTime;

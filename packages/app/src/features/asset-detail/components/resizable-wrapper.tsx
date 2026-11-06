@@ -180,7 +180,6 @@ export const ResizableWrapper = memo(function ResizableWrapper({
         }`}
       />
 
-      {/* Drag Handle — Grip icon for repositioning */}
       <div
         onPointerDown={(e) => onRepositionStart?.(id, e)}
         className={`absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-8 h-5 cursor-grab active:cursor-grabbing transition-[opacity,background-color] duration-[120ms] rounded touch-none ${
