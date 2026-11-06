@@ -95,6 +95,11 @@
   --page-fade-dur: 120ms;
   --page-fade-ease: cubic-bezier(0.19, 1, 0.22, 1);
 
+  /* One motion scale: feedback is fast, enter is deliberate, exit is the shortest of the three. */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-exit: 100ms;
+
   --radius: 0.625rem;
 
   /* One page plane well below card white; elevated chrome is the only thing painted above it. */
@@ -290,6 +295,8 @@
   }
 
   html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     /* 16px @1920x1080  ->  24px @3840x2160 (1.5x), clamped 14-24px */
     font-size: clamp(14px, calc(8px + (100vw + 100vh) / 375), 24px);
   }
@@ -307,6 +314,18 @@
       "Segoe UI",
       system-ui,
       sans-serif;
+  }
+
+  /* Single-line blocks are untouched by wrapping hints; only multi-line flow changes. */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p,
+  li {
+    text-wrap: pretty;
   }
 
   /* Thin scrollbar + reserved gutter so a scrollbar appearing never reflows. */
