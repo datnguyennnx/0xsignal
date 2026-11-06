@@ -1,37 +1,13 @@
-import { lazy, Suspense, useEffect, type ReactNode } from "react";
+import { Suspense, useEffect, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
 import { MainLayout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AppToasters } from "@/components/app-toasters";
 import { usePreloadRoutes } from "@/lib/preload-routes";
+import { ROUTES, titleForPath, type RouteRecord } from "@/lib/routes";
 import { useAppStore } from "@/stores/use-app-store";
 import { useAuthStore } from "@/stores/use-auth-store";
-
-const AssetDetail = lazy(() =>
-  import("@/pages/asset-detail").then((m) => ({ default: m.AssetDetail })),
-);
-const NotFoundPage = lazy(() =>
-  import("@/pages/not-found").then((m) => ({ default: m.NotFoundPage })),
-);
-const PortfolioPage = lazy(() =>
-  import("@/pages/portfolio").then((m) => ({ default: m.PortfolioPage })),
-);
-const CalendarPage = lazy(() =>
-  import("@/pages/calendar").then((m) => ({ default: m.CalendarPage })),
-);
-const SettingsPage = lazy(() =>
-  import("@/pages/settings").then((m) => ({ default: m.SettingsPage })),
-);
-const WhalesPage = lazy(() => import("@/pages/whales").then((m) => ({ default: m.WhalesPage })));
-const WhaleDetailPage = lazy(() =>
-  import("@/pages/whale-detail").then((m) => ({ default: m.WhaleDetailPage })),
-);
-const LoginPage = lazy(() => import("@/pages/login").then((m) => ({ default: m.LoginPage })));
-const AuthCallbackPage = lazy(() =>
-  import("@/pages/auth-callback").then((m) => ({ default: m.AuthCallbackPage })),
-);
 
 function PageLoader() {
   return (
@@ -45,13 +21,15 @@ function RouteErrorFallback() {
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh gap-4">
       <p className="text-foreground">Something went wrong loading this page.</p>
-      <Button
+      <button
+        type="button"
+        className="inline-flex h-[var(--control-h-md)] items-center justify-center rounded-[var(--control-radius-md)] bg-primary px-[var(--control-px-md)] font-medium text-[length:var(--control-text-md)] text-primary-foreground transition-colors hover:bg-primary/80"
         onClick={() => {
           window.location.reload();
         }}
       >
         Reload
-      </Button>
+      </button>
     </div>
   );
 }
@@ -63,6 +41,37 @@ function RouteErrorBoundary({ children }: { children: ReactNode }) {
       {children}
     </ErrorBoundary>
   );
+}
+
+function BareRoute({ record }: { record: RouteRecord }) {
+  const Page = record.lazy;
+  if (Page === undefined) return null;
+  return (
+    <Suspense fallback={<PageLoader />}>
+      {record.errorBoundary === true ? (
+        <RouteErrorBoundary>
+          <Page />
+        </RouteErrorBoundary>
+      ) : (
+        <Page />
+      )}
+    </Suspense>
+  );
+}
+
+function MainRoute({ record }: { record: RouteRecord }) {
+  if (record.redirectTo !== undefined) return <Navigate to={record.redirectTo} replace />;
+  const Page = record.lazy;
+  return Page === undefined ? null : <Page />;
+}
+
+function RouteTitle() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const title = titleForPath(pathname);
+    if (title !== undefined) document.title = `${title} | 0xsignal`;
+  }, [pathname]);
+  return null;
 }
 
 export function App() {
@@ -79,26 +88,12 @@ export function App() {
     <ErrorBoundary>
       <TooltipProvider>
         <BrowserRouter>
+          <RouteTitle />
           <Routes>
             {/* All routes are public. Auth enforced only at POST /exchange/* request boundary. */}
-            <Route
-              path="/login"
-              element={
-                <Suspense fallback={<PageLoader />}>
-                  <RouteErrorBoundary>
-                    <LoginPage />
-                  </RouteErrorBoundary>
-                </Suspense>
-              }
-            />
-            <Route
-              path="/auth/callback"
-              element={
-                <Suspense fallback={<PageLoader />}>
-                  <AuthCallbackPage />
-                </Suspense>
-              }
-            />
+            {ROUTES.filter((route) => route.shell === "bare").map((route) => (
+              <Route key={route.path} path={route.path} element={<BareRoute record={route} />} />
+            ))}
             <Route
               element={
                 <MainLayout>
@@ -110,16 +105,9 @@ export function App() {
                 </MainLayout>
               }
             >
-              <Route path="/" element={<Navigate to="/trade/BTC" replace />} />
-              <Route path="/trade" element={<Navigate to="/trade/BTC" replace />} />
-              <Route path="/trade/:base/:quote" element={<AssetDetail />} />
-              <Route path="/trade/:symbol" element={<AssetDetail />} />
-              <Route path="/portfolio" element={<PortfolioPage />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/whales" element={<WhalesPage />} />
-              <Route path="/whales/:address" element={<WhaleDetailPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="*" element={<NotFoundPage />} />
+              {ROUTES.filter((route) => route.shell !== "bare").map((route) => (
+                <Route key={route.path} path={route.path} element={<MainRoute record={route} />} />
+              ))}
             </Route>
           </Routes>
           <AppToasters />

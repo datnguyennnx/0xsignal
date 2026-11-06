@@ -5,6 +5,7 @@ import { api } from "@/services/api";
 import type { AuthMeResponse } from "@0xsignal/shared";
 import { ApiError } from "@/lib/api-error";
 import { registerAuthTokenBridge } from "@/lib/auth-token";
+import { isAuthExemptPath } from "@/lib/routes";
 
 export interface PersistedAuthState {
   user: AuthMeResponse | null;
@@ -127,11 +128,7 @@ export const useAuthStore = create<AuthStoreState>()(
 
           void (async () => {
             // Skip refresh on callback/login pages
-            if (
-              typeof window !== "undefined" &&
-              (window.location.pathname === "/auth/callback" ||
-                window.location.pathname === "/login")
-            ) {
+            if (typeof window !== "undefined" && isAuthExemptPath(window.location.pathname)) {
               if (!cancelled) set({ isLoading: false });
               return;
             }

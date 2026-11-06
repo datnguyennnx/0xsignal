@@ -10,26 +10,28 @@ import {
   type SidePanelDescriptor,
   type SidePanelRegistry,
 } from "@/components/side-panel";
-import {
-  CALENDAR_DAY_PANEL,
-  CalendarDayPanel,
-} from "@/features/calendar/components/calendar-day-panel";
+import { CalendarDayPanel } from "@/features/calendar/components/calendar-day-panel";
 import { dayKey } from "@/features/calendar/lib/date-utils";
 import { CoinContextPanel } from "@/features/whales/components/coin-context-panel";
 import {
   derivePanelDescriptor,
+  isKnownPanelKind,
+  PANEL_KINDS,
   withPanelParams,
   withoutPanelParams,
 } from "@/lib/side-panel-params";
 
-const COIN_CONTEXT_PANEL = "coin";
+type PanelRegistryEntry = SidePanelRegistry[string];
 
-const PANEL_REGISTRY: SidePanelRegistry = {
-  [CALENDAR_DAY_PANEL]: { component: CalendarDayPanel, title: "Day detail" },
-  [COIN_CONTEXT_PANEL]: { component: CoinContextPanel, title: "Coin market" },
+const PANEL_COMPONENTS: Record<keyof typeof PANEL_KINDS, PanelRegistryEntry> = {
+  calendarDay: { component: CalendarDayPanel, title: "Day detail" },
+  coinContext: { component: CoinContextPanel, title: "Coin market" },
 };
 
-const isKnownPanelKind = (kind: string): boolean => Object.hasOwn(PANEL_REGISTRY, kind);
+const PANEL_REGISTRY: SidePanelRegistry = {
+  [PANEL_KINDS.calendarDay.kind]: PANEL_COMPONENTS.calendarDay,
+  [PANEL_KINDS.coinContext.kind]: PANEL_COMPONENTS.coinContext,
+};
 
 function useOpenPanel(): (kind: string, id: string) => void {
   const [, setSearchParams] = useSearchParams();
@@ -61,7 +63,7 @@ export function useCalendarDayPanel(): CalendarDayPanelControls {
   const openPanel = useOpenPanel();
   const closePanel = usePanelClose();
 
-  const selectedKey = descriptor?.kind === CALENDAR_DAY_PANEL ? descriptor.id : null;
+  const selectedKey = descriptor?.kind === PANEL_KINDS.calendarDay.kind ? descriptor.id : null;
   const selectedDate = useMemo(
     () => (selectedKey === null ? null : parseISO(selectedKey)),
     [selectedKey],
@@ -69,7 +71,7 @@ export function useCalendarDayPanel(): CalendarDayPanelControls {
 
   const openDay = useCallback(
     (date: Date) => {
-      openPanel(CALENDAR_DAY_PANEL, dayKey(date));
+      openPanel(PANEL_KINDS.calendarDay.kind, dayKey(date));
     },
     [openPanel],
   );
@@ -80,7 +82,7 @@ export function useCalendarDayPanel(): CalendarDayPanelControls {
         closePanel();
         return;
       }
-      openPanel(CALENDAR_DAY_PANEL, dayKey(date));
+      openPanel(PANEL_KINDS.calendarDay.kind, dayKey(date));
     },
     [closePanel, openPanel, selectedKey],
   );
@@ -99,11 +101,11 @@ export function useCoinContextPanel(): CoinContextPanelControls {
   const openPanel = useOpenPanel();
   const close = usePanelClose();
 
-  const activeCoin = descriptor?.kind === COIN_CONTEXT_PANEL ? descriptor.id : null;
+  const activeCoin = descriptor?.kind === PANEL_KINDS.coinContext.kind ? descriptor.id : null;
 
   const openCoin = useCallback(
     (coin: string) => {
-      openPanel(COIN_CONTEXT_PANEL, coin);
+      openPanel(PANEL_KINDS.coinContext.kind, coin);
     },
     [openPanel],
   );

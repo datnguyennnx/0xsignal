@@ -29,25 +29,75 @@ interface PanelMin {
   minH: number;
 }
 
-/** Per-panel minimums live here; a stored item's stale minW must not win. */
-const PANEL_MIN: Record<string, PanelMin> = {
-  chart: { minW: 9, minH: 6 },
-  orderbook: { minW: 4, minH: 8 },
-  orderform: { minW: 4, minH: 8 },
-  positions: { minW: 9, minH: 3 },
-};
+type PanelRect = Pick<LayoutItem, "x" | "y" | "w" | "h">;
+
+interface PanelDefinition extends PanelMin {
+  id: string;
+  label: string;
+  initial: PanelRect;
+  compact: PanelRect;
+}
+
+/**
+ * One ordered panel list: id, label, per-panel minimum, and both layout presets.
+ * Defining a panel here also defines its label and layout entry, so none can drift.
+ */
+export const PANELS: PanelDefinition[] = [
+  {
+    id: "chart",
+    label: "Chart",
+    minW: 9,
+    minH: 6,
+    initial: { x: 0, y: 0, w: 16, h: 11 },
+    compact: { x: 0, y: 0, w: 16, h: 9 },
+  },
+  {
+    id: "orderbook",
+    label: "Order Book",
+    minW: 4,
+    minH: 8,
+    initial: { x: 16, y: 0, w: 5, h: 16 },
+    compact: { x: 16, y: 0, w: 5, h: 16 },
+  },
+  {
+    id: "orderform",
+    label: "Order Form",
+    minW: 4,
+    minH: 8,
+    initial: { x: 21, y: 0, w: 5, h: 16 },
+    compact: { x: 21, y: 0, w: 5, h: 16 },
+  },
+  {
+    id: "positions",
+    label: "Positions",
+    minW: 9,
+    minH: 3,
+    initial: { x: 0, y: 11, w: 16, h: 5 },
+    compact: { x: 0, y: 9, w: 16, h: 7 },
+  },
+];
+
+const PANEL_BY_ID = new Map(PANELS.map((panel) => [panel.id, panel]));
 
 export function panelMin(id: string): PanelMin {
-  return PANEL_MIN[id] ?? { minW: 1, minH: 1 };
+  const panel = PANEL_BY_ID.get(id);
+  return panel === undefined ? { minW: 1, minH: 1 } : { minW: panel.minW, minH: panel.minH };
+}
+
+function layoutItem(panel: PanelDefinition, rect: PanelRect): LayoutItem {
+  return {
+    i: panel.id,
+    x: rect.x,
+    y: rect.y,
+    w: rect.w,
+    h: rect.h,
+    minW: panel.minW,
+    minH: panel.minH,
+  };
 }
 
 /** Default layout: 16-wide chart over a positions strip, 5-col book and form; 16 rows fill the region. */
-export const INITIAL_LAYOUT: LayoutItem[] = [
-  { i: "chart", x: 0, y: 0, w: 16, h: 11, ...PANEL_MIN.chart },
-  { i: "positions", x: 0, y: 11, w: 16, h: 5, ...PANEL_MIN.positions },
-  { i: "orderbook", x: 16, y: 0, w: 5, h: 16, ...PANEL_MIN.orderbook },
-  { i: "orderform", x: 21, y: 0, w: 5, h: 16, ...PANEL_MIN.orderform },
-];
+export const INITIAL_LAYOUT: LayoutItem[] = PANELS.map((panel) => layoutItem(panel, panel.initial));
 
 /** Rows the initial layout spans — the row count that defines the fit. */
 export const DEFAULT_ROW_COUNT = INITIAL_LAYOUT.reduce(
@@ -56,12 +106,7 @@ export const DEFAULT_ROW_COUNT = INITIAL_LAYOUT.reduce(
 );
 
 /** Low-viewport preset: same 16/5/5 split and 16-row band, only heights differ. */
-const COMPACT_LAYOUT: LayoutItem[] = [
-  { i: "chart", x: 0, y: 0, w: 16, h: 9, ...PANEL_MIN.chart },
-  { i: "orderbook", x: 16, y: 0, w: 5, h: 16, ...PANEL_MIN.orderbook },
-  { i: "orderform", x: 21, y: 0, w: 5, h: 16, ...PANEL_MIN.orderform },
-  { i: "positions", x: 0, y: 9, w: 16, h: 7, ...PANEL_MIN.positions },
-];
+const COMPACT_LAYOUT: LayoutItem[] = PANELS.map((panel) => layoutItem(panel, panel.compact));
 
 /** Below a 1500x900 CSS-pixel viewport, order entry wins over chart real estate. */
 function prefersCompactLayout(viewportWidthPx: number, viewportHeightPx: number): boolean {

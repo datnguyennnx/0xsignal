@@ -4,13 +4,8 @@ import { AppSidePanelProvider } from "@/components/app-side-panel";
 import { SidePanelRegion } from "@/components/side-panel";
 import { UserNav } from "@/components/user-nav";
 import { Surface } from "@/components/surface/surface";
+import { NAV_ROUTES } from "@/lib/routes";
 import { cn } from "cn";
-const NAV_ITEMS = [
-  { path: "/trade", label: "Trade" },
-  { path: "/portfolio", label: "Portfolio" },
-  { path: "/whales", label: "Whales" },
-  { path: "/calendar", label: "Calendar" },
-] as const;
 
 export function MainLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -39,7 +34,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
                 </Link>
 
                 <nav className="flex items-center gap-6">
-                  {NAV_ITEMS.map((item) => {
+                  {NAV_ROUTES.map((item) => {
                     const isActive = location.pathname.startsWith(item.path);
                     return (
                       <Link
@@ -52,7 +47,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
                             : "text-muted-foreground hover:text-foreground",
                         )}
                       >
-                        {item.label}
+                        {item.navLabel}
                       </Link>
                     );
                   })}

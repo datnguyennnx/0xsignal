@@ -3,9 +3,8 @@ import { Surface } from "@/components/surface/surface";
 import { Tabs, TabsList } from "@/components/ui/tabs";
 import { useOpenOrders } from "../hooks/use-user-data";
 import { useUserBalances, useWhaleBalances } from "../hooks/use-user-balances";
-import { TabTrigger } from "./shared-table-components";
 import { useIsSigningDisabled } from "@/hooks/use-effective-address";
-import { PositionManagementPanels } from "./position-management-panels";
+import { PositionManagementPanels, PositionTabTriggers } from "./position-management-panels";
 import { PositionManagementModals, type TpSlOrder } from "./position-management-modals";
 import { usePositionActions } from "../hooks/use-position-actions";
 import {
@@ -73,6 +72,12 @@ export function PositionManagement({
 
   const openOrdersCount = openOrders?.length ?? 0;
 
+  const tabCounts = {
+    balances: isChLoading ? undefined : balanceCount,
+    positions: isChLoading ? undefined : positionsCount,
+    openOrders: isOoLoading ? undefined : openOrdersCount,
+  };
+
   const [cancelAllDialogOpen, setCancelAllDialogOpen] = useState(false);
 
   const handleCloseLimitConfirm = useCallback(
@@ -98,19 +103,7 @@ export function PositionManagement({
       )}
       <Tabs value={activeTab} onValueChange={setActiveTab} className={TABS_CLASS[variant]}>
         <TabsList className="shrink-0 flex gap-[clamp(0.5rem,0.8vw,0.75rem)]">
-          <TabTrigger value="balances" count={isChLoading ? undefined : balanceCount}>
-            Balances
-          </TabTrigger>
-          <TabTrigger value="positions" count={isChLoading ? undefined : positionsCount}>
-            Positions
-          </TabTrigger>
-          <TabTrigger value="open-orders" count={isOoLoading ? undefined : openOrdersCount}>
-            Open Orders
-          </TabTrigger>
-          <TabTrigger value="twap">TWAP</TabTrigger>
-          <TabTrigger value="trade-history">Trade History</TabTrigger>
-          <TabTrigger value="funding-history">Funding History</TabTrigger>
-          <TabTrigger value="order-history">Order History</TabTrigger>
+          <PositionTabTriggers counts={tabCounts} />
         </TabsList>
 
         {/* one scroll edge per view — Apple HIG scroll views */}

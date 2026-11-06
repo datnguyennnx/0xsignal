@@ -1,7 +1,30 @@
 import type { SidePanelDescriptor } from "@/components/side-panel";
+import { CALENDAR_DAY_PANEL } from "@/features/calendar/components/calendar-day-panel";
 
-export const PANEL_PARAM = "panel";
-export const PANEL_ID_PARAM = "panelId";
+interface PanelKindDefinition {
+  kind: string;
+  param: string;
+  idParam: string;
+}
+
+const PANEL_QUERY = { param: "panel", idParam: "panelId" } as const;
+
+/** Canonical side-panel kinds; each entry owns its query-param names. */
+export const PANEL_KINDS = {
+  calendarDay: { kind: CALENDAR_DAY_PANEL, ...PANEL_QUERY },
+  coinContext: { kind: "coin", ...PANEL_QUERY },
+} as const satisfies Record<string, PanelKindDefinition>;
+
+export const PANEL_PARAM = PANEL_QUERY.param;
+export const PANEL_ID_PARAM = PANEL_QUERY.idParam;
+
+const KNOWN_PANEL_KINDS: ReadonlySet<string> = new Set(
+  Object.values(PANEL_KINDS).map((panel) => panel.kind),
+);
+
+export function isKnownPanelKind(kind: string): boolean {
+  return KNOWN_PANEL_KINDS.has(kind);
+}
 
 export function derivePanelDescriptor(
   params: URLSearchParams,

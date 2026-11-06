@@ -10,25 +10,29 @@ import { Surface } from "@/components/surface/surface";
 
 type SettingsTab = "profile" | "api-console" | "appearance";
 
-const SIDEBAR_ITEMS: Array<{
+const SETTINGS_TABS: Array<{
   value: SettingsTab;
   label: string;
   icon: React.ReactNode;
+  render: () => React.ReactNode;
 }> = [
   {
     value: "profile",
     label: "Profile",
     icon: <User className="size-4 shrink-0" />,
+    render: () => <ProfileSettings />,
   },
   {
     value: "api-console",
     label: "API Console",
     icon: <Terminal className="size-4 shrink-0" />,
+    render: () => <ApiConsole />,
   },
   {
     value: "appearance",
     label: "Appearance & Theme",
     icon: <Palette className="size-4 shrink-0" />,
+    render: () => <AppearanceSettings />,
   },
 ];
 
@@ -36,15 +40,13 @@ export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     const tab = searchParams.get("tab");
-    if (tab === "api-console") return "api-console";
-    if (tab === "appearance") return "appearance";
-    return "profile";
+    return SETTINGS_TABS.find((item) => item.value === tab)?.value ?? "profile";
   });
   useEffect(() => {
     document.title = "Settings | 0xsignal";
   }, []);
 
-  const activeLabel = SIDEBAR_ITEMS.find((item) => item.value === activeTab)?.label ?? "";
+  const activeLabel = SETTINGS_TABS.find((item) => item.value === activeTab)?.label ?? "";
 
   return (
     <div className="container-fluid py-[clamp(1.5rem,3vw,3rem)] space-y-[clamp(1rem,1.5vw,1.5rem)] animate-in fade-in duration-200 ease-premium w-full">
@@ -66,7 +68,7 @@ export function SettingsPage() {
       >
         <div className="grid grid-cols-1 md:grid-cols-12 w-full min-h-[300px]">
           <div className="col-span-1 md:col-span-3 md:border-r border-border/25 py-[clamp(1rem,1.5vw,1.5rem)] pr-[clamp(1rem,1.5vw,1.5rem)] flex flex-col gap-1">
-            {SIDEBAR_ITEMS.map((item) => (
+            {SETTINGS_TABS.map((item) => (
               <button
                 key={item.value}
                 onClick={() => {
@@ -101,27 +103,15 @@ export function SettingsPage() {
           <div className="col-span-1 md:col-span-9 py-[clamp(1rem,1.5vw,1.5rem)] pl-[clamp(1rem,1.5vw,1.5rem)] md:pl-[clamp(1.5rem,2.5vw,2rem)]">
             <h2 className="sr-only">{activeLabel}</h2>
             <div className="t-page-slide">
-              <section
-                className="t-page flex flex-col gap-5"
-                data-active={activeTab === "profile" || undefined}
-                key="profile"
-              >
-                <ProfileSettings />
-              </section>
-              <section
-                className="t-page flex flex-col gap-5"
-                data-active={activeTab === "api-console" || undefined}
-                key="api-console"
-              >
-                <ApiConsole />
-              </section>
-              <section
-                className="t-page flex flex-col gap-5"
-                data-active={activeTab === "appearance" || undefined}
-                key="appearance"
-              >
-                <AppearanceSettings />
-              </section>
+              {SETTINGS_TABS.map((item) => (
+                <section
+                  key={item.value}
+                  className="t-page flex flex-col gap-5"
+                  data-active={activeTab === item.value || undefined}
+                >
+                  {item.render()}
+                </section>
+              ))}
             </div>
           </div>
         </div>

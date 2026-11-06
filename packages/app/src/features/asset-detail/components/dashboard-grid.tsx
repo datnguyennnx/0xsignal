@@ -16,8 +16,17 @@ import { useLayoutStore } from "@/stores/use-layout-store";
 import { ResizableWrapper } from "./resizable-wrapper";
 import { useLiftAndFloat } from "../hooks/use-lift-and-float";
 import { cellWidth, GRID_GUTTER_FRACTION, getResizeBounds, minCells } from "../utils/collision";
-import { DEFAULT_ROW_COUNT, GRID_ROW_HEIGHT_FIT_CSS, gridRowsHeightCss } from "../utils/constants";
+import {
+  DEFAULT_ROW_COUNT,
+  GRID_ROW_HEIGHT_FIT_CSS,
+  gridRowsHeightCss,
+  PANELS,
+} from "../utils/constants";
 import type { DashboardGridProps } from "../utils/types";
+
+const PANEL_LABELS: Record<string, string> = Object.fromEntries(
+  PANELS.map((panel) => [panel.id, panel.label]),
+);
 
 /** `--grid-row-height` is intentionally not part of CSSProperties; widen the type once. */
 type GridCanvasStyle = CSSProperties & { "--grid-row-height": string };
@@ -109,14 +118,7 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
   const cw = cellWidth();
   const cellStep = cw + GRID_GUTTER_FRACTION;
 
-  const DEFAULT_PANEL_NAMES: Record<string, string> = {
-    chart: "Chart",
-    orderbook: "Order Book",
-    orderform: "Order Form",
-    positions: "Positions",
-  };
-
-  const panelNamesMap = { ...DEFAULT_PANEL_NAMES, ...panelNames };
+  const panelNamesMap = { ...PANEL_LABELS, ...panelNames };
 
   return (
     <div ref={containerRef} className={`relative w-full ${className}`} style={canvasStyle}>
