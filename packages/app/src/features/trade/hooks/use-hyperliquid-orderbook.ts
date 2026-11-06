@@ -3,6 +3,13 @@ import { useHyperliquidWs } from "./use-hyperliquid-ws";
 import { normalizeSymbol } from "../lib/symbol";
 import { useOrderbookData } from "@/stores/use-market-data-store";
 import { orderbookStoreKey } from "../lib/orderbook-book";
+import {
+  DEFAULT_SIG_FIGS,
+  MAX_SIG_FIGS,
+  MIN_SIG_FIGS,
+  isSigFigs,
+  type Precision,
+} from "@/core/utils/formatters";
 
 export interface TickSizeOption {
   value: number;
@@ -15,7 +22,7 @@ export function generateTickSizeOptions(price: number): TickSizeOption[] {
   if (!price || price <= 0) return [];
   const mag = Math.floor(Math.log10(price));
   const opts: TickSizeOption[] = [];
-  for (const sig of [5, 4, 3, 2]) {
+  for (const sig of [MAX_SIG_FIGS, 4, 3, MIN_SIG_FIGS]) {
     const step = Number(Math.pow(10, mag - sig + 1).toPrecision(10));
     const label =
       step >= 1000
@@ -30,17 +37,12 @@ export function generateTickSizeOptions(price: number): TickSizeOption[] {
   return opts;
 }
 
-const DEFAULT_N_SIG_FIGS = 5;
-
 interface UseHyperliquidOrderbookOptions {
   controlledNSigFigs?: number | null;
 }
 
-const isSigFigs = (value: number | null): value is 2 | 3 | 4 | 5 | null =>
-  value === null || value === 2 || value === 3 || value === 4 || value === 5;
-
-const toSubscriptionSigFigs = (value: number | null): 2 | 3 | 4 | 5 | undefined =>
-  isSigFigs(value) && value !== null ? value : undefined;
+const toSubscriptionSigFigs = (value: number | null): Precision | undefined =>
+  isSigFigs(value) ? value : undefined;
 
 export function useHyperliquidOrderbook(
   symbol: string,
@@ -50,7 +52,7 @@ export function useHyperliquidOrderbook(
   const [error, setError] = useState<string | null>(null);
 
   const controlledNSigFigs = options.controlledNSigFigs;
-  const activeSigFigs = controlledNSigFigs === undefined ? DEFAULT_N_SIG_FIGS : controlledNSigFigs;
+  const activeSigFigs = controlledNSigFigs === undefined ? DEFAULT_SIG_FIGS : controlledNSigFigs;
 
   const coin = useMemo(() => normalizeSymbol(symbol), [symbol]);
   const subscriptionSigFigs = toSubscriptionSigFigs(activeSigFigs);

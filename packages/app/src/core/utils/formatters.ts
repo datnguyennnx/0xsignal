@@ -1,4 +1,18 @@
-export const MAX_SIG_FIGS = 5;
+/**
+ * The order book's price-precision domain. Declared once here; every selector,
+ * store and subscription guard imports it so the range cannot drift.
+ */
+export type Precision = 2 | 3 | 4 | 5;
+
+export const MIN_SIG_FIGS = 2 as const;
+export const MAX_SIG_FIGS = 5 as const;
+export const DEFAULT_SIG_FIGS: Precision = MAX_SIG_FIGS;
+
+export const isSigFigs = (value: unknown): value is Precision =>
+  typeof value === "number" &&
+  Number.isInteger(value) &&
+  value >= MIN_SIG_FIGS &&
+  value <= MAX_SIG_FIGS;
 
 /**
  * The order book's "Raw" selector renders at this fixed sig-fig count, not at

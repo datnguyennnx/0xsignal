@@ -6,6 +6,7 @@ import {
   type PriceScalingState,
 } from "../utils/orderbook-widget-shared";
 import { useTradeUIStore } from "@/stores/use-trade-ui-store";
+import { DEFAULT_SIG_FIGS } from "@/core/utils/formatters";
 
 interface BookPrices {
   bids: Array<{ price: number }>;
@@ -45,7 +46,7 @@ export function useOrderbookPrecision(symbol: string, orderbook: BookPrices | un
     }
 
     const first = scalingOptions[0];
-    setNSigFigs(first.nSigFigs ?? 5);
+    setNSigFigs(first.nSigFigs ?? DEFAULT_SIG_FIGS);
     initialSyncedSymbolsRef.current.add(symbol);
   }, [orderbook, scalingOptions, symbol, selectedNSigFigs, setNSigFigs]);
 
