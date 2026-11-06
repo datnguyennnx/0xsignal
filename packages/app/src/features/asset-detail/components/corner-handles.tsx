@@ -38,7 +38,7 @@ export function CornerHandles({ activeCorner, isResizing, onPointerDown }: Corne
         padding: (CORNER_HIT_BOX_PX - BRACKET_SIZE_PX) / 2,
       }}
       className={cn(
-        "absolute z-10 touch-none transition-opacity duration-150",
+        "absolute z-10 touch-none transition-opacity duration-150 after:absolute after:left-1/2 after:top-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2",
         isResizing ? "opacity-100" : "opacity-60 hover:opacity-100",
         activeCorner.includes("w") ? "left-0" : "right-0",
         activeCorner.includes("n") ? "top-0" : "bottom-0",

@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-[var(--control-radius-md)] border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-[120ms] outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/25 dark:aria-invalid:border-destructive/40 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-[var(--control-radius-md)] border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-[scale,background-color,color,border-color,box-shadow] duration-[120ms] outline-none select-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 active:not-aria-[haspopup]:scale-[0.96] motion-reduce:transform-none disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/25 dark:aria-invalid:border-destructive/40 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -25,8 +25,10 @@ const buttonVariants = cva(
         sm: "h-[var(--control-h-sm)] gap-1 rounded-[var(--control-radius-sm)] px-[var(--control-px-md)] text-[length:var(--control-text-sm)] in-data-[slot=button-group]:rounded-[var(--control-radius-md)] has-data-[icon=inline-end]:pr-[var(--control-px-xs)] has-data-[icon=inline-start]:pl-[var(--control-px-xs)] [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-[var(--control-h-lg)] gap-1.5 px-[var(--control-px-md)] text-[length:var(--control-text-md)] has-data-[icon=inline-end]:pr-[var(--control-px-sm)] has-data-[icon=inline-start]:pl-[var(--control-px-sm)]",
         icon: "size-[var(--control-h-md)] text-[length:var(--control-text-md)]",
-        "icon-sm": "size-[var(--control-h-sm)] text-[length:var(--control-text-sm)]",
-        "icon-xs": "size-[var(--control-h-xs)] text-[length:var(--control-text-xs)]",
+        "icon-sm":
+          "relative size-[var(--control-h-sm)] text-[length:var(--control-text-sm)] after:absolute after:-inset-2",
+        "icon-xs":
+          "relative size-[var(--control-h-xs)] text-[length:var(--control-text-xs)] after:absolute after:inset-[-10.5px]",
         "icon-lg": "size-[var(--control-h-lg)] text-[length:var(--control-text-md)]",
         auto: "h-auto rounded-none border-0 px-0 text-[length:var(--control-text-md)]",
         cta: "w-full h-[var(--control-h-xl)] px-[var(--space-2)] font-semibold uppercase tracking-wider rounded-lg",

@@ -81,7 +81,7 @@ export function TradeDropdownPanel({
                 onQueryChange("");
               }}
               aria-label="Clear search"
-              className="absolute right-2 top-1/2 size-4 -translate-y-1/2 cursor-pointer rounded-none border-0 text-muted-foreground/60 hover:bg-transparent tap-highlight dark:hover:bg-transparent"
+              className="absolute right-2 top-1/2 size-4 -translate-y-1/2 cursor-pointer rounded-none border-0 text-muted-foreground/60 hover:bg-transparent tap-highlight dark:hover:bg-transparent after:absolute after:top-1/2 after:left-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2"
             >
               <X className="w-4 h-4" />
             </Button>

@@ -17,6 +17,13 @@ import { readRowPitchPx } from "../utils/row-pitch";
  */
 export const CORNER_HIT_BOX_PX = 24;
 
+/**
+ * Hover-detection box for a corner: the rendered box plus the 8px the pseudo-element
+ * adds, minus the 8px the panel's overflow clip removes at the outer corner. Detection
+ * must equal the region that actually receives pointerdown, or the bracket is a lie.
+ */
+const CORNER_GRAB_BOX_PX = 32;
+
 const CURSOR_BY_AXIS: Record<ResizeHandleAxis, string> = {
   n: "ns-resize",
   s: "ns-resize",
@@ -388,7 +395,7 @@ export function useResizeGesture({
 
     // Clamped to the panel half-extent so two boxes can never meet across the middle
     // of a small panel and swallow the edge strips.
-    const box = Math.min(CORNER_HIT_BOX_PX, rw / 2, rh / 2);
+    const box = Math.min(CORNER_GRAB_BOX_PX, rw / 2, rh / 2);
 
     const corners: { axis: ResizeHandleAxis; bx: number; by: number }[] = [
       { axis: "nw", bx: 0, by: 0 },

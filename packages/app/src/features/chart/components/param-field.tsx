@@ -59,7 +59,7 @@ export function IndicatorParamField({
           }}
           disabled={numeric !== null && numeric <= definition.min}
           aria-label={`Decrease ${definition.label}`}
-          className="min-h-[clamp(1.75rem,3vh,2.25rem)] min-w-[clamp(1.75rem,2.5vw,2rem)] shrink-0 rounded-l rounded-r-none hover:bg-accent/40 transition-[background-color,transform] duration-150 active:scale-[0.97]"
+          className="min-h-[40px] min-w-[40px] after:hidden shrink-0 rounded-l rounded-r-none hover:bg-accent/40 transition-[background-color,transform] duration-150 active:scale-[0.97]"
         >
           <Minus className="size-3.5 opacity-50" aria-hidden="true" />
         </Button>
@@ -87,7 +87,7 @@ export function IndicatorParamField({
           }}
           disabled={numeric !== null && numeric >= definition.max}
           aria-label={`Increase ${definition.label}`}
-          className="min-h-[clamp(1.75rem,3vh,2.25rem)] min-w-[clamp(1.75rem,2.5vw,2rem)] shrink-0 rounded-l-none rounded-r hover:bg-accent/40 transition-[background-color,transform] duration-150 active:scale-[0.97]"
+          className="min-h-[40px] min-w-[40px] after:hidden shrink-0 rounded-l-none rounded-r hover:bg-accent/40 transition-[background-color,transform] duration-150 active:scale-[0.97]"
         >
           <Plus className="size-3.5 opacity-50" aria-hidden="true" />
         </Button>

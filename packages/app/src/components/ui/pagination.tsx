@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "cn";
 import { formatAxis } from "@/core/utils/formatters";
 import { SELECTED_ITEM_CLASS } from "@/lib/state-classes";
+import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 interface PaginationProps {
@@ -64,21 +65,19 @@ export const Pagination = memo(function Pagination({
       </span>
 
       <div className="flex items-center gap-0.5 order-2">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={() => {
             onPageChange(currentPage - 1);
           }}
           disabled={currentPage === 1}
           aria-label="Previous page"
-          className={cn(
-            "inline-flex items-center justify-center size-[var(--control-h-sm)] rounded-[var(--control-radius-xs)] text-[length:var(--control-text-xs)] transition-colors",
-            "text-muted-foreground hover:text-foreground hover:bg-muted/40",
-            "disabled:pointer-events-none disabled:opacity-30",
-          )}
+          className="text-muted-foreground min-w-[40px] min-h-[40px] after:hidden"
         >
           <ChevronLeft className="size-3.5" />
-        </button>
+        </Button>
 
         {pageNumbers.map(({ key, value }) => {
           if (typeof value !== "number") {
@@ -93,39 +92,39 @@ export const Pagination = memo(function Pagination({
           }
 
           return (
-            <button
+            <Button
               key={key}
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => {
                 onPageChange(value);
               }}
               className={cn(
-                "inline-flex items-center justify-center h-[var(--control-h-sm)] min-w-[var(--control-h-sm)] rounded-[var(--control-radius-xs)] text-[length:var(--control-text-xs)] tabular-nums transition-colors",
+                "tabular-nums min-w-[40px] min-h-[40px] after:hidden",
                 currentPage === value
-                  ? SELECTED_ITEM_CLASS
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                  ? cn(SELECTED_ITEM_CLASS, "hover:bg-accent hover:text-accent-foreground")
+                  : "text-muted-foreground",
               )}
             >
               {value}
-            </button>
+            </Button>
           );
         })}
 
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={() => {
             onPageChange(currentPage + 1);
           }}
           disabled={currentPage === totalPages}
           aria-label="Next page"
-          className={cn(
-            "inline-flex items-center justify-center size-[var(--control-h-sm)] rounded-[var(--control-radius-xs)] text-[length:var(--control-text-xs)] transition-colors",
-            "text-muted-foreground hover:text-foreground hover:bg-muted/40",
-            "disabled:pointer-events-none disabled:opacity-30",
-          )}
+          className="text-muted-foreground min-w-[40px] min-h-[40px] after:hidden"
         >
           <ChevronRight className="size-3.5" />
-        </button>
+        </Button>
       </div>
 
       {onPageSizeChange && (

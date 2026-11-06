@@ -19,7 +19,7 @@ interface ResizableWrapperProps {
   minY?: number;
   onResizeCommit: (id: string, x: number, y: number, w: number, h: number) => void;
   /** Called when the drag handle is pressed */
-  onRepositionStart?: (id: string, e: React.PointerEvent<HTMLDivElement>) => void;
+  onRepositionStart?: (id: string, e: React.PointerEvent<HTMLElement>) => void;
   /** Whether this panel is currently being dragged */
   isDragged?: boolean;
   className?: string;
@@ -180,39 +180,41 @@ export const ResizableWrapper = memo(function ResizableWrapper({
         }`}
       />
 
-      <div
+      <button
+        type="button"
+        aria-label="Drag to move panel"
         onPointerDown={(e) => onRepositionStart?.(id, e)}
-        className={`absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-8 h-5 cursor-grab active:cursor-grabbing transition-[opacity,background-color] duration-[120ms] rounded touch-none ${
+        className={`absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center w-8 h-5 cursor-grab active:cursor-grabbing transition-[opacity,background-color] duration-[120ms] rounded touch-none after:absolute after:inset-x-[-8px] after:top-[2px] after:bottom-[-8px] ${
           isActive && !isResizing ? "opacity-60" : "opacity-0"
         } hover:opacity-80 hover:bg-foreground/5`}
       >
         <GripHorizontal className="size-4 text-foreground/60" />
-      </div>
+      </button>
 
-      {/* Edge grips: 10px hit strips, short centred pill lit on hover and while dragging */}
+      {/* Edge grips: 10px strips whose pseudo-element doubles the inward grab depth */}
       <div
-        className="group absolute top-0 left-2.5 right-2.5 h-2.5 cursor-ns-resize z-10 touch-none"
+        className="group absolute top-0 left-2.5 right-2.5 h-2.5 cursor-ns-resize z-10 touch-none after:absolute after:-inset-2"
         data-resizing={dragMarker("n", resizingAxis)}
         onPointerDown={handlePointerDown("n")}
       >
         <span className={`${EDGE_PILL} h-[3px] w-8`} />
       </div>
       <div
-        className="group absolute bottom-0 left-2.5 right-2.5 h-2.5 cursor-ns-resize z-10 touch-none"
+        className="group absolute bottom-0 left-2.5 right-2.5 h-2.5 cursor-ns-resize z-10 touch-none after:absolute after:-inset-2"
         data-resizing={dragMarker("s", resizingAxis)}
         onPointerDown={handlePointerDown("s")}
       >
         <span className={`${EDGE_PILL} h-[3px] w-8`} />
       </div>
       <div
-        className="group absolute left-0 top-3 bottom-3 w-2.5 cursor-ew-resize z-10 touch-none"
+        className="group absolute left-0 top-3 bottom-3 w-2.5 cursor-ew-resize z-10 touch-none after:absolute after:-inset-2"
         data-resizing={dragMarker("w", resizingAxis)}
         onPointerDown={handlePointerDown("w")}
       >
         <span className={`${EDGE_PILL} h-8 w-[3px]`} />
       </div>
       <div
-        className="group absolute right-0 top-3 bottom-3 w-2.5 cursor-ew-resize z-10 touch-none"
+        className="group absolute right-0 top-3 bottom-3 w-2.5 cursor-ew-resize z-10 touch-none after:absolute after:-inset-2"
         data-resizing={dragMarker("e", resizingAxis)}
         onPointerDown={handlePointerDown("e")}
       >
