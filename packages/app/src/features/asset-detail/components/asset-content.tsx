@@ -60,6 +60,7 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
   // The header presents this number as "Price" for spot and "Mark" for perps.
   // allMids is a MID, so it can only back the spot "Price"; perps keep markPx.
   // Presence in the live WS map is the recency signal available (no timestamp is stored).
+  const quote = price.quote ?? null;
   const livePrice = useMemo(() => {
     if (isSpot) {
       const wsMid = allMids[symbol] ?? allMids[symbol.toUpperCase()];
@@ -69,13 +70,14 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
     //    This is the authoritative source for spot mark prices when WebSocket
     //    hasn't delivered data yet (cold load) or allMids doesn't include spot pairs.
     if (isNonEmpty(tradeAsset?.markPx)) return Number(tradeAsset.markPx);
-    // REST API ticker (last resort)
-    return price.markPx || price.price || 0;
-  }, [allMids, isSpot, symbol, price, tradeAsset]);
+    // REST API ticker (last resort). `null` is absence; `0` is a real zero quote.
+    if (quote === null) return null;
+    return quote.markPx || quote.price;
+  }, [allMids, isSpot, quote, symbol, tradeAsset]);
 
-  // A zeroed placeholder ticker is not a quote: painting "$0.0000" until the first
-  // tick lands reads as a broken market, so the pre-data header stays neutral.
-  if (!(livePrice > 0)) {
+  // No quote is not a zero price: absence keeps the neutral "—", while a real
+  // zero quote flows through and renders "$0.00".
+  if (livePrice === null) {
     return (
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <MetricItem label={isSpot ? "Price" : "Mark"} value="—" />
@@ -189,7 +191,7 @@ export const AssetContent = memo(function AssetContent({
         interval={interval}
         onIntervalChange={onIntervalChange}
         showChartSkeleton={showChartSkeleton}
-        markPrice={price?.markPx || price?.price || 0}
+        markPrice={(price.quote?.markPx ?? 0) || (price.quote?.price ?? 0)}
       />
     </div>
   );

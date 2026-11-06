@@ -12,8 +12,8 @@ import {
 import { AssetDetailError, AssetDetailSkeleton } from "@/components/asset-detail-skeleton";
 import { resolveAssetView, resolveCanonicalRoute } from "./asset-detail-view";
 
-function nonZeroPrice(value: number | undefined): number | undefined {
-  return value !== undefined && value !== 0 ? value : undefined;
+function nonZeroPrice(value: number | null | undefined): number | undefined {
+  return value !== undefined && value !== null && value !== 0 ? value : undefined;
 }
 
 export function AssetDetail() {
@@ -73,7 +73,7 @@ export function AssetDetail() {
     const assetSymbol = asset?.symbol.toUpperCase() ?? "";
     const routeSymbol = symbol?.toUpperCase() ?? "";
     const fallbackPrice =
-      nonZeroPrice(asset?.price?.price) ?? nonZeroPrice(asset?.price?.markPx) ?? 0;
+      nonZeroPrice(asset?.price?.quote?.price) ?? nonZeroPrice(asset?.price?.quote?.markPx) ?? 0;
     if (assetSymbol === "" && fallbackPrice === 0) return "";
     return formatAssetTitle(assetSymbol === "" ? routeSymbol : assetSymbol, fallbackPrice);
   }, [asset, symbol]);

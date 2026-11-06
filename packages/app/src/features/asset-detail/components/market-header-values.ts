@@ -32,24 +32,29 @@ export function deriveMarketHeaderValues({
 }: MarketHeaderInput): MarketHeaderValues {
   const tradePrevDayPx = tradeAsset?.prevDayPx;
   const circulatingSupply = tradeAsset?.circulatingSupply;
+  const quote = price.quote ?? null;
+  const midPx = quote?.midPx ?? 0;
+  const markPx = quote?.markPx ?? 0;
+  const quotePrice = quote?.price ?? 0;
+  const prevDayPx = quote?.prevDayPx ?? 0;
   // Hyperliquid reports `openInterest` in coin units; the header shows USD = units × mark.
   const openInterestUsd =
-    Number.isFinite(livePrice) && livePrice > 0 ? (price?.openInterest || 0) * livePrice : 0;
+    Number.isFinite(livePrice) && livePrice > 0 ? (quote?.openInterest ?? 0) * livePrice : 0;
 
   return {
     markPrice: livePrice,
-    oraclePrice: price?.midPx || price?.markPx || 0,
+    oraclePrice: midPx || markPx || 0,
     change24hAbs:
       isSpot && isNonEmpty(tradePrevDayPx)
         ? livePrice - Number(tradePrevDayPx)
-        : (price?.markPx || price?.price || 0) - (price?.prevDayPx || 0),
+        : (markPx || quotePrice || 0) - prevDayPx,
     change24hPct:
       isSpot && isNonEmpty(tradePrevDayPx) && Number(tradePrevDayPx) > 0
         ? ((livePrice - Number(tradePrevDayPx)) / Number(tradePrevDayPx)) * 100
-        : price?.change24h || 0,
-    volume24h: isSpot ? Number(tradeAsset?.dayNtlVlm ?? 0) : price?.volume24h || 0,
+        : (quote?.change24h ?? 0),
+    volume24h: isSpot ? Number(tradeAsset?.dayNtlVlm ?? 0) : (quote?.volume24h ?? 0),
     openInterest: openInterestUsd,
-    fundingRate: price?.funding || 0,
+    fundingRate: quote?.funding ?? 0,
     marketType: tradeAsset?.marketType,
     marketCap:
       isSpot && isNonEmpty(circulatingSupply) ? livePrice * Number(circulatingSupply) : undefined,

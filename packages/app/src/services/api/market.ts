@@ -10,10 +10,14 @@ import type {
 } from "@0xsignal/shared";
 import { normalizeSymbol } from "@/features/trade/lib/symbol";
 import { API_BASE, fetchJson, toNumberOrNull } from "./client";
-import type { MarketPrice } from "./types";
+import type { MarketPrice, MarketQuote } from "./types";
 
 const toChartDataPoints = (candles: readonly Candle[]): ChartDataPoint[] =>
   candles.flatMap((candle) => normalizeCandle(candle) ?? []);
+
+/** The one canonical price lookup; `null` means the ticker carried no price. */
+const canonicalMid = (ticker: MarketTicker): number | null =>
+  toNumberOrNull(ticker.mid) ?? toNumberOrNull(ticker.midPx) ?? toNumberOrNull(ticker.markPx);
 
 export function getMarkets() {
   return fetchJson<AggregatedMarket[]>(`${API_BASE}/markets`);
@@ -97,7 +101,7 @@ export async function getMarketPrice(symbol: string): Promise<MarketPrice> {
   // price of 0 and they defeat the React Query error path that renders the retry state.
   const ticker = await getTicker(normalizedSymbol);
 
-  const mid = toNumberOrNull(ticker.mid ?? ticker.midPx ?? ticker.markPx) ?? 0;
+  const mid = canonicalMid(ticker);
   const markPx = toNumberOrNull(ticker.markPx) ?? mid;
   const midPx = toNumberOrNull(ticker.midPx) ?? mid;
   const prevDayPx = toNumberOrNull(ticker.prevDayPx) ?? markPx;
@@ -109,19 +113,41 @@ export async function getMarketPrice(symbol: string): Promise<MarketPrice> {
       ? ticker.symbol
       : normalizedSymbol;
 
-  const price = markPx || midPx;
-  const change24h = prevDayPx > 0 ? ((price - prevDayPx) / prevDayPx) * 100 : 0;
+  const price =
+    markPx !== null && markPx !== 0 ? markPx : midPx !== null && midPx !== 0 ? midPx : mid;
+  const change24h =
+    prevDayPx !== null && prevDayPx > 0 && price !== null
+      ? ((price - prevDayPx) / prevDayPx) * 100
+      : 0;
+
+  // `quote` is the presence channel: absent stays `null` so the asset page can
+  // render its "no data" affordance without hiding a real zero price. The flat
+  // numeric fields remain as a mirror for consumers that only hold a number.
+  const quote: MarketQuote =
+    price === null
+      ? null
+      : {
+          price,
+          change24h,
+          volume24h,
+          openInterest,
+          funding,
+          markPx: markPx ?? price,
+          midPx: midPx ?? price,
+          prevDayPx: prevDayPx ?? price,
+        };
 
   return {
     symbol: resolvedSymbol,
-    price,
+    quote,
+    price: price ?? 0,
     change24h,
     volume24h,
     openInterest,
     funding,
-    markPx,
-    midPx,
-    prevDayPx,
+    markPx: markPx ?? 0,
+    midPx: midPx ?? 0,
+    prevDayPx: prevDayPx ?? 0,
     timestamp: new Date(),
   };
 }
