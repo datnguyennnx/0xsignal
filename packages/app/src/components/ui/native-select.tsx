@@ -50,14 +50,4 @@ function NativeSelectOption({ className, ...props }: React.ComponentProps<"optio
   );
 }
 
-function NativeSelectOptGroup({ className, ...props }: React.ComponentProps<"optgroup">) {
-  return (
-    <optgroup
-      data-slot="native-select-optgroup"
-      className={cn("bg-[color:Canvas] text-[color:CanvasText]", className)}
-      {...props}
-    />
-  );
-}
-
-export { NativeSelect, NativeSelectOptGroup, NativeSelectOption };
+export { NativeSelect, NativeSelectOption };

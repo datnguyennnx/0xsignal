@@ -5,42 +5,37 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
-  onReset?: () => void;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
   resetKey?: unknown;
 }
 
 interface State {
   hasError: boolean;
-  error: Error | null;
   prevResetKey: unknown;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null, prevResetKey: props.resetKey };
+    this.state = { hasError: false, prevResetKey: props.resetKey };
   }
 
-  static getDerivedStateFromError(error: Error): Partial<State> {
-    return { hasError: true, error };
+  static getDerivedStateFromError(): Partial<State> {
+    return { hasError: true };
   }
 
   static getDerivedStateFromProps(props: Props, state: State): Partial<State> | null {
     if (state.prevResetKey !== props.resetKey) {
-      return { hasError: false, error: null, prevResetKey: props.resetKey };
+      return { hasError: false, prevResetKey: props.resetKey };
     }
     return null;
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error("[ErrorBoundary]", error, errorInfo);
-    this.props.onError?.(error, errorInfo);
   }
 
   handleReset = (): void => {
-    this.setState({ hasError: false, error: null });
-    this.props.onReset?.();
+    this.setState({ hasError: false });
   };
 
   override render(): ReactNode {

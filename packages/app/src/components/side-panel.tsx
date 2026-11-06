@@ -7,7 +7,6 @@ import { Surface } from "@/components/surface/surface";
 
 export interface PanelComponentProps {
   id: string;
-  variant: "page" | "panel";
 }
 
 interface SidePanelRegistryEntry {
@@ -20,7 +19,6 @@ export type SidePanelRegistry = Record<string, SidePanelRegistryEntry>;
 export interface SidePanelDescriptor {
   kind: string;
   id: string;
-  title?: string;
 }
 
 interface SidePanelContextValue {
@@ -124,7 +122,7 @@ function SidePanelRegion({ id = DEFAULT_REGION_ID, title, className }: SidePanel
 
   const entry = descriptor ? registry[descriptor.kind] : undefined;
   const Comp = entry?.component;
-  const resolvedTitle = title ?? entry?.title ?? descriptor?.title;
+  const resolvedTitle = title ?? entry?.title;
   const label = typeof resolvedTitle === "string" ? resolvedTitle : "Side panel";
 
   return (
@@ -158,7 +156,7 @@ function SidePanelRegion({ id = DEFAULT_REGION_ID, title, className }: SidePanel
               </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              <Comp id={descriptor.id} variant="panel" />
+              <Comp id={descriptor.id} />
             </div>
           </Surface>
         )}

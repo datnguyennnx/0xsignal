@@ -6,9 +6,6 @@ const inputVariants = cva("", {
   variants: {
     size: {
       default: "",
-      field: "h-[var(--field-h)] px-[var(--space-2)] text-base sm:text-sm",
-      "field-num":
-        "h-[var(--field-h)] w-20 px-[var(--space-2)] text-base sm:text-sm text-center tabular-nums",
     },
   },
   defaultVariants: {
@@ -22,7 +19,7 @@ function Input({
   size = "default",
   ...props
 }: Omit<React.ComponentProps<"input">, "size"> & {
-  size?: "default" | "field" | "field-num";
+  size?: "default";
 }) {
   return (
     <input

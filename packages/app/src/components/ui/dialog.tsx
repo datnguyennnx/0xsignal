@@ -20,7 +20,7 @@ type DialogOpenChange = NonNullable<DialogPrimitive.Root.Props["onOpenChange"]>;
 type DialogOpenChangeDetails = Parameters<DialogOpenChange>[1];
 
 /** What asked the dialog to close: `outside-press`, `escape-key`, `close-press`, … */
-export type DialogDismissReason = DialogOpenChangeDetails["reason"];
+type DialogDismissReason = DialogOpenChangeDetails["reason"];
 
 type EscapeChangeDetails = Extract<DialogOpenChangeDetails, { reason: "escape-key" }>;
 
@@ -188,10 +188,6 @@ function Dialog({
   );
 }
 
-function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
-}
-
 function DialogPortal({ container, ...props }: DialogPrimitive.Portal.Props) {
   return (
     <DialogPrimitive.Portal
@@ -282,14 +278,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function DialogFooter({
-  className,
-  showCloseButton = false,
-  children,
-  ...props
-}: React.ComponentProps<"div"> & {
-  showCloseButton?: boolean;
-}) {
+function DialogFooter({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-footer"
@@ -300,9 +289,6 @@ function DialogFooter({
       {...props}
     >
       {children}
-      {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="outline" />}>Close</DialogPrimitive.Close>
-      )}
     </div>
   );
 }
@@ -337,8 +323,5 @@ export {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogOverlay,
-  DialogPortal,
   DialogTitle,
-  DialogTrigger,
 };

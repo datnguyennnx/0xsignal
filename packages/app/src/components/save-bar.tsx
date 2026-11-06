@@ -6,10 +6,9 @@ interface SaveBarProps {
   onSave: () => void;
   onReset: () => void;
   isSaving?: boolean;
-  message?: string;
 }
 
-export function SaveBar({ open, onSave, onReset, isSaving, message }: SaveBarProps) {
+export function SaveBar({ open, onSave, onReset, isSaving }: SaveBarProps) {
   return (
     <div
       data-open={open}
@@ -21,7 +20,7 @@ export function SaveBar({ open, onSave, onReset, isSaving, message }: SaveBarPro
           radius="control"
           className="flex items-center justify-between gap-4 px-[clamp(1rem,1.5vw,1.5rem)] py-[clamp(0.75rem,1vw,1rem)]"
         >
-          <p className="text-sm text-muted-foreground">{message ?? "You have unsaved changes"}</p>
+          <p className="text-sm text-muted-foreground">You have unsaved changes</p>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onReset} disabled={isSaving}>
               Reset

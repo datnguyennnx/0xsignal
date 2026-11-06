@@ -13,7 +13,6 @@ interface PaginationProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange?: (size: number) => void;
-  pageSizeOptions?: number[];
   className?: string;
 }
 
@@ -47,7 +46,6 @@ export const Pagination = memo(function Pagination({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  pageSizeOptions = PAGE_SIZE_OPTIONS,
   className,
 }: PaginationProps) {
   const start = (currentPage - 1) * pageSize + 1;
@@ -145,7 +143,7 @@ export const Pagination = memo(function Pagination({
             wrapperClassName="min-w-[4rem] max-w-[4rem]"
             className="h-[var(--control-h-sm)] px-[var(--control-px-xs)] text-center text-[length:var(--control-text-xs)]"
           >
-            {pageSizeOptions.map((size) => (
+            {PAGE_SIZE_OPTIONS.map((size) => (
               <NativeSelectOption key={size} value={size.toString()}>
                 {size}
               </NativeSelectOption>

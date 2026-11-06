@@ -7,7 +7,6 @@ import { setCoinIndexLoader } from "@/features/trade/lib/hl-market-stream";
 
 const GC_TIMES = {
   default: 5 * 60 * 1000,
-  chart: 10 * 60 * 1000, // chart data is large
 } as const;
 
 /** Auth failures and missing resources are terminal regardless of the message text. */

@@ -61,9 +61,6 @@ export interface MarketDataState {
 
   /** Merge a history page; existing bars win ties so live frames never regress. */
   mergeHistoryCandles: (key: string, candles: readonly ChartDataPoint[]) => void;
-
-  /** Overwrite candle data (for historical load). */
-  setCandleData: (key: string, candles: ChartDataPoint[]) => void;
 }
 
 // ── Module-level L2 raw state (Maps for O(1) delta application) ─────
@@ -385,17 +382,6 @@ export const useMarketDataStore = create<MarketDataState>()(
           evictedKeys,
         ),
       }));
-      evictRetiredSymbols(evictedKeys);
-    },
-
-    // ── Set candle data (for historical loads) ──────────────────
-    setCandleData: (key, candles) => {
-      const evictedKeys = touchCandleKey(key);
-      set((state) => {
-        const candleData = { ...state.candleData, [key]: candles };
-        for (const evictedKey of evictedKeys) delete candleData[evictedKey];
-        return { candleData };
-      });
       evictRetiredSymbols(evictedKeys);
     },
   })),

@@ -14,12 +14,6 @@ interface EmptyStateProps {
   action?: ReactNode;
 }
 
-const VARIANT_DEFAULTS: Record<EmptyVariant, string> = {
-  table: "No data available",
-  panel: "No data available",
-  chart: "No data",
-};
-
 export const EmptyState = memo(function EmptyState({
   variant = "table",
   title,
@@ -44,7 +38,7 @@ export const EmptyState = memo(function EmptyState({
         </span>
       )}
       <h3 className="text-sm font-medium text-muted-foreground tracking-tight">
-        {title ?? VARIANT_DEFAULTS[variant]}
+        {title ?? (variant === "chart" ? "No data" : "No data available")}
       </h3>
       {description !== undefined && description !== "" && (
         <p

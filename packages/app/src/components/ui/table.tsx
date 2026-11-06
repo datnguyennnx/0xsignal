@@ -18,8 +18,8 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   );
 }
 
-function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
-  return <thead data-slot="table-header" className={className} {...props} />;
+function TableHeader({ ...props }: React.ComponentProps<"thead">) {
+  return <thead data-slot="table-header" {...props} />;
 }
 
 function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
@@ -30,16 +30,6 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
         "[&_tr:last-child]:border-0 [&_tr:last-child>*:first-child]:rounded-bl-[var(--radius-panel)] [&_tr:last-child>*:last-child]:rounded-br-[var(--radius-panel)]",
         className,
       )}
-      {...props}
-    />
-  );
-}
-
-function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
-  return (
-    <tfoot
-      data-slot="table-footer"
-      className={cn("border-t bg-foreground/5 font-medium [&>tr]:last:border-b-0", className)}
       {...props}
     />
   );
@@ -84,14 +74,4 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   );
 }
 
-function TableCaption({ className, ...props }: React.ComponentProps<"caption">) {
-  return (
-    <caption
-      data-slot="table-caption"
-      className={cn("mt-4 text-sm text-muted-foreground", className)}
-      {...props}
-    />
-  );
-}
-
-export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption };
+export { Table, TableHeader, TableBody, TableHead, TableRow, TableCell };

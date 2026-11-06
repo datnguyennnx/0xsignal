@@ -77,14 +77,11 @@ const layoutStorage: PersistStorage<PersistedLayout> | undefined = jsonStorage
 export interface LayoutStoreState {
   items: LayoutItem[];
 
-  updateLayoutItem: (id: string, patch: Partial<LayoutItem>) => void;
   commitLayout: (
     items: LayoutItem[],
     activeItemId?: string,
     interactionType?: "drag" | "resize",
-    originalItem?: LayoutItem,
   ) => void;
-  replaceLayout: (items: LayoutItem[]) => void;
   resetLayout: () => void;
 }
 
@@ -93,25 +90,14 @@ export const useLayoutStore = create<LayoutStoreState>()(
     (set) => ({
       items: viewportLayout(),
 
-      updateLayoutItem: (id: string, patch: Partial<LayoutItem>) => {
-        set((state) => ({
-          items: state.items.map((item) => (item.i === id ? { ...item, ...patch } : item)),
-        }));
-      },
-
       commitLayout: (
         items: LayoutItem[],
         activeItemId?: string,
         interactionType?: "drag" | "resize",
-        originalItem?: LayoutItem,
       ) => {
         const clamped = items.map((item) => clampToMin(item));
-        const resolved = resolveCollisions(clamped, activeItemId, interactionType, originalItem);
+        const resolved = resolveCollisions(clamped, activeItemId, interactionType);
         set({ items: resolved });
-      },
-
-      replaceLayout: (items: LayoutItem[]) => {
-        set({ items: [...items] });
       },
 
       resetLayout: () => {
