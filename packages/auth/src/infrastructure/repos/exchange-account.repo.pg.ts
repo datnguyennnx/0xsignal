@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import type { ExchangeAccount } from "../../domain/exchange-account";
 import { AccountNotFound, DuplicateLabel, WalletAddressClaimed } from "../../domain/errors";
 import { isPgUniqueViolation, pgUniqueConstraint, resolveMasterWallet } from "./shared/pg-utils";
-import type { ExchangeAccountRepoPort } from "./exchange-account.repo";
+import type { ExchangeAccountRepoPort } from "./repo-ports.types";
 
 type IdRow = { readonly id: string };
 

@@ -11,7 +11,7 @@ import type {
   WalletChallengeLookupError,
   WalletChallengeLookupParams,
   WalletChallengeRepoPort,
-} from "./wallet-challenge.repo";
+} from "./repo-ports.types";
 
 type WalletChallengeRow = {
   readonly id: string;

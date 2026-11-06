@@ -1,72 +1,9 @@
 import { Context, Effect, Layer } from "effect";
 import { PostgresConnectionPool } from "../db/postgres";
-import type { ExchangeAccount } from "../../domain/exchange-account";
-import { AccountNotFound, DuplicateLabel, WalletAddressClaimed } from "../../domain/errors";
 import { pgExchangeAccountRepo } from "./exchange-account.repo.pg";
+import type { ExchangeAccountRepoPort } from "./repo-ports.types";
 
-// Input types
-
-export interface CreateExchangeAccountParams {
-  readonly userId: string;
-  readonly exchangeSlug: string;
-  readonly nodeType: "wallet" | "sub" | "vault";
-  readonly parentId?: string;
-  readonly walletAddress: string;
-  readonly chain?: string;
-  readonly label?: string | undefined;
-  readonly color?: string;
-  readonly sortOrder?: number;
-  readonly metadata?: Record<string, unknown>;
-}
-
-export interface VerifyWalletParams {
-  readonly userId: string;
-  readonly exchangeSlug: string;
-  readonly walletAddress: string;
-  readonly nonce: string;
-  readonly label?: string | undefined;
-}
-
-// Port interface
-
-export interface ExchangeAccountRepoPort {
-  readonly create: (
-    params: CreateExchangeAccountParams,
-  ) => Effect.Effect<ExchangeAccount, AccountNotFound | DuplicateLabel | WalletAddressClaimed>;
-
-  /**
-   * Records a proven signature for the wallet. The address's rows are locked so
-   * one signer at a time wins; an address proven by another user stays theirs.
-   */
-  readonly verifyWallet: (
-    params: VerifyWalletParams,
-  ) => Effect.Effect<ExchangeAccount, AccountNotFound | DuplicateLabel | WalletAddressClaimed>;
-
-  readonly findById: (
-    id: string,
-    userId: string,
-  ) => Effect.Effect<ExchangeAccount, AccountNotFound>;
-
-  readonly findByUserId: (
-    userId: string,
-    exchangeSlug?: string,
-  ) => Effect.Effect<readonly ExchangeAccount[]>;
-
-  readonly findPrimary: (
-    userId: string,
-    exchangeSlug: string,
-  ) => Effect.Effect<ExchangeAccount, AccountNotFound>;
-
-  readonly findWithDescendants: (accountId: string) => Effect.Effect<readonly ExchangeAccount[]>;
-
-  readonly resolveMasterWallet: (accountId: string) => Effect.Effect<string, AccountNotFound>;
-
-  readonly setPrimary: (accountId: string, userId: string) => Effect.Effect<void, AccountNotFound>;
-
-  readonly deactivate: (accountId: string, userId: string) => Effect.Effect<void, AccountNotFound>;
-}
-
-// Context Service
+export type { ExchangeAccountRepoPort } from "./repo-ports.types";
 
 export class ExchangeAccountRepo extends Context.Service<
   ExchangeAccountRepo,
