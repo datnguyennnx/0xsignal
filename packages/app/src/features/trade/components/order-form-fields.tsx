@@ -4,7 +4,8 @@ import { Label } from "@/components/ui/label";
 import { Toggle } from "@/components/ui/toggle";
 import { cn } from "cn";
 import { CheckIcon } from "lucide-react";
-import { formatCompactUsd } from "@/core/utils/formatters";
+import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
+import { formatAxis, formatCompactUsd } from "@/core/utils/formatters";
 import type { SizeAssetOption } from "./order-form-derivations";
 import { OrderSizeField } from "./order-size-field";
 
@@ -174,7 +175,9 @@ export function OrderFormFields({
         <div className="flex items-center justify-between mt-[var(--space-3,1.125rem)] py-[var(--space-1,0.3125rem)]">
           <span className="text-xs text-muted-foreground">Available to Trade</span>
           <span className="text-xs tabular-nums text-foreground">
-            {formatCompactUsd(effectiveBalance)} {safeSizeAsset}
+            {safeSizeAsset === QUOTE_ASSET
+              ? formatCompactUsd(effectiveBalance)
+              : `${formatAxis(effectiveBalance)} ${safeSizeAsset}`}
           </span>
         </div>
 

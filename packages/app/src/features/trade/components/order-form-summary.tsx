@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { formatCompactUsd } from "@/core/utils/formatters";
+import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
+import { formatAxis, formatCompactUsd } from "@/core/utils/formatters";
 
 interface OrderFormSummaryProps {
   orderValue: number;
@@ -24,7 +25,11 @@ export function OrderFormSummary({
         <div className="flex items-center justify-between py-[var(--space-1,0.3125rem)]">
           <span className="text-xs text-muted-foreground">Order Value</span>
           <span className="text-xs tabular-nums text-foreground">
-            {orderValue > 0 ? `${formatCompactUsd(orderValue)} ${sizeAsset}` : "—"}
+            {orderValue > 0
+              ? sizeAsset === QUOTE_ASSET
+                ? formatCompactUsd(orderValue)
+                : `${formatAxis(orderValue)} ${sizeAsset}`
+              : "—"}
           </span>
         </div>
         <div className="flex items-center justify-between py-[var(--space-1,0.3125rem)]">
@@ -32,14 +37,6 @@ export function OrderFormSummary({
           <span className="text-xs tabular-nums text-foreground">
             {marginRequired > 0 ? formatCompactUsd(marginRequired) : "—"}
           </span>
-        </div>
-        <div className="flex items-center justify-between py-[var(--space-1,0.3125rem)]">
-          <span className="text-xs text-muted-foreground">Fees (Maker / Taker)</span>
-          <span className="text-xs tabular-nums text-muted-foreground">0.0100% / 0.0350%</span>
-        </div>
-        <div className="flex items-center justify-between py-[var(--space-1,0.3125rem)]">
-          <span className="text-xs text-muted-foreground">Liquidation Price</span>
-          <span className="text-xs tabular-nums text-muted-foreground">N/A</span>
         </div>
       </div>
 

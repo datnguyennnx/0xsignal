@@ -117,7 +117,7 @@ export function AssetTradingGrid({
       </ErrorBoundary>
     ) : (
       <ErrorBoundary resetKey={symbol}>
-        <OrderForm symbol={symbol} assetIndex={assetIndex} markPrice={markPrice} />
+        <OrderForm key={symbol} symbol={symbol} assetIndex={assetIndex} markPrice={markPrice} />
       </ErrorBoundary>
     );
 
