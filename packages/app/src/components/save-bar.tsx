@@ -12,6 +12,8 @@ export function SaveBar({ open, onSave, onReset, isSaving }: SaveBarProps) {
   return (
     <div
       data-open={open}
+      inert={!open}
+      aria-hidden={!open}
       className="fixed inset-x-0 bottom-0 z-[100] grid translate-y-full transition-transform duration-200 ease-premium data-[open=true]:translate-y-0"
     >
       <div className="mx-auto w-full max-w-2xl px-[clamp(1rem,1.5vw,1.5rem)] pb-[clamp(1rem,1.5vw,1.5rem)]">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { User, Palette, Terminal } from "lucide-react";
 import { cn } from "cn";
@@ -24,7 +24,7 @@ const SETTINGS_TABS: Array<{
   },
   {
     value: "api-console",
-    label: "API Console",
+    label: "Trading Wallet",
     icon: <Terminal className="size-4 shrink-0" />,
     render: () => <ApiConsole />,
   },
@@ -38,10 +38,9 @@ const SETTINGS_TABS: Array<{
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
-    const tab = searchParams.get("tab");
-    return SETTINGS_TABS.find((item) => item.value === tab)?.value ?? "profile";
-  });
+  const tabParam = searchParams.get("tab");
+  const activeTab: SettingsTab =
+    SETTINGS_TABS.find((item) => item.value === tabParam)?.value ?? "profile";
   useEffect(() => {
     document.title = "Settings | 0xsignal";
   }, []);
@@ -72,7 +71,6 @@ export function SettingsPage() {
               <button
                 key={item.value}
                 onClick={() => {
-                  setActiveTab(item.value);
                   setSearchParams(item.value === "profile" ? {} : { tab: item.value }, {
                     replace: true,
                   });
@@ -108,6 +106,7 @@ export function SettingsPage() {
                   key={item.value}
                   className="t-page flex flex-col gap-5"
                   data-active={activeTab === item.value || undefined}
+                  inert={activeTab !== item.value}
                 >
                   {item.render()}
                 </section>
