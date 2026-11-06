@@ -32,13 +32,6 @@ export function sharePercent(part: number, total: number): number | null {
   return (part / total) * 100;
 }
 
-/** Share worth printing: below one percent the headline rounds to `0.0%`. */
-export function meaningfulSharePercent(part: number, total: number): number | null {
-  const percent = sharePercent(part, total);
-  if (percent === null || percent < SHARE_PERCENT_FLOOR) return null;
-  return percent;
-}
-
 /** Label for one side of a split: a side under one percent reads `<1%`, never `0.0%`. */
 export function sharePercentLabel(percent: number | null): string {
   if (percent === null || !Number.isFinite(percent)) return "—";
@@ -151,7 +144,7 @@ export function summarizeCoinMarket(
 }
 
 /** Same-side levels this close to the mark read as one shelf once drawn. */
-export const LADDER_MERGE_TOLERANCE_PCT = 0.0015;
+const LADDER_MERGE_TOLERANCE_PCT = 0.0015;
 
 export type MergedLevel = CoinMarket["ladder"][number] & { count: number };
 

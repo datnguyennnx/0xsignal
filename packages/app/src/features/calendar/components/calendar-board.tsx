@@ -5,7 +5,6 @@ import type { CalendarQuery } from "@0xsignal/shared";
 import { useCalendarDayPanel } from "@/components/app-side-panel";
 import { ErrorState } from "@/components/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "cn";
 
 import { useCalendarEvents } from "../hooks/use-calendar-data";
 import {
@@ -19,11 +18,7 @@ import {
 import { CalendarHeader, type CalendarCategoryFilterValue } from "./calendar-header";
 import { MonthGrid } from "./month-grid";
 
-interface CalendarBoardProps {
-  className?: string;
-}
-
-export function CalendarBoard({ className }: CalendarBoardProps): JSX.Element {
+export function CalendarBoard(): JSX.Element {
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [category, setCategory] = useState<CalendarCategoryFilterValue>("all");
   const { selectedDate, selectDay, openDay } = useCalendarDayPanel();
@@ -60,7 +55,7 @@ export function CalendarBoard({ className }: CalendarBoardProps): JSX.Element {
   };
 
   return (
-    <div className={cn("w-full space-y-4", className)}>
+    <div className="w-full space-y-4">
       <CalendarHeader
         title={formatMonthTitle(anchor)}
         rangeLabel={formatRangeLabel(anchor)}

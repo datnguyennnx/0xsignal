@@ -1,6 +1,28 @@
 import { formatCompactUsd, formatSignedPercent } from "@/core/utils/formatters";
 import { TabsTrigger } from "@/components/ui/tabs";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { c } from "../utils/orderbook-table-classes";
 import type { ReactNode } from "react";
+
+/** Same 1.5em line box as a loaded `c` cell, so a placeholder row is exactly one row tall. */
+export function TableSkeletonRows({ rows, colSpan }: { rows: number; colSpan: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }, (_, rowIndex) => (
+        <TableRow key={rowIndex} className="hover:bg-transparent">
+          <TableCell colSpan={colSpan} className={c}>
+            <div className="flex items-center gap-4">
+              {Array.from({ length: colSpan }, (_column, columnIndex) => (
+                <Skeleton key={columnIndex} className="h-[1.5em] flex-1" />
+              ))}
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+}
 
 /** Directional label, shows "Close Short/Long" when reduceOnly. */
 export function DirLabel({

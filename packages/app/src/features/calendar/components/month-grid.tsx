@@ -1,6 +1,5 @@
 import { isSameDay, isSameMonth } from "date-fns";
 import type { JSX } from "react";
-import type { EconomicEvent } from "@0xsignal/shared";
 
 import { Surface } from "@/components/surface/surface";
 import { MonthDayCell } from "./month-day-cell";
@@ -12,7 +11,6 @@ export interface MonthGridProps {
   selectedDate: Date;
   eventsByDay: EventsByDay;
   onSelectDate: (date: Date) => void;
-  onEventClick?: (event: EconomicEvent) => void;
 }
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -28,7 +26,6 @@ export function MonthGrid({
   selectedDate,
   eventsByDay,
   onSelectDate,
-  onEventClick,
 }: MonthGridProps): JSX.Element {
   const today = new Date();
 
@@ -55,7 +52,6 @@ export function MonthGrid({
             isToday={isSameDay(date, today)}
             isSelected={isSameDay(date, selectedDate)}
             onSelect={onSelectDate}
-            onEventClick={onEventClick}
           />
         ))}
       </div>

@@ -8,10 +8,6 @@ import { useChartData } from "./use-chart-data";
 import { useIndicatorOverlay } from "./use-indicator-overlay";
 import type { IndicatorRenderEntry } from "../utils/indicator-data";
 
-const DESKTOP_CONFIG = {
-  visibleCandles: 250,
-};
-
 interface UseChartRuntimeParams {
   containerRef: RefObject<HTMLDivElement | null>;
   symbol: string;
@@ -57,7 +53,7 @@ export function useChartRuntime({
     candlestickSeries,
     volumeSeries,
     chart,
-    visibleCandles: DESKTOP_CONFIG.visibleCandles,
+    visibleCandles: 250,
     resetKey: interval,
   });
 

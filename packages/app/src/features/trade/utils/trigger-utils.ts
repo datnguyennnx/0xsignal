@@ -55,13 +55,6 @@ export function getOrderType(order: OpenOrder): string {
         if (order.side === "A" && isAbove) return "Take Profit Market";
         if (order.side === "A" && !isAbove) return "Stop Market";
       }
-      const trigger = ot.trigger;
-      if (
-        isNonNullObject(trigger) &&
-        (typeof trigger.triggerPx === "string" || typeof trigger.triggerPx === "number")
-      ) {
-        return "Stop Market";
-      }
       return "Stop Market";
     }
     if ("algo" in ot) return "Algo";

@@ -8,10 +8,9 @@ import {
 } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { formatSize } from "@/core/utils/formatters";
 import { formatTime } from "../utils/shared-table-utils";
-import { DirLabel } from "./shared-table-components";
+import { DirLabel, TableSkeletonRows } from "./shared-table-components";
 
 import {
   getOrderType,
@@ -22,30 +21,9 @@ import {
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import type { FrontendOpenOrder, OpenOrder } from "@0xsignal/shared";
 
-const SKELETON_ROW_COUNT = 3;
-
 /** Child TP/SL orders only exist on the enriched own-account read. */
 function isFrontendOpenOrder(order: OpenOrder): order is FrontendOpenOrder {
   return "children" in order && Array.isArray(order.children);
-}
-
-/** Same 1.5em line box as a loaded `c` cell, so a placeholder row is exactly one row tall. */
-function TableSkeletonRows({ columns }: { columns: number }) {
-  return (
-    <>
-      {Array.from({ length: SKELETON_ROW_COUNT }, (_, rowIndex) => (
-        <TableRow key={rowIndex} className="hover:bg-transparent">
-          <TableCell colSpan={columns} className={c}>
-            <div className="flex items-center gap-4">
-              {Array.from({ length: columns }, (_column, columnIndex) => (
-                <Skeleton key={columnIndex} className="h-[1.5em] flex-1" />
-              ))}
-            </div>
-          </TableCell>
-        </TableRow>
-      ))}
-    </>
-  );
 }
 
 interface OpenOrdersTableProps {
@@ -104,7 +82,7 @@ export function OpenOrdersTable({
       </TableHeader>
       <TableBody>
         {isOoLoading ? (
-          <TableSkeletonRows columns={columnCount} />
+          <TableSkeletonRows rows={3} colSpan={columnCount} />
         ) : !openOrders || openOrders.length === 0 ? (
           <TableEmptyRow colSpan={columnCount} />
         ) : (

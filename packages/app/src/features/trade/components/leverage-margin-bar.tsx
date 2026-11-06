@@ -37,13 +37,6 @@ export function LeverageMarginBar({
       >
         {effectiveLeverage}x
       </button>
-      <button
-        disabled
-        className="flex-1 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-xs text-muted-foreground/60 border border-transparent truncate cursor-not-allowed"
-        type="button"
-      >
-        Classic
-      </button>
     </div>
   );
 }

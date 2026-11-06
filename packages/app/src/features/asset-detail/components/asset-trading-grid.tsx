@@ -8,7 +8,6 @@ import { PositionManagement } from "@/features/trade/components/position-managem
 import { OrderForm } from "@/features/trade/components/order-form";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { DashboardGrid } from "./dashboard-grid";
-import { DashboardPanel } from "./dashboard-panel";
 
 const TradingChart = lazy(() =>
   import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart })),
@@ -138,14 +137,14 @@ export function AssetTradingGrid({
            internally when its own content exceeds it. */
         <div className="flex flex-1 min-h-0 flex-col">
           <DashboardGrid>
-            <DashboardPanel id="chart">{chartPanel}</DashboardPanel>
-            <DashboardPanel id="orderbook">{orderbookPanel}</DashboardPanel>
-            <DashboardPanel id="orderform">
+            <div id="chart">{chartPanel}</div>
+            <div id="orderbook">{orderbookPanel}</div>
+            <div id="orderform">
               <div className="panel-contain-layout h-full">{orderformPanel}</div>
-            </DashboardPanel>
-            <DashboardPanel id="positions">
+            </div>
+            <div id="positions">
               <div className="panel-contain-layout h-full">{positionsPanel}</div>
-            </DashboardPanel>
+            </div>
           </DashboardGrid>
         </div>
       ) : mode === "narrow" ? (

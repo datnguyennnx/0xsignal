@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { useCoinContextPanel } from "@/components/app-side-panel";
 import { useMarketDataStore } from "@/stores/use-market-data-store";
 import { useOpenOrders } from "../hooks/use-user-data";
@@ -47,12 +47,6 @@ export function PositionsTab({
 
   const fundingRates = useMemo(() => buildFundingRatesMap(meta), [meta]);
   const tpSlByCoin = useMemo(() => buildTpSlByCoinMap(openOrders), [openOrders]);
-  const handleCloseLimit = useCallback(
-    (position: { coin: string; sz: number; isLong: boolean; markPx: number }) => {
-      onCloseLimit(position);
-    },
-    [onCloseLimit],
-  );
 
   return (
     <PositionsTable
@@ -62,7 +56,7 @@ export function PositionsTab({
       fundingRates={fundingRates}
       tpSlByCoin={tpSlByCoin}
       onCloseMarket={onCloseMarket}
-      onCloseLimit={handleCloseLimit}
+      onCloseLimit={onCloseLimit}
       onSelectCoin={readOnly ? openCoin : undefined}
       readOnly={readOnly}
     />

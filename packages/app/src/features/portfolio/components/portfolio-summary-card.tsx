@@ -63,19 +63,11 @@ export function PortfolioSummaryCard({
     const portfolioAccountValue = lastAccountValue === undefined ? 0 : Number(lastAccountValue[1]);
     const marginSummary = chData?.marginSummary;
     const accountValue = marginSummary ? Number(marginSummary.accountValue) : portfolioAccountValue;
-    const marginUsed = Number(marginSummary?.totalMarginUsed ?? 0);
-    const ntlPos = Number(marginSummary?.totalNtlPos ?? 0);
-    const unrealizedPnl = (chData?.assetPositions ?? []).reduce(
-      (s, p) => s + Number(p.position.unrealizedPnl),
-      0,
-    );
-    const marginRatio = accountValue > 0 ? (marginUsed / accountValue) * 100 : 0;
-    const leverage = accountValue > 0 ? ntlPos / accountValue : 0;
     const lastPnl = period?.pnlHistory?.at(-1);
     const pnl = lastPnl === undefined ? 0 : Number(lastPnl[1]);
     const volume = Number(period?.vlm) || 0;
     const maxDd = period ? computeMaxDrawdown(period.accountValueHistory) : null;
-    return { accountValue, unrealizedPnl, marginRatio, leverage, pnl, volume, maxDd };
+    return { accountValue, pnl, volume, maxDd };
   }, [chData, period]);
 
   const spot = useMemo(() => {
@@ -84,16 +76,12 @@ export function PortfolioSummaryCard({
       (s, b) => s + (b.coin === "USDC" ? Number(b.total) : 0),
       0,
     );
-    const nonZero = spotData.balances.filter((b) => Number(b.total) > 0);
-    return { totalUsdc, tokenCount: nonZero.length, top: nonZero.slice(0, 3) };
+    return { totalUsdc };
   }, [spotData]);
 
   const vaults = useMemo(() => {
     if (!vaultData) return null;
-    return {
-      totalEquity: vaultData.reduce((s, v) => s + Number(v.equity), 0),
-      count: vaultData.length,
-    };
+    return { totalEquity: vaultData.reduce((s, v) => s + Number(v.equity), 0) };
   }, [vaultData]);
 
   if (isLoading) {

@@ -9,34 +9,12 @@ import {
 } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
-import { PnLDisplay, PosDirLabel } from "./shared-table-components";
+import { PnLDisplay, PosDirLabel, TableSkeletonRows } from "./shared-table-components";
 import { computeAccruedFunding, deriveMarkPrice } from "../utils/trade-math";
 
 import { useNavigate } from "react-router-dom";
-
-const SKELETON_ROW_COUNT = 3;
-
-/** Same 1.5em line box as a loaded `c` cell, so a placeholder row is exactly one row tall. */
-function TableSkeletonRows({ columns }: { columns: number }) {
-  return (
-    <>
-      {Array.from({ length: SKELETON_ROW_COUNT }, (_, rowIndex) => (
-        <TableRow key={rowIndex} className="hover:bg-transparent">
-          <TableCell colSpan={columns} className={c}>
-            <div className="flex items-center gap-4">
-              {Array.from({ length: columns }, (_column, columnIndex) => (
-                <Skeleton key={columnIndex} className="h-[1.5em] flex-1" />
-              ))}
-            </div>
-          </TableCell>
-        </TableRow>
-      ))}
-    </>
-  );
-}
 
 function TpSlCell({ tpSl }: { tpSl: { tp: string | null; sl: string | null } | undefined }) {
   const hasTp = tpSl !== undefined && tpSl.tp !== null && tpSl.tp !== "";
@@ -272,7 +250,7 @@ export function PositionsTable({
       </TableHeader>
       <TableBody>
         {isChLoading ? (
-          <TableSkeletonRows columns={columnCount} />
+          <TableSkeletonRows rows={3} colSpan={columnCount} />
         ) : positions.length === 0 ? (
           <TableEmptyRow colSpan={columnCount} />
         ) : (

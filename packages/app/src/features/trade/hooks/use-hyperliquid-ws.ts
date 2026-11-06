@@ -6,7 +6,7 @@ import type {
 } from "../lib/market-stream-client";
 import { useMarketDataStore } from "@/stores/use-market-data-store";
 import { orderbookStoreKey } from "../lib/orderbook-book";
-import { isL2BookSnapshotPayload, isL2BookDeltaPayload } from "../utils/market-stream-decoder";
+import { isL2BookSnapshotPayload } from "../utils/market-stream-decoder";
 
 export interface UseHyperliquidWsOptions {
   subscription: MarketSubscription | null;
@@ -19,7 +19,6 @@ export interface UseHyperliquidWsOptions {
   enabled?: boolean;
   onConnectionChange?: (connected: boolean) => void;
   onError?: (error: Error) => void;
-  onReconnect?: () => void;
 }
 
 interface WsSubscription {
@@ -48,14 +47,6 @@ function routeMarketMessageToStore(
       useMarketDataStore
         .getState()
         .applyOrderbookSnapshot(key, [[...data.levels[0]], [...data.levels[1]]]);
-    } else if (isL2BookDeltaPayload(data)) {
-      if (data.delta.replace) {
-        useMarketDataStore.getState().requestOrderbookReplace(key);
-      } else {
-        useMarketDataStore
-          .getState()
-          .applyOrderbookDelta(key, data.delta.changedBids, data.delta.changedAsks);
-      }
     }
   } else if (ch === "allMids" && isRecord(data)) {
     const parsed: Record<string, number> = {};
@@ -86,7 +77,6 @@ export function useHyperliquidWs({
   enabled = true,
   onConnectionChange,
   onError,
-  onReconnect,
 }: UseHyperliquidWsOptions) {
   const client = useMarketDataStore((s) => s.marketStreamClient);
   const [isConnected, setIsConnected] = useState(false);
@@ -98,13 +88,11 @@ export function useHyperliquidWs({
   const onMessageRef = useRef(onMessage);
   const onConnectionChangeRef = useRef(onConnectionChange);
   const onErrorRef = useRef(onError);
-  const onReconnectRef = useRef(onReconnect);
 
   useEffect(() => {
     onMessageRef.current = onMessage;
     onConnectionChangeRef.current = onConnectionChange;
     onErrorRef.current = onError;
-    onReconnectRef.current = onReconnect;
   });
 
   // Mount/unmount lifecycle
@@ -165,11 +153,6 @@ export function useHyperliquidWs({
           setIsConnected(false);
           onConnectionChangeRef.current?.(false);
           onErrorRef.current?.(err);
-        }
-      },
-      onReconnect: () => {
-        if (!ignore && isMountedRef.current && generationRef.current === generation) {
-          onReconnectRef.current?.();
         }
       },
     });

@@ -38,13 +38,10 @@ interface LongShortDonutProps {
   short: SplitSide;
 }
 
-function sideTone(side: Side): string {
-  return side === "long" ? TONE_LONG : TONE_SHORT;
-}
-
 /** Slices sit a step under the raw token: at this size full intensity reads as an alarm light. */
 function sliceTone(side: Side): string {
-  return `color-mix(in oklab, ${sideTone(side)} 88%, transparent)`;
+  const tone = side === "long" ? TONE_LONG : TONE_SHORT;
+  return `color-mix(in oklab, ${tone} 88%, transparent)`;
 }
 
 function countLabel(count: number): string {
@@ -143,7 +140,7 @@ export function LongShortDonut({ long, short }: LongShortDonutProps): JSX.Elemen
           <div className="flex w-[68%] translate-y-px flex-col items-center gap-0.5 text-center">
             <span
               className="max-w-full truncate text-lg leading-none font-semibold tabular-nums"
-              style={{ color: sideTone(shown) }}
+              style={{ color: shown === "long" ? TONE_LONG : TONE_SHORT }}
             >
               {centrePercent(shownSplit.notional, shownPercent)}
             </span>

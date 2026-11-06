@@ -11,10 +11,7 @@ export interface MonthDayCellProps {
   isCurrentMonth: boolean;
   isToday: boolean;
   isSelected: boolean;
-  maxVisible?: number;
   onSelect: (date: Date) => void;
-  onEventClick?: ((event: EconomicEvent) => void) | undefined;
-  onShowMore?: (date: Date) => void;
 }
 
 export function MonthDayCell({
@@ -23,12 +20,9 @@ export function MonthDayCell({
   isCurrentMonth,
   isToday,
   isSelected,
-  maxVisible = 3,
   onSelect,
-  onEventClick,
-  onShowMore,
 }: MonthDayCellProps): JSX.Element {
-  const visible = events.slice(0, maxVisible);
+  const visible = events.slice(0, 3);
   const overflow = events.length - visible.length;
 
   return (
@@ -69,22 +63,12 @@ export function MonthDayCell({
 
       <div className="pointer-events-none relative z-10 flex min-w-0 flex-col gap-1">
         {visible.map((event) => (
-          <EventChip
-            key={event.id}
-            event={event}
-            onClick={onEventClick}
-            className="pointer-events-auto min-w-0"
-          />
+          <EventChip key={event.id} event={event} className="pointer-events-auto min-w-0" />
         ))}
-
         {overflow > 0 && (
-          <button
-            type="button"
-            onClick={() => onShowMore?.(date)}
-            className="pointer-events-auto rounded-md px-2 py-0.5 text-left text-[length:var(--text-micro)] font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
-          >
+          <span className="px-1 text-xs font-medium text-muted-foreground tabular-nums">
             +{overflow} more
-          </button>
+          </span>
         )}
       </div>
     </div>

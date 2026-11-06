@@ -14,8 +14,6 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { Surface } from "@/components/surface/surface";
 import { useLayoutStore } from "@/stores/use-layout-store";
 import { ResizableWrapper } from "./resizable-wrapper";
-import { DashboardGridContext } from "./dashboard-grid-context";
-import { DashboardPanel, type DashboardPanelProps } from "./dashboard-panel";
 import { useLiftAndFloat } from "../hooks/use-lift-and-float";
 import { cellWidth, GRID_GUTTER_FRACTION, getResizeBounds, minCells } from "../utils/collision";
 import { DEFAULT_ROW_COUNT, GRID_ROW_HEIGHT_FIT_CSS, gridRowsHeightCss } from "../utils/constants";
@@ -84,14 +82,9 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
   const panels = useMemo(() => {
     const result: { id: string; element: React.ReactNode }[] = [];
     Children.forEach(children, (child) => {
-      if (isValidElement<DashboardPanelProps>(child) && child.type === DashboardPanel) {
-        result.push({ id: child.props.id, element: child.props.children });
-        return;
-      }
-      if (isValidElement<{ id?: string }>(child) && child.props.id !== undefined) {
-        // Allow direct div with id prop
-        result.push({ id: child.props.id, element: child });
-      }
+      if (!isValidElement<{ id?: string; children?: React.ReactNode }>(child)) return;
+      const { id, children: element } = child.props;
+      if (id !== undefined) result.push({ id, element });
     });
     return result;
   }, [children]);
@@ -126,96 +119,94 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
   const panelNamesMap = { ...DEFAULT_PANEL_NAMES, ...panelNames };
 
   return (
-    <DashboardGridContext value={true}>
-      <div ref={containerRef} className={`relative w-full ${className}`} style={canvasStyle}>
-        {/* Panels */}
-        {panels.map((panel) => {
-          const item = layout.find((li) => li.i === panel.id);
-          if (!item) return null;
+    <div ref={containerRef} className={`relative w-full ${className}`} style={canvasStyle}>
+      {/* Panels */}
+      {panels.map((panel) => {
+        const item = layout.find((li) => li.i === panel.id);
+        if (!item) return null;
 
-          // Resize bounds against the other panels: the corridor this panel may fill.
-          const others = layout.filter((li) => li.i !== panel.id);
-          const bounds = getResizeBounds(item, others);
-          const { minW, minH } = minCells(item);
+        // Resize bounds against the other panels: the corridor this panel may fill.
+        const others = layout.filter((li) => li.i !== panel.id);
+        const bounds = getResizeBounds(item, others);
+        const { minW, minH } = minCells(item);
 
-          return (
-            <ErrorBoundary key={item.i} resetKey={item.i}>
-              <ResizableWrapper
-                id={item.i}
-                item={item}
-                containerWidth={containerWidth}
-                minW={minW}
-                minH={minH}
-                maxW={bounds.maxX - item.x}
-                maxH={bounds.maxY - item.y}
-                minX={bounds.minX}
-                minY={bounds.minY}
-                onResizeCommit={handleResizeCommit}
-                onRepositionStart={handleRepositionStart}
-                isDragged={draggedItemId === item.i}
-              >
-                {panel.element}
-              </ResizableWrapper>
-            </ErrorBoundary>
-          );
-        })}
+        return (
+          <ErrorBoundary key={item.i} resetKey={item.i}>
+            <ResizableWrapper
+              id={item.i}
+              item={item}
+              containerWidth={containerWidth}
+              minW={minW}
+              minH={minH}
+              maxW={bounds.maxX - item.x}
+              maxH={bounds.maxY - item.y}
+              minX={bounds.minX}
+              minY={bounds.minY}
+              onResizeCommit={handleResizeCommit}
+              onRepositionStart={handleRepositionStart}
+              isDragged={draggedItemId === item.i}
+            >
+              {panel.element}
+            </ResizableWrapper>
+          </ErrorBoundary>
+        );
+      })}
 
-        {/* Drop preview — grid-snapped dashed outline */}
-        {previewState && draggedLayoutItem && (
-          <div
-            className={cn(
-              "absolute pointer-events-none z-40 rounded-xl border-2 border-dashed transition-none",
-              previewState.isValid
-                ? "border-primary/40 bg-primary/5"
-                : "border-destructive/60 bg-destructive/10",
-            )}
-            style={{
-              left: `${previewState.gridX * cellStep * 100}%`,
-              top: `calc(${previewState.gridY} * var(--grid-row-height) + ${previewState.gridY} * 0.5rem)`,
-              width: `${(draggedLayoutItem.w * cw + (draggedLayoutItem.w - 1) * GRID_GUTTER_FRACTION) * 100}%`,
-              height: `calc(${draggedLayoutItem.h} * var(--grid-row-height) + ${draggedLayoutItem.h - 1} * 0.5rem)`,
-            }}
-          />
-        )}
-
-        {/* Glass shell — phantom overlay for repositioning */}
-        {isDragging &&
-          draggedItemId !== null &&
-          phantomSize !== null &&
-          draggedLayoutItem !== null &&
-          createPortal(
-            <ErrorBoundary resetKey={draggedItemId}>
-              <div
-                ref={phantomRef}
-                className="fixed left-0 top-0 pointer-events-none"
-                style={{
-                  width: `${(draggedLayoutItem.w * cw + (draggedLayoutItem.w - 1) * GRID_GUTTER_FRACTION) * 100}%`,
-                  height: `calc(${draggedLayoutItem.h} * var(--grid-row-height) + ${draggedLayoutItem.h - 1} * 0.5rem)`,
-                  zIndex: Z.glassShell,
-                }}
-                aria-hidden="true"
-              >
-                <Surface
-                  tier="floating"
-                  radius="control"
-                  className="h-full w-full flex items-center justify-center"
-                >
-                  <div className="text-center px-4">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <div className="size-2 rounded-full bg-muted-foreground animate-pulse" />
-                      <p className="text-sm font-medium text-foreground">
-                        {panelNamesMap[draggedItemId] ?? draggedItemId}
-                      </p>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Dragging to reorder</p>
-                  </div>
-                </Surface>
-              </div>
-            </ErrorBoundary>,
-            document.body,
+      {/* Drop preview — grid-snapped dashed outline */}
+      {previewState && draggedLayoutItem && (
+        <div
+          className={cn(
+            "absolute pointer-events-none z-40 rounded-xl border-2 border-dashed transition-none",
+            previewState.isValid
+              ? "border-primary/40 bg-primary/5"
+              : "border-destructive/60 bg-destructive/10",
           )}
-      </div>
-    </DashboardGridContext>
+          style={{
+            left: `${previewState.gridX * cellStep * 100}%`,
+            top: `calc(${previewState.gridY} * var(--grid-row-height) + ${previewState.gridY} * 0.5rem)`,
+            width: `${(draggedLayoutItem.w * cw + (draggedLayoutItem.w - 1) * GRID_GUTTER_FRACTION) * 100}%`,
+            height: `calc(${draggedLayoutItem.h} * var(--grid-row-height) + ${draggedLayoutItem.h - 1} * 0.5rem)`,
+          }}
+        />
+      )}
+
+      {/* Glass shell — phantom overlay for repositioning */}
+      {isDragging &&
+        draggedItemId !== null &&
+        phantomSize !== null &&
+        draggedLayoutItem !== null &&
+        createPortal(
+          <ErrorBoundary resetKey={draggedItemId}>
+            <div
+              ref={phantomRef}
+              className="fixed left-0 top-0 pointer-events-none"
+              style={{
+                width: `${(draggedLayoutItem.w * cw + (draggedLayoutItem.w - 1) * GRID_GUTTER_FRACTION) * 100}%`,
+                height: `calc(${draggedLayoutItem.h} * var(--grid-row-height) + ${draggedLayoutItem.h - 1} * 0.5rem)`,
+                zIndex: Z.glassShell,
+              }}
+              aria-hidden="true"
+            >
+              <Surface
+                tier="floating"
+                radius="control"
+                className="h-full w-full flex items-center justify-center"
+              >
+                <div className="text-center px-4">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <div className="size-2 rounded-full bg-muted-foreground animate-pulse" />
+                    <p className="text-sm font-medium text-foreground">
+                      {panelNamesMap[draggedItemId] ?? draggedItemId}
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Dragging to reorder</p>
+                </div>
+              </Surface>
+            </div>
+          </ErrorBoundary>,
+          document.body,
+        )}
+    </div>
   );
 }
 

@@ -5,6 +5,16 @@ import { BalanceTableBody, type BalanceTableBodyProps } from "./balance-table-se
 
 export type BalanceTableProps = BalanceTableBodyProps;
 
+/** One column order for the header and the body rows, so the two cannot drift. */
+const COLUMNS: ReadonlyArray<{ label: string; numeric: boolean }> = [
+  { label: "Coin", numeric: false },
+  { label: "Side", numeric: false },
+  { label: "USDC Value", numeric: true },
+  { label: "PNL (ROE %)", numeric: true },
+  { label: "Total Balance", numeric: true },
+  { label: "Available Balance", numeric: true },
+];
+
 export function BalanceTable({
   isChLoading,
   marginSummary,
@@ -20,16 +30,11 @@ export function BalanceTable({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className={cHead}>Coin</TableHead>
-          <TableHead className={cHead}>Side</TableHead>
-          <TableHead className={cHeadNum}>USDC Value</TableHead>
-          <TableHead className={cHeadNum}>PNL (ROE %)</TableHead>
-          <TableHead className={cHeadNum}>Total Balance</TableHead>
-          <TableHead className={cHeadNum}>Available Balance</TableHead>
-          <TableHead className={cHead}>Send</TableHead>
-          <TableHead className={cHead}>Transfer</TableHead>
-          <TableHead className={cHead}>Repay</TableHead>
-          <TableHead className={cHead}>Contract</TableHead>
+          {COLUMNS.map((column) => (
+            <TableHead key={column.label} className={column.numeric ? cHeadNum : cHead}>
+              {column.label}
+            </TableHead>
+          ))}
         </TableRow>
       </TableHeader>
       <BalanceTableBody

@@ -17,7 +17,6 @@ export function MetricItem({ label, value, tone = "neutral" }: MetricItemProps) 
           "text-sm font-semibold tabular-nums leading-none whitespace-nowrap",
           tone === "positive" && "text-gain",
           tone === "negative" && "text-loss",
-          tone === "neutral" && "text-foreground",
         )}
       >
         {value}

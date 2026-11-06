@@ -1,31 +1,9 @@
 import { TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
-import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompactUsd } from "@/core/utils/formatters";
 
 import { c, cNum } from "../utils/orderbook-table-classes";
-import { PnLDisplay, PosDirLabel } from "./shared-table-components";
-
-const SKELETON_ROW_COUNT = 2;
-
-/** Same 1.5em line box as a loaded `c` cell, so a placeholder row is exactly one row tall. */
-function TableSkeletonRows({ columns }: { columns: number }) {
-  return (
-    <>
-      {Array.from({ length: SKELETON_ROW_COUNT }, (_, rowIndex) => (
-        <TableRow key={rowIndex} className="hover:bg-transparent">
-          <TableCell colSpan={columns} className={c}>
-            <div className="flex items-center gap-4">
-              {Array.from({ length: columns }, (_column, columnIndex) => (
-                <Skeleton key={columnIndex} className="h-[1.5em] flex-1" />
-              ))}
-            </div>
-          </TableCell>
-        </TableRow>
-      ))}
-    </>
-  );
-}
+import { PnLDisplay, PosDirLabel, TableSkeletonRows } from "./shared-table-components";
 
 export interface BalanceTableBodyProps {
   isChLoading: boolean;
@@ -56,6 +34,37 @@ export interface BalanceTableBodyProps {
   onSelectCoin?: ((coin: string) => void) | undefined;
 }
 
+function SummaryRow({
+  label,
+  value,
+  pnl,
+  total,
+  available,
+}: {
+  label: string;
+  value: number;
+  pnl: number;
+  total: number;
+  available: number;
+}) {
+  return (
+    <TableRow>
+      <TableCell className={`${c} font-medium`}>{label}</TableCell>
+      <TableCell className={c}>—</TableCell>
+      <TableCell className={cNum}>{formatCompactUsd(value)}</TableCell>
+      <TableCell className={cNum}>
+        {pnl === 0 ? (
+          "—"
+        ) : (
+          <span className={pnl >= 0 ? "text-gain" : "text-loss"}>{formatCompactUsd(pnl)}</span>
+        )}
+      </TableCell>
+      <TableCell className={cNum}>{formatCompactUsd(total)}</TableCell>
+      <TableCell className={cNum}>{formatCompactUsd(available)}</TableCell>
+    </TableRow>
+  );
+}
+
 export function BalanceTableBody({
   isChLoading,
   marginSummary,
@@ -70,7 +79,7 @@ export function BalanceTableBody({
   if (isChLoading) {
     return (
       <TableBody>
-        <TableSkeletonRows columns={10} />
+        <TableSkeletonRows rows={2} colSpan={6} />
       </TableBody>
     );
   }
@@ -78,56 +87,27 @@ export function BalanceTableBody({
   if (!marginSummary) {
     return (
       <TableBody>
-        <TableEmptyRow colSpan={10} />
+        <TableEmptyRow colSpan={6} />
       </TableBody>
     );
   }
 
   return (
     <TableBody>
-      <TableRow>
-        <TableCell className={`${c} font-medium`}>USDC</TableCell>
-        <TableCell className={c}>—</TableCell>
-        <TableCell className={cNum}>{formatCompactUsd(usdcTotalBalance)}</TableCell>
-        <TableCell className={cNum}>
-          {totalUnrealizedPnl === 0 ? (
-            "—"
-          ) : (
-            <span className={totalUnrealizedPnl >= 0 ? "text-gain" : "text-loss"}>
-              {formatCompactUsd(totalUnrealizedPnl)}
-            </span>
-          )}
-        </TableCell>
-        <TableCell className={cNum}>{formatCompactUsd(usdcTotalBalance)}</TableCell>
-        <TableCell className={cNum}>{formatCompactUsd(usdcAvailableBalance)}</TableCell>
-        <TableCell className={c}>—</TableCell>
-        <TableCell className={c}>—</TableCell>
-        <TableCell className={c}>—</TableCell>
-        <TableCell className={c}>—</TableCell>
-      </TableRow>
-
-      <TableRow>
-        <TableCell className={`${c} font-medium`}>Account</TableCell>
-        <TableCell className={c}>—</TableCell>
-        <TableCell className={cNum}>
-          {formatCompactUsd(Number(marginSummary.accountValue))}
-        </TableCell>
-        <TableCell className={cNum}>
-          {totalUnrealizedPnl === 0 ? (
-            "—"
-          ) : (
-            <span className={totalUnrealizedPnl >= 0 ? "text-gain" : "text-loss"}>
-              {formatCompactUsd(totalUnrealizedPnl)}
-            </span>
-          )}
-        </TableCell>
-        <TableCell className={cNum}>{formatCompactUsd(effectiveAccountTotal)}</TableCell>
-        <TableCell className={cNum}>{formatCompactUsd(effectiveAvailableBalance)}</TableCell>
-        <TableCell className={c}>—</TableCell>
-        <TableCell className={c}>—</TableCell>
-        <TableCell className={c}>—</TableCell>
-        <TableCell className={c}>—</TableCell>
-      </TableRow>
+      <SummaryRow
+        label="USDC"
+        value={usdcTotalBalance}
+        pnl={totalUnrealizedPnl}
+        total={usdcTotalBalance}
+        available={usdcAvailableBalance}
+      />
+      <SummaryRow
+        label="Account"
+        value={Number(marginSummary.accountValue)}
+        pnl={totalUnrealizedPnl}
+        total={effectiveAccountTotal}
+        available={effectiveAvailableBalance}
+      />
 
       {positions.map(({ position }) => {
         const posValue = Number(position.positionValue);
@@ -159,10 +139,6 @@ export function BalanceTableBody({
             </TableCell>
             <TableCell className={cNum}>{formatCompactUsd(posValue + upnl)}</TableCell>
             <TableCell className={cNum}>—</TableCell>
-            <TableCell className={c}>—</TableCell>
-            <TableCell className={c}>—</TableCell>
-            <TableCell className={c}>—</TableCell>
-            <TableCell className={c}>—</TableCell>
           </TableRow>
         );
       })}

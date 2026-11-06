@@ -116,22 +116,15 @@ const buildEntries = (
     const meta: IndicatorDataMeta = {
       // Content version: the overlay re-applies when the open candle moves.
       cacheKey: `${lookupKey}#${signature}`,
-      paramsKey,
-      mode: "setData",
-      dataLength: data.length,
-      lastTime,
     };
 
     if (isBandIndicator(indicator.instanceId)) {
       const bandData = calculateBandIndicator(indicator, data);
       if (bandData === null || bandData === undefined || bandData.length === 0) continue;
-      const lastPoint = bandData.at(-1);
-      if (lastPoint === undefined) continue;
 
       const entry: IndicatorRenderEntry = {
         type: "band",
         data: bandData,
-        lastPoint,
         meta,
       };
       results.set(indicator.instanceId, entry);
@@ -141,13 +134,10 @@ const buildEntries = (
 
     const lineData = calculateLineIndicator(indicator, data);
     if (lineData === null || lineData === undefined || lineData.length === 0) continue;
-    const lastPoint = lineData.at(-1);
-    if (lastPoint === undefined) continue;
 
     const entry: IndicatorRenderEntry = {
       type: indicator.config.output === "histogram" ? "histogram" : "line",
       data: lineData,
-      lastPoint,
       meta,
     };
     results.set(indicator.instanceId, entry);

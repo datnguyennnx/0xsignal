@@ -54,9 +54,7 @@ export function PositionManagementPanels({
           isChLoading={isChLoading}
           readOnly={readOnly}
           onCloseMarket={onCloseMarket}
-          onCloseLimit={(pos) => {
-            onCloseLimit(pos);
-          }}
+          onCloseLimit={onCloseLimit}
         />
       </TabsContent>
 
@@ -69,12 +67,8 @@ export function PositionManagementPanels({
         <OpenOrdersTab
           readOnlyAddress={readOnlyAddress}
           onCancelOrder={onCancelOrder}
-          onViewTpSl={(order) => {
-            onViewTpSl(order);
-          }}
-          onCancelAll={() => {
-            onCancelAll();
-          }}
+          onViewTpSl={onViewTpSl}
+          onCancelAll={onCancelAll}
           isCancelPending={isCancelPending}
         />
       </TabsContent>

@@ -56,7 +56,7 @@ export const useIndicatorOverlay = ({
   mainSeries,
   activeIndicators,
   indicatorData,
-}: UseIndicatorOverlayProps) => {
+}: UseIndicatorOverlayProps): void => {
   const lineSeriesRefs = useRef<Map<string, IndicatorSeriesRef>>(new Map());
   const bandPrimitiveRefs = useRef<Map<string, BandPrimitiveRef>>(new Map());
   const paneByIndicatorRef = useRef<Map<string, PaneState>>(new Map());
@@ -348,8 +348,6 @@ export const useIndicatorOverlay = ({
       appliedCacheKeyRef.current.delete(instanceId);
     }
 
-    if (chart.panes().length === 0) return;
-
     for (const indicator of activeIndicators) {
       if (!indicator.config.overlayOnPrice) continue;
 
@@ -425,6 +423,4 @@ export const useIndicatorOverlay = ({
       clearAllSeries();
     };
   }, [clearAllSeries]);
-
-  return {};
 };

@@ -77,7 +77,6 @@ export function resolveCollisions(
   items: LayoutItem[],
   activeItemId?: string,
   interactionType?: "drag" | "resize",
-  _originalItem?: LayoutItem,
 ): LayoutItem[] {
   if (interactionType === "resize") return items;
 

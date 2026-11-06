@@ -70,13 +70,9 @@ function formatEntryTime(iso: string): string {
 
 interface WhalePositionsTableProps {
   onSelectWallet: (address: string) => void;
-  className?: string;
 }
 
-export function WhalePositionsTable({
-  onSelectWallet,
-  className,
-}: WhalePositionsTableProps): JSX.Element {
+export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps): JSX.Element {
   const [filters, setFilters] = useState<WhalePositionFilters>(DEFAULT_WHALE_FILTERS);
   const { openCoin } = useCoinContextPanel();
 
@@ -97,7 +93,7 @@ export function WhalePositionsTable({
   const hasActiveFilters = filters.symbol.trim() !== "" || filters.side !== "all";
 
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
+    <div className="flex min-h-0 flex-1 flex-col">
       <WhalePositionFiltersBar
         filters={filters}
         onChange={(patch) => {
