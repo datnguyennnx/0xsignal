@@ -12,6 +12,7 @@ import {
 import { Surface } from "@/components/surface/surface";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
 
 import { usePortfolio, useWhalePortfolio } from "../hooks/use-portfolio-data";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -84,7 +85,7 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
   const isOwn = readOnlyAddress === undefined;
   const ownPortfolio = usePortfolio(isOwn);
   const whalePortfolio = useWhalePortfolio(readOnlyAddress);
-  const { data: portfolio, isLoading, isError } = isOwn ? ownPortfolio : whalePortfolio;
+  const { data: portfolio, isLoading, isError, refetch } = isOwn ? ownPortfolio : whalePortfolio;
 
   const [chartView, setChartView] = useState<ChartView>("account-value");
   const [timePeriod, setTimePeriod] = useState<PortfolioPeriod>("month");
@@ -168,7 +169,25 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
     );
   }
 
-  if (isError || !portfolio) {
+  if (isError) {
+    return (
+      <Surface tier="content" className={SURFACE}>
+        <ErrorState
+          title="Unable to load PnL"
+          description={
+            isOwn
+              ? "Your PnL history could not be loaded. Please try again."
+              : "This account's PnL history could not be loaded. Please try again."
+          }
+          retryAction={() => {
+            void refetch();
+          }}
+        />
+      </Surface>
+    );
+  }
+
+  if (!portfolio) {
     return (
       <Surface tier="content" className={SURFACE}>
         <EmptyState

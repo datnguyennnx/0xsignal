@@ -47,7 +47,7 @@ export function PortfolioSummarySkeleton() {
         <Skeleton className="h-5 w-9" />
       </div>
       <div className={cn("flex-1", ROW_STACK)}>
-        {SUMMARY_SKELETON_KEYS.map((key) => (
+        {SUMMARY_SKELETON_KEYS.slice(0, 6).map((key) => (
           <div key={key} className={SKELETON_ROW}>
             <Skeleton className="h-[11px] w-[38%]" />
             <Skeleton className="h-[11px] w-[28%]" />
@@ -72,39 +72,40 @@ export function PortfolioSummaryError() {
 
 interface PortfolioSummarySectionsProps {
   readonly perps: {
-    readonly pnl: number;
-    readonly volume: number;
+    readonly pnl: number | null;
+    readonly volume: number | null;
     readonly maxDd: number | null;
-    readonly accountValue: number;
+    readonly accountValue: number | null;
   };
   readonly spot: { readonly totalUsdc: number } | null;
   readonly vaults: { readonly totalEquity: number } | null;
 }
 
 export function PortfolioSummarySections({ perps, spot, vaults }: PortfolioSummarySectionsProps) {
+  const totalEquity =
+    perps.accountValue === null ? null : perps.accountValue + (spot?.totalUsdc ?? 0);
+
   return (
     <div className={cn("overflow-y-auto flex-1", ROW_STACK)}>
       {/* one scroll edge per view — Apple HIG scroll views */}
       <ScrollEdge />
       <SummaryRow
-        label="PNL"
+        label="PnL"
         value={perps.pnl === 0 ? "$0.00" : formatSignedUsd(perps.pnl)}
-        accent={perps.pnl > 0 ? "gain" : perps.pnl < 0 ? "loss" : null}
+        accent={perps.pnl === null || perps.pnl === 0 ? null : perps.pnl > 0 ? "gain" : "loss"}
       />
       <SummaryRow label="Volume" value={formatCompactUsd(perps.volume)} />
       <SummaryRow
         label="Max Drawdown"
-        value={perps.maxDd === null ? "0.00%" : formatSignedPercent(perps.maxDd * 100)}
+        value={formatSignedPercent(perps.maxDd === null ? null : perps.maxDd * 100)}
         accent={perps.maxDd !== null && perps.maxDd < 0 ? "loss" : null}
       />
-      <SummaryRow
-        label="Total Equity"
-        value={formatCompactUsd(perps.accountValue + (spot?.totalUsdc ?? 0))}
-      />
+      <SummaryRow label="Total Equity" value={formatCompactUsd(totalEquity)} />
       <SummaryRow label="Trading Equity" value={formatCompactUsd(perps.accountValue)} />
-      <SummaryRow label="Vault Equity" value={formatCompactUsd(vaults?.totalEquity ?? 0)} />
-      <SummaryRow label="Earn Balance" value="$0.00" />
-      <SummaryRow label="Staking Account" value="0 HYPE" />
+      <SummaryRow
+        label="Vault Equity"
+        value={formatCompactUsd(vaults === null ? null : vaults.totalEquity)}
+      />
     </div>
   );
 }
