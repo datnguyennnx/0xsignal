@@ -1,11 +1,18 @@
 import { type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { Menu } from "lucide-react";
 import { AppSidePanelProvider } from "@/components/app-side-panel";
 import { SidePanelRegion } from "@/components/side-panel";
 import { UserNav } from "@/components/user-nav";
 import { Surface } from "@/components/surface/surface";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { NAV_ROUTES } from "@/lib/routes";
-import { cn } from "cn";
 
 export function MainLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -25,7 +32,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
 
           <header className="shrink-0 z-50">
             <div className="container-fluid">
-              <div className="flex items-center justify-between h-[var(--app-header-height)]">
+              <div className="flex items-center justify-between gap-3 min-w-0 h-[var(--app-header-height)]">
                 <Link
                   to="/"
                   className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -33,19 +40,18 @@ export function MainLayout({ children }: { children: ReactNode }) {
                   <p className="text-base font-semibold tracking-tight">0xsignal</p>
                 </Link>
 
-                <nav className="flex items-center gap-6">
+                <nav className="hidden md:flex items-center gap-6">
                   {NAV_ROUTES.map((item) => {
                     const isActive = location.pathname.startsWith(item.path);
                     return (
                       <Link
                         key={item.path}
                         to={item.path}
-                        className={cn(
-                          "text-sm font-medium transition-colors",
+                        className={`text-sm font-medium transition-colors ${
                           isActive
                             ? "text-foreground"
-                            : "text-muted-foreground hover:text-foreground",
-                        )}
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
                       >
                         {item.navLabel}
                       </Link>
@@ -53,7 +59,34 @@ export function MainLayout({ children }: { children: ReactNode }) {
                   })}
                 </nav>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 shrink-0">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={<Button variant="outline" size="icon" className="size-8 md:hidden" />}
+                    >
+                      <Menu className="size-4" />
+                      <span className="sr-only">Open navigation</span>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" sideOffset={10}>
+                      {NAV_ROUTES.map((item) => {
+                        const isActive = location.pathname.startsWith(item.path);
+                        return (
+                          <DropdownMenuItem
+                            key={item.path}
+                            render={<Link to={item.path} />}
+                            className={`px-2.5 py-2 text-xs font-medium transition-colors ${
+                              isActive
+                                ? "text-foreground"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {item.navLabel}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
                   <UserNav />
                 </div>
               </div>
