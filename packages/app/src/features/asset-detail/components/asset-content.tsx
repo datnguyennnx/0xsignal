@@ -76,11 +76,17 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
   }, [allMids, isSpot, quote, symbol, tradeAsset]);
 
   // No quote is not a zero price: absence keeps the neutral "—", while a real
-  // zero quote flows through and renders "$0.00".
+  // zero quote flows through and renders "$0.00". The same metrics and the same
+  // flex-wrap slots render here so the row keeps its height until the first tick.
   if (livePrice === null) {
     return (
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <MetricItem label={isSpot ? "Price" : "Mark"} value="—" />
+        {!isSpot && <MetricItem label="Oracle" value="—" />}
+        <MetricItem label="24h Change" value="—" />
+        <MetricItem label="24h Volume" value="—" />
+        {!isSpot && <MetricItem label="Open Interest" value="—" />}
+        {!isSpot && <MetricItem label="Funding / Countdown" value="—" />}
       </div>
     );
   }

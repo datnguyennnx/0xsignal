@@ -10,7 +10,11 @@ export function useAssetPrice(rawCoin: string) {
     staleTime: 60 * 1000,
     refetchOnMount: true,
     retry: 1,
-    // Show previous price data while loading next symbol
-    placeholderData: (prev) => prev,
+    // Keep the previous quote only for the same coin: carrying another coin's
+    // price into the new key would label its numbers with the new ticker.
+    placeholderData: (previousData, previousQuery) => {
+      if (previousData === undefined || previousQuery === undefined) return previousData;
+      return previousQuery.queryKey[2] === rawCoin ? previousData : undefined;
+    },
   });
 }
