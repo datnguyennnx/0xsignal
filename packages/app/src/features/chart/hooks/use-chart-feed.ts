@@ -21,6 +21,7 @@ const EMPTY_FILLS: readonly HyperliquidFill[] = [];
 export function useChartFeed({ symbol, interval, fillsEnabled = true }: UseChartFeedParams) {
   const {
     data: candles,
+    isLoading: candlesLoading,
     error: candleError,
     loadMore: loadMoreCandles,
     hasMore: hasMoreCandles,
@@ -60,5 +61,12 @@ export function useChartFeed({ symbol, interval, fillsEnabled = true }: UseChart
     [fills, timeframeSec, symbol],
   );
 
-  return { candles, hasMoreCandles, handleLoadMore, markers, candleError };
+  return {
+    candles,
+    isLoading: candlesLoading,
+    hasMoreCandles,
+    handleLoadMore,
+    markers,
+    candleError,
+  };
 }

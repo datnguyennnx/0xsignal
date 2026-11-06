@@ -7,16 +7,10 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 interface ChartHeaderProps {
   interval: string;
   onIntervalChange: (interval: string) => void;
-  isIntervalSwitching?: boolean;
   children?: React.ReactNode;
 }
 
-export function ChartHeader({
-  interval,
-  onIntervalChange,
-  isIntervalSwitching = false,
-  children,
-}: ChartHeaderProps) {
+export function ChartHeader({ interval, onIntervalChange, children }: ChartHeaderProps) {
   const isDefaultInterval = useMemo(
     () => DEFAULT_INTERVALS.some((int) => int.value === interval),
     [interval],
@@ -52,9 +46,6 @@ export function ChartHeader({
               )}
             >
               {int.label}
-              {isIntervalSwitching && interval === int.value && (
-                <span className="absolute -right-1 -top-0.5 inline-flex h-2 w-2 rounded-full bg-primary-foreground" />
-              )}
             </Button>
           ))}
           {nonDefaultIntervals.length > 0 && (

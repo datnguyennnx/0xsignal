@@ -13,6 +13,7 @@ interface ChartCanvasProps {
   chart: IChartApi | null;
   candlestickSeries: ISeriesApi<"Candlestick"> | null;
   candles: ChartDataPoint[];
+  isLoading?: boolean;
   loadError: boolean;
   markers: readonly LogicalTradeMarker[];
   interval: string;
@@ -31,6 +32,7 @@ export function ChartCanvas({
   chart,
   candlestickSeries,
   candles,
+  isLoading = false,
   loadError,
   markers,
   interval,
@@ -63,7 +65,7 @@ export function ChartCanvas({
       <div className="flex-1 relative overflow-hidden rounded-[var(--radius-panel)]">
         <div
           ref={chartContainerRef}
-          className={`absolute inset-0 will-change-transform${hasCandles ? "" : " invisible"}`}
+          className={`absolute inset-0${hasCandles ? "" : " invisible"}`}
         />
         {hasCandles ? (
           <>
@@ -76,6 +78,14 @@ export function ChartCanvas({
             <IndicatorChips indicators={activeIndicators} />
             <ChartOhlcOverlay data={candles} />
           </>
+        ) : isLoading ? (
+          <output
+            aria-label="Loading chart data"
+            className="absolute inset-0 flex flex-col gap-3 p-2"
+          >
+            <span className="h-5 w-1/3 rounded-full bg-muted/50 animate-pulse" />
+            <span className="flex-1 rounded-[var(--radius-panel)] bg-muted/30 animate-pulse" />
+          </output>
         ) : loadError ? (
           <EmptyState
             variant="chart"

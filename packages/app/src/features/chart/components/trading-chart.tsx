@@ -37,6 +37,7 @@ const TradingChartInner = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const {
     candles,
+    isLoading,
     hasMoreCandles,
     handleLoadMore,
     markers: feedMarkers,
@@ -118,6 +119,7 @@ const TradingChartInner = ({
       chart={chart}
       candlestickSeries={candlestickSeries}
       candles={candles ?? []}
+      isLoading={isLoading}
       loadError={candleError !== null}
       markers={markers}
       interval={interval}
