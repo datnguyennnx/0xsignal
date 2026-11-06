@@ -29,7 +29,6 @@ export const REGIME_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 2,
   },
   {
     id: "chop",
@@ -62,7 +61,6 @@ export const REGIME_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "efficiencyRatio",
@@ -89,6 +87,5 @@ export const REGIME_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
 ];

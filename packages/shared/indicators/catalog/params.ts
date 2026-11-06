@@ -35,22 +35,3 @@ export const floatParam = (
   description,
   control: "float",
 });
-
-export const staticIndicator = (
-  config: Omit<
-    import("../types").IndicatorConfig,
-    "defaultParams" | "params" | "allowMultiple" | "output" | "overlayOnPrice"
-  > & {
-    defaultParams?: Record<string, number>;
-    params?: readonly IndicatorParamDefinition[];
-    allowMultiple?: boolean;
-    output?: import("../types").IndicatorOutputType;
-    overlayOnPrice: boolean;
-  },
-): import("../types").IndicatorConfig => ({
-  ...config,
-  defaultParams: config.defaultParams ?? {},
-  params: config.params ?? [],
-  allowMultiple: config.allowMultiple ?? false,
-  output: config.output ?? "line",
-});

@@ -36,7 +36,6 @@ export const MOMENTUM_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
     implementationNotesForDev:
       "Requires warm-up of at least 2.5 * period for stable calculation. Calculate over Close price.",
   },
@@ -75,7 +74,6 @@ export const MOMENTUM_INDICATORS: IndicatorConfig[] = [
     output: "histogram",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
     implementationNotesForDev:
       "Calculate as 12/26 EMA spread by default. Use Histogram for visual clarity in LightWeight Charts.",
   },
@@ -106,7 +104,6 @@ export const MOMENTUM_INDICATORS: IndicatorConfig[] = [
     output: "histogram",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "uo",
@@ -139,7 +136,6 @@ export const MOMENTUM_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "stochastic",
@@ -166,7 +162,6 @@ export const MOMENTUM_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "williamsR",
@@ -194,7 +189,6 @@ export const MOMENTUM_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "cci",
@@ -221,7 +215,6 @@ export const MOMENTUM_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "roc",
@@ -251,7 +244,6 @@ export const MOMENTUM_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "momentum",
@@ -276,7 +268,6 @@ export const MOMENTUM_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "tsi",
@@ -307,6 +298,5 @@ export const MOMENTUM_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
 ];

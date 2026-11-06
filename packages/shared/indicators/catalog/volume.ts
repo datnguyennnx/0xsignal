@@ -34,7 +34,6 @@ export const VOLUME_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: true,
-    paneIndexRecommendation: 0,
   },
   {
     id: "obv",
@@ -64,7 +63,6 @@ export const VOLUME_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 2,
   },
   {
     id: "pvt",
@@ -90,7 +88,6 @@ export const VOLUME_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 2,
   },
   {
     id: "nvi",
@@ -118,7 +115,6 @@ export const VOLUME_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 2,
   },
   {
     id: "mfi",
@@ -146,7 +142,6 @@ export const VOLUME_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "cmf",
@@ -174,7 +169,6 @@ export const VOLUME_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "adLine",
@@ -203,6 +197,5 @@ export const VOLUME_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 2,
   },
 ];

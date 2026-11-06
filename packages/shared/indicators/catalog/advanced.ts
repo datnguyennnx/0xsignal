@@ -34,7 +34,6 @@ export const ADVANCED_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "dvo",
@@ -68,7 +67,6 @@ export const ADVANCED_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "kri",
@@ -96,7 +94,6 @@ export const ADVANCED_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "vzo",
@@ -124,7 +121,6 @@ export const ADVANCED_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 2,
   },
   {
     id: "vortex",
@@ -155,6 +151,5 @@ export const ADVANCED_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
 ];

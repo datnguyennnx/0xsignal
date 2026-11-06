@@ -27,7 +27,6 @@ export const QUANT_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "trix",
@@ -56,7 +55,6 @@ export const QUANT_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "stochRsi",
@@ -91,7 +89,6 @@ export const QUANT_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "chaikinOsc",
@@ -121,7 +118,6 @@ export const QUANT_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "volumeOsc",
@@ -148,7 +144,6 @@ export const QUANT_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 2,
   },
   {
     id: "eom",
@@ -178,7 +173,6 @@ export const QUANT_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 2,
   },
   {
     id: "histVol",
@@ -210,7 +204,6 @@ export const QUANT_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 2,
   },
   {
     id: "aroonOsc",
@@ -238,6 +231,5 @@ export const QUANT_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
 ];

@@ -29,7 +29,6 @@ export const STATISTICS_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
   {
     id: "stddev",
@@ -58,7 +57,6 @@ export const STATISTICS_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 2,
   },
   {
     id: "linRegSlope",
@@ -87,6 +85,5 @@ export const STATISTICS_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
 ];

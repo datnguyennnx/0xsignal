@@ -35,7 +35,6 @@ export const VOLATILITY_INDICATORS: IndicatorConfig[] = [
     output: "band",
     allowMultiple: false,
     overlayOnPrice: true,
-    paneIndexRecommendation: 0,
     implementationNotesForDev: "Requires Rolling StdDev. Overlay on Price pane is mandatory.",
   },
   {
@@ -72,7 +71,6 @@ export const VOLATILITY_INDICATORS: IndicatorConfig[] = [
     output: "band",
     allowMultiple: false,
     overlayOnPrice: true,
-    paneIndexRecommendation: 0,
   },
   {
     id: "donchianChannels",
@@ -100,7 +98,6 @@ export const VOLATILITY_INDICATORS: IndicatorConfig[] = [
     output: "band",
     allowMultiple: false,
     overlayOnPrice: true,
-    paneIndexRecommendation: 0,
   },
   {
     id: "atr",
@@ -131,6 +128,5 @@ export const VOLATILITY_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 2,
   },
 ];

@@ -13,7 +13,7 @@ export type IndicatorCategory =
   | "cycle"
   | "moneyflow";
 
-export type IndicatorOutputType = "line" | "band" | "histogram" | "dots" | "custom";
+export type IndicatorOutputType = "line" | "band" | "histogram";
 
 export type IndicatorParamControl = "int" | "float";
 
@@ -50,7 +50,6 @@ export interface IndicatorConfig {
   readonly output: IndicatorOutputType;
   readonly allowMultiple: boolean;
   readonly overlayOnPrice: boolean;
-  readonly paneIndexRecommendation?: number | string;
   readonly implementationNotesForDev?: string;
 }
 

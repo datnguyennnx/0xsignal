@@ -34,7 +34,6 @@ export const TREND_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: true,
     overlayOnPrice: true,
-    paneIndexRecommendation: 0,
   },
   {
     id: "ema",
@@ -62,7 +61,6 @@ export const TREND_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: true,
     overlayOnPrice: true,
-    paneIndexRecommendation: 0,
   },
   {
     id: "vwma",
@@ -92,7 +90,6 @@ export const TREND_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: true,
-    paneIndexRecommendation: 0,
   },
   {
     id: "wma",
@@ -121,7 +118,6 @@ export const TREND_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: true,
-    paneIndexRecommendation: 0,
   },
   {
     id: "hma",
@@ -152,7 +148,6 @@ export const TREND_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: true,
-    paneIndexRecommendation: 0,
   },
   {
     id: "superTrend",
@@ -184,7 +179,6 @@ export const TREND_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: true,
-    paneIndexRecommendation: 0,
   },
   {
     id: "parabolicSAR",
@@ -212,10 +206,9 @@ export const TREND_INDICATORS: IndicatorConfig[] = [
         "Using PSAR in a ranging market is the fastest way to blow through a trading account via tiny paper cuts.",
       ],
     },
-    output: "dots",
+    output: "line",
     allowMultiple: false,
     overlayOnPrice: true,
-    paneIndexRecommendation: 0,
   },
   {
     id: "adx",
@@ -247,6 +240,5 @@ export const TREND_INDICATORS: IndicatorConfig[] = [
     output: "line",
     allowMultiple: false,
     overlayOnPrice: false,
-    paneIndexRecommendation: 1,
   },
 ];

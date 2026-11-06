@@ -48,15 +48,12 @@ export {
   calculateBandIndicator,
   isBandIndicator,
   isHistogramIndicator,
-  LINE_INDICATOR_MAP,
-  BAND_INDICATOR_MAP,
 } from "./indicators/dispatcher";
 
 // Indicator metadata
 export { BAND_INDICATOR_IDS, HISTOGRAM_INDICATOR_IDS } from "./indicators/metadata";
 
 // API Boundary Schemas
-export type { ApiEnvelope } from "./schemas/envelope";
 export type { ApiErrorBody } from "./schemas/errors";
 export type {
   Candle,
