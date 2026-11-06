@@ -26,7 +26,7 @@ function Input({
       type={type}
       data-slot="input"
       className={cn(
-        "h-[var(--control-h-lg)] w-full min-w-0 rounded-[var(--control-radius-md)] border border-input bg-transparent px-[var(--control-px-md)] py-1 text-[length:var(--control-text-md)] transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/40",
+        "h-[var(--control-h-lg)] w-full min-w-0 rounded-[var(--control-radius-md)] border border-border/40 bg-background/80 px-[var(--control-px-md)] py-1 text-[length:var(--control-text-md)] transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/40",
         "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40",
         "aria-invalid:border-destructive aria-invalid:ring-destructive/25 dark:aria-invalid:ring-destructive/40",
         inputVariants({ size }),

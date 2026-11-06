@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 
 const badgeVariants = cva(
-  "group/badge inline-flex h-[var(--control-h-2xs)] w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-[var(--control-px-sm)] py-0.5 text-[length:var(--control-text-xs)] font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow] duration-[120ms] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 has-data-[icon=inline-end]:pr-[var(--control-px-xs)] has-data-[icon=inline-start]:pl-[var(--control-px-xs)] aria-invalid:border-destructive aria-invalid:ring-destructive/25 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
+  "group/badge inline-flex h-[var(--control-h-2xs)] w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-[var(--radius-chip)] border border-transparent px-[var(--control-px-sm)] py-0.5 text-[length:var(--control-text-xs)] font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow] duration-[var(--duration-fast)] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 has-data-[icon=inline-end]:pr-[var(--control-px-xs)] has-data-[icon=inline-start]:pl-[var(--control-px-xs)] aria-invalid:border-destructive aria-invalid:ring-destructive/25 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3! [&>svg]:stroke-[1.5]",
   {
     variants: {
       variant: {

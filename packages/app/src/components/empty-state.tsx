@@ -34,7 +34,7 @@ export const EmptyState = memo(function EmptyState({
     >
       {fill && (
         <span className="mb-2 flex size-11 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground">
-          <Inbox className="size-5" strokeWidth={1.5} aria-hidden="true" />
+          <Inbox className="size-5" aria-hidden="true" />
         </span>
       )}
       <h3 className="text-sm font-medium text-muted-foreground tracking-tight">
