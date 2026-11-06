@@ -47,7 +47,7 @@ const toSpotBalances = (
   );
 
 export function createHyperliquidUpstream(): UserStreamUpstream {
-  const transport = new WebSocketTransport({ url: USER_STREAM_WS_URL });
+  const transport = new WebSocketTransport({ url: USER_STREAM_WS_URL, resubscribe: true });
   const client = new SubscriptionClient({ transport });
   const socket = transport.socket;
 

@@ -106,6 +106,91 @@ export interface UserStreamUpstream {
   dispose(): void;
 }
 
+export type ListenerHolder = {
+  [C in UserStreamChannel]: {
+    readonly channel: C;
+    readonly listener: (event: UserStreamEventMap[C]) => void;
+  };
+}[UserStreamChannel];
+
+export interface UserStreamChannelSpec {
+  readonly holder: () => ListenerHolder;
+  readonly guard: (event: UserStreamWireEvent) => boolean;
+  readonly deliver: (holders: ReadonlySet<ListenerHolder>, event: UserStreamWireEvent) => void;
+  readonly subscribe: (
+    upstream: UserStreamUpstream,
+    user: string,
+    listener: (event: UserStreamWireEvent) => void,
+  ) => Promise<UpstreamSubscription>;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const noop = (): void => {};
+
+const isClearinghouseEvent = (event: UserStreamWireEvent): event is ClearinghouseStreamEvent =>
+  isRecord(event.data) && "marginSummary" in event.data;
+
+const isSpotStateEvent = (event: UserStreamWireEvent): event is SpotStateStreamEvent =>
+  isRecord(event.data) && "balances" in event.data;
+
+const isUserFillsEvent = (event: UserStreamWireEvent): event is UserFillsStreamEvent =>
+  Array.isArray(event.data);
+
+const isOpenOrdersEvent = (event: UserStreamWireEvent): event is OpenOrdersStreamEvent =>
+  Array.isArray(event.data);
+
+/** Every per-channel difference lives in this one table. */
+export const USER_STREAM_CHANNEL_TABLE: {
+  readonly [C in UserStreamChannel]: UserStreamChannelSpec;
+} = {
+  clearinghouseState: {
+    holder: (): ListenerHolder => ({ channel: "clearinghouseState", listener: noop }),
+    guard: isClearinghouseEvent,
+    deliver: (holders, event) => {
+      if (!isClearinghouseEvent(event)) return;
+      for (const holder of holders) {
+        if (holder.channel === "clearinghouseState") holder.listener(event);
+      }
+    },
+    subscribe: (upstream, user, listener) => upstream.subscribeClearinghouseState(user, listener),
+  },
+  spotState: {
+    holder: (): ListenerHolder => ({ channel: "spotState", listener: noop }),
+    guard: isSpotStateEvent,
+    deliver: (holders, event) => {
+      if (!isSpotStateEvent(event)) return;
+      for (const holder of holders) {
+        if (holder.channel === "spotState") holder.listener(event);
+      }
+    },
+    subscribe: (upstream, user, listener) => upstream.subscribeSpotState(user, listener),
+  },
+  userFills: {
+    holder: (): ListenerHolder => ({ channel: "userFills", listener: noop }),
+    guard: isUserFillsEvent,
+    deliver: (holders, event) => {
+      if (!isUserFillsEvent(event)) return;
+      for (const holder of holders) {
+        if (holder.channel === "userFills") holder.listener(event);
+      }
+    },
+    subscribe: (upstream, user, listener) => upstream.subscribeUserFills(user, listener),
+  },
+  openOrders: {
+    holder: (): ListenerHolder => ({ channel: "openOrders", listener: noop }),
+    guard: isOpenOrdersEvent,
+    deliver: (holders, event) => {
+      if (!isOpenOrdersEvent(event)) return;
+      for (const holder of holders) {
+        if (holder.channel === "openOrders") holder.listener(event);
+      }
+    },
+    subscribe: (upstream, user, listener) => upstream.subscribeOpenOrders(user, listener),
+  },
+};
+
 export interface UserStreamClient {
   subscribeClearinghouseState(
     user: string,

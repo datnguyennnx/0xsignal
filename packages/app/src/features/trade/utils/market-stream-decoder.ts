@@ -124,22 +124,15 @@ const hasCandleShape = (value: unknown): value is CandleWire =>
 
 const extractCandlePayload = (value: unknown): unknown[] | null => {
   if (isUnknownArray(value)) return value;
-  if (!isRecord(value)) return null;
   if (hasCandleShape(value)) return [value];
-  if (hasCandleShape(value.data)) return [value.data];
-  if (isUnknownArray(value.data)) return value.data;
-  if (isUnknownArray(value.candles)) return value.candles;
-  if (isUnknownArray(value.candle)) return value.candle;
-  if (isRecord(value.candle)) return [value.candle];
-  if (isRecord(value.data)) return extractCandlePayload(value.data);
   return null;
 };
 
 /**
  * Extract L2 book payload from the WS wire contract.
  *
- * The backend sends levels directly in the `data` envelope:
- *   { levels: [[bids], [asks]] }
+ * The hub emits the merged book as `data.snapshot.levels`; the direct/legacy
+ * shape puts `levels` straight on `data`.
  */
 const extractOrderbookPayload = (
   dataField: unknown,
@@ -147,22 +140,22 @@ const extractOrderbookPayload = (
 ): { payload: L2BookSnapshotPayload; nSigFigs?: number | undefined } | null => {
   if (!isRecord(dataField)) return null;
 
-  // The backend broadcasts every L2 event as a full snapshot via:
-  //   { type: "market", channel: "l2Book", data: { levels: [[bids], [asks]] } }
-  if (isLevelsPair(dataField.levels)) {
-    return {
-      payload: {
-        type: "snapshot",
-        levels: dataField.levels,
-      },
-      nSigFigs:
-        typeof dataField.nSigFigs === "number" && Number.isFinite(dataField.nSigFigs)
-          ? dataField.nSigFigs
-          : envelopeNSigFigs,
-    };
-  }
+  // The hub wraps the merged book as `data.snapshot.levels`; older/legacy
+  // producers put `levels` directly on `data`.
+  const levelsSource = isRecord(dataField.snapshot) ? dataField.snapshot : dataField;
+  if (!isLevelsPair(levelsSource.levels)) return null;
 
-  return null;
+  const rawNSigFigs = dataField.nSigFigs ?? levelsSource.nSigFigs;
+  return {
+    payload: {
+      type: "snapshot",
+      levels: levelsSource.levels,
+    },
+    nSigFigs:
+      typeof rawNSigFigs === "number" && Number.isFinite(rawNSigFigs)
+        ? rawNSigFigs
+        : envelopeNSigFigs,
+  };
 };
 
 const unwrapMarketPayload = (value: unknown): unknown => {
@@ -247,28 +240,12 @@ const unwrapTickerPayload = (value: unknown): unknown => {
 export { unwrapTickerPayload };
 
 export const convertToCandlePayload = (value: unknown): ChartDataPoint[] => {
-  // Single-pass: no intermediate filter/map arrays. Collect raw items first,
-  // then push directly into result through normalizeCandle in one loop.
-  let rawItems: unknown[];
-  if (Array.isArray(value)) {
-    rawItems = value;
-  } else if (isRecord(value)) {
-    if (Array.isArray(value.candles)) rawItems = value.candles;
-    else if (Array.isArray(value.candle)) rawItems = value.candle;
-    else if (Array.isArray(value.data)) rawItems = value.data;
-    else rawItems = [value];
-  } else {
-    return [];
-  }
+  const items = Array.isArray(value) ? value : isRecord(value) ? [value] : [];
   const result: ChartDataPoint[] = [];
-  for (let i = 0; i < rawItems.length; i++) {
-    const item = rawItems[i];
-    if (isRecord(item)) {
-      const candle = normalizeCandle(item);
-      if (candle !== null) {
-        result.push(candle);
-      }
-    }
+  for (const item of items) {
+    if (!isRecord(item)) continue;
+    const candle = normalizeCandle(item);
+    if (candle !== null) result.push(candle);
   }
   return result;
 };

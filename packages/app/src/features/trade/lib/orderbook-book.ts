@@ -1,11 +1,12 @@
 import type { L2BookLevel } from "@/core/utils/hyperliquid";
+import { SubscriptionKey } from "./stream-identity";
 
 /**
  * Order-book identity. Aggregation precision is part of the key: a raw feed and
  * a precision-aggregated one are different books and must never collide.
  */
 export function orderbookStoreKey(symbol: string, nSigFigs?: number | null): string {
-  return `${symbol}:${nSigFigs ?? "raw"}`;
+  return SubscriptionKey.orderbook(symbol, nSigFigs);
 }
 
 /**

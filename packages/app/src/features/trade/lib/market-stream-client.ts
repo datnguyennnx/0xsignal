@@ -1,6 +1,7 @@
 import { mapToHLInterval } from "@/core/utils/hyperliquid";
 import { resolveApiBase } from "@/lib/api-base";
 import { normalizeSymbol } from "./symbol";
+import { SubscriptionKey } from "./stream-identity";
 import type { WsMarketSubscription } from "@0xsignal/shared";
 import {
   decodeMarketWsMessage,
@@ -82,15 +83,6 @@ const toWireSubscription = (subscription: WsMarketSubscription): WsMarketSubscri
     };
   }
   return { channel: "candle", symbol, interval: subscription.interval ?? "1m" };
-};
-
-/** Mirrors the server bucket key so duplicate identities share one refcount. */
-const buildSubscriptionKey = (subscription: WsMarketSubscription): string => {
-  if (subscription.channel === "allMids") return "allMids";
-  if (subscription.channel === "l2Book") {
-    return `l2Book:${subscription.symbol ?? ""}:${subscription.nSigFigs ?? "raw"}`;
-  }
-  return `candle:${subscription.symbol ?? ""}:${subscription.interval ?? ""}`;
 };
 
 interface MarketStreamSubscription {
@@ -282,7 +274,7 @@ function acquireConnection(
   }
 
   const connection = entry;
-  const key = buildSubscriptionKey(subscription);
+  const key = SubscriptionKey.market(subscription);
   let shared = connection.subscriptions.get(key);
   const isNewSubscription = shared === undefined;
   if (shared === undefined) {

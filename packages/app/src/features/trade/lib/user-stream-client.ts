@@ -6,13 +6,12 @@ import {
   type TabCoordinator,
 } from "./user-stream-coordination";
 import { createHyperliquidUpstream } from "./user-stream-upstream";
+import { SubscriptionKey } from "./stream-identity";
 import {
+  USER_STREAM_CHANNEL_TABLE,
   USER_STREAM_LIMITS,
-  type ClearinghouseStreamEvent,
-  type OpenOrdersStreamEvent,
-  type SpotStateStreamEvent,
+  type ListenerHolder,
   type UpstreamSubscription,
-  type UserFillsStreamEvent,
   type UserStreamChannel,
   type UserStreamClient,
   type UserStreamConnectionState,
@@ -29,23 +28,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isWireEvent = (value: unknown): value is UserStreamWireEvent =>
   isRecord(value) && "data" in value;
 
-const isClearinghouseEvent = (event: UserStreamWireEvent): event is ClearinghouseStreamEvent =>
-  isRecord(event.data) && "marginSummary" in event.data;
-
-const isSpotStateEvent = (event: UserStreamWireEvent): event is SpotStateStreamEvent =>
-  isRecord(event.data) && "balances" in event.data;
-
-const isUserFillsEvent = (event: UserStreamWireEvent): event is UserFillsStreamEvent =>
-  Array.isArray(event.data);
-
-const isOpenOrdersEvent = (event: UserStreamWireEvent): event is OpenOrdersStreamEvent =>
-  Array.isArray(event.data);
-
 const isUserStreamChannel = (value: string): value is UserStreamChannel =>
-  value === "clearinghouseState" ||
-  value === "spotState" ||
-  value === "userFills" ||
-  value === "openOrders";
+  Object.hasOwn(USER_STREAM_CHANNEL_TABLE, value);
 
 const isUserStreamConnectionState = (value: string): value is UserStreamConnectionState =>
   value === "idle" || value === "connecting" || value === "open" || value === "closed";
@@ -64,44 +48,8 @@ class UserStreamAuthError extends Error {
   }
 }
 
-interface ClearinghouseHolder {
-  readonly channel: "clearinghouseState";
-  readonly listener: (event: ClearinghouseStreamEvent) => void;
-}
-
-interface SpotStateHolder {
-  readonly channel: "spotState";
-  readonly listener: (event: SpotStateStreamEvent) => void;
-}
-
-interface UserFillsHolder {
-  readonly channel: "userFills";
-  readonly listener: (event: UserFillsStreamEvent) => void;
-}
-
-interface OpenOrdersHolder {
-  readonly channel: "openOrders";
-  readonly listener: (event: OpenOrdersStreamEvent) => void;
-}
-
-type ListenerHolder = ClearinghouseHolder | SpotStateHolder | UserFillsHolder | OpenOrdersHolder;
-
-const noop = (): void => {};
-
-const remoteHolder = (channel: UserStreamChannel): ListenerHolder => {
-  switch (channel) {
-    case "clearinghouseState":
-      return { channel, listener: noop };
-    case "spotState":
-      return { channel, listener: noop };
-    case "userFills":
-      return { channel, listener: noop };
-    case "openOrders":
-      return { channel, listener: noop };
-    default:
-      throw new Error(`Unsupported user stream channel: ${String(channel)}`);
-  }
-};
+const remoteHolder = (channel: UserStreamChannel): ListenerHolder =>
+  USER_STREAM_CHANNEL_TABLE[channel].holder();
 
 interface SharedSubscription {
   readonly key: string;
@@ -115,31 +63,9 @@ interface SharedSubscription {
 }
 
 const deliverToShared = (shared: SharedSubscription, event: UserStreamWireEvent): void => {
-  switch (shared.channel) {
-    case "clearinghouseState":
-      if (!isClearinghouseEvent(event)) return;
-      for (const holder of shared.holders) {
-        if (holder.channel === "clearinghouseState") holder.listener(event);
-      }
-      return;
-    case "spotState":
-      if (!isSpotStateEvent(event)) return;
-      for (const holder of shared.holders) {
-        if (holder.channel === "spotState") holder.listener(event);
-      }
-      return;
-    case "userFills":
-      if (!isUserFillsEvent(event)) return;
-      for (const holder of shared.holders) {
-        if (holder.channel === "userFills") holder.listener(event);
-      }
-      return;
-    case "openOrders":
-      if (!isOpenOrdersEvent(event)) return;
-      for (const holder of shared.holders) {
-        if (holder.channel === "openOrders") holder.listener(event);
-      }
-  }
+  const spec = USER_STREAM_CHANNEL_TABLE[shared.channel];
+  if (!spec.guard(event)) return;
+  spec.deliver(shared.holders, event);
 };
 
 export interface UserStreamClientOptions {
@@ -346,38 +272,10 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
     shared.backingMode = "upstream";
     const current = ensureUpstream();
 
-    switch (shared.channel) {
-      case "clearinghouseState":
-        return current.subscribeClearinghouseState(shared.user, (event) => {
-          for (const holder of shared.holders) {
-            if (holder.channel === "clearinghouseState") holder.listener(event);
-          }
-          coordinator?.postData(shared.key, event);
-        });
-      case "spotState":
-        return current.subscribeSpotState(shared.user, (event) => {
-          for (const holder of shared.holders) {
-            if (holder.channel === "spotState") holder.listener(event);
-          }
-          coordinator?.postData(shared.key, event);
-        });
-      case "userFills":
-        return current.subscribeUserFills(shared.user, (event) => {
-          for (const holder of shared.holders) {
-            if (holder.channel === "userFills") holder.listener(event);
-          }
-          coordinator?.postData(shared.key, event);
-        });
-      case "openOrders":
-        return current.subscribeOpenOrders(shared.user, (event) => {
-          for (const holder of shared.holders) {
-            if (holder.channel === "openOrders") holder.listener(event);
-          }
-          coordinator?.postData(shared.key, event);
-        });
-      default:
-        throw new Error(`Unsupported user stream channel: ${String(shared.channel)}`);
-    }
+    return USER_STREAM_CHANNEL_TABLE[shared.channel].subscribe(current, shared.user, (event) => {
+      deliverToShared(shared, event);
+      coordinator?.postData(shared.key, event);
+    });
   };
 
   /** Swaps every local subscription between the owned socket and the leader. */
@@ -439,7 +337,7 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
     if (coordinator !== null) await coordinator.whenReady();
 
     const user = rawUser.toLowerCase();
-    const key = `${holder.channel}:${user}`;
+    const key = SubscriptionKey.user(holder.channel, user);
 
     const existing = sharedSubscriptions.get(key);
     if (existing !== undefined) {

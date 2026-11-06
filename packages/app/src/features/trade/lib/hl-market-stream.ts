@@ -8,6 +8,7 @@ import {
   type MarketStreamMeta,
 } from "./market-stream-client";
 import { normalizeSymbol } from "./symbol";
+import { SubscriptionKey } from "./stream-identity";
 import { convertToCandlePayload } from "../utils/market-stream-decoder";
 import {
   applyBookFrame,
@@ -85,7 +86,7 @@ const toError = (error: unknown): Error =>
 const onErrorOption = (onError: (error: Error) => void) => ({ onError });
 
 function createHyperliquidSink(): DirectMarketSink {
-  const transport = new WebSocketTransport({ url: HL_MARKET_WS_URL });
+  const transport = new WebSocketTransport({ url: HL_MARKET_WS_URL, resubscribe: true });
   const client = new SubscriptionClient({ transport });
 
   return {
@@ -239,16 +240,8 @@ export interface DirectMarketStream {
   readonly size: () => number;
 }
 
-const directKey = (subscription: WsMarketSubscription): string => {
-  if (subscription.channel === "allMids") return "allMids";
-  if (subscription.channel === "l2Book") {
-    return `l2Book:${subscription.symbol ?? ""}:${subscription.nSigFigs ?? "raw"}`;
-  }
-  if (subscription.channel === "candle") {
-    return `candle:${subscription.symbol ?? ""}:${subscription.interval ?? ""}`;
-  }
-  return subscription.channel;
-};
+const directKey = (subscription: WsMarketSubscription): string =>
+  SubscriptionKey.market(subscription);
 
 export function createDirectMarketStream(
   sink: DirectMarketSink,
