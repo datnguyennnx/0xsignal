@@ -73,7 +73,7 @@
       }
     },
     {
-      "files": ["**/*.config.{ts,js,mjs}", "**/scripts/**", "vite.config.ts"],
+      "files": ["**/*.config.{ts,js,mjs}", "vite.config.ts"],
       "rules": {
         "no-console": "off"
       }
@@ -112,6 +112,32 @@
       "files": ["packages/app/src/features/whales/components/long-short-donut.tsx"],
       "rules": {
         "jsx-a11y/prefer-tag-over-role": "off"
+      }
+    },
+    {
+      // Shared sits at the bottom of the workspace graph and must stay a leaf.
+      "files": ["packages/shared/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": ["@0xsignal/app", "@0xsignal/api", "@0xsignal/auth"]
+          }
+        ]
+      }
+    },
+    {
+      // Platform is cross-cutting plumbing; module composition happens above it.
+      "files": ["packages/api/**/platform/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": ["@/modules/**"] }]
+      }
+    },
+    {
+      // Integrations are adapters; only a module's public surface may be imported, above them.
+      "files": ["packages/api/**/integrations/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": ["@/modules/**"] }]
       }
     }
   ],

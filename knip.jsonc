@@ -10,25 +10,16 @@
     "types": "error",
     "unresolved": "warn",
     "duplicates": "off",
+    // knip skips type-only import edges, so it cannot detect the type-only cycles the old depcruise gate reported.
     "cycles": "off",
   },
   "workspaces": {
     ".": {
       "entry": [],
       "project": [],
-      // The depcruise script invokes the binary through `bun --bun
-      // ./node_modules/.bin/...`, so knip cannot match it to the package name.
-      "ignoreDependencies": ["dependency-cruiser"],
     },
     "packages/app": {
-      "entry": [
-        // Knip treats every file here as an entry point, so it never reports an
-        // unused primitive in ui/ as a dead file. Keep the glob: it covers the
-        // whole directory and unused primitives are removed by hand.
-        "src/components/ui/**/*.{ts,tsx}",
-        "src/components/glass/index.ts",
-        "src/services/api/index.ts",
-      ],
+      "entry": ["src/services/api/index.ts"],
       "project": ["src/**/*.{ts,tsx,css}"],
       // Consumed from CSS, not JS: src/index.css @imports both, with the @tailwindcss/vite plugin wired in vite.config.ts. Do not delete these packages.
       // Knip resolves import statements, not Vite `resolve.alias` string targets, so

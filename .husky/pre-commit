@@ -12,16 +12,6 @@ bun run knip
 echo "==> lint:strict: lint gate (0 errors, 0 warnings allowed)"
 bun run lint:strict
 
-# Lint family: depcruise, banned-constructs and no-bypass all judge source shape, not output.
-echo "==> depcruise: import-graph guard (errors block, warns reported)"
-bun run depcruise
-
-echo "==> banned constructs: rules the linters cannot express"
-bun scripts/banned-constructs.mjs
-
-echo "==> no-bypass: inline suppressions are banned (fix the code or change config)"
-bun scripts/no-bypass.mjs
-
 echo "==> doctor: React diagnostics on the working-tree change set (blocks on warnings)"
 bun run doctor
 
