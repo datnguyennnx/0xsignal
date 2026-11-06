@@ -4,6 +4,7 @@ import { cn } from "cn";
 
 import { useCoinContextPanel } from "@/components/app-side-panel";
 import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -28,7 +29,7 @@ import { WhalePositionFiltersBar } from "./whale-position-filters";
 import { DEFAULT_WHALE_FILTERS, type WhalePositionFilters } from "./whale-filter-defaults";
 
 const HEAD_CLASS =
-  "bg-muted text-[length:var(--text-data)] text-muted-foreground uppercase tracking-wider";
+  "sticky top-0 z-10 bg-muted text-[length:var(--text-data)] text-muted-foreground uppercase tracking-wider";
 const NUM_CLASS = "text-right tabular-nums";
 
 const SKELETON_ROW_KEYS = Array.from({ length: 8 }, (_, index) => `whale-row-${index}`);
@@ -85,15 +86,17 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
     [filters],
   );
 
-  const { data, isLoading, isFetching, hasNextPage, fetchNextPage } = useWhalePositions(query);
+  const { data, isLoading, isFetching, isError, refetch, hasNextPage, fetchNextPage } =
+    useWhalePositions(query);
 
   const rows = useMemo(() => data?.pages.flatMap((page) => page.positions) ?? [], [data]);
 
   const showLoading = isLoading && rows.length === 0;
+  const showError = isError && rows.length === 0;
   const hasActiveFilters = filters.symbol.trim() !== "" || filters.side !== "all";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 max-h-[var(--trading-region-height)] flex-1 flex-col">
       <WhalePositionFiltersBar
         filters={filters}
         onChange={(patch) => {
@@ -106,17 +109,17 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
           <TableRow>
             <TableHead className={HEAD_CLASS}>#</TableHead>
             <TableHead className={HEAD_CLASS}>User</TableHead>
-            <TableHead className={HEAD_CLASS}>Assets</TableHead>
+            <TableHead className={HEAD_CLASS}>Asset</TableHead>
             <TableHead className={HEAD_CLASS}>Side</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS)}>Position</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS)}>Unrealised PNL</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS)}>Entry Price</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS)}>Liq.Price</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS)}>Margin</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS)}>Mode</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS)}>Funding Fee</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS)}>Price</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS)}>Entry Time</TableHead>
+            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[7rem]")}>Position</TableHead>
+            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[7rem]")}>Unrealised PnL</TableHead>
+            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[6.5rem]")}>Entry Price</TableHead>
+            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[6.5rem]")}>Liq. Price</TableHead>
+            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[6rem]")}>Margin</TableHead>
+            <TableHead className={cn(HEAD_CLASS, "w-[5.5rem]")}>Mode</TableHead>
+            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[6.5rem]")}>Funding Fee</TableHead>
+            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[6.5rem]")}>Price</TableHead>
+            <TableHead className={cn(HEAD_CLASS, "w-[7.5rem]")}>Entry Time</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -142,6 +145,17 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
                 ))}
               </TableRow>
             ))
+          ) : showError ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={COLUMN_COUNT} className="py-10">
+                <ErrorState
+                  title="Unable to load whale positions"
+                  retryAction={() => {
+                    void refetch();
+                  }}
+                />
+              </TableCell>
+            </TableRow>
           ) : rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={COLUMN_COUNT} className="py-10">
@@ -175,10 +189,17 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
             rows.map((position: WhalePosition, index: number) => (
               <TableRow
                 key={`${position.userAddress}-${position.coin}-${position.entryTime}`}
+                tabIndex={0}
+                aria-label={`Open ${position.coin} position for ${truncateAddress(position.userAddress)}`}
                 onClick={() => {
                   onSelectWallet(position.userAddress);
                 }}
-                className="cursor-pointer"
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  onSelectWallet(position.userAddress);
+                }}
+                className="cursor-pointer focus-visible:bg-foreground/5 focus-visible:outline-none"
               >
                 <TableCell className="text-muted-foreground tabular-nums">{index + 1}</TableCell>
                 <TableCell>
@@ -231,7 +252,7 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
                 <TableCell className={NUM_CLASS}>
                   {position.marginUsd == null ? "—" : formatCompactUsd(position.marginUsd)}
                 </TableCell>
-                <TableCell className={NUM_CLASS}>
+                <TableCell>
                   {position.leverageType === "isolated"
                     ? "Isolated"
                     : position.leverageType === "cross"
@@ -252,7 +273,7 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
                     ? "—"
                     : formatPrice(Number(position.markPrice))}
                 </TableCell>
-                <TableCell className={cn(NUM_CLASS, "text-muted-foreground")}>
+                <TableCell className="text-muted-foreground">
                   {formatEntryTime(position.entryTime)}
                 </TableCell>
               </TableRow>
