@@ -66,9 +66,16 @@ export function MonthDayCell({
           <EventChip key={event.id} event={event} className="pointer-events-auto min-w-0" />
         ))}
         {overflow > 0 && (
-          <span className="px-1 text-xs font-medium text-muted-foreground tabular-nums">
+          <button
+            type="button"
+            aria-label={`Show ${overflow} more events on ${date.toLocaleDateString()}`}
+            onClick={() => {
+              onSelect(date);
+            }}
+            className="pointer-events-auto w-full rounded-sm px-1 text-left text-xs font-medium text-muted-foreground tabular-nums hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
             +{overflow} more
-          </span>
+          </button>
         )}
       </div>
     </div>

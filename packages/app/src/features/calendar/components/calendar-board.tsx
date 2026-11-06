@@ -3,7 +3,9 @@ import type { JSX } from "react";
 import type { CalendarQuery } from "@0xsignal/shared";
 
 import { useCalendarDayPanel } from "@/components/app-side-panel";
+import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useCalendarEvents } from "../hooks/use-calendar-data";
@@ -17,6 +19,50 @@ import {
 } from "../lib/date-utils";
 import { CalendarHeader, type CalendarCategoryFilterValue } from "./calendar-header";
 import { MonthGrid } from "./month-grid";
+
+const CATEGORY_LABEL: Record<CalendarCategoryFilterValue, string> = {
+  all: "All",
+  macro: "Macro",
+  fx: "FX",
+  crypto: "Crypto",
+};
+
+interface CalendarEmptyStateProps {
+  category: CalendarCategoryFilterValue;
+  monthTitle: string;
+  onShowAll: () => void;
+}
+
+function CalendarEmptyState({
+  category,
+  monthTitle,
+  onShowAll,
+}: CalendarEmptyStateProps): JSX.Element {
+  if (category === "all") {
+    return (
+      <EmptyState
+        variant="chart"
+        title={`No events in ${monthTitle}`}
+        description="Nothing is scheduled for this month."
+      />
+    );
+  }
+
+  const label = CATEGORY_LABEL[category];
+
+  return (
+    <EmptyState
+      variant="chart"
+      title={`No ${label} events this month`}
+      description={`The ${label} filter is hiding other events. Clear it to see everything scheduled in ${monthTitle}.`}
+      action={
+        <Button variant="outline" size="sm" onClick={onShowAll}>
+          Show all
+        </Button>
+      }
+    />
+  );
+}
 
 export function CalendarBoard(): JSX.Element {
   const [anchor, setAnchor] = useState<Date>(() => new Date());
@@ -44,6 +90,8 @@ export function CalendarBoard(): JSX.Element {
 
   const gridDays = useMemo(() => getMonthGridDays(anchor), [anchor]);
 
+  const monthTitle = formatMonthTitle(anchor);
+
   const handleToday = () => {
     const now = new Date();
     setAnchor(now);
@@ -57,7 +105,7 @@ export function CalendarBoard(): JSX.Element {
   return (
     <div className="w-full space-y-4">
       <CalendarHeader
-        title={formatMonthTitle(anchor)}
+        title={monthTitle}
         rangeLabel={formatRangeLabel(anchor)}
         category={category}
         onCategoryChange={setCategory}
@@ -79,13 +127,24 @@ export function CalendarBoard(): JSX.Element {
           <ErrorState title="Unable to load events" retryAction={handleRefresh} />
         </div>
       ) : (
-        <MonthGrid
-          days={gridDays}
-          monthDate={anchor}
-          selectedDate={selectedDate ?? anchor}
-          eventsByDay={eventsByDay}
-          onSelectDate={selectDay}
-        />
+        <>
+          {eventsByDay.size === 0 && (
+            <CalendarEmptyState
+              category={category}
+              monthTitle={monthTitle}
+              onShowAll={() => {
+                setCategory("all");
+              }}
+            />
+          )}
+          <MonthGrid
+            days={gridDays}
+            monthDate={anchor}
+            selectedDate={selectedDate}
+            eventsByDay={eventsByDay}
+            onSelectDate={selectDay}
+          />
+        </>
       )}
     </div>
   );

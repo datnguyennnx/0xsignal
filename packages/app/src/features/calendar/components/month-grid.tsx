@@ -8,7 +8,7 @@ import { dayKey, WEEK_STARTS_ON, type EventsByDay } from "../lib/date-utils";
 export interface MonthGridProps {
   days: Date[];
   monthDate: Date;
-  selectedDate: Date;
+  selectedDate: Date | null;
   eventsByDay: EventsByDay;
   onSelectDate: (date: Date) => void;
 }
@@ -50,7 +50,7 @@ export function MonthGrid({
             events={eventsByDay.get(dayKey(date)) ?? []}
             isCurrentMonth={isSameMonth(date, monthDate)}
             isToday={isSameDay(date, today)}
-            isSelected={isSameDay(date, selectedDate)}
+            isSelected={selectedDate !== null && isSameDay(date, selectedDate)}
             onSelect={onSelectDate}
           />
         ))}
