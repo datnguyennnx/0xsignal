@@ -1,8 +1,12 @@
 import { useCallback, useMemo } from "react";
 import { useHyperliquidCandles } from "@/features/trade/hooks/use-hyperliquid-candles";
 import { useUserFills } from "@/features/trade/hooks/use-user-data";
-import { useTradeMarkers } from "./use-trade-markers";
-import { intervalToSeconds, type HyperliquidFill } from "@/features/trade/utils/trade-markers";
+import {
+  intervalToSeconds,
+  mapFillsToLogicalMarkers,
+  type HyperliquidFill,
+  type LogicalTradeMarker,
+} from "@/features/trade/utils/trade-markers";
 import { mapToHLInterval } from "@/core/utils/hyperliquid";
 
 interface UseChartFeedParams {
@@ -51,11 +55,10 @@ export function useChartFeed({ symbol, interval, fillsEnabled = true }: UseChart
 
   const timeframeSec = useMemo(() => intervalToSeconds(interval), [interval]);
 
-  const { markers } = useTradeMarkers({
-    fills,
-    timeframeSec,
-    currentCoin: symbol,
-  });
+  const markers = useMemo<LogicalTradeMarker[]>(
+    () => mapFillsToLogicalMarkers(fills, timeframeSec, symbol),
+    [fills, timeframeSec, symbol],
+  );
 
   return { candles, hasMoreCandles, handleLoadMore, markers, candleError };
 }

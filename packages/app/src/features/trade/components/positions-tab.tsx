@@ -6,13 +6,10 @@ import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
 import { useHyperliquidWs } from "../hooks/use-hyperliquid-ws";
 import { buildFundingRatesMap } from "../utils/trade-math";
 import { buildTpSlByCoinMap } from "../utils/trigger-utils";
+import { reportAllMidsError } from "../hooks/use-all-mids";
 import { PositionsTable, type PositionRow } from "./positions-table";
 
 const ALL_MIDS_SUBSCRIPTION = { channel: "allMids" as const } as const;
-
-function reportAllMidsError(error: Error): void {
-  console.error("allMids WS error:", error);
-}
 
 interface PositionsTabProps {
   positions: PositionRow[];

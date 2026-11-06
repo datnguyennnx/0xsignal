@@ -27,8 +27,6 @@ interface TierContract {
   layer: "content" | "floating" | "backdrop";
   /** Nesting guard only: solid, content and control drop their depth-0 blur when nested. */
   blur: boolean;
-  /** Placement rule in prose; the runtime guards below enforce the hard parts. */
-  allowedOn: string;
 }
 
 // Only data-glass-depth="0" blurs; nested tiers paint a translucent fill instead.
@@ -36,29 +34,22 @@ const TIER_CONTRACT: Record<Tier, TierContract> = {
   solid: {
     layer: "content",
     blur: false,
-    allowedOn: "page content that scrolls under other surfaces",
   },
   content: {
     layer: "content",
     blur: false,
-    allowedOn:
-      "page content tiles; paints --glass-fill with the hairline edge and shared lift exactly as solid does, so the two differ only in semantic intent",
   },
   control: {
     layer: "content",
     blur: false,
-    allowedOn:
-      "form controls; carries a resting inset edge so it stays visible on a same-tone parent",
   },
   floating: {
     layer: "floating",
     blur: true,
-    allowedOn: "portals and overlays above the page; never inside another blur tier",
   },
   scrim: {
     layer: "backdrop",
     blur: false,
-    allowedOn: "behind a modal; never nested in another scrim",
   },
 };
 

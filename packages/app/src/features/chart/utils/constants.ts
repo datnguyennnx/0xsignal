@@ -1,12 +1,5 @@
 import { remToPx } from "@/core/utils/rem";
 
-export const DEFAULT_INTERVALS = [
-  { value: "1m", label: "1m" },
-  { value: "5m", label: "5m" },
-  { value: "15m", label: "15m" },
-  { value: "1h", label: "1h" },
-] as const;
-
 export const ALL_INTERVALS = [
   { value: "1m", label: "1m" },
   { value: "5m", label: "5m" },
@@ -20,6 +13,13 @@ export const ALL_INTERVALS = [
   { value: "1d", label: "1D" },
   { value: "1w", label: "1W" },
 ] as const;
+
+/** The pinned header intervals; the rest fall into the overflow menu. Derived from ALL_INTERVALS so the two cannot drift. */
+const DEFAULT_INTERVAL_VALUES: ReadonlySet<string> = new Set(["1m", "5m", "15m", "1h"]);
+
+export const DEFAULT_INTERVALS = ALL_INTERVALS.filter((interval) =>
+  DEFAULT_INTERVAL_VALUES.has(interval.value),
+);
 
 export const getVolumePaneHeight = (): number => remToPx(6.25);
 

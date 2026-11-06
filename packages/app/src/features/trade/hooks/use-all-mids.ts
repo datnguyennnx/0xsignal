@@ -2,6 +2,10 @@ import { useMemo } from "react";
 import { useHyperliquidWs } from "./use-hyperliquid-ws";
 import { useAllMidsData } from "@/stores/use-market-data-store";
 
+export function reportAllMidsError(error: Error): void {
+  console.error("allMids WS error:", error);
+}
+
 /**
  * Subscribe to real-time mid prices for ALL coins via the `allMids` WS channel.
  * Returns a `Record<coin, number>` that updates on every WebSocket message.
@@ -24,9 +28,7 @@ export function useAllMids(enabled = true): Record<string, number> {
   useHyperliquidWs({
     subscription,
     enabled,
-    onError: (error) => {
-      console.error("allMids WS error:", error);
-    },
+    onError: reportAllMidsError,
   });
 
   return mids;
