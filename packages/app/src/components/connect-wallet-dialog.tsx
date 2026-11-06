@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useConnection } from "wagmi";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
@@ -31,7 +31,6 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
     const address = addressInput.trim();
     if (!ADDRESS_PATTERN.test(address)) {
       setAddressError("Enter a valid address (0x followed by 40 hex characters).");
-      toast.error("Enter a valid address (0x followed by 40 hex characters).");
       return;
     }
     onOpenChange(false);
@@ -67,18 +66,27 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
             <Separator className="flex-1" />
           </div>
           <form className="flex flex-col gap-2.5" onSubmit={handleAddressSubmit}>
-            <Input
-              value={addressInput}
-              onChange={(event) => {
-                setAddressInput(event.target.value);
-                setAddressError(null);
-              }}
-              placeholder="Paste wallet address (0x…)"
-              autoComplete="off"
-              spellCheck={false}
-              aria-invalid={addressError !== null && addressError !== "" ? true : undefined}
-              aria-label="Wallet address"
-            />
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="wallet-address">Wallet address</Label>
+              <Input
+                id="wallet-address"
+                value={addressInput}
+                onChange={(event) => {
+                  setAddressInput(event.target.value);
+                  setAddressError(null);
+                }}
+                placeholder="Paste wallet address (0x…)"
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={addressError === null ? undefined : true}
+                aria-describedby={addressError === null ? undefined : "wallet-address-error"}
+              />
+              {addressError !== null && (
+                <p id="wallet-address-error" className="text-xs text-destructive">
+                  {addressError}
+                </p>
+              )}
+            </div>
             <Button
               type="submit"
               variant="default"
