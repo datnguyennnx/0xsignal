@@ -23,40 +23,27 @@ export interface SurfaceFrame {
   owner: string;
 }
 
-interface TierContract {
-  layer: "content" | "floating" | "backdrop";
-  /** Nesting guard only: solid, content and control drop their depth-0 blur when nested. */
-  blur: boolean;
-}
+export type Material = "glass" | "plate" | "none";
 
-// Only data-glass-depth="0" blurs; nested tiers paint a translucent fill instead.
-const TIER_CONTRACT: Record<Tier, TierContract> = {
-  solid: {
-    layer: "content",
-    blur: false,
-  },
-  content: {
-    layer: "content",
-    blur: false,
-  },
-  control: {
-    layer: "content",
-    blur: false,
-  },
-  floating: {
-    layer: "floating",
-    blur: true,
-  },
-  scrim: {
-    layer: "backdrop",
-    blur: false,
-  },
+export type Thickness = "thin" | "regular" | "thick";
+
+/** Tier defaults, so a caller can paint glass without restating the material. */
+export const DEFAULT_MATERIAL: Record<Tier, { material: Material; thickness?: Thickness }> = {
+  solid: { material: "glass", thickness: "thick" },
+  content: { material: "glass", thickness: "regular" },
+  control: { material: "glass", thickness: "thin" },
+  floating: { material: "glass", thickness: "regular" },
+  scrim: { material: "none" },
 };
 
-const BLUR_TIERS: ReadonlySet<string> = new Set(
-  Object.entries(TIER_CONTRACT)
-    .filter(([, contract]) => contract.blur)
-    .map(([tier]) => tier),
+function isTier(value: string): value is Tier {
+  return Object.hasOwn(DEFAULT_MATERIAL, value);
+}
+
+const GLASS_TIERS: ReadonlySet<Tier> = new Set(
+  Object.keys(DEFAULT_MATERIAL).filter(
+    (tier): tier is Tier => isTier(tier) && DEFAULT_MATERIAL[tier].material === "glass",
+  ),
 );
 
 export interface SurfacePlacement {
@@ -79,15 +66,14 @@ function fail(message: string): void {
   throw new Error(message);
 }
 
-/** Correctness violations throw in every build, so none can ship silently. */
-function violation(message: string): never {
-  throw new Error(message);
-}
-
 const at = (owner: string | undefined): string =>
   owner === undefined || owner === "" ? "" : ` at ${owner}`;
 
-/** Pure, so it is safe to call during render; a glass-on-glass stack throws in production too. */
+/**
+ * Pure, so it is safe to call during render.
+ * A glass tier nested in a glass ancestor is legal: only the outermost frame renders the
+ * material, and every frame below it paints a translucent fill.
+ */
 export function assertSurfacePlacement(
   input: SurfacePlacement,
   ancestors: readonly SurfaceFrame[],
@@ -96,16 +82,6 @@ export function assertSurfacePlacement(
 
   // Identity paints nothing, so no placement rule can apply.
   if (variant === "identity") return;
-
-  if (BLUR_TIERS.has(tier)) {
-    const glassAncestor = ancestors.find((ancestor) => BLUR_TIERS.has(ancestor.tier));
-    if (glassAncestor !== undefined) {
-      // A nested backdrop-filter costs 2^(N-1) paint passes, so it fails the render, not warns.
-      violation(
-        `tier "${tier}"${at(owner)} sits ${ancestors.length} deep inside tier "${glassAncestor.tier}"${at(glassAncestor.owner)}: glass on glass destroys legibility. Use tier="content" for the inner layer.`,
-      );
-    }
-  }
 
   if (tier === "scrim" && ancestors.some((ancestor) => ancestor.tier === "scrim")) {
     fail(`tier "scrim"${at(owner)} is nested inside another "scrim": one scrim per stack.`);
@@ -117,7 +93,7 @@ export function assertSurfacePlacement(
         `variant "clear"${at(owner)} requires overMedia: it is only legible over media-rich backdrops.`,
       );
     }
-    if (BLUR_TIERS.has(tier) && !dim) {
+    if (GLASS_TIERS.has(tier) && !dim) {
       fail(
         `variant "clear" on tier "${tier}"${at(owner)} requires dim: Apple prescribes a 35% dimming layer.`,
       );

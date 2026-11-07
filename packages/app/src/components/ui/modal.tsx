@@ -2,7 +2,6 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { cn } from "cn";
 
-import { Surface } from "@/components/surface/surface";
 import { SurfaceContext } from "@/components/surface/surface-context";
 
 export type ModalDismissReason = "outside-press" | "escape-key" | "close-press" | "focus-out";
@@ -250,7 +249,7 @@ export function Modal({
         <div
           data-slot="modal-backdrop"
           aria-hidden="true"
-          className="fixed inset-0 isolate scrim duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+          className="fixed inset-0 isolate scrim backdrop-blur-[4px] duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
           style={{ zIndex: MODAL_LAYER }}
           onPointerDown={(event) => {
             if (event.target !== event.currentTarget) return;
@@ -268,17 +267,15 @@ export function Modal({
           aria-describedby={ariaDescribedBy}
           tabIndex={-1}
           className={cn(
-            "fixed inset-0 m-auto grid w-full max-w-[calc(100%-2rem)] gap-4 overflow-hidden rounded-[var(--radius-overlay)] border-0 bg-transparent p-4 text-sm text-popover-foreground duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "tier-floating fixed inset-0 m-auto grid w-full max-w-[calc(100%-2rem)] gap-4 overflow-hidden rounded-[var(--radius-overlay)] border-0 p-4 text-sm text-popover-foreground duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             className,
           )}
+          data-material="glass"
+          data-thickness="thick"
+          data-glass-depth="0"
           style={{ zIndex: MODAL_LAYER + 1 }}
           {...stateAttributes}
         >
-          <Surface
-            tier="solid"
-            radius="overlay"
-            className="pointer-events-none absolute inset-0 -z-10 glass-no-specular"
-          />
           {children}
         </dialog>
       </div>

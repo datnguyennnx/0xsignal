@@ -3,7 +3,6 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { cn } from "cn";
 
 import { Button } from "@/components/ui/button";
-import { Surface } from "@/components/surface/surface";
 import { SurfaceContext } from "@/components/surface/surface-context";
 import { withViewTransition } from "@/lib/view-transition";
 import { XIcon } from "lucide-react";
@@ -213,7 +212,7 @@ function DialogOverlay({ className, style, ...props }: DialogPrimitive.Backdrop.
       // Base UI drops a nested backdrop; without it the press lands on the parent popup and never dismisses.
       forceRender={isNested}
       className={cn(
-        "fixed inset-0 isolate duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 isolate backdrop-blur-[4px] duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         // Nested is hit-target only: the parent scrim dims the page, with no blur of its own.
         !isNested && "scrim",
         className,
@@ -244,18 +243,16 @@ function DialogContent({
         <DialogPrimitive.Popup
           data-slot="dialog-content"
           className={cn(
-            "fixed top-1/2 left-1/2 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-hidden rounded-[var(--radius-overlay)] bg-transparent p-4 text-sm text-popover-foreground duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "tier-floating fixed top-1/2 left-1/2 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-hidden rounded-[var(--radius-overlay)] p-4 text-sm text-popover-foreground duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             !isNested && "[view-transition-name:dialog]",
             className,
           )}
+          data-material="glass"
+          data-thickness="thick"
+          data-glass-depth="0"
           style={withLayer(style, DIALOG_LAYER + depth * 2 + 1)}
           {...props}
         >
-          <Surface
-            tier="solid"
-            radius="overlay"
-            className="pointer-events-none absolute inset-0 -z-10 glass-no-specular"
-          />
           {children}
           {showCloseButton && (
             <DialogPrimitive.Close

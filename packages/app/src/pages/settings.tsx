@@ -63,6 +63,8 @@ export function SettingsPage() {
       <Surface
         tier="content"
         as="section"
+        material="glass"
+        thickness="thick"
         className="max-w-5xl mx-auto w-full p-[clamp(1rem,1.5vw,1.5rem)]"
       >
         <div className="grid grid-cols-1 md:grid-cols-12 w-full min-h-[300px]">
@@ -75,10 +77,13 @@ export function SettingsPage() {
                     replace: true,
                   });
                 }}
+                data-material="glass"
+                data-thickness="thin"
+                data-active={activeTab === item.value || undefined}
                 className={cn(
-                  "w-full flex items-center gap-[clamp(0.5rem,0.6vw,0.625rem)] px-[clamp(0.625rem,0.8vw,0.875rem)] py-[clamp(0.5rem,0.8vw,0.75rem)] rounded-lg text-left transition-colors duration-150 cursor-pointer",
+                  "tier-control w-full flex items-center gap-[clamp(0.5rem,0.6vw,0.625rem)] px-[clamp(0.625rem,0.8vw,0.875rem)] py-[clamp(0.5rem,0.8vw,0.75rem)] rounded-lg text-left transition-colors duration-150 cursor-pointer",
                   activeTab === item.value
-                    ? "bg-accent text-accent-foreground font-semibold"
+                    ? "text-accent-foreground font-semibold"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent/60 font-medium",
                 )}
               >

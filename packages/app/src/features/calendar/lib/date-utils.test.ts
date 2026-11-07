@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { EconomicEvent } from "@0xsignal/shared";
 
-import { dayKey, toEventsByDay } from "./date-utils";
+import { dayKey, getMonthGridDays, getViewRange, toEventsByDay } from "./date-utils";
 
 const BASE_EVENT: EconomicEvent = {
   id: "",
@@ -33,6 +33,15 @@ function makeEvent(id: string, scheduledAt: string): EconomicEvent {
 const at = (day: number, hour: number, minute = 0): string =>
   new Date(2026, 0, day, hour, minute).toISOString();
 
+const gridBounds = (days: Date[]): { first: string; last: string } => {
+  const first = days.at(0);
+  const last = days.at(-1);
+  if (first === undefined || last === undefined) {
+    throw new Error("expected a non-empty month grid");
+  }
+  return { first: dayKey(first), last: dayKey(last) };
+};
+
 // Deliberately out of order, interleaving two local days and two times per day.
 const OUT_OF_ORDER: EconomicEvent[] = [
   makeEvent("a-late", at(13, 14)),
@@ -61,5 +70,30 @@ describe("toEventsByDay", () => {
       "b-early",
       "b-late",
     ]);
+  });
+});
+
+describe("getMonthGridDays", () => {
+  test("ends on the week containing month end", () => {
+    const days = getMonthGridDays(new Date(2026, 10, 1));
+
+    expect(days).toHaveLength(35);
+    expect(gridBounds(days)).toEqual({ first: "2026-11-01", last: "2026-12-05" });
+  });
+
+  test("returns a single four-week row when the month fits", () => {
+    const days = getMonthGridDays(new Date(2026, 1, 1));
+
+    expect(days).toHaveLength(28);
+    expect(gridBounds(days)).toEqual({ first: "2026-02-01", last: "2026-02-28" });
+  });
+
+  test("drives the view range", () => {
+    const anchor = new Date(2026, 10, 1);
+
+    const days = getMonthGridDays(anchor);
+    const { from, to } = getViewRange(anchor);
+
+    expect({ first: dayKey(from), last: dayKey(to) }).toEqual(gridBounds(days));
   });
 });

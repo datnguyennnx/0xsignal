@@ -4,6 +4,7 @@ import { Menu } from "lucide-react";
 import { AppSidePanelProvider } from "@/components/app-side-panel";
 import { SidePanelRegion } from "@/components/side-panel";
 import { UserNav } from "@/components/user-nav";
+import { AmbientCanvas } from "@/components/surface/ambient-canvas";
 import { Surface } from "@/components/surface/surface";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
   return (
     <AppSidePanelProvider>
       <div className="flex min-h-dvh w-full bg-transparent">
+        <AmbientCanvas />
         <div className="flex flex-1 min-w-0 flex-col p-[var(--app-page-pad)] gap-[var(--app-page-gap)]">
           <a
             href="#main-content"
@@ -30,7 +32,12 @@ export function MainLayout({ children }: { children: ReactNode }) {
             </Surface>
           </a>
 
-          <header className="shrink-0 z-50">
+          <header
+            className="shrink-0 z-50 tier-control"
+            data-material="glass"
+            data-thickness="regular"
+            data-glass-depth="0"
+          >
             <div className="container-fluid">
               <div className="flex items-center justify-between gap-3 min-w-0 h-[var(--app-header-height)]">
                 <Link

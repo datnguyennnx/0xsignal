@@ -1,12 +1,16 @@
 import { useContext, useMemo } from "react";
-import type { ComponentPropsWithoutRef, CSSProperties, ElementType, JSX } from "react";
+import type { ComponentPropsWithoutRef, ElementType, JSX } from "react";
 import { cn } from "cn";
 import { SurfaceContext } from "./surface-context";
 import {
   assertSurfacePlacement,
+  DEFAULT_MATERIAL,
   TIER_CLASS,
   VARIANT_CLASS,
+  type Material,
   type SurfaceFrame,
+  type SurfacePlacement,
+  type Thickness,
   type Tier,
   type Variant,
 } from "./tiers";
@@ -68,12 +72,13 @@ export type SurfaceProps = ComponentPropsWithoutRef<"div"> & {
   /** Render as another element (`aside`, `header`, …) so no wrapper shifts layout. */
   as?: ElementType;
   variant?: Variant;
-  tint?: string;
   interactive?: boolean;
   overMedia?: boolean;
   dim?: boolean;
-  /** Opt out over dense content (candles, orderbook rows), where a second blur hurts legibility. */
-  blur?: boolean;
+  /** Depth treatment; defaults to the tier contract. */
+  material?: Material;
+  /** Glass weight; ignored unless the resolved material is glass. */
+  thickness?: Thickness;
 };
 
 function assertLayoutOnlyClass(className: string | undefined, owner: string): void {
@@ -84,7 +89,7 @@ function assertLayoutOnlyClass(className: string | undefined, owner: string): vo
 
   const where = owner === "" ? "" : ` at ${owner}`;
   throw new Error(
-    `Surface className is layout-only; found "${token}" in "${className}"${where}. Use tier/variant/tint (or --surface-tint) for paint.`,
+    `Surface className is layout-only; found "${token}" in "${className}"${where}. Use tier or variant for paint.`,
   );
 }
 
@@ -94,11 +99,11 @@ export function Surface({
   radius = "panel",
   as,
   variant = "regular",
-  tint,
   interactive = false,
   overMedia = false,
   dim = false,
-  blur = true,
+  material,
+  thickness,
   className,
   style,
   children,
@@ -108,19 +113,23 @@ export function Surface({
   const Component: ElementType = as ?? "div";
   const owner = callerLabel();
 
-  assertLayoutOnlyClass(className, owner);
-  assertSurfacePlacement({ tier, variant, overMedia, dim, owner }, ancestors);
+  const fallback = DEFAULT_MATERIAL[tier];
+  const resolvedMaterial = material ?? fallback.material;
+  const resolvedThickness =
+    resolvedMaterial === "glass" ? (thickness ?? fallback.thickness ?? "regular") : undefined;
 
-  const stack = useMemo<readonly SurfaceFrame[]>(
-    () => [...ancestors, { tier, owner }],
-    [ancestors, tier, owner],
-  );
+  assertLayoutOnlyClass(className, owner);
+  const placement: SurfacePlacement = { tier, variant, overMedia, dim, owner };
+  assertSurfacePlacement(placement, ancestors);
+
+  const stack = useMemo<readonly SurfaceFrame[]>(() => {
+    const frame: SurfaceFrame = { tier, owner };
+    return [...ancestors, frame];
+  }, [ancestors, tier, owner]);
 
   const variantClass = VARIANT_CLASS[variant] || undefined;
   // Identity emits no tier class, so no tier paint can leak.
   const identity = variant === "identity";
-  const mergedStyle =
-    tint === undefined ? style : ({ ...style, "--surface-tint": tint } as CSSProperties);
 
   return (
     <SurfaceContext.Provider value={stack}>
@@ -128,7 +137,8 @@ export function Surface({
         {...rest}
         data-tier={tier}
         data-glass-depth={ancestors.length}
-        data-glass-blur={blur ? undefined : "off"}
+        data-material={resolvedMaterial}
+        data-thickness={resolvedThickness}
         className={cn(
           !identity && TIER_CLASS[tier],
           variantClass,
@@ -136,7 +146,7 @@ export function Surface({
           RADIUS_CLASS[radius],
           className,
         )}
-        style={mergedStyle}
+        style={style}
       >
         {children}
       </Component>

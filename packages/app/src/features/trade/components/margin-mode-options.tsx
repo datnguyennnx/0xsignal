@@ -26,6 +26,7 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
       <button
         type="button"
         aria-label="Use isolated margin"
+        aria-pressed={mode === "isolated"}
         onClick={() => {
           onModeChange("isolated");
         }}
@@ -33,7 +34,7 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
           "w-full text-left px-4 py-3 rounded-lg border transition-[background-color,border-color,filter] active:brightness-95",
           mode === "isolated"
             ? SELECTED_CARD_CLASS
-            : "border-border/40 bg-transparent hover:border-border",
+            : "border-[var(--option-card-border)] bg-[var(--option-card-bg)] hover:border-[var(--option-card-active-border)] hover:bg-[var(--option-card-hover-bg)]",
         )}
       >
         <div className="flex items-start justify-between gap-3">
@@ -58,20 +59,16 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
               {MODE_CONFIG.isolated.description}
             </p>
           </div>
-          <span
-            className={cn(
-              "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
-              mode === "isolated" ? "border-foreground" : "border-border/60",
-            )}
-          >
-            {mode === "isolated" && <span className="size-2 rounded-full bg-foreground" />}
-          </span>
+          {mode !== "isolated" && (
+            <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/60 transition-colors" />
+          )}
         </div>
       </button>
 
       <button
         type="button"
         aria-label="Use cross margin"
+        aria-pressed={mode === "cross"}
         onClick={() => {
           onModeChange("cross");
         }}
@@ -79,7 +76,7 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
           "w-full text-left px-4 py-3 rounded-lg border transition-[background-color,border-color,filter] active:brightness-95",
           mode === "cross"
             ? SELECTED_CARD_CLASS
-            : "border-border/40 bg-transparent hover:border-border",
+            : "border-[var(--option-card-border)] bg-[var(--option-card-bg)] hover:border-[var(--option-card-active-border)] hover:bg-[var(--option-card-hover-bg)]",
         )}
       >
         <div className="flex items-start justify-between gap-3">
@@ -96,14 +93,9 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
               {MODE_CONFIG.cross.description}
             </p>
           </div>
-          <span
-            className={cn(
-              "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
-              mode === "cross" ? "border-foreground" : "border-border/60",
-            )}
-          >
-            {mode === "cross" && <span className="size-2 rounded-full bg-foreground" />}
-          </span>
+          {mode !== "cross" && (
+            <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/60 transition-colors" />
+          )}
         </div>
       </button>
     </>

@@ -102,7 +102,7 @@ export function PositionManagement({
         </p>
       )}
       <Tabs value={activeTab} onValueChange={setActiveTab} className={TABS_CLASS[variant]}>
-        <TabsList className="shrink-0 flex gap-[clamp(0.5rem,0.8vw,0.75rem)]">
+        <TabsList variant="line" className="shrink-0 flex gap-[clamp(0.5rem,0.8vw,0.75rem)]">
           <PositionTabTriggers counts={tabCounts} />
         </TabsList>
 

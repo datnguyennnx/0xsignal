@@ -21,7 +21,7 @@ export const ChartOhlcOverlay = memo(({ data }: ChartOhlcOverlayProps) => {
       <Surface
         tier="floating"
         radius="overlay"
-        blur={false}
+        material="plate"
         className="pointer-events-none absolute inset-0 -z-10"
       />
       <div className="flex items-center gap-[clamp(0.4rem,0.7vw,0.75rem)] min-w-fit">

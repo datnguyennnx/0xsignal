@@ -52,7 +52,8 @@ export function TradeDropdownPanel({
       id={id}
       tier="floating"
       radius="overlay"
-      blur={false}
+      material="glass"
+      thickness="regular"
       className="fixed z-50 w-[calc(100vw-16px)] sm:w-[90vw] max-w-[56rem] text-popover-foreground"
       style={{ top: position.top, left: position.left }}
     >

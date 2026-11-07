@@ -100,7 +100,7 @@ export function OrderFormFields({
       </div>
 
       <div className="flex-1 flex flex-col">
-        <div className="relative flex h-[var(--field-h,2.75rem)] rounded-md bg-muted p-0.5 gap-1">
+        <div className="relative flex h-[var(--field-h,2.75rem)] rounded-md tier-well p-0.5 gap-1">
           <div
             className={cn(
               "absolute inset-y-0.5 w-[calc(50%-0.25rem)] rounded-[0.3125rem] transition-transform duration-150 ease-premium",
@@ -115,6 +115,7 @@ export function OrderFormFields({
               onSideChange("buy");
             }}
             size="sm"
+            material="none"
             className="relative z-10 h-full min-w-0 flex-1 cursor-pointer rounded-[0.3125rem] px-0 text-xs font-semibold uppercase tracking-wider transition-colors duration-200 hover:bg-transparent aria-pressed:bg-transparent active:brightness-90"
           >
             <span className={side === "buy" ? "text-primary-foreground" : "text-muted-foreground"}>
@@ -127,6 +128,7 @@ export function OrderFormFields({
               onSideChange("sell");
             }}
             size="sm"
+            material="none"
             className="relative z-10 h-full min-w-0 flex-1 cursor-pointer rounded-[0.3125rem] px-0 text-xs font-semibold uppercase tracking-wider transition-colors duration-200 hover:bg-transparent aria-pressed:bg-transparent active:brightness-90"
           >
             <span className={side === "sell" ? "text-primary-foreground" : "text-muted-foreground"}>

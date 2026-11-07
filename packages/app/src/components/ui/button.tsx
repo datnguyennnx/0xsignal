@@ -31,7 +31,6 @@ const buttonVariants = cva(
           "relative size-[var(--control-h-xs)] text-[length:var(--control-text-xs)] after:absolute after:inset-[-10.5px]",
         "icon-lg": "size-[var(--control-h-lg)] text-[length:var(--control-text-md)]",
         auto: "h-auto rounded-none border-0 px-0 text-[length:var(--control-text-md)]",
-        cta: "w-full h-[var(--control-h-xl)] px-[var(--space-2)] font-semibold uppercase tracking-wider rounded-lg",
       },
     },
     defaultVariants: {
@@ -47,9 +46,13 @@ function Button({
   size = "default",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  const glassAttributes =
+    variant === "outline" ? { "data-material": "glass", "data-thickness": "thin" } : undefined;
+
   return (
     <ButtonPrimitive
       data-slot="button"
+      {...glassAttributes}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

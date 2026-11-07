@@ -383,7 +383,8 @@ export function OrderbookDepth({
             id="orderbook-depth-details"
             tier="floating"
             radius="overlay"
-            blur={false}
+            material="glass"
+            thickness="thin"
             className="fixed p-3 z-50 w-64 pointer-events-none flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)] -translate-y-1/2 text-popover-foreground"
             style={{
               top: popupPosition.top,

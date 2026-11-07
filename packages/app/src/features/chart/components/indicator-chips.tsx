@@ -28,7 +28,8 @@ export const IndicatorChips = memo(function IndicatorChips({ indicators }: Indic
             <Surface
               tier="floating"
               radius="overlay"
-              blur={false}
+              material="glass"
+              thickness="thin"
               className="pointer-events-none absolute inset-0 -z-10"
             />
             <span className="h-2 w-2 rounded-full bg-foreground/60 shrink-0" />

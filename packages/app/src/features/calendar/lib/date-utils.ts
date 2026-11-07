@@ -1,8 +1,8 @@
 import {
-  addDays,
   addMonths,
   eachDayOfInterval,
   endOfMonth,
+  endOfWeek,
   format,
   startOfMonth,
   startOfWeek,
@@ -22,7 +22,8 @@ export function dayKey(date: Date): string {
 
 export function getMonthGridDays(anchor: Date): Date[] {
   const gridStart = startOfWeek(startOfMonth(anchor), WEEK_OPTIONS);
-  return eachDayOfInterval({ start: gridStart, end: addDays(gridStart, 41) });
+  const gridEnd = endOfWeek(endOfMonth(anchor), WEEK_OPTIONS);
+  return eachDayOfInterval({ start: gridStart, end: gridEnd });
 }
 
 export function getViewRange(anchor: Date): { from: Date; to: Date } {

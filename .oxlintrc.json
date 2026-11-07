@@ -101,8 +101,11 @@
       }
     },
     {
-      // Feature components are composition seams: one surface names every hook, block and adapter it renders, so the count is the surface, not a smell.
-      "files": ["packages/app/src/features/**/components/**/*.tsx"],
+      // Feature components are composition seams: one surface names every hook, block and adapter it renders, so the count is the surface, not a smell. Layouts compose the shell the same way.
+      "files": [
+        "packages/app/src/features/**/components/**/*.tsx",
+        "packages/app/src/layouts/main-layout.tsx"
+      ],
       "rules": {
         "import/max-dependencies": ["warn", { "max": 15 }]
       }

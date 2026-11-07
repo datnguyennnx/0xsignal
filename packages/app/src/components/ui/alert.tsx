@@ -2,16 +2,14 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 
-import { Surface } from "@/components/surface/surface";
-
 const alertVariants = cva(
-  "relative isolate grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 rounded-[var(--radius-control)] px-4 py-3 text-sm has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] has-[>svg]:gap-x-3 [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current",
+  "relative isolate grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 rounded-[var(--radius-control)] border px-4 py-3 text-sm has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] has-[>svg]:gap-x-3 [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current",
   {
     variants: {
       variant: {
-        default: "text-card-foreground",
+        default: "bg-card/40 border-border text-card-foreground",
         destructive:
-          "text-destructive *:data-[slot=alert-description]:text-destructive/80 [&>svg]:text-current",
+          "bg-loss/10 border-loss/40 text-loss *:data-[slot=alert-description]:text-loss/80",
       },
     },
     defaultVariants: {
@@ -33,11 +31,6 @@ function Alert({
       className={cn(alertVariants({ variant }), className)}
       {...props}
     >
-      <Surface
-        tier="solid"
-        radius="control"
-        className="pointer-events-none absolute inset-0 -z-10"
-      />
       {children}
     </div>
   );
