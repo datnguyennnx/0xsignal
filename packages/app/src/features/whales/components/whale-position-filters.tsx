@@ -6,9 +6,6 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 
 import type { SideFilter, WhalePositionFilters } from "./whale-filter-defaults";
 
-const SELECT_CLASS =
-  "border-border/40 bg-background/80 text-sm hover:bg-muted/40 focus-visible:ring-ring/40";
-
 const SIDE_OPTIONS: { value: SideFilter; label: string }[] = [
   { value: "all", label: "All Sides" },
   { value: "buy", label: "Long" },
@@ -32,23 +29,27 @@ function isPositionSort(value: string): value is WhalePositionSort {
 interface WhalePositionFiltersBarProps {
   filters: WhalePositionFilters;
   onChange: (patch: Partial<WhalePositionFilters>) => void;
+  symbolInput: string;
+  onSymbolChange: (value: string) => void;
 }
 
 export function WhalePositionFiltersBar({
   filters,
   onChange,
+  symbolInput,
+  onSymbolChange,
 }: WhalePositionFiltersBarProps): JSX.Element {
   return (
-    <div className="flex flex-wrap items-center gap-2 px-3 py-2">
-      <div className="flex items-center gap-2">
+    <div data-dense className="flex flex-wrap items-center gap-inline px-4 py-2">
+      <div className="flex items-center gap-inline">
         <Input
-          value={filters.symbol}
+          value={symbolInput}
           onChange={(e) => {
-            onChange({ symbol: e.target.value });
+            onSymbolChange(e.target.value);
           }}
           placeholder="Symbol"
           aria-label="Filter by symbol"
-          className="h-8 w-28"
+          className="w-28"
         />
         <NativeSelect
           value={filters.side}
@@ -57,7 +58,7 @@ export function WhalePositionFiltersBar({
             if (isSideFilter(value)) onChange({ side: value });
           }}
           aria-label="Filter by side"
-          className={SELECT_CLASS}
+          className="border-control-border bg-input"
         >
           {SIDE_OPTIONS.map((option) => (
             <NativeSelectOption key={option.value} value={option.value}>
@@ -66,8 +67,8 @@ export function WhalePositionFiltersBar({
           ))}
         </NativeSelect>
       </div>
-      <div className="ml-auto flex items-center gap-1.5">
-        <span className="text-xs text-muted-foreground">Sort</span>
+      <div className="ml-auto flex items-center gap-inline">
+        <span className="type-label text-muted-foreground">Sort</span>
         <NativeSelect
           value={filters.sort}
           onChange={(e) => {
@@ -75,7 +76,7 @@ export function WhalePositionFiltersBar({
             if (isPositionSort(value)) onChange({ sort: value });
           }}
           aria-label="Sort positions by"
-          className={SELECT_CLASS}
+          className="border-control-border bg-input"
         >
           {SORT_OPTIONS.map((option) => (
             <NativeSelectOption key={option.value} value={option.value}>

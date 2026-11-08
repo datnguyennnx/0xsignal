@@ -14,15 +14,19 @@ const SortIcon = ({
   const isActive = sortBy === sortField;
   if (sortField === "change" && isActive) {
     return sortDesc ? (
-      <ArrowDown className="w-3 h-3 text-gain" />
+      <ArrowDown className="size-icon-sm text-foreground" />
     ) : (
-      <ArrowUp className="w-3 h-3 text-loss" />
+      <ArrowUp className="size-icon-sm text-foreground" />
     );
   }
   if (isActive) {
-    return sortDesc ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />;
+    return sortDesc ? (
+      <ArrowDown className="size-icon-sm text-foreground" />
+    ) : (
+      <ArrowUp className="size-icon-sm text-foreground" />
+    );
   }
-  return <ArrowUpDown className="w-3 h-3 opacity-50" />;
+  return <ArrowUpDown className="size-icon-sm text-foreground" />;
 };
 
 export function HeaderCell({
@@ -48,7 +52,7 @@ export function HeaderCell({
           onSort(sortField);
         }}
         className={cn(
-          "hover:text-foreground transition-colors flex min-w-0 items-center gap-[clamp(0.15rem,0.3vw,0.25rem)] cursor-pointer bg-transparent border-none p-0 w-full whitespace-nowrap",
+          "hover:text-foreground transition-colors flex min-w-0 items-center gap-1 cursor-pointer bg-transparent border-none p-0 w-full whitespace-nowrap",
           isRight && "justify-end",
         )}
       >

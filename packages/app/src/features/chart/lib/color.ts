@@ -1,3 +1,5 @@
+import { readRootToken } from "@/lib/css-tokens";
+
 // lightweight-charts only parses hex and rgb()/rgba(); CSS tokens resolve to oklch().
 
 const HEX_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
@@ -104,11 +106,8 @@ const toColorString = (channels: Channels): string =>
     ? toHex(channels)
     : `rgba(${channels.r}, ${channels.g}, ${channels.b}, ${roundAlpha(channels.a)})`;
 
-const fallbackChannels = (): Channels => {
-  if (typeof document === "undefined") return FALLBACK_CHANNELS;
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(FALLBACK_TOKEN);
-  return parseChannels(raw.trim()) ?? FALLBACK_CHANNELS;
-};
+const fallbackChannels = (): Channels =>
+  parseChannels(readRootToken(FALLBACK_TOKEN)) ?? FALLBACK_CHANNELS;
 
 export const toRgb = (input: string): string => {
   const value = input.trim();
@@ -120,26 +119,4 @@ export const toRgb = (input: string): string => {
 export const toRgba = (input: string, alpha: number): string => {
   const channels = parseChannels(input.trim()) ?? fallbackChannels();
   return `rgba(${channels.r}, ${channels.g}, ${channels.b}, ${roundAlpha(alpha)})`;
-};
-
-const SERIES_TOKENS = [
-  "--data-1",
-  "--data-2",
-  "--data-3",
-  "--data-4",
-  "--data-5",
-  "--data-6",
-  "--data-7",
-  "--data-8",
-] as const;
-
-/** Series identity, never gain/loss: the hash only picks a slot of the categorical ramp. */
-export const getSeriesColor = (seed: string): string => {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = Math.imul(hash, 31) + (seed.codePointAt(i) ?? 0);
-  }
-  if (typeof document === "undefined") return toRgb("");
-  const token = SERIES_TOKENS[Math.abs(hash) % SERIES_TOKENS.length];
-  return toRgb(getComputedStyle(document.documentElement).getPropertyValue(token));
 };

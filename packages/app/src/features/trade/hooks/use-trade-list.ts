@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/services/api";
+import { getMarkets } from "@/services/api/market";
 import { queryKeys } from "@/lib/query-keys";
 import type { AggregatedMarket } from "@0xsignal/shared";
 
@@ -25,7 +25,7 @@ export function selectListedAssets(payload: readonly AggregatedMarket[]): TradeL
 export function useTradeList(enabled = true) {
   return useQuery<AggregatedMarket[], Error, TradeListData>({
     queryKey: queryKeys.market.meta(),
-    queryFn: (): Promise<AggregatedMarket[]> => api.getMarkets(),
+    queryFn: (): Promise<AggregatedMarket[]> => getMarkets(),
     select: selectListedAssets,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,

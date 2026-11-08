@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, memo, useLayoutEffect, useRef } from "rea
 
 import type { MarketPrice } from "@/services/api";
 import { TradeDropdown } from "@/features/trade/components/trade-dropdown";
-import { useAllMids } from "@/features/trade/hooks/use-all-mids";
+import { useMidPrice } from "@/features/trade/hooks/use-all-mids";
 import { useHyperliquidSymbolLogo } from "@/features/trade/hooks/use-hyperliquid-symbol-logo";
 import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
 import { useTradeList, type TradeListData } from "@/features/trade/hooks/use-trade-list";
@@ -46,7 +46,11 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
   tradeAsset,
 }: LiveMarketHeaderProps) {
   const [fundingCountdown, setFundingCountdown] = useState(() => toCountdown(getNextFundingMs()));
-  const allMids = useAllMids(symbol !== "");
+  // Scalar selectors: an unrelated coin's tick never re-renders this header.
+  const upperSymbol = symbol.toUpperCase();
+  const mid = useMidPrice(symbol, isSpot);
+  const upperMid = useMidPrice(upperSymbol, isSpot && upperSymbol !== symbol);
+  const wsMid = mid ?? upperMid;
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -62,10 +66,7 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
   // Presence in the live WS map is the recency signal available (no timestamp is stored).
   const quote = price.quote ?? null;
   const livePrice = useMemo(() => {
-    if (isSpot) {
-      const wsMid = allMids[symbol] ?? allMids[symbol.toUpperCase()];
-      if (wsMid !== undefined && wsMid > 0) return wsMid;
-    }
+    if (isSpot && wsMid !== undefined && wsMid > 0) return wsMid;
     // Aggregated markets list — spot prices from spotMetaAndAssetCtxs
     //    This is the authoritative source for spot mark prices when WebSocket
     //    hasn't delivered data yet (cold load) or allMids doesn't include spot pairs.
@@ -73,7 +74,7 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
     // REST API ticker (last resort). `null` is absence; `0` is a real zero quote.
     if (quote === null) return null;
     return quote.markPx || quote.price;
-  }, [allMids, isSpot, quote, symbol, tradeAsset]);
+  }, [wsMid, isSpot, quote, tradeAsset]);
 
   // No quote is not a zero price: absence keeps the neutral "—", while a real
   // zero quote flows through and renders "$0.00". The same metrics and the same
@@ -168,12 +169,9 @@ export const AssetContent = memo(function AssetContent({
   const displaySymbol = tradeAsset?.displaySymbol;
 
   return (
-    <div
-      ref={regionRef}
-      className="container-fluid flex flex-col min-h-[var(--trading-region-height)]"
-    >
+    <div ref={regionRef} className="container-fluid flex flex-col min-h-(--trading-region-height)">
       <header ref={headerRef} className="container-query shrink-0 flex flex-col">
-        <div className="flex flex-wrap items-center w-full min-w-0 gap-y-2">
+        <div className="flex flex-wrap items-center w-full min-w-0 gap-x-2">
           <TradeDropdown
             currentSymbol={symbol}
             logoUrl={logoUrl ?? undefined}
@@ -185,7 +183,7 @@ export const AssetContent = memo(function AssetContent({
           />
           <LiveMarketHeader symbol={symbol} isSpot={isSpot} price={price} tradeAsset={tradeAsset} />
           {isNonEmpty(description) && (
-            <p className="basis-full text-right text-xs text-muted-foreground leading-relaxed line-clamp-2 @[80rem]:grow @[80rem]:basis-72 @[80rem]:min-w-72 @[80rem]:ml-6">
+            <p className="basis-full text-right type-label text-muted-foreground leading-relaxed line-clamp-2 @[80rem]:grow @[80rem]:basis-[clamp(18rem,20vw,26rem)] @[80rem]:min-w-[clamp(18rem,20vw,26rem)] @[80rem]:ml-6">
               {description}
             </p>
           )}

@@ -30,12 +30,12 @@ export function UserNav() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="row-actions">
       {whaleAddress === undefined ? (
         isConnected && address !== undefined ? (
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="outline" size="sm" className="h-8 px-3 text-xs" />}
+              render={<Button variant="outline" data-dense className="type-label" />}
             >
               {shortAddress(address)}
             </DropdownMenuTrigger>
@@ -44,7 +44,7 @@ export function UserNav() {
                 onClick={() => {
                   disconnect();
                 }}
-                className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-accent transition-colors rounded-md"
+                className="flex cursor-pointer items-center gap-inline px-2 py-1 type-label font-medium text-muted-foreground hover:bg-accent hover:text-foreground motion-control"
               >
                 Disconnect
               </DropdownMenuItem>
@@ -52,8 +52,9 @@ export function UserNav() {
           </DropdownMenu>
         ) : (
           <Button
-            variant="default"
-            className="h-8 px-3 text-xs font-medium"
+            variant="accent"
+            data-dense
+            className="type-label font-medium"
             onClick={openConnectWallet}
           >
             Connect Wallet
@@ -62,7 +63,7 @@ export function UserNav() {
       ) : (
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<Button variant="outline" size="sm" className="h-8 px-3 text-xs" />}
+            render={<Button variant="outline" data-dense className="type-label" />}
           >
             {shortAddress(whaleAddress)}
           </DropdownMenuTrigger>
@@ -71,7 +72,7 @@ export function UserNav() {
               onClick={() => {
                 void navigate("/portfolio");
               }}
-              className="flex items-center gap-2 cursor-pointer py-2 px-2.5 text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-accent transition-colors rounded-md"
+              className="flex cursor-pointer items-center gap-inline px-2 py-1 type-label font-medium text-muted-foreground hover:bg-accent hover:text-foreground motion-control"
             >
               Exit read-only
             </DropdownMenuItem>
@@ -84,12 +85,12 @@ export function UserNav() {
       <Button
         variant="outline"
         size="icon"
-        className="size-8"
+        data-dense
         onClick={() => {
           void navigate("/settings?tab=appearance");
         }}
       >
-        <Settings className="size-4" />
+        <Settings className="size-icon" />
         <span className="sr-only">Settings</span>
       </Button>
 

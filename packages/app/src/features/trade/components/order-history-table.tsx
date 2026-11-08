@@ -1,3 +1,4 @@
+import { memo } from "react";
 import {
   Table,
   TableHeader,
@@ -10,9 +11,14 @@ import { TableEmptyRow } from "@/components/table-empty-row";
 
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
 import { formatTime, formatStatus } from "../utils/shared-table-utils";
-import { DirLabel, DirDisplay } from "./shared-table-components";
+import {
+  DirLabel,
+  DirDisplay,
+  TableSkeletonRows,
+  FillHistoryTableHeader,
+} from "./shared-table-components";
 import { getOrderType, getTriggerLabel, formatOrderValue } from "../utils/trigger-utils";
-import { c, cNum, cHead, cHeadNum, TABLE_HEAD_CLASS } from "../utils/orderbook-table-classes";
+import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import type { UserFill, HistoricalOrderEntry } from "@0xsignal/shared";
 
 interface TradeHistoryTableProps {
@@ -27,29 +33,17 @@ interface HistoryOrderTableProps {
 
 /* Trade History (fills) */
 
-export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTableProps) {
+export const TradeHistoryTable = memo(function TradeHistoryTable({
+  fills,
+  isFillsLoading,
+}: TradeHistoryTableProps) {
   const seenFills = new Map<string, number>();
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className={cHead}>Time</TableHead>
-          <TableHead className={cHead}>Coin</TableHead>
-          <TableHead className={cHead}>Direction</TableHead>
-          <TableHead className={cHeadNum}>Price</TableHead>
-          <TableHead className={cHeadNum}>Size</TableHead>
-          <TableHead className={cHeadNum}>Trade Value</TableHead>
-          <TableHead className={cHeadNum}>Fee</TableHead>
-          <TableHead className={cHeadNum}>Closed PNL</TableHead>
-        </TableRow>
-      </TableHeader>
+    <Table className="table-cull">
+      <FillHistoryTableHeader />
       <TableBody>
         {isFillsLoading ? (
-          <TableRow>
-            <TableCell colSpan={8} className="text-center py-6">
-              <span className={TABLE_HEAD_CLASS}>Loading...</span>
-            </TableCell>
-          </TableRow>
+          <TableSkeletonRows rows={3} colSpan={8} />
         ) : !fills || fills.length === 0 ? (
           <TableEmptyRow colSpan={8} />
         ) : (
@@ -90,37 +84,36 @@ export function TradeHistoryTable({ fills, isFillsLoading }: TradeHistoryTablePr
       </TableBody>
     </Table>
   );
-}
+});
 
 /* Order History (historical orders) */
 
-export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTableProps) {
+export const HistoryOrderTable = memo(function HistoryOrderTable({
+  histOrders,
+  isHistLoading,
+}: HistoryOrderTableProps) {
   return (
-    <Table>
+    <Table className="table-cull">
       <TableHeader>
         <TableRow>
-          <TableHead className={cHead}>TIME</TableHead>
-          <TableHead className={cHead}>TYPE</TableHead>
-          <TableHead className={cHead}>COIN</TableHead>
-          <TableHead className={cHead}>DIRECTION</TableHead>
-          <TableHead className={cHeadNum}>SIZE</TableHead>
-          <TableHead className={cHeadNum}>FILLED SIZE</TableHead>
-          <TableHead className={cHeadNum}>ORDER VALUE</TableHead>
-          <TableHead className={cHeadNum}>PRICE</TableHead>
-          <TableHead className={cHead}>REDUCE ONLY</TableHead>
-          <TableHead className={cHead}>TRIGGER CONDITIONS</TableHead>
+          <TableHead className={cHead}>Time</TableHead>
+          <TableHead className={cHead}>Type</TableHead>
+          <TableHead className={`${cHead} font-medium`}>Coin</TableHead>
+          <TableHead className={cHead}>Direction</TableHead>
+          <TableHead className={cHeadNum}>Size</TableHead>
+          <TableHead className={cHeadNum}>Filled Size</TableHead>
+          <TableHead className={cHeadNum}>Order Value</TableHead>
+          <TableHead className={cHeadNum}>Price</TableHead>
+          <TableHead className={cHead}>Reduce Only</TableHead>
+          <TableHead className={cHead}>Trigger</TableHead>
           <TableHead className={cHead}>TP/SL</TableHead>
-          <TableHead className={cHead}>STATUS</TableHead>
-          <TableHead className={cHeadNum}>ORDER ID</TableHead>
+          <TableHead className={cHead}>Status</TableHead>
+          <TableHead className={cHeadNum}>Order ID</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {isHistLoading ? (
-          <TableRow>
-            <TableCell colSpan={13} className="text-center py-6">
-              <span className={TABLE_HEAD_CLASS}>Loading...</span>
-            </TableCell>
-          </TableRow>
+          <TableSkeletonRows rows={3} colSpan={13} />
         ) : !histOrders || histOrders.length === 0 ? (
           <TableEmptyRow colSpan={13} />
         ) : (
@@ -184,4 +177,4 @@ export function HistoryOrderTable({ histOrders, isHistLoading }: HistoryOrderTab
       </TableBody>
     </Table>
   );
-}
+});

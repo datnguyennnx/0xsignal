@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { ScrollEdge } from "@/components/surface/scroll-edge";
 import { Surface } from "@/components/surface/surface";
 import { Tabs, TabsList } from "@/components/ui/tabs";
 import { useOpenOrders } from "../hooks/use-user-data";
@@ -12,14 +13,14 @@ import {
   useWhaleOpenOrders,
 } from "@/features/portfolio/hooks/use-portfolio-data";
 
-const PANEL_SURFACE = "p-[var(--panel-pad,1.08rem)] gap-[var(--space-4,1.5rem)]";
+const PANEL_SURFACE = "p-3 gap-3";
 
 const ROOT_CLASS = {
   fill: `h-full min-h-0 flex flex-col overflow-y-auto ${PANEL_SURFACE}`,
   flow: `flex flex-col ${PANEL_SURFACE}`,
 };
 
-const TABS_SURFACE = "flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]";
+const TABS_SURFACE = "flex flex-col gap-1";
 
 const TABS_CLASS = {
   fill: `flex-1 min-h-0 ${TABS_SURFACE}`,
@@ -97,17 +98,17 @@ export function PositionManagement({
   return (
     <Surface tier="content" radius="panel" className={ROOT_CLASS[variant]}>
       {signingDisabled && (
-        <p className="w-fit mb-2 shrink-0 rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+        <p className="w-fit mb-2 shrink-0 rounded-control bg-muted/40 px-2 py-1 type-label text-muted-foreground">
           Viewing another account — connect a wallet to trade.
         </p>
       )}
       <Tabs value={activeTab} onValueChange={setActiveTab} className={TABS_CLASS[variant]}>
-        <TabsList variant="line" className="shrink-0 flex gap-[clamp(0.5rem,0.8vw,0.75rem)]">
+        <TabsList variant="line" className="shrink-0 flex gap-1">
           <PositionTabTriggers counts={tabCounts} />
         </TabsList>
 
         {/* one scroll edge per view — Apple HIG scroll views */}
-        <div className="scroll-edge" aria-hidden="true" />
+        {variant === "fill" && <ScrollEdge />}
 
         <PositionManagementPanels
           signingDisabled={signingDisabled}

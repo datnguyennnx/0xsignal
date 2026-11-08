@@ -11,6 +11,7 @@ import {
 import { BandPrimitive } from "../utils/band";
 import type { IndicatorRenderEntry } from "../utils/indicator-data";
 import { toRgb, toRgba } from "../lib/color";
+import { getSeriesColor, useChartTheme } from "../lib/theme-store";
 import { toUtcTimestamps } from "../lib/time";
 import { formatAxis } from "@/core/utils/formatters";
 
@@ -40,9 +41,6 @@ const createOscillatorPriceFormat = () => ({
   formatter: (price: number) => formatAxis(price),
 });
 
-const readToken = (token: string): string =>
-  toRgb(getComputedStyle(document.documentElement).getPropertyValue(token).trim());
-
 const createLineOptions = (color?: string) => ({
   ...(color !== undefined && { color }),
   lineWidth: 2 as const,
@@ -57,6 +55,7 @@ export const useIndicatorOverlay = ({
   activeIndicators,
   indicatorData,
 }: UseIndicatorOverlayProps): void => {
+  const theme = useChartTheme();
   const lineSeriesRefs = useRef<Map<string, IndicatorSeriesRef>>(new Map());
   const bandPrimitiveRefs = useRef<Map<string, BandPrimitiveRef>>(new Map());
   const paneByIndicatorRef = useRef<Map<string, PaneState>>(new Map());
@@ -168,6 +167,7 @@ export const useIndicatorOverlay = ({
         seriesRef = { series: lineSeries, indicatorId: instanceId };
         lineSeriesRefs.current.set(instanceId, seriesRef);
       }
+      if (color !== undefined) seriesRef.series.applyOptions({ color });
       const lineData = toUtcTimestamps(data.data);
       if (lineData.length > 0) seriesRef.series.setData(lineData);
     },
@@ -183,7 +183,8 @@ export const useIndicatorOverlay = ({
       const last = bandData.at(-1);
       if (first === undefined || last === undefined) return;
 
-      const safeColor = color !== undefined && color !== "" ? color : readToken("--data-crosshair");
+      const safeColor =
+        color !== undefined && color !== "" ? color : theme.colors["--data-crosshair"];
 
       let bandRef = bandPrimitiveRefs.current.get(instanceId);
       if (bandRef === undefined && mainSeries !== null && mainSeries !== undefined) {
@@ -233,7 +234,7 @@ export const useIndicatorOverlay = ({
         });
       }
     },
-    [mainSeries],
+    [mainSeries, theme],
   );
 
   const renderOscillator = useCallback(
@@ -264,6 +265,7 @@ export const useIndicatorOverlay = ({
         seriesRef = { series, indicatorId: instanceId };
         lineSeriesRefs.current.set(instanceId, seriesRef);
       }
+      if (color !== undefined) seriesRef.series.applyOptions({ color });
 
       seriesRef.series.setData(toUtcTimestamps(data.data));
     },
@@ -273,6 +275,7 @@ export const useIndicatorOverlay = ({
   useEffect(() => {
     if (chart === null) return;
 
+    const applyKey = (cacheKey: string): string => `${theme.version}:${cacheKey}`;
     // Quick check: skip when no visible indicators need updating
     let needsRender = activeIndicators.some((indicator) => {
       if (!indicator.visible) {
@@ -285,7 +288,8 @@ export const useIndicatorOverlay = ({
       const d = indicatorData.get(indicator.instanceId);
       // Missing data or cache mismatch → needs recalculation
       return (
-        d === undefined || appliedCacheKeyRef.current.get(indicator.instanceId) !== d.meta.cacheKey
+        d === undefined ||
+        appliedCacheKeyRef.current.get(indicator.instanceId) !== applyKey(d.meta.cacheKey)
       );
     });
     // Also check for indicators removed from the active list entirely
@@ -360,12 +364,12 @@ export const useIndicatorOverlay = ({
         continue;
       }
 
-      if (appliedCacheKeyRef.current.get(instanceId) === data.meta.cacheKey) continue;
+      if (appliedCacheKeyRef.current.get(instanceId) === applyKey(data.meta.cacheKey)) continue;
 
       const color =
         indicator.color !== undefined && indicator.color !== ""
           ? toRgb(indicator.color)
-          : undefined;
+          : getSeriesColor(instanceId);
 
       if (isBand) {
         renderBandOverlay(instanceId, data, color);
@@ -373,7 +377,7 @@ export const useIndicatorOverlay = ({
         renderLineOverlay(instanceId, data, color);
       }
 
-      appliedCacheKeyRef.current.set(instanceId, data.meta.cacheKey);
+      appliedCacheKeyRef.current.set(instanceId, applyKey(data.meta.cacheKey));
     }
 
     for (const indicator of activeIndicators) {
@@ -387,15 +391,15 @@ export const useIndicatorOverlay = ({
         continue;
       }
 
-      if (appliedCacheKeyRef.current.get(instanceId) === data.meta.cacheKey) continue;
+      if (appliedCacheKeyRef.current.get(instanceId) === applyKey(data.meta.cacheKey)) continue;
 
       const color =
         indicator.color !== undefined && indicator.color !== ""
           ? toRgb(indicator.color)
-          : undefined;
+          : getSeriesColor(instanceId);
 
       renderOscillator(instanceId, data, color);
-      appliedCacheKeyRef.current.set(instanceId, data.meta.cacheKey);
+      appliedCacheKeyRef.current.set(instanceId, applyKey(data.meta.cacheKey));
     }
 
     const currentPanes = chart.panes();
@@ -411,6 +415,7 @@ export const useIndicatorOverlay = ({
     mainSeries,
     activeIndicators,
     indicatorData,
+    theme,
     removeIndicator,
     removeOscillator,
     renderBandOverlay,

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { MAX_BOOK_DEPTH } from "@/core/utils/hyperliquid";
 import { remToPx, subscribeRootFontSize } from "@/core/utils/rem";
+import { observeResize } from "@/lib/resize-observer";
 import { DEFAULT_ROW_HEIGHT_REM, levelsPerHalf, VISIBLE_ROWS } from "../utils/orderbook-utils";
 
 // Measure the real row height; fall back to the token when the row is absent.
@@ -16,7 +17,9 @@ export function useOrderbookRows(): {
   rowHeightPx: number;
 } {
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const [rowsPerHalf, setRowsPerHalf] = useState<number>(Math.min(VISIBLE_ROWS, MAX_BOOK_DEPTH));
+  const [rowsPerHalf, setRowsPerHalf] = useState<number>(() =>
+    Math.min(VISIBLE_ROWS, MAX_BOOK_DEPTH),
+  );
   const [rowHeightPx, setRowHeightPx] = useState<number>(() => remToPx(DEFAULT_ROW_HEIGHT_REM));
 
   useLayoutEffect(() => {
@@ -34,17 +37,16 @@ export function useOrderbookRows(): {
 
     apply();
 
-    let observer: ResizeObserver | null = null;
+    let unobserve: (() => void) | null = null;
     if (typeof ResizeObserver !== "undefined") {
-      observer = new ResizeObserver(() => {
+      unobserve = observeResize(element, () => {
         apply();
       });
-      observer.observe(element);
     }
     const unsubscribe = subscribeRootFontSize(apply);
 
     return () => {
-      observer?.disconnect();
+      unobserve?.();
       unsubscribe();
     };
   }, []);

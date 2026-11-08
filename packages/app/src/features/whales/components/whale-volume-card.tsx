@@ -6,14 +6,14 @@ import { formatCompactUsd, truncateAddress } from "@/core/utils/formatters";
 import { sharePercentLabel } from "../hooks/use-coin-market";
 
 const SIDE_TONE = {
-  long: "var(--data-up)",
-  short: "var(--data-down)",
+  long: "var(--market-up)",
+  short: "var(--market-down)",
 } as const;
 
-const SUBJECT_CAPTION_CLASS =
-  "truncate text-[0.6875rem] leading-4 text-muted-foreground tabular-nums";
-const ROW_GRID_CLASS = "grid grid-cols-[3.25rem_minmax(0,1fr)_5rem] items-center gap-2";
-const CARD_CLASS = "flex flex-col gap-1 px-2.5 py-3.5";
+const SUBJECT_CAPTION_CLASS = "truncate type-label text-muted-foreground tabular-nums";
+const ROW_GRID_CLASS =
+  "grid grid-cols-[3.25rem_minmax(0,1fr)_clamp(4rem,5vw,6rem)] items-center gap-inline";
+const CARD_CLASS = "flex flex-col gap-1 px-2 py-3";
 
 interface SubjectMeta {
   rank: number;
@@ -57,7 +57,7 @@ export function WhaleVolumeCard({
   const subject = subjectAddress?.toLowerCase();
 
   return (
-    <ul aria-label="Whales by tracked notional" className="flex flex-col gap-2">
+    <ul aria-label="Whales by tracked notional" className="flex flex-col gap-inline">
       {whales.map((whale) => {
         const meta = subject !== undefined && whale.address === subject ? subjectMeta : undefined;
 
@@ -65,24 +65,24 @@ export function WhaleVolumeCard({
           <Surface
             as="li"
             key={whale.address}
-            tier={meta === undefined ? "content" : "solid"}
+            tier="content"
             radius="control"
             className={CARD_CLASS}
           >
             <div className={ROW_GRID_CLASS}>
               <span
-                className="text-[0.6875rem] leading-4 font-medium uppercase tracking-wide"
+                className="type-label font-medium uppercase tracking-wide"
                 style={{ color: SIDE_TONE[whale.side] }}
               >
                 {whale.side}
               </span>
               <span
-                className="truncate text-xs leading-4 tabular-nums text-muted-foreground"
+                className="truncate type-data tabular-nums text-muted-foreground"
                 title={whale.address}
               >
                 {truncateAddress(whale.address)}
               </span>
-              <span className="text-right text-xs leading-4 font-medium tabular-nums whitespace-nowrap">
+              <span className="text-right type-data font-medium tabular-nums whitespace-nowrap">
                 {formatCompactUsd(whale.notional)}
               </span>
             </div>

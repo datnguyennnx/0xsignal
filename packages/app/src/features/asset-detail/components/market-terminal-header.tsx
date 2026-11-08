@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { cn } from "cn";
 import { formatCompactUsd, formatPrice, formatSignedPercent } from "@/core/utils/formatters";
 import { MetricItem } from "./metric-item";
 import { formatSignedUsd, formatFundingPercent } from "../utils/format";
@@ -47,42 +46,36 @@ export const MarketTerminalHeader = memo(function MarketTerminalHeader({
       <MetricItem label="24h Volume" value={formatCompactUsd(volume24h)} />
       {!isSpot && <MetricItem label="Open Interest" value={formatCompactUsd(openInterest)} />}
       {!isSpot && (
-        <div className="flex flex-col shrink-0">
-          <span className="text-[length:var(--text-micro)] tracking-wider text-muted-foreground font-medium uppercase leading-none mb-1">
-            Funding / Countdown
-          </span>
-          <div className="flex items-baseline gap-1 text-sm leading-none">
-            <span
-              className={cn(
-                "font-semibold tabular-nums",
-                fundingTone === "positive" && "text-gain",
-                fundingTone === "negative" && "text-loss",
-              )}
-            >
-              {formatFundingPercent(fundingRate)}
+        <MetricItem
+          label="Funding / Countdown"
+          tone={fundingTone}
+          value={
+            <span className="flex items-baseline gap-1">
+              <span className="tabular-nums">{formatFundingPercent(fundingRate)}</span>
+              <span className="text-muted-foreground tabular-nums font-normal">
+                {fundingCountdown}
+              </span>
             </span>
-            <span className="text-muted-foreground font-normal">/</span>
-            <span className="text-muted-foreground tabular-nums">{fundingCountdown}</span>
-          </div>
-        </div>
+          }
+        />
       )}
       {isSpot && marketCap !== undefined && (
         <MetricItem label="Market Cap" value={formatCompactUsd(marketCap)} />
       )}
       {isSpot && contractAddress !== undefined && contractAddress !== "" && (
-        <div className="flex flex-col shrink-0">
-          <span className="text-[length:var(--text-micro)] tracking-wider text-muted-foreground font-medium uppercase leading-none mb-1">
-            Contract
-          </span>
-          <a
-            href={`https://app.hyperliquid.xyz/explorer/token/${contractAddress}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm font-semibold tabular-nums leading-none text-primary hover:underline truncate max-w-[12rem]"
-          >
-            {contractAddress}
-          </a>
-        </div>
+        <MetricItem
+          label="Contract"
+          value={
+            <a
+              href={`https://app.hyperliquid.xyz/explorer/token/${contractAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-info hover:underline truncate max-w-[clamp(9rem,12vw,16rem)]"
+            >
+              {contractAddress}
+            </a>
+          }
+        />
       )}
     </div>
   );

@@ -3,11 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "build:native": "tsc --noEmit && vite build --configLoader native",
     "build:fast": "vite build",
+    "build:analyze": "ANALYZE=true vite build",
     "start": "vite preview",
     "lint": "oxlint .",
     "format": "oxfmt .",

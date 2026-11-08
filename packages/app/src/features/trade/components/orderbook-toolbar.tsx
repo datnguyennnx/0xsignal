@@ -31,16 +31,15 @@ export const OrderbookToolbar = memo(
     ];
 
     return (
-      <div className="flex items-center justify-between gap-[var(--space-2,0.75rem)] shrink-0">
+      <div data-dense className="flex items-center justify-between gap-inline shrink-0">
         <NativeSelect
-          size="sm"
           aria-label="Coin"
           value={pairFocus}
           onChange={(e) => {
             onPairFocusChange(e.target.value);
           }}
-          wrapperClassName="min-w-[4rem] max-w-[6rem]"
-          className="h-7 w-full min-w-0 text-[length:var(--text-micro)] font-semibold tracking-[0.01em]"
+          wrapperClassName="min-w-[clamp(4rem,5vw,6rem)] max-w-[clamp(6rem,8vw,10rem)]"
+          className="font-semibold"
         >
           {coinOptions.map((opt) => (
             <NativeSelectOption key={opt.value} value={opt.value}>
@@ -49,14 +48,12 @@ export const OrderbookToolbar = memo(
           ))}
         </NativeSelect>
         <NativeSelect
-          size="sm"
           aria-label="Price precision"
           value={String(currentNSigFigs ?? 0)}
           onChange={(e) => {
             onNSigFigsChange(Number(e.target.value));
           }}
           wrapperClassName="min-w-fit"
-          className="h-7 w-full min-w-0 text-[length:var(--text-micro)] tracking-[0.01em] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40"
         >
           {scalingOptions.map((opt) => (
             <NativeSelectOption key={opt.value} value={opt.value.toString()}>

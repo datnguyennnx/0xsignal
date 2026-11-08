@@ -9,7 +9,7 @@ interface TableEmptyRowProps {
 export const TableEmptyRow = memo(function TableEmptyRow({ colSpan }: TableEmptyRowProps) {
   return (
     <TableRow className="hover:bg-transparent">
-      <TableCell colSpan={colSpan} className="py-10">
+      <TableCell colSpan={colSpan} className="py-6">
         <EmptyState />
       </TableCell>
     </TableRow>

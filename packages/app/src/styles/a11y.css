@@ -1,0 +1,183 @@
+@media (forced-colors: active), (prefers-reduced-transparency: reduce) {
+  .ambient-canvas {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  .light {
+    --tooltip-bg: var(--surface-overlay);
+    --data-volume: oklch(0.52 0.012 260 / var(--alpha-3));
+    --glass-fill-regular: var(--card);
+    --glass-fill-thick: var(--card);
+    --plate-fill: var(--card);
+  }
+
+  .dark {
+    --tooltip-bg: var(--surface-base);
+    --data-volume: oklch(0.7 0.01 262 / var(--alpha-3));
+    --glass-fill-regular: var(--card);
+    --glass-fill-thick: var(--card);
+    --plate-fill: var(--card);
+  }
+
+  .tier-content,
+  .tier-solid,
+  .tier-control,
+  .tier-floating,
+  [data-material="glass"],
+  [data-material="frost"],
+  [data-material="solid"],
+  [data-material="plate"] {
+    background-color: var(--card) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  [data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+    background-color: var(--card) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .scroll-edge::before {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .tier-content,
+  .tier-solid,
+  .tier-control,
+  .tier-floating,
+  [data-material="glass"],
+  [data-material="frost"],
+  [data-material="solid"],
+  [data-material="plate"] {
+    background-color: var(--card) !important;
+    box-shadow: inset 0 0 0 1px var(--ink);
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .ambient-canvas {
+    display: none;
+  }
+
+  .scroll-edge::before {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  [data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+    background-color: var(--card) !important;
+    box-shadow: inset 0 0 0 1px var(--ink);
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :root,
+  .light,
+  .dark {
+    --data-1: CanvasText;
+    --data-2: CanvasText;
+    --data-3: CanvasText;
+    --data-4: CanvasText;
+    --data-5: CanvasText;
+    --data-6: CanvasText;
+    --data-7: CanvasText;
+    --data-8: CanvasText;
+    --data-axis: CanvasText;
+    --data-grid: GrayText;
+    --data-crosshair: Highlight;
+    --data-up: CanvasText;
+    --data-down: CanvasText;
+    --data-volume: GrayText;
+    --tooltip-bg: Canvas;
+    --tooltip-text: CanvasText;
+
+    --glass-fill-regular: Canvas;
+    --glass-fill-thick: Canvas;
+    --plate-fill: Canvas;
+    --border: CanvasText;
+    --glass-rim-top: CanvasText;
+    --glass-rim-bottom: transparent;
+    --glass-rim-line: CanvasText;
+    --glass-lift: transparent;
+  }
+
+  .scrim {
+    border: 1px solid CanvasText;
+  }
+
+  .tier-content,
+  .tier-solid,
+  .tier-control,
+  .tier-floating,
+  [data-material="glass"],
+  [data-material="frost"],
+  [data-material="solid"],
+  [data-material="plate"] {
+    background-color: var(--card) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    border: 1px solid CanvasText;
+  }
+
+  .scroll-edge::before {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  [data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+    background-color: var(--card) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    border: 1px solid CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .tier-floating,
+  .tier-content {
+    transition: none;
+  }
+
+  .tier-interactive,
+  .tier-interactive:active {
+    transition: none;
+    transform: none;
+  }
+
+  .motion-control,
+  .motion-row,
+  .motion-fade,
+  .press,
+  .press-lg {
+    transition: none;
+  }
+
+  .press:active,
+  .press-lg:active {
+    scale: 1;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

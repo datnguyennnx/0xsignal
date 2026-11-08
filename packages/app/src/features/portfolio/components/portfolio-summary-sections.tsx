@@ -21,12 +21,10 @@ interface SummaryRowProps {
 function SummaryRow({ label, value, accent }: SummaryRowProps) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[length:var(--text-data)] font-medium text-muted-foreground tracking-wide">
-        {label}
-      </span>
+      <span className="type-data font-medium text-muted-foreground tracking-wide">{label}</span>
       <span
         className={cn(
-          "text-[length:var(--text-compact)] tabular-nums font-medium",
+          "type-data tabular-nums font-medium",
           accent === "gain" && "text-gain",
           accent === "loss" && "text-loss",
           accent === "warn" && "text-warn",
@@ -42,15 +40,15 @@ function SummaryRow({ label, value, accent }: SummaryRowProps) {
 export function PortfolioSummarySkeleton() {
   return (
     <Surface tier="content" className={SURFACE}>
-      <div className="flex h-7 items-center justify-between">
+      <div className="flex h-control items-center justify-between">
         <Skeleton className="h-3.5 w-12" />
         <Skeleton className="h-5 w-9" />
       </div>
       <div className={cn("flex-1", ROW_STACK)}>
-        {SUMMARY_SKELETON_KEYS.slice(0, 6).map((key) => (
+        {SUMMARY_SKELETON_KEYS.map((key) => (
           <div key={key} className={SKELETON_ROW}>
-            <Skeleton className="h-[11px] w-[38%]" />
-            <Skeleton className="h-[11px] w-[28%]" />
+            <Skeleton className="h-[0.6875rem] w-[38%]" />
+            <Skeleton className="h-[0.6875rem] w-[28%]" />
           </div>
         ))}
       </div>
@@ -62,7 +60,7 @@ export function PortfolioSummaryError() {
   return (
     <Surface tier="content" className={SURFACE}>
       <div className="flex-1 flex items-center justify-center">
-        <span className="text-xs uppercase tracking-widest text-muted-foreground">
+        <span className="type-label uppercase tracking-widest text-muted-foreground">
           Unable to load
         </span>
       </div>
@@ -97,7 +95,13 @@ export function PortfolioSummarySections({ perps, spot, vaults }: PortfolioSumma
       <SummaryRow label="Volume" value={formatCompactUsd(perps.volume)} />
       <SummaryRow
         label="Max Drawdown"
-        value={formatSignedPercent(perps.maxDd === null ? null : perps.maxDd * 100)}
+        value={
+          perps.maxDd === null
+            ? "—"
+            : perps.maxDd === 0
+              ? "0.00%"
+              : formatSignedPercent(perps.maxDd * 100)
+        }
         accent={perps.maxDd !== null && perps.maxDd < 0 ? "loss" : null}
       />
       <SummaryRow label="Total Equity" value={formatCompactUsd(totalEquity)} />

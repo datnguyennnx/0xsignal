@@ -39,7 +39,6 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const [pinnedIndex, setPinnedIndex] = useState<{ side: "bid" | "ask"; index: number } | null>(
     null,
   );
-  const widgetRef = useRef<HTMLDivElement>(null);
 
   // Debounced popup position via rAF to avoid synchronous layout thrashing
   const popupRafRef = useRef(0);
@@ -55,7 +54,9 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       if (popupRafRef.current) cancelAnimationFrame(popupRafRef.current);
       popupRafRef.current = requestAnimationFrame(() => {
         const rect = rowElement.getBoundingClientRect();
-        const widgetRect = widgetRef.current?.getBoundingClientRect();
+        const widgetRect = rowElement
+          .closest<HTMLElement>(".orderbook-widget")
+          ?.getBoundingClientRect();
         if (widgetRect) {
           const top = rect.top + rect.height / 2;
           const viewportWidth = window.innerWidth;
@@ -140,7 +141,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
       <Surface
         tier="content"
         radius="panel"
-        className="relative isolate h-full flex flex-col p-[var(--panel-pad,1.08rem)]"
+        className="relative isolate h-full flex flex-col p-panel"
       >
         <EmptyState
           variant="panel"
@@ -152,15 +153,11 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   }
 
   return (
-    <div
-      ref={widgetRef}
-      className="relative isolate panel-contain h-full flex flex-col p-[var(--panel-pad,1.08rem)] gap-[var(--space-3,1.125rem)]"
+    <Surface
+      tier="content"
+      radius="panel"
+      className="orderbook-widget relative isolate panel-contain h-full flex flex-col p-panel gap-stack"
     >
-      <Surface
-        tier="content"
-        radius="panel"
-        className="pointer-events-none absolute inset-0 -z-10"
-      />
       <OrderbookToolbar
         symbol={symbol}
         pairFocus={pairFocus}
@@ -184,7 +181,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         onHover={handleHover}
         onActivate={handleActivate}
       />
-    </div>
+    </Surface>
   );
 };
 

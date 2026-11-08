@@ -1,5 +1,6 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
 import { matchPath } from "react-router-dom";
+import { AssetDetailSkeleton } from "@/components/asset-detail-skeleton";
 
 type RoutePage = LazyExoticComponent<ComponentType>;
 
@@ -10,6 +11,8 @@ export interface RouteRecord {
   navLabel?: string;
   authExempt?: boolean;
   lazy?: RoutePage;
+  /** Painted while the lazy chunk loads; defaults to the spinner. */
+  fallback?: ComponentType;
   redirectTo?: string;
   /** `bare` renders outside the main layout; omitted means inside it. */
   shell?: "bare";
@@ -53,8 +56,8 @@ export const ROUTES: RouteRecord[] = [
 
   { path: "/", redirectTo: "/trade/BTC" },
   { path: "/trade", redirectTo: "/trade/BTC", navLabel: "Trade" },
-  { path: "/trade/:base/:quote", lazy: AssetDetail },
-  { path: "/trade/:symbol", lazy: AssetDetail },
+  { path: "/trade/:base/:quote", lazy: AssetDetail, fallback: AssetDetailSkeleton },
+  { path: "/trade/:symbol", lazy: AssetDetail, fallback: AssetDetailSkeleton },
   { path: "/portfolio", title: "Portfolio", navLabel: "Portfolio", lazy: PortfolioPage },
   { path: "/whales", title: "Whales", navLabel: "Whales", lazy: WhalesPage },
   { path: "/whales/:address", title: "Whale", lazy: WhaleDetailPage },

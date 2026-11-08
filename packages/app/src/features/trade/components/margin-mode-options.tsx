@@ -31,18 +31,18 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
           onModeChange("isolated");
         }}
         className={cn(
-          "w-full text-left px-4 py-3 rounded-lg border transition-[background-color,border-color,filter] active:brightness-95",
+          "w-full text-left px-4 py-3 rounded-panel border transition-[background-color,box-shadow,border-color,transform] duration-(--dur-fast) ease-standard active:brightness-95",
           mode === "isolated"
-            ? SELECTED_CARD_CLASS
-            : "border-[var(--option-card-border)] bg-[var(--option-card-bg)] hover:border-[var(--option-card-active-border)] hover:bg-[var(--option-card-hover-bg)]",
+            ? `${SELECTED_CARD_CLASS} shadow-[inset_0_1px_0_var(--glass-rim-top),var(--shadow-e2)]`
+            : "border-(--option-card-border) bg-(--option-card-bg) hover:border-(--option-card-active-border) hover:bg-(--option-card-hover-bg)",
         )}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-stack">
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-field">
               <span
                 className={cn(
-                  "text-sm font-medium",
+                  "type-body font-medium",
                   mode === "isolated" ? "text-foreground" : "text-muted-foreground",
                 )}
               >
@@ -50,17 +50,17 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
               </span>
               <Badge
                 variant="secondary"
-                className="h-5.5 leading-normal rounded px-1.5 font-normal bg-muted text-muted-foreground"
+                className="leading-normal font-normal bg-muted text-muted-foreground"
               >
                 Recommended
               </Badge>
             </div>
-            <p className="text-[length:var(--text-compact)] text-muted-foreground leading-relaxed max-w-sm">
+            <p className="type-data text-muted-foreground leading-relaxed max-w-sm">
               {MODE_CONFIG.isolated.description}
             </p>
           </div>
           {mode !== "isolated" && (
-            <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/60 transition-colors" />
+            <span className="mt-(--seg-inset) flex size-4 shrink-0 items-center justify-center rounded-full border border-border/60 transition-colors" />
           )}
         </div>
       </button>
@@ -73,28 +73,28 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
           onModeChange("cross");
         }}
         className={cn(
-          "w-full text-left px-4 py-3 rounded-lg border transition-[background-color,border-color,filter] active:brightness-95",
+          "w-full text-left px-4 py-3 rounded-panel border transition-[background-color,box-shadow,border-color,transform] duration-(--dur-fast) ease-standard active:brightness-95",
           mode === "cross"
-            ? SELECTED_CARD_CLASS
-            : "border-[var(--option-card-border)] bg-[var(--option-card-bg)] hover:border-[var(--option-card-active-border)] hover:bg-[var(--option-card-hover-bg)]",
+            ? `${SELECTED_CARD_CLASS} shadow-[inset_0_1px_0_var(--glass-rim-top),var(--shadow-e2)]`
+            : "border-(--option-card-border) bg-(--option-card-bg) hover:border-(--option-card-active-border) hover:bg-(--option-card-hover-bg)",
         )}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-stack">
           <div className="space-y-2">
             <span
               className={cn(
-                "text-sm font-medium",
+                "type-body font-medium",
                 mode === "cross" ? "text-foreground" : "text-muted-foreground",
               )}
             >
               Cross
             </span>
-            <p className="text-[length:var(--text-compact)] text-muted-foreground leading-relaxed max-w-sm">
+            <p className="type-data text-muted-foreground leading-relaxed max-w-sm">
               {MODE_CONFIG.cross.description}
             </p>
           </div>
           {mode !== "cross" && (
-            <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/60 transition-colors" />
+            <span className="mt-(--seg-inset) flex size-4 shrink-0 items-center justify-center rounded-full border border-border/60 transition-colors" />
           )}
         </div>
       </button>

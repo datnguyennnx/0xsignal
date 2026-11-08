@@ -1,0 +1,35 @@
+:root {
+  --surface-floating: var(--surface-overlay);
+  --tier-floating-fill: var(--glass-fill-regular);
+  --alpha-3: 0.24;
+  --radius: 0.625rem;
+  --semantic-fill-rim: var(--fill-rim);
+
+  --duration-fast: var(--dur-fast);
+  --duration-base: var(--dur-base);
+  --duration-exit: var(--dur-exit);
+
+  --mkt-up: var(--market-up);
+  --mkt-down: var(--market-down);
+  --mkt-cb-up: var(--market-cb-up);
+  --mkt-cb-down: var(--market-cb-down);
+  --mkt-cb-up-fg: var(--market-cb-up-foreground);
+  --mkt-cb-down-fg: var(--market-cb-down-foreground);
+  --gain: var(--mkt-up);
+  --loss: var(--mkt-down);
+  --gain-foreground: var(--market-up-foreground);
+  --loss-foreground: var(--market-down-foreground);
+  --data-up: var(--market-up);
+  --data-down: var(--market-down);
+  --candle-up: var(--data-up);
+  --candle-down: var(--data-down);
+
+  --data-1: var(--data-series-1);
+  --data-2: var(--data-series-2);
+  --data-3: var(--data-series-3);
+  --data-4: var(--data-series-4);
+  --data-5: var(--data-series-5);
+  --data-6: var(--data-series-6);
+  --data-7: var(--data-series-7);
+  --data-8: var(--data-series-8);
+}

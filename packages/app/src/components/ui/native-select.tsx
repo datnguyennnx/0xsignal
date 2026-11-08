@@ -6,33 +6,30 @@ import { cn } from "cn";
 function NativeSelect({
   className,
   wrapperClassName,
-  size = "default",
   ...props
 }: Omit<React.ComponentProps<"select">, "size"> & {
-  size?: "sm" | "default";
   wrapperClassName?: string;
 }) {
   return (
     <div
       className={cn(
-        "group/native-select relative inline-flex w-auto min-w-fit max-w-[16rem] has-[select:disabled]:opacity-50",
+        "group/native-select relative inline-flex w-auto min-w-fit max-w-(--select-max-w) has-[select:disabled]:opacity-50",
         wrapperClassName,
       )}
       data-slot="native-select-wrapper"
     >
       <select
         data-slot="native-select"
-        data-size={size}
         className={cn(
-          "h-[var(--control-h-lg)] w-full min-w-0 appearance-none rounded-[var(--control-radius-md)] border border-border/40 bg-background/80 px-[var(--control-px-md)] pr-[calc(var(--control-px-lg)+var(--control-px-md)+var(--control-px-xs))] text-[length:var(--control-text-md)] leading-none tabular-nums tracking-[0.01em] text-foreground transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground hover:bg-muted/40 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 data-[size=sm]:h-[var(--control-h-sm)] data-[size=sm]:px-[var(--control-px-sm)] data-[size=sm]:pr-[calc(var(--control-px-md)+var(--control-px-sm)+var(--control-px-xs))] dark:bg-input/40 dark:hover:bg-input/40 dark:[color-scheme:dark]",
-          "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40",
-          "aria-invalid:border-destructive aria-invalid:ring-destructive/25 dark:aria-invalid:ring-destructive/40",
+          "motion-control h-control w-full min-w-0 appearance-none rounded-control border border-control-border bg-input px-(--control-px) pe-[calc(var(--control-px)*2+var(--icon))] shadow-(--control-shadow) type-control leading-none num tracking-[0.01em] text-foreground selection:bg-(--control-active-bg) selection:text-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+          "focus-visible:border-ring focus-ring",
+          "aria-invalid:border-destructive aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive",
           className,
         )}
         {...props}
       />
       <ChevronDownIcon
-        className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 stroke-[1.5] text-muted-foreground select-none"
+        className="pointer-events-none absolute top-1/2 right-(--control-px) size-icon -translate-y-1/2 text-muted-foreground select-none"
         aria-hidden="true"
         data-slot="native-select-icon"
       />

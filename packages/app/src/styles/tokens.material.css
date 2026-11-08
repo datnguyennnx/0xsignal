@@ -1,0 +1,147 @@
+:root,
+.light {
+  --ambient-1: oklch(0.93 0.06 35 / calc(0.3 * var(--ambient-k)));
+  --ambient-2: oklch(0.95 0.05 115 / calc(0.22 * var(--ambient-k)));
+  --ambient-3: oklch(0.94 0.05 345 / calc(0.15 * var(--ambient-k)));
+  --noise-opacity: 0.035;
+
+  --layer-content-fill: var(--surface-base);
+  --layer-raised-fill: var(--surface-raised);
+  --layer-content-edge: oklch(0.24 0.03 100 / 0.1);
+  --layer-content-shadow:
+    0 0 0 1px var(--layer-content-edge), 0 1px 2px oklch(0.24 0.03 100 / 0.04),
+    0 2px 6px oklch(0.24 0.03 100 / 0.03);
+
+  --frost-a: 0.2;
+  --frost-a-raised: 0.3;
+  --frost-fill: oklch(0.99 0.005 95 / calc(var(--frost-a) * var(--frost-alpha-k)));
+  --frost-fill-raised: oklch(0.99 0.005 95 / calc(var(--frost-a-raised) * var(--frost-alpha-k)));
+  --frost-sheen: linear-gradient(180deg, oklch(1 0 0 / 0.36), oklch(1 0 0 / 0) 45%);
+  --frost-shadow:
+    0 0 0 1px oklch(0.24 0.03 100 / 0.06), inset 1.5px 1.5px 1px -1px oklch(1 0 0 / 0.9),
+    inset -1px -1px 1px -1px oklch(0.24 0.03 100 / 0.03), 0 1px 2px oklch(0.24 0.03 100 / 0.05),
+    0 12px 32px -16px oklch(0.24 0.03 100 / 0.12);
+
+  --glass-a-regular: 0.3;
+  --glass-a-thick: 0.66;
+  --glass-fill-regular: oklch(0.99 0.005 95 / calc(var(--glass-a-regular) * var(--glass-alpha-k)));
+  --glass-fill-thick: oklch(0.99 0.005 95 / calc(var(--glass-a-thick) * var(--glass-alpha-k)));
+  --glass-fallback-fill: var(--surface-overlay);
+  --glass-saturate: 2;
+  --glass-saturate-heavy: 2;
+  --glass-brightness: 1.04;
+  --glass-brightness-heavy: 1.05;
+  --glass-blur: calc(40px * var(--glass-blur-k));
+  --glass-blur-heavy: calc(44px * var(--glass-blur-k));
+  --plate-fill: oklch(0.985 0.005 95 / 0.97);
+  --scrim: oklch(0.2 0.008 95 / 0.26);
+  --clear-dimming: oklch(0.16 0.008 95 / 0.15);
+
+  --well-bg: oklch(0.24 0.03 95 / 0.045);
+  --well-border: oklch(0.24 0.03 95 / 0.07);
+  --well-shadow: inset 0 1px 0 oklch(0.24 0.03 100 / 0.05), var(--shadow-e1);
+
+  --control-bg: oklch(0.35 0.008 95 / 0.04);
+  --control-hover-bg: oklch(0.35 0.008 95 / 0.08);
+  --control-shadow: inset 0 0 0 1px var(--border), var(--shadow-e1);
+  --control-active-bg: oklch(0.55 0.08 132 / 0.12);
+  --control-active-rim: oklch(0.72 0.06 132 / 0.55);
+  --control-sheen: linear-gradient(180deg, oklch(1 0 0 / 0.18), transparent 55%);
+
+  --option-card-bg: oklch(0.24 0.03 95 / 0.025);
+  --option-card-hover-bg: oklch(0.24 0.03 95 / 0.05);
+  --option-card-active-bg: oklch(0.45 0.11 132 / 0.12);
+  --option-card-border: oklch(0.24 0.03 95 / 0.09);
+  --option-card-active-border: oklch(0.5 0.12 132 / 0.85);
+
+  --glass-sheen: linear-gradient(180deg, oklch(1 0 0 / 0.45), oklch(1 0 0 / 0) 45%);
+  --glass-rim-top: oklch(1 0 0 / 0.9);
+  --glass-rim-left: oklch(1 0 0 / 0.65);
+  --glass-rim-line: oklch(0.24 0.03 100 / 0.22);
+  --glass-rim-bottom: oklch(0.24 0.03 100 / 0.14);
+  --glass-rim-glow: oklch(1 0 0 / 0.24);
+  --glass-lift: oklch(0.24 0.03 100 / 0.08);
+  --overlay-lift: oklch(0.24 0.03 100 / 0.13);
+  --fill-rim: oklch(1 0 0 / 0.25);
+  --scroll-edge-fill: linear-gradient(to bottom, oklch(1 0 0 / 0.16), transparent);
+
+  --shadow-e1: 0 1px 2px oklch(0.24 0.03 100 / 0.07);
+  --shadow-e2: 0 8px 24px -6px oklch(0.24 0.03 100 / 0.12);
+  --shadow-e3: 0 24px 48px -16px oklch(0.24 0.03 100 / 0.1);
+  --shadow-e4: 0 40px 80px -24px oklch(0.24 0.03 100 / 0.12);
+  --shadow-press: 0 1px 3px oklch(0.24 0.03 100 / 0.12), 0 0 0 0.5px oklch(0.24 0.03 100 / 0.05);
+  --shadow-overlay: 0 4px 16px -2px oklch(0.24 0.03 100 / 0.12);
+  --shadow-tooltip: 0 2px 8px oklch(0.24 0.03 100 / 0.1), 0 0 0 1px oklch(0.24 0.03 100 / 0.07);
+}
+
+.dark {
+  --ambient-1: oklch(0.45 0.14 35 / calc(0.15 * var(--ambient-k)));
+  --ambient-2: oklch(0.4 0.12 115 / calc(0.1 * var(--ambient-k)));
+  --ambient-3: oklch(0.36 0.1 345 / calc(0.09 * var(--ambient-k)));
+  --noise-opacity: 0.05;
+
+  --layer-content-fill: var(--surface-base);
+  --layer-raised-fill: var(--surface-raised);
+  --layer-content-edge: oklch(1 0 0 / 0.1);
+  --layer-content-shadow: 0 0 0 1px var(--layer-content-edge);
+
+  --frost-a: 0.04;
+  --frost-a-raised: 0.07;
+  --frost-fill: oklch(0.98 0.006 85 / calc(var(--frost-a) * var(--frost-alpha-k)));
+  --frost-fill-raised: oklch(0.98 0.006 85 / calc(var(--frost-a-raised) * var(--frost-alpha-k)));
+  --frost-sheen: linear-gradient(180deg, oklch(1 0 0 / 0.045), oklch(1 0 0 / 0) 42%);
+  --frost-shadow:
+    0 0 0 1px oklch(1 0 0 / 0.1), inset 1.5px 1.5px 1px -1px oklch(1 0 0 / 0.16),
+    inset -1px -1px 1px -1px oklch(1 0 0 / 0.04), 0 18px 40px -20px oklch(0.08 0.01 100 / 0.55);
+
+  --glass-a-regular: 0.12;
+  --glass-a-thick: 0.18;
+  --glass-fill-regular: oklch(0.34 0.008 85 / calc(var(--glass-a-regular) * var(--glass-alpha-k)));
+  --glass-fill-thick: oklch(0.3 0.008 85 / calc(var(--glass-a-thick) * var(--glass-alpha-k)));
+  --glass-fallback-fill: var(--surface-overlay);
+  --glass-saturate: 2;
+  --glass-saturate-heavy: 2;
+  --glass-brightness: 1.08;
+  --glass-brightness-heavy: 1.1;
+  --glass-blur: calc(36px * var(--glass-blur-k));
+  --glass-blur-heavy: calc(40px * var(--glass-blur-k));
+  --plate-fill: oklch(0.205 0.008 85 / 0.97);
+  --scrim: oklch(0.06 0.008 85 / 0.6);
+  --clear-dimming: oklch(0.06 0.008 85 / 0.22);
+
+  --well-bg: oklch(0.06 0.008 85 / 0.26);
+  --well-border: oklch(1 0 0 / 0.06);
+  --well-shadow: inset 0 1px 3px oklch(0.08 0.01 100 / 0.35), inset 0 0 0 1px var(--well-border);
+
+  --control-bg: oklch(1 0 0 / 0.06);
+  --control-hover-bg: oklch(1 0 0 / 0.1);
+  --control-shadow: 0 0 0 0 transparent;
+  --control-active-bg: oklch(0.78 0.11 132 / 0.18);
+  --control-active-rim: oklch(0.78 0.11 132 / 0.35);
+  --control-sheen: linear-gradient(180deg, oklch(1 0 0 / 0.06), transparent 55%);
+
+  --option-card-bg: oklch(1 0 0 / 0.03);
+  --option-card-hover-bg: oklch(1 0 0 / 0.06);
+  --option-card-active-bg: oklch(0.78 0.11 132 / 0.14);
+  --option-card-border: oklch(1 0 0 / 0.08);
+  --option-card-active-border: oklch(0.78 0.12 132 / 0.6);
+
+  --glass-sheen: linear-gradient(180deg, oklch(1 0 0 / 0.12), oklch(1 0 0 / 0) 45%);
+  --glass-rim-top: oklch(1 0 0 / 0.32);
+  --glass-rim-left: oklch(1 0 0 / 0.2);
+  --glass-rim-line: oklch(1 0 0 / 0.08);
+  --glass-rim-bottom: oklch(0.06 0.01 100 / 0.45);
+  --glass-rim-glow: oklch(1 0 0 / 0.06);
+  --glass-lift: oklch(0.06 0.01 100 / 0.4);
+  --overlay-lift: oklch(0.06 0.01 100 / 0.5);
+  --fill-rim: oklch(1 0 0 / 0.18);
+  --scroll-edge-fill: linear-gradient(to bottom, oklch(1 0 0 / 0.06), transparent);
+
+  --shadow-e1: 0 1px 2px oklch(0.08 0.01 100 / 0.3);
+  --shadow-e2: 0 8px 24px -6px oklch(0.08 0.01 100 / 0.4);
+  --shadow-e3: 0 24px 48px -16px oklch(0.08 0.01 100 / 0.5);
+  --shadow-e4: 0 40px 80px -24px oklch(0.08 0.01 100 / 0.6);
+  --shadow-press: 0 1px 3px oklch(0.08 0.01 100 / 0.4);
+  --shadow-overlay: 0 4px 16px -2px oklch(0.08 0.01 100 / 0.5);
+  --shadow-tooltip: 0 2px 8px oklch(0.08 0.01 100 / 0.5), 0 0 0 1px oklch(1 0 0 / 0.09);
+}

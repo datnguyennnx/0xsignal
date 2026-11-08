@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { cn } from "cn";
 import { Table, TableHeader, TableBody, TableRow, TableHead } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TableEmptyRow } from "@/components/table-empty-row";
+import { FillHistoryTableHeader } from "./shared-table-components";
 import { CELL_HEAD_CLASS, CELL_HEAD_NUM_CLASS } from "../utils/orderbook-table-classes";
 
 type TwapSubTab = "active" | "history" | "fill-history";
@@ -11,6 +12,10 @@ const TWAP_SUB_TABS: { value: TwapSubTab; label: string }[] = [
   { value: "history", label: "History" },
   { value: "fill-history", label: "Fill History" },
 ];
+
+function isTwapSubTab(value: unknown): value is TwapSubTab {
+  return value === "active" || value === "history" || value === "fill-history";
+}
 
 const cHead = CELL_HEAD_CLASS;
 const cHeadNum = CELL_HEAD_NUM_CLASS;
@@ -47,7 +52,7 @@ function TwapHistoryTable() {
       <TableHeader>
         <TableRow>
           <TableHead className={cHead}>Time</TableHead>
-          <TableHead className={cHead}>Coin</TableHead>
+          <TableHead className={`${cHead} font-medium`}>Coin</TableHead>
           <TableHead className={cHeadNum}>Total Size</TableHead>
           <TableHead className={cHeadNum}>Executed Size</TableHead>
           <TableHead className={cHeadNum}>Average Price</TableHead>
@@ -67,18 +72,7 @@ function TwapHistoryTable() {
 function TwapFillHistoryTable() {
   return (
     <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className={cHead}>Time</TableHead>
-          <TableHead className={cHead}>Coin</TableHead>
-          <TableHead className={cHead}>Direction</TableHead>
-          <TableHead className={cHeadNum}>Price</TableHead>
-          <TableHead className={cHeadNum}>Size</TableHead>
-          <TableHead className={cHeadNum}>Trade Value</TableHead>
-          <TableHead className={cHeadNum}>Fee</TableHead>
-          <TableHead className={cHeadNum}>Closed PNL</TableHead>
-        </TableRow>
-      </TableHeader>
+      <FillHistoryTableHeader />
       <TableBody>
         <TableEmptyRow colSpan={8} />
       </TableBody>
@@ -96,38 +90,43 @@ export function TwapContent({ readOnly = false }: { readOnly?: boolean } = {}) {
 
   if (readOnly) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="type-body text-muted-foreground">
         TWAP orders aren&apos;t available for public accounts.
       </p>
     );
   }
 
   return (
-    <>
+    <Tabs
+      value={twapSubTab}
+      onValueChange={(value) => {
+        if (isTwapSubTab(value)) setTwapSubTab(value);
+      }}
+    >
       <div className="shrink-0 pt-1.5">
-        <div className="flex items-center gap-1">
+        <TabsList variant="line" className="w-fit gap-1">
           {TWAP_SUB_TABS.map((sub) => (
-            <button
+            <TabsTrigger
               key={sub.value}
-              onClick={() => {
-                setTwapSubTab(sub.value);
-              }}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded-sm transition-colors",
-                twapSubTab === sub.value
-                  ? "text-foreground bg-foreground/5"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              type="button"
+              value={sub.value}
+              variant="text"
+              data-dense
+              className="type-control"
             >
               {sub.label}
-            </button>
+            </TabsTrigger>
           ))}
-        </div>
+        </TabsList>
       </div>
-      {twapSubTab === "active" && <TwapActiveTable />}
-      {twapSubTab === "history" && <TwapHistoryTable />}
-      {twapSubTab === "fill-history" && <TwapFillHistoryTable />}
-    </>
+      <TabsContent value="active">
+        <TwapActiveTable />
+      </TabsContent>
+      <TabsContent value="history">
+        <TwapHistoryTable />
+      </TabsContent>
+      <TabsContent value="fill-history">
+        <TwapFillHistoryTable />
+      </TabsContent>
+    </Tabs>
   );
 }

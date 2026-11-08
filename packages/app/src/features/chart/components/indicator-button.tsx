@@ -1,11 +1,14 @@
-import { useState, useCallback, useRef, memo } from "react";
+import { lazy, Suspense, useState, useCallback, memo } from "react";
 import { Settings2 } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { ModalDismissReason } from "@/components/ui/modal";
 import type { ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
-import { IndicatorModal } from "./indicator-modal";
+
+const loadIndicatorModal = () => import("./indicator-modal");
+const IndicatorModal = lazy(() =>
+  loadIndicatorModal().then((m) => ({ default: m.IndicatorModal })),
+);
 
 interface IndicatorButtonProps {
   activeIndicators: ActiveIndicator[];
@@ -21,45 +24,47 @@ export const IndicatorButton = memo(function IndicatorButton({
   className,
 }: IndicatorButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  // Mount on first open so the lazy chunk and its exit animation both exist afterwards.
+  const [hasOpened, setHasOpened] = useState(false);
 
   const handleToggle = useCallback(() => {
+    setHasOpened(true);
     setIsOpen((prev) => !prev);
   }, []);
 
-  // The modal owns its own dismissal: mirror what it reports instead of toggling.
-  const handleOpenChange = useCallback((next: boolean, reason?: ModalDismissReason) => {
+  // The dialog owns its own dismissal; mirror the reported state instead of toggling.
+  const handleOpenChange = useCallback((next: boolean) => {
+    if (next) setHasOpened(true);
     setIsOpen(next);
-    if (next) return;
-    // `focus-out` moved focus deliberately; that is the one reason `Modal` must not undo.
-    if (reason === "focus-out") return;
-    triggerRef.current?.focus({ preventScroll: true });
   }, []);
 
   const indicatorCount = activeIndicators.length;
 
+  const preloadModal = useCallback(() => {
+    void loadIndicatorModal();
+  }, []);
+
   return (
     <>
       <Button
-        ref={triggerRef}
-        variant={isOpen ? "default" : "outline"}
-        size="sm"
+        variant="secondary"
         onClick={handleToggle}
-        aria-expanded={isOpen}
+        onPointerEnter={preloadModal}
+        onFocus={preloadModal}
+        aria-pressed={isOpen}
         className={cn(
-          "gap-[clamp(0.2rem,0.4vw,0.375rem)] px-2 sm:px-3 border-border/40 focus-visible:ring-ring/40",
-          !isOpen && "bg-background/80 hover:bg-muted/40",
+          "gap-1 aria-pressed:bg-(--control-active-bg) aria-pressed:text-foreground aria-pressed:shadow-[inset_0_1px_0_var(--control-active-rim)]",
           className,
         )}
       >
-        <Settings2 className="w-3.5 h-3.5" />
+        <Settings2 className="size-icon" />
         <span className="hidden sm:inline">Indicators</span>
         {indicatorCount > 0 && (
           <Badge
             variant={isOpen ? "secondary" : "default"}
             className={cn(
-              "px-1 sm:px-1.5 py-0 text-[length:var(--text-data)] h-4 min-w-[1rem] tabular-nums select-none",
-              isOpen && "bg-background/25 text-background",
+              "min-w-[1rem] tabular-nums select-none",
+              isOpen && "bg-(--control-active-bg) text-foreground",
             )}
           >
             {indicatorCount}
@@ -67,13 +72,17 @@ export const IndicatorButton = memo(function IndicatorButton({
         )}
       </Button>
 
-      <IndicatorModal
-        activeIndicators={activeIndicators}
-        onAddIndicator={onAddIndicator}
-        onRemoveIndicator={onRemoveIndicator}
-        open={isOpen}
-        onOpenChange={handleOpenChange}
-      />
+      {hasOpened && (
+        <Suspense fallback={null}>
+          <IndicatorModal
+            activeIndicators={activeIndicators}
+            onAddIndicator={onAddIndicator}
+            onRemoveIndicator={onRemoveIndicator}
+            open={isOpen}
+            onOpenChange={handleOpenChange}
+          />
+        </Suspense>
+      )}
     </>
   );
 });

@@ -5,6 +5,29 @@ import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/stores/use-app-store";
 import { cn } from "cn";
 import { useLayoutStore } from "@/stores/use-layout-store";
+import { SettingsSection } from "./settings-section";
+
+interface ThemePreviewProps {
+  theme: "light" | "dark";
+  className?: string;
+}
+
+const ThemePreview = ({ theme, className }: ThemePreviewProps) => (
+  <div className={cn(theme, "bg-card p-2", className)}>
+    <div className="flex h-full flex-col gap-1 rounded-control bg-background/60 p-2">
+      <div className="flex items-center gap-1">
+        <span className="size-1 rounded-full bg-loss/70" />
+        <span className="size-1 rounded-full bg-warn/70" />
+        <span className="size-1 rounded-full bg-gain/70" />
+        <span className="ml-auto h-1 w-6 rounded-full bg-foreground/20" />
+      </div>
+      <span className="h-1 w-3/4 rounded-full bg-foreground/25" />
+      <span className="h-1 w-full rounded-full bg-foreground/15" />
+      <span className="h-1 w-2/3 rounded-full bg-foreground/15" />
+      <span className="mt-auto h-4 w-full rounded-chip bg-secondary" />
+    </div>
+  </div>
+);
 
 interface ThemeCardProps {
   value: "light" | "dark" | "system";
@@ -14,123 +37,101 @@ interface ThemeCardProps {
   children: React.ReactNode;
 }
 
-const ThemeCard = ({ value, label, theme, handleThemeChange, children }: ThemeCardProps) => (
-  <button
-    onClick={() => {
-      handleThemeChange(value);
-    }}
-    className="flex flex-col items-center gap-3 flex-1 group cursor-pointer w-full text-center"
-  >
-    <div
-      className={cn(
-        "relative w-full aspect-[16/10] rounded-xl overflow-hidden border transition-[transform,box-shadow,border-color] duration-200 shadow-[var(--shadow-e1)] hover:scale-[1.02] hover:shadow-[var(--shadow-e2)]",
-        theme === value ? "border-foreground" : "border-border/25 hover:border-border/60",
-      )}
-    >
-      {children}
-    </div>
-    <span
-      className={cn(
-        "text-xs font-semibold tracking-tight transition-colors",
-        theme === value ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
-      )}
-    >
-      {label}
-    </span>
-  </button>
-);
+const ThemeCard = ({ value, label, theme, handleThemeChange, children }: ThemeCardProps) => {
+  const checked = theme === value;
+  return (
+    <label className="group flex w-full max-w-64 cursor-pointer flex-col items-center gap-stack justify-self-center text-center">
+      <input
+        type="radio"
+        name="theme"
+        value={value}
+        checked={checked}
+        onChange={() => {
+          handleThemeChange(value);
+        }}
+        className="peer sr-only"
+      />
+      <div
+        className={cn(
+          "relative aspect-[16/10] w-full overflow-hidden rounded-panel border transition-[background-color,box-shadow,border-color,transform] duration-(--dur-fast) ease-standard peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring",
+          checked
+            ? "border-(--option-card-active-border) bg-(--option-card-active-bg) shadow-(--shadow-e2)"
+            : "border-border/25 shadow-(--shadow-e1) hover:border-border/60 hover:shadow-(--shadow-e2)",
+        )}
+      >
+        {children}
+      </div>
+      <span
+        className={cn(
+          "type-label font-semibold text-muted-foreground transition-colors group-hover:text-foreground",
+          checked && "text-foreground",
+        )}
+      >
+        {label}
+      </span>
+    </label>
+  );
+};
 
-export function AppearanceSettings() {
+function ThemeCards() {
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
 
   return (
-    <div className="flex flex-col gap-[clamp(1rem,1.5vw,1.5rem)]">
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
-          <Palette className="size-4 text-primary" />
+    <div className="grid w-full grid-cols-1 gap-stack sm:grid-cols-3">
+      <ThemeCard value="light" label="Light Mode" theme={theme} handleThemeChange={setTheme}>
+        <ThemePreview theme="light" className="h-full w-full" />
+      </ThemeCard>
+      <ThemeCard value="dark" label="Dark Mode" theme={theme} handleThemeChange={setTheme}>
+        <ThemePreview theme="dark" className="h-full w-full" />
+      </ThemeCard>
+      <ThemeCard value="system" label="System Theme" theme={theme} handleThemeChange={setTheme}>
+        <div className="flex h-full w-full">
+          <ThemePreview theme="light" className="flex-1 border-r border-border" />
+          <ThemePreview theme="dark" className="flex-1" />
+        </div>
+      </ThemeCard>
+    </div>
+  );
+}
+
+export function AppearanceSettings() {
+  return (
+    <SettingsSection measure="wide">
+      <div className="flex flex-col gap-1">
+        <h3 className="flex items-center gap-inline type-title font-semibold text-foreground">
+          <Palette className="size-icon text-primary" />
           Appearance & Theme
         </h3>
-        <p className="text-xs text-muted-foreground leading-relaxed">
+        <p className="type-body text-muted-foreground">
           Choose how 0xsignal appears on your device.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-        <ThemeCard value="light" label="Light Mode" theme={theme} handleThemeChange={setTheme}>
-          <div className="light h-full w-full bg-card">
-            <div className="h-4 bg-background flex items-center gap-1 px-2">
-              <span className="size-1.5 rounded-full bg-loss/60" />
-              <span className="size-1.5 rounded-full bg-warn/60" />
-              <span className="size-1.5 rounded-full bg-gain/60" />
-            </div>
-            <div className="flex items-center justify-center h-[calc(100%-16px)]">
-              <span className="text-sm font-bold text-foreground/80 font-display">Aa</span>
-            </div>
-          </div>
-        </ThemeCard>
+      <ThemeCards />
 
-        <ThemeCard value="dark" label="Dark Mode" theme={theme} handleThemeChange={setTheme}>
-          <div className="dark h-full w-full bg-card">
-            <div className="h-4 bg-background flex items-center gap-1 px-2">
-              <span className="size-1.5 rounded-full bg-loss/80" />
-              <span className="size-1.5 rounded-full bg-warn/80" />
-              <span className="size-1.5 rounded-full bg-gain/80" />
-            </div>
-            <div className="flex items-center justify-center h-[calc(100%-16px)]">
-              <span className="text-sm font-bold text-foreground/80 font-display">Aa</span>
-            </div>
-          </div>
-        </ThemeCard>
-
-        <ThemeCard value="system" label="System Theme" theme={theme} handleThemeChange={setTheme}>
-          <div className="flex h-full w-full">
-            <div className="light flex-1 bg-card border-r border-border">
-              <div className="h-4 bg-background flex items-center gap-1 px-1.5">
-                <span className="size-1.5 rounded-full bg-loss/60" />
-                <span className="size-1.5 rounded-full bg-warn/60" />
-                <span className="size-1.5 rounded-full bg-gain/60" />
-              </div>
-              <div className="flex items-center justify-center h-[calc(100%-16px)]">
-                <span className="text-sm font-bold text-foreground/80 font-display">Aa</span>
-              </div>
-            </div>
-            <div className="dark flex-1 bg-card">
-              <div className="h-4 bg-background flex items-center gap-1 px-1.5">
-                <span className="size-1.5 rounded-full bg-loss/80" />
-                <span className="size-1.5 rounded-full bg-warn/80" />
-                <span className="size-1.5 rounded-full bg-gain/80" />
-              </div>
-              <div className="flex items-center justify-center h-[calc(100%-16px)]">
-                <span className="text-sm font-bold text-foreground/80 font-display">Aa</span>
-              </div>
-            </div>
-          </div>
-        </ThemeCard>
-      </div>
-
-      <div>
-        <div className="space-y-1 mb-3">
-          <h4 className="text-sm font-semibold flex items-center gap-2 text-foreground">
-            <LayoutDashboard className="size-4 text-primary" />
+      <div className="flex flex-col gap-stack">
+        <div className="flex flex-col gap-1">
+          <h4 className="flex items-center gap-inline type-title font-semibold text-foreground">
+            <LayoutDashboard className="size-icon text-primary" />
             Dashboard Layout
           </h4>
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <p className="type-body text-muted-foreground">
             Reset the trading dashboard panels to their default positions and sizes.
           </p>
         </div>
         <Button
           variant="outline"
-          size="sm"
+          className="self-start"
           onClick={() => {
             useLayoutStore.getState().resetLayout();
             toast.success("Dashboard layout reset");
           }}
         >
-          <LayoutDashboard className="size-4" />
+          <LayoutDashboard className="size-icon" />
           Reset Layout
         </Button>
       </div>
-    </div>
+    </SettingsSection>
   );
 }

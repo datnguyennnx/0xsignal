@@ -1,4 +1,4 @@
-import { api } from "@/services/api";
+import { createWallet, requestWalletChallenge } from "@/services/api/credentials";
 
 /**
  * Prove control of a wallet before the backend links it. The only value signed
@@ -11,9 +11,9 @@ export async function linkWalletWithSignature(
   walletAddress: string,
   signMessage: SignChallengeMessage,
 ): Promise<void> {
-  const challenge = await api.requestWalletChallenge(walletAddress);
+  const challenge = await requestWalletChallenge(walletAddress);
   const signature = await signMessage({ message: challenge.message });
-  await api.createWallet({
+  await createWallet({
     walletAddress,
     nonce: challenge.nonce,
     signature,

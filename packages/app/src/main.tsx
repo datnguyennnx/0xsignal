@@ -2,16 +2,18 @@ import { createRoot } from "react-dom/client";
 import { WagmiProvider } from "wagmi";
 import { QueryClientProvider } from "@tanstack/react-query";
 import * as appStyles from "./index.css";
-import * as katexStyles from "katex/dist/katex.min.css";
 import { App } from "./App";
 import { config } from "./config/web3";
 import { queryClient } from "./lib/query-client";
+import { initAppearance } from "./lib/appearance";
+import { prefetchCriticalQueries } from "./lib/preload-routes";
 import { initAppStore } from "./stores/use-app-store";
 
 void appStyles;
-void katexStyles;
 
 initAppStore();
+initAppearance();
+prefetchCriticalQueries(window.location.pathname);
 
 const rootEl = document.querySelector<HTMLElement>("#root");
 if (rootEl === null) throw new Error("Root element #root not found");

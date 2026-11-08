@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  MODAL_CONTENT_CLASS,
 } from "@/components/ui/dialog";
 import { WalletConnectOptions } from "@/components/wallet-connect-options";
 import { ADDRESS_PATTERN } from "@/core/utils/address";
@@ -51,22 +50,20 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={`${MODAL_CONTENT_CLASS} sm:max-w-sm p-5 gap-[clamp(0.5rem,1vw,1rem)]`}
-      >
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader className="text-left">
           <DialogTitle>Connect Wallet</DialogTitle>
           <DialogDescription>Choose a wallet to connect with</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-[clamp(0.5rem,1vw,1rem)]">
+        <div className="flex flex-col gap-inline">
           <WalletConnectOptions />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-inline">
             <Separator className="flex-1" />
-            <span className="shrink-0 text-xs text-muted-foreground">or</span>
+            <span className="shrink-0 type-label text-muted-foreground">or</span>
             <Separator className="flex-1" />
           </div>
-          <form className="flex flex-col gap-2.5" onSubmit={handleAddressSubmit}>
-            <div className="flex flex-col gap-1.5">
+          <form className="flex flex-col gap-inline" onSubmit={handleAddressSubmit}>
+            <div className="flex flex-col gap-1">
               <Label htmlFor="wallet-address">Wallet address</Label>
               <Input
                 id="wallet-address"
@@ -82,16 +79,16 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
                 aria-describedby={addressError === null ? undefined : "wallet-address-error"}
               />
               {addressError !== null && (
-                <p id="wallet-address-error" className="text-xs text-destructive">
+                <p id="wallet-address-error" className="type-label text-destructive">
                   {addressError}
                 </p>
               )}
             </div>
             <Button
               type="submit"
-              variant="default"
-              size="lg"
-              className="h-10 w-full"
+              variant="accent"
+              size="cta"
+              className="w-full"
               disabled={!addressInput.trim()}
             >
               View address

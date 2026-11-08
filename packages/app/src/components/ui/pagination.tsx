@@ -56,27 +56,27 @@ export const Pagination = memo(function Pagination({
   return (
     <div
       className={cn(
-        "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3",
+        "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-stack pt-3",
         className,
       )}
     >
-      <span className="text-[length:var(--control-text-xs)] text-muted-foreground tabular-nums order-1">
+      <span className="num type-label text-muted-foreground order-1">
         {formatAxis(start)}–{formatAxis(end)} of {formatAxis(totalItems)}
       </span>
 
-      <div className="flex items-center gap-0.5 order-2">
+      <div className="flex items-center gap-1 order-2">
         <Button
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           onClick={() => {
             onPageChange(currentPage - 1);
           }}
           disabled={currentPage === 1}
           aria-label="Previous page"
-          className="text-muted-foreground min-w-[40px] min-h-[40px] after:hidden"
+          className="hit-area text-muted-foreground"
         >
-          <ChevronLeft className="size-3.5" />
+          <ChevronLeft className="size-icon" />
         </Button>
 
         {pageNumbers.map(({ key, value }) => {
@@ -84,7 +84,7 @@ export const Pagination = memo(function Pagination({
             return (
               <span
                 key={key}
-                className="inline-flex items-center justify-center h-[var(--control-h-sm)] w-5 text-[length:var(--control-text-xs)] text-muted-foreground/60 select-none"
+                className="inline-flex items-center justify-center h-control w-5 type-control text-muted-foreground select-none"
               >
                 ...
               </span>
@@ -96,12 +96,12 @@ export const Pagination = memo(function Pagination({
               key={key}
               type="button"
               variant="ghost"
-              size="icon-sm"
+              size="icon"
               onClick={() => {
                 onPageChange(value);
               }}
               className={cn(
-                "tabular-nums min-w-[40px] min-h-[40px] after:hidden",
+                "num hit-area",
                 currentPage === value
                   ? cn(SELECTED_ITEM_CLASS, "hover:bg-accent hover:text-accent-foreground")
                   : "text-muted-foreground",
@@ -115,32 +115,28 @@ export const Pagination = memo(function Pagination({
         <Button
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           onClick={() => {
             onPageChange(currentPage + 1);
           }}
           disabled={currentPage === totalPages}
           aria-label="Next page"
-          className="text-muted-foreground min-w-[40px] min-h-[40px] after:hidden"
+          className="hit-area text-muted-foreground"
         >
-          <ChevronRight className="size-3.5" />
+          <ChevronRight className="size-icon" />
         </Button>
       </div>
 
       {onPageSizeChange && (
-        <div className="flex items-center gap-2 order-3">
-          <span className="text-[length:var(--control-text-xs)] text-muted-foreground tabular-nums">
-            Show
-          </span>
+        <div className="flex items-center gap-inline order-3">
+          <span className="num type-label text-muted-foreground">Show</span>
           <NativeSelect
-            size="sm"
             aria-label="Rows per page"
             value={pageSize.toString()}
             onChange={(e) => {
               onPageSizeChange(Number(e.target.value));
             }}
-            wrapperClassName="min-w-[4rem] max-w-[4rem]"
-            className="h-[var(--control-h-sm)] px-[var(--control-px-xs)] text-center text-[length:var(--control-text-xs)]"
+            wrapperClassName="w-16"
           >
             {PAGE_SIZE_OPTIONS.map((size) => (
               <NativeSelectOption key={size} value={size.toString()}>

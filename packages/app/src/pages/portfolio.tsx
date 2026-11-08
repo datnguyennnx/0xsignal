@@ -7,7 +7,7 @@ export function PortfolioPage() {
   }, []);
 
   return (
-    <div className="container-fluid space-y-6 animate-in fade-in duration-200 ease-premium">
+    <div className="container-fluid flex flex-col gap-section page-enter">
       <h1 className="sr-only">Portfolio</h1>
       <PortfolioView />
     </div>

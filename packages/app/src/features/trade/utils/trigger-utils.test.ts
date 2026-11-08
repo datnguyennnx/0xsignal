@@ -43,14 +43,25 @@ describe("getOrderType", () => {
     ).toBe("Take Profit Market");
   });
 
-  test("an unknown object order type throws a message naming the keys", () => {
-    expect(() => getOrderType(makeOrder({ orderType: { bogus: {} } }))).toThrow(
-      "Unknown order type: bogus",
-    );
+  test("an unknown object order type maps to the fallback instead of throwing", () => {
+    expect(getOrderType(makeOrder({ orderType: { bogus: {} } }))).toBe("Unknown");
   });
 
-  test("a missing order type throws instead of defaulting to Limit", () => {
-    expect(() => getOrderType(makeOrder())).toThrow("Unknown order type: undefined");
+  test("a missing order type maps to the fallback instead of throwing", () => {
+    expect(getOrderType(makeOrder())).toBe("Unknown");
+  });
+
+  test("a null order type maps to the fallback instead of throwing", () => {
+    const nullTyped: OpenOrder = makeOrder();
+    Object.assign(nullTyped, { orderType: null });
+    expect(getOrderType(nullTyped)).toBe("Unknown");
+  });
+
+  test("a missing order type with trigger evidence stays a trigger order", () => {
+    expect(getOrderType(makeOrder({ isTrigger: true, side: "B", triggerCondition: "above" }))).toBe(
+      "Stop Market",
+    );
+    expect(getOrderType(makeOrder({ triggerPx: "50000", side: "A" }))).toBe("Stop Market");
   });
 });
 

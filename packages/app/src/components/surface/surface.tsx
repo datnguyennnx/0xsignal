@@ -4,24 +4,21 @@ import { cn } from "cn";
 import { SurfaceContext } from "./surface-context";
 import {
   assertSurfacePlacement,
-  DEFAULT_MATERIAL,
-  TIER_CLASS,
+  surfaceAttrs,
   VARIANT_CLASS,
-  type Material,
+  type SurfaceAttrsInput,
   type SurfaceFrame,
   type SurfacePlacement,
-  type Thickness,
-  type Tier,
   type Variant,
 } from "./tiers";
 
 type SurfaceRadius = "panel" | "overlay" | "control" | "chip";
 
 const RADIUS_CLASS: Record<SurfaceRadius, string> = {
-  panel: "rounded-[var(--radius-panel)]",
-  overlay: "rounded-[var(--radius-overlay)]",
-  control: "rounded-[var(--radius-control)]",
-  chip: "rounded-[var(--radius-chip)]",
+  panel: "rounded-panel",
+  overlay: "rounded-overlay",
+  control: "rounded-control",
+  chip: "rounded-chip",
 };
 
 const PAINT_UTILITIES = [
@@ -66,20 +63,19 @@ function callerLabel(): string {
   return "";
 }
 
-export type SurfaceProps = ComponentPropsWithoutRef<"div"> & {
-  tier: Tier;
-  radius?: SurfaceRadius;
-  /** Render as another element (`aside`, `header`, …) so no wrapper shifts layout. */
-  as?: ElementType;
-  variant?: Variant;
-  interactive?: boolean;
-  overMedia?: boolean;
-  dim?: boolean;
-  /** Depth treatment; defaults to the tier contract. */
-  material?: Material;
-  /** Glass weight; ignored unless the resolved material is glass. */
-  thickness?: Thickness;
-};
+/** Distributes `Omit` over the per-tier union so each member keeps its own material/thickness. */
+type DistOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+
+export type SurfaceProps = ComponentPropsWithoutRef<"div"> &
+  DistOmit<SurfaceAttrsInput, "depth"> & {
+    radius?: SurfaceRadius;
+    /** Render as another element (`aside`, `header`, …) so no wrapper shifts layout. */
+    as?: ElementType;
+    variant?: Variant;
+    interactive?: boolean;
+    overMedia?: boolean;
+    dim?: boolean;
+  };
 
 function assertLayoutOnlyClass(className: string | undefined, owner: string): void {
   if (process.env.NODE_ENV === "production" || className === undefined) return;
@@ -111,12 +107,8 @@ export function Surface({
 }: SurfaceProps): JSX.Element {
   const ancestors = useContext(SurfaceContext);
   const Component: ElementType = as ?? "div";
-  const owner = callerLabel();
-
-  const fallback = DEFAULT_MATERIAL[tier];
-  const resolvedMaterial = material ?? fallback.material;
-  const resolvedThickness =
-    resolvedMaterial === "glass" ? (thickness ?? fallback.thickness ?? "regular") : undefined;
+  // One stack capture per mounted surface; re-renders reuse the call-site label.
+  const owner = useMemo(() => callerLabel(), []);
 
   assertLayoutOnlyClass(className, owner);
   const placement: SurfacePlacement = { tier, variant, overMedia, dim, owner };
@@ -127,6 +119,14 @@ export function Surface({
     return [...ancestors, frame];
   }, [ancestors, tier, owner]);
 
+  const depth = stack.length - 1;
+  const attrs = useMemo(
+    () =>
+      // Destructured props lose the tier/material correlation; the runtime clamp in `surfaceAttrs` re-checks it.
+      // eslint-disable-next-line typescript/no-unsafe-type-assertion
+      surfaceAttrs({ tier, material, thickness, depth } as SurfaceAttrsInput),
+    [tier, material, thickness, depth],
+  );
   const variantClass = VARIANT_CLASS[variant] || undefined;
   // Identity emits no tier class, so no tier paint can leak.
   const identity = variant === "identity";
@@ -135,12 +135,9 @@ export function Surface({
     <SurfaceContext.Provider value={stack}>
       <Component
         {...rest}
-        data-tier={tier}
-        data-glass-depth={ancestors.length}
-        data-material={resolvedMaterial}
-        data-thickness={resolvedThickness}
+        {...attrs}
         className={cn(
-          !identity && TIER_CLASS[tier],
+          !identity && attrs.className,
           variantClass,
           !identity && interactive && "tier-interactive",
           RADIUS_CLASS[radius],

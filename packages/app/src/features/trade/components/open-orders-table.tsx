@@ -55,10 +55,10 @@ export function OpenOrdersTable({
         <TableRow>
           <TableHead className={cHead}>Time</TableHead>
           <TableHead className={cHead}>Type</TableHead>
-          <TableHead className={cHead}>Coin</TableHead>
+          <TableHead className={`${cHead} font-medium`}>Coin</TableHead>
           <TableHead className={cHead}>Direction</TableHead>
           <TableHead className={cHeadNum}>Size</TableHead>
-          <TableHead className={cHeadNum}>Original Size</TableHead>
+          <TableHead className={cHeadNum}>Orig. Size</TableHead>
           <TableHead className={cHeadNum}>Order Value</TableHead>
           <TableHead className={cHeadNum}>Price</TableHead>
           <TableHead className={cHead}>Reduce Only</TableHead>
@@ -72,7 +72,7 @@ export function OpenOrdersTable({
                 size="auto"
                 onClick={onCancelAll}
                 disabled={orderCount === 0 || isCancelPending}
-                className="text-xs uppercase tracking-wider hover:bg-transparent hover:text-inherit disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-auto dark:hover:bg-transparent"
+                className="type-label uppercase tracking-wider hover:bg-transparent hover:text-inherit disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-auto dark:hover:bg-transparent"
               >
                 Cancel All
               </Button>
@@ -114,7 +114,7 @@ export function OpenOrdersTable({
                       onClick={() => {
                         onViewTpSl(order);
                       }}
-                      className="cursor-pointer text-sm text-gain underline-offset-2"
+                      className="cursor-pointer type-data text-info underline-offset-2"
                     >
                       View
                     </Button>
@@ -132,7 +132,7 @@ export function OpenOrdersTable({
                         onCancelOrder(order.coin, order.oid);
                       }}
                       disabled={isCancelPending}
-                      className="cursor-pointer text-sm text-inherit underline-offset-2 disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40 disabled:pointer-events-auto"
+                      className="cursor-pointer type-data text-inherit underline-offset-2 disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40 disabled:pointer-events-auto"
                     >
                       Cancel
                     </Button>

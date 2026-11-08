@@ -1,16 +1,8 @@
 import { useEffect, useRef } from "react";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import type { CandlestickData, HistogramData } from "lightweight-charts";
-import { toRgb } from "../lib/color";
+import { useChartTheme } from "../lib/theme-store";
 import { toUtcTimestamps, type UtcDated } from "../lib/time";
-
-const readToken = (token: string): string =>
-  toRgb(getComputedStyle(document.documentElement).getPropertyValue(token).trim());
-
-const getVolumeColors = (): { up: string; down: string } => ({
-  up: readToken("--data-up"),
-  down: readToken("--data-down"),
-});
 
 interface UseChartDataProps {
   data: ChartDataPoint[];
@@ -50,17 +42,20 @@ export const useChartData = ({
   visibleCandles,
   resetKey,
 }: UseChartDataProps) => {
+  const theme = useChartTheme();
   const initialDataLoadedRef = useRef(false);
   const prevDataLenRef = useRef(0);
   const prevFirstTimeRef = useRef<number | null>(null);
   const prevLastTimeRef = useRef<number | null>(null);
   const prevLastCandleRef = useRef<ChartDataPoint | null>(null);
   const prevIsDarkRef = useRef(isDark);
+  const prevThemeVersionRef = useRef(theme.version);
   const stableIdentityRef = useRef<{
     len: number;
     firstTime: number;
     lastTime: number;
     lastClose: number;
+    themeVersion: number;
   } | null>(null);
 
   useEffect(() => {
@@ -83,7 +78,8 @@ export const useChartData = ({
       identity.len === data.length &&
       identity.firstTime === currentFirstTime &&
       identity.lastTime === currentLastTime &&
-      identity.lastClose === lastPoint.close
+      identity.lastClose === lastPoint.close &&
+      identity.themeVersion === theme.version
     ) {
       return;
     }
@@ -92,17 +88,35 @@ export const useChartData = ({
       firstTime: currentFirstTime,
       lastTime: currentLastTime,
       lastClose: lastPoint.close,
+      themeVersion: theme.version,
     };
 
     const points = toUtcTimestamps(data);
     const currentLastCandle = points.at(-1);
     if (currentLastCandle === undefined) return;
 
-    const volumeColors = getVolumeColors();
+    const volumeColors = {
+      up: theme.colors["--data-up"],
+      down: theme.colors["--data-down"],
+    };
+
+    const themeChanged = prevThemeVersionRef.current !== theme.version;
+    prevThemeVersionRef.current = theme.version;
 
     if (prevIsDarkRef.current !== isDark) {
       prevIsDarkRef.current = isDark;
       initialDataLoadedRef.current = false;
+    }
+
+    if (themeChanged && initialDataLoadedRef.current) {
+      candlestickSeries.setData(toCandlestickData(points));
+      volumeSeries.setData(toVolumeHistogramData(points, volumeColors));
+
+      prevDataLenRef.current = data.length;
+      prevFirstTimeRef.current = currentFirstTime;
+      prevLastTimeRef.current = currentLastTime;
+      prevLastCandleRef.current = { ...currentLastCandle };
+      return;
     }
 
     const prevFirstTime = prevFirstTimeRef.current;
@@ -224,7 +238,7 @@ export const useChartData = ({
     prevFirstTimeRef.current = currentFirstTime;
     prevLastTimeRef.current = currentLastTime;
     prevLastCandleRef.current = { ...currentLastCandle };
-  }, [data, isDark, candlestickSeries, volumeSeries, chart, visibleCandles]);
+  }, [data, isDark, theme, candlestickSeries, volumeSeries, chart, visibleCandles]);
   // NOTE: `data` must be in deps because it's the sync trigger.
   // Ref-based guards inside prevent unnecessary LWC API calls on every render.
 };

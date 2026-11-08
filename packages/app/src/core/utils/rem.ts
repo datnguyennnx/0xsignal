@@ -1,4 +1,6 @@
 // This module owns all root-font-size measurement; do not read it elsewhere.
+import { observeResize } from "@/lib/resize-observer";
+
 const FALLBACK_ROOT_FONT_SIZE_PX = 16;
 
 let epoch = 0;
@@ -46,17 +48,28 @@ function attachSharedListeners(): () => void {
   };
   window.addEventListener("resize", onResize);
 
-  let observer: ResizeObserver | null = null;
+  let unobserve: (() => void) | null = null;
   if (typeof ResizeObserver !== "undefined") {
-    observer = new ResizeObserver(() => {
+    unobserve = observeResize(document.documentElement, () => {
       refresh();
     });
-    observer.observe(document.documentElement);
+  }
+
+  let attributeObserver: MutationObserver | null = null;
+  if (typeof MutationObserver !== "undefined") {
+    attributeObserver = new MutationObserver(() => {
+      refresh();
+    });
+    attributeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["style", "class", "data-ui-scale", "data-density", "data-radius"],
+    });
   }
 
   return () => {
     window.removeEventListener("resize", onResize);
-    observer?.disconnect();
+    unobserve?.();
+    attributeObserver?.disconnect();
   };
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { lazy, Suspense, useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -7,12 +7,11 @@ import { parseISO } from "date-fns";
 import {
   SidePanelProvider,
   useSidePanel,
+  type PanelComponentProps,
   type SidePanelDescriptor,
   type SidePanelRegistry,
 } from "@/components/side-panel";
-import { CalendarDayPanel } from "@/features/calendar/components/calendar-day-panel";
 import { dayKey } from "@/features/calendar/lib/date-utils";
-import { CoinContextPanel } from "@/features/whales/components/coin-context-panel";
 import {
   derivePanelDescriptor,
   isKnownPanelKind,
@@ -22,6 +21,38 @@ import {
 } from "@/lib/side-panel-params";
 
 type PanelRegistryEntry = SidePanelRegistry[string];
+
+const CalendarDayPanelLazy = lazy(() =>
+  import("@/features/calendar/components/calendar-day-panel").then((m) => ({
+    default: m.CalendarDayPanel,
+  })),
+);
+
+const CoinContextPanelLazy = lazy(() =>
+  import("@/features/whales/components/coin-context-panel").then((m) => ({
+    default: m.CoinContextPanel,
+  })),
+);
+
+function PanelFallback() {
+  return <div className="h-32 animate-pulse rounded-panel bg-muted/60" aria-hidden="true" />;
+}
+
+function CalendarDayPanel(props: PanelComponentProps) {
+  return (
+    <Suspense fallback={<PanelFallback />}>
+      <CalendarDayPanelLazy {...props} />
+    </Suspense>
+  );
+}
+
+function CoinContextPanel(props: PanelComponentProps) {
+  return (
+    <Suspense fallback={<PanelFallback />}>
+      <CoinContextPanelLazy {...props} />
+    </Suspense>
+  );
+}
 
 const PANEL_COMPONENTS: Record<keyof typeof PANEL_KINDS, PanelRegistryEntry> = {
   calendarDay: { component: CalendarDayPanel, title: "Day detail" },

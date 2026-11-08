@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 import { useIndicators } from "../hooks/use-indicators";
 import { useChartFeed } from "../hooks/use-chart-feed";
@@ -136,17 +137,21 @@ const TradingChartInner = ({
   );
 
   // One tree for both modes: a fullscreen remount would orphan the chart instance.
-  return (
+  const panel = (
     <div
       ref={panelRef}
+      {...(isFallbackFullscreen
+        ? { role: "dialog", "aria-modal": true, "aria-label": "Chart fullscreen" }
+        : {})}
       className={
         isFallbackFullscreen
-          ? "fixed inset-0 z-50 isolate flex flex-col overflow-hidden"
-          : "chart-panel relative isolate panel-contain flex flex-1 h-full flex-col p-[var(--panel-pad,1.08rem)]"
+          ? "fixed inset-0 isolate z-(--z-overlay) flex flex-col overflow-hidden"
+          : "chart-panel relative isolate panel-contain flex flex-1 h-full flex-col p-panel"
       }
     >
       <Surface
-        tier={isFallbackFullscreen ? "solid" : "content"}
+        tier={isFullscreen ? "solid" : "content"}
+        {...(isFullscreen ? { material: "solid" as const } : {})}
         radius="panel"
         className={
           isFallbackFullscreen
@@ -158,13 +163,17 @@ const TradingChartInner = ({
         className={
           isFallbackFullscreen
             ? "relative w-full h-full max-w-8xl mx-auto flex flex-col"
-            : "relative flex-1 flex flex-col gap-2.5"
+            : "relative flex-1 flex flex-col gap-2"
         }
       >
         {chartContent}
       </div>
     </div>
   );
+
+  // A fixed overlay inside a `contain` ancestor is clipped to that ancestor; body is the
+  // only parent without one, so the fallback workspace is portalled out.
+  return isFallbackFullscreen ? createPortal(panel, document.body) : panel;
 };
 
 const TradingChartComponent = (props: TradingChartProps) => {

@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { subscribeWithSelector, persist } from "zustand/middleware";
 import { toast } from "sonner";
-import { api } from "@/services/api";
+import { getAuthMe, logout, refreshToken } from "@/services/api/auth";
+import { listWallets } from "@/services/api/credentials";
 import type { AuthMeResponse } from "@0xsignal/shared";
 import { ApiError } from "@/lib/api-error";
 import { registerAuthTokenBridge } from "@/lib/auth-token";
@@ -95,7 +96,7 @@ export const useAuthStore = create<AuthStoreState>()(
 
         signOut: async () => {
           try {
-            await api.logout();
+            await logout();
           } catch (err) {
             console.error("[Auth] Logout error:", err);
             toast.error("Sign out failed", { description: "Try again to sign out." });
@@ -112,7 +113,7 @@ export const useAuthStore = create<AuthStoreState>()(
 
         refreshWalletStatus: async () => {
           try {
-            const wallets = await api.listWallets();
+            const wallets = await listWallets();
             set({
               hasLinkedWallet: wallets.length > 0,
               hasUnverifiedWallet: wallets.some((wallet) => !wallet.verified),
@@ -134,14 +135,15 @@ export const useAuthStore = create<AuthStoreState>()(
             }
 
             try {
-              const data = await api.refreshToken();
+              const data = await refreshToken();
 
               const token = data?.accessToken;
               if (token !== undefined && token !== "") {
                 // The token only lives in memory, so it must be written before any
                 // authenticated request (including /auth/me) is issued.
                 if (!cancelled) set({ token, isAuthenticated: true });
-                const profileData = await api.getAuthMe();
+                // The profile and the wallet list are independent; fetch both at once.
+                const [profileData] = await Promise.all([getAuthMe(), get().refreshWalletStatus()]);
 
                 if (profileData !== null) {
                   if (cancelled) return;
@@ -152,9 +154,6 @@ export const useAuthStore = create<AuthStoreState>()(
                     displayName: profileData.displayName,
                   };
                   set({ user });
-
-                  // Fetch wallet status after successful auth
-                  if (!cancelled) await get().refreshWalletStatus();
                 }
               } else if (!cancelled) {
                 set({

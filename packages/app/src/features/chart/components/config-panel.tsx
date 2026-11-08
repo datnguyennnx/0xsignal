@@ -65,24 +65,24 @@ function IndicatorConfigPanelInner({
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden bg-transparent">
-      <div className="p-[clamp(1rem,2vw,1.5rem)]">
-        <div className="flex items-start justify-between gap-[clamp(0.5rem,1vw,1rem)]">
-          <div className="min-w-0 space-y-1">
-            <h3 className="text-sm font-semibold text-foreground">Indicator Settings</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
+      <div className="p-panel">
+        <div className="flex items-start justify-between gap-inline">
+          <div className="min-w-0 flex flex-col gap-field">
+            <h3 className="type-body font-semibold text-foreground">Indicator Settings</h3>
+            <p className="type-label text-muted-foreground leading-relaxed">
               Configure parameters for this technical indicator.
             </p>
           </div>
-          <span className="shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground tabular-nums">
+          <span className="shrink-0 whitespace-nowrap type-label font-medium text-muted-foreground tabular-nums">
             {activeCount} active
           </span>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-[clamp(1rem,2vw,1.5rem)] py-[clamp(0.75rem,1vw,1rem)] scrollbar-none overscroll-none">
-        <div className="space-y-6">
+      <div className="flex-1 overflow-y-auto px-panel py-2 scrollbar-none overscroll-none">
+        <div className="space-y-section">
           {indicator.params.length > 0 ? (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-field">
               {indicator.params.map((paramDef) => (
                 <IndicatorParamField
                   key={paramDef.key}
@@ -111,12 +111,11 @@ function IndicatorConfigPanelInner({
         </div>
       </div>
 
-      <div className="p-[clamp(1rem,2vw,1.5rem)]">
-        <div className="grid grid-cols-1 gap-3">
+      <div className="p-panel">
+        <div className="grid grid-cols-1 gap-field">
           <Button
             variant="ghost"
-            size="sm"
-            className="min-h-[clamp(2.5rem,5vh,3rem)] text-xs font-semibold rounded-lg active:scale-[0.97]"
+            className="font-semibold active:scale-[0.97]"
             onClick={() => {
               if (matchingActiveInstance !== undefined) {
                 onRemoveInstance(matchingActiveInstance.instanceId);
@@ -124,16 +123,15 @@ function IndicatorConfigPanelInner({
             }}
             disabled={matchingActiveInstance === undefined}
           >
-            <Minus className="size-3.5" />
+            <Minus className="size-icon-sm" />
             Delete
           </Button>
 
           <Button
-            size="sm"
-            className="min-h-[clamp(2.5rem,5vh,3rem)] text-xs font-semibold rounded-lg active:scale-[0.97] bg-foreground text-background hover:bg-foreground/80"
+            className="font-semibold active:scale-[0.97] bg-info text-primary-foreground hover:bg-info/80"
             onClick={handleApply}
           >
-            <Plus className="size-3.5" />
+            <Plus className="size-icon-sm" />
             {matchingActiveInstance ? "Update" : "Add"}
           </Button>
         </div>

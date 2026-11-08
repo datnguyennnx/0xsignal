@@ -53,18 +53,18 @@ export function DayDetailPanel({
     : -1;
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <h3 className="flex items-baseline justify-between gap-2 text-sm font-medium tracking-tight text-foreground">
+    <div className="flex h-full flex-col gap-stack">
+      <h3 className="flex items-baseline justify-between gap-inline type-title font-semibold tracking-tight text-foreground">
         <span>{heading}</span>
         {!isLoading && !isError && (
-          <span className="text-[length:var(--text-data)] font-normal text-muted-foreground">
+          <span className="type-data font-normal text-muted-foreground">
             {sorted.length} {sorted.length === 1 ? "event" : "events"}
           </span>
         )}
       </h3>
 
       {isLoading ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-inline">
           {SKELETON_KEYS.map((key) => (
             <Skeleton key={key} className="h-16 w-full" />
           ))}
@@ -73,20 +73,19 @@ export function DayDetailPanel({
         <ErrorState
           title="Unable to load events"
           retryAction={onRetry}
-          className="min-h-[clamp(10rem,30vh,16rem)]"
+          className="min-h-(--panel-state-min-h)"
         />
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+        <div className="flex flex-col gap-stack">
           {sorted.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center min-h-[clamp(12rem,30vh,18rem)]">
-              <EmptyState
-                variant="panel"
-                title="No events scheduled"
-                description="Pick another day or adjust your filters to find upcoming events."
-              />
-            </div>
+            <EmptyState
+              variant="panel"
+              className="min-h-(--panel-state-min-h)"
+              title="No events scheduled"
+              description="Pick another day or adjust your filters to find upcoming events."
+            />
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-inline">
               {sorted.map((event, index) => (
                 <Fragment key={event.id}>
                   {index === nowBarIndex && <NowBar now={now} />}

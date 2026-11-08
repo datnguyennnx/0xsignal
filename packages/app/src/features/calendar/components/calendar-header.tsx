@@ -32,14 +32,14 @@ export function CalendarHeader({
   isRefreshing = false,
 }: CalendarHeaderProps): JSX.Element {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-col gap-0.5">
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
-        <p className="text-[length:var(--text-data)] text-muted-foreground">{rangeLabel}</p>
+    <div className="flex flex-wrap items-center justify-between gap-inline">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-inline">
+        <h2 className="type-title font-semibold tracking-tight text-foreground">{title}</h2>
+        <p className="type-label text-muted-foreground">{rangeLabel}</p>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1">
+      <div data-dense className="row-actions flex-wrap">
+        <div className="row-actions">
           <Button variant="outline" size="icon" onClick={onPrev} aria-label="Previous period">
             <ChevronLeft />
           </Button>
@@ -48,7 +48,7 @@ export function CalendarHeader({
           </Button>
         </div>
 
-        <Button variant="outline" size="sm" onClick={onToday}>
+        <Button variant="outline" onClick={onToday}>
           Today
         </Button>
 

@@ -77,23 +77,22 @@ export function OrderSizeField({
   return (
     <>
       <div className="flex flex-col">
-        <div className="flex items-center justify-between mb-[var(--space-1,0.3125rem)]">
+        <div className="flex items-center justify-between mb-1">
           <Label
             htmlFor="order-form-size"
-            className="text-xs uppercase tracking-wider text-muted-foreground font-normal"
+            className="type-label uppercase tracking-wider text-muted-foreground font-normal"
           >
             Size ({safeSizeAsset})
           </Label>
           {sizeAssetOptions.length > 1 && (
             <NativeSelect
-              size="sm"
               aria-label="Size asset"
               value={safeSizeAsset}
               onChange={(e) => {
                 onSizeAssetChange(e.target.value);
               }}
               wrapperClassName="min-w-0"
-              className="h-6 w-20 text-[length:var(--text-micro)] text-muted-foreground tabular-nums"
+              className="w-[clamp(3.25rem,4vw,5rem)] text-muted-foreground"
             >
               {sizeAssetOptions.map((opt) => (
                 <NativeSelectOption key={opt.value} value={opt.value}>
@@ -109,16 +108,16 @@ export function OrderSizeField({
           value={size}
           onChange={handleSizeChange}
           placeholder="0.00"
-          className="h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] w-full text-base sm:text-sm tabular-nums bg-background/80 border-border/40 hover:border-border/60 transition-colors"
+          className="w-full tabular-nums"
         />
         {assetQtyDisplay !== null && (
-          <p className="mt-[var(--space-1,0.3125rem)] text-[length:var(--text-micro)] text-muted-foreground tabular-nums text-right">
+          <p className="mt-1 type-data text-muted-foreground tabular-nums text-right">
             → {assetQtyDisplay}
           </p>
         )}
       </div>
 
-      <div className="flex items-center gap-[var(--space-2,0.75rem)]">
+      <div className="flex items-center gap-field">
         <Slider
           value={[sliderPercent]}
           onValueChange={handleSliderCommit}
@@ -127,7 +126,7 @@ export function OrderSizeField({
           step={1}
           aria-label="Order size"
           title="Order size"
-          className="flex-1 [&_[data-slot=slider-thumb]]:hover:ring-4 [&_[data-slot=slider-thumb]]:hover:ring-ring/40 [&_[data-slot=slider-track]]:hover:bg-muted/40 [&_[data-slot=slider-range]]:hover:brightness-110"
+          className="flex-1 **:data-[slot=slider-thumb]:hover:ring-4 **:data-[slot=slider-thumb]:hover:ring-ring **:data-[slot=slider-track]:hover:bg-muted/40 **:data-[slot=slider-range]:hover:brightness-110"
         />
         <Input
           type="number"
@@ -136,9 +135,9 @@ export function OrderSizeField({
           value={sliderPercent}
           onChange={handlePctInputChange}
           aria-label="Size percentage"
-          className="w-16 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-base sm:text-sm text-center tabular-nums bg-background/80 border-border/40 shrink-0"
+          className="w-[clamp(3.25rem,4vw,5rem)] text-center tabular-nums shrink-0"
         />
-        <span className="text-xs text-muted-foreground">%</span>
+        <span className="type-label text-muted-foreground">%</span>
       </div>
     </>
   );

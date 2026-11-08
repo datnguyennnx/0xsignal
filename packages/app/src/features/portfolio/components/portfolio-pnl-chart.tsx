@@ -1,15 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  CartesianGrid,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  YAxis,
-  XAxis,
-  Tooltip,
-} from "recharts";
+import { memo, useEffect, useMemo, useState } from "react";
 
 import { Surface } from "@/components/surface/surface";
+import { Segmented } from "@/components/ui/segmented";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
@@ -24,9 +16,33 @@ import {
   isPortfolioPeriod,
   type PortfolioPeriod,
 } from "../utils/constants";
-import { formatAxis, formatSignedUsd } from "@/core/utils/formatters";
+import { formatAxis, formatCompactUsd, formatSignedUsd } from "@/core/utils/formatters";
 import { remToPx, subscribeRootFontSize } from "@/core/utils/rem";
-import { SELECT_COMPACT_CLASS } from "@/lib/state-classes";
+import { SURFACE } from "./portfolio-summary.constants";
+
+type RechartsModule = typeof import("recharts");
+
+/** Recharts stays in its own chunk so the portfolio route shell ships without it. */
+function useRecharts(): RechartsModule | null {
+  const [mod, setMod] = useState<RechartsModule | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const loaded = await import("recharts");
+        if (active) setMod(loaded);
+      } catch {
+        // Leave the skeleton in place; the chunk failed to load.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return mod;
+}
 
 type ChartView = "account-value" | "pnl" | "perps-pnl";
 
@@ -36,6 +52,7 @@ const VIEW_LABELS: Record<ChartView, string> = {
   pnl: "PnL",
   "perps-pnl": "Perps PnL",
 };
+const VIEW_OPTIONS = VIEW_KEYS.map((key) => ({ value: key, label: VIEW_LABELS[key] }));
 
 function formatXAxisTick(ts: number): string {
   const date = new Date(ts > 1e12 ? ts : ts * 1000);
@@ -45,9 +62,11 @@ function formatXAxisTick(ts: number): string {
 function ChartTooltip({
   active,
   payload,
+  signed,
 }: {
   active?: boolean;
   payload?: Array<{ value: number; payload?: { time?: number } }>;
+  signed: boolean;
 }) {
   if (active !== true || payload === undefined || payload.length === 0) return null;
   const val = payload[0].value;
@@ -59,36 +78,39 @@ function ChartTooltip({
     dateStr = new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }
 
+  const valueTone = signed ? (val >= 0 ? "text-gain" : "text-loss") : "text-foreground";
+
   return (
-    <div className="pointer-events-none rounded border border-[color:var(--data-tooltip-border)] bg-[color:var(--data-tooltip-bg)] px-2.5 py-1.5">
+    <div className="hl-trade-tooltip">
       {dateStr && (
-        <span className="block text-[length:var(--text-data)] leading-normal text-[color:var(--data-axis)]">
-          {dateStr}
-        </span>
+        <span className="block type-data leading-normal text-(--data-axis)">{dateStr}</span>
       )}
-      <span
-        className={`block text-[length:var(--text-data)] font-semibold leading-normal tabular-nums ${val >= 0 ? "text-gain" : "text-loss"}`}
-      >
-        {formatSignedUsd(val)}
+      <span className={`block type-data font-semibold leading-normal tabular-nums ${valueTone}`}>
+        {signed ? formatSignedUsd(val) : formatCompactUsd(val)}
       </span>
     </div>
   );
 }
 
-const SURFACE =
-  "h-full flex flex-col p-4 animate-in fade-in duration-200 ease-premium gap-[clamp(0.5rem,1vw,1rem)]";
-
 /** Both branches size the plot area from this one token so they cannot drift. */
-const CHART_MIN_HEIGHT = "min-h-[clamp(120px,12vw,180px)]";
+const CHART_MIN_HEIGHT = "min-h-(--panel-state-min-h)";
 
-export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: string | undefined }) {
+export const PortfolioPnLChart = memo(function PortfolioPnLChart({
+  readOnlyAddress,
+  period: timePeriod,
+  onPeriodChange,
+}: {
+  readOnlyAddress?: string | undefined;
+  period: PortfolioPeriod;
+  onPeriodChange: (period: PortfolioPeriod) => void;
+}) {
   const isOwn = readOnlyAddress === undefined;
   const ownPortfolio = usePortfolio(isOwn);
   const whalePortfolio = useWhalePortfolio(readOnlyAddress);
   const { data: portfolio, isLoading, isError, refetch } = isOwn ? ownPortfolio : whalePortfolio;
 
   const [chartView, setChartView] = useState<ChartView>("account-value");
-  const [timePeriod, setTimePeriod] = useState<PortfolioPeriod>("month");
+  const recharts = useRecharts();
 
   const values = useMemo<[number, number][] | null>(() => {
     if (!portfolio) return null;
@@ -107,7 +129,10 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
     return result.length > 0 ? result : null;
   }, [portfolio, chartView, timePeriod]);
 
-  const chartData = values ? values.map(([time, value]) => ({ time, value })) : null;
+  const chartData = useMemo(
+    () => (values === null ? null : values.map(([time, value]) => ({ time, value }))),
+    [values],
+  );
 
   const [dataMin, dataMax] = useMemo(() => {
     if (!values) return [0, 0];
@@ -135,7 +160,7 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
   );
 
   const chartMarginPx = remToPx(1);
-  const axisFontSizePx = remToPx(0.6875);
+  const axisFontSizePx = remToPx(0.75);
   const yAxisWidthPx = Math.round(remToPx(3.5));
   const tickGapPx = remToPx(2.5);
 
@@ -154,8 +179,8 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
   if (isLoading) {
     return (
       <Surface tier="content" className={SURFACE}>
-        <div className="flex h-7 items-center justify-between">
-          <div className="flex gap-[clamp(0.4rem,0.7vw,0.75rem)]">
+        <div className="flex h-control items-center justify-between">
+          <div className="flex gap-inline">
             <Skeleton className="h-3.5 w-16" />
             <Skeleton className="h-3.5 w-16" />
             <Skeleton className="h-3.5 w-16" />
@@ -203,39 +228,35 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
     );
   }
 
+  if (recharts === null) {
+    return (
+      <Surface tier="content" className={SURFACE}>
+        <div className={`flex flex-1 items-center justify-center ${CHART_MIN_HEIGHT}`}>
+          <Skeleton className={`w-full ${CHART_MIN_HEIGHT}`} />
+        </div>
+      </Surface>
+    );
+  }
+
+  const { CartesianGrid, ResponsiveContainer, LineChart, Line, YAxis, XAxis, Tooltip } = recharts;
+
   return (
     <Surface tier="content" className={SURFACE}>
-      <div className="flex items-end justify-between">
-        <div className="flex items-end">
-          {VIEW_KEYS.map((key) => {
-            const active = chartView === key;
-            return (
-              <button
-                key={key}
-                onClick={() => {
-                  setChartView(key);
-                }}
-                className={`text-[length:var(--text-compact)] font-medium px-2.5 pb-2 cursor-pointer transition-colors -mb-px ${
-                  active
-                    ? "text-foreground border-b-2 border-foreground"
-                    : "text-muted-foreground border-transparent hover:text-foreground"
-                }`}
-              >
-                {VIEW_LABELS[key]}
-              </button>
-            );
-          })}
-        </div>
+      <div data-dense className="flex items-end justify-between">
+        <Segmented
+          aria-label="Chart view"
+          value={chartView}
+          options={VIEW_OPTIONS}
+          onValueChange={setChartView}
+        />
 
         <NativeSelect
-          size="sm"
           aria-label="Timeframe"
           value={timePeriod}
           onChange={(e) => {
             const val = e.target.value;
-            setTimePeriod(isPortfolioPeriod(val) ? val : "month");
+            onPeriodChange(isPortfolioPeriod(val) ? val : "month");
           }}
-          className={SELECT_COMPACT_CLASS}
         >
           {PERIOD_KEYS.map((p) => (
             <NativeSelectOption key={p} value={p}>
@@ -281,7 +302,7 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
                   tickCount={4}
                 />
                 <Tooltip
-                  content={<ChartTooltip />}
+                  content={<ChartTooltip signed={chartView !== "account-value"} />}
                   cursor={{
                     stroke: "var(--data-crosshair)",
                     strokeWidth: 1,
@@ -290,7 +311,7 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
                   isAnimationActive={false}
                 />
                 <Line
-                  type="stepAfter"
+                  type="monotone"
                   dataKey="value"
                   stroke="var(--foreground)"
                   strokeWidth={1.5}
@@ -307,4 +328,4 @@ export function PortfolioPnLChart({ readOnlyAddress }: { readOnlyAddress?: strin
       </div>
     </Surface>
   );
-}
+});

@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/use-auth-store";
 import { api } from "@/services/api";
 import { useFormDirtyTracker } from "../hooks/use-form-dirty";
 import { ProfileCard, ProfileLoading, ProfileSignedOut } from "./profile-sections";
+import { SettingsSection } from "./settings-section";
 
 export function ProfileSettings() {
   const user = useAuthStore((s) => s.user);
@@ -57,21 +58,27 @@ export function ProfileSettings() {
   };
 
   if (isLoading) {
-    return <ProfileLoading />;
+    return (
+      <SettingsSection measure="form">
+        <ProfileLoading />
+      </SettingsSection>
+    );
   }
 
   if (user === null) {
     return (
-      <ProfileSignedOut
-        onSignIn={() => {
-          void navigate("/login");
-        }}
-      />
+      <SettingsSection measure="form">
+        <ProfileSignedOut
+          onSignIn={() => {
+            void navigate("/login");
+          }}
+        />
+      </SettingsSection>
     );
   }
 
   return (
-    <>
+    <SettingsSection measure="form">
       <ProfileCard
         user={user}
         displayName={displayName}
@@ -89,6 +96,6 @@ export function ProfileSettings() {
         onReset={handleReset}
         isSaving={isSaving}
       />
-    </>
+    </SettingsSection>
   );
 }

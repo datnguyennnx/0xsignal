@@ -138,7 +138,7 @@ export const useAppStore = create<AppStoreState>()(
             const stored = localStorage.getItem(MARKET_SCHEMA_KEY);
             if (stored !== String(FRONTEND_MARKET_SCHEMA_VERSION)) {
               queryClient.removeQueries({ queryKey: queryKeys.market.all });
-              void queryClient.invalidateQueries();
+              void queryClient.invalidateQueries({ queryKey: queryKeys.market.all });
               localStorage.setItem(MARKET_SCHEMA_KEY, String(FRONTEND_MARKET_SCHEMA_VERSION));
             }
           },

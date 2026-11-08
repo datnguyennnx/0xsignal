@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { TableEmptyRow } from "@/components/table-empty-row";
 import { Button } from "@/components/ui/button";
+import { cn } from "cn";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import { PnLDisplay, PosDirLabel, TableSkeletonRows } from "./shared-table-components";
@@ -16,16 +17,21 @@ import { computeAccruedFunding, deriveMarkPrice } from "../utils/trade-math";
 
 import { useNavigate } from "react-router-dom";
 
+const CELL = cn(c, "px-2 py-1");
+const CELL_NUM = cn(cNum, "px-2 py-1");
+const CELL_HEAD = cn(cHead, "px-2 py-1");
+const CELL_HEAD_NUM = cn(cHeadNum, "px-2 py-1");
+
 function TpSlCell({ tpSl }: { tpSl: { tp: string | null; sl: string | null } | undefined }) {
   const hasTp = tpSl !== undefined && tpSl.tp !== null && tpSl.tp !== "";
   const hasSl = tpSl !== undefined && tpSl.sl !== null && tpSl.sl !== "";
   if (!hasTp && !hasSl) {
-    return <span className="text-muted-foreground/60">—</span>;
+    return <span className="text-muted-foreground">—</span>;
   }
   const parts: string[] = [];
   if (tpSl.tp !== null && tpSl.tp !== "") parts.push(`TP ${tpSl.tp}`);
   if (tpSl.sl !== null && tpSl.sl !== "") parts.push(`SL ${tpSl.sl}`);
-  return <span className="text-xs font-medium text-foreground">{parts.join(" / ")}</span>;
+  return <span className="type-label font-medium text-foreground">{parts.join(" / ")}</span>;
 }
 
 export type PositionRow = {
@@ -129,55 +135,56 @@ const PositionRowView = memo(function PositionRowView({
 
   return (
     <TableRow>
-      <TableCell className={`${c} font-medium`}>
-        <button
+      <TableCell className={`${CELL} font-medium`}>
+        <Button
           type="button"
+          variant="ghost"
+          size="auto"
           onClick={() => {
             onCoinClick(position.coin);
           }}
-          className="relative overflow-hidden flex items-center w-full text-left cursor-pointer transition-colors hover:text-foreground rounded px-1 -mx-1"
+          className="relative flex w-full items-center justify-start overflow-hidden -mx-1 text-left font-medium hover:bg-transparent active:scale-100"
         >
           <span className="relative z-10">{position.coin}</span>
-        </button>
+        </Button>
       </TableCell>
-      <TableCell className={c}>
+      <TableCell className={CELL}>
         <PosDirLabel szi={position.szi} />
       </TableCell>
-      <TableCell className={cNum}>
+      <TableCell className={CELL_NUM}>
         <span>{formatSize(sz)}</span>
         <span className="text-muted-foreground ml-1">{position.coin}</span>
       </TableCell>
-      <TableCell className={cNum}>{formatCompactUsd(posValue)}</TableCell>
-      <TableCell className={cNum}>
+      <TableCell className={CELL_NUM}>{formatCompactUsd(posValue)}</TableCell>
+      <TableCell className={CELL_NUM}>
         <PnLDisplay usd={unrealizedPnl} pct={roe} />
       </TableCell>
-      <TableCell className={cNum}>{formatPrice(entryPx)}</TableCell>
-      <TableCell className={cNum}>{markPx === null ? "—" : formatPrice(markPx)}</TableCell>
-      <TableCell className={cNum}>{liqPx > 0 ? formatPrice(liqPx) : "—"}</TableCell>
-      <TableCell className={cNum}>{formatCompactUsd(marginUsed)}</TableCell>
-      <TableCell className={cNum}>
+      <TableCell className={CELL_NUM}>{formatPrice(entryPx)}</TableCell>
+      <TableCell className={CELL_NUM}>{markPx === null ? "—" : formatPrice(markPx)}</TableCell>
+      <TableCell className={CELL_NUM}>{liqPx > 0 ? formatPrice(liqPx) : "—"}</TableCell>
+      <TableCell className={CELL_NUM}>{formatCompactUsd(marginUsed)}</TableCell>
+      <TableCell className={CELL_NUM}>
         {position.leverage?.type === "isolated"
           ? "Isolated"
           : position.leverage?.type === "cross"
             ? "Cross"
             : "—"}
       </TableCell>
-      <TableCell className={`${cNum} ${totalFunding >= 0 ? "text-gain" : "text-loss"}`}>
+      <TableCell className={`${CELL_NUM} ${totalFunding >= 0 ? "text-gain" : "text-loss"}`}>
         {formatCompactUsd(totalFunding)}
       </TableCell>
       {!readOnly && (
-        <TableCell className={c}>
-          <div className="flex items-center gap-[clamp(0.5rem,0.8vw,0.75rem)]">
+        <TableCell className={CELL}>
+          <div className="flex items-center gap-inline">
             <Button
               type="button"
               variant="link"
               size="auto"
               onClick={() => onCloseMarket?.(position.coin, position.szi, signedSz >= 0)}
-              className="text-sm text-foreground hover:text-foreground/80 hover:no-underline"
+              className="text-foreground hover:text-foreground/80 hover:no-underline"
             >
               Market
             </Button>
-            <span className="text-xs text-muted-foreground/60">/</span>
             <Button
               type="button"
               variant="link"
@@ -190,7 +197,7 @@ const PositionRowView = memo(function PositionRowView({
                   markPx: markPx ?? computedMarkPx,
                 })
               }
-              className="text-sm text-foreground hover:text-foreground/80 hover:no-underline"
+              className="text-foreground hover:text-foreground/80 hover:no-underline"
             >
               Limit
             </Button>
@@ -198,7 +205,7 @@ const PositionRowView = memo(function PositionRowView({
         </TableCell>
       )}
       {!readOnly && (
-        <TableCell className={c}>
+        <TableCell className={CELL}>
           <TpSlCell tpSl={tpSl} />
         </TableCell>
       )}
@@ -230,22 +237,37 @@ export function PositionsTable({
     [navigate, onSelectCoin],
   );
   return (
-    <Table>
+    <Table className="table-cull table-fixed">
+      <colgroup>
+        <col style={{ width: "8%" }} />
+        <col style={{ width: "6%" }} />
+        <col style={{ width: "8%" }} />
+        <col style={{ width: "8%" }} />
+        <col style={{ width: "12%" }} />
+        <col style={{ width: "8%" }} />
+        <col style={{ width: "8%" }} />
+        <col style={{ width: "8%" }} />
+        <col style={{ width: "8%" }} />
+        <col style={{ width: "6%" }} />
+        <col style={{ width: "8%" }} />
+        {!readOnly && <col style={{ width: "6%" }} />}
+        {!readOnly && <col style={{ width: "6%" }} />}
+      </colgroup>
       <TableHeader>
         <TableRow>
-          <TableHead className={cHead}>Coin</TableHead>
-          <TableHead className={cHead}>Side</TableHead>
-          <TableHead className={cHeadNum}>Size</TableHead>
-          <TableHead className={cHeadNum}>Position Value</TableHead>
-          <TableHead className={cHeadNum}>PNL (ROE %)</TableHead>
-          <TableHead className={cHeadNum}>Entry Price</TableHead>
-          <TableHead className={cHeadNum}>Mark Price</TableHead>
-          <TableHead className={cHeadNum}>Liq. Price</TableHead>
-          <TableHead className={cHeadNum}>Margin</TableHead>
-          <TableHead className={cHeadNum}>Mode</TableHead>
-          <TableHead className={cHeadNum}>Funding</TableHead>
-          {!readOnly && <TableHead className={cHead}>Close All</TableHead>}
-          {!readOnly && <TableHead className={cHead}>TP/SL</TableHead>}
+          <TableHead className={CELL_HEAD}>Coin</TableHead>
+          <TableHead className={CELL_HEAD}>Side</TableHead>
+          <TableHead className={CELL_HEAD_NUM}>Size</TableHead>
+          <TableHead className={CELL_HEAD_NUM}>Value</TableHead>
+          <TableHead className={CELL_HEAD_NUM}>PNL (ROE %)</TableHead>
+          <TableHead className={CELL_HEAD_NUM}>Entry Price</TableHead>
+          <TableHead className={CELL_HEAD_NUM}>Mark Price</TableHead>
+          <TableHead className={CELL_HEAD_NUM}>Liq. Price</TableHead>
+          <TableHead className={CELL_HEAD_NUM}>Margin</TableHead>
+          <TableHead className={CELL_HEAD_NUM}>Mode</TableHead>
+          <TableHead className={CELL_HEAD_NUM}>Funding</TableHead>
+          {!readOnly && <TableHead className={CELL_HEAD}>Close All</TableHead>}
+          {!readOnly && <TableHead className={CELL_HEAD}>TP/SL</TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody>

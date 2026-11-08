@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import type { JSX } from "react";
 import type { CalendarQuery } from "@0xsignal/shared";
 
@@ -31,17 +31,20 @@ interface CalendarEmptyStateProps {
   category: CalendarCategoryFilterValue;
   monthTitle: string;
   onShowAll: () => void;
+  fill?: boolean;
 }
 
 function CalendarEmptyState({
   category,
   monthTitle,
   onShowAll,
+  fill = false,
 }: CalendarEmptyStateProps): JSX.Element {
   if (category === "all") {
     return (
       <EmptyState
         variant="chart"
+        fill={fill}
         title={`No events in ${monthTitle}`}
         description="Nothing is scheduled for this month."
       />
@@ -53,10 +56,11 @@ function CalendarEmptyState({
   return (
     <EmptyState
       variant="chart"
+      fill={fill}
       title={`No ${label} events this month`}
       description={`The ${label} filter is hiding other events. Clear it to see everything scheduled in ${monthTitle}.`}
       action={
-        <Button variant="outline" size="sm" onClick={onShowAll}>
+        <Button variant="outline" onClick={onShowAll}>
           Show all
         </Button>
       }
@@ -67,7 +71,8 @@ function CalendarEmptyState({
 export function CalendarBoard(): JSX.Element {
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [category, setCategory] = useState<CalendarCategoryFilterValue>("all");
-  const { selectedDate, selectDay, openDay } = useCalendarDayPanel();
+  const [isPending, startTransition] = useTransition();
+  const { selectedDate, selectDay } = useCalendarDayPanel();
 
   const range = useMemo(() => getViewRange(anchor), [anchor]);
 
@@ -92,10 +97,20 @@ export function CalendarBoard(): JSX.Element {
 
   const monthTitle = formatMonthTitle(anchor);
 
+  const changeMonth = (next: (current: Date) => Date) => {
+    startTransition(() => {
+      setAnchor(next);
+    });
+  };
+
+  const changeCategory = (next: CalendarCategoryFilterValue) => {
+    startTransition(() => {
+      setCategory(next);
+    });
+  };
+
   const handleToday = () => {
-    const now = new Date();
-    setAnchor(now);
-    openDay(now);
+    changeMonth(() => new Date());
   };
 
   const handleRefresh = () => {
@@ -103,48 +118,48 @@ export function CalendarBoard(): JSX.Element {
   };
 
   return (
-    <div className="w-full space-y-4">
+    <div className="flex w-full flex-1 min-h-0 flex-col gap-panel">
       <CalendarHeader
         title={monthTitle}
         rangeLabel={formatRangeLabel(anchor)}
         category={category}
-        onCategoryChange={setCategory}
+        onCategoryChange={changeCategory}
         onPrev={() => {
-          setAnchor((current) => shiftAnchor(current, -1));
+          changeMonth((current) => shiftAnchor(current, -1));
         }}
         onNext={() => {
-          setAnchor((current) => shiftAnchor(current, 1));
+          changeMonth((current) => shiftAnchor(current, 1));
         }}
         onToday={handleToday}
         onRefresh={handleRefresh}
-        isRefreshing={isFetching}
+        isRefreshing={isFetching || isPending}
       />
 
       {isLoading ? (
-        <Skeleton className="h-[clamp(20rem,60vh,40rem)] w-full" />
+        <Skeleton className="min-h-0 w-full flex-1" />
       ) : isError ? (
-        <div className="flex min-h-[clamp(20rem,60vh,40rem)] items-center justify-center">
-          <ErrorState title="Unable to load events" retryAction={handleRefresh} />
-        </div>
+        <ErrorState
+          title="Unable to load events"
+          retryAction={handleRefresh}
+          className="flex min-h-0 flex-1 items-center justify-center"
+        />
+      ) : eventsByDay.size === 0 ? (
+        <CalendarEmptyState
+          category={category}
+          monthTitle={monthTitle}
+          fill
+          onShowAll={() => {
+            changeCategory("all");
+          }}
+        />
       ) : (
-        <>
-          {eventsByDay.size === 0 && (
-            <CalendarEmptyState
-              category={category}
-              monthTitle={monthTitle}
-              onShowAll={() => {
-                setCategory("all");
-              }}
-            />
-          )}
-          <MonthGrid
-            days={gridDays}
-            monthDate={anchor}
-            selectedDate={selectedDate}
-            eventsByDay={eventsByDay}
-            onSelectDate={selectDay}
-          />
-        </>
+        <MonthGrid
+          days={gridDays}
+          monthDate={anchor}
+          selectedDate={selectedDate}
+          eventsByDay={eventsByDay}
+          onSelectDate={selectDay}
+        />
       )}
     </div>
   );

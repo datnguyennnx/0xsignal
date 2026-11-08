@@ -17,11 +17,15 @@ export function WhalesPage(): JSX.Element {
   };
 
   return (
-    <div className="container-fluid space-y-6 animate-in fade-in duration-200 ease-premium">
+    <div className="container-fluid flex flex-1 min-h-0 flex-col gap-section page-enter">
       <h1 className="sr-only">Whales</h1>
       <ErrorBoundary>
-        <Surface tier="content" as="section" className="overflow-hidden">
-          <h2 className="px-4 pt-4 pb-2 text-lg font-semibold">Whale Positions</h2>
+        <Surface
+          tier="content"
+          as="section"
+          className="flex flex-1 min-h-0 flex-col overflow-hidden"
+        >
+          <h2 className="px-4 pt-4 pb-2 type-title font-semibold">Whale Positions</h2>
           <WhalePositionsTable onSelectWallet={handleSelectWallet} />
         </Surface>
       </ErrorBoundary>

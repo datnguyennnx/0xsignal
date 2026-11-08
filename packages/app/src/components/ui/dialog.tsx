@@ -4,16 +4,15 @@ import { cn } from "cn";
 
 import { Button } from "@/components/ui/button";
 import { SurfaceContext } from "@/components/surface/surface-context";
+import { surfaceAttrs } from "@/components/surface/tiers";
 import { withViewTransition } from "@/lib/view-transition";
 import { XIcon } from "lucide-react";
-
-export const MODAL_CONTENT_CLASS = "overflow-hidden";
 
 /** A portalled overlay is not nested in the page's surfaces, whatever triggered it. */
 const PORTAL_ANCESTORS = [] as const;
 
-/** Above every piece of app chrome: header 50, mobile panel 40, save bar 100. */
-const DIALOG_LAYER = 110;
+/** Above every piece of app chrome: header, mobile panel, save bar. */
+const DIALOG_LAYER = "var(--z-overlay)";
 
 type DialogOpenChange = NonNullable<DialogPrimitive.Root.Props["onOpenChange"]>;
 type DialogOpenChangeDetails = Parameters<DialogOpenChange>[1];
@@ -63,7 +62,7 @@ type LayeredStyle<S> =
   | undefined;
 
 /** A caller style may be a state function: the layer must outrank whatever it returns. */
-function withLayer<S>(style: LayeredStyle<S>, zIndex: number) {
+function withLayer<S>(style: LayeredStyle<S>, zIndex: number | string) {
   if (typeof style === "function") return (state: S) => ({ ...style(state), zIndex });
   return { ...style, zIndex };
 }
@@ -191,7 +190,7 @@ function DialogPortal({ container, ...props }: DialogPrimitive.Portal.Props) {
   return (
     <DialogPrimitive.Portal
       data-slot="dialog-portal"
-      // Body is the only parent with no transform, `contain`, `isolation` or `backdrop-filter`.
+      // Body is the only parent with no transform, `contain`, `isolation` or `backdrop effects`.
       container={container ?? (typeof document === "undefined" ? undefined : document.body)}
       {...props}
     />
@@ -212,12 +211,12 @@ function DialogOverlay({ className, style, ...props }: DialogPrimitive.Backdrop.
       // Base UI drops a nested backdrop; without it the press lands on the parent popup and never dismisses.
       forceRender={isNested}
       className={cn(
-        "fixed inset-0 isolate backdrop-blur-[4px] duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 isolate duration-(--duration-exit) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         // Nested is hit-target only: the parent scrim dims the page, with no blur of its own.
-        !isNested && "scrim",
+        !isNested && "bg-(--scrim)",
         className,
       )}
-      style={withLayer(style, DIALOG_LAYER + depth * 2)}
+      style={withLayer(style, `calc(${DIALOG_LAYER} + ${depth * 2})`)}
       {...props}
     />
   );
@@ -226,15 +225,30 @@ function DialogOverlay({ className, style, ...props }: DialogPrimitive.Backdrop.
 function DialogContent({
   className,
   children,
+  layout = "dialog",
   showCloseButton = true,
   style,
   ...props
 }: DialogPrimitive.Popup.Props & {
+  /** Fixes size and material; `workspace` never renders the floating close X. */
+  layout?: "dialog" | "workspace";
   showCloseButton?: boolean;
 }) {
   const depth = React.useContext(DialogRuntimeContext)?.depth ?? 0;
+  // A workspace lays out its own chrome edge-to-edge; a floating corner X would sit over that content.
+  const canClose = showCloseButton && layout !== "workspace";
   // A nested modal must not reuse the `dialog` snapshot name: both would be captured into the top layer.
   const isNested = depth > 0;
+  const surface = surfaceAttrs(
+    layout === "workspace"
+      ? { tier: "floating", material: "plate", depth: PORTAL_ANCESTORS.length }
+      : {
+          tier: "floating",
+          material: "glass",
+          thickness: "thick",
+          depth: PORTAL_ANCESTORS.length,
+        },
+  );
 
   return (
     <DialogPortal>
@@ -242,22 +256,24 @@ function DialogContent({
         <DialogOverlay />
         <DialogPrimitive.Popup
           data-slot="dialog-content"
+          data-layout={layout}
+          {...surface}
           className={cn(
-            "tier-floating fixed top-1/2 left-1/2 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-hidden rounded-[var(--radius-overlay)] p-4 text-sm text-popover-foreground duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "tier-floating fixed inset-0 m-auto grid grid-rows-[auto_minmax(0,1fr)_auto] gap-panel overflow-hidden rounded-overlay p-panel type-body text-popover-foreground duration-(--dur-exit) outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            // A dialog sizes to its content. `inset-0` alone stretches a fixed box to
+            // the viewport, so `h-fit` is what keeps the frame compact and centred.
+            layout === "workspace" ? "h-(--workspace-h)" : "h-fit max-h-[min(80dvh,42rem)]!",
             !isNested && "[view-transition-name:dialog]",
             className,
           )}
-          data-material="glass"
-          data-thickness="thick"
-          data-glass-depth="0"
-          style={withLayer(style, DIALOG_LAYER + depth * 2 + 1)}
+          style={withLayer(style, `calc(${DIALOG_LAYER} + ${depth * 2 + 1})`)}
           {...props}
         >
           {children}
-          {showCloseButton && (
+          {canClose && (
             <DialogPrimitive.Close
               data-slot="dialog-close"
-              render={<Button variant="ghost" className="absolute top-2 right-2" size="icon-sm" />}
+              render={<Button variant="ghost" className="absolute top-1 right-1" size="icon" />}
             >
               <XIcon />
               <span className="sr-only">Close</span>
@@ -273,7 +289,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2 pr-8", className)}
+      className={cn("flex flex-col gap-inline pr-6", className)}
       {...props}
     />
   );
@@ -284,7 +300,7 @@ function DialogFooter({ className, children, ...props }: React.ComponentProps<"d
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-[var(--radius-overlay)] border-t bg-muted/60 p-4 sm:flex-row sm:justify-end",
+        "flex flex-col-reverse gap-(--control-gap) border-t border-(--border-subtle) p-panel sm:flex-row sm:justify-end",
         className,
       )}
       {...props}
@@ -298,7 +314,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-base leading-none font-medium", className)}
+      className={cn("type-title leading-none font-medium", className)}
       {...props}
     />
   );
@@ -309,7 +325,7 @@ function DialogDescription({ className, ...props }: DialogPrimitive.Description.
     <DialogPrimitive.Description
       data-slot="dialog-description"
       className={cn(
-        "text-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
+        "type-body text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
         className,
       )}
       {...props}

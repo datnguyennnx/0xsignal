@@ -146,7 +146,3 @@ export function canPlace({
     !(orderType === "limit" && (!price || Number(price) <= 0))
   );
 }
-
-export function frameClass(signingDisabled: boolean): string {
-  return signingDisabled ? "contents pointer-events-none opacity-60" : "contents";
-}

@@ -17,17 +17,19 @@ function formatTime(iso: string, allDay: boolean): string {
 }
 
 export function EventRow({ event, className }: EventRowProps): JSX.Element {
+  const hasSource = event.sourceUrl !== null && event.sourceUrl !== "";
+
   const content = (
     <div className="flex min-w-0 items-baseline gap-2">
-      <span className="shrink-0 text-[length:var(--text-data)] tabular-nums text-muted-foreground">
+      <span className="shrink-0 type-data text-muted-foreground tabular-nums">
         {formatTime(event.scheduledAt, event.allDay)}
       </span>
-      <span className="min-w-0 flex-1 truncate text-[length:var(--text-data)] font-medium text-foreground">
+      <span className="min-w-0 flex-1 truncate type-data font-medium text-foreground">
         {event.title}
       </span>
-      {event.sourceUrl !== null && event.sourceUrl !== "" && (
+      {hasSource && (
         <ExternalLink
-          className="size-3.5 shrink-0 self-center text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+          className="size-icon-sm shrink-0 self-center text-muted-foreground opacity-0 motion-fade group-hover:opacity-100"
           aria-hidden="true"
         />
       )}
@@ -35,18 +37,18 @@ export function EventRow({ event, className }: EventRowProps): JSX.Element {
   );
 
   const cardClass = cn(
-    "group rounded-xl bg-muted p-3 transition-colors",
-    event.sourceUrl !== null && event.sourceUrl !== "" && "cursor-pointer hover:bg-muted/60",
+    "group rounded-control bg-(--control-bg) p-2 motion-control",
+    hasSource && "cursor-pointer hover:bg-(--control-hover-bg)",
     className,
   );
 
-  if (event.sourceUrl !== null && event.sourceUrl !== "") {
+  if (hasSource) {
     return (
       <Tooltip>
         <TooltipTrigger
           render={
             <a
-              href={event.sourceUrl}
+              href={event.sourceUrl ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
               className={cardClass}

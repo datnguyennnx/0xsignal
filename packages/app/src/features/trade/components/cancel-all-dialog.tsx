@@ -6,10 +6,8 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-  MODAL_CONTENT_CLASS,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { cn } from "cn";
 
 interface CancelAllDialogProps {
   open: boolean;
@@ -32,37 +30,23 @@ export function CancelAllDialog({
 }: CancelAllDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={cn(
-          MODAL_CONTENT_CLASS,
-          "sm:max-w-[clamp(18rem,36vw,22.5rem)] p-5 gap-[clamp(0.75rem,1.25vw,1.25rem)]",
-        )}
-      >
+      <DialogContent layout="dialog" className="gap-stack">
         <DialogHeader>
-          <DialogTitle className="text-sm font-medium text-foreground">
-            Cancel All Orders
-          </DialogTitle>
-          <DialogDescription className="text-[length:var(--text-compact)] leading-relaxed">
+          <DialogTitle>Cancel All Orders</DialogTitle>
+          <DialogDescription>
             Are you sure you want to cancel all {orderCount} open order
             {orderCount === 1 ? "" : "s"}?
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="mx-0 mb-0 flex-row items-center justify-end gap-[clamp(0.5rem,0.8vw,0.75rem)] rounded-none border-t-0 bg-transparent p-0">
-          <DialogClose
-            render={
-              <Button
-                variant="outline"
-                className="h-10 px-3 text-[length:var(--text-compact)] font-medium"
-              />
-            }
-          >
+        <DialogFooter className="border-t-0 p-0">
+          <DialogClose render={<Button variant="outline" className="font-medium" />}>
             Keep Orders
           </DialogClose>
           <Button
             variant="destructive"
             onClick={onConfirm}
             disabled={isPending}
-            className="h-10 px-3 text-[length:var(--text-compact)] font-medium"
+            className="font-medium"
           >
             Cancel All
           </Button>

@@ -1,4 +1,6 @@
+import { memo } from "react";
 import { TableBody, TableRow, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { TableEmptyRow } from "@/components/table-empty-row";
 import { formatCompactUsd } from "@/core/utils/formatters";
 
@@ -35,7 +37,7 @@ export interface BalanceTableBodyProps {
   onSelectCoin?: ((coin: string) => void) | undefined;
 }
 
-function SummaryRow({
+const SummaryRow = memo(function SummaryRow({
   label,
   value,
   pnl,
@@ -64,9 +66,9 @@ function SummaryRow({
       <TableCell className={cNum}>{formatCompactUsd(available)}</TableCell>
     </TableRow>
   );
-}
+});
 
-export function BalanceTableBody({
+export const BalanceTableBody = memo(function BalanceTableBody({
   isChLoading,
   marginSummary,
   positions,
@@ -120,15 +122,17 @@ export function BalanceTableBody({
               {onSelectCoin === undefined ? (
                 position.coin
               ) : (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="auto"
                   onClick={() => {
                     onSelectCoin?.(position.coin);
                   }}
-                  className="relative overflow-hidden flex items-center w-full text-left cursor-pointer transition-colors hover:text-foreground rounded px-1 -mx-1"
+                  className="relative flex w-full items-center justify-start overflow-hidden -mx-1 text-left font-medium hover:bg-transparent active:scale-100"
                 >
                   <span className="relative z-10">{position.coin}</span>
-                </button>
+                </Button>
               )}
             </TableCell>
             <TableCell className={c}>
@@ -145,4 +149,4 @@ export function BalanceTableBody({
       })}
     </TableBody>
   );
-}
+});

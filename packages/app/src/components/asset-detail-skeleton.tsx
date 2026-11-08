@@ -10,8 +10,8 @@ const WIDE_COLUMN_GAP = `${(GRID_GUTTER_FRACTION * 100).toFixed(2)}%`;
 
 export function AssetDetailSkeleton() {
   return (
-    <div className="container-fluid flex flex-col min-h-[var(--trading-region-height)] select-none animate-in fade-in duration-200 ease-premium">
-      <header className="shrink-0 flex flex-col min-h-[calc(2.25rem_+_1.625*0.75rem_+_clamp(0.25rem,0.5vw,0.375rem))] pb-[clamp(0.25rem,0.5vw,0.375rem)]">
+    <div className="container-fluid flex flex-col min-h-(--trading-region-height) select-none animate-in fade-in duration-(--dur-base) ease-premium">
+      <header className="shrink-0 flex flex-col min-h-[calc(2.25rem_+_1.625*0.6875rem_+_clamp(0.25rem,0.5vw,0.375rem))] pb-1">
         <div className="flex h-9 items-center gap-2">
           <Skeleton className="size-5 shrink-0 rounded-full" />
           <Skeleton className="h-5 w-40" />
@@ -23,17 +23,17 @@ export function AssetDetailSkeleton() {
           style={{ gridTemplateColumns: WIDE_COLUMNS, columnGap: WIDE_COLUMN_GAP }}
         >
           <div className="min-h-0 grid grid-rows-[11fr_5fr] gap-2">
-            <Skeleton className="min-h-0 rounded-lg" />
-            <Skeleton className="min-h-0 rounded-lg" />
+            <Skeleton className="min-h-0 rounded-panel" />
+            <Skeleton className="min-h-0 rounded-panel" />
           </div>
-          <Skeleton className="min-h-0 rounded-lg" />
-          <Skeleton className="min-h-0 rounded-lg" />
+          <Skeleton className="min-h-0 rounded-panel" />
+          <Skeleton className="min-h-0 rounded-panel" />
         </div>
-        <div className="grid @[80rem]:hidden flex-1 min-h-0 grid-cols-[7fr_3fr] grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-          <Skeleton className="min-h-0 rounded-lg" />
-          <Skeleton className="min-h-0 rounded-lg" />
-          <Skeleton className="min-h-0 rounded-lg" />
-          <Skeleton className="min-h-0 rounded-lg" />
+        <div className="grid @[80rem]:hidden flex-1 min-h-0 grid-cols-[7fr_3fr] grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-1">
+          <Skeleton className="min-h-0 rounded-panel" />
+          <Skeleton className="min-h-0 rounded-panel" />
+          <Skeleton className="min-h-0 rounded-panel" />
+          <Skeleton className="min-h-0 rounded-panel" />
         </div>
       </div>
     </div>
@@ -42,7 +42,7 @@ export function AssetDetailSkeleton() {
 
 export function AssetDetailError({ title, onRetry }: { title: string; onRetry: () => void }) {
   return (
-    <div className="container-fluid flex min-h-[var(--trading-region-height)] items-center justify-center py-6 overscroll-none animate-in fade-in duration-200 ease-premium">
+    <div className="container-fluid flex min-h-(--trading-region-height) items-center justify-center py-6 overscroll-none animate-in fade-in duration-(--dur-base) ease-premium">
       <ErrorState title={title} retryAction={onRetry} />
     </div>
   );

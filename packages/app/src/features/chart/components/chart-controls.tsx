@@ -25,28 +25,26 @@ export const ChartControls = memo(function ChartControls({
   onToggleFullscreen,
 }: ChartControlsProps) {
   return (
-    <div className="flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">
-      <div className="hidden xl:flex">
-        <IndicatorButton
-          activeIndicators={activeIndicators}
-          onAddIndicator={onAddIndicator}
-          onRemoveIndicator={onRemoveIndicator}
-        />
-      </div>
+    <div data-dense className="row-actions">
+      <IndicatorButton
+        activeIndicators={activeIndicators}
+        onAddIndicator={onAddIndicator}
+        onRemoveIndicator={onRemoveIndicator}
+      />
       {hasActiveOverlays && (
         <Tooltip>
           <TooltipTrigger
             render={
               <Button
                 variant="outline"
-                size="sm"
+                size="icon"
                 onClick={onResetAll}
                 aria-label="Reset all overlays"
-                className="px-2 border-border/40 bg-background/80 text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring/40"
+                className="text-muted-foreground hover:text-foreground"
               />
             }
           >
-            <RefreshCcw className="w-3.5 h-3.5" aria-hidden="true" />
+            <RefreshCcw className="size-icon" aria-hidden="true" />
           </TooltipTrigger>
           <TooltipContent>Reset all overlays</TooltipContent>
         </Tooltip>
@@ -54,17 +52,15 @@ export const ChartControls = memo(function ChartControls({
 
       <Button
         variant="outline"
-        size="sm"
+        size="icon"
         onClick={onToggleFullscreen}
         aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
         aria-pressed={isFullscreen}
-        title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-        className="px-3 border-border/40 bg-background/80 hover:bg-muted/40 focus-visible:ring-ring/40"
       >
         {isFullscreen ? (
-          <Minimize2 className="w-3.5 h-3.5" aria-hidden="true" />
+          <Minimize2 className="size-icon" aria-hidden="true" />
         ) : (
-          <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />
+          <Maximize2 className="size-icon" aria-hidden="true" />
         )}
       </Button>
     </div>

@@ -5,15 +5,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function ProfileHeading() {
   return (
-    <div className="space-y-1">
-      <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
-        <User className="size-4 text-primary" />
+    <div className="flex flex-col gap-1">
+      <h3 className="flex items-center gap-inline type-title font-semibold text-foreground">
+        <User className="size-icon" />
         Profile
       </h3>
-      <p className="text-xs text-muted-foreground leading-relaxed">
+      <p className="type-body text-muted-foreground">
         Manage your avatar, display name, and account.
       </p>
     </div>
@@ -22,10 +23,11 @@ function ProfileHeading() {
 
 export function ProfileLoading() {
   return (
-    <div className="flex flex-col gap-[clamp(1rem,1.5vw,1.5rem)]">
+    <div className="flex flex-col gap-stack">
       <ProfileHeading />
-      <div className="flex items-center justify-center py-8">
-        <div className="size-5 animate-spin rounded-full border-2 border-muted-foreground/40" />
+      <div className="flex flex-col gap-inline py-6">
+        <Skeleton className="h-(--control-h) w-full max-w-(--measure-form)" />
+        <Skeleton className="h-(--control-h) w-2/3 max-w-(--measure-form)" />
       </div>
     </div>
   );
@@ -37,13 +39,13 @@ interface ProfileSignedOutProps {
 
 export function ProfileSignedOut({ onSignIn }: ProfileSignedOutProps) {
   return (
-    <div className="flex flex-col gap-[clamp(1rem,1.5vw,1.5rem)]">
+    <div className="flex flex-col gap-stack">
       <ProfileHeading />
-      <div className="flex flex-col items-center gap-4 py-8 text-center">
-        <Lock className="size-8 text-muted-foreground" />
-        <div className="space-y-1">
+      <div className="flex flex-col items-center gap-stack py-6 text-center">
+        <Lock className="size-icon-lg text-muted-foreground" />
+        <div className="flex flex-col gap-1">
           <p className="font-medium">Sign in to manage your profile</p>
-          <p className="text-sm text-muted-foreground">
+          <p className="type-body text-muted-foreground">
             Sign in to manage your avatar, display name, and account.
           </p>
         </div>
@@ -71,28 +73,28 @@ export function ProfileCard({
   const avatarUrl = user.avatarUrl;
 
   return (
-    <div className="flex flex-col gap-[clamp(1rem,1.5vw,1.5rem)]">
+    <div className="flex flex-col gap-stack">
       <ProfileHeading />
 
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-4">
-          <Avatar className="size-14 ring-1 ring-border/25">
-            {avatarUrl !== null && avatarUrl !== "" ? (
-              <AvatarImage src={avatarUrl} alt="Avatar" />
-            ) : (
-              <AvatarFallback>
-                <User className="size-6 text-muted-foreground" />
-              </AvatarFallback>
-            )}
-          </Avatar>
-          <div className="space-y-0.5">
-            <p className="text-sm font-medium text-foreground">{user.displayName ?? "Unnamed"}</p>
-            <p className="text-xs text-muted-foreground capitalize">{user.provider} account</p>
-          </div>
+      <div className="flex items-center gap-stack">
+        <Avatar className="size-(--avatar-size)">
+          {avatarUrl !== null && avatarUrl !== "" ? (
+            <AvatarImage src={avatarUrl} alt="Avatar" />
+          ) : (
+            <AvatarFallback>
+              <User className="size-[calc(var(--icon)*1.5)] text-muted-foreground" />
+            </AvatarFallback>
+          )}
+        </Avatar>
+        <div className="flex flex-col gap-1">
+          <p className="type-control font-medium text-foreground">
+            {user.displayName ?? "Unnamed"}
+          </p>
+          <p className="type-label text-muted-foreground capitalize">{user.provider} account</p>
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         <Label htmlFor="display-name">Display Name</Label>
         <Input
           id="display-name"
@@ -104,15 +106,14 @@ export function ProfileCard({
           }}
           maxLength={100}
           autoComplete="name"
+          className="max-w-(--measure-form)"
         />
       </div>
 
-      <div className="flex justify-end">
-        <Button variant="destructive" size="sm" onClick={onSignOut} className="gap-1.5">
-          <LogOut className="size-3.5" />
-          Sign out
-        </Button>
-      </div>
+      <Button variant="destructive" onClick={onSignOut} className="gap-inline self-end">
+        <LogOut className="size-icon" />
+        Sign out
+      </Button>
     </div>
   );
 }

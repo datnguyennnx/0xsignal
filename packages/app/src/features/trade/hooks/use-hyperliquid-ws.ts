@@ -29,6 +29,24 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
+ * One parse per frame object, shared by every `allMids` registration. The stream
+ * client broadcasts the same payload object to all subscribers, so a WeakMap
+ * makes the second..Nth subscriber reuse the first subscriber's map (AU7-02).
+ */
+const parsedMids = new WeakMap<object, Record<string, number>>();
+
+function parseMidsPayload(data: Record<string, unknown>): Record<string, number> {
+  const cached = parsedMids.get(data);
+  if (cached !== undefined) return cached;
+  const parsed: Record<string, number> = {};
+  for (const [coin, price] of Object.entries(data)) {
+    if (typeof price === "string") parsed[coin] = Number(price) || 0;
+  }
+  parsedMids.set(data, parsed);
+  return parsed;
+}
+
+/**
  * Shared auto-routing logic: routes market stream messages to the Zustand store.
  */
 function routeMarketMessageToStore(
@@ -49,13 +67,7 @@ function routeMarketMessageToStore(
         .applyOrderbookSnapshot(key, [[...data.levels[0]], [...data.levels[1]]]);
     }
   } else if (ch === "allMids" && isRecord(data)) {
-    const parsed: Record<string, number> = {};
-    for (const [coin, price] of Object.entries(data)) {
-      if (typeof price === "string") {
-        parsed[coin] = Number(price) || 0;
-      }
-    }
-    useMarketDataStore.getState().setAllMids(parsed);
+    useMarketDataStore.getState().setAllMids(parseMidsPayload(data));
   }
   // candle: caller must provide onMessage for now
 }

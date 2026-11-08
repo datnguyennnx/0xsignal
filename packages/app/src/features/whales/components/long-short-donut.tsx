@@ -1,19 +1,20 @@
 import { useState, type JSX } from "react";
 // react-doctor-disable-next-line react-doctor/prefer-dynamic-import -- this module is only reached through the panel's lazy()
-import { Pie, PieChart } from "recharts";
+import { Pie, PieChart, ResponsiveContainer } from "recharts";
 
 import { formatCompactUsd } from "@/core/utils/formatters";
 
 import { sharePercent, sharePercentLabel } from "../hooks/use-coin-market";
 
-const DONUT_SIZE_PX = 108;
 const DONUT_INNER_RADIUS = "76%";
-const DONUT_OUTER_RADIUS = "100%";
-// The chart pair, with the older gain/loss pair as the fallback for themes without it.
-const TONE_LONG = "var(--data-up, var(--gain))";
-const TONE_SHORT = "var(--data-down, var(--loss))";
+// Inset from the box edge so the 1px hover stroke is not clipped by the svg viewport.
+const DONUT_OUTER_RADIUS = "96%";
+const TONE_LONG = "var(--market-up)";
+const TONE_SHORT = "var(--market-down)";
 // A full-circle base, so a thin ring reads as a dial with a scale rather than a floating arc.
-const TRACK_TONE = "color-mix(in oklab, var(--muted-foreground) 12%, transparent)";
+const TRACK_TONE = "var(--muted-foreground)";
+const TRACK_OPACITY = 0.12;
+const SLICE_OPACITY = 0.88;
 const TRACK_DATA = [{ label: "track", value: 1 }];
 
 type Side = "long" | "short";
@@ -22,6 +23,7 @@ interface DonutSlice {
   side: Side;
   notional: number;
   fill: string;
+  fillOpacity: number;
   stroke: string;
   strokeOpacity: number;
   strokeWidth: number;
@@ -40,8 +42,7 @@ interface LongShortDonutProps {
 
 /** Slices sit a step under the raw token: at this size full intensity reads as an alarm light. */
 function sliceTone(side: Side): string {
-  const tone = side === "long" ? TONE_LONG : TONE_SHORT;
-  return `color-mix(in oklab, ${tone} 88%, transparent)`;
+  return side === "long" ? TONE_LONG : TONE_SHORT;
 }
 
 function countLabel(count: number): string {
@@ -60,6 +61,7 @@ function toSlice(side: Side, notional: number, hovered: Side | null): DonutSlice
     side,
     notional,
     fill: sliceTone(side),
+    fillOpacity: SLICE_OPACITY,
     stroke: active ? "var(--foreground)" : "none",
     strokeOpacity: active ? 0.25 : 0,
     strokeWidth: 1,
@@ -70,10 +72,7 @@ function toSlice(side: Side, notional: number, hovered: Side | null): DonutSlice
 export function LongShortDonut({ long, short }: LongShortDonutProps): JSX.Element {
   const [hovered, setHovered] = useState<Side | null>(null);
   const total = long.notional + short.notional;
-
-  if (!(total > 0)) {
-    return <p className="text-xs text-muted-foreground">No tracked long or short notional.</p>;
-  }
+  const hasData = total > 0;
 
   const longPercent = sharePercent(long.notional, total);
   const shortPercent = sharePercent(short.notional, total);
@@ -93,66 +92,76 @@ export function LongShortDonut({ long, short }: LongShortDonutProps): JSX.Elemen
   const ariaLabel = `Long short split: long ${sharePercentLabel(longPercent)}, ${formatCompactUsd(long.notional)}, ${countLabel(long.count)}; short ${sharePercentLabel(shortPercent)}, ${formatCompactUsd(short.notional)}, ${countLabel(short.count)}.`;
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="flex flex-col items-center gap-inline">
       <div
-        role="img"
-        aria-label={ariaLabel}
-        className="relative"
-        style={{ width: DONUT_SIZE_PX, height: DONUT_SIZE_PX }}
+        role={hasData ? "img" : undefined}
+        aria-label={hasData ? ariaLabel : undefined}
+        className="relative aspect-square w-(--donut-size) max-w-full"
       >
-        <PieChart
-          width={DONUT_SIZE_PX}
-          height={DONUT_SIZE_PX}
-          accessibilityLayer={false}
-          margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-        >
-          <Pie
-            data={TRACK_DATA}
-            dataKey="value"
-            startAngle={90}
-            endAngle={-270}
-            innerRadius={DONUT_INNER_RADIUS}
-            outerRadius={DONUT_OUTER_RADIUS}
-            fill={TRACK_TONE}
-            stroke="none"
-            isAnimationActive={false}
-          />
-          <Pie
-            data={slices}
-            dataKey="notional"
-            nameKey="side"
-            startAngle={90}
-            endAngle={-270}
-            innerRadius={DONUT_INNER_RADIUS}
-            outerRadius={DONUT_OUTER_RADIUS}
-            stroke="none"
-            isAnimationActive={false}
-            onMouseEnter={(_entry, index) => {
-              setHovered(slices[index]?.side ?? null);
-            }}
-            onMouseLeave={() => {
-              setHovered(null);
-            }}
-          />
-        </PieChart>
-        {/* Digits carry no descender, so the pair needs a single pixel of drop to look centred. */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="flex w-[68%] translate-y-px flex-col items-center gap-0.5 text-center">
-            <span
-              className="max-w-full truncate text-lg leading-none font-semibold tabular-nums"
-              style={{ color: shown === "long" ? TONE_LONG : TONE_SHORT }}
-            >
-              {centrePercent(shownSplit.notional, shownPercent)}
-            </span>
-            <span className="max-w-full truncate text-[0.6875rem] leading-none tracking-wide text-muted-foreground uppercase">
-              {shown}
-            </span>
-          </div>
-        </div>
+        {hasData ? (
+          <>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart
+                accessibilityLayer={false}
+                margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+              >
+                <Pie
+                  data={TRACK_DATA}
+                  dataKey="value"
+                  startAngle={90}
+                  endAngle={-270}
+                  innerRadius={DONUT_INNER_RADIUS}
+                  outerRadius={DONUT_OUTER_RADIUS}
+                  fill={TRACK_TONE}
+                  fillOpacity={TRACK_OPACITY}
+                  stroke="none"
+                  isAnimationActive={false}
+                />
+                <Pie
+                  data={slices}
+                  dataKey="notional"
+                  nameKey="side"
+                  startAngle={90}
+                  endAngle={-270}
+                  innerRadius={DONUT_INNER_RADIUS}
+                  outerRadius={DONUT_OUTER_RADIUS}
+                  stroke="none"
+                  isAnimationActive={false}
+                  onMouseEnter={(_entry, index) => {
+                    setHovered(slices[index]?.side ?? null);
+                  }}
+                  onMouseLeave={() => {
+                    setHovered(null);
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            {/* Digits carry no descender, so the pair needs a single pixel of drop to look centred. */}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="flex w-2/3 translate-y-px flex-col items-center gap-1 text-center">
+                <span
+                  className="max-w-full truncate type-title leading-none font-semibold tabular-nums"
+                  style={{ color: shown === "long" ? TONE_LONG : TONE_SHORT }}
+                >
+                  {centrePercent(shownSplit.notional, shownPercent)}
+                </span>
+                <span className="max-w-full truncate type-label leading-none tracking-wide text-muted-foreground uppercase">
+                  {shown}
+                </span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="flex h-full items-center justify-center px-2 text-center type-label text-muted-foreground">
+            No tracked long or short notional.
+          </p>
+        )}
       </div>
-      <p className="h-4 text-center text-xs leading-4 tabular-nums text-muted-foreground">
-        {detailLabel}
-      </p>
+      {hasData && (
+        <p className="min-h-4 text-center type-label tracking-wide tabular-nums text-muted-foreground">
+          {detailLabel}
+        </p>
+      )}
     </div>
   );
 }

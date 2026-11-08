@@ -30,9 +30,9 @@ const LongShortDonut = lazy(() =>
 );
 
 const SKELETON_ROWS = ["coin-context-1", "coin-context-2", "coin-context-3"] as const;
-const GROUP_CLASS = "flex flex-col gap-2";
-const GROUP_LABEL_CLASS = "text-xs font-normal text-muted-foreground";
-const CAPTION_CLASS = "text-[11px] text-muted-foreground";
+const GROUP_CLASS = "flex flex-col gap-inline";
+const GROUP_LABEL_CLASS = "type-label font-normal text-muted-foreground";
+const CAPTION_CLASS = "type-data text-muted-foreground";
 const WHALE_LIMIT = 10;
 
 interface MarketStatsSource {
@@ -97,9 +97,9 @@ function toWhaleRows(rows: readonly WhalePosition[]): WhaleRow[] {
 
 function StatRow({ label, value }: { label: string; value: string }): JSX.Element {
   return (
-    <div className="flex items-baseline justify-between gap-2">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm tabular-nums">{value}</dd>
+    <div className="flex items-baseline justify-between gap-inline">
+      <dt className="type-label text-muted-foreground">{label}</dt>
+      <dd className="type-data tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -114,7 +114,7 @@ function MarketStats({
   return (
     <section className={GROUP_CLASS}>
       <GroupLabel>Market</GroupLabel>
-      <dl className="flex flex-col gap-2">
+      <dl className="flex flex-col gap-inline">
         <StatRow label="Funding" value={formatFundingPercent(toNumber(asset?.funding))} />
         <StatRow label="Open interest" value={formatCompactUsd(openInterestUsd)} />
         <StatRow label="24h volume" value={formatCompactUsd(toNumber(asset?.dayNtlVlm))} />
@@ -145,9 +145,9 @@ function crowdPlaceholder({
 }: CrowdPlaceholderProps): JSX.Element | null {
   if (isLoading) {
     return (
-      <div className="flex h-full flex-col gap-3">
+      <div className="flex h-full flex-col gap-inline">
         {SKELETON_ROWS.map((key) => (
-          <Skeleton key={key} className="h-16 w-full" />
+          <Skeleton key={key} className="h-(--row-table) w-full" />
         ))}
       </div>
     );
@@ -275,9 +275,16 @@ export function CoinContextPanel({ id }: PanelComponentProps): JSX.Element {
   );
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-panel">
       <header>
-        <Suspense fallback={<Skeleton className="h-40 w-full" />}>
+        <Suspense
+          fallback={
+            <div className="flex flex-col gap-inline">
+              <Skeleton className="h-6 w-1/2" />
+              <Skeleton className="h-(--sparkline-h) w-full" />
+            </div>
+          }
+        >
           <CoinPriceChart
             coin={coin}
             markPx={markPx}
@@ -290,7 +297,7 @@ export function CoinContextPanel({ id }: PanelComponentProps): JSX.Element {
       <MarketStats asset={asset} openInterestUsd={openInterestUsd} />
       <section className={GROUP_CLASS}>
         <GroupLabel>Tracked split</GroupLabel>
-        <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+        <Suspense fallback={<Skeleton className="h-(--donut-size) w-(--donut-size) max-w-full" />}>
           <LongShortDonut long={summary.long} short={summary.short} />
         </Suspense>
         {anchor !== null && <p className={CAPTION_CLASS}>{anchor}</p>}

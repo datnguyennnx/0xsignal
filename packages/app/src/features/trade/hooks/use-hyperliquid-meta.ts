@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/services/api";
+import { getMarkets } from "@/services/api/market";
 import { queryKeys } from "@/lib/query-keys";
 import type { AggregatedMarket } from "@0xsignal/shared";
 import { parseSymbol } from "../lib/symbol";
@@ -18,6 +18,9 @@ export const DEFAULT_PRECISION: AssetPrecision = {
   szDecimals: 4,
   maxLeverage: 50,
 };
+
+const EMPTY_PRECISION_MAP: ReadonlyMap<string, AssetPrecision> = new Map();
+const EMPTY_INDEX_MAP: ReadonlyMap<string, number> = new Map();
 
 /** One key rule: `parseSymbol` keeps the dex prefix (lowercased), then uppercase. */
 function precisionKey(symbol: string): string {
@@ -56,19 +59,19 @@ export function lookupPrecision(
 export function useHyperliquidMeta() {
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.market.meta(),
-    queryFn: () => api.getMarkets(),
+    queryFn: () => getMarkets(),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
   const precisionMap = useMemo(() => {
-    if (!Array.isArray(data)) return new Map<string, AssetPrecision>();
+    if (!Array.isArray(data)) return EMPTY_PRECISION_MAP;
     return buildPrecisionMap(data);
   }, [data]);
 
   const assetIndexMap = useMemo(() => {
-    if (!Array.isArray(data)) return new Map<string, number>();
+    if (!Array.isArray(data)) return EMPTY_INDEX_MAP;
     return buildAssetIndexMap(data);
   }, [data]);
 

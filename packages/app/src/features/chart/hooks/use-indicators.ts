@@ -7,7 +7,6 @@ import {
 } from "@0xsignal/shared";
 import { useIndicatorData } from "./use-indicator-data";
 import type { IndicatorRenderEntry } from "../utils/indicator-data";
-import { getSeriesColor } from "../lib/color";
 
 interface UseIndicatorsProps {
   data?: ChartDataPoint[];
@@ -55,7 +54,6 @@ export const useIndicators = ({ data = [] }: UseIndicatorsProps): UseIndicatorsR
             config,
             params,
             visible: true,
-            color: getSeriesColor(instanceId),
           },
         ];
       });

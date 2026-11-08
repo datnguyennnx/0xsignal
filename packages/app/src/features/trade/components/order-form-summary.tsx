@@ -21,10 +21,10 @@ export function OrderFormSummary({
 }: OrderFormSummaryProps) {
   return (
     <>
-      <div className="flex flex-col gap-[var(--space-1,0.3125rem)]">
-        <div className="flex items-center justify-between py-[var(--space-1,0.3125rem)]">
-          <span className="text-xs text-muted-foreground">Order Value</span>
-          <span className="text-xs tabular-nums text-foreground">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between py-1">
+          <span className="type-label text-muted-foreground">Order Value</span>
+          <span className="type-label tabular-nums text-foreground">
             {orderValue > 0
               ? sizeAsset === QUOTE_ASSET
                 ? formatCompactUsd(orderValue)
@@ -32,19 +32,19 @@ export function OrderFormSummary({
               : "—"}
           </span>
         </div>
-        <div className="flex items-center justify-between py-[var(--space-1,0.3125rem)]">
-          <span className="text-xs text-muted-foreground">Margin Required</span>
-          <span className="text-xs tabular-nums text-foreground">
+        <div className="flex items-center justify-between py-1">
+          <span className="type-label text-muted-foreground">Margin Required</span>
+          <span className="type-label tabular-nums text-foreground">
             {marginRequired > 0 ? formatCompactUsd(marginRequired) : "—"}
           </span>
         </div>
       </div>
 
       <Button
-        variant="default"
+        variant="cta"
         onClick={onPlaceOrder}
         disabled={!canPlace || isPending}
-        className="mt-[var(--space-2,0.75rem)] w-full h-[calc(var(--field-h,2.75rem)+0.5rem)] text-xs font-semibold uppercase tracking-wider rounded-lg border-0 transition-[background-color,scale] duration-150 ease-premium active:scale-[0.98]"
+        className="mt-0 w-full font-semibold uppercase tracking-wider transition-[background-color,scale] duration-(--dur-fast) ease-premium active:scale-[0.98]"
       >
         {isPending ? "Placing Order..." : "Place Order"}
       </Button>

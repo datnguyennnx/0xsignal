@@ -76,6 +76,10 @@ const rawOrderbookState = new Map<
 const dirtySymbols = new Set<string>();
 let flushRafId: number | null = null;
 
+/** Newest `allMids` frame waiting for the next paint; frames are full snapshots. */
+let pendingMids: Record<string, number> | null = null;
+let midsRafId: number | null = null;
+
 /** Bounded LRU order for candle keys and orderbook symbols. */
 const candleKeyOrder: string[] = [];
 const orderbookSymbolOrder: string[] = [];
@@ -254,6 +258,46 @@ function mergeSortedBars(
   return result;
 }
 
+/**
+ * Apply the newest mid map, skipping the write when no value or key changed.
+ * Every `allMids` frame is a full snapshot, so the latest frame wins.
+ */
+function applyAllMids(mids: Record<string, number>): void {
+  useMarketDataStore.setState((state) => {
+    const current = state.allMids;
+    const keys = Object.keys(mids);
+    if (keys.length === Object.keys(current).length) {
+      let changed = false;
+      for (let i = 0; i < keys.length; i++) {
+        if (current[keys[i]] !== mids[keys[i]]) {
+          changed = true;
+          break;
+        }
+      }
+      if (!changed) return state;
+    }
+    return { allMids: mids };
+  });
+}
+
+/** Coalesce every `allMids` write in one frame into a single store commit. */
+function scheduleAllMids(mids: Record<string, number>): void {
+  pendingMids = mids;
+  if (typeof requestAnimationFrame !== "function") {
+    const next = pendingMids;
+    pendingMids = null;
+    applyAllMids(next);
+    return;
+  }
+  if (midsRafId !== null) return;
+  midsRafId = requestAnimationFrame(() => {
+    midsRafId = null;
+    const next = pendingMids;
+    pendingMids = null;
+    if (next !== null) applyAllMids(next);
+  });
+}
+
 /** Write one key and apply the candle LRU eviction, bounding the buffer. */
 function writeCandleKey(
   current: Record<string, ChartDataPoint[]>,
@@ -338,26 +382,7 @@ export const useMarketDataStore = create<MarketDataState>()(
 
     // ── All mids ────────────────────────────────────────────────
     setAllMids: (mids) => {
-      set((state) => {
-        // Shallow diff: only update if values actually changed.
-        // Prevents unnecessary re-renders when allMids ticks with same prices.
-        const current = state.allMids;
-        const keys = Object.keys(mids);
-        if (keys.length === Object.keys(current).length) {
-          let changed = false;
-          for (let i = 0; i < keys.length; i++) {
-            if (current[keys[i]] !== mids[keys[i]]) {
-              changed = true;
-              break;
-            }
-          }
-          if (!changed) return state;
-        } else {
-          // Key set differs — definitely changed
-          return { allMids: mids };
-        }
-        return { allMids: mids };
-      });
+      scheduleAllMids(mids);
     },
 
     // ── Candle append (O(n) merge of time-sorted arrays) ────────
@@ -413,8 +438,9 @@ export const useOrderbookData = (symbol: string): OrderbookData | undefined => {
   return data;
 };
 
-/** Subscribe to all mid prices. */
-export const useAllMidsData = (): Record<string, number> => useMarketDataStore((s) => s.allMids);
+/** Subscribe to one coin's mid; a tick for another coin never re-renders the caller. */
+export const useMidPrice = (coin: string): number | undefined =>
+  useMarketDataStore((s) => (coin === "" ? undefined : s.allMids[coin]));
 
 /** Subscribe to candle data for a given key (e.g. "BTC:1m"). */
 export const useCandleData = (key: string): ChartDataPoint[] | undefined =>

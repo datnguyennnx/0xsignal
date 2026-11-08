@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import type { FrontendOpenOrder } from "@0xsignal/shared";
+import type { FrontendOpenOrder, OpenOrder } from "@0xsignal/shared";
 
 import { OpenOrdersTable } from "./open-orders-table";
 import { TwapContent } from "./twap-content";
@@ -81,6 +81,41 @@ describe("open orders read-only rendering", () => {
     expect(html).toContain("Cancel All");
     expect(html).toContain(">Cancel<");
     expect(html).toContain(">View<");
+  });
+});
+
+describe("open orders with a missing order type", () => {
+  const unknownOrder: OpenOrder = {
+    coin: "ETH",
+    side: "B",
+    sz: "1",
+    limitPx: "2000",
+    oid: 3,
+    timestamp: 1_700_000_000_000,
+  };
+
+  test("renders a fallback type instead of crashing the row", () => {
+    const html = renderToStaticMarkup(
+      <OpenOrdersTable
+        isOoLoading={false}
+        openOrders={[unknownOrder]}
+        onCancelOrder={() => {
+          /* noop */
+        }}
+        onViewTpSl={() => {
+          /* noop */
+        }}
+        onCancelAll={() => {
+          /* noop */
+        }}
+        isCancelPending={false}
+        orderCount={1}
+      />,
+    );
+
+    expect(html).toContain("ETH");
+    expect(html).toContain("Unknown");
+    expect(html).not.toContain("Unknown order type");
   });
 });
 

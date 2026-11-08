@@ -10,11 +10,10 @@ import { CoinPriceDialog, type SubjectPosition } from "./coin-price-dialog";
 import CoinPriceSparkline from "./coin-price-sparkline";
 
 const SPARKLINE_CANDLES = 48;
-const SPARKLINE_HEIGHT_PX = 44;
 const BUTTON_CLASS =
-  "block w-full cursor-pointer rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
-const FALLBACK_BUTTON_CLASS =
-  "flex w-full cursor-not-allowed items-center justify-center rounded-md text-xs text-muted-foreground";
+  "block w-full cursor-pointer rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+const FALLBACK_CLASS =
+  "flex w-full cursor-not-allowed items-center justify-center rounded-control type-label text-muted-foreground";
 
 interface CoinPriceChartProps {
   coin: string;
@@ -28,11 +27,23 @@ function countLabel(count: number): string {
   return count === 1 ? "1 tracked position" : `${count} tracked positions`;
 }
 
-function deltaLabel(firstClose: number | undefined, lastClose: number | undefined): string | null {
+function deltaPercent(
+  firstClose: number | undefined,
+  lastClose: number | undefined,
+): number | null {
   if (firstClose === undefined || lastClose === undefined || firstClose === 0) return null;
   const percent = ((lastClose - firstClose) / firstClose) * 100;
-  if (!Number.isFinite(percent)) return null;
+  return Number.isFinite(percent) ? percent : null;
+}
+
+function deltaLabel(percent: number | null): string | null {
+  if (percent === null) return null;
   return `${percent >= 0 ? "+" : "−"}${Math.abs(percent).toFixed(2)}%`;
+}
+
+function deltaTone(percent: number): string {
+  if (Math.abs(percent) < 0.005) return "text-muted-foreground";
+  return percent > 0 ? "text-gain" : "text-loss";
 }
 
 export function CoinPriceChart({
@@ -49,25 +60,27 @@ export function CoinPriceChart({
   const firstClose = candles.at(0)?.close;
   const lastClose = candles.at(-1)?.close;
   const price = markPx ?? lastClose ?? null;
-  const delta = deltaLabel(firstClose, lastClose);
-  const deltaTone = delta?.startsWith("+") === true ? "text-gain" : "text-loss";
+  const percent = deltaPercent(firstClose, lastClose);
+  const delta = deltaLabel(percent);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-inline">
       {/* Price and count cannot share a 232px row, so each row pairs two short values. */}
       <div className="flex flex-col gap-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-xl leading-none font-semibold">{coin.toUpperCase()}</h2>
-          <span className="whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+        <div className="flex items-baseline justify-between gap-inline">
+          <h2 className="type-title leading-none font-semibold">{coin.toUpperCase()}</h2>
+          <span className="whitespace-nowrap type-data tabular-nums text-muted-foreground">
             {countLabel(rows.length)}
           </span>
         </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="min-w-0 whitespace-nowrap text-[28px] leading-none font-semibold tabular-nums">
+        <div className="flex items-baseline justify-between gap-inline">
+          <span className="min-w-0 whitespace-nowrap type-heading leading-none font-semibold tabular-nums">
             {price === null ? "—" : formatPrice(price)}
           </span>
-          {delta !== null && (
-            <span className={`shrink-0 whitespace-nowrap text-[11px] tabular-nums ${deltaTone}`}>
+          {delta !== null && percent !== null && (
+            <span
+              className={`shrink-0 whitespace-nowrap type-data tabular-nums ${deltaTone(percent)}`}
+            >
               {delta}
             </span>
           )}
@@ -75,7 +88,7 @@ export function CoinPriceChart({
       </div>
 
       {isLoading ? (
-        <Skeleton className="w-full" style={{ height: SPARKLINE_HEIGHT_PX }} />
+        <Skeleton className="w-full" style={{ height: "var(--sparkline-h)" }} />
       ) : hasHistory ? (
         <button
           type="button"
@@ -89,19 +102,14 @@ export function CoinPriceChart({
             setOpen(true);
           }}
         >
-          <div className="w-full" style={{ height: SPARKLINE_HEIGHT_PX }}>
+          <div className="w-full" style={{ height: "var(--sparkline-h)" }}>
             <CoinPriceSparkline candles={candles} />
           </div>
         </button>
       ) : (
-        <button
-          type="button"
-          disabled
-          className={FALLBACK_BUTTON_CLASS}
-          style={{ height: SPARKLINE_HEIGHT_PX }}
-        >
+        <output className={FALLBACK_CLASS} style={{ height: "var(--sparkline-h)" }}>
           No price history
-        </button>
+        </output>
       )}
 
       <CoinPriceDialog

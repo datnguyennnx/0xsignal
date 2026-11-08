@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_INTERVALS, ALL_INTERVALS } from "../utils/constants";
@@ -10,14 +10,18 @@ interface ChartHeaderProps {
   children?: React.ReactNode;
 }
 
-export function ChartHeader({ interval, onIntervalChange, children }: ChartHeaderProps) {
+const NON_DEFAULT_INTERVALS = ALL_INTERVALS.filter(
+  (int) => !DEFAULT_INTERVALS.some((d) => d.value === int.value),
+);
+
+export const ChartHeader = memo(function ChartHeader({
+  interval,
+  onIntervalChange,
+  children,
+}: ChartHeaderProps) {
   const isDefaultInterval = useMemo(
     () => DEFAULT_INTERVALS.some((int) => int.value === interval),
     [interval],
-  );
-
-  const nonDefaultIntervals = ALL_INTERVALS.filter(
-    (int) => !DEFAULT_INTERVALS.some((d) => d.value === int.value),
   );
 
   function handleIntervalChange(newInterval: string) {
@@ -27,58 +31,54 @@ export function ChartHeader({ interval, onIntervalChange, children }: ChartHeade
   }
 
   return (
-    <div className="flex items-center justify-between gap-[clamp(0.75rem,2vw,1rem)]">
-      <div className="flex items-center gap-[clamp(0.75rem,2vw,1rem)]">
-        <div className="flex items-center gap-[clamp(0.125rem,0.5vw,0.25rem)]">
-          {DEFAULT_INTERVALS.map((int) => (
-            <Button
-              key={int.value}
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                handleIntervalChange(int.value);
-              }}
-              className={cn(
-                "relative h-8 rounded-xl border px-2.5 text-[length:var(--text-micro)] tabular-nums tracking-[0.01em] transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-premium active:scale-[0.97] focus-visible:ring-[2px] focus-visible:ring-ring/40",
-                interval === int.value
-                  ? "border-border/60 bg-muted/80 text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
-              )}
-            >
-              {int.label}
-            </Button>
-          ))}
-          {nonDefaultIntervals.length > 0 && (
-            <NativeSelect
-              size="sm"
-              aria-label="More intervals"
-              value={isDefaultInterval ? "" : interval}
-              onChange={(e) => {
-                if (e.target.value) handleIntervalChange(e.target.value);
-              }}
-              wrapperClassName="min-w-[clamp(4.5rem,12vw,6rem)] max-w-[clamp(4.5rem,12vw,6rem)]"
-              className={cn(
-                "h-8 w-full min-w-0 border border-border/40 bg-background/80 px-2.5 pr-7 text-[length:var(--text-micro)] tabular-nums tracking-[0.01em] cursor-pointer transition-[background-color,border-color,color,box-shadow] hover:bg-muted/40 focus-visible:ring-[2px] focus-visible:ring-ring/40",
-                isDefaultInterval
-                  ? "text-muted-foreground hover:text-foreground"
-                  : "border-border/60 bg-muted/80 text-foreground",
-              )}
-            >
-              {isDefaultInterval && (
-                <NativeSelectOption value="" disabled>
-                  More
-                </NativeSelectOption>
-              )}
-              {nonDefaultIntervals.map((int) => (
-                <NativeSelectOption key={int.value} value={int.value}>
-                  {int.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          )}
-        </div>
+    <div data-dense className="row-actions justify-between overflow-x-auto scrollbar-hide">
+      <div className="row-actions shrink-0">
+        {DEFAULT_INTERVALS.map((int) => (
+          <Button
+            key={int.value}
+            variant="ghost"
+            onClick={() => {
+              handleIntervalChange(int.value);
+            }}
+            className={cn(
+              "relative rounded-control border tabular-nums tracking-[0.01em] press focus-ring transition-[background-color,border-color,color,box-shadow] duration-(--duration-fast)",
+              interval === int.value
+                ? "border-(--control-active-rim) bg-(--control-active-bg) text-foreground"
+                : "border-transparent text-muted-foreground hover:bg-(--control-hover-bg) hover:text-foreground",
+            )}
+          >
+            {int.label}
+          </Button>
+        ))}
+        {NON_DEFAULT_INTERVALS.length > 0 && (
+          <NativeSelect
+            aria-label="More intervals"
+            value={isDefaultInterval ? "" : interval}
+            onChange={(e) => {
+              if (e.target.value) handleIntervalChange(e.target.value);
+            }}
+            wrapperClassName="w-24"
+            className={cn(
+              "cursor-pointer transition-[background-color,border-color,color,box-shadow]",
+              isDefaultInterval
+                ? "text-muted-foreground hover:text-foreground"
+                : "border-(--control-active-rim) bg-(--control-active-bg) text-foreground",
+            )}
+          >
+            {isDefaultInterval && (
+              <NativeSelectOption value="" disabled>
+                More
+              </NativeSelectOption>
+            )}
+            {NON_DEFAULT_INTERVALS.map((int) => (
+              <NativeSelectOption key={int.value} value={int.value}>
+                {int.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        )}
       </div>
-      <div className="flex items-center gap-[clamp(0.25rem,0.5vw,0.5rem)]">{children}</div>
+      <div className="row-actions">{children}</div>
     </div>
   );
-}
+});

@@ -15,8 +15,12 @@ interface UseHyperliquidCandlesOptions {
 
 const LOAD_MORE_COOLDOWN = 1000;
 const LOAD_MORE_SPINNER_MIN_MS = 280;
+const HAS_MORE_KEY_LIMIT = 8;
 
 const isChartDataPointArray = (value: unknown): value is ChartDataPoint[] => Array.isArray(value);
+
+/** One identity while history is pending; a fresh `[]` per render invalidates downstream memos. */
+const EMPTY_CANDLES: ChartDataPoint[] = [];
 
 export function useHyperliquidCandles({
   symbol,
@@ -24,10 +28,14 @@ export function useHyperliquidCandles({
   limit = 200,
   enabled = true,
 }: UseHyperliquidCandlesOptions) {
+  const candleKey = `${normalizeSymbol(symbol)}:${interval}`;
+
   const [isConnected, setIsConnected] = useState(false);
   const [wsError, setWsError] = useState<Error | null>(null);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMoreByKey, setHasMoreByKey] = useState<Record<string, boolean>>({});
   const [isFetching, setIsFetching] = useState(false);
+
+  const hasMore = hasMoreByKey[candleKey] ?? true;
 
   const isFetchingRef = useRef(false);
   const hasMoreRef = useRef(true);
@@ -52,8 +60,21 @@ export function useHyperliquidCandles({
     hasMoreRef.current = hasMore;
   }, [hasMore]);
 
+  const setHasMoreForKey = useCallback((key: string, value: boolean) => {
+    setHasMoreByKey((prev) => {
+      const next = { ...prev, [key]: value };
+      // Bound the map to the keys viewed this session; drop the oldest first.
+      const keys = Object.keys(next);
+      if (keys.length > HAS_MORE_KEY_LIMIT) {
+        for (const stale of keys.slice(0, keys.length - HAS_MORE_KEY_LIMIT)) {
+          delete next[stale];
+        }
+      }
+      return next;
+    });
+  }, []);
+
   // ── Read from store ───────────────────────────────────────────────
-  const candleKey = `${normalizeSymbol(symbol)}:${interval}`;
   const storedCandles = useCandleData(candleKey);
   const mergeHistoryCandles = useMarketDataStore((s) => s.mergeHistoryCandles);
   const appendCandles = useMarketDataStore((s) => s.appendCandles);
@@ -76,7 +97,6 @@ export function useHyperliquidCandles({
       // Frames may already have landed on this key. Merge rather than replace so a
       // history page that resolves late cannot wipe them (wholesale only when empty).
       if (historyData !== undefined) mergeHistoryCandles(candleKey, historyData);
-      setHasMore(true);
       // The recent page spans the last `limit` bars ending now; backfill must stop there.
       rangeAnchorRef.current = {
         symbol,
@@ -221,7 +241,7 @@ export function useHyperliquidCandles({
         }
 
         if (older.length === 0) {
-          setHasMore(false);
+          setHasMoreForKey(candleKey, false);
           return;
         }
 
@@ -238,7 +258,7 @@ export function useHyperliquidCandles({
         if (filtered.length === 0) {
           const earliestFetchedTime = older[0]?.time;
           if (earliestFetchedTime === undefined || earliestFetchedTime * 1000 >= anchorEarliestMs) {
-            setHasMore(false);
+            setHasMoreForKey(candleKey, false);
           }
           return;
         }
@@ -252,7 +272,14 @@ export function useHyperliquidCandles({
         setFetchingWithMinimumDuration(false);
       }
     },
-    [storedCandles, setFetchingWithMinimumDuration, candleKey, appendCandles, limit],
+    [
+      storedCandles,
+      setFetchingWithMinimumDuration,
+      setHasMoreForKey,
+      candleKey,
+      appendCandles,
+      limit,
+    ],
   );
 
   // ── Cleanup ────────────────────────────────────────────────────────
@@ -267,7 +294,7 @@ export function useHyperliquidCandles({
   }, []);
 
   return {
-    data: storedCandles ?? [],
+    data: storedCandles ?? EMPTY_CANDLES,
     isLoading: historyLoading,
     isConnected,
     error: wsError ?? historyError,

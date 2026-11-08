@@ -1,18 +1,12 @@
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead } from "@/components/ui/table";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { TableEmptyRow } from "@/components/table-empty-row";
 
 import { useUserFunding } from "@/hooks/use-user-funding";
 import { useWhaleFunding } from "@/features/portfolio/hooks/use-portfolio-data";
-import { cHead, cHeadNum, TABLE_HEAD_CLASS } from "@/features/trade/utils/orderbook-table-classes";
+import { cHead, cHeadNum } from "@/features/trade/utils/orderbook-table-classes";
+import { TableSkeletonRows } from "./shared-table-components";
 import { usePagination } from "@/hooks/use-pagination";
 import { Pagination } from "@/components/ui/pagination";
 import { FundingHistoryRows } from "./funding-history-rows";
@@ -37,12 +31,12 @@ export function FundingHistoryTable({
   }, [isError, readOnly]);
 
   return (
-    <div className="flex flex-col gap-[clamp(0.5rem,0.8vw,0.75rem)]">
+    <div className="flex flex-1 min-h-0 flex-col gap-stack">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className={cHead}>Time</TableHead>
-            <TableHead className={cHead}>Coin</TableHead>
+            <TableHead className={`${cHead} font-medium`}>Coin</TableHead>
             <TableHead className={cHeadNum}>Size</TableHead>
             <TableHead className={cHead}>Position Side</TableHead>
             <TableHead className={cHeadNum}>Payment</TableHead>
@@ -51,11 +45,7 @@ export function FundingHistoryTable({
         </TableHeader>
         <TableBody>
           {isLoading ? (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center py-6">
-                <span className={TABLE_HEAD_CLASS}>Loading...</span>
-              </TableCell>
-            </TableRow>
+            <TableSkeletonRows rows={3} colSpan={6} />
           ) : !funding || funding.length === 0 ? (
             <TableEmptyRow colSpan={6} />
           ) : (
@@ -64,14 +54,16 @@ export function FundingHistoryTable({
         </TableBody>
       </Table>
       {funding && funding.length > 0 && (
-        <Pagination
-          currentPage={paginated.currentPage}
-          totalPages={paginated.totalPages}
-          totalItems={paginated.totalItems}
-          pageSize={paginated.pageSize}
-          onPageChange={paginated.setPage}
-          onPageSizeChange={paginated.setPageSize}
-        />
+        <div data-dense>
+          <Pagination
+            currentPage={paginated.currentPage}
+            totalPages={paginated.totalPages}
+            totalItems={paginated.totalItems}
+            pageSize={paginated.pageSize}
+            onPageChange={paginated.setPage}
+            onPageSizeChange={paginated.setPageSize}
+          />
+        </div>
       )}
     </div>
   );

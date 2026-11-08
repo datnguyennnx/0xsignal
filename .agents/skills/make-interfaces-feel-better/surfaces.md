@@ -206,7 +206,7 @@ img {
 
 ```tsx
 <img
-  className="outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
+  className="outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10"
   src={src}
   alt={alt}
 />

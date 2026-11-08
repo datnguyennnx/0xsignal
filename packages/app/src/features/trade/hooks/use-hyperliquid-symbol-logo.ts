@@ -36,13 +36,15 @@ function getSymbolLogoCandidates(symbol: string): string[] {
   return candidates;
 }
 
+const LOGO_PROBE_TIMEOUT_MS = 1500;
+
 async function probeImageUrl(url: string): Promise<string | null> {
   try {
     const ok = await new Promise<boolean>((resolve) => {
       const img = new Image();
       const timer = setTimeout(() => {
         resolve(false);
-      }, 4000);
+      }, LOGO_PROBE_TIMEOUT_MS);
       img.addEventListener(
         "load",
         () => {
@@ -69,13 +71,19 @@ async function probeImageUrl(url: string): Promise<string | null> {
 
 async function resolveLogoUrl(symbol: string): Promise<string | null> {
   const candidates = getSymbolLogoCandidates(symbol);
-  // Probe sequentially, stopping at the first logo that loads.
-  const resolved = await candidates.reduce<Promise<string | null>>(async (previous, url) => {
-    const found = await previous;
-    if (found !== null) return found;
-    return probeImageUrl(url);
-  }, Promise.resolve(null));
-  return resolved;
+  if (candidates.length === 0) return null;
+  // Probe in parallel and take the first hit; a sequential walk paid one timeout per miss.
+  try {
+    return await Promise.any(
+      candidates.map(async (url) => {
+        const found = await probeImageUrl(url);
+        if (found === null) throw new Error("logo missing");
+        return found;
+      }),
+    );
+  } catch {
+    return null;
+  }
 }
 
 export function useHyperliquidSymbolLogo(symbol: string) {

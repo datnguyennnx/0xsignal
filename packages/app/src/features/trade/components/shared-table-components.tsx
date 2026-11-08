@@ -1,9 +1,27 @@
-import { formatCompactUsd, formatSignedPercent } from "@/core/utils/formatters";
+import { formatSignedPercent, formatSignedUsd } from "@/core/utils/formatters";
 import { TabsTrigger } from "@/components/ui/tabs";
-import { TableRow, TableCell } from "@/components/ui/table";
+import { TableHeader, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { c } from "../utils/orderbook-table-classes";
+import { c, cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import type { ReactNode } from "react";
+
+/** Shared fill-history column header: Time, Coin, Direction, Price, Size, Trade Value, Fee, Closed PNL. */
+export function FillHistoryTableHeader() {
+  return (
+    <TableHeader>
+      <TableRow>
+        <TableHead className={cHead}>Time</TableHead>
+        <TableHead className={`${cHead} font-medium`}>Coin</TableHead>
+        <TableHead className={cHead}>Direction</TableHead>
+        <TableHead className={cHeadNum}>Price</TableHead>
+        <TableHead className={cHeadNum}>Size</TableHead>
+        <TableHead className={cHeadNum}>Trade Value</TableHead>
+        <TableHead className={cHeadNum}>Fee</TableHead>
+        <TableHead className={cHeadNum}>Closed PNL</TableHead>
+      </TableRow>
+    </TableHeader>
+  );
+}
 
 /** Same 1.5em line box as a loaded `c` cell, so a placeholder row is exactly one row tall. */
 export function TableSkeletonRows({ rows, colSpan }: { rows: number; colSpan: number }) {
@@ -54,7 +72,7 @@ export function PosDirLabel({ szi }: { szi: string }) {
 /** Direction label from HL API `dir` field ("Open Long", "Close Short", etc.). */
 export function DirDisplay({ dir }: { dir?: string | null | undefined }) {
   if (dir === undefined || dir === null || dir === "")
-    return <span className="text-muted-foreground/60">—</span>;
+    return <span className="text-muted-foreground">—</span>;
   const isLong = dir.toLowerCase().includes("long");
   return <span className={isLong ? "text-gain" : "text-loss"}>{dir}</span>;
 }
@@ -65,8 +83,8 @@ export function DirDisplay({ dir }: { dir?: string | null | undefined }) {
 export function PnLDisplay({ usd, pct }: { usd: number; pct: number }) {
   const isPositive = usd >= 0;
   return (
-    <span className={isPositive ? "text-gain" : "text-loss"}>
-      {formatCompactUsd(Math.abs(usd))} ({formatSignedPercent(pct)})
+    <span className={`${isPositive ? "text-gain" : "text-loss"} tabular-nums`}>
+      {formatSignedUsd(usd)} ({formatSignedPercent(pct)})
     </span>
   );
 }
@@ -88,9 +106,7 @@ export function TabTrigger({
     <TabsTrigger value={value} variant="text" className="relative">
       {children}
       {count !== undefined && count > 0 && (
-        <span className="text-[length:var(--text-data)] text-muted-foreground font-normal">
-          ({count})
-        </span>
+        <span className="type-data text-muted-foreground font-normal tabular-nums">({count})</span>
       )}
     </TabsTrigger>
   );

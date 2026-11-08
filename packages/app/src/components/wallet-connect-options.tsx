@@ -53,11 +53,11 @@ export function WalletConnectOptions() {
   );
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-inline">
       {metaMaskConnector === undefined && coinbaseConnector === undefined && (
-        <Alert className="px-3 py-2.5">
+        <Alert className="p-2">
           <AlertTriangleIcon />
-          <AlertDescription className="text-sm leading-relaxed">
+          <AlertDescription className="type-body">
             No wallet connectors available. Install MetaMask or Coinbase Wallet to continue.
           </AlertDescription>
         </Alert>
@@ -65,28 +65,28 @@ export function WalletConnectOptions() {
       {metaMaskConnector !== undefined && (
         <Button
           variant="outline"
-          size="lg"
-          className="h-10 w-full gap-3 justify-start"
+          size="cta"
+          className="w-full justify-start gap-inline"
           disabled={isPending}
           onClick={() => {
             mutate({ connector: metaMaskConnector });
           }}
         >
-          <Metamask className="size-5 shrink-0" />
+          <Metamask className="size-icon shrink-0" />
           {isPending ? "Connecting…" : "MetaMask"}
         </Button>
       )}
       {coinbaseConnector !== undefined && (
         <Button
           variant="outline"
-          size="lg"
-          className="h-10 w-full gap-3 justify-start"
+          size="cta"
+          className="w-full justify-start gap-inline"
           disabled={isPending}
           onClick={() => {
             mutate({ connector: coinbaseConnector });
           }}
         >
-          <Coinbase className="size-5 shrink-0" />
+          <Coinbase className="size-icon shrink-0" />
           {isPending ? "Connecting…" : "Coinbase Wallet"}
         </Button>
       )}

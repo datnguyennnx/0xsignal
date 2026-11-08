@@ -2,6 +2,8 @@ import { Component, type ReactNode, type ErrorInfo } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
+export { PageLoader } from "./page-loader";
+
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
@@ -48,18 +50,18 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="flex flex-col items-center justify-center min-h-[clamp(20rem,50dvh,40rem)] px-4 text-center">
           <div className="flex flex-col items-center gap-4 max-w-md">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-              <AlertTriangle className="h-6 w-6 text-destructive" />
+              <AlertTriangle className="size-icon-lg text-destructive" />
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold">Unable to load this view</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="type-title font-semibold">Unable to load this view</h3>
+              <p className="type-body text-muted-foreground">
                 Reload the page, or use Try again to retry this section.
               </p>
             </div>
 
-            <Button variant="outline" size="sm" onClick={this.handleReset} className="gap-2">
-              <RefreshCw className="h-4 w-4" />
+            <Button variant="outline" onClick={this.handleReset} className="gap-2">
+              <RefreshCw className="size-icon" />
               Try again
             </Button>
           </div>

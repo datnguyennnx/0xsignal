@@ -1,0 +1,160 @@
+@theme {
+  --spacing: 0.35rem;
+}
+
+html {
+  --spacing: calc(0.35rem * var(--density-k, 1));
+  font-size: calc(
+    clamp(14px, calc(9px + (100vw + 100vh) / 400), 24px) * var(--ui-scale, 1) * var(--text-k, 0.88)
+  );
+}
+
+:root {
+  --density-k: 1;
+  --text-k: 0.88;
+  --ui-scale: 1;
+  --radius-k: 1;
+  --glass-alpha-k: 1;
+  --frost-alpha-k: 1;
+  --glass-blur-k: 1;
+  --ambient-k: 1;
+
+  --space-1: calc(0.35rem * var(--density-k, 1));
+  --space-2: calc(0.7rem * var(--density-k, 1));
+  --space-3: calc(1.05rem * var(--density-k, 1));
+  --space-4: calc(1.4rem * var(--density-k, 1));
+  --space-6: calc(2.1rem * var(--density-k, 1));
+
+  --panel-gap: var(--space-4);
+  --panel-pad: var(--space-4);
+  --panel-pad-form: var(--space-4);
+  --gap-inline: var(--space-2);
+  --gap-stack: var(--space-3);
+  --form-stack-gap: var(--space-3);
+  --form-field-break: var(--space-4);
+  --section-gap: var(--space-4);
+  --section-gap-tight: var(--space-3);
+  --field-gap: var(--space-2);
+  --field-gap-label: var(--space-1);
+  --tab-gap: var(--space-1);
+  --tab-pad-x: var(--space-2);
+  --table-cell-pad-x: var(--space-2);
+  --table-cell-pad-y: var(--space-1);
+  --app-page-pad: var(--panel-pad);
+  --app-page-gap: var(--space-6);
+
+  --text-label: 0.75rem;
+  --line-height-label: 1.2;
+  --text-data: 0.8125rem;
+  --line-height-data: 1.35;
+  --text-control: 0.875rem;
+  --line-height-control: 1.25;
+  --text-body: 0.875rem;
+  --line-height-body: 1.5;
+  --text-title: 1rem;
+  --line-height-title: 1.35;
+  --text-heading: 1.75rem;
+  --line-height-heading: 1.15;
+  --text-display: 4.5rem;
+  --line-height-display: 1.05;
+
+  --control-h: calc(2.5rem * var(--density-k));
+  --control-h-sm: calc(2rem * var(--density-k));
+  --control-h-cta: calc(3rem * var(--density-k));
+  --control-h-chip: calc(1.65rem * var(--density-k));
+  --control-px: 0.875rem;
+  --control-gap: calc(0.5rem * var(--density-k));
+  --control-radius: 0.5rem;
+  --seg-inset: calc(0.1875rem * var(--density-k));
+  --icon: calc(var(--control-h) * 0.4);
+  --icon-sm: calc(var(--icon) * 0.72);
+  --icon-lg: calc(var(--icon) * 1.35);
+  --icon-btn: calc(var(--control-h) + 0.5rem);
+  --action-h: var(--icon-btn);
+  --icon-baseline: 0.125rem;
+  --icon-stroke: 1.5;
+  --hit-min: 2.5rem;
+
+  --radius-chip: calc(0.375rem * var(--radius-k));
+  --radius-control: calc(var(--control-radius) * var(--radius-k));
+  --radius-panel: calc(1rem * var(--radius-k));
+  --radius-overlay: calc(1.25rem * var(--radius-k));
+  --radius-inset: calc(var(--radius-control) - var(--space-1));
+
+  --row-table: var(--control-h);
+  --table-head-h: calc(2rem * var(--density-k));
+  --row-dense: calc(1.75rem * var(--density-k));
+
+  --measure-page: clamp(48rem, 72vw, 120rem);
+  --measure-form: clamp(20rem, 28vw, 32rem);
+  --sidebar-w: clamp(15rem, 18vw, 24rem);
+  --sidebar-min-w: clamp(13rem, 14vw, 18rem);
+  --dialog-w: clamp(24rem, 36vw, 40rem);
+  --workspace-w: min(78vw, 120rem);
+  --workspace-h: min(78dvh, 70rem);
+  --popover-min-w: clamp(8rem, 10vw, 12rem);
+  --select-max-w: clamp(12rem, 16vw, 20rem);
+  --donut-size: clamp(6rem, 6vw, 9rem);
+  --sparkline-h: 3rem;
+  --pagination-hit: var(--control-h);
+  --app-header-height: clamp(2.75rem, 0.5vw + 2.2rem, 4rem);
+  --trading-region-height: calc(
+    100dvh - var(--app-header-height) - 2 * var(--app-page-pad) - var(--app-page-gap)
+  );
+  --settings-nav-w: 12rem;
+  --calendar-date-size: 2.25rem;
+  --calendar-cell-radius: var(--radius-control);
+  --panel-state-min-h: 12rem;
+  --avatar-size: 2rem;
+  --trading-gap: var(--space-2);
+
+  --z-content: 0;
+  --z-chrome: 50;
+  --z-panel: 60;
+  --z-bar: 70;
+  --z-toast: 100;
+  --z-overlay: 110;
+  --z-popover: 200;
+  --z-header: var(--z-chrome);
+  --z-side-panel: var(--z-panel);
+
+  --dur-instant: 0ms;
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-enter: 220ms;
+  --dur-exit: 100ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --press-scale: 0.97;
+  --press-scale-lg: 0.985;
+}
+
+[data-dense] {
+  --icon-btn: calc(var(--control-h) + 0.5rem);
+  --action-h: var(--icon-btn);
+}
+
+@media (pointer: coarse) {
+  :root {
+    --control-h: 2.75rem;
+  }
+}
+
+@media (min-width: 2200px) {
+  :root {
+    --control-h: 2.75rem;
+    --control-h-cta: 3.25rem;
+    --app-page-pad: clamp(1.25rem, 0.35vw + 0.9rem, 2.25rem);
+    --app-page-gap: clamp(1.25rem, 0.35vw + 0.9rem, 2.25rem);
+    --icon: calc(var(--control-h) * 0.44);
+  }
+}
+
+@media (min-width: 3200px) {
+  :root {
+    --control-h: 3rem;
+    --control-h-cta: 3.5rem;
+    --icon: calc(var(--control-h) * 0.48);
+  }
+}

@@ -5,10 +5,8 @@ import {
   DialogTitle,
   DialogDescription,
   DialogHeader,
-  MODAL_CONTENT_CLASS,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { cn } from "cn";
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 import { useAdjustLeverageMutation } from "../hooks/use-adjust-leverage-mutation";
 import { AdjustLeveragePanel } from "./adjust-leverage-panel";
@@ -81,17 +79,10 @@ export function AdjustLeverageModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        className={cn(
-          MODAL_CONTENT_CLASS,
-          "sm:max-w-[clamp(22rem,42vw,30rem)] p-5 gap-[clamp(0.5rem,1vw,1rem)]",
-        )}
-      >
+      <DialogContent layout="dialog" className="gap-stack">
         <DialogHeader>
-          <DialogTitle className="text-[length:var(--text-compact)] font-medium text-foreground">
-            Adjust Leverage
-          </DialogTitle>
-          <DialogDescription className="text-[length:var(--text-compact)] leading-relaxed">
+          <DialogTitle>Adjust Leverage</DialogTitle>
+          <DialogDescription>
             Control the leverage used for{" "}
             <span className="text-foreground font-medium">{symbol}</span> positions. Maximum
             leverage is {maxLeverage}x.
@@ -108,16 +99,9 @@ export function AdjustLeverageModal({
           onInputChange={handleInputChange}
         />
 
-        <div className="pt-1">
-          <Button
-            variant="default"
-            onClick={confirm}
-            disabled={isPending}
-            className="h-10 w-full rounded-lg text-[length:var(--text-compact)] font-semibold transition-[background-color,transform] duration-150 ease-premium active:scale-[0.98]"
-          >
-            {isPending ? `Setting ${leverage}×...` : `Set ${leverage}× leverage`}
-          </Button>
-        </div>
+        <Button variant="cta" onClick={confirm} disabled={isPending} className="w-full">
+          {isPending ? `Setting ${leverage}×...` : `Set ${leverage}× leverage`}
+        </Button>
         {isConnectWalletOpen && (
           <ConnectWalletDialog
             open={true}

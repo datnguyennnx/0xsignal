@@ -25,26 +25,26 @@ export const EmptyState = memo(function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-1 text-center flex-1",
+        "flex flex-1 flex-col items-center justify-center gap-1 text-center",
         fill
-          ? "h-full min-h-0 min-w-0 overflow-y-auto overscroll-none scrollbar-none px-6 py-6"
-          : "px-6 py-8 min-h-[clamp(12rem,28dvh,18rem)]",
+          ? "h-full min-h-0 min-w-0 overflow-y-auto overscroll-none scrollbar-none p-panel"
+          : "p-panel min-h-[clamp(12rem,28dvh,18rem)]",
         className,
       )}
     >
       {fill && (
         <span className="mb-2 flex size-11 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground">
-          <Inbox className="size-5" aria-hidden="true" />
+          <Inbox className="size-icon" aria-hidden="true" />
         </span>
       )}
-      <h3 className="text-sm font-medium text-muted-foreground tracking-tight">
+      <h3 className="type-control font-medium text-muted-foreground">
         {title ?? (variant === "chart" ? "No data" : "No data available")}
       </h3>
       {description !== undefined && description !== "" && (
         <p
           className={cn(
-            "text-xs text-muted-foreground leading-relaxed",
-            fill ? "max-w-full" : "max-w-[clamp(17rem,70vw,20rem)]",
+            "type-body text-muted-foreground",
+            fill ? "max-w-full" : "max-w-(--measure-form)",
           )}
         >
           {description}

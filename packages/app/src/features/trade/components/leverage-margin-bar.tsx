@@ -4,6 +4,8 @@
  * This is a presentational component; modal open/close state is managed by the parent.
  */
 
+import { Button } from "@/components/ui/button";
+
 interface LeverageMarginBarProps {
   disabled?: boolean;
   effectiveMarginMode: "cross" | "isolated";
@@ -20,23 +22,25 @@ export function LeverageMarginBar({
   onOpenLeverage,
 }: LeverageMarginBarProps) {
   return (
-    <div className="flex items-center gap-[var(--space-2,0.75rem)] shrink-0">
-      <button
+    <div className="row-actions shrink-0">
+      <Button
+        variant="secondary"
         onClick={onOpenMarginMode}
         disabled={disabled}
-        className="flex-1 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-xs font-medium text-muted-foreground hover:text-foreground bg-secondary hover:bg-accent rounded border border-border/40 transition-colors truncate active:scale-[0.97] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
+        className="flex-1 truncate text-muted-foreground hover:text-foreground"
         type="button"
       >
         {effectiveMarginMode === "cross" ? "Cross" : "Isolated"}
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="secondary"
         onClick={onOpenLeverage}
         disabled={disabled}
-        className="flex-1 h-[var(--field-h,2.75rem)] px-[var(--space-2,0.75rem)] text-xs tabular-nums text-muted-foreground hover:text-foreground bg-secondary hover:bg-accent rounded border border-border/40 transition-colors active:scale-[0.97] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-muted disabled:hover:text-muted-foreground"
+        className="flex-1 tabular-nums text-muted-foreground hover:text-foreground"
         type="button"
       >
         {effectiveLeverage}x
-      </button>
+      </Button>
     </div>
   );
 }

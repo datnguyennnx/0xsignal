@@ -1,0 +1,221 @@
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-info: var(--info);
+  --color-warn: var(--warn);
+  --color-success: var(--success);
+  --color-link: var(--link);
+  --color-gain: var(--gain);
+  --color-loss: var(--loss);
+  --color-gain-foreground: var(--gain-foreground);
+  --color-loss-foreground: var(--loss-foreground);
+  --color-control-border: var(--control-border);
+  --color-data-up: var(--data-up);
+  --color-data-down: var(--data-down);
+  --color-semantic-danger-bg: var(--semantic-danger-bg);
+  --color-semantic-danger-border: var(--semantic-danger-border);
+  --color-semantic-danger-text: var(--semantic-danger-text);
+
+  --spacing-control: var(--control-h);
+  --spacing-icon: var(--icon);
+  --spacing-panel: var(--panel-pad);
+  --spacing-stack: var(--gap-stack);
+  --spacing-inline: var(--gap-inline);
+  --spacing-section: var(--section-gap);
+}
+
+:root,
+.light {
+  color-scheme: light;
+
+  --surface-canvas: oklch(0.945 0.0054 100);
+  --surface-base: oklch(0.972 0.0039 100);
+  --surface-raised: oklch(0.986 0.0031 100);
+  --surface-overlay: oklch(0.991 0.0023 100);
+  --surface-inset: oklch(0.92 0.0061 100);
+
+  --text-primary: oklch(0.22 0.0085 100);
+  --text-secondary: oklch(0.47 0.0085 100);
+  --text-muted: oklch(0.51 0.0069 100);
+  --text-on-accent: var(--p-neutral-0);
+
+  --border-subtle: color-mix(in oklab, var(--p-neutral-900) 11%, transparent);
+  --border-strong: color-mix(in oklab, var(--p-neutral-900) 17.6%, transparent);
+  --border-control: color-mix(in oklab, var(--p-neutral-900) 17.6%, transparent);
+  --ring: oklch(0.52 0.13 132 / 0.9);
+
+  --primary: var(--p-neutral-900);
+  --primary-foreground: var(--p-neutral-0);
+  --secondary: color-mix(in oklab, var(--p-neutral-900) 5%, transparent);
+  --secondary-foreground: var(--text-primary);
+  --accent: oklch(0.5 0.11 132 / 0.16);
+  --accent-foreground: var(--text-primary);
+
+  --success: oklch(0.495 0.1275 150);
+  --success-foreground: var(--p-neutral-0);
+  --warn: oklch(0.515 0.1105 75);
+  --warn-foreground: var(--p-neutral-0);
+  --info: oklch(0.45 0.11 132);
+  --info-foreground: var(--p-neutral-0);
+  --destructive: oklch(0.53 0.17 25);
+  --destructive-foreground: var(--p-neutral-0);
+  --disabled: color-mix(in oklab, var(--p-neutral-900) 8%, transparent);
+  --disabled-foreground: var(--p-neutral-500);
+
+  --danger-bg: color-mix(in oklab, var(--destructive) 10%, transparent);
+  --danger-border: color-mix(in oklab, var(--destructive) 28%, transparent);
+  --danger-text: var(--destructive);
+  --link: oklch(0.45 0.11 132);
+  --link-foreground: var(--p-neutral-0);
+
+  --background: var(--surface-canvas);
+  --foreground: var(--text-primary);
+  --card: var(--surface-base);
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
+  --muted: var(--surface-inset);
+  --muted-foreground: var(--text-secondary);
+  --input: var(--control-bg);
+  --border: var(--border-subtle);
+  --control-border: var(--border-control);
+  --semantic-danger-bg: var(--danger-bg);
+  --semantic-danger-border: var(--danger-border);
+  --semantic-danger-text: var(--danger-text);
+  --app-bg: var(--surface-canvas);
+  --canvas: var(--surface-canvas);
+  --ink: var(--foreground);
+  --accent-ink: oklch(0.45 0.11 132);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --surface-canvas: var(--p-graphite-950);
+  --surface-base: var(--p-graphite-900);
+  --surface-raised: var(--p-graphite-850);
+  --surface-overlay: var(--p-graphite-800);
+  --surface-inset: var(--p-graphite-1000);
+
+  --text-primary: oklch(0.96 0.0039 90);
+  --text-secondary: oklch(0.76 0.0061 90);
+  --text-muted: oklch(0.7 0.0061 90);
+  --text-on-accent: var(--p-graphite-900);
+
+  --border-subtle: var(--p-white-10);
+  --border-strong: var(--p-white-16);
+  --border-control: var(--p-white-16);
+  --ring: oklch(0.78 0.12 132 / 0.9);
+
+  --primary: var(--p-graphite-25);
+  --primary-foreground: var(--p-graphite-900);
+  --secondary: var(--p-white-06);
+  --secondary-foreground: var(--text-primary);
+  --accent: oklch(0.62 0.12 132 / 0.28);
+  --accent-foreground: var(--text-primary);
+
+  --success: oklch(0.8 0.1445 150);
+  --success-foreground: var(--p-graphite-900);
+  --warn: oklch(0.84 0.119 78);
+  --warn-foreground: var(--p-graphite-900);
+  --info: oklch(0.78 0.11 132);
+  --info-foreground: var(--p-graphite-900);
+  --destructive: oklch(0.72 0.17 25);
+  --destructive-foreground: oklch(0.128 0.0054 90);
+  --disabled: var(--p-white-08);
+  --disabled-foreground: var(--p-graphite-300);
+
+  --danger-bg: color-mix(in oklab, var(--destructive) 14%, transparent);
+  --danger-border: color-mix(in oklab, var(--destructive) 32%, transparent);
+  --danger-text: var(--destructive);
+  --link: oklch(0.78 0.11 132);
+  --link-foreground: var(--p-graphite-900);
+
+  --background: var(--surface-canvas);
+  --foreground: var(--text-primary);
+  --card: var(--surface-base);
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
+  --muted: var(--surface-inset);
+  --muted-foreground: var(--text-secondary);
+  --input: var(--control-bg);
+  --border: var(--border-subtle);
+  --control-border: var(--border-control);
+  --semantic-danger-bg: var(--danger-bg);
+  --semantic-danger-border: var(--danger-border);
+  --semantic-danger-text: var(--danger-text);
+  --app-bg: var(--surface-canvas);
+  --canvas: var(--surface-canvas);
+  --ink: var(--foreground);
+  --accent-ink: oklch(0.78 0.11 132);
+}
+
+:root,
+.light {
+  --market-up: oklch(0.495 0.1275 150);
+  --market-down: oklch(0.53 0.17 25);
+  --market-up-foreground: var(--p-neutral-0);
+  --market-down-foreground: var(--p-neutral-0);
+  --market-cb-up: oklch(0.5 0.136 180);
+  --market-cb-down: oklch(0.55 0.136 55);
+  --market-cb-up-foreground: oklch(0.99 0.0027 100);
+  --market-cb-down-foreground: oklch(0.99 0.0027 100);
+
+  --data-series-1: oklch(0.6 0.1105 130);
+  --data-series-2: oklch(0.58 0.102 185);
+  --data-series-3: oklch(0.6 0.119 85);
+  --data-series-4: oklch(0.56 0.1445 25);
+  --data-series-5: oklch(0.54 0.119 150);
+  --data-series-6: oklch(0.54 0.1105 330);
+  --data-series-7: oklch(0.58 0.1105 110);
+  --data-series-8: oklch(0.55 0.119 300);
+
+  --data-grid: oklch(0.52 0.0085 100 / 0.18);
+  --data-axis: oklch(0.45 0.0085 100);
+  --data-crosshair: oklch(0.58 0.0115 100 / 0.55);
+  --data-volume: oklch(0.52 0.0085 100 / var(--alpha-3));
+  --tooltip-bg: oklch(0.991 0.0023 100 / 0.96);
+  --tooltip-text: var(--foreground);
+}
+
+.dark {
+  --market-up: oklch(0.8 0.1445 150);
+  --market-down: oklch(0.72 0.17 25);
+  --market-up-foreground: oklch(0.155 0.0061 90);
+  --market-down-foreground: oklch(0.155 0.0061 90);
+  --market-cb-up: oklch(0.75 0.119 180);
+  --market-cb-down: oklch(0.78 0.1275 65);
+  --market-cb-up-foreground: oklch(0.155 0.0061 90);
+  --market-cb-down-foreground: oklch(0.155 0.0061 90);
+
+  --data-series-1: oklch(0.74 0.119 130);
+  --data-series-2: oklch(0.75 0.0935 185);
+  --data-series-3: oklch(0.81 0.1105 85);
+  --data-series-4: oklch(0.74 0.136 25);
+  --data-series-5: oklch(0.75 0.119 150);
+  --data-series-6: oklch(0.74 0.1105 330);
+  --data-series-7: oklch(0.8 0.102 110);
+  --data-series-8: oklch(0.76 0.1105 300);
+
+  --data-grid: oklch(0.7 0.0085 90 / 0.18);
+  --data-axis: oklch(0.72 0.0085 90);
+  --data-crosshair: oklch(0.62 0.0115 90 / 0.6);
+  --data-volume: oklch(0.7 0.0085 90 / var(--alpha-3));
+  --tooltip-bg: var(--surface-overlay);
+  --tooltip-text: var(--foreground);
+}

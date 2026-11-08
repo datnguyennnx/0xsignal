@@ -6,6 +6,8 @@ import { cellWidth, GRID_GUTTER_FRACTION } from "../utils/collision";
 import { useResizeGesture, type ResizeFrame } from "../hooks/use-resize-gesture";
 import { CornerHandles } from "./corner-handles";
 
+/* oxlint-disable jsx-a11y/prefer-tag-over-role */
+
 interface ResizableWrapperProps {
   id: string;
   children: React.ReactNode;
@@ -40,9 +42,52 @@ function dragMarker(axis: ResizeHandleAxis, active: ResizeHandleAxis | null): ""
   return active === axis ? "" : undefined;
 }
 
+function clampSize(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, Math.max(min, max)));
+}
+
+const KEY_STEP = 1;
+
+/** Keyboard equivalent of a drag: an arrow moves the handle's edge by one grid cell. */
+function keyResizeFrame(
+  axis: ResizeHandleAxis,
+  item: LayoutItem,
+  key: string,
+  minW: number,
+  minH: number,
+  maxW: number,
+  maxH: number,
+  minX: number,
+  minY: number,
+): ResizeFrame | null {
+  const grow = key === "ArrowRight" || key === "ArrowDown";
+  const shrink = key === "ArrowLeft" || key === "ArrowUp";
+  if (!grow && !shrink) return null;
+
+  let { x, y, w, h } = item;
+
+  if (axis.includes("e")) {
+    w = clampSize(w + (grow ? KEY_STEP : -KEY_STEP), minW, maxW);
+  } else if (axis.includes("w")) {
+    const right = x + w;
+    w = clampSize(w + (grow ? -KEY_STEP : KEY_STEP), minW, Math.min(maxW, right - minX));
+    x = right - w;
+  }
+
+  if (axis.includes("s")) {
+    h = clampSize(h + (grow ? KEY_STEP : -KEY_STEP), minH, maxH);
+  } else if (axis.includes("n")) {
+    const bottom = y + h;
+    h = clampSize(h + (grow ? -KEY_STEP : KEY_STEP), minH, Math.min(maxH, bottom - minY));
+    y = bottom - h;
+  }
+
+  return { x, y, w, h };
+}
+
 /** Centred short grip; colour-only fade so reduced motion needs no special case. */
 const EDGE_PILL =
-  "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/0 transition-colors duration-150 group-hover:bg-foreground/25 group-data-[resizing]:bg-foreground/40";
+  "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/0 transition-colors duration-(--dur-fast) group-hover:bg-foreground/25 group-data-[resizing]:bg-foreground/40";
 
 /**
  * Horizontal geometry is container-relative (fractions → %); vertical uses the
@@ -148,14 +193,25 @@ export const ResizableWrapper = memo(function ResizableWrapper({
     };
   }, [isDragged]);
 
+  const handleKeyResize = useCallback(
+    (axis: ResizeHandleAxis) => (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const next = keyResizeFrame(axis, item, e.key, minW, minH, maxW, maxH, minX, minY);
+      if (next === null) return;
+      e.preventDefault();
+      applyFrame(next);
+      onResizeCommit(id, next.x, next.y, next.w, next.h);
+    },
+    [id, item, minW, minH, maxW, maxH, minX, minY, applyFrame, onResizeCommit],
+  );
+
   const isActive = isResizing || isDragged || isHovered;
   const resizingAxis = isResizing ? activeCorner : null;
 
   return (
     <div
       ref={wrapperRef}
-      className={`absolute panel-contain rounded-[var(--radius-panel)] bg-transparent overflow-hidden ${
-        isResizing || isDragged ? "select-none shadow-[var(--shadow-e3)] z-50" : ""
+      className={`absolute panel-contain rounded-panel bg-transparent overflow-hidden ${
+        isResizing || isDragged ? "select-none shadow-(--shadow-e3) z-50" : ""
       } ${isDragged ? "pointer-events-none" : ""} ${isDragged ? "opacity-30" : "opacity-100"} ${className}`}
       style={style}
       onPointerMove={handlePanelMouseMove}
@@ -164,14 +220,14 @@ export const ResizableWrapper = memo(function ResizableWrapper({
       }}
       onMouseLeave={handlePanelMouseLeave}
     >
-      <div className="h-full w-full overflow-x-hidden overflow-y-auto rounded-[var(--radius-panel)]">
+      <div className="h-full w-full overflow-x-hidden overflow-y-auto rounded-panel">
         {children}
       </div>
 
       {/* Inset ring rides the tier rim's arc, above it, so hover/drag adds no second edge. */}
       <div
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-0 z-10 rounded-[var(--radius-panel)] ring-1 ring-inset transition-shadow duration-150 ${
+        className={`pointer-events-none absolute inset-0 z-10 rounded-panel ring-1 ring-inset transition-shadow duration-(--dur-fast) ${
           isResizing || isDragged
             ? "ring-foreground/40"
             : isHovered
@@ -184,39 +240,71 @@ export const ResizableWrapper = memo(function ResizableWrapper({
         type="button"
         aria-label="Drag to move panel"
         onPointerDown={(e) => onRepositionStart?.(id, e)}
-        className={`absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center w-8 h-5 cursor-grab active:cursor-grabbing transition-[opacity,background-color] duration-[120ms] rounded touch-none after:absolute after:inset-x-[-8px] after:top-[2px] after:bottom-[-8px] ${
+        className={`absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center w-8 h-5 cursor-grab active:cursor-grabbing transition-[opacity,background-color] duration-(--dur-fast) rounded-control touch-none after:absolute after:inset-x-[-8px] after:top-[2px] after:bottom-[-8px] ${
           isActive && !isResizing ? "opacity-60" : "opacity-0"
         } hover:opacity-80 hover:bg-foreground/5`}
       >
-        <GripHorizontal className="size-4 text-foreground/60" />
+        <GripHorizontal className="size-icon text-muted-foreground" />
       </button>
 
       {/* Edge grips: 10px strips whose pseudo-element doubles the inward grab depth */}
       <div
-        className="group absolute top-0 left-2.5 right-2.5 h-2.5 cursor-ns-resize z-10 touch-none after:absolute after:-inset-2"
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize panel from the top edge"
+        aria-valuenow={item.h}
+        aria-valuemin={minH}
+        aria-valuemax={maxH}
+        tabIndex={0}
+        className="group absolute top-0 left-2.5 right-2.5 h-2.5 cursor-ns-resize z-10 touch-none focus-ring after:absolute after:-inset-2"
         data-resizing={dragMarker("n", resizingAxis)}
         onPointerDown={handlePointerDown("n")}
+        onKeyDown={handleKeyResize("n")}
       >
         <span className={`${EDGE_PILL} h-[3px] w-8`} />
       </div>
       <div
-        className="group absolute bottom-0 left-2.5 right-2.5 h-2.5 cursor-ns-resize z-10 touch-none after:absolute after:-inset-2"
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize panel from the bottom edge"
+        aria-valuenow={item.h}
+        aria-valuemin={minH}
+        aria-valuemax={maxH}
+        tabIndex={0}
+        className="group absolute bottom-0 left-2.5 right-2.5 h-2.5 cursor-ns-resize z-10 touch-none focus-ring after:absolute after:-inset-2"
         data-resizing={dragMarker("s", resizingAxis)}
         onPointerDown={handlePointerDown("s")}
+        onKeyDown={handleKeyResize("s")}
       >
         <span className={`${EDGE_PILL} h-[3px] w-8`} />
       </div>
       <div
-        className="group absolute left-0 top-3 bottom-3 w-2.5 cursor-ew-resize z-10 touch-none after:absolute after:-inset-2"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize panel from the left edge"
+        aria-valuenow={item.w}
+        aria-valuemin={minW}
+        aria-valuemax={maxW}
+        tabIndex={0}
+        className="group absolute left-0 top-3 bottom-3 w-2.5 cursor-ew-resize z-10 touch-none focus-ring after:absolute after:-inset-2"
         data-resizing={dragMarker("w", resizingAxis)}
         onPointerDown={handlePointerDown("w")}
+        onKeyDown={handleKeyResize("w")}
       >
         <span className={`${EDGE_PILL} h-8 w-[3px]`} />
       </div>
       <div
-        className="group absolute right-0 top-3 bottom-3 w-2.5 cursor-ew-resize z-10 touch-none after:absolute after:-inset-2"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize panel from the right edge"
+        aria-valuenow={item.w}
+        aria-valuemin={minW}
+        aria-valuemax={maxW}
+        tabIndex={0}
+        className="group absolute right-0 top-3 bottom-3 w-2.5 cursor-ew-resize z-10 touch-none focus-ring after:absolute after:-inset-2"
         data-resizing={dragMarker("e", resizingAxis)}
         onPointerDown={handlePointerDown("e")}
+        onKeyDown={handleKeyResize("e")}
       >
         <span className={`${EDGE_PILL} h-8 w-[3px]`} />
       </div>

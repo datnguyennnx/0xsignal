@@ -1,4 +1,4 @@
-import { useMemo, useState, type JSX } from "react";
+import { memo, useDeferredValue, useMemo, useState, type JSX } from "react";
 import type { WhalePosition, WhalePositionsQuery } from "@0xsignal/shared";
 import { cn } from "cn";
 
@@ -21,38 +21,51 @@ import {
   formatSignedPercent,
   formatSignedUsd,
   formatSize,
-  truncateAddress,
 } from "@/core/utils/formatters";
 
 import { useWhalePositions } from "../hooks/use-whale-positions";
 import { WhalePositionFiltersBar } from "./whale-position-filters";
 import { DEFAULT_WHALE_FILTERS, type WhalePositionFilters } from "./whale-filter-defaults";
 
-const HEAD_CLASS =
-  "sticky top-0 z-10 bg-muted text-[length:var(--text-data)] text-muted-foreground uppercase tracking-wider";
-const NUM_CLASS = "text-right tabular-nums";
+const CELL_CLASS = "px-2 py-1";
+
+type ColumnRole = "text" | "num" | "addr";
+
+const ROLE_CLASS: Record<ColumnRole, string> = {
+  text: "col-text",
+  num: "col-num",
+  addr: "col-addr",
+};
+
+interface Column {
+  id: string;
+  label: string;
+  role: ColumnRole;
+  /** Skeleton bar width only; the column itself is sized by its header. */
+  bar: string;
+  lines: 1 | 2;
+}
+
+/** One descriptor drives the header, the skeleton and the body roles, so widths cannot drift. */
+const COLUMNS: readonly Column[] = [
+  { id: "rank", label: "#", role: "text", bar: "w-4", lines: 1 },
+  { id: "user", label: "User", role: "addr", bar: "w-3/4", lines: 1 },
+  { id: "asset", label: "Asset", role: "text", bar: "w-8", lines: 1 },
+  { id: "side", label: "Side", role: "text", bar: "w-8", lines: 1 },
+  { id: "position", label: "Position", role: "num", bar: "w-3/4", lines: 2 },
+  { id: "pnl", label: "PnL", role: "num", bar: "w-3/4", lines: 2 },
+  { id: "entry", label: "Entry Price", role: "num", bar: "w-3/4", lines: 1 },
+  { id: "liquidation", label: "Liq. Price", role: "num", bar: "w-3/4", lines: 1 },
+  { id: "margin", label: "Margin", role: "num", bar: "w-1/2", lines: 1 },
+  { id: "mode", label: "Mode", role: "text", bar: "w-2/3", lines: 1 },
+  { id: "funding", label: "Funding Fee", role: "num", bar: "w-3/4", lines: 1 },
+  { id: "price", label: "Price", role: "num", bar: "w-3/4", lines: 1 },
+  { id: "time", label: "Entry Time", role: "text", bar: "w-3/4", lines: 1 },
+];
 
 const SKELETON_ROW_KEYS = Array.from({ length: 8 }, (_, index) => `whale-row-${index}`);
-// Loaded cells stack a text-sm line over a text-xs line; the skeleton mirrors both
-// line boxes so a row reserves its final height before the data arrives.
-const SKELETON_LINE_CLASSES = ["h-5", "h-4"] as const;
-const SKELETON_COLUMNS: { id: string; width: string; lines: number }[] = [
-  { id: "rank", width: "w-4", lines: 1 },
-  { id: "user", width: "w-24", lines: 1 },
-  { id: "assets", width: "w-10", lines: 1 },
-  { id: "side", width: "w-10", lines: 1 },
-  { id: "position", width: "w-16", lines: 2 },
-  { id: "pnl", width: "w-20", lines: 2 },
-  { id: "entry", width: "w-16", lines: 1 },
-  { id: "liquidation", width: "w-16", lines: 1 },
-  { id: "margin", width: "w-14", lines: 1 },
-  { id: "mode", width: "w-16", lines: 1 },
-  { id: "funding", width: "w-16", lines: 1 },
-  { id: "price", width: "w-16", lines: 1 },
-  { id: "time", width: "w-20", lines: 1 },
-];
-const NUMERIC_COLUMN_INDEX = 4;
-const COLUMN_COUNT = SKELETON_COLUMNS.length;
+/** Every data column; the table fills width so no trailing spacer is needed. */
+const COLUMN_COUNT = COLUMNS.length;
 
 function toneClass(value: number): string {
   return value >= 0 ? "text-gain" : "text-loss";
@@ -73,17 +86,129 @@ interface WhalePositionsTableProps {
   onSelectWallet: (address: string) => void;
 }
 
+interface WhalePositionRowProps {
+  position: WhalePosition;
+  index: number;
+  onSelectWallet: (address: string) => void;
+  onOpenCoin: (coin: string) => void;
+}
+
+const WhalePositionRow = memo(function WhalePositionRow({
+  position,
+  index,
+  onSelectWallet,
+  onOpenCoin,
+}: WhalePositionRowProps) {
+  return (
+    <TableRow
+      tabIndex={0}
+      aria-label={`Open ${position.coin} position for ${position.userAddress}`}
+      onClick={() => {
+        onSelectWallet(position.userAddress);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onSelectWallet(position.userAddress);
+      }}
+      className="cursor-pointer focus-ring-inset"
+    >
+      <TableCell className={cn(CELL_CLASS, "text-muted-foreground num")}>{index + 1}</TableCell>
+      <TableCell className={cn(CELL_CLASS, "col-addr")}>
+        <Button
+          type="button"
+          variant="link"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectWallet(position.userAddress);
+          }}
+          size="auto"
+          className="block w-0 min-w-full truncate text-left"
+          title={position.userAddress}
+        >
+          {position.userAddress}
+        </Button>
+      </TableCell>
+      <TableCell className={cn(CELL_CLASS, "font-medium")}>
+        <Button
+          type="button"
+          variant="link"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenCoin(position.coin);
+          }}
+          size="auto"
+        >
+          {position.coin}
+        </Button>
+      </TableCell>
+      <TableCell className={CELL_CLASS}>
+        <span className={position.side === "buy" ? "text-gain" : "text-loss"}>
+          {position.side === "buy" ? "Long" : "Short"}
+        </span>
+      </TableCell>
+      <TableCell className={cn(CELL_CLASS, "col-num")}>
+        <div className="font-medium">{formatCompactUsd(position.notionalUsd)}</div>
+        <div className="type-label text-muted-foreground">
+          {formatSize(position.size)} {position.coin}
+        </div>
+      </TableCell>
+      <TableCell className={cn(CELL_CLASS, "col-num", toneClass(position.unrealizedPnl))}>
+        <div className="font-medium">{formatSignedUsd(position.unrealizedPnl)}</div>
+        <div className="type-label">{formatSignedPercent(position.unrealizedPnlPct)}</div>
+      </TableCell>
+      <TableCell className={cn(CELL_CLASS, "col-num")}>
+        {formatPrice(Number(position.entryPx))}
+      </TableCell>
+      <TableCell className={cn(CELL_CLASS, "col-num")}>
+        {position.liquidationPx === undefined || position.liquidationPx === ""
+          ? "—"
+          : formatPrice(Number(position.liquidationPx))}
+      </TableCell>
+      <TableCell className={cn(CELL_CLASS, "col-num")}>
+        {position.marginUsd == null ? "—" : formatCompactUsd(position.marginUsd)}
+      </TableCell>
+      <TableCell className={cn(CELL_CLASS, "col-text")}>
+        {position.leverageType === "isolated"
+          ? "Isolated"
+          : position.leverageType === "cross"
+            ? "Cross"
+            : "—"}
+      </TableCell>
+      <TableCell className={cn(CELL_CLASS, "col-num")}>
+        {position.fundingFee == null ? (
+          "—"
+        ) : (
+          <span className={toneClass(position.fundingFee)}>
+            {formatSignedUsd(position.fundingFee)}
+          </span>
+        )}
+      </TableCell>
+      <TableCell className={cn(CELL_CLASS, "col-num")}>
+        {position.markPrice === undefined || position.markPrice === ""
+          ? "—"
+          : formatPrice(Number(position.markPrice))}
+      </TableCell>
+      <TableCell className={cn(CELL_CLASS, "col-text text-muted-foreground")}>
+        {formatEntryTime(position.entryTime)}
+      </TableCell>
+    </TableRow>
+  );
+});
+
 export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps): JSX.Element {
   const [filters, setFilters] = useState<WhalePositionFilters>(DEFAULT_WHALE_FILTERS);
+  const [symbolInput, setSymbolInput] = useState(DEFAULT_WHALE_FILTERS.symbol);
+  const deferredSymbol = useDeferredValue(symbolInput);
   const { openCoin } = useCoinContextPanel();
 
   const query = useMemo<WhalePositionsQuery>(
     () => ({
-      symbol: filters.symbol.trim() || undefined,
+      symbol: deferredSymbol.trim() || undefined,
       side: filters.side === "all" ? undefined : filters.side,
       sort: filters.sort,
     }),
-    [filters],
+    [deferredSymbol, filters.side, filters.sort],
   );
 
   const { data, isLoading, isFetching, isError, refetch, hasNextPage, fetchNextPage } =
@@ -93,53 +218,44 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
 
   const showLoading = isLoading && rows.length === 0;
   const showError = isError && rows.length === 0;
-  const hasActiveFilters = filters.symbol.trim() !== "" || filters.side !== "all";
+  const hasActiveFilters = deferredSymbol.trim() !== "" || filters.side !== "all";
 
   return (
-    <div className="flex min-h-0 max-h-[var(--trading-region-height)] flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <WhalePositionFiltersBar
         filters={filters}
         onChange={(patch) => {
           setFilters((prev) => ({ ...prev, ...patch }));
         }}
+        symbolInput={symbolInput}
+        onSymbolChange={setSymbolInput}
       />
 
-      <Table>
+      <Table aria-label="Whale positions" className="table-cull">
         <TableHeader>
           <TableRow>
-            <TableHead className={HEAD_CLASS}>#</TableHead>
-            <TableHead className={HEAD_CLASS}>User</TableHead>
-            <TableHead className={HEAD_CLASS}>Asset</TableHead>
-            <TableHead className={HEAD_CLASS}>Side</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[7rem]")}>Position</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[7rem]")}>Unrealised PnL</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[6.5rem]")}>Entry Price</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[6.5rem]")}>Liq. Price</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[6rem]")}>Margin</TableHead>
-            <TableHead className={cn(HEAD_CLASS, "w-[5.5rem]")}>Mode</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[6.5rem]")}>Funding Fee</TableHead>
-            <TableHead className={cn(HEAD_CLASS, NUM_CLASS, "w-[6.5rem]")}>Price</TableHead>
-            <TableHead className={cn(HEAD_CLASS, "w-[7.5rem]")}>Entry Time</TableHead>
+            {COLUMNS.map((column) => (
+              <TableHead
+                key={column.id}
+                className={cn(
+                  ROLE_CLASS[column.role],
+                  column.role === "num" && "whitespace-nowrap",
+                )}
+              >
+                {column.label}
+              </TableHead>
+            ))}
           </TableRow>
         </TableHeader>
         <TableBody>
           {showLoading ? (
             SKELETON_ROW_KEYS.map((rowKey) => (
               <TableRow key={rowKey} className="hover:bg-transparent">
-                {SKELETON_COLUMNS.map((column, columnIndex) => (
-                  <TableCell
-                    key={column.id}
-                    className={columnIndex >= NUMERIC_COLUMN_INDEX ? NUM_CLASS : undefined}
-                  >
-                    <div
-                      className={cn(
-                        "flex flex-col",
-                        columnIndex >= NUMERIC_COLUMN_INDEX && "items-end",
-                      )}
-                    >
-                      {SKELETON_LINE_CLASSES.slice(0, column.lines).map((lineClass) => (
-                        <Skeleton key={lineClass} className={cn(lineClass, column.width)} />
-                      ))}
+                {COLUMNS.map((column) => (
+                  <TableCell key={column.id} className={cn(CELL_CLASS, ROLE_CLASS[column.role])}>
+                    <div className={cn("flex flex-col", column.role === "num" && "items-end")}>
+                      <Skeleton className={cn("h-[1.35em] type-data", column.bar)} />
+                      {column.lines === 2 && <Skeleton className="h-[1.2em] w-1/2 type-label" />}
                     </div>
                   </TableCell>
                 ))}
@@ -147,7 +263,7 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
             ))
           ) : showError ? (
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={COLUMN_COUNT} className="py-10">
+              <TableCell colSpan={COLUMN_COUNT} className={cn(CELL_CLASS, "py-6")}>
                 <ErrorState
                   title="Unable to load whale positions"
                   retryAction={() => {
@@ -158,9 +274,9 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
             </TableRow>
           ) : rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={COLUMN_COUNT} className="py-10">
+              <TableCell colSpan={COLUMN_COUNT} className={cn(CELL_CLASS, "py-6")}>
                 {hasActiveFilters ? (
-                  <div className="flex flex-col items-center gap-3">
+                  <div className="flex flex-col items-center gap-inline">
                     <EmptyState
                       variant="table"
                       title="No matching positions"
@@ -168,9 +284,9 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
                     />
                     <Button
                       variant="outline"
-                      size="sm"
                       onClick={() => {
                         setFilters(DEFAULT_WHALE_FILTERS);
+                        setSymbolInput(DEFAULT_WHALE_FILTERS.symbol);
                       }}
                     >
                       Clear filters
@@ -187,96 +303,13 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
             </TableRow>
           ) : (
             rows.map((position: WhalePosition, index: number) => (
-              <TableRow
+              <WhalePositionRow
                 key={`${position.userAddress}-${position.coin}-${position.entryTime}`}
-                tabIndex={0}
-                aria-label={`Open ${position.coin} position for ${truncateAddress(position.userAddress)}`}
-                onClick={() => {
-                  onSelectWallet(position.userAddress);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter" && event.key !== " ") return;
-                  event.preventDefault();
-                  onSelectWallet(position.userAddress);
-                }}
-                className="cursor-pointer focus-visible:bg-foreground/5 focus-visible:outline-none"
-              >
-                <TableCell className="text-muted-foreground tabular-nums">{index + 1}</TableCell>
-                <TableCell>
-                  <Button
-                    type="button"
-                    variant="link"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectWallet(position.userAddress);
-                    }}
-                    size="auto"
-                  >
-                    {truncateAddress(position.userAddress)}
-                  </Button>
-                </TableCell>
-                <TableCell className="font-medium">
-                  <Button
-                    type="button"
-                    variant="link"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openCoin(position.coin);
-                    }}
-                    size="auto"
-                  >
-                    {position.coin}
-                  </Button>
-                </TableCell>
-                <TableCell>
-                  <span className={position.side === "buy" ? "text-gain" : "text-loss"}>
-                    {position.side === "buy" ? "Long" : "Short"}
-                  </span>
-                </TableCell>
-                <TableCell className={NUM_CLASS}>
-                  <div className="font-medium">{formatCompactUsd(position.notionalUsd)}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatSize(position.size)} {position.coin}
-                  </div>
-                </TableCell>
-                <TableCell className={cn(NUM_CLASS, toneClass(position.unrealizedPnl))}>
-                  <div className="font-medium">{formatSignedUsd(position.unrealizedPnl)}</div>
-                  <div className="text-xs">{formatSignedPercent(position.unrealizedPnlPct)}</div>
-                </TableCell>
-                <TableCell className={NUM_CLASS}>{formatPrice(Number(position.entryPx))}</TableCell>
-                <TableCell className={NUM_CLASS}>
-                  {position.liquidationPx === undefined || position.liquidationPx === ""
-                    ? "—"
-                    : formatPrice(Number(position.liquidationPx))}
-                </TableCell>
-                <TableCell className={NUM_CLASS}>
-                  {position.marginUsd == null ? "—" : formatCompactUsd(position.marginUsd)}
-                </TableCell>
-                <TableCell>
-                  {position.leverageType === "isolated"
-                    ? "Isolated"
-                    : position.leverageType === "cross"
-                      ? "Cross"
-                      : "—"}
-                </TableCell>
-                <TableCell className={NUM_CLASS}>
-                  {position.fundingFee == null ? (
-                    "—"
-                  ) : (
-                    <span className={toneClass(position.fundingFee)}>
-                      {formatSignedUsd(position.fundingFee)}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className={NUM_CLASS}>
-                  {position.markPrice === undefined || position.markPrice === ""
-                    ? "—"
-                    : formatPrice(Number(position.markPrice))}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatEntryTime(position.entryTime)}
-                </TableCell>
-              </TableRow>
+                position={position}
+                index={index}
+                onSelectWallet={onSelectWallet}
+                onOpenCoin={openCoin}
+              />
             ))
           )}
         </TableBody>
@@ -284,9 +317,9 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
 
       {hasNextPage && (
         <div className="flex justify-center border-t py-2">
+          {/* A page is the render unit: `Load more` appends one page, so the mounted row count stays bounded. */}
           <Button
             variant="outline"
-            size="sm"
             disabled={isFetching}
             onClick={() => {
               void fetchNextPage();

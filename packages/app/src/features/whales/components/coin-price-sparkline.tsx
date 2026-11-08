@@ -1,7 +1,8 @@
 import type { ChartDataPoint } from "@0xsignal/shared";
 
-const TONE_LOSS = "var(--loss)";
-const TONE_GAIN = "var(--gain)";
+const TONE_LOSS = "var(--market-down)";
+const TONE_GAIN = "var(--market-up)";
+const TONE_FLAT = "var(--muted-foreground)";
 const FLAT_CENTER_Y = 50;
 
 interface CoinPriceSparklineProps {
@@ -34,8 +35,9 @@ function toPath(points: Point[]): string {
 export default function CoinPriceSparkline({ candles }: CoinPriceSparklineProps) {
   const first = candles.at(0);
   const last = candles.at(-1);
+  const isFlat = first !== undefined && last !== undefined && last.close === first.close;
   const isDown = first !== undefined && last !== undefined && last.close < first.close;
-  const tone = isDown ? TONE_LOSS : TONE_GAIN;
+  const tone = isFlat ? TONE_FLAT : isDown ? TONE_LOSS : TONE_GAIN;
   const linePath = toPath(toPoints(candles));
 
   return (

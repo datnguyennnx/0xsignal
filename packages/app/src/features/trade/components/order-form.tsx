@@ -4,7 +4,7 @@ import { OrderFormLeverage } from "./order-form-leverage";
 import { OrderFormFields } from "./order-form-fields";
 import { OrderFormSummary } from "./order-form-summary";
 import { useOrderFormState } from "./order-form-state";
-import { canPlace, frameClass } from "./order-form-derivations";
+import { canPlace } from "./order-form-derivations";
 
 interface OrderFormProps {
   symbol: string;
@@ -66,17 +66,13 @@ export function OrderForm({ symbol, assetIndex, markPrice = 0 }: OrderFormProps)
   const orderCanPlace = canPlace({ signingDisabled, size, usablePrice, orderType, price });
 
   return (
-    <Surface
-      tier="content"
-      radius="panel"
-      className="h-full flex flex-col p-[var(--panel-pad,1.08rem)] gap-[var(--space-4,1.5rem)]"
-    >
+    <Surface tier="content" radius="panel" className="h-full min-h-0 flex flex-col p-4 gap-3">
       {signingDisabled && (
-        <p className="shrink-0 rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+        <p className="shrink-0 rounded-control bg-muted/40 px-2 py-1 type-label text-muted-foreground">
           Read-only view — trading is disabled while inspecting another account.
         </p>
       )}
-      <div aria-disabled={signingDisabled} className={frameClass(signingDisabled)}>
+      <div className="min-h-0 flex-1 flex flex-col gap-3">
         <OrderFormLeverage
           signingDisabled={signingDisabled}
           effectiveMarginMode={effectiveMarginMode}

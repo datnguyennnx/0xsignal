@@ -43,19 +43,19 @@ export function AdjustLeveragePanel({
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-md tier-well border border-border/25 px-3 py-2">
-        <span className="text-[length:var(--text-compact)] text-muted-foreground">Current</span>
-        <span className="text-[length:var(--text-compact)] tabular-nums text-foreground">
+    <div className="min-h-0 space-y-3 overflow-y-auto">
+      <div className="flex items-center justify-between rounded-control tier-well border border-border/25 px-3 py-2">
+        <span className="type-data text-muted-foreground">Current</span>
+        <span className="type-data tabular-nums text-foreground">
           {currentLeverage}x — {isCross ? "Cross" : "Isolated"}
         </span>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between rounded-md tier-well border border-border/25 px-3 py-2">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between rounded-control tier-well border border-border/25 px-3 py-2">
           <Label
             htmlFor="adjust-leverage-input"
-            className="text-[length:var(--text-compact)] font-normal text-muted-foreground"
+            className="type-data font-normal text-muted-foreground"
           >
             Leverage
           </Label>
@@ -67,9 +67,9 @@ export function AdjustLeveragePanel({
               max={maxLeverage}
               value={leverage}
               onChange={onInputChange}
-              className="h-7 w-14 border-0 bg-transparent p-0 text-right text-lg font-semibold tabular-nums text-foreground shadow-none focus-visible:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="w-14 border-0 bg-transparent text-right tabular-nums text-foreground shadow-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
-            <span className="text-lg font-semibold tabular-nums text-foreground">x</span>
+            <span className="type-title font-semibold tabular-nums text-foreground">x</span>
           </div>
         </div>
 
@@ -79,10 +79,10 @@ export function AdjustLeveragePanel({
           min={1}
           max={maxLeverage}
           step={1}
-          className="transition-opacity duration-200"
+          className="transition-opacity duration-(--dur-base)"
         />
 
-        <div className="relative h-4 text-[length:var(--text-data)] text-muted-foreground">
+        <div className="relative h-4 type-data text-muted-foreground">
           {tickEntries.map(({ tick, key }, i) => {
             const isFirst = i === 0;
             const isLast = i === tickEntries.length - 1;
@@ -105,13 +105,13 @@ export function AdjustLeveragePanel({
         </div>
       </div>
 
-      <p className="text-[length:var(--text-data)] text-muted-foreground leading-relaxed">
+      <p className="type-data text-muted-foreground leading-relaxed">
         Max position size decreases the higher your leverage.
       </p>
 
-      <Alert variant="destructive" className="px-3 py-2.5">
+      <Alert variant="destructive" className="px-3 py-2">
         <AlertTriangleIcon />
-        <AlertDescription className="text-[length:var(--text-data)] leading-relaxed">
+        <AlertDescription className="type-data leading-relaxed">
           {isDecreasingLeverage
             ? "Decreasing leverage requires additional margin. Ensure you have sufficient available balance."
             : "Note that setting a higher leverage increases the risk of liquidation."}

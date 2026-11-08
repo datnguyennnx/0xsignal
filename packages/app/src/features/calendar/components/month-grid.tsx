@@ -30,19 +30,22 @@ export function MonthGrid({
   const today = new Date();
 
   return (
-    <Surface tier="content" className="flex w-full flex-col gap-1 overflow-hidden">
+    <Surface
+      tier="content"
+      className="flex w-full min-h-0 flex-1 flex-col gap-inline overflow-hidden p-2 md:p-panel"
+    >
       <div className="grid grid-cols-7 gap-1">
         {HEADER_LABELS.map((label) => (
           <div
             key={label}
-            className="px-2 py-2 text-center text-[length:var(--text-micro)] font-medium tracking-wider text-muted-foreground uppercase"
+            className="px-1 py-1 text-center type-label font-medium tracking-wider text-muted-foreground uppercase"
           >
             {label}
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-7 gap-1">
         {days.map((date) => (
           <MonthDayCell
             key={dayKey(date)}

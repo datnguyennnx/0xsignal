@@ -14,20 +14,22 @@ export function SaveBar({ open, onSave, onReset, isSaving }: SaveBarProps) {
       data-open={open}
       inert={!open}
       aria-hidden={!open}
-      className="fixed inset-x-0 bottom-0 z-[100] grid translate-y-full transition-transform duration-200 ease-premium data-[open=true]:translate-y-0"
+      className="fixed inset-x-0 bottom-0 z-(--z-bar) grid translate-y-full transition-transform duration-(--dur-enter) ease-standard data-[open=true]:translate-y-0"
     >
-      <div className="mx-auto w-full max-w-2xl px-[clamp(1rem,1.5vw,1.5rem)] pb-[clamp(1rem,1.5vw,1.5rem)]">
+      <div className="mx-auto w-full max-w-xl px-4 pb-4">
         <Surface
           tier="floating"
           radius="control"
-          className="flex items-center justify-between gap-4 px-[clamp(1rem,1.5vw,1.5rem)] py-[clamp(0.75rem,1vw,1rem)]"
+          className="flex items-center justify-between gap-stack px-4 py-3"
         >
-          <p className="text-sm text-muted-foreground">You have unsaved changes</p>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={onReset} disabled={isSaving}>
+          <output aria-live="polite" className="type-body text-muted-foreground">
+            You have unsaved changes
+          </output>
+          <div className="flex items-center gap-inline">
+            <Button variant="ghost" onClick={onReset} disabled={isSaving}>
               Reset
             </Button>
-            <Button size="sm" onClick={onSave} disabled={isSaving}>
+            <Button onClick={onSave} disabled={isSaving}>
               {isSaving === true ? "Saving…" : "Save changes"}
             </Button>
           </div>

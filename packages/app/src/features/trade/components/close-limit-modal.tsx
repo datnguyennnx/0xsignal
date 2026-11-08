@@ -5,13 +5,11 @@ import {
   DialogTitle,
   DialogDescription,
   DialogHeader,
-  MODAL_CONTENT_CLASS,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { cn } from "cn";
 import { formatOrderSize } from "../utils/trade-math";
 
 interface CloseLimitModalProps {
@@ -83,22 +81,17 @@ export function CloseLimitModal({
         if (!open) onClose();
       }}
     >
-      <DialogContent
-        className={cn(
-          MODAL_CONTENT_CLASS,
-          "sm:max-w-[clamp(20rem,40vw,26.25rem)] p-5 gap-[clamp(0.5rem,1vw,1rem)]",
-        )}
-      >
+      <DialogContent layout="dialog" className="gap-stack">
         <DialogHeader>
-          <DialogTitle className="text-sm font-medium text-foreground">Limit Close</DialogTitle>
-          <DialogDescription className="text-xs leading-relaxed">
+          <DialogTitle>Limit Close</DialogTitle>
+          <DialogDescription>
             This will send an order to close your position at the limit price.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-4">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
+        <div className="space-y-3">
+          <div className="space-y-3">
+            <Label className="type-label uppercase tracking-wider text-muted-foreground font-normal">
               Price (USDC)
             </Label>
             <div className="relative">
@@ -109,7 +102,7 @@ export function CloseLimitModal({
                   setPrice(e.target.value);
                 }}
                 placeholder="0.00"
-                className="h-9 text-base sm:text-sm tabular-nums bg-background/80 border-border/40 pr-14"
+                className="tabular-nums"
               />
               <Button
                 type="button"
@@ -118,15 +111,15 @@ export function CloseLimitModal({
                 onClick={() => {
                   if (position !== null) setPrice(position.markPx.toFixed(2));
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[length:var(--control-text-xs)] text-foreground hover:text-foreground/80 hover:no-underline"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground hover:text-foreground/80 hover:no-underline"
               >
                 Mid
               </Button>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-normal">
+          <div className="space-y-3">
+            <Label className="type-label uppercase tracking-wider text-muted-foreground font-normal">
               Size {position ? `(${position.coin})` : ""}
             </Label>
             <Input
@@ -134,7 +127,7 @@ export function CloseLimitModal({
               value={size}
               onChange={handleSizeChange}
               placeholder="0.00"
-              className="h-9 text-base sm:text-sm tabular-nums bg-background/80 border-border/40"
+              className="tabular-nums"
             />
           </div>
 
@@ -144,35 +137,33 @@ export function CloseLimitModal({
             min={0}
             max={100}
             step={1}
-            className="[&_[data-slot=slider-thumb]]:hover:ring-4 [&_[data-slot=slider-thumb]]:hover:ring-ring/40 [&_[data-slot=slider-track]]:hover:bg-muted/40 [&_[data-slot=slider-range]]:hover:brightness-110"
+            className="**:data-[slot=slider-thumb]:hover:ring-4 **:data-[slot=slider-thumb]:hover:ring-ring **:data-[slot=slider-track]:hover:bg-muted/40 **:data-[slot=slider-range]:hover:brightness-110"
           />
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Closing</span>
-              <span className="text-xs tabular-nums text-foreground">
+              <span className="type-label text-muted-foreground">Closing</span>
+              <span className="type-data tabular-nums text-foreground">
                 {size && Number(size) > 0 ? `${size} ${position?.coin ?? ""}` : "—"}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Direction</span>
-              <span className="text-xs tabular-nums">
+              <span className="type-label text-muted-foreground">Direction</span>
+              <span className="type-data tabular-nums">
                 {position ? (position.isLong ? "Close Long" : "Close Short") : "—"}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="pt-1">
-          <Button
-            variant="default"
-            onClick={handleConfirm}
-            disabled={!canConfirm || isPending}
-            className="w-full h-10 text-xs font-semibold uppercase tracking-wider rounded-lg transition-colors"
-          >
-            {isPending ? "Closing..." : "Close position"}
-          </Button>
-        </div>
+        <Button
+          variant="cta"
+          onClick={handleConfirm}
+          disabled={!canConfirm || isPending}
+          className="w-full"
+        >
+          {isPending ? "Closing..." : "Close position"}
+        </Button>
       </DialogContent>
     </Dialog>
   );

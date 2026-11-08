@@ -13,7 +13,7 @@ function toNumber(value: unknown): number {
 
 /**
  * Wire `orderType` discriminants. `trigger` is resolved to Stop/TP by condition;
- * the rest pass through. An object with no known key is a contract breach.
+ * the rest pass through.
  */
 const OBJECT_ORDER_TYPES = [
   ["limit", "Limit"],
@@ -22,16 +22,22 @@ const OBJECT_ORDER_TYPES = [
   ["ioc", "IOC"],
 ] as const;
 
+/** The public open-orders read omits `orderType` on some venues/rows. */
+const UNKNOWN_ORDER_TYPE = "Unknown";
+
 function primitiveOrderType(order: OpenOrder): string {
-  if (typeof order.orderType === "string") return order.orderType;
   const ot = order.orderType;
-  if (!isNonNullObject(ot)) {
-    throw new Error(`Unknown order type: ${JSON.stringify(order.orderType)}`);
+  if (typeof ot === "string" && ot.trim() !== "") return ot;
+  if (isNonNullObject(ot)) {
+    for (const [key, label] of OBJECT_ORDER_TYPES) {
+      if (key in ot) return label;
+    }
   }
-  for (const [key, label] of OBJECT_ORDER_TYPES) {
-    if (key in ot) return label;
+  // A missing discriminant still carries trigger evidence; do not drop it.
+  if (order.isTrigger === true || (order.triggerPx !== undefined && order.triggerPx !== "")) {
+    return "Trigger";
   }
-  throw new Error(`Unknown order type: ${Object.keys(ot).join(", ")}`);
+  return UNKNOWN_ORDER_TYPE;
 }
 
 /** Extract trigger price from order. */

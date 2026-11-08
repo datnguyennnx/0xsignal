@@ -22,17 +22,12 @@ export const ErrorState = memo(function ErrorState({
         className,
       )}
     >
-      <h3 className="text-sm font-semibold tracking-tight mb-3">{title}</h3>
+      <h3 className="type-title font-semibold mb-3">{title}</h3>
 
-      <p className="text-xs text-muted-foreground max-w-md mb-6 leading-relaxed">{description}</p>
+      <p className="type-body text-muted-foreground max-w-(--measure-form) mb-6">{description}</p>
 
       {retryAction && (
-        <Button
-          variant="outline"
-          onClick={retryAction}
-          size="sm"
-          className="min-w-[clamp(7rem,10vw,7.5rem)] h-9"
-        >
+        <Button variant="outline" onClick={retryAction}>
           Retry
         </Button>
       )}

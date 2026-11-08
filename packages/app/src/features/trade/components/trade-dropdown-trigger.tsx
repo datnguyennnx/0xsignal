@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "cn";
+import { Button } from "@/components/ui/button";
 import { splitDisplaySymbol } from "../utils/display-symbol";
 
 const LOGO_SLOT_CLASS = "w-5 h-5 shrink-0";
@@ -31,10 +32,12 @@ export function TradeDropdownTrigger({
     displaySymbol !== undefined && displaySymbol !== "" ? splitDisplaySymbol(displaySymbol) : null;
 
   return (
-    <button
+    <Button
       type="button"
       ref={triggerRef}
-      className="flex items-center gap-[clamp(0.2rem,0.4vw,0.375rem)] cursor-pointer px-2 py-1 rounded transition-colors hover:bg-muted/40"
+      variant="ghost"
+      size="auto"
+      className="flex items-center gap-1 cursor-pointer transition-colors hover:bg-muted/40"
       onClick={onToggle}
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}
@@ -55,16 +58,16 @@ export function TradeDropdownTrigger({
       )}
       <span className={LABEL_SLOT_CLASS}>
         {symbolParts === null ? (
-          <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
+          <span className="type-title font-semibold text-foreground tabular-nums">
             {displayLabel}
           </span>
         ) : (
           <>
-            <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
+            <span className="type-title font-semibold text-foreground tabular-nums">
               {symbolParts.base}
             </span>
             {symbolParts.quote !== "" && (
-              <span className="text-lg sm:text-xl font-semibold text-foreground tabular-nums">
+              <span className="type-title font-semibold text-foreground tabular-nums">
                 -{symbolParts.quote}
               </span>
             )}
@@ -73,10 +76,10 @@ export function TradeDropdownTrigger({
       </span>
       <ChevronDown
         className={cn(
-          "w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0",
+          "size-icon text-muted-foreground transition-transform shrink-0",
           isOpen && "rotate-180",
         )}
       />
-    </button>
+    </Button>
   );
 }

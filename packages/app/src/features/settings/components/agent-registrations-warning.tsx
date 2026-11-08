@@ -35,7 +35,7 @@ export function AgentRegistrationsBanner({ registrations }: AgentRegistrationsBa
           {registrations.map((registration) => (
             <li
               key={`${registration.agentAddress}-${registration.createdAt}`}
-              className="flex flex-wrap items-baseline gap-x-2 font-mono text-xs"
+              className="flex flex-wrap items-baseline gap-x-2 font-mono type-label"
             >
               <span>{registration.agentAddress}</span>
               <span className="text-muted-foreground">

@@ -2,10 +2,10 @@ import { type DisplayOrderbookLevel as OrderbookLevel } from "@/core/utils/hyper
 import { formatPriceWithNSigFigs, formatSize } from "@/core/utils/formatters";
 
 /** Single source for the depth row box: rows, column header, spread strip and skeleton all use it. */
-export const ROW_HEIGHT_CLASS = "h-[var(--row-h,1.875rem)]";
+export const ROW_HEIGHT_CLASS = "h-(--row-dense)";
 export const VISIBLE_ROWS = 20;
-/** Row height in rem; must stay in sync with ROW_HEIGHT_CLASS (1.875rem = its fallback). */
-export const DEFAULT_ROW_HEIGHT_REM = 1.875;
+/** Row height in rem; must stay in sync with ROW_HEIGHT_CLASS (--row-dense = 1.75rem). */
+export const DEFAULT_ROW_HEIGHT_REM = 1.75;
 
 export interface PopupData {
   price: number;

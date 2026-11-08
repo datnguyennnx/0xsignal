@@ -1,0 +1,91 @@
+html[data-glass="clear"] {
+  --glass-alpha-k: 0.72;
+  --frost-alpha-k: 0.8;
+  --glass-blur-k: 0.55;
+}
+
+html[data-glass="balanced"] {
+  --glass-alpha-k: 1;
+  --frost-alpha-k: 1;
+  --glass-blur-k: 1;
+}
+
+html[data-glass="frosted"] {
+  --glass-alpha-k: 1.18;
+  --frost-alpha-k: 1.15;
+  --glass-blur-k: 1.25;
+}
+
+html[data-ambient="off"] {
+  --ambient-k: 0;
+}
+
+html[data-ambient="subtle"] {
+  --ambient-k: 0.55;
+}
+
+html[data-ambient="vivid"] {
+  --ambient-k: 1.25;
+}
+
+html[data-density="compact"] {
+  --density-k: 0.9;
+}
+
+html[data-density="comfortable"] {
+  --density-k: 1;
+}
+
+html[data-density="spacious"] {
+  --density-k: 1.12;
+}
+
+html[data-ui-scale="small"] {
+  --ui-scale: 0.9;
+}
+
+html[data-ui-scale="default"] {
+  --ui-scale: 1;
+}
+
+html[data-ui-scale="large"] {
+  --ui-scale: 1.12;
+}
+
+html[data-ui-scale="xl"] {
+  --ui-scale: 1.25;
+}
+
+html[data-radius="sharp"] {
+  --radius-k: 0.5;
+}
+
+html[data-radius="default"] {
+  --radius-k: 1;
+}
+
+html[data-radius="round"] {
+  --radius-k: 1.6;
+}
+
+html[data-market-colors="default"] {
+  --gain: var(--mkt-up);
+  --loss: var(--mkt-down);
+}
+
+html[data-market-colors="swapped"] {
+  --gain: var(--mkt-down);
+  --loss: var(--mkt-up);
+}
+
+html[data-market-colors="colorblind"] {
+  --gain: var(--mkt-cb-up);
+  --loss: var(--mkt-cb-down);
+  --gain-foreground: var(--mkt-cb-up-fg);
+  --loss-foreground: var(--mkt-cb-down-fg);
+}
+
+[data-dense] {
+  --control-h: 1.75rem;
+  --control-px: 0.625rem;
+}

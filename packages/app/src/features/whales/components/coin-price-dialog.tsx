@@ -2,7 +2,7 @@ import { lazy, Suspense, useMemo, useState, type JSX } from "react";
 import { useParams } from "react-router-dom";
 import type { ClearinghouseState } from "@0xsignal/shared";
 
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   formatCompactUsd,
@@ -110,24 +110,21 @@ function CoinPriceDialogBody({
   );
 
   return (
-    <>
-      <DialogTitle className="sr-only">{coin} chart</DialogTitle>
-      <div className="flex h-full min-h-0 flex-col">
-        <Suspense fallback={<Skeleton className="min-h-0 flex-1" />}>
-          <div className="min-h-0 flex-1">
-            {/* The dialog outlives a coin switch, so the chart is keyed to the symbol. */}
-            <TradingChart
-              key={coin}
-              symbol={coin}
-              interval={interval}
-              onIntervalChange={setChartInterval}
-              priceLines={priceLines}
-              markers={markers}
-            />
-          </div>
-        </Suspense>
-      </div>
-    </>
+    <div className="flex h-full min-h-0 flex-col">
+      <Suspense fallback={<Skeleton className="min-h-0 flex-1" />}>
+        <div className="min-h-0 flex-1">
+          {/* The dialog outlives a coin switch, so the chart is keyed to the symbol. */}
+          <TradingChart
+            key={coin}
+            symbol={coin}
+            interval={interval}
+            onIntervalChange={setChartInterval}
+            priceLines={priceLines}
+            markers={markers}
+          />
+        </div>
+      </Suspense>
+    </div>
   );
 }
 
@@ -141,20 +138,18 @@ export function CoinPriceDialog({
 }: CoinPriceDialogProps): JSX.Element {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* Insets and auto margins, not a translate: a transform makes the popup a containing block. */}
       <DialogContent
+        layout="workspace"
         showCloseButton={false}
-        className="inset-0! m-auto h-[min(80dvh,54rem)] max-w-[min(92vw,80rem)] grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden p-0 [translate:none]! sm:max-w-[min(92vw,80rem)]"
+        aria-label={`${coin} chart`}
+        className="grid-rows-[minmax(0,1fr)] gap-0 p-0"
       >
-        {/* DialogContent paints a solid surface over the scrim; this is layout only. */}
-        <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
-          <CoinPriceDialogBody
-            coin={coin}
-            markPx={markPx}
-            summary={summary}
-            subjectPosition={subjectPosition}
-          />
-        </div>
+        <CoinPriceDialogBody
+          coin={coin}
+          markPx={markPx}
+          summary={summary}
+          subjectPosition={subjectPosition}
+        />
       </DialogContent>
     </Dialog>
   );

@@ -1,13 +1,10 @@
-// Orderbook table CSS classes — import directly by full name to aid tree-shaking.
-const CELL_CLASS =
-  "px-[var(--space-2,0.75rem)] py-[var(--space-1,0.3125rem)] text-[length:var(--text-compact)] whitespace-nowrap";
-const CELL_NUM_CLASS =
-  "px-[var(--space-2,0.75rem)] py-[var(--space-1,0.3125rem)] text-[length:var(--text-compact)] text-right tabular-nums whitespace-nowrap";
-export const CELL_HEAD_CLASS =
-  "h-[var(--row-h,1.875rem)] px-[var(--space-2,0.75rem)] py-[var(--space-1,0.3125rem)] text-[length:var(--text-data)] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap";
-export const CELL_HEAD_NUM_CLASS =
-  "h-[var(--row-h,1.875rem)] px-[var(--space-2,0.75rem)] py-[var(--space-1,0.3125rem)] text-[length:var(--text-data)] font-medium text-muted-foreground uppercase tracking-wider text-right whitespace-nowrap";
-export const TABLE_HEAD_CLASS = "text-xs text-muted-foreground uppercase tracking-wider";
+// Table cell/head classes — import directly by full name to aid tree-shaking.
+const PAD = "px-2 py-1";
+const HEAD = `h-(--table-head-h) ${PAD} type-label font-medium text-muted-foreground uppercase tracking-wider`;
+const CELL_CLASS = `${PAD} type-data whitespace-nowrap`;
+const CELL_NUM_CLASS = `${CELL_CLASS} text-right tabular-nums col-num`;
+export const CELL_HEAD_CLASS = HEAD;
+export const CELL_HEAD_NUM_CLASS = `${HEAD} text-right col-num whitespace-nowrap`;
 
 // Short aliases for ergonomic use across table components
 export const c = CELL_CLASS;

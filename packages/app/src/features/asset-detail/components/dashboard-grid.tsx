@@ -73,17 +73,35 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
   });
 
   // Measure before the first paint (a post-paint effect would let a frame render on a
-  // provisional width) and keep tracking later container resizes.
+  // provisional width) and keep tracking later container resizes. Observer bursts are
+  // coalesced into one rAF commit, and a width equal to the last committed one is dropped.
   useLayoutEffect(() => {
     const el = containerRef.current;
-    if (el !== null) setContainerWidth(el.getBoundingClientRect().width);
+    if (el === null) return () => {};
+
+    let frame = 0;
+    let pendingWidth = 0;
+    let committedWidth = el.getBoundingClientRect().width;
+    setContainerWidth(committedWidth);
+
+    const flush = () => {
+      frame = 0;
+      if (pendingWidth === committedWidth) return;
+      committedWidth = pendingWidth;
+      setContainerWidth(pendingWidth);
+    };
+
     const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
-      }
+      const entry = entries.at(-1);
+      if (entry === undefined) return;
+      pendingWidth = entry.contentRect.width;
+      if (pendingWidth === committedWidth || frame !== 0) return;
+      frame = requestAnimationFrame(flush);
     });
-    if (el !== null) observer.observe(el);
+    observer.observe(el);
+
     return () => {
+      if (frame !== 0) cancelAnimationFrame(frame);
       observer.disconnect();
     };
   }, []);
@@ -158,7 +176,7 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
       {previewState && draggedLayoutItem && (
         <div
           className={cn(
-            "absolute pointer-events-none z-40 rounded-xl border-2 border-dashed transition-none",
+            "absolute pointer-events-none z-40 rounded-panel border-2 border-dashed transition-none",
             previewState.isValid
               ? "border-primary/40 bg-primary/5"
               : "border-destructive/60 bg-destructive/10",
@@ -197,11 +215,11 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
                 <div className="text-center px-4">
                   <div className="flex items-center justify-center gap-2 mb-1">
                     <div className="size-2 rounded-full bg-muted-foreground animate-pulse" />
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="type-control font-medium text-foreground">
                       {panelNamesMap[draggedItemId] ?? draggedItemId}
                     </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">Dragging to reorder</p>
+                  <p className="type-label text-muted-foreground">Dragging to reorder</p>
                 </div>
               </Surface>
             </div>

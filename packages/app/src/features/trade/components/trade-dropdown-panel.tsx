@@ -54,12 +54,15 @@ export function TradeDropdownPanel({
       radius="overlay"
       material="glass"
       thickness="regular"
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a portalled popover surface, not a native modal
+      role="dialog"
+      aria-label="Select market"
       className="fixed z-50 w-[calc(100vw-16px)] sm:w-[90vw] max-w-[56rem] text-popover-foreground"
       style={{ top: position.top, left: position.left }}
     >
       <div className="p-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-icon text-muted-foreground" />
           <label htmlFor="trade-dropdown-search" className="sr-only">
             Search markets
           </label>
@@ -71,20 +74,20 @@ export function TradeDropdownPanel({
               onQueryChange(e.target.value);
             }}
             placeholder="Search market..."
-            className="pl-9 pr-8 bg-muted border-border h-10 text-sm rounded-lg focus:ring-1 focus:ring-offset-0"
+            className="pl-9 pr-8 bg-muted border-border rounded-control"
           />
           {query && (
             <Button
               type="button"
               variant="ghost"
-              size="icon-xs"
+              size="icon"
               onClick={() => {
                 onQueryChange("");
               }}
               aria-label="Clear search"
-              className="absolute right-2 top-1/2 size-4 -translate-y-1/2 cursor-pointer rounded-none border-0 text-muted-foreground/60 hover:bg-transparent tap-highlight dark:hover:bg-transparent after:absolute after:top-1/2 after:left-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2"
+              className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:bg-transparent tap-highlight dark:hover:bg-transparent after:absolute after:top-1/2 after:left-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2"
             >
-              <X className="w-4 h-4" />
+              <X className="size-icon" />
             </Button>
           )}
         </div>
@@ -102,10 +105,10 @@ export function TradeDropdownPanel({
                 onCategoryChange(catKey);
               }}
               className={cn(
-                "px-3 py-2 text-[length:var(--text-data)] font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none -mb-px",
+                "px-3 py-2 type-data font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none -mb-px",
                 isActive
-                  ? "text-foreground border-b-2 border-foreground"
-                  : "text-muted-foreground hover:text-foreground border-transparent",
+                  ? "bg-(--control-active-bg) text-foreground border-b-2 border-info"
+                  : "text-muted-foreground hover:bg-(--control-hover-bg) hover:text-foreground border-transparent",
               )}
             >
               {tab}
@@ -149,8 +152,8 @@ export function TradeDropdownPanel({
                   onSelect(item);
                 }}
                 className={cn(
-                  "w-full text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset cursor-pointer select-none tap-highlight",
-                  item.isActive && "bg-muted/60",
+                  "w-full text-left transition-colors hover:bg-(--control-hover-bg) focus-visible:bg-(--control-hover-bg) focus-ring-inset cursor-pointer select-none tap-highlight",
+                  item.isActive && "bg-(--control-active-bg)",
                 )}
                 aria-current={item.isActive ? "true" : undefined}
               >

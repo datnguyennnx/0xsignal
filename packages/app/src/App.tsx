@@ -2,20 +2,12 @@ import { Suspense, useEffect, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MainLayout } from "@/layouts/main-layout";
-import { ErrorBoundary } from "@/components/error-boundary";
+import { ErrorBoundary, PageLoader } from "@/components/error-boundary";
 import { AppToasters } from "@/components/app-toasters";
 import { usePreloadRoutes } from "@/lib/preload-routes";
 import { ROUTES, titleForPath, type RouteRecord } from "@/lib/routes";
 import { useAppStore } from "@/stores/use-app-store";
 import { useAuthStore } from "@/stores/use-auth-store";
-
-function PageLoader() {
-  return (
-    <div className="flex items-center justify-center min-h-[clamp(20rem,50dvh,40rem)]">
-      <div className="h-6 w-6 border-2 border-foreground/25 rounded-full animate-spin" />
-    </div>
-  );
-}
 
 function RouteErrorFallback() {
   return (
@@ -23,7 +15,7 @@ function RouteErrorFallback() {
       <p className="text-foreground">Something went wrong loading this page.</p>
       <button
         type="button"
-        className="inline-flex h-[var(--control-h-md)] items-center justify-center rounded-[var(--control-radius-md)] bg-primary px-[var(--control-px-md)] font-medium text-[length:var(--control-text-md)] text-primary-foreground transition-colors hover:bg-primary/80"
+        className="inline-flex h-control items-center justify-center rounded-control bg-info px-(--control-px) font-medium type-control text-primary-foreground transition-colors hover:bg-info/80"
         onClick={() => {
           window.location.reload();
         }}
@@ -62,7 +54,14 @@ function BareRoute({ record }: { record: RouteRecord }) {
 function MainRoute({ record }: { record: RouteRecord }) {
   if (record.redirectTo !== undefined) return <Navigate to={record.redirectTo} replace />;
   const Page = record.lazy;
-  return Page === undefined ? null : <Page />;
+  if (Page === undefined) return null;
+  // A route may reserve its real layout while the chunk loads instead of a spinner.
+  const Fallback = record.fallback;
+  return (
+    <Suspense fallback={Fallback === undefined ? <PageLoader /> : <Fallback />}>
+      <Page />
+    </Suspense>
+  );
 }
 
 function RouteTitle() {
@@ -97,11 +96,12 @@ export function App() {
             <Route
               element={
                 <MainLayout>
-                  <Suspense fallback={<PageLoader />}>
-                    <RouteErrorBoundary>
-                      <Outlet />
-                    </RouteErrorBoundary>
-                  </Suspense>
+                  {/* Each route owns its Suspense + fallback; a second whole-route
+                      boundary here would blank the layout instead of painting the
+                      route skeleton. */}
+                  <RouteErrorBoundary>
+                    <Outlet />
+                  </RouteErrorBoundary>
                 </MainLayout>
               }
             >

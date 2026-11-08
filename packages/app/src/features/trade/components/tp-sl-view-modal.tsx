@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
-import { cn } from "cn";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
   DialogDescription,
   DialogHeader,
-  MODAL_CONTENT_CLASS,
 } from "@/components/ui/dialog";
 import { formatCompactUsd } from "@/core/utils/formatters";
 import { type TpSlOrderDisplay } from "../utils/tp-sl-view-utils";
@@ -29,7 +27,7 @@ function getSideColor(side: "A" | "B"): string {
 
 function DetailRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex justify-between items-center py-1 text-sm">
+    <div className="flex justify-between items-center py-1 type-data">
       <span className="text-muted-foreground">{label}</span>
       <span className={color ?? "text-foreground"}>{value}</span>
     </div>
@@ -38,7 +36,7 @@ function DetailRow({ label, value, color }: { label: string; value: string; colo
 
 function OrderDetailBox({ order }: { order: TpSlOrderDisplay }) {
   return (
-    <div className="border border-border/40 rounded-md p-3 space-y-0">
+    <div className="border border-border/40 rounded-control p-2 space-y-1">
       <DetailRow label="Order Type" value={order.type} />
       <DetailRow label="Side" value={getSideLabel(order.side)} color={getSideColor(order.side)} />
       <DetailRow label="Amount" value={formatCompactUsd(Number(order.sz))} />
@@ -49,7 +47,7 @@ function OrderDetailBox({ order }: { order: TpSlOrderDisplay }) {
 }
 
 function TreeNodeLabel({ children }: { children: ReactNode }) {
-  return <p className="text-xs text-center text-muted-foreground">{children}</p>;
+  return <p className="type-label text-center text-muted-foreground">{children}</p>;
 }
 
 export function TpSlViewModal({
@@ -61,25 +59,23 @@ export function TpSlViewModal({
 }: TpSlViewModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(MODAL_CONTENT_CLASS, "sm:max-w-2xl p-0 gap-0")}>
-        <DialogHeader className="px-6 pt-5 pb-3">
-          <DialogTitle className="text-sm font-medium text-foreground">
-            Take Profit / Stop Loss
-          </DialogTitle>
-          <DialogDescription className="text-xs leading-relaxed">
+      <DialogContent layout="dialog" className="sm:max-w-2xl gap-stack">
+        <DialogHeader>
+          <DialogTitle>Take Profit / Stop Loss</DialogTitle>
+          <DialogDescription className="type-label leading-relaxed">
             If order A is filled, orders B and C will be placed
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-6 py-5 space-y-2">
+        <div className="space-y-2">
           <TreeNodeLabel>Order A</TreeNodeLabel>
           <div className="max-w-sm mx-auto">
             <OrderDetailBox order={parentOrder} />
           </div>
 
           {tpOrder || slOrder ? (
-            <div className="grid grid-cols-2 gap-[clamp(0.5rem,1vw,1rem)]">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-2 gap-inline">
+              <div className="space-y-1">
                 {slOrder ? (
                   <>
                     <TreeNodeLabel>If order B filled, cancel order C</TreeNodeLabel>
@@ -88,7 +84,7 @@ export function TpSlViewModal({
                   </>
                 ) : null}
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 {tpOrder ? (
                   <>
                     <TreeNodeLabel>If order C filled, cancel order B</TreeNodeLabel>
@@ -99,8 +95,10 @@ export function TpSlViewModal({
               </div>
             </div>
           ) : (
-            <div className="rounded-md border border-border/25 bg-muted/40 px-3 py-2">
-              <p className="text-xs text-muted-foreground text-center">No TP/SL orders attached</p>
+            <div className="rounded-control border border-border/25 bg-muted/40 px-2 py-1">
+              <p className="type-label text-muted-foreground text-center">
+                No TP/SL orders attached
+              </p>
             </div>
           )}
         </div>

@@ -62,7 +62,7 @@ export function ChartCanvas({
         />
       </ChartHeader>
 
-      <div className="flex-1 relative overflow-hidden rounded-[var(--radius-panel)]">
+      <div className="flex-1 relative overflow-hidden rounded-panel">
         <div
           ref={chartContainerRef}
           className={`absolute inset-0${hasCandles ? "" : " invisible"}`}
@@ -84,7 +84,7 @@ export function ChartCanvas({
             className="absolute inset-0 flex flex-col gap-3 p-2"
           >
             <span className="h-5 w-1/3 rounded-full bg-muted/50 animate-pulse" />
-            <span className="flex-1 rounded-[var(--radius-panel)] bg-muted/30 animate-pulse" />
+            <span className="flex-1 rounded-panel bg-muted/30 animate-pulse" />
           </output>
         ) : loadError ? (
           <EmptyState

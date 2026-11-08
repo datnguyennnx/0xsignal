@@ -14,7 +14,12 @@ import {
   type WsMarketInterval,
 } from "@0xsignal/shared";
 import { ApiError } from "@/lib/api-error";
-import { api } from "@/services/api";
+import {
+  getPortfolio as fetchPortfolio,
+  getUserFunding as fetchUserFunding,
+  getUserHistoricalOrders as fetchUserHistoricalOrders,
+  getUserVaultEquities as fetchUserVaultEquities,
+} from "@/services/api/user";
 
 /**
  * Browser-direct Hyperliquid REST reads.
@@ -115,7 +120,7 @@ export function getPortfolio(user: string): Promise<PortfolioResponse> {
       ensureArrayResult(data, "portfolio");
       return data;
     },
-    () => api.getPortfolio(user),
+    () => fetchPortfolio(user),
   );
 }
 
@@ -247,7 +252,7 @@ export function getHistoricalOrders(user: string): Promise<HistoricalOrderEntry[
       ensureArrayResult(data, "historicalOrders");
       return data.map((entry) => toHistoricalOrderEntry(entry));
     },
-    () => api.getUserHistoricalOrders(user),
+    () => fetchUserHistoricalOrders(user),
   );
 }
 
@@ -258,7 +263,7 @@ export function getUserVaultEquities(user: string): Promise<UserVaultEquity[]> {
       ensureArrayResult(data, "userVaultEquities");
       return data;
     },
-    () => api.getUserVaultEquities(user),
+    () => fetchUserVaultEquities(user),
   );
 }
 
@@ -277,6 +282,6 @@ export function getUserFunding(
       ensureArrayResult(data, "userFunding");
       return data.map((entry) => toUserFundingEntry(entry));
     },
-    () => api.getUserFunding(user, startTime, endTime),
+    () => fetchUserFunding(user, startTime, endTime),
   );
 }

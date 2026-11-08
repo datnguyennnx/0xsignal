@@ -5,7 +5,7 @@ import { gridTemplate } from "../utils/trade-dropdown-columns";
 import { HeaderCell } from "./trade-dropdown.columns.helpers";
 import type { ColumnDef, FormattedTrade } from "../utils/trade-dropdown";
 
-const ROW_GRID = "grid min-w-0 gap-[clamp(0.25rem,0.5vw,0.5rem)] px-3";
+const ROW_GRID = "grid min-w-0 gap-1 px-2";
 
 function GridRow({
   columns,
@@ -37,7 +37,7 @@ export function MarketHeader({
   return (
     <GridRow
       columns={columns}
-      className="py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"
+      className="py-1 type-label font-medium text-muted-foreground uppercase tracking-wider"
     >
       {columns.map((col) => (
         <HeaderCell key={col.id} col={col} sortBy={sortBy} sortDesc={sortDesc} onSort={onSort} />
@@ -48,7 +48,7 @@ export function MarketHeader({
 
 export function MarketRow({ item, columns }: { item: FormattedTrade; columns: ColumnDef[] }) {
   return (
-    <GridRow columns={columns} className="py-2.5">
+    <GridRow columns={columns} className="py-1">
       {columns.map((col) => (
         <div
           key={col.id}
@@ -56,14 +56,14 @@ export function MarketRow({ item, columns }: { item: FormattedTrade; columns: Co
         >
           <span
             className={cn(
-              "text-sm tabular-nums truncate min-w-0",
+              "type-body tabular-nums truncate min-w-0",
               col.align === "right" && "text-right",
               col.id === "symbol" && "font-medium",
               col.id === "change" && (item.changeValue >= 0 ? "text-gain" : "text-loss"),
               col.id === "funding" && (Number(item.funding) >= 0 ? "text-gain" : "text-loss"),
               col.id === "volume" && "text-muted-foreground",
-              col.id === "oi" && "text-muted-foreground text-xs",
-              col.id === "marketCap" && "text-muted-foreground text-xs",
+              col.id === "oi" && "text-muted-foreground type-label",
+              col.id === "marketCap" && "text-muted-foreground type-label",
             )}
           >
             {col.render(item)}
@@ -76,7 +76,7 @@ export function MarketRow({ item, columns }: { item: FormattedTrade; columns: Co
 
 export function MarketRowSkeleton({ columns }: { columns: ColumnDef[] }) {
   return (
-    <GridRow columns={columns} className="py-2.5">
+    <GridRow columns={columns} className="py-1">
       {columns.map((col) => (
         <div
           key={col.id}

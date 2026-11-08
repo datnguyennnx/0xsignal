@@ -1,0 +1,27 @@
+:root {
+  --p-neutral-0: oklch(0.998 0.0015 100);
+  --p-neutral-25: oklch(0.992 0.0023 100);
+  --p-neutral-50: oklch(0.955 0.0061 100);
+  --p-neutral-100: oklch(0.938 0.0069 100);
+  --p-neutral-500: oklch(0.5 0.0085 100);
+  --p-neutral-700: oklch(0.34 0.0085 100);
+  --p-neutral-900: oklch(0.225 0.0085 100);
+
+  --p-graphite-25: oklch(0.955 0.0039 90);
+  --p-graphite-100: oklch(0.82 0.0046 90);
+  --p-graphite-300: oklch(0.7 0.0069 90);
+  --p-graphite-800: oklch(0.27 0.0085 90);
+  --p-graphite-850: oklch(0.24 0.0077 90);
+  --p-graphite-900: oklch(0.205 0.0069 90);
+  --p-graphite-950: oklch(0.155 0.0061 90);
+  --p-graphite-1000: oklch(0.128 0.0054 90);
+
+  --p-white: oklch(1 0 0);
+  --p-black: oklch(0 0 0);
+  --p-white-06: oklch(1 0 0 / 0.06);
+  --p-white-08: oklch(1 0 0 / 0.08);
+  --p-white-10: oklch(1 0 0 / 0.1);
+  --p-white-16: oklch(1 0 0 / 0.16);
+
+  --h-accent: 132;
+}

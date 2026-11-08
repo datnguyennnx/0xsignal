@@ -9,6 +9,7 @@ import {
 } from "lightweight-charts";
 
 import { toRgba } from "./color";
+import { useChartTheme, type ChartToken } from "./theme-store";
 
 /** Chart-feature vocabulary: callers never see a lightweight-charts type. */
 export interface ChartPriceLine {
@@ -21,7 +22,7 @@ export interface ChartPriceLine {
   axisLabelVisible?: boolean;
 }
 
-const TONE_TOKENS: Record<ChartPriceLine["tone"], string> = {
+const TONE_TOKENS: Record<ChartPriceLine["tone"], ChartToken> = {
   gain: "--gain",
   loss: "--loss",
   muted: "--muted-foreground",
@@ -34,9 +35,6 @@ const EMPHASIS_STYLE: Record<ChartPriceLine["emphasis"], { lineWidth: LineWidth;
     subject: { lineWidth: 2, alpha: 1 },
   };
 
-const readToneColor = (tone: ChartPriceLine["tone"]): string =>
-  getComputedStyle(document.documentElement).getPropertyValue(TONE_TOKENS[tone]).trim();
-
 const isDrawable = (line: ChartPriceLine): boolean => Number.isFinite(line.price) && line.price > 0;
 
 /**
@@ -48,6 +46,8 @@ export function usePriceLines<TSeries extends SeriesType>(
   series: ISeriesApi<TSeries> | null,
   priceLines: readonly ChartPriceLine[] | undefined,
 ): void {
+  const theme = useChartTheme();
+
   useEffect(() => {
     const drawn: IPriceLine[] = [];
 
@@ -58,7 +58,7 @@ export function usePriceLines<TSeries extends SeriesType>(
         drawn.push(
           series.createPriceLine({
             price: line.price,
-            color: toRgba(readToneColor(line.tone), style.alpha),
+            color: toRgba(theme.colors[TONE_TOKENS[line.tone]], style.alpha),
             title: line.title ?? "",
             lineWidth: style.lineWidth,
             lineStyle: line.dashed === true ? LineStyle.Dashed : LineStyle.Solid,
@@ -74,5 +74,5 @@ export function usePriceLines<TSeries extends SeriesType>(
       if (chart === null || series === null || chart.panes().length === 0) return;
       for (const handle of drawn) series.removePriceLine(handle);
     };
-  }, [chart, series, priceLines]);
+  }, [chart, series, priceLines, theme]);
 }

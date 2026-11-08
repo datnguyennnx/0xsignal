@@ -12,25 +12,7 @@ import {
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { remToPx, subscribeRootFontSize } from "@/core/utils/rem";
 import { getVolumePaneHeight } from "../utils/constants";
-import { toRgb } from "../lib/color";
-
-const readToken = (token: string): string =>
-  toRgb(getComputedStyle(document.documentElement).getPropertyValue(token).trim());
-
-const getChartColors = () => ({
-  grid: readToken("--data-grid"),
-  text: readToken("--data-axis"),
-  border: readToken("--data-grid"),
-  crosshair: readToken("--data-crosshair"),
-  volume: readToken("--data-volume"),
-});
-
-const getCandlestickColors = () => ({
-  upColor: readToken("--data-up"),
-  downColor: readToken("--data-down"),
-  wickUpColor: readToken("--data-up"),
-  wickDownColor: readToken("--data-down"),
-});
+import { getChartTheme, useChartTheme } from "../lib/theme-store";
 
 interface UseChartEngineProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -70,12 +52,12 @@ const sameCandle = (a: ChartDataPoint, b: ChartDataPoint): boolean =>
 
 export const useChartEngine = ({
   containerRef,
-  isDark,
   priceFormat,
   onCrosshairMove,
   onLoadMore,
   hasMore,
 }: UseChartEngineProps): UseChartEngineResult => {
+  const theme = useChartTheme();
   const [chartResult, setChartResult] = useState<UseChartEngineResult>({
     chart: null,
     candlestickSeries: null,
@@ -89,7 +71,6 @@ export const useChartEngine = ({
   const hasMoreRef = useRef(hasMore);
   const onCrosshairMoveRef = useRef(onCrosshairMove);
   const hoveredCandleRef = useRef<ChartDataPoint | null>(null);
-  const prevIsDarkRef = useRef(isDark);
   const hasSeenLogicalRangeRef = useRef(false);
   const prevLogicalFromRef = useRef<number | null>(null);
   // The container can be remounted (e.g. fullscreen toggle) while the ref
@@ -109,22 +90,24 @@ export const useChartEngine = ({
   }, [priceFormat]);
 
   const initChart = useCallback((container: HTMLDivElement) => {
-    const c = getChartColors();
-    const candle = getCandlestickColors();
+    const colors = getChartTheme().colors;
+    const grid = colors["--data-grid"];
+    const text = colors["--data-axis"];
+    const crosshair = colors["--data-crosshair"];
 
     const chart = createChart(container, {
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: c.text,
+        textColor: text,
         fontSize: remToPx(0.75),
-        panes: { separatorColor: c.border, separatorHoverColor: c.grid, enableResize: true },
+        panes: { separatorColor: grid, separatorHoverColor: grid, enableResize: true },
       },
-      grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+      grid: { vertLines: { color: grid }, horzLines: { color: grid } },
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
-        borderColor: c.border,
+        borderColor: grid,
         rightOffset: 12,
         barSpacing: 6,
         // LWC v5.1: auto-merge invisible data points when zoomed out
@@ -140,23 +123,23 @@ export const useChartEngine = ({
         vertTouchDrag: true,
       },
       rightPriceScale: {
-        borderColor: c.border,
+        borderColor: grid,
         scaleMargins: { top: 0.1, bottom: 0.2 },
         autoScale: true,
       },
       crosshair: {
         mode: 1,
-        vertLine: { width: 1, color: c.crosshair, style: 3 },
-        horzLine: { width: 1, color: c.crosshair, style: 3 },
+        vertLine: { width: 1, color: crosshair, style: 3 },
+        horzLine: { width: 1, color: crosshair, style: 3 },
       },
     });
 
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: candle.upColor,
-      downColor: candle.downColor,
+      upColor: colors["--data-up"],
+      downColor: colors["--data-down"],
       borderVisible: false,
-      wickUpColor: candle.wickUpColor,
-      wickDownColor: candle.wickDownColor,
+      wickUpColor: colors["--data-up"],
+      wickDownColor: colors["--data-down"],
       priceFormat: {
         type: "custom" as const,
         minMove: priceFormatRef.current.minMove,
@@ -167,7 +150,7 @@ export const useChartEngine = ({
     const volumeSeries = chart.addSeries(
       HistogramSeries,
       {
-        color: c.volume,
+        color: colors["--data-volume"],
         priceFormat: { type: "volume" },
         lastValueVisible: false,
         priceLineVisible: false,
@@ -320,35 +303,41 @@ export const useChartEngine = ({
   }, []);
 
   useEffect(() => {
-    if (!chartRef.current) return;
+    const chart = chartRef.current;
+    if (chart === null) return;
 
-    if (prevIsDarkRef.current !== isDark) {
-      prevIsDarkRef.current = isDark;
-      const c = getChartColors();
-      const candle = getCandlestickColors();
+    const colors = theme.colors;
 
-      chartRef.current.applyOptions({
-        layout: { textColor: c.text },
-        grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-        timeScale: { borderColor: c.border },
-        rightPriceScale: { borderColor: c.border },
-        crosshair: { vertLine: { color: c.crosshair }, horzLine: { color: c.crosshair } },
-      });
+    chart.applyOptions({
+      layout: {
+        textColor: colors["--data-axis"],
+        panes: {
+          separatorColor: colors["--data-grid"],
+          separatorHoverColor: colors["--data-grid"],
+          enableResize: true,
+        },
+      },
+      grid: {
+        vertLines: { color: colors["--data-grid"] },
+        horzLines: { color: colors["--data-grid"] },
+      },
+      timeScale: { borderColor: colors["--data-grid"] },
+      rightPriceScale: { borderColor: colors["--data-grid"] },
+      crosshair: {
+        vertLine: { color: colors["--data-crosshair"] },
+        horzLine: { color: colors["--data-crosshair"] },
+      },
+    });
 
-      if (candlestickSeriesRef.current) {
-        candlestickSeriesRef.current.applyOptions({
-          upColor: candle.upColor,
-          downColor: candle.downColor,
-          wickUpColor: candle.wickUpColor,
-          wickDownColor: candle.wickDownColor,
-        });
-      }
+    candlestickSeriesRef.current?.applyOptions({
+      upColor: colors["--data-up"],
+      downColor: colors["--data-down"],
+      wickUpColor: colors["--data-up"],
+      wickDownColor: colors["--data-down"],
+    });
 
-      if (volumeSeriesRef.current) {
-        volumeSeriesRef.current.applyOptions({ color: c.volume });
-      }
-    }
-  }, [isDark]);
+    volumeSeriesRef.current?.applyOptions({ color: colors["--data-volume"] });
+  }, [theme]);
 
   return chartResult;
 };

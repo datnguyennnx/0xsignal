@@ -8,14 +8,14 @@ export function ResetLayoutButton() {
     <Button
       variant="outline"
       size="icon"
-      className="size-8"
+      data-dense
       title="Reset Dashboard Layout"
       onClick={() => {
         useLayoutStore.getState().resetLayout();
         toast.success("Dashboard layout reset");
       }}
     >
-      <RotateCcw className="size-4" />
+      <RotateCcw className="size-icon" />
       <span className="sr-only">Reset Dashboard Layout</span>
     </Button>
   );

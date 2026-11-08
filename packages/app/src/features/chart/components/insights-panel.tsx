@@ -17,47 +17,53 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
 
   return (
     <div className={cn("flex flex-col h-full overflow-hidden bg-transparent", className)}>
-      <div className="p-6 flex flex-col gap-[clamp(0.75rem,1vw,1.5rem)]">
-        <div className="space-y-1">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+      <div className="p-panel flex flex-col gap-field">
+        <div className="flex flex-col gap-field">
+          <h3 className="flex items-center gap-field type-body font-semibold text-foreground">
             {indicator.name}
           </h3>
-          <p className="text-xs text-muted-foreground leading-relaxed">{indicator.description}</p>
+          <p className="type-label text-muted-foreground leading-relaxed">
+            {indicator.description}
+          </p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-[clamp(1rem,2vw,1.5rem)] space-y-[clamp(1.5rem,3vw,2.5rem)] overscroll-none">
-        <div className="space-y-[clamp(1rem,1.5vw,1.5rem)]">
-          <div className="grid gap-[clamp(0.75rem,1.5vw,1.5rem)]">
+      <div className="flex-1 overflow-y-auto p-panel space-y-section overscroll-none">
+        <div className="flex flex-col gap-section">
+          <div className="grid gap-stack">
             {hasText(usage.formula) ? (
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground">Mathematical Engine</p>
+              <div className="flex flex-col gap-field">
+                <p className="type-label font-semibold text-muted-foreground">
+                  Mathematical Engine
+                </p>
                 <IndicatorFormula value={usage.formula} />
               </div>
             ) : null}
 
             {hasText(usage.mathematicalWeaknesses) ? (
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-muted-foreground">Structural Weaknesses</p>
-                <p className="text-sm leading-relaxed">{usage.mathematicalWeaknesses}</p>
+              <div className="flex flex-col gap-field">
+                <p className="type-label font-semibold text-muted-foreground">
+                  Structural Weaknesses
+                </p>
+                <p className="type-body leading-relaxed">{usage.mathematicalWeaknesses}</p>
               </div>
             ) : null}
 
             {hasText(usage.regimePerformance) ? (
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-muted-foreground">Regime Robustness</p>
-                <p className="text-sm leading-relaxed">{usage.regimePerformance}</p>
+              <div className="flex flex-col gap-field">
+                <p className="type-label font-semibold text-muted-foreground">Regime Robustness</p>
+                <p className="type-body leading-relaxed">{usage.regimePerformance}</p>
               </div>
             ) : null}
 
             {tips.length > 0 ? (
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground">Pro Tips</p>
-                <ul className="space-y-1.5">
+              <div className="flex flex-col gap-field">
+                <p className="type-label font-semibold text-muted-foreground">Pro Tips</p>
+                <ul className="flex flex-col gap-field">
                   {tips.map((tip) => (
                     <li
                       key={tip}
-                      className="text-sm leading-relaxed text-muted-foreground flex gap-[clamp(0.25rem,0.5vw,0.5rem)]"
+                      className="type-body leading-relaxed text-muted-foreground flex gap-1"
                     >
                       <span className="text-foreground/40">•</span> {tip}
                     </li>
@@ -67,13 +73,13 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {pitfalls.length > 0 ? (
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground">Execution Pitfalls</p>
-                <ul className="space-y-1.5">
+              <div className="flex flex-col gap-field">
+                <p className="type-label font-semibold text-muted-foreground">Execution Pitfalls</p>
+                <ul className="flex flex-col gap-field">
                   {pitfalls.map((pitfall) => (
                     <li
                       key={pitfall}
-                      className="text-sm leading-relaxed text-muted-foreground flex gap-[clamp(0.25rem,0.5vw,0.5rem)]"
+                      className="type-body leading-relaxed text-muted-foreground flex gap-1"
                     >
                       <span className="text-foreground/40">•</span> {pitfall}
                     </li>
@@ -83,23 +89,23 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {hasText(usage.comparisons) || hasText(usage.upgrades) ? (
-              <div className="space-y-5">
+              <div className="space-y-section">
                 {hasText(usage.comparisons) ? (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-muted-foreground">
+                  <div className="flex flex-col gap-field">
+                    <p className="type-label font-semibold text-muted-foreground">
                       Institutional Comparison
                     </p>
-                    <p className="text-sm text-muted-foreground italic leading-relaxed">
+                    <p className="type-body text-muted-foreground italic leading-relaxed">
                       {usage.comparisons}
                     </p>
                   </div>
                 ) : null}
                 {hasText(usage.upgrades) ? (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-muted-foreground">
+                  <div className="flex flex-col gap-field">
+                    <p className="type-label font-semibold text-muted-foreground">
                       Architectural Upgrades
                     </p>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
+                    <p className="type-body text-muted-foreground leading-relaxed">
                       {usage.upgrades}
                     </p>
                   </div>
@@ -108,11 +114,11 @@ export function IndicatorInsightsPanel({ indicator, className }: IndicatorInsigh
             ) : null}
 
             {hasText(indicator.implementationNotesForDev) ? (
-              <div className="p-[clamp(1rem,1.5vw,1.5rem)] rounded-xl bg-[color-mix(in_oklab,var(--ink)_8%,transparent)]">
-                <p className="text-xs font-semibold text-muted-foreground mb-1">
+              <div className="p-panel rounded-panel bg-secondary">
+                <p className="type-label font-semibold text-muted-foreground mb-label">
                   Implementation Spec
                 </p>
-                <p className="text-xs text-muted-foreground leading-tight">
+                <p className="type-label text-muted-foreground leading-tight">
                   {indicator.implementationNotesForDev}
                 </p>
               </div>

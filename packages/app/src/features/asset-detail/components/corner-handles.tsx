@@ -31,6 +31,7 @@ const BRACKET_SIZE_PX = 10;
 export function CornerHandles({ activeCorner, isResizing, onPointerDown }: CornerHandlesProps) {
   return (
     <div
+      aria-hidden="true"
       onPointerDown={onPointerDown(activeCorner)}
       style={{
         width: CORNER_HIT_BOX_PX,
@@ -38,7 +39,7 @@ export function CornerHandles({ activeCorner, isResizing, onPointerDown }: Corne
         padding: (CORNER_HIT_BOX_PX - BRACKET_SIZE_PX) / 2,
       }}
       className={cn(
-        "absolute z-10 touch-none transition-opacity duration-150 after:absolute after:left-1/2 after:top-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2",
+        "absolute z-10 touch-none focus-ring transition-opacity duration-(--dur-fast) after:absolute after:left-1/2 after:top-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2",
         isResizing ? "opacity-100" : "opacity-60 hover:opacity-100",
         activeCorner.includes("w") ? "left-0" : "right-0",
         activeCorner.includes("n") ? "top-0" : "bottom-0",
@@ -49,7 +50,7 @@ export function CornerHandles({ activeCorner, isResizing, onPointerDown }: Corne
     >
       <svg
         viewBox="0 0 8 8"
-        className="block w-2.5 h-2.5 text-muted-foreground/60"
+        className="block w-2.5 h-2.5 text-muted-foreground"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"

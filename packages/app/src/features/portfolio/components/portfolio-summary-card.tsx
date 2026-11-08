@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { Surface } from "@/components/surface/surface";
 import { EmptyState } from "@/components/empty-state";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -11,7 +11,9 @@ import { useOwnAddress } from "@/hooks/use-effective-address";
 import {
   usePortfolio,
   useUserVaultEquities,
+  useWhaleClearinghouseState,
   useWhalePortfolio,
+  useWhaleSpotClearinghouseState,
   useWhaleVaultEquities,
 } from "../hooks/use-portfolio-data";
 import {
@@ -24,7 +26,6 @@ import {
 import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
 import { computeMaxDrawdown } from "../utils/financial";
 import { SURFACE } from "./portfolio-summary.constants";
-import { SELECT_COMPACT_CLASS } from "@/lib/state-classes";
 import {
   PortfolioSummaryError,
   PortfolioSummarySections,
@@ -33,10 +34,13 @@ import {
 
 export function PortfolioSummaryCard({
   readOnlyAddress,
+  period: selectedPeriod,
+  onPeriodChange,
 }: {
   readOnlyAddress?: string | undefined;
+  period: PortfolioPeriod;
+  onPeriodChange: (period: PortfolioPeriod) => void;
 }) {
-  const [tf, setTf] = useState<PortfolioPeriod>("month");
   const isOwn = readOnlyAddress === undefined;
   const ownAddress = useOwnAddress();
 
@@ -48,8 +52,13 @@ export function PortfolioSummaryCard({
     isError: pfError,
   } = isOwn ? ownPortfolio : whalePortfolio;
 
-  const { data: chData, isLoading: chLoading } = useClearinghouseState(isOwn);
-  const { data: spotData, isLoading: spotLoading } = useSpotClearinghouseState(isOwn);
+  const ownClearinghouse = useClearinghouseState(isOwn);
+  const whaleClearinghouse = useWhaleClearinghouseState(readOnlyAddress);
+  const { data: chData, isLoading: chLoading } = isOwn ? ownClearinghouse : whaleClearinghouse;
+
+  const ownSpot = useSpotClearinghouseState(isOwn);
+  const whaleSpot = useWhaleSpotClearinghouseState(readOnlyAddress);
+  const { data: spotData, isLoading: spotLoading } = isOwn ? ownSpot : whaleSpot;
 
   const ownVaults = useUserVaultEquities(isOwn);
   const whaleVaults = useWhaleVaultEquities(readOnlyAddress);
@@ -59,8 +68,8 @@ export function PortfolioSummaryCard({
 
   const period = useMemo(() => {
     if (!portfolio) return null;
-    return findPeriodEntry(portfolio, tf) ?? null;
-  }, [portfolio, tf]);
+    return findPeriodEntry(portfolio, selectedPeriod) ?? null;
+  }, [portfolio, selectedPeriod]);
 
   const perps = useMemo(() => {
     const lastAccountValue = period?.accountValueHistory?.at(-1);
@@ -111,19 +120,17 @@ export function PortfolioSummaryCard({
 
   return (
     <Surface tier="content" className={SURFACE}>
-      <div className="flex items-center justify-between">
-        <span className="text-[length:var(--text-compact)] font-medium tracking-wider text-muted-foreground">
+      <div data-dense className="flex items-center justify-between">
+        <span className="type-data font-medium tracking-wider text-muted-foreground">
           Perps + Spot + Vaults
         </span>
         <NativeSelect
-          size="sm"
           aria-label="Timeframe"
-          value={tf}
+          value={selectedPeriod}
           onChange={(e) => {
             const val = e.target.value;
-            setTf(isPortfolioPeriod(val) ? val : "month");
+            onPeriodChange(isPortfolioPeriod(val) ? val : "month");
           }}
-          className={SELECT_COMPACT_CLASS}
         >
           {PERIOD_KEYS.map((p) => (
             <NativeSelectOption key={p} value={p}>

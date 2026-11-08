@@ -1,5 +1,6 @@
 import { lazy, Suspense, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
+import { getRootFontSizePx } from "@/core/utils/rem";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Surface } from "@/components/surface/surface";
@@ -15,26 +16,30 @@ const TradingChart = lazy(() =>
 
 const ChartSkeleton = () => (
   <Surface tier="content" className="h-full w-full flex items-center justify-center">
-    <Skeleton className="h-full w-full rounded-xl bg-muted/60" />
+    <Skeleton className="h-full w-full rounded-panel bg-muted/60" />
   </Surface>
 );
 
 const WIDE_BREAKPOINT_REM = 80;
 
+type ContainerMode = "wide" | "narrow";
+
+/** Viewport seed so the first commit paints a layout; the container refines it before paint. */
+function seedMode(): ContainerMode {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "narrow";
+  return window.matchMedia(`(min-width: ${WIDE_BREAKPOINT_REM}rem)`).matches ? "wide" : "narrow";
+}
+
 /**
- * Measures the container itself, since the two layouts must never be mounted together, and
- * stays `null` until the first measurement: a provisional layout would mount the whole panel
- * tree — chart included — only to unmount it once the real width lands.
+ * Measures the container itself, since the two layouts must never be mounted together. The
+ * seeded mode keeps the first commit out of `null`, so no frame paints an empty grid.
  */
-function useContainerMode(ref: RefObject<HTMLDivElement | null>): "wide" | "narrow" | null {
-  const [mode, setMode] = useState<"wide" | "narrow" | null>(null);
+function useContainerMode(ref: RefObject<HTMLDivElement | null>): ContainerMode {
+  const [mode, setMode] = useState<ContainerMode>(seedMode);
 
   useLayoutEffect(() => {
     const element = ref.current;
-    const rootFontSize = Number(
-      getComputedStyle(document.documentElement).fontSize.replace("px", ""),
-    );
-    const breakpointPx = (Number.isFinite(rootFontSize) ? rootFontSize : 16) * WIDE_BREAKPOINT_REM;
+    const breakpointPx = WIDE_BREAKPOINT_REM * getRootFontSizePx();
     const update = (width: number): void => {
       setMode(width >= breakpointPx ? "wide" : "narrow");
     };
@@ -83,7 +88,7 @@ export function AssetTradingGrid({
   const assetIndex = getAssetIndex(symbol);
 
   const chartPanel = showChartSkeleton ? (
-    <Skeleton className="h-full w-full rounded-lg" />
+    <Skeleton className="h-full w-full rounded-panel" />
   ) : (
     <Suspense fallback={<ChartSkeleton />}>
       <ErrorBoundary resetKey={chartSymbol}>
@@ -108,7 +113,7 @@ export function AssetTradingGrid({
       <ErrorBoundary resetKey={symbol}>
         <Surface
           tier="content"
-          className="h-full flex items-center justify-center p-[var(--panel-pad,1.08rem)] text-center text-[length:var(--text-compact)] text-muted-foreground"
+          className="h-full flex items-center justify-center p-panel text-center type-data text-muted-foreground"
         >
           {metaLoading
             ? "Resolving market metadata…"
@@ -137,13 +142,17 @@ export function AssetTradingGrid({
            internally when its own content exceeds it. */
         <div className="flex flex-1 min-h-0 flex-col">
           <DashboardGrid>
-            <div id="chart">{chartPanel}</div>
-            <div id="orderbook">{orderbookPanel}</div>
-            <div id="orderform">
-              <div className="panel-contain-layout h-full">{orderformPanel}</div>
+            <div id="chart" className="h-full min-h-0">
+              {chartPanel}
             </div>
-            <div id="positions">
-              <div className="panel-contain-layout h-full">{positionsPanel}</div>
+            <div id="orderbook" className="h-full min-h-0">
+              {orderbookPanel}
+            </div>
+            <div id="orderform" className="h-full min-h-0">
+              <div className="panel-contain-layout h-full min-h-0">{orderformPanel}</div>
+            </div>
+            <div id="positions" className="h-full min-h-0">
+              <div className="panel-contain-layout h-full min-h-0">{positionsPanel}</div>
             </div>
           </DashboardGrid>
         </div>
@@ -151,7 +160,7 @@ export function AssetTradingGrid({
         /* ===== NARROW (container < 80rem): 2×2 Grid =====
            Definite 1fr/1fr tracks — the split the pre-hydration skeleton reserves — so
            late data cannot resize the rows. */
-        <div className="grid flex-1 min-h-0 grid-cols-[7fr_3fr] grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-[clamp(0.25rem,0.5vw,0.5rem)]">
+        <div className="grid flex-1 min-h-0 grid-cols-[7fr_3fr] grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
           {/* Row 1 */}
           <div className="min-w-0 h-full min-h-0">
             <div className="h-full">{chartPanel}</div>

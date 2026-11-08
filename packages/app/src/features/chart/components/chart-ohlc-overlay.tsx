@@ -17,14 +17,14 @@ export const ChartOhlcOverlay = memo(({ data }: ChartOhlcOverlayProps) => {
   if (!displayCandle) return null;
 
   return (
-    <div className="absolute top-2 left-2 right-2 z-30 px-2.5 py-1.5 bg-transparent rounded-lg text-[length:var(--text-data)] select-none overflow-x-auto scrollbar-hide w-fit">
+    <div className="absolute top-2 left-2 right-2 z-30 px-2 py-1 bg-transparent rounded-control type-data select-none overflow-x-auto scrollbar-hide w-fit">
       <Surface
         tier="floating"
         radius="overlay"
         material="plate"
         className="pointer-events-none absolute inset-0 -z-10"
       />
-      <div className="flex items-center gap-[clamp(0.4rem,0.7vw,0.75rem)] min-w-fit">
+      <div className="flex items-center gap-inline min-w-fit">
         <span className="text-muted-foreground">
           O{" "}
           <span className="text-foreground tabular-nums">
