@@ -13,6 +13,8 @@ interface PositionManagementPanelsProps {
   signingDisabled: boolean;
   positions: PositionRow[];
   isChLoading: boolean;
+  isChError?: boolean | undefined;
+  onRetry?: (() => void) | undefined;
   readOnly: boolean;
   readOnlyAddress?: string | undefined;
   onCloseMarket: (coin: string, size: string, isLong: boolean) => void;
@@ -48,10 +50,20 @@ const POSITION_TABS: PositionTabDefinition[] = [
   {
     value: "positions",
     label: "Positions",
-    render: ({ positions, isChLoading, readOnly, onCloseMarket, onCloseLimit }) => (
+    render: ({
+      positions,
+      isChLoading,
+      isChError,
+      onRetry,
+      readOnly,
+      onCloseMarket,
+      onCloseLimit,
+    }) => (
       <PositionsTab
         positions={positions}
         isChLoading={isChLoading}
+        isChError={isChError ?? false}
+        onRetry={onRetry}
         readOnly={readOnly}
         onCloseMarket={onCloseMarket}
         onCloseLimit={onCloseLimit}

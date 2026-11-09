@@ -42,7 +42,7 @@ interface PanelDefinition extends PanelMin {
  * One ordered panel list: id, label, per-panel minimum, and both layout presets.
  * Defining a panel here also defines its label and layout entry, so none can drift.
  */
-export const PANELS: PanelDefinition[] = [
+const PANELS: PanelDefinition[] = [
   {
     id: "chart",
     label: "Chart",

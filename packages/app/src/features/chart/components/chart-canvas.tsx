@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 import type { ActiveIndicator, ChartDataPoint, IndicatorConfig } from "@0xsignal/shared";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
 import { ChartHeader } from "./chart-header";
 import { ChartControls } from "./chart-controls";
 import { IndicatorChips } from "./indicator-chips";
@@ -15,6 +16,8 @@ interface ChartCanvasProps {
   candles: ChartDataPoint[];
   isLoading?: boolean;
   loadError: boolean;
+  /** Reloads the failed history request. */
+  onRetry?: (() => void) | undefined;
   markers: readonly LogicalTradeMarker[];
   interval: string;
   onIntervalChange: (interval: string) => void;
@@ -34,6 +37,7 @@ export function ChartCanvas({
   candles,
   isLoading = false,
   loadError,
+  onRetry,
   markers,
   interval,
   onIntervalChange,
@@ -62,7 +66,7 @@ export function ChartCanvas({
         />
       </ChartHeader>
 
-      <div className="flex-1 relative overflow-hidden rounded-panel">
+      <div className="flex-1 min-h-0 relative overflow-hidden rounded-panel">
         <div
           ref={chartContainerRef}
           className={`absolute inset-0${hasCandles ? "" : " invisible"}`}
@@ -80,19 +84,29 @@ export function ChartCanvas({
           </>
         ) : isLoading ? (
           <output
+            aria-live="polite"
+            aria-busy="true"
             aria-label="Loading chart data"
             className="absolute inset-0 flex flex-col gap-3 p-2"
           >
-            <span className="h-5 w-1/3 rounded-full bg-muted/50 animate-pulse" />
-            <span className="flex-1 rounded-panel bg-muted/30 animate-pulse" />
+            <span
+              aria-hidden="true"
+              className="h-5 w-1/3 rounded-full bg-muted/50 animate-pulse motion-reduce:animate-none"
+            />
+            <span
+              aria-hidden="true"
+              className="flex-1 rounded-panel bg-muted/30 animate-pulse motion-reduce:animate-none"
+            />
           </output>
         ) : loadError ? (
-          <EmptyState
-            variant="chart"
-            title="Couldn't load chart"
-            description="The history request failed. Check your connection and try again."
-            className="absolute inset-0 pointer-events-none"
-          />
+          <div role="alert" className="absolute inset-0">
+            <ErrorState
+              title="Couldn't load chart"
+              description="The history request failed. Check your connection and try again."
+              retryAction={onRetry}
+              className="h-full min-h-0"
+            />
+          </div>
         ) : (
           <EmptyState
             variant="chart"

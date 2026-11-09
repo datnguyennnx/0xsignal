@@ -1,5 +1,7 @@
 import { isSameDay, isSameMonth } from "date-fns";
+import { useState } from "react";
 import type { JSX } from "react";
+import type { EconomicEvent } from "@0xsignal/shared";
 
 import { Surface } from "@/components/surface/surface";
 import { MonthDayCell } from "./month-day-cell";
@@ -20,6 +22,9 @@ const HEADER_LABELS = Array.from(
   (_, index) => WEEKDAY_LABELS[(index + WEEK_STARTS_ON) % 7],
 );
 
+/** One empty bucket for every day without events, so the prop stays referentially stable. */
+const NO_EVENTS: EconomicEvent[] = [];
+
 export function MonthGrid({
   days,
   monthDate,
@@ -27,7 +32,9 @@ export function MonthGrid({
   eventsByDay,
   onSelectDate,
 }: MonthGridProps): JSX.Element {
-  const today = new Date();
+  // A snapshot, not a per-render read: a parent tick (refetch/pending) must not
+  // hand every cell a fresh "today". It shares the grid's lifetime, like `anchor`.
+  const [today] = useState(() => new Date());
 
   return (
     <Surface
@@ -46,17 +53,20 @@ export function MonthGrid({
       </div>
 
       <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-7 gap-1">
-        {days.map((date) => (
-          <MonthDayCell
-            key={dayKey(date)}
-            date={date}
-            events={eventsByDay.get(dayKey(date)) ?? []}
-            isCurrentMonth={isSameMonth(date, monthDate)}
-            isToday={isSameDay(date, today)}
-            isSelected={selectedDate !== null && isSameDay(date, selectedDate)}
-            onSelect={onSelectDate}
-          />
-        ))}
+        {days.map((date) => {
+          const key = dayKey(date);
+          return (
+            <MonthDayCell
+              key={key}
+              date={date}
+              events={eventsByDay.get(key) ?? NO_EVENTS}
+              isCurrentMonth={isSameMonth(date, monthDate)}
+              isToday={isSameDay(date, today)}
+              isSelected={selectedDate !== null && isSameDay(date, selectedDate)}
+              onSelect={onSelectDate}
+            />
+          );
+        })}
       </div>
     </Surface>
   );

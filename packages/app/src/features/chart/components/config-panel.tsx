@@ -80,35 +80,33 @@ function IndicatorConfigPanelInner({
       </div>
 
       <div className="flex-1 overflow-y-auto px-panel py-2 scrollbar-none overscroll-none">
-        <div className="space-y-section">
-          {indicator.params.length > 0 ? (
-            <div className="flex flex-col gap-field">
-              {indicator.params.map((paramDef) => (
-                <IndicatorParamField
-                  key={paramDef.key}
-                  definition={paramDef}
-                  value={effectiveValues[paramDef.key] ?? ""}
-                  onValueChange={(next) => {
-                    setLocalEdits((prev) => {
-                      const merged = { ...(prev ?? formValues), [paramDef.key]: next };
-                      return merged;
-                    });
-                    if (selectedInstanceId !== null) setSelectedInstanceId(null);
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center min-h-[clamp(10rem,30dvh,14rem)]">
-              <EmptyState
-                variant="panel"
-                className="min-w-0 px-4"
-                title="Fixed Model"
-                description="This strategy utilizes fixed institutional logic and does not require manual parameter adjustment."
+        {indicator.params.length > 0 ? (
+          <div className="flex flex-col gap-field">
+            {indicator.params.map((paramDef) => (
+              <IndicatorParamField
+                key={paramDef.key}
+                definition={paramDef}
+                value={effectiveValues[paramDef.key] ?? ""}
+                onValueChange={(next) => {
+                  setLocalEdits((prev) => {
+                    const merged = { ...(prev ?? formValues), [paramDef.key]: next };
+                    return merged;
+                  });
+                  if (selectedInstanceId !== null) setSelectedInstanceId(null);
+                }}
               />
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center min-h-[clamp(10rem,30dvh,14rem)]">
+            <EmptyState
+              variant="panel"
+              className="min-w-0 px-4"
+              title="Fixed Model"
+              description="This strategy utilizes fixed institutional logic and does not require manual parameter adjustment."
+            />
+          </div>
+        )}
       </div>
 
       <div className="p-panel">

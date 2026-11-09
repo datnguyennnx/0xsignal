@@ -1,4 +1,5 @@
 // The leader tab streams user data browser-direct; other tabs reuse its socket.
+import { onPageResume } from "@/lib/page-visibility";
 import {
   createTabCoordinator,
   type RemoteSubscriptionRequest,
@@ -73,6 +74,8 @@ export interface UserStreamClientOptions {
   readonly createBroadcastChannel?: (name: string) => TabChannel;
   readonly tabId?: string;
   readonly electionDelayMs?: number;
+  /** Test seam: defaults to the real `onPageResume`. */
+  readonly subscribePageResume?: (listener: () => void) => () => void;
 }
 
 const hasBroadcastChannel = (): boolean => typeof BroadcastChannel !== "undefined";
@@ -97,6 +100,7 @@ const createBroadcastTabChannel = (name: string): TabChannel => {
 
 export function createUserStreamClient(options: UserStreamClientOptions = {}): UserStreamClient {
   const createUpstream = options.createUpstream ?? createHyperliquidUpstream;
+  const subscribePageResume = options.subscribePageResume ?? onPageResume;
   // An injected upstream marks an isolated client (tests, non-browser hosts);
   // only the real client joins the cross-tab election.
   const createChannel =
@@ -119,6 +123,7 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
   let state: UserStreamConnectionState = "idle";
   let detachUpstreamState: (() => void) | null = null;
   let detachUpstreamError: (() => void) | null = null;
+  let detachPageResume: (() => void) | null = null;
   let lastFailure: UserStreamFailure | null = null;
 
   const setState = (next: UserStreamConnectionState): void => {
@@ -194,6 +199,12 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
       next.onError?.((error) => {
         reportFailure("socket-closed", error.message);
       }) ?? null;
+    // OS sleep can leave the socket half-open while it still reports OPEN, so a
+    // resume only forces a reconnect when nothing arrived for a while.
+    detachPageResume = subscribePageResume(() => {
+      if (!next.isStale()) return;
+      next.reconnect();
+    });
     setState(next.getConnectionState());
     return next;
   };
@@ -207,6 +218,8 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
     detachUpstreamState = null;
     detachUpstreamError?.();
     detachUpstreamError = null;
+    detachPageResume?.();
+    detachPageResume = null;
     current.dispose();
     setState("idle");
   };
@@ -311,6 +324,14 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
     if (!isUserStreamChannel(request.channel)) return;
     try {
       const handle = await acquire(remoteHolder(request.channel), request.user);
+      // Another add for the same key may have finished while we awaited. Only
+      // one handle may be stored; release the duplicate so its refcount drops.
+      const current = remoteSubscriptions.get(request.key);
+      if (current !== undefined) {
+        current.tabs.add(tabId);
+        handle.unsubscribe();
+        return;
+      }
       remoteSubscriptions.set(request.key, { handle, tabs: new Set([tabId]) });
     } catch (error) {
       reportFailure("subscribe-rejected", error instanceof Error ? error.message : String(error));
@@ -384,6 +405,48 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
     return makeHandle(shared, holder);
   };
 
+  let disposed = false;
+  let pagehideAttached = false;
+
+  function detachPagehide(): void {
+    if (!pagehideAttached) return;
+    pagehideAttached = false;
+    window.removeEventListener("pagehide", onPagehide);
+  }
+
+  function teardown(): void {
+    if (disposed) return;
+    disposed = true;
+    detachPagehide();
+    coordinator?.dispose();
+    for (const entry of remoteSubscriptions.values()) entry.handle.unsubscribe();
+    remoteSubscriptions.clear();
+    for (const shared of sharedSubscriptions.values()) {
+      const backing = shared.backing;
+      shared.backing = null;
+      if (backing !== null) {
+        void backing.then((subscription) => subscription.unsubscribe()).catch(() => null);
+      }
+    }
+    sharedSubscriptions.clear();
+    activeUsers.clear();
+    disposeUpstream();
+    stateListeners.clear();
+    failureListeners.clear();
+  }
+
+  function onPagehide(): void {
+    teardown();
+  }
+
+  // A normally closed tab must say goodbye before it freezes or unloads, or the
+  // leader keeps its remote subscriptions alive forever. Guarded so SSR and
+  // workers without a window never touch DOM globals.
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("pagehide", onPagehide);
+    pagehideAttached = true;
+  }
+
   return {
     subscribeClearinghouseState: (user, listener) =>
       acquire({ channel: "clearinghouseState", listener }, user),
@@ -405,22 +468,6 @@ export function createUserStreamClient(options: UserStreamClientOptions = {}): U
       };
     },
     reportFailure,
-    dispose: () => {
-      coordinator?.dispose();
-      for (const entry of remoteSubscriptions.values()) entry.handle.unsubscribe();
-      remoteSubscriptions.clear();
-      for (const shared of sharedSubscriptions.values()) {
-        const backing = shared.backing;
-        shared.backing = null;
-        if (backing !== null) {
-          void backing.then((subscription) => subscription.unsubscribe()).catch(() => null);
-        }
-      }
-      sharedSubscriptions.clear();
-      activeUsers.clear();
-      disposeUpstream();
-      stateListeners.clear();
-      failureListeners.clear();
-    },
+    dispose: teardown,
   };
 }

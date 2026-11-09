@@ -31,6 +31,31 @@ interface PreviewState {
   isValid: boolean;
 }
 
+interface DragPointerHandlers {
+  onMove: (event: PointerEvent) => void;
+  onUp: (event: PointerEvent) => void;
+}
+
+/**
+ * Register the three document-level drag listeners and return an idempotent
+ * disposer. Both the pointerup path and the unmount cleanup call it, so a drag
+ * interrupted by unmount cannot leave listeners behind.
+ */
+export function attachDragListeners(target: Document, handlers: DragPointerHandlers): () => void {
+  target.addEventListener("pointermove", handlers.onMove);
+  target.addEventListener("pointerup", handlers.onUp);
+  target.addEventListener("pointercancel", handlers.onUp);
+
+  let attached = true;
+  return () => {
+    if (!attached) return;
+    attached = false;
+    target.removeEventListener("pointermove", handlers.onMove);
+    target.removeEventListener("pointerup", handlers.onUp);
+    target.removeEventListener("pointercancel", handlers.onUp);
+  };
+}
+
 export interface UseLiftAndFloatReturn {
   isDragging: boolean;
   draggedItemId: string | null;
@@ -97,6 +122,7 @@ export function useLiftAndFloat({
   const latestDeltaRef = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
   const rafIdRef = useRef(0);
   const handleMoveRef = useRef<((e: PointerEvent) => void) | null>(null);
+  const detachDragListenersRef = useRef<(() => void) | null>(null);
 
   const [isDragging, setIsDragging] = useState(false);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
@@ -191,15 +217,23 @@ export function useLiftAndFloat({
       onRepositionCommitRef.current(ds.draggedItemId, commitX, commitY);
     }
 
-    const moveHandler = handleMoveRef.current;
-    if (moveHandler) {
-      document.removeEventListener("pointermove", moveHandler);
-    }
-    const upHandler = pointerUpRef.current;
-    if (upHandler) {
-      document.removeEventListener("pointerup", upHandler);
-      document.removeEventListener("pointercancel", upHandler);
-    }
+    detachDragListenersRef.current?.();
+    detachDragListenersRef.current = null;
+  }, []);
+
+  // Unmounting mid-drag must release the document listeners, the pending frame
+  // and the refs, or the next mount can never start another drag.
+  useEffect(() => {
+    return () => {
+      detachDragListenersRef.current?.();
+      detachDragListenersRef.current = null;
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = 0;
+      }
+      dragStateRef.current = null;
+      previewStateRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -268,10 +302,12 @@ export function useLiftAndFloat({
 
       const moveHandler = handleMoveRef.current;
       const upHandler = pointerUpRef.current;
-      if (moveHandler) document.addEventListener("pointermove", moveHandler);
-      if (upHandler) {
-        document.addEventListener("pointerup", upHandler);
-        document.addEventListener("pointercancel", upHandler);
+      if (moveHandler && upHandler) {
+        detachDragListenersRef.current?.();
+        detachDragListenersRef.current = attachDragListeners(document, {
+          onMove: moveHandler,
+          onUp: upHandler,
+        });
       }
     },
     [containerRef],

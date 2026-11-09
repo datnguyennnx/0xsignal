@@ -1,5 +1,7 @@
 import { cn } from "cn";
 
+/* oxlint-disable jsx-a11y/prefer-tag-over-role -- a fullscreen status region is not a form output */
+
 interface PageLoaderProps {
   variant?: "page" | "fullscreen";
 }
@@ -7,12 +9,19 @@ interface PageLoaderProps {
 export function PageLoader({ variant = "page" }: PageLoaderProps) {
   return (
     <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading"
       className={cn(
-        "flex items-center justify-center",
+        "flex flex-col items-center justify-center gap-2",
         variant === "fullscreen" ? "min-h-dvh" : "min-h-[clamp(20rem,50dvh,40rem)]",
       )}
     >
-      <div className="size-4 border-2 border-foreground/25 rounded-full animate-spin" />
+      <div
+        aria-hidden="true"
+        className="size-4 border-2 border-foreground/25 rounded-full animate-spin motion-reduce:animate-none"
+      />
+      <span className="type-control text-muted-foreground">Loading…</span>
     </div>
   );
 }

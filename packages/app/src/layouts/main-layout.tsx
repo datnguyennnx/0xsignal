@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useLayoutEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { AppSidePanelProvider } from "@/components/app-side-panel";
@@ -15,9 +15,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NAV_ROUTES } from "@/lib/routes";
 import { preloadRoute } from "@/lib/preload-routes";
+import { shouldResetScroll } from "@/lib/scroll-reset";
 
 export function MainLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+  const prevPathnameRef = useRef(location.pathname);
+
+  // A new screen starts at the top instead of inheriting the previous offset.
+  // useLayoutEffect runs before paint, so the scroll jump is never visible.
+  // Keyed on pathname only: hash-only navigation keeps the current position.
+  useLayoutEffect(() => {
+    const prevPathname = prevPathnameRef.current;
+    prevPathnameRef.current = location.pathname;
+    if (!shouldResetScroll(prevPathname, location.pathname)) return;
+    mainRef.current?.scrollTo({ top: 0, behavior: "instant" });
+  }, [location.pathname]);
 
   return (
     <AppSidePanelProvider>
@@ -60,6 +73,9 @@ export function MainLayout({ children }: { children: ReactNode }) {
                         onFocus={() => {
                           preloadRoute(item.path);
                         }}
+                        onPointerDown={() => {
+                          preloadRoute(item.path);
+                        }}
                         className={`type-control font-medium motion-control ${
                           isActive
                             ? "text-foreground"
@@ -95,6 +111,9 @@ export function MainLayout({ children }: { children: ReactNode }) {
                             onFocus={() => {
                               preloadRoute(item.path);
                             }}
+                            onPointerDown={() => {
+                              preloadRoute(item.path);
+                            }}
                             className={`px-2 py-1 type-label font-medium motion-control ${
                               isActive
                                 ? "text-foreground"
@@ -115,9 +134,10 @@ export function MainLayout({ children }: { children: ReactNode }) {
           </header>
 
           <main
+            ref={mainRef}
             id="main-content"
             tabIndex={-1}
-            className="flex-1 flex flex-col min-h-0 min-w-0 overflow-y-auto"
+            className="scrollbar-gutter-stable flex-1 flex flex-col min-h-0 min-w-0 overflow-y-auto"
           >
             {children}
           </main>

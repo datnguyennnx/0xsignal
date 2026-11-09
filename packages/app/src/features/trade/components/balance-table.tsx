@@ -17,6 +17,8 @@ const COLUMNS: ReadonlyArray<{ label: string; numeric: boolean }> = [
 
 export function BalanceTable({
   isChLoading,
+  isChError,
+  onRetry,
   marginSummary,
   positions,
   usdcTotalBalance,
@@ -39,6 +41,8 @@ export function BalanceTable({
       </TableHeader>
       <BalanceTableBody
         isChLoading={isChLoading}
+        isChError={isChError}
+        onRetry={onRetry}
         marginSummary={marginSummary}
         positions={positions}
         usdcTotalBalance={usdcTotalBalance}

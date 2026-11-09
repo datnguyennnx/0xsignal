@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useHyperliquidWs } from "./use-hyperliquid-ws";
 import { normalizeSymbol } from "../lib/symbol";
 import { useOrderbookData } from "@/stores/use-market-data-store";
 import { orderbookStoreKey } from "../lib/orderbook-book";
+import { selectOrderbookError } from "../lib/orderbook-error";
 import {
   DEFAULT_SIG_FIGS,
   MAX_SIG_FIGS,
@@ -49,7 +50,9 @@ export function useHyperliquidOrderbook(
   enabled = true,
   options: UseHyperliquidOrderbookOptions = {},
 ) {
-  const [error, setError] = useState<string | null>(null);
+  const [rawError, setRawError] = useState<string | null>(null);
+  // Bumping this token rebuilds the subscription, which is the hook's retry path.
+  const [retryToken, setRetryToken] = useState(0);
 
   const controlledNSigFigs = options.controlledNSigFigs;
   const activeSigFigs = controlledNSigFigs === undefined ? DEFAULT_SIG_FIGS : controlledNSigFigs;
@@ -69,23 +72,35 @@ export function useHyperliquidOrderbook(
             channel: "l2Book" as const,
             symbol: coin,
             nSigFigs: subscriptionSigFigs,
+            // Part of the identity on purpose: bumping retryToken re-subscribes the stream.
+            retryToken,
           }
         : null,
-    [enabled, coin, subscriptionSigFigs],
+    [enabled, coin, subscriptionSigFigs, retryToken],
   );
 
   const ws = useHyperliquidWs({
     subscription,
     enabled: enabled && symbol !== "",
     onError: (e) => {
-      setError(e.message);
+      setRawError(e.message);
     },
   });
+
+  // Derived during render: a healthy socket resolves the transient failure in
+  // the same render, so the error never flashes a frame after a reconnect.
+  const error = selectOrderbookError(rawError, ws.isConnected);
+
+  const retry = useCallback(() => {
+    setRawError(null);
+    setRetryToken((token) => token + 1);
+  }, []);
 
   return {
     orderbook,
     isConnected: ws.isConnected,
     error,
+    retry,
     activeSigFigs,
   };
 }

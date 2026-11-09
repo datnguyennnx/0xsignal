@@ -1,13 +1,17 @@
-import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
 import { create } from "zustand";
-import type { WsMarketInterval, WsMarketSubscription } from "@0xsignal/shared";
+import {
+  normalizeSymbol,
+  type WsMarketInterval,
+  type WsMarketSubscription,
+} from "@0xsignal/shared";
 import { getMarkets } from "@/services/api/market";
+import { queryClient } from "@/lib/query-client";
+import { queryKeys } from "@/lib/query-keys";
 import {
   createMarketStreamClient,
   type MarketStreamClient,
   type MarketStreamMeta,
 } from "./market-stream-client";
-import { normalizeSymbol } from "./symbol";
 import { SubscriptionKey } from "./stream-identity";
 import { convertToCandlePayload } from "../utils/market-stream-decoder";
 import {
@@ -18,9 +22,8 @@ import {
   type BookLeg,
   type BookMergeState,
 } from "./l2-book-merge";
+import { createHyperliquidSink } from "./hyperliquid-sink";
 
-// Browser-direct market data; the backend hub is the fallback.
-const HL_MARKET_WS_URL = "wss://api.hyperliquid.xyz/ws";
 const DEFAULT_INTERVAL: WsMarketInterval = "1h";
 
 type MarketStreamSource = "direct" | "backend";
@@ -83,35 +86,6 @@ export interface DirectMarketSink {
 const toError = (error: unknown): Error =>
   error instanceof Error ? error : new Error(String(error));
 
-const onErrorOption = (onError: (error: Error) => void) => ({ onError });
-
-function createHyperliquidSink(): DirectMarketSink {
-  const transport = new WebSocketTransport({ url: HL_MARKET_WS_URL, resubscribe: true });
-  const client = new SubscriptionClient({ transport });
-
-  return {
-    allMids: (listener, onError) => client.allMids(listener, onErrorOption(onError)),
-    l2Book: (params, listener, onError) => {
-      const payload = {
-        coin: params.coin,
-        ...(params.nSigFigs !== undefined && { nSigFigs: params.nSigFigs }),
-        ...(params.fast === true && { fast: true }),
-      };
-      const wantedLeg = params.fast === true ? "fast" : "slow";
-      return client.l2Book(
-        payload,
-        (event) => {
-          // One channel name, every listener: drop the other leg's frames.
-          if (bookFrameLeg(event) !== wantedLeg) return;
-          listener(event);
-        },
-        onErrorOption(onError),
-      );
-    },
-    candle: (params, listener, onError) => client.candle(params, listener, onErrorOption(onError)),
-  };
-}
-
 // The hub resolves bare/dex/spot coins; the browser must send a resolved coin.
 
 let coinIndex: Map<string, string> | null = null;
@@ -124,6 +98,17 @@ export function setCoinIndexLoader(loader: (() => ReturnType<typeof getMarkets>)
   coinIndex = null;
   coinIndexRequest = null;
 }
+
+// Registered from the lazy trade chunk, not from the shell's query client: the entry
+// graph must not import the HL WS SDK just to wire this seam. Same cache-backed
+// loader as before, so one page load still keeps one /api/markets fetch.
+setCoinIndexLoader(() =>
+  queryClient.query({
+    queryKey: queryKeys.market.meta(),
+    queryFn: () => getMarkets(),
+    staleTime: 300_000,
+  }),
+);
 
 function loadCoinIndex(): Promise<Map<string, string>> {
   if (coinIndex !== null) return Promise.resolve(coinIndex);

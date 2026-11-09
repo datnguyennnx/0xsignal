@@ -1,4 +1,5 @@
 import { createUserStreamClient } from "./user-stream-client";
+import { publishStreamFailure } from "./user-stream-failure-bridge";
 
 export { mergeUserFills } from "./user-stream-types";
 export type {
@@ -23,7 +24,14 @@ import type {
 let defaultClient: UserStreamClient | null = null;
 
 function getDefaultClient(): UserStreamClient {
-  defaultClient ??= createUserStreamClient();
+  if (defaultClient === null) {
+    const client = createUserStreamClient();
+    // Mirror the failure state into the entry-safe bridge so the shell can mount
+    // the toast boundary only when there is something to show.
+    client.onFailureChange(publishStreamFailure);
+    publishStreamFailure(client.getLastFailure());
+    defaultClient = client;
+  }
   return defaultClient;
 }
 

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { memo, useLayoutEffect, useRef, useState } from "react";
 import type { JSX, RefObject } from "react";
 import type { EconomicEvent } from "@0xsignal/shared";
 
@@ -7,6 +7,7 @@ import { cn } from "cn";
 import { observeResize } from "@/lib/resize-observer";
 
 import { EventChip } from "./event-chip";
+import { areMonthDayCellPropsEqual, type MonthDayCellProps } from "./month-day-cell-logic";
 
 const INITIAL_CHIP_GUESS = 3;
 
@@ -113,16 +114,7 @@ function DayEventList({ events, date, onSelect }: DayEventListProps): JSX.Elemen
   );
 }
 
-export interface MonthDayCellProps {
-  date: Date;
-  events: EconomicEvent[];
-  isCurrentMonth: boolean;
-  isToday: boolean;
-  isSelected: boolean;
-  onSelect: (date: Date) => void;
-}
-
-export function MonthDayCell({
+export const MonthDayCell = memo(function MonthDayCell({
   date,
   events,
   isCurrentMonth,
@@ -151,4 +143,4 @@ export function MonthDayCell({
       <DayEventList events={events} date={date} onSelect={onSelect} />
     </div>
   );
-}
+}, areMonthDayCellPropsEqual);

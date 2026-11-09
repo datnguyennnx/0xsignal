@@ -11,16 +11,17 @@ export async function fetchHistorical(symbol: string, interval: HLInterval, limi
   // Let the failure reject so the chart can tell an upstream outage apart from a
   // genuinely empty window, which resolves to `[]`.
   const backend = () => api.getRecentChartLane({ symbol, interval, limit });
-  // Start the fallback window alongside the coin index: resolving the coin no longer
-  // holds the candle request behind the market list.
-  const fallback = backend();
+  // The backend window is only the network-failure fallback, so start it lazily:
+  // a successful direct load must not issue a competing request.
+  let fallback: Promise<ChartDataPoint[]> | null = null;
+  const startFallback = () => (fallback ??= backend());
   const coin = await resolveHlCoin(symbol);
-  if (coin === null) return (await fallback).slice(-limit);
+  if (coin === null) return (await startFallback()).slice(-limit);
 
   const endTime = Date.now();
   const candles = await getCandleSnapshot(
     { coin, interval, startTime: endTime - limit * getIntervalMs(interval), endTime },
-    () => fallback,
+    startFallback,
   );
   return candles.slice(-limit);
 }

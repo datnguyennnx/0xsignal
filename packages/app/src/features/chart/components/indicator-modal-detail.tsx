@@ -17,25 +17,21 @@ export function IndicatorModalDetail({
 }: IndicatorModalDetailProps) {
   return (
     <>
-      <div className="flex min-h-0 min-w-0 flex-col">
-        <IndicatorInsightsPanel
-          key={`${indicator.id}-insights`}
-          indicator={indicator}
-          className="min-h-0 flex-1 px-2"
-        />
-      </div>
+      <IndicatorInsightsPanel
+        key={`${indicator.id}-insights`}
+        indicator={indicator}
+        className="min-h-0 min-w-0 flex-1 px-2"
+      />
 
-      <div className="flex min-h-0 min-w-0 flex-col">
-        <IndicatorConfigPanel
-          key={`${indicator.id}-config`}
-          indicator={indicator}
-          activeIndicators={activeIndicators}
-          onApply={(params) => {
-            onAddIndicator(indicator, params);
-          }}
-          onRemoveInstance={onRemoveIndicator}
-        />
-      </div>
+      <IndicatorConfigPanel
+        key={`${indicator.id}-config`}
+        indicator={indicator}
+        activeIndicators={activeIndicators}
+        onApply={(params) => {
+          onAddIndicator(indicator, params);
+        }}
+        onRemoveInstance={onRemoveIndicator}
+      />
     </>
   );
 }

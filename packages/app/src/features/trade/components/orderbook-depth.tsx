@@ -178,7 +178,7 @@ export const OrderbookColumnHeader = memo(function OrderbookColumnHeader({
 
 function OrderbookPlaceholderRows({ count }: { count: number }) {
   return (
-    <div className="flex-none overflow-hidden flex flex-col">
+    <div className="flex-none overflow-hidden flex flex-col" aria-hidden="true">
       {Array.from({ length: count }, (_, index) => (
         <div key={index} className={`${ROW_HEIGHT_CLASS} flex items-center gap-inline shrink-0`}>
           <Skeleton className="h-2.5 flex-1" />
@@ -197,16 +197,26 @@ export function OrderbookPlaceholder({ pairFocus }: { pairFocus: string }) {
 
   return (
     <Surface
+      as="output"
       tier="content"
       radius="panel"
       className="relative isolate h-full flex flex-col p-panel gap-stack"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Loading order book"
     >
-      <div className="flex items-center justify-between gap-inline shrink-0">
+      <div className="flex items-center justify-between gap-inline shrink-0" aria-hidden="true">
         <Skeleton className="h-7 w-[4.5rem]" />
         <Skeleton className="h-7 w-20" />
       </div>
-      <OrderbookColumnHeader pairFocus={pairFocus} />
-      <div ref={bodyRef} className="flex flex-col flex-1 min-h-0 overflow-hidden justify-center">
+      <div aria-hidden="true">
+        <OrderbookColumnHeader pairFocus={pairFocus} />
+      </div>
+      <div
+        ref={bodyRef}
+        className="flex flex-col flex-1 min-h-0 overflow-hidden justify-center"
+        aria-hidden="true"
+      >
         <OrderbookPlaceholderRows count={visibleRows} />
         <OrderbookSpreadRow>
           <span className="type-data font-medium text-muted-foreground">Spread</span>

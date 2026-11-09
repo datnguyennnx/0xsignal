@@ -140,46 +140,41 @@ export function AssetTradingGrid({
            so the default row band fills the region and a bigger user layout grows the
            canvas (the page scrolls) instead of clipping a panel. Each panel still scrolls
            internally when its own content exceeds it. */
-        <div className="flex flex-1 min-h-0 flex-col">
-          <DashboardGrid>
-            <div id="chart" className="h-full min-h-0">
-              {chartPanel}
-            </div>
-            <div id="orderbook" className="h-full min-h-0">
-              {orderbookPanel}
-            </div>
-            <div id="orderform" className="h-full min-h-0">
-              <div className="panel-contain-layout h-full min-h-0">{orderformPanel}</div>
-            </div>
-            <div id="positions" className="h-full min-h-0">
-              <div className="panel-contain-layout h-full min-h-0">{positionsPanel}</div>
-            </div>
-          </DashboardGrid>
-        </div>
-      ) : mode === "narrow" ? (
+        <DashboardGrid>
+          <div id="chart" className="h-full min-h-0">
+            {chartPanel}
+          </div>
+          <div id="orderbook" className="h-full min-h-0">
+            {orderbookPanel}
+          </div>
+          <div id="orderform" className="h-full min-h-0">
+            {orderformPanel}
+          </div>
+          <div id="positions" className="h-full min-h-0">
+            {positionsPanel}
+          </div>
+        </DashboardGrid>
+      ) : (
         /* ===== NARROW (container < 80rem): 2×2 Grid =====
            Definite 1fr/1fr tracks — the split the pre-hydration skeleton reserves — so
            late data cannot resize the rows. */
         <div className="grid flex-1 min-h-0 grid-cols-[7fr_3fr] grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
           {/* Row 1 */}
-          <div className="min-w-0 h-full min-h-0">
-            <div className="h-full">{chartPanel}</div>
-          </div>
+          <div className="min-w-0 h-full min-h-0">{chartPanel}</div>
 
           <div className="flex flex-col h-full min-h-0 min-w-0">{orderbookPanel}</div>
 
           {/* Row 2 */}
-          {/* PositionManagement does not own a height, so the cell stretches it to the
-              track; both cells scroll instead of spilling past the track. */}
-          <div className="flex flex-col h-full min-h-0 min-w-0 overflow-y-auto panel-contain-layout [&>*]:min-h-full">
+          {/* The cell stretches the child to the track; each child owns its own scroll. */}
+          <div className="flex flex-col h-full min-h-0 min-w-0 panel-contain-layout">
             {positionsPanel}
           </div>
 
-          <div className="flex flex-col h-full min-h-0 min-w-0 overflow-y-auto panel-contain-layout [&>*]:min-h-full">
+          <div className="flex flex-col h-full min-h-0 min-w-0 panel-contain-layout">
             {orderformPanel}
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

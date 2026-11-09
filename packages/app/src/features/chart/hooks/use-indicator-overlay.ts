@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { IChartApi, ISeriesApi, IPaneApi, Time } from "lightweight-charts";
 import { LineSeries, HistogramSeries } from "lightweight-charts";
-import type { ActiveIndicator } from "@0xsignal/shared";
+import type { ActiveIndicator, IndicatorDataPoint } from "@0xsignal/shared";
 import {
   getIndicatorBaseId,
   getIndicatorConfigById,
@@ -12,7 +12,7 @@ import { BandPrimitive } from "../utils/band";
 import type { IndicatorRenderEntry } from "../utils/indicator-data";
 import { toRgb, toRgba } from "../lib/color";
 import { getSeriesColor, useChartTheme } from "../lib/theme-store";
-import { toUtcTimestamps } from "../lib/time";
+import { toUtcTimestamps, type UtcDated } from "../lib/time";
 import { formatAxis } from "@/core/utils/formatters";
 
 interface UseIndicatorOverlayProps {
@@ -25,6 +25,8 @@ interface UseIndicatorOverlayProps {
 interface IndicatorSeriesRef {
   series: ISeriesApi<"Line"> | ISeriesApi<"Histogram">;
   indicatorId: string;
+  /** Points the series currently shows; drives the update-vs-setData decision. */
+  previousData?: readonly IndicatorDataPoint[];
 }
 
 interface BandPrimitiveRef {
@@ -48,6 +50,71 @@ const createLineOptions = (color?: string) => ({
   priceLineVisible: false,
   crosshairMarkerVisible: true,
 });
+
+interface OverlaySeriesTarget {
+  update: (point: UtcDated<IndicatorDataPoint>) => void;
+  setData: (points: UtcDated<IndicatorDataPoint>[]) => void;
+}
+
+type OverlaySync = "none" | "update" | "setData";
+
+/**
+ * A forming-bar tick only moves the tail, so it can go through `update(last)`.
+ * A reshaped dataset (new bar, prepend, param change) still needs `setData`.
+ */
+const decideOverlaySync = (
+  previous: readonly IndicatorDataPoint[] | undefined,
+  next: readonly IndicatorDataPoint[],
+): OverlaySync => {
+  if (previous === undefined) return "setData";
+  if (previous.length !== next.length) return "setData";
+  if (next.length === 0) return "none";
+
+  for (let i = 0; i < next.length - 1; i++) {
+    const before = previous[i];
+    const after = next[i];
+    if (
+      before === undefined ||
+      after === undefined ||
+      before.time !== after.time ||
+      before.value !== after.value
+    ) {
+      return "setData";
+    }
+  }
+
+  const previousLast = previous.at(-1);
+  const nextLast = next.at(-1);
+  if (previousLast === undefined || nextLast === undefined) return "none";
+  if (previousLast.time !== nextLast.time) return "setData";
+  return previousLast.value === nextLast.value ? "none" : "update";
+};
+
+/** Push indicator points into a chart series, preferring a single tail update. */
+export const syncSeriesData = (
+  series: OverlaySeriesTarget,
+  previous: readonly IndicatorDataPoint[] | undefined,
+  next: readonly IndicatorDataPoint[],
+): void => {
+  const decision = decideOverlaySync(previous, next);
+  if (decision === "none") return;
+
+  if (decision === "update") {
+    const last = next.at(-1);
+    if (last === undefined) return;
+    const converted = toUtcTimestamps([last])[0];
+    if (converted !== undefined) series.update(converted);
+    return;
+  }
+
+  series.setData(toUtcTimestamps(next));
+};
+
+/** Sync the series and remember what it now shows for the next tick. */
+const applyIndicatorData = (ref: IndicatorSeriesRef, data: readonly IndicatorDataPoint[]): void => {
+  syncSeriesData(ref.series, ref.previousData, data);
+  ref.previousData = data;
+};
 
 export const useIndicatorOverlay = ({
   chart,
@@ -168,8 +235,7 @@ export const useIndicatorOverlay = ({
         lineSeriesRefs.current.set(instanceId, seriesRef);
       }
       if (color !== undefined) seriesRef.series.applyOptions({ color });
-      const lineData = toUtcTimestamps(data.data);
-      if (lineData.length > 0) seriesRef.series.setData(lineData);
+      applyIndicatorData(seriesRef, data.data);
     },
     [chart],
   );
@@ -267,7 +333,7 @@ export const useIndicatorOverlay = ({
       }
       if (color !== undefined) seriesRef.series.applyOptions({ color });
 
-      seriesRef.series.setData(toUtcTimestamps(data.data));
+      applyIndicatorData(seriesRef, data.data);
     },
     [chart],
   );

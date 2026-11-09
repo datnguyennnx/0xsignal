@@ -1,17 +1,11 @@
 import { memo } from "react";
 import { parseSymbol } from "@0xsignal/shared";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import type { TickSizeOption } from "../hooks/use-hyperliquid-orderbook";
 import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
-
-interface OrderbookToolbarProps {
-  symbol: string;
-  pairFocus: string;
-  onPairFocusChange: (focus: string) => void;
-  currentNSigFigs: number | null;
-  onNSigFigsChange: (nSigFigs: number) => void;
-  scalingOptions: TickSizeOption[];
-}
+import {
+  areOrderbookToolbarPropsEqual,
+  type OrderbookToolbarProps,
+} from "./orderbook-toolbar-logic";
 
 export const OrderbookToolbar = memo(
   ({
@@ -64,8 +58,7 @@ export const OrderbookToolbar = memo(
       </div>
     );
   },
-  (prev, next) =>
-    prev.pairFocus === next.pairFocus && prev.currentNSigFigs === next.currentNSigFigs,
+  areOrderbookToolbarPropsEqual,
 );
 
 OrderbookToolbar.displayName = "OrderbookToolbar";

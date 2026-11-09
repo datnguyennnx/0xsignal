@@ -1,0 +1,81 @@
+/// <reference types="bun-types" />
+import { describe, expect, test } from "bun:test";
+
+import type { EconomicEvent } from "@0xsignal/shared";
+
+import { areMonthDayCellPropsEqual } from "./month-day-cell-logic";
+
+const noop = (): void => {};
+
+const event = (id: string): EconomicEvent => ({
+  id,
+  source: "bls",
+  sourceEventId: id,
+  title: id,
+  country: "US",
+  currency: "USD",
+  category: "macro",
+  impact: "medium",
+  scheduledAt: new Date(2026, 10, 9, 12).toISOString(),
+  allDay: false,
+  period: null,
+  forecast: null,
+  previous: null,
+  actual: null,
+  revised: null,
+  sourceUrl: null,
+  attribution: "test",
+  fetchedAt: new Date(2026, 0, 1).toISOString(),
+});
+
+type CellProps = Parameters<typeof areMonthDayCellPropsEqual>[0];
+
+const EVENTS = [event("a")];
+
+const cellProps = (overrides: Partial<CellProps> = {}): CellProps => ({
+  date: new Date(2026, 10, 9),
+  events: EVENTS,
+  isCurrentMonth: true,
+  isToday: false,
+  isSelected: false,
+  onSelect: noop,
+  ...overrides,
+});
+
+describe("areMonthDayCellPropsEqual", () => {
+  test("skips a cell when every rendered value is unchanged", () => {
+    const prev = cellProps();
+    const next = cellProps({ date: new Date(2026, 10, 9) });
+
+    expect(prev.date).not.toBe(next.date);
+    expect(areMonthDayCellPropsEqual(prev, next)).toBe(true);
+  });
+
+  test("re-renders when the day changes", () => {
+    const prev = cellProps();
+
+    expect(areMonthDayCellPropsEqual(prev, cellProps({ date: new Date(2026, 10, 10) }))).toBe(
+      false,
+    );
+  });
+
+  test("re-renders when the event bucket changes identity", () => {
+    const prev = cellProps();
+
+    expect(areMonthDayCellPropsEqual(prev, cellProps({ events: [event("a")] }))).toBe(false);
+  });
+
+  test("re-renders when a painted flag changes", () => {
+    const prev = cellProps();
+
+    expect(areMonthDayCellPropsEqual(prev, cellProps({ isCurrentMonth: false }))).toBe(false);
+    expect(areMonthDayCellPropsEqual(prev, cellProps({ isToday: true }))).toBe(false);
+    expect(areMonthDayCellPropsEqual(prev, cellProps({ isSelected: true }))).toBe(false);
+  });
+
+  test("re-renders when the select callback changes identity", () => {
+    const prev = cellProps();
+
+    expect(areMonthDayCellPropsEqual(prev, cellProps({ onSelect: () => {} }))).toBe(false);
+  });
+});

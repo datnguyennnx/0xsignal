@@ -15,10 +15,6 @@ export const queryKeys = {
     meta: () => [...queryKeys.market.all, "meta"] as const,
     candles: (symbol: string, interval: string, limit: number) =>
       [...queryKeys.market.all, "candles", symbol, interval, limit] as const,
-    orderbook: {
-      all: ["market", "orderbook"] as const,
-      snapshot: (symbol: string) => [...queryKeys.market.orderbook.all, symbol] as const,
-    },
   },
 
   asset: {
@@ -30,7 +26,7 @@ export const queryKeys = {
 
   user: {
     all: ["user"] as const,
-    agentRegistrations: () => ["user", "agentRegistrations"] as const,
+    agentRegistrations: (address: string) => ["user", "agentRegistrations", address] as const,
     clearinghouseState: (address: string) => ["user", "clearinghouseState", address] as const,
     spotClearinghouseState: (address: string) =>
       ["user", "spotClearinghouseState", address] as const,

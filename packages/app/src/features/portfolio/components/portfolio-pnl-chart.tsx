@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { Surface } from "@/components/surface/surface";
 import { Segmented } from "@/components/ui/segmented";
@@ -17,7 +17,7 @@ import {
   type PortfolioPeriod,
 } from "../utils/constants";
 import { formatAxis, formatCompactUsd, formatSignedUsd } from "@/core/utils/formatters";
-import { remToPx, subscribeRootFontSize } from "@/core/utils/rem";
+import { getRootFontSizePx, remToPxAt, subscribeRootFontSize } from "@/core/utils/rem";
 import { SURFACE } from "./portfolio-summary.constants";
 
 type RechartsModule = typeof import("recharts");
@@ -95,6 +95,10 @@ function ChartTooltip({
 /** Both branches size the plot area from this one token so they cannot drift. */
 const CHART_MIN_HEIGHT = "min-h-(--panel-state-min-h)";
 
+/** Static axis chrome: one object identity so Recharts sees no change between renders. */
+const AXIS_LINE = { stroke: "var(--data-grid)", strokeWidth: 1 };
+const TOOLTIP_CURSOR = { stroke: "var(--data-crosshair)", strokeWidth: 1, strokeDasharray: "3 3" };
+
 export const PortfolioPnLChart = memo(function PortfolioPnLChart({
   readOnlyAddress,
   period: timePeriod,
@@ -150,19 +154,36 @@ export const PortfolioPnLChart = memo(function PortfolioPnLChart({
     return [min - range * 0.12, max + range * 0.12];
   }, [values]);
 
-  const [, bumpRootFontEpoch] = useState(0);
-  useEffect(
-    () =>
-      subscribeRootFontSize(() => {
-        bumpRootFontEpoch((n) => n + 1);
-      }),
-    [],
+  // A resize that leaves the root size unchanged notifies but must not commit;
+  // `useSyncExternalStore` compares the snapshot and bails out.
+  const rootFontSizePx = useSyncExternalStore(
+    subscribeRootFontSize,
+    getRootFontSizePx,
+    getRootFontSizePx,
   );
 
-  const chartMarginPx = remToPx(1);
-  const axisFontSizePx = remToPx(0.75);
-  const yAxisWidthPx = Math.round(remToPx(3.5));
-  const tickGapPx = remToPx(2.5);
+  const chartMarginPx = remToPxAt(1, rootFontSizePx);
+  const axisFontSizePx = remToPxAt(0.75, rootFontSizePx);
+  const yAxisWidthPx = Math.round(remToPxAt(3.5, rootFontSizePx));
+  const tickGapPx = remToPxAt(2.5, rootFontSizePx);
+
+  const chartMargin = useMemo(
+    () => ({ top: chartMarginPx, right: chartMarginPx, bottom: 0, left: 0 }),
+    [chartMarginPx],
+  );
+  const xAxisTick = useMemo(
+    () => ({ fontSize: axisFontSizePx, fill: "var(--data-axis)" }),
+    [axisFontSizePx],
+  );
+  const yAxisTick = useMemo(
+    () => ({
+      fontSize: axisFontSizePx,
+      fill: "var(--data-axis)",
+      style: { fontVariantNumeric: "tabular-nums" as const },
+    }),
+    [axisFontSizePx],
+  );
+  const yAxisDomain = useMemo<[number, number]>(() => [dataMin, dataMax], [dataMin, dataMax]);
 
   const xAxisTicks = useMemo(() => {
     if (!values || values.length < 2) return null;
@@ -270,44 +291,33 @@ export const PortfolioPnLChart = memo(function PortfolioPnLChart({
         {chartData ? (
           <div className="w-full h-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={chartData}
-                margin={{ top: chartMarginPx, right: chartMarginPx, bottom: 0, left: 0 }}
-              >
+              <LineChart data={chartData} margin={chartMargin}>
                 <CartesianGrid stroke="var(--data-grid)" strokeOpacity={0.5} vertical={false} />
                 <XAxis
                   dataKey="time"
                   type="number"
                   domain={["dataMin", "dataMax"]}
                   scale="time"
-                  axisLine={{ stroke: "var(--data-grid)", strokeWidth: 1 }}
+                  axisLine={AXIS_LINE}
                   tickLine={false}
-                  tick={{ fontSize: axisFontSizePx, fill: "var(--data-axis)" }}
+                  tick={xAxisTick}
                   tickFormatter={formatXAxisTick}
                   {...(xAxisTicks !== null && { ticks: xAxisTicks })}
                   minTickGap={tickGapPx}
                 />
                 <YAxis
                   orientation="left"
-                  axisLine={{ stroke: "var(--data-grid)", strokeWidth: 1 }}
+                  axisLine={AXIS_LINE}
                   tickLine={false}
                   width={yAxisWidthPx}
-                  tick={{
-                    fontSize: axisFontSizePx,
-                    fill: "var(--data-axis)",
-                    style: { fontVariantNumeric: "tabular-nums" },
-                  }}
+                  tick={yAxisTick}
                   tickFormatter={formatAxis}
-                  domain={[dataMin, dataMax]}
+                  domain={yAxisDomain}
                   tickCount={4}
                 />
                 <Tooltip
                   content={<ChartTooltip signed={chartView !== "account-value"} />}
-                  cursor={{
-                    stroke: "var(--data-crosshair)",
-                    strokeWidth: 1,
-                    strokeDasharray: "3 3",
-                  }}
+                  cursor={TOOLTIP_CURSOR}
                   isAnimationActive={false}
                 />
                 <Line

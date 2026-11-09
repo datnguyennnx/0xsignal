@@ -82,7 +82,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="container-fluid relative flex w-full flex-col gap-panel page-enter">
+    <div className="container-fluid relative flex w-full flex-col gap-panel">
       <div className="mx-auto flex w-full max-w-(--measure-page) flex-col gap-panel">
         <div className="flex flex-col gap-1 px-4">
           <h1 className="type-heading font-semibold tracking-tight">Settings</h1>
@@ -91,7 +91,9 @@ export function SettingsPage() {
           </p>
         </div>
 
-        <AgentRegistrationsWarning />
+        {/* Kept above the tabs so the alert does not shift the tab layout; only
+            the Trading Wallet tab (which shows approvals) enables the query. */}
+        <AgentRegistrationsWarning enabled={activeTab === "api-console"} />
 
         <Surface tier="content" as="section" className="w-full p-panel">
           <Tabs
@@ -100,7 +102,7 @@ export function SettingsPage() {
               if (isSettingsTab(value)) selectTab(value);
             }}
             orientation="vertical"
-            className="grid min-h-0 w-full grid-cols-1 gap-0 md:grid-cols-[auto_minmax(0,1fr)]"
+            className="grid w-full grid-cols-1 gap-0 md:grid-cols-[auto_minmax(0,1fr)]"
           >
             <SettingsNav />
             <div className="col-span-1 min-w-0 md:py-4 md:pl-4">

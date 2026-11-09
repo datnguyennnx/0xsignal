@@ -1,12 +1,73 @@
-import type { Server } from "bun";
+import type { Server, ServerWebSocket, WebSocketHandler } from "bun";
 import { Config, Effect } from "effect";
 import type { ManagedRuntime } from "effect/ManagedRuntime";
 import type { CorsConfig } from "./cors";
 import type { HttpError } from "./error-response";
-import { createFetchHandler } from "./fetch-handler";
+import { createConnectionCap, createFetchHandler, type ConnectionCap } from "./fetch-handler";
 import { createRouter } from "./router";
 import type { Route } from "./route-contracts";
-import type { WsSetup } from "./ws";
+import type { WsEventHandlers, WsSetup } from "./ws";
+
+/** Matches the largest frame the app sends and bounds one inbound message. */
+export const MAX_WS_PAYLOAD_BYTES = 1024 * 1024;
+/** A peer that queues this much outbound data is closed instead of buffered. */
+export const WS_BACKPRESSURE_LIMIT_BYTES = 1024 * 1024;
+/** Conservative ceiling: one process must not serve unbounded sockets. */
+export const MAX_WS_CONNECTIONS = 1024;
+
+/**
+ * The Bun `websocket` option fragment that caps frame size and backpressure.
+ * Exported so the transport limits are asserted directly in tests.
+ */
+export const WS_SERVE_OPTIONS = {
+  maxPayloadLength: MAX_WS_PAYLOAD_BYTES,
+  backpressureLimit: WS_BACKPRESSURE_LIMIT_BYTES,
+  closeOnBackpressureLimit: true,
+} as const;
+
+/**
+ * Frees the connection slot exactly once. Error and close can both fire for the
+ * same socket, so identity — not the callback — decides who releases it.
+ */
+export const capWsHandlers = <D>(
+  handlers: WsEventHandlers<D>,
+  cap: ConnectionCap,
+): WsEventHandlers<D> => {
+  const released = new WeakSet<ServerWebSocket<D>>();
+  const releaseOnce = (ws: ServerWebSocket<D>): void => {
+    if (released.has(ws)) return;
+    released.add(ws);
+    cap.release();
+  };
+  return {
+    ...handlers,
+    close: (ws) => {
+      handlers.close(ws);
+      releaseOnce(ws);
+    },
+    error: (ws, error) => {
+      handlers.error?.(ws, error);
+      releaseOnce(ws);
+    },
+  };
+};
+
+/**
+ * Adapts the module-facing handler contract to Bun's argument order: Bun calls
+ * `error(error, ws)`, while the hub receives `error(ws, error)`.
+ */
+export const toBunWebSocketHandler = <D>(handlers: WsEventHandlers<D>): WebSocketHandler<D> => {
+  const bun: WebSocketHandler<D> = {
+    open: handlers.open,
+    message: handlers.message,
+    pong: handlers.pong,
+    close: handlers.close,
+  };
+  if (handlers.error !== undefined) {
+    bun.error = (error, ws) => handlers.error?.(ws, error);
+  }
+  return bun;
+};
 
 export interface ServerDeps<R, D> {
   readonly runtime: ManagedRuntime<R, unknown>;
@@ -22,12 +83,18 @@ export interface ServerDeps<R, D> {
  */
 export const serve = async <R, D>(deps: ServerDeps<R, D>, signal: AbortSignal): Promise<void> => {
   const handleRequest = createRouter(deps.routes);
+  const connectionCap = createConnectionCap(MAX_WS_CONNECTIONS);
+  const ws: WsSetup<D> = {
+    ...deps.ws,
+    handlers: capWsHandlers(deps.ws.handlers, connectionCap),
+  };
   const fetchHandler = createFetchHandler(
     (effect) => deps.runtime.runPromise(effect),
     deps.cors,
-    deps.ws,
+    ws,
     deps.mapError,
     handleRequest,
+    connectionCap,
   );
 
   const serverProgram = Effect.gen(function* () {
@@ -38,11 +105,12 @@ export const serve = async <R, D>(deps: ServerDeps<R, D>, signal: AbortSignal): 
         Bun.serve<D>({
           port: PORT,
           fetch: fetchHandler,
-          websocket: deps.ws.handlers,
+          websocket: toBunWebSocketHandler(ws.handlers),
           reusePort: true,
           // Kept in step with the handler heartbeat so the transport and the
           // application agree on when a peer is gone.
           idleTimeout: deps.ws.idleTimeoutSeconds,
+          ...WS_SERVE_OPTIONS,
         }),
       ),
       (s: Server<D>) =>

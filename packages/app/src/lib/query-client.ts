@@ -1,9 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api-error";
 import { UnauthenticatedError } from "@/lib/api-base";
-import { queryKeys } from "@/lib/query-keys";
-import { getMarkets } from "@/services/api/market";
-import { setCoinIndexLoader } from "@/features/trade/lib/hl-market-stream";
 
 const GC_TIMES = {
   default: 5 * 60 * 1000,
@@ -48,13 +45,3 @@ export const queryClient = new QueryClient({
     },
   },
 });
-
-// The candle path resolves the coin index before the React Query hooks mount; route
-// it through the shared market query so one page load keeps one /api/markets fetch.
-setCoinIndexLoader(() =>
-  queryClient.query({
-    queryKey: queryKeys.market.meta(),
-    queryFn: () => getMarkets(),
-    staleTime: 300_000,
-  }),
-);

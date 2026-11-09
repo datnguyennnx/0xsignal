@@ -34,6 +34,7 @@ export function useHyperliquidCandles({
   const [wsError, setWsError] = useState<Error | null>(null);
   const [hasMoreByKey, setHasMoreByKey] = useState<Record<string, boolean>>({});
   const [isFetching, setIsFetching] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   const hasMore = hasMoreByKey[candleKey] ?? true;
 
@@ -82,7 +83,12 @@ export function useHyperliquidCandles({
   // ── Historical data via React Query ───────────────────────────────
 
   const historical = useCandleHistory(symbol, interval, limit, enabled);
-  const { data: historyData, isLoading: historyLoading, error: historyError } = historical;
+  const {
+    data: historyData,
+    isLoading: historyLoading,
+    error: historyError,
+    refetch: refetchHistory,
+  } = historical;
 
   useEffect(() => {
     const previousIdentity = historyIdentityRef.current;
@@ -140,9 +146,15 @@ export function useHyperliquidCandles({
   const subscription = useMemo(
     () =>
       enabled && coin !== ""
-        ? { channel: "candle" as const, symbol: coin, interval: hlInterval }
+        ? {
+            channel: "candle" as const,
+            symbol: coin,
+            interval: hlInterval,
+            // Part of the identity on purpose: bumping retryToken re-subscribes the stream.
+            retryToken,
+          }
         : null,
-    [enabled, coin, hlInterval],
+    [enabled, coin, hlInterval, retryToken],
   );
 
   const handleMessage = useCallback(
@@ -169,6 +181,12 @@ export function useHyperliquidCandles({
   const handleError = useCallback((e: Error) => {
     setWsError(e);
   }, []);
+
+  const retry = useCallback(() => {
+    setWsError(null);
+    void refetchHistory();
+    setRetryToken((token) => token + 1);
+  }, [refetchHistory]);
 
   useHyperliquidWs({
     subscription,
@@ -299,6 +317,7 @@ export function useHyperliquidCandles({
     isConnected,
     error: wsError ?? historyError,
     loadMore,
+    retry,
     hasMore,
     isFetching,
   };

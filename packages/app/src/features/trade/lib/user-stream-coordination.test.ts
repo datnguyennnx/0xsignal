@@ -1,5 +1,5 @@
 /// <reference types="bun-types" />
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 
 import type { ClearinghouseState } from "@0xsignal/shared";
 import type {
@@ -8,7 +8,12 @@ import type {
   UserStreamUpstream,
 } from "./user-stream-types";
 import { createUserStreamClient } from "./user-stream-client";
-import type { TabChannel } from "./user-stream-coordination";
+import {
+  createTabCoordinator,
+  TAB_MISSED_PONG_LIMIT,
+  TAB_PING_INTERVAL_MS,
+  type TabChannel,
+} from "./user-stream-coordination";
 
 const ADDRESS = "0x0000000000000000000000000000000000000001";
 
@@ -101,6 +106,12 @@ class CountingUpstream implements UserStreamUpstream {
     return () => {};
   }
 
+  reconnect(): void {}
+
+  isStale(): boolean {
+    return false;
+  }
+
   emit(event: ClearinghouseStreamEvent): void {
     this.listener?.(event);
   }
@@ -117,6 +128,126 @@ const makeClient = (upstream: CountingUpstream, tabId: string) =>
     tabId,
     electionDelayMs: 0,
   });
+
+interface TestEvent {
+  readonly data: unknown;
+}
+
+const settle = async (): Promise<void> => {
+  for (let index = 0; index < 5; index += 1) {
+    // Bun's fake timers queue the channel's microtask deliveries as timers, so
+    // they only drain when time actually advances.
+    jest.advanceTimersByTime(1);
+    await Promise.resolve();
+  }
+};
+
+const makeCoordinator = (tabId: string, gone: string[]) =>
+  createTabCoordinator<TestEvent>({
+    createChannel: (name) => new FakeChannel(name),
+    tabId,
+    electionDelayMs: 0,
+    isEvent: (value): value is TestEvent =>
+      typeof value === "object" && value !== null && "data" in value,
+    onPromote: () => {},
+    onDemote: () => {},
+    onRemoteSubscribe: () => {},
+    onRemoteUnsubscribe: () => {},
+    onRemoteTabGone: (id) => {
+      gone.push(id);
+    },
+    onRemoteData: () => {},
+    onLeaderState: () => {},
+  });
+
+describe("user stream tab liveness", () => {
+  beforeEach(() => {
+    channels.clear();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    channels.clear();
+  });
+
+  test("a follower that never answers pings is pruned after two intervals", async () => {
+    jest.useFakeTimers();
+    const gone: string[] = [];
+    const leader = makeCoordinator("leader", gone);
+    jest.advanceTimersByTime(1);
+    await settle();
+    expect(leader.role()).toBe("leader");
+
+    const ghost = new FakeChannel("0xsignal:user-stream:v1");
+    ghost.send({
+      kind: "subscribe",
+      key: "clearinghouseState:0x01",
+      user: ADDRESS,
+      channel: "clearinghouseState",
+      tabId: "ghost",
+    });
+    await settle();
+
+    jest.advanceTimersByTime(TAB_PING_INTERVAL_MS * (TAB_MISSED_PONG_LIMIT - 1));
+    await settle();
+    expect(gone).toEqual([]);
+
+    jest.advanceTimersByTime(TAB_PING_INTERVAL_MS);
+    await settle();
+    expect(gone).toEqual(["ghost"]);
+
+    leader.dispose();
+  });
+
+  test("a follower that answers pings stays registered", async () => {
+    jest.useFakeTimers();
+    const gone: string[] = [];
+    const leader = makeCoordinator("tab-a", gone);
+    jest.advanceTimersByTime(1);
+    await settle();
+
+    const follower = makeCoordinator("tab-b", gone);
+    jest.advanceTimersByTime(1);
+    await settle();
+    expect(follower.role()).toBe("follower");
+
+    follower.postSubscribe({
+      key: "clearinghouseState:0x01",
+      user: ADDRESS,
+      channel: "clearinghouseState",
+    });
+    await settle();
+
+    for (let index = 0; index < 5; index += 1) {
+      jest.advanceTimersByTime(TAB_PING_INTERVAL_MS);
+      await settle();
+    }
+
+    expect(gone).toEqual([]);
+
+    leader.dispose();
+    follower.dispose();
+  });
+
+  test("unknown message kinds are ignored", async () => {
+    jest.useFakeTimers();
+    const gone: string[] = [];
+    const leader = makeCoordinator("leader", gone);
+    jest.advanceTimersByTime(1);
+    await settle();
+
+    const peer = new FakeChannel("0xsignal:user-stream:v1");
+    peer.send({ kind: "future-message", tabId: "ghost" });
+    await settle();
+
+    expect(leader.role()).toBe("leader");
+    jest.advanceTimersByTime(TAB_PING_INTERVAL_MS * (TAB_MISSED_PONG_LIMIT + 1));
+    await settle();
+    expect(gone).toEqual([]);
+
+    leader.dispose();
+  });
+});
 
 describe("user stream tab leader election", () => {
   test("a second tab reuses the leader's socket and takes over after it closes", async () => {

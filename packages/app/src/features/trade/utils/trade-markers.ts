@@ -1,3 +1,5 @@
+import type { ChartDataPoint } from "@0xsignal/shared";
+
 import { formatPrice } from "@/core/utils/formatters";
 
 /**
@@ -61,6 +63,69 @@ function normalizeFillToCandleTime(fillTimeMs: number, timeframeSec: number): nu
 
 function isBuyFill(fill: HyperliquidFill): boolean {
   return fill.side === "B" && (fill.dir === "Open Long" || fill.dir === "Close Short");
+}
+
+/**
+ * Upper bound on the fills handed to the marker mapper. Only fills inside the
+ * loaded candle window can ever be painted, and a long session accumulates far
+ * more history than the chart shows.
+ */
+export const MAX_MARKER_FILLS = 500;
+
+export interface MarkerFillWindow {
+  readonly startMs: number;
+  readonly endMs: number;
+}
+
+/**
+ * The fill window implied by the loaded candles, over the scalars a memo can
+ * compare. Candle times are seconds; fill times are milliseconds. Include the
+ * forming bar by ending one candle width past the last open time.
+ *
+ * Kept separate from `selectMarkerFills` so a candle tick that leaves the window
+ * unchanged does not invalidate the fill/marker memo.
+ */
+export function markerFillWindow(
+  candles: readonly ChartDataPoint[],
+  timeframeSec: number,
+): MarkerFillWindow | null {
+  const first = candles[0];
+  const last = candles.at(-1);
+  if (first === undefined || last === undefined) return null;
+  return { startMs: first.time * 1000, endMs: (last.time + timeframeSec) * 1000 };
+}
+
+/**
+ * Drops fills outside the given window, then keeps the latest
+ * `MAX_MARKER_FILLS` newest-first. The result is safe to pass to
+ * `mapFillsToLogicalMarkers`, which copies and sorts its whole input.
+ */
+export function selectMarkerFillsInWindow(
+  fills: readonly HyperliquidFill[],
+  window: MarkerFillWindow | null,
+): HyperliquidFill[] {
+  if (fills.length === 0 || window === null) return [];
+
+  const inWindow: HyperliquidFill[] = [];
+  for (let i = 0; i < fills.length; i++) {
+    const fill = fills[i];
+    if (fill.time < window.startMs || fill.time >= window.endMs) continue;
+    inWindow.push(fill);
+  }
+
+  // The merged cache is already newest-first, but the REST seed is not
+  // guaranteed to be, so order explicitly before slicing.
+  inWindow.sort((a, b) => b.time - a.time);
+  return inWindow.slice(0, MAX_MARKER_FILLS);
+}
+
+/** Convenience wrapper for callers that already hold the candle array. */
+export function selectMarkerFills(
+  fills: readonly HyperliquidFill[],
+  candles: readonly ChartDataPoint[],
+  timeframeSec: number,
+): HyperliquidFill[] {
+  return selectMarkerFillsInWindow(fills, markerFillWindow(candles, timeframeSec));
 }
 
 export function mapFillsToLogicalMarkers(

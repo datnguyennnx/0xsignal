@@ -170,7 +170,7 @@ export const AssetContent = memo(function AssetContent({
 
   return (
     <div ref={regionRef} className="container-fluid flex flex-col min-h-(--trading-region-height)">
-      <header ref={headerRef} className="container-query shrink-0 flex flex-col">
+      <header ref={headerRef} className="container-query shrink-0">
         <div className="flex flex-wrap items-center w-full min-w-0 gap-x-2">
           <TradeDropdown
             currentSymbol={symbol}

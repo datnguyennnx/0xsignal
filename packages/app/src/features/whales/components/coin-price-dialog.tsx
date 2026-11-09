@@ -110,21 +110,19 @@ function CoinPriceDialogBody({
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <Suspense fallback={<Skeleton className="min-h-0 flex-1" />}>
-        <div className="min-h-0 flex-1">
-          {/* The dialog outlives a coin switch, so the chart is keyed to the symbol. */}
-          <TradingChart
-            key={coin}
-            symbol={coin}
-            interval={interval}
-            onIntervalChange={setChartInterval}
-            priceLines={priceLines}
-            markers={markers}
-          />
-        </div>
-      </Suspense>
-    </div>
+    <Suspense fallback={<Skeleton className="min-h-0 flex-1" />}>
+      <div className="min-h-0 flex-1">
+        {/* The dialog outlives a coin switch, so the chart is keyed to the symbol. */}
+        <TradingChart
+          key={coin}
+          symbol={coin}
+          interval={interval}
+          onIntervalChange={setChartInterval}
+          priceLines={priceLines}
+          markers={markers}
+        />
+      </div>
+    </Suspense>
   );
 }
 

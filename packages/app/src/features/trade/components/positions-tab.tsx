@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useCoinContextPanel } from "@/components/app-side-panel";
-import { useMarketDataStore } from "@/stores/use-market-data-store";
 import { useOpenOrders } from "../hooks/use-user-data";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
 import { useHyperliquidWs } from "../hooks/use-hyperliquid-ws";
@@ -14,6 +13,8 @@ const ALL_MIDS_SUBSCRIPTION = { channel: "allMids" as const } as const;
 interface PositionsTabProps {
   positions: PositionRow[];
   isChLoading: boolean;
+  isChError?: boolean;
+  onRetry?: (() => void) | undefined;
   readOnly: boolean;
   onCloseMarket: (coin: string, size: string, isLong: boolean) => void;
   onCloseLimit: (pos: { coin: string; sz: number; isLong: boolean; markPx: number }) => void;
@@ -26,12 +27,13 @@ interface PositionsTabProps {
 export function PositionsTab({
   positions,
   isChLoading,
+  isChError = false,
+  onRetry,
   readOnly,
   onCloseMarket,
   onCloseLimit,
 }: PositionsTabProps) {
   // A third party's table never reads mids, so it must not subscribe to them.
-  const mids = useMarketDataStore((state) => (readOnly ? undefined : state.allMids));
   const allMidsSubscription = useMemo(() => (readOnly ? null : ALL_MIDS_SUBSCRIPTION), [readOnly]);
   useHyperliquidWs({
     subscription: allMidsSubscription,
@@ -48,8 +50,9 @@ export function PositionsTab({
   return (
     <PositionsTable
       isChLoading={isChLoading}
+      isChError={isChError}
+      onRetry={onRetry}
       positions={positions}
-      mids={mids}
       fundingRates={fundingRates}
       tpSlByCoin={tpSlByCoin}
       onCloseMarket={onCloseMarket}

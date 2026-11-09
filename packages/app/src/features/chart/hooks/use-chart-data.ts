@@ -33,6 +33,13 @@ const toVolumeHistogramData = (
     color: point.close >= point.open ? colors.up : colors.down,
   }));
 
+/**
+ * Convert only the tail. The per-tick path needs nothing else, so it must not
+ * allocate a branded copy of the whole 10k-bar buffer every frame.
+ */
+export const toLastUtcPoint = (point?: ChartDataPoint): UtcDated<ChartDataPoint> | undefined =>
+  point === undefined ? undefined : toUtcTimestamps([point])[0];
+
 export const useChartData = ({
   data,
   isDark,
@@ -91,9 +98,12 @@ export const useChartData = ({
       themeVersion: theme.version,
     };
 
-    const points = toUtcTimestamps(data);
-    const currentLastCandle = points.at(-1);
+    const currentLastCandle = toLastUtcPoint(lastPoint);
     if (currentLastCandle === undefined) return;
+
+    // Full conversion is deferred: only the reload/reshape branches below need it.
+    let allPoints: UtcDated<ChartDataPoint>[] | undefined;
+    const fullPoints = (): UtcDated<ChartDataPoint>[] => (allPoints ??= toUtcTimestamps(data));
 
     const volumeColors = {
       up: theme.colors["--data-up"],
@@ -109,8 +119,8 @@ export const useChartData = ({
     }
 
     if (themeChanged && initialDataLoadedRef.current) {
-      candlestickSeries.setData(toCandlestickData(points));
-      volumeSeries.setData(toVolumeHistogramData(points, volumeColors));
+      candlestickSeries.setData(toCandlestickData(fullPoints()));
+      volumeSeries.setData(toVolumeHistogramData(fullPoints(), volumeColors));
 
       prevDataLenRef.current = data.length;
       prevFirstTimeRef.current = currentFirstTime;
@@ -123,8 +133,8 @@ export const useChartData = ({
     const prevLastTime = prevLastTimeRef.current;
 
     if (!initialDataLoadedRef.current) {
-      candlestickSeries.setData(toCandlestickData(points));
-      volumeSeries.setData(toVolumeHistogramData(points, volumeColors));
+      candlestickSeries.setData(toCandlestickData(fullPoints()));
+      volumeSeries.setData(toVolumeHistogramData(fullPoints(), volumeColors));
 
       const dataLen = data.length;
       const fromIndex = Math.max(dataLen - visibleCandles, 0);
@@ -145,8 +155,8 @@ export const useChartData = ({
 
       timeScale?.applyOptions({ shiftVisibleRangeOnNewBar: false });
 
-      candlestickSeries.setData(toCandlestickData(points));
-      volumeSeries.setData(toVolumeHistogramData(points, volumeColors));
+      candlestickSeries.setData(toCandlestickData(fullPoints()));
+      volumeSeries.setData(toVolumeHistogramData(fullPoints(), volumeColors));
 
       if (visibleRange && timeScale) {
         timeScale.setVisibleRange(visibleRange);
@@ -194,7 +204,7 @@ export const useChartData = ({
 
     if (prevLastTime !== null && currentLastTime > prevLastTime) {
       const startIndex = Math.max(prevDataLenRef.current, 0);
-      const newCandles = points.slice(startIndex);
+      const newCandles = toUtcTimestamps(data.slice(startIndex));
 
       for (const c of newCandles) {
         candlestickSeries.update({
@@ -224,8 +234,8 @@ export const useChartData = ({
       prevLastTime !== null &&
       (currentFirstTime !== prevFirstTime || currentLastTime !== prevLastTime)
     ) {
-      candlestickSeries.setData(toCandlestickData(points));
-      volumeSeries.setData(toVolumeHistogramData(points, volumeColors));
+      candlestickSeries.setData(toCandlestickData(fullPoints()));
+      volumeSeries.setData(toVolumeHistogramData(fullPoints(), volumeColors));
 
       prevDataLenRef.current = data.length;
       prevFirstTimeRef.current = currentFirstTime;

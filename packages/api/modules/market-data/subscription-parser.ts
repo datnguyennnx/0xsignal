@@ -9,6 +9,31 @@ export type ParseResult =
 const IntervalSchema = Schema.Literals(WS_MARKET_INTERVALS);
 const NSigFigsSchema = Schema.NullOr(Schema.Literals([2, 3, 4, 5]));
 
+/**
+ * Bucket keys embed client-controlled identifiers, so they need a hard length
+ * and character budget. The allowlist covers the provider's actual names:
+ * perps (`BTC`), builder perps (`xyz:EUR`), spot pairs (`PURR/USDC`) and
+ * outcome ids (`@107`).
+ */
+export const MAX_SYMBOL_LENGTH = 32;
+export const MAX_DEX_LENGTH = 16;
+const MARKET_SYMBOL_PATTERN = /^[A-Za-z0-9._:/@#+-]+$/;
+/** Dex names are plain identifiers and need none of the symbol-only punctuation. */
+const MARKET_DEX_PATTERN = /^[A-Za-z0-9._-]+$/;
+
+const isValidMarketId = (value: string, maxLength: number, pattern: RegExp): boolean =>
+  value.length > 0 && value.length <= maxLength && pattern.test(value);
+
+const invalidMarketId = (
+  field: "symbol" | "dex",
+  maxLength: number,
+  pattern: RegExp,
+): ParseResult => ({
+  ok: false,
+  status: 400,
+  message: `Invalid ${field}: must be 1-${maxLength} characters matching ${pattern.source}.`,
+});
+
 const AllMidsSchema = Schema.Struct({
   channel: Schema.Literal("allMids"),
   symbol: Schema.optional(Schema.String),
@@ -35,11 +60,22 @@ const SubscriptionSchema = Schema.Union([AllMidsSchema, CandleSchema, L2BookSche
 
 export const parseMarketWsSubscription = (params: URLSearchParams): ParseResult => {
   const channel = (params.get("channel") ?? params.get("type") ?? "").trim();
-  const symbol = params.get("symbol") ?? params.get("coin") ?? "";
+  const symbol = (params.get("symbol") ?? params.get("coin") ?? "").trim();
   const interval = (params.get("interval") ?? "1m").trim();
   const nSigFigsStr = params.get("nSigFigs") ?? params.get("depth");
   const dex = params.get("dex")?.trim();
   const fastStr = params.get("fast");
+
+  if (symbol !== "" && !isValidMarketId(symbol, MAX_SYMBOL_LENGTH, MARKET_SYMBOL_PATTERN)) {
+    return invalidMarketId("symbol", MAX_SYMBOL_LENGTH, MARKET_SYMBOL_PATTERN);
+  }
+  if (
+    dex !== undefined &&
+    dex !== "" &&
+    !isValidMarketId(dex, MAX_DEX_LENGTH, MARKET_DEX_PATTERN)
+  ) {
+    return invalidMarketId("dex", MAX_DEX_LENGTH, MARKET_DEX_PATTERN);
+  }
   // `depth` is maxDepth only when `nSigFigs` already claimed the sigfigs slot;
   // otherwise it is the sigfigs parameter and must not be read twice.
   const depthStr =

@@ -124,15 +124,19 @@ export const openTradeStream = (
           Effect.forkScoped,
         );
 
-        const subscriptions = yield* Effect.forEach(coinUniverse, (coin) =>
-          subscribeCoin(subscriptionClient, coin, minNotionalUsd, seenTids, counters, queue),
-        );
-
-        yield* Effect.addFinalizer(() =>
-          Effect.forEach(
-            subscriptions,
-            (subscription) => Effect.promise(() => subscription.unsubscribe()),
-            { discard: true },
+        // Acquire each coin's subscription as its own scoped resource. The
+        // stream scope is re-created on every discovery tick, so a failure or
+        // interrupt mid-loop must release the coins already subscribed instead
+        // of leaving them attached to the shared transport forever.
+        yield* Effect.forEach(coinUniverse, (coin) =>
+          Effect.acquireRelease(
+            subscribeCoin(subscriptionClient, coin, minNotionalUsd, seenTids, counters, queue),
+            (subscription) =>
+              // One failing unsubscribe must not skip the remaining releases.
+              Effect.tryPromise({
+                try: () => subscription.unsubscribe(),
+                catch: (cause) => cause,
+              }).pipe(Effect.ignore),
           ),
         );
 

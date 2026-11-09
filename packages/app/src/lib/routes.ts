@@ -11,7 +11,7 @@ export interface RouteRecord {
   navLabel?: string;
   authExempt?: boolean;
   lazy?: RoutePage;
-  /** Painted while the lazy chunk loads; defaults to the spinner. */
+  /** Route-shaped skeleton for the chunk window; `RouteFallback` reads it by identity. */
   fallback?: ComponentType;
   redirectTo?: string;
   /** `bare` renders outside the main layout; omitted means inside it. */

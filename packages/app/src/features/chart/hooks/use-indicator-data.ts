@@ -1,27 +1,23 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { ChartDataPoint, ActiveIndicator } from "@0xsignal/shared";
 import { calculateLineIndicator, calculateBandIndicator, isBandIndicator } from "@0xsignal/shared";
 import type { IndicatorDataMeta, IndicatorRenderEntry } from "../utils/indicator-data";
 
-const MAX_CACHE_SIZE = 50;
+export const MAX_CACHE_SIZE = 50;
 
 /** Shared empty result; consumers only read it. */
 const EMPTY_ENTRIES = new Map<string, IndicatorRenderEntry>();
 
 /**
- * Per-dataset LRU cache. Scoping entries to the exact dataset array means a
- * symbol/interval switch can never reuse them, and they are collected with it.
+ * One LRU cache keyed by dataset signature, not array identity: two arrays with
+ * identical contents reuse the same entries, so a re-created candle array no
+ * longer forces a recompute. Eviction deletes the oldest key, which keeps the
+ * cache bounded and lets evicted entries be collected.
  */
-const cachesByData = new WeakMap<ChartDataPoint[], Map<string, IndicatorRenderEntry>>();
+const entriesByKey = new Map<string, IndicatorRenderEntry>();
 
-const getCache = (data: ChartDataPoint[]): Map<string, IndicatorRenderEntry> => {
-  let cache = cachesByData.get(data);
-  if (cache === undefined) {
-    cache = new Map();
-    cachesByData.set(data, cache);
-  }
-  return cache;
-};
+/** Exposed for tests: current number of cached indicator entries. */
+export const getIndicatorCacheSize = (): number => entriesByKey.size;
 
 const buildParamsKey = (params: Record<string, number>): string => {
   return Object.keys(params)
@@ -31,28 +27,32 @@ const buildParamsKey = (params: Record<string, number>): string => {
 };
 
 /**
- * Lookup identity for one indicator over one dataset: shape only, never the last
- * candle's OHLCV, so a tick that only moves the open candle keeps the same slot.
+ * Stable dataset signature: shape plus the last candle's OHLCV. Array identity is
+ * deliberately excluded. Including the last (forming) candle is the conservative
+ * choice: a tick that moves its close changes the key and recomputes, so the
+ * forming bar is never served stale.
  */
-const buildLookupKey = (
-  indicatorId: string,
-  paramsKey: string,
-  dataLength: number,
-  firstTime: number,
-  lastTime: number,
-): string => `${indicatorId}#${paramsKey}#${dataLength}#${firstTime}#${lastTime}`;
+const buildDatasetKey = (data: ChartDataPoint[]): string => {
+  const first = data[0];
+  const last = data.at(-1);
+  if (first === undefined || last === undefined) return "empty";
+  return `${data.length}#${first.time}#${first.close}#${last.time}#${last.open}#${last.high}#${last.low}#${last.close}#${last.volume}`;
+};
+
+/**
+ * Lookup identity for one indicator over one dataset: the dataset signature plus
+ * the indicator id and params.
+ */
+const buildLookupKey = (indicatorId: string, paramsKey: string, datasetKey: string): string =>
+  `${indicatorId}#${paramsKey}#${datasetKey}`;
 
 /** Evict LRU if at capacity, then cache the entry. */
-const setCacheEntry = (
-  cache: Map<string, IndicatorRenderEntry>,
-  cacheKey: string,
-  entry: IndicatorRenderEntry,
-): void => {
-  if (cache.size >= MAX_CACHE_SIZE) {
-    const firstKey = cache.keys().next().value;
-    if (firstKey !== undefined) cache.delete(firstKey);
+const setCacheEntry = (cacheKey: string, entry: IndicatorRenderEntry): void => {
+  if (entriesByKey.size >= MAX_CACHE_SIZE) {
+    const firstKey = entriesByKey.keys().next().value;
+    if (firstKey !== undefined) entriesByKey.delete(firstKey);
   }
-  cache.set(cacheKey, entry);
+  entriesByKey.set(cacheKey, entry);
 };
 
 /** Whole-input identity that excludes the per-tick OHLCV of the open candle. */
@@ -77,17 +77,13 @@ const lastCandleSignature = (data: ChartDataPoint[]): string => {
   return `${last.time}|${last.open}|${last.high}|${last.low}|${last.close}|${last.volume}`;
 };
 
-const buildEntries = (
+export const buildEntries = (
   activeIndicators: ActiveIndicator[],
   data: ChartDataPoint[],
 ): Map<string, IndicatorRenderEntry> => {
   if (data.length === 0) return EMPTY_ENTRIES;
 
-  const cache = getCache(data);
-  const firstTime = data[0].time;
-  const last = data.at(-1);
-  if (last === undefined) return EMPTY_ENTRIES;
-  const lastTime = last.time;
+  const dataKey = buildDatasetKey(data);
   const signature = lastCandleSignature(data);
 
   const results = new Map<string, IndicatorRenderEntry>();
@@ -96,19 +92,13 @@ const buildEntries = (
     if (!indicator.visible) continue;
 
     const paramsKey = buildParamsKey(indicator.params);
-    const lookupKey = buildLookupKey(
-      indicator.instanceId,
-      paramsKey,
-      data.length,
-      firstTime,
-      lastTime,
-    );
+    const lookupKey = buildLookupKey(indicator.instanceId, paramsKey, dataKey);
 
-    const cached = cache.get(lookupKey);
+    const cached = entriesByKey.get(lookupKey);
     if (cached !== undefined) {
       // Bump to front (re-insert to maintain LRU order)
-      cache.delete(lookupKey);
-      cache.set(lookupKey, cached);
+      entriesByKey.delete(lookupKey);
+      entriesByKey.set(lookupKey, cached);
       results.set(indicator.instanceId, cached);
       continue;
     }
@@ -128,7 +118,7 @@ const buildEntries = (
         meta,
       };
       results.set(indicator.instanceId, entry);
-      setCacheEntry(cache, lookupKey, entry);
+      setCacheEntry(lookupKey, entry);
       continue;
     }
 
@@ -141,7 +131,7 @@ const buildEntries = (
       meta,
     };
     results.set(indicator.instanceId, entry);
-    setCacheEntry(cache, lookupKey, entry);
+    setCacheEntry(lookupKey, entry);
   }
 
   return results;
@@ -153,7 +143,7 @@ interface CommittedEntries {
   entries: Map<string, IndicatorRenderEntry>;
 }
 
-interface DeferredJob {
+export interface DeferredJob {
   inputsKey: string;
   signature: string;
   activeIndicators: ActiveIndicator[];
@@ -192,6 +182,28 @@ const scheduleFrame = (): void => {
   frameId = requestAnimationFrame(flushFrame);
 };
 
+/** Exposed for tests: current number of queued deferred jobs. */
+export const getDeferredJobCount = (): number => deferredJobs.size;
+
+/** Queue the per-slot recompute and make sure a frame is pending. */
+export const scheduleDeferredJob = (slot: object, job: DeferredJob): void => {
+  deferredJobs.set(slot, job);
+  scheduleFrame();
+};
+
+/**
+ * Drop a slot's queued job before its frame runs. Once no job remains the frame
+ * has nothing to paint, so cancel it instead of retaining the dataset until the
+ * tab becomes visible again.
+ */
+export const disposeDeferredJob = (slot: object): void => {
+  deferredJobs.delete(slot);
+  if (deferredJobs.size === 0 && frameId !== 0) {
+    cancelAnimationFrame(frameId);
+    frameId = 0;
+  }
+};
+
 const subscribeFrames = (listener: () => void): (() => void) => {
   frameListeners.add(listener);
   return () => {
@@ -204,6 +216,12 @@ const getFrameVersion = (): number => frameVersion;
 export const useIndicatorData = (activeIndicators: ActiveIndicator[], data: ChartDataPoint[]) => {
   const [slot] = useState<object>(() => ({}));
   useSyncExternalStore(subscribeFrames, getFrameVersion);
+
+  useEffect(() => {
+    return () => {
+      disposeDeferredJob(slot);
+    };
+  }, [slot]);
 
   const inputsKey = describeInputs(activeIndicators, data);
   const signature = lastCandleSignature(data);
@@ -218,8 +236,7 @@ export const useIndicatorData = (activeIndicators: ActiveIndicator[], data: Char
   }
 
   if (committed.signature !== signature) {
-    deferredJobs.set(slot, { inputsKey, signature, activeIndicators, data });
-    scheduleFrame();
+    scheduleDeferredJob(slot, { inputsKey, signature, activeIndicators, data });
     return committed.entries;
   }
 

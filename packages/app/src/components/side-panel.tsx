@@ -2,6 +2,7 @@ import * as React from "react";
 import { XIcon } from "lucide-react";
 import { cn } from "cn";
 
+import { getIsSheetSnapshot, subscribeIsSheet } from "@/components/side-panel-sheet-store";
 import { Button } from "@/components/ui/button";
 import { ScrollEdge } from "@/components/surface/scroll-edge";
 import { Surface } from "@/components/surface/surface";
@@ -34,7 +35,6 @@ interface SidePanelProviderProps {
   descriptor: SidePanelDescriptor | null;
   onClose: () => void;
   children: React.ReactNode;
-  className?: string;
 }
 
 interface SidePanelRegionProps {
@@ -58,50 +58,27 @@ function hasOpenOverlay() {
   return document.querySelector(OPEN_OVERLAY_SELECTOR) !== null;
 }
 
-/** `md` breakpoint: the panel is a complementary region above it, a sheet below. */
 function useIsSheet() {
-  const [isSheet, setIsSheet] = React.useState(false);
-
-  React.useEffect(() => {
-    const query = window.matchMedia("(min-width: 48rem)");
-    const update = () => {
-      setIsSheet(!query.matches);
-    };
-    update();
-    query.addEventListener("change", update);
-    return () => {
-      query.removeEventListener("change", update);
-    };
-  }, []);
-
-  return isSheet;
+  return React.useSyncExternalStore(subscribeIsSheet, getIsSheetSnapshot, () => false);
 }
 
 const REGION_CLASS =
-  "sticky top-0 flex shrink-0 self-start overflow-hidden motion-fade max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-(--z-side-panel) max-md:w-(--sidebar-w) max-md:min-w-0 max-md:transition-none";
+  "sticky top-0 flex shrink-0 self-start overflow-hidden transition-[opacity,transform] duration-[200ms] ease-out max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-(--z-side-panel) max-md:w-(--sidebar-w) max-md:min-w-0";
 
 const REGION_OPEN_CLASS =
-  "h-dvh w-(--sidebar-w) min-w-(--sidebar-min-w) p-2 opacity-100 max-md:h-dvh max-md:animate-in max-md:fade-in-0 max-md:slide-in-from-right max-md:duration-(--dur-enter)";
+  "h-dvh w-(--sidebar-w) min-w-(--sidebar-min-w) p-2 opacity-100 max-md:h-dvh max-md:translate-x-0";
 
-const REGION_CLOSED_CLASS = "pointer-events-none h-0 w-0 min-w-0 p-0 opacity-0 max-md:hidden";
+/* Close rides opacity + transform only; the sheet keeps its size while it slides out. */
+const REGION_CLOSED_CLASS =
+  "pointer-events-none h-0 w-0 min-w-0 p-0 opacity-0 max-md:h-dvh max-md:w-(--sidebar-w) max-md:translate-x-full";
 
-function SidePanelProvider({
-  registry,
-  descriptor,
-  onClose,
-  children,
-  className,
-}: SidePanelProviderProps) {
+function SidePanelProvider({ registry, descriptor, onClose, children }: SidePanelProviderProps) {
   const value = React.useMemo<SidePanelContextValue>(
     () => ({ descriptor, isOpen: descriptor !== null, close: onClose, registry }),
     [descriptor, onClose, registry],
   );
 
-  return (
-    <SidePanelContext.Provider value={value}>
-      <div className={cn("contents", className)}>{children}</div>
-    </SidePanelContext.Provider>
-  );
+  return <SidePanelContext.Provider value={value}>{children}</SidePanelContext.Provider>;
 }
 
 function useSidePanel(): SidePanelContextValue {

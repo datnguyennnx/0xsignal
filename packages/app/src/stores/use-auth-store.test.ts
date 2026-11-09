@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { toast } from "sonner";
 
 import { mergePersistedAuthState, selectPersistedAuthState, useAuthStore } from "./use-auth-store";
+import { queryClient } from "@/lib/query-client";
 
 const originalFetch = globalThis.fetch;
 
@@ -144,6 +145,7 @@ describe("auth store token handling", () => {
 
   test("a failed refresh signs out without an error toast", async () => {
     const toastError = spyOn(toast, "error");
+    const removeQueries = spyOn(queryClient, "removeQueries");
     globalThis.fetch = Object.assign(failingRefreshFetch, {
       preconnect: (_url: string | URL) => {},
     });
@@ -156,6 +158,32 @@ describe("auth store token handling", () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
     expect(toastError).not.toHaveBeenCalled();
 
+    const clearedRoots = removeQueries.mock.calls.map(
+      (call) => (call[0] as { queryKey?: readonly string[] } | undefined)?.queryKey,
+    );
+    expect(clearedRoots).toContainEqual(["user"]);
+    expect(clearedRoots).toContainEqual(["whales"]);
+
+    removeQueries.mockRestore();
     toastError.mockRestore();
+  });
+
+  test("signOut drops the user and whales query caches", async () => {
+    const removeQueries = spyOn(queryClient, "removeQueries");
+    globalThis.fetch = Object.assign(() => Promise.resolve(Response.json({})), {
+      preconnect: (_url: string | URL) => {},
+    });
+
+    await useAuthStore.getState().signOut();
+
+    const clearedRoots = removeQueries.mock.calls.map(
+      (call) => (call[0] as { queryKey?: readonly string[] } | undefined)?.queryKey,
+    );
+    expect(clearedRoots).toContainEqual(["user"]);
+    expect(clearedRoots).toContainEqual(["whales"]);
+    expect(useAuthStore.getState().token).toBeNull();
+    expect(useAuthStore.getState().user).toBeNull();
+
+    removeQueries.mockRestore();
   });
 });

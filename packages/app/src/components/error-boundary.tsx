@@ -2,8 +2,6 @@ import { Component, type ReactNode, type ErrorInfo } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
-export { PageLoader } from "./page-loader";
-
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;

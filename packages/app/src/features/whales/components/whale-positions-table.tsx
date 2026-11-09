@@ -2,7 +2,8 @@ import { memo, useDeferredValue, useMemo, useState, type JSX } from "react";
 import type { WhalePosition, WhalePositionsQuery } from "@0xsignal/shared";
 import { cn } from "cn";
 
-import { useCoinContextPanel } from "@/components/app-side-panel";
+import { useOpenCoin } from "@/components/app-side-panel";
+import { preloadRoute } from "@/lib/preload-routes";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
@@ -17,15 +18,24 @@ import {
 } from "@/components/ui/table";
 import {
   formatCompactUsd,
-  formatPrice,
   formatSignedPercent,
   formatSignedUsd,
   formatSize,
 } from "@/core/utils/formatters";
 
-import { useWhalePositions } from "../hooks/use-whale-positions";
+import {
+  dedupeWhalePositions,
+  useWhalePositions,
+  whalePositionRowKey,
+} from "../hooks/use-whale-positions";
 import { WhalePositionFiltersBar } from "./whale-position-filters";
 import { DEFAULT_WHALE_FILTERS, type WhalePositionFilters } from "./whale-filter-defaults";
+import {
+  areWhaleRowPropsEqual,
+  formatEntryTime,
+  formatWhalePrice,
+  type WhalePositionRowProps,
+} from "./whale-positions-table-format";
 
 const CELL_CLASS = "px-2 py-1";
 
@@ -71,26 +81,8 @@ function toneClass(value: number): string {
   return value >= 0 ? "text-gain" : "text-loss";
 }
 
-function formatEntryTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 interface WhalePositionsTableProps {
   onSelectWallet: (address: string) => void;
-}
-
-interface WhalePositionRowProps {
-  position: WhalePosition;
-  index: number;
-  onSelectWallet: (address: string) => void;
-  onOpenCoin: (coin: string) => void;
 }
 
 const WhalePositionRow = memo(function WhalePositionRow({
@@ -99,10 +91,17 @@ const WhalePositionRow = memo(function WhalePositionRow({
   onSelectWallet,
   onOpenCoin,
 }: WhalePositionRowProps) {
+  const walletPath = `/whales/${position.userAddress}`;
   return (
     <TableRow
       tabIndex={0}
       aria-label={`Open ${position.coin} position for ${position.userAddress}`}
+      onMouseEnter={() => {
+        preloadRoute(walletPath);
+      }}
+      onFocus={() => {
+        preloadRoute(walletPath);
+      }}
       onClick={() => {
         onSelectWallet(position.userAddress);
       }}
@@ -158,12 +157,12 @@ const WhalePositionRow = memo(function WhalePositionRow({
         <div className="type-label">{formatSignedPercent(position.unrealizedPnlPct)}</div>
       </TableCell>
       <TableCell className={cn(CELL_CLASS, "col-num")}>
-        {formatPrice(Number(position.entryPx))}
+        {formatWhalePrice(Number(position.entryPx))}
       </TableCell>
       <TableCell className={cn(CELL_CLASS, "col-num")}>
         {position.liquidationPx === undefined || position.liquidationPx === ""
           ? "—"
-          : formatPrice(Number(position.liquidationPx))}
+          : formatWhalePrice(Number(position.liquidationPx))}
       </TableCell>
       <TableCell className={cn(CELL_CLASS, "col-num")}>
         {position.marginUsd == null ? "—" : formatCompactUsd(position.marginUsd)}
@@ -187,20 +186,20 @@ const WhalePositionRow = memo(function WhalePositionRow({
       <TableCell className={cn(CELL_CLASS, "col-num")}>
         {position.markPrice === undefined || position.markPrice === ""
           ? "—"
-          : formatPrice(Number(position.markPrice))}
+          : formatWhalePrice(Number(position.markPrice))}
       </TableCell>
       <TableCell className={cn(CELL_CLASS, "col-text text-muted-foreground")}>
         {formatEntryTime(position.entryTime)}
       </TableCell>
     </TableRow>
   );
-});
+}, areWhaleRowPropsEqual);
 
 export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps): JSX.Element {
   const [filters, setFilters] = useState<WhalePositionFilters>(DEFAULT_WHALE_FILTERS);
   const [symbolInput, setSymbolInput] = useState(DEFAULT_WHALE_FILTERS.symbol);
   const deferredSymbol = useDeferredValue(symbolInput);
-  const { openCoin } = useCoinContextPanel();
+  const openCoin = useOpenCoin();
 
   const query = useMemo<WhalePositionsQuery>(
     () => ({
@@ -214,14 +213,14 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
   const { data, isLoading, isFetching, isError, refetch, hasNextPage, fetchNextPage } =
     useWhalePositions(query);
 
-  const rows = useMemo(() => data?.pages.flatMap((page) => page.positions) ?? [], [data]);
+  const rows = useMemo(() => dedupeWhalePositions(data?.pages), [data]);
 
   const showLoading = isLoading && rows.length === 0;
   const showError = isError && rows.length === 0;
   const hasActiveFilters = deferredSymbol.trim() !== "" || filters.side !== "all";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <>
       <WhalePositionFiltersBar
         filters={filters}
         onChange={(patch) => {
@@ -304,7 +303,7 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
           ) : (
             rows.map((position: WhalePosition, index: number) => (
               <WhalePositionRow
-                key={`${position.userAddress}-${position.coin}-${position.entryTime}`}
+                key={whalePositionRowKey(position)}
                 position={position}
                 index={index}
                 onSelectWallet={onSelectWallet}
@@ -329,6 +328,6 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
           </Button>
         </div>
       )}
-    </div>
+    </>
   );
 }

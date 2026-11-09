@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { isValidAddress } from "@/core/utils/address";
 import { PortfolioView } from "@/features/portfolio/components/portfolio-view";
@@ -11,14 +10,10 @@ export function WhaleDetailPage() {
   const { address } = useParams<{ address: string }>();
   const selected = address !== undefined && isValidAddress(address) ? address : undefined;
 
-  useEffect(() => {
-    document.title = "Whale | 0xsignal";
-  }, []);
-
   if (selected === undefined) return <Navigate to="/whales" replace />;
 
   return (
-    <div className="container-fluid flex flex-col gap-section page-enter">
+    <div className="container-fluid flex flex-1 min-h-0 flex-col gap-section">
       <h1 className="sr-only">Whale portfolio</h1>
       <PortfolioView readOnlyAddress={selected} />
     </div>

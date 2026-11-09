@@ -4,7 +4,7 @@ import { useConnection } from "wagmi";
 import { toast } from "sonner";
 import type { UpdateLeverageRequest } from "@/services/api";
 import { submitUpdateLeverage } from "@/services/exchange";
-import { queryKeys } from "@/lib/query-keys";
+import { cancelAndInvalidateUserQueries, marginModeUserQueryKeys } from "./user-query-invalidation";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { useAppStore } from "@/stores/use-app-store";
 
@@ -49,7 +49,9 @@ export function useMarginModeMutation({
       });
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      if (address !== undefined) {
+        void cancelAndInvalidateUserQueries(queryClient, marginModeUserQueryKeys(address));
+      }
       onConfirm?.(mode);
       onOpenChange(false);
     },

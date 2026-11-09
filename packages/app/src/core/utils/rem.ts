@@ -24,9 +24,14 @@ export function getRootFontSizePx(): number {
   return value;
 }
 
-export function remToPx(rem: number): number {
+/** Pure form: callers that already subscribe to the root size pass it in. */
+export function remToPxAt(rem: number, rootFontSizePx: number): number {
   if (!Number.isFinite(rem)) return 0;
-  return rem * getRootFontSizePx();
+  return rem * rootFontSizePx;
+}
+
+export function remToPx(rem: number): number {
+  return remToPxAt(rem, getRootFontSizePx());
 }
 
 const subscribers = new Set<() => void>();

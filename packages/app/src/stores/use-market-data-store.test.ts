@@ -5,7 +5,11 @@ import type { ChartDataPoint } from "@0xsignal/shared";
 
 import type { L2BookLevel } from "@/core/utils/hyperliquid";
 
-import { useMarketDataStore } from "./use-market-data-store";
+import {
+  cancelMidsFlush,
+  marketDataStoreInternals,
+  useMarketDataStore,
+} from "./use-market-data-store";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -217,5 +221,300 @@ describe("orderbook flush gate", () => {
     expect(bookLevelField(symbol, "bids", 1, "total")).toBe(7);
     expect(bookLevelField(symbol, "asks", 0, "price")).toBe(102);
     expect(bookLevelField(symbol, "asks", 1, "price")).toBe(103);
+  });
+});
+
+describe("orderbook symbol LRU", () => {
+  type FrameCallback = (time: number) => void;
+
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  let pendingFrame: FrameCallback | null = null;
+  const liveSymbols: string[] = [];
+
+  const flushFrame = (): void => {
+    const callback = pendingFrame;
+    pendingFrame = null;
+    callback?.(0);
+  };
+
+  const seedBook = (symbol: string): void => {
+    useMarketDataStore
+      .getState()
+      .applyOrderbookSnapshot(symbol, [[level(100, 1)], [level(101, 1)]]);
+    flushFrame();
+  };
+
+  const mountBook = (symbol: string): void => {
+    marketDataStoreInternals.retainOrderbookSubscriber(symbol);
+    liveSymbols.push(symbol);
+    seedBook(symbol);
+  };
+
+  beforeEach(() => {
+    pendingFrame = null;
+    globalThis.requestAnimationFrame = (callback: FrameRequestCallback): number => {
+      pendingFrame = callback;
+      return 1;
+    };
+    globalThis.cancelAnimationFrame = (): void => {
+      pendingFrame = null;
+    };
+    useMarketDataStore.setState({ orderbookData: {} });
+  });
+
+  afterEach(() => {
+    for (const symbol of liveSymbols.splice(0)) {
+      marketDataStoreInternals.releaseOrderbookSubscriber(symbol);
+    }
+    useMarketDataStore.setState({ orderbookData: {}, allMids: {} });
+    globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+    globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
+  });
+
+  test("declines a newcomer instead of leaking state when every tracked book is live", () => {
+    const live = ["LRU-A", "LRU-B", "LRU-C", "LRU-D", "LRU-E", "LRU-F"];
+    for (const symbol of live) mountBook(symbol);
+
+    expect(marketDataStoreInternals.rawOrderbookSymbolCount()).toBe(6);
+    expect(marketDataStoreInternals.trackedOrderbookSymbols()).toEqual(live);
+
+    seedBook("LRU-NEW");
+
+    // Every retained raw book still has bookkeeping, so the count cannot exceed
+    // the cap minus whatever is live; the newcomer is not admitted.
+    expect(marketDataStoreInternals.rawOrderbookSymbolCount()).toBe(
+      marketDataStoreInternals.trackedOrderbookSymbols().length,
+    );
+    expect(marketDataStoreInternals.rawOrderbookSymbolCount()).toBe(6);
+    expect(marketDataStoreInternals.trackedOrderbookSymbols()).not.toContain("LRU-NEW");
+    expect(useMarketDataStore.getState().orderbookData["LRU-NEW"]).toBeUndefined();
+
+    for (const symbol of live) {
+      expect(useMarketDataStore.getState().orderbookData[symbol]?.bids).toHaveLength(1);
+    }
+  });
+
+  test("deletes raw and display state for the inactive symbol it evicts", () => {
+    const symbols = ["EV-A", "EV-B", "EV-C", "EV-D", "EV-E", "EV-F", "EV-G"];
+    for (const symbol of symbols) seedBook(symbol);
+
+    expect(marketDataStoreInternals.rawOrderbookSymbolCount()).toBe(6);
+    expect(marketDataStoreInternals.trackedOrderbookSymbols()).not.toContain("EV-A");
+    expect(useMarketDataStore.getState().orderbookData["EV-A"]).toBeUndefined();
+  });
+
+  test("retiring a candle key evicts every orderbook precision for that symbol", () => {
+    seedBook("KEEP:raw");
+    seedBook("RETIRE:raw");
+    seedBook("RETIRE:100");
+
+    expect(useMarketDataStore.getState().orderbookData["RETIRE:raw"]).toBeDefined();
+    expect(useMarketDataStore.getState().orderbookData["RETIRE:100"]).toBeDefined();
+
+    // Push the symbol's only candle key out of the four-key window.
+    useMarketDataStore.getState().appendCandles("RETIRE:1m", [bar(1, 1)]);
+    for (const other of ["PUSH-1", "PUSH-2", "PUSH-3", "PUSH-4"]) {
+      useMarketDataStore.getState().appendCandles(`${other}:1m`, [bar(1, 1)]);
+    }
+
+    expect(useMarketDataStore.getState().orderbookData["RETIRE:raw"]).toBeUndefined();
+    expect(useMarketDataStore.getState().orderbookData["RETIRE:100"]).toBeUndefined();
+    expect(useMarketDataStore.getState().orderbookData["KEEP:raw"]).toBeDefined();
+  });
+});
+
+describe("page visibility flush gate", () => {
+  type FrameCallback = (time: number) => void;
+
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  let pendingFrame: FrameCallback | null = null;
+
+  const visibilityListeners = new Set<() => void>();
+  const fakeDocument = {
+    visibilityState: "visible" as DocumentVisibilityState,
+    addEventListener(type: string, listener: () => void): void {
+      if (type === "visibilitychange") visibilityListeners.add(listener);
+    },
+    removeEventListener(type: string, listener: () => void): void {
+      if (type === "visibilitychange") visibilityListeners.delete(listener);
+    },
+  };
+
+  const setVisibility = (visibilityState: DocumentVisibilityState): void => {
+    fakeDocument.visibilityState = visibilityState;
+    for (const listener of visibilityListeners) listener();
+  };
+
+  const flushFrame = (): void => {
+    const callback = pendingFrame;
+    pendingFrame = null;
+    callback?.(0);
+  };
+
+  /** Count writes that actually replace the orderbook slice. */
+  const countOrderbookCommits = (): { count: () => number; stop: () => void } => {
+    let commits = 0;
+    const stop = useMarketDataStore.subscribe((state, previous) => {
+      if (state.orderbookData !== previous.orderbookData) commits++;
+    });
+    return { count: () => commits, stop };
+  };
+
+  /** Count writes that actually replace the mids slice. */
+  const countMidsCommits = (): { count: () => number; stop: () => void } => {
+    let commits = 0;
+    const stop = useMarketDataStore.subscribe((state, previous) => {
+      if (state.allMids !== previous.allMids) commits++;
+    });
+    return { count: () => commits, stop };
+  };
+
+  beforeEach(() => {
+    pendingFrame = null;
+    globalThis.requestAnimationFrame = (callback: FrameRequestCallback): number => {
+      pendingFrame = callback;
+      return 1;
+    };
+    globalThis.cancelAnimationFrame = (): void => {
+      pendingFrame = null;
+    };
+    fakeDocument.visibilityState = "visible";
+    Object.defineProperty(globalThis, "document", {
+      configurable: true,
+      value: fakeDocument,
+    });
+    useMarketDataStore.setState({ orderbookData: {}, allMids: {} });
+  });
+
+  afterEach(() => {
+    setVisibility("visible");
+    flushFrame();
+    cancelMidsFlush();
+    pendingFrame = null;
+    useMarketDataStore.setState({ orderbookData: {}, allMids: {} });
+    Reflect.deleteProperty(globalThis, "document");
+    globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+    globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
+  });
+
+  test("defers a dirty orderbook until visible and commits it exactly once", () => {
+    const symbol = "VIS-BOOK";
+
+    useMarketDataStore
+      .getState()
+      .applyOrderbookSnapshot(symbol, [[level(100, 1)], [level(101, 1)]]);
+    expect(pendingFrame).not.toBeNull();
+
+    setVisibility("hidden");
+    expect(pendingFrame).toBeNull();
+
+    useMarketDataStore
+      .getState()
+      .applyOrderbookSnapshot(symbol, [[level(100, 2)], [level(101, 1)]]);
+    // Hidden frames never schedule a paint and never commit.
+    expect(pendingFrame).toBeNull();
+    expect(useMarketDataStore.getState().orderbookData[symbol]).toBeUndefined();
+
+    // A second hidden notification must not flush anything.
+    setVisibility("hidden");
+    expect(useMarketDataStore.getState().orderbookData[symbol]).toBeUndefined();
+
+    const commits = countOrderbookCommits();
+    setVisibility("visible");
+
+    expect(commits.count()).toBe(1);
+    expect(bookLevelField(symbol, "bids", 0, "size")).toBe(2);
+    commits.stop();
+
+    // The deferred update resumed normal scheduling: the next frame is queued.
+    useMarketDataStore.getState().applyOrderbookDelta(symbol, [level(100, 3)], []);
+    expect(pendingFrame).not.toBeNull();
+  });
+
+  test("defers the latest mids snapshot until visible and commits it exactly once", () => {
+    useMarketDataStore.getState().setAllMids({ BTC: 1 });
+    expect(pendingFrame).not.toBeNull();
+
+    setVisibility("hidden");
+    expect(pendingFrame).toBeNull();
+
+    useMarketDataStore.getState().setAllMids({ BTC: 2 });
+    expect(pendingFrame).toBeNull();
+    expect(useMarketDataStore.getState().allMids).toEqual({});
+
+    setVisibility("hidden");
+    expect(useMarketDataStore.getState().allMids).toEqual({});
+
+    const commits = countMidsCommits();
+    setVisibility("visible");
+
+    expect(commits.count()).toBe(1);
+    expect(useMarketDataStore.getState().allMids).toEqual({ BTC: 2 });
+    commits.stop();
+  });
+});
+
+describe("allMids flush cancellation", () => {
+  type FrameCallback = (time: number) => void;
+
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  let pendingFrame: FrameCallback | null = null;
+
+  const flushFrame = (): void => {
+    const callback = pendingFrame;
+    pendingFrame = null;
+    callback?.(0);
+  };
+
+  beforeEach(() => {
+    pendingFrame = null;
+    globalThis.requestAnimationFrame = (callback: FrameRequestCallback): number => {
+      pendingFrame = callback;
+      return 1;
+    };
+    globalThis.cancelAnimationFrame = (): void => {
+      pendingFrame = null;
+    };
+    useMarketDataStore.setState({ allMids: {} });
+  });
+
+  afterEach(() => {
+    cancelMidsFlush();
+    pendingFrame = null;
+    globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+    globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
+  });
+
+  test("a cancelled frame that still fires commits nothing", () => {
+    // Some hosts keep the callback even after cancelAnimationFrame; clearing the
+    // pending snapshot must be enough to make it a no-op.
+    globalThis.cancelAnimationFrame = (): void => {};
+    useMarketDataStore.getState().setAllMids({ BTC: 1 });
+
+    cancelMidsFlush();
+    expect(pendingFrame).not.toBeNull();
+
+    flushFrame();
+    expect(useMarketDataStore.getState().allMids).toEqual({});
+  });
+
+  test("drops the queued frame and the pending snapshot, and is idempotent", () => {
+    useMarketDataStore.getState().setAllMids({ BTC: 1 });
+    expect(pendingFrame).not.toBeNull();
+
+    cancelMidsFlush();
+    expect(pendingFrame).toBeNull();
+
+    flushFrame();
+    expect(useMarketDataStore.getState().allMids).toEqual({});
+
+    expect(() => cancelMidsFlush()).not.toThrow();
+
+    useMarketDataStore.getState().setAllMids({ BTC: 2 });
+    flushFrame();
+    expect(useMarketDataStore.getState().allMids).toEqual({ BTC: 2 });
   });
 });

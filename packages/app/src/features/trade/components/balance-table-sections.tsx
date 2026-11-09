@@ -1,15 +1,21 @@
 import { memo } from "react";
 import { TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { TableEmptyRow } from "@/components/table-empty-row";
 import { formatCompactUsd } from "@/core/utils/formatters";
 
 import { c, cNum } from "../utils/orderbook-table-classes";
-import { PnLDisplay, PosDirLabel, TableSkeletonRows } from "./shared-table-components";
+import {
+  PnLDisplay,
+  PosDirLabel,
+  TableEmptyRow,
+  resolveTableState,
+} from "./shared-table-components";
 import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
 
 export interface BalanceTableBodyProps {
   isChLoading: boolean;
+  isChError?: boolean | undefined;
+  onRetry?: (() => void) | undefined;
   marginSummary?:
     | {
         accountValue: string;
@@ -70,6 +76,8 @@ const SummaryRow = memo(function SummaryRow({
 
 export const BalanceTableBody = memo(function BalanceTableBody({
   isChLoading,
+  isChError = false,
+  onRetry,
   marginSummary,
   positions,
   usdcTotalBalance,
@@ -79,10 +87,19 @@ export const BalanceTableBody = memo(function BalanceTableBody({
   effectiveAvailableBalance,
   onSelectCoin,
 }: BalanceTableBodyProps) {
-  if (isChLoading) {
+  const state = resolveTableState({ isLoading: isChLoading, isError: isChError });
+
+  if (state !== "empty") {
     return (
       <TableBody>
-        <TableSkeletonRows rows={2} colSpan={6} />
+        <TableEmptyRow
+          colSpan={6}
+          state={state}
+          rows={2}
+          onRetry={onRetry}
+          errorTitle="Couldn't load balances"
+          errorDescription="The balances request failed. Check your connection and try again."
+        />
       </TableBody>
     );
   }

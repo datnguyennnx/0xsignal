@@ -7,7 +7,7 @@ export function CalendarPage(): JSX.Element {
   const { pathname } = useLocation();
 
   return (
-    <div className="container-fluid flex flex-1 min-h-0 flex-col page-enter">
+    <div className="container-fluid flex flex-1 min-h-0 flex-col">
       <h1 className="sr-only">Calendar</h1>
       <ErrorBoundary resetKey={pathname}>
         <CalendarBoard />

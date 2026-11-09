@@ -1,5 +1,6 @@
 import { mapToHLInterval } from "@/core/utils/hyperliquid";
 import { resolveApiBase } from "@/lib/api-base";
+import { isPageHidden, onPageResume, onPageVisibilityChange } from "@/lib/page-visibility";
 import { normalizeSymbol } from "./symbol";
 import { SubscriptionKey } from "./stream-identity";
 import type { WsMarketSubscription } from "@0xsignal/shared";
@@ -62,6 +63,13 @@ const MARKET_STREAM_WS_URL = createMarketStreamWsUrl(WS_API_BASE, globalThis.loc
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
 
+/**
+ * A socket that produced no inbound frame for this long is presumed dead even
+ * when it still reports `readyState === OPEN` (OS sleep, network change). The
+ * threshold is 2× the 30s SDK keepalive plus margin.
+ */
+const STALE_CONNECTION_MS = 65_000;
+
 interface MarketStreamCallbacks {
   onMessage: (data: unknown, channel: string, meta?: MarketStreamMeta) => void;
   onConnectionChange?: (connected: boolean) => void;
@@ -95,6 +103,8 @@ interface MarketStreamSubscription {
 
 interface SubscriptionRegistration {
   readonly callbacks: MarketStreamCallbacks;
+  /** Newest frame coalesced while the tab is hidden; delivered once on visible. */
+  pendingDelivery: (() => void) | null;
 }
 
 interface SharedSubscription {
@@ -110,6 +120,10 @@ interface SharedConnection {
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   reconnectAttempt: number;
   cancelled: boolean;
+  /** `Date.now()` of the newest inbound frame; staleness probe on resume. */
+  lastInboundAt: number;
+  /** Removes every listener from `socket`; replaced whenever the socket is. */
+  detachListeners: (() => void) | null;
 }
 
 const connectionPool = new Map<string, SharedConnection>();
@@ -168,13 +182,57 @@ const deliverMarketMessage = (
   }
 };
 
+/**
+ * A hidden tab keeps decoding, but each registration retains only its newest
+ * frame. Retention is bounded by the number of live registrations, and the
+ * frame is delivered exactly once when the tab becomes visible.
+ */
+const deliverOrCoalesce = (
+  decoded: DecodedMarketMessage,
+  registration: SubscriptionRegistration,
+): void => {
+  if (isPageHidden()) {
+    registration.pendingDelivery = () => {
+      deliverMarketMessage(decoded, registration.callbacks);
+    };
+    return;
+  }
+  deliverMarketMessage(decoded, registration.callbacks);
+};
+
+const flushRetainedFrames = (): void => {
+  for (const entry of connectionPool.values()) {
+    for (const shared of entry.subscriptions.values()) {
+      for (const registration of shared.registrations) {
+        const pending = registration.pendingDelivery;
+        registration.pendingDelivery = null;
+        pending?.();
+      }
+    }
+  }
+};
+
+let visibilityWatcherAttached = false;
+
+/** Attach the module-lifetime visibility listener on first socket use. */
+const ensureVisibilityWatcher = (): void => {
+  if (visibilityWatcherAttached) return;
+  if (typeof document === "undefined" || typeof document.addEventListener !== "function") return;
+  visibilityWatcherAttached = true;
+  onPageVisibilityChange((hidden) => {
+    if (!hidden) flushRetainedFrames();
+  });
+};
+
 const dispatchMarketMessage = (entry: SharedConnection, parsed: unknown): void => {
+  ensureVisibilityWatcher();
+
   for (const shared of entry.subscriptions.values()) {
     const decoded = decodeMarketWsMessage(parsed, shared.subscription.channel);
     if (decoded.kind !== "market") continue;
     if (!matchesSubscription(shared.subscription, decoded.meta)) continue;
     for (const registration of shared.registrations) {
-      deliverMarketMessage(decoded, registration.callbacks);
+      deliverOrCoalesce(decoded, registration);
     }
   }
 };
@@ -206,8 +264,8 @@ const dispatchMessage = (entry: SharedConnection, raw: string): void => {
   dispatchMarketMessage(entry, parsed);
 };
 
-function attachSharedListeners(entry: SharedConnection, socket: WebSocket): void {
-  socket.addEventListener("open", () => {
+function attachSharedListeners(entry: SharedConnection, socket: WebSocket): () => void {
+  const handleOpen = (): void => {
     if (entry.cancelled || entry.socket !== socket) return;
     entry.reconnectAttempt = 0;
 
@@ -217,27 +275,50 @@ function attachSharedListeners(entry: SharedConnection, socket: WebSocket): void
     }
 
     forEachRegistration(entry, (callbacks) => callbacks.onConnectionChange?.(true));
-  });
+  };
 
-  socket.addEventListener("message", (event: MessageEvent<string>) => {
+  const handleMessage = (event: MessageEvent<string>): void => {
     if (entry.cancelled || entry.socket !== socket) return;
+    // Every inbound frame proves the socket is alive; resume probes compare
+    // this stamp instead of trusting a `readyState` that can lie after sleep.
+    entry.lastInboundAt = Date.now();
     dispatchMessage(entry, event.data);
-  });
+  };
 
-  socket.addEventListener("close", () => {
+  const handleClose = (): void => {
     if (entry.socket !== socket) return;
     entry.socket = null;
+    entry.detachListeners = null;
     if (!entry.cancelled) scheduleReconnect(entry);
     forEachRegistration(entry, (callbacks) => callbacks.onConnectionChange?.(false));
-  });
+  };
 
-  socket.addEventListener("error", () => {
+  const handleError = (): void => {
     if (entry.cancelled || entry.socket !== socket) return;
     forEachRegistration(entry, (callbacks) => {
       callbacks.onConnectionChange?.(false);
       callbacks.onError?.(new Error("Market WebSocket connection failed"));
     });
-  });
+  };
+
+  socket.addEventListener("open", handleOpen);
+  socket.addEventListener("message", handleMessage);
+  socket.addEventListener("close", handleClose);
+  socket.addEventListener("error", handleError);
+
+  return () => {
+    socket.removeEventListener("open", handleOpen);
+    socket.removeEventListener("message", handleMessage);
+    socket.removeEventListener("close", handleClose);
+    socket.removeEventListener("error", handleError);
+  };
+}
+
+/** Single connect routine shared by the backoff timer and resume recovery. */
+function openConnection(entry: SharedConnection): void {
+  const socket = new WebSocket(entry.url);
+  entry.socket = socket;
+  entry.detachListeners = attachSharedListeners(entry, socket);
 }
 
 function scheduleReconnect(entry: SharedConnection): void {
@@ -250,11 +331,64 @@ function scheduleReconnect(entry: SharedConnection): void {
   entry.reconnectTimer = setTimeout(() => {
     entry.reconnectTimer = null;
     if (entry.cancelled) return;
-    const socket = new WebSocket(entry.url);
-    entry.socket = socket;
-    attachSharedListeners(entry, socket);
+    openConnection(entry);
   }, delay);
 }
+
+/**
+ * Drop a socket that stopped producing frames without ever firing `close`
+ * (OS sleep, network change) and reopen it immediately. The subscription map
+ * is untouched, so refcounts and registrations survive; the `open` handler
+ * replays every subscribe frame.
+ */
+const replaceStaleConnection = (entry: SharedConnection): void => {
+  const stale = entry.socket;
+  const detach = entry.detachListeners;
+
+  // Clear bookkeeping first: a synthetic `close` from the old socket must not
+  // schedule a competing reconnect.
+  entry.socket = null;
+  entry.detachListeners = null;
+  if (entry.reconnectTimer !== null) {
+    clearTimeout(entry.reconnectTimer);
+    entry.reconnectTimer = null;
+  }
+
+  detach?.();
+  stale?.close();
+
+  // A freshly opened socket restarts the liveness budget.
+  entry.reconnectAttempt = 0;
+  entry.lastInboundAt = Date.now();
+  openConnection(entry);
+};
+
+/** Hard-reconnect every pooled socket whose newest inbound frame is too old. */
+const reconnectStaleConnections = (maxAgeMs: number = STALE_CONNECTION_MS): void => {
+  const now = Date.now();
+  for (const entry of connectionPool.values()) {
+    // Entries with no subscriptions are closing; leave them alone.
+    if (entry.cancelled || entry.subscriptions.size === 0) continue;
+    if (now - entry.lastInboundAt <= maxAgeMs) continue;
+    replaceStaleConnection(entry);
+  }
+};
+
+let resumeReconnectAttached = false;
+
+/**
+ * `createMarketStreamClient` is a tab-lifetime singleton, so the resume probe
+ * is registered once and never detached. `onPageResume` already spans both
+ * `visibilitychange` and `pageshow`.
+ */
+const ensureResumeReconnect = (): void => {
+  if (resumeReconnectAttached) return;
+  if (typeof document === "undefined" || typeof document.addEventListener !== "function") return;
+  resumeReconnectAttached = true;
+  onPageResume(() => {
+    reconnectStaleConnections();
+  });
+};
 
 function acquireConnection(
   subscription: WsMarketSubscription,
@@ -269,6 +403,8 @@ function acquireConnection(
       reconnectTimer: null,
       reconnectAttempt: 0,
       cancelled: false,
+      lastInboundAt: Date.now(),
+      detachListeners: null,
     };
     connectionPool.set(MARKET_STREAM_WS_URL, entry);
   }
@@ -283,16 +419,13 @@ function acquireConnection(
   }
 
   shared.refCount++;
-  const registration: SubscriptionRegistration = { callbacks };
+  const registration: SubscriptionRegistration = { callbacks, pendingDelivery: null };
   shared.registrations.add(registration);
+  ensureVisibilityWatcher();
 
   const socket = connection.socket;
   if (socket === null) {
-    if (connection.reconnectTimer === null) {
-      const ws = new WebSocket(connection.url);
-      connection.socket = ws;
-      attachSharedListeners(connection, ws);
-    }
+    if (connection.reconnectTimer === null) openConnection(connection);
   } else if (socket.readyState === WebSocket.OPEN) {
     if (isNewSubscription) {
       sendSubscriptionFrame(socket, "subscribe", subscription);
@@ -315,6 +448,7 @@ function releaseSubscription(
   const shared = entry.subscriptions.get(key);
   if (shared === undefined || !shared.registrations.delete(registration)) return;
 
+  registration.pendingDelivery = null;
   shared.refCount--;
   if (shared.refCount <= 0) {
     entry.subscriptions.delete(key);
@@ -364,9 +498,22 @@ export interface MarketStreamClient {
     subscription: WsMarketSubscription,
     callbacks: MarketStreamCallbacks,
   ) => Promise<MarketStreamSubscription>;
+  /**
+   * Hard-reconnect pooled sockets with no inbound frame within `maxAgeMs`.
+   * Optional so delegating wrappers that only implement `subscribe` remain
+   * assignable; every client from `createMarketStreamClient` provides it.
+   */
+  reconnectIfStale?: (maxAgeMs?: number) => void;
 }
 
-export function createMarketStreamClient(): MarketStreamClient {
+/** The concrete tab-lifetime client always exposes the liveness probe. */
+export type ResilientMarketStreamClient = MarketStreamClient & {
+  reconnectIfStale: (maxAgeMs?: number) => void;
+};
+
+export function createMarketStreamClient(): ResilientMarketStreamClient {
+  ensureResumeReconnect();
+
   return {
     subscribe: (subscription, callbacks) => {
       // Only default interval for candle channel — l2Book and allMids must not
@@ -376,6 +523,9 @@ export function createMarketStreamClient(): MarketStreamClient {
           ? { ...subscription, interval: mapToHLInterval(subscription.interval ?? "1m") }
           : subscription;
       return Promise.resolve(createWebSocketSubscription(normalizedSubscription, callbacks));
+    },
+    reconnectIfStale: (maxAgeMs) => {
+      reconnectStaleConnections(maxAgeMs);
     },
   };
 }

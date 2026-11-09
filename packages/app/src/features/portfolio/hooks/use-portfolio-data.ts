@@ -21,10 +21,16 @@ import {
 } from "@/services/hl-rest-client";
 import { queryKeys } from "@/lib/query-keys";
 import { useOwnAddress } from "@/hooks/use-effective-address";
+import { isPageHidden } from "@/lib/page-visibility";
 import { useWhaleAccountStream } from "./use-whale-account-stream";
 
 /** Pace of the public REST read while the whale stream is not confirmed. */
 const WHALE_REST_FALLBACK_MS = 30 * 1000;
+
+/** A hidden tab keeps its stale snapshot instead of polling in the background. */
+function whaleRestRefetchInterval(restAllowed: boolean, live: boolean): number | false {
+  return restAllowed && !live && !isPageHidden() ? WHALE_REST_FALLBACK_MS : false;
+}
 
 export function usePortfolio(enabled: boolean = true) {
   const ownAddress = useOwnAddress();
@@ -101,7 +107,7 @@ export function useWhaleClearinghouseState(address?: string) {
     ...base,
     staleTime: live ? Infinity : base.staleTime,
     refetchOnWindowFocus: !live,
-    refetchInterval: restAllowed && !live ? WHALE_REST_FALLBACK_MS : false,
+    refetchInterval: () => whaleRestRefetchInterval(restAllowed, live),
   });
 }
 
@@ -114,7 +120,7 @@ export function useWhaleSpotClearinghouseState(address?: string) {
     enabled: address !== undefined && address !== "",
     staleTime: live ? Infinity : 30 * 1000,
     refetchOnWindowFocus: !live,
-    refetchInterval: restAllowed && !live ? WHALE_REST_FALLBACK_MS : false,
+    refetchInterval: () => whaleRestRefetchInterval(restAllowed, live),
   });
 }
 
@@ -126,7 +132,7 @@ export function useWhaleOpenOrders(address?: string) {
     enabled: address !== undefined && address !== "",
     staleTime: live ? Infinity : 30 * 1000,
     refetchOnWindowFocus: !live,
-    refetchInterval: restAllowed && !live ? WHALE_REST_FALLBACK_MS : false,
+    refetchInterval: () => whaleRestRefetchInterval(restAllowed, live),
   });
 }
 
@@ -138,7 +144,7 @@ export function useWhaleFills(address?: string) {
     enabled: address !== undefined && address !== "",
     staleTime: live ? Infinity : 30 * 1000,
     refetchOnWindowFocus: !live,
-    refetchInterval: restAllowed && !live ? WHALE_REST_FALLBACK_MS : false,
+    refetchInterval: () => whaleRestRefetchInterval(restAllowed, live),
   });
 }
 

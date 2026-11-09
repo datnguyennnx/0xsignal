@@ -5,15 +5,17 @@ import type { CalendarQuery } from "@0xsignal/shared";
 import { useCalendarDayPanel } from "@/components/app-side-panel";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { Surface } from "@/components/surface/surface";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useCalendarEvents } from "../hooks/use-calendar-data";
 import {
+  dayKey,
   formatMonthTitle,
   formatRangeLabel,
+  getMonthCalendarQuery,
   getMonthGridDays,
-  getViewRange,
   shiftAnchor,
   toEventsByDay,
 } from "../lib/date-utils";
@@ -68,28 +70,55 @@ function CalendarEmptyState({
   );
 }
 
+export const CALENDAR_SKELETON_COLUMNS = 7;
+
+/** Reserves the real month grid's shape: weekday header plus one cell per grid day. */
+export function CalendarMonthGridSkeleton({ days }: { days: readonly Date[] }): JSX.Element {
+  return (
+    <Surface
+      as="output"
+      tier="content"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Loading calendar events"
+      className="flex w-full min-h-0 flex-1 flex-col gap-inline overflow-hidden p-2 md:p-panel"
+    >
+      <div className="grid grid-cols-7 gap-1" aria-hidden="true">
+        {Array.from({ length: CALENDAR_SKELETON_COLUMNS }, (_, index) => (
+          <Skeleton key={index} data-calendar-skeleton-head className="mx-1 h-4 rounded-control" />
+        ))}
+      </div>
+      <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-7 gap-1" aria-hidden="true">
+        {days.map((date) => (
+          <Skeleton
+            key={dayKey(date)}
+            data-calendar-skeleton-cell
+            className="h-full min-h-0 rounded-control"
+          />
+        ))}
+      </div>
+    </Surface>
+  );
+}
+
 export function CalendarBoard(): JSX.Element {
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [category, setCategory] = useState<CalendarCategoryFilterValue>("all");
   const [isPending, startTransition] = useTransition();
   const { selectedDate, selectDay } = useCalendarDayPanel();
 
-  const range = useMemo(() => getViewRange(anchor), [anchor]);
-
   const query = useMemo<CalendarQuery>(() => {
-    const from = new Date(range.from);
-    from.setHours(0, 0, 0, 0);
-    const to = new Date(range.to);
-    to.setHours(23, 59, 59, 999);
+    const month = getMonthCalendarQuery(anchor);
 
     return {
-      from: from.toISOString(),
-      to: to.toISOString(),
+      ...month,
       category: category === "all" ? undefined : [category],
     };
-  }, [range, category]);
+  }, [anchor, category]);
 
-  const { data, isLoading, isError, isFetching, refetch } = useCalendarEvents(query);
+  const { data, isLoading, isError, isFetching, refetch } = useCalendarEvents(query, {
+    keepPreviousData: true,
+  });
 
   const eventsByDay = useMemo(() => toEventsByDay(data?.events ?? []), [data]);
 
@@ -136,7 +165,7 @@ export function CalendarBoard(): JSX.Element {
       />
 
       {isLoading ? (
-        <Skeleton className="min-h-0 w-full flex-1" />
+        <CalendarMonthGridSkeleton days={gridDays} />
       ) : isError ? (
         <ErrorState
           title="Unable to load events"

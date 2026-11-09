@@ -144,5 +144,17 @@
       }
     }
   ],
-  "ignorePatterns": ["**/build/**", "**/.next/**", "**/coverage/**", "**/out/**", "**/*.min.js"]
+  "ignorePatterns": [
+    "**/build/**",
+    "**/.next/**",
+    "**/coverage/**",
+    "**/out/**",
+    "**/*.min.js",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/__tests__/**",
+    ".agents/**"
+  ]
 }

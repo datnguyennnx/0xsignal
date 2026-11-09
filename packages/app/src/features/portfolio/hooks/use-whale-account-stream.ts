@@ -21,6 +21,7 @@ import {
   type UserStreamEventMap,
   type UserStreamSubscription,
 } from "@/features/trade/lib/user-stream-default";
+import { markUserDataWsWrite } from "@/features/trade/hooks/user-query-race";
 import {
   createRestFallbackGate,
   type RestFallbackGate,
@@ -158,6 +159,7 @@ export function useWhaleAccountStream(address: string | undefined) {
       user,
       subscribeClearinghouseState,
       (event) => {
+        markUserDataWsWrite(queryKeys.whales.clearinghouseState(user));
         queryClient.setQueryData<ClearinghouseState>(
           queryKeys.whales.clearinghouseState(user),
           event.data,
@@ -169,6 +171,7 @@ export function useWhaleAccountStream(address: string | undefined) {
       user,
       subscribeSpotState,
       (event) => {
+        markUserDataWsWrite(queryKeys.whales.spotClearinghouseState(user));
         queryClient.setQueryData<SpotClearinghouseState>(
           queryKeys.whales.spotClearinghouseState(user),
           event.data,
@@ -180,6 +183,7 @@ export function useWhaleAccountStream(address: string | undefined) {
       user,
       subscribeOpenOrders,
       (event) => {
+        markUserDataWsWrite(queryKeys.whales.openOrders(user));
         queryClient.setQueryData<OpenOrder[]>(queryKeys.whales.openOrders(user), event.data);
       },
       connectionState,
@@ -188,6 +192,7 @@ export function useWhaleAccountStream(address: string | undefined) {
       user,
       subscribeUserFills,
       (event) => {
+        markUserDataWsWrite(queryKeys.whales.fills(user));
         queryClient.setQueryData<UserFill[]>(queryKeys.whales.fills(user), (previous) =>
           mergeUserFills(previous, event),
         );

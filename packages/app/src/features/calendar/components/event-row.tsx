@@ -4,7 +4,7 @@ import type { JSX } from "react";
 import { ExternalLink } from "lucide-react";
 
 import { cn } from "cn";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface EventRowProps {
   event: EconomicEvent;
@@ -44,21 +44,23 @@ export function EventRow({ event, className }: EventRowProps): JSX.Element {
 
   if (hasSource) {
     return (
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <a
-              href={event.sourceUrl ?? undefined}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cardClass}
-            >
-              {content}
-            </a>
-          }
-        />
-        <TooltipContent>{event.attribution}</TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <a
+                href={event.sourceUrl ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cardClass}
+              >
+                {content}
+              </a>
+            }
+          />
+          <TooltipContent>{event.attribution}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 

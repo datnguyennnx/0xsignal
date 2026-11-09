@@ -3,15 +3,35 @@ import { queryClient } from "@/lib/query-client";
 import { queryKeys } from "@/lib/query-keys";
 import { getMarkets, getMarketPrice, getTradeAnnotation } from "@/services/api/market";
 import { normalizeSymbol, parseSymbol } from "@/features/trade/lib/symbol";
-import { mapToHLInterval } from "@/core/utils/hyperliquid";
+import { CHART_CANDLE_LIMIT } from "@/features/trade/lib/candle-limit";
+import { mapToHLInterval, type HLInterval } from "@/core/utils/hyperliquid";
 
 /** How long the idle scheduler may wait for a free window before forcing the run. */
 const IDLE_TIMEOUT_MS = 2000;
 
 const DEFAULT_CANDLE_INTERVAL = "1h";
-const DEFAULT_CANDLE_LIMIT = 200;
 // The price query outlives boot; keeping the hook's window avoids pinning a stale ticker.
 const PRICE_STALE_MS = 60_000;
+
+/**
+ * The candle query the boot prefetch warms. It shares `CHART_CANDLE_LIMIT` with
+ * the chart hook, so the prefetched key is exactly the one the chart reads.
+ */
+export function candlePrefetchTarget(rawCoin: string): {
+  readonly queryKey: readonly unknown[];
+  readonly symbol: string;
+  readonly interval: HLInterval;
+  readonly limit: number;
+} {
+  const symbol = normalizeSymbol(rawCoin);
+  const interval = mapToHLInterval(DEFAULT_CANDLE_INTERVAL);
+  return {
+    queryKey: queryKeys.market.candles(symbol, interval, CHART_CANDLE_LIMIT),
+    symbol,
+    interval,
+    limit: CHART_CANDLE_LIMIT,
+  };
+}
 
 /** `/trade/BTC`, `/trade/PURR/USDC`, `/trade/xyz:TSLA`; other paths return null. */
 function tradeCoinFromPath(pathname: string): string | null {
@@ -53,14 +73,13 @@ export function prefetchCriticalQueries(pathname: string): void {
       .catch(() => null);
   }
 
-  const hlInterval = mapToHLInterval(DEFAULT_CANDLE_INTERVAL);
-  const normalizedSymbol = normalizeSymbol(rawCoin);
+  const target = candlePrefetchTarget(rawCoin);
   // Loaded on demand: the candle stack (HL REST client) must not sit in the entry chunk.
   void import("@/features/trade/hooks/use-candle-history")
     .then(({ fetchHistorical }) =>
       queryClient.query({
-        queryKey: queryKeys.market.candles(normalizedSymbol, hlInterval, DEFAULT_CANDLE_LIMIT),
-        queryFn: () => fetchHistorical(normalizedSymbol, hlInterval, DEFAULT_CANDLE_LIMIT),
+        queryKey: target.queryKey,
+        queryFn: () => fetchHistorical(target.symbol, target.interval, target.limit),
         staleTime: "static",
       }),
     )
@@ -111,13 +130,13 @@ export function preloadRoute(pathname: string): void {
 
 function preloadHeavyRoutes(): void {
   preloadRoute("/trade");
-  preloadRoute("/whales");
 }
 
 /**
- * Warms the heaviest route chunks after first paint. Market data is owned by the
- * query client's boot prefetch and coin-index loader, so this hook never issues a
- * competing fetch.
+ * Warms the trade route chunk after first paint. Nothing else is warmed: the landing
+ * route never paints `/whales`, so preloading it competed with the first load for no
+ * gain. Market data is owned by the query client's boot prefetch and coin-index loader,
+ * so this hook never issues a competing fetch.
  */
 export function usePreloadRoutes(): void {
   useEffect(() => scheduleIdle(preloadHeavyRoutes), []);

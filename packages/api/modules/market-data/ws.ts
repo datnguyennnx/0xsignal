@@ -16,12 +16,22 @@ export const WS_IDLE_TIMEOUT_SECONDS = Math.ceil(
 
 type Ws<D> = ServerWebSocket<D>;
 
-interface Connection {
+export interface Connection {
   // Owned by this handler: everything acquired while serving the socket is
   // registered on the scope and released exactly once, on close or on error.
+  // Handler work is forked into it so closing the scope interrupts in-flight
+  // work instead of letting it resume after the hub state was released.
   readonly scope: Scope.Closeable;
   missedPongs: number;
+  // Set before the registry entry is removed. Every socket callback re-checks
+  // it, so a late callback can never mutate the hub for a dead connection.
+  closed: boolean;
 }
+
+export type WsHandlerOptions<D> = {
+  /** Test seam: inspect the registry, which is otherwise private to the handlers. */
+  readonly connections?: Map<Ws<D>, Connection>;
+};
 
 type HandlerContext<D> = {
   readonly connection: SocketConnection<D>;
@@ -36,15 +46,20 @@ const closeConnection = <D>(
 ): void => {
   const current = connections.get(ws);
   if (current === undefined) return;
-  // Removing first picks a single winner between the close callback, a
-  // callback error, and the heartbeat deadline.
+  // Mark and remove first: this picks a single winner between the close
+  // callback, a callback error, and the heartbeat deadline, and makes every
+  // later callback for this socket a no-op.
+  current.closed = true;
   connections.delete(ws);
 
-  const shutdown = connection
-    .handleClose(ws)
-    .pipe(Effect.ensuring(Scope.close(current.scope, Exit.void)));
+  // Close the scope before releasing hub state: finalizers interrupt in-flight
+  // handler fibers, so none of them can resume and re-add the dead client after
+  // `handleClose` removed it.
+  const shutdown = Scope.close(current.scope, Exit.void).pipe(
+    Effect.andThen(connection.handleClose(ws)),
+  );
 
-  run(Scope.provide(current.scope)(shutdown), (err) => {
+  run(shutdown, (err) => {
     console.error(`[WS ${reason} Finalizer Error]:`, err);
   });
 };
@@ -67,17 +82,24 @@ const dispatch = <D>(
   reason: string,
 ): void => {
   const current = context.connections.get(ws);
-  const program = current === undefined ? effect : Scope.provide(current.scope)(effect);
-  // The socket callback cannot return an error, so a typed port failure is
-  // logged and terminated here instead of escaping the handler.
-  const handled = program.pipe(
+  if (current === undefined || current.closed) return;
+
+  // Forking into the connection scope (starting immediately, so ordering with
+  // the socket callback is preserved) lets close interrupt the work. Without
+  // the fork the effect would run at the runtime root, where Scope.close
+  // cannot reach it.
+  const program = Effect.suspend(() => (current.closed ? Effect.void : effect)).pipe(
+    // The socket callback cannot return an error, so a typed port failure is
+    // logged and terminated here instead of escaping the handler.
     Effect.catch((error) =>
       Effect.sync(() => {
         failConnection(context, ws, reason, error);
       }),
     ),
+    Effect.forkIn(current.scope, { startImmediately: true }),
+    Effect.asVoid,
   );
-  context.run(handled, (err) => {
+  context.run(program, (err) => {
     failConnection(context, ws, reason, err);
   });
 };
@@ -108,9 +130,12 @@ const heartbeatLoop = <D>(
   });
 
 const registerConnection = <D>(context: HandlerContext<D>, ws: Ws<D>): void => {
+  // A duplicate open must not replace a live (or already closed) registration.
+  if (context.connections.has(ws)) return;
   const current: Connection = {
     scope: Scope.makeUnsafe("sequential"),
     missedPongs: 0,
+    closed: false,
   };
   context.connections.set(ws, current);
   context.run(
@@ -130,10 +155,15 @@ const resolveConnection = <D>(
 export const createWsEventHandlers = <D>(
   connection: SocketConnection<D>,
   run: RunSocketWork,
+  options: WsHandlerOptions<D> = {},
 ): WsEventHandlers<D> => {
   // The registry is mutated only from Bun socket callbacks and the
   // per-connection heartbeat, both on the single JS thread.
-  const context: HandlerContext<D> = { connection, run, connections: new Map() };
+  const context: HandlerContext<D> = {
+    connection,
+    run,
+    connections: options.connections ?? new Map<Ws<D>, Connection>(),
+  };
 
   return {
     open(ws: Ws<D>) {
@@ -145,6 +175,11 @@ export const createWsEventHandlers = <D>(
     pong(ws: Ws<D>) {
       const current = resolveConnection(context.connections, ws);
       if (current !== undefined) current.missedPongs = 0;
+    },
+    error(ws: Ws<D>, error: unknown) {
+      // An errored socket may never emit `close`, so the registry entry, scope
+      // and hub buckets are released here; a later close callback is a no-op.
+      failConnection(context, ws, "Socket", error);
     },
     close(ws: Ws<D>) {
       closeConnection(context, ws, "Close");

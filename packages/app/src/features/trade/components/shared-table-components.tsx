@@ -1,9 +1,11 @@
 import { formatSignedPercent, formatSignedUsd } from "@/core/utils/formatters";
 import { TabsTrigger } from "@/components/ui/tabs";
-import { TableHeader, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { c, cHead, cHeadNum } from "../utils/orderbook-table-classes";
+import { TableHeader, TableRow, TableHead } from "@/components/ui/table";
+import { cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import type { ReactNode } from "react";
+
+export { TableEmptyRow } from "@/components/table-empty-row";
+export { resolveTableState } from "@/components/table-empty-row-logic";
 
 /** Shared fill-history column header: Time, Coin, Direction, Price, Size, Trade Value, Fee, Closed PNL. */
 export function FillHistoryTableHeader() {
@@ -20,25 +22,6 @@ export function FillHistoryTableHeader() {
         <TableHead className={cHeadNum}>Closed PNL</TableHead>
       </TableRow>
     </TableHeader>
-  );
-}
-
-/** Same 1.5em line box as a loaded `c` cell, so a placeholder row is exactly one row tall. */
-export function TableSkeletonRows({ rows, colSpan }: { rows: number; colSpan: number }) {
-  return (
-    <>
-      {Array.from({ length: rows }, (_, rowIndex) => (
-        <TableRow key={rowIndex} className="hover:bg-transparent">
-          <TableCell colSpan={colSpan} className={c}>
-            <div className="flex items-center gap-4">
-              {Array.from({ length: colSpan }, (_column, columnIndex) => (
-                <Skeleton key={columnIndex} className="h-[1.5em] flex-1" />
-              ))}
-            </div>
-          </TableCell>
-        </TableRow>
-      ))}
-    </>
   );
 }
 

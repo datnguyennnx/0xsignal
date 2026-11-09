@@ -1,17 +1,12 @@
-import { useState, useCallback } from "react";
-import { ScrollEdge } from "@/components/surface/scroll-edge";
+import { useState } from "react";
 import { Surface } from "@/components/surface/surface";
 import { Tabs, TabsList } from "@/components/ui/tabs";
-import { useOpenOrders } from "../hooks/use-user-data";
-import { useUserBalances, useWhaleBalances } from "../hooks/use-user-balances";
-import { useIsSigningDisabled } from "@/hooks/use-effective-address";
 import { PositionManagementPanels, PositionTabTriggers } from "./position-management-panels";
-import { PositionManagementModals, type TpSlOrder } from "./position-management-modals";
+import { PositionManagementModals } from "./position-management-modals";
+import { SigningDisabledNotice, PositionManagementScrollEdge } from "./position-management-chrome";
+import { usePositionManagementData } from "../hooks/use-position-management-data";
+import { usePositionModalsState } from "../hooks/use-position-modals-state";
 import { usePositionActions } from "../hooks/use-position-actions";
-import {
-  useWhaleClearinghouseState,
-  useWhaleOpenOrders,
-} from "@/features/portfolio/hooks/use-portfolio-data";
 
 const PANEL_SURFACE = "p-3 gap-3";
 
@@ -34,26 +29,20 @@ export function PositionManagement({
   readOnlyAddress?: string | undefined;
   variant?: "fill" | "flow";
 }) {
-  const readOnly = readOnlyAddress !== undefined;
-  const signingDisabled = useIsSigningDisabled() || readOnly;
-  const whaleState = useWhaleClearinghouseState(readOnlyAddress);
-  const ownBalances = useUserBalances(!readOnly);
-  const whaleBalances = useWhaleBalances(readOnlyAddress);
   const {
-    balanceCount,
-    positionsCount: ownPositionsCount,
-    isChLoading: isOwnChLoading,
-    positions: ownPositions,
-  } = readOnly ? whaleBalances : ownBalances;
-  const positions = readOnly ? (whaleState.data?.assetPositions ?? []) : ownPositions;
-  const positionsCount = readOnly ? positions.length : ownPositionsCount;
-  const isChLoading = readOnly ? whaleState.isLoading : isOwnChLoading;
-  const ownOpenOrders = useOpenOrders(!readOnly);
-  const whaleOpenOrders = useWhaleOpenOrders(readOnlyAddress);
-  const { data: openOrders, isLoading: isOoLoading } = readOnly ? whaleOpenOrders : ownOpenOrders;
+    readOnly,
+    signingDisabled,
+    positions,
+    isChLoading,
+    isChError,
+    retryPositions,
+    tabCounts,
+    openOrdersCount,
+  } = usePositionManagementData(readOnlyAddress);
+
   const {
     handleCancelOrder,
-    handleCancelAllConfirm,
+    handleCancelAllConfirm: cancelAllConfirmed,
     handleCloseMarket,
     submitCloseLimit,
     isCancelPending,
@@ -62,58 +51,36 @@ export function PositionManagement({
 
   const [activeTab, setActiveTab] = useState("balances");
 
-  const [closeLimitPosition, setCloseLimitPosition] = useState<{
-    coin: string;
-    sz: number;
-    isLong: boolean;
-    markPx: number;
-  } | null>(null);
-
-  const [tpSlModalOrder, setTpSlModalOrder] = useState<TpSlOrder | null>(null);
-
-  const openOrdersCount = openOrders?.length ?? 0;
-
-  const tabCounts = {
-    balances: isChLoading ? undefined : balanceCount,
-    positions: isChLoading ? undefined : positionsCount,
-    openOrders: isOoLoading ? undefined : openOrdersCount,
-  };
-
-  const [cancelAllDialogOpen, setCancelAllDialogOpen] = useState(false);
-
-  const handleCloseLimitConfirm = useCallback(
-    ({ price, size }: { price: string; size: string }) => {
-      if (!closeLimitPosition) return;
-      const submitted = submitCloseLimit({
-        coin: closeLimitPosition.coin,
-        isLong: closeLimitPosition.isLong,
-        price,
-        size,
-      });
-      if (submitted) setCloseLimitPosition(null);
-    },
-    [closeLimitPosition, submitCloseLimit],
-  );
+  const {
+    closeLimitPosition,
+    setCloseLimitPosition,
+    tpSlModalOrder,
+    setTpSlModalOrder,
+    cancelAllDialogOpen,
+    setCancelAllDialogOpen,
+    handleCloseLimitConfirm,
+    handleCancelAllConfirm,
+  } = usePositionModalsState({ submitCloseLimit, cancelAllConfirmed });
 
   return (
     <Surface tier="content" radius="panel" className={ROOT_CLASS[variant]}>
-      {signingDisabled && (
-        <p className="w-fit mb-2 shrink-0 rounded-control bg-muted/40 px-2 py-1 type-label text-muted-foreground">
-          Viewing another account — connect a wallet to trade.
-        </p>
-      )}
+      <SigningDisabledNotice signingDisabled={signingDisabled} />
       <Tabs value={activeTab} onValueChange={setActiveTab} className={TABS_CLASS[variant]}>
         <TabsList variant="line" className="shrink-0 flex gap-1">
           <PositionTabTriggers counts={tabCounts} />
         </TabsList>
 
         {/* one scroll edge per view — Apple HIG scroll views */}
-        {variant === "fill" && <ScrollEdge />}
+        <PositionManagementScrollEdge variant={variant} />
 
         <PositionManagementPanels
           signingDisabled={signingDisabled}
           positions={positions}
           isChLoading={isChLoading}
+          isChError={isChError}
+          onRetry={() => {
+            void retryPositions();
+          }}
           readOnly={readOnly}
           readOnlyAddress={readOnlyAddress}
           onCloseMarket={handleCloseMarket}
@@ -135,9 +102,7 @@ export function PositionManagement({
         cancelAllOpen={cancelAllDialogOpen}
         onCancelAllOpenChange={setCancelAllDialogOpen}
         orderCount={openOrdersCount}
-        onCancelAllConfirm={() => {
-          if (handleCancelAllConfirm()) setCancelAllDialogOpen(false);
-        }}
+        onCancelAllConfirm={handleCancelAllConfirm}
         isCancelPending={isCancelPending}
         closeLimitPosition={closeLimitPosition}
         onCloseCloseLimit={() => {

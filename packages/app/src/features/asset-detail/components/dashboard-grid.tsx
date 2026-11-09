@@ -8,35 +8,19 @@ import {
   useMemo,
   type CSSProperties,
 } from "react";
-import { createPortal } from "react-dom";
 import { cn } from "cn";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { Surface } from "@/components/surface/surface";
 import { useLayoutStore } from "@/stores/use-layout-store";
 import { ResizableWrapper } from "./resizable-wrapper";
 import { useLiftAndFloat } from "../hooks/use-lift-and-float";
 import { cellWidth, GRID_GUTTER_FRACTION, getResizeBounds, minCells } from "../utils/collision";
-import {
-  DEFAULT_ROW_COUNT,
-  GRID_ROW_HEIGHT_FIT_CSS,
-  gridRowsHeightCss,
-  PANELS,
-} from "../utils/constants";
+import { DEFAULT_ROW_COUNT, GRID_ROW_HEIGHT_FIT_CSS, gridRowsHeightCss } from "../utils/constants";
 import type { DashboardGridProps } from "../utils/types";
-
-const PANEL_LABELS: Record<string, string> = Object.fromEntries(
-  PANELS.map((panel) => [panel.id, panel.label]),
-);
 
 /** `--grid-row-height` is intentionally not part of CSSProperties; widen the type once. */
 type GridCanvasStyle = CSSProperties & { "--grid-row-height": string };
 
-const Z = {
-  dropPreview: 40,
-  glassShell: 50,
-} as const;
-
-export function DashboardGrid({ children, className = "", panelNames }: DashboardGridProps) {
+export function DashboardGrid({ children, className = "" }: DashboardGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
@@ -58,14 +42,7 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
     [layout],
   );
 
-  const {
-    isDragging,
-    draggedItemId,
-    previewState,
-    phantomRef,
-    phantomSize,
-    handleRepositionStart,
-  } = useLiftAndFloat({
+  const { draggedItemId, previewState, handleRepositionStart } = useLiftAndFloat({
     containerRef,
     containerWidth,
     layout,
@@ -136,8 +113,6 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
   const cw = cellWidth();
   const cellStep = cw + GRID_GUTTER_FRACTION;
 
-  const panelNamesMap = { ...PANEL_LABELS, ...panelNames };
-
   return (
     <div ref={containerRef} className={`relative w-full ${className}`} style={canvasStyle}>
       {/* Panels */}
@@ -189,43 +164,6 @@ export function DashboardGrid({ children, className = "", panelNames }: Dashboar
           }}
         />
       )}
-
-      {/* Glass shell — phantom overlay for repositioning */}
-      {isDragging &&
-        draggedItemId !== null &&
-        phantomSize !== null &&
-        draggedLayoutItem !== null &&
-        createPortal(
-          <ErrorBoundary resetKey={draggedItemId}>
-            <div
-              ref={phantomRef}
-              className="fixed left-0 top-0 pointer-events-none"
-              style={{
-                width: `${(draggedLayoutItem.w * cw + (draggedLayoutItem.w - 1) * GRID_GUTTER_FRACTION) * 100}%`,
-                height: `calc(${draggedLayoutItem.h} * var(--grid-row-height) + ${draggedLayoutItem.h - 1} * 0.5rem)`,
-                zIndex: Z.glassShell,
-              }}
-              aria-hidden="true"
-            >
-              <Surface
-                tier="floating"
-                radius="control"
-                className="h-full w-full flex items-center justify-center"
-              >
-                <div className="text-center px-4">
-                  <div className="flex items-center justify-center gap-2 mb-1">
-                    <div className="size-2 rounded-full bg-muted-foreground animate-pulse" />
-                    <p className="type-control font-medium text-foreground">
-                      {panelNamesMap[draggedItemId] ?? draggedItemId}
-                    </p>
-                  </div>
-                  <p className="type-label text-muted-foreground">Dragging to reorder</p>
-                </div>
-              </Surface>
-            </div>
-          </ErrorBoundary>,
-          document.body,
-        )}
     </div>
   );
 }

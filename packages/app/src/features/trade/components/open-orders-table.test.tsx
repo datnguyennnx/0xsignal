@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { FrontendOpenOrder, OpenOrder } from "@0xsignal/shared";
 
-import { OpenOrdersTable } from "./open-orders-table";
+import { OpenOrdersTable, OpenOrderRow } from "./open-orders-table";
+import { areOpenOrderRowPropsEqual, type OpenOrderRowProps } from "./open-orders-table-logic";
 import { TwapContent } from "./twap-content";
 
 const child: FrontendOpenOrder = {
@@ -126,5 +127,97 @@ describe("tabs without a public reader", () => {
     expect(html).toContain("TWAP orders aren");
     expect(html).not.toContain("Loading");
     expect(html).not.toContain("Terminate");
+  });
+});
+
+const noop = (): void => {};
+
+const rowProps = (overrides: Partial<OpenOrderRowProps> = {}): OpenOrderRowProps => ({
+  order,
+  readOnly: false,
+  isCancelPending: false,
+  onCancelOrder: noop,
+  onViewTpSl: noop,
+  ...overrides,
+});
+
+describe("areOpenOrderRowPropsEqual", () => {
+  test("keeps a row when every printed scalar matches across fresh objects", () => {
+    const prev = rowProps();
+    const freshOrder: FrontendOpenOrder = {
+      ...order,
+      children: order.children.map((entry) => ({ ...entry })),
+    };
+    const next = rowProps({ order: freshOrder });
+
+    expect(prev.order).not.toBe(next.order);
+    expect(areOpenOrderRowPropsEqual(prev, next)).toBe(true);
+  });
+
+  test("re-renders when a printed order field changes", () => {
+    const prev = rowProps();
+    const changes: Partial<OpenOrder>[] = [
+      { oid: 99 },
+      { coin: "ETH" },
+      { side: "A" },
+      { sz: "0.2" },
+      { origSz: "0.3" },
+      { limitPx: "63000" },
+      { timestamp: 1_700_000_000_001 },
+      { reduceOnly: true },
+      { triggerCondition: "Price above 1" },
+      { triggerPx: "1" },
+      { orderType: "Stop Market" },
+    ];
+
+    for (const change of changes) {
+      expect(areOpenOrderRowPropsEqual(prev, rowProps({ order: { ...order, ...change } }))).toBe(
+        false,
+      );
+    }
+  });
+
+  test("re-renders when the TP/SL children or row controls change", () => {
+    const prev = rowProps();
+    const changedChild: FrontendOpenOrder = { ...child, oid: 3 };
+    const changedOrder: FrontendOpenOrder = { ...order, children: [changedChild] };
+
+    expect(areOpenOrderRowPropsEqual(prev, rowProps({ order: changedOrder }))).toBe(false);
+    expect(areOpenOrderRowPropsEqual(prev, rowProps({ readOnly: true }))).toBe(false);
+    expect(areOpenOrderRowPropsEqual(prev, rowProps({ isCancelPending: true }))).toBe(false);
+    expect(areOpenOrderRowPropsEqual(prev, rowProps({ onCancelOrder: () => {} }))).toBe(false);
+    expect(areOpenOrderRowPropsEqual(prev, rowProps({ onViewTpSl: () => {} }))).toBe(false);
+  });
+});
+
+describe("open orders table culling and row markup", () => {
+  test("opts into the shared table-cull contract", () => {
+    expect(renderTable(false)).toContain("table-cull");
+  });
+
+  test("the extracted row still prints the same sample-order cells", () => {
+    const html = renderToStaticMarkup(
+      <table>
+        <tbody>
+          <OpenOrderRow
+            order={order}
+            readOnly={false}
+            isCancelPending={false}
+            onCancelOrder={noop}
+            onViewTpSl={noop}
+          />
+        </tbody>
+      </table>,
+    );
+
+    expect(html).toContain(">Limit<");
+    expect(html).toContain(">BTC<");
+    expect(html).toContain(">Long</span>");
+    expect(html).toContain(">0.1000<");
+    expect(html).toContain(">$6,200.00<");
+    expect(html).toContain(">$62,000.00<");
+    expect(html).toContain(">No<");
+    expect(html).toContain(">View<");
+    expect(html).toContain(">Cancel<");
   });
 });

@@ -11,7 +11,6 @@ export interface LayoutItem {
 export interface DashboardGridProps {
   children: React.ReactNode;
   className?: string;
-  panelNames?: Record<string, string>;
 }
 
 export type ResizeHandleAxis = "nw" | "n" | "ne" | "e" | "sw" | "s" | "se" | "w";

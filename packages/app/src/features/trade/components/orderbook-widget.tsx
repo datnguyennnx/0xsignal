@@ -2,6 +2,7 @@ import { memo, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useHyperliquidOrderbook } from "@/features/trade/hooks/use-hyperliquid-orderbook";
 import { useTradeUIStore } from "@/stores/use-trade-ui-store";
 import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/error-state";
 import { Surface } from "@/components/surface/surface";
 import { type PopupData } from "../utils/orderbook-utils";
 import { OrderbookToolbar } from "./orderbook-toolbar";
@@ -12,6 +13,25 @@ interface OrderbookWidgetProps {
   symbol: string;
 }
 
+function OrderbookError({ description, onRetry }: { description: string; onRetry: () => void }) {
+  return (
+    <Surface
+      tier="content"
+      radius="panel"
+      className="relative isolate h-full flex flex-col p-panel"
+    >
+      <div role="alert" className="flex flex-1 min-h-0 items-center justify-center">
+        <ErrorState
+          title="Couldn't load order book"
+          description={description}
+          retryAction={onRetry}
+          className="py-6"
+        />
+      </div>
+    </Surface>
+  );
+}
+
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const nSigFigs = useTradeUIStore((s) => s.nSigFigs);
 
@@ -20,7 +40,7 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   const orderbookHookOptions = useMemo(() => ({ controlledNSigFigs: nSigFigs }), [nSigFigs]);
 
-  const { orderbook } = useHyperliquidOrderbook(symbol, true, orderbookHookOptions);
+  const { orderbook, error, retry } = useHyperliquidOrderbook(symbol, true, orderbookHookOptions);
 
   const { effectiveNSigFigs, scalingOptions, handleNSigFigsChange } = useOrderbookPrecision(
     symbol,
@@ -132,10 +152,17 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
 
   const hasBookData = !!orderbook && orderbook.asks.length > 0 && orderbook.bids.length > 0;
 
+  // A rejected subscription is an error whichever side of the first frame it lands.
+  if (error !== null && (!orderbook || !hasBookData)) {
+    return <OrderbookError description={error} onRetry={retry} />;
+  }
+
+  // No first frame yet: pending, not an empty book.
   if (!orderbook) {
     return <OrderbookPlaceholder pairFocus={pairFocus} />;
   }
 
+  // A frame arrived with no levels: that is genuinely empty, not a pending read.
   if (!hasBookData) {
     return (
       <Surface

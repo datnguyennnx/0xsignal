@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import type { JSX } from "react";
 import { WhalePositionsTable } from "@/features/whales/components/whale-positions-table";
@@ -8,16 +7,12 @@ import { Surface } from "@/components/surface/surface";
 export function WhalesPage(): JSX.Element {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    document.title = "Whales | 0xsignal";
-  }, []);
-
   const handleSelectWallet = (address: string) => {
     void navigate(`/whales/${address}`);
   };
 
   return (
-    <div className="container-fluid flex flex-1 min-h-0 flex-col gap-section page-enter">
+    <div className="container-fluid flex flex-1 min-h-0 flex-col gap-section">
       <h1 className="sr-only">Whales</h1>
       <ErrorBoundary>
         <Surface

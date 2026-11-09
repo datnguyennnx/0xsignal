@@ -43,6 +43,7 @@ const TradingChartInner = ({
     handleLoadMore,
     markers: feedMarkers,
     candleError,
+    retryCandles,
   } = useChartFeed({ symbol, interval, fillsEnabled: markersOverride === undefined });
 
   const markers = markersOverride ?? feedMarkers;
@@ -107,6 +108,7 @@ const TradingChartInner = ({
       if (newInterval === interval) return;
       onIntervalChange(newInterval);
       if (isFallbackFullscreen) {
+        // render-path-allow: fallback fullscreen exit delay, not a render-loop timer.
         setTimeout(() => {
           setIsFullscreen(false);
         }, INTERVAL_RESTORE_DELAY);
@@ -122,6 +124,7 @@ const TradingChartInner = ({
       candles={candles ?? []}
       isLoading={isLoading}
       loadError={candleError !== null}
+      onRetry={retryCandles}
       markers={markers}
       interval={interval}
       onIntervalChange={handleIntervalChange}
@@ -162,8 +165,8 @@ const TradingChartInner = ({
       <div
         className={
           isFallbackFullscreen
-            ? "relative w-full h-full max-w-8xl mx-auto flex flex-col"
-            : "relative flex-1 flex flex-col gap-2"
+            ? "w-full h-full max-w-8xl mx-auto flex flex-col"
+            : "flex-1 flex flex-col gap-2"
         }
       >
         {chartContent}

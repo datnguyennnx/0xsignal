@@ -8,6 +8,7 @@ import {
 } from "@nktkas/hyperliquid";
 import { buildMarketWsBucketKey } from "../../../integrations/hyperliquid/streams/bucket-key";
 import { parseMarketWsSubscription } from "../../../modules/market-data";
+import { MAX_DEX_LENGTH, MAX_SYMBOL_LENGTH } from "../subscription-parser";
 import {
   type MarketStreamError,
   MarketStreamHub,
@@ -85,7 +86,7 @@ class StubSocket implements MarketSocket {
 
   send(data: SendArg, _compress?: boolean): SendStatus {
     if (typeof data === "string") this.onSend(data);
-    return 0;
+    return 1;
   }
 
   sendText(data: string, compress?: boolean): SendStatus {
@@ -338,6 +339,63 @@ describe("Market WS subscription parser", () => {
       status: 400,
       message: "Unsupported interval: 1M",
     });
+  });
+
+  it("rejects an over-length symbol", () => {
+    const parsed = parseMarketWsSubscription(
+      new URLSearchParams({
+        channel: "candle",
+        symbol: "B".repeat(MAX_SYMBOL_LENGTH + 1),
+        interval: "1m",
+      }),
+    );
+
+    expect(parsed).toMatchObject({ ok: false, status: 400 });
+    if (parsed.ok) throw new Error("expected a rejection");
+    expect(parsed.message).toContain("symbol");
+  });
+
+  it("rejects an illegal character in a symbol", () => {
+    const parsed = parseMarketWsSubscription(
+      new URLSearchParams({ channel: "candle", symbol: "BTC$", interval: "1m" }),
+    );
+
+    expect(parsed).toMatchObject({ ok: false, status: 400 });
+    if (parsed.ok) throw new Error("expected a rejection");
+    expect(parsed.message).toContain("symbol");
+  });
+
+  it("rejects an over-length dex", () => {
+    const parsed = parseMarketWsSubscription(
+      new URLSearchParams({
+        channel: "allMids",
+        dex: "d".repeat(MAX_DEX_LENGTH + 1),
+      }),
+    );
+
+    expect(parsed).toMatchObject({ ok: false, status: 400 });
+    if (parsed.ok) throw new Error("expected a rejection");
+    expect(parsed.message).toContain("dex");
+  });
+
+  it("rejects an illegal character in a dex", () => {
+    const parsed = parseMarketWsSubscription(
+      new URLSearchParams({ channel: "allMids", dex: "../etc" }),
+    );
+
+    expect(parsed).toMatchObject({ ok: false, status: 400 });
+    if (parsed.ok) throw new Error("expected a rejection");
+    expect(parsed.message).toContain("dex");
+  });
+
+  it("accepts provider-shaped identifiers such as spot pairs", () => {
+    const parsed = parseMarketWsSubscription(
+      new URLSearchParams({ channel: "candle", symbol: "PURR/USDC", interval: "1m" }),
+    );
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("expected a valid subscription");
+    expect(parsed.data.symbol).toBe("PURR/USDC");
   });
 
   it("builds stable bucket keys", () => {

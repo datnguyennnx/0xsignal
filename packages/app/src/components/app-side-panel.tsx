@@ -1,8 +1,15 @@
-import { lazy, Suspense, useCallback, useMemo } from "react";
+import {
+  createContext,
+  lazy,
+  Suspense,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-
-import { parseISO } from "date-fns";
 
 import {
   SidePanelProvider,
@@ -11,11 +18,13 @@ import {
   type SidePanelDescriptor,
   type SidePanelRegistry,
 } from "@/components/side-panel";
-import { dayKey } from "@/features/calendar/lib/date-utils";
+import { dayKey, parseDayKey } from "@/lib/day-key";
 import {
   derivePanelDescriptor,
   isKnownPanelKind,
+  PANEL_ID_PARAM,
   PANEL_KINDS,
+  PANEL_PARAM,
   withPanelParams,
   withoutPanelParams,
 } from "@/lib/side-panel-params";
@@ -35,7 +44,12 @@ const CoinContextPanelLazy = lazy(() =>
 );
 
 function PanelFallback() {
-  return <div className="h-32 animate-pulse rounded-panel bg-muted/60" aria-hidden="true" />;
+  return (
+    <div
+      className="h-32 animate-pulse motion-reduce:animate-none rounded-panel bg-muted/60"
+      aria-hidden="true"
+    />
+  );
 }
 
 function CalendarDayPanel(props: PanelComponentProps) {
@@ -64,24 +78,50 @@ const PANEL_REGISTRY: SidePanelRegistry = {
   [PANEL_KINDS.coinContext.kind]: PANEL_COMPONENTS.coinContext,
 };
 
-function useOpenPanel(): (kind: string, id: string) => void {
+/** `useSearchParams` re-creates its setter on every search write; read the latest through a ref so actions stay stable. */
+function useSearchParamsSetter() {
   const [, setSearchParams] = useSearchParams();
+  const ref = useRef(setSearchParams);
+
+  useEffect(() => {
+    ref.current = setSearchParams;
+  }, [setSearchParams]);
+
+  return ref;
+}
+
+function useOpenPanel(): (kind: string, id: string) => void {
+  const setSearchParamsRef = useSearchParamsSetter();
 
   return useCallback(
     (kind: string, id: string) => {
-      setSearchParams((current) => withPanelParams(current, kind, id), { replace: true });
+      setSearchParamsRef.current((current) => withPanelParams(current, kind, id), {
+        replace: true,
+      });
     },
-    [setSearchParams],
+    [setSearchParamsRef],
   );
 }
 
 function usePanelClose(): () => void {
-  const [, setSearchParams] = useSearchParams();
+  const setSearchParamsRef = useSearchParamsSetter();
 
   return useCallback(() => {
-    setSearchParams((current) => withoutPanelParams(current), { replace: true });
-  }, [setSearchParams]);
+    setSearchParamsRef.current((current) => withoutPanelParams(current), { replace: true });
+  }, [setSearchParamsRef]);
 }
+
+interface PanelActions {
+  openPanel: (kind: string, id: string) => void;
+  closePanel: () => void;
+}
+
+const NO_PANEL_ACTIONS: PanelActions = {
+  openPanel: () => {},
+  closePanel: () => {},
+};
+
+const PanelActionsContext = createContext<PanelActions>(NO_PANEL_ACTIONS);
 
 export interface CalendarDayPanelControls {
   selectedDate: Date | null;
@@ -96,7 +136,7 @@ export function useCalendarDayPanel(): CalendarDayPanelControls {
 
   const selectedKey = descriptor?.kind === PANEL_KINDS.calendarDay.kind ? descriptor.id : null;
   const selectedDate = useMemo(
-    () => (selectedKey === null ? null : parseISO(selectedKey)),
+    () => (selectedKey === null ? null : parseDayKey(selectedKey)),
     [selectedKey],
   );
 
@@ -144,18 +184,41 @@ export function useCoinContextPanel(): CoinContextPanelControls {
   return { activeCoin, openCoin, close };
 }
 
+/** Action-only subscription: opening or closing the panel does not re-render the caller. */
+export function useOpenCoin(): (coin: string) => void {
+  const { openPanel } = useContext(PanelActionsContext);
+
+  return useCallback(
+    (coin: string) => {
+      openPanel(PANEL_KINDS.coinContext.kind, coin);
+    },
+    [openPanel],
+  );
+}
+
 export function AppSidePanelProvider({ children }: { children: ReactNode }) {
   const [searchParams] = useSearchParams();
+  const openPanel = useOpenPanel();
   const closePanel = usePanelClose();
 
-  const descriptor = useMemo<SidePanelDescriptor | null>(
-    () => derivePanelDescriptor(searchParams, isKnownPanelKind),
-    [searchParams],
-  );
+  const panelKind = searchParams.get(PANEL_PARAM);
+  const panelId = searchParams.get(PANEL_ID_PARAM);
+  // Only the two params the descriptor reads: an unrelated search write keeps
+  // the same descriptor object, so the context value stays stable.
+  const descriptor = useMemo<SidePanelDescriptor | null>(() => {
+    const params = new URLSearchParams();
+    if (panelKind !== null) params.set(PANEL_PARAM, panelKind);
+    if (panelId !== null) params.set(PANEL_ID_PARAM, panelId);
+    return derivePanelDescriptor(params, isKnownPanelKind);
+  }, [panelKind, panelId]);
+
+  const actions = useMemo<PanelActions>(() => ({ openPanel, closePanel }), [openPanel, closePanel]);
 
   return (
-    <SidePanelProvider registry={PANEL_REGISTRY} descriptor={descriptor} onClose={closePanel}>
-      {children}
-    </SidePanelProvider>
+    <PanelActionsContext.Provider value={actions}>
+      <SidePanelProvider registry={PANEL_REGISTRY} descriptor={descriptor} onClose={closePanel}>
+        {children}
+      </SidePanelProvider>
+    </PanelActionsContext.Provider>
   );
 }

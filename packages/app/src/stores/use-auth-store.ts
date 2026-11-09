@@ -6,6 +6,7 @@ import { listWallets } from "@/services/api/credentials";
 import type { AuthMeResponse } from "@0xsignal/shared";
 import { ApiError } from "@/lib/api-error";
 import { registerAuthTokenBridge } from "@/lib/auth-token";
+import { clearPrivateQueries } from "@/lib/private-query-cache";
 import { isAuthExemptPath } from "@/lib/routes";
 
 export interface PersistedAuthState {
@@ -101,6 +102,7 @@ export const useAuthStore = create<AuthStoreState>()(
             console.error("[Auth] Logout error:", err);
             toast.error("Sign out failed", { description: "Try again to sign out." });
           }
+          clearPrivateQueries();
           set({
             token: null,
             isAuthenticated: false,
@@ -156,6 +158,7 @@ export const useAuthStore = create<AuthStoreState>()(
                   set({ user });
                 }
               } else if (!cancelled) {
+                clearPrivateQueries();
                 set({
                   token: null,
                   isAuthenticated: false,
@@ -173,6 +176,7 @@ export const useAuthStore = create<AuthStoreState>()(
                 });
               }
 
+              clearPrivateQueries();
               set({
                 token: null,
                 isAuthenticated: false,

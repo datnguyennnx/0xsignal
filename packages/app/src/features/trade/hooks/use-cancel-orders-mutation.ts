@@ -3,7 +3,10 @@ import { useConnection } from "wagmi";
 import type { CancelOrdersRequest } from "@0xsignal/shared";
 import { submitCancelOrders } from "@/services/exchange";
 import { useHyperliquidMeta } from "./use-hyperliquid-meta";
-import { queryKeys } from "@/lib/query-keys";
+import {
+  cancelAndInvalidateUserQueries,
+  cancelOrdersUserQueryKeys,
+} from "./user-query-invalidation";
 import { UnauthenticatedError } from "@/lib/api-base";
 
 export function useCancelOrdersMutation() {
@@ -24,7 +27,9 @@ export function useCancelOrdersMutation() {
       });
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      if (address !== undefined) {
+        void cancelAndInvalidateUserQueries(queryClient, cancelOrdersUserQueryKeys(address));
+      }
     },
   });
 }

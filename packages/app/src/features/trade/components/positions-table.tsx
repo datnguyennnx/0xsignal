@@ -7,13 +7,18 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { TableEmptyRow } from "@/components/table-empty-row";
 import { Button } from "@/components/ui/button";
 import { cn } from "cn";
 import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
-import { PnLDisplay, PosDirLabel, TableSkeletonRows } from "./shared-table-components";
+import {
+  PnLDisplay,
+  PosDirLabel,
+  TableEmptyRow,
+  resolveTableState,
+} from "./shared-table-components";
 import { computeAccruedFunding, deriveMarkPrice } from "../utils/trade-math";
+import { useMidPrice } from "@/stores/use-market-data-store";
 
 import { useNavigate } from "react-router-dom";
 
@@ -51,22 +56,22 @@ export type PositionRow = {
 
 interface PositionsTableProps {
   isChLoading: boolean;
+  isChError?: boolean;
   positions: PositionRow[];
   fundingRates?: Record<string, number>;
   tpSlByCoin?: Record<string, { tp: string | null; sl: string | null }>;
   onCloseMarket?: (coin: string, size: string, isLong: boolean) => void;
   onCloseLimit?: (position: { coin: string; sz: number; isLong: boolean; markPx: number }) => void;
+  /** Reloads the failed positions query. The error row omits the button when absent. */
+  onRetry?: (() => void) | undefined;
   /** When set, a coin click is taken over here instead of navigating to the trade page. */
   onSelectCoin?: ((coin: string) => void) | undefined;
-  mids?: Record<string, number> | undefined;
   /** A third party's account: render rows only, never an action affordance. */
   readOnly?: boolean;
 }
 
 interface PositionRowViewProps {
   position: PositionRow["position"];
-  /** The row's own mark input; the displayed mark is derived from it below. */
-  mid: number | undefined;
   fundingRate: number;
   tpSl: { tp: string | null; sl: string | null } | undefined;
   readOnly: boolean;
@@ -96,7 +101,6 @@ function areRowPropsEqual(prev: PositionRowViewProps, next: PositionRowViewProps
     a.cumFunding.sinceOpen === b.cumFunding.sinceOpen &&
     a.leverage?.type === b.leverage?.type &&
     a.leverage?.value === b.leverage?.value &&
-    prev.mid === next.mid &&
     prev.fundingRate === next.fundingRate &&
     prev.readOnly === next.readOnly &&
     prev.tpSl?.tp === next.tpSl?.tp &&
@@ -109,7 +113,6 @@ function areRowPropsEqual(prev: PositionRowViewProps, next: PositionRowViewProps
 
 const PositionRowView = memo(function PositionRowView({
   position,
-  mid,
   fundingRate,
   tpSl,
   readOnly,
@@ -117,6 +120,8 @@ const PositionRowView = memo(function PositionRowView({
   onCloseMarket,
   onCloseLimit,
 }: PositionRowViewProps) {
+  // Row-scoped subscription: a tick for another coin leaves this row untouched.
+  const liveMid = useMidPrice(readOnly ? "" : position.coin);
   const signedSz = Number(position.szi);
   const sz = Math.abs(signedSz);
   const entryPx = Number(position.entryPx);
@@ -131,7 +136,7 @@ const PositionRowView = memo(function PositionRowView({
   const computedMarkPx = signedSz === 0 ? entryPx : entryPx + unrealizedPnl / signedSz;
   const markPx = readOnly
     ? deriveMarkPrice(position.positionValue, signedSz)
-    : (mid ?? computedMarkPx);
+    : (liveMid ?? computedMarkPx);
 
   return (
     <TableRow>
@@ -215,17 +220,19 @@ const PositionRowView = memo(function PositionRowView({
 
 export function PositionsTable({
   isChLoading,
+  isChError = false,
   positions,
   onCloseMarket,
   onCloseLimit,
+  onRetry,
   onSelectCoin,
-  mids,
   tpSlByCoin,
   fundingRates,
   readOnly = false,
 }: PositionsTableProps) {
   const navigate = useNavigate();
   const columnCount = readOnly ? 11 : 13;
+  const state = resolveTableState({ isLoading: isChLoading, isError: isChError });
   const handleCoinClick = useCallback(
     (coin: string) => {
       if (onSelectCoin !== undefined) {
@@ -271,24 +278,31 @@ export function PositionsTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {isChLoading ? (
-          <TableSkeletonRows rows={3} colSpan={columnCount} />
-        ) : positions.length === 0 ? (
-          <TableEmptyRow colSpan={columnCount} />
+        {state === "empty" ? (
+          positions.length === 0 ? (
+            <TableEmptyRow colSpan={columnCount} />
+          ) : (
+            positions.map(({ position }) => (
+              <PositionRowView
+                key={position.coin}
+                position={position}
+                fundingRate={fundingRates?.[position.coin] ?? 0}
+                tpSl={tpSlByCoin?.[position.coin]}
+                readOnly={readOnly}
+                onCoinClick={handleCoinClick}
+                onCloseMarket={onCloseMarket}
+                onCloseLimit={onCloseLimit}
+              />
+            ))
+          )
         ) : (
-          positions.map(({ position }) => (
-            <PositionRowView
-              key={position.coin}
-              position={position}
-              mid={mids?.[position.coin]}
-              fundingRate={fundingRates?.[position.coin] ?? 0}
-              tpSl={tpSlByCoin?.[position.coin]}
-              readOnly={readOnly}
-              onCoinClick={handleCoinClick}
-              onCloseMarket={onCloseMarket}
-              onCloseLimit={onCloseLimit}
-            />
-          ))
+          <TableEmptyRow
+            colSpan={columnCount}
+            state={state}
+            onRetry={onRetry}
+            errorTitle="Couldn't load positions"
+            errorDescription="The positions request failed. Check your connection and try again."
+          />
         )}
       </TableBody>
     </Table>

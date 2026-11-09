@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import { Github, Google } from "@thesvg/react";
+import { Github, Google } from "@/components/icons/brands";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -8,7 +8,7 @@ export function LoginPage() {
   const error = searchParams.get("error");
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-transparent px-4 page-enter">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-transparent px-4">
       <div className="flex w-full max-w-sm flex-col items-center gap-section">
         <span className="type-heading font-bold tracking-tight text-foreground">0xsignal</span>
 

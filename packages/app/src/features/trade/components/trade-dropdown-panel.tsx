@@ -1,4 +1,3 @@
-import type { RefObject } from "react";
 import { Search, X } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,6 @@ const SKELETON_ROW_IDS = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"] as con
 interface TradeDropdownPanelProps {
   id: string;
   position: { top: number; left: number };
-  inputRef: RefObject<HTMLInputElement | null>;
   query: string;
   onQueryChange: (query: string) => void;
   category: CategoryTab;
@@ -32,7 +30,6 @@ interface TradeDropdownPanelProps {
 export function TradeDropdownPanel({
   id,
   position,
-  inputRef,
   query,
   onQueryChange,
   category,
@@ -68,7 +65,7 @@ export function TradeDropdownPanel({
           </label>
           <Input
             id="trade-dropdown-search"
-            ref={inputRef}
+            autoFocus
             value={query}
             onChange={(e) => {
               onQueryChange(e.target.value);

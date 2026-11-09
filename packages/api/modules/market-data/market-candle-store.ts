@@ -18,6 +18,23 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const openMillis = (timestamp: Candle["timestamp"]): number => new Date(timestamp).getTime();
 
 /**
+ * Sorts oldest first with one clock read per candle. Decorating before the
+ * comparison keeps `Date` construction linear instead of once per comparison.
+ * `toSorted`/`sort` is stable, so equal timestamps keep their input order.
+ */
+export const sortCandlesByOpen = (
+  candles: readonly Candle[],
+  toOpenMillis: (timestamp: Candle["timestamp"]) => number = openMillis,
+): Candle[] => {
+  const decorated = candles.map((candle) => ({
+    candle,
+    open: toOpenMillis(candle.timestamp),
+  }));
+  decorated.sort((a, b) => a.open - b.open);
+  return decorated.map((entry) => entry.candle);
+};
+
+/**
  * Candles are not persisted, so every read is one provider snapshot. The range
  * is snapped to open times first: the provider charges for the candles it is
  * asked for, and a sub-interval bound would otherwise buy an extra full candle.
@@ -40,11 +57,11 @@ export const makeCandleStore = (provider: MarketRemoteProviderPort): MarketCandl
         endOpen + intervalMs - 1,
       );
 
-      return candles
-        .filter((candle) => {
+      return sortCandlesByOpen(
+        candles.filter((candle) => {
           const open = openMillis(candle.timestamp);
           return open >= startOpen && open <= endOpen;
-        })
-        .toSorted((a, b) => openMillis(a.timestamp) - openMillis(b.timestamp));
+        }),
+      );
     }),
 });

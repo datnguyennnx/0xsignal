@@ -86,14 +86,20 @@ async function resolveLogoUrl(symbol: string): Promise<string | null> {
   }
 }
 
-export function useHyperliquidSymbolLogo(symbol: string) {
-  return useQuery({
+export function hyperliquidSymbolLogoQueryOptions(symbol: string) {
+  return {
     queryKey: queryKeys.asset.logo(symbol),
     queryFn: () => resolveLogoUrl(symbol),
     enabled: !!symbol,
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: false,
+    // The logo probe answers for a day; a reconnect adds nothing.
+    refetchOnReconnect: false,
     retry: false,
-  });
+  };
+}
+
+export function useHyperliquidSymbolLogo(symbol: string) {
+  return useQuery(hyperliquidSymbolLogoQueryOptions(symbol));
 }

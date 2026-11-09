@@ -1,5 +1,5 @@
 import { useConnect, useConnectors, useSignMessage } from "wagmi";
-import { Metamask, Coinbase } from "@thesvg/react";
+import { Metamask, Coinbase } from "@/components/icons/brands";
 import { toast } from "sonner";
 import { AlertTriangleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";

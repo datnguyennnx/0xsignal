@@ -4,7 +4,7 @@ import type {
   MarketStreamMeta,
   MarketSubscription,
 } from "../lib/market-stream-client";
-import { useMarketDataStore } from "@/stores/use-market-data-store";
+import { cancelMidsFlush, useMarketDataStore } from "@/stores/use-market-data-store";
 import { orderbookStoreKey } from "../lib/orderbook-book";
 import { isL2BookSnapshotPayload } from "../utils/market-stream-decoder";
 
@@ -81,6 +81,32 @@ function openSubscription(
 ): Promise<WsSubscription> {
   const { channel, symbol, nSigFigs, interval } = subscription;
   return client.subscribe({ channel, symbol, interval, nSigFigs }, callbacks);
+}
+
+/**
+ * `allMids` subscriptions are shared: `use-all-mids.ts` and `positions-tab.tsx`
+ * both register through this hook, and the store coalesces every mids frame
+ * into one module-level pending snapshot. So the queued frame belongs to the
+ * whole app, not to one hook instance — it may only be dropped when the last
+ * live `allMids` registration goes away (M3).
+ */
+let liveAllMidsConsumers = 0;
+
+/**
+ * Claim one live `allMids` registration and return its cleanup. Releasing the
+ * last claim cancels the pending mids frame; the returned cleanup is
+ * idempotent, so it is safe to run again and safe after unmount.
+ */
+export function acquireAllMidsConsumer(cancelFlush: () => void = cancelMidsFlush): () => void {
+  liveAllMidsConsumers += 1;
+  let released = false;
+
+  return () => {
+    if (released) return;
+    released = true;
+    liveAllMidsConsumers = Math.max(0, liveAllMidsConsumers - 1);
+    if (liveAllMidsConsumers === 0) cancelFlush();
+  };
 }
 
 export function useHyperliquidWs({
@@ -169,6 +195,10 @@ export function useHyperliquidWs({
       },
     });
 
+    // Every allMids registration shares one pending frame in the store, so this
+    // hook only releases its claim — the store flush dies with the last claim.
+    const releaseMids = channel === "allMids" ? acquireAllMidsConsumer() : null;
+
     void (async () => {
       try {
         const created = await sub;
@@ -190,6 +220,7 @@ export function useHyperliquidWs({
     return () => {
       ignore = true;
       generationRef.current = generationRef.current + 1;
+      releaseMids?.();
       if (activeSub !== null) {
         activeSub.unsubscribe();
         if (subRef.current === activeSub) subRef.current = null;

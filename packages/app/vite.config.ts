@@ -5,10 +5,6 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import { visualizer } from "rollup-plugin-visualizer";
 import { buildContentSecurityPolicy } from "./src/lib/content-security-policy.ts";
 
-/**
- * Strict CSP ships in the built index.html. Dev omits it because Vite's React
- * refresh preamble is an inline script and would be blocked.
- */
 function contentSecurityPolicy(policy: string): Plugin {
   return {
     name: "0xsignal-csp",
@@ -68,11 +64,7 @@ export default defineConfig(({ mode }) => {
         ),
       },
     },
-    // Entry-critical packages plus the deep subpaths the entry graph imports
-    // directly. Route-only libraries load through dynamic imports instead.
     optimizeDeps: {
-      // Without this, Vite waits for the crawl to finish before serving the first request;
-      // the entry include is lean and route chunks load on demand, so the wait buys nothing.
       holdUntilCrawlEnd: false,
       include: [
         "react",
@@ -91,7 +83,6 @@ export default defineConfig(({ mode }) => {
         "sonner",
         "date-fns",
         "class-variance-authority",
-        "@thesvg/react",
         "@nktkas/hyperliquid",
         "@base-ui/react/button",
         "@base-ui/react/menu",
@@ -105,7 +96,6 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       warmup: {
-        // Only transforms source; it does not issue requests and `open` stays false.
         clientFiles: [
           "./src/main.tsx",
           "./src/App.tsx",
@@ -142,12 +132,11 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       target: "esnext",
-      // CSS needs concrete browser targets: with `esnext` the prefix pass treats support as
-      // universal and strips `-webkit-backdrop-filter`, which Safari still requires.
       cssTarget: ["chrome111", "firefox128", "safari16.4"],
       sourcemap: false,
       cssCodeSplit: true,
       reportCompressedSize: true,
+      manifest: true,
       rolldownOptions: {
         output: {
           codeSplitting: {
@@ -163,7 +152,7 @@ export default defineConfig(({ mode }) => {
                 test: /node_modules[\\/](recharts|victory-vendor|react-smooth|decimal\.js-light|es-toolkit|d3-[^\\/]+)[\\/]/,
                 priority: 25,
                 minSize: 20_000,
-                maxSize: 300_000,
+                includeDependenciesRecursively: false,
               },
               {
                 name: "vendor-katex",
@@ -180,7 +169,7 @@ export default defineConfig(({ mode }) => {
               {
                 name: "vendor-react",
                 test: /node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/,
-                priority: 5,
+                priority: 100,
                 minSize: 20_000,
               },
             ],

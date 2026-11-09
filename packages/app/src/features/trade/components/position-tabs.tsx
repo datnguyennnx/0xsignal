@@ -1,6 +1,7 @@
-import { useHistoricalOrders, useUserFills } from "../hooks/use-user-data";
+import { useClearinghouseState, useHistoricalOrders, useUserFills } from "../hooks/use-user-data";
 import { useUserBalances, useWhaleBalances } from "../hooks/use-user-balances";
 import {
+  useWhaleClearinghouseState,
   useWhaleFills,
   useWhaleHistoricalOrders,
 } from "@/features/portfolio/hooks/use-portfolio-data";
@@ -18,12 +19,19 @@ export function OrderHistoryTab({ readOnlyAddress }: { readOnlyAddress?: string 
   const readOnly = readOnlyAddress !== undefined;
   const own = useHistoricalOrders(!readOnly);
   const whale = useWhaleHistoricalOrders(readOnlyAddress);
-  const { data: histOrders, isLoading: isHistLoading } = readOnly ? whale : own;
+  const { data: histOrders, isLoading: isHistLoading, isError, refetch } = readOnly ? whale : own;
   const paginated = usePagination(histOrders ?? [], 20);
 
   return (
     <>
-      <HistoryOrderTable histOrders={paginated.pageData} isHistLoading={isHistLoading} />
+      <HistoryOrderTable
+        histOrders={paginated.pageData}
+        isHistLoading={isHistLoading}
+        isHistError={isError}
+        onRetry={() => {
+          void refetch();
+        }}
+      />
       <Pagination
         currentPage={paginated.currentPage}
         totalPages={paginated.totalPages}
@@ -44,12 +52,19 @@ export function TradeHistoryTab({ readOnlyAddress }: { readOnlyAddress?: string 
   const readOnly = readOnlyAddress !== undefined;
   const own = useUserFills(!readOnly);
   const whale = useWhaleFills(readOnlyAddress);
-  const { data: fills, isLoading: isFillsLoading } = readOnly ? whale : own;
+  const { data: fills, isLoading: isFillsLoading, isError, refetch } = readOnly ? whale : own;
   const paginated = usePagination(fills ?? [], 20);
 
   return (
     <>
-      <TradeHistoryTable fills={paginated.pageData} isFillsLoading={isFillsLoading} />
+      <TradeHistoryTable
+        fills={paginated.pageData}
+        isFillsLoading={isFillsLoading}
+        isFillsError={isError}
+        onRetry={() => {
+          void refetch();
+        }}
+      />
       <Pagination
         currentPage={paginated.currentPage}
         totalPages={paginated.totalPages}
@@ -80,11 +95,18 @@ export function BalancesTab({ readOnlyAddress }: { readOnlyAddress?: string | un
     effectiveAccountTotal,
     effectiveAvailableBalance,
   } = readOnly ? whale : own;
+  const ownCh = useClearinghouseState(!readOnly);
+  const whaleCh = useWhaleClearinghouseState(readOnlyAddress);
+  const { isError: isChError, refetch: refetchCh } = readOnly ? whaleCh : ownCh;
   const { openCoin } = useCoinContextPanel();
 
   return (
     <BalanceTable
       isChLoading={isChLoading}
+      isChError={isChError}
+      onRetry={() => {
+        void refetchCh();
+      }}
       marginSummary={marginSummary}
       positions={positions}
       usdcTotalBalance={usdcTotalBalance}

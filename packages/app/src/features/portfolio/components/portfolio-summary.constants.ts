@@ -1,4 +1,4 @@
-export const SURFACE = "h-full flex flex-col p-panel page-enter gap-stack";
+export const SURFACE = "h-full flex flex-col p-panel gap-stack";
 
 /** Loaded rows and skeleton rows share this stack so their heights cannot drift. */
 export const ROW_STACK = "flex flex-col gap-stack";

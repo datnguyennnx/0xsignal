@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { ErrorState } from "@/components/error-state";
 import { PageLoader } from "@/components/page-loader";
+import { isAborted } from "@/pages/auth-callback-utils";
 
 const TRADE_ROUTE = "/trade/BTC";
-
-function isAborted(signal?: AbortSignal): boolean {
-  return signal?.aborted === true;
-}
 
 /** One owner for the exchange → token → profile → wallet sequence, initial and retry. */
 async function completeSignIn(code: string, signal?: AbortSignal): Promise<boolean> {
@@ -40,31 +37,33 @@ async function completeSignIn(code: string, signal?: AbortSignal): Promise<boole
 export function AuthCallbackPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
 
-  const run = useCallback(
-    async (signal?: AbortSignal) => {
-      const code = new URLSearchParams(window.location.search).get("code");
-      if (code === null || code === "") {
-        void navigate(TRADE_ROUTE, { replace: true });
-        return;
-      }
-      try {
-        const completed = await completeSignIn(code, signal);
-        if (completed) void navigate(TRADE_ROUTE, { replace: true });
-      } catch (err) {
-        console.error("[Auth] Token exchange failed:", err);
-        if (!isAborted(signal)) setError("Unable to complete sign-in. Try again.");
-      }
-    },
-    [navigate],
-  );
+  const run = useCallback(async () => {
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const signal = controller.signal;
+
+    const code = new URLSearchParams(window.location.search).get("code");
+    if (code === null || code === "") {
+      if (!isAborted(signal)) void navigate(TRADE_ROUTE, { replace: true });
+      return;
+    }
+    try {
+      const completed = await completeSignIn(code, signal);
+      if (completed && !isAborted(signal)) void navigate(TRADE_ROUTE, { replace: true });
+    } catch (err) {
+      console.error("[Auth] Token exchange failed:", err);
+      if (!isAborted(signal)) setError("Unable to complete sign-in. Try again.");
+    }
+  }, [navigate]);
 
   useEffect(() => {
-    const controller = new AbortController();
     // eslint-disable-next-line react/set-state-in-effect -- the async exchange must own its error state
-    void run(controller.signal);
+    void run();
     return () => {
-      controller.abort();
+      controllerRef.current?.abort();
     };
   }, [run]);
 

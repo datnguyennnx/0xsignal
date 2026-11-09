@@ -1,5 +1,5 @@
 import type { SidePanelDescriptor } from "@/components/side-panel";
-import { CALENDAR_DAY_PANEL } from "@/features/calendar/components/calendar-day-panel";
+import { CALENDAR_DAY_PANEL } from "@/lib/panel-kind";
 
 interface PanelKindDefinition {
   kind: string;

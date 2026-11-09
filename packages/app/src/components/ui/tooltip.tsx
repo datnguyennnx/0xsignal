@@ -57,7 +57,7 @@ function TooltipContent({
             {...surface}
             className={cn(
               surface.className,
-              "z-50 inline-flex w-fit max-w-[clamp(14rem,18vw,24rem)] origin-(--transform-origin) items-center gap-(--control-gap) rounded-control px-2 py-1 type-data text-popover-foreground has-data-[slot=kbd]:pr-1 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-chip data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+              "z-50 inline-flex w-fit max-w-[clamp(14rem,18vw,24rem)] origin-(--transform-origin) items-center gap-(--control-gap) rounded-control px-2 py-1 type-data text-popover-foreground has-data-[slot=kbd]:pr-1 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-chip data-open:duration-[150ms] data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:duration-[100ms] data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
               className,
             )}
             {...props}

@@ -4,6 +4,7 @@ import type { IChartApi, ISeriesApi } from "lightweight-charts";
 import type { ChartDataPoint } from "@0xsignal/shared";
 import { getRootFontSizePx, subscribeRootFontSize } from "@/core/utils/rem";
 import { isUtcTimestamp } from "../lib/time";
+import { candleMapKey } from "./trade-markers-overlay-logic";
 import {
   groupMarkersByCandle,
   buildTooltipText,
@@ -240,14 +241,17 @@ export function TradeMarkersOverlay({ chart, series, markers, candles }: TradeMa
     [metrics],
   );
 
-  // Rebuilt only when the candle dataset identity changes (a tick), never on pan/zoom.
+  // Rebuilt only when the bar shape moves; an identity-only tick reuses the map.
+  const candleKey = candleMapKey(candles);
+  // oxlint-disable react-hooks/exhaustive-deps -- candleKey encodes the bar shape; depending on the array identity would rebuild every tick.
   const candleMap = useMemo(() => {
     const map = new Map<number, ChartDataPoint>();
     for (let i = 0; i < candles.length; i++) {
       map.set(candles[i].time, candles[i]);
     }
     return map;
-  }, [candles]);
+  }, [candleKey]);
+  // oxlint-enable react-hooks/exhaustive-deps
 
   // Grouping is pure marker data; viewport events must not redo it.
   const groups = useMemo(() => groupMarkersByCandle(markers), [markers]);

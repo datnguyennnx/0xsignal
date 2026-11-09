@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Effect, Schema } from "effect";
 import type { Candle } from "@0xsignal/shared";
 import { MarketTimeframeSchema } from "../timeframe";
-import { makeCandleStore } from "../market-candle-store";
+import { makeCandleStore, sortCandlesByOpen } from "../market-candle-store";
 import type { MarketRemoteProviderPort } from "../market-remote-provider";
 
 const timeframe = Schema.decodeUnknownSync(MarketTimeframeSchema)("1m");
@@ -65,5 +65,54 @@ describe("market candle store", () => {
       BASE + INTERVAL_MS,
       BASE + 2 * INTERVAL_MS,
     ]);
+  });
+
+  it("orders a shuffled provider snapshot oldest first", async () => {
+    const ordered = candlesBetween(BASE, BASE + 4 * INTERVAL_MS);
+    const provider: MarketRemoteProviderPort = {
+      getCandleSnapshot: () =>
+        Effect.succeed([ordered[3], ordered[0], ordered[4], ordered[2], ordered[1]]),
+      getAggregatedMarkets: () => Effect.succeed([]),
+    };
+    const store = makeCandleStore(provider);
+
+    const candles = await Effect.runPromise(store.getCandles(range(5)));
+
+    expect(candles.map((candle) => new Date(candle.timestamp).getTime())).toEqual([
+      BASE,
+      BASE + INTERVAL_MS,
+      BASE + 2 * INTERVAL_MS,
+      BASE + 3 * INTERVAL_MS,
+      BASE + 4 * INTERVAL_MS,
+    ]);
+  });
+});
+
+describe("candle ordering", () => {
+  const candleAt = (open: number, marker: number): Candle => ({
+    timestamp: new Date(open),
+    open: marker,
+    high: marker,
+    low: marker,
+    close: marker,
+    volume: 1,
+  });
+
+  it("reads each open time once and keeps equal timestamps stable", () => {
+    const input = [
+      candleAt(BASE + 2 * INTERVAL_MS, 4),
+      candleAt(BASE, 1),
+      candleAt(BASE + INTERVAL_MS, 2),
+      candleAt(BASE + INTERVAL_MS, 3),
+      candleAt(BASE, 0),
+    ];
+    const reads = vi.fn((timestamp: Candle["timestamp"]) => new Date(timestamp).getTime());
+
+    const sorted = sortCandlesByOpen(input, reads);
+
+    // One clock read per candle proves O(n) decoration, not O(n log n) sorting.
+    expect(reads).toHaveBeenCalledTimes(input.length);
+    // Equal opens retain their input order: [BASE:1, BASE:0] then [BASE+1:2, BASE+1:3].
+    expect(sorted.map((candle) => candle.open)).toEqual([1, 0, 2, 3, 4]);
   });
 });

@@ -12,7 +12,7 @@ function Table({ className, layout = "fill", ...props }: TableProps) {
   return (
     <div
       data-slot="table-container"
-      className="container-query relative w-full flex-1 min-h-0 overflow-auto rounded-panel"
+      className="container-query w-full flex-1 min-h-0 overflow-auto rounded-panel"
     >
       <table
         data-slot="table"

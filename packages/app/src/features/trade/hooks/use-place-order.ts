@@ -3,7 +3,7 @@ import { useConnection } from "wagmi";
 import type { PlaceOrderRequest } from "@/services/api";
 import { submitPlaceOrder } from "@/services/exchange";
 import { UnauthenticatedError } from "@/lib/api-base";
-import { queryKeys } from "@/lib/query-keys";
+import { cancelAndInvalidateUserQueries, placeOrderUserQueryKeys } from "./user-query-invalidation";
 
 /**
  * Shared hook for the placeOrder mutation used in both
@@ -30,7 +30,9 @@ export function usePlaceOrder(onError?: (err: Error) => void) {
       });
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      if (address !== undefined) {
+        void cancelAndInvalidateUserQueries(queryClient, placeOrderUserQueryKeys(address));
+      }
     },
     ...(onError !== undefined && { onError }),
   });

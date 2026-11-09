@@ -32,7 +32,6 @@ const TradeDropdownFn = ({
   const [sortDesc, setSortDesc] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const { data, isLoading, error } = useTradeList(isOpen);
 
   useEffect(() => {
@@ -114,18 +113,6 @@ const TradeDropdownFn = ({
 
   useEffect(() => {
     if (!isOpen) return () => {};
-    const input = inputRef.current;
-    if (input === null) return () => {};
-    const timeout = setTimeout(() => {
-      input.focus();
-    }, 100);
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return () => {};
 
     const handleClickOutside = (e: MouseEvent) => {
       if (!(e.target instanceof Element) || !e.target.closest("[data-trade-dropdown]")) {
@@ -168,7 +155,6 @@ const TradeDropdownFn = ({
         <TradeDropdownPanel
           id={dropdownContentId}
           position={position}
-          inputRef={inputRef}
           query={query}
           onQueryChange={setQuery}
           category={category}

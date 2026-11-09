@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { FrontendOpenOrder, SpotClearinghouseState, UserFill } from "@0xsignal/shared";
+import type {
+  ClearinghouseState,
+  FrontendOpenOrder,
+  SpotClearinghouseState,
+  UserFill,
+} from "@0xsignal/shared";
 import { api } from "@/services/api";
 import { getHistoricalOrders } from "@/services/hl-rest-client";
 import { queryKeys } from "@/lib/query-keys";
-import { useOwnAddress } from "@/hooks/use-effective-address";
-import { useAuthStore } from "@/stores/use-auth-store";
 import {
   getUserStreamConnectionState,
   mergeUserFills,
@@ -21,19 +24,12 @@ import {
   type UserStreamSubscription,
 } from "../lib/user-stream-default";
 import { createRestFallbackGate, type RestFallbackGate } from "../lib/rest-fallback-gate";
-
-const isPresent = (value: string | null | undefined): boolean =>
-  value !== null && value !== undefined && value !== "";
-
-/** User data is both wallet-scoped and auth-scoped; either missing half means no request. */
-function useUserQueryGate(enabled: boolean) {
-  const ownAddress = useOwnAddress();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  return {
-    walletAddress: ownAddress ?? "",
-    enabled: enabled && isAuthenticated && isPresent(ownAddress),
-  };
-}
+import {
+  markUserDataWsWrite,
+  resolveUserDataRestResult,
+  userRestRefetchInterval,
+} from "./user-query-race";
+import { useUserQueryGate } from "./use-user-query-gate";
 
 interface UserStreamSubscribe<K extends UserStreamChannel> {
   (user: string, listener: (event: UserStreamEventMap[K]) => void): Promise<UserStreamSubscription>;
@@ -157,6 +153,7 @@ export function useClearinghouseState(enabled: boolean = true) {
     gate.walletAddress,
     gate.enabled,
     (event) => {
+      markUserDataWsWrite(key);
       queryClient.setQueryData(key, event.data);
     },
   );
@@ -164,10 +161,17 @@ export function useClearinghouseState(enabled: boolean = true) {
 
   return useQuery({
     queryKey: key,
-    queryFn: () => api.getUserClearinghouseState(gate.walletAddress),
+    queryFn: async ({ queryKey }) => {
+      const startedAt = Date.now();
+      const data = await api.getUserClearinghouseState(gate.walletAddress);
+      return resolveUserDataRestResult(queryKey, startedAt, data, () =>
+        queryClient.getQueryData<ClearinghouseState>(queryKey),
+      );
+    },
     enabled: gate.enabled && restAllowed,
     staleTime: live ? Infinity : 10 * 1000,
     refetchOnWindowFocus: !live,
+    refetchInterval: () => userRestRefetchInterval(live),
   });
 }
 
@@ -181,6 +185,7 @@ export function useSpotClearinghouseState(enabled: boolean = true) {
     gate.walletAddress,
     gate.enabled,
     (event) => {
+      markUserDataWsWrite(key);
       queryClient.setQueryData<SpotClearinghouseState>(key, event.data);
     },
   );
@@ -188,10 +193,17 @@ export function useSpotClearinghouseState(enabled: boolean = true) {
 
   return useQuery({
     queryKey: key,
-    queryFn: () => api.getUserSpotClearinghouseState(gate.walletAddress),
+    queryFn: async ({ queryKey }) => {
+      const startedAt = Date.now();
+      const data = await api.getUserSpotClearinghouseState(gate.walletAddress);
+      return resolveUserDataRestResult(queryKey, startedAt, data, () =>
+        queryClient.getQueryData<SpotClearinghouseState>(queryKey),
+      );
+    },
     enabled: gate.enabled && restAllowed,
     staleTime: live ? Infinity : 10 * 1000,
     refetchOnWindowFocus: !live,
+    refetchInterval: () => userRestRefetchInterval(live),
   });
 }
 
@@ -205,6 +217,7 @@ export function useOpenOrders(enabled: boolean = true) {
     gate.walletAddress,
     gate.enabled,
     (event) => {
+      markUserDataWsWrite(key);
       queryClient.setQueryData<FrontendOpenOrder[]>(key, event.data);
     },
   );
@@ -212,10 +225,17 @@ export function useOpenOrders(enabled: boolean = true) {
 
   return useQuery({
     queryKey: key,
-    queryFn: () => api.getUserFrontendOpenOrders(gate.walletAddress),
+    queryFn: async ({ queryKey }) => {
+      const startedAt = Date.now();
+      const data = await api.getUserFrontendOpenOrders(gate.walletAddress);
+      return resolveUserDataRestResult(queryKey, startedAt, data, () =>
+        queryClient.getQueryData<FrontendOpenOrder[]>(queryKey),
+      );
+    },
     enabled: gate.enabled && restAllowed,
     staleTime: live ? Infinity : 30 * 1000,
     refetchOnWindowFocus: !live,
+    refetchInterval: () => userRestRefetchInterval(live),
   });
 }
 
@@ -240,6 +260,7 @@ export function useUserFills(enabled: boolean = true) {
     gate.walletAddress,
     gate.enabled,
     (event) => {
+      markUserDataWsWrite(key);
       queryClient.setQueryData<UserFill[]>(key, (previous) => mergeUserFills(previous, event));
     },
   );
@@ -247,9 +268,16 @@ export function useUserFills(enabled: boolean = true) {
 
   return useQuery({
     queryKey: key,
-    queryFn: () => api.getUserFills(gate.walletAddress),
+    queryFn: async ({ queryKey }) => {
+      const startedAt = Date.now();
+      const data = await api.getUserFills(gate.walletAddress);
+      return resolveUserDataRestResult(queryKey, startedAt, data, () =>
+        queryClient.getQueryData<UserFill[]>(queryKey),
+      );
+    },
     enabled: gate.enabled && restAllowed,
     staleTime: live ? Infinity : 30 * 1000,
     refetchOnWindowFocus: !live,
+    refetchInterval: () => userRestRefetchInterval(live),
   });
 }

@@ -4,6 +4,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 import type { MarketStreamClient } from "@/features/trade/lib/market-stream-client";
 import { createBrowserMarketStreamClient } from "@/features/trade/lib/hl-market-stream";
 import { replaceBookLevels } from "@/features/trade/lib/orderbook-book";
+import { isPageHidden, onPageVisibilityChange } from "@/lib/page-visibility";
 import {
   MAX_BOOK_DEPTH,
   processRawL2Levels,
@@ -86,6 +87,30 @@ const orderbookSymbolOrder: string[] = [];
 /** Symbols with at least one mounted `useOrderbookData` consumer. */
 const activeOrderbookSubscribers = new Map<string, number>();
 
+/** Ref-count one mounted `useOrderbookData` consumer so eviction skips it. */
+function retainOrderbookSubscriber(symbol: string): void {
+  activeOrderbookSubscribers.set(symbol, (activeOrderbookSubscribers.get(symbol) ?? 0) + 1);
+}
+
+/** Drop one consumer; the last unmount releases the pending orderbook frame. */
+function releaseOrderbookSubscriber(symbol: string): void {
+  const remaining = (activeOrderbookSubscribers.get(symbol) ?? 1) - 1;
+  if (remaining > 0) {
+    activeOrderbookSubscribers.set(symbol, remaining);
+    return;
+  }
+  activeOrderbookSubscribers.delete(symbol);
+  if (activeOrderbookSubscribers.size === 0) cancelScheduledFlush();
+}
+
+/** Internal bookkeeping for tests and diagnostics; not part of the app API. */
+export const marketDataStoreInternals = {
+  retainOrderbookSubscriber,
+  releaseOrderbookSubscriber,
+  rawOrderbookSymbolCount: (): number => rawOrderbookState.size,
+  trackedOrderbookSymbols: (): string[] => [...orderbookSymbolOrder],
+} as const;
+
 function symbolFromCandleKey(key: string): string {
   const separator = key.indexOf(":");
   return separator === -1 ? key : key.slice(0, separator);
@@ -119,15 +144,19 @@ function touchOrderbookSymbol(symbol: string): void {
   orderbookSymbolOrder.push(symbol);
 
   while (orderbookSymbolOrder.length > MAX_ORDERBOOK_SYMBOLS) {
+    // Oldest first, never the key just touched and never a live consumer.
     const victim = orderbookSymbolOrder.find(
       (candidate) => candidate !== symbol && !activeOrderbookSubscribers.has(candidate),
     );
-    if (victim === undefined) {
-      // Everything still tracked is on screen; drop the oldest bookkeeping entry.
-      orderbookSymbolOrder.shift();
+    if (victim !== undefined) {
+      evictOrderbookSymbol(victim);
       continue;
     }
-    evictOrderbookSymbol(victim);
+    // Every tracked book is on screen. Dropping the newcomer keeps the tracked
+    // set and `rawOrderbookState` in lockstep; shifting bookkeeping without
+    // deleting state is what orphaned raw books past the cap.
+    if (!activeOrderbookSubscribers.has(symbol)) evictOrderbookSymbol(symbol);
+    break;
   }
 }
 
@@ -145,9 +174,15 @@ function evictRetiredSymbols(evictedKeys: readonly string[]): void {
   const liveSymbols = new Set(candleKeyOrder.map((key) => symbolFromCandleKey(key)));
   for (const key of evictedKeys) {
     const symbol = symbolFromCandleKey(key);
-    if (liveSymbols.has(symbol)) continue;
-    if (activeOrderbookSubscribers.has(symbol)) continue;
-    evictOrderbookSymbol(symbol);
+    if (symbol === "" || liveSymbols.has(symbol)) continue;
+    // Orderbook state is keyed `${symbol}:${precision}`, so a bare symbol never
+    // matches; sweep every precision tracked for the retired symbol.
+    const prefix = `${symbol}:`;
+    const retired = orderbookSymbolOrder.filter((candidate) => candidate.startsWith(prefix));
+    for (const orderbookKey of retired) {
+      if (activeOrderbookSubscribers.has(orderbookKey)) continue;
+      evictOrderbookSymbol(orderbookKey);
+    }
   }
 }
 
@@ -176,44 +211,52 @@ function sameLevels(
   return true;
 }
 
+/** Commit every dirty symbol in one store write; shared by rAF and the visible flush. */
+function flushDirtySymbols(): void {
+  if (dirtySymbols.size === 0) return;
+
+  const updates: Record<string, OrderbookData> = {};
+  for (const symbol of dirtySymbols) {
+    const raw = rawOrderbookState.get(symbol);
+    if (raw) {
+      const rawBids = Array.from(raw.bids.values());
+      const rawAsks = Array.from(raw.asks.values());
+      updates[symbol] = processRawL2Levels(rawBids, rawAsks, MAX_BOOK_DEPTH);
+    }
+  }
+  dirtySymbols.clear();
+
+  // The full-window comparison keeps the rAF conflation useful: a dirty
+  // symbol is only written when its visible book actually moved, so
+  // consumers skip re-renders on frames that produce identical data.
+  useMarketDataStore.setState((state) => {
+    const current = state.orderbookData;
+    const merged: Record<string, OrderbookData> = {};
+    let anyChanged = false;
+    for (const [symbol, data] of Object.entries(updates)) {
+      const existing = current[symbol];
+      if (
+        existing !== undefined &&
+        sameLevels(existing.bids, data.bids) &&
+        sameLevels(existing.asks, data.asks)
+      ) {
+        continue;
+      }
+      merged[symbol] = data;
+      anyChanged = true;
+    }
+    return anyChanged ? { orderbookData: { ...current, ...merged } } : state;
+  });
+}
+
 function scheduleFlush() {
+  ensureVisibilityWatcher();
+  // A hidden tab does not paint, so scheduling is deferred to the visible flush.
+  if (isPageHidden()) return;
   if (flushRafId !== null) return;
   flushRafId = requestAnimationFrame(() => {
     flushRafId = null;
-    if (dirtySymbols.size === 0) return;
-
-    const updates: Record<string, OrderbookData> = {};
-    for (const symbol of dirtySymbols) {
-      const raw = rawOrderbookState.get(symbol);
-      if (raw) {
-        const rawBids = Array.from(raw.bids.values());
-        const rawAsks = Array.from(raw.asks.values());
-        updates[symbol] = processRawL2Levels(rawBids, rawAsks, MAX_BOOK_DEPTH);
-      }
-    }
-    dirtySymbols.clear();
-
-    // The full-window comparison keeps the rAF conflation useful: a dirty
-    // symbol is only written when its visible book actually moved, so
-    // consumers skip re-renders on frames that produce identical data.
-    useMarketDataStore.setState((state) => {
-      const current = state.orderbookData;
-      const merged: Record<string, OrderbookData> = {};
-      let anyChanged = false;
-      for (const [symbol, data] of Object.entries(updates)) {
-        const existing = current[symbol];
-        if (
-          existing !== undefined &&
-          sameLevels(existing.bids, data.bids) &&
-          sameLevels(existing.asks, data.asks)
-        ) {
-          continue;
-        }
-        merged[symbol] = data;
-        anyChanged = true;
-      }
-      return anyChanged ? { orderbookData: { ...current, ...merged } } : state;
-    });
+    flushDirtySymbols();
   });
 }
 
@@ -280,22 +323,77 @@ function applyAllMids(mids: Record<string, number>): void {
   });
 }
 
+/** Apply the newest pending mid snapshot, if any. */
+function commitPendingMids(): void {
+  const next = pendingMids;
+  pendingMids = null;
+  if (next !== null) applyAllMids(next);
+}
+
 /** Coalesce every `allMids` write in one frame into a single store commit. */
 function scheduleAllMids(mids: Record<string, number>): void {
   pendingMids = mids;
+  ensureVisibilityWatcher();
+  // Hidden tabs keep only the newest snapshot and commit it on visible.
+  if (isPageHidden()) return;
   if (typeof requestAnimationFrame !== "function") {
-    const next = pendingMids;
-    pendingMids = null;
-    applyAllMids(next);
+    commitPendingMids();
     return;
   }
   if (midsRafId !== null) return;
   midsRafId = requestAnimationFrame(() => {
     midsRafId = null;
-    const next = pendingMids;
-    pendingMids = null;
-    if (next !== null) applyAllMids(next);
+    commitPendingMids();
   });
+}
+
+/** Cancel a queued `allMids` frame and drop the pending snapshot (idempotent). */
+export function cancelMidsFlush(): void {
+  if (midsRafId !== null) {
+    if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(midsRafId);
+    midsRafId = null;
+  }
+  pendingMids = null;
+}
+
+/** One flush of everything that accumulated while the tab was hidden. */
+function flushPendingOnVisible(): void {
+  flushDirtySymbols();
+  if (midsRafId !== null) {
+    if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(midsRafId);
+    midsRafId = null;
+  }
+  commitPendingMids();
+}
+
+let visibilityWatcherAttached = false;
+let visibilityHidden = isPageHidden();
+
+/**
+ * One module-lifetime listener, never per render. Hiding cancels scheduled
+ * work; becoming visible flushes the accumulated state exactly once. Repeated
+ * notifications for the same state are ignored so pending frames survive.
+ */
+function ensureVisibilityWatcher(): void {
+  if (visibilityWatcherAttached) return;
+  if (typeof document === "undefined" || typeof document.addEventListener !== "function") return;
+  visibilityWatcherAttached = true;
+  visibilityHidden = isPageHidden();
+  onPageVisibilityChange((hidden) => {
+    if (hidden === visibilityHidden) return;
+    visibilityHidden = hidden;
+    if (hidden) {
+      cancelScheduledFlush();
+      cancelMidsFlush();
+      return;
+    }
+    flushPendingOnVisible();
+  });
+}
+
+// One module-level listener: registering per render would leak a handler per mount.
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", cancelMidsFlush);
 }
 
 /** Write one key and apply the candle LRU eviction, bounding the buffer. */
@@ -423,15 +521,9 @@ export const useOrderbookData = (symbol: string): OrderbookData | undefined => {
   const data = useMarketDataStore((s) => s.orderbookData[symbol]);
 
   useEffect(() => {
-    activeOrderbookSubscribers.set(symbol, (activeOrderbookSubscribers.get(symbol) ?? 0) + 1);
+    retainOrderbookSubscriber(symbol);
     return () => {
-      const remaining = (activeOrderbookSubscribers.get(symbol) ?? 1) - 1;
-      if (remaining > 0) {
-        activeOrderbookSubscribers.set(symbol, remaining);
-        return;
-      }
-      activeOrderbookSubscribers.delete(symbol);
-      if (activeOrderbookSubscribers.size === 0) cancelScheduledFlush();
+      releaseOrderbookSubscriber(symbol);
     };
   }, [symbol]);
 

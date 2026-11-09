@@ -3,7 +3,16 @@ import { describe, expect, test } from "bun:test";
 
 import type { EconomicEvent } from "@0xsignal/shared";
 
-import { dayKey, getMonthGridDays, getViewRange, toEventsByDay } from "./date-utils";
+import { endOfDay, startOfDay } from "date-fns";
+
+import {
+  dayKey,
+  getMonthCalendarQuery,
+  getMonthGridDays,
+  getViewRange,
+  selectDayEventsFromMonth,
+  toEventsByDay,
+} from "./date-utils";
 
 const BASE_EVENT: EconomicEvent = {
   id: "",
@@ -70,6 +79,37 @@ describe("toEventsByDay", () => {
       "b-early",
       "b-late",
     ]);
+  });
+});
+
+describe("getMonthCalendarQuery", () => {
+  test("covers the full month grid from local start of day to local end of day", () => {
+    const anchor = new Date(2026, 10, 15);
+    const query = getMonthCalendarQuery(anchor);
+    const days = getMonthGridDays(anchor);
+
+    expect(query.from).toBe(startOfDay(days[0] as Date).toISOString());
+    expect(query.to).toBe(endOfDay(days.at(-1) as Date).toISOString());
+  });
+});
+
+describe("selectDayEventsFromMonth", () => {
+  const monthEvents = [makeEvent("a", at(13, 9)), makeEvent("b", at(14, 16))];
+
+  test("returns null when the month is not cached", () => {
+    expect(selectDayEventsFromMonth(undefined, dayKey(new Date(at(13, 0))))).toBeNull();
+  });
+
+  test("derives only the requested day from a cached month", () => {
+    const events = selectDayEventsFromMonth({ events: monthEvents }, dayKey(new Date(at(13, 0))));
+
+    expect(events?.map((event) => event.id)).toEqual(["a"]);
+  });
+
+  test("distinguishes a cached empty day from an uncached month", () => {
+    const events = selectDayEventsFromMonth({ events: monthEvents }, dayKey(new Date(at(20, 0))));
+
+    expect(events).toEqual([]);
   });
 });
 

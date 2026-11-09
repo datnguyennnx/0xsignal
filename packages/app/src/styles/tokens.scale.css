@@ -121,7 +121,9 @@ html {
   --dur-instant: 0ms;
   --dur-fast: 120ms;
   --dur-base: 180ms;
+  --dur-fade: 200ms;
   --dur-enter: 220ms;
+  --dur-route: 180ms;
   --dur-exit: 100ms;
   --dur-slow: 320ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);

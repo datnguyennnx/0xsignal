@@ -27,7 +27,7 @@ export function OpenOrdersTab({
   const readOnly = readOnlyAddress !== undefined;
   const own = useOpenOrders(!readOnly);
   const whale = useWhaleOpenOrders(readOnlyAddress);
-  const { data: selectedOrders, isLoading: isOoLoading } = readOnly ? whale : own;
+  const { data: selectedOrders, isLoading: isOoLoading, isError, refetch } = readOnly ? whale : own;
   const openOrders: OpenOrder[] | undefined = selectedOrders;
   const paginated = usePagination(openOrders ?? [], 20);
   const orderCount = openOrders?.length ?? 0;
@@ -36,6 +36,10 @@ export function OpenOrdersTab({
     <>
       <OpenOrdersTable
         isOoLoading={isOoLoading}
+        isOoError={isError}
+        onRetry={() => {
+          void refetch();
+        }}
         openOrders={paginated.pageData}
         onCancelOrder={onCancelOrder}
         onViewTpSl={onViewTpSl}

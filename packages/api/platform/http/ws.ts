@@ -19,6 +19,9 @@ export interface WsEventHandlers<D> {
   readonly open: (ws: ServerWebSocket<D>) => void;
   readonly message: (ws: ServerWebSocket<D>, message: string | Buffer) => void;
   readonly pong: (ws: ServerWebSocket<D>) => void;
+  // A socket can error without closing, so the transport needs the same
+  // teardown opportunity the close callback gets.
+  readonly error?: (ws: ServerWebSocket<D>, error: unknown) => void;
   readonly close: (ws: ServerWebSocket<D>) => void;
 }
 

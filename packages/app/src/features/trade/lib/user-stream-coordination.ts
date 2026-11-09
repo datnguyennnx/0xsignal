@@ -7,6 +7,11 @@
 
 type TabRole = "undecided" | "leader" | "follower";
 
+// Shared liveness cadence: the leader pings on this interval and prunes a
+// remote tab once it has missed this many consecutive pings.
+export const TAB_PING_INTERVAL_MS = 15000;
+export const TAB_MISSED_PONG_LIMIT = 2;
+
 export interface TabChannel {
   send(message: unknown): void;
   close(): void;
@@ -64,17 +69,50 @@ export function createTabCoordinator<E>(options: TabCoordinatorOptions<E>): TabC
   let role: TabRole = "undecided";
   let leaderId: string | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let pingTimer: ReturnType<typeof setInterval> | null = null;
+  let disposed = false;
   let resolveReady: (() => void) | null = null;
   const ready = new Promise<void>((resolve) => {
     resolveReady = resolve;
   });
 
   const channel = options.createChannel("0xsignal:user-stream:v1");
+  /** Leader-side view of which remote tabs answered the last ping. */
+  const followerLiveness = new Map<string, number>();
   const clearTimer = (): void => {
     if (timer !== null) {
       clearTimeout(timer);
       timer = null;
     }
+  };
+
+  const stopPinging = (): void => {
+    if (pingTimer !== null) {
+      clearInterval(pingTimer);
+      pingTimer = null;
+    }
+    followerLiveness.clear();
+  };
+
+  const startPinging = (): void => {
+    if (pingTimer !== null) return;
+    pingTimer = setInterval(() => {
+      for (const [id, missed] of followerLiveness) {
+        const next = missed + 1;
+        if (next >= TAB_MISSED_PONG_LIMIT) {
+          followerLiveness.delete(id);
+          options.onRemoteTabGone(id);
+        } else {
+          followerLiveness.set(id, next);
+        }
+      }
+      channel.send({ kind: "ping", tabId: options.tabId });
+    }, TAB_PING_INTERVAL_MS);
+  };
+
+  const noteTab = (id: string | null): void => {
+    if (id === null || id === options.tabId || role !== "leader") return;
+    if (!followerLiveness.has(id)) followerLiveness.set(id, 0);
   };
 
   const settle = (next: TabRole): void => {
@@ -88,11 +126,13 @@ export function createTabCoordinator<E>(options: TabCoordinatorOptions<E>): TabC
     settle("leader");
     leaderId = options.tabId;
     channel.send({ kind: "leader", tabId: options.tabId });
+    startPinging();
     options.onPromote();
   };
 
   const becomeFollower = (id: string): void => {
     const wasLeader = role === "leader";
+    if (wasLeader) stopPinging();
     leaderId = id;
     if (role !== "follower") settle("follower");
     if (wasLeader) options.onDemote();
@@ -108,11 +148,24 @@ export function createTabCoordinator<E>(options: TabCoordinatorOptions<E>): TabC
   };
 
   const onMessage = (event: MessageEvent<unknown>): void => {
+    if (disposed) return;
     const message = event.data;
     if (!isRecord(message) || typeof message.kind !== "string") return;
 
     if (message.kind === "probe") {
       if (role === "leader") channel.send({ kind: "leader", tabId: options.tabId });
+      return;
+    }
+
+    if (message.kind === "ping") {
+      if (role !== "leader") channel.send({ kind: "pong", tabId: options.tabId });
+      return;
+    }
+
+    if (message.kind === "pong") {
+      const id = readTabId(message);
+      if (id === null || id === options.tabId || role !== "leader") return;
+      followerLiveness.set(id, 0);
       return;
     }
 
@@ -131,6 +184,7 @@ export function createTabCoordinator<E>(options: TabCoordinatorOptions<E>): TabC
     if (message.kind === "bye") {
       const id = readTabId(message);
       if (id === null) return;
+      followerLiveness.delete(id);
       options.onRemoteTabGone(id);
       if (role !== "leader" && (leaderId === null || leaderId === id)) {
         leaderId = null;
@@ -159,6 +213,7 @@ export function createTabCoordinator<E>(options: TabCoordinatorOptions<E>): TabC
       const request = readRequest(message);
       const id = readTabId(message);
       if (request === null || id === null || id === options.tabId) return;
+      noteTab(id);
       if (message.kind === "subscribe") options.onRemoteSubscribe(request, id);
       else options.onRemoteUnsubscribe(request, id);
     }
@@ -184,6 +239,9 @@ export function createTabCoordinator<E>(options: TabCoordinatorOptions<E>): TabC
       channel.send({ kind: "unsubscribe", ...request, tabId: options.tabId });
     },
     dispose: () => {
+      if (disposed) return;
+      disposed = true;
+      stopPinging();
       channel.send({ kind: "bye", tabId: options.tabId });
       channel.close();
       clearTimer();

@@ -3,10 +3,8 @@ import { api } from "@/services/api";
 import { queryKeys } from "@/lib/query-keys";
 import { parseSymbol } from "../lib/symbol";
 
-export function useTradeAnnotation(symbol: string) {
-  const coin = parseSymbol(symbol).coin;
-
-  return useQuery({
+export function tradeAnnotationQueryOptions(coin: string) {
+  return {
     queryKey: queryKeys.asset.annotation(coin),
     queryFn: async () => {
       const payload = await api.getTradeAnnotation(coin);
@@ -16,5 +14,13 @@ export function useTradeAnnotation(symbol: string) {
     staleTime: 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     refetchOnWindowFocus: false,
-  });
+    // Annotation text changes rarely; the next mount is the right refresh point.
+    refetchOnReconnect: false,
+  };
+}
+
+export function useTradeAnnotation(symbol: string) {
+  const coin = parseSymbol(symbol).coin;
+
+  return useQuery(tradeAnnotationQueryOptions(coin));
 }

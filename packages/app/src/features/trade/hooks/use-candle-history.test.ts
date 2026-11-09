@@ -2,6 +2,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
 import { ApiError } from "../../../lib/api-error";
+import {
+  HL_INFO_URL,
+  jsonResponse as jsonResponseWithHeaders,
+  market,
+  stubFetch,
+} from "../../../test/fixtures";
+import { setCoinIndexLoader } from "../lib/hl-market-stream";
 import { fetchByRange, fetchHistorical } from "./use-candle-history";
 
 const realFetch = globalThis.fetch;
@@ -48,6 +55,36 @@ describe("fetchHistorical", () => {
 
     expect(error instanceof ApiError).toBe(true);
     expect(statusOf(error)).toBe(503);
+  });
+});
+
+describe("fetchHistorical fallback laziness", () => {
+  test("a successful direct load issues no /candles/recent request", async () => {
+    setCoinIndexLoader(() => Promise.resolve([market()]));
+    try {
+      const calls = stubFetch(() =>
+        jsonResponseWithHeaders([
+          {
+            t: 1_700_000_000_000,
+            T: 1_700_000_300_000,
+            s: "BTC",
+            i: "1h",
+            o: "1",
+            c: "2",
+            h: "3",
+            l: "0.5",
+            v: "10",
+            n: 3,
+          },
+        ]),
+      );
+
+      expect(await fetchHistorical("BTC", "1h", 200)).toHaveLength(1);
+      expect(calls.filter((call) => call.url.startsWith(HL_INFO_URL))).toHaveLength(1);
+      expect(calls.some((call) => call.url.includes("/candles/recent"))).toBe(false);
+    } finally {
+      setCoinIndexLoader(null);
+    }
   });
 });
 

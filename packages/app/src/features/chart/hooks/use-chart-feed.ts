@@ -4,10 +4,13 @@ import { useUserFills } from "@/features/trade/hooks/use-user-data";
 import {
   intervalToSeconds,
   mapFillsToLogicalMarkers,
+  markerFillWindow,
+  selectMarkerFillsInWindow,
   type HyperliquidFill,
   type LogicalTradeMarker,
 } from "@/features/trade/utils/trade-markers";
 import { mapToHLInterval } from "@/core/utils/hyperliquid";
+import { CHART_CANDLE_LIMIT } from "@/features/trade/lib/candle-limit";
 
 interface UseChartFeedParams {
   symbol: string;
@@ -24,8 +27,13 @@ export function useChartFeed({ symbol, interval, fillsEnabled = true }: UseChart
     isLoading: candlesLoading,
     error: candleError,
     loadMore: loadMoreCandles,
+    retry: retryCandles,
     hasMore: hasMoreCandles,
-  } = useHyperliquidCandles({ symbol, interval: mapToHLInterval(interval), limit: 250 });
+  } = useHyperliquidCandles({
+    symbol,
+    interval: mapToHLInterval(interval),
+    limit: CHART_CANDLE_LIMIT,
+  });
 
   const handleLoadMore = useCallback(async () => {
     await loadMoreCandles();
@@ -33,6 +41,12 @@ export function useChartFeed({ symbol, interval, fillsEnabled = true }: UseChart
 
   // Trade markers: HTML overlay (B/S circles)
   const { data: rawFills } = useUserFills(fillsEnabled);
+  const timeframeSec = useMemo(() => intervalToSeconds(interval), [interval]);
+  // Only the window bounds matter to selection; a candle tick inside the same
+  // window must not re-filter or re-sort the fills.
+  const fillWindow = markerFillWindow(candles, timeframeSec);
+  const fillWindowStartMs = fillWindow?.startMs ?? null;
+  const fillWindowEndMs = fillWindow?.endMs ?? null;
   const fills = useMemo<readonly HyperliquidFill[]>(() => {
     if (!rawFills) return EMPTY_FILLS;
 
@@ -51,10 +65,15 @@ export function useChartFeed({ symbol, interval, fillsEnabled = true }: UseChart
         tid: fill.tid,
       });
     }
-    return mapped;
-  }, [rawFills]);
-
-  const timeframeSec = useMemo(() => intervalToSeconds(interval), [interval]);
+    // The mapper sorts and copies everything it receives, so drop fills the
+    // chart cannot show and cap the rest before handing them over.
+    return selectMarkerFillsInWindow(
+      mapped,
+      fillWindowStartMs === null || fillWindowEndMs === null
+        ? null
+        : { startMs: fillWindowStartMs, endMs: fillWindowEndMs },
+    );
+  }, [rawFills, fillWindowStartMs, fillWindowEndMs]);
 
   const markers = useMemo<LogicalTradeMarker[]>(
     () => mapFillsToLogicalMarkers(fills, timeframeSec, symbol),
@@ -66,6 +85,7 @@ export function useChartFeed({ symbol, interval, fillsEnabled = true }: UseChart
     isLoading: candlesLoading,
     hasMoreCandles,
     handleLoadMore,
+    retryCandles,
     markers,
     candleError,
   };

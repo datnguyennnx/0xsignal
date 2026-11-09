@@ -2,10 +2,15 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
+import { useQueryClient } from "@tanstack/react-query";
+
 import { SaveBar } from "@/components/save-bar";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { api } from "@/services/api";
+import { queryKeys } from "@/lib/query-keys";
+import { useOwnAddress } from "@/hooks/use-effective-address";
 import { useFormDirtyTracker } from "../hooks/use-form-dirty";
+import { applyProfileUpdate } from "../lib/profile-update";
 import { ProfileCard, ProfileLoading, ProfileSignedOut } from "./profile-sections";
 import { SettingsSection } from "./settings-section";
 
@@ -14,6 +19,8 @@ export function ProfileSettings() {
   const isLoading = useAuthStore((s) => s.isLoading);
   const signOut = useAuthStore((s) => s.signOut);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const address = useOwnAddress() ?? "";
   const userDisplayName = user?.displayName ?? "";
   const [displayName, setDisplayName] = useState(userDisplayName);
   const [baselineDisplayName, setBaselineDisplayName] = useState(userDisplayName);
@@ -41,7 +48,20 @@ export function ProfileSettings() {
     }
     setIsSaving(true);
     try {
-      await api.updateProfile({ displayName: trimmed });
+      const updated = await api.updateProfile({ displayName: trimmed });
+
+      // The store backs every avatar/name surface in the app; local form state
+      // alone would leave them showing the previous profile.
+      applyProfileUpdate(updated);
+
+      // Approval labels are account-scoped, so refresh that cache too when a
+      // wallet is connected. The display name itself changes no approval.
+      if (address !== "") {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.user.agentRegistrations(address),
+        });
+      }
+
       setDisplayName(trimmed);
       setBaselineDisplayName(trimmed);
       toast.success("Profile updated");

@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { lazy, Suspense, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,18 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 import { ResetLayoutButton } from "@/components/reset-layout-button";
 import { useAppStore } from "@/stores/use-app-store";
 import { useWhaleAddress } from "@/hooks/use-effective-address";
 import { useConnection, useDisconnect } from "wagmi";
+
+// The dialog pulls the wallet-connect options + wagmi connector SDKs; it only
+// mounts after a click, so keep that graph out of the entry chunk.
+const ConnectWalletDialogLazy = lazy(() =>
+  import("@/components/connect-wallet-dialog").then((m) => ({
+    default: m.ConnectWalletDialog,
+  })),
+);
 
 const shortAddress = (value: string): string => `${value.slice(0, 6)}…${value.slice(-4)}`;
 
@@ -95,14 +102,16 @@ export function UserNav() {
       </Button>
 
       {isConnectWalletOpen && (
-        <ConnectWalletDialog
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) {
-              closeConnectWallet();
-            }
-          }}
-        />
+        <Suspense fallback={null}>
+          <ConnectWalletDialogLazy
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) {
+                closeConnectWallet();
+              }
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );

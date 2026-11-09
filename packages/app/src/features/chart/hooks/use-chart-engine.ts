@@ -50,6 +50,41 @@ const sameCandle = (a: ChartDataPoint, b: ChartDataPoint): boolean =>
   a.low === b.low &&
   a.close === b.close;
 
+type ChartOptions = NonNullable<Parameters<typeof createChart>[1]>;
+type ChartFactory = (container: HTMLElement, options: ChartOptions) => IChartApi;
+
+export interface ManagedChart<T> {
+  chart: IChartApi;
+  value: T;
+  remove: () => void;
+}
+
+/**
+ * A chart owns a canvas and an autoSize observer the moment it is created. If
+ * any synchronous construction step throws, React never receives the cleanup
+ * that would remove it, so the chart has to be torn down at the throw site.
+ */
+export function createManagedChart<T>(
+  container: HTMLElement,
+  options: ChartOptions,
+  build: (chart: IChartApi) => T,
+  factory: ChartFactory = createChart,
+): ManagedChart<T> {
+  const chart = factory(container, options);
+  try {
+    return {
+      chart,
+      value: build(chart),
+      remove: () => {
+        chart.remove();
+      },
+    };
+  } catch (error) {
+    chart.remove();
+    throw error;
+  }
+}
+
 export const useChartEngine = ({
   containerRef,
   priceFormat,
@@ -95,7 +130,7 @@ export const useChartEngine = ({
     const text = colors["--data-axis"];
     const crosshair = colors["--data-crosshair"];
 
-    const chart = createChart(container, {
+    const options: ChartOptions = {
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
@@ -132,34 +167,41 @@ export const useChartEngine = ({
         vertLine: { width: 1, color: crosshair, style: 3 },
         horzLine: { width: 1, color: crosshair, style: 3 },
       },
+    };
+
+    const managed = createManagedChart(container, options, (chart) => {
+      const candlestickSeries = chart.addSeries(CandlestickSeries, {
+        upColor: colors["--data-up"],
+        downColor: colors["--data-down"],
+        borderVisible: false,
+        wickUpColor: colors["--data-up"],
+        wickDownColor: colors["--data-down"],
+        priceFormat: {
+          type: "custom" as const,
+          minMove: priceFormatRef.current.minMove,
+          formatter: priceFormatRef.current.formatter ?? ((value: number) => `${value}`),
+        },
+      });
+
+      const volumeSeries = chart.addSeries(
+        HistogramSeries,
+        {
+          color: colors["--data-volume"],
+          priceFormat: { type: "volume" },
+          lastValueVisible: false,
+          priceLineVisible: false,
+        },
+        1,
+      );
+
+      const panes = chart.panes();
+      if (panes.length > 1) panes[1].setHeight(getVolumePaneHeight());
+
+      return { candlestickSeries, volumeSeries };
     });
 
-    const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: colors["--data-up"],
-      downColor: colors["--data-down"],
-      borderVisible: false,
-      wickUpColor: colors["--data-up"],
-      wickDownColor: colors["--data-down"],
-      priceFormat: {
-        type: "custom" as const,
-        minMove: priceFormatRef.current.minMove,
-        formatter: priceFormatRef.current.formatter ?? ((value: number) => `${value}`),
-      },
-    });
-
-    const volumeSeries = chart.addSeries(
-      HistogramSeries,
-      {
-        color: colors["--data-volume"],
-        priceFormat: { type: "volume" },
-        lastValueVisible: false,
-        priceLineVisible: false,
-      },
-      1,
-    );
-
-    const panes = chart.panes();
-    if (panes.length > 1) panes[1].setHeight(getVolumePaneHeight());
+    const { chart } = managed;
+    const { candlestickSeries, volumeSeries } = managed.value;
 
     chartRef.current = chart;
     candlestickSeriesRef.current = candlestickSeries;
@@ -248,7 +290,7 @@ export const useChartEngine = ({
     return () => {
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
       chart.unsubscribeCrosshairMove(handleCrosshairMove);
-      chart.remove();
+      managed.remove();
       chartRef.current = null;
       candlestickSeriesRef.current = null;
       volumeSeriesRef.current = null;

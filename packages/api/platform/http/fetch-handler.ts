@@ -14,6 +14,31 @@ interface CorsConfig {
 }
 
 /**
+ * Counts live WebSocket connections. Acquiring happens at upgrade time — the
+ * earliest point a connection can still be rejected with an HTTP response.
+ */
+export interface ConnectionCap {
+  readonly tryAcquire: () => boolean;
+  readonly release: () => void;
+  readonly active: () => number;
+}
+
+export const createConnectionCap = (limit: number): ConnectionCap => {
+  let active = 0;
+  return {
+    tryAcquire: () => {
+      if (active >= limit) return false;
+      active += 1;
+      return true;
+    },
+    release: () => {
+      if (active > 0) active -= 1;
+    },
+    active: () => active,
+  };
+};
+
+/**
  * Creates the Bun `fetch` callback for the HTTP server, composing:
  * 1. WebSocket upgrade handling (delegated to the injected `ws` setup)
  * 2. HTTP routing (delegated to the injected `handleRequest`)
@@ -25,6 +50,7 @@ export const createFetchHandler = <R, D>(
   ws: WsSetup<D>,
   mapError: (error: unknown) => HttpError,
   handleRequest: (request: Request) => Effect.Effect<Response, never, R>,
+  connectionCap?: ConnectionCap,
 ) => {
   const corsHeaders = cors.headers;
   const applyCors = cors.applyTo;
@@ -32,11 +58,26 @@ export const createFetchHandler = <R, D>(
 
   return async (req: Request, server: Server<D>): Promise<Response | undefined> => {
     const url = new URL(req.url);
+    const isWsPath = url.pathname === ws.path;
+
+    // Reject before upgrading: once Bun has the socket there is no HTTP
+    // response left to send, only an after-the-fact close.
+    if (isWsPath && connectionCap !== undefined && !connectionCap.tryAcquire()) {
+      return new Response(
+        JSON.stringify({ error: "Too many WebSocket connections", status: 503 }),
+        {
+          status: 503,
+          headers: new Headers({ ...corsHeaders, "Content-Type": "application/json" }),
+        },
+      );
+    }
 
     const wsResult = ws.upgrade(url, req, server);
 
     // upgrade returned a Response → WS error (validation or upgrade failure)
     if (wsResult !== undefined) {
+      // Nothing was handed to Bun, so the slot acquired above is not live.
+      if (isWsPath) connectionCap?.release();
       const headers = new Headers(wsResult.headers);
       for (const k of Object.keys(corsHeaders)) {
         headers.set(k, corsHeaders[k]);
@@ -45,7 +86,7 @@ export const createFetchHandler = <R, D>(
     }
 
     // undefined + WS path → upgrade succeeded, Bun handles the rest
-    if (url.pathname === ws.path) return undefined;
+    if (isWsPath) return undefined;
 
     if (req.method === "OPTIONS") return corsPreflight;
 

@@ -1,6 +1,8 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { useOwnAddress } from "@/hooks/use-effective-address";
 import { useAuthStore } from "@/stores/use-auth-store";
 import type { AgentRegistration } from "@/services/api";
 import { useAgentRegistrations } from "../hooks/use-agent-registrations";
@@ -65,9 +67,59 @@ export function AgentRegistrationsBanner({ registrations }: AgentRegistrationsBa
   );
 }
 
-export function AgentRegistrationsWarning() {
+function AgentRegistrationsLoadingRow() {
+  return (
+    <output
+      aria-live="polite"
+      aria-busy="true"
+      className="flex items-center gap-2 rounded-control bg-muted/40 px-3 py-2"
+    >
+      <Loader2 className="size-icon animate-spin text-muted-foreground" aria-hidden="true" />
+      <span className="type-label text-muted-foreground">Checking earlier agent approvals</span>
+    </output>
+  );
+}
+
+function AgentRegistrationsErrorRow({ onRetry }: { onRetry: () => void }) {
+  return (
+    <Alert>
+      <AlertTriangle />
+      <AlertTitle>Couldn&apos;t check earlier agent approvals</AlertTitle>
+      <AlertDescription>
+        The approval history request failed. Check your connection and try again.
+        <Button variant="outline" onClick={onRetry}>
+          Retry
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+interface AgentRegistrationsWarningProps {
+  /** Only the wallet tab that shows approvals needs this probe. */
+  readonly enabled?: boolean;
+}
+
+export function AgentRegistrationsWarning({ enabled = true }: AgentRegistrationsWarningProps = {}) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const { data } = useAgentRegistrations(isAuthenticated);
+  const address = useOwnAddress() ?? "";
+  const { data, isLoading, isError, refetch } = useAgentRegistrations(
+    address,
+    isAuthenticated && enabled,
+  );
+
+  // Disabled or signed out means the query never ran, so render nothing.
+  if (!enabled || !isAuthenticated) return null;
+  if (isLoading) return <AgentRegistrationsLoadingRow />;
+  if (isError) {
+    return (
+      <AgentRegistrationsErrorRow
+        onRetry={() => {
+          void refetch();
+        }}
+      />
+    );
+  }
 
   return <AgentRegistrationsBanner registrations={data ?? []} />;
 }

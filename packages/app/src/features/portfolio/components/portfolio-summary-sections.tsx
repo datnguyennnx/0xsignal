@@ -2,6 +2,7 @@ import { cn } from "cn";
 
 import { ScrollEdge } from "@/components/surface/scroll-edge";
 import { Surface } from "@/components/surface/surface";
+import { ErrorState } from "@/components/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompactUsd, formatSignedPercent, formatSignedUsd } from "@/core/utils/formatters";
 
@@ -56,13 +57,16 @@ export function PortfolioSummarySkeleton() {
   );
 }
 
-export function PortfolioSummaryError() {
+export function PortfolioSummaryError({ onRetry }: { onRetry?: (() => void) | undefined }) {
   return (
     <Surface tier="content" className={SURFACE}>
-      <div className="flex-1 flex items-center justify-center">
-        <span className="type-label uppercase tracking-widest text-muted-foreground">
-          Unable to load
-        </span>
+      <div role="alert" className="flex-1 flex items-center justify-center">
+        <ErrorState
+          title="Unable to load portfolio"
+          description="One or more portfolio requests failed. Check your connection and try again."
+          retryAction={onRetry}
+          className="py-6"
+        />
       </div>
     </Surface>
   );

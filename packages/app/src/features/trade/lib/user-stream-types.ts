@@ -103,6 +103,14 @@ export interface UserStreamUpstream {
   getConnectionState(): UserStreamConnectionState;
   onConnectionStateChange(listener: (state: UserStreamConnectionState) => void): () => void;
   onError?(listener: (error: Error) => void): () => void;
+  /**
+   * Forces a reconnect of the underlying socket. This is deliberately not a
+   * close: closing the transport is terminal, while the SDK reconnects and
+   * re-subscribes after a half-open socket.
+   */
+  reconnect(): void;
+  /** True when no inbound message arrived within `maxAgeMs` (default 65s). */
+  isStale(maxAgeMs?: number): boolean;
   dispose(): void;
 }
 
@@ -216,15 +224,52 @@ export interface UserStreamClient {
   dispose(): void;
 }
 
+/** Upper bound on the merged history so a long session cannot grow without limit. */
+export const MAX_MERGED_FILLS = 2000;
+
+const byTimeDescending = (a: UserFill, b: UserFill): number => b.time - a.time;
+
 /** Snapshot replaces, update merges newest-first and de-duplicates by fill id. */
 export function mergeUserFills(
   current: readonly UserFill[] | undefined,
   event: UserFillsStreamEvent,
 ): UserFill[] {
-  if (event.isSnapshot || current === undefined) return [...event.data];
+  if (event.isSnapshot || current === undefined) {
+    const seen = new Set<number>();
+    const unique: UserFill[] = [];
+    for (const fill of event.data) {
+      if (seen.has(fill.tid)) continue;
+      seen.add(fill.tid);
+      unique.push(fill);
+    }
+    return unique.toSorted(byTimeDescending).slice(0, MAX_MERGED_FILLS);
+  }
 
-  const seen = new Set(current.map((fill) => fill.tid));
-  const merged = [...event.data.filter((fill) => !seen.has(fill.tid)), ...current];
-  merged.sort((a, b) => b.time - a.time);
+  // Only the incoming batch is sorted: `current` is already newest-first. Merge
+  // the two descending runs and stop once the cap is reached.
+  const incoming = event.data.toSorted(byTimeDescending);
+  const merged: UserFill[] = [];
+  const seen = new Set<number>();
+  let incomingIndex = 0;
+  let currentIndex = 0;
+
+  while (
+    merged.length < MAX_MERGED_FILLS &&
+    (incomingIndex < incoming.length || currentIndex < current.length)
+  ) {
+    // Ties favour the incoming batch, matching the previous stable sort where
+    // new fills were prepended before `current`.
+    const incomingIsNewer =
+      incomingIndex < incoming.length &&
+      currentIndex < current.length &&
+      incoming[incomingIndex].time >= current[currentIndex].time;
+    const takeIncoming = currentIndex >= current.length || incomingIsNewer;
+    const next = takeIncoming ? incoming[incomingIndex++] : current[currentIndex++];
+
+    if (seen.has(next.tid)) continue;
+    seen.add(next.tid);
+    merged.push(next);
+  }
+
   return merged;
 }
