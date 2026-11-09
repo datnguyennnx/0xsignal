@@ -1,5 +1,5 @@
 import { type ReactNode, useLayoutEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 import { Menu } from "lucide-react";
 import { AppSidePanelProvider } from "@/components/app-side-panel";
 import { SidePanelRegion } from "@/components/side-panel";

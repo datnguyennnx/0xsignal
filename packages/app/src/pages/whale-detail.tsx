@@ -1,4 +1,4 @@
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router";
 import { isValidAddress } from "@/core/utils/address";
 import { PortfolioView } from "@/features/portfolio/components/portfolio-view";
 

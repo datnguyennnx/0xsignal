@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback, useDeferredValue } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { computeOverlayPosition } from "@/features/trade/lib/overlay-position";

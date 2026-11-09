@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useConnection } from "wagmi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
 import { useAuthStore } from "@/stores/use-auth-store";

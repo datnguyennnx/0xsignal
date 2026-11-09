@@ -1,4 +1,4 @@
-import { matchPath } from "react-router-dom";
+import { matchPath } from "react-router";
 import { AssetDetailSkeleton } from "@/components/asset-detail-skeleton";
 import { ROUTES } from "@/lib/routes";
 

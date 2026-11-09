@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } 
 import { QueryClient, QueryClientProvider, type Query } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 
 const OWN = "0x0000000000000000000000000000000000000001";
 const WHALE = "0x0000000000000000000000000000000000000002";

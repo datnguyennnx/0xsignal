@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { CalendarBoard } from "@/features/calendar/components/calendar-board";
 import { ErrorBoundary } from "@/components/error-boundary";
 

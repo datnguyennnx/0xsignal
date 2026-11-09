@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import type { JSX } from "react";
 import { WhalePositionsTable } from "@/features/whales/components/whale-positions-table";
 import { ErrorBoundary } from "@/components/error-boundary";

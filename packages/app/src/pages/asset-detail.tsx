@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router";
 import { toast } from "sonner";
 import { useAssetPrice } from "@/features/asset-detail/hooks/use-asset-price";
 import { useDocumentTitle, formatAssetTitle } from "@/hooks/use-document-title";

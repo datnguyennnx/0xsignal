@@ -20,7 +20,7 @@ import {
 import { computeAccruedFunding, deriveMarkPrice } from "../utils/trade-math";
 import { useMidPrice } from "@/stores/use-market-data-store";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 const CELL = cn(c, "px-2 py-1");
 const CELL_NUM = cn(cNum, "px-2 py-1");

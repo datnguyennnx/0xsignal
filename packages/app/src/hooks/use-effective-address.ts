@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import { useConnection } from "wagmi";
 import { selectAccountView, type AccountView } from "@/hooks/account-view";
 

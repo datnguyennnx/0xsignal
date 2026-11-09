@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { Github, Google } from "@/components/icons/brands";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";

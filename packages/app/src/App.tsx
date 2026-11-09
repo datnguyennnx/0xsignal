@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router";
 import { AppRouter } from "@/app-router";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AppToasters } from "@/components/app-toasters";

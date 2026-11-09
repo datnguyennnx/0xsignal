@@ -1,5 +1,5 @@
 import { Suspense, useEffect, type ReactNode } from "react";
-import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { MainLayout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { NavigationProgress } from "@/components/navigation-progress";

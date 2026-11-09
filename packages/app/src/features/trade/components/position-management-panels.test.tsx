@@ -2,7 +2,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 
 import { Tabs } from "@/components/ui/tabs";
 import type { PositionRow } from "./positions-table";

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

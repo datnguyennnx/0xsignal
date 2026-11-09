@@ -1,5 +1,5 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
-import { matchPath } from "react-router-dom";
+import { matchPath } from "react-router";
 import { AssetDetailSkeleton } from "@/components/asset-detail-skeleton";
 
 type RoutePage = LazyExoticComponent<ComponentType>;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { useConnection } from "wagmi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState, type JSX } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import type { ClearinghouseState } from "@0xsignal/shared";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";

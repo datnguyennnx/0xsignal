@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, type JSX } from "react";
 import type { WhalePosition } from "@0xsignal/shared";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";

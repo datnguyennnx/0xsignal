@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import {
   attachNavigationProgressListeners,
   clearNavigationProgress,

@@ -1,7 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 
 import { useMarketDataStore } from "@/stores/use-market-data-store";
 

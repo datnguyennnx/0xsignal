@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { User, Palette, SlidersHorizontal, Terminal } from "lucide-react";
 import { ApiConsole } from "@/features/settings/components/api-console";
 import { AgentRegistrationsWarning } from "@/features/settings/components/agent-registrations-warning";

@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => {
       dedupe: [
         "react",
         "react-dom",
-        "react-router-dom",
+        "react-router",
         "@tanstack/react-query",
         "zustand",
         "date-fns",
@@ -69,7 +69,7 @@ export default defineConfig(({ mode }) => {
       include: [
         "react",
         "react-dom",
-        "react-router-dom",
+        "react-router",
         "@tanstack/react-query",
         "zustand",
         "zustand/middleware",
@@ -168,7 +168,7 @@ export default defineConfig(({ mode }) => {
               },
               {
                 name: "vendor-react",
-                test: /node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/,
+                test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/,
                 priority: 100,
                 minSize: 20_000,
               },

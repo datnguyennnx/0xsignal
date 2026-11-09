@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Surface } from "@/components/surface/surface";
 import { Skeleton } from "@/components/ui/skeleton";
