@@ -351,10 +351,6 @@
     inset: 0 0 auto;
     height: 200%;
     background: var(--scroll-edge-fill);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    mask-image: linear-gradient(to bottom, black 0 40%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, black 0 40%, transparent 100%);
   }
 
   :where(.tier-content, .tier-solid, .tier-control, .tier-floating)[data-material="plate"] {

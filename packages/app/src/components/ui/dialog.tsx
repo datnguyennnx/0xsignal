@@ -259,7 +259,7 @@ function DialogContent({
           data-layout={layout}
           {...surface}
           className={cn(
-            "tier-floating fixed inset-0 m-auto grid grid-rows-[auto_minmax(0,1fr)_auto] gap-panel overflow-hidden rounded-overlay p-panel type-body text-popover-foreground outline-none data-open:duration-[240ms] data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:duration-[160ms] data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "tier-floating fixed inset-0 m-auto grid grid-rows-[auto_minmax(0,1fr)_auto] gap-panel overflow-hidden rounded-overlay p-panel type-body text-popover-foreground outline-none data-open:duration-[240ms] data-open:animate-in data-open:fade-in-0 data-closed:duration-[160ms] data-closed:animate-out data-closed:fade-out-0",
             // A dialog sizes to its content. `inset-0` alone stretches a fixed box to
             // the viewport, so `h-fit` is what keeps the frame compact and centred.
             layout === "workspace" ? "h-(--workspace-h)" : "h-fit max-h-[min(80dvh,42rem)]!",

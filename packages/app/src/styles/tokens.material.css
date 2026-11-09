@@ -31,8 +31,8 @@
   --glass-saturate-heavy: 2;
   --glass-brightness: 1.04;
   --glass-brightness-heavy: 1.05;
-  --glass-blur: calc(40px * var(--glass-blur-k));
-  --glass-blur-heavy: calc(44px * var(--glass-blur-k));
+  --glass-blur: calc(20px * var(--glass-blur-k));
+  --glass-blur-heavy: calc(24px * var(--glass-blur-k));
   --plate-fill: oklch(0.985 0.005 95 / 0.97);
   --scrim: oklch(0.2 0.008 95 / 0.26);
   --clear-dimming: oklch(0.16 0.008 95 / 0.15);
@@ -63,7 +63,7 @@
   --glass-lift: oklch(0.24 0.03 100 / 0.08);
   --overlay-lift: oklch(0.24 0.03 100 / 0.13);
   --fill-rim: oklch(1 0 0 / 0.25);
-  --scroll-edge-fill: linear-gradient(to bottom, oklch(1 0 0 / 0.16), transparent);
+  --scroll-edge-fill: linear-gradient(to bottom, var(--surface-base) 0%, transparent 100%);
 
   --shadow-e1: 0 1px 2px oklch(0.24 0.03 100 / 0.07);
   --shadow-e2: 0 8px 24px -6px oklch(0.24 0.03 100 / 0.12);
@@ -103,8 +103,8 @@
   --glass-saturate-heavy: 2;
   --glass-brightness: 1.08;
   --glass-brightness-heavy: 1.1;
-  --glass-blur: calc(36px * var(--glass-blur-k));
-  --glass-blur-heavy: calc(40px * var(--glass-blur-k));
+  --glass-blur: calc(20px * var(--glass-blur-k));
+  --glass-blur-heavy: calc(24px * var(--glass-blur-k));
   --plate-fill: oklch(0.205 0.008 85 / 0.97);
   --scrim: oklch(0.06 0.008 85 / 0.6);
   --clear-dimming: oklch(0.06 0.008 85 / 0.22);
@@ -135,7 +135,7 @@
   --glass-lift: oklch(0.06 0.01 100 / 0.4);
   --overlay-lift: oklch(0.06 0.01 100 / 0.5);
   --fill-rim: oklch(1 0 0 / 0.18);
-  --scroll-edge-fill: linear-gradient(to bottom, oklch(1 0 0 / 0.06), transparent);
+  --scroll-edge-fill: linear-gradient(to bottom, var(--surface-base) 0%, transparent 100%);
 
   --shadow-e1: 0 1px 2px oklch(0.08 0.01 100 / 0.3);
   --shadow-e2: 0 8px 24px -6px oklch(0.08 0.01 100 / 0.4);

@@ -13,7 +13,7 @@ html[data-glass="balanced"] {
 html[data-glass="frosted"] {
   --glass-alpha-k: 1.18;
   --frost-alpha-k: 1.15;
-  --glass-blur-k: 1.25;
+  --glass-blur-k: 1.1;
 }
 
 html[data-ambient="off"] {
