@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "cn";
 import { gridTemplate } from "../utils/trade-dropdown-columns";
 import { HeaderCell } from "./trade-dropdown.columns.helpers";
-import type { ColumnDef, FormattedTrade } from "../utils/trade-dropdown";
+import type { ColumnDef } from "../utils/trade-dropdown-columns";
 
 const ROW_GRID = "grid min-w-0 gap-1 px-2";
 
@@ -41,34 +41,6 @@ export function MarketHeader({
     >
       {columns.map((col) => (
         <HeaderCell key={col.id} col={col} sortBy={sortBy} sortDesc={sortDesc} onSort={onSort} />
-      ))}
-    </GridRow>
-  );
-}
-
-export function MarketRow({ item, columns }: { item: FormattedTrade; columns: ColumnDef[] }) {
-  return (
-    <GridRow columns={columns} className="py-1">
-      {columns.map((col) => (
-        <div
-          key={col.id}
-          className={cn("flex items-center min-w-0", col.align === "right" && "justify-end")}
-        >
-          <span
-            className={cn(
-              "type-body tabular-nums truncate min-w-0",
-              col.align === "right" && "text-right",
-              col.id === "symbol" && "font-medium",
-              col.id === "change" && (item.changeValue >= 0 ? "text-gain" : "text-loss"),
-              col.id === "funding" && (Number(item.funding) >= 0 ? "text-gain" : "text-loss"),
-              col.id === "volume" && "text-muted-foreground",
-              col.id === "oi" && "text-muted-foreground type-label",
-              col.id === "marketCap" && "text-muted-foreground type-label",
-            )}
-          >
-            {col.render(item)}
-          </span>
-        </div>
       ))}
     </GridRow>
   );

@@ -138,10 +138,11 @@ export function getAggregatedMarketsSnapshot(
   return Effect.gen(function* () {
     const { spotTokens: preFetchedTokens, spotMetaAndAssetCtxs: preFetchedSpot } = options ?? {};
 
-    const resolvedTokens = preFetchedTokens ?? (yield* getSpotTokens(info));
-
     const allResult = yield* Effect.all(
       {
+        spotTokens:
+          preFetchedTokens === undefined ? getSpotTokens(info) : Effect.succeed(preFetchedTokens),
+
         dexNamesResult: degradeUnlessRateLimited(
           Effect.gen(function* () {
             yield* acquireUnlistedInfo;
@@ -187,7 +188,13 @@ export function getAggregatedMarketsSnapshot(
       { concurrency: 3 },
     );
 
-    const { dexNamesResult, rawPerpCats, allMids, optionalData } = allResult;
+    const {
+      spotTokens: resolvedTokens,
+      dexNamesResult,
+      rawPerpCats,
+      allMids,
+      optionalData,
+    } = allResult;
     const { spotRaw } = optionalData;
 
     const dexRefs = toDexRefs(dexNamesResult);

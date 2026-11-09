@@ -1,5 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { Effect, Layer, Schema, Cache } from "effect";
+import { Context, Effect, Layer, Schema, Cache } from "effect";
+import { TestClock } from "effect/testing";
 import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
 import { MarketTimeframeSchema } from "../../../../modules/market-data";
 import {
@@ -12,8 +13,9 @@ import {
   PERP_ANNOTATION_TTL_MS,
 } from "../provider";
 import { HyperliquidClient } from "../client";
+import { hyperliquidProviderLayer } from "../layer";
+import { HyperliquidProvider, type HyperliquidInfoClient } from "../types";
 import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
-import type { HyperliquidInfoClient } from "../types";
 
 type Meta = Awaited<ReturnType<InfoClient["meta"]>>;
 type AssetCtx = Awaited<ReturnType<InfoClient["metaAndAssetCtxs"]>>[1][number];
@@ -315,5 +317,51 @@ describe("Hyperliquid Providers", () => {
     expect(mockInfoClient.perpAnnotation).toHaveBeenCalledTimes(1);
     expect(first).toEqual(second);
     expect(PERP_ANNOTATION_TTL_MS).toBe(60 * 60 * 1_000);
+  });
+
+  it("keeps the 24s aggregated-markets refresh fibre alive under the layer scope", async () => {
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse(["BTC"]), []]);
+    mockInfoClient.allMids.mockResolvedValue({ BTC: "100" });
+    mockInfoClient.perpDexs.mockResolvedValue([]);
+    mockInfoClient.perpCategories.mockResolvedValue([]);
+    mockInfoClient.spotMeta.mockResolvedValue({ universe: [], tokens: [] });
+
+    const calls = () => mockInfoClient.metaAndAssetCtxs.mock.calls.length;
+    const waitUntil = (predicate: () => boolean) =>
+      Effect.promise(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            const deadline = Date.now() + 5_000;
+            const poll = () => {
+              if (predicate()) return resolve();
+              if (Date.now() > deadline) return reject(new Error("timed out waiting for refresh"));
+              setTimeout(poll, 10);
+            };
+            poll();
+          }),
+      );
+
+    const counts = await Effect.runPromise(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(
+          hyperliquidProviderLayer.pipe(Layer.provide(makeClientLayer())),
+        );
+        const provider = Context.get(context, HyperliquidProvider);
+
+        // The forked fibre's snapshot is promise-backed, so poll for the first
+        // upstream call instead of assuming it ran within a fixed tick.
+        yield* waitUntil(() => calls() >= 1);
+        const afterBuild = calls();
+        const warmAfterFirstTick = yield* provider.isWarm ?? Effect.succeed(false);
+
+        yield* TestClock.adjust("25 seconds");
+        yield* waitUntil(() => calls() > afterBuild);
+
+        return { afterBuild, afterTick: calls(), warmAfterFirstTick };
+      }).pipe(Effect.scoped, Effect.provide(TestClock.layer())),
+    );
+
+    expect(counts.warmAfterFirstTick).toBe(true);
+    expect(counts.afterTick).toBeGreaterThan(counts.afterBuild);
   });
 });

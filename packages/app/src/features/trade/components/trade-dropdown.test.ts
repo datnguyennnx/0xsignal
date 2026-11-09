@@ -9,7 +9,6 @@ import {
   lookupPrecision,
 } from "../hooks/use-hyperliquid-meta";
 import { selectListedAssets } from "../hooks/use-trade-list";
-import { filterTradeAssets, isLiveMarket } from "../utils/trade-dropdown";
 import { calculatePxDecimals } from "../utils/trade-formatters";
 
 const market = (overrides: Partial<AggregatedMarket> = {}): AggregatedMarket => ({
@@ -38,60 +37,6 @@ const market = (overrides: Partial<AggregatedMarket> = {}): AggregatedMarket => 
 
 const coins = (rows: readonly AggregatedMarket[]): string[] => rows.map((row) => row.coin);
 
-const CRYPTO = market({ coin: "BTC" });
-const PREIPO = market({
-  coin: "SPACEX",
-  rawCoin: "SPACEX",
-  displaySymbol: "SPACEX-USDC",
-  name: "SPACEX",
-  category: "preipo",
-  displayCategory: "Preipo",
-  assetId: 1,
-});
-
-describe("asset dropdown tabs", () => {
-  test("the Pre-launch tab returns the markets the API categorises as preipo", () => {
-    expect(coins(filterTradeAssets([CRYPTO, PREIPO], "prelaunch", ""))).toEqual(["SPACEX"]);
-  });
-
-  test("every other tab still compares the tab id against the category", () => {
-    expect(coins(filterTradeAssets([CRYPTO, PREIPO], "crypto", ""))).toEqual(["BTC"]);
-  });
-});
-
-describe("asset dropdown search", () => {
-  const spotAtOne = market({
-    coin: "@1",
-    rawCoin: "@1",
-    displaySymbol: "PURR/USDC",
-    name: "PURR/USDC",
-    marketType: "spot",
-    category: "spot",
-    assetId: 2,
-  });
-  const hype = market({
-    coin: "HYPE",
-    rawCoin: "HYPE",
-    displaySymbol: "HYPE-USDC",
-    name: "HYPE",
-    assetId: 3,
-  });
-  const assets = [spotAtOne, hype];
-
-  test("search matches the raw wire identifier @1", () => {
-    expect(coins(filterTradeAssets(assets, "all", "@1"))).toEqual(["@1"]);
-  });
-
-  test("search matches the pair name PURR/USDC", () => {
-    expect(coins(filterTradeAssets(assets, "all", "PURR/USDC"))).toEqual(["@1"]);
-  });
-
-  test("search ignores case, whitespace and separator style", () => {
-    expect(coins(filterTradeAssets(assets, "all", "  purr usdc  "))).toEqual(["@1"]);
-    expect(coins(filterTradeAssets(assets, "all", "hype/usdc"))).toEqual(["HYPE"]);
-  });
-});
-
 describe("shared market list select", () => {
   test("the select drops a delisted row even when it has volume", () => {
     const payload = [
@@ -106,39 +51,6 @@ describe("shared market list select", () => {
     const payload = [market({ coin: "BTC" }), market({ coin: "DEAD", dayNtlVlm: "0.0" })];
 
     expect(coins(selectListedAssets(payload).assets)).toEqual(["BTC", "DEAD"]);
-  });
-});
-
-describe("asset dropdown liveness", () => {
-  test("a zero-volume row is not live", () => {
-    expect(isLiveMarket(market({ dayNtlVlm: "0.0" }))).toBe(false);
-  });
-
-  test("a row with a missing volume is not live", () => {
-    const noVolume = market({ coin: "NOVOL" });
-    Reflect.deleteProperty(noVolume, "dayNtlVlm");
-
-    expect(isLiveMarket(noVolume)).toBe(false);
-  });
-
-  test("NaN, negative and non-numeric volumes are not live", () => {
-    expect(isLiveMarket(market({ dayNtlVlm: "not-a-number" }))).toBe(false);
-    expect(isLiveMarket(market({ dayNtlVlm: "-500" }))).toBe(false);
-    expect(isLiveMarket(market({ dayNtlVlm: "Infinity" }))).toBe(false);
-  });
-
-  test("a row with positive volume is live", () => {
-    expect(isLiveMarket(market({ dayNtlVlm: "0.5" }))).toBe(true);
-  });
-
-  test("the dropdown's live list keeps only volume-bearing rows of the selected set", () => {
-    const payload = [
-      market({ coin: "BTC" }),
-      market({ coin: "OLD", isDelisted: true, dayNtlVlm: "999999" }),
-      market({ coin: "DEAD", dayNtlVlm: "0.0" }),
-    ];
-
-    expect(coins(selectListedAssets(payload).assets.filter(isLiveMarket))).toEqual(["BTC"]);
   });
 });
 

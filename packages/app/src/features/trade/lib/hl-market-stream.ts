@@ -12,7 +12,16 @@ import {
   type MarketStreamClient,
   type MarketStreamMeta,
 } from "./market-stream-client";
-import { SubscriptionKey } from "./stream-identity";
+import {
+  SubscriptionKey,
+  resolveCoinWithoutIndex,
+  failureOf,
+  type DirectEntry,
+  type DirectFailure,
+  type DirectHandle,
+  type DirectHooks,
+  type MarketStreamCallbacks,
+} from "./stream-identity";
 import { convertToCandlePayload } from "../utils/market-stream-decoder";
 import {
   applyBookFrame,
@@ -20,9 +29,9 @@ import {
   createBookMergeState,
   openBoth,
   type BookLeg,
-  type BookMergeState,
 } from "./l2-book-merge";
 import { createHyperliquidSink } from "./hyperliquid-sink";
+export type { MarketStreamCallbacks };
 
 const DEFAULT_INTERVAL: WsMarketInterval = "1h";
 
@@ -43,16 +52,6 @@ export const useMarketStreamStatus = create<MarketStreamStatus>(() => ({
 const updateStatus = (status: MarketStreamStatus): void => {
   useMarketStreamStatus.setState(status);
 };
-
-export interface MarketStreamCallbacks {
-  onMessage: (data: unknown, channel: string, meta?: MarketStreamMeta) => void;
-  onConnectionChange?: (connected: boolean) => void;
-  onError?: (error: Error) => void;
-}
-
-interface DirectHandle {
-  unsubscribe(): Promise<void>;
-}
 
 interface DirectL2BookParams {
   readonly coin: string;
@@ -132,12 +131,30 @@ function loadCoinIndex(): Promise<Map<string, string>> {
   return coinIndexRequest;
 }
 
+/** Synchronous read of the cache-backed index, or null while it is still loading. */
+function peekCoinIndex(): Map<string, string> | null {
+  return coinIndex;
+}
+
 export async function resolveHlCoin(symbol: string): Promise<string | null> {
   const normalized = normalizeSymbol(symbol);
   if (normalized === "") return null;
   try {
-    const index = await loadCoinIndex();
-    return index.get(normalized.toLowerCase()) ?? index.get(symbol.trim().toLowerCase()) ?? null;
+    const index = peekCoinIndex();
+    if (index !== null) {
+      return index.get(normalized.toLowerCase()) ?? index.get(symbol.trim().toLowerCase()) ?? null;
+    }
+    if (resolveCoinWithoutIndex(symbol).kind === "perp") {
+      // Perps stream under their raw coin, so resolve without waiting on /markets.
+      // Trade-off: a delisted perp may briefly request candles before the index
+      // arrives; once loaded the index is authoritative (delisted stays null).
+      void loadCoinIndex().catch(() => {});
+      return normalized;
+    }
+    const resolved = await loadCoinIndex();
+    return (
+      resolved.get(normalized.toLowerCase()) ?? resolved.get(symbol.trim().toLowerCase()) ?? null
+    );
   } catch {
     return null;
   }
@@ -190,28 +207,6 @@ export function toMarketFrame(
   return null;
 }
 
-interface DirectEntry {
-  readonly subscription: WsMarketSubscription;
-  readonly frameSymbol: string;
-  readonly registrations: Set<MarketStreamCallbacks>;
-  readonly fallbacks: Map<MarketStreamCallbacks, { unsubscribe(): void }>;
-  handles: DirectHandle[];
-  book: BookMergeState | null;
-  lastBookEvent: unknown;
-  closed: boolean;
-  directFailed: boolean;
-}
-
-interface DirectHooks {
-  readonly onOpen?: () => void;
-  readonly onFailure?: (error: Error) => void;
-  /** Re-homes a live registration onto the hub when the direct socket drops. */
-  readonly fallback?: (
-    subscription: WsMarketSubscription,
-    callbacks: MarketStreamCallbacks,
-  ) => Promise<{ unsubscribe(): void }>;
-}
-
 interface DirectSubscriptionHandle {
   unsubscribe(): void;
 }
@@ -221,6 +216,7 @@ export interface DirectMarketStream {
     subscription: WsMarketSubscription,
     frameSymbol: string,
     callbacks: MarketStreamCallbacks,
+    validated?: boolean,
   ): Promise<DirectSubscriptionHandle>;
   readonly size: () => number;
 }
@@ -253,13 +249,14 @@ export function createDirectMarketStream(
   const fail = (key: string, entry: DirectEntry, error: Error): void => {
     if (entry.directFailed) return;
     entry.directFailed = true;
+    const failure = failureOf(entry);
     const handles = entry.handles;
     entry.handles = [];
     for (const handle of handles) void handle.unsubscribe();
     for (const callbacks of entry.registrations) {
       callbacks.onConnectionChange?.(false);
     }
-    hooks.onFailure?.(error);
+    hooks.onFailure?.(error, failure);
 
     if (hooks.fallback === undefined) {
       entries.delete(key);
@@ -269,8 +266,9 @@ export function createDirectMarketStream(
     }
 
     for (const callbacks of entry.registrations) {
+      const reason = entry.validated ? error.message : `unvalidated:${failure.coin}`;
       void hooks
-        .fallback(entry.subscription, callbacks)
+        .fallback(entry.subscription, callbacks, reason)
         .then((subscription) => {
           if (entry.registrations.has(callbacks) && !entry.closed) {
             entry.fallbacks.set(callbacks, subscription);
@@ -340,7 +338,7 @@ export function createDirectMarketStream(
   };
 
   return {
-    subscribe: async (subscription, frameSymbol, callbacks) => {
+    subscribe: async (subscription, frameSymbol, callbacks, validated = true) => {
       const key = directKey(subscription);
       const existing = entries.get(key);
       if (existing !== undefined) {
@@ -356,6 +354,7 @@ export function createDirectMarketStream(
       const entry: DirectEntry = {
         subscription,
         frameSymbol,
+        validated,
         registrations: new Set([callbacks]),
         fallbacks: new Map(),
         handles: [],
@@ -396,7 +395,7 @@ export function createDirectMarketStream(
             registration.onError?.(failure);
           }
         }
-        hooks.onFailure?.(failure);
+        hooks.onFailure?.(failure, failureOf(entry));
         throw failure;
       }
     },
@@ -440,6 +439,16 @@ export function createBrowserMarketStreamClient(
     },
   });
 
+  const toBackend = (
+    subscription: WsMarketSubscription,
+    callbacks: MarketStreamCallbacks,
+    reason: string,
+    announce = true,
+  ): Promise<{ unsubscribe(): void }> => {
+    if (announce) updateStatus({ source: "backend", state: "fallback", reason });
+    return backend.subscribe(subscription, wrapBackendCallbacks(callbacks));
+  };
+
   const getDirect = (): DirectMarketStream => {
     if (direct !== null) return direct;
     sink ??= createHyperliquidSink();
@@ -447,23 +456,16 @@ export function createBrowserMarketStreamClient(
       onOpen: () => {
         updateStatus({ source: "direct", state: "connected", reason: null });
       },
-      onFailure: (error) => {
+      onFailure: (error, failure: DirectFailure) => {
+        // A raw coin the index never validated only costs this one subscription.
+        if (!failure.validated) return;
         directDisabled = true;
         updateStatus({ source: "backend", state: "fallback", reason: error.message });
       },
-      fallback: (subscription, callbacks) =>
-        backend.subscribe(subscription, wrapBackendCallbacks(callbacks)),
+      fallback: (subscription, callbacks, reason) =>
+        toBackend(subscription, callbacks, reason, false),
     });
     return direct;
-  };
-
-  const toBackend = (
-    subscription: WsMarketSubscription,
-    callbacks: MarketStreamCallbacks,
-    reason: string,
-  ): Promise<{ unsubscribe(): void }> => {
-    updateStatus({ source: "backend", state: "fallback", reason });
-    return backend.subscribe(subscription, wrapBackendCallbacks(callbacks));
   };
 
   const subscribe = async (
@@ -480,6 +482,7 @@ export function createBrowserMarketStreamClient(
 
     const frameSymbol = normalizeSymbol(subscription.symbol ?? "");
     let resolved = subscription;
+    let validated = true;
 
     if (subscription.channel !== "allMids") {
       const coin = frameSymbol === "" ? null : await resolveCoin(frameSymbol);
@@ -487,6 +490,8 @@ export function createBrowserMarketStreamClient(
         return toBackend(subscription, callbacks, `unresolved:${frameSymbol}`);
       }
       resolved = { ...subscription, symbol: coin };
+      // Only the index proves the coin; an injected resolver owns its output.
+      validated = options.resolveCoin !== undefined || peekCoinIndex() !== null;
     }
 
     const current = useMarketStreamStatus.getState();
@@ -497,8 +502,11 @@ export function createBrowserMarketStreamClient(
     });
 
     try {
-      return await getDirect().subscribe(resolved, frameSymbol, callbacks);
+      return await getDirect().subscribe(resolved, frameSymbol, callbacks, validated);
     } catch (error) {
+      if (!validated) {
+        return toBackend(subscription, callbacks, `unvalidated:${frameSymbol}`, false);
+      }
       directDisabled = true;
       return toBackend(subscription, callbacks, toError(error).message);
     }

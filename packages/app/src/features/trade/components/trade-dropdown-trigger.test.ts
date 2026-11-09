@@ -1,9 +1,9 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 
-import { formatTradeRows } from "../lib/format-trade-rows";
+import { buildMarketRows } from "../lib/market-row-data";
+import { formatMarketCell } from "../lib/format-trade-rows";
 import { splitDisplaySymbol } from "../utils/display-symbol";
-import { getColumns } from "../utils/trade-dropdown-columns";
 
 import { market } from "../../../test/fixtures";
 
@@ -32,32 +32,27 @@ describe("trigger symbol label", () => {
 });
 
 describe("symbol column", () => {
-  const render = getColumns("perps").find((col) => col.id === "symbol")!.render;
-
-  test("every shape survives row formatting verbatim", () => {
+  test("every shape survives the production cell formatter verbatim", () => {
     for (const symbol of SHAPES) {
-      const [row] = formatTradeRows(
-        [
-          market({
-            coin: symbol,
-            rawCoin: symbol,
-            displaySymbol: symbol,
-            marketType: "perp",
-            displayCategory: "Crypto",
-            dexPrefix: null,
-            isHip3: false,
-            category: "crypto",
-            markPx: "1",
-            prevDayPx: "1",
-            openInterest: "0",
-            funding: "0",
-            dayNtlVlm: "0",
-            szDecimals: 4,
-          }),
-        ],
-        symbol,
-      );
-      expect(render(row)).toBe(symbol);
+      const { rows } = buildMarketRows([
+        market({
+          coin: symbol,
+          rawCoin: symbol,
+          displaySymbol: symbol,
+          marketType: "perp",
+          displayCategory: "Crypto",
+          dexPrefix: null,
+          isHip3: false,
+          category: "crypto",
+          markPx: "1",
+          prevDayPx: "1",
+          openInterest: "0",
+          funding: "0",
+          dayNtlVlm: "0",
+          szDecimals: 4,
+        }),
+      ]);
+      expect(formatMarketCell(rows[0], "symbol", 0)).toBe(symbol);
     }
   });
 });

@@ -27,8 +27,35 @@ const market = (rawCoin: string, name: string): AggregatedMarket => ({
 
 const { resolveHlCoin, setCoinIndexLoader } = await import("./hl-market-stream");
 
+const INDEX_WINDOW_MS = 50;
+
+const neverResolves = () => new Promise<never>(() => {});
+
+const raceIndexWindow = <T>(promise: Promise<T>): Promise<T | "timeout"> =>
+  Promise.race([
+    promise,
+    new Promise<"timeout">((resolve) => {
+      setTimeout(() => resolve("timeout"), INDEX_WINDOW_MS);
+    }),
+  ]);
+
 afterEach(() => {
+  setCoinIndexLoader(null);
   mock.restore();
+});
+
+describe("perp fast path before the markets index arrives", () => {
+  test("a perp resolves while the index loader never settles", async () => {
+    setCoinIndexLoader(neverResolves);
+
+    expect(await raceIndexWindow(resolveHlCoin("BTC"))).toBe("BTC");
+  });
+
+  test("spot still waits for the index and does not resolve within the window", async () => {
+    setCoinIndexLoader(neverResolves);
+
+    expect(await raceIndexWindow(resolveHlCoin("PURR/USDC"))).toBe("timeout");
+  });
 });
 
 describe("coin index loader seam", () => {

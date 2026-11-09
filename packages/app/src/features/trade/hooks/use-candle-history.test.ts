@@ -18,7 +18,11 @@ afterEach(() => {
 });
 
 const jsonResponse = (body: unknown, status: number, statusText: string): Response =>
-  new Response(JSON.stringify(body), { status, statusText });
+  new Response(JSON.stringify(body), {
+    status,
+    statusText,
+    headers: { "Content-Type": "application/json" },
+  });
 
 const respondWith = (body: unknown, status: number, statusText: string): typeof fetch =>
   Object.assign(() => Promise.resolve(jsonResponse(body, status, statusText)), {
@@ -39,7 +43,7 @@ const statusOf = (error: unknown): number | undefined =>
 
 describe("fetchHistorical", () => {
   test("resolves to an empty array for a genuinely empty window", async () => {
-    globalThis.fetch = respondWith({ candles: [] }, 200, "OK");
+    globalThis.fetch = respondWith([], 200, "OK");
 
     expect(await fetchHistorical("BTC", "1h", 200)).toEqual([]);
   });

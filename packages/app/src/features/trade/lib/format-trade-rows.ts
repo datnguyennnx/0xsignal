@@ -1,63 +1,81 @@
-import { calculatePxDecimals } from "@/features/trade/utils/trade-formatters";
 import {
-  formatSize,
   formatCompactUsd,
-  formatSignedPercent,
   formatFundingPercent,
+  formatPrice,
+  formatSignedPercent,
+  formatSize,
 } from "@/core/utils/formatters";
+import type { MarketRowData } from "./market-row-data";
 
-// Narrow input port: the features must not depend on the shared market schema to render rows.
-type TradeRowSource = {
-  readonly coin: string;
-  readonly rawCoin: string;
-  readonly marketType: "perp" | "spot";
-  readonly displaySymbol: string;
-  readonly displayCategory: string;
-  readonly dexPrefix: string | null;
-  readonly isHip3: boolean;
-  readonly category: string;
-  readonly markPx: string;
-  readonly prevDayPx: string;
-  readonly openInterest: string;
-  readonly funding: string;
-  readonly dayNtlVlm: string;
-  readonly szDecimals: number;
-  readonly circulatingSupply?: string | undefined;
+export type MarketCellField =
+  | "symbol"
+  | "price"
+  | "change"
+  | "funding"
+  | "volume"
+  | "oi"
+  | "marketCap";
+
+const MARKET_CELL_FIELDS: readonly MarketCellField[] = [
+  "symbol",
+  "price",
+  "change",
+  "funding",
+  "volume",
+  "oi",
+  "marketCap",
+];
+
+/** A snapshot version bounds the cache: a new snapshot cannot reuse its strings. */
+const CACHE_LIMIT = 4000;
+const cellCache = new Map<string, string>();
+
+const computeCell = (row: MarketRowData, field: MarketCellField): string => {
+  switch (field) {
+    case "symbol":
+      return row.displaySymbol;
+    case "price":
+      return formatPrice(row.markPx, row.pxDecimals);
+    case "change":
+      return formatSignedPercent(row.changePct);
+    case "funding":
+      return formatFundingPercent(row.funding);
+    case "volume":
+      return formatCompactUsd(row.volumeUsd);
+    case "oi":
+      return formatSize(row.openInterest);
+    case "marketCap":
+      return row.marketCapUsd > 0 ? formatCompactUsd(row.marketCapUsd) : "--";
+    default:
+      return "";
+  }
 };
 
-export function formatTradeRows(rows: readonly TradeRowSource[], currentSymbol: string) {
-  const currentRawCoinLower = currentSymbol.toLowerCase();
-  return rows.map((item) => {
-    const prevPx = Number(item.prevDayPx);
-    const markPx = Number(item.markPx);
-    const change = prevPx > 0 ? ((markPx - prevPx) / prevPx) * 100 : 0;
-    const oi = Number(item.openInterest);
-    const volume = Number(item.dayNtlVlm);
-    const funding = Number(item.funding);
-    const marketCap = item.marketType === "spot" ? markPx * Number(item.circulatingSupply ?? 0) : 0;
-    const pxDec = calculatePxDecimals(item.szDecimals ?? 4);
-    return {
-      coin: item.coin,
-      rawCoin: item.rawCoin,
-      marketType: item.marketType,
-      displaySymbol: item.displaySymbol,
-      displayCategory: item.displayCategory,
-      markPx: item.markPx,
-      prevDayPx: item.prevDayPx,
-      openInterest: item.openInterest,
-      dayNtlVlm: item.dayNtlVlm,
-      funding: item.funding,
-      isHip3: item.isHip3,
-      category: item.category,
-      dexPrefix: item.dexPrefix,
-      changeValue: change,
-      changeFormatted: formatSignedPercent(change),
-      oiFormatted: formatSize(oi),
-      volumeFormatted: formatCompactUsd(volume),
-      fundingFormatted: formatFundingPercent(funding),
-      marketCapFormatted: marketCap > 0 ? formatCompactUsd(marketCap) : "--",
-      isActive: item.rawCoin.toLowerCase() === currentRawCoinLower,
-      pxDecimals: pxDec,
-    };
-  });
+export function formatMarketCell(
+  row: MarketRowData,
+  field: MarketCellField,
+  version: number,
+): string {
+  const cacheKey = `${row.key}:${field}:${version}`;
+  const cached = cellCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const value = computeCell(row, field);
+  if (cellCache.size >= CACHE_LIMIT) cellCache.clear();
+  cellCache.set(cacheKey, value);
+  return value;
+}
+
+/** Warms the next screen of rows while the browser is idle after the panel opens. */
+export function prewarmMarketCells(
+  rows: readonly MarketRowData[],
+  version: number,
+  count = 40,
+): void {
+  const limit = Math.min(count, rows.length);
+  for (let index = 0; index < limit; index += 1) {
+    for (const field of MARKET_CELL_FIELDS) {
+      formatMarketCell(rows[index], field, version);
+    }
+  }
 }

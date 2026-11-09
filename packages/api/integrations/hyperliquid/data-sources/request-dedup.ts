@@ -38,6 +38,7 @@ export function withDedup(
   key: `metaAndAssetCtxs:${string}`,
   fetcher: () => Promise<MetaAndAssetCtxs>,
 ): Promise<MetaAndAssetCtxs>;
+export function withDedup<A>(key: "aggregated:snapshot", fetcher: () => Promise<A>): Promise<A>;
 export function withDedup(key: string, fetcher: () => Promise<unknown>): Promise<unknown> {
   const existing = inFlight.get(key);
   if (existing !== undefined) return existing;

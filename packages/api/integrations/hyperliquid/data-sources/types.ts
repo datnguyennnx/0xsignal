@@ -87,6 +87,8 @@ export class HyperliquidProvider extends Context.Service<
       readonly HyperliquidAggregatedAsset[],
       HyperliquidError
     >;
+    /** True once aggregated markets have populated the cache, via refresh or a fill. */
+    readonly isWarm?: Effect.Effect<boolean> | undefined;
     readonly getTicker: (symbol: string) => Effect.Effect<MarketTicker, HyperliquidError>;
     readonly getOrderBook: (
       symbol: string,

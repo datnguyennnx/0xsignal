@@ -41,6 +41,40 @@ const compactNumberFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
+const MAX_FORMATTER_CACHE_SIZE = 64;
+
+const formatterCache = new Map<string, Intl.NumberFormat>();
+
+// Constructing an Intl.NumberFormat costs microseconds; price and axis
+// formatting run per row per render, and their option sets are bounded.
+const formatterCacheKey = (locale: string, options: Intl.NumberFormatOptions): string =>
+  `${locale}|${options.style ?? ""}|${options.currency ?? ""}|${options.notation ?? ""}|${options.minimumFractionDigits ?? ""}|${options.maximumFractionDigits ?? ""}`;
+
+const getFormatter = (locale: string, options: Intl.NumberFormatOptions): Intl.NumberFormat => {
+  const key = formatterCacheKey(locale, options);
+  const cached = formatterCache.get(key);
+  if (cached !== undefined) return cached;
+
+  const formatter = new Intl.NumberFormat(locale, options);
+  if (formatterCache.size >= MAX_FORMATTER_CACHE_SIZE) {
+    const oldestKey = formatterCache.keys().next().value;
+    if (oldestKey !== undefined) formatterCache.delete(oldestKey);
+  }
+  formatterCache.set(key, formatter);
+  return formatter;
+};
+
+/** @internal Test hook: the shared constructor the public formatters use. */
+export const getFormatterForTest = getFormatter;
+
+/** @internal Test hook: isolates cache-size assertions from other tests. */
+export const resetFormatterCacheForTest = (): void => {
+  formatterCache.clear();
+};
+
+/** @internal Test hook: exposes the cache bound without exporting the map. */
+export const formatterCacheSizeForTest = (): number => formatterCache.size;
+
 /** Re-exported so display-only consumers need a single formatting module. */
 export { truncateAddress } from "./address";
 
@@ -53,12 +87,12 @@ export const formatPrice = (price: number, pxDecimals?: number): string => {
         ? { min: Math.min(2, maxDec), max: Math.min(4, maxDec) }
         : { min: Math.min(4, maxDec), max: Math.min(6, maxDec) };
 
-  return price.toLocaleString("en-US", {
+  return getFormatter("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: config.min,
     maximumFractionDigits: config.max,
-  });
+  }).format(price);
 };
 
 export const formatSize = (size: number): string => {
@@ -73,12 +107,14 @@ export const formatSize = (size: number): string => {
  * price magnitude and the nSigFigs value.
  */
 export const formatPriceWithNSigFigs = (price: number, n: number): string => {
-  if (price <= 0 || n <= 0) return price.toLocaleString("en-US", { maximumFractionDigits: 6 });
+  if (price <= 0 || n <= 0) {
+    return getFormatter("en-US", { maximumFractionDigits: 6 }).format(price);
+  }
   const decimals = Math.max(0, n - Math.floor(Math.log10(Math.abs(price))) - 1);
-  return price.toLocaleString("en-US", {
+  return getFormatter("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  });
+  }).format(price);
 };
 
 const isFiniteNumber = (value: number | null | undefined): value is number =>
@@ -120,7 +156,7 @@ export const formatAxis = (value: number | null | undefined): string => {
   if (Math.abs(value) >= 10_000) {
     return compactNumberFormatter.format(value);
   }
-  return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return getFormatter("en-US", { maximumFractionDigits: 2 }).format(value);
 };
 
 export const formatFundingPercent = (value: number | null | undefined): string => {

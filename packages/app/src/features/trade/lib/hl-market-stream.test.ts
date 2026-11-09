@@ -1,10 +1,11 @@
 /// <reference types="bun-types" />
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { WsMarketSubscription } from "@0xsignal/shared";
 import type { MarketStreamClient } from "./market-stream-client";
 import {
   createBrowserMarketStreamClient,
   createDirectMarketStream,
+  setCoinIndexLoader,
   toMarketFrame,
   useMarketStreamStatus,
   type DirectMarketSink,
@@ -526,5 +527,51 @@ describe("hybrid fallback", () => {
     expect(messages).toEqual([{ type: "snapshot", levels: [[], []] }]);
 
     handle.unsubscribe();
+  });
+});
+
+describe("unvalidated perp failures", () => {
+  const neverResolves = () => new Promise<never>(() => {});
+
+  afterEach(() => {
+    setCoinIndexLoader(null);
+  });
+
+  test("a rejected direct open re-homes one unvalidated perp and keeps direct alive", async () => {
+    setCoinIndexLoader(neverResolves);
+    const { sink, calls } = makeSink({ failL2Book: true });
+    const backend = makeBackend();
+    const client = createBrowserMarketStreamClient({ sink, backend: backend.client });
+
+    await client.subscribe({ channel: "l2Book", symbol: "FOO", nSigFigs: 5 }, quietCallbacks());
+
+    expect(backend.calls.subscriptions).toEqual([
+      { channel: "l2Book", symbol: "FOO", nSigFigs: 5 },
+    ]);
+    expect(useMarketStreamStatus.getState().state).not.toBe("fallback");
+
+    await client.subscribe({ channel: "l2Book", symbol: "BTC", nSigFigs: 5 }, quietCallbacks());
+
+    expect(calls.l2Book.at(-1)?.coin).toBe("BTC");
+  });
+
+  test("a live drop of an unvalidated perp does not disable direct for later coins", async () => {
+    setCoinIndexLoader(neverResolves);
+    const { sink, calls } = makeSink();
+    const backend = makeBackend();
+    const client = createBrowserMarketStreamClient({ sink, backend: backend.client });
+
+    await client.subscribe({ channel: "l2Book", symbol: "FOO", nSigFigs: 5 }, quietCallbacks());
+    calls.failL2Book?.(new Error("direct socket dropped"));
+    await flush();
+
+    expect(backend.calls.subscriptions).toEqual([
+      { channel: "l2Book", symbol: "FOO", nSigFigs: 5 },
+    ]);
+    expect(useMarketStreamStatus.getState().state).not.toBe("fallback");
+
+    await client.subscribe({ channel: "l2Book", symbol: "BTC", nSigFigs: 5 }, quietCallbacks());
+
+    expect(calls.l2Book.at(-1)?.coin).toBe("BTC");
   });
 });

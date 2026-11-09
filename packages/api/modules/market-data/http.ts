@@ -41,7 +41,9 @@ export const buildMarketDataRoutes = ({
     handler: (_request, _url, marketData) =>
       Effect.gen(function* () {
         const payload = yield* marketData.discoverMarkets().pipe(Effect.mapError(mapServiceError));
-        return json({ data: payload });
+        return json({ data: payload }, 200, {
+          "Cache-Control": "public, max-age=10, stale-while-revalidate=20",
+        });
       }),
   },
   {

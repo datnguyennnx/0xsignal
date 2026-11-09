@@ -152,6 +152,16 @@ describe("HTTP Market Data Router", () => {
     await expect(response.json()).resolves.toEqual({ data: [] });
   });
 
+  it("marks /api/markets as publicly cacheable", async () => {
+    const response = await runRequest("/api/markets");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("application/json");
+    expect(response.headers.get("Cache-Control")).toBe(
+      "public, max-age=10, stale-while-revalidate=20",
+    );
+  });
+
   it("routes /api/health preserving status payload shape", async () => {
     const response = await runRequest("/api/health");
 

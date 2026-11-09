@@ -1,17 +1,19 @@
-import { useState, useMemo, useEffect, useRef, useCallback, useDeferredValue } from "react";
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useCallback,
+  useDeferredValue,
+  startTransition,
+} from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
 import { computeOverlayPosition } from "@/features/trade/lib/overlay-position";
-import { formatTradeRows } from "@/features/trade/lib/format-trade-rows";
+import { buildMarketRows, selectMarketRows } from "@/features/trade/lib/market-row-data";
 import { withViewTransition } from "@/lib/view-transition";
-import {
-  filterTradeAssets,
-  isLiveMarket,
-  type CategoryTab,
-  type FormattedTrade,
-  type TradeDropdownProps,
-} from "../utils/trade-dropdown";
+import { type CategoryTab, type TradeDropdownProps } from "../utils/trade-dropdown";
 import { TradeDropdownTrigger } from "./trade-dropdown-trigger";
 import { TradeDropdownPanel } from "./trade-dropdown-panel";
 
@@ -32,7 +34,7 @@ const TradeDropdownFn = ({
   const [sortDesc, setSortDesc] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const { data, isLoading, error } = useTradeList(isOpen);
+  const { data, isLoading, error, dataUpdatedAt } = useTradeList(isOpen);
 
   useEffect(() => {
     if (!error) return;
@@ -49,27 +51,13 @@ const TradeDropdownFn = ({
         : currentSymbol;
   const trades = data?.assets;
 
-  const liveTrades = useMemo(() => {
-    if (!isOpen || !trades) return [];
-    return trades.filter((asset) => isLiveMarket(asset));
-  }, [isOpen, trades]);
+  // Built once per snapshot, never per keystroke: only the pipeline below touches it.
+  const marketRows = useMemo(() => buildMarketRows(trades ?? []), [trades]);
 
-  const filteredTrades = useMemo(() => {
+  const rows = useMemo(() => {
     if (!isOpen) return [];
-
-    return filterTradeAssets(liveTrades, category, deferredQuery).toSorted((a, b) => {
-      if (sortBy === "name") {
-        return sortDesc ? b.coin.localeCompare(a.coin) : a.coin.localeCompare(b.coin);
-      }
-      const changeA = a.prevDayPx
-        ? (Number(a.markPx) - Number(a.prevDayPx)) / Number(a.prevDayPx)
-        : 0;
-      const changeB = b.prevDayPx
-        ? (Number(b.markPx) - Number(b.prevDayPx)) / Number(b.prevDayPx)
-        : 0;
-      return sortDesc ? changeB - changeA : changeA - changeB;
-    });
-  }, [isOpen, liveTrades, category, deferredQuery, sortBy, sortDesc]);
+    return selectMarketRows(marketRows, category, deferredQuery, sortBy, sortDesc);
+  }, [isOpen, marketRows, category, deferredQuery, sortBy, sortDesc]);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
@@ -99,14 +87,22 @@ const TradeDropdownFn = ({
     [navigate, handleClose],
   );
 
+  const handleCategoryChange = useCallback((next: CategoryTab) => {
+    startTransition(() => {
+      setCategory(next);
+    });
+  }, []);
+
   const handleSort = useCallback(
     (field: "name" | "change") => {
-      if (sortBy === field) {
-        setSortDesc((prev) => !prev);
-      } else {
-        setSortBy(field);
-        setSortDesc(true);
-      }
+      startTransition(() => {
+        if (sortBy === field) {
+          setSortDesc((prev) => !prev);
+        } else {
+          setSortBy(field);
+          setSortDesc(true);
+        }
+      });
     },
     [sortBy],
   );
@@ -133,11 +129,6 @@ const TradeDropdownFn = ({
     };
   }, [isOpen, handleClose]);
 
-  const formattedTrades = useMemo((): FormattedTrade[] => {
-    if (!isOpen) return [];
-    return formatTradeRows(filteredTrades, currentSymbol);
-  }, [isOpen, filteredTrades, currentSymbol]);
-
   return (
     <div className="relative" data-trade-dropdown>
       <TradeDropdownTrigger
@@ -158,11 +149,13 @@ const TradeDropdownFn = ({
           query={query}
           onQueryChange={setQuery}
           category={category}
-          onCategoryChange={setCategory}
+          onCategoryChange={handleCategoryChange}
           sortBy={sortBy}
           sortDesc={sortDesc}
           onSort={handleSort}
-          formattedTrades={formattedTrades}
+          rows={rows}
+          currentSymbol={currentSymbol}
+          dataVersion={dataUpdatedAt}
           isLoading={isLoading}
           hasError={!!error}
           onSelect={handleSelect}

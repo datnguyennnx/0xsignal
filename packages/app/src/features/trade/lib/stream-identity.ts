@@ -91,3 +91,13 @@ export const SubscriptionKey = {
   orderbook: orderbookKey,
   parse: parseKey,
 } as const;
+
+export { resolveCoinWithoutIndex } from "./coin-resolution";
+export {
+  failureOf,
+  type DirectEntry,
+  type DirectFailure,
+  type DirectHandle,
+  type DirectHooks,
+  type MarketStreamCallbacks,
+} from "./direct-stream-failure";

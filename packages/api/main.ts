@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { make as makeRuntime } from "effect/ManagedRuntime";
-import { MarketStreamHub } from "./modules/market-data";
+import { MarketDataService, MarketStreamHub } from "./modules/market-data";
 import { appLayer, createWsSetup, routes } from "./app";
 import { CorsService } from "./platform/http/cors";
 import type { RunSocketWork } from "./platform/http/ws";
@@ -32,6 +32,19 @@ try {
     Effect.gen(function* () {
       return yield* MarketStreamHub;
     }),
+  );
+  // Readiness implies a warm markets cache: the warmup runs before the listener
+  // starts, and a failure only logs so the server can still come up cold.
+  await runtime.runPromise(
+    Effect.gen(function* () {
+      const marketData = yield* MarketDataService;
+      yield* marketData.discoverMarkets();
+    }).pipe(
+      Effect.timeout("15 seconds"),
+      Effect.catchCause((cause) =>
+        Effect.logError("[startup] market warmup failed; serving cold", { cause }),
+      ),
+    ),
   );
   await serve(
     {

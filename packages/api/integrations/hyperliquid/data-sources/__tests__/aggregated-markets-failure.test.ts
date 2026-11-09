@@ -127,4 +127,40 @@ describe("getAggregatedMarketsSnapshot rate-limit propagation", () => {
     // The skipped dex keeps its slot: xyz stays at position 2, not re-counted to 1.
     expect(result.find((asset) => asset.rawCoin === "xyz:EUR")?.assetId).toBe(120000);
   });
+
+  it("builds the same markets in the same order from a mixed spot/perp fixture", async () => {
+    const info = createMockInfoClient();
+    info.spotMeta.mockResolvedValue({ universe: [], tokens: [{ name: "USDC" }, { name: "USDT" }] });
+    info.perpDexs.mockResolvedValue([]);
+    info.perpCategories.mockResolvedValue([
+      ["BTC", "crypto"],
+      ["ETH", "crypto"],
+    ]);
+    info.metaAndAssetCtxs.mockResolvedValue([
+      {
+        collateralToken: 1,
+        universe: [
+          { name: "BTC", szDecimals: 5, maxLeverage: 50 },
+          { name: "ETH", szDecimals: 4, maxLeverage: 25 },
+        ],
+      },
+      [{ dayNtlVlm: "200" }, { dayNtlVlm: "100" }],
+    ]);
+    info.allMids.mockResolvedValue({ BTC: "100", ETH: "200", "@1": "30" });
+    info.spotMetaAndAssetCtxs.mockResolvedValue([
+      {
+        universe: [{ name: "@1", tokens: [2, 0], index: 1 }],
+        tokens: [{ name: "USDC" }, { name: "USDT" }, { name: "HYPE", szDecimals: 2 }],
+      },
+      [{ dayNtlVlm: "50" }],
+    ]);
+
+    const result = await Effect.runPromise(
+      Effect.provide(getAggregatedMarketsSnapshot(infoAsClient(info)), rateLimiterUnlimited),
+    );
+
+    expect(result.map((asset) => asset.rawCoin)).toEqual(["BTC", "ETH", "HYPE/USDC"]);
+    // The perp quote currency still resolves through the spot token list.
+    expect(result.find((asset) => asset.rawCoin === "BTC")?.quoteCurrency).toBe("USDT");
+  });
 });
