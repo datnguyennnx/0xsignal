@@ -19,8 +19,8 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
 FROM oven/bun:1.3.10-alpine AS builder
 WORKDIR /app
 
-# Copy dependencies
-COPY --from=deps /app/node_modules ./node_modules
+# Copy full install tree (including workspace node_modules)
+COPY --from=deps /app ./
 
 # Copy source files
 COPY package.json tsconfig.json tsconfig.base.json ./
@@ -51,9 +51,12 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/shared/package.json ./packages/shared/
 
 # Workspace sources are inlined by bun build, so the links to the
-# non-copied packages would only dangle in the runner
+# non-copied packages would only dangle in the runner.
+# --ignore-scripts: the only lifecycle script is the root `prepare` (husky),
+# a devDependency absent under --production; no runtime deps need their
+# install scripts to run dist/main.js.
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --production --frozen-lockfile \
+    bun install --production --frozen-lockfile --ignore-scripts \
     && rm -rf node_modules/@0xsignal
 
 # Stage 4: Production (minimal image)

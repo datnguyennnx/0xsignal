@@ -17,7 +17,8 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
 FROM oven/bun:1.3.10-alpine AS builder
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
+# Full install tree (including workspace node_modules) from deps
+COPY --from=deps /app ./
 COPY package.json tsconfig.json tsconfig.base.json ./
 COPY packages/app ./packages/app
 COPY packages/shared ./packages/shared
