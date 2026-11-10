@@ -1,6 +1,8 @@
 import { Component, type ReactNode, type ErrorInfo } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { StateArt } from "@/components/state-art";
+import { pickErrorQuip } from "@/lib/error-quips";
+import { RefreshCw } from "lucide-react";
 
 interface Props {
   children: ReactNode;
@@ -11,16 +13,17 @@ interface Props {
 interface State {
   hasError: boolean;
   prevResetKey: unknown;
+  quip: string;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, prevResetKey: props.resetKey };
+    this.state = { hasError: false, prevResetKey: props.resetKey, quip: pickErrorQuip() };
   }
 
   static getDerivedStateFromError(): Partial<State> {
-    return { hasError: true };
+    return { hasError: true, quip: pickErrorQuip() };
   }
 
   static getDerivedStateFromProps(props: Props, state: State): Partial<State> | null {
@@ -47,15 +50,11 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center min-h-[clamp(20rem,50dvh,40rem)] px-4 text-center">
           <div className="flex flex-col items-center gap-4 max-w-md">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-              <AlertTriangle className="size-icon-lg text-destructive" />
-            </div>
+            <StateArt size="lg" />
 
             <div className="space-y-2">
-              <h3 className="type-title font-semibold">Unable to load this view</h3>
-              <p className="type-body text-muted-foreground">
-                Reload the page, or use Try again to retry this section.
-              </p>
+              <h3 className="type-title font-semibold">Something went wrong</h3>
+              <p className="type-body text-muted-foreground">{this.state.quip}</p>
             </div>
 
             <Button variant="outline" onClick={this.handleReset} className="gap-2">

@@ -65,6 +65,7 @@ export const TableEmptyRow = memo(function TableEmptyRow({
               {...(errorTitle === undefined ? {} : { title: errorTitle })}
               {...(errorDescription === undefined ? {} : { description: errorDescription })}
               retryAction={onRetry}
+              size="sm"
               className="py-6"
             />
           </div>

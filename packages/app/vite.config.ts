@@ -137,6 +137,12 @@ export default defineConfig(({ mode }) => {
       cssCodeSplit: true,
       reportCompressedSize: true,
       manifest: true,
+      // The error illustration must render even when the origin is unreachable,
+      // so it cannot be a network fetch: inline it as a data URI instead.
+      // Vite dev never inlines (modules/assets ship over HTTP), so this only
+      // takes effect under `bun run start` / a production build; in dev, killing
+      // the server breaks every asset by design.
+      assetsInlineLimit: 8192,
       rolldownOptions: {
         output: {
           codeSplitting: {

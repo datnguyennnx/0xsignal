@@ -349,6 +349,7 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
               <TableCell colSpan={COLUMN_COUNT} className={cn(CELL_CLASS, "py-6")}>
                 <ErrorState
                   title="Unable to load whale positions"
+                  size="sm"
                   retryAction={() => {
                     void refetch();
                   }}

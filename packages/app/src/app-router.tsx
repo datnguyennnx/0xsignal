@@ -1,25 +1,26 @@
-import { Suspense, useEffect, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { MainLayout } from "@/layouts/main-layout";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { ErrorState } from "@/components/error-state";
 import { NavigationProgress } from "@/components/navigation-progress";
 import { RouteFallback } from "@/components/route-fallback";
 import { ROUTES, titleForPath, type RouteRecord } from "@/lib/routes";
 import { routeMotionKey } from "@/lib/route-motion";
+import { pickErrorQuip } from "@/lib/error-quips";
 
-function RouteErrorFallback() {
+export function RouteErrorFallback() {
+  const [quip] = useState(() => pickErrorQuip());
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh gap-4">
-      <p className="text-foreground">Something went wrong loading this page.</p>
-      <button
-        type="button"
-        className="inline-flex h-control items-center justify-center rounded-control bg-info px-(--control-px) font-medium type-control text-primary-foreground transition-colors hover:bg-info/80"
-        onClick={() => {
+    <div className="flex min-h-dvh flex-col items-center justify-center">
+      <ErrorState
+        title="Something went wrong"
+        description={quip}
+        retryLabel="Try again"
+        retryAction={() => {
           window.location.reload();
         }}
-      >
-        Reload
-      </button>
+      />
     </div>
   );
 }
