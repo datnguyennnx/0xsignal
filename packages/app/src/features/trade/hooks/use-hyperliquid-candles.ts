@@ -22,6 +22,47 @@ const isChartDataPointArray = (value: unknown): value is ChartDataPoint[] => Arr
 /** One identity while history is pending; a fresh `[]` per render invalidates downstream memos. */
 const EMPTY_CANDLES: ChartDataPoint[] = [];
 
+/** Bars queued for the next paint, grouped by key and kept in arrival order. */
+const pendingCandleBars = new Map<string, ChartDataPoint[]>();
+let candleFrameId: number | null = null;
+
+const commitPendingCandles = (): void => {
+  if (pendingCandleBars.size === 0) return;
+  const batches = [...pendingCandleBars];
+  pendingCandleBars.clear();
+  const { appendCandles } = useMarketDataStore.getState();
+  for (const [key, bars] of batches) appendCandles(key, bars);
+};
+
+/** Coalesce every candle frame in one animation frame into one store write per key. */
+export function scheduleCandleAppend(key: string, candles: readonly ChartDataPoint[]): void {
+  if (candles.length === 0) return;
+  const queued = pendingCandleBars.get(key);
+  if (queued === undefined) pendingCandleBars.set(key, [...candles]);
+  else queued.push(...candles);
+
+  if (typeof requestAnimationFrame !== "function") {
+    commitPendingCandles();
+    return;
+  }
+  if (candleFrameId !== null) return;
+  candleFrameId = requestAnimationFrame(() => {
+    candleFrameId = null;
+    commitPendingCandles();
+  });
+}
+
+/** Drop a queued candle batch for `key` (all keys when omitted) and idle the frame. */
+export function cancelCandleFlush(key?: string): void {
+  if (key === undefined) pendingCandleBars.clear();
+  else pendingCandleBars.delete(key);
+  if (pendingCandleBars.size > 0) return;
+  if (candleFrameId !== null) {
+    if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(candleFrameId);
+    candleFrameId = null;
+  }
+}
+
 export function useHyperliquidCandles({
   symbol,
   interval,
@@ -169,11 +210,20 @@ export function useHyperliquidCandles({
 
       // WS decoder returns ChartDataPoint[] shape
       if (isChartDataPointArray(rawData) && rawData.length > 0) {
-        appendCandles(candleKey, rawData);
+        scheduleCandleAppend(candleKey, rawData);
       }
     },
-    [hlInterval, candleKey, appendCandles],
+    [hlInterval, candleKey],
   );
+
+  // A queued batch belongs to the identity that produced it; drop it when that
+  // identity goes away so stale bars never land on the next key.
+  useEffect(() => {
+    if (!enabled) cancelCandleFlush(candleKey);
+    return () => {
+      cancelCandleFlush(candleKey);
+    };
+  }, [enabled, candleKey]);
 
   const handleConnectionChange = useCallback((c: boolean) => {
     setIsConnected(c);

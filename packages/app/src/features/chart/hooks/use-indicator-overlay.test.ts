@@ -1,10 +1,11 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 
-import type { IndicatorDataPoint } from "@0xsignal/shared";
+import type { BandIndicatorDataPoint, IndicatorDataPoint } from "@0xsignal/shared";
 
 import type { UtcDated } from "../lib/time";
-import { syncSeriesData } from "./use-indicator-overlay";
+import type { BandConversionCacheEntry } from "./use-indicator-overlay";
+import { syncSeriesData, updateBandConversion } from "./use-indicator-overlay";
 
 const TIMEFRAME_SEC = 60;
 const FIRST_POINT_SEC = 1_000_020;
@@ -93,5 +94,74 @@ describe("syncSeriesData", () => {
 
     expect(updates).toHaveLength(0);
     expect(dataSets).toHaveLength(1);
+  });
+});
+
+const bandPoints = (values: readonly number[]): BandIndicatorDataPoint[] =>
+  values.map((value, index) => ({
+    time: FIRST_POINT_SEC + index * TIMEFRAME_SEC,
+    upper: value + 1,
+    middle: value,
+    lower: value - 1,
+  }));
+
+const bandCache = (
+  cacheKey: string,
+  source: readonly BandIndicatorDataPoint[],
+): BandConversionCacheEntry => ({
+  cacheKey,
+  source,
+  converted: updateBandConversion(undefined, cacheKey, source),
+});
+
+describe("updateBandConversion", () => {
+  test("a tail-append reuses the cached converted array in place", () => {
+    const all = bandPoints([1, 2, 3, 4]);
+    const cached = bandCache("k", all.slice(0, 3));
+
+    const converted = updateBandConversion(cached, "k", all);
+
+    expect(converted).toBe(cached.converted);
+    expect(converted).toHaveLength(4);
+    expect(converted.at(-1)?.middle).toBe(4);
+  });
+
+  test("a tail-replace reuses the cached array and swaps the last point", () => {
+    const cached = bandCache("k", bandPoints([1, 2, 3]));
+
+    const converted = updateBandConversion(cached, "k", bandPoints([1, 2, 9]));
+
+    expect(converted).toBe(cached.converted);
+    expect(converted.at(-1)?.middle).toBe(9);
+    expect(converted[1]?.middle).toBe(2);
+  });
+
+  test("a mid-series change forces a full rebuild", () => {
+    const cached = bandCache("k", bandPoints([1, 2, 3]));
+
+    const converted = updateBandConversion(cached, "k", bandPoints([1, 9, 3]));
+
+    expect(converted).not.toBe(cached.converted);
+    expect(converted[1]?.middle).toBe(9);
+    expect(converted).toHaveLength(3);
+  });
+
+  test("a mid-series change that also appends forces a full rebuild", () => {
+    const cached = bandCache("k", bandPoints([1, 2, 3]));
+
+    const converted = updateBandConversion(cached, "k", bandPoints([1, 9, 3, 4]));
+
+    expect(converted).not.toBe(cached.converted);
+    expect(converted.map((point) => point.middle)).toEqual([1, 9, 3, 4]);
+  });
+
+  test("a changed cache key (identity/params) rebuilds", () => {
+    const source = bandPoints([1, 2, 3]);
+    const cached = bandCache("k", source);
+
+    const converted = updateBandConversion(cached, "other", source);
+
+    expect(converted).not.toBe(cached.converted);
+    expect(converted).toHaveLength(3);
   });
 });

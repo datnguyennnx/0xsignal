@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { IChartApi, ISeriesApi, IPaneApi, Time } from "lightweight-charts";
 import { LineSeries, HistogramSeries } from "lightweight-charts";
-import type { ActiveIndicator, IndicatorDataPoint } from "@0xsignal/shared";
+import type { ActiveIndicator, BandIndicatorDataPoint, IndicatorDataPoint } from "@0xsignal/shared";
 import {
   getIndicatorBaseId,
   getIndicatorConfigById,
@@ -31,12 +31,53 @@ interface IndicatorSeriesRef {
 
 interface BandPrimitiveRef {
   primitive: BandPrimitive;
+  /** Converted series for this band; reused when only the tail moved. */
+  conversion?: BandConversionCacheEntry;
 }
 
 interface PaneState {
   pane: IPaneApi<Time>;
   indicatorId: string;
 }
+
+export interface BandConversionCacheEntry {
+  cacheKey: string;
+  source: readonly BandIndicatorDataPoint[];
+  converted: UtcDated<BandIndicatorDataPoint>[];
+}
+
+const sameBandPoint = (a: BandIndicatorDataPoint, b: BandIndicatorDataPoint): boolean =>
+  a.time === b.time && a.upper === b.upper && a.middle === b.middle && a.lower === b.lower;
+
+// Reuse the converted array when the dataset only moved at its tail; a mid-series
+// edit, identity change, or dropped timestamps all force a full rebuild.
+export const updateBandConversion = (
+  cached: BandConversionCacheEntry | undefined,
+  cacheKey: string,
+  source: readonly BandIndicatorDataPoint[],
+): UtcDated<BandIndicatorDataPoint>[] => {
+  const rebuild = (): UtcDated<BandIndicatorDataPoint>[] => toUtcTimestamps(source);
+  if (cached === undefined || cached.cacheKey !== cacheKey) return rebuild();
+  const { converted, source: previous } = cached;
+  // Dropped non-finite timestamps break index alignment, so never reuse then.
+  if (converted.length !== previous.length) return rebuild();
+  const appended = source.length === previous.length + 1;
+  if (!appended && source.length !== previous.length) return rebuild();
+  const stable = appended ? previous.length : previous.length - 1;
+  for (let i = 0; i < stable; i++) {
+    const before = previous[i];
+    const after = source[i];
+    if (before === undefined || after === undefined || !sameBandPoint(before, after)) {
+      return rebuild();
+    }
+  }
+  const last = source.at(-1);
+  const tail = last === undefined ? undefined : toUtcTimestamps([last])[0];
+  if (tail === undefined) return rebuild();
+  if (appended) converted.push(tail);
+  else converted[converted.length - 1] = tail;
+  return converted;
+};
 
 const createOscillatorPriceFormat = () => ({
   type: "custom" as const,
@@ -67,6 +108,7 @@ const decideOverlaySync = (
   next: readonly IndicatorDataPoint[],
 ): OverlaySync => {
   if (previous === undefined) return "setData";
+  if (previous === next) return "none";
   if (previous.length !== next.length) return "setData";
   if (next.length === 0) return "none";
 
@@ -243,16 +285,16 @@ export const useIndicatorOverlay = ({
   const renderBandOverlay = useCallback(
     (instanceId: string, data: IndicatorRenderEntry, color?: string) => {
       if (data.type !== "band") return;
-
-      const bandData = toUtcTimestamps(data.data);
+      let bandRef = bandPrimitiveRefs.current.get(instanceId);
+      const bandData = updateBandConversion(bandRef?.conversion, data.meta.cacheKey, data.data);
       const first = bandData[0];
       const last = bandData.at(-1);
       if (first === undefined || last === undefined) return;
-
+      // Only attach the cache once a primitive exists to own it.
+      const conversion = { cacheKey: data.meta.cacheKey, source: data.data, converted: bandData };
       const safeColor =
         color !== undefined && color !== "" ? color : theme.colors["--data-crosshair"];
 
-      let bandRef = bandPrimitiveRefs.current.get(instanceId);
       if (bandRef === undefined && mainSeries !== null && mainSeries !== undefined) {
         const primitive = new BandPrimitive({
           startTime: first.time,
@@ -266,6 +308,7 @@ export const useIndicatorOverlay = ({
       }
 
       if (bandRef !== undefined) {
+        bandRef.conversion = conversion;
         bandRef.primitive.updateOptions({
           startTime: first.time,
           endTime: last.time,
