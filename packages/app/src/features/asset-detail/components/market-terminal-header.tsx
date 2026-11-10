@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { formatCompactUsd, formatPrice, formatSignedPercent } from "@/core/utils/formatters";
 import { MetricItem } from "./metric-item";
 import { formatSignedUsd, formatFundingPercent } from "../utils/format";
@@ -11,7 +11,7 @@ interface MarketTerminalHeaderProps {
   volume24h: number;
   openInterest: number;
   fundingRate: number;
-  fundingCountdown: string;
+  fundingCountdown: ReactNode;
   marketType?: "perp" | "spot" | undefined;
   marketCap?: number | undefined;
   contractAddress?: string | undefined;

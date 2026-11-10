@@ -6,8 +6,8 @@ import { getPositions } from "@/services/api/whales";
 
 export const WHALE_POSITIONS_REFETCH_INTERVAL = 30_000;
 
-/** Ten pages bound the mounted table; the "Load more" button appends one page at a time. */
-export const MAX_WHALE_POSITION_PAGES = 10;
+/** Four pages (200 rows) bound the fetched set; the table renders only the visible window. */
+export const MAX_WHALE_POSITION_PAGES = 4;
 
 export interface WhalePositionsPageLike {
   readonly positions: readonly WhalePosition[];

@@ -1,7 +1,7 @@
-import { memo, useDeferredValue, useMemo, useState, type JSX } from "react";
-import type { WhalePosition, WhalePositionsQuery } from "@0xsignal/shared";
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { cn } from "cn";
 
+import { computeWindow } from "@/features/trade/lib/market-window";
 import { useOpenCoin } from "@/components/app-side-panel";
 import { preloadRoute } from "@/lib/preload-routes";
 import { EmptyState } from "@/components/empty-state";
@@ -77,8 +77,27 @@ const SKELETON_ROW_KEYS = Array.from({ length: 8 }, (_, index) => `whale-row-${i
 /** Every data column; the table fills width so no trailing spacer is needed. */
 const COLUMN_COUNT = COLUMNS.length;
 
+/** Fallback until a real body row is measured; the row is ~two lines at the default density. */
+const ROW_HEIGHT = 44;
+const OVERSCAN = 8;
+
+/** `Table` owns the overflow container; its data attribute is the stable handle to it. */
+function resolveScrollContainer(table: HTMLTableElement | null): HTMLDivElement | null {
+  return table?.closest<HTMLDivElement>('[data-slot="table-container"]') ?? null;
+}
+
 function toneClass(value: number): string {
   return value >= 0 ? "text-gain" : "text-loss";
+}
+
+/** A spacer keeps the scrollbar honest while the window renders only the visible slice. */
+function SpacerRow({ height }: { readonly height: number }): JSX.Element | null {
+  if (height <= 0) return null;
+  return (
+    <TableRow aria-hidden className="border-0 hover:bg-transparent">
+      <TableCell colSpan={COLUMN_COUNT} className="p-0" style={{ height }} />
+    </TableRow>
+  );
 }
 
 interface WhalePositionsTableProps {
@@ -201,7 +220,7 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
   const deferredSymbol = useDeferredValue(symbolInput);
   const openCoin = useOpenCoin();
 
-  const query = useMemo<WhalePositionsQuery>(
+  const query = useMemo(
     () => ({
       symbol: deferredSymbol.trim() || undefined,
       side: filters.side === "all" ? undefined : filters.side,
@@ -214,6 +233,71 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
     useWhalePositions(query);
 
   const rows = useMemo(() => dedupeWhalePositions(data?.pages), [data]);
+
+  const tableRef = useRef<HTMLTableElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [rowHeight, setRowHeight] = useState(ROW_HEIGHT);
+
+  // A passive scroll listener coalesces to one state update per animation frame.
+  useEffect(() => {
+    const element = resolveScrollContainer(tableRef.current);
+    if (element === null) return () => {};
+
+    let frame: number | null = null;
+    let pendingTop = element.scrollTop;
+
+    const handleScroll = () => {
+      pendingTop = element.scrollTop;
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        setScrollTop(pendingTop);
+      });
+    };
+
+    element.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      element.removeEventListener("scroll", handleScroll);
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  // Measure the viewport and one real row; never measure inside onScroll.
+  useEffect(() => {
+    const element = resolveScrollContainer(tableRef.current);
+    if (element === null) return () => {};
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === element) {
+          setViewportHeight(element.clientHeight);
+          continue;
+        }
+        if (!(entry.target instanceof HTMLElement)) continue;
+        const measured = entry.target.offsetHeight;
+        if (measured > 0) setRowHeight(measured);
+      }
+    });
+
+    observer.observe(element);
+    if (rows.length > 0) {
+      const firstRow = element.querySelector("tbody tr");
+      if (firstRow instanceof HTMLElement) observer.observe(firstRow);
+    }
+    return () => {
+      observer.disconnect();
+    };
+  }, [rows.length]);
+
+  const { start, end, topSpacer, bottomSpacer } = computeWindow({
+    scrollTop,
+    viewportHeight,
+    rowHeight,
+    total: rows.length,
+    overscan: OVERSCAN,
+  });
+  const windowRows = rows.slice(start, end);
 
   const showLoading = isLoading && rows.length === 0;
   const showError = isError && rows.length === 0;
@@ -230,7 +314,7 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
         onSymbolChange={setSymbolInput}
       />
 
-      <Table aria-label="Whale positions" className="table-cull">
+      <Table ref={tableRef} aria-label="Whale positions" className="table-cull">
         <TableHeader>
           <TableRow>
             {COLUMNS.map((column) => (
@@ -301,22 +385,26 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
               </TableCell>
             </TableRow>
           ) : (
-            rows.map((position: WhalePosition, index: number) => (
-              <WhalePositionRow
-                key={whalePositionRowKey(position)}
-                position={position}
-                index={index}
-                onSelectWallet={onSelectWallet}
-                onOpenCoin={openCoin}
-              />
-            ))
+            <>
+              <SpacerRow height={topSpacer} />
+              {windowRows.map((position, offset) => (
+                <WhalePositionRow
+                  key={whalePositionRowKey(position)}
+                  position={position}
+                  index={start + offset}
+                  onSelectWallet={onSelectWallet}
+                  onOpenCoin={openCoin}
+                />
+              ))}
+              <SpacerRow height={bottomSpacer} />
+            </>
           )}
         </TableBody>
       </Table>
 
       {hasNextPage && (
         <div className="flex justify-center border-t py-2">
-          {/* A page is the render unit: `Load more` appends one page, so the mounted row count stays bounded. */}
+          {/* The trigger sits outside the scroll container, so it stays reachable while a page appends to the window's source list. */}
           <Button
             variant="outline"
             disabled={isFetching}

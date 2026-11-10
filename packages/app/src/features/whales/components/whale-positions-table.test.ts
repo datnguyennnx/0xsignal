@@ -1,14 +1,17 @@
 /// <reference types="bun-types" />
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 
 import { position } from "../../../test/fixtures";
 import {
   MAX_WHALE_POSITION_PAGES,
   WHALE_POSITIONS_REFETCH_INTERVAL,
   dedupeWhalePositions,
+  whalePositionRowKey,
   whalePositionsQueryOptions,
   whalePositionsRefetchInterval,
 } from "../hooks/use-whale-positions";
+import { computeWindow } from "../../trade/lib/market-window";
 import { formatCompactUsd, formatPrice } from "../../../core/utils/formatters";
 import {
   ENTRY_TIME_FORMATTER,
@@ -136,8 +139,66 @@ describe("module-level whale formatters", () => {
 
 describe("whale positions query options", () => {
   test("caps the retained page count", () => {
-    expect(MAX_WHALE_POSITION_PAGES).toBe(10);
+    expect(MAX_WHALE_POSITION_PAGES).toBe(4);
     expect(whalePositionsQueryOptions().maxPages).toBe(MAX_WHALE_POSITION_PAGES);
+  });
+});
+
+describe("whale table windowing", () => {
+  const window = { viewportHeight: 600, rowHeight: 44, total: 500, overscan: 8 };
+
+  test("the top of 500 rows renders one screen plus overscan and a bottom spacer", () => {
+    const result = computeWindow({ ...window, scrollTop: 0 });
+
+    expect(result.start).toBe(0);
+    expect(result.end).toBe(Math.ceil(600 / 44) + 2 * 8);
+    expect(result.topSpacer).toBe(0);
+    expect(result.bottomSpacer).toBe((500 - result.end) * 44);
+  });
+
+  test("the bottom clamps to the last row", () => {
+    const result = computeWindow({ ...window, scrollTop: 500 * 44 - 600 });
+
+    expect(result.end).toBe(500);
+    expect(result.bottomSpacer).toBe(0);
+    expect(result.topSpacer).toBe(result.start * 44);
+  });
+
+  test("spacers plus the rendered slice account for every row exactly once", () => {
+    const result = computeWindow({ ...window, scrollTop: 1234 });
+    const rendered = result.end - result.start;
+
+    expect(result.end - result.start).toBeLessThanOrEqual(Math.ceil(600 / 44) + 2 * 8);
+    expect((result.topSpacer + result.bottomSpacer) / 44 + rendered).toBe(500);
+  });
+});
+
+describe("whale positions table source", () => {
+  const source = readFileSync(new URL("./whale-positions-table.tsx", import.meta.url), "utf8");
+
+  test("renders a windowed slice through the pure helper", () => {
+    expect(source).toContain("computeWindow");
+    expect(source).toContain("rows.slice(");
+    expect(source).not.toContain("rows.map(");
+  });
+
+  test("keeps the grid height with spacers around the slice", () => {
+    expect(source).toContain("topSpacer");
+    expect(source).toContain("bottomSpacer");
+  });
+
+  test("scrolls through a passive, rAF-coalesced listener", () => {
+    expect(source).toContain("{ passive: true }");
+    expect(source).toContain("requestAnimationFrame");
+  });
+
+  test("row identity and the load-more trigger are unchanged", () => {
+    expect(source).toContain("whalePositionRowKey(position)");
+    expect(source).toContain("fetchNextPage()");
+  });
+
+  test("the row key ignores the absolute index, so a shift never remounts a row", () => {
+    expect(whalePositionRowKey(position())).toBe(whalePositionRowKey(position()));
   });
 });
 

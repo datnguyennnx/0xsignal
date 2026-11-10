@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import {
   Table,
   TableHeader,
@@ -7,7 +7,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatters";
+import { formatPrice, formatSize } from "@/core/utils/formatters";
 import { formatTime, formatStatus } from "../utils/shared-table-utils";
 import {
   DirLabel,
@@ -18,6 +18,7 @@ import {
 } from "./shared-table-components";
 import { getOrderType, getTriggerLabel, formatOrderValue } from "../utils/trigger-utils";
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
+import { prepareFillRows } from "../lib/order-history-rows";
 import type { UserFill, HistoricalOrderEntry } from "@0xsignal/shared";
 
 interface TradeHistoryTableProps {
@@ -42,51 +43,38 @@ export const TradeHistoryTable = memo(function TradeHistoryTable({
   isFillsError = false,
   onRetry,
 }: TradeHistoryTableProps) {
-  const seenFills = new Map<string, number>();
+  // The page slice is already 20 rows; memoizing keeps the Map and the eight formatted
+  // cells off every unrelated parent render.
+  const rows = useMemo(() => prepareFillRows(fills), [fills]);
   const state = resolveTableState({ isLoading: isFillsLoading, isError: isFillsError });
   return (
     <Table className="table-cull">
       <FillHistoryTableHeader />
       <TableBody>
         {state === "empty" ? (
-          !fills || fills.length === 0 ? (
+          rows.length === 0 ? (
             <TableEmptyRow colSpan={8} />
           ) : (
-            fills.map((fill) => {
-              const sz = Number(fill.sz);
-              const px = Number(fill.px);
-              const tradeValue = sz * px;
-              const fee = Number(fill.fee);
-              const cpnl =
-                fill.closedPnl !== undefined && fill.closedPnl !== ""
-                  ? Number(fill.closedPnl)
-                  : null;
-              const fillKey = `${fill.hash}-${fill.time}`;
-              const occurrence = (seenFills.get(fillKey) ?? 0) + 1;
-              seenFills.set(fillKey, occurrence);
-              return (
-                <TableRow key={`${fillKey}#${occurrence}`}>
-                  <TableCell className={c}>{formatTime(fill.time)}</TableCell>
-                  <TableCell className={`${c} font-medium`}>{fill.coin}</TableCell>
-                  <TableCell className={c}>
-                    <DirDisplay dir={fill.dir} />
-                  </TableCell>
-                  <TableCell className={cNum}>{formatPrice(px)}</TableCell>
-                  <TableCell className={cNum}>{formatSize(sz)}</TableCell>
-                  <TableCell className={cNum}>{formatCompactUsd(tradeValue)}</TableCell>
-                  <TableCell className={cNum}>{formatCompactUsd(fee)}</TableCell>
-                  <TableCell className={cNum}>
-                    {cpnl === null ? (
-                      "—"
-                    ) : (
-                      <span className={cpnl >= 0 ? "text-gain" : "text-loss"}>
-                        {formatCompactUsd(cpnl)}
-                      </span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })
+            rows.map((row) => (
+              <TableRow key={row.key}>
+                <TableCell className={c}>{row.time}</TableCell>
+                <TableCell className={`${c} font-medium`}>{row.coin}</TableCell>
+                <TableCell className={c}>
+                  <DirDisplay dir={row.dir} />
+                </TableCell>
+                <TableCell className={cNum}>{row.price}</TableCell>
+                <TableCell className={cNum}>{row.size}</TableCell>
+                <TableCell className={cNum}>{row.value}</TableCell>
+                <TableCell className={cNum}>{row.fee}</TableCell>
+                <TableCell className={cNum}>
+                  {row.pnl === null ? (
+                    "—"
+                  ) : (
+                    <span className={row.pnl >= 0 ? "text-gain" : "text-loss"}>{row.pnlText}</span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))
           )
         ) : (
           <TableEmptyRow

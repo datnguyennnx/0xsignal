@@ -36,8 +36,27 @@ interface LiveMarketHeaderProps {
 }
 
 /**
- * The 1s countdown and the allMids ticks stop at this subtree: only the market
- * metrics re-render, never the grid, the chart or the dashboard below them.
+ * Owns the 1s tick: only this leaf re-renders on the tick, so the header and its
+ * six metric items keep their last render.
+ */
+const FundingCountdown = memo(function FundingCountdown() {
+  const [countdown, setCountdown] = useState(() => toCountdown(getNextFundingMs()));
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setCountdown(toCountdown(getNextFundingMs()));
+    }, 1000);
+    return () => {
+      clearInterval(id);
+    };
+  }, []);
+
+  return countdown;
+});
+
+/**
+ * The allMids ticks stop at this subtree: only the market metrics re-render,
+ * never the grid, the chart or the dashboard below them.
  */
 const LiveMarketHeader = memo(function LiveMarketHeader({
   symbol,
@@ -45,21 +64,11 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
   price,
   tradeAsset,
 }: LiveMarketHeaderProps) {
-  const [fundingCountdown, setFundingCountdown] = useState(() => toCountdown(getNextFundingMs()));
   // Scalar selectors: an unrelated coin's tick never re-renders this header.
   const upperSymbol = symbol.toUpperCase();
   const mid = useMidPrice(symbol, isSpot);
   const upperMid = useMidPrice(upperSymbol, isSpot && upperSymbol !== symbol);
   const wsMid = mid ?? upperMid;
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setFundingCountdown(toCountdown(getNextFundingMs()));
-    }, 1000);
-    return () => {
-      clearInterval(id);
-    };
-  }, []);
 
   // The header presents this number as "Price" for spot and "Mark" for perps.
   // allMids is a MID, so it can only back the spot "Price"; perps keep markPx.
@@ -103,7 +112,7 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
       volume24h={derived.volume24h}
       openInterest={derived.openInterest}
       fundingRate={derived.fundingRate}
-      fundingCountdown={fundingCountdown}
+      fundingCountdown={<FundingCountdown />}
       marketType={derived.marketType}
       marketCap={derived.marketCap}
       contractAddress={derived.contractAddress}
@@ -138,7 +147,11 @@ export const AssetContent = memo(function AssetContent({
     if (grid === null) return () => {};
     const publish = () => {
       const offset = grid.getBoundingClientRect().top - region.getBoundingClientRect().top;
-      region.style.setProperty("--trading-header-offset", `${offset}px`);
+      const next = `${offset}px`;
+      // Writing the property re-enters this observer when it changes layout; skip the
+      // no-op write so the loop settles after one pass.
+      if (region.style.getPropertyValue("--trading-header-offset") === next) return;
+      region.style.setProperty("--trading-header-offset", next);
     };
     publish();
     const observer = new ResizeObserver(publish);
