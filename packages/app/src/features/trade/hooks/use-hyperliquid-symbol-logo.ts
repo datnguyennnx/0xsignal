@@ -42,25 +42,29 @@ async function probeImageUrl(url: string): Promise<string | null> {
   try {
     const ok = await new Promise<boolean>((resolve) => {
       const img = new Image();
-      const timer = setTimeout(() => {
+      let timer: ReturnType<typeof setTimeout> | null = null;
+
+      const onLoad = (): void => {
+        if (timer !== null) clearTimeout(timer);
+        img.removeEventListener("error", onError);
+        resolve(true);
+      };
+      const onError = (): void => {
+        if (timer !== null) clearTimeout(timer);
+        img.removeEventListener("load", onLoad);
+        resolve(false);
+      };
+
+      timer = setTimeout(() => {
+        img.removeEventListener("load", onLoad);
+        img.removeEventListener("error", onError);
+        // Detach the source so a late response cannot resolve after the timeout.
+        img.src = "";
         resolve(false);
       }, LOGO_PROBE_TIMEOUT_MS);
-      img.addEventListener(
-        "load",
-        () => {
-          clearTimeout(timer);
-          resolve(true);
-        },
-        { once: true },
-      );
-      img.addEventListener(
-        "error",
-        () => {
-          clearTimeout(timer);
-          resolve(false);
-        },
-        { once: true },
-      );
+
+      img.addEventListener("load", onLoad, { once: true });
+      img.addEventListener("error", onError, { once: true });
       img.src = url;
     });
     return ok ? url : null;

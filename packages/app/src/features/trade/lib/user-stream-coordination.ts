@@ -16,6 +16,8 @@ export interface TabChannel {
   send(message: unknown): void;
   close(): void;
   addEventListener(type: "message", listener: (event: MessageEvent<unknown>) => void): void;
+  /** Optional so non-DOM channel doubles need not implement removal. */
+  removeEventListener?(type: "message", listener: (event: MessageEvent<unknown>) => void): void;
 }
 
 export interface RemoteSubscriptionRequest {
@@ -243,6 +245,7 @@ export function createTabCoordinator<E>(options: TabCoordinatorOptions<E>): TabC
       disposed = true;
       stopPinging();
       channel.send({ kind: "bye", tabId: options.tabId });
+      channel.removeEventListener?.("message", onMessage);
       channel.close();
       clearTimer();
     },

@@ -33,6 +33,7 @@ const TradingChartInner = ({
 }: TradingChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const intervalRestoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { setHoveredCandle } = useHoverActions();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -108,13 +109,27 @@ const TradingChartInner = ({
       if (newInterval === interval) return;
       onIntervalChange(newInterval);
       if (isFallbackFullscreen) {
+        if (intervalRestoreTimerRef.current !== null) {
+          clearTimeout(intervalRestoreTimerRef.current);
+        }
         // render-path-allow: fallback fullscreen exit delay, not a render-loop timer.
-        setTimeout(() => {
+        intervalRestoreTimerRef.current = setTimeout(() => {
+          intervalRestoreTimerRef.current = null;
           setIsFullscreen(false);
         }, INTERVAL_RESTORE_DELAY);
       }
     },
     [interval, onIntervalChange, isFallbackFullscreen],
+  );
+
+  useEffect(
+    () => () => {
+      if (intervalRestoreTimerRef.current !== null) {
+        clearTimeout(intervalRestoreTimerRef.current);
+        intervalRestoreTimerRef.current = null;
+      }
+    },
+    [],
   );
 
   const chartContent = (

@@ -99,24 +99,25 @@ export function createHyperliquidUpstream(
     emitError(new Error(`Hyperliquid user stream subscription failed: ${error.message}`));
   };
 
-  socket.addEventListener("open", () => {
+  const onSocketOpen = (): void => {
     markInbound();
     setState("open");
-  });
-  socket.addEventListener("close", () => {
+  };
+  const onSocketClose = (): void => {
     setState("connecting");
     emitError(new Error("Hyperliquid user stream socket closed"));
-  });
-  socket.addEventListener("error", () => {
+  };
+  const onSocketError = (): void => {
     emitError(new Error("Hyperliquid user stream socket error"));
-  });
-  socket.terminationSignal.addEventListener(
-    "abort",
-    () => {
-      setState("closed");
-    },
-    { once: true },
-  );
+  };
+  const onTermination = (): void => {
+    setState("closed");
+  };
+
+  socket.addEventListener("open", onSocketOpen);
+  socket.addEventListener("close", onSocketClose);
+  socket.addEventListener("error", onSocketError);
+  socket.terminationSignal.addEventListener("abort", onTermination, { once: true });
 
   const spotSubscription = (
     user: string,
@@ -187,6 +188,11 @@ export function createHyperliquidUpstream(
     dispose: () => {
       if (disposed) return;
       disposed = true;
+      socket.removeEventListener("open", onSocketOpen);
+      socket.removeEventListener("close", onSocketClose);
+      socket.removeEventListener("error", onSocketError);
+      // Added with `{ once: true }`, so removal must not pass a different options object shape.
+      socket.terminationSignal.removeEventListener("abort", onTermination);
       stateListeners.clear();
       errorListeners.clear();
       transport.close();

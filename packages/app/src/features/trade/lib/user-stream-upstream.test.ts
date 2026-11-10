@@ -34,31 +34,80 @@ const withClock = async <T>(run: (clock: Clock) => Promise<T>): Promise<T> => {
   }
 };
 
+interface ListenerStore {
+  add(type: string, listener: () => void): void;
+  remove(type: string, listener: () => void): void;
+  count(type: string): number;
+  dispatch(type: string): void;
+}
+
+const makeListenerStore = (): ListenerStore => {
+  const listeners = new Map<string, Set<() => void>>();
+  return {
+    add(type, listener) {
+      const bucket = listeners.get(type) ?? new Set<() => void>();
+      bucket.add(listener);
+      listeners.set(type, bucket);
+    },
+    remove(type, listener) {
+      listeners.get(type)?.delete(listener);
+    },
+    count(type) {
+      return listeners.get(type)?.size ?? 0;
+    },
+    dispatch(type) {
+      for (const listener of Array.from(listeners.get(type) ?? [])) listener();
+    },
+  };
+};
+
+interface FakeSignal {
+  addEventListener(type: string, listener: () => void, options?: { once?: boolean }): void;
+  removeEventListener(type: string, listener: () => void): void;
+  listenerCount(type: string): number;
+}
+
 interface FakeSocket {
   reconnectCount: number;
   reconnect(): void;
   addEventListener(type: string, listener: () => void): void;
+  removeEventListener(type: string, listener: () => void): void;
+  listenerCount(type: string): number;
   dispatch(type: string): void;
-  readonly terminationSignal: AbortSignal;
+  readonly terminationSignal: FakeSignal;
 }
 
 const makeFakeSocket = (): FakeSocket => {
-  const listeners = new Map<string, Set<() => void>>();
-  const controller = new AbortController();
+  const events = makeListenerStore();
+  const signal = makeListenerStore();
   return {
     reconnectCount: 0,
     reconnect() {
       this.reconnectCount += 1;
     },
     addEventListener(type, listener) {
-      const bucket = listeners.get(type) ?? new Set<() => void>();
-      bucket.add(listener);
-      listeners.set(type, bucket);
+      events.add(type, listener);
+    },
+    removeEventListener(type, listener) {
+      events.remove(type, listener);
+    },
+    listenerCount(type) {
+      return events.count(type);
     },
     dispatch(type) {
-      for (const listener of Array.from(listeners.get(type) ?? [])) listener();
+      events.dispatch(type);
     },
-    terminationSignal: controller.signal,
+    terminationSignal: {
+      addEventListener(type, listener) {
+        signal.add(type, listener);
+      },
+      removeEventListener(type, listener) {
+        signal.remove(type, listener);
+      },
+      listenerCount(type) {
+        return signal.count(type);
+      },
+    },
   };
 };
 
@@ -192,6 +241,29 @@ describe("user-stream-upstream reconnect", () => {
       upstream.reconnect();
 
       expect(transport.socket.reconnectCount).toBe(0);
+    });
+  });
+});
+
+describe("user-stream-upstream teardown", () => {
+  test("dispose detaches every socket and termination listener", async () => {
+    await withClock(async () => {
+      const { transport, upstream } = makeUpstream();
+      expect(transport.socket.listenerCount("open")).toBe(1);
+      expect(transport.socket.listenerCount("close")).toBe(1);
+      expect(transport.socket.listenerCount("error")).toBe(1);
+      expect(transport.socket.terminationSignal.listenerCount("abort")).toBe(1);
+
+      upstream.dispose();
+
+      expect(transport.socket.listenerCount("open")).toBe(0);
+      expect(transport.socket.listenerCount("close")).toBe(0);
+      expect(transport.socket.listenerCount("error")).toBe(0);
+      expect(transport.socket.terminationSignal.listenerCount("abort")).toBe(0);
+
+      // A late socket event reaches no listener and cannot revive the state.
+      transport.socket.dispatch("error");
+      expect(upstream.getConnectionState()).toBe("closed");
     });
   });
 });

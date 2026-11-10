@@ -56,6 +56,20 @@ class FakeChannel implements TabChannel {
     if (type === "message") this.listeners.add(listener);
   }
 
+  removeEventListener(type: "message", listener: (event: MessageEvent<unknown>) => void): void {
+    if (type === "message") this.listeners.delete(listener);
+  }
+
+  get listenerCount(): number {
+    return this.listeners.size;
+  }
+
+  deliver(message: unknown): void {
+    for (const listener of this.listeners) {
+      listener(new MessageEvent("message", { data: message }));
+    }
+  }
+
   send(message: unknown): void {
     for (const peer of channels.get(this.name) ?? []) {
       if (peer === this) continue;
@@ -246,6 +260,33 @@ describe("user stream tab liveness", () => {
     expect(gone).toEqual([]);
 
     leader.dispose();
+  });
+
+  test("dispose detaches the message handler before closing the channel", () => {
+    jest.useFakeTimers();
+    const channel = new FakeChannel("0xsignal:user-stream:v1");
+    const coordinator = createTabCoordinator<TestEvent>({
+      createChannel: () => channel,
+      tabId: "tab-disposed",
+      electionDelayMs: 0,
+      isEvent: (value): value is TestEvent =>
+        typeof value === "object" && value !== null && "data" in value,
+      onPromote: () => {},
+      onDemote: () => {},
+      onRemoteSubscribe: () => {},
+      onRemoteUnsubscribe: () => {},
+      onRemoteTabGone: () => {},
+      onRemoteData: () => {},
+      onLeaderState: () => {},
+    });
+    expect(channel.listenerCount).toBe(1);
+
+    coordinator.dispose();
+
+    expect(channel.listenerCount).toBe(0);
+    // A frame delivered after dispose cannot reach the removed handler.
+    channel.deliver({ kind: "leader", tabId: "other" });
+    expect(coordinator.role()).toBe("undecided");
   });
 });
 

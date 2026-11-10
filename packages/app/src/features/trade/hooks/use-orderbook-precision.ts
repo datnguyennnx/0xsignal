@@ -13,6 +13,20 @@ interface BookPrices {
   asks: Array<{ price: number }>;
 }
 
+// The sets remember per-symbol sync flags for the life of the view, so a long
+// session visiting thousands of markets would grow them without bound.
+const MAX_TRACKED_SYMBOLS = 64;
+
+const trackSymbol = (set: Set<string>, symbol: string): void => {
+  set.delete(symbol);
+  set.add(symbol);
+  if (set.size <= MAX_TRACKED_SYMBOLS) return;
+  // Evicting the oldest entry only costs one re-sync for a symbol unseen in
+  // 64 switches; that is cheaper than an unbounded set.
+  const oldest = set.values().next().value;
+  if (oldest !== undefined) set.delete(oldest);
+};
+
 export function useOrderbookPrecision(symbol: string, orderbook: BookPrices | undefined) {
   const setNSigFigs = useTradeUIStore((s) => s.setNSigFigs);
 
@@ -47,7 +61,7 @@ export function useOrderbookPrecision(symbol: string, orderbook: BookPrices | un
 
     const first = scalingOptions[0];
     setNSigFigs(first.nSigFigs ?? DEFAULT_SIG_FIGS);
-    initialSyncedSymbolsRef.current.add(symbol);
+    trackSymbol(initialSyncedSymbolsRef.current, symbol);
   }, [orderbook, scalingOptions, symbol, selectedNSigFigs, setNSigFigs]);
 
   const handleNSigFigsChange = useCallback(
@@ -56,7 +70,7 @@ export function useOrderbookPrecision(symbol: string, orderbook: BookPrices | un
       const nextSig = opt?.nSigFigs ?? null;
 
       setSelectedNSigFigs({ symbol, value: newValue });
-      userInteractedSymbolsRef.current.add(symbol);
+      trackSymbol(userInteractedSymbolsRef.current, symbol);
       setNSigFigs(nextSig);
     },
     [scalingOptions, symbol, setNSigFigs],
