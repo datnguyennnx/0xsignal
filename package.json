@@ -52,7 +52,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
-      "oxlint --fix",
+      "oxlint --fix --no-error-on-unmatched-pattern",
       "oxfmt --write"
     ],
     "*.{json,md,css}": [
