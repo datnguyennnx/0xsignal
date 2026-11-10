@@ -140,7 +140,7 @@
   .type-display {
     font-size: var(--text-display);
     line-height: var(--line-height-display);
-    font-family: var(--font-sans);
+    font-family: var(--font-display);
   }
 
   .type-heading-role {

@@ -72,21 +72,22 @@ describe("font family tokens", () => {
 });
 
 describe("role mapping", () => {
-  const roles = TYPE_ROLES;
+  const SANS_ROLES = TYPE_ROLES.filter((role) => role !== ".type-display");
 
   const block = (selector: string) => {
     const start = UTILITIES_CSS.indexOf(`${selector} {`);
     return UTILITIES_CSS.slice(start, UTILITIES_CSS.indexOf("}", start) + 1);
   };
 
-  test("every type role resolves to the one sans family", () => {
-    for (const selector of roles) {
+  test("every non-display type role resolves to the one sans family", () => {
+    for (const selector of SANS_ROLES) {
       expect(block(selector)).toContain("font-family: var(--font-sans);");
     }
   });
 
-  test("no type role reaches for the display token", () => {
-    for (const selector of roles) {
+  test("only the display role reaches for the display token", () => {
+    expect(block(".type-display")).toContain("font-family: var(--font-display);");
+    for (const selector of SANS_ROLES) {
       expect(block(selector)).not.toContain("var(--font-display)");
     }
   });
@@ -206,7 +207,9 @@ describe("data role numerics", () => {
     expect(openOrders).toContain("tabular-nums`}>{formatTime(order.timestamp)");
     expect(fundingRows).toContain("tabular-nums`}>{formatTime(entry.time)");
     expect(orderHistory).toContain("tabular-nums`}>{row.time}");
-    expect(orderHistory).toContain("tabular-nums`}>{formatTime(entry.statusTimestamp)}");
+    expect(orderHistory).toMatch(
+      /className=\{`[^`]*tabular-nums[^`]*`\}>\s*\{formatTime\(entry\.statusTimestamp\)\}/,
+    );
   });
 
   test("tp/sl detail values carry tabular figures", () => {
