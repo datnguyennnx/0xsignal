@@ -17,7 +17,7 @@ export const ChartOhlcOverlay = memo(({ data }: ChartOhlcOverlayProps) => {
   if (!displayCandle) return null;
 
   return (
-    <div className="absolute top-2 left-2 z-30 px-2 py-1 bg-transparent rounded-control type-data select-none overflow-x-auto scrollbar-hide w-fit max-w-[calc(100%-1rem)]">
+    <div className="absolute top-2 left-2 z-30 px-2 py-[calc(0.35rem_+_0.175rem)] -my-0.5 bg-transparent rounded-control type-data select-none overflow-x-auto scrollbar-hide w-fit max-w-[calc(100%-1rem)]">
       <Surface
         tier="floating"
         radius="overlay"

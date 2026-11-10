@@ -82,7 +82,7 @@ function DropdownMenuItem({
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "group/dropdown-menu-item relative flex h-control cursor-default items-center gap-(--control-gap) rounded-control px-(--control-px) type-body focus-ring-inset select-none hover:bg-(--control-hover-bg) hover:text-foreground focus:bg-(--control-hover-bg) focus:text-foreground data-[highlighted]:bg-(--control-hover-bg) not-data-[variant=destructive]:hover:**:text-foreground not-data-[variant=destructive]:focus:**:text-foreground data-inset:pl-7 data-[variant=destructive]:text-destructive data-[variant=destructive]:hover:bg-destructive/10 data-[variant=destructive]:hover:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-(--icon) data-[variant=destructive]:*:[svg]:text-destructive",
+        "group/dropdown-menu-item relative flex h-control cursor-default items-center gap-(--control-gap) rounded-control px-(--control-px) type-body focus-ring-inset select-none data-[highlighted]:bg-(--control-hover-bg) data-[highlighted]:text-foreground not-data-[variant=destructive]:data-[highlighted]:**:text-foreground data-inset:pl-7 data-[variant=destructive]:text-destructive data-[variant=destructive]:data-[highlighted]:bg-destructive/10 data-[variant=destructive]:data-[highlighted]:text-destructive data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-(--icon) data-[variant=destructive]:*:[svg]:text-destructive",
         className,
       )}
       {...props}
@@ -107,7 +107,7 @@ function DropdownMenuRadioItem({
       data-slot="dropdown-menu-radio-item"
       data-inset={inset}
       className={cn(
-        "relative flex h-control cursor-default items-center gap-(--control-gap) rounded-control py-0 pr-8 pl-(--control-px) type-body focus-ring-inset select-none hover:bg-(--control-hover-bg) hover:text-foreground focus:bg-(--control-hover-bg) focus:text-foreground data-[highlighted]:bg-(--control-hover-bg) hover:**:text-foreground focus:**:text-foreground data-inset:pl-7 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-(--icon)",
+        "relative flex h-control cursor-default items-center gap-(--control-gap) rounded-control py-0 pr-8 pl-(--control-px) type-body focus-ring-inset select-none data-[highlighted]:bg-(--control-hover-bg) data-[highlighted]:text-foreground data-[highlighted]:**:text-foreground data-inset:pl-7 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-(--icon)",
         className,
       )}
       {...props}

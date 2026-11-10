@@ -119,7 +119,9 @@ const OrderRow = memo(
             : undefined
         }
         className={`${ROW_HEIGHT_CLASS} relative flex w-full items-center px-2 gap-1 cursor-pointer text-left tabular-nums select-none shrink-0 focus-ring-inset bg-transparent border-0 ${
-          isHovered ? "bg-muted/60" : "hover:bg-muted/40"
+          isHovered
+            ? "bg-[color-mix(in_oklch,var(--control-hover-bg),var(--control-active-bg)_50%)]"
+            : "hover:bg-(--control-hover-bg)"
         }`}
         aria-label={rowAriaLabel}
         aria-describedby={price > 0 && isHovered ? "orderbook-depth-details" : undefined}

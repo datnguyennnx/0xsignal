@@ -7,6 +7,7 @@ import {
   useDeferredValue,
   startTransition,
 } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useTradeList } from "@/features/trade/hooks/use-trade-list";
@@ -142,25 +143,31 @@ const TradeDropdownFn = ({
         contentId={dropdownContentId}
       />
 
-      {isOpen && (
-        <TradeDropdownPanel
-          id={dropdownContentId}
-          position={position}
-          query={query}
-          onQueryChange={setQuery}
-          category={category}
-          onCategoryChange={handleCategoryChange}
-          sortBy={sortBy}
-          sortDesc={sortDesc}
-          onSort={handleSort}
-          rows={rows}
-          currentSymbol={currentSymbol}
-          dataVersion={dataUpdatedAt}
-          isLoading={isLoading}
-          hasError={!!error}
-          onSelect={handleSelect}
-        />
-      )}
+      {isOpen &&
+        createPortal(
+          // Portalled to the body: an ancestor with `container-type` would become the
+          // containing block for `position: fixed` and displace the viewport coordinates.
+          <div data-trade-dropdown>
+            <TradeDropdownPanel
+              id={dropdownContentId}
+              position={position}
+              query={query}
+              onQueryChange={setQuery}
+              category={category}
+              onCategoryChange={handleCategoryChange}
+              sortBy={sortBy}
+              sortDesc={sortDesc}
+              onSort={handleSort}
+              rows={rows}
+              currentSymbol={currentSymbol}
+              dataVersion={dataUpdatedAt}
+              isLoading={isLoading}
+              hasError={!!error}
+              onSelect={handleSelect}
+            />
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

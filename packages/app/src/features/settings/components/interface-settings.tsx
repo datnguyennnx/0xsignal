@@ -133,8 +133,8 @@ function InterfaceHeading({ children }: { children: ReactNode }) {
     <div className="flex flex-col gap-stack sm:flex-row sm:items-start sm:justify-between">
       <div className="flex flex-col gap-field">
         <h3 className="type-title font-semibold text-foreground">Interface</h3>
-        <p className="type-data text-muted-foreground">Tune material, density and readability.</p>
-        <p className="type-data text-muted-foreground">
+        <p className="type-body text-muted-foreground">Tune material, density and readability.</p>
+        <p className="type-body text-muted-foreground">
           Changes apply instantly and persist on this device.
         </p>
       </div>
@@ -156,7 +156,7 @@ function SettingGroup({
     <section className="flex min-w-0 flex-col gap-stack">
       <div className="flex flex-col gap-field">
         <h4 className="type-title font-semibold text-foreground">{title}</h4>
-        <p className="type-data text-muted-foreground">{description}</p>
+        <p className="type-body text-muted-foreground">{description}</p>
       </div>
       <div className="flex flex-col gap-field">{children}</div>
     </section>

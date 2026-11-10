@@ -6,21 +6,20 @@ import { cn } from "cn";
 import { surfaceAttrs } from "@/components/surface/tiers";
 
 const buttonVariants = cva(
-  "group/button motion-control inline-flex shrink-0 items-center justify-center rounded-control border border-transparent bg-clip-padding type-control font-medium whitespace-nowrap select-none disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:outline-2 aria-invalid:outline-offset-2 aria-invalid:outline-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-icon",
+  "group/button motion-control inline-flex shrink-0 items-center justify-center rounded-control border border-transparent bg-clip-padding type-control font-medium whitespace-nowrap select-none disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive invalid-ring [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-icon",
   {
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
         cta: "bg-primary text-primary-foreground hover:bg-primary/80",
-        accent: "bg-info text-primary-foreground hover:bg-info/80 focus-visible:border-info/40",
+        accent: "bg-info text-primary-foreground hover:bg-info/80",
         outline:
           "tier-control hover:bg-(--control-hover-bg) hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/80 focus-visible:border-destructive/40",
+          "hover:bg-muted hover:text-foreground aria-expanded:bg-(--control-active-bg) aria-expanded:text-foreground aria-expanded:shadow-[inset_0_0_0_1px_var(--border)]",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/80",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
@@ -57,7 +56,7 @@ function Button({
   const resolvedSize = size ?? (variant === "cta" ? "cta" : "md");
   const classes = cn(
     buttonVariants({ variant, size: resolvedSize }),
-    !isStatic && "press focus-ring focus-visible:border-ring",
+    !isStatic && "press focus-ring",
     className,
   );
 

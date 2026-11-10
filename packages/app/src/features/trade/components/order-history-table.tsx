@@ -57,7 +57,7 @@ export const TradeHistoryTable = memo(function TradeHistoryTable({
           ) : (
             rows.map((row) => (
               <TableRow key={row.key}>
-                <TableCell className={c}>{row.time}</TableCell>
+                <TableCell className={`${c} tabular-nums`}>{row.time}</TableCell>
                 <TableCell className={`${c} font-medium`}>{row.coin}</TableCell>
                 <TableCell className={c}>
                   <DirDisplay dir={row.dir} />
@@ -157,7 +157,9 @@ export const HistoryOrderTable = memo(function HistoryOrderTable({
 
               return (
                 <TableRow key={`${o.oid}-${entry.status}-${entry.statusTimestamp}`}>
-                  <TableCell className={c}>{formatTime(entry.statusTimestamp)}</TableCell>
+                  <TableCell className={`${c} tabular-nums`}>
+                    {formatTime(entry.statusTimestamp)}
+                  </TableCell>
                   <TableCell className={c}>{ot}</TableCell>
                   <TableCell className={`${c} font-medium`}>{o.coin}</TableCell>
                   <TableCell className={c}>

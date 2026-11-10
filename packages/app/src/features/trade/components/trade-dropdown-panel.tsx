@@ -11,17 +11,18 @@ import { getColumns } from "../utils/trade-dropdown-columns";
 import { TAB_ORDER, TAB_TO_CATEGORY } from "../utils/trade-dropdown";
 import { computeWindow } from "../lib/market-window";
 import { prewarmMarketCells } from "../lib/format-trade-rows";
+import { defaultRowHeightPx, PANEL_LIST_ROW_COUNT } from "../lib/overlay-position";
 import type { CategoryTab } from "../utils/trade-dropdown";
 import type { MarketRowData } from "../lib/market-row-data";
 
 const SKELETON_ROW_IDS = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"] as const;
 
 /**
- * A row is 2.0125rem: `type-body` (0.875rem * 1.5) plus `py-1` (0.35rem each
- * side). The app root is clamped to ~14.4px, so the fallback is ~29px; the
- * ResizeObserver measures a real row and replaces it when the root shifts.
+ * A row is `type-body` (0.875rem * 1.5) plus `py-1` (0.35rem each side), shared
+ * with the overlay budget. The app root is clamped to ~14.4px, so this fallback
+ * is ~29px; the ResizeObserver measures a real row and replaces it.
  */
-const ROW_HEIGHT = 29;
+const ROW_HEIGHT = defaultRowHeightPx();
 const OVERSCAN = 8;
 const PREWARM_ROWS = 40;
 
@@ -150,6 +151,12 @@ export function TradeDropdownPanel({
     });
   }, [rows, dataVersion]);
 
+  // Focus the dialog itself, never the search field: the input's focus ring must
+  // not paint on open, and Escape still arrives through the window listener.
+  useEffect(() => {
+    scrollRef.current?.closest<HTMLElement>('[role="dialog"]')?.focus();
+  }, []);
+
   // A tab or query swap replaces the list, so keep the new list anchored at the
   // top instead of stranding the user at the old offset (possibly past the end).
   const resetScroll = useCallback(() => {
@@ -181,10 +188,11 @@ export function TradeDropdownPanel({
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a portalled popover surface, not a native modal
       role="dialog"
       aria-label="Select market"
-      className="fixed z-50 w-[calc(100vw-16px)] sm:w-[90vw] max-w-[56rem] text-popover-foreground"
+      tabIndex={-1}
+      className="fixed z-50 flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden outline-none w-[calc(100vw-16px)] sm:w-[90vw] max-w-[56rem] text-popover-foreground"
       style={{ top: position.top, left: position.left }}
     >
-      <div className="p-3">
+      <div className="p-3 shrink-0">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-icon text-muted-foreground" />
           <label htmlFor="trade-dropdown-search" className="sr-only">
@@ -192,7 +200,6 @@ export function TradeDropdownPanel({
           </label>
           <Input
             id="trade-dropdown-search"
-            autoFocus
             value={query}
             onChange={(e) => {
               resetScroll();
@@ -216,7 +223,11 @@ export function TradeDropdownPanel({
         </div>
       </div>
 
-      <div className="flex px-2 overflow-x-auto scrollbar-hide">
+      <div
+        role="tablist"
+        aria-label="Market categories"
+        className="flex shrink-0 items-center gap-1 rounded-control px-(--seg-inset) py-[calc(var(--seg-inset)_+_0.175rem)] -my-0.5 overflow-x-auto scrollbar-hide"
+      >
         {TAB_ORDER.map((tab) => {
           const catKey = TAB_TO_CATEGORY[tab];
           const isActive = category === catKey;
@@ -224,15 +235,18 @@ export function TradeDropdownPanel({
             <button
               key={tab}
               type="button"
+              role="tab"
+              aria-selected={isActive}
+              data-active={isActive ? "" : undefined}
               onClick={() => {
                 resetScroll();
                 onCategoryChange(catKey);
               }}
               className={cn(
-                "px-3 py-2 type-data font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none -mb-px",
+                "px-3 py-2 type-data font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none focus-ring rounded-[calc(var(--radius-control)-var(--seg-inset))]",
                 isActive
-                  ? "bg-(--control-active-bg) text-foreground border-b-2 border-info"
-                  : "text-muted-foreground hover:bg-(--control-hover-bg) hover:text-foreground border-transparent",
+                  ? "bg-(--control-active-bg) text-foreground shadow-[inset_0_0_0_1px_var(--border)]"
+                  : "text-muted-foreground hover:bg-(--control-hover-bg) hover:text-foreground",
               )}
             >
               {tab}
@@ -241,11 +255,14 @@ export function TradeDropdownPanel({
         })}
       </div>
 
-      <MarketHeader columns={columns} sortBy={sortBy} sortDesc={sortDesc} onSort={onSort} />
+      <div className="shrink-0">
+        <MarketHeader columns={columns} sortBy={sortBy} sortDesc={sortDesc} onSort={onSort} />
+      </div>
 
       <div
         ref={scrollRef}
-        className="max-h-[clamp(22rem,60dvh,34rem)] overflow-y-auto overscroll-none flex flex-col"
+        className="min-h-0 flex-auto overflow-y-auto overscroll-none flex flex-col"
+        style={{ maxHeight: PANEL_LIST_ROW_COUNT * rowHeight }}
       >
         {isLoading ? (
           <div>
@@ -282,8 +299,9 @@ export function TradeDropdownPanel({
                   onClick={() => {
                     onSelect(row);
                   }}
+                  data-active={isActive ? "true" : "false"}
                   className={cn(
-                    "w-full text-left transition-colors hover:bg-(--control-hover-bg) focus-visible:bg-(--control-hover-bg) focus-ring-inset cursor-pointer select-none tap-highlight",
+                    "w-full text-left transition-colors focus-ring-inset cursor-pointer select-none tap-highlight data-[active=false]:hover:bg-(--control-hover-bg) data-[active=false]:focus-visible:bg-(--control-hover-bg)",
                     isActive && "bg-(--control-active-bg)",
                   )}
                   aria-current={isActive ? "true" : undefined}

@@ -26,7 +26,7 @@ export function FundingHistoryRows({ entries }: FundingHistoryRowsProps) {
         seenEntries.set(entryKey, occurrence);
         return (
           <TableRow key={`${entryKey}#${occurrence}`}>
-            <TableCell className={c}>{formatTime(entry.time)}</TableCell>
+            <TableCell className={`${c} tabular-nums`}>{formatTime(entry.time)}</TableCell>
             <TableCell className={`${c} font-medium`}>{entry.delta.coin}</TableCell>
             <TableCell className={cNum}>{formatSize(Number(entry.delta.szi))}</TableCell>
             <TableCell className={c}>

@@ -2,7 +2,6 @@
   --surface-floating: var(--surface-overlay);
   --tier-floating-fill: var(--glass-fill-regular);
   --alpha-3: 0.24;
-  --radius: 0.625rem;
   --semantic-fill-rim: var(--fill-rim);
 
   --duration-fast: var(--dur-fast);

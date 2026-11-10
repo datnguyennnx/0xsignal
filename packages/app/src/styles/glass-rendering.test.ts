@@ -13,6 +13,8 @@ const source = (path: string) => readFileSync(new URL(path, import.meta.url), "u
 
 const UTILITIES = source("./utilities.css");
 const TOKENS = source("./tokens.material.css");
+const SEMANTIC = source("./tokens.semantic.css");
+const COMPAT = source("./compat.css");
 const PREFERENCES = source("./preferences.css");
 const DIALOG = source("../components/ui/dialog.tsx");
 const DROPDOWN = source("../components/ui/dropdown-menu.tsx");
@@ -23,6 +25,57 @@ function calcPxValues(css: string, name: string): number[] {
   const pattern = new RegExp(`${name}:\\s*calc\\((\\d+)px`, "g");
   return [...css.matchAll(pattern)].map((match) => Number(match[1]));
 }
+
+describe("one paint, one owner", () => {
+  test("duplicate layer tokens are deleted", () => {
+    expect(TOKENS).not.toContain("--shadow-e4");
+    expect(SEMANTIC).not.toContain("--border-strong");
+    expect(COMPAT).not.toContain("--radius:");
+  });
+
+  test("the material layer aliases the semantic layer instead of redeclaring", () => {
+    expect(TOKENS.match(/--layer-content-edge: var\(--border-subtle\)/g)).toHaveLength(2);
+    expect(TOKENS.match(/--layer-content-fill: var\(--surface-base\)/g)).toHaveLength(2);
+    expect(TOKENS.match(/--layer-raised-fill: var\(--surface-raised\)/g)).toHaveLength(2);
+    expect(TOKENS.match(/--glass-fallback-fill: var\(--surface-overlay\)/g)).toHaveLength(2);
+  });
+});
+
+describe("rim family", () => {
+  test("exactly three canonical rim tokens", () => {
+    const names = [...TOKENS.matchAll(/--rim-[a-z-]+(?=\s*:)/g)].map((match) => match[0]);
+    expect([...new Set(names)].sort()).toEqual(["--rim-accent", "--rim-line", "--rim-specular"]);
+  });
+
+  test("the neutral ring is referenced, not re-declared", () => {
+    expect(UTILITIES).not.toContain("inset 0 0 0 1px var(--border)");
+    expect(UTILITIES).toContain("var(--rim-line)");
+  });
+});
+
+describe("tier identity", () => {
+  test("identity is declared after the glass @supports block", () => {
+    const supports = UTILITIES.indexOf("@supports ((backdrop-filter");
+    const identity = UTILITIES.indexOf(".tier-identity");
+    expect(supports).toBeGreaterThan(-1);
+    expect(identity).toBeGreaterThan(supports);
+  });
+});
+
+describe("glass specular blur", () => {
+  test("specular tracks --glass-blur and no site hardcodes 24px", () => {
+    expect(UTILITIES.match(/var\(--glass-specular-blur\)/g)).toHaveLength(4);
+    expect(UTILITIES).not.toContain("inset 0 0 24px -6px");
+  });
+});
+
+describe("glass radius", () => {
+  test("glass pins a radius unless the component set one", () => {
+    expect(TOKENS).toContain("--glass-radius: var(--radius-overlay)");
+    expect(UTILITIES).toContain('.tier-floating[data-material="glass"]:not([data-radius])');
+    expect(UTILITIES).toContain("border-radius: var(--glass-radius)");
+  });
+});
 
 describe("scroll edge", () => {
   test("fades with a gradient fill instead of a backdrop blur", () => {

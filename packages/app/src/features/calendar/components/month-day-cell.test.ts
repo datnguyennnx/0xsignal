@@ -1,9 +1,12 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 
 import type { EconomicEvent } from "@0xsignal/shared";
 
 import { areMonthDayCellPropsEqual } from "./month-day-cell-logic";
+
+const CELL_SOURCE = readFileSync(new URL("./month-day-cell.tsx", import.meta.url), "utf8");
 
 const noop = (): void => {};
 
@@ -40,6 +43,12 @@ const cellProps = (overrides: Partial<CellProps> = {}): CellProps => ({
   isSelected: false,
   onSelect: noop,
   ...overrides,
+});
+
+describe("the clipped event list keeps focus outlines whole", () => {
+  test("it carries vertical slack with a matching negative margin", () => {
+    expect(CELL_SOURCE).toContain("overflow-hidden py-0.5 -my-0.5");
+  });
 });
 
 describe("areMonthDayCellPropsEqual", () => {

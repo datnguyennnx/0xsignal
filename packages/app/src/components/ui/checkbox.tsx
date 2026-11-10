@@ -35,7 +35,7 @@ function Checkbox({
         aria-hidden="true"
         className={cn(
           "motion-control inline-flex size-icon shrink-0 items-center justify-center rounded-chip border",
-          "peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring",
+          "focus-ring-peer",
           "peer-aria-[invalid=true]:border-destructive",
           checked
             ? "border-info bg-info text-primary-foreground shadow-[inset_0_1px_0_var(--control-active-rim)]"

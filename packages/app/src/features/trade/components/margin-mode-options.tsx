@@ -33,8 +33,8 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
         className={cn(
           "w-full text-left px-4 py-3 rounded-panel border transition-[background-color,box-shadow,border-color,transform] duration-(--dur-fast) ease-standard active:brightness-95",
           mode === "isolated"
-            ? `${SELECTED_CARD_CLASS} shadow-[inset_0_1px_0_var(--glass-rim-top),var(--shadow-e2)]`
-            : "border-(--option-card-border) bg-(--option-card-bg) hover:border-(--option-card-active-border) hover:bg-(--option-card-hover-bg)",
+            ? `${SELECTED_CARD_CLASS} shadow-[inset_0_0_0_1px_var(--border),inset_0_1px_0_var(--glass-rim-top),var(--shadow-e2)]`
+            : "border-(--option-card-border) bg-(--option-card-bg) hover:bg-(--control-hover-bg)",
         )}
       >
         <div className="flex items-start justify-between gap-stack">
@@ -55,7 +55,7 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
                 Recommended
               </Badge>
             </div>
-            <p className="type-data text-muted-foreground leading-relaxed max-w-sm">
+            <p className="type-body text-muted-foreground leading-relaxed max-w-sm">
               {MODE_CONFIG.isolated.description}
             </p>
           </div>
@@ -75,8 +75,8 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
         className={cn(
           "w-full text-left px-4 py-3 rounded-panel border transition-[background-color,box-shadow,border-color,transform] duration-(--dur-fast) ease-standard active:brightness-95",
           mode === "cross"
-            ? `${SELECTED_CARD_CLASS} shadow-[inset_0_1px_0_var(--glass-rim-top),var(--shadow-e2)]`
-            : "border-(--option-card-border) bg-(--option-card-bg) hover:border-(--option-card-active-border) hover:bg-(--option-card-hover-bg)",
+            ? `${SELECTED_CARD_CLASS} shadow-[inset_0_0_0_1px_var(--border),inset_0_1px_0_var(--glass-rim-top),var(--shadow-e2)]`
+            : "border-(--option-card-border) bg-(--option-card-bg) hover:bg-(--control-hover-bg)",
         )}
       >
         <div className="flex items-start justify-between gap-stack">
@@ -89,7 +89,7 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
             >
               Cross
             </span>
-            <p className="type-data text-muted-foreground leading-relaxed max-w-sm">
+            <p className="type-body text-muted-foreground leading-relaxed max-w-sm">
               {MODE_CONFIG.cross.description}
             </p>
           </div>

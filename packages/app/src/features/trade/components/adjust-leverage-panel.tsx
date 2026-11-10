@@ -105,13 +105,13 @@ export function AdjustLeveragePanel({
         </div>
       </div>
 
-      <p className="type-data text-muted-foreground leading-relaxed">
+      <p className="type-body text-muted-foreground leading-relaxed">
         Max position size decreases the higher your leverage.
       </p>
 
       <Alert variant="destructive" className="px-3 py-2">
         <AlertTriangleIcon />
-        <AlertDescription className="type-data leading-relaxed">
+        <AlertDescription className="type-body leading-relaxed">
           {isDecreasingLeverage
             ? "Decreasing leverage requires additional margin. Ensure you have sufficient available balance."
             : "Note that setting a higher leverage increases the risk of liquidation."}

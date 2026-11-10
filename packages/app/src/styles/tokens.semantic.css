@@ -55,10 +55,14 @@
   --text-muted: oklch(0.51 0.0069 100);
   --text-on-accent: var(--p-neutral-0);
 
-  --border-subtle: color-mix(in oklab, var(--p-neutral-900) 11%, transparent);
-  --border-strong: color-mix(in oklab, var(--p-neutral-900) 17.6%, transparent);
-  --border-control: color-mix(in oklab, var(--p-neutral-900) 17.6%, transparent);
-  --ring: oklch(0.52 0.13 132 / 0.9);
+  --border-subtle: color-mix(in oklab, var(--p-neutral-900) 10%, transparent);
+  --border-control: color-mix(in oklab, var(--p-neutral-900) 12%, transparent);
+  --ring: oklch(0.55 0.1 132 / 0.93);
+
+  /* One focus geometry for every control: a 2px accent line with no gap. */
+  --focus-width: 2px;
+  --focus-offset: 0px;
+  --focus-color: var(--ring);
 
   --primary: var(--p-neutral-900);
   --primary-foreground: var(--p-neutral-0);
@@ -118,9 +122,8 @@
   --text-on-accent: var(--p-graphite-900);
 
   --border-subtle: var(--p-white-10);
-  --border-strong: var(--p-white-16);
   --border-control: var(--p-white-16);
-  --ring: oklch(0.78 0.12 132 / 0.9);
+  --ring: oklch(0.68 0.11 132 / 0.85);
 
   --primary: var(--p-graphite-25);
   --primary-foreground: var(--p-graphite-900);

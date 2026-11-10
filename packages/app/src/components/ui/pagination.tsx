@@ -103,8 +103,8 @@ export const Pagination = memo(function Pagination({
               className={cn(
                 "num hit-area",
                 currentPage === value
-                  ? cn(SELECTED_ITEM_CLASS, "hover:bg-accent hover:text-accent-foreground")
-                  : "text-muted-foreground",
+                  ? cn(SELECTED_ITEM_CLASS, "hover:bg-(--control-active-bg) hover:text-foreground")
+                  : "text-muted-foreground hover:bg-(--control-hover-bg) hover:text-foreground",
               )}
             >
               {value}

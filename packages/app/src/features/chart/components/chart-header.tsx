@@ -31,7 +31,10 @@ export const ChartHeader = memo(function ChartHeader({
   }
 
   return (
-    <div data-dense className="row-actions justify-between overflow-x-auto scrollbar-hide">
+    <div
+      data-dense
+      className="row-actions justify-between overflow-x-auto scrollbar-hide py-0.5 -my-0.5"
+    >
       <div className="row-actions shrink-0">
         {DEFAULT_INTERVALS.map((int) => (
           <Button

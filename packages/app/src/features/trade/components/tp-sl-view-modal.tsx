@@ -29,7 +29,7 @@ function DetailRow({ label, value, color }: { label: string; value: string; colo
   return (
     <div className="flex justify-between items-center py-1 type-data">
       <span className="text-muted-foreground">{label}</span>
-      <span className={color ?? "text-foreground"}>{value}</span>
+      <span className={`tabular-nums ${color ?? "text-foreground"}`}>{value}</span>
     </div>
   );
 }

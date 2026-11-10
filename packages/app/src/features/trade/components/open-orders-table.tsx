@@ -39,7 +39,7 @@ export const OpenOrderRow = memo(function OpenOrderRow({
 
   return (
     <TableRow key={`${order.oid}-${order.coin}`}>
-      <TableCell className={c}>{formatTime(order.timestamp)}</TableCell>
+      <TableCell className={`${c} tabular-nums`}>{formatTime(order.timestamp)}</TableCell>
       <TableCell className={c}>{readOnly ? "—" : getOrderType(order)}</TableCell>
       <TableCell className={`${c} font-medium`}>{order.coin}</TableCell>
       <TableCell className={c}>

@@ -27,7 +27,7 @@ export const IndicatorChips = memo(function IndicatorChips({ indicators }: Indic
 
   return (
     <div className="absolute top-12 left-2 right-2 z-20 pointer-events-none">
-      <div className="flex flex-nowrap overflow-x-auto scrollbar-hide items-center gap-1 pointer-events-auto">
+      <div className="flex flex-nowrap overflow-x-auto scrollbar-hide items-center gap-1 pointer-events-auto py-0.5 -my-0.5">
         {indicators.map((indicator) => {
           const style: CSSProperties & Record<"--series-color", string> = {
             "--series-color": `var(${seriesToken(indicator.instanceId)})`,

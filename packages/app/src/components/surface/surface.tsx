@@ -92,7 +92,7 @@ function assertLayoutOnlyClass(className: string | undefined, owner: string): vo
 /** Tier owns paint; `className` is layout-only and the tier is exposed as `data-tier`. */
 export function Surface({
   tier,
-  radius = "panel",
+  radius,
   as,
   variant = "regular",
   interactive = false,
@@ -136,11 +136,12 @@ export function Surface({
       <Component
         {...rest}
         {...attrs}
+        data-radius={radius}
         className={cn(
           !identity && attrs.className,
           variantClass,
           !identity && interactive && "tier-interactive",
-          RADIUS_CLASS[radius],
+          RADIUS_CLASS[radius ?? "panel"],
           className,
         )}
         style={style}

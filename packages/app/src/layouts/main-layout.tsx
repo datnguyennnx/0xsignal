@@ -76,10 +76,11 @@ export function MainLayout({ children }: { children: ReactNode }) {
                         onPointerDown={() => {
                           preloadRoute(item.path);
                         }}
-                        className={`type-control font-medium motion-control ${
+                        aria-current={isActive ? "page" : undefined}
+                        className={`focus-ring type-title motion-control whitespace-nowrap ${
                           isActive
-                            ? "text-foreground"
-                            : "text-muted-foreground hover:text-foreground"
+                            ? "font-bold text-foreground"
+                            : "font-semibold text-muted-foreground hover:text-foreground"
                         }`}
                       >
                         {item.navLabel}
@@ -114,10 +115,11 @@ export function MainLayout({ children }: { children: ReactNode }) {
                             onPointerDown={() => {
                               preloadRoute(item.path);
                             }}
-                            className={`px-2 py-1 type-label font-medium motion-control ${
+                            aria-current={isActive ? "page" : undefined}
+                            className={`focus-ring type-data motion-control ${
                               isActive
-                                ? "text-foreground"
-                                : "text-muted-foreground hover:text-foreground"
+                                ? "font-bold text-foreground"
+                                : "font-semibold text-muted-foreground hover:text-foreground"
                             }`}
                           >
                             {item.navLabel}

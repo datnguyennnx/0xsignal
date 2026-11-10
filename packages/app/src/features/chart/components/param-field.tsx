@@ -49,7 +49,7 @@ export function IndicatorParamField({
         </span>
       </div>
 
-      <div className="flex items-center bg-muted/40 rounded-control overflow-hidden focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring w-full">
+      <div className="flex items-center bg-muted/40 rounded-control focus-ring-within w-full">
         <Button
           type="button"
           variant="ghost"
@@ -59,7 +59,7 @@ export function IndicatorParamField({
           }}
           disabled={numeric !== null && numeric <= definition.min}
           aria-label={`Decrease ${definition.label}`}
-          className="min-h-[40px] min-w-[40px] after:hidden shrink-0 rounded-l rounded-r-none hover:bg-(--control-hover-bg) transition-[background-color,transform] duration-(--dur-fast) active:scale-[0.97]"
+          className="min-h-[40px] min-w-[40px] after:hidden shrink-0 rounded-l rounded-r-none hover:bg-(--control-hover-bg) transition-[background-color,transform] duration-(--dur-fast) active:scale-[0.97] focus-ring-delegated"
         >
           <Minus className="size-icon-sm opacity-50" aria-hidden="true" />
         </Button>
@@ -75,7 +75,7 @@ export function IndicatorParamField({
           onChange={(e) => {
             onValueChange(e.target.value);
           }}
-          className="flex-1 h-[clamp(1.75rem,3vh,2.25rem)] rounded-none border-0 px-1 py-0 text-center type-body font-semibold text-foreground tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 dark:bg-transparent"
+          className="flex-1 h-[clamp(1.75rem,3vh,2.25rem)] rounded-none border-0 px-1 py-0 text-center type-body font-semibold text-foreground tabular-nums dark:bg-transparent focus-ring-delegated"
         />
 
         <Button
@@ -87,7 +87,7 @@ export function IndicatorParamField({
           }}
           disabled={numeric !== null && numeric >= definition.max}
           aria-label={`Increase ${definition.label}`}
-          className="min-h-[40px] min-w-[40px] after:hidden shrink-0 rounded-l-none rounded-r hover:bg-(--control-hover-bg) transition-[background-color,transform] duration-(--dur-fast) active:scale-[0.97]"
+          className="min-h-[40px] min-w-[40px] after:hidden shrink-0 rounded-l-none rounded-r hover:bg-(--control-hover-bg) transition-[background-color,transform] duration-(--dur-fast) active:scale-[0.97] focus-ring-delegated"
         >
           <Plus className="size-icon-sm opacity-50" aria-hidden="true" />
         </Button>
