@@ -1,5 +1,5 @@
 // Public API surface — named exports only, no wildcard re-exports
-export type { MarketPrice, UserFill, PlaceOrderRequest, UpdateLeverageRequest } from "./types";
+export type { MarketPrice, PlaceOrderRequest, UpdateLeverageRequest } from "./types";
 export type { AgentRegistration, WalletChallenge } from "./credentials";
 export { ApiError } from "@/lib/api-error";
 

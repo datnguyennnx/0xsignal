@@ -102,12 +102,12 @@ export async function getMarketPrice(symbol: string): Promise<MarketPrice> {
   const ticker = await getTicker(normalizedSymbol);
 
   const mid = canonicalMid(ticker);
-  const markPx = toNumberOrNull(ticker.markPx) ?? mid;
-  const midPx = toNumberOrNull(ticker.midPx) ?? mid;
-  const prevDayPx = toNumberOrNull(ticker.prevDayPx) ?? markPx;
-  const volume24h = toNumberOrNull(ticker.dayNtlVlm) ?? 0;
-  const openInterest = toNumberOrNull(ticker.openInterest) ?? 0;
-  const funding = toNumberOrNull(ticker.funding) ?? 0;
+  const markPx = toNumberOrNull(ticker.markPx);
+  const midPx = toNumberOrNull(ticker.midPx);
+  const prevDayPx = toNumberOrNull(ticker.prevDayPx);
+  const volume24h = toNumberOrNull(ticker.dayNtlVlm);
+  const openInterest = toNumberOrNull(ticker.openInterest);
+  const funding = toNumberOrNull(ticker.funding);
   const resolvedSymbol =
     typeof ticker.symbol === "string" && ticker.symbol.trim().length > 0
       ? ticker.symbol
@@ -116,13 +116,10 @@ export async function getMarketPrice(symbol: string): Promise<MarketPrice> {
   const price =
     markPx !== null && markPx !== 0 ? markPx : midPx !== null && midPx !== 0 ? midPx : mid;
   const change24h =
-    prevDayPx !== null && prevDayPx > 0 && price !== null
+    price !== null && prevDayPx !== null && prevDayPx !== 0
       ? ((price - prevDayPx) / prevDayPx) * 100
-      : 0;
+      : null;
 
-  // `quote` is the presence channel: absent stays `null` so the asset page can
-  // render its "no data" affordance without hiding a real zero price. The flat
-  // numeric fields remain as a mirror for consumers that only hold a number.
   const quote: MarketQuote =
     price === null
       ? null
@@ -132,9 +129,9 @@ export async function getMarketPrice(symbol: string): Promise<MarketPrice> {
           volume24h,
           openInterest,
           funding,
-          markPx: markPx ?? price,
-          midPx: midPx ?? price,
-          prevDayPx: prevDayPx ?? price,
+          markPx,
+          midPx,
+          prevDayPx,
         };
 
   return {
@@ -145,9 +142,9 @@ export async function getMarketPrice(symbol: string): Promise<MarketPrice> {
     volume24h,
     openInterest,
     funding,
-    markPx: markPx ?? 0,
-    midPx: midPx ?? 0,
-    prevDayPx: prevDayPx ?? 0,
+    markPx,
+    midPx,
+    prevDayPx,
     timestamp: new Date(),
   };
 }

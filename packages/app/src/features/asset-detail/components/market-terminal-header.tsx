@@ -1,16 +1,23 @@
 import { memo, type ReactNode } from "react";
-import { formatCompactUsd, formatPrice, formatSignedPercent } from "@/core/utils/formatters";
+import { formatCompactUsd } from "@/core/utils/formatters";
 import { MetricItem } from "./metric-item";
-import { formatSignedUsd, formatFundingPercent } from "../utils/format";
+import {
+  formatHeaderCompactUsd,
+  formatHeaderFunding,
+  formatHeaderPrice,
+  formatHeaderSignedPercent,
+  formatHeaderSignedUsd,
+} from "./market-header-values";
+import { contractAddressText } from "../utils/contract-address";
 
 interface MarketTerminalHeaderProps {
-  markPrice: number;
-  oraclePrice: number;
-  change24hAbs: number;
-  change24hPct: number;
-  volume24h: number;
-  openInterest: number;
-  fundingRate: number;
+  markPrice: number | null;
+  oraclePrice: number | null;
+  change24hAbs: number | null;
+  change24hPct: number | null;
+  volume24h: number | null;
+  openInterest: number | null;
+  fundingRate: number | null;
   fundingCountdown: ReactNode;
   marketType?: "perp" | "spot" | undefined;
   marketCap?: number | undefined;
@@ -30,28 +37,30 @@ export const MarketTerminalHeader = memo(function MarketTerminalHeader({
   marketCap,
   contractAddress,
 }: MarketTerminalHeaderProps) {
-  const changeTone = change24hPct >= 0 ? "positive" : "negative";
-  const fundingTone = fundingRate >= 0 ? "positive" : "negative";
+  const changeTone =
+    change24hPct === null ? "neutral" : change24hPct >= 0 ? "positive" : "negative";
+  const fundingTone = fundingRate === null ? "neutral" : fundingRate >= 0 ? "positive" : "negative";
   const isSpot = marketType === "spot";
+  const contractText = contractAddressText(contractAddress);
 
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-      <MetricItem label={isSpot ? "Price" : "Mark"} value={formatPrice(markPrice)} />
-      {!isSpot && <MetricItem label="Oracle" value={formatPrice(oraclePrice)} />}
+      <MetricItem label={isSpot ? "Price" : "Mark"} value={formatHeaderPrice(markPrice)} />
+      {!isSpot && <MetricItem label="Oracle" value={formatHeaderPrice(oraclePrice)} />}
       <MetricItem
         label="24h Change"
-        value={`${formatSignedUsd(change24hAbs)} / ${formatSignedPercent(change24hPct)}`}
+        value={`${formatHeaderSignedUsd(change24hAbs)} / ${formatHeaderSignedPercent(change24hPct)}`}
         tone={changeTone}
       />
-      <MetricItem label="24h Volume" value={formatCompactUsd(volume24h)} />
-      {!isSpot && <MetricItem label="Open Interest" value={formatCompactUsd(openInterest)} />}
+      <MetricItem label="24h Volume" value={formatHeaderCompactUsd(volume24h)} />
+      {!isSpot && <MetricItem label="Open Interest" value={formatHeaderCompactUsd(openInterest)} />}
       {!isSpot && (
         <MetricItem
           label="Funding / Countdown"
           tone={fundingTone}
           value={
             <span className="flex items-baseline gap-1">
-              <span className="tabular-nums">{formatFundingPercent(fundingRate)}</span>
+              <span className="tabular-nums">{formatHeaderFunding(fundingRate)}</span>
               <span className="text-muted-foreground tabular-nums font-normal">
                 {fundingCountdown}
               </span>
@@ -62,17 +71,18 @@ export const MarketTerminalHeader = memo(function MarketTerminalHeader({
       {isSpot && marketCap !== undefined && (
         <MetricItem label="Market Cap" value={formatCompactUsd(marketCap)} />
       )}
-      {isSpot && contractAddress !== undefined && contractAddress !== "" && (
+      {isSpot && contractText !== undefined && (
         <MetricItem
           label="Contract"
           value={
             <a
-              href={`https://app.hyperliquid.xyz/explorer/token/${contractAddress}`}
+              href={`https://app.hyperliquid.xyz/explorer/token/${contractText}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-info hover:underline truncate max-w-[clamp(9rem,12vw,16rem)]"
+              title={contractText}
             >
-              {contractAddress}
+              {contractText}
             </a>
           }
         />

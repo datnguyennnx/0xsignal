@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo, useLayoutEffect, useRef } from "react";
+import { useState, useMemo, memo, useLayoutEffect, useRef } from "react";
 
 import type { MarketPrice } from "@/services/api";
 import { TradeDropdown } from "@/features/trade/components/trade-dropdown";
@@ -6,11 +6,12 @@ import { useMidPrice } from "@/features/trade/hooks/use-all-mids";
 import { useHyperliquidSymbolLogo } from "@/features/trade/hooks/use-hyperliquid-symbol-logo";
 import { useTradeAnnotation } from "@/features/trade/hooks/use-trade-annotation";
 import { useTradeList, type TradeListData } from "@/features/trade/hooks/use-trade-list";
+import { useAssetCtx } from "@/stores/use-market-data-store";
 import { deriveMarketHeaderValues } from "./market-header-values";
 import { AssetTradingGrid } from "./asset-trading-grid";
 import { MarketTerminalHeader } from "./market-terminal-header";
 import { MetricItem } from "./metric-item";
-import { getNextFundingMs, toCountdown } from "../utils/format";
+import { useFundingCountdown, useNextFundingTime } from "../hooks/use-funding-countdown";
 
 const isNonEmpty = (value: string | null | undefined): value is string =>
   typeof value === "string" && value !== "";
@@ -39,19 +40,12 @@ interface LiveMarketHeaderProps {
  * Owns the 1s tick: only this leaf re-renders on the tick, so the header and its
  * six metric items keep their last render.
  */
-const FundingCountdown = memo(function FundingCountdown() {
-  const [countdown, setCountdown] = useState(() => toCountdown(getNextFundingMs()));
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setCountdown(toCountdown(getNextFundingMs()));
-    }, 1000);
-    return () => {
-      clearInterval(id);
-    };
-  }, []);
-
-  return countdown;
+const FundingCountdown = memo(function FundingCountdown({
+  nextFundingMs,
+}: {
+  readonly nextFundingMs: number | null;
+}) {
+  return useFundingCountdown(nextFundingMs);
 });
 
 /**
@@ -66,42 +60,47 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
 }: LiveMarketHeaderProps) {
   // Scalar selectors: an unrelated coin's tick never re-renders this header.
   const upperSymbol = symbol.toUpperCase();
-  const mid = useMidPrice(symbol, isSpot);
+  const mid = useMidPrice(symbol);
   const upperMid = useMidPrice(upperSymbol, isSpot && upperSymbol !== symbol);
   const wsMid = mid ?? upperMid;
 
-  // The header presents this number as "Price" for spot and "Mark" for perps.
-  // allMids is a MID, so it can only back the spot "Price"; perps keep markPx.
-  // Presence in the live WS map is the recency signal available (no timestamp is stored).
   const quote = price.quote ?? null;
+  const ctx = useAssetCtx(isSpot ? "" : symbol);
+  const nextFundingMs = useNextFundingTime(isSpot ? "" : symbol);
   const livePrice = useMemo(() => {
-    if (isSpot && wsMid !== undefined && wsMid > 0) return wsMid;
+    if (wsMid !== undefined && wsMid > 0) return wsMid;
     // Aggregated markets list — spot prices from spotMetaAndAssetCtxs
     //    This is the authoritative source for spot mark prices when WebSocket
     //    hasn't delivered data yet (cold load) or allMids doesn't include spot pairs.
     if (isNonEmpty(tradeAsset?.markPx)) return Number(tradeAsset.markPx);
     // REST API ticker (last resort). `null` is absence; `0` is a real zero quote.
     if (quote === null) return null;
-    return quote.markPx || quote.price;
-  }, [wsMid, isSpot, quote, tradeAsset]);
+    return quote.markPx !== null && quote.markPx !== 0 ? quote.markPx : quote.price;
+  }, [wsMid, quote, tradeAsset]);
 
-  // No quote is not a zero price: absence keeps the neutral "—", while a real
+  const derived = deriveMarketHeaderValues({
+    isSpot,
+    livePrice,
+    price,
+    tradeAsset,
+    ctx: isSpot ? undefined : ctx,
+  });
+
+  // No quote is not a zero price: absence keeps the neutral "--", while a real
   // zero quote flows through and renders "$0.00". The same metrics and the same
   // flex-wrap slots render here so the row keeps its height until the first tick.
-  if (livePrice === null) {
+  if (derived.markPrice === null) {
     return (
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <MetricItem label={isSpot ? "Price" : "Mark"} value="—" />
-        {!isSpot && <MetricItem label="Oracle" value="—" />}
-        <MetricItem label="24h Change" value="—" />
-        <MetricItem label="24h Volume" value="—" />
-        {!isSpot && <MetricItem label="Open Interest" value="—" />}
-        {!isSpot && <MetricItem label="Funding / Countdown" value="—" />}
+        <MetricItem label={isSpot ? "Price" : "Mark"} value="--" />
+        {!isSpot && <MetricItem label="Oracle" value="--" />}
+        <MetricItem label="24h Change" value="--" />
+        <MetricItem label="24h Volume" value="--" />
+        {!isSpot && <MetricItem label="Open Interest" value="--" />}
+        {!isSpot && <MetricItem label="Funding / Countdown" value="--" />}
       </div>
     );
   }
-
-  const derived = deriveMarketHeaderValues({ isSpot, livePrice, price, tradeAsset });
 
   return (
     <MarketTerminalHeader
@@ -112,7 +111,7 @@ const LiveMarketHeader = memo(function LiveMarketHeader({
       volume24h={derived.volume24h}
       openInterest={derived.openInterest}
       fundingRate={derived.fundingRate}
-      fundingCountdown={<FundingCountdown />}
+      fundingCountdown={<FundingCountdown nextFundingMs={nextFundingMs} />}
       marketType={derived.marketType}
       marketCap={derived.marketCap}
       contractAddress={derived.contractAddress}
@@ -208,7 +207,13 @@ export const AssetContent = memo(function AssetContent({
         interval={interval}
         onIntervalChange={onIntervalChange}
         showChartSkeleton={showChartSkeleton}
-        markPrice={(price.quote?.markPx ?? 0) || (price.quote?.price ?? 0)}
+        markPrice={
+          price.quote == null
+            ? 0
+            : price.quote.markPx !== null && price.quote.markPx !== 0
+              ? price.quote.markPx
+              : price.quote.price
+        }
       />
     </div>
   );

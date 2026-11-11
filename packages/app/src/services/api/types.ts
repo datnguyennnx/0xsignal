@@ -14,13 +14,13 @@ export type { PortfolioResponse, UserVaultEquity, UserFundingEntry } from "@0xsi
  */
 export type MarketQuote = {
   readonly price: number;
-  readonly change24h: number;
-  readonly volume24h: number;
-  readonly openInterest: number;
-  readonly funding: number;
-  readonly markPx: number;
-  readonly midPx: number;
-  readonly prevDayPx: number;
+  readonly change24h: number | null;
+  readonly volume24h: number | null;
+  readonly openInterest: number | null;
+  readonly funding: number | null;
+  readonly markPx: number | null;
+  readonly midPx: number | null;
+  readonly prevDayPx: number | null;
 } | null;
 
 export interface MarketPrice {
@@ -32,13 +32,13 @@ export interface MarketPrice {
   readonly quote?: MarketQuote;
   /** Numeric mirror of `quote`; `0` when `quote` is `null`/absent. */
   readonly price: number;
-  readonly change24h: number;
-  readonly volume24h: number;
-  readonly openInterest: number;
-  readonly funding: number;
-  readonly markPx: number;
-  readonly midPx: number;
-  readonly prevDayPx: number;
+  readonly change24h: number | null;
+  readonly volume24h: number | null;
+  readonly openInterest: number | null;
+  readonly funding: number | null;
+  readonly markPx: number | null;
+  readonly midPx: number | null;
+  readonly prevDayPx: number | null;
   readonly high24h?: number;
   readonly low24h?: number;
   readonly timestamp: Date;

@@ -4,8 +4,11 @@ import { describe, expect, test } from "bun:test";
 import {
   MAX_SIG_FIGS,
   formatAxis,
+  formatMarketPrice,
+  formatMarketUsdFull,
   formatPrice,
   formatPriceWithNSigFigs,
+  formatSignedAbs,
   formatterCacheSizeForTest,
   getFormatterForTest,
   resetFormatterCacheForTest,
@@ -92,6 +95,26 @@ describe("cached formatters match freshly constructed ones", () => {
     expect(formatAxis(1234.5)).toBe("1,234.5");
     expect(formatAxis(12_345)).toBe("12.3K");
     expect(formatAxis(-1_234_567)).toBe("-1.2M");
+  });
+});
+
+describe("market table formatters", () => {
+  test("formatMarketPrice groups digits and fixes decimals without a currency sign", () => {
+    expect(formatMarketPrice(93732, 2)).toBe("93,732.00");
+    expect(formatMarketPrice(-93732, 2)).toBe("-93,732.00");
+    expect(formatMarketPrice(0.5, 4)).toBe("0.5000");
+  });
+
+  test("formatMarketUsdFull keeps full precision at zero decimals", () => {
+    expect(formatMarketUsdFull(563592476.12)).toBe("$563,592,476");
+    expect(formatMarketUsdFull(-1112)).toBe("-$1,112");
+    expect(formatMarketUsdFull(0)).toBe("$0");
+  });
+
+  test("formatSignedAbs always prints the sign and groups digits", () => {
+    expect(formatSignedAbs(1112, 2)).toBe("+1,112.00");
+    expect(formatSignedAbs(-1112.5, 2)).toBe("-1,112.50");
+    expect(formatSignedAbs(0, 2)).toBe("+0.00");
   });
 });
 

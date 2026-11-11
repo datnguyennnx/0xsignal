@@ -5,8 +5,9 @@
 export type Precision = 2 | 3 | 4 | 5;
 
 export const MIN_SIG_FIGS = 2 as const;
-export const MAX_SIG_FIGS = 5 as const;
-export const DEFAULT_SIG_FIGS: Precision = MAX_SIG_FIGS;
+const SIG_FIGS_CEILING = 5 as const;
+export const MAX_SIG_FIGS = SIG_FIGS_CEILING;
+export const DEFAULT_SIG_FIGS: Precision = SIG_FIGS_CEILING;
 
 export const isSigFigs = (value: unknown): value is Precision =>
   typeof value === "number" &&
@@ -20,7 +21,7 @@ export const isSigFigs = (value: unknown): value is Precision =>
  * is requested. Chart prices are pinned to it so the selector never restyles
  * the chart.
  */
-export const RAW_PRICE_NSIG_FIGS = MAX_SIG_FIGS;
+export const RAW_PRICE_NSIG_FIGS = SIG_FIGS_CEILING;
 
 const usdTwoDecimalsFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -164,3 +165,20 @@ export const formatFundingPercent = (value: number | null | undefined): string =
   const pct = value * 100;
   return `${pct >= 0 ? "+" : ""}${pct.toFixed(4)}%`;
 };
+
+export const formatMarketPrice = (value: number, decimals: number): string =>
+  getFormatter("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value);
+
+export const formatMarketUsdFull = (value: number): string =>
+  getFormatter("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+
+export const formatSignedAbs = (value: number, decimals: number): string =>
+  `${value >= 0 ? "+" : "-"}${formatMarketPrice(Math.abs(value), decimals)}`;
