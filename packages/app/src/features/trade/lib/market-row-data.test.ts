@@ -35,6 +35,19 @@ describe("buildMarketRows changePct", () => {
   });
 });
 
+describe("buildMarketRows market badges", () => {
+  test("maxLeverage and dexPrefix are copied from the asset", () => {
+    const [row] = rowsOf(market({ maxLeverage: 20, dexPrefix: "xyz" }));
+    expect(row.maxLeverage).toBe(20);
+    expect(row.dexPrefix).toBe("xyz");
+  });
+
+  test("a market without a dex keeps a null prefix", () => {
+    const [row] = rowsOf(market({ dexPrefix: null }));
+    expect(row.dexPrefix).toBeNull();
+  });
+});
+
 describe("buildMarketRows key and search keys", () => {
   test("the key is stable across snapshots of the same market", () => {
     const [first] = rowsOf(market({ rawCoin: "xyz:ABC", marketType: "perp" }));

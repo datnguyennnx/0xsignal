@@ -1,10 +1,14 @@
 import {
   formatCompactUsd,
   formatFundingPercent,
+  formatMarketPrice,
+  formatMarketUsdFull,
   formatPrice,
+  formatSignedAbs,
   formatSignedPercent,
   formatSize,
 } from "@/core/utils/formatters";
+import type { AssetCtxSnapshot } from "./asset-ctx";
 import type { MarketRowData } from "./market-row-data";
 
 export type MarketCellField =
@@ -16,15 +20,9 @@ export type MarketCellField =
   | "oi"
   | "marketCap";
 
-const MARKET_CELL_FIELDS: readonly MarketCellField[] = [
-  "symbol",
-  "price",
-  "change",
-  "funding",
-  "volume",
-  "oi",
-  "marketCap",
-];
+const MARKET_CELL_FIELDS: readonly MarketCellField[] = ["symbol", "marketCap"];
+
+const CACHED_FIELDS: ReadonlySet<MarketCellField> = new Set(MARKET_CELL_FIELDS);
 
 /** A snapshot version bounds the cache: a new snapshot cannot reuse its strings. */
 const CACHE_LIMIT = 4000;
@@ -56,6 +54,8 @@ export function formatMarketCell(
   field: MarketCellField,
   version: number,
 ): string {
+  if (!CACHED_FIELDS.has(field)) return computeCell(row, field);
+
   const cacheKey = `${row.key}:${field}:${version}`;
   const cached = cellCache.get(cacheKey);
   if (cached !== undefined) return cached;
@@ -64,6 +64,46 @@ export function formatMarketCell(
   if (cellCache.size >= CACHE_LIMIT) cellCache.clear();
   cellCache.set(cacheKey, value);
   return value;
+}
+
+export interface LiveCells {
+  readonly price: string;
+  readonly change: string;
+  readonly funding: string;
+  readonly volume: string;
+  readonly openInterest: string;
+}
+
+const DASH = "--";
+
+export function computeLiveCells(input: {
+  row: MarketRowData;
+  ctx: AssetCtxSnapshot | undefined;
+  midPx: number | undefined;
+}): LiveCells {
+  const { row, ctx, midPx } = input;
+  const price = midPx ?? ctx?.markPx ?? row.markPx;
+  const prevDayPx = ctx?.prevDayPx ?? row.prevDayPx;
+  const changePct =
+    Number.isFinite(price) && Number.isFinite(prevDayPx) && prevDayPx > 0
+      ? ((price - prevDayPx) / prevDayPx) * 100
+      : null;
+  const isSpot = row.marketType === "spot";
+  const fundingRate8h = (ctx?.funding ?? row.funding) * 8;
+  const volumeUsd = ctx?.dayNtlVlm ?? row.volumeUsd;
+  const markForOi = ctx?.markPx ?? row.markPx;
+  const openInterestUsd = (ctx?.openInterest ?? row.openInterest) * markForOi;
+
+  return {
+    price: formatMarketPrice(price, row.pxDecimals),
+    change:
+      changePct === null
+        ? "—"
+        : `${formatSignedAbs(price - prevDayPx, row.pxDecimals)} / ${formatSignedPercent(changePct)}`,
+    funding: isSpot ? DASH : formatFundingPercent(fundingRate8h),
+    volume: formatMarketUsdFull(volumeUsd),
+    openInterest: isSpot ? DASH : formatMarketUsdFull(openInterestUsd),
+  };
 }
 
 /** Warms the next screen of rows while the browser is idle after the panel opens. */

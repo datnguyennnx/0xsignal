@@ -16,6 +16,7 @@ export interface MarketRowData {
   readonly rawCoin: string;
   readonly displaySymbol: string;
   readonly name: string;
+  readonly midKey: string;
   readonly markPx: number;
   readonly prevDayPx: number;
   readonly changePct: number | null;
@@ -25,6 +26,8 @@ export interface MarketRowData {
   readonly marketCapUsd: number;
   readonly pxDecimals: number;
   readonly marketType: "perp" | "spot";
+  readonly maxLeverage: number;
+  readonly dexPrefix: string | null;
   readonly isHip3: boolean;
   readonly category: string;
   readonly isLive: boolean;
@@ -65,6 +68,7 @@ export function buildMarketRows(assets: readonly AggregatedMarket[]): MarketRows
       rawCoin: asset.rawCoin,
       displaySymbol: asset.displaySymbol,
       name: asset.name,
+      midKey: asset.marketType === "spot" ? asset.name : asset.rawCoin,
       markPx,
       prevDayPx,
       changePct: prevDayPx > 0 && markPx > 0 ? ((markPx - prevDayPx) / prevDayPx) * 100 : null,
@@ -74,6 +78,8 @@ export function buildMarketRows(assets: readonly AggregatedMarket[]): MarketRows
       marketCapUsd,
       pxDecimals: calculatePxDecimals(asset.szDecimals ?? 4),
       marketType: asset.marketType,
+      maxLeverage: asset.maxLeverage,
+      dexPrefix: asset.dexPrefix,
       isHip3: asset.isHip3,
       category: asset.category,
       isLive: Number.isFinite(volumeUsd) && volumeUsd > 0,
