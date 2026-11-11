@@ -4,8 +4,8 @@ import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { splitDisplaySymbol } from "../utils/display-symbol";
 
-const LOGO_SLOT_CLASS = "w-5 h-5 shrink-0";
-const LABEL_SLOT_CLASS = "flex items-baseline min-w-[5.5rem]";
+const LOGO_SLOT_CLASS = "size-icon shrink-0";
+const LABEL_SLOT_CLASS = "flex items-baseline";
 
 interface TradeDropdownTriggerProps {
   triggerRef: RefObject<HTMLButtonElement | null>;
@@ -36,8 +36,8 @@ export function TradeDropdownTrigger({
       type="button"
       ref={triggerRef}
       variant="ghost"
-      size="auto"
-      className="flex items-center gap-1 cursor-pointer transition-colors hover:bg-muted/40"
+      size="md"
+      className="flex h-(--control-h-sm) min-w-24 items-center gap-1 px-(--control-px) cursor-pointer transition-colors hover:bg-muted/40"
       onClick={onToggle}
       onMouseEnter={onPrefetch}
       onFocus={onPrefetch}

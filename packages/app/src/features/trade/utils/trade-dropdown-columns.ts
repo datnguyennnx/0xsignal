@@ -14,17 +14,17 @@ const NUMERIC_MIN_WIDTH = "4.5rem";
 
 const COLUMN_CONFIG: Record<string, ColumnDef[]> = {
   perp: [
-    { id: "symbol", label: "Symbol", align: "left", fr: 2.2 },
+    { id: "symbol", label: "Market", align: "left", fr: 2 },
     { id: "price", label: "Last Price", align: "right", fr: 1 },
-    { id: "change", label: "24h Change", align: "right", fr: 1 },
+    { id: "change", label: "24h Change", align: "right", fr: 1.2 },
     { id: "funding", label: "8h Funding", align: "right", fr: 1 },
     { id: "volume", label: "Volume", align: "right", fr: 1 },
     { id: "oi", label: "Open Interest", align: "right", fr: 1 },
   ],
   spot: [
-    { id: "symbol", label: "Symbol", align: "left", fr: 2.2 },
+    { id: "symbol", label: "Market", align: "left", fr: 2 },
     { id: "price", label: "Last Price", align: "right", fr: 1 },
-    { id: "change", label: "24h Change", align: "right", fr: 1 },
+    { id: "change", label: "24h Change", align: "right", fr: 1.2 },
     { id: "volume", label: "Volume", align: "right", fr: 1 },
     { id: "marketCap", label: "Market Cap", align: "right", fr: 1 },
   ],

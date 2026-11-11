@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, type RefObject, type UIEvent } from "react";
 import { Search, X } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -8,22 +8,14 @@ import { cn } from "cn";
 import { MarketHeader, MarketRowSkeleton } from "./trade-dropdown.columns";
 import { MarketRow } from "./market-row";
 import { getColumns } from "../utils/trade-dropdown-columns";
-import { TAB_ORDER, TAB_TO_CATEGORY } from "../utils/trade-dropdown";
-import { computeWindow } from "../lib/market-window";
+import { type CategoryTab, TAB_ORDER, TAB_TO_CATEGORY } from "../utils/trade-dropdown";
+import { type MarketWindow } from "../lib/market-window";
+import { type VisibleCoinRows } from "../lib/visible-coins";
 import { prewarmMarketCells } from "../lib/format-trade-rows";
-import { defaultRowHeightPx, PANEL_LIST_ROW_COUNT } from "../lib/overlay-position";
-import type { CategoryTab } from "../utils/trade-dropdown";
-import type { MarketRowData } from "../lib/market-row-data";
+import { PANEL_LIST_ROW_COUNT } from "../lib/overlay-position";
 
 const SKELETON_ROW_IDS = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"] as const;
 
-/**
- * A row is `type-body` (0.875rem * 1.5) plus `py-1` (0.35rem each side), shared
- * with the overlay budget. The app root is clamped to ~14.4px, so this fallback
- * is ~29px; the ResizeObserver measures a real row and replaces it.
- */
-const ROW_HEIGHT = defaultRowHeightPx();
-const OVERSCAN = 8;
 const PREWARM_ROWS = 40;
 
 /** Schedules `callback` off the critical path; the returned cancel owns the handle. */
@@ -50,12 +42,17 @@ interface TradeDropdownPanelProps {
   sortBy: "name" | "change";
   sortDesc: boolean;
   onSort: (field: "name" | "change") => void;
-  rows: MarketRowData[];
+  rows: VisibleCoinRows;
   currentSymbol: string;
   dataVersion: number;
   isLoading: boolean;
   hasError: boolean;
   onSelect: (asset: { rawCoin: string }) => void;
+  onScroll: (event: UIEvent<HTMLDivElement>) => void;
+  scrollRef: RefObject<HTMLDivElement | null>;
+  firstRowRef: RefObject<HTMLButtonElement | null>;
+  rowHeight: number;
+  range: MarketWindow;
 }
 
 export function TradeDropdownPanel({
@@ -74,62 +71,14 @@ export function TradeDropdownPanel({
   isLoading,
   hasError,
   onSelect,
+  onScroll,
+  scrollRef,
+  firstRowRef,
+  rowHeight,
+  range,
 }: TradeDropdownPanelProps) {
   const columns = getColumns(category);
   const activeCoin = currentSymbol.toLowerCase();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const firstRowRef = useRef<HTMLButtonElement>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(0);
-  const [rowHeight, setRowHeight] = useState(ROW_HEIGHT);
-
-  // A passive scroll listener coalesces to one state update per animation frame.
-  useEffect(() => {
-    const element = scrollRef.current;
-    if (!element) return () => {};
-
-    let frame: number | null = null;
-    let pendingTop = element.scrollTop;
-
-    const handleScroll = () => {
-      pendingTop = element.scrollTop;
-      if (frame !== null) return;
-      frame = requestAnimationFrame(() => {
-        frame = null;
-        setScrollTop(pendingTop);
-      });
-    };
-
-    element.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      element.removeEventListener("scroll", handleScroll);
-      if (frame !== null) cancelAnimationFrame(frame);
-    };
-  }, []);
-
-  // Measure the viewport and a real row; never measure inside onScroll.
-  useEffect(() => {
-    const element = scrollRef.current;
-    if (!element || rows.length === 0) return () => {};
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.target === element) {
-          setViewportHeight(element.clientHeight);
-          continue;
-        }
-        if (!(entry.target instanceof HTMLElement)) continue;
-        const measured = entry.target.offsetHeight;
-        if (measured > 0) setRowHeight(measured);
-      }
-    });
-
-    observer.observe(element);
-    if (firstRowRef.current) observer.observe(firstRowRef.current);
-    return () => {
-      observer.disconnect();
-    };
-  }, [rows]);
 
   // The highlighted market must be visible even when it falls outside the window.
   useEffect(() => {
@@ -141,7 +90,7 @@ export function TradeDropdownPanel({
     if (top < element.scrollTop || top + rowHeight > element.scrollTop + element.clientHeight) {
       element.scrollTop = Math.max(0, top - rowHeight * 2);
     }
-  }, [rows, activeCoin, rowHeight]);
+  }, [rows, activeCoin, rowHeight, scrollRef]);
 
   // Warm the next screen while idle; the scheduler cancels when the panel closes.
   useEffect(() => {
@@ -155,27 +104,21 @@ export function TradeDropdownPanel({
   // not paint on open, and Escape still arrives through the window listener.
   useEffect(() => {
     scrollRef.current?.closest<HTMLElement>('[role="dialog"]')?.focus();
-  }, []);
+  }, [scrollRef]);
 
   // A tab or query swap replaces the list, so keep the new list anchored at the
   // top instead of stranding the user at the old offset (possibly past the end).
   const resetScroll = useCallback(() => {
     const element = scrollRef.current;
     if (element) element.scrollTop = 0;
-  }, []);
+  }, [scrollRef]);
 
   const handleClearQuery = useCallback(() => {
     resetScroll();
     onQueryChange("");
   }, [onQueryChange, resetScroll]);
 
-  const { start, end, topSpacer, bottomSpacer } = computeWindow({
-    scrollTop,
-    viewportHeight,
-    rowHeight,
-    total: rows.length,
-    overscan: OVERSCAN,
-  });
+  const { start, end, topSpacer, bottomSpacer } = range;
   const windowRows = rows.slice(start, end);
 
   return (
@@ -189,7 +132,7 @@ export function TradeDropdownPanel({
       role="dialog"
       aria-label="Select market"
       tabIndex={-1}
-      className="fixed z-50 flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden outline-none w-[calc(100vw-16px)] sm:w-[90vw] max-w-[56rem] text-popover-foreground"
+      className="fixed z-50 flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden outline-none w-[calc(100vw-16px)] sm:w-[90vw] max-w-[62rem] text-popover-foreground"
       style={{ top: position.top, left: position.left }}
     >
       <div className="p-3 shrink-0">
@@ -226,7 +169,7 @@ export function TradeDropdownPanel({
       <div
         role="tablist"
         aria-label="Market categories"
-        className="flex shrink-0 items-center gap-1 rounded-control px-(--seg-inset) py-[calc(var(--seg-inset)_+_0.175rem)] -my-0.5 overflow-x-auto scrollbar-hide"
+        className="flex shrink-0 items-center gap-1 rounded-control px-(--seg-inset) py-[calc(var(--seg-inset)_+_0.175rem)] -my-1 mx-1 overflow-x-auto scrollbar-hide"
       >
         {TAB_ORDER.map((tab) => {
           const catKey = TAB_TO_CATEGORY[tab];
@@ -261,6 +204,7 @@ export function TradeDropdownPanel({
 
       <div
         ref={scrollRef}
+        onScroll={onScroll}
         className="min-h-0 flex-auto overflow-y-auto overscroll-none flex flex-col"
         style={{ maxHeight: PANEL_LIST_ROW_COUNT * rowHeight }}
       >

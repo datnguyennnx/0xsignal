@@ -4,9 +4,15 @@ import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("./trade-dropdown-panel.tsx", import.meta.url), "utf8");
 
+const tabStripTag = (() => {
+  const start = source.indexOf('role="tablist"');
+  return source.slice(start, source.indexOf(">", start));
+})();
+
 describe("trade dropdown panel virtualization", () => {
-  test("the panel computes its window with the pure helper", () => {
-    expect(source).toContain("computeWindow");
+  test("the panel renders the range the hook computed", () => {
+    expect(source).toContain("const { start, end, topSpacer, bottomSpacer } = range;");
+    expect(source).not.toContain("computeWindow");
   });
 
   test("it renders a slice, never the full list map", () => {
@@ -15,9 +21,9 @@ describe("trade dropdown panel virtualization", () => {
     expect(source).not.toMatch(/[^A-Za-z]rows\.map\(/);
   });
 
-  test("the scroll listener is passive and rAF-coalesced", () => {
-    expect(source).toContain("{ passive: true }");
-    expect(source).toContain("requestAnimationFrame");
+  test("scroll notifications arrive through the DOM handler", () => {
+    expect(source).toContain("onScroll={onScroll}");
+    expect(source).not.toContain('addEventListener("scroll"');
   });
 });
 
@@ -34,25 +40,24 @@ describe("trade dropdown panel surface", () => {
     expect(listTag).not.toContain("dvh");
     expect(listTag).toContain("min-h-0 flex-auto");
     expect(listTag).toContain("style={{ maxHeight: PANEL_LIST_ROW_COUNT * rowHeight }}");
-    expect(source).toContain("defaultRowHeightPx, PANEL_LIST_ROW_COUNT");
-    expect(source).toContain("const ROW_HEIGHT = defaultRowHeightPx();");
-    expect(source).toContain("useState(ROW_HEIGHT)");
+    expect(source).toContain("PANEL_LIST_ROW_COUNT");
     expect(listTag).toContain("overscroll-none");
     expect(source).not.toContain("max-h-[clamp(22rem,60dvh,34rem)]");
   });
 
   test("every chrome child of the column refuses to shrink", () => {
     expect(source).toContain('className="p-3 shrink-0"');
-    expect(source).toContain(
-      "flex shrink-0 items-center gap-1 rounded-control px-(--seg-inset) py-[calc(var(--seg-inset)_+_0.175rem)] -my-0.5 overflow-x-auto",
-    );
+    expect(tabStripTag).toContain("flex shrink-0");
+    expect(tabStripTag).toContain("rounded-control px-(--seg-inset)");
+    expect(tabStripTag).toContain("-my-1 mx-1");
+    expect(tabStripTag).toContain("overflow-x-auto");
     expect(source).toMatch(/<div className="shrink-0">\s*<MarketHeader/);
   });
 
-  test("the scroll container's measured height feeds computeWindow", () => {
-    expect(source).toContain("setViewportHeight(element.clientHeight)");
-    expect(source).toContain("observer.observe(element)");
-    expect(source).toContain("viewportHeight,");
+  test("the measured row height feeds the list bound", () => {
+    expect(source).toContain("rowHeight");
+    expect(source).toContain("PANEL_LIST_ROW_COUNT * rowHeight");
+    expect(source).not.toContain("setViewportHeight");
   });
 
   test("the selected row's fill outranks hover and focus", () => {
@@ -71,8 +76,9 @@ describe("trade dropdown panel surface", () => {
 describe("trade dropdown market tabs", () => {
   test("the strip inherits the control radius and seg inset plus focus slack", () => {
     expect(source).toContain('role="tablist"');
-    expect(source).toContain("rounded-control px-(--seg-inset)");
-    expect(source).toContain("py-[calc(var(--seg-inset)_+_0.175rem)] -my-0.5");
+    expect(tabStripTag).toContain("rounded-control px-(--seg-inset)");
+    expect(tabStripTag).toContain("py-[calc(var(--seg-inset)_+_0.175rem)]");
+    expect(tabStripTag).toContain("-my-1 mx-1");
   });
 
   test("the trigger is concentric with the strip", () => {
