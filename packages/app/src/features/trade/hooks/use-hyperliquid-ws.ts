@@ -4,9 +4,16 @@ import type {
   MarketStreamMeta,
   MarketSubscription,
 } from "../lib/market-stream-client";
-import { cancelMidsFlush, useMarketDataStore } from "@/stores/use-market-data-store";
+import {
+  cancelMidsFlush,
+  useMarketDataStore,
+  type OrderbookSnapshotMeta,
+} from "@/stores/use-market-data-store";
 import { orderbookStoreKey } from "../lib/orderbook-book";
+import { normalizeSymbol } from "../lib/symbol";
 import { isL2BookSnapshotPayload } from "../utils/market-stream-decoder";
+import { isTradeBatch, toTradeTicks } from "../lib/trade-tick";
+import type { WsTrade } from "@0xsignal/sdk-hyperliquid/subscription";
 
 export interface UseHyperliquidWsOptions {
   subscription: MarketSubscription | null;
@@ -46,10 +53,45 @@ function parseMidsPayload(data: Record<string, unknown>): Record<string, number>
   return parsed;
 }
 
+const readDegradedLegs = (value: unknown): readonly ("fast" | "slow")[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  const candidates: unknown[] = value;
+  const legs: ("fast" | "slow")[] = [];
+  for (const leg of candidates) {
+    if (leg !== "fast" && leg !== "slow") return undefined;
+    legs.push(leg);
+  }
+  return legs;
+};
+
+export function bookWriteMeta(payload: unknown): OrderbookSnapshotMeta {
+  if (!isRecord(payload)) return {};
+  const meta: { time?: number; degraded?: readonly ("fast" | "slow")[] } = {};
+  if (typeof payload.time === "number" && Number.isFinite(payload.time)) meta.time = payload.time;
+  const degraded = readDegradedLegs(payload.degraded);
+  if (degraded !== undefined) meta.degraded = degraded;
+  return meta;
+}
+
+const tradeCoin = (
+  batch: readonly WsTrade[],
+  meta: MarketStreamMeta | undefined,
+  symbol: string | undefined,
+): string | null => {
+  if (symbol !== undefined) {
+    const normalized = normalizeSymbol(symbol);
+    if (normalized !== "") return normalized;
+  }
+  if (meta?.coin !== undefined && meta.coin !== "") return meta.coin;
+  const [first] = batch;
+  if (first !== undefined && typeof first.coin === "string" && first.coin !== "") return first.coin;
+  return null;
+};
+
 /**
  * Shared auto-routing logic: routes market stream messages to the Zustand store.
  */
-function routeMarketMessageToStore(
+export function routeMarketMessageToStore(
   data: unknown,
   ch: string,
   meta?: MarketStreamMeta,
@@ -64,10 +106,19 @@ function routeMarketMessageToStore(
     if (isL2BookSnapshotPayload(data)) {
       useMarketDataStore
         .getState()
-        .applyOrderbookSnapshot(key, [[...data.levels[0]], [...data.levels[1]]]);
+        .applyOrderbookSnapshot(
+          key,
+          [[...data.levels[0]], [...data.levels[1]]],
+          bookWriteMeta(data),
+        );
     }
   } else if (ch === "allMids" && isRecord(data)) {
     useMarketDataStore.getState().setAllMids(parseMidsPayload(data));
+  } else if (ch === "trades" && isTradeBatch(data)) {
+    const coin = tradeCoin(data, meta, symbol);
+    if (coin !== null) {
+      useMarketDataStore.getState().pushTrades(coin, toTradeTicks(data));
+    }
   }
   // candle: caller must provide onMessage for now
 }

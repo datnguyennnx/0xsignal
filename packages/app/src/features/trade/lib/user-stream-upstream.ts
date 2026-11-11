@@ -1,4 +1,5 @@
-import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
+import { WsClient, cast } from "@0xsignal/sdk-hyperliquid";
+import type { ClearinghouseState, OpenOrder, UserFill } from "@0xsignal/shared";
 import type {
   SpotStateStreamEvent,
   UpstreamSubscription,
@@ -9,8 +10,8 @@ import type {
 const USER_STREAM_WS_URL = "wss://api.hyperliquid.xyz/ws";
 
 /**
- * A socket that received nothing for this long is presumed half-open: after OS
- * sleep the transport can report OPEN while the peer already forgot the
+ * A client that received nothing for this long is presumed half-open: after OS
+ * sleep the socket can report OPEN while the peer already forgot the
  * connection, so only a forced reconnect (never a close) revives it.
  */
 export const STALE_UPSTREAM_MS = 65_000;
@@ -18,43 +19,43 @@ export const STALE_UPSTREAM_MS = 65_000;
 /** A burst of resume events must not thrash the socket. */
 export const RECONNECT_COOLDOWN_MS = 5_000;
 
+type SdkSubscription = Parameters<WsClient["subscribe"]>[0];
+type SdkHandle = ReturnType<WsClient["subscribe"]>;
+
+const toUpstream = (handle: SdkHandle): UpstreamSubscription => ({
+  unsubscribe: () => handle.unsubscribeAsync(),
+});
+
 export interface CreateHyperliquidUpstreamOptions {
-  /** Test seam: supply the transport instead of dialing the real endpoint. */
-  readonly createTransport?: () => WebSocketTransport;
+  /** Test seam: supply the client instead of dialing the real endpoint. */
+  readonly createClient?: () => WsClient;
 }
 
-// Outcome-market balances omit `token` on the wire; the shared contract always
-// carries one, so the missing id is normalised rather than dropping the balance.
-type WireSpotBalance =
-  | {
-      readonly coin: string;
-      readonly token: number;
-      readonly total: string;
-      readonly hold: string;
-      readonly entryNtl: string;
-    }
-  | {
-      readonly coin: string;
-      readonly total: string;
-      readonly hold: string;
-      readonly entryNtl: string;
-    };
+type WireSpotBalance = {
+  readonly coin: string;
+  readonly token?: number;
+  readonly total: string;
+  readonly hold: string;
+  readonly entryNtl: string;
+};
+
+type ClearinghouseEvent = { readonly clearinghouseState: ClearinghouseState };
+type WsStatus = "connecting" | "open" | "closed" | "reconnecting";
 
 const toSpotBalances = (
   balances: readonly WireSpotBalance[],
 ): SpotStateStreamEvent["data"]["balances"] =>
   balances.map((balance) =>
-    "token" in balance
+    balance.token === undefined
       ? {
           coin: balance.coin,
-          token: balance.token,
           total: balance.total,
           hold: balance.hold,
           entryNtl: balance.entryNtl,
         }
       : {
           coin: balance.coin,
-          token: 0,
+          token: balance.token,
           total: balance.total,
           hold: balance.hold,
           entryNtl: balance.entryNtl,
@@ -64,11 +65,8 @@ const toSpotBalances = (
 export function createHyperliquidUpstream(
   options: CreateHyperliquidUpstreamOptions = {},
 ): UserStreamUpstream {
-  const transport =
-    options.createTransport?.() ??
-    new WebSocketTransport({ url: USER_STREAM_WS_URL, resubscribe: true });
-  const client = new SubscriptionClient({ transport });
-  const socket = transport.socket;
+  const client =
+    options.createClient?.() ?? new WsClient({ url: USER_STREAM_WS_URL, shouldReconnect: true });
 
   let state: UserStreamConnectionState = "connecting";
   let disposed = false;
@@ -93,77 +91,94 @@ export function createHyperliquidUpstream(
   };
   // A confirmed subscription can die while the socket stays OPEN (a rejected
   // re-subscribe). Without this callback that failure is silent.
-  const onSubscriptionError = (error: Error): void => {
+  const onSubscriptionError = (error: unknown): void => {
     if (disposed) return;
     setState("connecting");
-    emitError(new Error(`Hyperliquid user stream subscription failed: ${error.message}`));
+    const message = error instanceof Error ? error.message : String(error);
+    emitError(new Error(`Hyperliquid user stream subscription failed: ${message}`));
   };
 
-  const onSocketOpen = (): void => {
-    markInbound();
-    setState("open");
-  };
-  const onSocketClose = (): void => {
+  const onStatus = (status: WsStatus): void => {
+    if (status === "open") {
+      markInbound();
+      setState("open");
+      return;
+    }
     setState("connecting");
-    emitError(new Error("Hyperliquid user stream socket closed"));
+    if (status === "closed") emitError(new Error("Hyperliquid user stream socket closed"));
   };
-  const onSocketError = (): void => {
+  const onClientError = (): void => {
     emitError(new Error("Hyperliquid user stream socket error"));
   };
   const onTermination = (): void => {
     setState("closed");
   };
 
-  socket.addEventListener("open", onSocketOpen);
-  socket.addEventListener("close", onSocketClose);
-  socket.addEventListener("error", onSocketError);
-  socket.terminationSignal.addEventListener("abort", onTermination, { once: true });
+  const detachStatus = client.onStatus(onStatus);
+  const detachError = client.onError(onClientError);
+  client.terminationSignal.addEventListener("abort", onTermination, { once: true });
+
+  const subscribe = <S extends SdkSubscription>(
+    subscription: S,
+    onData: Parameters<typeof client.subscribe<S>>[1],
+  ): Promise<UpstreamSubscription> =>
+    Promise.resolve(
+      toUpstream(client.subscribe(subscription, onData, { onError: onSubscriptionError })),
+    );
 
   const spotSubscription = (
     user: string,
     listener: (event: SpotStateStreamEvent) => void,
   ): Promise<UpstreamSubscription> =>
-    client.spotState(
-      { user },
-      (event) => {
-        markInbound();
-        listener({
-          data: { ...event.spotState, balances: toSpotBalances(event.spotState.balances) },
-          isSnapshot: true,
-        });
-      },
-      { onError: onSubscriptionError },
-    );
+    subscribe({ type: "spotState", user }, (data) => {
+      markInbound();
+      listener({ data: { balances: toSpotBalances(data.spotState.balances) }, isSnapshot: true });
+    });
 
   return {
     subscribeClearinghouseState: (user, listener) =>
-      client.clearinghouseState(
-        { user },
-        (event) => {
-          markInbound();
-          listener({ data: event.clearinghouseState, isSnapshot: true });
-        },
-        { onError: onSubscriptionError },
-      ),
+      subscribe({ type: "clearinghouseState", user, dex: "" }, (data) => {
+        markInbound();
+        listener({
+          data: cast<ClearinghouseEvent>(data, "clearinghouseState").clearinghouseState,
+          isSnapshot: true,
+        });
+      }),
     subscribeSpotState: spotSubscription,
     subscribeUserFills: (user, listener) =>
-      client.userFills(
-        { user },
-        (event) => {
-          markInbound();
-          listener({ data: event.fills, isSnapshot: event.isSnapshot === true });
-        },
-        { onError: onSubscriptionError },
-      ),
+      subscribe({ type: "userFills", user }, (data) => {
+        markInbound();
+        const fills: UserFill[] = data.fills.map((fill) => ({
+          coin: fill.coin,
+          side: fill.side,
+          dir: fill.dir,
+          startPosition: fill.startPosition,
+          sz: fill.sz,
+          px: fill.px,
+          fee: fill.fee,
+          hash: fill.hash,
+          oid: fill.oid,
+          tid: fill.tid,
+          time: fill.time,
+          closedPnl: fill.closedPnl,
+        }));
+        listener({ data: fills, isSnapshot: data.isSnapshot === true });
+      }),
     subscribeOpenOrders: (user, listener) =>
-      client.openOrders(
-        { user },
-        (event) => {
-          markInbound();
-          listener({ data: event.orders, isSnapshot: true });
-        },
-        { onError: onSubscriptionError },
-      ),
+      subscribe({ type: "openOrders", user, dex: "" }, (data) => {
+        markInbound();
+        const orders: OpenOrder[] = data.orders.map((order) => ({
+          coin: order.coin,
+          side: order.side,
+          limitPx: order.limitPx,
+          sz: order.sz,
+          oid: order.oid,
+          timestamp: order.timestamp,
+          origSz: order.origSz,
+          ...(order.cloid !== undefined && { cloid: order.cloid }),
+        }));
+        listener({ data: orders, isSnapshot: true });
+      }),
     getConnectionState: () => state,
     onConnectionStateChange: (listener) => {
       stateListeners.add(listener);
@@ -182,20 +197,18 @@ export function createHyperliquidUpstream(
       const now = Date.now();
       if (now - lastReconnectAt < RECONNECT_COOLDOWN_MS) return;
       lastReconnectAt = now;
-      socket.reconnect();
+      client.reconnect();
     },
     isStale: (maxAgeMs = STALE_UPSTREAM_MS) => Date.now() - lastInboundAt > maxAgeMs,
     dispose: () => {
       if (disposed) return;
       disposed = true;
-      socket.removeEventListener("open", onSocketOpen);
-      socket.removeEventListener("close", onSocketClose);
-      socket.removeEventListener("error", onSocketError);
-      // Added with `{ once: true }`, so removal must not pass a different options object shape.
-      socket.terminationSignal.removeEventListener("abort", onTermination);
+      detachStatus();
+      detachError();
+      client.terminationSignal.removeEventListener("abort", onTermination);
       stateListeners.clear();
       errorListeners.clear();
-      transport.close();
+      client.close();
       state = "closed";
     },
   };

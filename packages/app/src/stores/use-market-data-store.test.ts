@@ -4,11 +4,14 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { ChartDataPoint } from "@0xsignal/shared";
 
 import type { L2BookLevel } from "@/core/utils/hyperliquid";
+import type { AssetCtxSnapshot } from "@/features/trade/lib/asset-ctx";
+import { MAX_TRADE_TICKS, type TradeTick } from "@/features/trade/lib/trade-tick";
 
 import {
   cancelMidsFlush,
   marketDataStoreInternals,
   useMarketDataStore,
+  useTrades,
 } from "./use-market-data-store";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -53,6 +56,14 @@ const bar = (time: number, close: number): ChartDataPoint => ({
 
 const candles = (key: string): readonly ChartDataPoint[] =>
   useMarketDataStore.getState().candleData[key] ?? [];
+
+describe("symbolFromCandleKey", () => {
+  test("keeps every segment but the trailing interval or precision", () => {
+    expect(marketDataStoreInternals.symbolFromCandleKey("xyz:YEETI:1m")).toBe("xyz:YEETI");
+    expect(marketDataStoreInternals.symbolFromCandleKey("BTC:1m")).toBe("BTC");
+    expect(marketDataStoreInternals.symbolFromCandleKey("PURR/USDC:1m")).toBe("PURR/USDC");
+  });
+});
 
 describe("appendCandles", () => {
   beforeEach(() => {
@@ -322,6 +333,34 @@ describe("orderbook symbol LRU", () => {
     expect(useMarketDataStore.getState().orderbookData["RETIRE:100"]).toBeUndefined();
     expect(useMarketDataStore.getState().orderbookData["KEEP:raw"]).toBeDefined();
   });
+
+  test("retiring a HIP-3 candle key leaves sibling HIP-3 books intact", () => {
+    seedBook("xyz:YEETI:5");
+    seedBook("xyz:CVX:5");
+    seedBook("BTC:5");
+
+    useMarketDataStore.getState().appendCandles("xyz:YEETI:1m", [bar(1, 1)]);
+    for (const other of ["PUSH-1", "PUSH-2", "PUSH-3", "PUSH-4"]) {
+      useMarketDataStore.getState().appendCandles(`${other}:1m`, [bar(1, 1)]);
+    }
+
+    expect(useMarketDataStore.getState().orderbookData["xyz:YEETI:5"]).toBeUndefined();
+    expect(useMarketDataStore.getState().orderbookData["xyz:CVX:5"]).toBeDefined();
+    expect(useMarketDataStore.getState().orderbookData["BTC:5"]).toBeDefined();
+  });
+
+  test("retiring a plain candle key does not sweep HIP-3 books", () => {
+    seedBook("xyz:YEETI:5");
+    seedBook("BTC:5");
+
+    useMarketDataStore.getState().appendCandles("BTC:1m", [bar(1, 1)]);
+    for (const other of ["PUSH-1", "PUSH-2", "PUSH-3", "PUSH-4"]) {
+      useMarketDataStore.getState().appendCandles(`${other}:1m`, [bar(1, 1)]);
+    }
+
+    expect(useMarketDataStore.getState().orderbookData["BTC:5"]).toBeUndefined();
+    expect(useMarketDataStore.getState().orderbookData["xyz:YEETI:5"]).toBeDefined();
+  });
 });
 
 describe("page visibility flush gate", () => {
@@ -516,5 +555,218 @@ describe("allMids flush cancellation", () => {
     useMarketDataStore.getState().setAllMids({ BTC: 2 });
     flushFrame();
     expect(useMarketDataStore.getState().allMids).toEqual({ BTC: 2 });
+  });
+});
+
+describe("applyAssetCtx", () => {
+  const snapshot = (markPx: number): AssetCtxSnapshot => ({
+    markPx,
+    prevDayPx: 92620,
+    funding: 0.00000625,
+    dayNtlVlm: 563592476.12,
+    openInterest: 2175,
+    oraclePx: 93730,
+  });
+
+  const stored = (coin: string): AssetCtxSnapshot | undefined =>
+    useMarketDataStore.getState().assetCtx[coin];
+
+  beforeEach(() => {
+    useMarketDataStore.setState({ assetCtx: {} });
+  });
+
+  test("stores a snapshot under its coin key", () => {
+    const next = snapshot(93732);
+
+    useMarketDataStore.getState().applyAssetCtx("xyz:BTC", next);
+
+    expect(stored("xyz:BTC")).toBe(next);
+  });
+
+  test("an equal snapshot keeps the previous object reference", () => {
+    const first = snapshot(93732);
+
+    useMarketDataStore.getState().applyAssetCtx("xyz:BTC", first);
+    useMarketDataStore.getState().applyAssetCtx("xyz:BTC", snapshot(93732));
+
+    expect(stored("xyz:BTC")).toBe(first);
+  });
+
+  test("a changed mark price replaces only that coin's key", () => {
+    const btc = snapshot(93732);
+    const eth = snapshot(3100);
+
+    useMarketDataStore.getState().applyAssetCtx("xyz:BTC", btc);
+    useMarketDataStore.getState().applyAssetCtx("xyz:ETH", eth);
+    const before = useMarketDataStore.getState().assetCtx;
+
+    useMarketDataStore.getState().applyAssetCtx("xyz:BTC", snapshot(93740));
+    const after = useMarketDataStore.getState().assetCtx;
+
+    expect(after).not.toBe(before);
+    expect(after["xyz:BTC"]).not.toBe(btc);
+    expect(after["xyz:BTC"]?.markPx).toBe(93740);
+    expect(after["xyz:ETH"]).toBe(eth);
+  });
+
+  test("an unknown coin is undefined", () => {
+    expect(stored("xyz:SOL")).toBeUndefined();
+  });
+});
+
+describe("applyAssetCtxBatch", () => {
+  const snapshot = (markPx: number): AssetCtxSnapshot => ({
+    markPx,
+    prevDayPx: 92620,
+    funding: 0.00000625,
+    dayNtlVlm: 563592476.12,
+    openInterest: 2175,
+    oraclePx: 93730,
+  });
+
+  /** Count writes that actually replace the assetCtx slice. */
+  const countAssetCtxCommits = (): { count: () => number; stop: () => void } => {
+    let commits = 0;
+    const stop = useMarketDataStore.subscribe((state, previous) => {
+      if (state.assetCtx !== previous.assetCtx) commits++;
+    });
+    return { count: () => commits, stop };
+  };
+
+  beforeEach(() => {
+    useMarketDataStore.setState({ assetCtx: {} });
+  });
+
+  test("three coins in one batch commit once and store every value", () => {
+    const commits = countAssetCtxCommits();
+
+    useMarketDataStore.getState().applyAssetCtxBatch([
+      ["xyz:BTC", snapshot(93732)],
+      ["xyz:ETH", snapshot(3100)],
+      ["xyz:SOL", snapshot(180)],
+    ]);
+
+    expect(commits.count()).toBe(1);
+    expect(useMarketDataStore.getState().assetCtx["xyz:BTC"]?.markPx).toBe(93732);
+    expect(useMarketDataStore.getState().assetCtx["xyz:ETH"]?.markPx).toBe(3100);
+    expect(useMarketDataStore.getState().assetCtx["xyz:SOL"]?.markPx).toBe(180);
+    commits.stop();
+  });
+
+  test("a batch equal to current state commits nothing and keeps the reference", () => {
+    const btc = snapshot(93732);
+    const eth = snapshot(3100);
+    useMarketDataStore.setState({ assetCtx: { "xyz:BTC": btc, "xyz:ETH": eth } });
+    const before = useMarketDataStore.getState().assetCtx;
+    const commits = countAssetCtxCommits();
+
+    useMarketDataStore.getState().applyAssetCtxBatch([
+      ["xyz:BTC", snapshot(93732)],
+      ["xyz:ETH", snapshot(3100)],
+    ]);
+
+    expect(commits.count()).toBe(0);
+    expect(useMarketDataStore.getState().assetCtx).toBe(before);
+    commits.stop();
+  });
+
+  test("a mixed batch commits once and replaces only the changed coin", () => {
+    const btc = snapshot(93732);
+    useMarketDataStore.setState({ assetCtx: { "xyz:BTC": btc } });
+    const commits = countAssetCtxCommits();
+
+    useMarketDataStore.getState().applyAssetCtxBatch([
+      ["xyz:BTC", snapshot(93732)],
+      ["xyz:ETH", snapshot(3100)],
+    ]);
+
+    expect(commits.count()).toBe(1);
+    expect(useMarketDataStore.getState().assetCtx["xyz:BTC"]).toBe(btc);
+    expect(useMarketDataStore.getState().assetCtx["xyz:ETH"]?.markPx).toBe(3100);
+    commits.stop();
+  });
+});
+
+describe("pushTrades", () => {
+  const tick = (tid: number, side: "buy" | "sell" = "buy"): TradeTick => ({
+    px: 74000 + tid,
+    sz: 0.1,
+    time: 1_794_388_497_000 + tid,
+    side,
+    hash: `0x${tid.toString(16)}`,
+    tid,
+  });
+
+  const tape = (coin: string): readonly TradeTick[] | undefined =>
+    useMarketDataStore.getState().trades[coin];
+
+  /** Count writes that actually replace the trades slice. */
+  const countTradeCommits = (): { count: () => number; stop: () => void } => {
+    let commits = 0;
+    const stop = useMarketDataStore.subscribe((state, previous) => {
+      if (state.trades !== previous.trades) commits++;
+    });
+    return { count: () => commits, stop };
+  };
+
+  beforeEach(() => {
+    useMarketDataStore.setState({ trades: {} });
+  });
+
+  test("orders the tape newest first across two ascending batches", () => {
+    useMarketDataStore.getState().pushTrades("BTC", [tick(1), tick(2), tick(3)]);
+    useMarketDataStore.getState().pushTrades("BTC", [tick(4), tick(5)]);
+
+    expect(tape("BTC")?.map((entry) => entry.tid)).toEqual([5, 4, 3, 2, 1]);
+  });
+
+  test("re-sorts a batch that mixes an older tick between newer ones", () => {
+    useMarketDataStore.getState().pushTrades("BTC", [tick(2)]);
+    useMarketDataStore.getState().pushTrades("BTC", [tick(4), tick(1), tick(3)]);
+
+    expect(tape("BTC")?.map((entry) => entry.tid)).toEqual([4, 3, 2, 1]);
+  });
+
+  test("re-delivering the same batch adds nothing and keeps the array reference", () => {
+    useMarketDataStore.getState().pushTrades("BTC", [tick(1), tick(2)]);
+    const before = tape("BTC");
+    const commits = countTradeCommits();
+
+    useMarketDataStore.getState().pushTrades("BTC", [tick(1), tick(2)]);
+
+    expect(tape("BTC")).toBe(before);
+    expect(commits.count()).toBe(0);
+    commits.stop();
+  });
+
+  test("one batch is one write", () => {
+    const commits = countTradeCommits();
+
+    useMarketDataStore.getState().pushTrades("BTC", [tick(1), tick(2), tick(3)]);
+
+    expect(commits.count()).toBe(1);
+    expect(tape("BTC")).toHaveLength(3);
+    commits.stop();
+  });
+
+  test("caps the tape at MAX_TRADE_TICKS and drops the oldest tick", () => {
+    const newestFirst = Array.from({ length: MAX_TRADE_TICKS + 10 }, (_, index) =>
+      tick(MAX_TRADE_TICKS + 10 - index),
+    );
+
+    useMarketDataStore.getState().pushTrades("BTC", newestFirst);
+
+    const result = tape("BTC") ?? [];
+    expect(result).toHaveLength(MAX_TRADE_TICKS);
+    expect(result[0]?.tid).toBe(MAX_TRADE_TICKS + 10);
+    expect(result.at(-1)?.tid).toBe(11);
+  });
+
+  test("an unknown coin is undefined", () => {
+    expect(tape("NOPE")).toBeUndefined();
+  });
+
+  test("exposes the per-coin tape selector", () => {
+    expect(typeof useTrades).toBe("function");
   });
 });

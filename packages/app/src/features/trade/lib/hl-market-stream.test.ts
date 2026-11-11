@@ -11,7 +11,6 @@ import {
   type DirectMarketSink,
   type MarketStreamCallbacks,
 } from "./hl-market-stream";
-import { bookFrameLeg } from "./l2-book-merge";
 import { orderbookStoreKey, replaceBookLevels } from "./orderbook-book";
 import type { L2BookLevel } from "../../../core/utils/hyperliquid";
 import { useMarketDataStore } from "../../../stores/use-market-data-store";
@@ -23,10 +22,9 @@ beforeEach(() => {
 
 interface SinkCalls {
   allMids: number;
-  l2Book: Array<{ coin: string; nSigFigs?: 2 | 3 | 4 | 5; fast?: boolean }>;
+  l2Book: Array<{ coin: string; nSigFigs?: 2 | 3 | 4 | 5 }>;
   candle: number;
   unsubscribed: string[];
-  /** One frame object reaches every l2Book listener, exactly like the transport. */
   emitBook: ((event: unknown) => void) | null;
   failL2Book: ((error: Error) => void) | null;
 }
@@ -57,7 +55,6 @@ const makeSink = (
     },
     l2Book: (params, listener, onError) => {
       calls.l2Book.push(params);
-      const leg = params.fast === true ? "fast" : "slow";
       bookListeners.push(listener);
       calls.failL2Book = onError;
       if (options.failL2Book === true) {
@@ -65,7 +62,7 @@ const makeSink = (
       }
       return Promise.resolve({
         unsubscribe: () => {
-          calls.unsubscribed.push(`l2Book:${params.coin}:${leg}`);
+          calls.unsubscribed.push(`l2Book:${params.coin}`);
           return Promise.resolve();
         },
       });
@@ -79,6 +76,10 @@ const makeSink = (
         },
       });
     },
+    trades: () =>
+      Promise.resolve({
+        unsubscribe: () => Promise.resolve(),
+      }),
   };
   return { sink, calls };
 };
@@ -206,10 +207,21 @@ describe("orderbook replace semantics", () => {
       meta: { coin: "PURR/USDC", nSigFigs: 5 },
     });
   });
+
+  test("direct trades frames keep the whole batch", () => {
+    const batch = [
+      { coin: "BTC", side: "B", px: "1", sz: "2", hash: "0x1", time: 1, tid: 1, users: ["a", "b"] },
+    ];
+
+    expect(toMarketFrame({ channel: "trades", symbol: "BTC" }, "BTC", batch)).toEqual({
+      data: batch,
+      meta: { coin: "BTC" },
+    });
+  });
 });
 
 describe("direct market stream refcount", () => {
-  test("one key opens both l2Book legs and closes both on last release", async () => {
+  test("one key opens a single l2Book subscription and closes it on last release", async () => {
     const { sink, calls } = makeSink();
     const direct = createDirectMarketStream(sink);
     const subscription: WsMarketSubscription = { channel: "l2Book", symbol: "ETH", nSigFigs: 5 };
@@ -217,17 +229,14 @@ describe("direct market stream refcount", () => {
     const first = await direct.subscribe(subscription, "ETH", quietCallbacks());
     const second = await direct.subscribe(subscription, "ETH", quietCallbacks());
 
-    expect(calls.l2Book).toEqual([
-      { coin: "ETH", nSigFigs: 5 },
-      { coin: "ETH", nSigFigs: 5, fast: true },
-    ]);
+    expect(calls.l2Book).toEqual([{ coin: "ETH", nSigFigs: 5 }]);
     expect(direct.size()).toBe(1);
 
     first.unsubscribe();
     expect(calls.unsubscribed).toEqual([]);
 
     second.unsubscribe();
-    expect(calls.unsubscribed).toEqual(["l2Book:ETH:slow", "l2Book:ETH:fast"]);
+    expect(calls.unsubscribed).toEqual(["l2Book:ETH"]);
     expect(direct.size()).toBe(0);
   });
 });
@@ -263,179 +272,100 @@ const withRaf = async (run: (flush: () => void) => Promise<void>): Promise<void>
   }
 };
 
-describe("bookFrameLeg", () => {
-  test("only an explicit fast:true frame belongs to the fast leg", () => {
-    expect(bookFrameLeg({ fast: true })).toBe("fast");
-    expect(bookFrameLeg({ fast: false })).toBe("slow");
-    expect(bookFrameLeg({})).toBe("slow");
-    expect(bookFrameLeg(null)).toBe("slow");
-    expect(bookFrameLeg([])).toBe("slow");
-  });
-});
-
-describe("two-leg l2Book merge", () => {
-  test("a slow frame alone yields the full 20-level book", async () => {
+describe("l2Book snapshots", () => {
+  test("the first frame yields the full book immediately", async () => {
     const { sink, calls } = makeSink();
     const direct = createDirectMarketStream(sink);
     const { messages } = await subscribeBook(direct);
 
     const bids = levels(100, 20, 10);
     const asks = askLevels(101, 20, 10);
-    calls.emitBook?.({ levels: [bids, asks], time: 1 });
+    calls.emitBook?.({ coin: "ETH", levels: [bids, asks], time: 1 });
 
-    expect(messages).toEqual([{ type: "snapshot", levels: [bids, asks] }]);
+    expect(messages).toEqual([{ type: "snapshot", levels: [bids, asks], time: 1 }]);
   });
 
-  test("a fast frame replaces only the top 5 and keeps slow depth 6..20", async () => {
+  test("a shorter frame replaces the book instead of padding the previous depth", async () => {
     const { sink, calls } = makeSink();
     const direct = createDirectMarketStream(sink);
     const { messages } = await subscribeBook(direct);
 
-    const slowBids = levels(100, 20, 10);
-    const slowAsks = askLevels(101, 20, 10);
-    calls.emitBook?.({ levels: [slowBids, slowAsks], time: 1 });
-
-    const fastBids = levels(100, 5, 1);
-    const fastAsks = askLevels(101, 5, 1);
-    calls.emitBook?.({ fast: true, levels: [fastBids, fastAsks], time: 2 });
-
-    expect(messages).toHaveLength(2);
-    const latest = messages.at(-1);
-    expect(latest).toEqual({
-      type: "snapshot",
-      levels: [
-        [...fastBids, ...slowBids.slice(5)],
-        [...fastAsks, ...slowAsks.slice(5)],
-      ],
+    calls.emitBook?.({
+      coin: "ETH",
+      levels: [levels(100, 20, 10), askLevels(101, 20, 10)],
+      time: 1,
     });
-    expect(snapshotSides(latest)[0]).toHaveLength(20);
+
+    const bids = levels(100, 5, 1);
+    const asks = askLevels(101, 5, 1);
+    calls.emitBook?.({ coin: "ETH", levels: [bids, asks], time: 2 });
+
+    expect(messages.at(-1)).toEqual({ type: "snapshot", levels: [bids, asks], time: 2 });
+    expect(snapshotSides(messages.at(-1))[0]).toHaveLength(5);
   });
 
-  test("a fast frame never shrinks the book to its own 5 levels", async () => {
+  test("a frame wider than the protocol ceiling is sliced to 20 levels", async () => {
     const { sink, calls } = makeSink();
     const direct = createDirectMarketStream(sink);
     const { messages } = await subscribeBook(direct);
 
-    calls.emitBook?.({ levels: [levels(100, 20, 10), askLevels(101, 20, 10)], time: 1 });
-    calls.emitBook?.({ fast: true, levels: [levels(100, 5, 1), askLevels(101, 5, 1)], time: 2 });
-
-    const [bids, asks] = snapshotSides(messages.at(-1));
-    expect(bids).toHaveLength(20);
-    expect(asks).toHaveLength(20);
-  });
-
-  test("a later slow frame does not regress the top 5 a newer fast frame set", async () => {
-    const { sink, calls } = makeSink();
-    const direct = createDirectMarketStream(sink);
-    const { messages } = await subscribeBook(direct);
-
-    calls.emitBook?.({ levels: [levels(100, 20, 10), askLevels(101, 20, 10)], time: 1 });
-    const fastBids = levels(100, 5, 1);
-    const fastAsks = askLevels(101, 5, 1);
-    calls.emitBook?.({ fast: true, levels: [fastBids, fastAsks], time: 2 });
-
-    // A newer slow frame moves both the top 5 and a deep level; only the deep
-    // level may survive.
-    const staleTopBids = levels(100, 20, 99);
-    const staleTopAsks = askLevels(101, 20, 99);
-    calls.emitBook?.({ levels: [staleTopBids, staleTopAsks], time: 3 });
-
-    const latest = messages.at(-1);
-    expect(latest).toEqual({
-      type: "snapshot",
-      levels: [
-        [...fastBids, ...staleTopBids.slice(5)],
-        [...fastAsks, ...staleTopAsks.slice(5)],
-      ],
+    calls.emitBook?.({
+      coin: "ETH",
+      levels: [levels(100, 25, 10), askLevels(101, 25, 10)],
+      time: 1,
     });
+
+    expect(snapshotSides(messages.at(-1))[0]).toHaveLength(20);
+    expect(snapshotSides(messages.at(-1))[1]).toHaveLength(20);
   });
 
-  test("disjoint fast and slow price ranges still cap at the 20-level ceiling", async () => {
-    const { sink, calls } = makeSink();
-    const direct = createDirectMarketStream(sink);
-    const { messages } = await subscribeBook(direct);
-
-    // 20 slow levels below the fast window: 25 distinct prices, sorted, capped.
-    calls.emitBook?.({ levels: [levels(100, 20, 10), askLevels(101, 20, 10)], time: 1 });
-    calls.emitBook?.({ fast: true, levels: [levels(105, 5, 1), askLevels(106, 5, 1)], time: 2 });
-
-    const bids = toLevels(snapshotSides(messages.at(-1))[0]);
-    expect(bids).toHaveLength(20);
-    expect(bids[0]?.px).toBe("105");
-    expect(bids[19]?.px).toBe("86");
-  });
-
-  test("a merged frame that only moves a deep level still reaches the store", async () => {
+  test("a frame that only moves a deep level still reaches the store", async () => {
     await withRaf(async (flushFrame) => {
       const { sink, calls } = makeSink();
       const direct = createDirectMarketStream(sink);
-      const key = orderbookStoreKey("MERGED-DEEP", 5);
-      await subscribeStore(direct, key, "MERGED-DEEP");
+      const key = orderbookStoreKey("SNAPSHOT-DEEP", 5);
+      await subscribeStore(direct, key, "SNAPSHOT-DEEP");
 
-      const bids = levels(100, 20, 10);
       const asks = askLevels(101, 20, 10);
-      calls.emitBook?.({ levels: [bids, asks], time: 1 });
+      calls.emitBook?.({ coin: "SNAPSHOT-DEEP", levels: [levels(100, 20, 10), asks], time: 1 });
       flushFrame();
 
-      calls.emitBook?.({ fast: true, levels: [levels(100, 5, 1), askLevels(101, 5, 1)], time: 2 });
-      flushFrame();
-
-      // Only the 10th bid moves; the top 5 stay from the fast leg.
       const deepBids = levels(100, 20, 10);
       deepBids[9] = { px: "91", sz: "42", n: 1 };
-      calls.emitBook?.({ levels: [deepBids, asks], time: 3 });
+      calls.emitBook?.({ coin: "SNAPSHOT-DEEP", levels: [deepBids, asks], time: 2 });
       flushFrame();
 
       const book: unknown = useMarketDataStore.getState().orderbookData[key];
-      expect(levelSize(book, "bids", 0)).toBe(1);
+      expect(levelSize(book, "bids", 0)).toBe(10);
       expect(levelSize(book, "bids", 9)).toBe(42);
     });
   });
 
-  test("slow 20 then fast 5 keeps 20 levels with the fast top 5 (regression)", async () => {
+  test("a full-depth frame keeps every row in the store", async () => {
     await withRaf(async (flushFrame) => {
       const { sink, calls } = makeSink();
       const direct = createDirectMarketStream(sink);
-      const key = orderbookStoreKey("SLOW-THEN-FAST", 5);
-      await subscribeStore(direct, key, "SLOW-THEN-FAST");
+      const key = orderbookStoreKey("SNAPSHOT-DEPTH", 5);
+      await subscribeStore(direct, key, "SNAPSHOT-DEPTH");
 
-      calls.emitBook?.({ levels: [levels(100, 20, 10), askLevels(101, 20, 10)], time: 1 });
+      calls.emitBook?.({
+        coin: "SNAPSHOT-DEPTH",
+        levels: [levels(100, 20, 10), askLevels(101, 20, 10)],
+        time: 1,
+      });
       flushFrame();
-      calls.emitBook?.({ fast: true, levels: [levels(100, 5, 1), askLevels(101, 5, 1)], time: 2 });
-      flushFrame();
-
-      const book: unknown = useMarketDataStore.getState().orderbookData[key];
-      expect(bookSide(book, "bids")).toHaveLength(20);
-      expect(bookSide(book, "asks")).toHaveLength(20);
-      for (let index = 0; index < 5; index += 1) {
-        expect(levelSize(book, "bids", index)).toBe(1);
-        expect(levelSize(book, "asks", index)).toBe(1);
-      }
-      expect(levelSize(book, "bids", 5)).toBe(10);
-      expect(levelSize(book, "bids", 19)).toBe(10);
-      expect(levelSize(book, "asks", 19)).toBe(10);
-    });
-  });
-
-  test("fast 5 then slow 20 keeps 20 levels and still lets fast win the top 5", async () => {
-    await withRaf(async (flushFrame) => {
-      const { sink, calls } = makeSink();
-      const direct = createDirectMarketStream(sink);
-      const key = orderbookStoreKey("FAST-THEN-SLOW", 5);
-      await subscribeStore(direct, key, "FAST-THEN-SLOW");
-
-      calls.emitBook?.({ fast: true, levels: [levels(100, 5, 1), askLevels(101, 5, 1)], time: 1 });
-      flushFrame();
-      calls.emitBook?.({ levels: [levels(100, 20, 10), askLevels(101, 20, 10)], time: 2 });
+      calls.emitBook?.({
+        coin: "SNAPSHOT-DEPTH",
+        levels: [levels(100, 20, 1), askLevels(101, 20, 1)],
+        time: 2,
+      });
       flushFrame();
 
       const book: unknown = useMarketDataStore.getState().orderbookData[key];
       expect(bookSide(book, "bids")).toHaveLength(20);
       expect(bookSide(book, "asks")).toHaveLength(20);
       expect(levelSize(book, "bids", 0)).toBe(1);
-      expect(levelSize(book, "bids", 4)).toBe(1);
-      expect(levelSize(book, "bids", 5)).toBe(10);
-      expect(levelSize(book, "bids", 19)).toBe(10);
+      expect(levelSize(book, "bids", 19)).toBe(1);
     });
   });
 });
@@ -479,10 +409,7 @@ describe("hybrid fallback", () => {
 
     await client.subscribe(subscription, quietCallbacks());
 
-    expect(calls.l2Book).toEqual([
-      { coin: "@7", nSigFigs: 5 },
-      { coin: "@7", nSigFigs: 5, fast: true },
-    ]);
+    expect(calls.l2Book).toEqual([{ coin: "@7", nSigFigs: 5 }]);
     expect(backend.calls.subscriptions).toEqual([subscription]);
     expect(useMarketStreamStatus.getState().source).toBe("backend");
     expect(useMarketStreamStatus.getState().state).toBe("fallback");

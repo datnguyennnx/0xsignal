@@ -20,7 +20,9 @@ const orderbookKey = (symbol: string, nSigFigs?: number | null): string =>
   joinKey(symbol, precisionPart(nSigFigs));
 
 const marketKey = (subscription: WsMarketSubscription): string => {
-  if (subscription.channel === "allMids") return "allMids";
+  if (subscription.channel === "allMids") {
+    return joinKey("allMids", subscription.dex ?? "");
+  }
   if (subscription.channel === "l2Book") {
     return joinKey("l2Book", orderbookKey(symbolPart(subscription.symbol), subscription.nSigFigs));
   }
@@ -35,6 +37,7 @@ interface ParsedSubscriptionKey {
   readonly symbol: string | null;
   readonly interval: string | null;
   readonly nSigFigs: number | null;
+  readonly dex: string | null;
   readonly user: string | null;
 }
 
@@ -47,11 +50,19 @@ const parsePrecision = (value: string): number | null => {
 };
 
 const parseKey = (key: string): ParsedSubscriptionKey | null => {
-  if (key === "allMids") {
-    return { channel: "allMids", symbol: null, interval: null, nSigFigs: null, user: null };
-  }
-
   const [head, ...rest] = key.split(SEPARATOR);
+
+  if (head === "allMids") {
+    const dex = rest.join(SEPARATOR);
+    return {
+      channel: "allMids",
+      symbol: null,
+      interval: null,
+      nSigFigs: null,
+      dex: dex === "" ? null : dex,
+      user: null,
+    };
+  }
   if (head === "l2Book") {
     const precision = rest.pop() ?? RAW_PRECISION;
     return {
@@ -59,6 +70,7 @@ const parseKey = (key: string): ParsedSubscriptionKey | null => {
       symbol: rest.join(SEPARATOR),
       interval: null,
       nSigFigs: parsePrecision(precision),
+      dex: null,
       user: null,
     };
   }
@@ -69,6 +81,7 @@ const parseKey = (key: string): ParsedSubscriptionKey | null => {
       symbol: rest.join(SEPARATOR),
       interval,
       nSigFigs: null,
+      dex: null,
       user: null,
     };
   }
@@ -78,6 +91,7 @@ const parseKey = (key: string): ParsedSubscriptionKey | null => {
       symbol: null,
       interval: null,
       nSigFigs: null,
+      dex: null,
       user: rest.join(SEPARATOR),
     };
   }

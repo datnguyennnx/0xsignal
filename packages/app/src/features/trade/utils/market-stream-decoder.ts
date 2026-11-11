@@ -1,5 +1,8 @@
 import type { ChartDataPoint, WsMarketChannel } from "@0xsignal/shared";
 import { normalizeCandle } from "@0xsignal/shared";
+import { isTradeBatch } from "../lib/trade-tick";
+
+type MarketStreamChannel = WsMarketChannel | "trades";
 
 // ── Wire Contract Types (source of truth — from backend) ───────────
 
@@ -17,6 +20,8 @@ interface RawL2Level {
 export interface L2BookSnapshotPayload {
   type: "snapshot";
   levels: readonly [readonly RawL2Level[], readonly RawL2Level[]];
+  readonly time?: number;
+  readonly degraded?: readonly ("fast" | "slow")[];
 }
 
 /** Meta fields that may accompany market stream messages. */
@@ -37,17 +42,17 @@ type DecodedMessage =
     }
   | {
       kind: "market";
-      channel: WsMarketChannel;
+      channel: MarketStreamChannel;
       payload: unknown;
       meta?: MarketStreamMeta | undefined;
     };
 
-const CHANNELS: readonly WsMarketChannel[] = ["candle", "l2Book", "allMids"];
+const CHANNELS: readonly MarketStreamChannel[] = ["candle", "l2Book", "allMids", "trades"];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-const isMarketChannel = (s: string): s is WsMarketChannel =>
+const isMarketChannel = (s: string): s is MarketStreamChannel =>
   (CHANNELS as readonly string[]).includes(s);
 
 const parseIncomingMessage = (raw: unknown): unknown => {
@@ -76,7 +81,7 @@ const getControlType = (value: unknown): "ready" | "pong" | "reconnecting" | "er
   return null;
 };
 
-const findChannel = (value: unknown): WsMarketChannel | null => {
+const findChannel = (value: unknown): MarketStreamChannel | null => {
   if (!isRecord(value)) return null;
   if (typeof value.channel === "string" && isMarketChannel(value.channel)) {
     return value.channel;
@@ -100,6 +105,20 @@ const isLevelsPair = (
   value: unknown,
 ): value is readonly [readonly RawL2Level[], readonly RawL2Level[]] =>
   Array.isArray(value) && value.length === 2 && isLevelArray(value[0]) && isLevelArray(value[1]);
+
+const readDegraded = (value: unknown): readonly ("fast" | "slow")[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  const candidates: unknown[] = value;
+  const legs: ("fast" | "slow")[] = [];
+  for (const leg of candidates) {
+    if (leg !== "fast" && leg !== "slow") return undefined;
+    legs.push(leg);
+  }
+  return legs;
+};
+
+const readTime = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
 export const isL2BookSnapshotPayload = (value: unknown): value is L2BookSnapshotPayload =>
   isRecord(value) && value.type === "snapshot" && isLevelsPair(value.levels);
@@ -146,10 +165,14 @@ const extractOrderbookPayload = (
   if (!isLevelsPair(levelsSource.levels)) return null;
 
   const rawNSigFigs = dataField.nSigFigs ?? levelsSource.nSigFigs;
+  const time = readTime(levelsSource.time);
+  const degraded = readDegraded(levelsSource.degraded);
   return {
     payload: {
       type: "snapshot",
       levels: levelsSource.levels,
+      ...(time !== undefined && { time }),
+      ...(degraded !== undefined && { degraded }),
     },
     nSigFigs:
       typeof rawNSigFigs === "number" && Number.isFinite(rawNSigFigs)
@@ -170,7 +193,7 @@ const unwrapMarketPayload = (value: unknown): unknown => {
 
 export function decodeMarketWsMessage(
   raw: unknown,
-  expectedChannel: WsMarketChannel,
+  expectedChannel: MarketStreamChannel,
 ): DecodedMessage {
   const parsed = parseIncomingMessage(raw);
   const controlType = getControlType(parsed);
@@ -223,6 +246,16 @@ export function decodeMarketWsMessage(
       channel,
       payload: result.payload,
       meta: result.nSigFigs === undefined ? undefined : { nSigFigs: result.nSigFigs },
+    };
+  }
+
+  if (channel === "trades") {
+    if (!isTradeBatch(rootPayload)) return { kind: "ignore" };
+    return {
+      kind: "market",
+      channel,
+      payload: rootPayload,
+      meta: envelopeCoin === undefined ? undefined : { coin: envelopeCoin },
     };
   }
 

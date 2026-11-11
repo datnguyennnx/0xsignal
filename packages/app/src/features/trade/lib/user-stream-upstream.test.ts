@@ -1,7 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 
-import type { WebSocketTransport } from "@nktkas/hyperliquid";
+import type { WsClient } from "@0xsignal/sdk-hyperliquid";
 
 import {
   createHyperliquidUpstream,
@@ -34,134 +34,95 @@ const withClock = async <T>(run: (clock: Clock) => Promise<T>): Promise<T> => {
   }
 };
 
-interface ListenerStore {
-  add(type: string, listener: () => void): void;
-  remove(type: string, listener: () => void): void;
-  count(type: string): number;
-  dispatch(type: string): void;
-}
-
-const makeListenerStore = (): ListenerStore => {
-  const listeners = new Map<string, Set<() => void>>();
-  return {
-    add(type, listener) {
-      const bucket = listeners.get(type) ?? new Set<() => void>();
-      bucket.add(listener);
-      listeners.set(type, bucket);
-    },
-    remove(type, listener) {
-      listeners.get(type)?.delete(listener);
-    },
-    count(type) {
-      return listeners.get(type)?.size ?? 0;
-    },
-    dispatch(type) {
-      for (const listener of Array.from(listeners.get(type) ?? [])) listener();
-    },
-  };
-};
-
-interface FakeSignal {
-  addEventListener(type: string, listener: () => void, options?: { once?: boolean }): void;
-  removeEventListener(type: string, listener: () => void): void;
-  listenerCount(type: string): number;
-}
-
-interface FakeSocket {
-  reconnectCount: number;
-  reconnect(): void;
-  addEventListener(type: string, listener: () => void): void;
-  removeEventListener(type: string, listener: () => void): void;
-  listenerCount(type: string): number;
-  dispatch(type: string): void;
-  readonly terminationSignal: FakeSignal;
-}
-
-const makeFakeSocket = (): FakeSocket => {
-  const events = makeListenerStore();
-  const signal = makeListenerStore();
-  return {
-    reconnectCount: 0,
-    reconnect() {
-      this.reconnectCount += 1;
-    },
-    addEventListener(type, listener) {
-      events.add(type, listener);
-    },
-    removeEventListener(type, listener) {
-      events.remove(type, listener);
-    },
-    listenerCount(type) {
-      return events.count(type);
-    },
-    dispatch(type) {
-      events.dispatch(type);
-    },
-    terminationSignal: {
-      addEventListener(type, listener) {
-        signal.add(type, listener);
-      },
-      removeEventListener(type, listener) {
-        signal.remove(type, listener);
-      },
-      listenerCount(type) {
-        return signal.count(type);
-      },
-    },
-  };
-};
+type WireSubscription = { readonly type: string } & Record<string, unknown>;
 
 interface FakeSubscription {
-  readonly channel: string;
-  readonly listener: (event: CustomEvent<unknown>) => void;
+  readonly subscription: WireSubscription;
+  readonly listener: (data: unknown) => void;
   readonly onError: ((error: Error) => void) | undefined;
 }
 
-interface FakeTransport {
-  readonly socket: FakeSocket;
-  readonly subscriptions: FakeSubscription[];
-  subscribe(
-    channel: string,
-    payload: unknown,
-    listener: (event: CustomEvent<unknown>) => void,
-    options?: { onError?: (error: Error) => void },
-  ): Promise<{ unsubscribe(): Promise<void> }>;
-  emit(channel: string, detail: unknown): void;
-  fail(channel: string, error: Error): void;
-  close(): void;
-}
-
-const makeFakeTransport = (): FakeTransport => {
-  const socket = makeFakeSocket();
+const makeFakeClient = () => {
   const subscriptions: FakeSubscription[] = [];
+  const statusListeners = new Set<(status: string) => void>();
+  const errorListeners = new Set<(error: unknown) => void>();
+  const abortListeners = new Set<() => void>();
+  let reconnects = 0;
+  let closes = 0;
+
   return {
-    socket,
     subscriptions,
-    subscribe(channel, _payload, listener, options) {
-      subscriptions.push({ channel, listener, onError: options?.onError });
-      return Promise.resolve({ unsubscribe: () => Promise.resolve() });
+    get reconnects(): number {
+      return reconnects;
     },
-    emit(channel, detail) {
+    get closes(): number {
+      return closes;
+    },
+    subscribe(
+      subscription: WireSubscription,
+      listener: (data: unknown) => void,
+      options: { onError?: (error: Error) => void } = {},
+    ) {
+      subscriptions.push({ subscription, listener, onError: options.onError });
+      return {
+        subscription,
+        unsubscribe: () => {},
+        unsubscribeAsync: () => Promise.resolve(),
+      };
+    },
+    onStatus(listener: (status: string) => void) {
+      statusListeners.add(listener);
+      return () => {
+        statusListeners.delete(listener);
+      };
+    },
+    onError(listener: (error: unknown) => void) {
+      errorListeners.add(listener);
+      return () => {
+        errorListeners.delete(listener);
+      };
+    },
+    terminationSignal: {
+      addEventListener(type: string, listener: () => void) {
+        if (type === "abort") abortListeners.add(listener);
+      },
+      removeEventListener(type: string, listener: () => void) {
+        if (type === "abort") abortListeners.delete(listener);
+      },
+      listenerCount(type: string): number {
+        return type === "abort" ? abortListeners.size : 0;
+      },
+    },
+    statusListenerCount: (): number => statusListeners.size,
+    errorListenerCount: (): number => errorListeners.size,
+    emitStatus(status: string) {
+      for (const listener of Array.from(statusListeners)) listener(status);
+    },
+    emit(type: string, data: unknown) {
       for (const subscription of subscriptions) {
-        if (subscription.channel !== channel) continue;
-        subscription.listener(new CustomEvent(channel, { detail }));
+        if (subscription.subscription.type === type) subscription.listener(data);
       }
     },
-    fail(channel, error) {
+    fail(type: string, error: Error) {
       for (const subscription of subscriptions) {
-        if (subscription.channel === channel) subscription.onError?.(error);
+        if (subscription.subscription.type === type) subscription.onError?.(error);
       }
     },
-    close() {},
+    reconnect() {
+      reconnects += 1;
+    },
+    close() {
+      closes += 1;
+    },
   };
 };
 
 const makeUpstream = () => {
-  const transport = makeFakeTransport();
+  const client = makeFakeClient();
   const upstream = createHyperliquidUpstream({
-    createTransport: () => transport as unknown as WebSocketTransport,
+    createClient: () => client as unknown as WsClient,
   });
-  return { transport, upstream };
+  return { client, upstream };
 };
 
 describe("user-stream-upstream staleness", () => {
@@ -194,14 +155,19 @@ describe("user-stream-upstream staleness", () => {
 
   test("an inbound subscription event refreshes staleness", async () => {
     await withClock(async (clock) => {
-      const { transport, upstream } = makeUpstream();
+      const { client, upstream } = makeUpstream();
       const user = address(1);
       await upstream.subscribeClearinghouseState(user, noop);
+      expect(client.subscriptions[0]?.subscription).toEqual({
+        type: "clearinghouseState",
+        user,
+        dex: "",
+      });
 
       clock.advance(STALE_UPSTREAM_MS + 1);
       expect(upstream.isStale()).toBe(true);
 
-      transport.emit("clearinghouseState", {
+      client.emit("clearinghouseState", {
         user,
         dex: "",
         clearinghouseState: { marginSummary: {} },
@@ -216,18 +182,18 @@ describe("user-stream-upstream staleness", () => {
 describe("user-stream-upstream reconnect", () => {
   test("a resume burst inside the cooldown forces one reconnect", async () => {
     await withClock(async (clock) => {
-      const { transport, upstream } = makeUpstream();
+      const { client, upstream } = makeUpstream();
 
       upstream.reconnect();
-      expect(transport.socket.reconnectCount).toBe(1);
+      expect(client.reconnects).toBe(1);
 
       clock.advance(RECONNECT_COOLDOWN_MS - 1);
       upstream.reconnect();
-      expect(transport.socket.reconnectCount).toBe(1);
+      expect(client.reconnects).toBe(1);
 
       clock.advance(1);
       upstream.reconnect();
-      expect(transport.socket.reconnectCount).toBe(2);
+      expect(client.reconnects).toBe(2);
 
       upstream.dispose();
     });
@@ -235,34 +201,33 @@ describe("user-stream-upstream reconnect", () => {
 
   test("dispose makes a later reconnect a no-op", async () => {
     await withClock(async () => {
-      const { transport, upstream } = makeUpstream();
+      const { client, upstream } = makeUpstream();
 
       upstream.dispose();
       upstream.reconnect();
 
-      expect(transport.socket.reconnectCount).toBe(0);
+      expect(client.reconnects).toBe(0);
     });
   });
 });
 
 describe("user-stream-upstream teardown", () => {
-  test("dispose detaches every socket and termination listener", async () => {
+  test("dispose detaches every client and termination listener and closes the client", async () => {
     await withClock(async () => {
-      const { transport, upstream } = makeUpstream();
-      expect(transport.socket.listenerCount("open")).toBe(1);
-      expect(transport.socket.listenerCount("close")).toBe(1);
-      expect(transport.socket.listenerCount("error")).toBe(1);
-      expect(transport.socket.terminationSignal.listenerCount("abort")).toBe(1);
+      const { client, upstream } = makeUpstream();
+      expect(client.statusListenerCount()).toBe(1);
+      expect(client.errorListenerCount()).toBe(1);
+      expect(client.terminationSignal.listenerCount("abort")).toBe(1);
 
       upstream.dispose();
 
-      expect(transport.socket.listenerCount("open")).toBe(0);
-      expect(transport.socket.listenerCount("close")).toBe(0);
-      expect(transport.socket.listenerCount("error")).toBe(0);
-      expect(transport.socket.terminationSignal.listenerCount("abort")).toBe(0);
+      expect(client.statusListenerCount()).toBe(0);
+      expect(client.errorListenerCount()).toBe(0);
+      expect(client.terminationSignal.listenerCount("abort")).toBe(0);
+      expect(client.closes).toBe(1);
 
-      // A late socket event reaches no listener and cannot revive the state.
-      transport.socket.dispatch("error");
+      // A late status event reaches no listener and cannot revive the state.
+      client.emitStatus("open");
       expect(upstream.getConnectionState()).toBe("closed");
     });
   });
@@ -271,7 +236,7 @@ describe("user-stream-upstream teardown", () => {
 describe("user-stream-upstream subscription errors", () => {
   test("a failed resubscribe marks the upstream disconnected and surfaces the error", async () => {
     await withClock(async () => {
-      const { transport, upstream } = makeUpstream();
+      const { client, upstream } = makeUpstream();
       const states: UserStreamConnectionState[] = [];
       const errors: Error[] = [];
       upstream.onConnectionStateChange((state) => {
@@ -282,10 +247,10 @@ describe("user-stream-upstream subscription errors", () => {
       });
 
       await upstream.subscribeUserFills(address(1), noop);
-      transport.socket.dispatch("open");
+      client.emitStatus("open");
       expect(upstream.getConnectionState()).toBe("open");
 
-      transport.fail("userFills", new Error("resubscribe rejected"));
+      client.fail("userFills", new Error("resubscribe rejected"));
 
       expect(upstream.getConnectionState()).toBe("connecting");
       expect(states).toEqual(["open", "connecting"]);

@@ -1,9 +1,13 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
-import type { MarketStreamClient } from "@/features/trade/lib/market-stream-client";
-import { createBrowserMarketStreamClient } from "@/features/trade/lib/hl-market-stream";
+import {
+  type BrowserMarketStreamClient,
+  createBrowserMarketStreamClient,
+} from "@/features/trade/lib/hl-market-stream";
 import { replaceBookLevels } from "@/features/trade/lib/orderbook-book";
+import type { AssetCtxSnapshot } from "@/features/trade/lib/asset-ctx";
+import { MAX_TRADE_TICKS, type TradeTick } from "@/features/trade/lib/trade-tick";
 import { isPageHidden, onPageVisibilityChange } from "@/lib/page-visibility";
 import {
   MAX_BOOK_DEPTH,
@@ -28,24 +32,43 @@ const isZeroLevelSize = (size: string): boolean => Number(size) <= 0;
 
 // ── Store interface ──────────────────────────────────────────────────
 
+interface OrderbookMeta {
+  readonly time: number | null;
+  readonly degraded: readonly ("fast" | "slow")[];
+}
+
+export interface OrderbookSnapshotMeta {
+  readonly time?: number | undefined;
+  readonly degraded?: readonly ("fast" | "slow")[] | undefined;
+}
+
 export interface MarketDataState {
   /** Singleton WS client instance (lazy-initialized). */
-  marketStreamClient: MarketStreamClient | null;
+  marketStreamClient: BrowserMarketStreamClient | null;
 
   // ── Processed display data ─────────────────────────────────────────
   /** Per-symbol processed orderbook display data. */
   orderbookData: Record<string, OrderbookData>;
+  /** Per-key orderbook arrival metadata (merged frame time + degraded legs). */
+  orderbookMeta: Record<string, OrderbookMeta>;
   /** Per-coin mid prices. */
   allMids: Record<string, number>;
+  assetCtx: Readonly<Record<string, AssetCtxSnapshot>>;
+  /** Per-coin public tape, newest first and bounded by `MAX_TRADE_TICKS`. */
+  trades: Readonly<Record<string, readonly TradeTick[]>>;
   /** Per-key candle data (key = "symbol:interval"). */
   candleData: Record<string, ChartDataPoint[]>;
 
   // ── Actions ────────────────────────────────────────────────────────
 
-  initializeStreamClient: () => MarketStreamClient;
+  initializeStreamClient: () => BrowserMarketStreamClient;
 
   /** Apply an L2 book snapshot (replaces all levels for symbol). */
-  applyOrderbookSnapshot: (symbol: string, levels: [L2BookLevel[], L2BookLevel[]]) => void;
+  applyOrderbookSnapshot: (
+    symbol: string,
+    levels: [L2BookLevel[], L2BookLevel[]],
+    meta?: OrderbookSnapshotMeta,
+  ) => void;
 
   /** Apply an L2 book delta (patches existing levels). */
   applyOrderbookDelta: (
@@ -60,6 +83,14 @@ export interface MarketDataState {
   /** Bulk-replace all mid prices. */
   setAllMids: (mids: Record<string, number>) => void;
 
+  applyAssetCtx: (coin: string, next: AssetCtxSnapshot) => void;
+
+  /** Apply many coin contexts in one store write, skipping a fully equal batch. */
+  applyAssetCtxBatch: (updates: readonly (readonly [string, AssetCtxSnapshot])[]) => void;
+
+  /** Merge a tape batch newest-first, dropping re-delivered ticks and bounding the tape. */
+  pushTrades: (coin: string, ticks: readonly TradeTick[]) => void;
+
   /** Append live candle data for a symbol+interval identity. */
   appendCandles: (key: string, candles: readonly ChartDataPoint[]) => void;
 
@@ -70,10 +101,14 @@ export interface MarketDataState {
 // ── Module-level L2 raw state (Maps for O(1) delta application) ─────
 // Kept outside Zustand to avoid serializing Maps through state updates.
 
-const rawOrderbookState = new Map<
-  string,
-  { bids: Map<string, L2BookLevel>; asks: Map<string, L2BookLevel> }
->();
+interface RawOrderbookState {
+  readonly bids: Map<string, L2BookLevel>;
+  readonly asks: Map<string, L2BookLevel>;
+  time: number | null;
+  degraded: readonly ("fast" | "slow")[];
+}
+
+const rawOrderbookState = new Map<string, RawOrderbookState>();
 const dirtySymbols = new Set<string>();
 let flushRafId: number | null = null;
 
@@ -103,18 +138,20 @@ function releaseOrderbookSubscriber(symbol: string): void {
   if (activeOrderbookSubscribers.size === 0) cancelScheduledFlush();
 }
 
+/** The symbol is every segment but the trailing precision or interval. */
+function symbolFromCandleKey(key: string): string {
+  const separator = key.lastIndexOf(":");
+  return separator === -1 ? key : key.slice(0, separator);
+}
+
 /** Internal bookkeeping for tests and diagnostics; not part of the app API. */
 export const marketDataStoreInternals = {
   retainOrderbookSubscriber,
   releaseOrderbookSubscriber,
+  symbolFromCandleKey,
   rawOrderbookSymbolCount: (): number => rawOrderbookState.size,
   trackedOrderbookSymbols: (): string[] => [...orderbookSymbolOrder],
 } as const;
-
-function symbolFromCandleKey(key: string): string {
-  const separator = key.indexOf(":");
-  return separator === -1 ? key : key.slice(0, separator);
-}
 
 function cancelScheduledFlush(): void {
   if (flushRafId === null) return;
@@ -131,10 +168,19 @@ function evictOrderbookSymbol(symbol: string): void {
   if (orderIndex !== -1) orderbookSymbolOrder.splice(orderIndex, 1);
 
   useMarketDataStore.setState((state) => {
-    if (!(symbol in state.orderbookData)) return state;
     const orderbookData = { ...state.orderbookData };
+    const orderbookMeta = { ...state.orderbookMeta };
+    const hadBook = symbol in orderbookData;
+    const hadMeta = symbol in orderbookMeta;
+    const coin = symbolFromCandleKey(symbol);
+    const hadTrades = coin !== "" && coin in state.trades;
+    if (!hadBook && !hadMeta && !hadTrades) return state;
     delete orderbookData[symbol];
-    return { orderbookData };
+    delete orderbookMeta[symbol];
+    if (!hadTrades) return { orderbookData, orderbookMeta };
+    const trades = { ...state.trades };
+    delete trades[coin];
+    return { orderbookData, orderbookMeta, trades };
   });
 }
 
@@ -186,15 +232,29 @@ function evictRetiredSymbols(evictedKeys: readonly string[]): void {
   }
 }
 
-function getOrCreateRawState(symbol: string) {
+function getOrCreateRawState(symbol: string): RawOrderbookState {
   let state = rawOrderbookState.get(symbol);
   if (!state) {
-    state = { bids: new Map(), asks: new Map() };
+    state = { bids: new Map(), asks: new Map(), time: null, degraded: [] };
     rawOrderbookState.set(symbol, state);
   }
   touchOrderbookSymbol(symbol);
   return state;
 }
+
+const sameSideLevels = (
+  current: ReadonlyMap<string, L2BookLevel>,
+  next: readonly L2BookLevel[],
+): boolean => {
+  if (current.size !== next.length) return false;
+  for (const level of next) {
+    if (current.get(level.px)?.sz !== level.sz) return false;
+  }
+  return true;
+};
+
+const sameRawLevels = (raw: RawOrderbookState, levels: [L2BookLevel[], L2BookLevel[]]): boolean =>
+  sameSideLevels(raw.bids, levels[0] ?? []) && sameSideLevels(raw.asks, levels[1] ?? []);
 
 /**
  * Compares the visible window level by level. A top-of-book-only check misses
@@ -231,7 +291,9 @@ function flushDirtySymbols(): void {
   // consumers skip re-renders on frames that produce identical data.
   useMarketDataStore.setState((state) => {
     const current = state.orderbookData;
+    const currentMeta = state.orderbookMeta;
     const merged: Record<string, OrderbookData> = {};
+    const mergedMeta: Record<string, OrderbookMeta> = {};
     let anyChanged = false;
     for (const [symbol, data] of Object.entries(updates)) {
       const existing = current[symbol];
@@ -243,9 +305,18 @@ function flushDirtySymbols(): void {
         continue;
       }
       merged[symbol] = data;
+      const raw = rawOrderbookState.get(symbol);
+      if (raw !== undefined) {
+        mergedMeta[symbol] = { time: raw.time, degraded: raw.degraded };
+      }
       anyChanged = true;
     }
-    return anyChanged ? { orderbookData: { ...current, ...merged } } : state;
+    return anyChanged
+      ? {
+          orderbookData: { ...current, ...merged },
+          orderbookMeta: { ...currentMeta, ...mergedMeta },
+        }
+      : state;
   });
 }
 
@@ -321,6 +392,54 @@ function applyAllMids(mids: Record<string, number>): void {
     }
     return { allMids: mids };
   });
+}
+
+function sameAssetCtx(a: AssetCtxSnapshot, b: AssetCtxSnapshot): boolean {
+  return (
+    a.markPx === b.markPx &&
+    a.prevDayPx === b.prevDayPx &&
+    a.funding === b.funding &&
+    a.dayNtlVlm === b.dayNtlVlm &&
+    a.openInterest === b.openInterest &&
+    a.oraclePx === b.oraclePx
+  );
+}
+
+/** A tick without `tid` (replay/partial frames) is identified by its time, price, size, and side. */
+const tradeKey = (tick: TradeTick): string => `${tick.time}:${tick.px}:${tick.sz}:${tick.side}`;
+
+function mergeTrades(
+  current: readonly TradeTick[],
+  incoming: readonly TradeTick[],
+): readonly TradeTick[] | null {
+  const seenTids = new Set<number>();
+  const seenKeys = new Set<string>();
+  for (const tick of current) {
+    if (tick.tid === null) seenKeys.add(tradeKey(tick));
+    else seenTids.add(tick.tid);
+  }
+
+  const fresh: TradeTick[] = [];
+  for (const tick of incoming) {
+    if (tick.tid === null) {
+      const key = tradeKey(tick);
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+    } else {
+      if (seenTids.has(tick.tid)) continue;
+      seenTids.add(tick.tid);
+    }
+    fresh.push(tick);
+  }
+
+  if (fresh.length === 0) return null;
+
+  const merged = [...current, ...fresh];
+  merged.sort((a, b) => b.time - a.time);
+  const bounded = merged.slice(0, MAX_TRADE_TICKS);
+  const unchanged =
+    bounded.length === current.length && bounded.every((tick, index) => tick === current[index]);
+  return unchanged ? null : bounded;
 }
 
 /** Apply the newest pending mid snapshot, if any. */
@@ -416,7 +535,10 @@ export const useMarketDataStore = create<MarketDataState>()(
   subscribeWithSelector((set, get) => ({
     marketStreamClient: null,
     orderbookData: {},
+    orderbookMeta: {},
     allMids: {},
+    assetCtx: {},
+    trades: {},
     candleData: {},
 
     // ── Initialize WS client singleton ──────────────────────────
@@ -429,8 +551,21 @@ export const useMarketDataStore = create<MarketDataState>()(
     },
 
     // ── L2 Snapshot ─────────────────────────────────────────────
-    applyOrderbookSnapshot: (symbol, levels) => {
+    applyOrderbookSnapshot: (symbol, levels, meta) => {
+      const time = meta?.time;
+      const previous = rawOrderbookState.get(symbol);
+      if (
+        time !== undefined &&
+        previous !== undefined &&
+        previous.time !== null &&
+        time < previous.time
+      ) {
+        return;
+      }
+      if (previous !== undefined && sameRawLevels(previous, levels)) return;
       const raw = getOrCreateRawState(symbol);
+      if (time !== undefined) raw.time = time;
+      if (meta?.degraded !== undefined) raw.degraded = meta.degraded;
       replaceBookLevels(raw.bids, levels[0] ?? []);
       replaceBookLevels(raw.asks, levels[1] ?? []);
       dirtySymbols.add(symbol);
@@ -483,6 +618,33 @@ export const useMarketDataStore = create<MarketDataState>()(
       scheduleAllMids(mids);
     },
 
+    applyAssetCtx: (coin, next) => {
+      get().applyAssetCtxBatch([[coin, next]]);
+    },
+
+    applyAssetCtxBatch: (updates) => {
+      if (updates.length === 0) return;
+      set((state) => {
+        let merged: Record<string, AssetCtxSnapshot> | null = null;
+        for (const [coin, snapshot] of updates) {
+          const existing = (merged ?? state.assetCtx)[coin];
+          if (existing !== undefined && sameAssetCtx(existing, snapshot)) continue;
+          merged ??= { ...state.assetCtx };
+          merged[coin] = snapshot;
+        }
+        return merged === null ? state : { assetCtx: merged };
+      });
+    },
+
+    // ── Public tape ─────────────────────────────────────────────
+    pushTrades: (coin, ticks) => {
+      if (coin === "" || ticks.length === 0) return;
+      set((state) => {
+        const merged = mergeTrades(state.trades[coin] ?? [], ticks);
+        return merged === null ? state : { trades: { ...state.trades, [coin]: merged } };
+      });
+    },
+
     // ── Candle append (O(n) merge of time-sorted arrays) ────────
     appendCandles: (key, candles) => {
       const evictedKeys = touchCandleKey(key);
@@ -533,6 +695,13 @@ export const useOrderbookData = (symbol: string): OrderbookData | undefined => {
 /** Subscribe to one coin's mid; a tick for another coin never re-renders the caller. */
 export const useMidPrice = (coin: string): number | undefined =>
   useMarketDataStore((s) => (coin === "" ? undefined : s.allMids[coin]));
+
+export const useAssetCtx = (coin: string): AssetCtxSnapshot | undefined =>
+  useMarketDataStore((s) => s.assetCtx[coin]);
+
+/** Subscribe to the public tape of one coin; a tick for another coin never re-renders the caller. */
+export const useTrades = (coin: string): readonly TradeTick[] | undefined =>
+  useMarketDataStore((s) => (coin === "" ? undefined : s.trades[coin]));
 
 /** Subscribe to candle data for a given key (e.g. "BTC:1m"). */
 export const useCandleData = (key: string): ChartDataPoint[] | undefined =>

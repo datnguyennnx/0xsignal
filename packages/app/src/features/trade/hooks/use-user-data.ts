@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type {
   ClearinghouseState,
-  FrontendOpenOrder,
+  OpenOrder,
   SpotClearinghouseState,
   UserFill,
 } from "@0xsignal/shared";
@@ -31,10 +31,6 @@ import {
 } from "./user-query-race";
 import { useUserQueryGate } from "./use-user-query-gate";
 
-interface UserStreamSubscribe<K extends UserStreamChannel> {
-  (user: string, listener: (event: UserStreamEventMap[K]) => void): Promise<UserStreamSubscription>;
-}
-
 const subscribeToConnectionState = (onChange: () => void): (() => void) =>
   onUserStreamConnectionStateChange(() => {
     onChange();
@@ -42,28 +38,201 @@ const subscribeToConnectionState = (onChange: () => void): (() => void) =>
 
 const getServerConnectionState = (): UserStreamConnectionState => "idle";
 
-interface StreamConfirmation {
-  readonly user: string;
-  readonly confirmed: boolean;
+type ChannelStatus = "pending" | "confirmed" | "failed";
+
+interface ChannelBinding {
+  refCount: number;
+  status: ChannelStatus;
+  subscription: Promise<UserStreamSubscription> | null;
 }
 
-/**
- * Live stream binding. REST keeps polling until Hyperliquid confirms the
- * subscription; once live, the query stops polling and the stream owns state.
- * A disconnect flips `live` back so REST resumes.
- */
-function useUserStream<K extends UserStreamChannel>(
-  subscribe: UserStreamSubscribe<K>,
-  user: string,
-  enabled: boolean,
-  listener: (event: UserStreamEventMap[K]) => void,
-): boolean {
-  const listenerRef = useRef(listener);
-  useEffect(() => {
-    listenerRef.current = listener;
-  }, [listener]);
+interface UserStreamEntry {
+  refCount: number;
+  readonly queryClient: QueryClient;
+  readonly channels: Map<UserStreamChannel, ChannelBinding>;
+}
 
-  const [confirmation, setConfirmation] = useState<StreamConfirmation | null>(null);
+interface UserChannelDefinition<K extends UserStreamChannel> {
+  readonly subscribe: (
+    user: string,
+    listener: (event: UserStreamEventMap[K]) => void,
+  ) => Promise<UserStreamSubscription>;
+  readonly write: (queryClient: QueryClient, user: string, event: UserStreamEventMap[K]) => void;
+}
+
+const channelDefinitions = {
+  clearinghouseState: {
+    subscribe: subscribeClearinghouseState,
+    write: (queryClient, user, event) => {
+      const key = queryKeys.user.clearinghouseState(user);
+      markUserDataWsWrite(key);
+      queryClient.setQueryData(key, event.data);
+    },
+  },
+  spotState: {
+    subscribe: subscribeSpotState,
+    write: (queryClient, user, event) => {
+      const key = queryKeys.user.spotClearinghouseState(user);
+      markUserDataWsWrite(key);
+      queryClient.setQueryData<SpotClearinghouseState>(key, event.data);
+    },
+  },
+  openOrders: {
+    subscribe: subscribeOpenOrders,
+    write: (queryClient, user, event) => {
+      const key = queryKeys.user.openOrders(user);
+      markUserDataWsWrite(key);
+      queryClient.setQueryData<readonly OpenOrder[]>(key, event.data);
+    },
+  },
+  userFills: {
+    subscribe: subscribeUserFills,
+    write: (queryClient, user, event) => {
+      const key = queryKeys.user.fills(user);
+      markUserDataWsWrite(key);
+      queryClient.setQueryData<UserFill[]>(key, (previous) => mergeUserFills(previous, event));
+    },
+  },
+} satisfies { [K in UserStreamChannel]: UserChannelDefinition<K> };
+
+const userStreamRegistry = new Map<string, UserStreamEntry>();
+const registryListeners = new Set<() => void>();
+let registryVersion = 0;
+
+const notifyRegistry = (): void => {
+  registryVersion += 1;
+  for (const listener of registryListeners) listener();
+};
+
+const subscribeRegistry = (listener: () => void): (() => void) => {
+  registryListeners.add(listener);
+  return () => {
+    registryListeners.delete(listener);
+  };
+};
+
+const getRegistryVersion = (): number => registryVersion;
+
+const getServerRegistryVersion = (): number => 0;
+
+const readChannelStatus = (user: string, channel: UserStreamChannel): ChannelStatus =>
+  userStreamRegistry.get(user)?.channels.get(channel)?.status ?? "pending";
+
+function startChannel(
+  entry: UserStreamEntry,
+  channel: UserStreamChannel,
+  user: string,
+): Promise<UserStreamSubscription> {
+  switch (channel) {
+    case "clearinghouseState":
+      return subscribeClearinghouseState(user, (event) => {
+        channelDefinitions.clearinghouseState.write(entry.queryClient, user, event);
+      });
+    case "spotState":
+      return subscribeSpotState(user, (event) => {
+        channelDefinitions.spotState.write(entry.queryClient, user, event);
+      });
+    case "openOrders":
+      return subscribeOpenOrders(user, (event) => {
+        channelDefinitions.openOrders.write(entry.queryClient, user, event);
+      });
+    case "userFills":
+      return subscribeUserFills(user, (event) => {
+        channelDefinitions.userFills.write(entry.queryClient, user, event);
+      });
+    default:
+      return Promise.reject(new Error(`Unhandled user stream channel: ${String(channel)}`));
+  }
+}
+
+function releaseChannel(entry: UserStreamEntry, channel: UserStreamChannel): void {
+  const binding = entry.channels.get(channel);
+  if (binding === undefined) return;
+  binding.refCount -= 1;
+  if (binding.refCount > 0) return;
+
+  entry.channels.delete(channel);
+  const subscription = binding.subscription;
+  binding.subscription = null;
+  if (subscription !== null) {
+    void subscription
+      .then((active) => {
+        active.unsubscribe();
+        return null;
+      })
+      .catch(() => null);
+  }
+}
+
+function acquireUserChannel(
+  user: string,
+  channel: UserStreamChannel,
+  queryClient: QueryClient,
+): () => void {
+  if (user === "") return () => {};
+
+  let entry = userStreamRegistry.get(user);
+  if (entry === undefined) {
+    entry = { refCount: 0, queryClient, channels: new Map() };
+    userStreamRegistry.set(user, entry);
+  }
+  entry.refCount += 1;
+
+  const binding = entry.channels.get(channel);
+  if (binding === undefined) {
+    const created: ChannelBinding = { refCount: 1, status: "pending", subscription: null };
+    entry.channels.set(channel, created);
+    const subscription = startChannel(entry, channel, user);
+    created.subscription = subscription;
+    subscription
+      .then(() => {
+        if (created.status === "pending") {
+          created.status = "confirmed";
+          notifyRegistry();
+        }
+        return null;
+      })
+      .catch((error: unknown) => {
+        if (created.status === "pending") {
+          created.status = "failed";
+          notifyRegistry();
+          reportUserStreamFailure(
+            "subscribe-rejected",
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      });
+  } else {
+    binding.refCount += 1;
+  }
+
+  notifyRegistry();
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    releaseChannel(entry, channel);
+    entry.refCount -= 1;
+    if (entry.refCount > 0) {
+      notifyRegistry();
+      return;
+    }
+    for (const remaining of entry.channels.keys()) {
+      releaseChannel(entry, remaining);
+    }
+    userStreamRegistry.delete(user);
+    notifyRegistry();
+  };
+}
+
+function useUserStreamChannel(user: string, channel: UserStreamChannel, enabled: boolean): boolean {
+  const queryClient = useQueryClient();
+  const version = useSyncExternalStore(
+    subscribeRegistry,
+    getRegistryVersion,
+    getServerRegistryVersion,
+  );
   const connectionState = useSyncExternalStore(
     subscribeToConnectionState,
     getUserStreamConnectionState,
@@ -71,48 +240,17 @@ function useUserStream<K extends UserStreamChannel>(
   );
 
   useEffect(() => {
-    let cancelled = false;
-    let active: UserStreamSubscription | null = null;
+    if (!enabled || user === "") return () => {};
+    return acquireUserChannel(user, channel, queryClient);
+  }, [enabled, user, channel, queryClient]);
 
-    if (enabled && user !== "") {
-      subscribe(user, (event) => {
-        if (!cancelled) listenerRef.current(event);
-      })
-        .then((subscription) => {
-          if (cancelled) {
-            subscription.unsubscribe();
-            return false;
-          }
-          active = subscription;
-          setConfirmation({ user, confirmed: true });
-          return true;
-        })
-        .catch((error: unknown) => {
-          if (!cancelled) {
-            setConfirmation({ user, confirmed: false });
-            reportUserStreamFailure(
-              "subscribe-rejected",
-              error instanceof Error ? error.message : String(error),
-            );
-          }
-          return false;
-        });
-    }
-
-    return () => {
-      cancelled = true;
-      active?.unsubscribe();
-    };
-  }, [enabled, user, subscribe]);
-
-  return (
-    enabled &&
-    user !== "" &&
-    confirmation !== null &&
-    confirmation.user === user &&
-    confirmation.confirmed &&
-    connectionState === "open"
+  const status = useMemo(
+    () => (enabled && user !== "" ? readChannelStatus(user, channel) : "pending"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- registryVersion invalidates the module-level registry read
+    [version, enabled, user, channel],
   );
+
+  return enabled && user !== "" && status === "confirmed" && connectionState === "open";
 }
 
 /**
@@ -148,15 +286,7 @@ export function useClearinghouseState(enabled: boolean = true) {
   const queryClient = useQueryClient();
   const key = queryKeys.user.clearinghouseState(gate.walletAddress);
 
-  const live = useUserStream<"clearinghouseState">(
-    subscribeClearinghouseState,
-    gate.walletAddress,
-    gate.enabled,
-    (event) => {
-      markUserDataWsWrite(key);
-      queryClient.setQueryData(key, event.data);
-    },
-  );
+  const live = useUserStreamChannel(gate.walletAddress, "clearinghouseState", gate.enabled);
   const restAllowed = useUserRestFallback(live, gate.enabled, gate.walletAddress);
 
   return useQuery({
@@ -180,15 +310,7 @@ export function useSpotClearinghouseState(enabled: boolean = true) {
   const queryClient = useQueryClient();
   const key = queryKeys.user.spotClearinghouseState(gate.walletAddress);
 
-  const live = useUserStream<"spotState">(
-    subscribeSpotState,
-    gate.walletAddress,
-    gate.enabled,
-    (event) => {
-      markUserDataWsWrite(key);
-      queryClient.setQueryData<SpotClearinghouseState>(key, event.data);
-    },
-  );
+  const live = useUserStreamChannel(gate.walletAddress, "spotState", gate.enabled);
   const restAllowed = useUserRestFallback(live, gate.enabled, gate.walletAddress);
 
   return useQuery({
@@ -212,24 +334,16 @@ export function useOpenOrders(enabled: boolean = true) {
   const queryClient = useQueryClient();
   const key = queryKeys.user.openOrders(gate.walletAddress);
 
-  const live = useUserStream<"openOrders">(
-    subscribeOpenOrders,
-    gate.walletAddress,
-    gate.enabled,
-    (event) => {
-      markUserDataWsWrite(key);
-      queryClient.setQueryData<FrontendOpenOrder[]>(key, event.data);
-    },
-  );
+  const live = useUserStreamChannel(gate.walletAddress, "openOrders", gate.enabled);
   const restAllowed = useUserRestFallback(live, gate.enabled, gate.walletAddress);
 
   return useQuery({
     queryKey: key,
     queryFn: async ({ queryKey }) => {
       const startedAt = Date.now();
-      const data = await api.getUserFrontendOpenOrders(gate.walletAddress);
+      const data: readonly OpenOrder[] = await api.getUserFrontendOpenOrders(gate.walletAddress);
       return resolveUserDataRestResult(queryKey, startedAt, data, () =>
-        queryClient.getQueryData<FrontendOpenOrder[]>(queryKey),
+        queryClient.getQueryData<readonly OpenOrder[]>(queryKey),
       );
     },
     enabled: gate.enabled && restAllowed,
@@ -255,15 +369,7 @@ export function useUserFills(enabled: boolean = true) {
   const queryClient = useQueryClient();
   const key = queryKeys.user.fills(gate.walletAddress);
 
-  const live = useUserStream<"userFills">(
-    subscribeUserFills,
-    gate.walletAddress,
-    gate.enabled,
-    (event) => {
-      markUserDataWsWrite(key);
-      queryClient.setQueryData<UserFill[]>(key, (previous) => mergeUserFills(previous, event));
-    },
-  );
+  const live = useUserStreamChannel(gate.walletAddress, "userFills", gate.enabled);
   const restAllowed = useUserRestFallback(live, gate.enabled, gate.walletAddress);
 
   return useQuery({

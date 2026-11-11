@@ -23,13 +23,7 @@ import {
   type MarketStreamCallbacks,
 } from "./stream-identity";
 import { convertToCandlePayload } from "../utils/market-stream-decoder";
-import {
-  applyBookFrame,
-  bookFrameLeg,
-  createBookMergeState,
-  openBoth,
-  type BookLeg,
-} from "./l2-book-merge";
+import { readBookSnapshot, type BookDegradedLeg } from "./l2-book-merge";
 import { createHyperliquidSink } from "./hyperliquid-sink";
 export type { MarketStreamCallbacks };
 
@@ -56,12 +50,15 @@ const updateStatus = (status: MarketStreamStatus): void => {
 interface DirectL2BookParams {
   readonly coin: string;
   readonly nSigFigs?: 2 | 3 | 4 | 5;
-  readonly fast?: boolean;
 }
 
 interface DirectCandleParams {
   readonly coin: string;
   readonly interval: WsMarketInterval;
+}
+
+interface DirectTradesParams {
+  readonly coin: string;
 }
 
 /** Narrow seam over the Hyperliquid client so tests never open a socket. */
@@ -80,10 +77,26 @@ export interface DirectMarketSink {
     listener: (event: unknown) => void,
     onError: (error: Error) => void,
   ): Promise<DirectHandle>;
+  trades(
+    params: DirectTradesParams,
+    listener: (event: unknown) => void,
+    onError: (error: Error) => void,
+  ): Promise<DirectHandle>;
 }
 
 const toError = (error: unknown): Error =>
   error instanceof Error ? error : new Error(String(error));
+
+// The hub has no trades channel, so a trades subscription fails closed rather
+// than silently re-homing onto a stream that can never produce it.
+const failDirectOnly = (
+  callbacks: MarketStreamCallbacks,
+  reason: string,
+): Promise<{ unsubscribe(): void }> => {
+  callbacks.onConnectionChange?.(false);
+  callbacks.onError?.(new Error(reason));
+  return Promise.resolve({ unsubscribe: () => {} });
+};
 
 // The hub resolves bare/dex/spot coins; the browser must send a resolved coin.
 
@@ -164,8 +177,26 @@ export async function resolveHlCoin(symbol: string): Promise<string | null> {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const isLevelPair = (value: unknown): boolean =>
+const isLevelPair = (value: unknown): value is [unknown[], unknown[]] =>
   Array.isArray(value) && value.length === 2 && Array.isArray(value[0]) && Array.isArray(value[1]);
+
+interface MarketBookSnapshot {
+  readonly type: "snapshot";
+  readonly levels: readonly [readonly unknown[], readonly unknown[]];
+  readonly time?: number;
+  readonly degraded?: readonly BookDegradedLeg[];
+}
+
+const readDegraded = (value: unknown): readonly BookDegradedLeg[] | undefined => {
+  if (!isRecord(value) || !Array.isArray(value.degraded)) return undefined;
+  const candidates: unknown[] = value.degraded;
+  const legs: BookDegradedLeg[] = [];
+  for (const leg of candidates) {
+    if (leg !== "fast" && leg !== "slow") return undefined;
+    legs.push(leg);
+  }
+  return legs;
+};
 
 interface MarketFrame {
   readonly data: unknown;
@@ -182,14 +213,29 @@ export function toMarketFrame(
     return { data: event.mids, meta: undefined };
   }
 
+  if (subscription.channel === "trades") {
+    return Array.isArray(event) ? { data: event, meta: { coin: frameSymbol } } : null;
+  }
+
   if (subscription.channel === "l2Book") {
     if (!isRecord(event) || !isLevelPair(event.levels)) return null;
     const meta: MarketStreamMeta = {
       coin: frameSymbol,
       ...(subscription.nSigFigs != null && { nSigFigs: subscription.nSigFigs }),
     };
+    const degraded = readDegraded(event);
+    const time =
+      typeof event.time === "number" && Number.isFinite(event.time) ? event.time : undefined;
     // l2Book is a full snapshot on every frame — never a delta.
-    return { data: { type: "snapshot", levels: event.levels }, meta };
+    return {
+      data: {
+        type: "snapshot",
+        levels: event.levels,
+        ...(degraded !== undefined && { degraded }),
+        ...(time !== undefined && { time }),
+      } satisfies MarketBookSnapshot,
+      meta,
+    };
   }
 
   if (subscription.channel === "candle") {
@@ -222,7 +268,9 @@ export interface DirectMarketStream {
 }
 
 const directKey = (subscription: WsMarketSubscription): string =>
-  SubscriptionKey.market(subscription);
+  subscription.channel === "trades"
+    ? `trades:${subscription.symbol ?? ""}`
+    : SubscriptionKey.market(subscription);
 
 export function createDirectMarketStream(
   sink: DirectMarketSink,
@@ -240,10 +288,16 @@ export function createDirectMarketStream(
   };
 
   const handleBookFrame = (entry: DirectEntry, event: unknown): void => {
-    if (entry.book === null || entry.lastBookEvent === event) return;
+    if (entry.lastBookEvent === event) return;
     entry.lastBookEvent = event;
-    const merged = applyBookFrame(entry.book, bookFrameLeg(event), event);
-    if (merged !== null) broadcast(entry, { levels: merged.levels, time: merged.time });
+    const snapshot = readBookSnapshot(event);
+    if (snapshot === null) return;
+    const degraded = readDegraded(event);
+    broadcast(entry, {
+      levels: snapshot.levels,
+      time: snapshot.time,
+      ...(degraded !== undefined && { degraded }),
+    });
   };
 
   const fail = (key: string, entry: DirectEntry, error: Error): void => {
@@ -258,7 +312,7 @@ export function createDirectMarketStream(
     }
     hooks.onFailure?.(error, failure);
 
-    if (hooks.fallback === undefined) {
+    if (hooks.fallback === undefined || entry.subscription.channel === "trades") {
       entries.delete(key);
       entry.closed = true;
       for (const callbacks of entry.registrations) callbacks.onError?.(error);
@@ -298,19 +352,22 @@ export function createDirectMarketStream(
     }
     const coin = subscription.symbol ?? "";
 
+    if (subscription.channel === "trades") {
+      return sink.trades({ coin }, listener, onError).then((handle) => [handle]);
+    }
+
     if (subscription.channel === "l2Book") {
-      entry.book = createBookMergeState();
       const { nSigFigs } = subscription;
       const params: DirectL2BookParams = nSigFigs == null ? { coin } : { coin, nSigFigs };
-      const open = (leg: BookLeg) =>
-        sink.l2Book(
-          leg === "fast" ? { ...params, fast: true } : params,
+      return sink
+        .l2Book(
+          params,
           (event) => {
             handleBookFrame(entry, event);
           },
           onError,
-        );
-      return openBoth([open("slow"), open("fast")]);
+        )
+        .then((handle) => [handle]);
     }
 
     return sink
@@ -358,7 +415,6 @@ export function createDirectMarketStream(
         registrations: new Set([callbacks]),
         fallbacks: new Map(),
         handles: [],
-        book: null,
         lastBookEvent: null,
         closed: false,
         directFailed: false,
@@ -473,6 +529,12 @@ export function createBrowserMarketStreamClient(
     callbacks: MarketStreamCallbacks,
   ): Promise<{ unsubscribe(): void }> => {
     if (directDisabled) {
+      if (subscription.channel === "trades") {
+        return failDirectOnly(
+          callbacks,
+          useMarketStreamStatus.getState().reason ?? "direct-unavailable",
+        );
+      }
       return toBackend(
         subscription,
         callbacks,
@@ -487,6 +549,9 @@ export function createBrowserMarketStreamClient(
     if (subscription.channel !== "allMids") {
       const coin = frameSymbol === "" ? null : await resolveCoin(frameSymbol);
       if (coin === null) {
+        if (subscription.channel === "trades") {
+          return failDirectOnly(callbacks, `unresolved:${frameSymbol}`);
+        }
         return toBackend(subscription, callbacks, `unresolved:${frameSymbol}`);
       }
       resolved = { ...subscription, symbol: coin };
@@ -505,9 +570,15 @@ export function createBrowserMarketStreamClient(
       return await getDirect().subscribe(resolved, frameSymbol, callbacks, validated);
     } catch (error) {
       if (!validated) {
+        if (subscription.channel === "trades") {
+          return failDirectOnly(callbacks, `unvalidated:${frameSymbol}`);
+        }
         return toBackend(subscription, callbacks, `unvalidated:${frameSymbol}`, false);
       }
       directDisabled = true;
+      if (subscription.channel === "trades") {
+        return failDirectOnly(callbacks, toError(error).message);
+      }
       return toBackend(subscription, callbacks, toError(error).message);
     }
   };

@@ -1,131 +1,79 @@
-// l2Book has two variants: slow (20 levels) and fast (5 levels, shorter cadence).
-// 20 is the protocol ceiling: the WS schema caps one side at 20 levels, so the
-// fast leg can only sharpen the top of the book, never extend it.
-
+import { cast, type DecimalString } from "@0xsignal/sdk-hyperliquid";
+import type { BookFrame as SdkBookFrame, BookLevel } from "@0xsignal/sdk-hyperliquid/subscription";
 import { MAX_BOOK_DEPTH } from "@/core/utils/hyperliquid";
-
-export type BookLeg = "fast" | "slow";
 
 export interface BookFrame {
   readonly levels: [unknown[], unknown[]];
   readonly time: number;
 }
 
-export interface BookMergeState {
-  fast: BookFrame | null;
-  slow: BookFrame | null;
-}
+export type BookDegradedLeg = "fast" | "slow";
 
-export interface ClosableHandle {
-  unsubscribe(): void;
-}
+export type BookLegFrame = SdkBookFrame & { readonly fast: boolean | undefined };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const toError = (error: unknown): Error =>
-  error instanceof Error ? error : new Error(String(error));
+const sliceSide = (side: unknown[]): unknown[] => side.slice(0, MAX_BOOK_DEPTH);
 
-/**
- * The frame owns its leg: the transport hands every frame to every listener on
- * the shared channel name, so the label captured at subscribe time can drift.
- * No `fast` flag means the slow snapshot.
- */
-export const bookFrameLeg = (event: unknown): BookLeg =>
-  isRecord(event) && event.fast === true ? "fast" : "slow";
+const isLevelsPair = (value: unknown): value is [unknown[], unknown[]] =>
+  Array.isArray(value) && value.length === 2 && Array.isArray(value[0]) && Array.isArray(value[1]);
 
-const parseBookFrame = (event: unknown): BookFrame | null => {
+const frameSourceOf = (
+  event: Record<string, unknown>,
+): { levels: [unknown[], unknown[]]; time: unknown; fast: unknown } | null => {
+  if (isLevelsPair(event.levels)) {
+    return { levels: event.levels, time: event.time, fast: event.fast };
+  }
+  const nested = event.data;
+  if (isRecord(nested) && isLevelsPair(nested.levels)) {
+    return { levels: nested.levels, time: nested.time, fast: nested.fast };
+  }
+  return null;
+};
+
+const decimal = (value: string): DecimalString => cast<DecimalString>(value, "level");
+
+const readLevels = (side: unknown[]): BookLevel[] | null => {
+  const levels: BookLevel[] = [];
+  for (const entry of side) {
+    if (!isRecord(entry)) return null;
+    const px = entry["px"];
+    const sz = entry["sz"];
+    const n = entry["n"];
+    if (typeof px !== "string" || typeof sz !== "string" || typeof n !== "number") return null;
+    levels.push({ px: decimal(px), sz: decimal(sz), n });
+  }
+  return levels;
+};
+
+const coinOf = (event: Record<string, unknown>): string => {
+  if (typeof event.coin === "string") return event.coin;
+  const nested = event.data;
+  return isRecord(nested) && typeof nested.coin === "string" ? nested.coin : "";
+};
+
+export const readBookSnapshot = (event: unknown): BookFrame | null => {
   if (!isRecord(event)) return null;
-  const levels: unknown = event.levels;
-  if (!Array.isArray(levels)) return null;
-  const bids: unknown = levels[0];
-  const asks: unknown = levels[1];
-  if (!Array.isArray(bids) || !Array.isArray(asks)) return null;
-  return { levels: [bids, asks], time: typeof event.time === "number" ? event.time : Date.now() };
-};
-
-const priceOf = (level: unknown): string | null =>
-  isRecord(level) && typeof level.px === "string" ? level.px : null;
-
-const isOrdered = (levels: readonly unknown[], side: 0 | 1): boolean => {
-  let previous: number | null = null;
-  for (const level of levels) {
-    const price = priceOf(level);
-    if (price === null) return false;
-    const current = Number(price);
-    if (!Number.isFinite(current)) return false;
-    if (previous !== null && (side === 0 ? current >= previous : current <= previous)) return false;
-    previous = current;
-  }
-  return true;
-};
-
-/**
- * Slow supplies depth first, then fast overwrites by price: fast is the fresher
- * top of book, slow the deeper tail. O(levels) for ordered input; the sort is
- * the O(n log n) fallback for a leg that arrives unordered.
- */
-const mergeSide = (fast: readonly unknown[], slow: readonly unknown[], side: 0 | 1): unknown[] => {
-  const byPrice = new Map<string, unknown>();
-  for (const level of slow) {
-    const price = priceOf(level);
-    if (price !== null) byPrice.set(price, level);
-  }
-  for (const level of fast) {
-    const price = priceOf(level);
-    if (price !== null) byPrice.set(price, level);
-  }
-
-  const merged: unknown[] = [];
-  for (const level of byPrice.values()) merged.push(level);
-  if (!isOrdered(merged, side)) {
-    merged.sort((a, b) => {
-      const left = Number(priceOf(a));
-      const right = Number(priceOf(b));
-      return side === 0 ? right - left : left - right;
-    });
-  }
-  merged.length = Math.min(merged.length, MAX_BOOK_DEPTH);
-  return merged;
-};
-
-const mergeBookFrames = ({ fast, slow }: BookMergeState): BookFrame | null => {
-  if (fast === null && slow === null) return null;
+  const source = frameSourceOf(event);
+  if (source === null) return null;
   return {
-    levels: [
-      mergeSide(fast?.levels[0] ?? [], slow?.levels[0] ?? [], 0),
-      mergeSide(fast?.levels[1] ?? [], slow?.levels[1] ?? [], 1),
-    ],
-    time: Math.max(fast?.time ?? 0, slow?.time ?? 0),
+    levels: [sliceSide(source.levels[0]), sliceSide(source.levels[1])],
+    time: typeof source.time === "number" ? source.time : Date.now(),
   };
 };
 
-export const createBookMergeState = (): BookMergeState => ({ fast: null, slow: null });
-
-/** Stores one leg's frame and returns the merged full snapshot, or null if unparsable. */
-export const applyBookFrame = (
-  state: BookMergeState,
-  leg: BookLeg,
-  event: unknown,
-): BookFrame | null => {
-  const frame = parseBookFrame(event);
-  if (frame === null) return null;
-  state[leg] = frame;
-  return mergeBookFrames(state);
+export const readBookLeg = (event: unknown): BookLegFrame | null => {
+  if (!isRecord(event)) return null;
+  const source = frameSourceOf(event);
+  if (source === null) return null;
+  const bids = readLevels(source.levels[0]);
+  const asks = readLevels(source.levels[1]);
+  if (bids === null || asks === null) return null;
+  return {
+    coin: coinOf(event),
+    time: typeof source.time === "number" ? source.time : Date.now(),
+    fast: typeof source.fast === "boolean" ? source.fast : undefined,
+    levels: [bids, asks],
+  };
 };
-
-/** Opens both legs as one unit; a failed leg tears down the other. */
-export async function openBoth<T extends ClosableHandle>(
-  legs: readonly Promise<T>[],
-): Promise<T[]> {
-  const results = await Promise.allSettled(legs);
-  const handles: T[] = [];
-  let failure: Error | null = null;
-  for (const result of results) {
-    if (result.status === "fulfilled") handles.push(result.value);
-    else failure = toError(result.reason);
-  }
-  if (failure === null) return handles;
-  for (const handle of handles) handle.unsubscribe();
-  throw failure;
-}

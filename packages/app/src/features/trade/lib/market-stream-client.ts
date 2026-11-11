@@ -80,9 +80,14 @@ interface MarketStreamCallbacks {
 // One socket carries every subscription for an endpoint, so frames are
 // routed by the identity echoed on the wire, never by socket instance.
 
-const toWireSubscription = (subscription: WsMarketSubscription): WsMarketSubscription => {
+type WireMarketSubscription = WsMarketSubscription & { readonly dex?: string };
+
+const toWireSubscription = (subscription: WireMarketSubscription): WireMarketSubscription => {
   const symbol = normalizeSymbol(subscription.symbol ?? "");
-  if (subscription.channel === "allMids") return { channel: "allMids" };
+  if (subscription.channel === "allMids") {
+    const dex = subscription.dex;
+    return dex === undefined || dex === "" ? { channel: "allMids" } : { channel: "allMids", dex };
+  }
   if (subscription.channel === "l2Book") {
     return {
       channel: "l2Book",

@@ -1,6 +1,5 @@
 import type { WsMarketSubscription } from "@0xsignal/shared";
 import type { MarketStreamMeta } from "../utils/market-stream-decoder";
-import type { BookMergeState } from "./l2-book-merge";
 
 export interface MarketStreamCallbacks {
   onMessage: (data: unknown, channel: string, meta?: MarketStreamMeta) => void;
@@ -23,7 +22,6 @@ export interface DirectEntry {
   readonly registrations: Set<MarketStreamCallbacks>;
   readonly fallbacks: Map<MarketStreamCallbacks, { unsubscribe(): void }>;
   handles: DirectHandle[];
-  book: BookMergeState | null;
   lastBookEvent: unknown;
   closed: boolean;
   directFailed: boolean;

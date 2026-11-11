@@ -1,6 +1,6 @@
 import type {
   ClearinghouseState,
-  FrontendOpenOrder,
+  OpenOrder,
   SpotClearinghouseState,
   UserFill,
 } from "@0xsignal/shared";
@@ -54,7 +54,7 @@ export interface UserFillsStreamEvent {
 }
 
 export interface OpenOrdersStreamEvent {
-  readonly data: FrontendOpenOrder[];
+  readonly data: readonly OpenOrder[];
   readonly isSnapshot: true;
 }
 
@@ -243,6 +243,20 @@ export function mergeUserFills(
       unique.push(fill);
     }
     return unique.toSorted(byTimeDescending).slice(0, MAX_MERGED_FILLS);
+  }
+
+  if (event.data.length === 1) {
+    const next = event.data[0];
+    const newestCurrent = current[0];
+    if (newestCurrent === undefined || next.time > newestCurrent.time) {
+      const merged = [next];
+      for (const fill of current) {
+        if (fill.tid === next.tid) continue;
+        merged.push(fill);
+        if (merged.length === MAX_MERGED_FILLS) break;
+      }
+      return merged;
+    }
   }
 
   // Only the incoming batch is sorted: `current` is already newest-first. Merge
