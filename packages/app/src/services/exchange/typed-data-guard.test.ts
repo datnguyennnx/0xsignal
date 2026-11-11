@@ -1,6 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
-import { AbstractWalletError } from "@nktkas/hyperliquid/signing";
+import type { L1TypedData } from "@0xsignal/sdk-hyperliquid/signing";
+import { concat, recoverTypedDataAddress, toHex } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 import {
   ARBITRUM_CHAIN_ID,
@@ -17,17 +18,11 @@ import {
 } from "./typed-data-guard";
 
 const account = mnemonicToAccount("test test test test test test test test test test test junk");
-const connectionId = `0x${"11".repeat(32)}`;
+const connectionId: `0x${string}` = `0x${"11".repeat(32)}`;
 
-const validPayload = (): ExchangeTypedData => ({
+const validPayload = (): L1TypedData => ({
   domain: { name: "Exchange", version: "1", chainId: 1337, verifyingContract: ZERO_ADDRESS },
   types: {
-    EIP712Domain: [
-      { name: "name", type: "string" },
-      { name: "version", type: "string" },
-      { name: "chainId", type: "uint256" },
-      { name: "verifyingContract", type: "address" },
-    ],
     Agent: [
       { name: "source", type: "string" },
       { name: "connectionId", type: "bytes32" },
@@ -37,9 +32,8 @@ const validPayload = (): ExchangeTypedData => ({
   message: { source: "a", connectionId },
 });
 
-const withPayload = (
-  mutate: (payload: ExchangeTypedData) => ExchangeTypedData,
-): ExchangeTypedData => mutate(validPayload());
+const withPayload = (mutate: (payload: ExchangeTypedData) => unknown): ExchangeTypedData =>
+  mutate(validPayload()) as ExchangeTypedData;
 
 const guardError = (payload: ExchangeTypedData): Error | null => {
   try {
@@ -84,6 +78,11 @@ describe("assertAgentExchangePayload", () => {
       withPayload((p) => ({ ...p, domain: { ...p.domain, name: "Permit" } })),
     );
     expect(error?.message).toMatch(/domain.name/);
+  });
+
+  test("rejects a non-1 domain version", () => {
+    const error = guardError(withPayload((p) => ({ ...p, domain: { ...p.domain, version: "2" } })));
+    expect(error?.message).toMatch(/domain.version/);
   });
 
   test("rejects a non-1337 signing domain", () => {
@@ -143,11 +142,13 @@ describe("createGuardedWallet", () => {
     return {
       calls: () => calls,
       deps: {
+        address: account.address,
         signTypedData: (params) => {
           calls += 1;
-          return account.signTypedData(params);
+          return account.signTypedData(
+            params as unknown as Parameters<typeof account.signTypedData>[0],
+          );
         },
-        getAddresses: () => Promise.resolve([account.address]),
         getChainId: () => Promise.resolve(chainId),
       },
     };
@@ -156,9 +157,26 @@ describe("createGuardedWallet", () => {
   test("signs on Arbitrum for the Agent payload", async () => {
     const { deps: walletDeps, calls } = deps(ARBITRUM_CHAIN_ID);
     const wallet = createGuardedWallet(walletDeps);
-    const signature = await wallet.signTypedData(validPayload());
-    expect(signature).toMatch(/^0x[0-9a-f]{130}$/);
+    const payload = validPayload();
+
+    const signature = await wallet.signTypedData(payload);
+
+    expect(signature.r).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(signature.s).toMatch(/^0x[0-9a-f]{64}$/);
+    expect([27, 28]).toContain(signature.v);
     expect(calls()).toBe(1);
+
+    const recovered = await recoverTypedDataAddress({
+      domain: {
+        ...payload.domain,
+        verifyingContract: payload.domain.verifyingContract as `0x${string}`,
+      },
+      types: payload.types,
+      primaryType: "Agent",
+      message: payload.message,
+      signature: concat([signature.r, signature.s, toHex(signature.v)]),
+    } as Parameters<typeof recoverTypedDataAddress>[0]);
+    expect(recovered).toBe(account.address);
   });
 
   test("refuses to sign while the wallet is on another chain", async () => {
@@ -182,19 +200,24 @@ describe("createGuardedWallet", () => {
 });
 
 describe("blocked signature error", () => {
-  test("unwraps the SDK wrapper and surfaces a distinct message", () => {
+  test("recognises the directly thrown guard error and surfaces a distinct message", () => {
     const guard = new UntrustedSignatureError('unexpected EIP-712 type "Withdraw"');
-    const wrapped = new AbstractWalletError("Failed to sign the typed data using the wallet", {
-      cause: guard,
-    });
 
-    expect(findBlockedSignatureError(wrapped)).toBe(guard);
-    expect(describeSigningError(wrapped)).toBe(BLOCKED_SIGNATURE_MESSAGE);
-    expect(describeSigningError(wrapped)).toContain("not a trading action");
+    expect(findBlockedSignatureError(guard)).toBe(guard);
+    expect(describeSigningError(guard)).toBe(BLOCKED_SIGNATURE_MESSAGE);
+    expect(describeSigningError(guard)).toContain("not a trading action");
+  });
+
+  test("does not walk the cause chain for a wrapped guard error", () => {
+    const guard = new UntrustedSignatureError('unexpected EIP-712 type "Withdraw"');
+    const wrapped = new Error("Failed to sign the typed data using the wallet", { cause: guard });
+
+    expect(findBlockedSignatureError(wrapped)).toBeNull();
+    expect(describeSigningError(wrapped)).toBe("Failed to sign the typed data using the wallet");
   });
 
   test("keeps the generic path for genuine wallet rejections", () => {
-    const rejection = new AbstractWalletError("User rejected the request");
+    const rejection = new Error("User rejected the request");
     expect(findBlockedSignatureError(rejection)).toBeNull();
     expect(describeSigningError(rejection)).toBe("User rejected the request");
   });

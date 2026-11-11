@@ -1,13 +1,25 @@
-import { ExchangeClient, HttpTransport, type IRequestTransport } from "@nktkas/hyperliquid";
 import {
-  CancelRequest,
-  OrderRequest,
-  UpdateLeverageRequest as UpdateLeverageRequestSchema,
-  type CancelParameters,
-  type OrderParameters,
-  type UpdateLeverageParameters,
-} from "@nktkas/hyperliquid/api/exchange";
-import { canonicalize, createL1ActionHash } from "@nktkas/hyperliquid/signing";
+  ExchangeClient,
+  NonceSource,
+  Transport,
+  asL1Action,
+  encodeL1Action,
+  l1ActionDigestHex,
+  l1ActionHashHex,
+  l1ActionTypedData,
+  type Digest32,
+  type L1TypedData,
+  type MpMap,
+} from "@0xsignal/sdk-hyperliquid";
+import {
+  encodeCancel,
+  encodeOrder,
+  encodeUpdateLeverage,
+  type CancelAction,
+  type DigestEnvelope,
+  type OrderAction,
+  type UpdateLeverageAction,
+} from "@0xsignal/sdk-hyperliquid/exchange";
 import {
   ARBITRUM_CHAIN_ID,
   createGuardedWallet,
@@ -46,50 +58,82 @@ export function signGuardedAction<T>(
   return sign();
 }
 
-/** Asserts the wire envelope: known action, non-zero nonce, and no vaultAddress. */
-export function assertExchangeEnvelope(payload: unknown): void {
-  if (!isRecord(payload)) throw new UntrustedEnvelopeError("payload is not an object");
-  if ("vaultAddress" in payload) throw new UntrustedEnvelopeError("vaultAddress is forbidden");
-  if ("expiresAfter" in payload) throw new UntrustedEnvelopeError("expiresAfter is forbidden");
-
-  assertActionAllowed(payload.action);
-
-  const nonce = payload.nonce;
-  if (typeof nonce !== "number" || !Number.isSafeInteger(nonce) || nonce <= 0) {
-    throw new UntrustedEnvelopeError("nonce is not a positive integer");
-  }
+export function buildOrderAction(params: OrderAction): OrderAction {
+  return params;
 }
 
-/** Wraps the SDK transport so no unchecked payload reaches the network. */
-function createGuardedTransport(inner: IRequestTransport): IRequestTransport {
+export function buildCancelAction(params: CancelAction): CancelAction {
+  return params;
+}
+
+export function buildLeverageAction(params: UpdateLeverageAction): UpdateLeverageAction {
+  return params;
+}
+
+export type PreviewableAction =
+  | (OrderAction & { readonly type: "order" })
+  | (CancelAction & { readonly type: "cancel" })
+  | (UpdateLeverageAction & { readonly type: "updateLeverage" });
+
+export type PreviewEnvelope = {
+  readonly connectionId: `0x${string}`;
+  readonly typedData: L1TypedData;
+  readonly digest: `0x${string}`;
+  readonly action: PreviewableAction;
+  readonly nonce: number;
+  readonly source: "a" | "b";
+  readonly isTestnet: boolean;
+};
+
+function encodePreviewable(action: PreviewableAction): MpMap {
+  if (action.type === "order") return encodeOrder(action);
+  if (action.type === "cancel") return encodeCancel(action);
+  return encodeUpdateLeverage(action);
+}
+
+export function preview(
+  action: PreviewableAction,
+  options: { readonly nonce: number; readonly isTestnet?: boolean },
+): { readonly envelope: PreviewEnvelope } {
+  const isTestnet = options.isTestnet ?? false;
+  const digestArgs = {
+    action: encodeL1Action(asL1Action(encodePreviewable(action))),
+    nonce: BigInt(options.nonce),
+    isTestnet,
+  };
   return {
-    isTestnet: inner.isTestnet,
-    request<T>(endpoint: "info" | "exchange", payload: unknown, signal?: AbortSignal): Promise<T> {
-      if (endpoint === "exchange") assertExchangeEnvelope(payload);
-      return inner.request<T>(endpoint, payload, signal);
+    envelope: {
+      connectionId: l1ActionHashHex(digestArgs),
+      typedData: l1ActionTypedData(digestArgs),
+      digest: l1ActionDigestHex(digestArgs),
+      action,
+      nonce: options.nonce,
+      source: isTestnet ? "b" : "a",
+      isTestnet,
     },
   };
 }
 
-export function buildOrderAction(params: OrderParameters): Record<string, unknown> {
-  return canonicalize(OrderRequest.entries.action, { type: "order", ...params });
-}
+export type DigestObserver = (digest: Digest32, envelope: DigestEnvelope) => void;
 
-export function buildCancelAction(params: CancelParameters): Record<string, unknown> {
-  return canonicalize(CancelRequest.entries.action, { type: "cancel", ...params });
-}
+class PinnedNonceSource extends NonceSource {
+  readonly #value: bigint;
 
-export function buildLeverageAction(params: UpdateLeverageParameters): Record<string, unknown> {
-  return canonicalize(UpdateLeverageRequestSchema.entries.action, {
-    type: "updateLeverage",
-    ...params,
-  });
+  constructor(value: number) {
+    super();
+    this.#value = BigInt(value);
+  }
+
+  override reserve(): bigint {
+    return this.#value;
+  }
 }
 
 export type GuardedClientOptions = {
   readonly deps: GuardedWalletDeps;
   readonly nonce: number;
-  readonly transport?: IRequestTransport;
+  readonly transport?: Transport;
+  readonly onDigest?: DigestObserver;
 };
 
 /**
@@ -99,18 +143,16 @@ export type GuardedClientOptions = {
 export function createGuardedExchangeClient({
   deps,
   nonce,
-  transport = new HttpTransport(),
+  transport = new Transport(),
+  onDigest,
 }: GuardedClientOptions): ExchangeClient {
   return new ExchangeClient({
-    transport: createGuardedTransport(transport),
+    transport,
     wallet: createGuardedWallet(deps),
-    signatureChainId: `0x${ARBITRUM_CHAIN_ID.toString(16)}`,
-    nonceManager: () => nonce,
+    signatureChainId: ARBITRUM_CHAIN_ID,
+    nonce: new PinnedNonceSource(nonce),
+    ...(onDigest === undefined ? {} : { onDigest }),
   });
-}
-
-export function actionId(action: Record<string, unknown>, nonce: number): `0x${string}` {
-  return createL1ActionHash({ action, nonce });
 }
 
 export function assertArbitrum(chainId: number | undefined): asserts chainId is number {

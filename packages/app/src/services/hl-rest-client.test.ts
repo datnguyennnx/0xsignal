@@ -102,6 +102,8 @@ describe("browser-direct Hyperliquid reads", () => {
         side: "A",
         sz: "0.1",
         limitPx: "62000",
+        triggerPx: "0.0",
+        origSz: "0.1",
         oid: 5001,
         timestamp: 1_700_000_000_000,
       },
@@ -116,12 +118,11 @@ describe("browser-direct Hyperliquid reads", () => {
     expect(result).toEqual([entry]);
   });
 
-  test("vault equities sends the documented body and returns the unchanged array", async () => {
+  test("vault equities sends the documented body and keeps the modelled fields", async () => {
     const equities = [
       {
         vaultAddress: "0x1111111111111111111111111111111111111111",
         equity: "250.5",
-        lockedUntilTimestamp: 1_700_000_000_000,
       },
     ];
     const calls = stubFetch(directOrBackend(equities));
@@ -167,18 +168,18 @@ describe("browser-direct Hyperliquid reads", () => {
           usdc: "-1.25",
           szi: "2",
           fundingRate: "0.0001",
-          nSamples: 0,
+          nSamples: null,
         },
       },
     ]);
   });
 
-  test("funding without bounds sends no time keys", async () => {
+  test("funding without a bound asks from epoch", async () => {
     const calls = stubFetch(directOrBackend([]));
 
     await getUserFunding(USER);
 
-    expect(calls[0]?.body).toEqual({ type: "userFunding", user: USER });
+    expect(calls[0]?.body).toEqual({ type: "userFunding", user: USER, startTime: 0 });
   });
 
   test("a transport failure falls back to the backend route", async () => {

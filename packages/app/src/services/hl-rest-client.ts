@@ -1,11 +1,27 @@
-import { HttpRequestError, HttpTransport, InfoClient, ValidationError } from "@nktkas/hyperliquid";
-import type { HistoricalOrdersResponse, UserFundingResponse } from "@nktkas/hyperliquid/api/info";
+import {
+  HttpError,
+  HyperliquidError,
+  InfoClient,
+  Transport,
+  TransportError,
+  ValidationError,
+  cast,
+} from "@0xsignal/sdk-hyperliquid";
+import type {
+  ClearinghouseStateInfoResponse,
+  HistoricalOrdersInfoResponse,
+  PortfolioInfoResponse,
+  UserFundingInfoResponse,
+  UserVaultEquitiesInfoResponse,
+} from "@0xsignal/sdk-hyperliquid/info";
 import {
   normalizeCandle,
   type ChartDataPoint,
   type ClearinghouseState,
   type HistoricalOrderEntry,
   type OpenOrder,
+  type PortfolioPeriod,
+  type PortfolioPeriodKey,
   type PortfolioResponse,
   type SpotClearinghouseState,
   type UserFill,
@@ -32,6 +48,9 @@ import {
 const HL_INFO_URL = "https://api.hyperliquid.xyz";
 const REQUEST_TIMEOUT_MS = 10_000;
 
+/** A payload that failed SDK validation never becomes valid on a retry. */
+const VALIDATION_ERROR_CODE = "validation";
+
 /** Single rollback switch: set `enabled` to false to send every read via the backend again. */
 export const DIRECT_READS: { enabled: boolean } = { enabled: true };
 
@@ -39,24 +58,43 @@ let infoClient: InfoClient | null = null;
 
 /** One client for the tab's lifetime: the SDK transport owns no per-call state. */
 function getInfoClient(): InfoClient {
-  infoClient ??= new InfoClient({
-    transport: new HttpTransport({ apiUrl: HL_INFO_URL, timeout: REQUEST_TIMEOUT_MS }),
-  });
+  infoClient ??= new InfoClient(
+    new Transport({
+      baseUrl: HL_INFO_URL,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+      retries: 0,
+      fetchImpl: applicationErrorFetch,
+    }),
+  );
   return infoClient;
 }
 
-/** A thrown transport error with no HTTP response means the request never reached Hyperliquid. */
+/** Anything that is not an SDK HTTP or validation failure means the request never reached Hyperliquid. */
 function isNetworkFailure(error: unknown): boolean {
-  return error instanceof HttpRequestError && error.response === undefined;
+  if (error instanceof ApiError) return false;
+  if (error instanceof HyperliquidError) return error instanceof TransportError;
+  return true;
 }
 
 function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error;
-  if (error instanceof HttpRequestError) {
-    return new ApiError(error.message, error.response?.status, error.response?.statusText);
+  if (error instanceof HttpError) {
+    const message = applicationErrorMessage(parseJson(error.body));
+    return new ApiError(message ?? error.message, error.status);
   }
-  if (error instanceof ValidationError) return new ApiError(error.message);
+  if (error instanceof TransportError) return new ApiError(error.message);
+  if (error instanceof ValidationError) {
+    return new ApiError(error.message, undefined, undefined, VALIDATION_ERROR_CODE);
+  }
   return new ApiError(error instanceof Error ? error.message : "Hyperliquid read failed");
+}
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -68,6 +106,20 @@ function applicationErrorMessage(payload: unknown): string | null {
   if ("error" in payload && typeof payload.error === "string") return payload.error;
   return null;
 }
+
+const applicationErrorFetch = cast<typeof fetch>(
+  async (
+    input: Parameters<typeof fetch>[0],
+    init?: Parameters<typeof fetch>[1],
+  ): Promise<Response> => {
+    const response = await globalThis.fetch(input, init);
+    if (!response.ok) return response;
+    const body = await response.clone().text();
+    if (applicationErrorMessage(parseJson(body)) === null) return response;
+    throw new HttpError(response.status, body);
+  },
+  "fetchImpl",
+);
 
 function ensureArrayResult(payload: unknown, operation: string): void {
   const applicationError = applicationErrorMessage(payload);
@@ -88,7 +140,7 @@ async function readWithFallback<T>(
   }
 }
 
-function toHistoricalOrderEntry(entry: HistoricalOrdersResponse[number]): HistoricalOrderEntry {
+function toHistoricalOrderEntry(entry: HistoricalOrdersInfoResponse[number]): HistoricalOrderEntry {
   return {
     order: entry.order,
     // The shared contract models historical orders only; any other processing
@@ -98,7 +150,7 @@ function toHistoricalOrderEntry(entry: HistoricalOrdersResponse[number]): Histor
   };
 }
 
-function toUserFundingEntry(entry: UserFundingResponse[number]): UserFundingEntry {
+function toUserFundingEntry(entry: UserFundingInfoResponse[number]): UserFundingEntry {
   return {
     time: entry.time,
     hash: entry.hash,
@@ -108,8 +160,73 @@ function toUserFundingEntry(entry: UserFundingResponse[number]): UserFundingEntr
       usdc: entry.delta.usdc,
       szi: entry.delta.szi,
       fundingRate: entry.delta.fundingRate,
-      nSamples: entry.delta.nSamples ?? 0,
+      nSamples: entry.delta.nSamples,
     },
+  };
+}
+
+function userFundingParams(
+  user: string,
+  startTime: number | undefined,
+  endTime: number | undefined,
+): { user: string; startTime: number; endTime?: number } {
+  const params: { user: string; startTime: number; endTime?: number } = {
+    user,
+    startTime: startTime ?? 0,
+  };
+  if (endTime !== undefined) params.endTime = endTime;
+  return params;
+}
+
+function toPortfolioPeriod([key, period]: PortfolioInfoResponse[number]): readonly [
+  PortfolioPeriodKey,
+  PortfolioPeriod,
+] {
+  return [
+    key,
+    {
+      accountValueHistory: period.accountValueHistory.map(([time, value]): [number, string] => [
+        time,
+        value,
+      ]),
+      pnlHistory: period.pnlHistory.map(([time, value]): [number, string] => [time, value]),
+      vlm: period.vlm,
+    },
+  ];
+}
+
+function toPortfolioResponse(entries: PortfolioInfoResponse): PortfolioResponse {
+  return entries.map((entry) => toPortfolioPeriod(entry));
+}
+
+function toClearinghouseState(state: ClearinghouseStateInfoResponse): ClearinghouseState {
+  return {
+    marginSummary: state.marginSummary,
+    crossMarginSummary: state.crossMarginSummary,
+    crossMaintenanceMarginUsed: state.crossMaintenanceMarginUsed,
+    withdrawable: state.withdrawable,
+    time: state.time,
+    assetPositions: state.assetPositions.map(({ type, position }) => ({
+      type,
+      position: {
+        ...position,
+        leverage:
+          position.leverage.type === "isolated"
+            ? {
+                type: "isolated",
+                value: position.leverage.value,
+                rawUsd: position.leverage.rawUsd,
+              }
+            : { type: "cross", value: position.leverage.value },
+      },
+    })),
+  };
+}
+
+function toUserVaultEquity(entry: UserVaultEquitiesInfoResponse[number]): UserVaultEquity {
+  return {
+    vaultAddress: entry.vaultAddress,
+    equity: entry.equity,
   };
 }
 
@@ -118,7 +235,7 @@ export function getPortfolio(user: string): Promise<PortfolioResponse> {
     async () => {
       const data = await getInfoClient().portfolio({ user });
       ensureArrayResult(data, "portfolio");
-      return data;
+      return toPortfolioResponse(data);
     },
     () => fetchPortfolio(user),
   );
@@ -141,7 +258,7 @@ export function getCandleSnapshot(
   backend: () => Promise<ChartDataPoint[]>,
 ): Promise<ChartDataPoint[]> {
   return readWithFallback<ChartDataPoint[]>(async () => {
-    const data = await getInfoClient().candleSnapshot(params);
+    const data = await getInfoClient().candleSnapshot({ req: params });
     ensureArrayResult(data, "candleSnapshot");
     return data.flatMap((candle) => normalizeCandle(candle) ?? []);
   }, backend);
@@ -160,7 +277,7 @@ export function getPortfolioPublic(user: string): Promise<PortfolioResponse> {
   return readDirect<PortfolioResponse>(async () => {
     const data = await getInfoClient().portfolio({ user });
     ensureArrayResult(data, "portfolio");
-    return data;
+    return toPortfolioResponse(data);
   });
 }
 
@@ -169,7 +286,7 @@ export function getClearinghouseStatePublic(user: string): Promise<Clearinghouse
     const data = await getInfoClient().clearinghouseState({ user });
     const applicationError = applicationErrorMessage(data);
     if (applicationError !== null) throw new ApiError(applicationError);
-    return data;
+    return toClearinghouseState(data);
   });
 }
 
@@ -177,7 +294,7 @@ export function getUserVaultEquitiesPublic(user: string): Promise<UserVaultEquit
   return readDirect<UserVaultEquity[]>(async () => {
     const data = await getInfoClient().userVaultEquities({ user });
     ensureArrayResult(data, "userVaultEquities");
-    return data;
+    return data.map((entry) => toUserVaultEquity(entry));
   });
 }
 
@@ -185,7 +302,7 @@ export function getOpenOrdersPublic(user: string): Promise<OpenOrder[]> {
   return readDirect<OpenOrder[]>(async () => {
     const data = await getInfoClient().openOrders({ user });
     ensureArrayResult(data, "openOrders");
-    return data;
+    return [...data];
   });
 }
 
@@ -217,7 +334,7 @@ export function getUserFillsPublic(user: string): Promise<UserFill[]> {
   return readDirect<UserFill[]>(async () => {
     const data = await getInfoClient().userFills({ user });
     ensureArrayResult(data, "userFills");
-    return data;
+    return [...data];
   });
 }
 
@@ -226,9 +343,7 @@ export function getUserFundingPublic(
   startTime?: number,
   endTime?: number,
 ): Promise<UserFundingEntry[]> {
-  const params: { user: string; startTime?: number; endTime?: number } = { user };
-  if (startTime !== undefined) params.startTime = startTime;
-  if (endTime !== undefined) params.endTime = endTime;
+  const params = userFundingParams(user, startTime, endTime);
 
   return readDirect<UserFundingEntry[]>(async () => {
     const data = await getInfoClient().userFunding(params);
@@ -261,7 +376,7 @@ export function getUserVaultEquities(user: string): Promise<UserVaultEquity[]> {
     async () => {
       const data = await getInfoClient().userVaultEquities({ user });
       ensureArrayResult(data, "userVaultEquities");
-      return data;
+      return data.map((entry) => toUserVaultEquity(entry));
     },
     () => fetchUserVaultEquities(user),
   );
@@ -272,9 +387,7 @@ export function getUserFunding(
   startTime?: number,
   endTime?: number,
 ): Promise<UserFundingEntry[]> {
-  const params: { user: string; startTime?: number; endTime?: number } = { user };
-  if (startTime !== undefined) params.startTime = startTime;
-  if (endTime !== undefined) params.endTime = endTime;
+  const params = userFundingParams(user, startTime, endTime);
 
   return readWithFallback<UserFundingEntry[]>(
     async () => {

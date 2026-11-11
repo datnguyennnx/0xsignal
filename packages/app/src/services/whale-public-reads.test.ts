@@ -81,6 +81,7 @@ describe("public whale sibling reads", () => {
     readonly type: string;
     readonly read: () => Promise<unknown>;
     readonly payload: unknown;
+    readonly extraParams?: Record<string, unknown>;
   }> = [
     {
       name: "open orders",
@@ -95,7 +96,13 @@ describe("public whale sibling reads", () => {
       payload: { balances: [] },
     },
     { name: "fills", type: "userFills", read: () => getUserFillsPublic(WHALE), payload: [] },
-    { name: "funding", type: "userFunding", read: () => getUserFundingPublic(WHALE), payload: [] },
+    {
+      name: "funding",
+      type: "userFunding",
+      read: () => getUserFundingPublic(WHALE),
+      payload: [],
+      extraParams: { startTime: 0 },
+    },
     {
       name: "historical orders",
       type: "historicalOrders",
@@ -112,7 +119,11 @@ describe("public whale sibling reads", () => {
 
       expect(calls).toHaveLength(1);
       expect(calls[0]?.url.startsWith(HL_INFO_URL)).toBe(true);
-      expect(calls[0]?.body).toEqual({ type: testCase.type, user: WHALE });
+      expect(calls[0]?.body).toEqual({
+        type: testCase.type,
+        user: WHALE,
+        ...testCase.extraParams,
+      });
       expect(calls[0]?.authorization).toBeNull();
       expect(calls.some((call) => call.url.includes("/api/user/"))).toBe(false);
     });

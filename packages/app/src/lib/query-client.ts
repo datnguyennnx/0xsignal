@@ -9,14 +9,14 @@ const GC_TIMES = {
 /** Auth failures and missing resources are terminal regardless of the message text. */
 const NON_RETRYABLE_STATUSES: ReadonlySet<number> = new Set([401, 403, 404]);
 
+/** Set by `hl-rest-client` when an SDK `ValidationError` rejects the payload. */
+const VALIDATION_ERROR_CODE = "validation";
+
 export function shouldRetryQuery(failureCount: number, error: Error): boolean {
   if (error instanceof UnauthenticatedError) return false;
-  if (
-    error instanceof ApiError &&
-    error.status !== undefined &&
-    NON_RETRYABLE_STATUSES.has(error.status)
-  ) {
-    return false;
+  if (error instanceof ApiError) {
+    if (error.code === VALIDATION_ERROR_CODE) return false;
+    if (error.status !== undefined && NON_RETRYABLE_STATUSES.has(error.status)) return false;
   }
   return failureCount < 2;
 }
