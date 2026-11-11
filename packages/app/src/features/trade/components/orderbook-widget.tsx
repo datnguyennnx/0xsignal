@@ -4,14 +4,22 @@ import { useTradeUIStore } from "@/stores/use-trade-ui-store";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { Surface } from "@/components/surface/surface";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type PopupData } from "../utils/orderbook-utils";
 import { OrderbookToolbar } from "./orderbook-toolbar";
 import { OrderbookColumnHeader, OrderbookDepth, OrderbookPlaceholder } from "./orderbook-depth";
+import { OrderbookTrades } from "./orderbook-trades";
 import { useOrderbookPrecision } from "../hooks/use-orderbook-precision";
+import { hasRenderableBook, resolveBookDisplayNSigFigs } from "../utils/orderbook-widget-shared";
 
 interface OrderbookWidgetProps {
   symbol: string;
 }
+
+const ORDERBOOK_VIEW_OPTIONS = [
+  { value: "book", label: "Order Book" },
+  { value: "trades", label: "Trades" },
+] as const;
 
 function OrderbookError({ description, onRetry }: { description: string; onRetry: () => void }) {
   return (
@@ -34,6 +42,8 @@ function OrderbookError({ description, onRetry }: { description: string; onRetry
 
 const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   const nSigFigs = useTradeUIStore((s) => s.nSigFigs);
+  const orderbookView = useTradeUIStore((s) => s.orderbookView);
+  const setOrderbookView = useTradeUIStore((s) => s.setOrderbookView);
 
   // Base/quote denomination toggle. Resets on mount via key={symbol} in parent.
   const [pairFocus, setPairFocus] = useState("base");
@@ -150,7 +160,8 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     );
   }, []);
 
-  const hasBookData = !!orderbook && orderbook.asks.length > 0 && orderbook.bids.length > 0;
+  const hasBookData = hasRenderableBook(orderbook);
+  const displayNSigFigs = resolveBookDisplayNSigFigs(effectiveNSigFigs);
 
   // A rejected subscription is an error whichever side of the first frame it lands.
   if (error !== null && (!orderbook || !hasBookData)) {
@@ -183,31 +194,57 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     <Surface
       tier="content"
       radius="panel"
-      className="orderbook-widget relative isolate panel-contain h-full flex flex-col p-panel gap-stack"
+      className="orderbook-widget relative isolate panel-contain h-full flex flex-col p-panel gap-inline"
     >
-      <OrderbookToolbar
-        symbol={symbol}
-        pairFocus={pairFocus}
-        onPairFocusChange={setPairFocus}
-        currentNSigFigs={effectiveNSigFigs}
-        onNSigFigsChange={handleNSigFigsChange}
-        scalingOptions={scalingOptions}
-      />
+      <Tabs
+        value={orderbookView}
+        onValueChange={(value: unknown) => {
+          if (value === "book" || value === "trades") setOrderbookView(value);
+        }}
+        className="shrink-0"
+      >
+        <TabsList aria-label="Order book view" className="w-full">
+          {ORDERBOOK_VIEW_OPTIONS.map((option) => (
+            <TabsTrigger key={option.value} value={option.value} className="flex-1">
+              {option.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
-      <OrderbookColumnHeader pairFocus={pairFocus} />
+      {orderbookView === "book" && (
+        <OrderbookToolbar
+          symbol={symbol}
+          pairFocus={pairFocus}
+          onPairFocusChange={setPairFocus}
+          currentNSigFigs={effectiveNSigFigs}
+          onNSigFigsChange={handleNSigFigsChange}
+          scalingOptions={scalingOptions}
+        />
+      )}
 
-      <OrderbookDepth
-        symbol={symbol}
-        orderbook={orderbook}
-        pairFocus={pairFocus}
-        effectiveNSigFigs={effectiveNSigFigs}
-        hoveredIndex={hoveredIndex}
-        pinnedIndex={pinnedIndex}
-        hoverTarget={hoverTarget}
-        popupPosition={popupPosition}
-        onHover={handleHover}
-        onActivate={handleActivate}
-      />
+      <div className="flex min-h-0 flex-1 flex-col">
+        {orderbookView === "book" ? (
+          <>
+            <OrderbookColumnHeader pairFocus={pairFocus} />
+
+            <OrderbookDepth
+              symbol={symbol}
+              orderbook={orderbook}
+              pairFocus={pairFocus}
+              effectiveNSigFigs={effectiveNSigFigs}
+              hoveredIndex={hoveredIndex}
+              pinnedIndex={pinnedIndex}
+              hoverTarget={hoverTarget}
+              popupPosition={popupPosition}
+              onHover={handleHover}
+              onActivate={handleActivate}
+            />
+          </>
+        ) : (
+          <OrderbookTrades symbol={symbol} displayNSigFigs={displayNSigFigs} />
+        )}
+      </div>
     </Surface>
   );
 };

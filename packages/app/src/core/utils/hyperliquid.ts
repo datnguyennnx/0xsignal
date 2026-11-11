@@ -20,13 +20,8 @@ export const getIntervalMs = (interval: string): number => {
   return value * (mult[unit] || 3_600_000);
 };
 
-/**
- * Produces a stable string key for an orderbook price level.
- * Hyperliquid prices have ≤8 decimal places; toFixed(8) canonicalizes
- * floating-point representation to prevent React key instability.
- */
 export function priceKey(side: "bid" | "ask", price: number): string {
-  return `${side}-${price.toFixed(8)}`;
+  return `${side}-${price}`;
 }
 
 export interface DisplayOrderbookLevel {

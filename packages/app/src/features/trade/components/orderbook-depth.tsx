@@ -18,6 +18,11 @@ import {
   toQuoteDenom,
   ROW_HEIGHT_CLASS,
 } from "../utils/orderbook-utils";
+import {
+  HANDOFF_FADE_CLASS,
+  emptySideNotice,
+  withDepthTransition,
+} from "../utils/orderbook-depth-view";
 import { useOrderbookRows } from "../hooks/use-orderbook-rows";
 import { OrderRowCells } from "./orderbook-row-cells";
 import { buildRowAriaLabel } from "./orderbook-row-label";
@@ -41,6 +46,7 @@ interface OrderRowProps {
   onHover: (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => void;
   onActivate: (side: BookSide, index: number) => void;
   nSigFigs: number;
+  rowHeightPx: number;
 }
 
 const depthPercentOf = (total: number, maxTotal: number): number =>
@@ -60,6 +66,7 @@ const OrderRow = memo(
     onHover,
     onActivate,
     nSigFigs,
+    rowHeightPx,
   }: OrderRowProps) => {
     // formatLevel uses module-level cache — stable output for same price+nSigFigs
     const formatted = useMemo(
@@ -67,7 +74,10 @@ const OrderRow = memo(
       [price, size, total, nSigFigs],
     );
 
-    const depthStyle = useMemo(() => getDepthStyle(depthPercent, side), [depthPercent, side]);
+    const depthStyle = useMemo(
+      () => withDepthTransition(getDepthStyle(depthPercent, side)),
+      [depthPercent, side],
+    );
 
     // Stable event handlers — created once, never recreated per row
     const handleMouseEnter = useCallback(
@@ -107,6 +117,7 @@ const OrderRow = memo(
         data-total={total}
         data-side={side}
         data-index={index}
+        style={{ height: rowHeightPx }}
         onMouseEnter={price > 0 ? handleMouseEnter : undefined}
         onMouseLeave={price > 0 ? handleMouseLeave : undefined}
         onFocus={price > 0 ? handleMouseEnter : undefined}
@@ -147,6 +158,7 @@ const OrderRow = memo(
     prev.isPinned === next.isPinned &&
     prev.isInRange === next.isInRange &&
     prev.nSigFigs === next.nSigFigs &&
+    prev.rowHeightPx === next.rowHeightPx &&
     prev.onHover === next.onHover &&
     prev.onActivate === next.onActivate,
 );
@@ -158,6 +170,17 @@ function OrderbookSpreadRow({ children }: { children: ReactNode }) {
   return (
     <div className={`${ROW_HEIGHT_CLASS} flex items-center justify-center gap-inline shrink-0`}>
       {children}
+    </div>
+  );
+}
+
+function EmptySideRow({ text, heightPx }: { text: string; heightPx: number }) {
+  return (
+    <div
+      className={`${ROW_HEIGHT_CLASS} flex items-center justify-center px-2 type-data text-muted-foreground shrink-0`}
+      style={{ height: heightPx }}
+    >
+      {text}
     </div>
   );
 }
@@ -178,11 +201,15 @@ export const OrderbookColumnHeader = memo(function OrderbookColumnHeader({
   );
 });
 
-function OrderbookPlaceholderRows({ count }: { count: number }) {
+function OrderbookPlaceholderRows({ count, heightPx }: { count: number; heightPx: number }) {
   return (
     <div className="flex-none overflow-hidden flex flex-col" aria-hidden="true">
       {Array.from({ length: count }, (_, index) => (
-        <div key={index} className={`${ROW_HEIGHT_CLASS} flex items-center gap-inline shrink-0`}>
+        <div
+          key={index}
+          className={`${ROW_HEIGHT_CLASS} flex items-center gap-inline shrink-0`}
+          style={{ height: heightPx }}
+        >
           <Skeleton className="h-2.5 flex-1" />
           <Skeleton className="h-2.5 flex-1" />
           <Skeleton className="h-2.5 flex-1" />
@@ -194,7 +221,7 @@ function OrderbookPlaceholderRows({ count }: { count: number }) {
 
 /** Reserves the loaded book's box: toolbar + column header + both depth halves + spread. */
 export function OrderbookPlaceholder({ pairFocus }: { pairFocus: string }) {
-  const { bodyRef, rowsPerHalf } = useOrderbookRows();
+  const { bodyRef, rowsPerHalf, rowHeightPx } = useOrderbookRows();
   const visibleRows = rowsPerHalf;
 
   return (
@@ -202,7 +229,7 @@ export function OrderbookPlaceholder({ pairFocus }: { pairFocus: string }) {
       as="output"
       tier="content"
       radius="panel"
-      className="relative isolate h-full flex flex-col p-panel gap-stack"
+      className={`${HANDOFF_FADE_CLASS} relative isolate h-full flex flex-col p-panel gap-inline`}
       aria-live="polite"
       aria-busy="true"
       aria-label="Loading order book"
@@ -211,21 +238,23 @@ export function OrderbookPlaceholder({ pairFocus }: { pairFocus: string }) {
         <Skeleton className="h-7 w-[4.5rem]" />
         <Skeleton className="h-7 w-20" />
       </div>
-      <div aria-hidden="true">
-        <OrderbookColumnHeader pairFocus={pairFocus} />
-      </div>
-      <div
-        ref={bodyRef}
-        className="flex flex-col flex-1 min-h-0 overflow-hidden justify-center"
-        aria-hidden="true"
-      >
-        <OrderbookPlaceholderRows count={visibleRows} />
-        <OrderbookSpreadRow>
-          <span className="type-data font-medium text-muted-foreground">Spread</span>
-          <Skeleton className="h-3 w-12" />
-          <Skeleton className="h-3 w-10" />
-        </OrderbookSpreadRow>
-        <OrderbookPlaceholderRows count={visibleRows} />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div aria-hidden="true">
+          <OrderbookColumnHeader pairFocus={pairFocus} />
+        </div>
+        <div
+          ref={bodyRef}
+          className="flex flex-col flex-1 min-h-0 overflow-hidden"
+          aria-hidden="true"
+        >
+          <OrderbookPlaceholderRows count={visibleRows} heightPx={rowHeightPx} />
+          <OrderbookSpreadRow>
+            <span className="type-data font-medium text-muted-foreground">Spread</span>
+            <Skeleton className="h-3 w-12" />
+            <Skeleton className="h-3 w-10" />
+          </OrderbookSpreadRow>
+          <OrderbookPlaceholderRows count={visibleRows} heightPx={rowHeightPx} />
+        </div>
       </div>
     </Surface>
   );
@@ -323,13 +352,20 @@ export function OrderbookDepth({
     return index <= hoveredIndex.index;
   };
 
+  const askNotice = emptySideNotice("ask", visibleAsks.length);
+  const bidNotice = emptySideNotice("bid", visibleBids.length);
+
   return (
     <>
-      <div ref={bodyRef} className="flex flex-col flex-1 min-h-0 overflow-hidden justify-center">
+      <div
+        ref={bodyRef}
+        className={`${HANDOFF_FADE_CLASS} flex flex-col flex-1 min-h-0 overflow-hidden`}
+      >
         <div
           className="flex-none overflow-hidden flex flex-col-reverse"
           style={{ maxHeight: halfMaxHeightPx > 0 ? halfMaxHeightPx : undefined }}
         >
+          {askNotice !== null && <EmptySideRow text={askNotice} heightPx={rowHeightPx} />}
           {visibleAsks.map((level, index) => (
             <OrderRow
               key={priceKey("ask", level.price)}
@@ -345,16 +381,17 @@ export function OrderbookDepth({
               onHover={onHover}
               onActivate={onActivate}
               nSigFigs={displayNSigFigs}
+              rowHeightPx={rowHeightPx}
             />
           ))}
         </div>
 
         <OrderbookSpreadRow>
-          <span className="px-2 type-data font-medium text-muted-foreground">Spread</span>
-          <span className="px-2 type-data tabular-nums text-muted-foreground">
+          <span className="type-data font-medium text-muted-foreground">Spread</span>
+          <span className="type-data tabular-nums text-muted-foreground">
             {formatPriceWithNSigFigs(spread, displayNSigFigs)}
           </span>
-          <span className="px-2 type-data tabular-nums text-muted-foreground">
+          <span className="type-data tabular-nums text-muted-foreground">
             {formatSignedPercent(spreadPercent)}
           </span>
         </OrderbookSpreadRow>
@@ -363,6 +400,7 @@ export function OrderbookDepth({
           className="flex-none overflow-hidden flex flex-col relative"
           style={{ maxHeight: halfMaxHeightPx > 0 ? halfMaxHeightPx : undefined }}
         >
+          {bidNotice !== null && <EmptySideRow text={bidNotice} heightPx={rowHeightPx} />}
           {visibleBids.map((level, index) => (
             <OrderRow
               key={priceKey("bid", level.price)}
@@ -378,6 +416,7 @@ export function OrderbookDepth({
               onHover={onHover}
               onActivate={onActivate}
               nSigFigs={displayNSigFigs}
+              rowHeightPx={rowHeightPx}
             />
           ))}
         </div>

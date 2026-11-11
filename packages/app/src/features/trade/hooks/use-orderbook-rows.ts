@@ -1,15 +1,13 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { MAX_BOOK_DEPTH } from "@/core/utils/hyperliquid";
 import { remToPx, subscribeRootFontSize } from "@/core/utils/rem";
 import { observeResize } from "@/lib/resize-observer";
-import { DEFAULT_ROW_HEIGHT_REM, levelsPerHalf, VISIBLE_ROWS } from "../utils/orderbook-utils";
-
-// Measure the real row height; fall back to the token when the row is absent.
-function readRowHeightPx(body: HTMLElement): number {
-  const row = body.querySelector<HTMLElement>("[data-orderbook-row]");
-  const measured = row?.getBoundingClientRect().height ?? 0;
-  return measured > 0 ? measured : remToPx(DEFAULT_ROW_HEIGHT_REM);
-}
+import {
+  clampRowHeight,
+  MAX_ROW_HEIGHT_REM,
+  MIN_ROW_HEIGHT_REM,
+  rowsPerHalfFor,
+  VISIBLE_ROWS,
+} from "../utils/orderbook-utils";
 
 export function useOrderbookRows(): {
   bodyRef: React.RefObject<HTMLDivElement | null>;
@@ -17,22 +15,23 @@ export function useOrderbookRows(): {
   rowHeightPx: number;
 } {
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const [rowsPerHalf, setRowsPerHalf] = useState<number>(() =>
-    Math.min(VISIBLE_ROWS, MAX_BOOK_DEPTH),
-  );
-  const [rowHeightPx, setRowHeightPx] = useState<number>(() => remToPx(DEFAULT_ROW_HEIGHT_REM));
+  const [rowsPerHalf, setRowsPerHalf] = useState<number>(() => VISIBLE_ROWS);
+  const [rowHeightPx, setRowHeightPx] = useState<number>(() => remToPx(MIN_ROW_HEIGHT_REM));
 
   useLayoutEffect(() => {
     const element = bodyRef.current;
     if (!element) return () => {};
 
     const apply = () => {
+      // The measured body sits below the column header and holds the spread strip
+      // plus both halves, so the only chrome to subtract is the spread at its floor.
       const heightPx = element.getBoundingClientRect().height;
-      const nextRowHeightPx = readRowHeightPx(element);
-      // Fit as many rows as the container allows, never past the protocol cap.
-      const next = Math.min(levelsPerHalf(heightPx, nextRowHeightPx), MAX_BOOK_DEPTH);
+      const minRowPx = remToPx(MIN_ROW_HEIGHT_REM);
+      const maxRowPx = remToPx(MAX_ROW_HEIGHT_REM);
+      const nextRows = rowsPerHalfFor(heightPx, minRowPx);
+      const nextRowHeightPx = clampRowHeight(heightPx - minRowPx, nextRows, minRowPx, maxRowPx);
       setRowHeightPx((prev) => (prev === nextRowHeightPx ? prev : nextRowHeightPx));
-      setRowsPerHalf((prev) => (prev === next ? prev : next));
+      setRowsPerHalf((prev) => (prev === nextRows ? prev : nextRows));
     };
 
     apply();

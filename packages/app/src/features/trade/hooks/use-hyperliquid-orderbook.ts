@@ -1,9 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
-import { useHyperliquidWs } from "./use-hyperliquid-ws";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { InfoClient, Transport } from "@0xsignal/sdk-hyperliquid";
+import { bookWriteMeta, useHyperliquidWs } from "./use-hyperliquid-ws";
 import { normalizeSymbol } from "../lib/symbol";
-import { useOrderbookData } from "@/stores/use-market-data-store";
+import { useMarketDataStore, useOrderbookData } from "@/stores/use-market-data-store";
 import { orderbookStoreKey } from "../lib/orderbook-book";
 import { selectOrderbookError } from "../lib/orderbook-error";
+import { isL2BookSnapshotPayload } from "../utils/market-stream-decoder";
 import {
   DEFAULT_SIG_FIGS,
   MAX_SIG_FIGS,
@@ -33,7 +36,6 @@ export function generateTickSizeOptions(price: number): TickSizeOption[] {
           : step.toFixed(Math.max(0, -Math.floor(Math.log10(step))));
     opts.push({ value: sig, label, nSigFigs: sig, mantissa: null });
   }
-  // "Raw" option — no aggregation, full precision
   opts.push({ value: 0, label: "Raw", nSigFigs: null, mantissa: null });
   return opts;
 }
@@ -42,8 +44,26 @@ interface UseHyperliquidOrderbookOptions {
   controlledNSigFigs?: number | null;
 }
 
+const HL_INFO_URL = "https://api.hyperliquid.xyz";
+
+let orderbookClient: InfoClient | null = null;
+
+const getOrderbookClient = (): InfoClient => {
+  orderbookClient ??= new InfoClient(
+    new Transport({ baseUrl: HL_INFO_URL, timeoutMs: 10_000, retries: 0 }),
+  );
+  return orderbookClient;
+};
+
 const toSubscriptionSigFigs = (value: number | null): Precision | undefined =>
   isSigFigs(value) ? value : undefined;
+
+export function orderbookSeedQueryKey(
+  coin: string,
+  nSigFigs: number | null,
+): readonly ["market", "orderbook", "seed", string] {
+  return ["market", "orderbook", "seed", orderbookStoreKey(coin, nSigFigs)];
+}
 
 export function useHyperliquidOrderbook(
   symbol: string,
@@ -51,8 +71,9 @@ export function useHyperliquidOrderbook(
   options: UseHyperliquidOrderbookOptions = {},
 ) {
   const [rawError, setRawError] = useState<string | null>(null);
-  // Bumping this token rebuilds the subscription, which is the hook's retry path.
   const [retryToken, setRetryToken] = useState(0);
+  const [wsBookKey, setWsBookKey] = useState<string | null>(null);
+  const wsReceivedKey = useRef<string | null>(null);
 
   const controlledNSigFigs = options.controlledNSigFigs;
   const activeSigFigs = controlledNSigFigs === undefined ? DEFAULT_SIG_FIGS : controlledNSigFigs;
@@ -61,9 +82,36 @@ export function useHyperliquidOrderbook(
   const subscriptionSigFigs = toSubscriptionSigFigs(activeSigFigs);
   const orderbookKey = orderbookStoreKey(coin, subscriptionSigFigs ?? null);
 
-  // The first l2Book frame is a full snapshot, so there is no REST seed. Until
-  // it lands `orderbook` is undefined and the widget renders its loading state.
   const orderbook = useOrderbookData(orderbookKey);
+  const applySnapshot = useMarketDataStore((s) => s.applyOrderbookSnapshot);
+  const hasWsBook = wsBookKey === orderbookKey;
+
+  const { data: restSnapshot } = useQuery({
+    queryKey: orderbookSeedQueryKey(coin, subscriptionSigFigs ?? null),
+    queryFn: () =>
+      getOrderbookClient().l2Book({
+        coin,
+        ...(subscriptionSigFigs !== undefined && { nSigFigs: subscriptionSigFigs }),
+      }),
+    enabled: enabled && coin !== "" && !hasWsBook,
+    staleTime: Infinity,
+    gcTime: 5 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (restSnapshot === undefined || wsReceivedKey.current === orderbookKey) return;
+    applySnapshot(orderbookKey, [[...restSnapshot.levels[0]], [...restSnapshot.levels[1]]]);
+  }, [restSnapshot, applySnapshot, orderbookKey]);
+
+  const handleBookMessage = useCallback(
+    (data: unknown, channel: string) => {
+      if (channel !== "l2Book" || !isL2BookSnapshotPayload(data)) return;
+      wsReceivedKey.current = orderbookKey;
+      setWsBookKey(orderbookKey);
+      applySnapshot(orderbookKey, [[...data.levels[0]], [...data.levels[1]]], bookWriteMeta(data));
+    },
+    [applySnapshot, orderbookKey],
+  );
 
   const subscription = useMemo(
     () =>
@@ -72,7 +120,6 @@ export function useHyperliquidOrderbook(
             channel: "l2Book" as const,
             symbol: coin,
             nSigFigs: subscriptionSigFigs,
-            // Part of the identity on purpose: bumping retryToken re-subscribes the stream.
             retryToken,
           }
         : null,
@@ -82,13 +129,12 @@ export function useHyperliquidOrderbook(
   const ws = useHyperliquidWs({
     subscription,
     enabled: enabled && symbol !== "",
+    onMessage: handleBookMessage,
     onError: (e) => {
       setRawError(e.message);
     },
   });
 
-  // Derived during render: a healthy socket resolves the transient failure in
-  // the same render, so the error never flashes a frame after a reconnect.
   const error = selectOrderbookError(rawError, ws.isConnected);
 
   const retry = useCallback(() => {

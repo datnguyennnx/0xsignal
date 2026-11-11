@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { levelsPerHalf } from "./orderbook-utils";
+import { clampRowHeight, levelsPerHalf, makeFormatKey, rowsPerHalfFor } from "./orderbook-utils";
 
 describe("levelsPerHalf", () => {
   const cases: Array<[bodyHeightPx: number, rowHeightPx: number, expected: number, note: string]> =
@@ -42,4 +42,80 @@ describe("levelsPerHalf", () => {
       }
     });
   }
+});
+
+describe("rowsPerHalfFor", () => {
+  test("sizes by the dense floor, so a tall panel keeps the protocol cap", () => {
+    // 1148 = 20 rows * 2 * 28px + the 28px spread: exactly the cap at the floor.
+    expect(rowsPerHalfFor(1148, 28)).toBe(20);
+    expect(rowsPerHalfFor(2000, 28)).toBe(20);
+  });
+
+  test("never yields fewer rows as the panel grows", () => {
+    for (let bodyHeightPx = 1; bodyHeightPx <= 2000; bodyHeightPx += 1) {
+      expect(rowsPerHalfFor(bodyHeightPx + 500, 28)).toBeGreaterThanOrEqual(
+        rowsPerHalfFor(bodyHeightPx, 28),
+      );
+    }
+  });
+
+  test("holds at zero until one floor row per side plus the spread fits", () => {
+    expect(rowsPerHalfFor(83, 28)).toBe(0);
+    expect(rowsPerHalfFor(84, 28)).toBe(1);
+  });
+});
+
+describe("clampRowHeight", () => {
+  const MIN = 28;
+  const MAX = 40;
+
+  test("short panel pins to the dense floor", () => {
+    expect(clampRowHeight(200, 4, MIN, MAX)).toBe(MIN);
+  });
+
+  test("middle panel returns the exact quotient", () => {
+    expect(clampRowHeight(300, 4, MIN, MAX)).toBe(37.5);
+  });
+
+  test("tall panel pins to the readability ceiling", () => {
+    expect(clampRowHeight(2000, 20, MIN, MAX)).toBe(MAX);
+  });
+
+  test("zero or negative available height collapses to the floor", () => {
+    expect(clampRowHeight(0, 5, MIN, MAX)).toBe(MIN);
+    expect(clampRowHeight(-40, 5, MIN, MAX)).toBe(MIN);
+  });
+
+  test("no rows to stretch means no stretch", () => {
+    expect(clampRowHeight(400, 0, MIN, MAX)).toBe(MIN);
+  });
+
+  test("strictly positive but sub-floor quotient clamps up", () => {
+    expect(clampRowHeight(100, 8, MIN, MAX)).toBe(MIN);
+  });
+
+  test("non-integer quotient is preserved", () => {
+    expect(clampRowHeight(273, 4, MIN, MAX)).toBeCloseTo(34.125, 10);
+  });
+});
+
+describe("makeFormatKey", () => {
+  test("distinct for prices that collide under toFixed(8)", () => {
+    expect(makeFormatKey(0.000000001, 5)).not.toBe(makeFormatKey(0.000000002, 5));
+  });
+
+  test("identical for the same price and nSigFigs", () => {
+    expect(makeFormatKey(74049, 5)).toBe(makeFormatKey(74049, 5));
+  });
+
+  test("differs when nSigFigs differs", () => {
+    expect(makeFormatKey(74049, 5)).not.toBe(makeFormatKey(74049, 4));
+  });
+
+  test("twenty levels spaced by 1e-9 produce twenty distinct keys", () => {
+    const base = 74049;
+    const keys = Array.from({ length: 20 }, (_, index) => makeFormatKey(base + index * 1e-9, 5));
+
+    expect(new Set(keys).size).toBe(20);
+  });
 });

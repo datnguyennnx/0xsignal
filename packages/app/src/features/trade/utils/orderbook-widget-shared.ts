@@ -10,6 +10,15 @@ export interface PriceScalingState {
   value: number;
 }
 
+interface BookSides {
+  readonly bids: readonly unknown[];
+  readonly asks: readonly unknown[];
+}
+
+export function hasRenderableBook(book: BookSides | undefined): boolean {
+  return book !== undefined && (book.bids.length > 0 || book.asks.length > 0);
+}
+
 export function shouldApplyInitialPrecisionSync({
   symbol,
   userPriceScaling,

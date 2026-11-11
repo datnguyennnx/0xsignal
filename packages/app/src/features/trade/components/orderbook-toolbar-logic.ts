@@ -7,6 +7,7 @@ export interface OrderbookToolbarProps {
   currentNSigFigs: number | null;
   onNSigFigsChange: (nSigFigs: number) => void;
   scalingOptions: TickSizeOption[];
+  showPrecision?: boolean;
 }
 
 export function areOrderbookToolbarPropsEqual(
@@ -19,6 +20,7 @@ export function areOrderbookToolbarPropsEqual(
     prev.onPairFocusChange === next.onPairFocusChange &&
     prev.currentNSigFigs === next.currentNSigFigs &&
     prev.onNSigFigsChange === next.onNSigFigsChange &&
-    prev.scalingOptions === next.scalingOptions
+    prev.scalingOptions === next.scalingOptions &&
+    prev.showPrecision === next.showPrecision
   );
 }

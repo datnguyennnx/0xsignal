@@ -1,11 +1,16 @@
-import { type DisplayOrderbookLevel as OrderbookLevel } from "@/core/utils/hyperliquid";
+import {
+  type DisplayOrderbookLevel as OrderbookLevel,
+  MAX_BOOK_DEPTH,
+} from "@/core/utils/hyperliquid";
 import { formatPriceWithNSigFigs, formatSize } from "@/core/utils/formatters";
 
 /** Single source for the depth row box: rows, column header, spread strip and skeleton all use it. */
 export const ROW_HEIGHT_CLASS = "h-(--row-dense)";
 export const VISIBLE_ROWS = 20;
-/** Row height in rem; must stay in sync with ROW_HEIGHT_CLASS (--row-dense = 1.75rem). */
-export const DEFAULT_ROW_HEIGHT_REM = 1.75;
+/** Dense rhythm floor, in rem; stays in sync with ROW_HEIGHT_CLASS (--row-dense = 1.75rem). */
+export const MIN_ROW_HEIGHT_REM = 1.75;
+/** Readability ceiling for a stretched row, in rem. */
+export const MAX_ROW_HEIGHT_REM = 2.5;
 
 export interface PopupData {
   price: number;
@@ -25,8 +30,7 @@ interface FormattedLevel extends OrderbookLevel {
 // Module-level cache: avoid per-row allocation per tick, keyed by price+nSigFigs.
 const formatCache = new Map<string, FormattedLevel>();
 
-const makeFormatKey = (price: number, nSigFigs: number): string =>
-  `${price.toFixed(8)}-${nSigFigs}`;
+export const makeFormatKey = (price: number, nSigFigs: number): string => `${price}-${nSigFigs}`;
 
 export function formatLevel(
   price: number,
@@ -77,4 +81,38 @@ export function levelsPerHalf(bodyHeightPx: number, rowHeightPx: number): number
     return 0;
   }
   return Math.floor((bodyHeightPx - rowHeightPx) / (2 * rowHeightPx));
+}
+
+/**
+ * Level count per half, sized by the dense floor so a tall panel keeps the deepest
+ * book the protocol serves instead of trading levels for taller rows.
+ */
+export function rowsPerHalfFor(bodyHeightPx: number, minRowHeightPx: number): number {
+  return Math.min(levelsPerHalf(bodyHeightPx, minRowHeightPx), MAX_BOOK_DEPTH);
+}
+
+/**
+ * Height for one row once the halves split `availablePx`: the exact quotient in the
+ * middle, pinned to the dense floor on a short panel and the readability ceiling on
+ * a tall one. `availablePx` is the body minus the spread strip.
+ */
+export function clampRowHeight(
+  availablePx: number,
+  rowsPerHalf: number,
+  minPx: number,
+  maxPx: number,
+): number {
+  if (
+    !Number.isFinite(availablePx) ||
+    !Number.isFinite(rowsPerHalf) ||
+    !Number.isFinite(minPx) ||
+    !Number.isFinite(maxPx) ||
+    availablePx <= 0 ||
+    rowsPerHalf <= 0
+  ) {
+    return minPx;
+  }
+  const quotient = availablePx / (2 * rowsPerHalf);
+  const ceiling = Math.max(minPx, maxPx);
+  return Math.min(Math.max(quotient, minPx), ceiling);
 }

@@ -15,6 +15,7 @@ export const OrderbookToolbar = memo(
     currentNSigFigs,
     onNSigFigsChange,
     scalingOptions,
+    showPrecision = true,
   }: OrderbookToolbarProps) => {
     const parsed = parseSymbol(symbol);
     const base = parsed.coin.toUpperCase();
@@ -41,20 +42,22 @@ export const OrderbookToolbar = memo(
             </NativeSelectOption>
           ))}
         </NativeSelect>
-        <NativeSelect
-          aria-label="Price precision"
-          value={String(currentNSigFigs ?? 0)}
-          onChange={(e) => {
-            onNSigFigsChange(Number(e.target.value));
-          }}
-          wrapperClassName="min-w-fit"
-        >
-          {scalingOptions.map((opt) => (
-            <NativeSelectOption key={opt.value} value={opt.value.toString()}>
-              {opt.label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+        {showPrecision && (
+          <NativeSelect
+            aria-label="Price precision"
+            value={String(currentNSigFigs ?? 0)}
+            onChange={(e) => {
+              onNSigFigsChange(Number(e.target.value));
+            }}
+            wrapperClassName="min-w-fit"
+          >
+            {scalingOptions.map((opt) => (
+              <NativeSelectOption key={opt.value} value={opt.value.toString()}>
+                {opt.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        )}
       </div>
     );
   },

@@ -57,4 +57,13 @@ describe("areOrderbookToolbarPropsEqual", () => {
   test("re-renders when the selected precision changes", () => {
     expect(areOrderbookToolbarPropsEqual(props(), props({ currentNSigFigs: 3 }))).toBe(false);
   });
+
+  test("re-renders when the precision select visibility changes", () => {
+    expect(
+      areOrderbookToolbarPropsEqual(
+        props({ showPrecision: true }),
+        props({ showPrecision: false }),
+      ),
+    ).toBe(false);
+  });
 });
