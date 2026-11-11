@@ -1,0 +1,570 @@
+{
+  "source": "hyperliquid-dex/python-sdk (MIT)",
+  "version": "hyperliquid-python-sdk==0.24.0",
+  "vectors": [
+    {
+      "name": "order no vault no expiry",
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 4,
+            "b": true,
+            "p": "1100",
+            "s": "0.1",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "actionHex": "0x83a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "packedHex": "0x83a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": null,
+      "digest": "0xf5ece5ffa2036f5fea764ee2be01d407fd671f50d7f17adc5a0e93be78c308b9"
+    },
+    {
+      "name": "order no vault expiry",
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 4,
+            "b": true,
+            "p": "1100",
+            "s": "0.1",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "actionHex": "0x83a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "packedHex": "0x83a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": "1700000300000",
+      "digest": "0x3580623cb9d8d350d24ce606f60875e3d84141e0a22e75a486ab3e2678f04ee5"
+    },
+    {
+      "name": "order vault no expiry",
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 4,
+            "b": true,
+            "p": "1100",
+            "s": "0.1",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "actionHex": "0x83a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "packedHex": "0x83a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": null,
+      "digest": "0x2fb2b85865d5bacd7a212386504bd986f0248a8458d771adbb61c06956dba174"
+    },
+    {
+      "name": "order vault expiry",
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 4,
+            "b": true,
+            "p": "1100",
+            "s": "0.1",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na"
+      },
+      "actionHex": "0x83a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "packedHex": "0x83a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": "1700000300000",
+      "digest": "0xc505a83364a16c36a84d5dfd2759d8f4940d2f2fca40b0c0be9c36459d3056e8"
+    },
+    {
+      "name": "order with builder no vault no expiry",
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 4,
+            "b": true,
+            "p": "1100",
+            "s": "0.1",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na",
+        "builder": {
+          "b": "0x2222222222222222222222222222222222222222",
+          "f": 10
+        }
+      },
+      "actionHex": "0x84a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61a76275696c64657282a162d92a307832323232323232323232323232323232323232323232323232323232323232323232323232323232a1660a",
+      "packedHex": "0x84a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61a76275696c64657282a162d92a307832323232323232323232323232323232323232323232323232323232323232323232323232323232a1660a",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": null,
+      "digest": "0x3bd17fa1df4a52437c893e94aca60ef8ca776508fbca418396c49c9f3ed1da5a"
+    },
+    {
+      "name": "order with builder no vault expiry",
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 4,
+            "b": true,
+            "p": "1100",
+            "s": "0.1",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na",
+        "builder": {
+          "b": "0x2222222222222222222222222222222222222222",
+          "f": 10
+        }
+      },
+      "actionHex": "0x84a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61a76275696c64657282a162d92a307832323232323232323232323232323232323232323232323232323232323232323232323232323232a1660a",
+      "packedHex": "0x84a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61a76275696c64657282a162d92a307832323232323232323232323232323232323232323232323232323232323232323232323232323232a1660a",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": "1700000300000",
+      "digest": "0xb0ea167db38698b3f7fbf0474c1b174a27ca5e32ad57caf5e5f10987965b6f40"
+    },
+    {
+      "name": "order with builder vault no expiry",
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 4,
+            "b": true,
+            "p": "1100",
+            "s": "0.1",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na",
+        "builder": {
+          "b": "0x2222222222222222222222222222222222222222",
+          "f": 10
+        }
+      },
+      "actionHex": "0x84a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61a76275696c64657282a162d92a307832323232323232323232323232323232323232323232323232323232323232323232323232323232a1660a",
+      "packedHex": "0x84a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61a76275696c64657282a162d92a307832323232323232323232323232323232323232323232323232323232323232323232323232323232a1660a",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": null,
+      "digest": "0xae64c92b964b62738520e3c32af50c302fa8cfe8ab34ac7eb8e0068745aed98d"
+    },
+    {
+      "name": "order with builder vault expiry",
+      "action": {
+        "type": "order",
+        "orders": [
+          {
+            "a": 4,
+            "b": true,
+            "p": "1100",
+            "s": "0.1",
+            "r": false,
+            "t": {
+              "limit": {
+                "tif": "Gtc"
+              }
+            }
+          }
+        ],
+        "grouping": "na",
+        "builder": {
+          "b": "0x2222222222222222222222222222222222222222",
+          "f": 10
+        }
+      },
+      "actionHex": "0x84a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61a76275696c64657282a162d92a307832323232323232323232323232323232323232323232323232323232323232323232323232323232a1660a",
+      "packedHex": "0x84a474797065a56f72646572a66f72646572739186a16104a162c3a170a431313030a173a3302e31a172c2a17481a56c696d697481a3746966a3477463a867726f7570696e67a26e61a76275696c64657282a162d92a307832323232323232323232323232323232323232323232323232323232323232323232323232323232a1660a",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": "1700000300000",
+      "digest": "0x25bf9d1d90f7456dbf2c572568f39bd7aaed008a78c57ec48acfa058359b7e6e"
+    },
+    {
+      "name": "cancel no vault no expiry",
+      "action": {
+        "type": "cancel",
+        "cancels": [
+          {
+            "a": 0,
+            "o": 123
+          }
+        ]
+      },
+      "actionHex": "0x82a474797065a663616e63656ca763616e63656c739182a16100a16f7b",
+      "packedHex": "0x82a474797065a663616e63656ca763616e63656c739182a16100a16f7b",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": null,
+      "digest": "0xf90176e0e223f98d123c7d06bfbbd3ead7a3f3e6b5c429af4136e71daba3cb3e"
+    },
+    {
+      "name": "cancel no vault expiry",
+      "action": {
+        "type": "cancel",
+        "cancels": [
+          {
+            "a": 0,
+            "o": 123
+          }
+        ]
+      },
+      "actionHex": "0x82a474797065a663616e63656ca763616e63656c739182a16100a16f7b",
+      "packedHex": "0x82a474797065a663616e63656ca763616e63656c739182a16100a16f7b",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": "1700000300000",
+      "digest": "0xaa624bede6de555c2318fa14817b9ddf8e7b9ce4369c659b7f30d4c1a944ea39"
+    },
+    {
+      "name": "cancel vault no expiry",
+      "action": {
+        "type": "cancel",
+        "cancels": [
+          {
+            "a": 0,
+            "o": 123
+          }
+        ]
+      },
+      "actionHex": "0x82a474797065a663616e63656ca763616e63656c739182a16100a16f7b",
+      "packedHex": "0x82a474797065a663616e63656ca763616e63656c739182a16100a16f7b",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": null,
+      "digest": "0x76b7e23cc76f17df5964a01e516311e1165aea907d0f35562f3e8a03cdc74b00"
+    },
+    {
+      "name": "cancel vault expiry",
+      "action": {
+        "type": "cancel",
+        "cancels": [
+          {
+            "a": 0,
+            "o": 123
+          }
+        ]
+      },
+      "actionHex": "0x82a474797065a663616e63656ca763616e63656c739182a16100a16f7b",
+      "packedHex": "0x82a474797065a663616e63656ca763616e63656c739182a16100a16f7b",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": "1700000300000",
+      "digest": "0x750b9149f52bc920338660ba871be940ecd0b574355ee378ff90390bc1b84e90"
+    },
+    {
+      "name": "cancelByCloid no vault no expiry",
+      "action": {
+        "type": "cancelByCloid",
+        "cancels": [
+          {
+            "asset": 0,
+            "cloid": "0x0102030405060708090a0b0c0d0e0f10"
+          }
+        ]
+      },
+      "actionHex": "0x82a474797065ad63616e63656c4279436c6f6964a763616e63656c739182a5617373657400a5636c6f6964d92230783031303230333034303530363037303830393061306230633064306530663130",
+      "packedHex": "0x82a474797065ad63616e63656c4279436c6f6964a763616e63656c739182a5617373657400a5636c6f6964d92230783031303230333034303530363037303830393061306230633064306530663130",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": null,
+      "digest": "0xcc64f117cbab5846d0e33a900e2bb30b6a0a94bf684417234acfda90e794f289"
+    },
+    {
+      "name": "cancelByCloid no vault expiry",
+      "action": {
+        "type": "cancelByCloid",
+        "cancels": [
+          {
+            "asset": 0,
+            "cloid": "0x0102030405060708090a0b0c0d0e0f10"
+          }
+        ]
+      },
+      "actionHex": "0x82a474797065ad63616e63656c4279436c6f6964a763616e63656c739182a5617373657400a5636c6f6964d92230783031303230333034303530363037303830393061306230633064306530663130",
+      "packedHex": "0x82a474797065ad63616e63656c4279436c6f6964a763616e63656c739182a5617373657400a5636c6f6964d92230783031303230333034303530363037303830393061306230633064306530663130",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": "1700000300000",
+      "digest": "0xa1845410c763bd9df2eeada9f3815498b1c18c35c6378a8ea0c1ba437e4a9e21"
+    },
+    {
+      "name": "cancelByCloid vault no expiry",
+      "action": {
+        "type": "cancelByCloid",
+        "cancels": [
+          {
+            "asset": 0,
+            "cloid": "0x0102030405060708090a0b0c0d0e0f10"
+          }
+        ]
+      },
+      "actionHex": "0x82a474797065ad63616e63656c4279436c6f6964a763616e63656c739182a5617373657400a5636c6f6964d92230783031303230333034303530363037303830393061306230633064306530663130",
+      "packedHex": "0x82a474797065ad63616e63656c4279436c6f6964a763616e63656c739182a5617373657400a5636c6f6964d92230783031303230333034303530363037303830393061306230633064306530663130",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": null,
+      "digest": "0x5b2bd7750b3bc52aa8564a5c58c020118f8f9feff1c27d1f9fbe4219104a1549"
+    },
+    {
+      "name": "cancelByCloid vault expiry",
+      "action": {
+        "type": "cancelByCloid",
+        "cancels": [
+          {
+            "asset": 0,
+            "cloid": "0x0102030405060708090a0b0c0d0e0f10"
+          }
+        ]
+      },
+      "actionHex": "0x82a474797065ad63616e63656c4279436c6f6964a763616e63656c739182a5617373657400a5636c6f6964d92230783031303230333034303530363037303830393061306230633064306530663130",
+      "packedHex": "0x82a474797065ad63616e63656c4279436c6f6964a763616e63656c739182a5617373657400a5636c6f6964d92230783031303230333034303530363037303830393061306230633064306530663130",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": "1700000300000",
+      "digest": "0xd4b00dc9cef6675e49238176ccda572c9eafa8901a50e607f6ce803de91eb17c"
+    },
+    {
+      "name": "updateLeverage no vault no expiry",
+      "action": {
+        "type": "updateLeverage",
+        "asset": 0,
+        "isCross": true,
+        "leverage": 10
+      },
+      "actionHex": "0x84a474797065ae7570646174654c65766572616765a5617373657400a7697343726f7373c3a86c657665726167650a",
+      "packedHex": "0x84a474797065ae7570646174654c65766572616765a5617373657400a7697343726f7373c3a86c657665726167650a",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": null,
+      "digest": "0xe6ef425fe152bfa4961bd961d5eaec6f78faec0e337371b3d174159ecd4810f8"
+    },
+    {
+      "name": "updateLeverage no vault expiry",
+      "action": {
+        "type": "updateLeverage",
+        "asset": 0,
+        "isCross": true,
+        "leverage": 10
+      },
+      "actionHex": "0x84a474797065ae7570646174654c65766572616765a5617373657400a7697343726f7373c3a86c657665726167650a",
+      "packedHex": "0x84a474797065ae7570646174654c65766572616765a5617373657400a7697343726f7373c3a86c657665726167650a",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": "1700000300000",
+      "digest": "0xa3f520a63e9158c8239a2df122e6d5d997473dbc1b95e5fa2e4771cde26548d7"
+    },
+    {
+      "name": "updateLeverage vault no expiry",
+      "action": {
+        "type": "updateLeverage",
+        "asset": 0,
+        "isCross": true,
+        "leverage": 10
+      },
+      "actionHex": "0x84a474797065ae7570646174654c65766572616765a5617373657400a7697343726f7373c3a86c657665726167650a",
+      "packedHex": "0x84a474797065ae7570646174654c65766572616765a5617373657400a7697343726f7373c3a86c657665726167650a",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": null,
+      "digest": "0x954f6f02977eeb578aad74a3bef62a56b3bae09b5ed9291a1bb46f5430b01435"
+    },
+    {
+      "name": "updateLeverage vault expiry",
+      "action": {
+        "type": "updateLeverage",
+        "asset": 0,
+        "isCross": true,
+        "leverage": 10
+      },
+      "actionHex": "0x84a474797065ae7570646174654c65766572616765a5617373657400a7697343726f7373c3a86c657665726167650a",
+      "packedHex": "0x84a474797065ae7570646174654c65766572616765a5617373657400a7697343726f7373c3a86c657665726167650a",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": "1700000300000",
+      "digest": "0xb84528bd3f599e099df0c0670517414d652ffce11e836bb63c7cfb07a31d146a"
+    },
+    {
+      "name": "twapOrder no vault no expiry",
+      "action": {
+        "type": "twapOrder",
+        "twap": {
+          "a": 0,
+          "b": true,
+          "s": "0.01",
+          "r": false,
+          "m": 10,
+          "t": true
+        }
+      },
+      "actionHex": "0x82a474797065a9747761704f72646572a47477617086a16100a162c3a173a4302e3031a172c2a16d0aa174c3",
+      "packedHex": "0x82a474797065a9747761704f72646572a47477617086a16100a162c3a173a4302e3031a172c2a16d0aa174c3",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": null,
+      "digest": "0x231d3295080a5c5f160bf8e309ce766a8b00035361865374148d3ada6723eae7"
+    },
+    {
+      "name": "twapOrder no vault expiry",
+      "action": {
+        "type": "twapOrder",
+        "twap": {
+          "a": 0,
+          "b": true,
+          "s": "0.01",
+          "r": false,
+          "m": 10,
+          "t": true
+        }
+      },
+      "actionHex": "0x82a474797065a9747761704f72646572a47477617086a16100a162c3a173a4302e3031a172c2a16d0aa174c3",
+      "packedHex": "0x82a474797065a9747761704f72646572a47477617086a16100a162c3a173a4302e3031a172c2a16d0aa174c3",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": "1700000300000",
+      "digest": "0x4eb0188719af67649c7e6522fac4977a5fe2dc60864dd5adbb1b8a973ef0fb31"
+    },
+    {
+      "name": "twapOrder vault no expiry",
+      "action": {
+        "type": "twapOrder",
+        "twap": {
+          "a": 0,
+          "b": true,
+          "s": "0.01",
+          "r": false,
+          "m": 10,
+          "t": true
+        }
+      },
+      "actionHex": "0x82a474797065a9747761704f72646572a47477617086a16100a162c3a173a4302e3031a172c2a16d0aa174c3",
+      "packedHex": "0x82a474797065a9747761704f72646572a47477617086a16100a162c3a173a4302e3031a172c2a16d0aa174c3",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": null,
+      "digest": "0x813ae47684b4e020e97553834718358e2c08bc8eb83e33e5d6d2509159b07888"
+    },
+    {
+      "name": "twapOrder vault expiry",
+      "action": {
+        "type": "twapOrder",
+        "twap": {
+          "a": 0,
+          "b": true,
+          "s": "0.01",
+          "r": false,
+          "m": 10,
+          "t": true
+        }
+      },
+      "actionHex": "0x82a474797065a9747761704f72646572a47477617086a16100a162c3a173a4302e3031a172c2a16d0aa174c3",
+      "packedHex": "0x82a474797065a9747761704f72646572a47477617086a16100a162c3a173a4302e3031a172c2a16d0aa174c3",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": "1700000300000",
+      "digest": "0xc6775f8f9f4c2c344dbee7fde2663858ad90b435afeb08d61e18afe5b9498679"
+    },
+    {
+      "name": "noop no vault no expiry",
+      "action": {
+        "type": "noop"
+      },
+      "actionHex": "0x81a474797065a46e6f6f70",
+      "packedHex": "0x81a474797065a46e6f6f70",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": null,
+      "digest": "0x7ed74d02e0b55db498130e0462e3fa5856adf83d577a9157c8da3453fc03be6d"
+    },
+    {
+      "name": "noop no vault expiry",
+      "action": {
+        "type": "noop"
+      },
+      "actionHex": "0x81a474797065a46e6f6f70",
+      "packedHex": "0x81a474797065a46e6f6f70",
+      "nonce": "1700000000000",
+      "vault": null,
+      "expiresAfter": "1700000300000",
+      "digest": "0xbc71b901f745c933f2136b691c7d8d58cc7b43c8c5beaa8d1639eba0c135f2c9"
+    },
+    {
+      "name": "noop vault no expiry",
+      "action": {
+        "type": "noop"
+      },
+      "actionHex": "0x81a474797065a46e6f6f70",
+      "packedHex": "0x81a474797065a46e6f6f70",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": null,
+      "digest": "0xc4154706ffeab65a818b0fee914b8edc017065fc652195e31e069c03a441cabe"
+    },
+    {
+      "name": "noop vault expiry",
+      "action": {
+        "type": "noop"
+      },
+      "actionHex": "0x81a474797065a46e6f6f70",
+      "packedHex": "0x81a474797065a46e6f6f70",
+      "nonce": "1700000000000",
+      "vault": "0x3333333333333333333333333333333333333333",
+      "expiresAfter": "1700000300000",
+      "digest": "0xa581efec5ded6c16b15c66d36e1cc9d505a36093e8aa155e513e1ce16871b809"
+    }
+  ]
+}
