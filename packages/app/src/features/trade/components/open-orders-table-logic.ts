@@ -1,44 +1,19 @@
-import type { FrontendOpenOrder, OpenOrder } from "@0xsignal/shared";
+import type { OpenOrder } from "@0xsignal/shared";
 
 export interface OpenOrderRowProps {
   order: OpenOrder;
   readOnly: boolean;
   isCancelPending: boolean;
   onCancelOrder: (coin: string, oid: number) => void;
-  onViewTpSl: (order: FrontendOpenOrder) => void;
+  onViewTpSl: (order: OpenOrder) => void;
 }
 
-/** Child TP/SL orders only exist on the enriched own-account read. */
-export function isFrontendOpenOrder(order: OpenOrder): order is FrontendOpenOrder {
-  return "children" in order && Array.isArray(order.children);
+export function isPositionTpSlOrder(order: OpenOrder): boolean {
+  return order.isPositionTpsl === true && order.isTrigger === true;
 }
 
 /** Order type is normally a wire string, but some reads send a discriminant object. */
-const sameOrderType = (a: OpenOrder["orderType"], b: OpenOrder["orderType"]): boolean => {
-  if (a === b) return true;
-  return typeof a === "string" && typeof b === "string" && a === b;
-};
-
-/** The row prints only whether children exist, but `View` hands the current order onward. */
-const childrenSignature = (order: OpenOrder): string => {
-  if (!isFrontendOpenOrder(order)) return "";
-  return order.children
-    .map((child) =>
-      [
-        child.oid,
-        child.coin,
-        child.side,
-        child.sz,
-        child.origSz,
-        child.limitPx,
-        child.triggerPx,
-        child.triggerCondition,
-        child.reduceOnly,
-        typeof child.orderType === "string" ? child.orderType : JSON.stringify(child.orderType),
-      ].join("|"),
-    )
-    .join(";");
-};
+const sameOrderType = (a: OpenOrder["orderType"], b: OpenOrder["orderType"]): boolean => a === b;
 
 /**
  * A stream frame hands every row a fresh order object. Compare the scalars the
@@ -71,7 +46,7 @@ export function areOpenOrderRowPropsEqual(
     a.triggerPx === b.triggerPx &&
     a.triggerCondition === b.triggerCondition &&
     a.isTrigger === b.isTrigger &&
-    sameOrderType(a.orderType, b.orderType) &&
-    childrenSignature(a) === childrenSignature(b)
+    a.isPositionTpsl === b.isPositionTpsl &&
+    sameOrderType(a.orderType, b.orderType)
   );
 }

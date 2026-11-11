@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { TabsContent } from "@/components/ui/tabs";
-import type { FrontendOpenOrder } from "@0xsignal/shared";
+import type { OpenOrder } from "@0xsignal/shared";
 import { FundingHistoryTable } from "./funding-history-table";
 import { BalancesTab, OrderHistoryTab, TradeHistoryTab } from "./position-tabs";
 import { PositionsTab } from "./positions-tab";
@@ -20,7 +20,7 @@ interface PositionManagementPanelsProps {
   onCloseMarket: (coin: string, size: string, isLong: boolean) => void;
   onCloseLimit: (position: { coin: string; sz: number; isLong: boolean; markPx: number }) => void;
   onCancelOrder: (coin: string, oid: number) => void;
-  onViewTpSl: (order: FrontendOpenOrder) => void;
+  onViewTpSl: (order: OpenOrder) => void;
   onCancelAll: () => void;
   isCancelPending: boolean;
 }

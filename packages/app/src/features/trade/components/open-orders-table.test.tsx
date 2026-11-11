@@ -2,13 +2,13 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import type { FrontendOpenOrder, OpenOrder } from "@0xsignal/shared";
+import type { OpenOrder } from "@0xsignal/shared";
 
 import { OpenOrdersTable, OpenOrderRow } from "./open-orders-table";
 import { areOpenOrderRowPropsEqual, type OpenOrderRowProps } from "./open-orders-table-logic";
 import { TwapContent } from "./twap-content";
 
-const child: FrontendOpenOrder = {
+const takeProfit: OpenOrder = {
   coin: "BTC",
   side: "A",
   sz: "0.1",
@@ -22,12 +22,10 @@ const child: FrontendOpenOrder = {
   isTrigger: true,
   isPositionTpsl: true,
   reduceOnly: true,
-  children: [],
   cloid: null,
-  tif: "Gtc",
 };
 
-const order: FrontendOpenOrder = {
+const order: OpenOrder = {
   coin: "BTC",
   side: "B",
   sz: "0.1",
@@ -41,16 +39,14 @@ const order: FrontendOpenOrder = {
   isTrigger: false,
   isPositionTpsl: false,
   reduceOnly: false,
-  children: [child],
   cloid: null,
-  tif: "Gtc",
 };
 
-const renderTable = (readOnly: boolean): string =>
+const renderTable = (readOnly: boolean, rows: readonly OpenOrder[] = [order]): string =>
   renderToStaticMarkup(
     <OpenOrdersTable
       isOoLoading={false}
-      openOrders={[order]}
+      openOrders={[...rows]}
       onCancelOrder={() => {
         /* noop */
       }}
@@ -61,7 +57,7 @@ const renderTable = (readOnly: boolean): string =>
         /* noop */
       }}
       isCancelPending={false}
-      orderCount={1}
+      orderCount={rows.length}
       readOnly={readOnly}
     />,
   );
@@ -73,15 +69,26 @@ describe("open orders read-only rendering", () => {
     expect(html).toContain("BTC");
     expect(html).not.toContain("Cancel All");
     expect(html).not.toContain(">Cancel<");
-    expect(html).not.toContain(">View<");
   });
 
-  test("the own portfolio still renders its cancel and TP/SL controls", () => {
+  test("the own portfolio still renders its cancel control", () => {
     const html = renderTable(false);
 
     expect(html).toContain("Cancel All");
     expect(html).toContain(">Cancel<");
-    expect(html).toContain(">View<");
+  });
+
+  test("a position TP/SL order shows its role without a fabricated tree", () => {
+    const html = renderTable(false, [takeProfit]);
+
+    expect(html).toContain(">TP<");
+    expect(html).not.toContain("View");
+  });
+
+  test("a row missing trigger fields degrades to a dash instead of crashing", () => {
+    const html = renderTable(false, [order]);
+
+    expect(html).toContain("BTC");
   });
 });
 
@@ -117,6 +124,7 @@ describe("open orders with a missing order type", () => {
     expect(html).toContain("ETH");
     expect(html).toContain("Unknown");
     expect(html).not.toContain("Unknown order type");
+    expect(html).toContain(">—<");
   });
 });
 
@@ -144,10 +152,7 @@ const rowProps = (overrides: Partial<OpenOrderRowProps> = {}): OpenOrderRowProps
 describe("areOpenOrderRowPropsEqual", () => {
   test("keeps a row when every printed scalar matches across fresh objects", () => {
     const prev = rowProps();
-    const freshOrder: FrontendOpenOrder = {
-      ...order,
-      children: order.children.map((entry) => ({ ...entry })),
-    };
+    const freshOrder: OpenOrder = { ...order };
     const next = rowProps({ order: freshOrder });
 
     expect(prev.order).not.toBe(next.order);
@@ -168,6 +173,8 @@ describe("areOpenOrderRowPropsEqual", () => {
       { triggerCondition: "Price above 1" },
       { triggerPx: "1" },
       { orderType: "Stop Market" },
+      { isTrigger: true },
+      { isPositionTpsl: true },
     ];
 
     for (const change of changes) {
@@ -177,12 +184,10 @@ describe("areOpenOrderRowPropsEqual", () => {
     }
   });
 
-  test("re-renders when the TP/SL children or row controls change", () => {
+  test("re-renders when the TP/SL role or row controls change", () => {
     const prev = rowProps();
-    const changedChild: FrontendOpenOrder = { ...child, oid: 3 };
-    const changedOrder: FrontendOpenOrder = { ...order, children: [changedChild] };
 
-    expect(areOpenOrderRowPropsEqual(prev, rowProps({ order: changedOrder }))).toBe(false);
+    expect(areOpenOrderRowPropsEqual(prev, rowProps({ order: takeProfit }))).toBe(false);
     expect(areOpenOrderRowPropsEqual(prev, rowProps({ readOnly: true }))).toBe(false);
     expect(areOpenOrderRowPropsEqual(prev, rowProps({ isCancelPending: true }))).toBe(false);
     expect(areOpenOrderRowPropsEqual(prev, rowProps({ onCancelOrder: () => {} }))).toBe(false);
@@ -217,7 +222,6 @@ describe("open orders table culling and row markup", () => {
     expect(html).toContain(">$6,200.00<");
     expect(html).toContain(">$62,000.00<");
     expect(html).toContain(">No<");
-    expect(html).toContain(">View<");
     expect(html).toContain(">Cancel<");
   });
 });

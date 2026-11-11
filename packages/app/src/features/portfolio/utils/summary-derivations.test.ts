@@ -201,8 +201,8 @@ describe("deriveSummarySpot", () => {
 describe("deriveSummaryVaults", () => {
   test("sums vault equity and preserves the empty/null distinction", () => {
     const vaults: UserVaultEquity[] = [
-      { vaultAddress: "0x1", equity: "10.5", lockedUntilTimestamp: 0 },
-      { vaultAddress: "0x2", equity: "4.5", lockedUntilTimestamp: 0 },
+      { vaultAddress: "0x1", equity: "10.5" },
+      { vaultAddress: "0x2", equity: "4.5" },
     ];
 
     expect(deriveSummaryVaults(vaults)).toEqual({ totalEquity: 15 });

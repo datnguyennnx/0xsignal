@@ -19,19 +19,26 @@ import {
   formatOrderPrice,
 } from "../utils/trigger-utils";
 import { c, cNum, cHead, cHeadNum } from "../utils/orderbook-table-classes";
-import type { FrontendOpenOrder, OpenOrder } from "@0xsignal/shared";
+import type { OpenOrder } from "@0xsignal/shared";
 import {
   areOpenOrderRowPropsEqual,
-  isFrontendOpenOrder,
+  isPositionTpSlOrder,
   type OpenOrderRowProps,
 } from "./open-orders-table-logic";
+
+const tpSlRole = (order: OpenOrder): string => {
+  if (!isPositionTpSlOrder(order)) return "—";
+  const type = getOrderType(order);
+  if (type.includes("Take Profit")) return "TP";
+  if (type.includes("Stop")) return "SL";
+  return "—";
+};
 
 export const OpenOrderRow = memo(function OpenOrderRow({
   order,
   readOnly,
   isCancelPending,
   onCancelOrder,
-  onViewTpSl,
 }: OpenOrderRowProps) {
   const sz = Number(order.sz);
   const origSz = order.origSz !== undefined && order.origSz !== "" ? Number(order.origSz) : sz;
@@ -49,25 +56,11 @@ export const OpenOrderRow = memo(function OpenOrderRow({
       <TableCell className={cNum}>{origSz === sz ? "—" : formatSize(origSz)}</TableCell>
       <TableCell className={cNum}>{formatOrderValue(order, sz, limitPx)}</TableCell>
       <TableCell className={cNum}>{formatOrderPrice(order, limitPx)}</TableCell>
-      <TableCell className={c}>{order.reduceOnly === true ? "Yes" : "No"}</TableCell>
-      <TableCell className={c}>{getTriggerLabel(order)}</TableCell>
       <TableCell className={c}>
-        {!readOnly && isFrontendOpenOrder(order) && order.children.length > 0 ? (
-          <Button
-            type="button"
-            variant="link"
-            size="auto"
-            onClick={() => {
-              onViewTpSl(order);
-            }}
-            className="cursor-pointer type-data text-info underline-offset-2"
-          >
-            View
-          </Button>
-        ) : (
-          "—"
-        )}
+        {order.reduceOnly === undefined ? "—" : order.reduceOnly ? "Yes" : "No"}
       </TableCell>
+      <TableCell className={c}>{getTriggerLabel(order)}</TableCell>
+      <TableCell className={c}>{tpSlRole(order)}</TableCell>
       {!readOnly && (
         <TableCell className={cNum}>
           <Button
@@ -93,7 +86,7 @@ interface OpenOrdersTableProps {
   isOoError?: boolean;
   openOrders: OpenOrder[] | undefined;
   onCancelOrder: (coin: string, oid: number) => void;
-  onViewTpSl: (order: FrontendOpenOrder) => void;
+  onViewTpSl: (order: OpenOrder) => void;
   onCancelAll: () => void;
   isCancelPending: boolean;
   orderCount: number;

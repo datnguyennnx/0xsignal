@@ -1,9 +1,4 @@
-import {
-  formatPrice,
-  formatSignedPercent,
-  formatSize,
-  getNextFundingMs,
-} from "@/core/utils/formatters";
+import { formatPrice, formatSignedPercent, getNextFundingMs } from "@/core/utils/formatters";
 
 const FUNDING_INTERVAL_MS = 3_600_000;
 
@@ -105,8 +100,14 @@ export function lossPercentFromPrice(
   return (diff / entryPrice) * leverage * 100;
 }
 
-export function formatOrderSize(size: number, _szDecimals: number): string {
-  return formatSize(size);
+export function formatOrderSize(size: number | string, szDecimals: number): string {
+  const value = typeof size === "number" ? size : Number(size);
+  if (!Number.isFinite(value)) return "";
+  const factor = 10 ** szDecimals;
+  const truncated = Math.floor(value * factor) / factor;
+  const fixed = truncated.toFixed(szDecimals);
+  if (!fixed.includes(".")) return fixed;
+  return fixed.replace(/0+$/, "").replace(/\.$/, "");
 }
 
 export function formatPriceFixed(value: number): string {

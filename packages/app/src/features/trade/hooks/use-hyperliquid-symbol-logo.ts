@@ -1,14 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
+import { normalizeSymbol } from "../lib/symbol";
 
 const HYPERLIQUID_COIN_ICON_BASE = "https://app.hyperliquid.xyz/coins";
 
-function normalizeSymbol(rawSymbol: string): string {
-  return rawSymbol.trim().toUpperCase();
-}
-
 function getSymbolLogoCandidates(symbol: string): string[] {
-  const normalized = normalizeSymbol(symbol);
+  const normalized = normalizeSymbol(symbol).toUpperCase();
   if (!normalized || normalized.startsWith("@")) return [];
 
   const candidates: string[] = [];

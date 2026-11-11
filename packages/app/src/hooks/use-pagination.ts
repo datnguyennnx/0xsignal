@@ -19,7 +19,7 @@ interface UsePaginationResult<T> {
   hasPreviousPage: boolean;
 }
 
-export function usePagination<T>(data: T[], initialPageSize = 20): UsePaginationResult<T> {
+export function usePagination<T>(data: readonly T[], initialPageSize = 20): UsePaginationResult<T> {
   const [state, setState] = useState<PaginationState>({
     currentPage: 1,
     pageSize: initialPageSize,

@@ -3,6 +3,7 @@ import { useConnection } from "wagmi";
 import type { PlaceOrderRequest } from "@/services/api";
 import { submitPlaceOrder } from "@/services/exchange";
 import { UnauthenticatedError } from "@/lib/api-base";
+import { useHyperliquidMeta } from "./use-hyperliquid-meta";
 import { cancelAndInvalidateUserQueries, placeOrderUserQueryKeys } from "./user-query-invalidation";
 
 /**
@@ -16,6 +17,7 @@ import { cancelAndInvalidateUserQueries, placeOrderUserQueryKeys } from "./user-
 export function usePlaceOrder(onError?: (err: Error) => void) {
   const queryClient = useQueryClient();
   const { address, chainId } = useConnection();
+  const { getPrecision } = useHyperliquidMeta();
 
   return useMutation({
     mutationFn: (params: PlaceOrderRequest) => {
@@ -27,6 +29,7 @@ export function usePlaceOrder(onError?: (err: Error) => void) {
         chainId,
         provider: window.ethereum,
         confirm: (message) => window.confirm(message),
+        szDecimals: getPrecision(params.orders[0].symbol).szDecimals,
       });
     },
     onSuccess: () => {

@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { OpenOrder } from "@0xsignal/shared";
 
-import { getOrderType, resolveTriggerCondition } from "./trigger-utils";
+import { getOrderType, resolveTriggerCondition, buildTpSlByCoinMap } from "./trigger-utils";
 
 function makeOrder(overrides: Partial<OpenOrder> = {}): OpenOrder {
   return {
@@ -82,5 +82,44 @@ describe("resolveTriggerCondition", () => {
     expect(resolveTriggerCondition(makeOrder({ orderType: "Take Profit Market", side: "A" }))).toBe(
       "above",
     );
+  });
+});
+
+describe("buildTpSlByCoinMap", () => {
+  test("groups position TP/SL trigger orders onto their coin", () => {
+    const orders: OpenOrder[] = [
+      makeOrder({
+        oid: 1,
+        coin: "BTC",
+        orderType: "Take Profit Market",
+        isTrigger: true,
+        isPositionTpsl: true,
+        limitPx: "0",
+        triggerPx: "70000",
+      }),
+      makeOrder({
+        oid: 2,
+        coin: "BTC",
+        orderType: "Stop Market",
+        isTrigger: true,
+        isPositionTpsl: true,
+        limitPx: "0",
+        triggerPx: "55000",
+      }),
+    ];
+
+    expect(buildTpSlByCoinMap(orders)).toEqual({
+      BTC: { tp: "$70,000.00", sl: "$55,000.00" },
+    });
+  });
+
+  test("ignores plain limits and orders without the position flags", () => {
+    const orders: OpenOrder[] = [
+      makeOrder({ oid: 1, coin: "BTC", orderType: "Limit" }),
+      makeOrder({ oid: 2, coin: "ETH", orderType: "Stop Market", isTrigger: true }),
+    ];
+
+    expect(buildTpSlByCoinMap(orders)).toEqual({});
+    expect(buildTpSlByCoinMap(undefined)).toEqual({});
   });
 });

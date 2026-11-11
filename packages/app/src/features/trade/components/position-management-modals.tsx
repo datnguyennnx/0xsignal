@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import type { FrontendOpenOrder } from "@0xsignal/shared";
+import type { OpenOrder } from "@0xsignal/shared";
 import { TpSlViewModal } from "./tp-sl-view-modal";
 import { CancelAllDialog } from "./cancel-all-dialog";
 import { CloseLimitModal } from "./close-limit-modal";
@@ -8,7 +8,7 @@ import { toTpSlDisplay } from "../utils/tp-sl-view-utils";
 import { useHyperliquidMeta } from "../hooks/use-hyperliquid-meta";
 import { useAppStore } from "@/stores/use-app-store";
 
-export type TpSlOrder = FrontendOpenOrder;
+export type TpSlOrder = OpenOrder;
 
 interface CloseLimitPosition {
   coin: string;
@@ -18,7 +18,7 @@ interface CloseLimitPosition {
 }
 
 interface PositionManagementModalsProps {
-  tpSlOrder: FrontendOpenOrder | null;
+  tpSlOrder: OpenOrder | null;
   onCloseTpSl: () => void;
   cancelAllOpen: boolean;
   onCancelAllOpenChange: (open: boolean) => void;
@@ -54,13 +54,10 @@ export function PositionManagementModals({
 
   const tpSlModalProps = useMemo(() => {
     if (!tpSlOrder) return null;
-    const kids = tpSlOrder.children;
-    const tpKid = kids?.[0];
-    const slKid = kids?.[1];
     return {
       parentDisplay: toTpSlDisplay(tpSlOrder),
-      tpDisplay: tpKid === undefined ? undefined : toTpSlDisplay(tpKid),
-      slDisplay: slKid === undefined ? undefined : toTpSlDisplay(slKid),
+      tpDisplay: undefined,
+      slDisplay: undefined,
     };
   }, [tpSlOrder]);
 

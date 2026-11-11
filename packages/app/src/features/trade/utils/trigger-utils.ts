@@ -1,5 +1,5 @@
 import { formatCompactUsd, formatPrice } from "@/core/utils/formatters";
-import type { OpenOrder, FrontendOpenOrder } from "@0xsignal/shared";
+import type { OpenOrder } from "@0xsignal/shared";
 
 function isNonNullObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -116,32 +116,24 @@ export function formatOrderPrice(order: OpenOrder, limitPx: number): string {
   return formatPrice(limitPx);
 }
 
-/**
- * Build a coin→{tp, sl} map from open orders.
- * Iterates each order's children, parses TP/SL trigger orders,
- * and maps them to the parent coin.
- */
 export function buildTpSlByCoinMap(
-  openOrders: readonly FrontendOpenOrder[] | undefined,
+  openOrders: readonly OpenOrder[] | undefined,
 ): Record<string, { tp: string | null; sl: string | null }> {
   if (!openOrders) return {};
   const map: Record<string, { tp: string | null; sl: string | null }> = {};
   for (const order of openOrders) {
-    if (!order.children?.length) continue;
-    let tp: string | null = null;
-    let sl: string | null = null;
-    for (const child of order.children) {
-      const ot = getOrderType(child);
-      const limitVal = toNumber(child.limitPx);
-      const triggerVal = toNumber(child.triggerPx);
-      const priceNum = limitVal > 0 ? limitVal : Math.max(triggerVal, 0);
-      const px = formatPrice(priceNum);
-      if (ot.includes("Take Profit")) tp = px;
-      else if (ot.includes("Stop")) sl = px;
-    }
-    if (tp !== null || sl !== null) {
-      map[order.coin.toUpperCase()] = { tp, sl };
-    }
+    if (order.isPositionTpsl !== true || order.isTrigger !== true) continue;
+    const ot = getOrderType(order);
+    const limitVal = toNumber(order.limitPx);
+    const triggerVal = toNumber(order.triggerPx);
+    const priceNum = limitVal > 0 ? limitVal : Math.max(triggerVal, 0);
+    const px = formatPrice(priceNum);
+    const coin = order.coin.toUpperCase();
+    const entry = map[coin] ?? { tp: null, sl: null };
+    if (ot.includes("Take Profit")) entry.tp = px;
+    else if (ot.includes("Stop")) entry.sl = px;
+    else continue;
+    map[coin] = entry;
   }
   return map;
 }

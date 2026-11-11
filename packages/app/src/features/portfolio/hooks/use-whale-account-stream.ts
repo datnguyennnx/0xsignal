@@ -184,7 +184,10 @@ export function useWhaleAccountStream(address: string | undefined) {
       subscribeOpenOrders,
       (event) => {
         markUserDataWsWrite(queryKeys.whales.openOrders(user));
-        queryClient.setQueryData<OpenOrder[]>(queryKeys.whales.openOrders(user), event.data);
+        queryClient.setQueryData<readonly OpenOrder[]>(
+          queryKeys.whales.openOrders(user),
+          event.data,
+        );
       },
       connectionState,
     ),

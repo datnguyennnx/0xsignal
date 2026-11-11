@@ -3,11 +3,11 @@ import { useWhaleOpenOrders } from "@/features/portfolio/hooks/use-portfolio-dat
 import { usePagination } from "@/hooks/use-pagination";
 import { Pagination } from "@/components/ui/pagination";
 import { OpenOrdersTable } from "./open-orders-table";
-import type { FrontendOpenOrder, OpenOrder } from "@0xsignal/shared";
+import type { OpenOrder } from "@0xsignal/shared";
 
 interface OpenOrdersTabProps {
   onCancelOrder: (coin: string, oid: number) => void;
-  onViewTpSl: (order: FrontendOpenOrder) => void;
+  onViewTpSl: (order: OpenOrder) => void;
   onCancelAll: () => void;
   isCancelPending: boolean;
   readOnlyAddress?: string | undefined;
@@ -28,7 +28,7 @@ export function OpenOrdersTab({
   const own = useOpenOrders(!readOnly);
   const whale = useWhaleOpenOrders(readOnlyAddress);
   const { data: selectedOrders, isLoading: isOoLoading, isError, refetch } = readOnly ? whale : own;
-  const openOrders: OpenOrder[] | undefined = selectedOrders;
+  const openOrders: readonly OpenOrder[] | undefined = selectedOrders;
   const paginated = usePagination(openOrders ?? [], 20);
   const orderCount = openOrders?.length ?? 0;
 
