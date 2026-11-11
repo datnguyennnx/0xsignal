@@ -49,7 +49,7 @@
     "react/react-in-jsx-scope": "off",
     "typescript/prefer-readonly-parameter-types": "off",
     "max-classes-per-file": ["warn", { "max": 16 }],
-    "max-lines": ["warn", { "max": 550 }],
+    "max-lines": ["warn", { "max": 900 }],
     "max-lines-per-function": ["warn", { "max": 380 }],
     "unicorn/filename-case": [
       "warn",
@@ -87,7 +87,11 @@
     {
       // Imports are the composition root's job: naming every port in one place
       // is what these files are for, so the dependency count is not a smell.
-      "files": ["packages/api/app.ts", "packages/api/app/services.ts"],
+      "files": [
+        "packages/api/app.ts",
+        "packages/api/app/services.ts",
+        "packages/app/src/services/exchange/index.ts"
+      ],
       "rules": {
         "import/max-dependencies": "off"
       }
@@ -141,6 +145,54 @@
       "files": ["packages/api/**/integrations/**"],
       "rules": {
         "no-restricted-imports": ["error", { "patterns": ["@/modules/**"] }]
+      }
+    },
+    {
+      // The single sanctioned boundary where `unknown` from the wire becomes a
+      // branded domain type; every other cast has to go through these helpers.
+      "files": [
+        "packages/sdk-hyperliquid/src/core/parse.ts",
+        "packages/sdk-hyperliquid/src/core/brands.ts"
+      ],
+      "rules": {
+        "typescript/no-unsafe-type-assertion": "off"
+      }
+    },
+    {
+      // `cast<T>` exists to name the caller's target type at the parse boundary,
+      // so the parameter is the contract, not an unused hole.
+      "files": ["packages/sdk-hyperliquid/src/core/parse.ts"],
+      "rules": {
+        "typescript/no-unnecessary-type-parameters": "off"
+      }
+    },
+    {
+      // Composition root for the action registry: naming every action in one
+      // place is the point, so the dependency count is the surface, not a smell.
+      "files": ["packages/sdk-hyperliquid/src/exchange/actions/index.ts"],
+      "rules": {
+        "import/max-dependencies": "off"
+      }
+    },
+    {
+      // Sequential stream drain with a running byte cap: awaiting each read
+      // keeps ordering and lets the cap stop the loop; parallel reads would not.
+      "files": ["packages/sdk-hyperliquid/src/ws/deflate.ts"],
+      "rules": {
+        "no-await-in-loop": "off"
+      }
+    },
+    {
+      // Action files are kebab-case by contract; restated here so the SDK surface
+      // keeps the rule if the root default ever loosens.
+      "files": ["packages/sdk-hyperliquid/src/exchange/actions/*.ts"],
+      "rules": {
+        "unicorn/filename-case": [
+          "warn",
+          {
+            "cases": { "kebabCase": true }
+          }
+        ]
       }
     }
   ],

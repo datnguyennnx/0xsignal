@@ -42,5 +42,13 @@
         "type": true,
       },
     },
+    // Library: entries are derived from package.json `exports` (the single source of truth).
+    // Entry exports are public by definition, so they are excluded from the report;
+    // anything still reported is unreferenced outside its own file.
+    "packages/sdk-hyperliquid": {
+      "project": ["src/**/*.ts", "!src/**/*.test.ts"],
+      "includeEntryExports": false,
+      "ignoreExportsUsedInFile": true,
+    },
   },
 }

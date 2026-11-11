@@ -83,7 +83,7 @@ export default defineConfig(({ mode }) => {
         "sonner",
         "date-fns",
         "class-variance-authority",
-        "@nktkas/hyperliquid",
+        "@0xsignal/sdk-hyperliquid",
         "@base-ui/react/button",
         "@base-ui/react/menu",
         "@base-ui/react/tooltip",
