@@ -39,6 +39,12 @@ describe("parseSymbol", () => {
     expect(parseSymbol("BT C!")).toEqual({ kind: "perp", coin: "BTC" });
   });
 
+  test("classifies @-prefixed outcome and spot asset ids as spot", () => {
+    expect(parseSymbol("@203")).toEqual({ kind: "spot", coin: "@203" });
+    expect(parseSymbol(" @12 ")).toEqual({ kind: "spot", coin: "@12" });
+    expect(parseSymbol("@203").kind).not.toBe("perp");
+  });
+
   test("returns an empty perp for blank input", () => {
     expect(parseSymbol("")).toEqual({ kind: "perp", coin: "" });
     expect(parseSymbol("   ")).toEqual({ kind: "perp", coin: "" });
@@ -52,6 +58,10 @@ describe("normalizeSymbol", () => {
 
   test("preserves spot identifiers", () => {
     expect(normalizeSymbol("PURR/USDC")).toBe("PURR/USDC");
+  });
+
+  test("preserves @-prefixed outcome ids", () => {
+    expect(normalizeSymbol("@203")).toBe("@203");
   });
 
   test("returns the dex-prefixed builder coin", () => {

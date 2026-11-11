@@ -1,5 +1,5 @@
 /**
- * @0xsignal/shared — Zero-dependency type-and-utility library.
+ * @0xsignal/shared — Shared type-and-utility library with no runtime dependencies.
  *
  * This package is the shared contract surface between frontend and backend.
  * All types in `schemas/` are pure TypeScript mirrors of Effect Schema definitions
@@ -61,6 +61,7 @@ export type {
   OrderBook,
   OrderBookLevel,
   MarketTypeCategory,
+  EvmContractDescriptor,
   AggregatedMarket,
   CoverageWindow,
   CoverageResult,

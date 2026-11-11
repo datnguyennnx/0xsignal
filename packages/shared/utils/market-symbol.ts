@@ -52,6 +52,10 @@ export function parseSymbol(symbol: string): NormalizedAsset {
 
   const upper = trimmed.toUpperCase();
 
+  if (trimmed.startsWith("@")) {
+    return { kind: "spot", coin: trimmed };
+  }
+
   // Builder perps (HIP-3) with colon
   if (trimmed.includes(":")) {
     const [dex, ...rest] = trimmed.split(":");

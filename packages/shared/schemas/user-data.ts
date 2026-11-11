@@ -5,6 +5,8 @@
  * and the `unknown` returns in the backend.
  */
 
+import type { FrontendOpenOrdersInfoResponse } from "@0xsignal/sdk-hyperliquid/info";
+
 // Clearinghouse State
 
 export interface LeverageIsolated {
@@ -64,7 +66,7 @@ export interface ClearinghouseState {
 
 export interface SpotBalance {
   readonly coin: string;
-  readonly token: number;
+  readonly token?: number;
   readonly total: string;
   readonly hold: string;
   readonly entryNtl: string;
@@ -72,11 +74,6 @@ export interface SpotBalance {
 
 export interface SpotClearinghouseState {
   readonly balances: SpotBalance[];
-  readonly evmEscrows?: Array<{
-    readonly coin: string;
-    readonly token: number;
-    readonly total: string;
-  }>;
 }
 
 // Open Orders
@@ -102,24 +99,11 @@ export interface OpenOrder {
 
 // Frontend Open Orders
 
-export interface FrontendOpenOrder {
-  readonly coin: string;
-  readonly side: "A" | "B";
-  readonly sz: string;
-  readonly limitPx: string;
-  readonly oid: number;
-  readonly timestamp: number;
-  readonly origSz: string;
-  readonly orderType: string;
-  readonly triggerCondition: string;
-  readonly triggerPx: string;
-  readonly isTrigger: boolean;
-  readonly isPositionTpsl: boolean;
-  readonly reduceOnly: boolean;
-  readonly children: FrontendOpenOrder[];
-  readonly cloid: `0x${string}` | null;
-  readonly tif: "Gtc" | "Ioc" | "Alo" | "FrontendMarket" | "LiquidationMarket" | null;
-}
+export type FrontendOpenOrder = FrontendOpenOrdersInfoResponse[number] & {
+  readonly cloid: string | null;
+  readonly children?: readonly FrontendOpenOrder[];
+  readonly tif?: string | null;
+};
 
 // Historical Orders
 
@@ -171,23 +155,13 @@ export const PORTFOLIO_PERIOD_KEYS = [
 
 export type PortfolioPeriodKey = (typeof PORTFOLIO_PERIOD_KEYS)[number];
 
-export type PortfolioResponse = readonly [
-  readonly [PortfolioPeriodKey, PortfolioPeriod],
-  readonly [PortfolioPeriodKey, PortfolioPeriod],
-  readonly [PortfolioPeriodKey, PortfolioPeriod],
-  readonly [PortfolioPeriodKey, PortfolioPeriod],
-  readonly [PortfolioPeriodKey, PortfolioPeriod],
-  readonly [PortfolioPeriodKey, PortfolioPeriod],
-  readonly [PortfolioPeriodKey, PortfolioPeriod],
-  readonly [PortfolioPeriodKey, PortfolioPeriod],
-];
+export type PortfolioResponse = readonly (readonly [PortfolioPeriodKey, PortfolioPeriod])[];
 
 // Vault / Funding
 
 export interface UserVaultEquity {
   readonly vaultAddress: string;
   readonly equity: string;
-  readonly lockedUntilTimestamp: number;
 }
 
 export interface UserFundingDelta {
@@ -196,7 +170,7 @@ export interface UserFundingDelta {
   readonly usdc: string;
   readonly szi: string;
   readonly fundingRate: string;
-  readonly nSamples: number;
+  readonly nSamples: number | null;
 }
 
 export interface UserFundingEntry {

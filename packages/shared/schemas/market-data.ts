@@ -3,36 +3,39 @@
  * Single source of truth — no runtime deps.
  */
 
+import type { DecimalString } from "@0xsignal/sdk-hyperliquid";
+import type { CandleInterval } from "@0xsignal/sdk-hyperliquid/info";
+
 // Candle
 
 /**
- * A single OHLCV candle.
- *
- * `timestamp` reflects the candle's open time. After JSON deserialization
- * on the client, `timestamp` arrives as an ISO-8601 string; server-side it
- * may be a `Date` object. Consumers should use `normalizeCandle`
- * (from `@0xsignal/shared`) which handles all three formats transparently.
+ * A single OHLCV candle. `t` is the candle's open time in epoch milliseconds;
+ * the provider normalizer emits this one shape.
  */
 export interface Candle {
-  readonly timestamp: Date | string | number;
-  readonly open: number;
-  readonly high: number;
-  readonly low: number;
-  readonly close: number;
-  readonly volume: number;
+  readonly t: number;
+  readonly open: DecimalString;
+  readonly high: DecimalString;
+  readonly low: DecimalString;
+  readonly close: DecimalString;
+  readonly volume: DecimalString;
+  readonly T: number;
+  readonly n: number;
+  readonly i: CandleInterval;
+  readonly s: string;
 }
 
 // Market Ticker
 
 export interface MarketTicker {
   readonly symbol: string;
-  readonly mid: number | null;
-  readonly markPx: number | null;
-  readonly midPx: number | null;
-  readonly prevDayPx: number | null;
-  readonly dayNtlVlm: number | null;
-  readonly openInterest: number | null;
-  readonly funding: number | null;
+  readonly mid: DecimalString | null;
+  readonly markPx: DecimalString | null;
+  readonly midPx: DecimalString | null;
+  readonly prevDayPx: DecimalString | null;
+  readonly dayNtlVlm: DecimalString | null;
+  readonly openInterest: DecimalString | null;
+  readonly funding: DecimalString | null;
 }
 
 // Order Book
@@ -55,6 +58,11 @@ export interface OrderBook {
 // Market Type (Perp / Spot)
 
 export type MarketTypeCategory = "perp" | "spot";
+
+export interface EvmContractDescriptor {
+  readonly address: string;
+  readonly evm_extra_wei_decimals: number;
+}
 
 // Aggregated Market
 
@@ -137,14 +145,17 @@ export const WS_MARKET_INTERVALS = [
   "8h",
   "12h",
   "1d",
+  "3d",
   "1w",
-] as const;
+  "1M",
+] as const satisfies readonly CandleInterval[];
 
 export type WsMarketInterval = (typeof WS_MARKET_INTERVALS)[number];
 
 export interface WsMarketSubscription {
-  readonly channel: WsMarketChannel;
+  readonly channel: WsMarketChannel | "trades";
   readonly symbol?: string | undefined;
   readonly interval?: WsMarketInterval | undefined;
   readonly nSigFigs?: 2 | 3 | 4 | 5 | null | undefined;
+  readonly dex?: string;
 }
