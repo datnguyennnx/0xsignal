@@ -27,7 +27,7 @@ function useRouteFallbackVisible(): boolean {
  */
 function PageSkeleton() {
   return (
-    <div className="container-fluid flex min-h-[clamp(20rem,50dvh,40rem)] flex-col gap-section">
+    <div className="container-fluid flex min-h-full flex-col gap-section py-6">
       <div className="flex items-center justify-between gap-inline">
         <Skeleton className="h-7 w-40" />
         <Skeleton className="h-7 w-28" />

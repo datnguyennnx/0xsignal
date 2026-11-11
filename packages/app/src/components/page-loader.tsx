@@ -14,7 +14,7 @@ export function PageLoader({ variant = "page" }: PageLoaderProps) {
       aria-label="Loading"
       className={cn(
         "flex flex-col items-center justify-center gap-2",
-        variant === "fullscreen" ? "min-h-dvh" : "min-h-[clamp(20rem,50dvh,40rem)]",
+        variant === "fullscreen" ? "min-h-dvh" : "flex-1 min-h-full py-10",
       )}
     >
       <div

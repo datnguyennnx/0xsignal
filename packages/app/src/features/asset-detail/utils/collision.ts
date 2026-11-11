@@ -1,5 +1,5 @@
 import type { LayoutItem } from "./types";
-import { GRID_COLS, MAX_GRID_ROWS, panelMin } from "./constants";
+import { GRID_COLS, RESIZE_ROW_CEILING, panelMin } from "./constants";
 
 /** Every width here is a fraction of container width (0..1), never pixels. */
 
@@ -33,12 +33,12 @@ export interface ResizeBounds {
   maxY: number;
 }
 
-/** Derive bounds from the nearest neighbour edge each side; passes repeat until
+/** Derive bounds from the nearest neighbour edge on each side except the bottom, which
+ *  runs to the ceiling because growth there pushes neighbours down. Passes repeat until
  *  they settle, since a corner grows on both axes at once. */
 export function getResizeBounds(item: LayoutItem, others: LayoutItem[]): ResizeBounds {
   const itemRight = item.x + item.w;
-  const itemBottom = item.y + item.h;
-  const bounds: ResizeBounds = { minX: 0, maxX: GRID_COLS, minY: 0, maxY: MAX_GRID_ROWS };
+  const bounds: ResizeBounds = { minX: 0, maxX: GRID_COLS, minY: 0, maxY: RESIZE_ROW_CEILING };
 
   let previous: ResizeBounds;
   do {
@@ -48,7 +48,6 @@ export function getResizeBounds(item: LayoutItem, others: LayoutItem[]): ResizeB
       if (other.i === item.i) continue;
       if (other.x >= bounds.maxX || other.x + other.w <= bounds.minX) continue;
       if (other.y + other.h <= item.y) bounds.minY = Math.max(bounds.minY, other.y + other.h);
-      else if (other.y >= itemBottom) bounds.maxY = Math.min(bounds.maxY, other.y);
     }
 
     for (const other of others) {
@@ -167,6 +166,6 @@ export function clampToMin(item: LayoutItem): LayoutItem {
     minW,
     minH,
     w: Math.min(Math.max(minW, item.w), GRID_COLS - x),
-    h: Math.min(Math.max(minH, item.h), Math.max(minH, MAX_GRID_ROWS - y)),
+    h: Math.min(Math.max(minH, item.h), Math.max(minH, RESIZE_ROW_CEILING - y)),
   };
 }

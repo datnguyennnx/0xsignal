@@ -45,6 +45,8 @@ describe("ErrorBoundary default fallback", () => {
     expect(SOURCE).toContain("Something went wrong");
     expect(SOURCE).toContain("Try again");
     expect(SOURCE).toContain("onClick={this.handleReset}");
-    expect(SOURCE).toContain("min-h-[clamp(20rem,50dvh,40rem)]");
+    expect(SOURCE).toContain("flex-1");
+    expect(SOURCE).toContain("min-h-full");
+    expect(SOURCE).toContain("justify-center");
   });
 });

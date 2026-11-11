@@ -8,6 +8,22 @@ export interface LayoutItem {
   minH?: number;
 }
 
+export interface ResizeFrame {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface ResizeLimits {
+  minW: number;
+  minH: number;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxRows: number;
+}
+
 export interface DashboardGridProps {
   children: React.ReactNode;
   className?: string;

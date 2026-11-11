@@ -119,8 +119,11 @@ export function initialLayoutForViewport(widthPx: number, heightPx: number): Lay
   return structuredClone(preset);
 }
 
-/** Hard ceiling on canvas rows: the canvas grows with the layout, but a resize needs a wall. */
+/** Default canvas height in rows; the layout starts here but the user may grow past it. */
 export const MAX_GRID_ROWS = DEFAULT_ROW_COUNT * 2;
+
+/** Safety ceiling for user-driven row growth, far above the default canvas height. */
+export const RESIZE_ROW_CEILING = 512;
 
 /** Fit pitch packs DEFAULT_ROW_COUNT rows into the trading region; only a starting point. */
 export const GRID_ROW_HEIGHT_FIT_CSS = `calc((var(--trading-region-height) - var(--trading-header-offset, 0px) - ${(DEFAULT_ROW_COUNT - 1) * GRID_GUTTER_REM}rem) / ${DEFAULT_ROW_COUNT})`;

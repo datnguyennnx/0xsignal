@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="flex flex-col items-center justify-center min-h-[clamp(20rem,50dvh,40rem)] px-4 text-center">
+        <div className="flex flex-1 min-h-full flex-col items-center justify-center px-4 py-10 text-center">
           <div className="flex flex-col items-center gap-4 max-w-md">
             <StateArt size="lg" />
 

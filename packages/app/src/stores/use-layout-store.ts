@@ -6,6 +6,7 @@ import {
   initialLayoutForViewport,
 } from "@/features/asset-detail/utils/constants";
 import { resolveCollisions, clampToMin } from "@/features/asset-detail/utils/collision";
+import { pushBelow } from "@/features/asset-detail/utils/resize-push";
 import type { LayoutItem } from "@/features/asset-detail/utils/types";
 
 type PersistedLayout = { items: LayoutItem[] };
@@ -74,6 +75,19 @@ const layoutStorage: PersistStorage<PersistedLayout> | undefined = jsonStorage
     }
   : undefined;
 
+function commitResize(
+  current: LayoutItem[],
+  incoming: LayoutItem[],
+  activeItemId: string,
+): LayoutItem[] {
+  const nextItems = incoming.map((item) => (item.i === activeItemId ? clampToMin(item) : item));
+  const previous = current.find((item) => item.i === activeItemId);
+  const active = nextItems.find((item) => item.i === activeItemId);
+  if (previous === undefined || active === undefined) return nextItems;
+  const deltaRows = active.h - previous.h;
+  return [...pushBelow(nextItems, activeItemId, deltaRows)];
+}
+
 export interface LayoutStoreState {
   items: LayoutItem[];
 
@@ -87,7 +101,7 @@ export interface LayoutStoreState {
 
 export const useLayoutStore = create<LayoutStoreState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       items: viewportLayout(),
 
       commitLayout: (
@@ -95,6 +109,10 @@ export const useLayoutStore = create<LayoutStoreState>()(
         activeItemId?: string,
         interactionType?: "drag" | "resize",
       ) => {
+        if (interactionType === "resize" && activeItemId !== undefined) {
+          set({ items: commitResize(get().items, items, activeItemId) });
+          return;
+        }
         const clamped = items.map((item) => clampToMin(item));
         const resolved = resolveCollisions(clamped, activeItemId, interactionType);
         set({ items: resolved });

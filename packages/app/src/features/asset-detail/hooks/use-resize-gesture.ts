@@ -6,9 +6,14 @@ import {
   useLayoutEffect,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import type { LayoutItem, ResizeHandleAxis } from "../utils/types";
+import type { LayoutItem, ResizeFrame, ResizeHandleAxis, ResizeLimits } from "../utils/types";
+import { computeResizeFrame } from "../utils/resize-math";
 import { cellWidth, snapToGridUnits } from "../utils/collision";
 import { readRowPitchPx } from "../utils/row-pitch";
+import { RESIZE_ROW_CEILING } from "../utils/constants";
+import { effectiveDelta, findScrollParent, resolveAutoScrollVelocity } from "./resize-auto-scroll";
+
+export type { ResizeFrame };
 
 /**
  * Corner grab box edge in px, and the size the corner wrapper is rendered at, so the
@@ -35,24 +40,6 @@ const CURSOR_BY_AXIS: Record<ResizeHandleAxis, string> = {
   se: "nwse-resize",
 };
 
-/** Panel geometry in grid cells. Always integral and inside the panel's limits. */
-export interface ResizeFrame {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-interface GestureLimits {
-  minW: number;
-  minH: number;
-  /** Edge coordinates the frame may not cross; see `getResizeBounds`. */
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
-}
-
 /** Everything a gesture needs, snapshotted at pointerdown so listeners never read props. */
 interface GestureState {
   id: string;
@@ -61,10 +48,12 @@ interface GestureState {
   captureEl: HTMLElement;
   startX: number;
   startY: number;
+  startScrollTop: number;
+  scrollParent: HTMLElement | null;
   containerWidth: number;
   rowPitch: number;
   committed: ResizeFrame;
-  limits: GestureLimits;
+  limits: ResizeLimits;
   frame: ResizeFrame;
 }
 
@@ -92,10 +81,6 @@ interface UseResizeGestureReturn {
   handlePanelMouseLeave: () => void;
 }
 
-function clampSpan(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(value, Math.max(min, max)));
-}
-
 function sameFrame(a: ResizeFrame, b: ResizeFrame): boolean {
   return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 }
@@ -108,39 +93,20 @@ function distanceToBox(px: number, py: number, boxX: number, boxY: number, size:
 }
 
 function computeFrame(gesture: GestureState, clientX: number, clientY: number): ResizeFrame {
-  const { minW, minH, minX, maxX, minY, maxY } = gesture.limits;
-  const start = gesture.committed;
-  const startRight = start.x + start.w;
-  const startBottom = start.y + start.h;
-
+  const scrollTop = gesture.scrollParent === null ? 0 : gesture.scrollParent.scrollTop;
   const snappedDx = snapToGridUnits(
     (clientX - gesture.startX) / gesture.containerWidth,
     cellWidth(),
   );
-  const snappedDy = Math.round((clientY - gesture.startY) / gesture.rowPitch);
+  const snappedDy = effectiveDelta(
+    clientY,
+    gesture.startY,
+    scrollTop,
+    gesture.startScrollTop,
+    gesture.rowPitch,
+  );
 
-  let x = start.x;
-  let y = start.y;
-  let w = start.w;
-  let h = start.h;
-
-  // Each axis owns one moving edge and one pinned edge, so an edge handle and a
-  // corner are the same two clamps against the same bounds.
-  if (gesture.axis.includes("e")) {
-    w = clampSpan(start.w + snappedDx, minW, maxX - x);
-  } else if (gesture.axis.includes("w")) {
-    x = clampSpan(start.x + snappedDx, minX, startRight - minW);
-    w = startRight - x;
-  }
-
-  if (gesture.axis.includes("s")) {
-    h = clampSpan(start.h + snappedDy, minH, maxY - y);
-  } else if (gesture.axis.includes("n")) {
-    y = clampSpan(start.y + snappedDy, minY, startBottom - minH);
-    h = startBottom - y;
-  }
-
-  return { x, y, w, h };
+  return computeResizeFrame(gesture.axis, gesture.committed, snappedDx, snappedDy, gesture.limits);
 }
 
 /**
@@ -169,7 +135,6 @@ export function useResizeGesture({
   minW,
   minH,
   maxW,
-  maxH,
   minX,
   minY,
   isDragged,
@@ -185,6 +150,9 @@ export function useResizeGesture({
   const pendingHoverRef = useRef<{ el: Element; clientX: number; clientY: number } | null>(null);
   const hoverFrameRef = useRef(0);
   const activeCornerRef = useRef<ResizeHandleAxis | null>(null);
+
+  const autoScrollFrameRef = useRef(0);
+  const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
 
   // Callbacks are read through refs so the window listeners never go stale.
   const applyFrameRef = useRef(applyFrame);
@@ -211,6 +179,29 @@ export function useResizeGesture({
     applyFrameRef.current(frame);
   }, []);
 
+  const tickAutoScroll = useCallback(
+    function tick() {
+      autoScrollFrameRef.current = 0;
+      const gesture = gestureRef.current;
+      const pointer = lastPointerRef.current;
+      if (gesture === null || pointer === null || gesture.scrollParent === null) return;
+
+      const scrollParent = gesture.scrollParent;
+      const rect = scrollParent.getBoundingClientRect();
+      const velocity = resolveAutoScrollVelocity(pointer.clientY, rect.top, rect.bottom);
+      if (velocity === 0) return;
+
+      const previous = scrollParent.scrollTop;
+      scrollParent.scrollTop = previous + velocity;
+      if (scrollParent.scrollTop === previous) return;
+
+      pendingMoveRef.current = { clientX: pointer.clientX, clientY: pointer.clientY };
+      if (moveFrameRef.current === 0) moveFrameRef.current = requestAnimationFrame(flushMove);
+      autoScrollFrameRef.current = requestAnimationFrame(tick);
+    },
+    [flushMove],
+  );
+
   /**
    * The one terminal path. `commit` false restores the frame the gesture started
    * from, so a cancelled gesture can never leave the panel at a half-dragged size.
@@ -224,7 +215,12 @@ export function useResizeGesture({
       cancelAnimationFrame(moveFrameRef.current);
       moveFrameRef.current = 0;
     }
+    if (autoScrollFrameRef.current !== 0) {
+      cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = 0;
+    }
     pendingMoveRef.current = null;
+    lastPointerRef.current = null;
 
     if (gesture.captureEl.hasPointerCapture(gesture.pointerId)) {
       gesture.captureEl.releasePointerCapture(gesture.pointerId);
@@ -263,7 +259,11 @@ export function useResizeGesture({
       const gesture = gestureRef.current;
       if (gesture === null || e.pointerId !== gesture.pointerId) return;
       if (e.cancelable) e.preventDefault();
+      lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY };
       pendingMoveRef.current = { clientX: e.clientX, clientY: e.clientY };
+      if (autoScrollFrameRef.current === 0) {
+        autoScrollFrameRef.current = requestAnimationFrame(tickAutoScroll);
+      }
       if (moveFrameRef.current !== 0) return;
       moveFrameRef.current = requestAnimationFrame(flushMove);
     };
@@ -321,8 +321,13 @@ export function useResizeGesture({
       window.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("blur", onWindowBlur);
       window.removeEventListener("contextmenu", onContextMenu, true);
+      if (autoScrollFrameRef.current !== 0) {
+        cancelAnimationFrame(autoScrollFrameRef.current);
+        autoScrollFrameRef.current = 0;
+      }
+      lastPointerRef.current = null;
     };
-  }, [isResizing, endGesture, flushMove]);
+  }, [isResizing, endGesture, flushMove, tickAutoScroll]);
 
   const handlePointerDown = useCallback(
     (axis: ResizeHandleAxis) => (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -348,6 +353,7 @@ export function useResizeGesture({
       handleEl.setPointerCapture(e.pointerId);
 
       const committed: ResizeFrame = { x: item.x, y: item.y, w: item.w, h: item.h };
+      const scrollParent = findScrollParent(gridEl);
 
       gestureRef.current = {
         id,
@@ -356,6 +362,8 @@ export function useResizeGesture({
         captureEl: handleEl,
         startX: e.clientX,
         startY: e.clientY,
+        startScrollTop: scrollParent === null ? 0 : scrollParent.scrollTop,
+        scrollParent,
         containerWidth: width,
         rowPitch: Math.max(1, readRowPitchPx(gridEl)),
         committed,
@@ -365,7 +373,7 @@ export function useResizeGesture({
           minX,
           maxX: committed.x + maxW,
           minY,
-          maxY: committed.y + maxH,
+          maxRows: RESIZE_ROW_CEILING,
         },
         frame: committed,
       };
@@ -375,7 +383,7 @@ export function useResizeGesture({
       setIsResizing(true);
       lockPageInteraction(axis);
     },
-    [id, item.x, item.y, item.w, item.h, minW, minH, maxW, maxH, minX, minY, containerWidth],
+    [id, item.x, item.y, item.w, item.h, minW, minH, maxW, minX, minY, containerWidth],
   );
 
   const applyHover = useCallback(() => {
@@ -457,10 +465,13 @@ export function useResizeGesture({
     return () => {
       if (moveFrameRef.current !== 0) cancelAnimationFrame(moveFrameRef.current);
       if (hoverFrameRef.current !== 0) cancelAnimationFrame(hoverFrameRef.current);
+      if (autoScrollFrameRef.current !== 0) cancelAnimationFrame(autoScrollFrameRef.current);
       moveFrameRef.current = 0;
       hoverFrameRef.current = 0;
+      autoScrollFrameRef.current = 0;
       pendingMoveRef.current = null;
       pendingHoverRef.current = null;
+      lastPointerRef.current = null;
       // Only a gesture that actually locked the page may unlock it.
       if (gestureRef.current !== null) unlockPageInteraction();
       gestureRef.current = null;
