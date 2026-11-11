@@ -1,5 +1,5 @@
 import type { ServerWebSocket } from "bun";
-import type { ISubscription } from "@nktkas/hyperliquid";
+import type { SubscriptionHandle } from "@0xsignal/sdk-hyperliquid/subscription";
 import { Data, Effect, Exit, Fiber, Option, Predicate, Queue, Ref, Scope } from "effect";
 import type {
   MarketWsConnectionData,
@@ -76,12 +76,34 @@ export class WebSocketSubscribeError extends Data.TaggedError("WebSocketSubscrib
   readonly symbol?: string | undefined;
 }> {}
 
+export type L2BookLevel = {
+  readonly px: string;
+  readonly sz: string;
+  readonly n: number;
+};
+
+export type L2BookSnapshotFrame = {
+  readonly type: "market";
+  readonly channel: "l2Book";
+  readonly nSigFigs: MarketWsSubscription["nSigFigs"];
+  readonly data: {
+    readonly snapshot: {
+      readonly levels: readonly [readonly L2BookLevel[], readonly L2BookLevel[]];
+    };
+  };
+};
+
+type L2BookSnapshotSlot = {
+  current: Option.Option<L2BookSnapshotFrame>;
+};
+
 export type Bucket = {
   readonly key: string;
   readonly subscription: MarketWsSubscription;
   readonly clients: ReadonlySet<ServerWebSocket<MarketWsConnectionData>>;
-  readonly upstream: Option.Option<ISubscription>;
+  readonly upstream: Option.Option<SubscriptionHandle>;
   readonly state: BucketState;
+  readonly lastSnapshot: L2BookSnapshotSlot;
   readonly retryCount: number;
   readonly subscribeFiber: Option.Option<Fiber.Fiber<void>>;
   readonly scope: Scope.Closeable;
@@ -111,8 +133,9 @@ export const joinBucket = (
       key,
       subscription,
       clients: new Set<ServerWebSocket<MarketWsConnectionData>>([ws]),
-      upstream: Option.none<ISubscription>(),
+      upstream: Option.none<SubscriptionHandle>(),
       state: { _tag: "idle" },
+      lastSnapshot: { current: Option.none() },
       retryCount: 0,
       subscribeFiber: Option.none(),
       scope: yield* Scope.make(),
@@ -224,9 +247,9 @@ export type DetachRequest = {
   readonly ws: ServerWebSocket<MarketWsConnectionData>;
 };
 
-export const unsubscribeQuietly = (subscription: ISubscription): Effect.Effect<void> =>
+export const unsubscribeQuietly = (subscription: SubscriptionHandle): Effect.Effect<void> =>
   Effect.tryPromise({
-    try: () => subscription.unsubscribe(),
+    try: () => subscription.unsubscribeAsync(),
     catch: (error) => error,
   }).pipe(
     Effect.catch((error) =>
@@ -318,4 +341,4 @@ type BucketState =
   | { readonly _tag: "idle" }
   | { readonly _tag: "subscribing" }
   | { readonly _tag: "restarting" }
-  | { readonly _tag: "subscribed"; readonly upstream: ISubscription };
+  | { readonly _tag: "subscribed"; readonly upstream: SubscriptionHandle };

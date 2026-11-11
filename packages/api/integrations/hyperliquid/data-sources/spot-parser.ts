@@ -1,4 +1,6 @@
-import { asRecord, isUnknownArray, numberAt, stringAt } from "../../../shared/parsing";
+import { assetInfoFromSpotMeta, type AssetInfo } from "@0xsignal/sdk-hyperliquid/exchange";
+import type { SpotMetaInfoResponse } from "@0xsignal/sdk-hyperliquid/info";
+import { asRecord, isUnknownArray, stringAt } from "../../../shared/parsing";
 import type { SpotPairRef, SpotTradeAsset } from "./types";
 
 /** Maps each spot base token to the query name of the pair that owns it. */
@@ -27,45 +29,49 @@ export function extractSpotPairRefs(raw: unknown): SpotPairRef[] {
   return refs;
 }
 
+const normalizeEvmContract = (value: unknown): string | undefined => {
+  if (typeof value === "string") return value;
+  const record = asRecord(value);
+  return record === null ? undefined : stringAt(record, "address");
+};
+
+const isSpotMetaInfoResponse = (value: unknown): value is SpotMetaInfoResponse => {
+  const record = asRecord(value);
+  return record !== null && isUnknownArray(record.universe) && isUnknownArray(record.tokens);
+};
+
 export function parseSpotAssets(raw: unknown, allMids: Record<string, string>): SpotTradeAsset[] {
   if (!isUnknownArray(raw) || raw.length < 2) return [];
 
-  const meta = asRecord(raw[0]);
-  if (meta === null || !isUnknownArray(meta.universe) || !isUnknownArray(meta.tokens)) return [];
+  const meta = raw[0];
+  if (!isSpotMetaInfoResponse(meta)) return [];
 
-  const universe = meta.universe.map((entry) => asRecord(entry) ?? {});
-  const tokens = meta.tokens.map((token) => asRecord(token) ?? {});
   const ctxs = isUnknownArray(raw[1]) ? raw[1].map((ctx) => asRecord(ctx) ?? {}) : [];
   const assets: SpotTradeAsset[] = [];
 
-  for (let i = 0; i < universe.length; i++) {
-    const entry = universe[i];
+  for (let i = 0; i < meta.universe.length; i++) {
+    const entry = meta.universe[i];
     const entryName = entry.name;
-    if (typeof entryName !== "string") continue;
 
-    const tokenIndices = isUnknownArray(entry.tokens) ? entry.tokens : [];
-    const baseTokenIdx = tokenIndices[0];
-    const quoteTokenIdx = tokenIndices[1];
+    const [baseTokenIdx, quoteTokenIdx] = entry.tokens;
+    const baseToken = meta.tokens.find((token) => token.index === baseTokenIdx);
+    const quoteToken = meta.tokens.find((token) => token.index === quoteTokenIdx);
 
-    const baseToken =
-      typeof baseTokenIdx === "number" && baseTokenIdx >= 0 && baseTokenIdx < tokens.length
-        ? tokens[baseTokenIdx]
-        : undefined;
-    const quoteToken =
-      typeof quoteTokenIdx === "number" && quoteTokenIdx >= 0 && quoteTokenIdx < tokens.length
-        ? tokens[quoteTokenIdx]
-        : undefined;
+    if (baseToken === undefined) continue;
+    const coin = baseToken.name;
+    if (coin === "") continue;
 
-    const coin = baseToken === undefined ? null : (stringAt(baseToken, "name") ?? null);
-    if (coin === null || coin === "") continue;
-
-    const quoteCurrency =
-      quoteToken === undefined ? "USDC" : (stringAt(quoteToken, "name") ?? "USDC");
-    // `entryName` is the wire identifier ("@1" for non-canonical pairs), not a label.
-    // The token names are the only readable source for the display name.
+    const quoteCurrency = quoteToken?.name ?? "USDC";
     const hasReadableName = entryName !== "" && !entryName.startsWith("@");
     const displaySymbol = hasReadableName ? entryName : `${coin}/${quoteCurrency}`;
     const ctx = ctxs[i] ?? {};
+
+    let assetInfo: AssetInfo;
+    try {
+      assetInfo = assetInfoFromSpotMeta(meta, entryName);
+    } catch {
+      continue;
+    }
 
     const markPx = allMids[entryName] ?? stringAt(ctx, "markPx") ?? "0";
     const prevDayPx = stringAt(ctx, "prevDayPx") ?? "0";
@@ -73,10 +79,7 @@ export function parseSpotAssets(raw: unknown, allMids: Record<string, string>): 
     const dayBaseVlm = stringAt(ctx, "dayBaseVlm") ?? "0";
     const circulatingSupply = stringAt(ctx, "circulatingSupply");
     const totalSupply = stringAt(ctx, "totalSupply");
-    const szDecimals =
-      (baseToken === undefined ? undefined : numberAt(baseToken, "szDecimals")) ?? 4;
-    const tokenId = baseToken === undefined ? undefined : stringAt(baseToken, "tokenId");
-    const evmContract = tokenId === "" ? undefined : tokenId;
+    const evmContract = normalizeEvmContract(baseToken.evmContract);
 
     assets.push({
       coin,
@@ -96,10 +99,10 @@ export function parseSpotAssets(raw: unknown, allMids: Record<string, string>): 
       category: "spot",
       displayCategory: "Spot",
       maxLeverage: 1,
-      szDecimals,
+      szDecimals: assetInfo.szDecimals,
       openInterest: "0",
       funding: "0",
-      assetId: 10000 + (typeof entry.index === "number" ? entry.index : i),
+      assetId: assetInfo.assetId,
       isDelisted: false,
       dex: "HYPERLIQUID",
       marketType: "spot",

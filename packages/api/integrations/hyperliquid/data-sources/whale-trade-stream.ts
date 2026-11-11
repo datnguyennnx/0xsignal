@@ -1,7 +1,6 @@
 import { Cause, Context, Effect, Layer, Queue, Stream } from "effect";
-import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
-import type { ISubscription } from "@nktkas/hyperliquid";
-import type { TradesEvent } from "@nktkas/hyperliquid/api/subscription";
+import { WsClient } from "@0xsignal/sdk-hyperliquid/subscription";
+import type { SubscriptionHandle, WsTrade } from "@0xsignal/sdk-hyperliquid/subscription";
 import type { WhaleSide, WhaleTrade } from "@0xsignal/shared";
 import { WhaleConfig } from "../../../modules/whales";
 import { BoundedTidSet } from "./bounded-tid-set";
@@ -15,7 +14,12 @@ export class WhaleTradeStream extends Context.Service<WhaleTradeStream, WhaleTra
   "WhaleTradeStream",
 ) {}
 
-const toWhaleTrade = (trade: TradesEvent[number], minNotionalUsd: number): WhaleTrade | null => {
+type TradeTick = Pick<WsTrade, "coin" | "side" | "time" | "tid" | "users"> & {
+  readonly px: string;
+  readonly sz: string;
+};
+
+const toWhaleTrade = (trade: TradeTick, minNotionalUsd: number): WhaleTrade | null => {
   const notionalUsd = Number(trade.px) * Number(trade.sz);
   // minNotionalUsd <= 0 means "no filter": every finite trade passes.
   if (!Number.isFinite(notionalUsd)) return null;
@@ -53,45 +57,47 @@ interface TradeCounters {
 const COUNTERS_LOG_INTERVAL = "10 seconds";
 
 const subscribeCoin = (
-  subscriptionClient: SubscriptionClient,
+  client: WsClient,
   coin: string,
   minNotionalUsd: number,
   seenTids: BoundedTidSet,
   counters: TradeCounters,
   queue: Queue.Queue<WhaleTrade, HyperliquidError>,
-): Effect.Effect<ISubscription, HyperliquidError> =>
+): Effect.Effect<SubscriptionHandle, HyperliquidError> =>
   Effect.tryPromise({
     try: () =>
-      subscriptionClient.trades(
-        { coin },
-        (trades) => {
-          // Listener is invoked on the sync transport callback (non-Effect),
-          // so the queue is offered to unsafely and dedupe state is a plain
-          // bounded set.
-          for (const trade of trades) {
-            if (seenTids.has(trade.tid)) continue;
-            seenTids.add(trade.tid);
-            counters.seen += 1;
-            const whale = toWhaleTrade(trade, minNotionalUsd);
-            if (whale === null) {
-              counters.dropped += 1;
-            } else {
-              counters.accepted += 1;
-              Queue.offerUnsafe(queue, whale);
+      Promise.resolve(
+        client.subscribe(
+          { type: "trades", coin },
+          (data) => {
+            // Listener is invoked on the sync transport callback (non-Effect),
+            // so the queue is offered to unsafely and dedupe state is a plain
+            // bounded set.
+            for (const trade of data) {
+              if (seenTids.has(trade.tid)) continue;
+              seenTids.add(trade.tid);
+              counters.seen += 1;
+              const whale = toWhaleTrade(trade, minNotionalUsd);
+              if (whale === null) {
+                counters.dropped += 1;
+              } else {
+                counters.accepted += 1;
+                Queue.offerUnsafe(queue, whale);
+              }
             }
-          }
-        },
-        {
-          // A confirmed subscription failing fires at most once and detaches the
-          // listener, so propagate it: fail the bridge queue and let the consumer
-          // restart rather than stall on a dead connection.
-          onError: (error) => {
-            Queue.failCauseUnsafe(
-              queue,
-              Cause.fail(toHyperliquidError(`Failed to subscribe to trades for ${coin}`, error)),
-            );
           },
-        },
+          {
+            // A confirmed subscription failing fires at most once and detaches the
+            // listener, so propagate it: fail the bridge queue and let the consumer
+            // restart rather than stall on a dead connection.
+            onError: (error) => {
+              Queue.failCauseUnsafe(
+                queue,
+                Cause.fail(toHyperliquidError(`Failed to subscribe to trades for ${coin}`, error)),
+              );
+            },
+          },
+        ),
       ),
     catch: (cause) => toHyperliquidError(`Failed to subscribe to trades for ${coin}`, cause),
   });
@@ -101,7 +107,7 @@ const subscribeCoin = (
  * shared transport and tears them down when the consuming scope closes.
  */
 export const openTradeStream = (
-  subscriptionClient: SubscriptionClient,
+  client: WsClient,
   coinUniverse: ReadonlyArray<string>,
   minNotionalUsd: number,
 ): Stream.Stream<WhaleTrade, HyperliquidError> =>
@@ -130,11 +136,11 @@ export const openTradeStream = (
         // of leaving them attached to the shared transport forever.
         yield* Effect.forEach(coinUniverse, (coin) =>
           Effect.acquireRelease(
-            subscribeCoin(subscriptionClient, coin, minNotionalUsd, seenTids, counters, queue),
+            subscribeCoin(client, coin, minNotionalUsd, seenTids, counters, queue),
             (subscription) =>
               // One failing unsubscribe must not skip the remaining releases.
               Effect.tryPromise({
-                try: () => subscription.unsubscribe(),
+                try: () => subscription.unsubscribeAsync(),
                 catch: (cause) => cause,
               }).pipe(Effect.ignore),
           ),
@@ -152,20 +158,19 @@ export const whaleTradeStreamLayer: Layer.Layer<WhaleTradeStream, never, WhaleCo
       Effect.gen(function* () {
         const { coinUniverse, whaleNotionalUsd } = yield* WhaleConfig;
 
-        // One transport => one upstream WebSocket connection, shared by every
+        // One client => one upstream WebSocket connection, shared by every
         // per-coin `trades` subscription (HL allows up to 10 connections).
-        const transport = new WebSocketTransport({ resubscribe: true });
-        const subscriptionClient = new SubscriptionClient({ transport });
+        const client = new WsClient({ shouldReconnect: true });
 
         const service = WhaleTradeStream.of({
-          trades: () => openTradeStream(subscriptionClient, coinUniverse, whaleNotionalUsd),
+          trades: () => openTradeStream(client, coinUniverse, whaleNotionalUsd),
         });
 
-        return { transport, service } as const;
+        return { client, service } as const;
       }),
-      ({ transport }) =>
+      ({ client }) =>
         Effect.sync(() => {
-          transport.close();
+          client.close();
         }),
     ).pipe(Effect.map(({ service }) => service)),
   );

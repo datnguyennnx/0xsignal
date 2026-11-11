@@ -1,9 +1,9 @@
 import { Effect } from "effect";
 import { HyperliquidValidationError } from "../../shared/errors";
 
-export type HlTif = "Gtc" | "Ioc" | "Alo" | "FrontendMarket";
+export type HlTif = "Gtc" | "Ioc" | "Alo";
 
-// Hyperliquid's order schema accepts only these four TIF values; FOK has no
+// Hyperliquid's order schema accepts only these three TIF values; FOK has no
 // equivalent, and mapping it to Gtc would turn a kill-or-nothing order into a
 // resting order, so it must fail loudly instead.
 const hlTifByOrderType: Record<string, HlTif> = {
@@ -12,8 +12,6 @@ const hlTifByOrderType: Record<string, HlTif> = {
   ALO: "Alo",
   Alo: "Alo",
   PostOnly: "Alo",
-  FrontendMarket: "FrontendMarket",
-  Market: "FrontendMarket",
 };
 
 export const toHlTif = (tif: string): Effect.Effect<HlTif, HyperliquidValidationError> => {

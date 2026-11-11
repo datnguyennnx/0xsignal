@@ -10,11 +10,17 @@ describe("toHlTif", () => {
     ["ALO", "Alo"],
     ["Alo", "Alo"],
     ["PostOnly", "Alo"],
-    ["FrontendMarket", "FrontendMarket"],
-    ["Market", "FrontendMarket"],
   ])("maps %s to %s", async (input, expected) => {
     const mapped = await Effect.runPromise(toHlTif(input));
     expect(mapped).toBe(expected);
+  });
+
+  it.each(["FrontendMarket", "Market"])("rejects %s now that no TIF maps to it", async (input) => {
+    const result = await Effect.runPromise(toHlTif(input).pipe(Effect.flip));
+
+    expect(result).toBeInstanceOf(HyperliquidValidationError);
+    expect(result).toHaveProperty("input", input);
+    expect(result.message).toBe(`Unsupported timeInForce: ${input}`);
   });
 
   it("rejects FOK instead of downgrading it to a resting Gtc order", async () => {

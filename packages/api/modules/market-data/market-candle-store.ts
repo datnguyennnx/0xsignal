@@ -15,20 +15,20 @@ export class MarketCandleStore extends Context.Service<MarketCandleStore, Market
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-const openMillis = (timestamp: Candle["timestamp"]): number => new Date(timestamp).getTime();
+const openMillis = (t: number): number => t;
 
 /**
- * Sorts oldest first with one clock read per candle. Decorating before the
- * comparison keeps `Date` construction linear instead of once per comparison.
+ * Sorts oldest first with one open-time read per candle. Decorating before the
+ * comparison keeps that read linear instead of once per comparison.
  * `toSorted`/`sort` is stable, so equal timestamps keep their input order.
  */
 export const sortCandlesByOpen = (
   candles: readonly Candle[],
-  toOpenMillis: (timestamp: Candle["timestamp"]) => number = openMillis,
+  toOpenMillis: (t: Candle["t"]) => number = openMillis,
 ): Candle[] => {
   const decorated = candles.map((candle) => ({
     candle,
-    open: toOpenMillis(candle.timestamp),
+    open: toOpenMillis(candle.t),
   }));
   decorated.sort((a, b) => a.open - b.open);
   return decorated.map((entry) => entry.candle);
@@ -59,7 +59,7 @@ export const makeCandleStore = (provider: MarketRemoteProviderPort): MarketCandl
 
       return sortCandlesByOpen(
         candles.filter((candle) => {
-          const open = openMillis(candle.timestamp);
+          const open = openMillis(candle.t);
           return open >= startOpen && open <= endOpen;
         }),
       );

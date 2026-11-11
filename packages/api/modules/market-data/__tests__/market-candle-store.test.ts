@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { Effect, Schema } from "effect";
+import type { DecimalString } from "@0xsignal/sdk-hyperliquid";
 import type { Candle } from "@0xsignal/shared";
 import { MarketTimeframeSchema } from "../timeframe";
 import { makeCandleStore, sortCandlesByOpen } from "../market-candle-store";
 import type { MarketRemoteProviderPort } from "../market-remote-provider";
+
+const decimal = (value: string): DecimalString => value as DecimalString;
 
 const timeframe = Schema.decodeUnknownSync(MarketTimeframeSchema)("1m");
 const INTERVAL_MS = 60_000;
@@ -13,12 +16,16 @@ const candlesBetween = (start: number, end: number): Candle[] => {
   const candles: Candle[] = [];
   for (let open = start; open <= end; open += INTERVAL_MS) {
     candles.push({
-      timestamp: new Date(open),
-      open: 100,
-      high: 110,
-      low: 90,
-      close: 105,
-      volume: 1,
+      t: open,
+      open: decimal("100"),
+      high: decimal("110"),
+      low: decimal("90"),
+      close: decimal("105"),
+      volume: decimal("1"),
+      T: open + INTERVAL_MS - 1,
+      n: 1,
+      i: "1m",
+      s: "BTC",
     });
   }
   return candles;
@@ -60,7 +67,7 @@ describe("market candle store", () => {
     const candles = await Effect.runPromise(store.getCandles(range(3)));
 
     expect(candles).toHaveLength(3);
-    expect(candles.map((candle) => new Date(candle.timestamp).getTime())).toEqual([
+    expect(candles.map((candle) => candle.t)).toEqual([
       BASE,
       BASE + INTERVAL_MS,
       BASE + 2 * INTERVAL_MS,
@@ -78,7 +85,7 @@ describe("market candle store", () => {
 
     const candles = await Effect.runPromise(store.getCandles(range(5)));
 
-    expect(candles.map((candle) => new Date(candle.timestamp).getTime())).toEqual([
+    expect(candles.map((candle) => candle.t)).toEqual([
       BASE,
       BASE + INTERVAL_MS,
       BASE + 2 * INTERVAL_MS,
@@ -89,30 +96,34 @@ describe("market candle store", () => {
 });
 
 describe("candle ordering", () => {
-  const candleAt = (open: number, marker: number): Candle => ({
-    timestamp: new Date(open),
-    open: marker,
-    high: marker,
-    low: marker,
-    close: marker,
-    volume: 1,
+  const candleAt = (open: number, marker: string): Candle => ({
+    t: open,
+    open: decimal(marker),
+    high: decimal(marker),
+    low: decimal(marker),
+    close: decimal(marker),
+    volume: decimal("1"),
+    T: open + INTERVAL_MS - 1,
+    n: 1,
+    i: "1m",
+    s: "BTC",
   });
 
   it("reads each open time once and keeps equal timestamps stable", () => {
     const input = [
-      candleAt(BASE + 2 * INTERVAL_MS, 4),
-      candleAt(BASE, 1),
-      candleAt(BASE + INTERVAL_MS, 2),
-      candleAt(BASE + INTERVAL_MS, 3),
-      candleAt(BASE, 0),
+      candleAt(BASE + 2 * INTERVAL_MS, "4"),
+      candleAt(BASE, "1"),
+      candleAt(BASE + INTERVAL_MS, "2"),
+      candleAt(BASE + INTERVAL_MS, "3"),
+      candleAt(BASE, "0"),
     ];
-    const reads = vi.fn((timestamp: Candle["timestamp"]) => new Date(timestamp).getTime());
+    const reads = vi.fn((t: Candle["t"]) => t);
 
     const sorted = sortCandlesByOpen(input, reads);
 
     // One clock read per candle proves O(n) decoration, not O(n log n) sorting.
     expect(reads).toHaveBeenCalledTimes(input.length);
     // Equal opens retain their input order: [BASE:1, BASE:0] then [BASE+1:2, BASE+1:3].
-    expect(sorted.map((candle) => candle.open)).toEqual([1, 0, 2, 3, 4]);
+    expect(sorted.map((candle) => candle.open)).toEqual(["1", "0", "2", "3", "4"]);
   });
 });

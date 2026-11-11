@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { Effect, Exit, Fiber, Queue, Ref, Scope } from "effect";
+import { Effect, Exit, Fiber, Option, Queue, Ref, Scope } from "effect";
 import { TestClock } from "effect/testing";
 import type { ServerWebSocket, WebSocketReadyState } from "bun";
-import {
-  SubscriptionClient,
-  type ISubscription,
-  type ISubscriptionTransport,
-  type TransportError,
-} from "@nktkas/hyperliquid";
+import { TransportError } from "@0xsignal/sdk-hyperliquid";
+import type {
+  SubscribeOptions,
+  Subscription,
+  SubscriptionHandle,
+  WsClient,
+} from "@0xsignal/sdk-hyperliquid/subscription";
 import {
   makeMarketStreamHubLayer,
   MAX_BUCKETS,
@@ -24,25 +25,69 @@ import {
   type Bucket,
   BucketJoinError,
   type MarketWsConnectionData,
+  WebSocketSubscribeError,
 } from "../hub-types";
+import { subscribeUpstream } from "../hub-subscription";
+import type { HyperliquidAggregatedAsset } from "../../data-sources/types";
 
-const stubUpstream: ISubscription = { unsubscribe: () => Promise.resolve() };
+const makeHandle = (subscription: Subscription): SubscriptionHandle => ({
+  subscription,
+  unsubscribe: () => {},
+  unsubscribeAsync: () => Promise.resolve(),
+});
 
-const unusedTransport: ISubscriptionTransport = {
-  subscribe: () => Promise.reject(new Error("unused transport")),
-};
+type SubscribeFn = (
+  subscription: Subscription,
+  onData: (data: unknown) => void,
+  options?: SubscribeOptions,
+) => SubscriptionHandle;
+
+const makeWsClient = (subscribe: SubscribeFn): WsClient => ({ subscribe }) as unknown as WsClient;
+
+type SubscriptionCapture = { readonly subscriptions: Subscription[] };
+
+const makeCaptureClient = (capture: SubscriptionCapture): WsClient =>
+  makeWsClient((subscription) => {
+    capture.subscriptions.push(subscription);
+    return makeHandle(subscription);
+  });
+
+const makeCandleBucket = (symbol: string): Bucket => ({
+  key: `candle:${symbol}:1m`,
+  subscription: { channel: "candle", symbol, interval: "1m" },
+  clients: new Set(),
+  upstream: Option.none(),
+  state: { _tag: "idle" },
+  lastSnapshot: { current: Option.none() },
+  retryCount: 0,
+  subscribeFiber: Option.none(),
+  scope: Scope.makeUnsafe("sequential"),
+});
+
+const resolveUpstream = (symbol: string): Effect.Effect<Subscription[], WebSocketSubscribeError> =>
+  Effect.gen(function* () {
+    const capture: SubscriptionCapture = { subscriptions: [] };
+    const bucket = makeCandleBucket(symbol);
+    yield* subscribeUpstream(
+      bucket,
+      makeCaptureClient(capture),
+      Promise.resolve([makeSpotAsset()]),
+      () => {},
+      () => bucket,
+    );
+    return capture.subscriptions;
+  });
 
 type AllMidsListener = (event: unknown) => void;
 
 type Emitter = { listener: AllMidsListener | undefined };
 
-const makeSubscriptionClient = (emitter?: Emitter): SubscriptionClient =>
-  Object.assign(new SubscriptionClient({ transport: unusedTransport }), {
-    allMids: (listener: AllMidsListener) => {
-      if (emitter !== undefined) emitter.listener = listener;
-      return Promise.resolve(stubUpstream);
-    },
-    candle: () => Promise.resolve(stubUpstream),
+const makeSubscriptionClient = (emitter?: Emitter): WsClient =>
+  makeWsClient((subscription, onData) => {
+    if (subscription.type === "allMids" && emitter !== undefined) {
+      emitter.listener = onData as AllMidsListener;
+    }
+    return makeHandle(subscription);
   });
 
 const makePerpAsset = (rawCoin: string) => ({
@@ -66,6 +111,30 @@ const makePerpAsset = (rawCoin: string) => ({
   dayNtlVlm: "0",
   maxLeverage: 50,
   szDecimals: 2,
+});
+
+const makeSpotAsset = (): HyperliquidAggregatedAsset => ({
+  coin: "DBL",
+  rawCoin: "DBL/USDC",
+  displaySymbol: "DBL/USDC",
+  dexPrefix: null,
+  isHip3: false,
+  quoteCurrency: "USDC",
+  name: "@203",
+  category: "spot",
+  displayCategory: "Spot",
+  isDelisted: false,
+  dex: "HYPERLIQUID" as const,
+  assetId: 203,
+  marketType: "spot" as const,
+  markPx: "1",
+  prevDayPx: "1",
+  openInterest: "0" as const,
+  funding: "0" as const,
+  dayNtlVlm: "0",
+  maxLeverage: 1 as const,
+  szDecimals: 2,
+  dayBaseVlm: "0",
 });
 
 const stubProvider = {
@@ -199,7 +268,7 @@ type Captured = { buckets: Ref.Ref<Map<string, Bucket>> | undefined };
 
 const makeLayer = (captured: Captured) =>
   makeMarketStreamHubLayer(stubProvider, {
-    createClient: () => ({ subscriptionClient: makeSubscriptionClient(), close: () => {} }),
+    createClient: () => ({ wsClient: makeSubscriptionClient(), close: () => {} }),
     onAcquire: (buckets) => {
       captured.buckets = buckets;
     },
@@ -208,7 +277,7 @@ const makeLayer = (captured: Captured) =>
 const makeEmittingLayer = (captured: Captured, emitter: Emitter) =>
   makeMarketStreamHubLayer(stubProvider, {
     createClient: () => ({
-      subscriptionClient: makeSubscriptionClient(emitter),
+      wsClient: makeSubscriptionClient(emitter),
       close: () => {},
     }),
     onAcquire: (buckets) => {
@@ -217,27 +286,22 @@ const makeEmittingLayer = (captured: Captured, emitter: Emitter) =>
   });
 
 type ErrorEmitter = {
-  onError: ((error: TransportError) => void) | undefined;
+  onError: ((error: unknown) => void) | undefined;
   subscribeCalls: number;
 };
 
 /** allMids stub that captures the SDK error callback on each subscribe. */
-const makeErrorSubscriptionClient = (emitter: ErrorEmitter): SubscriptionClient =>
-  Object.assign(new SubscriptionClient({ transport: unusedTransport }), {
-    allMids: (
-      _listener: AllMidsListener,
-      options?: { onError?: (error: TransportError) => void },
-    ) => {
-      emitter.subscribeCalls += 1;
-      emitter.onError = options?.onError;
-      return Promise.resolve(stubUpstream);
-    },
+const makeErrorSubscriptionClient = (emitter: ErrorEmitter): WsClient =>
+  makeWsClient((subscription, _onData, options) => {
+    emitter.subscribeCalls += 1;
+    emitter.onError = options?.onError;
+    return makeHandle(subscription);
   });
 
 const makeErrorLayer = (captured: Captured, emitter: ErrorEmitter) =>
   makeMarketStreamHubLayer(stubProvider, {
     createClient: () => ({
-      subscriptionClient: makeErrorSubscriptionClient(emitter),
+      wsClient: makeErrorSubscriptionClient(emitter),
       close: () => {},
     }),
     onAcquire: (buckets) => {
@@ -400,7 +464,7 @@ describe("Market WS restart queue lifetime", () => {
       second.sent.length = 0;
       const onError = emitter.onError;
       if (onError === undefined) throw new Error("upstream error callback was not registered");
-      onError({ message: "upstream dropped" } as TransportError);
+      onError(new TransportError(new Error("upstream dropped")));
 
       // The restart queue and its drain own the bucket's lifetime, so the
       // remaining client still gets the restart.
@@ -644,5 +708,27 @@ describe("Market WS subscribe retries", () => {
     // Retries plus the initial evaluation must equal the budget; a hardcoded
     // `upTo({ times: 3 })` allowed a fourth attempt.
     expect(attempts).toBe(MAX_SUBSCRIBE_ATTEMPTS);
+  });
+});
+
+describe("Market WS spot symbol resolution", () => {
+  it("resolves a spot wire id, raw pair, and bare coin to the same upstream subscription", async () => {
+    const [wireId, rawPair, bareCoin] = await Effect.runPromise(
+      Effect.all([resolveUpstream("@203"), resolveUpstream("DBL/USDC"), resolveUpstream("DBL")]),
+    );
+
+    for (const subscriptions of [wireId, rawPair, bareCoin]) {
+      expect(subscriptions).toHaveLength(1);
+      expect(subscriptions[0]).toEqual(expect.objectContaining({ type: "candle", coin: "@203" }));
+    }
+  });
+
+  it("fails an unknown symbol with the resolver error naming the keys tried", async () => {
+    const error = await Effect.runPromise(Effect.flip(resolveUpstream("NOPE")));
+
+    expect(error).toBeInstanceOf(WebSocketSubscribeError);
+    expect(error.message).toContain("rawCoin");
+    expect(error.message).toContain("coin");
+    expect(error.message).toContain("name");
   });
 });

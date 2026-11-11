@@ -12,6 +12,7 @@ import {
   makeTickerSnapshotCache,
   readTickerSnapshot,
 } from "../../../../integrations/hyperliquid/data-sources/provider";
+import { asDecimal } from "@0xsignal/sdk-hyperliquid";
 import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
 
 /**
@@ -23,11 +24,36 @@ type MockedInfoClient = {
 };
 
 const makeInfo = (): MockedInfoClient => ({
-  allMids: vi.fn<HyperliquidInfoClient["allMids"]>().mockResolvedValue({ BTC: "100" }),
-  metaAndAssetCtxs: vi
-    .fn<HyperliquidInfoClient["metaAndAssetCtxs"]>()
-    .mockResolvedValue([{ universe: [{ name: "BTC" }] }, [{ midPx: "100" }]]),
+  allMids: vi.fn<HyperliquidInfoClient["allMids"]>().mockResolvedValue({ BTC: asDecimal("100") }),
+  metaAndAssetCtxs: vi.fn<HyperliquidInfoClient["metaAndAssetCtxs"]>().mockResolvedValue([
+    { universe: [{ name: "BTC", szDecimals: 0, maxLeverage: 1 }], marginTables: [] },
+    [
+      {
+        funding: asDecimal("0"),
+        openInterest: asDecimal("0"),
+        prevDayPx: asDecimal("0"),
+        dayNtlVlm: asDecimal("0"),
+        premium: null,
+        oraclePx: asDecimal("0"),
+        markPx: asDecimal("0"),
+        midPx: asDecimal("100"),
+        impactPxs: null,
+      },
+    ],
+  ]),
   perpDexs: vi.fn<NonNullable<HyperliquidInfoClient["perpDexs"]>>().mockResolvedValue([]),
+  spotMeta: vi
+    .fn<NonNullable<HyperliquidInfoClient["spotMeta"]>>()
+    .mockResolvedValue({ universe: [], tokens: [] }),
+  spotMetaAndAssetCtxs: vi
+    .fn<NonNullable<HyperliquidInfoClient["spotMetaAndAssetCtxs"]>>()
+    .mockResolvedValue([{ universe: [], tokens: [] }, []]),
+  perpCategories: vi
+    .fn<NonNullable<HyperliquidInfoClient["perpCategories"]>>()
+    .mockResolvedValue([]),
+  meta: vi
+    .fn<HyperliquidInfoClient["meta"]>()
+    .mockResolvedValue({ universe: [], marginTables: [] }),
 });
 
 describe("ticker snapshot coalescing and TTL cache", () => {

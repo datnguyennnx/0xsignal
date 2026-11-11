@@ -1,12 +1,13 @@
 import { Context, Effect, Layer, Predicate, Schedule } from "effect";
-import type { ClearinghouseState, WhalePosition, WhaleSide } from "@0xsignal/shared";
+import type { WhalePosition, WhaleSide } from "@0xsignal/shared";
+import type { ClearinghouseStateInfoResponse } from "@0xsignal/sdk-hyperliquid/info";
 import { HyperliquidClient } from "./hyperliquid-client";
 import { WhaleConfig } from "../../../modules/whales";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 import { HyperliquidRateLimiter, type RateLimitBudgetExhaustedError } from "../rate-limit";
 import { INFO_WEIGHTS } from "../weights";
 
-type AssetPosition = ClearinghouseState["assetPositions"][number];
+type AssetPosition = ClearinghouseStateInfoResponse["assetPositions"][number];
 
 const MAX_CONCURRENCY = 5;
 const RETRY_MAX = 3;
@@ -36,8 +37,7 @@ const mapPosition = (
   const markPrice = marks[position.coin];
   const mark = parseNumber(markPrice, Number.NaN);
   const notionalUsd = mark > 0 ? size * mark : Math.abs(parseNumber(position.positionValue));
-  const fundingFee =
-    position.cumFunding === undefined ? undefined : parseNumber(position.cumFunding.sinceOpen);
+  const fundingFee = parseNumber(position.cumFunding.sinceOpen);
 
   return {
     userAddress: address,
@@ -101,14 +101,14 @@ export const whalePositionPollerLayer: Layer.Layer<
       Effect.gen(function* () {
         yield* limiter.acquire(INFO_WEIGHTS.allMids);
         return yield* Effect.tryPromise({
-          try: () => info.allMids(),
+          try: () => info.allMids({}),
           catch: (cause) => toHyperliquidError("allMids failed", cause),
         });
       });
 
     const fetchState = (
       address: string,
-    ): Effect.Effect<ClearinghouseState, WhalePositionPollerError> =>
+    ): Effect.Effect<ClearinghouseStateInfoResponse, WhalePositionPollerError> =>
       Effect.gen(function* () {
         yield* limiter.acquire(INFO_WEIGHTS.clearinghouseState);
         return yield* Effect.tryPromise({

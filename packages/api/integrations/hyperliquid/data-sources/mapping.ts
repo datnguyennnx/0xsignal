@@ -1,5 +1,6 @@
 import { Effect } from "effect";
-import type { InfoClient } from "@nktkas/hyperliquid";
+import type { InfoClient } from "@0xsignal/sdk-hyperliquid";
+import type { MetaInfoResponse, PerpAssetCtx } from "@0xsignal/sdk-hyperliquid/info";
 import { normalizeSymbol } from "./symbol";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 import { processMetaResults } from "./market-aggregation";
@@ -9,7 +10,7 @@ import { withDedup } from "./request-dedup";
 import { acquireInfo, acquireUnlistedInfo, type HyperliquidRateLimiter } from "../rate-limit";
 
 /**
- * Narrow an InfoClient (from @nktkas/hyperliquid) to HyperliquidInfoClient.
+ * Narrow an InfoClient (from @0xsignal/sdk-hyperliquid) to HyperliquidInfoClient.
  */
 export const toHyperliquidInfoClient = (info: InfoClient): HyperliquidInfoClient => info;
 
@@ -28,7 +29,7 @@ const fetchAllMids = (
   Effect.gen(function* () {
     yield* acquireInfo("allMids");
     return yield* Effect.tryPromise({
-      try: () => withDedup("allMids", () => info.allMids()),
+      try: () => withDedup("allMids", () => info.allMids({})),
       catch: (cause) => toHyperliquidError("Failed to fetch mids", cause),
     });
   }).pipe(
@@ -41,11 +42,15 @@ const fetchAllMids = (
 
 const fetchPerpDexs = (
   info: HyperliquidInfoClient,
-): Effect.Effect<Array<null | { name: string }>, HyperliquidError, HyperliquidRateLimiter> =>
+): Effect.Effect<
+  ReadonlyArray<null | { name: string }>,
+  HyperliquidError,
+  HyperliquidRateLimiter
+> =>
   Effect.gen(function* () {
     yield* acquireUnlistedInfo;
     return yield* Effect.tryPromise({
-      try: () => withDedup("perpDexs", () => info.perpDexs?.() ?? Promise.resolve([])),
+      try: () => withDedup("perpDexs", () => info.perpDexs({}).then((dexs) => [...dexs])),
       catch: (cause) => toHyperliquidError("Failed to fetch perp DEXs", cause),
     });
   }).pipe(
@@ -54,7 +59,7 @@ const fetchPerpDexs = (
     ),
     Effect.catchIf(
       (error) => !isRateLimited(error),
-      () => Effect.succeed([] as Array<null | { name: string }>),
+      () => Effect.succeed([] as ReadonlyArray<null | { name: string }>),
     ),
   );
 
@@ -62,28 +67,34 @@ const fetchBaseSnapshot = (
   info: HyperliquidInfoClient,
   skipPerpDexs = false,
 ): Effect.Effect<
-  [Array<null | { name: string }>, Record<string, string>],
+  [ReadonlyArray<null | { name: string }>, Record<string, string>],
   HyperliquidError,
   HyperliquidRateLimiter
 > =>
   Effect.all(
     [
-      skipPerpDexs ? Effect.succeed([] as Array<null | { name: string }>) : fetchPerpDexs(info),
+      skipPerpDexs
+        ? Effect.succeed([] as ReadonlyArray<null | { name: string }>)
+        : fetchPerpDexs(info),
       fetchAllMids(info),
     ],
     { concurrency: 3 },
   );
 
+type MetaAndCtxsResult = [MetaInfoResponse | null, ReadonlyArray<PerpAssetCtx> | null];
+
 const fetchMetaAndAssetCtxs = (
   info: HyperliquidInfoClient,
   dexName: string,
-): Effect.Effect<[unknown, unknown], HyperliquidError, HyperliquidRateLimiter> =>
+): Effect.Effect<MetaAndCtxsResult, HyperliquidError, HyperliquidRateLimiter> =>
   Effect.gen(function* () {
     yield* acquireInfo("metaAndAssetCtxs");
     return yield* Effect.tryPromise({
       try: () =>
         withDedup(`metaAndAssetCtxs:${dexName}`, () =>
-          info.metaAndAssetCtxs(dexName ? { dex: dexName } : undefined),
+          info
+            .metaAndAssetCtxs(dexName ? { dex: dexName } : {})
+            .then(([meta, ctxs]): MetaAndCtxsResult => [meta, ctxs]),
         ),
       catch: (cause) => toHyperliquidError(`Failed to fetch meta for ${dexName || "main"}`, cause),
     });
@@ -92,7 +103,7 @@ const fetchMetaAndAssetCtxs = (
     // surface instead of becoming an empty snapshot that reads as "unknown symbol".
     Effect.catchIf(
       (error) => dexName !== "" && !isRateLimited(error),
-      () => Effect.succeed<[unknown, unknown]>([null, null]),
+      () => Effect.succeed<MetaAndCtxsResult>([null, null]),
     ),
   );
 
@@ -101,11 +112,9 @@ const fetchSpotPairs = (
   info: HyperliquidInfoClient,
 ): Effect.Effect<ReadonlyArray<SpotPairRef>, HyperliquidError, HyperliquidRateLimiter> =>
   Effect.gen(function* () {
-    if (typeof info.spotMeta !== "function") return [];
-    const spotMeta = info.spotMeta;
     yield* acquireInfo("spotMeta");
     return yield* Effect.tryPromise({
-      try: () => spotMeta.call(info),
+      try: () => info.spotMeta({}),
       catch: (cause) => toHyperliquidError("Failed to fetch spot meta", cause),
     }).pipe(
       Effect.map(extractSpotPairRefs),

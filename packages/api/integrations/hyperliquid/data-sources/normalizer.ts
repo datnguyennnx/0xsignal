@@ -1,5 +1,7 @@
 /// <reference lib="es2023.array" />
 import { Data, Effect, Match, Predicate } from "effect";
+import type { DecimalString } from "@0xsignal/sdk-hyperliquid";
+import type { CandleInterval } from "@0xsignal/sdk-hyperliquid/info";
 import { type Candle, type WsMarketInterval } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../modules/market-data";
 import { asRecord } from "../../../shared/parsing";
@@ -11,12 +13,16 @@ export class NormalizationError extends Data.TaggedError("NormalizationError")<{
 export type HlInterval = WsMarketInterval;
 
 export interface HlRawCandle {
+  readonly T: number;
   readonly t: number | string;
-  readonly o: number | string;
-  readonly h: number | string;
-  readonly l: number | string;
-  readonly c: number | string;
-  readonly v: number | string;
+  readonly o: DecimalString;
+  readonly h: DecimalString;
+  readonly l: DecimalString;
+  readonly c: DecimalString;
+  readonly v: DecimalString;
+  readonly n: number;
+  readonly i: CandleInterval;
+  readonly s: string;
 }
 
 const isNumberOrString = (value: unknown): value is number | string =>
@@ -26,12 +32,16 @@ const isHlRawCandle = (value: unknown): value is HlRawCandle => {
   const candle = asRecord(value);
   if (candle === null) return false;
   return (
+    Predicate.isNumber(candle.T) &&
     isNumberOrString(candle.t) &&
-    isNumberOrString(candle.o) &&
-    isNumberOrString(candle.h) &&
-    isNumberOrString(candle.l) &&
-    isNumberOrString(candle.c) &&
-    isNumberOrString(candle.v)
+    Predicate.isString(candle.o) &&
+    Predicate.isString(candle.h) &&
+    Predicate.isString(candle.l) &&
+    Predicate.isString(candle.c) &&
+    Predicate.isString(candle.v) &&
+    Predicate.isNumber(candle.n) &&
+    Predicate.isString(candle.i) &&
+    Predicate.isString(candle.s)
   );
 };
 
@@ -68,7 +78,9 @@ export function toHlInterval(timeframe: MarketTimeframe): HlInterval {
     Match.when("8h", () => "8h" as const),
     Match.when("12h", () => "12h" as const),
     Match.when("1d", () => "1d" as const),
+    Match.when("3d", () => "3d" as const),
     Match.when("1w", () => "1w" as const),
+    Match.when("1M", () => "1M" as const),
     Match.exhaustive,
   );
 }
@@ -95,7 +107,9 @@ export function candleCountForRange(
     Match.when("8h", () => 8 * HOUR_MILLIS),
     Match.when("12h", () => 12 * HOUR_MILLIS),
     Match.when("1d", () => DAY_MILLIS),
+    Match.when("3d", () => 3 * DAY_MILLIS),
     Match.when("1w", () => 7 * DAY_MILLIS),
+    Match.when("1M", () => 30 * DAY_MILLIS),
     Match.exhaustive,
   );
   return Math.max(0, Math.floor((endTime - startTime) / intervalMillis) + 1);
@@ -103,12 +117,16 @@ export function candleCountForRange(
 
 export function normalizeCandle(hlCandle: HlRawCandle): Candle {
   return {
-    timestamp: new Date(hlCandle.t),
-    open: Number(hlCandle.o),
-    high: Number(hlCandle.h),
-    low: Number(hlCandle.l),
-    close: Number(hlCandle.c),
-    volume: Number(hlCandle.v),
+    t: Number(hlCandle.t),
+    open: hlCandle.o,
+    high: hlCandle.h,
+    low: hlCandle.l,
+    close: hlCandle.c,
+    volume: hlCandle.v,
+    T: hlCandle.T,
+    n: hlCandle.n,
+    i: hlCandle.i,
+    s: hlCandle.s,
   };
 }
 
@@ -117,9 +135,8 @@ export function normalizeCandles(hlCandles: ReadonlyArray<HlRawCandle>): Candle[
   const byTimestamp = new Map<number, Candle>();
   for (const hlCandle of hlCandles) {
     const candle = normalizeCandle(hlCandle);
-    const timestamp = new Date(candle.timestamp).getTime();
-    if (!Number.isNaN(timestamp)) {
-      byTimestamp.set(timestamp, candle);
+    if (Number.isFinite(candle.t)) {
+      byTimestamp.set(candle.t, candle);
     }
   }
   return Array.from(byTimestamp.entries())

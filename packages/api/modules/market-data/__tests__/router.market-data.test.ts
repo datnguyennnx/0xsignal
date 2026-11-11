@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Context, Effect, Layer } from "effect";
+import type { DecimalString } from "@0xsignal/sdk-hyperliquid";
 import { MarketDataService, MarketProviderError } from "../../../modules/market-data";
 import { mapMarketInfraError } from "../../../modules/market-data/error-mapping";
 import { HealthService } from "../../../modules/health";
@@ -55,6 +56,8 @@ const runRequest = (path: string, method = "GET") =>
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
+
+const decimal = (value: string): DecimalString => value as DecimalString;
 
 const errorMessage = (body: unknown): unknown => {
   if (!isRecord(body)) return "Unknown error";
@@ -115,13 +118,13 @@ describe("HTTP Market Data Router", () => {
     mockMarketDataService.getTicker.mockReturnValue(
       Effect.succeed({
         symbol: "BTC",
-        mid: 100000,
-        markPx: 100100,
-        midPx: 100000,
-        prevDayPx: 98000,
-        dayNtlVlm: 12345,
-        openInterest: 500000,
-        funding: 0.0001,
+        mid: decimal("100000"),
+        markPx: decimal("100100"),
+        midPx: decimal("100000"),
+        prevDayPx: decimal("98000"),
+        dayNtlVlm: decimal("12345"),
+        openInterest: decimal("500000"),
+        funding: decimal("0.0001"),
       }),
     );
     mockMarketDataService.getTradeAnnotation.mockReturnValue(
@@ -267,13 +270,13 @@ describe("HTTP Market Data Router", () => {
     await expect(response.json()).resolves.toEqual({
       data: {
         symbol: "BTC",
-        mid: 100000,
-        markPx: 100100,
-        midPx: 100000,
-        prevDayPx: 98000,
-        dayNtlVlm: 12345,
-        openInterest: 500000,
-        funding: 0.0001,
+        mid: decimal("100000"),
+        markPx: "100100",
+        midPx: "100000",
+        prevDayPx: "98000",
+        dayNtlVlm: "12345",
+        openInterest: "500000",
+        funding: "0.0001",
       },
     });
   });

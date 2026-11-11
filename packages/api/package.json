@@ -18,9 +18,9 @@
   },
   "dependencies": {
     "@0xsignal/auth": "workspace:*",
+    "@0xsignal/sdk-hyperliquid": "workspace:*",
     "@0xsignal/shared": "workspace:*",
     "@effect/platform-bun": "4.0.6",
-    "@nktkas/hyperliquid": "0.33.3",
     "effect": "4.0.6",
     "pg": "^8.23.0",
     "viem": "^2.57.7"

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { Effect, Ref, Scope } from "effect";
 import type { ServerWebSocket, WebSocketReadyState } from "bun";
-import {
-  SubscriptionClient,
-  type ISubscription,
-  type ISubscriptionTransport,
-} from "@nktkas/hyperliquid";
+import type {
+  Subscription,
+  SubscriptionHandle,
+  WsClient,
+} from "@0xsignal/sdk-hyperliquid/subscription";
 import { asHttpError } from "../../../platform/http/error-response";
 import { createWsEventHandlers, type Connection } from "../ws";
 import type { SocketConnection } from "../../../platform/http/ws";
@@ -243,12 +243,6 @@ describe("websocket event handlers", () => {
   });
 });
 
-const stubUpstream: ISubscription = { unsubscribe: () => Promise.resolve() };
-
-const unusedTransport: ISubscriptionTransport = {
-  subscribe: () => Promise.reject(new Error("unused transport")),
-};
-
 const stubProvider = {
   getCandleSnapshot: () => Effect.die("unused"),
   getAllMids: () => Effect.die("unused"),
@@ -258,10 +252,14 @@ const stubProvider = {
   getTradeAnnotation: () => Effect.die("unused"),
 };
 
-const makeAllMidsClient = (): SubscriptionClient =>
-  Object.assign(new SubscriptionClient({ transport: unusedTransport }), {
-    allMids: () => Promise.resolve(stubUpstream),
-  });
+const makeAllMidsClient = (): WsClient =>
+  ({
+    subscribe: (subscription: Subscription): SubscriptionHandle => ({
+      subscription,
+      unsubscribe: () => {},
+      unsubscribeAsync: () => Promise.resolve(),
+    }),
+  }) as unknown as WsClient;
 
 describe("websocket event handler teardown", () => {
   it("leaves no bucket or connection behind across repeated cycles", async () => {
@@ -269,7 +267,7 @@ describe("websocket event handler teardown", () => {
       buckets: undefined,
     };
     const layer = makeMarketStreamHubLayer(stubProvider, {
-      createClient: () => ({ subscriptionClient: makeAllMidsClient(), close: () => {} }),
+      createClient: () => ({ wsClient: makeAllMidsClient(), close: () => {} }),
       onAcquire: (buckets) => {
         captured.buckets = buckets;
       },
@@ -335,7 +333,7 @@ describe("websocket event handler error teardown", () => {
       buckets: undefined,
     };
     const layer = makeMarketStreamHubLayer(stubProvider, {
-      createClient: () => ({ subscriptionClient: makeAllMidsClient(), close: () => {} }),
+      createClient: () => ({ wsClient: makeAllMidsClient(), close: () => {} }),
       onAcquire: (buckets) => {
         captured.buckets = buckets;
       },

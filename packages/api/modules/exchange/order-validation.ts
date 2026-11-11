@@ -5,7 +5,7 @@ import { type HlTif, toHlTif } from "./error-classification";
 
 export { buildCoinToAsset } from "./asset-index";
 
-const MARKET_TIME_IN_FORCE: ReadonlySet<string> = new Set(["FrontendMarket", "Market"]);
+const MARKET_TIME_IN_FORCE: ReadonlySet<string> = new Set(["IOC"]);
 
 type HyperliquidOrderType =
   | { readonly limit: { readonly tif: HlTif } }

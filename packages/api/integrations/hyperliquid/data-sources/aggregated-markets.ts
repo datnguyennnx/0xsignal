@@ -33,11 +33,7 @@ function getSpotTokens(
     Effect.gen(function* () {
       yield* acquireInfo("spotMeta");
       return yield* Effect.tryPromise({
-        try: async () => {
-          if (typeof info.spotMeta !== "function") return [];
-          const raw = await info.spotMeta();
-          return extractSpotTokens(raw);
-        },
+        try: () => info.spotMeta({}).then(extractSpotTokens),
         catch: (cause) => toHyperliquidError("Failed to fetch spot meta", cause),
       });
     }),
@@ -58,7 +54,9 @@ const fetchAllDexMetas = (
           return yield* Effect.tryPromise({
             try: () =>
               withDedup(`metaAndAssetCtxs:${dexName}`, () =>
-                info.metaAndAssetCtxs(dexName ? { dex: dexName } : undefined),
+                info
+                  .metaAndAssetCtxs(dexName ? { dex: dexName } : {})
+                  .then(([meta, ctxs]): [unknown, unknown] => [meta, ctxs]),
               ),
             catch: (cause) =>
               toHyperliquidError(`Failed to fetch meta for dex "${dexName || "main"}"`, cause),
@@ -99,7 +97,9 @@ const toDexRefs = (
   return refs;
 };
 
-const buildCategoryMap = (rawPerpCats: Array<[string, string]>): Map<string, string> => {
+const buildCategoryMap = (
+  rawPerpCats: ReadonlyArray<readonly [string, string]>,
+): Map<string, string> => {
   const map = new Map<string, string>();
   for (const [coin, cat] of rawPerpCats) {
     map.set(normalizeSymbol(coin), cat);
@@ -118,7 +118,7 @@ const fetchOptionalData = (
             Effect.gen(function* () {
               yield* acquireInfo("spotMetaAndAssetCtxs");
               return yield* Effect.tryPromise({
-                try: () => info.spotMetaAndAssetCtxs?.() ?? Promise.resolve(null),
+                try: () => info.spotMetaAndAssetCtxs({}),
                 catch: (cause) =>
                   toHyperliquidError("Failed to fetch spot meta and asset ctxs", cause),
               });
@@ -147,7 +147,7 @@ export function getAggregatedMarketsSnapshot(
           Effect.gen(function* () {
             yield* acquireUnlistedInfo;
             return yield* Effect.tryPromise({
-              try: () => info.perpDexs?.() ?? Promise.resolve([]),
+              try: () => info.perpDexs({}),
               catch: (cause) => toHyperliquidError("Failed to fetch perp DEXs", cause),
             });
           }),
@@ -158,10 +158,7 @@ export function getAggregatedMarketsSnapshot(
           Effect.gen(function* () {
             yield* acquireUnlistedInfo;
             return yield* Effect.tryPromise({
-              try: () =>
-                info.perpCategories === undefined
-                  ? Promise.resolve<Array<[string, string]>>([])
-                  : info.perpCategories(),
+              try: () => info.perpCategories({}),
               catch: (cause) => toHyperliquidError("Failed to fetch categories", cause),
             });
           }),
@@ -172,7 +169,7 @@ export function getAggregatedMarketsSnapshot(
           Effect.gen(function* () {
             yield* acquireInfo("allMids");
             return yield* Effect.tryPromise({
-              try: () => withDedup("allMids", () => info.allMids()),
+              try: () => withDedup("allMids", () => info.allMids({})),
               catch: (cause) => toHyperliquidError("Failed to fetch mids", cause),
             });
           }).pipe(

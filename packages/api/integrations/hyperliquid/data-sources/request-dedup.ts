@@ -20,7 +20,6 @@
 
 type AllMids = Record<string, string>;
 type PerpDexs = Array<null | { name: string }>;
-type MetaAndAssetCtxs = [unknown, unknown];
 
 const inFlight = new Map<string, Promise<unknown>>();
 
@@ -34,10 +33,10 @@ const inFlight = new Map<string, Promise<unknown>>();
  */
 export function withDedup(key: "allMids", fetcher: () => Promise<AllMids>): Promise<AllMids>;
 export function withDedup(key: "perpDexs", fetcher: () => Promise<PerpDexs>): Promise<PerpDexs>;
-export function withDedup(
+export function withDedup<A>(
   key: `metaAndAssetCtxs:${string}`,
-  fetcher: () => Promise<MetaAndAssetCtxs>,
-): Promise<MetaAndAssetCtxs>;
+  fetcher: () => Promise<A>,
+): Promise<A>;
 export function withDedup<A>(key: "aggregated:snapshot", fetcher: () => Promise<A>): Promise<A>;
 export function withDedup(key: string, fetcher: () => Promise<unknown>): Promise<unknown> {
   const existing = inFlight.get(key);

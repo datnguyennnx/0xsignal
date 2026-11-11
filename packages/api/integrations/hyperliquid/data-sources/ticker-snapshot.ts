@@ -1,4 +1,5 @@
 import { Result } from "effect";
+import { type DecimalString, cast } from "@0xsignal/sdk-hyperliquid";
 import { normalizeSymbol, parseSymbol } from "./symbol";
 import { TickerSnapshotError } from "./errors";
 import type {
@@ -8,16 +9,8 @@ import type {
   TickerSnapshot,
 } from "./types";
 
-const toNumberOrNull = (value: unknown): number | null => {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : null;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-};
+const wireDecimal = (value: unknown): DecimalString | null =>
+  typeof value === "string" ? cast<DecimalString>(value, "wireDecimal") : null;
 
 export const mapTickerFromSnapshot = (
   snapshot: TickerSnapshot,
@@ -27,16 +20,16 @@ export const mapTickerFromSnapshot = (
   // set prevDayPx/dayNtlVlm to null (unknown) rather than 0 (misleading).
   if (parseSymbol(symbol).kind === "spot") {
     const spotMid = snapshot.allMids[symbol];
-    const midPx = toNumberOrNull(spotMid) ?? 0;
+    const midPx = wireDecimal(spotMid);
     return Result.succeed({
       symbol,
       mid: midPx,
       markPx: midPx,
-      midPx: midPx,
+      midPx,
       prevDayPx: null,
       dayNtlVlm: null,
-      openInterest: 0,
-      funding: 0,
+      openInterest: null,
+      funding: null,
     });
   }
 
@@ -84,18 +77,17 @@ export const mapTickerFromSnapshot = (
   for (const candidate of lookupSymbols) {
     fallbackMid ??= snapshot.allMids[candidate];
   }
-  const mid =
-    toNumberOrNull(ctx?.midPx) ?? toNumberOrNull(ctx?.markPx) ?? toNumberOrNull(fallbackMid);
+  const mid = wireDecimal(ctx?.midPx) ?? wireDecimal(ctx?.markPx) ?? wireDecimal(fallbackMid);
 
   return Result.succeed({
     symbol: normalizedSymbol,
     mid,
-    markPx: toNumberOrNull(ctx?.markPx) ?? mid,
-    midPx: toNumberOrNull(ctx?.midPx) ?? mid,
-    prevDayPx: toNumberOrNull(ctx?.prevDayPx),
-    dayNtlVlm: toNumberOrNull(ctx?.dayNtlVlm),
-    openInterest: toNumberOrNull(ctx?.openInterest) ?? 0,
-    funding: toNumberOrNull(ctx?.funding) ?? 0,
+    markPx: wireDecimal(ctx?.markPx) ?? wireDecimal(ctx?.midPx) ?? wireDecimal(fallbackMid),
+    midPx: wireDecimal(ctx?.midPx) ?? wireDecimal(ctx?.markPx) ?? wireDecimal(fallbackMid),
+    prevDayPx: wireDecimal(ctx?.prevDayPx),
+    dayNtlVlm: wireDecimal(ctx?.dayNtlVlm),
+    openInterest: wireDecimal(ctx?.openInterest),
+    funding: wireDecimal(ctx?.funding),
   });
 };
 

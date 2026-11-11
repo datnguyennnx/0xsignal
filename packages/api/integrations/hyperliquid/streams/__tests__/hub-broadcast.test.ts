@@ -44,6 +44,7 @@ const makeBucket = (clients: readonly ServerWebSocket<MarketWsConnectionData>[])
   clients: new Set(clients),
   upstream: Option.none(),
   state: { _tag: "idle" },
+  lastSnapshot: { current: Option.none() },
   retryCount: 0,
   subscribeFiber: Option.none(),
   scope: Scope.makeUnsafe(),

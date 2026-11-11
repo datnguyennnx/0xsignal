@@ -1,5 +1,5 @@
 import { Cache, Duration, Effect } from "effect";
-import type { InfoClient } from "@nktkas/hyperliquid";
+import type { InfoClient } from "@0xsignal/sdk-hyperliquid";
 import {
   acquireInfoFor,
   type HyperliquidRateLimiterService,
@@ -31,7 +31,7 @@ export const makeMetaCache = (
         ),
         Effect.flatMap(() =>
           Effect.tryPromise({
-            try: () => info.meta(),
+            try: () => info.meta({}),
             catch: (e) =>
               new HyperliquidInternalError({
                 message: "Failed to fetch market metadata",

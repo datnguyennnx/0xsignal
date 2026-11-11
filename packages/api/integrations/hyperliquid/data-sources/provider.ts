@@ -23,11 +23,11 @@ import type {
   Candle,
   HyperliquidAggregatedAsset,
   HyperliquidInfoClient,
-  PerpAnnotationResponse,
   TickerPayload,
   TickerSnapshot,
   OrderBookPayload,
 } from "./types";
+import type { PerpAnnotationInfoResponse } from "@0xsignal/sdk-hyperliquid/info";
 import {
   getTickerSnapshot,
   getTickerSnapshotByCacheKey,
@@ -115,13 +115,13 @@ export const PERP_ANNOTATION_TTL_MS = 60 * 60 * 1_000;
 const PERP_ANNOTATION_CACHE_CAPACITY = 512;
 
 export type PerpAnnotationSource = {
-  readonly perpAnnotation: (params: { coin: string }) => Promise<PerpAnnotationResponse>;
+  readonly perpAnnotation: (params: { coin: string }) => Promise<PerpAnnotationInfoResponse>;
 };
 
 export const makePerpAnnotationCache = (
   info: PerpAnnotationSource,
   acquire: () => Effect.Effect<void, HyperliquidError>,
-): Effect.Effect<Cache.Cache<string, PerpAnnotationResponse, HyperliquidError>> =>
+): Effect.Effect<Cache.Cache<string, PerpAnnotationInfoResponse, HyperliquidError>> =>
   Cache.make({
     capacity: PERP_ANNOTATION_CACHE_CAPACITY,
     timeToLive: Duration.millis(PERP_ANNOTATION_TTL_MS),
@@ -287,10 +287,12 @@ export const makeHyperliquidProvider = () =>
             `Failed to fetch candles for ${coin} (${interval})`,
             () =>
               client.info.candleSnapshot({
-                coin: internalSymbol,
-                interval: toHlInterval(interval),
-                startTime: start,
-                endTime: end,
+                req: {
+                  coin: internalSymbol,
+                  interval: toHlInterval(interval),
+                  startTime: start,
+                  endTime: end,
+                },
               }),
           );
 
@@ -339,15 +341,6 @@ export const makeHyperliquidProvider = () =>
             client.info.l2Book({ coin: internalSymbol, nSigFigs }),
           );
 
-          if (!orderbook) {
-            return yield* Effect.fail(
-              new HyperliquidError({
-                message: `Orderbook not available for ${internalSymbol}`,
-                kind: "NOT_FOUND",
-              }),
-            );
-          }
-
           return { symbol: normalizeSymbol(symbol), nSigFigs, orderbook };
         }),
 
@@ -389,10 +382,12 @@ export const getCandleSnapshot = (
     const candles = yield* Effect.tryPromise({
       try: () =>
         info.candleSnapshot({
-          coin,
-          interval: toHlInterval(interval),
-          startTime,
-          endTime,
+          req: {
+            coin,
+            interval: toHlInterval(interval),
+            startTime,
+            endTime,
+          },
         }),
       catch: (cause) =>
         toHyperliquidError(`Failed to fetch candles for ${coin} (${interval})`, cause),
@@ -414,7 +409,7 @@ export const getAllMids = (): Effect.Effect<
     const { info } = yield* HyperliquidClient;
     yield* acquireInfo("allMids");
     return yield* Effect.tryPromise({
-      try: () => withDedup("allMids", () => info.allMids()),
+      try: () => withDedup("allMids", () => info.allMids({})),
       catch: (cause) => toHyperliquidError("Failed to fetch all mids", cause),
     }).pipe(
       Effect.retry({
@@ -462,21 +457,13 @@ export const getOrderBook = (
           ? cause
           : toHyperliquidError(`Failed to fetch orderbook for ${symbol}`, cause),
     });
-    if (!orderbook) {
-      return yield* Effect.fail(
-        new HyperliquidError({
-          message: `Orderbook not available for ${internalSymbol}`,
-          kind: "NOT_FOUND",
-        }),
-      );
-    }
     return { symbol: normalizeSymbol(symbol), nSigFigs, orderbook };
   });
 
 export const getTradeAnnotation = (
   symbol: string,
 ): Effect.Effect<
-  { symbol: string; annotation: PerpAnnotationResponse },
+  { symbol: string; annotation: PerpAnnotationInfoResponse },
   HyperliquidError,
   HyperliquidClient | HyperliquidRateLimiter
 > =>

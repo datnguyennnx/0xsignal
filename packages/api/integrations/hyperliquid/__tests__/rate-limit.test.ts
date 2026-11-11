@@ -106,7 +106,8 @@ describe("HyperliquidRateLimiter", () => {
     expect(INFO_WEIGHTS.candleSnapshot).toBe(20);
     expect(candleSnapshotWeight(350)).toBe(25);
     expect(candleSnapshotWeight(59)).toBe(20);
-    expect(candleSnapshotWeight(60)).toBe(21);
+    expect(candleSnapshotWeight(60)).toBe(20);
+    expect(candleSnapshotWeight(61)).toBe(21);
 
     const program = Effect.gen(function* () {
       const limiter = yield* makeLimiter({ perSecond: 20, perMinute: 1200, burstCapacity: 25 });

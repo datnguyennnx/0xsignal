@@ -1,5 +1,5 @@
 import { Clock, Effect, Exit, Fiber, Layer, Option, Queue, Ref, Scope, Stream } from "effect";
-import { SubscriptionClient, WebSocketTransport } from "@nktkas/hyperliquid";
+import { WsClient } from "@0xsignal/sdk-hyperliquid/subscription";
 import type { ServerWebSocket } from "bun";
 import {
   addMarketWsConnectionSubscription,
@@ -145,8 +145,17 @@ const joinOrReport = (
     ),
   );
 
+const sendCachedSnapshot = (
+  ws: ServerWebSocket<MarketWsConnectionData>,
+  bucket: Bucket,
+): Effect.Effect<void, MarketStreamError> =>
+  Option.match(bucket.lastSnapshot.current, {
+    onNone: () => Effect.void,
+    onSome: (frame) => sendFrame(ws, frame),
+  });
+
 type MarketStreamHubClient = {
-  readonly subscriptionClient: SubscriptionClient;
+  readonly wsClient: WsClient;
   readonly close: () => void;
 };
 
@@ -156,11 +165,11 @@ export type MarketStreamHubLayerOptions = {
 };
 
 const createDefaultClient = (): MarketStreamHubClient => {
-  const transport = new WebSocketTransport({ resubscribe: true });
+  const wsClient = new WsClient({ shouldReconnect: true });
   return {
-    subscriptionClient: new SubscriptionClient({ transport }),
+    wsClient,
     close: () => {
-      transport.close();
+      wsClient.close();
     },
   };
 };
@@ -174,7 +183,7 @@ export const makeMarketStreamHubLayer = (
     Effect.acquireRelease(
       Effect.gen(function* () {
         const client = (options.createClient ?? createDefaultClient)();
-        const subscriptionClient = client.subscriptionClient;
+        const wsClient = client.wsClient;
         const buckets: Ref.Ref<Map<string, Bucket>> = yield* Ref.make(new Map<string, Bucket>());
         const marketAllowlist = yield* Ref.make<Option.Option<MarketAllowlistEntry>>(Option.none());
         options.onAcquire?.(buckets);
@@ -238,7 +247,7 @@ export const makeMarketStreamHubLayer = (
             );
             const restart = (reason: string): Effect.Effect<void> =>
               restartBucket(
-                subscriptionClient,
+                wsClient,
                 provider,
                 buckets,
                 bucket.key,
@@ -249,14 +258,7 @@ export const makeMarketStreamHubLayer = (
             yield* Effect.forkIn(drainQueue(restartRequests, restart), bucket.scope);
 
             const fiber = yield* Effect.forkIn(
-              ensureUpstream(
-                subscriptionClient,
-                provider,
-                buckets,
-                bucket.key,
-                detach,
-                restartRequests,
-              ),
+              ensureUpstream(wsClient, provider, buckets, bucket.key, detach, restartRequests),
               bucket.scope,
             );
 
@@ -304,12 +306,14 @@ export const makeMarketStreamHubLayer = (
                 connectionId: ws.data.id,
                 timestamp: now,
               });
+              yield* sendCachedSnapshot(ws, joined.value.bucket);
               if (joined.value.created) yield* startBucket(joined.value.bucket);
 
               for (const entry of rest) {
                 const other = yield* joinOrReport(buckets, ws, entry.subscription, entry.bucketKey);
-                if (Option.isSome(other) && other.value.created)
-                  yield* startBucket(other.value.bucket);
+                if (Option.isNone(other)) continue;
+                yield* sendCachedSnapshot(ws, other.value.bucket);
+                if (other.value.created) yield* startBucket(other.value.bucket);
               }
             }),
 
@@ -382,6 +386,7 @@ export const makeMarketStreamHubLayer = (
                 yield* addMarketWsConnectionSubscription(ws.data.subscriptions, subscription, key);
                 if (joined.value.created) yield* startBucket(joined.value.bucket);
                 yield* sendFrame(ws, { type: "subscribed", subscription });
+                yield* sendCachedSnapshot(ws, joined.value.bucket);
                 return;
               }
 

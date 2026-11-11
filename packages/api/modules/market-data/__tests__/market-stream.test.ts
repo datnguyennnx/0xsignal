@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { Deferred, Effect, Option, Predicate, Ref, Scope } from "effect";
 import type { ServerWebSocket, WebSocketReadyState } from "bun";
-import {
-  type ISubscription,
-  type ISubscriptionTransport,
-  SubscriptionClient,
-} from "@nktkas/hyperliquid";
+import type {
+  SubscribeOptions,
+  Subscription,
+  SubscriptionHandle,
+  WsClient,
+} from "@0xsignal/sdk-hyperliquid/subscription";
 import { buildMarketWsBucketKey } from "../../../integrations/hyperliquid/streams/bucket-key";
 import { parseMarketWsSubscription } from "../../../modules/market-data";
 import { MAX_DEX_LENGTH, MAX_SYMBOL_LENGTH } from "../subscription-parser";
@@ -24,14 +25,22 @@ import {
   broadcast,
 } from "../../../integrations/hyperliquid/streams/hub-broadcast";
 
-const stubUpstream: ISubscription = { unsubscribe: () => Promise.resolve() };
+const makeHandle = (
+  subscription: Subscription,
+  release?: () => Promise<void>,
+): SubscriptionHandle => ({
+  subscription,
+  unsubscribe: () => {},
+  unsubscribeAsync: release ?? (() => Promise.resolve()),
+});
 
-const unusedTransport: ISubscriptionTransport = {
-  subscribe: () => Promise.reject(new Error("unused transport")),
-};
+type SubscribeFn = (
+  subscription: Subscription,
+  onData: (data: unknown) => void,
+  options?: SubscribeOptions,
+) => SubscriptionHandle;
 
-const makeSubscriptionClient = (methods: Partial<SubscriptionClient>): SubscriptionClient =>
-  Object.assign(new SubscriptionClient({ transport: unusedTransport }), methods);
+const makeWsClient = (subscribe: SubscribeFn): WsClient => ({ subscribe }) as unknown as WsClient;
 
 const createBucket = (subscription: MarketWsSubscription): Bucket => ({
   key: buildMarketWsBucketKey(subscription),
@@ -39,6 +48,7 @@ const createBucket = (subscription: MarketWsSubscription): Bucket => ({
   clients: new Set(),
   state: { _tag: "idle" },
   upstream: Option.none(),
+  lastSnapshot: { current: Option.none() },
   retryCount: 0,
   subscribeFiber: Option.none(),
   scope: Scope.makeUnsafe(),
@@ -52,6 +62,7 @@ const makeBucket = (subscription: MarketWsSubscription, clients: Iterable<StubSo
   clients: new Set(clients),
   state: { _tag: "idle" },
   upstream: Option.none(),
+  lastSnapshot: { current: Option.none() },
   retryCount: 0,
   subscribeFiber: Option.none(),
   scope: Scope.makeUnsafe(),
@@ -173,35 +184,13 @@ const requireParsed = (parsed: ReturnType<typeof parseMarketWsSubscription>) => 
   return parsed.data;
 };
 
-const isListener = (value: unknown): value is (event: unknown) => void =>
-  typeof value === "function";
-
 const makeAllMidsHandler =
-  (subscription: ISubscription) =>
-  (first: unknown, second?: unknown): Promise<ISubscription> => {
-    const notify = isListener(first) ? first : second;
-    if (isListener(notify)) notify({ data: { allMids: { BTC: "100" } } });
-    return Promise.resolve(subscription);
+  (subscriptions: Subscription[] = []) =>
+  (subscription: Subscription, onData: (data: unknown) => void): SubscriptionHandle => {
+    subscriptions.push(subscription);
+    onData({ data: { allMids: { BTC: "100" } } });
+    return makeHandle(subscription);
   };
-
-const makeFailingSlowL2BookLegs = (onFastUnsubscribe: () => void) => {
-  let calls = 0;
-  return {
-    l2Book: () => {
-      calls++;
-      if (calls === 1) {
-        return Promise.resolve<ISubscription>({
-          unsubscribe: () => {
-            onFastUnsubscribe();
-            return Promise.resolve();
-          },
-        });
-      }
-      return Promise.reject(new Error("slow leg rejected"));
-    },
-    calls: () => calls,
-  };
-};
 
 describe("Market WS subscription parser", () => {
   it("parses candle subscription with defaults", () => {
@@ -320,7 +309,7 @@ describe("Market WS subscription parser", () => {
     });
   });
 
-  it("rejects unsupported long intervals not backed by HTTP/", () => {
+  it("accepts the long intervals now in the shared interval set", () => {
     const threeDay = parseMarketWsSubscription(
       new URLSearchParams({ channel: "candle", symbol: "BTC", interval: "3d" }),
     );
@@ -329,15 +318,13 @@ describe("Market WS subscription parser", () => {
     );
 
     expect(threeDay).toEqual({
-      ok: false,
-      status: 400,
-      message: "Unsupported interval: 3d",
+      ok: true,
+      data: { channel: "candle", symbol: "BTC", interval: "3d" },
     });
 
     expect(oneMonth).toEqual({
-      ok: false,
-      status: 400,
-      message: "Unsupported interval: 1M",
+      ok: true,
+      data: { channel: "candle", symbol: "BTC", interval: "1M" },
     });
   });
 
@@ -436,11 +423,11 @@ describe("Market WS subscription parser", () => {
 
 describe("Market WS emitter contract", () => {
   it("emits stable market envelope for candle", async () => {
-    const subscriptionClient = makeSubscriptionClient({
-      candle: (_params, onEvent) => {
-        onEvent({ t: 1, T: 2, s: "BTC", i: "1m", o: "1", c: "1", h: "2", l: "0", v: "3", n: 1 });
-        return Promise.resolve(stubUpstream);
-      },
+    const subscriptions: Subscription[] = [];
+    const subscriptionClient = makeWsClient((subscription, onData) => {
+      subscriptions.push(subscription);
+      onData({ t: 1, T: 2, s: "BTC", i: "1m", o: "1", c: "1", h: "2", l: "0", v: "3", n: 1 });
+      return makeHandle(subscription);
     });
 
     const bucket = createBucket({ channel: "candle", symbol: "BTC", interval: "1m" });
@@ -451,25 +438,32 @@ describe("Market WS emitter contract", () => {
 
     expect(upstream).toBeDefined();
     expect(typeof upstream.unsubscribe).toBe("function");
+    expect(subscriptions).toEqual([{ type: "candle", coin: "BTC", interval: "1m" }]);
   });
 
-  it("emits stable market envelope for l2Book", async () => {
-    let callCount = 0;
-    const subscriptionClient = makeSubscriptionClient({
-      l2Book: (_params, onEvent) => {
-        callCount++;
-        // Hybrid model: l2Book is called twice (fast + slow).
-        // First call (fast) and second call (slow) both fire the event.
-        onEvent({
-          coin: "ETH",
-          time: 1,
-          levels: [[{ px: "100", sz: "1", n: 1 }], []],
-        });
-        return Promise.resolve(stubUpstream);
-      },
+  it("subscribes l2Book once and broadcasts a full snapshot", async () => {
+    const subscriptions: Subscription[] = [];
+    const frames: string[] = [];
+    const client = makeClient(emptyConnectionData("conn-l2"), (text) => {
+      frames.push(text);
     });
 
-    const bucket = createBucket({ channel: "l2Book", symbol: "ETH", nSigFigs: 4 });
+    const subscriptionClient = makeWsClient((subscription, onData) => {
+      subscriptions.push(subscription);
+      onData({
+        coin: "ETH",
+        time: 1,
+        levels: [[{ px: "100", sz: "1", n: 1 }], [{ px: "101", sz: "2", n: 1 }]],
+      });
+      return makeHandle(subscription);
+    });
+
+    const subscription: MarketWsSubscription = {
+      channel: "l2Book",
+      symbol: "ETH",
+      nSigFigs: 4,
+    };
+    const bucket = makeBucket(subscription, [client]);
 
     const upstream = await Effect.runPromise(
       subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach, () => bucket),
@@ -477,35 +471,78 @@ describe("Market WS emitter contract", () => {
 
     expect(upstream).toBeDefined();
     expect(typeof upstream.unsubscribe).toBe("function");
-    // Both fast and slow subscriptions are established
-    expect(callCount).toBe(2);
+    expect(subscriptions).toEqual([{ type: "l2Book", coin: "ETH", nSigFigs: 4 }]);
+    expect(frames.map(parseTestFrame)).toEqual([
+      {
+        type: "market",
+        channel: "l2Book",
+        nSigFigs: 4,
+        data: {
+          snapshot: {
+            levels: [[{ px: "100", sz: "1", n: 1 }], [{ px: "101", sz: "2", n: 1 }]],
+          },
+        },
+      },
+    ]);
+    expect(Option.isSome(bucket.lastSnapshot.current)).toBe(true);
   });
 
-  it("subscribes the slow l2Book leg only after fast, and cleans up fast on failure", async () => {
-    let fastUnsubscribed = 0;
-    const legs = makeFailingSlowL2BookLegs(() => {
-      fastUnsubscribed++;
+  it("slices every l2Book snapshot to the bucket's maxDepth", async () => {
+    const frames: string[] = [];
+    const client = makeClient(emptyConnectionData("conn-depth"), (text) => {
+      frames.push(text);
     });
 
-    const subscriptionClient = makeSubscriptionClient({ l2Book: legs.l2Book });
-    const bucket = createBucket({ channel: "l2Book", symbol: "ETH", nSigFigs: 4 });
+    const subscriptionClient = makeWsClient((subscription, onData) => {
+      onData({
+        coin: "ETH",
+        time: 1,
+        levels: [
+          [
+            { px: "100", sz: "1", n: 1 },
+            { px: "99", sz: "2", n: 1 },
+            { px: "98", sz: "3", n: 1 },
+          ],
+          [
+            { px: "101", sz: "1", n: 1 },
+            { px: "102", sz: "2", n: 1 },
+            { px: "103", sz: "3", n: 1 },
+          ],
+        ],
+      });
+      return makeHandle(subscription);
+    });
 
-    await expect(
-      Effect.runPromise(
-        subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach, () => bucket),
-      ),
-    ).rejects.toBeDefined();
+    const bucket = makeBucket({ channel: "l2Book", symbol: "ETH", nSigFigs: 4, depth: 2 }, [
+      client,
+    ]);
 
-    // The fast leg is created first; the slow leg is created only afterwards.
-    expect(legs.calls()).toBe(2);
-    expect(fastUnsubscribed).toBe(1);
+    await Effect.runPromise(
+      subscribeUpstream(bucket, subscriptionClient, undefined, noopDetach, () => bucket),
+    );
+
+    const frame = parseTestFrame(requireDefined(frames[0], "no snapshot frame"));
+    expect(frame).toMatchObject({
+      data: {
+        snapshot: {
+          levels: [
+            [
+              { px: "100", sz: "1", n: 1 },
+              { px: "99", sz: "2", n: 1 },
+            ],
+            [
+              { px: "101", sz: "1", n: 1 },
+              { px: "102", sz: "2", n: 1 },
+            ],
+          ],
+        },
+      },
+    });
   });
 
   it("emits stable market envelope for allMids", async () => {
-    const subscriptionClient = makeSubscriptionClient({
-      // v0.33.0: allMids(listener, options?) or allMids(params, listener, options?)
-      allMids: makeAllMidsHandler(stubUpstream),
-    });
+    const subscriptions: Subscription[] = [];
+    const subscriptionClient = makeWsClient(makeAllMidsHandler(subscriptions));
 
     const bucket = createBucket({ channel: "allMids" });
 
@@ -515,6 +552,7 @@ describe("Market WS emitter contract", () => {
 
     expect(upstream).toBeDefined();
     expect(typeof upstream.unsubscribe).toBe("function");
+    expect(subscriptions).toEqual([{ type: "allMids" }]);
   });
 });
 
@@ -663,21 +701,18 @@ describe("Market WS hub lifecycle", () => {
     getTradeAnnotation: () => Effect.die("unused"),
   };
 
-  it("does not resurrect a bucket closed while its subscribe was in flight", async () => {
+  it("releases the upstream subscription without resurrecting a bucket closed after open", async () => {
     const started = Deferred.makeUnsafe<void>();
     const unsubscribed: string[] = [];
     let subscribeCalls = 0;
-    let resolveSubscribe: ((sub: ISubscription) => void) | undefined;
     let transportClosed = false;
 
-    const subscriptionClient = makeSubscriptionClient({
-      allMids: (_first: unknown, _second?: unknown) => {
-        subscribeCalls++;
-        Deferred.doneUnsafe(started, Effect.void);
-        return new Promise<ISubscription>((resolve) => {
-          resolveSubscribe = resolve;
-        });
-      },
+    const subscriptionClient = makeWsClient((subscription) => {
+      subscribeCalls++;
+      Deferred.doneUnsafe(started, Effect.void);
+      return makeHandle(subscription, async () => {
+        unsubscribed.push("allMids");
+      });
     });
 
     const captured: { buckets: Ref.Ref<Map<string, Bucket>> | undefined } = {
@@ -686,7 +721,7 @@ describe("Market WS hub lifecycle", () => {
 
     const hubLayer = makeMarketStreamHubLayer(stubProvider, {
       createClient: () => ({
-        subscriptionClient,
+        wsClient: subscriptionClient,
         close: () => {
           transportClosed = true;
         },
@@ -708,21 +743,12 @@ describe("Market WS hub lifecycle", () => {
       const buckets = requireDefined(captured.buckets, "hub did not expose its buckets");
       yield* waitForEmptyBuckets(buckets);
 
-      // Resolve only after close removed the bucket: the old code re-inserted
-      // it here with a live upstream and zero clients.
-      const resolve = requireDefined(resolveSubscribe, "subscribe never started");
-      resolve({
-        unsubscribe: () => {
-          unsubscribed.push("allMids");
-          return Promise.resolve();
-        },
-      });
-
       yield* Effect.sleep("20 millis");
 
       const map = yield* Ref.get(buckets);
       expect(subscribeCalls).toBe(1);
       expect(map.has("allMids:")).toBe(false);
+      // The closed bucket releases its upstream instead of leaving it attached.
       expect(unsubscribed).toEqual(["allMids"]);
     });
 
@@ -784,50 +810,54 @@ const makeTestProvider = () => ({
 const makeTestHarness = () => {
   const unsubscribed: string[] = [];
   const allMidsListeners: ((event: unknown) => void)[] = [];
+  const l2BookListeners: ((event: unknown) => void)[] = [];
+  const l2BookSubscriptions: Subscription[] = [];
   const captured: { buckets: Ref.Ref<Map<string, Bucket>> | undefined } = { buckets: undefined };
 
-  const subscriptionClient = makeSubscriptionClient({
-    candle: (_params, onEvent) => {
-      onEvent({ t: 1, T: 2, s: "BTC", i: "1m", o: "1", c: "1", h: "2", l: "0", v: "3", n: 1 });
-      return Promise.resolve({
-        unsubscribe: () => {
-          unsubscribed.push("candle");
-          return Promise.resolve();
-        },
+  const defaultLevels = {
+    bids: [
+      { px: "100", sz: "1", n: 1 },
+      { px: "99", sz: "2", n: 1 },
+      { px: "98", sz: "3", n: 1 },
+    ],
+    asks: [
+      { px: "101", sz: "1", n: 1 },
+      { px: "102", sz: "2", n: 1 },
+      { px: "103", sz: "3", n: 1 },
+    ],
+  };
+
+  const subscriptionClient = makeWsClient((subscription, onData) => {
+    if (subscription.type === "candle") {
+      onData({ t: 1, T: 2, s: "BTC", i: "1m", o: "1", c: "1", h: "2", l: "0", v: "3", n: 1 });
+      return makeHandle(subscription, async () => {
+        unsubscribed.push("candle");
       });
-    },
-    l2Book: (params, onEvent) => {
-      const fast = params.fast === true;
-      onEvent({
+    }
+    if (subscription.type === "l2Book") {
+      l2BookSubscriptions.push(subscription);
+      l2BookListeners.push(onData);
+      onData({
         coin: "ETH",
         time: 1,
-        levels: [[{ px: "100", sz: "1", n: 1 }], []],
-        ...(fast ? { fast: true } : {}),
+        levels: [defaultLevels.bids, defaultLevels.asks],
       });
-      return Promise.resolve({
-        unsubscribe: () => {
-          unsubscribed.push(fast ? "l2Book:fast" : "l2Book:slow");
-          return Promise.resolve();
-        },
+      return makeHandle(subscription, async () => {
+        unsubscribed.push("l2Book");
       });
-    },
-    allMids: (first: unknown, second?: unknown) => {
-      const notify = isListener(first) ? first : second;
-      if (isListener(notify)) {
-        allMidsListeners.push(notify);
-        notify({ data: { allMids: { BTC: "100" } } });
-      }
-      return Promise.resolve({
-        unsubscribe: () => {
-          unsubscribed.push("allMids");
-          return Promise.resolve();
-        },
+    }
+    if (subscription.type === "allMids") {
+      allMidsListeners.push(onData);
+      onData({ data: { allMids: { BTC: "100" } } });
+      return makeHandle(subscription, async () => {
+        unsubscribed.push("allMids");
       });
-    },
+    }
+    throw new Error(`unexpected subscription: ${subscription.type}`);
   });
 
   const layer = makeMarketStreamHubLayer(makeTestProvider(), {
-    createClient: () => ({ subscriptionClient, close: () => {} }),
+    createClient: () => ({ wsClient: subscriptionClient, close: () => {} }),
     onAcquire: (buckets) => {
       captured.buckets = buckets;
     },
@@ -837,9 +867,15 @@ const makeTestHarness = () => {
     layer,
     captured,
     unsubscribed,
+    l2BookSubscriptions,
     emitAllMids: () => {
       for (const notify of allMidsListeners) {
         notify({ data: { allMids: { BTC: "101" } } });
+      }
+    },
+    emitL2Book: (levels = defaultLevels) => {
+      for (const notify of l2BookListeners) {
+        notify({ coin: "ETH", time: 2, levels: [levels.bids, levels.asks] });
       }
     },
   };
@@ -905,6 +941,94 @@ describe("Market WS multiplexed subscriptions", () => {
     await Effect.runPromise(Effect.provide(program, harness.layer));
   });
 
+  it("sends the cached l2Book snapshot to a late joiner without a new upstream tick", async () => {
+    const harness = makeTestHarness();
+    const firstFrames: Record<string, unknown>[] = [];
+    const lateFrames: Record<string, unknown>[] = [];
+    const l2Book: MarketWsSubscription = {
+      channel: "l2Book",
+      symbol: "ETH",
+      nSigFigs: 4,
+      depth: 2,
+    };
+
+    const program = Effect.gen(function* () {
+      const hub = yield* MarketStreamHub;
+      const first = new StubSocket(hub.createConnectionData(), (text) => {
+        firstFrames.push(parseTestFrame(text));
+      });
+      yield* hub.handleOpen(first);
+      yield* sendSubscriptionFrame(hub, first, "subscribe", l2Book);
+      yield* waitFor(() => countMarketFrames(firstFrames, "l2Book") > 0);
+
+      const late = new StubSocket(hub.createConnectionData(), (text) => {
+        lateFrames.push(parseTestFrame(text));
+      });
+      yield* hub.handleOpen(late);
+      yield* sendSubscriptionFrame(hub, late, "subscribe", { ...l2Book, depth: 5 });
+
+      expect(lateFrames.map((frame) => frame.type)).toEqual(["ready", "subscribed", "market"]);
+      const snapshot = lateFrames[2];
+      expect(snapshot).toMatchObject({
+        type: "market",
+        channel: "l2Book",
+        data: {
+          snapshot: {
+            levels: [
+              [
+                { px: "100", sz: "1", n: 1 },
+                { px: "99", sz: "2", n: 1 },
+              ],
+              [
+                { px: "101", sz: "1", n: 1 },
+                { px: "102", sz: "2", n: 1 },
+              ],
+            ],
+          },
+        },
+      });
+      expect(snapshot).not.toHaveProperty("data.delta");
+      expect(harness.l2BookSubscriptions).toHaveLength(1);
+    });
+
+    await Effect.runPromise(Effect.provide(program, harness.layer));
+  });
+
+  it("broadcasts full l2Book snapshots and never delta frames", async () => {
+    const harness = makeTestHarness();
+    const frames: Record<string, unknown>[] = [];
+
+    const program = Effect.gen(function* () {
+      const hub = yield* MarketStreamHub;
+      const ws = new StubSocket(hub.createConnectionData(), (text) => {
+        frames.push(parseTestFrame(text));
+      });
+
+      yield* hub.handleOpen(ws);
+      yield* sendSubscriptionFrame(hub, ws, "subscribe", {
+        channel: "l2Book",
+        symbol: "ETH",
+        nSigFigs: 4,
+      });
+      yield* waitFor(() => countMarketFrames(frames, "l2Book") >= 1);
+
+      harness.emitL2Book({
+        bids: [{ px: "100", sz: "5", n: 1 }],
+        asks: [{ px: "101", sz: "6", n: 1 }],
+      });
+      yield* waitFor(() => countMarketFrames(frames, "l2Book") >= 2);
+
+      const books = frames.filter((frame) => frame.type === "market" && frame.channel === "l2Book");
+      expect(books).toHaveLength(2);
+      for (const frame of books) {
+        expect(frame).toHaveProperty("data.snapshot");
+        expect(frame).not.toHaveProperty("data.delta");
+      }
+    });
+
+    await Effect.runPromise(Effect.provide(program, harness.layer));
+  });
+
   it("keeps the other two channels live after unsubscribing one", async () => {
     const harness = makeTestHarness();
     const frames: Record<string, unknown>[] = [];
@@ -957,12 +1081,7 @@ describe("Market WS multiplexed subscriptions", () => {
       yield* hub.handleClose(ws);
       yield* waitForEmptyBuckets(buckets);
 
-      expect([...harness.unsubscribed].toSorted()).toEqual([
-        "allMids",
-        "candle",
-        "l2Book:fast",
-        "l2Book:slow",
-      ]);
+      expect([...harness.unsubscribed].toSorted()).toEqual(["allMids", "candle", "l2Book"]);
       expect((yield* Ref.get(ws.data.subscriptions)).size).toBe(0);
       expect((yield* Ref.get(buckets)).size).toBe(0);
     });

@@ -1,4 +1,4 @@
-import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
+import { InfoClient, Transport } from "@0xsignal/sdk-hyperliquid";
 import { Effect, Layer } from "effect";
 import { HyperliquidClient } from "./hyperliquid-client";
 
@@ -8,7 +8,7 @@ export const hyperliquidClientLayer = Layer.effect(
   HyperliquidClient,
   Effect.sync(() =>
     HyperliquidClient.of({
-      info: new InfoClient({ transport: new HttpTransport() }),
+      info: new InfoClient(new Transport()),
     }),
   ),
 );

@@ -1,7 +1,11 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { Context, Effect, Layer, Schema, Cache } from "effect";
 import { TestClock } from "effect/testing";
-import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
+import type { InfoClient } from "@0xsignal/sdk-hyperliquid";
+import type {
+  MetaAndAssetCtxsInfoResponse,
+  MetaInfoResponse,
+} from "@0xsignal/sdk-hyperliquid/info";
 import { MarketTimeframeSchema } from "../../../../modules/market-data";
 import {
   getCandleSnapshot,
@@ -17,33 +21,47 @@ import { hyperliquidProviderLayer } from "../layer";
 import { HyperliquidProvider, type HyperliquidInfoClient } from "../types";
 import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
 
-type Meta = Awaited<ReturnType<InfoClient["meta"]>>;
+type Meta = MetaInfoResponse;
 type AssetCtx = Awaited<ReturnType<InfoClient["metaAndAssetCtxs"]>>[1][number];
 
 const metaResponse = (names: readonly string[]): Meta => ({
   universe: names.map((name) => ({ name, szDecimals: 2, maxLeverage: 50, marginTableId: 0 })),
   marginTables: [],
-  collateralToken: 0,
 });
 
-const assetCtx = (
-  values: Pick<
-    AssetCtx,
-    "markPx" | "midPx" | "prevDayPx" | "dayNtlVlm" | "openInterest" | "funding"
-  >,
-): AssetCtx => ({
-  ...values,
-  premium: null,
-  oraclePx: values.markPx,
-  impactPxs: null,
-  dayBaseVlm: "0",
+const perpDex = (name: string) => ({
+  name,
+  fullName: name,
+  deployer: "0x0",
+  oracleUpdater: null,
+  feeRecipient: null,
+  assetToStreamingOiCap: null,
+  assetToFundingMultiplier: null,
 });
+
+type AssetCtxInput = {
+  markPx: string;
+  midPx: string | null;
+  prevDayPx: string;
+  dayNtlVlm: string;
+  openInterest: string;
+  funding: string;
+};
+
+const assetCtx = (values: AssetCtxInput): AssetCtx =>
+  ({
+    ...values,
+    premium: null,
+    oraclePx: values.markPx,
+    impactPxs: null,
+    dayBaseVlm: "0",
+  }) as unknown as AssetCtx;
 
 const timeframe = Schema.decodeUnknownSync(MarketTimeframeSchema)("1m");
 
 const metaByDex =
   (namesByDex: Record<string, readonly string[]>) =>
-  (params?: { dex?: string }): Promise<[unknown, unknown]> => {
+  (params?: { dex?: string }): Promise<MetaAndAssetCtxsInfoResponse> => {
     const names = namesByDex[params?.dex ?? ""] ?? [];
     return Promise.resolve([metaResponse(names), []]);
   };
@@ -52,13 +70,13 @@ const createMockInfoClient = () => ({
   candleSnapshot: vi.fn<InfoClient["candleSnapshot"]>(),
   meta: vi.fn<InfoClient["meta"]>(),
   metaAndAssetCtxs: vi.fn<HyperliquidInfoClient["metaAndAssetCtxs"]>(),
-  allMids: vi.fn<HyperliquidInfoClient["allMids"]>(),
+  allMids: vi.fn(),
   perpCategories: vi.fn<NonNullable<HyperliquidInfoClient["perpCategories"]>>(),
   perpDexs: vi.fn<NonNullable<HyperliquidInfoClient["perpDexs"]>>().mockResolvedValue([]),
   spotMeta: vi
     .fn<NonNullable<HyperliquidInfoClient["spotMeta"]>>()
     .mockResolvedValue({ universe: [], tokens: [] }),
-  l2Book: vi.fn<InfoClient["l2Book"]>(),
+  l2Book: vi.fn(),
   perpAnnotation: vi.fn<InfoClient["perpAnnotation"]>(),
 });
 
@@ -70,7 +88,7 @@ const makeClientLayer = () =>
     Layer.succeed(
       HyperliquidClient,
       HyperliquidClient.of({
-        info: Object.assign(new InfoClient({ transport: new HttpTransport() }), mockInfoClient),
+        info: mockInfoClient as unknown as InfoClient,
       }),
     ),
     rateLimiterUnlimited,
@@ -85,7 +103,7 @@ describe("Hyperliquid Providers", () => {
   it("getCandleSnapshot should call SDK and normalize results", async () => {
     mockInfoClient.candleSnapshot.mockResolvedValue([
       { t: 1000, T: 2000, s: "BTC", i: "1m", o: "1", h: "2", l: "0.5", c: "1.5", v: "10", n: 5 },
-    ]);
+    ] as never);
     mockInfoClient.allMids.mockResolvedValue({});
     mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse([]), []]);
 
@@ -95,13 +113,15 @@ describe("Hyperliquid Providers", () => {
     const result = await Effect.runPromise(program.pipe(Effect.provide(clientLayer)));
 
     expect(mockInfoClient.candleSnapshot).toHaveBeenCalledWith({
-      coin: "BTC",
-      interval: "1m",
-      startTime: 0,
-      endTime: 2000,
+      req: {
+        coin: "BTC",
+        interval: "1m",
+        startTime: 0,
+        endTime: 2000,
+      },
     });
     expect(result).toHaveLength(1);
-    expect(result[0].open).toBe(1);
+    expect(result[0].open).toBe("1");
   });
 
   it("should wrap HL SDK errors into HyperliquidError", async () => {
@@ -136,13 +156,13 @@ describe("Hyperliquid Providers", () => {
 
     expect(result).toEqual({
       symbol: "BTC",
-      mid: 101.25,
-      markPx: 101,
-      midPx: 101.25,
-      prevDayPx: 99,
-      dayNtlVlm: 10000,
-      openInterest: 2500,
-      funding: 0.0002,
+      mid: "101.25",
+      markPx: "101",
+      midPx: "101.25",
+      prevDayPx: "99",
+      dayNtlVlm: "10000",
+      openInterest: "2500",
+      funding: "0.0002",
     });
   });
 
@@ -170,7 +190,7 @@ describe("Hyperliquid Providers", () => {
   });
 
   it("getTicker resolves a coin that only exists on a builder dex", async () => {
-    mockInfoClient.perpDexs.mockResolvedValue([{ name: "xyz" }]);
+    mockInfoClient.perpDexs.mockResolvedValue([perpDex("xyz")]);
     mockInfoClient.metaAndAssetCtxs.mockImplementation(
       metaByDex({ "": ["BTC"], xyz: ["xyz:ONLY"] }),
     );
@@ -181,11 +201,11 @@ describe("Hyperliquid Providers", () => {
     );
 
     expect(result.symbol).toBe("xyz:ONLY");
-    expect(result.mid).toBe(5);
+    expect(result.mid).toBe("5");
   });
 
   it("getTicker reports an ambiguity when two builder dexes share a coin", async () => {
-    mockInfoClient.perpDexs.mockResolvedValue([{ name: "xyz" }, { name: "abc" }]);
+    mockInfoClient.perpDexs.mockResolvedValue([perpDex("xyz"), perpDex("abc")]);
     mockInfoClient.metaAndAssetCtxs.mockImplementation(
       metaByDex({ "": ["BTC"], xyz: ["xyz:ONLY"], abc: ["abc:ONLY"] }),
     );

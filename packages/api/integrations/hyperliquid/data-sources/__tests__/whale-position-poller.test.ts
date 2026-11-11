@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Effect, Layer, Predicate } from "effect";
-import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
+import type { InfoClient } from "@0xsignal/sdk-hyperliquid";
 import type { ClearinghouseState } from "@0xsignal/shared";
 import { HyperliquidClient } from "../hyperliquid-client";
 import { WhaleConfig, type WhaleConfigService } from "../../../../modules/whales";
@@ -28,10 +28,7 @@ const config: WhaleConfigService = {
 const layer = whalePositionPollerLayer.pipe(
   Layer.provide(
     Layer.mergeAll(
-      Layer.succeed(
-        HyperliquidClient,
-        HyperliquidClient.of({ info: new InfoClient({ transport: new HttpTransport() }) }),
-      ),
+      Layer.succeed(HyperliquidClient, HyperliquidClient.of({ info: {} as unknown as InfoClient })),
       Layer.succeed(WhaleConfig, config),
       // Weight 2 can never fit a per-minute ceiling of 1.
       Layer.effect(HyperliquidRateLimiter, makeLimiter({ perSecond: 20, perMinute: 1 })),
@@ -56,8 +53,8 @@ describe("whale position poller token bucket", () => {
 });
 
 const createMockInfoClient = () => ({
-  allMids: vi.fn<InfoClient["allMids"]>(),
-  clearinghouseState: vi.fn<InfoClient["clearinghouseState"]>(),
+  allMids: vi.fn(),
+  clearinghouseState: vi.fn(),
 });
 
 const layerWith = (info: InfoClient) =>
@@ -120,10 +117,7 @@ describe("whale position poller valuation", () => {
     });
 
     const error = await Effect.runPromise(
-      Effect.provide(
-        program,
-        layerWith(Object.assign(new InfoClient({ transport: new HttpTransport() }), mock)),
-      ).pipe(Effect.flip),
+      Effect.provide(program, layerWith(mock as unknown as InfoClient)).pipe(Effect.flip),
     );
 
     expect(error).toEqual(
@@ -146,7 +140,7 @@ describe("whale position poller valuation", () => {
           const poller = yield* WhalePositionPoller;
           return yield* poller.pollPositions(["0xwallet"]);
         }),
-        layerWith(Object.assign(new InfoClient({ transport: new HttpTransport() }), mock)),
+        layerWith(mock as unknown as InfoClient),
       ),
     );
 

@@ -1,29 +1,32 @@
-import { asRecord, isUnknownArray, stringAt } from "../../../shared/parsing";
+import { assetInfoFromMeta } from "@0xsignal/sdk-hyperliquid/exchange";
+import type { MetaInfoResponse } from "@0xsignal/sdk-hyperliquid/info";
+import { asRecord, isUnknownArray, numberAt, stringAt } from "../../../shared/parsing";
 import { normalizeSymbol } from "./symbol";
 import type { PerpTradeAsset } from "./types";
 
 interface DexMetaResult {
-  readonly meta: {
-    readonly universe: ReadonlyArray<Record<string, unknown>>;
-    readonly collateralToken?: number | undefined;
-  };
+  readonly meta: MetaInfoResponse;
   readonly assetCtxs: ReadonlyArray<Record<string, unknown>>;
+  readonly collateralToken: number | undefined;
 }
 
 const toRecords = (values: readonly unknown[]): Record<string, unknown>[] =>
   values.map((value) => asRecord(value) ?? {});
 
+const isMetaInfoResponse = (value: unknown): value is MetaInfoResponse => {
+  const record = asRecord(value);
+  return record !== null && isUnknownArray(record.universe);
+};
+
 function extractDexMetaResult(raw: unknown): DexMetaResult | null {
   if (!isUnknownArray(raw) || raw.length < 2) return null;
-  const meta = asRecord(raw[0]);
-  if (meta === null || !isUnknownArray(meta.universe)) return null;
+  const meta = raw[0];
+  if (!isMetaInfoResponse(meta)) return null;
   const ctxs = raw[1];
   return {
-    meta: {
-      universe: toRecords(meta.universe),
-      collateralToken: typeof meta.collateralToken === "number" ? meta.collateralToken : undefined,
-    },
+    meta,
     assetCtxs: isUnknownArray(ctxs) ? toRecords(ctxs) : [],
+    collateralToken: numberAt(asRecord(meta) ?? {}, "collateralToken"),
   };
 }
 
@@ -57,41 +60,36 @@ function normalizeCoinName(rawName: string): string {
   return rawName;
 }
 
-// Build a single PerpTradeAsset from a universe entry at index i.
 const buildPerpAsset = (
-  market: Record<string, unknown>,
+  meta: MetaInfoResponse,
+  market: MetaInfoResponse["universe"][number],
   i: number,
   dexIdx: number,
-  isMainDex: boolean,
   dexPrefix: string | null,
   assetCtxs: ReadonlyArray<Record<string, unknown>>,
-  allMids: Record<string, string>,
   categoryMap: ReadonlyMap<string, string>,
   quoteCurrency: string,
 ): PerpTradeAsset | null => {
-  const rawName = typeof market.name === "string" ? market.name : "";
+  const rawName = market.name;
   if (rawName === "") return null;
 
   const coin = normalizeCoinName(rawName);
   const isDelisted = market.isDelisted === true;
-  const szDecimals = typeof market.szDecimals === "number" ? market.szDecimals : 4;
-  const maxLeverage = typeof market.maxLeverage === "number" ? market.maxLeverage : 10;
-
-  // The id is the entry's position in its dex universe, never a running count:
-  // an empty-name entry must not shift anyone else's id.
-  const assetId = isMainDex ? i : 100000 + dexIdx * 10000 + i;
+  const assetInfo =
+    dexPrefix === null
+      ? assetInfoFromMeta(meta, rawName)
+      : assetInfoFromMeta(meta, rawName, { dex: dexPrefix, dexIndex: dexIdx });
   const rawCoin = dexPrefix === null ? coin : `${dexPrefix}:${coin}`;
 
   const category =
     categoryMap.get(normalizeSymbol(rawCoin)) ??
     categoryMap.get(normalizeSymbol(rawName)) ??
     categoryMap.get(normalizeSymbol(coin)) ??
-    "crypto";
+    "";
   const displayCategory = getDisplayCategory(category);
 
   const ctx = assetCtxs[i] ?? {};
-  const markPx =
-    allMids[rawCoin] ?? allMids[rawName] ?? allMids[coin] ?? stringAt(ctx, "markPx") ?? "0";
+  const markPx = stringAt(ctx, "markPx") ?? "0";
   const prevDayPx = stringAt(ctx, "prevDayPx") ?? "0";
   const openInterest = stringAt(ctx, "openInterest") ?? "0";
   const funding = stringAt(ctx, "funding") ?? "0";
@@ -112,9 +110,9 @@ const buildPerpAsset = (
     dayNtlVlm,
     category,
     displayCategory,
-    maxLeverage,
-    szDecimals,
-    assetId,
+    maxLeverage: market.maxLeverage,
+    szDecimals: assetInfo.szDecimals,
+    assetId: assetInfo.assetId,
     isDelisted,
     dex: "HYPERLIQUID",
     marketType: "perp",
@@ -125,30 +123,28 @@ export function parsePerpAssets(
   dexName: string,
   dexIdx: number,
   rawResult: unknown,
-  allMids: Record<string, string>,
+  _allMids: Record<string, string>,
   categoryMap: ReadonlyMap<string, string>,
   resolvedTokens: string[],
 ): PerpTradeAsset[] {
   const dex = extractDexMetaResult(rawResult);
   if (!dex) return [];
 
-  const { meta, assetCtxs } = dex;
+  const { meta, assetCtxs, collateralToken } = dex;
   const universe = meta.universe;
-  const isMainDex = dexName === "";
-  const dexPrefix = isMainDex ? null : dexName;
-  const quoteCurrency = getQuoteCurrency(meta.collateralToken, resolvedTokens);
+  const dexPrefix = dexName === "" ? null : dexName;
+  const quoteCurrency = getQuoteCurrency(collateralToken, resolvedTokens);
 
   const assets: PerpTradeAsset[] = [];
 
   for (let i = 0; i < universe.length; i++) {
     const asset = buildPerpAsset(
+      meta,
       universe[i],
       i,
       dexIdx,
-      isMainDex,
       dexPrefix,
       assetCtxs,
-      allMids,
       categoryMap,
       quoteCurrency,
     );

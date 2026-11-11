@@ -33,7 +33,7 @@ describe("shared order validation", () => {
           ...baseOrder,
           price: "0",
           reduceOnly: true,
-          orderType: { kind: "limit", timeInForce: "FrontendMarket" },
+          orderType: { kind: "limit", timeInForce: "IOC" },
         },
         coinToAsset,
       ),

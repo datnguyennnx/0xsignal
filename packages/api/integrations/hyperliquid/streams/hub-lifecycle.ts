@@ -1,5 +1,5 @@
 import { Clock, Effect, Exit, Option, Predicate, Queue, Ref, Schedule, Scope } from "effect";
-import type { ISubscription, SubscriptionClient, TransportError } from "@nktkas/hyperliquid";
+import type { SubscriptionHandle, WsClient } from "@0xsignal/sdk-hyperliquid/subscription";
 import type { ServerWebSocket } from "bun";
 import {
   type Bucket,
@@ -21,6 +21,13 @@ export const subscribeRetrySchedule = Schedule.exponential("500 millis").pipe(
   Schedule.upTo({ times: MAX_SUBSCRIBE_ATTEMPTS - 1 }),
 );
 
+/**
+ * A symbol absent from every market universe can never resolve, so retrying it
+ * only repeats a deterministic failure.
+ */
+const isTerminalSubscribeError = (error: WebSocketSubscribeError): boolean =>
+  error.message.includes("not found in any market universe");
+
 const sendQuietly = (ws: ServerWebSocket<MarketWsConnectionData>, payload: unknown): void => {
   try {
     // `send` closes a dropped or backpressured socket instead of leaving it
@@ -33,25 +40,18 @@ const sendQuietly = (ws: ServerWebSocket<MarketWsConnectionData>, payload: unkno
 
 const resolveAndSubscribe = (
   subscription: MarketWsSubscription,
-  subscriptionClient: SubscriptionClient,
+  ws: WsClient,
   provider: typeof HyperliquidProvider.Service,
   bucket: Bucket,
   detach: (ws: ServerWebSocket<MarketWsConnectionData>) => void,
   resolveBucket: () => Bucket | undefined,
-  onSubscriptionError?: (error: TransportError) => void,
-): Effect.Effect<ISubscription, WebSocketSubscribeError> => {
+  onSubscriptionError?: (message: string) => void,
+): Effect.Effect<SubscriptionHandle, WebSocketSubscribeError> => {
   const subSymbol = subscription.symbol;
 
   if (subSymbol === undefined || subSymbol === "") {
     // No symbol means allMids or similar — subscribe directly
-    return subscribeUpstream(
-      bucket,
-      subscriptionClient,
-      undefined,
-      detach,
-      resolveBucket,
-      onSubscriptionError,
-    );
+    return subscribeUpstream(bucket, ws, undefined, detach, resolveBucket, onSubscriptionError);
   }
 
   return Effect.gen(function* () {
@@ -66,7 +66,7 @@ const resolveAndSubscribe = (
     );
     return yield* subscribeUpstream(
       bucket,
-      subscriptionClient,
+      ws,
       Promise.resolve(markets),
       detach,
       resolveBucket,
@@ -81,7 +81,7 @@ const resolveAndSubscribe = (
  * a closed bucket.
  */
 export const ensureUpstream = (
-  subscriptionClient: SubscriptionClient,
+  ws: WsClient,
   provider: typeof HyperliquidProvider.Service,
   buckets: Ref.Ref<Map<string, Bucket>>,
   key: string,
@@ -105,20 +105,20 @@ export const ensureUpstream = (
 
     const subChannel = bucket.subscription.channel;
 
-    const onSubscriptionError = (error: TransportError) => {
+    const onSubscriptionError = (message: string) => {
       marketWsLog(
         "upstream_subscription_error",
-        { bucketKey: key, channel: subChannel, error: error.message },
+        { bucketKey: key, channel: subChannel, error: message },
         "error",
       );
       // Sync SDK callback: park the restart in the bucket's queue so the drain
       // fiber restarts it, and closing the bucket also stops it.
-      Queue.offerUnsafe(restartRequests, error.message);
+      Queue.offerUnsafe(restartRequests, message);
     };
 
     yield* resolveAndSubscribe(
       bucket.subscription,
-      subscriptionClient,
+      ws,
       provider,
       bucket,
       detach,
@@ -155,7 +155,10 @@ export const ensureUpstream = (
       // A close must not land between resolving the subscription and deciding
       // whether the bucket still owns it.
       Effect.uninterruptible,
-      Effect.retry({ schedule: subscribeRetrySchedule }),
+      Effect.retry({
+        schedule: subscribeRetrySchedule,
+        while: (error) => !isTerminalSubscribeError(error),
+      }),
       Effect.catch((error) =>
         Effect.gen(function* () {
           marketWsLog(
@@ -179,16 +182,9 @@ export const ensureUpstream = (
           });
           if (failed === undefined) return;
 
-          if (failed.retryCount < MAX_SUBSCRIBE_ATTEMPTS) {
+          if (!isTerminalSubscribeError(error) && failed.retryCount < MAX_SUBSCRIBE_ATTEMPTS) {
             yield* Effect.sleep("1 second");
-            yield* ensureUpstream(
-              subscriptionClient,
-              provider,
-              buckets,
-              key,
-              detach,
-              restartRequests,
-            );
+            yield* ensureUpstream(ws, provider, buckets, key, detach, restartRequests);
             return;
           }
 
@@ -229,7 +225,7 @@ export const ensureUpstream = (
   });
 
 export const restartBucket = (
-  subscriptionClient: SubscriptionClient,
+  ws: WsClient,
   provider: typeof HyperliquidProvider.Service,
   buckets: Ref.Ref<Map<string, Bucket>>,
   key: string,
@@ -268,5 +264,5 @@ export const restartBucket = (
     });
     if (!reset) return;
 
-    yield* ensureUpstream(subscriptionClient, provider, buckets, key, detach, restartRequests);
+    yield* ensureUpstream(ws, provider, buckets, key, detach, restartRequests);
   });

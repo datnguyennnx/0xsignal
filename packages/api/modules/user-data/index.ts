@@ -7,10 +7,10 @@ import type {
   UserVaultEquity,
 } from "@0xsignal/shared";
 import type {
-  HistoricalOrdersResponse,
-  SpotClearinghouseStateResponse,
-  UserFundingResponse,
-} from "@nktkas/hyperliquid/api/info";
+  HistoricalOrdersInfoResponse,
+  SpotClearinghouseStateInfoResponse,
+  UserFundingInfoResponse,
+} from "@0xsignal/sdk-hyperliquid/info";
 import type { AppError } from "../../shared/errors";
 
 export class UserDataService extends Context.Service<
@@ -21,13 +21,13 @@ export class UserDataService extends Context.Service<
     ) => Effect.Effect<ClearinghouseState, AppError>;
     readonly getSpotClearinghouseState: (
       walletAddress: string,
-    ) => Effect.Effect<SpotClearinghouseStateResponse, AppError>;
+    ) => Effect.Effect<SpotClearinghouseStateInfoResponse, AppError>;
     readonly getFrontendOpenOrders: (
       walletAddress: string,
     ) => Effect.Effect<FrontendOpenOrder[], AppError>;
     readonly getHistoricalOrders: (
       walletAddress: string,
-    ) => Effect.Effect<HistoricalOrdersResponse, AppError>;
+    ) => Effect.Effect<HistoricalOrdersInfoResponse, AppError>;
     readonly getUserFills: (walletAddress: string) => Effect.Effect<UserFill[], AppError>;
     readonly getPortfolio: (walletAddress: string) => Effect.Effect<PortfolioResponse, AppError>;
     readonly getUserVaultEquities: (
@@ -37,6 +37,6 @@ export class UserDataService extends Context.Service<
       walletAddress: string,
       startTime?: number,
       endTime?: number,
-    ) => Effect.Effect<UserFundingResponse, AppError>;
+    ) => Effect.Effect<UserFundingInfoResponse, AppError>;
   }
 >()("UserDataService") {}

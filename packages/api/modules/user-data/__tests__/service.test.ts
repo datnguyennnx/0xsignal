@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Effect, Layer } from "effect";
-import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
+import type { InfoClient } from "@0xsignal/sdk-hyperliquid";
+import type { DecimalString } from "@0xsignal/sdk-hyperliquid";
+import type { FrontendOpenOrder } from "@0xsignal/shared";
 import { HyperliquidClient } from "../../../integrations/hyperliquid/data-sources/hyperliquid-client";
 import { layerUnlimited as rateLimiterUnlimited } from "../../../integrations/hyperliquid/rate-limit";
 import { UserDataService } from "../index";
@@ -29,7 +31,7 @@ const mockClearinghouseState = {
       position: {
         coin: "BTC",
         szi: "0.5",
-        leverage: { type: "cross" as const, value: 10 },
+        leverage: { type: "cross" as const, value: 10, rawUsd: "0" },
         entryPx: "60000",
         positionValue: "30000",
         unrealizedPnl: "1000",
@@ -44,7 +46,7 @@ const mockClearinghouseState = {
   time: Date.now(),
 };
 
-const mockHistoricalOrders: Awaited<ReturnType<InfoClient["historicalOrders"]>> = [
+const mockHistoricalOrders = [
   {
     order: {
       coin: "BTC",
@@ -67,7 +69,7 @@ const mockHistoricalOrders: Awaited<ReturnType<InfoClient["historicalOrders"]>> 
     status: "filled" as const,
     statusTimestamp: Date.now() - 3500000,
   },
-];
+] as unknown as Awaited<ReturnType<InfoClient["historicalOrders"]>>;
 
 const mockUserFills = [
   {
@@ -85,64 +87,26 @@ const mockUserFills = [
     fee: "5.90",
     tid: 1,
     feeToken: "USDC",
-    twapId: null,
   },
-];
+] as unknown as Awaited<ReturnType<InfoClient["userFills"]>>;
 
-const mockFrontendOpenOrders: Awaited<ReturnType<InfoClient["frontendOpenOrders"]>> = [
+const decimal = (value: string): DecimalString => value as DecimalString;
+
+const mockFrontendOpenOrders: FrontendOpenOrder[] = [
   {
     coin: "BTC",
     side: "B" as const,
-    sz: "1.0",
-    limitPx: "60000",
+    sz: decimal("1.0"),
+    limitPx: decimal("60000"),
     oid: 2001,
     timestamp: Date.now() - 30000,
-    origSz: "1.0",
+    origSz: decimal("1.0"),
     orderType: "Limit",
     triggerCondition: "",
-    triggerPx: "",
+    triggerPx: decimal(""),
     isTrigger: false,
     isPositionTpsl: false,
     reduceOnly: false,
-    children: [
-      {
-        coin: "BTC",
-        side: "A" as const,
-        sz: "1.0",
-        limitPx: "65000",
-        oid: 2002,
-        timestamp: Date.now() - 30000,
-        origSz: "1.0",
-        orderType: "Stop Market",
-        triggerCondition: "above",
-        triggerPx: "65000",
-        isTrigger: true,
-        isPositionTpsl: false,
-        reduceOnly: true,
-        children: [],
-        tif: null,
-        cloid: null,
-      },
-      {
-        coin: "BTC",
-        side: "A" as const,
-        sz: "1.0",
-        limitPx: "55000",
-        oid: 2003,
-        timestamp: Date.now() - 30000,
-        origSz: "1.0",
-        orderType: "Stop Market",
-        triggerCondition: "below",
-        triggerPx: "55000",
-        isTrigger: true,
-        isPositionTpsl: false,
-        reduceOnly: true,
-        children: [],
-        tif: null,
-        cloid: null,
-      },
-    ],
-    tif: "Gtc" as const,
     cloid: null,
   },
 ];
@@ -173,7 +137,6 @@ const mockMeta = {
     { name: "SOL", szDecimals: 3, maxLeverage: 30, marginTableId: 0 },
   ],
   marginTables: [],
-  collateralToken: 0,
 };
 
 const makePortfolio = (): Awaited<ReturnType<InfoClient["portfolio"]>> => {
@@ -187,7 +150,7 @@ const makePortfolio = (): Awaited<ReturnType<InfoClient["portfolio"]>> => {
     ["perpWeek", data],
     ["perpMonth", data],
     ["perpAllTime", data],
-  ];
+  ] as unknown as Awaited<ReturnType<InfoClient["portfolio"]>>;
 };
 
 type InfoMethod =
@@ -201,46 +164,44 @@ type InfoMethod =
   | "userVaultEquities"
   | "userFunding";
 
-const makeMockLayer = (overrides?: Partial<Pick<InfoClient, InfoMethod>>) => {
+type MockOverrides = Partial<Record<InfoMethod, () => Promise<unknown>>>;
+
+const makeMockLayer = (overrides?: MockOverrides) => {
   const info = {
     clearinghouseState: vi
-      .fn<InfoClient["clearinghouseState"]>()
+      .fn()
       .mockImplementation(
         overrides?.clearinghouseState ?? (() => Promise.resolve(mockClearinghouseState)),
       ),
     historicalOrders: vi
-      .fn<InfoClient["historicalOrders"]>()
+      .fn()
       .mockImplementation(
         overrides?.historicalOrders ?? (() => Promise.resolve(mockHistoricalOrders)),
       ),
     userFills: vi
-      .fn<InfoClient["userFills"]>()
+      .fn()
       .mockImplementation(overrides?.userFills ?? (() => Promise.resolve(mockUserFills))),
     frontendOpenOrders: vi
-      .fn<InfoClient["frontendOpenOrders"]>()
+      .fn()
       .mockImplementation(
         overrides?.frontendOpenOrders ?? (() => Promise.resolve(mockFrontendOpenOrders)),
       ),
     spotClearinghouseState: vi
-      .fn<InfoClient["spotClearinghouseState"]>()
+      .fn()
       .mockImplementation(
         overrides?.spotClearinghouseState ?? (() => Promise.resolve(mockSpotClearinghouseState)),
       ),
-    meta: vi
-      .fn<InfoClient["meta"]>()
-      .mockImplementation(overrides?.meta ?? (() => Promise.resolve(mockMeta))),
+    meta: vi.fn().mockImplementation(overrides?.meta ?? (() => Promise.resolve(mockMeta))),
     portfolio: vi
-      .fn<InfoClient["portfolio"]>()
+      .fn()
       .mockImplementation(overrides?.portfolio ?? (() => Promise.resolve(makePortfolio()))),
     userVaultEquities: vi
-      .fn<InfoClient["userVaultEquities"]>()
+      .fn()
       .mockImplementation(overrides?.userVaultEquities ?? (() => Promise.resolve([]))),
-    userFunding: vi
-      .fn<InfoClient["userFunding"]>()
-      .mockImplementation(overrides?.userFunding ?? (() => Promise.resolve([]))),
+    userFunding: vi.fn().mockImplementation(overrides?.userFunding ?? (() => Promise.resolve([]))),
   };
   const client = HyperliquidClient.of({
-    info: Object.assign(new InfoClient({ transport: new HttpTransport() }), info),
+    info: info as unknown as InfoClient,
   });
   return Layer.succeed(HyperliquidClient, client);
 };
@@ -321,7 +282,7 @@ describe("UserDataService", () => {
   });
 
   describe("getFrontendOpenOrders", () => {
-    it("returns frontend open orders with children array", async () => {
+    it("returns frontend open orders in the SDK order shape", async () => {
       const layer = makeTestLayer({
         frontendOpenOrders: () => Promise.resolve(mockFrontendOpenOrders),
       });
@@ -335,11 +296,9 @@ describe("UserDataService", () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].oid).toBe(2001);
-      expect(result[0].children).toHaveLength(2);
-      expect(result[0].children[0].oid).toBe(2002);
-      expect(result[0].children[0].reduceOnly).toBe(true);
-      expect(result[0].children[1].oid).toBe(2003);
-      expect(result[0].children[1].reduceOnly).toBe(true);
+      expect(result[0].orderType).toBe("Limit");
+      expect(result[0].reduceOnly).toBe(false);
+      expect(result[0].cloid).toBeNull();
     });
 
     it("returns typed error when SDK call fails", async () => {
@@ -462,24 +421,22 @@ describe("UserDataService", () => {
       const testWallet = "0xINFO_WALLET";
 
       const info = {
-        clearinghouseState: vi
-          .fn<InfoClient["clearinghouseState"]>()
-          .mockImplementation((params) => {
-            spy(params.user);
-            return Promise.resolve(mockClearinghouseState);
-          }),
-        historicalOrders: vi.fn<InfoClient["historicalOrders"]>(),
-        userFills: vi.fn<InfoClient["userFills"]>(),
-        frontendOpenOrders: vi.fn<InfoClient["frontendOpenOrders"]>(),
-        spotClearinghouseState: vi.fn<InfoClient["spotClearinghouseState"]>(),
-        meta: vi.fn<InfoClient["meta"]>().mockResolvedValue(mockMeta),
-        portfolio: vi.fn<InfoClient["portfolio"]>(),
-        userVaultEquities: vi.fn<InfoClient["userVaultEquities"]>(),
-        userFunding: vi.fn<InfoClient["userFunding"]>(),
+        clearinghouseState: vi.fn().mockImplementation((params: { user: string }) => {
+          spy(params.user);
+          return Promise.resolve(mockClearinghouseState);
+        }),
+        historicalOrders: vi.fn(),
+        userFills: vi.fn(),
+        frontendOpenOrders: vi.fn(),
+        spotClearinghouseState: vi.fn(),
+        meta: vi.fn().mockResolvedValue(mockMeta),
+        portfolio: vi.fn(),
+        userVaultEquities: vi.fn(),
+        userFunding: vi.fn(),
       };
 
       const customClient = HyperliquidClient.of({
-        info: Object.assign(new InfoClient({ transport: new HttpTransport() }), info),
+        info: info as unknown as InfoClient,
       });
 
       const testLayer = userDataServiceLayer.pipe(

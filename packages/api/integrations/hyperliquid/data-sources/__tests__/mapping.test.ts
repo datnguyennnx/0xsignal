@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { Cause, Effect, Exit, Option, Result } from "effect";
+import { asDecimal } from "@0xsignal/sdk-hyperliquid";
 import { getTickerSnapshot } from "../mapping";
 import { HyperliquidError } from "../errors";
 import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
@@ -17,6 +18,34 @@ import type {
   SpotTradeAsset,
   TickerSnapshot,
 } from "../types";
+
+const perpDex = (name: string) => ({
+  name,
+  fullName: name,
+  deployer: "",
+  oracleUpdater: null,
+  feeRecipient: null,
+  assetToStreamingOiCap: null,
+  assetToFundingMultiplier: null,
+});
+
+const perpUniverse = (name: string, szDecimals = 4, maxLeverage = 10) => ({
+  name,
+  szDecimals,
+  maxLeverage,
+});
+
+const perpCtx = (midPx: string | null = null) => ({
+  funding: asDecimal("0"),
+  openInterest: asDecimal("0"),
+  prevDayPx: asDecimal("0"),
+  dayNtlVlm: asDecimal("0"),
+  premium: null,
+  oraclePx: asDecimal("0"),
+  markPx: asDecimal("0"),
+  midPx: midPx === null ? null : asDecimal(midPx),
+  impactPxs: null,
+});
 
 const failureOf = <A, E>(result: Result.Result<A, E>): E =>
   Option.getOrThrow(
@@ -46,12 +75,21 @@ describe("Hyperliquid Mapping", () => {
   const mockInfo = {
     metaAndAssetCtxs: vi
       .fn<HyperliquidInfoClient["metaAndAssetCtxs"]>()
-      .mockResolvedValue([null, null]),
+      .mockResolvedValue([{ universe: [], marginTables: [] }, []]),
     allMids: vi.fn<HyperliquidInfoClient["allMids"]>().mockResolvedValue({}),
     perpCategories: vi
       .fn<NonNullable<HyperliquidInfoClient["perpCategories"]>>()
       .mockResolvedValue([]),
     perpDexs: vi.fn<NonNullable<HyperliquidInfoClient["perpDexs"]>>().mockResolvedValue([]),
+    spotMeta: vi
+      .fn<NonNullable<HyperliquidInfoClient["spotMeta"]>>()
+      .mockResolvedValue({ universe: [], tokens: [] }),
+    spotMetaAndAssetCtxs: vi
+      .fn<NonNullable<HyperliquidInfoClient["spotMetaAndAssetCtxs"]>>()
+      .mockResolvedValue([{ universe: [], tokens: [] }, []]),
+    meta: vi
+      .fn<HyperliquidInfoClient["meta"]>()
+      .mockResolvedValue({ universe: [], marginTables: [] }),
   };
 
   describe("mapTickerFromSnapshot", () => {
@@ -64,8 +102,8 @@ describe("Hyperliquid Mapping", () => {
     it("should map standard perp ticker correctly", () => {
       const result = Result.getOrThrow(mapTickerFromSnapshot(mockSnapshot, "BTC"));
       expect(result.symbol).toBe("BTC");
-      expect(result.mid).toBe(50000);
-      expect(result.markPx).toBe(50005);
+      expect(result.mid).toBe("50000");
+      expect(result.markPx).toBe("50005");
     });
 
     it("should fail with NOT_FOUND for unknown symbol", () => {
@@ -95,10 +133,16 @@ describe("Hyperliquid Mapping", () => {
 
   describe("Aggregation", () => {
     it("should aggregate main and builder DEX perps", async () => {
-      mockInfo.perpDexs.mockResolvedValue([{ name: "xyz" }]);
+      mockInfo.perpDexs.mockResolvedValue([perpDex("xyz")]);
       mockInfo.metaAndAssetCtxs
-        .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
-        .mockResolvedValueOnce([{ universe: [{ name: "xyz:EUR" }] }, [{ midPx: "1.1" }]]); // xyz
+        .mockResolvedValueOnce([
+          { universe: [perpUniverse("BTC")], marginTables: [] },
+          [perpCtx("50000")],
+        ]) // Main
+        .mockResolvedValueOnce([
+          { universe: [perpUniverse("xyz:EUR")], marginTables: [] },
+          [perpCtx("1.1")],
+        ]); // xyz
 
       const result = await Effect.runPromise(
         Effect.provide(getTickerSnapshot(mockInfo), rateLimiterUnlimited),
@@ -132,9 +176,12 @@ describe("Hyperliquid Mapping", () => {
     });
 
     it("should handle partial DEX failures", async () => {
-      mockInfo.perpDexs.mockResolvedValue([{ name: "offline" }]);
+      mockInfo.perpDexs.mockResolvedValue([perpDex("offline")]);
       mockInfo.metaAndAssetCtxs
-        .mockResolvedValueOnce([{ universe: [{ name: "BTC" }] }, [{ midPx: "50000" }]]) // Main
+        .mockResolvedValueOnce([
+          { universe: [perpUniverse("BTC")], marginTables: [] },
+          [perpCtx("50000")],
+        ]) // Main
         .mockRejectedValueOnce(new Error("DEX Offline"));
 
       const result = await Effect.runPromise(
@@ -261,6 +308,15 @@ describe("Hyperliquid Mapping", () => {
       expect(hfun.markPx).toBe("10.05"); // from allMids["@1"]
     });
 
+    it("carries the supply that spot market cap depends on", () => {
+      const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
+      const result = parseSpotAssets(raw, allMids);
+
+      const purr = result.find((a) => a.coin === "PURR");
+      expect(purr?.circulatingSupply).toBe("500000");
+      expect(purr?.totalSupply).toBe("500000");
+    });
+
     it("falls back to ctx fields when allMids missing", () => {
       const raw = [{ universe: spotUniverse, tokens: spotTokens }, assetCtxs];
       const result = parseSpotAssets(raw, {});
@@ -275,6 +331,62 @@ describe("Hyperliquid Mapping", () => {
       const lick = result.find((a) => a.coin === "LICK");
       expect(lick).toBeDefined();
       expect(lick?.dayNtlVlm).toBe("0");
+    });
+
+    it("normalizes an evmContract descriptor to its address", () => {
+      const raw = [
+        {
+          universe: [{ tokens: [1, 0], name: "PURR/USDC", index: 0, isCanonical: true }],
+          tokens: [
+            { name: "USDC", index: 0, szDecimals: 2, evmContract: null },
+            {
+              name: "PURR",
+              index: 1,
+              szDecimals: 2,
+              evmContract: { address: "0xabc", evm_extra_wei_decimals: 8 },
+            },
+          ],
+        },
+        [assetCtxs[0]],
+      ];
+
+      const result = parseSpotAssets(raw, allMids);
+
+      expect(result[0]?.evmContract).toBe("0xabc");
+    });
+
+    it("normalizes a null evmContract to undefined", () => {
+      const raw = [
+        {
+          universe: [{ tokens: [1, 0], name: "PURR/USDC", index: 0, isCanonical: true }],
+          tokens: [
+            { name: "USDC", index: 0, szDecimals: 2, evmContract: null },
+            { name: "PURR", index: 1, szDecimals: 2, evmContract: null },
+          ],
+        },
+        [assetCtxs[0]],
+      ];
+
+      const result = parseSpotAssets(raw, allMids);
+
+      expect(result[0]?.evmContract).toBeUndefined();
+    });
+
+    it("passes a plain string evmContract through unchanged", () => {
+      const raw = [
+        {
+          universe: [{ tokens: [1, 0], name: "PURR/USDC", index: 0, isCanonical: true }],
+          tokens: [
+            { name: "USDC", index: 0, szDecimals: 2, evmContract: null },
+            { name: "PURR", index: 1, szDecimals: 2, evmContract: "0xdef" },
+          ],
+        },
+        [assetCtxs[0]],
+      ];
+
+      const result = parseSpotAssets(raw, allMids);
+
+      expect(result[0]?.evmContract).toBe("0xdef");
     });
 
     it("returns empty for invalid input", () => {

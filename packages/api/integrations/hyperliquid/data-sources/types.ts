@@ -1,11 +1,20 @@
 import { Context, type Effect } from "effect";
 import type { AggregatedMarket, Candle, MarketTicker } from "@0xsignal/shared";
 import type { MarketTimeframe } from "../../../modules/market-data";
-import type { L2BookResponse, PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
+import type {
+  AllMidsInfoResponse,
+  L2BookInfoResponse,
+  MetaAndAssetCtxsInfoResponse,
+  MetaInfoResponse,
+  PerpAnnotationInfoResponse,
+  PerpCategoriesInfoResponse,
+  PerpDexsInfoResponse,
+  SpotMetaAndAssetCtxsInfoResponse,
+  SpotMetaInfoResponse,
+} from "@0xsignal/sdk-hyperliquid/info";
 import type { HyperliquidError } from "./errors";
 
 export type { Candle, MarketTicker as TickerPayload };
-export type { PerpAnnotationResponse } from "@nktkas/hyperliquid/api/info";
 
 // Perp/spot discriminated union types
 
@@ -55,7 +64,7 @@ export type MarketAssetCtxItem = {
 export type OrderBookPayload = {
   readonly symbol: string;
   readonly nSigFigs?: 2 | 3 | 4 | 5 | null;
-  readonly orderbook: L2BookResponse;
+  readonly orderbook: L2BookInfoResponse;
 };
 
 export type TickerSnapshot = {
@@ -96,21 +105,29 @@ export class HyperliquidProvider extends Context.Service<
     ) => Effect.Effect<OrderBookPayload, HyperliquidError>;
     readonly getTradeAnnotation: (
       symbol: string,
-    ) => Effect.Effect<{ symbol: string; annotation: PerpAnnotationResponse }, HyperliquidError>;
+    ) => Effect.Effect<
+      { symbol: string; annotation: PerpAnnotationInfoResponse },
+      HyperliquidError
+    >;
   }
 >()("HyperliquidProvider") {}
 
 /**
  * Subset of InfoClient methods used by the mapping/service layer.
  *
- * InfoClient from the library exposes more methods, but it is structurally
- * assignable to this narrower surface, so no cast is needed to narrow it.
+ * InfoClient from the SDK is structurally assignable to this narrower surface,
+ * so no cast is needed to narrow it. Every method takes the params object the
+ * SDK expects (never a `type` key); the absent-dex case is `{}`, not
+ * `{ dex: undefined }`, because `exactOptionalPropertyTypes` rejects the latter.
  */
 export type HyperliquidInfoClient = {
-  readonly metaAndAssetCtxs: (params?: { dex?: string }) => Promise<[unknown, unknown]>;
-  readonly allMids: () => Promise<Record<string, string>>;
-  readonly perpCategories?: () => Promise<Array<[string, string]>>;
-  readonly perpDexs?: () => Promise<Array<null | { name: string }>>;
-  readonly spotMeta?: () => Promise<unknown>;
-  readonly spotMetaAndAssetCtxs?: () => Promise<unknown>;
+  readonly allMids: (p: { dex?: string }) => Promise<AllMidsInfoResponse>;
+  readonly perpDexs: (p: Record<string, never>) => Promise<PerpDexsInfoResponse>;
+  readonly spotMeta: (p: Record<string, never>) => Promise<SpotMetaInfoResponse>;
+  readonly spotMetaAndAssetCtxs: (
+    p: Record<string, never>,
+  ) => Promise<SpotMetaAndAssetCtxsInfoResponse>;
+  readonly perpCategories: (p: Record<string, never>) => Promise<PerpCategoriesInfoResponse>;
+  readonly meta: (p: { dex?: string }) => Promise<MetaInfoResponse>;
+  readonly metaAndAssetCtxs: (p: { dex?: string }) => Promise<MetaAndAssetCtxsInfoResponse>;
 };

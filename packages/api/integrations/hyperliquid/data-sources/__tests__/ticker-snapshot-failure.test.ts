@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
-import { HttpTransport, InfoClient } from "@nktkas/hyperliquid";
+import type { InfoClient } from "@0xsignal/sdk-hyperliquid";
+import type { MetaInfoResponse } from "@0xsignal/sdk-hyperliquid/info";
 import { getTicker } from "../provider";
 import { HyperliquidClient } from "../client";
 import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
@@ -9,7 +10,7 @@ const createMockInfoClient = () => ({
   candleSnapshot: vi.fn<InfoClient["candleSnapshot"]>(),
   meta: vi.fn<InfoClient["meta"]>(),
   metaAndAssetCtxs: vi.fn<InfoClient["metaAndAssetCtxs"]>(),
-  allMids: vi.fn<InfoClient["allMids"]>(),
+  allMids: vi.fn(),
   perpCategories: vi.fn<InfoClient["perpCategories"]>(),
   perpDexs: vi.fn<NonNullable<InfoClient["perpDexs"]>>().mockResolvedValue([]),
   spotMeta: vi.fn<InfoClient["spotMeta"]>().mockResolvedValue({ universe: [], tokens: [] }),
@@ -17,12 +18,11 @@ const createMockInfoClient = () => ({
   perpAnnotation: vi.fn<InfoClient["perpAnnotation"]>(),
 });
 
-type Meta = Awaited<ReturnType<InfoClient["meta"]>>;
+type Meta = MetaInfoResponse;
 
 const metaResponse = (names: readonly string[]): Meta => ({
   universe: names.map((name) => ({ name, szDecimals: 2, maxLeverage: 50, marginTableId: 0 })),
   marginTables: [],
-  collateralToken: 0,
 });
 
 let mockInfoClient: ReturnType<typeof createMockInfoClient>;
@@ -32,7 +32,7 @@ const makeClientLayer = () =>
     Layer.succeed(
       HyperliquidClient,
       HyperliquidClient.of({
-        info: Object.assign(new InfoClient({ transport: new HttpTransport() }), mockInfoClient),
+        info: mockInfoClient as unknown as InfoClient,
       }),
     ),
     rateLimiterUnlimited,

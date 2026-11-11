@@ -1,3 +1,5 @@
+import { infoWeight } from "@0xsignal/sdk-hyperliquid";
+
 /**
  * Hyperliquid /info weights from the official rate-limit table
  * (https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits);
@@ -35,10 +37,9 @@ export const INFO_WEIGHTS: Record<InfoOperation, number> = {
 
 /**
  * Candle snapshots cost 20 plus one extra weight per 60 requested items.
- * The table's flat 20 only covers a request of fewer than 60 candles.
+ * Delegated to the SDK so the count term cannot drift from the wire contract.
  */
-export const candleSnapshotWeight = (count: number): number =>
-  INFO_WEIGHTS.candleSnapshot + Math.floor(Math.max(0, count) / 60);
+export const candleSnapshotWeight = (count: number): number => infoWeight("candleSnapshot", count);
 
 /**
  * Operations the published table does not name keep the old flat estimate:
