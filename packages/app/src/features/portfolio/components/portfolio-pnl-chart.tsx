@@ -1,50 +1,21 @@
-import { memo, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { memo, use, useMemo, useSyncExternalStore } from "react";
 
-import { Surface } from "@/components/surface/surface";
 import { Segmented } from "@/components/ui/segmented";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { EmptyState } from "@/components/empty-state";
-import { ErrorState } from "@/components/error-state";
 
-import { usePortfolio, useWhalePortfolio } from "../hooks/use-portfolio-data";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   PERIOD_LABELS,
   PERIOD_KEYS,
-  periodSlot,
-  PERPS_PERIOD,
   isPortfolioPeriod,
   type PortfolioPeriod,
 } from "../utils/constants";
 import { formatAxis, formatCompactUsd, formatSignedUsd } from "@/core/utils/formatters";
 import { getRootFontSizePx, remToPxAt, subscribeRootFontSize } from "@/core/utils/rem";
-import { SURFACE } from "./portfolio-summary.constants";
 
-type RechartsModule = typeof import("recharts");
+export type ChartView = "account-value" | "pnl" | "perps-pnl";
 
-/** Recharts stays in its own chunk so the portfolio route shell ships without it. */
-function useRecharts(): RechartsModule | null {
-  const [mod, setMod] = useState<RechartsModule | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      try {
-        const loaded = await import("recharts");
-        if (active) setMod(loaded);
-      } catch {
-        // Leave the skeleton in place; the chunk failed to load.
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  return mod;
-}
-
-type ChartView = "account-value" | "pnl" | "perps-pnl";
+/** One module promise for every mount; the overview's boundary shows the skeleton until it resolves. */
+const recharts = import("recharts");
 
 const VIEW_KEYS: ChartView[] = ["account-value", "pnl", "perps-pnl"];
 const VIEW_LABELS: Record<ChartView, string> = {
@@ -100,38 +71,20 @@ const AXIS_LINE = { stroke: "var(--data-grid)", strokeWidth: 1 };
 const TOOLTIP_CURSOR = { stroke: "var(--data-crosshair)", strokeWidth: 1, strokeDasharray: "3 3" };
 
 export const PortfolioPnLChart = memo(function PortfolioPnLChart({
-  readOnlyAddress,
+  values,
+  chartView,
+  onChartViewChange,
   period: timePeriod,
   onPeriodChange,
 }: {
-  readOnlyAddress?: string | undefined;
+  values: [number, number][] | null;
+  chartView: ChartView;
+  onChartViewChange: (view: ChartView) => void;
   period: PortfolioPeriod;
   onPeriodChange: (period: PortfolioPeriod) => void;
 }) {
-  const isOwn = readOnlyAddress === undefined;
-  const ownPortfolio = usePortfolio(isOwn);
-  const whalePortfolio = useWhalePortfolio(readOnlyAddress);
-  const { data: portfolio, isLoading, isError, refetch } = isOwn ? ownPortfolio : whalePortfolio;
-
-  const [chartView, setChartView] = useState<ChartView>("account-value");
-  const recharts = useRecharts();
-
-  const values = useMemo<[number, number][] | null>(() => {
-    if (!portfolio) return null;
-    const periodKey = chartView === "perps-pnl" ? PERPS_PERIOD[timePeriod] : timePeriod;
-    const entry = portfolio[periodSlot(periodKey)];
-    if (entry === undefined) return null;
-    const period = entry[1];
-    const rawData: [number, string][] =
-      chartView === "account-value" ? period.accountValueHistory : period.pnlHistory;
-    const result: [number, number][] = [];
-    for (let i = 0; i < rawData.length; i++) {
-      const ts = rawData[i][0];
-      const val = Number(rawData[i][1]);
-      if (ts > 0 && Number.isFinite(val)) result.push([ts, val]);
-    }
-    return result.length > 0 ? result : null;
-  }, [portfolio, chartView, timePeriod]);
+  const { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } =
+    use(recharts);
 
   const chartData = useMemo(
     () => (values === null ? null : values.map(([time, value]) => ({ time, value }))),
@@ -183,8 +136,6 @@ export const PortfolioPnLChart = memo(function PortfolioPnLChart({
     }),
     [axisFontSizePx],
   );
-  const yAxisDomain = useMemo<[number, number]>(() => [dataMin, dataMax], [dataMin, dataMax]);
-
   const xAxisTicks = useMemo(() => {
     if (!values || values.length < 2) return null;
     const first = values.at(0);
@@ -197,78 +148,14 @@ export const PortfolioPnLChart = memo(function PortfolioPnLChart({
     return Array.from({ length: count + 1 }, (_, i) => +(min + step * i).toFixed(0));
   }, [values]);
 
-  if (isLoading) {
-    return (
-      <Surface tier="content" className={SURFACE}>
-        <div className="flex h-control items-center justify-between">
-          <div className="flex gap-inline">
-            <Skeleton className="h-3.5 w-16" />
-            <Skeleton className="h-3.5 w-16" />
-            <Skeleton className="h-3.5 w-16" />
-          </div>
-          <Skeleton className="h-3.5 w-14" />
-        </div>
-        <div className={`flex flex-1 items-center justify-center ${CHART_MIN_HEIGHT}`}>
-          <Skeleton className={`w-full ${CHART_MIN_HEIGHT}`} />
-        </div>
-      </Surface>
-    );
-  }
-
-  if (isError) {
-    return (
-      <Surface tier="content" className={SURFACE}>
-        <ErrorState
-          title="Unable to load PnL"
-          description={
-            isOwn
-              ? "Your PnL history could not be loaded. Please try again."
-              : "This account's PnL history could not be loaded. Please try again."
-          }
-          retryAction={() => {
-            void refetch();
-          }}
-        />
-      </Surface>
-    );
-  }
-
-  if (!portfolio) {
-    return (
-      <Surface tier="content" className={SURFACE}>
-        <EmptyState
-          variant="chart"
-          title="No data"
-          description={
-            isOwn
-              ? "Connect your wallet to see your PnL history."
-              : "No PnL history for this account."
-          }
-        />
-      </Surface>
-    );
-  }
-
-  if (recharts === null) {
-    return (
-      <Surface tier="content" className={SURFACE}>
-        <div className={`flex flex-1 items-center justify-center ${CHART_MIN_HEIGHT}`}>
-          <Skeleton className={`w-full ${CHART_MIN_HEIGHT}`} />
-        </div>
-      </Surface>
-    );
-  }
-
-  const { CartesianGrid, ResponsiveContainer, LineChart, Line, YAxis, XAxis, Tooltip } = recharts;
-
   return (
-    <Surface tier="content" className={SURFACE}>
+    <>
       <div data-dense className="flex items-end justify-between">
         <Segmented
           aria-label="Chart view"
           value={chartView}
           options={VIEW_OPTIONS}
-          onValueChange={setChartView}
+          onValueChange={onChartViewChange}
         />
 
         <NativeSelect
@@ -288,7 +175,7 @@ export const PortfolioPnLChart = memo(function PortfolioPnLChart({
       </div>
 
       <div className={`flex flex-1 items-center justify-center ${CHART_MIN_HEIGHT}`}>
-        {chartData ? (
+        {chartData !== null && (
           <div className="w-full h-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={chartMargin}>
@@ -312,7 +199,7 @@ export const PortfolioPnLChart = memo(function PortfolioPnLChart({
                   width={yAxisWidthPx}
                   tick={yAxisTick}
                   tickFormatter={formatAxis}
-                  domain={yAxisDomain}
+                  domain={[dataMin, dataMax]}
                   tickCount={4}
                 />
                 <Tooltip
@@ -332,10 +219,8 @@ export const PortfolioPnLChart = memo(function PortfolioPnLChart({
               </LineChart>
             </ResponsiveContainer>
           </div>
-        ) : (
-          <EmptyState variant="chart" />
         )}
       </div>
-    </Surface>
+    </>
   );
 });

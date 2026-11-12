@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router";
 import type { JSX } from "react";
+import { PageShell } from "@/components/page-shell";
 import { WhalePositionsTable } from "@/features/whales/components/whale-positions-table";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Surface } from "@/components/surface/surface";
@@ -12,8 +13,7 @@ export function WhalesPage(): JSX.Element {
   };
 
   return (
-    <div className="container-fluid flex flex-1 min-h-0 flex-col gap-section">
-      <h1 className="sr-only">Whales</h1>
+    <PageShell title="Whales" variant="fill">
       <ErrorBoundary>
         <Surface
           tier="content"
@@ -24,6 +24,6 @@ export function WhalesPage(): JSX.Element {
           <WhalePositionsTable onSelectWallet={handleSelectWallet} />
         </Surface>
       </ErrorBoundary>
-    </div>
+    </PageShell>
   );
 }

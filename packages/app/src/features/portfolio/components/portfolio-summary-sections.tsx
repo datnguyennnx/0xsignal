@@ -1,47 +1,24 @@
 import { cn } from "cn";
 
 import { ScrollEdge } from "@/components/surface/scroll-edge";
-import { Surface } from "@/components/surface/surface";
-import { ErrorState } from "@/components/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompactUsd, formatSignedPercent, formatSignedUsd } from "@/core/utils/formatters";
 
-import {
-  ROW_STACK,
-  SKELETON_ROW,
-  SUMMARY_SKELETON_KEYS,
-  SURFACE,
-} from "./portfolio-summary.constants";
+import { ROW_STACK, SKELETON_ROW, SUMMARY_SKELETON_KEYS } from "./portfolio-summary.constants";
 
-interface SummaryRowProps {
-  label: string;
-  value: string;
-  accent?: "gain" | "loss" | "warn" | null;
-}
+type Accent = "gain" | "loss" | "warn" | null;
 
-function SummaryRow({ label, value, accent }: SummaryRowProps) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="type-data font-medium text-muted-foreground tracking-wide">{label}</span>
-      <span
-        className={cn(
-          "type-data tabular-nums font-medium",
-          accent === "gain" && "text-gain",
-          accent === "loss" && "text-loss",
-          accent === "warn" && "text-warn",
-          !accent && "text-foreground",
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  );
+function accentClass(accent: Accent): string {
+  if (accent === "gain") return "text-gain";
+  if (accent === "loss") return "text-loss";
+  if (accent === "warn") return "text-warn";
+  return "text-foreground";
 }
 
 export function PortfolioSummarySkeleton() {
   return (
-    <Surface tier="content" className={SURFACE}>
-      <div className="flex h-control items-center justify-between">
+    <>
+      <div className="flex h-control shrink-0 items-center justify-between">
         <Skeleton className="h-3.5 w-12" />
         <Skeleton className="h-5 w-9" />
       </div>
@@ -53,22 +30,7 @@ export function PortfolioSummarySkeleton() {
           </div>
         ))}
       </div>
-    </Surface>
-  );
-}
-
-export function PortfolioSummaryError({ onRetry }: { onRetry?: (() => void) | undefined }) {
-  return (
-    <Surface tier="content" className={SURFACE}>
-      <div role="alert" className="flex-1 flex items-center justify-center">
-        <ErrorState
-          title="Unable to load portfolio"
-          description="One or more portfolio requests failed. Check your connection and try again."
-          retryAction={onRetry}
-          className="py-6"
-        />
-      </div>
-    </Surface>
+    </>
   );
 }
 
@@ -83,37 +45,56 @@ interface PortfolioSummarySectionsProps {
   readonly vaults: { readonly totalEquity: number } | null;
 }
 
+interface SummaryRowData {
+  readonly label: string;
+  readonly value: string;
+  readonly accent: Accent;
+}
+
 export function PortfolioSummarySections({ perps, spot, vaults }: PortfolioSummarySectionsProps) {
   const totalEquity =
     perps.accountValue === null ? null : perps.accountValue + (spot?.totalUsdc ?? 0);
+
+  const rows: readonly SummaryRowData[] = [
+    {
+      label: "PnL",
+      value: perps.pnl === 0 ? "$0.00" : formatSignedUsd(perps.pnl),
+      accent: perps.pnl === null || perps.pnl === 0 ? null : perps.pnl > 0 ? "gain" : "loss",
+    },
+    { label: "Volume", value: formatCompactUsd(perps.volume), accent: null },
+    {
+      label: "Max Drawdown",
+      value:
+        perps.maxDd === null
+          ? "—"
+          : perps.maxDd === 0
+            ? "0.00%"
+            : formatSignedPercent(perps.maxDd * 100),
+      accent: perps.maxDd !== null && perps.maxDd < 0 ? "loss" : null,
+    },
+    { label: "Total Equity", value: formatCompactUsd(totalEquity), accent: null },
+    { label: "Trading Equity", value: formatCompactUsd(perps.accountValue), accent: null },
+    {
+      label: "Vault Equity",
+      value: formatCompactUsd(vaults === null ? null : vaults.totalEquity),
+      accent: null,
+    },
+  ];
 
   return (
     <div className={cn("overflow-y-auto flex-1", ROW_STACK)}>
       {/* one scroll edge per view — Apple HIG scroll views */}
       <ScrollEdge />
-      <SummaryRow
-        label="PnL"
-        value={perps.pnl === 0 ? "$0.00" : formatSignedUsd(perps.pnl)}
-        accent={perps.pnl === null || perps.pnl === 0 ? null : perps.pnl > 0 ? "gain" : "loss"}
-      />
-      <SummaryRow label="Volume" value={formatCompactUsd(perps.volume)} />
-      <SummaryRow
-        label="Max Drawdown"
-        value={
-          perps.maxDd === null
-            ? "—"
-            : perps.maxDd === 0
-              ? "0.00%"
-              : formatSignedPercent(perps.maxDd * 100)
-        }
-        accent={perps.maxDd !== null && perps.maxDd < 0 ? "loss" : null}
-      />
-      <SummaryRow label="Total Equity" value={formatCompactUsd(totalEquity)} />
-      <SummaryRow label="Trading Equity" value={formatCompactUsd(perps.accountValue)} />
-      <SummaryRow
-        label="Vault Equity"
-        value={formatCompactUsd(vaults === null ? null : vaults.totalEquity)}
-      />
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-center justify-between">
+          <span className="type-data font-medium text-muted-foreground tracking-wide">
+            {row.label}
+          </span>
+          <span className={cn("type-data tabular-nums font-medium", accentClass(row.accent))}>
+            {row.value}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

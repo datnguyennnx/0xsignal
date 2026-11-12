@@ -1,10 +1,11 @@
-import { useState, type JSX } from "react";
-// react-doctor-disable-next-line react-doctor/prefer-dynamic-import -- this module is only reached through the panel's lazy()
-import { Pie, PieChart, ResponsiveContainer } from "recharts";
+import { use, useState, type JSX } from "react";
 
 import { formatCompactUsd } from "@/core/utils/formatters";
 
-import { sharePercent, sharePercentLabel } from "../hooks/use-coin-market";
+import { countLabel, sharePercent, sharePercentLabel } from "../hooks/use-coin-market";
+
+/** One module promise for every mount; the panel's lazy boundary shows nothing until it resolves. */
+const recharts = import("recharts");
 
 const DONUT_INNER_RADIUS = "76%";
 // Inset from the box edge so the 1px hover stroke is not clipped by the svg viewport.
@@ -45,11 +46,6 @@ function sliceTone(side: Side): string {
   return side === "long" ? TONE_LONG : TONE_SHORT;
 }
 
-function countLabel(count: number): string {
-  return count === 1 ? "1 position" : `${count} positions`;
-}
-
-/** A zero side prints `0%`, which the shared label would floor to `<1%`. */
 function centrePercent(notional: number, percent: number | null): string {
   return notional === 0 ? "0%" : sharePercentLabel(percent);
 }
@@ -70,6 +66,7 @@ function toSlice(side: Side, notional: number, hovered: Side | null): DonutSlice
 }
 
 export function LongShortDonut({ long, short }: LongShortDonutProps): JSX.Element {
+  const { Pie, PieChart, ResponsiveContainer } = use(recharts);
   const [hovered, setHovered] = useState<Side | null>(null);
   const total = long.notional + short.notional;
   const hasData = total > 0;
@@ -84,12 +81,12 @@ export function LongShortDonut({ long, short }: LongShortDonutProps): JSX.Elemen
   const detailLabel =
     hovered === null
       ? `${sharePercentLabel(dominantPercent)} ${dominant}`
-      : `${formatCompactUsd(shownSplit.notional)} · ${countLabel(shownSplit.count)}`;
+      : `${formatCompactUsd(shownSplit.notional)} · ${countLabel(shownSplit.count, "position")}`;
   const slices: DonutSlice[] = [
     toSlice("long", long.notional, hovered),
     toSlice("short", short.notional, hovered),
   ];
-  const ariaLabel = `Long short split: long ${sharePercentLabel(longPercent)}, ${formatCompactUsd(long.notional)}, ${countLabel(long.count)}; short ${sharePercentLabel(shortPercent)}, ${formatCompactUsd(short.notional)}, ${countLabel(short.count)}.`;
+  const ariaLabel = `Long short split: long ${sharePercentLabel(longPercent)}, ${formatCompactUsd(long.notional)}, ${countLabel(long.count, "position")}; short ${sharePercentLabel(shortPercent)}, ${formatCompactUsd(short.notional)}, ${countLabel(short.count, "position")}.`;
 
   return (
     <div className="flex flex-col items-center gap-inline">

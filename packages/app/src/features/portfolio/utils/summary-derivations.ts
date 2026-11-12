@@ -7,6 +7,7 @@ import type {
 } from "@0xsignal/shared";
 
 import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
+import { toAsyncState, type AsyncState } from "@/lib/async-state";
 
 import { findPeriodEntry, type PortfolioPeriod } from "./constants";
 import { computeMaxDrawdown } from "./financial";
@@ -24,11 +25,6 @@ export interface PortfolioSummarySpot {
 
 export interface PortfolioSummaryVaults {
   readonly totalEquity: number;
-}
-
-/** Own and whale reads are structurally identical, so the owner flag selects one. */
-export function selectSummarySource<T>(isOwn: boolean, own: T, whale: T): T {
-  return isOwn ? own : whale;
 }
 
 /** Any pending/failed read keeps the whole summary in that state. */
@@ -77,8 +73,6 @@ export function deriveSummaryVaults(
   return { totalEquity: vaultData.reduce((sum, vault) => sum + Number(vault.equity), 0) };
 }
 
-export type PortfolioSummaryGateState = "connect-wallet" | "loading" | "error" | "empty" | "ready";
-
 export interface PortfolioSummaryGateInput {
   readonly isOwn: boolean;
   readonly ownAddress: string | undefined;
@@ -88,20 +82,24 @@ export interface PortfolioSummaryGateInput {
 }
 
 /**
- * Branch order is the card's original early-return order. "empty" and "loading"
- * intentionally render the same skeleton: a missing portfolio read would
- * otherwise print placeholder rows as if the account were genuinely empty.
+ * A connected card that has finished loading without a portfolio is a
+ * first-use account, not an idle region: idle would keep the skeleton forever.
+ * An own card with no wallet has no query to wait on, so it is empty too.
  */
-export function selectPortfolioSummaryGateState({
+export function selectPortfolioSummaryState({
   isOwn,
   ownAddress,
   isLoading,
   isError,
   portfolio,
-}: PortfolioSummaryGateInput): PortfolioSummaryGateState {
-  if (isOwn && ownAddress === undefined) return "connect-wallet";
-  if (isLoading) return "loading";
-  if (isError) return "error";
-  if (portfolio === undefined) return "empty";
-  return "ready";
+}: PortfolioSummaryGateInput): AsyncState<PortfolioResponse> {
+  if (isOwn && ownAddress === undefined) return { status: "empty", reason: "first-use" };
+
+  const state = toAsyncState<PortfolioResponse>({
+    isPending: isLoading,
+    isError,
+    data: portfolio,
+  });
+
+  return state.status === "idle" ? { status: "empty", reason: "first-use" } : state;
 }

@@ -40,6 +40,11 @@ export function sharePercentLabel(percent: number | null): string {
   return `${(Math.floor(percent * 10 + 1e-9) / 10).toFixed(1)}%`;
 }
 
+/** Singular/plural count label; the caller supplies the noun. */
+export function countLabel(count: number, noun: string): string {
+  return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
+}
+
 export interface SideRank {
   rank: number;
   count: number;

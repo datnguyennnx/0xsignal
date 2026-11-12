@@ -1,4 +1,9 @@
-import { useMemo } from "react";
+import type {
+  ClearinghouseState,
+  PortfolioResponse,
+  SpotClearinghouseState,
+  UserVaultEquity,
+} from "@0xsignal/shared";
 
 import {
   useClearinghouseState,
@@ -13,7 +18,7 @@ import {
   deriveSummaryPerps,
   deriveSummarySpot,
   deriveSummaryVaults,
-  selectSummarySource,
+  selectPortfolioSummaryState,
 } from "../utils/summary-derivations";
 import {
   usePortfolio,
@@ -24,10 +29,74 @@ import {
   useWhaleVaultEquities,
 } from "./use-portfolio-data";
 
+interface SummaryQuery<T> {
+  readonly data: T | undefined;
+  readonly isLoading: boolean;
+  readonly isError: boolean;
+  readonly refetch: () => Promise<unknown>;
+}
+
+function summarize(
+  portfolioQuery: SummaryQuery<PortfolioResponse>,
+  clearinghouseQuery: SummaryQuery<ClearinghouseState>,
+  spotQuery: SummaryQuery<SpotClearinghouseState>,
+  vaultQuery: SummaryQuery<UserVaultEquity[]>,
+  selectedPeriod: PortfolioPeriod,
+) {
+  const portfolio = portfolioQuery.data;
+  const period = deriveSummaryPeriod(portfolio, selectedPeriod);
+
+  return {
+    portfolio,
+    isLoading: anyQueryFlag([
+      portfolioQuery.isLoading,
+      clearinghouseQuery.isLoading,
+      spotQuery.isLoading,
+      vaultQuery.isLoading,
+    ]),
+    isError: anyQueryFlag([
+      portfolioQuery.isError,
+      clearinghouseQuery.isError,
+      spotQuery.isError,
+      vaultQuery.isError,
+    ]),
+    retryAll: () => {
+      void portfolioQuery.refetch();
+      void clearinghouseQuery.refetch();
+      void spotQuery.refetch();
+      void vaultQuery.refetch();
+    },
+    perps: deriveSummaryPerps(clearinghouseQuery.data, period),
+    spot: deriveSummarySpot(spotQuery.data),
+    vaults: deriveSummaryVaults(vaultQuery.data),
+  };
+}
+
+function useOwnSummary(selectedPeriod: PortfolioPeriod, enabled: boolean) {
+  return summarize(
+    usePortfolio(enabled),
+    useClearinghouseState(enabled),
+    useSpotClearinghouseState(enabled),
+    useUserVaultEquities(enabled),
+    selectedPeriod,
+  );
+}
+
+function useWhaleSummary(address: string | undefined, selectedPeriod: PortfolioPeriod) {
+  return summarize(
+    useWhalePortfolio(address),
+    useWhaleClearinghouseState(address),
+    useWhaleSpotClearinghouseState(address),
+    useWhaleVaultEquities(address),
+    selectedPeriod,
+  );
+}
+
 /**
- * Own/whale reads, their combined flags, refetch, and derived rows for the
- * portfolio summary card. Hook order matches the previous inline wiring: the
- * own and whale query pairs are always both called, then the four memos.
+ * Own and read-only summary data. Both quartets mount on every render so the
+ * hook order is stable; the inactive one is gated off, so its queries never
+ * start and its stream effects never subscribe. Only the shown quartet's
+ * `retryAll` is ever called, so a retry never refetches the idle pair.
  */
 export function usePortfolioSummaryData(
   readOnlyAddress: string | undefined,
@@ -36,62 +105,18 @@ export function usePortfolioSummaryData(
   const isOwn = readOnlyAddress === undefined;
   const ownAddress = useOwnAddress();
 
-  const ownPortfolio = usePortfolio(isOwn);
-  const whalePortfolio = useWhalePortfolio(readOnlyAddress);
-  const portfolioQuery = selectSummarySource(isOwn, ownPortfolio, whalePortfolio);
+  const ownSummary = useOwnSummary(selectedPeriod, isOwn);
+  const whaleSummary = useWhaleSummary(isOwn ? undefined : readOnlyAddress, selectedPeriod);
+  const summary = isOwn ? ownSummary : whaleSummary;
 
-  const ownClearinghouse = useClearinghouseState(isOwn);
-  const whaleClearinghouse = useWhaleClearinghouseState(readOnlyAddress);
-  const clearinghouseQuery = selectSummarySource(isOwn, ownClearinghouse, whaleClearinghouse);
-
-  const ownSpot = useSpotClearinghouseState(isOwn);
-  const whaleSpot = useWhaleSpotClearinghouseState(readOnlyAddress);
-  const spotQuery = selectSummarySource(isOwn, ownSpot, whaleSpot);
-
-  const ownVaults = useUserVaultEquities(isOwn);
-  const whaleVaults = useWhaleVaultEquities(readOnlyAddress);
-  const vaultQuery = selectSummarySource(isOwn, ownVaults, whaleVaults);
-
-  const portfolio = portfolioQuery.data;
-  const isLoading = anyQueryFlag([
-    portfolioQuery.isLoading,
-    clearinghouseQuery.isLoading,
-    spotQuery.isLoading,
-    vaultQuery.isLoading,
-  ]);
-  const isError = anyQueryFlag([
-    portfolioQuery.isError,
-    clearinghouseQuery.isError,
-    spotQuery.isError,
-    vaultQuery.isError,
-  ]);
-  const retryAll = () => {
-    void portfolioQuery.refetch();
-    void clearinghouseQuery.refetch();
-    void spotQuery.refetch();
-    void vaultQuery.refetch();
-  };
-
-  const period = useMemo(
-    () => deriveSummaryPeriod(portfolio, selectedPeriod),
-    [portfolio, selectedPeriod],
-  );
-  const perps = useMemo(
-    () => deriveSummaryPerps(clearinghouseQuery.data, period),
-    [clearinghouseQuery.data, period],
-  );
-  const spot = useMemo(() => deriveSummarySpot(spotQuery.data), [spotQuery.data]);
-  const vaults = useMemo(() => deriveSummaryVaults(vaultQuery.data), [vaultQuery.data]);
-
-  return {
+  const needsWallet = isOwn && ownAddress === undefined;
+  const state = selectPortfolioSummaryState({
     isOwn,
     ownAddress,
-    portfolio,
-    isLoading,
-    isError,
-    retryAll,
-    perps,
-    spot,
-    vaults,
-  };
+    isLoading: summary.isLoading,
+    isError: summary.isError,
+    portfolio: summary.portfolio,
+  });
+
+  return { ownAddress, ...summary, needsWallet, state };
 }

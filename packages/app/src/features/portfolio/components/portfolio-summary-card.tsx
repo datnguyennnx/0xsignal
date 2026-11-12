@@ -2,7 +2,6 @@ import { Surface } from "@/components/surface/surface";
 
 import { usePortfolioSummaryData } from "../hooks/use-portfolio-summary-data";
 import type { PortfolioPeriod } from "../utils/constants";
-import { selectPortfolioSummaryGateState } from "../utils/summary-derivations";
 import { SURFACE } from "./portfolio-summary.constants";
 import { PortfolioSummaryHeader } from "./portfolio-summary-header";
 import { PortfolioSummarySections } from "./portfolio-summary-sections";
@@ -17,26 +16,35 @@ export function PortfolioSummaryCard({
   period: PortfolioPeriod;
   onPeriodChange: (period: PortfolioPeriod) => void;
 }) {
-  const { isOwn, ownAddress, portfolio, isLoading, isError, retryAll, perps, spot, vaults } =
-    usePortfolioSummaryData(readOnlyAddress, selectedPeriod);
+  const { needsWallet, state, retryAll, perps, spot, vaults } = usePortfolioSummaryData(
+    readOnlyAddress,
+    selectedPeriod,
+  );
 
-  const state = selectPortfolioSummaryGateState({
-    isOwn,
-    ownAddress,
-    isLoading,
-    isError,
-    portfolio,
-  });
-
-  if (state !== "ready") {
-    return <PortfolioSummaryGate state={state} onRetry={retryAll} />;
-  }
+  const empty = needsWallet
+    ? {
+        title: "Connect your wallet",
+        description: "Connect your wallet to see your portfolio.",
+      }
+    : {
+        title: "No portfolio yet",
+        description: "Your portfolio will appear here after your first trade.",
+      };
 
   return (
     <Surface tier="content" className={SURFACE}>
-      <PortfolioSummaryHeader selectedPeriod={selectedPeriod} onPeriodChange={onPeriodChange} />
+      <PortfolioSummaryGate state={state} onRetry={retryAll} empty={empty}>
+        {() => (
+          <>
+            <PortfolioSummaryHeader
+              selectedPeriod={selectedPeriod}
+              onPeriodChange={onPeriodChange}
+            />
 
-      <PortfolioSummarySections perps={perps} spot={spot} vaults={vaults} />
+            <PortfolioSummarySections perps={perps} spot={spot} vaults={vaults} />
+          </>
+        )}
+      </PortfolioSummaryGate>
     </Surface>
   );
 }

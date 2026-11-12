@@ -2,12 +2,13 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import type { WhalePosition, WhalePositionsQuery } from "@0xsignal/shared";
 
 import { queryKeys } from "@/lib/query-keys";
+import { toAsyncState, type AsyncState } from "@/lib/async-state";
 import { getPositions } from "@/services/api/whales";
 
-export const WHALE_POSITIONS_REFETCH_INTERVAL = 30_000;
+const WHALE_POSITIONS_REFETCH_INTERVAL = 30_000;
 
 /** Four pages (200 rows) bound the fetched set; the table renders only the visible window. */
-export const MAX_WHALE_POSITION_PAGES = 4;
+const MAX_WHALE_POSITION_PAGES = 4;
 
 export interface WhalePositionsPageLike {
   readonly positions: readonly WhalePosition[];
@@ -81,4 +82,46 @@ export function whalePositionsQueryOptions(query: WhalePositionsQuery = {}) {
 
 export function useWhalePositions(query: WhalePositionsQuery = {}) {
   return useInfiniteQuery(whalePositionsQueryOptions(query));
+}
+
+export interface WhalePositionsStateInput {
+  readonly data: readonly WhalePositionsPageLike[] | undefined;
+  readonly isLoading: boolean;
+  readonly isFetchingNextPage: boolean;
+  readonly isError: boolean;
+  readonly hasActiveFilters: boolean;
+}
+
+/**
+ * First-page load is `loading`; appending a page leaves the rows on screen
+ * (`ready{stale}`) so the table never collapses back to a skeleton.
+ */
+export function selectWhalePositionsState({
+  data,
+  isLoading,
+  isFetchingNextPage,
+  isError,
+  hasActiveFilters,
+}: WhalePositionsStateInput): AsyncState<WhalePosition[]> {
+  return toAsyncState({
+    isPending: isLoading,
+    isFetching: isFetchingNextPage,
+    isError,
+    data: data === undefined ? undefined : dedupeWhalePositions(data),
+    isEmpty: (rows) => rows.length === 0,
+    emptyReason: hasActiveFilters ? "no-results" : "first-use",
+  });
+}
+
+export function useWhalePositionsState(query: WhalePositionsQuery = {}, hasActiveFilters = false) {
+  const positionsQuery = useWhalePositions(query);
+  const state = selectWhalePositionsState({
+    data: positionsQuery.data?.pages,
+    isLoading: positionsQuery.isLoading,
+    isFetchingNextPage: positionsQuery.isFetchingNextPage,
+    isError: positionsQuery.isError,
+    hasActiveFilters,
+  });
+
+  return { ...positionsQuery, state };
 }

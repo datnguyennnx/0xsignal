@@ -1,31 +1,43 @@
-import { EmptyState } from "@/components/empty-state";
-import { Surface } from "@/components/surface/surface";
+import type { ReactNode } from "react";
+import type { PortfolioResponse } from "@0xsignal/shared";
 
-import type { PortfolioSummaryGateState } from "../utils/summary-derivations";
-import { SURFACE } from "./portfolio-summary.constants";
-import { PortfolioSummaryError, PortfolioSummarySkeleton } from "./portfolio-summary-sections";
+import { Region } from "@/components/region";
+import type { AsyncState } from "@/lib/async-state";
 
-export function PortfolioSummaryConnectWalletState() {
-  return (
-    <Surface tier="content" className={SURFACE}>
-      <EmptyState
-        variant="panel"
-        title="Connect your wallet"
-        description="Connect your wallet to see your portfolio."
-      />
-    </Surface>
-  );
+import { PortfolioSummarySkeleton } from "./portfolio-summary-sections";
+
+interface SummaryEmptyCopy {
+  title: string;
+  description?: string;
+  action?: ReactNode;
 }
 
-/** Renders every non-ready summary state; the ready surface stays in the card. */
+/** The card's one state boundary: Region owns loading, empty, error and ready. */
 export function PortfolioSummaryGate({
   state,
   onRetry,
+  empty,
+  children,
 }: {
-  state: Exclude<PortfolioSummaryGateState, "ready">;
+  state: AsyncState<PortfolioResponse>;
   onRetry?: (() => void) | undefined;
+  empty: SummaryEmptyCopy;
+  children: (data: PortfolioResponse) => ReactNode;
 }) {
-  if (state === "connect-wallet") return <PortfolioSummaryConnectWalletState />;
-  if (state === "error") return <PortfolioSummaryError onRetry={onRetry} />;
-  return <PortfolioSummarySkeleton />;
+  return (
+    <Region
+      state={state}
+      label="Portfolio summary"
+      className="flex min-h-0 flex-1 flex-col gap-stack"
+      skeleton={<PortfolioSummarySkeleton />}
+      empty={empty}
+      error={{
+        title: "Unable to load portfolio",
+        description: "One or more portfolio requests failed. Check your connection and try again.",
+        ...(onRetry === undefined ? {} : { retry: onRetry }),
+      }}
+    >
+      {children}
+    </Region>
+  );
 }

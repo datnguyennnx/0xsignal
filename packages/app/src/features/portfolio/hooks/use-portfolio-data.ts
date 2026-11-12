@@ -1,3 +1,4 @@
+import { useEffect, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type {
   ClearinghouseState,
@@ -30,6 +31,79 @@ const WHALE_REST_FALLBACK_MS = 30 * 1000;
 /** A hidden tab keeps its stale snapshot instead of polling in the background. */
 function whaleRestRefetchInterval(restAllowed: boolean, live: boolean): number | false {
   return restAllowed && !live && !isPageHidden() ? WHALE_REST_FALLBACK_MS : false;
+}
+
+type WhaleStreamChannel = "clearinghouseState" | "spotState" | "openOrders" | "userFills";
+
+interface WhaleChannelStatus {
+  readonly live: boolean;
+  readonly restAllowed: boolean;
+}
+
+type WhaleStatusMap = Readonly<Record<WhaleStreamChannel, WhaleChannelStatus>>;
+
+/** No bridge mounted (or a page without a whale): REST is the only source. */
+const IDLE_WHALE_STATUS: WhaleChannelStatus = { live: false, restAllowed: true };
+
+const whaleStatusByAddress = new Map<string, WhaleStatusMap>();
+const whaleStatusListeners = new Set<() => void>();
+
+function notifyWhaleStatus(): void {
+  for (const listener of whaleStatusListeners) listener();
+}
+
+function subscribeWhaleStatus(listener: () => void): () => void {
+  whaleStatusListeners.add(listener);
+  return () => {
+    whaleStatusListeners.delete(listener);
+  };
+}
+
+function readWhaleStatus(address: string, channel: WhaleStreamChannel): WhaleChannelStatus {
+  if (address === "") return IDLE_WHALE_STATUS;
+  return whaleStatusByAddress.get(address)?.[channel] ?? IDLE_WHALE_STATUS;
+}
+
+/** Reads the stream status the bridge publishes; it never subscribes itself. */
+export function useWhaleChannelStatus(
+  address: string | undefined,
+  channel: WhaleStreamChannel,
+): WhaleChannelStatus {
+  const user = address ?? "";
+  return useSyncExternalStore(
+    subscribeWhaleStatus,
+    () => readWhaleStatus(user, channel),
+    () => IDLE_WHALE_STATUS,
+  );
+}
+
+/**
+ * Mounts the one live account socket per address. It writes every whale query
+ * key; the query hooks below only read the cache, so N consumers share one
+ * subscription.
+ */
+export function useWhaleStreamBridge(address?: string): void {
+  const stream = useWhaleAccountStream(address);
+  const user = address ?? "";
+  const { live: chLive, restAllowed: chRest } = stream.clearinghouseState;
+  const { live: spotLive, restAllowed: spotRest } = stream.spotState;
+  const { live: ordersLive, restAllowed: ordersRest } = stream.openOrders;
+  const { live: fillsLive, restAllowed: fillsRest } = stream.userFills;
+
+  useEffect(() => {
+    if (user === "") return () => {};
+    const status: WhaleStatusMap = {
+      clearinghouseState: { live: chLive, restAllowed: chRest },
+      spotState: { live: spotLive, restAllowed: spotRest },
+      openOrders: { live: ordersLive, restAllowed: ordersRest },
+      userFills: { live: fillsLive, restAllowed: fillsRest },
+    };
+    whaleStatusByAddress.set(user, status);
+    notifyWhaleStatus();
+    return () => {
+      if (whaleStatusByAddress.delete(user)) notifyWhaleStatus();
+    };
+  }, [user, chLive, chRest, spotLive, spotRest, ordersLive, ordersRest, fillsLive, fillsRest]);
 }
 
 export function usePortfolio(enabled: boolean = true) {
@@ -101,7 +175,7 @@ export function whaleClearinghouseStateQuery(address?: string): WhaleClearinghou
 }
 
 export function useWhaleClearinghouseState(address?: string) {
-  const { live, restAllowed } = useWhaleAccountStream(address).clearinghouseState;
+  const { live, restAllowed } = useWhaleChannelStatus(address, "clearinghouseState");
   const base = whaleClearinghouseStateQuery(address);
   return useQuery({
     ...base,
@@ -113,7 +187,7 @@ export function useWhaleClearinghouseState(address?: string) {
 
 /** Public spot balances for a third party; address-gated, never auth-gated. */
 export function useWhaleSpotClearinghouseState(address?: string) {
-  const { live, restAllowed } = useWhaleAccountStream(address).spotState;
+  const { live, restAllowed } = useWhaleChannelStatus(address, "spotState");
   return useQuery<SpotClearinghouseState>({
     queryKey: queryKeys.whales.spotClearinghouseState(address ?? ""),
     queryFn: () => getSpotClearinghouseStatePublic(address ?? ""),
@@ -125,7 +199,7 @@ export function useWhaleSpotClearinghouseState(address?: string) {
 }
 
 export function useWhaleOpenOrders(address?: string) {
-  const { live, restAllowed } = useWhaleAccountStream(address).openOrders;
+  const { live, restAllowed } = useWhaleChannelStatus(address, "openOrders");
   return useQuery<OpenOrder[]>({
     queryKey: queryKeys.whales.openOrders(address ?? ""),
     queryFn: () => getOpenOrdersPublic(address ?? ""),
@@ -137,7 +211,7 @@ export function useWhaleOpenOrders(address?: string) {
 }
 
 export function useWhaleFills(address?: string) {
-  const { live, restAllowed } = useWhaleAccountStream(address).userFills;
+  const { live, restAllowed } = useWhaleChannelStatus(address, "userFills");
   return useQuery<UserFill[]>({
     queryKey: queryKeys.whales.fills(address ?? ""),
     queryFn: () => getUserFillsPublic(address ?? ""),

@@ -2,12 +2,13 @@ import { lazy, Suspense, useMemo, type JSX } from "react";
 import type { WhalePosition } from "@0xsignal/shared";
 import { useParams } from "react-router";
 
-import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { Region } from "@/components/region";
 import type { PanelComponentProps } from "@/components/side-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompactUsd, formatFundingPercent } from "@/core/utils/formatters";
 import { useWhaleClearinghouseState } from "@/features/portfolio/hooks/use-portfolio-data";
+import { toAsyncState, type AsyncState } from "@/lib/async-state";
 
 import { useCoinAsset } from "../hooks/use-coin-asset";
 import {
@@ -123,60 +124,6 @@ function MarketStats({
   );
 }
 
-interface CrowdPlaceholderProps {
-  coin: string;
-  rowsEmpty: boolean;
-  isLoading: boolean;
-  isError: boolean;
-  refetch: () => unknown;
-}
-
-/**
- * The crowd query owns the whole panel only while the subject has nothing to
- * draw: a whale outside the tracked page still has an entry and a liquidation,
- * so its absence from that page must not hide the chart.
- */
-function crowdPlaceholder({
-  coin,
-  rowsEmpty,
-  isLoading,
-  isError,
-  refetch,
-}: CrowdPlaceholderProps): JSX.Element | null {
-  if (isLoading) {
-    return (
-      <div className="flex h-full flex-col gap-inline">
-        {SKELETON_ROWS.map((key) => (
-          <Skeleton key={key} className="h-(--row-table) w-full" />
-        ))}
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <ErrorState
-        title={`Unable to load ${coin} positions`}
-        retryAction={() => {
-          void refetch();
-        }}
-      />
-    );
-  }
-
-  if (rowsEmpty) {
-    return (
-      <EmptyState
-        variant="panel"
-        title={`No ${coin} positions`}
-        description="No tracked whale positions on this coin."
-      />
-    );
-  }
-
-  return null;
-}
-
 interface WhaleCards {
   whales: readonly WhaleRow[];
   subjectAddress: string | undefined;
@@ -237,7 +184,14 @@ export function CoinContextPanel({ id }: PanelComponentProps): JSX.Element {
   // Hyperliquid reports open interest in coin units; USD = units × mark.
   const openInterestUsd =
     openInterestUnits === null || markPx === null ? null : openInterestUnits * markPx;
-  const { rows, summary, isLoading, isError, refetch } = useCoinMarket(coin, markPx);
+  const {
+    rows,
+    summary,
+    data: marketData,
+    isLoading,
+    isError,
+    refetch,
+  } = useCoinMarket(coin, markPx);
   const whaleBreakdown = useMemo(() => toWhaleRows(rows), [rows]);
   const { data: clearinghouse } = useWhaleClearinghouseState(whaleAddress ?? undefined);
   // The whale's own row, not the crowd page: a whale outside the largest 200
@@ -255,16 +209,18 @@ export function CoinContextPanel({ id }: PanelComponentProps): JSX.Element {
     );
   }
 
-  if (subjectPosition === undefined) {
-    const placeholder = crowdPlaceholder({
-      coin,
-      rowsEmpty: rows.length === 0,
-      isLoading,
-      isError,
-      refetch,
-    });
-    if (placeholder !== null) return placeholder;
-  }
+  // The crowd page owns the panel only while the subject has nothing to draw.
+  const crowdState: AsyncState<readonly WhalePosition[]> =
+    subjectPosition === undefined
+      ? toAsyncState<readonly WhalePosition[]>({
+          enabled: coin !== "",
+          isPending: isLoading,
+          isError,
+          data: marketData === undefined ? undefined : rows,
+          isEmpty: (positions) => positions.length === 0,
+          emptyReason: "first-use",
+        })
+      : { status: "ready", data: rows, stale: false };
 
   const ranked = whaleAddress === null ? null : rankOnSide(rows, whaleAddress);
   const whaleCards = toWhaleCards(whaleBreakdown, whaleAddress, ranked, summary);
@@ -275,46 +231,64 @@ export function CoinContextPanel({ id }: PanelComponentProps): JSX.Element {
   );
 
   return (
-    <div className="flex flex-col gap-panel">
-      <header>
-        <Suspense
-          fallback={
-            <div className="flex flex-col gap-inline">
-              <Skeleton className="h-6 w-1/2" />
-              <Skeleton className="h-(--sparkline-h) w-full" />
-            </div>
-          }
-        >
-          <CoinPriceChart
-            coin={coin}
-            markPx={markPx}
-            rows={rows}
-            summary={summary}
-            subjectPosition={subjectPosition}
-          />
-        </Suspense>
-      </header>
-      <MarketStats asset={asset} openInterestUsd={openInterestUsd} />
-      <section className={GROUP_CLASS}>
-        <GroupLabel>Tracked split</GroupLabel>
-        <Suspense fallback={<Skeleton className="h-(--donut-size) w-(--donut-size) max-w-full" />}>
-          <LongShortDonut long={summary.long} short={summary.short} />
-        </Suspense>
-        {anchor !== null && <p className={CAPTION_CLASS}>{anchor}</p>}
-        {summary.truncated && (
-          <p className={CAPTION_CLASS}>Showing the 200 largest tracked positions.</p>
-        )}
-      </section>
-      {whaleCards.whales.length > 0 && (
-        <section className={GROUP_CLASS}>
-          <GroupLabel>Whales</GroupLabel>
-          <WhaleVolumeCard
-            whales={whaleCards.whales}
-            subjectAddress={whaleCards.subjectAddress}
-            subjectMeta={whaleCards.subjectMeta}
-          />
-        </section>
+    <Region
+      state={crowdState}
+      label={`${coin} tracked positions`}
+      className="flex flex-col gap-panel"
+      skeleton={
+        <div className="flex h-full flex-col gap-inline">
+          {SKELETON_ROWS.map((key) => (
+            <Skeleton key={key} className="h-(--row-table) w-full" />
+          ))}
+        </div>
+      }
+      empty={{
+        title: `No ${coin} positions`,
+        description: "No tracked whale positions on this coin. Pick another coin from the table.",
+      }}
+      error={{
+        title: `Unable to load ${coin} positions`,
+        retry: () => {
+          void refetch();
+        },
+      }}
+    >
+      {() => (
+        <>
+          <header>
+            <Suspense fallback={null}>
+              <CoinPriceChart
+                coin={coin}
+                markPx={markPx}
+                rows={rows}
+                summary={summary}
+                subjectPosition={subjectPosition}
+              />
+            </Suspense>
+          </header>
+          <MarketStats asset={asset} openInterestUsd={openInterestUsd} />
+          <section className={GROUP_CLASS}>
+            <GroupLabel>Tracked split</GroupLabel>
+            <Suspense fallback={null}>
+              <LongShortDonut long={summary.long} short={summary.short} />
+            </Suspense>
+            {anchor !== null && <p className={CAPTION_CLASS}>{anchor}</p>}
+            {summary.truncated && (
+              <p className={CAPTION_CLASS}>Showing the 200 largest tracked positions.</p>
+            )}
+          </section>
+          {whaleCards.whales.length > 0 && (
+            <section className={GROUP_CLASS}>
+              <GroupLabel>Whales</GroupLabel>
+              <WhaleVolumeCard
+                whales={whaleCards.whales}
+                subjectAddress={whaleCards.subjectAddress}
+                subjectMeta={whaleCards.subjectMeta}
+              />
+            </section>
+          )}
+        </>
       )}
-    </div>
+    </Region>
   );
 }

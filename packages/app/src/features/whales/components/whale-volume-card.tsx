@@ -52,6 +52,7 @@ export function WhaleVolumeCard({
   subjectAddress,
   subjectMeta,
 }: WhaleVolumeCardProps): JSX.Element | null {
+  // A list item with no rows takes no slot; its section drops the heading too.
   if (whales.length === 0) return null;
 
   const subject = subjectAddress?.toLowerCase();

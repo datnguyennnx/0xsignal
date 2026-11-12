@@ -1,40 +1,12 @@
 import type { WhalePosition } from "@0xsignal/shared";
 
 /** Formatter instances are immutable: build them once, reuse them for every cell and frame. */
-export const ENTRY_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+const ENTRY_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
   hour: "2-digit",
   minute: "2-digit",
 });
-
-const HIGH_PRICE_FORMATTER = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-const MID_PRICE_FORMATTER = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 4,
-});
-
-const LOW_PRICE_FORMATTER = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 4,
-  maximumFractionDigits: 5,
-});
-
-/** Same threshold ladder as `formatPrice`, with the Intl instances hoisted. */
-export const formatWhalePrice = (price: number): string => {
-  if (price >= 1000) return HIGH_PRICE_FORMATTER.format(price);
-  if (price >= 1) return MID_PRICE_FORMATTER.format(price);
-  return LOW_PRICE_FORMATTER.format(price);
-};
 
 export function formatEntryTime(iso: string): string {
   const date = new Date(iso);

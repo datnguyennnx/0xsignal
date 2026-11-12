@@ -10,13 +10,11 @@ import type {
 } from "@0xsignal/shared";
 
 import {
-  anyQueryFlag,
   deriveSummaryPeriod,
   deriveSummaryPerps,
   deriveSummarySpot,
   deriveSummaryVaults,
-  selectPortfolioSummaryGateState,
-  selectSummarySource,
+  selectPortfolioSummaryState,
 } from "./summary-derivations";
 
 const T0 = 1_700_000_000_000;
@@ -63,23 +61,7 @@ const clearinghouse: ClearinghouseState = {
   time: T1,
 };
 
-describe("selectSummarySource", () => {
-  test("picks the own query pair for own views and the whale pair for read-only views", () => {
-    const own = { data: "own" };
-    const whale = { data: "whale" };
-
-    expect(selectSummarySource(true, own, whale)).toBe(own);
-    expect(selectSummarySource(false, own, whale)).toBe(whale);
-  });
-
-  test("combines the four query flags without short-circuit surprises", () => {
-    expect(anyQueryFlag([false, false, false, false])).toBe(false);
-    expect(anyQueryFlag([false, false, true, false])).toBe(true);
-    expect(anyQueryFlag([])).toBe(false);
-  });
-});
-
-describe("selectPortfolioSummaryGateState", () => {
+describe("selectPortfolioSummaryState", () => {
   const baseGateInput = {
     isOwn: true,
     ownAddress: undefined as string | undefined,
@@ -92,45 +74,55 @@ describe("selectPortfolioSummaryGateState", () => {
     ownAddress: "0x0000000000000000000000000000000000000002",
   };
 
-  test("an own card without an address asks to connect even while reads are pending", () => {
-    expect(selectPortfolioSummaryGateState(baseGateInput)).toBe("connect-wallet");
+  test("an own card without an address is first-use empty even while reads are pending", () => {
+    expect(selectPortfolioSummaryState(baseGateInput)).toEqual({
+      status: "empty",
+      reason: "first-use",
+    });
     expect(
-      selectPortfolioSummaryGateState({
+      selectPortfolioSummaryState({
         ...baseGateInput,
         isLoading: true,
         isError: true,
       }),
-    ).toBe("connect-wallet");
+    ).toEqual({ status: "empty", reason: "first-use" });
   });
 
   test("a whale card never asks the viewer to connect their wallet", () => {
     expect(
-      selectPortfolioSummaryGateState({
+      selectPortfolioSummaryState({
         ...baseGateInput,
         isOwn: false,
         ownAddress: undefined,
       }),
-    ).toBe("empty");
+    ).toEqual({ status: "empty", reason: "first-use" });
     expect(
-      selectPortfolioSummaryGateState({
+      selectPortfolioSummaryState({
         ...baseGateInput,
         isOwn: false,
         ownAddress: undefined,
         isLoading: true,
       }),
-    ).toBe("loading");
+    ).toEqual({ status: "loading" });
   });
 
   test("loading wins over error, and error wins over a missing portfolio", () => {
-    expect(selectPortfolioSummaryGateState({ ...connected, isLoading: true, isError: true })).toBe(
-      "loading",
-    );
-    expect(selectPortfolioSummaryGateState({ ...connected, isError: true })).toBe("error");
-    expect(selectPortfolioSummaryGateState(connected)).toBe("empty");
+    expect(selectPortfolioSummaryState({ ...connected, isLoading: true, isError: true })).toEqual({
+      status: "loading",
+    });
+    expect(selectPortfolioSummaryState({ ...connected, isError: true }).status).toBe("error");
+    expect(selectPortfolioSummaryState(connected)).toEqual({
+      status: "empty",
+      reason: "first-use",
+    });
   });
 
   test("a resolved portfolio on a connected card is ready", () => {
-    expect(selectPortfolioSummaryGateState({ ...connected, portfolio })).toBe("ready");
+    expect(selectPortfolioSummaryState({ ...connected, portfolio })).toEqual({
+      status: "ready",
+      data: portfolio,
+      stale: false,
+    });
   });
 });
 

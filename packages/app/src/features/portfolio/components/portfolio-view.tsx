@@ -1,71 +1,71 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense } from "react";
 import { useLocation } from "react-router";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Region } from "@/components/region";
 import { Surface } from "@/components/surface/surface";
-import { Skeleton } from "@/components/ui/skeleton";
+import { WalletProvider } from "@/components/wallet-provider";
+import { useOwnAddress } from "@/hooks/use-effective-address";
+import { useAppStore } from "@/stores/use-app-store";
 import { PositionManagement } from "@/features/trade/components/position-management";
-import { PortfolioSummaryCard } from "@/features/portfolio/components/portfolio-summary-card";
-import { SURFACE } from "@/features/portfolio/components/portfolio-summary.constants";
-import type { PortfolioPeriod } from "@/features/portfolio/utils/constants";
+import { POSITION_PANEL_FLOW_CLASS } from "@/features/trade/components/position-management-model";
+import { PositionsConnectAction } from "@/features/trade/components/balance-table-sections";
+import { POSITIONS_EMPTY_COPY } from "@/features/trade/components/balance-table-model";
+import { PortfolioOverview } from "@/features/portfolio/components/portfolio-overview";
 
-const PortfolioPnLChart = lazy(() =>
-  import("@/features/portfolio/components/portfolio-pnl-chart").then((m) => ({
-    default: m.PortfolioPnLChart,
+const POSITIONS_EMPTY = {
+  status: "empty",
+  reason: "first-use",
+} as const;
+
+const POSITIONS_CONNECT_KEY = "portfolio-positions";
+
+const ConnectWalletDialogLazy = lazy(() =>
+  import("@/components/connect-wallet-dialog").then((m) => ({
+    default: m.ConnectWalletDialog,
   })),
 );
 
-/** Reserves the chart panel's height while the lazy chunk loads. */
-const ChartSkeleton = () => (
-  <Surface tier="content" className={SURFACE}>
-    <Skeleton className="flex-1 min-h-(--panel-state-min-h)" />
-  </Surface>
-);
-
-interface PortfolioOverviewProps {
-  readOnlyAddress: string | undefined;
-  pathname: string;
-}
-
-/** The period owner sits here, not above the trade region, so it never re-renders that panel. */
-function PortfolioOverview({ readOnlyAddress, pathname }: PortfolioOverviewProps) {
-  const [period, setPeriod] = useState<PortfolioPeriod>("month");
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-panel">
-      <div className="lg:col-span-5">
-        <ErrorBoundary resetKey={pathname}>
-          <PortfolioSummaryCard
-            readOnlyAddress={readOnlyAddress}
-            period={period}
-            onPeriodChange={setPeriod}
-          />
-        </ErrorBoundary>
-      </div>
-      <div className="lg:col-span-7">
-        <ErrorBoundary resetKey={pathname}>
-          <Suspense fallback={<ChartSkeleton />}>
-            <PortfolioPnLChart
-              readOnlyAddress={readOnlyAddress}
-              period={period}
-              onPeriodChange={setPeriod}
-            />
-          </Suspense>
-        </ErrorBoundary>
-      </div>
-    </div>
-  );
-}
-
-export function PortfolioView({ readOnlyAddress }: { readOnlyAddress?: string | undefined }) {
+/** The connected wallet's portfolio: summary, chart, and the actionable position stack. */
+export function PortfolioView() {
   const { pathname } = useLocation();
+  const address = useOwnAddress();
+  const isConnectOpen = useAppStore((s) => s.connectWalletOpen[POSITIONS_CONNECT_KEY] ?? false);
 
   return (
     <>
-      <PortfolioOverview readOnlyAddress={readOnlyAddress} pathname={pathname} />
+      <PortfolioOverview />
 
-      <ErrorBoundary resetKey={pathname}>
-        <PositionManagement readOnlyAddress={readOnlyAddress} variant="flow" />
-      </ErrorBoundary>
+      {address === undefined ? (
+        <Surface tier="content" radius="panel" className={POSITION_PANEL_FLOW_CLASS}>
+          <Region
+            state={POSITIONS_EMPTY}
+            label="Position management"
+            className="contents"
+            empty={{
+              ...POSITIONS_EMPTY_COPY,
+              action: <PositionsConnectAction context={POSITIONS_CONNECT_KEY} />,
+            }}
+          >
+            {() => null}
+          </Region>
+          {isConnectOpen && (
+            <Suspense fallback={null}>
+              <ConnectWalletDialogLazy
+                open={true}
+                onOpenChange={(open) => {
+                  if (!open) useAppStore.getState().closeConnectWallet(POSITIONS_CONNECT_KEY);
+                }}
+              />
+            </Suspense>
+          )}
+        </Surface>
+      ) : (
+        <ErrorBoundary resetKey={pathname}>
+          <WalletProvider>
+            <PositionManagement variant="flow" />
+          </WalletProvider>
+        </ErrorBoundary>
+      )}
     </>
   );
 }
