@@ -1,10 +1,8 @@
 import { useMemo, useState, useTransition } from "react";
-import type { JSX } from "react";
-import type { CalendarQuery } from "@0xsignal/shared";
+import type { JSX, ReactNode } from "react";
 
 import { useCalendarDayPanel } from "@/components/app-side-panel";
-import { EmptyState } from "@/components/empty-state";
-import { ErrorState } from "@/components/error-state";
+import { Region } from "@/components/region";
 import { Surface } from "@/components/surface/surface";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,57 +18,40 @@ import {
   toEventsByDay,
 } from "../lib/date-utils";
 import { CalendarHeader, type CalendarCategoryFilterValue } from "./calendar-header";
-import { MonthGrid } from "./month-grid";
+import { categoryLabel } from "./calendar-filters-model";
+import { MonthGrid, MONTH_GRID_SURFACE_CLASS } from "./month-grid";
 
-const CATEGORY_LABEL: Record<CalendarCategoryFilterValue, string> = {
-  all: "All",
-  macro: "Macro",
-  fx: "FX",
-  crypto: "Crypto",
-};
-
-interface CalendarEmptyStateProps {
-  category: CalendarCategoryFilterValue;
-  monthTitle: string;
-  onShowAll: () => void;
-  fill?: boolean;
+interface CalendarEmptyCopy {
+  title: string;
+  description: string;
+  action?: ReactNode;
 }
 
-function CalendarEmptyState({
-  category,
-  monthTitle,
-  onShowAll,
-  fill = false,
-}: CalendarEmptyStateProps): JSX.Element {
+function emptyCopyFor(
+  category: CalendarCategoryFilterValue,
+  monthTitle: string,
+  onShowAll: () => void,
+): CalendarEmptyCopy {
   if (category === "all") {
-    return (
-      <EmptyState
-        variant="chart"
-        fill={fill}
-        title={`No events in ${monthTitle}`}
-        description="Nothing is scheduled for this month."
-      />
-    );
+    return {
+      title: `No events in ${monthTitle}`,
+      description: "Nothing is scheduled for this month.",
+    };
   }
 
-  const label = CATEGORY_LABEL[category];
-
-  return (
-    <EmptyState
-      variant="chart"
-      fill={fill}
-      title={`No ${label} events this month`}
-      description={`The ${label} filter is hiding other events. Clear it to see everything scheduled in ${monthTitle}.`}
-      action={
-        <Button variant="outline" onClick={onShowAll}>
-          Show all
-        </Button>
-      }
-    />
-  );
+  const label = categoryLabel(category);
+  return {
+    title: `No ${label} events this month`,
+    description: `The ${label} filter is hiding other events. Clear it to see everything scheduled in ${monthTitle}.`,
+    action: (
+      <Button variant="outline" onClick={onShowAll}>
+        Show all
+      </Button>
+    ),
+  };
 }
 
-export const CALENDAR_SKELETON_COLUMNS = 7;
+const CALENDAR_SKELETON_COLUMNS = 7;
 
 /** Reserves the real month grid's shape: weekday header plus one cell per grid day. */
 export function CalendarMonthGridSkeleton({ days }: { days: readonly Date[] }): JSX.Element {
@@ -81,7 +62,7 @@ export function CalendarMonthGridSkeleton({ days }: { days: readonly Date[] }): 
       aria-live="polite"
       aria-busy="true"
       aria-label="Loading calendar events"
-      className="flex w-full min-h-0 flex-1 flex-col gap-inline overflow-hidden p-2 md:p-panel"
+      className={MONTH_GRID_SURFACE_CLASS}
     >
       <div className="grid grid-cols-7 gap-1" aria-hidden="true">
         {Array.from({ length: CALENDAR_SKELETON_COLUMNS }, (_, index) => (
@@ -107,20 +88,16 @@ export function CalendarBoard(): JSX.Element {
   const [isPending, startTransition] = useTransition();
   const { selectedDate, selectDay } = useCalendarDayPanel();
 
-  const query = useMemo<CalendarQuery>(() => {
-    const month = getMonthCalendarQuery(anchor);
+  // The query object is cheap and its derived key is stable; memoizing the
+  // wrapper bought nothing but a dependency check.
+  const query = {
+    ...getMonthCalendarQuery(anchor),
+    category: category === "all" ? undefined : [category],
+  };
 
-    return {
-      ...month,
-      category: category === "all" ? undefined : [category],
-    };
-  }, [anchor, category]);
-
-  const { data, isLoading, isError, isFetching, refetch } = useCalendarEvents(query, {
+  const { state, isFetching, refetch } = useCalendarEvents(query, {
     keepPreviousData: true,
   });
-
-  const eventsByDay = useMemo(() => toEventsByDay(data?.events ?? []), [data]);
 
   const gridDays = useMemo(() => getMonthGridDays(anchor), [anchor]);
 
@@ -164,32 +141,26 @@ export function CalendarBoard(): JSX.Element {
         isRefreshing={isFetching || isPending}
       />
 
-      {isLoading ? (
-        <CalendarMonthGridSkeleton days={gridDays} />
-      ) : isError ? (
-        <ErrorState
-          title="Unable to load events"
-          retryAction={handleRefresh}
-          className="flex min-h-0 flex-1 items-center justify-center"
-        />
-      ) : eventsByDay.size === 0 ? (
-        <CalendarEmptyState
-          category={category}
-          monthTitle={monthTitle}
-          fill
-          onShowAll={() => {
-            changeCategory("all");
-          }}
-        />
-      ) : (
-        <MonthGrid
-          days={gridDays}
-          monthDate={anchor}
-          selectedDate={selectedDate}
-          eventsByDay={eventsByDay}
-          onSelectDate={selectDay}
-        />
-      )}
+      <Region
+        state={state}
+        label="Calendar events"
+        className="flex min-h-0 flex-1 flex-col"
+        skeleton={<CalendarMonthGridSkeleton days={gridDays} />}
+        empty={emptyCopyFor(category, monthTitle, () => {
+          changeCategory("all");
+        })}
+        error={{ title: "Unable to load events", retry: handleRefresh }}
+      >
+        {(data) => (
+          <MonthGrid
+            days={gridDays}
+            monthDate={anchor}
+            selectedDate={selectedDate}
+            eventsByDay={toEventsByDay(data.events)}
+            onSelectDate={selectDay}
+          />
+        )}
+      </Region>
     </div>
   );
 }

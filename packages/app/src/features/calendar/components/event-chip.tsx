@@ -3,6 +3,8 @@ import type { CSSProperties, JSX } from "react";
 
 import { cn } from "cn";
 
+import { formatEventTime } from "../lib/date-utils";
+
 export interface EventChipProps {
   event: EconomicEvent;
   className?: string;
@@ -20,15 +22,11 @@ const CATEGORY_LETTER: Record<CalendarCategory, string> = {
   crypto: "C",
 };
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
-
 const CHIP_CLASS =
   "flex w-full min-w-0 items-center gap-1 overflow-hidden rounded-chip bg-secondary px-1 py-1 type-data text-secondary-foreground";
 
 export function EventChip({ event, className }: EventChipProps): JSX.Element {
-  const time = event.allDay ? null : formatTime(event.scheduledAt);
+  const time = event.allDay ? null : formatEventTime(event.scheduledAt);
 
   const style: CSSProperties & Record<"--category-color", string> = {
     "--category-color": `var(${CATEGORY_SLOT[event.category]})`,

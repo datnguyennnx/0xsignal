@@ -4,16 +4,13 @@ import type { JSX } from "react";
 import { ExternalLink } from "lucide-react";
 
 import { cn } from "cn";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+import { formatEventTime } from "../lib/date-utils";
 
 interface EventRowProps {
   event: EconomicEvent;
   className?: string;
-}
-
-function formatTime(iso: string, allDay: boolean): string {
-  if (allDay) return "All day";
-  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
 export function EventRow({ event, className }: EventRowProps): JSX.Element {
@@ -22,7 +19,7 @@ export function EventRow({ event, className }: EventRowProps): JSX.Element {
   const content = (
     <div className="flex min-w-0 items-baseline gap-2">
       <span className="shrink-0 type-data text-muted-foreground tabular-nums">
-        {formatTime(event.scheduledAt, event.allDay)}
+        {formatEventTime(event.scheduledAt, event.allDay)}
       </span>
       <span className="min-w-0 flex-1 truncate type-data font-medium text-foreground">
         {event.title}
@@ -44,23 +41,21 @@ export function EventRow({ event, className }: EventRowProps): JSX.Element {
 
   if (hasSource) {
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <a
-                href={event.sourceUrl ?? undefined}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cardClass}
-              >
-                {content}
-              </a>
-            }
-          />
-          <TooltipContent>{event.attribution}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <a
+              href={event.sourceUrl ?? undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cardClass}
+            >
+              {content}
+            </a>
+          }
+        />
+        <TooltipContent>{event.attribution}</TooltipContent>
+      </Tooltip>
     );
   }
 

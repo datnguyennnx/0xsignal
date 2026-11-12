@@ -1,5 +1,4 @@
 import type { JSX } from "react";
-import type { CalendarCategory } from "@0xsignal/shared";
 import { ChevronDown, Filter } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -11,25 +10,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export type CalendarCategoryFilterValue = "all" | CalendarCategory;
+import {
+  CATEGORY_LABEL,
+  CATEGORY_OPTIONS,
+  isCategoryFilterValue,
+  type CalendarCategoryFilterValue,
+} from "./calendar-filters-model";
+
+export type { CalendarCategoryFilterValue } from "./calendar-filters-model";
 
 export interface CalendarCategoryFilterProps {
   value: CalendarCategoryFilterValue;
   onChange: (v: CalendarCategoryFilterValue) => void;
 }
-
-const CATEGORY_OPTIONS: CalendarCategoryFilterValue[] = ["all", "macro", "fx", "crypto"];
-
-function isCategoryFilterValue(value: string): value is CalendarCategoryFilterValue {
-  return value === "all" || value === "macro" || value === "fx" || value === "crypto";
-}
-
-const CATEGORY_LABEL: Record<CalendarCategoryFilterValue, string> = {
-  all: "All",
-  macro: "Macro",
-  crypto: "Crypto",
-  fx: "FX",
-};
 
 export function CalendarCategoryFilter({
   value,

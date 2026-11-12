@@ -1,20 +1,14 @@
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useOwnAddress } from "@/hooks/use-effective-address";
 import { useAuthStore } from "@/stores/use-auth-store";
 import type { AgentRegistration } from "@/services/api";
+import { formatDateLabel } from "@/features/calendar/lib/date-utils";
 import { useAgentRegistrations } from "../hooks/use-agent-registrations";
 
 const HYPERLIQUID_API_URL = "https://app.hyperliquid.xyz/API";
-
-const formatExpiry = (expiresAt: string | undefined): string => {
-  if (expiresAt === undefined) return "No recorded expiry";
-  const parsed = new Date(expiresAt);
-  if (Number.isNaN(parsed.getTime())) return expiresAt;
-  return parsed.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-};
 
 interface AgentRegistrationsBannerProps {
   readonly registrations: ReadonlyArray<AgentRegistration>;
@@ -41,7 +35,10 @@ export function AgentRegistrationsBanner({ registrations }: AgentRegistrationsBa
             >
               <span>{registration.agentAddress}</span>
               <span className="text-muted-foreground">
-                expires {formatExpiry(registration.expiresAt)}
+                expires{" "}
+                {registration.expiresAt === undefined
+                  ? "No recorded expiry"
+                  : formatDateLabel(registration.expiresAt)}
               </span>
               <span className={registration.status === "active" ? "text-warn" : undefined}>
                 {registration.status === "active" ? "active" : "expired"}
@@ -72,9 +69,8 @@ function AgentRegistrationsLoadingRow() {
     <output
       aria-live="polite"
       aria-busy="true"
-      className="flex items-center gap-2 rounded-control bg-muted/40 px-3 py-2"
+      className="state-delay flex items-center gap-2 rounded-control bg-muted/40 px-3 py-2"
     >
-      <Loader2 className="size-icon animate-spin text-muted-foreground" aria-hidden="true" />
       <span className="type-label text-muted-foreground">Checking earlier agent approvals</span>
     </output>
   );
@@ -103,15 +99,12 @@ interface AgentRegistrationsWarningProps {
 export function AgentRegistrationsWarning({ enabled = true }: AgentRegistrationsWarningProps = {}) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const address = useOwnAddress() ?? "";
-  const { data, isLoading, isError, refetch } = useAgentRegistrations(
-    address,
-    isAuthenticated && enabled,
-  );
+  const { state, refetch } = useAgentRegistrations(address, isAuthenticated && enabled);
 
   // Disabled or signed out means the query never ran, so render nothing.
   if (!enabled || !isAuthenticated) return null;
-  if (isLoading) return <AgentRegistrationsLoadingRow />;
-  if (isError) {
+  if (state.status === "loading") return <AgentRegistrationsLoadingRow />;
+  if (state.status === "error") {
     return (
       <AgentRegistrationsErrorRow
         onRetry={() => {
@@ -121,5 +114,5 @@ export function AgentRegistrationsWarning({ enabled = true }: AgentRegistrations
     );
   }
 
-  return <AgentRegistrationsBanner registrations={data ?? []} />;
+  return <AgentRegistrationsBanner registrations={state.status === "ready" ? state.data : []} />;
 }

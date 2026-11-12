@@ -1,16 +1,23 @@
 import { useEffect } from "react";
 import { useAppStore } from "@/stores/use-app-store";
 
+/**
+ * Publishes a form's dirty flag to the global guard once per transition, not per
+ * keystroke: `hasChanges` is derived by the caller from its own form state.
+ */
 export function useFormDirtyTracker(formPath: string, hasChanges: boolean): void {
+  const markDirty = useAppStore((state) => state.markDirty);
+  const markClean = useAppStore((state) => state.markClean);
+
   useEffect(() => {
-    const store = useAppStore.getState();
     if (hasChanges) {
-      store.markDirty(formPath);
+      markDirty(formPath);
     } else {
-      store.markClean(formPath);
+      markClean(formPath);
     }
+
     return () => {
-      useAppStore.getState().markClean(formPath);
+      markClean(formPath);
     };
-  }, [formPath, hasChanges]);
+  }, [formPath, hasChanges, markDirty, markClean]);
 }

@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
-import { Terminal, Plug, Lock, ShieldCheck } from "lucide-react";
+import { Terminal, Plug, Lock, ShieldCheck, type LucideIcon } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { truncateAddress } from "@/core/utils/formatters";
 import { SettingsSection } from "./settings-section";
 
@@ -13,7 +12,7 @@ export type ConsoleView = "connect" | "loading" | "signin" | "link" | "form";
 interface ApiConsoleBodyProps {
   readonly view: ConsoleView;
   readonly isConnected: boolean;
-  readonly address: `0x${string}` | undefined;
+  readonly address: string | undefined;
   readonly needsReverification: boolean;
   readonly onConnect: () => void;
   readonly onSignIn: () => void;
@@ -35,7 +34,7 @@ function ConsoleHeader() {
 }
 
 interface ConsoleNoticeProps {
-  icon: ReactNode;
+  icon: LucideIcon;
   title: string;
   description: string;
   actionLabel?: string;
@@ -44,7 +43,7 @@ interface ConsoleNoticeProps {
 }
 
 function ConsoleNotice({
-  icon,
+  icon: Icon,
   title,
   description,
   actionLabel,
@@ -53,9 +52,7 @@ function ConsoleNotice({
 }: ConsoleNoticeProps) {
   return (
     <div className="flex flex-col items-center gap-stack py-6 text-center">
-      <span className="text-muted-foreground" aria-hidden="true">
-        {icon}
-      </span>
+      <Icon className="size-icon-lg text-muted-foreground" aria-hidden="true" />
       <div className="flex flex-col gap-1">
         <p className="type-title font-semibold text-foreground">{title}</p>
         <p className="type-body text-muted-foreground">{description}</p>
@@ -69,18 +66,9 @@ function ConsoleNotice({
   );
 }
 
-function ConsoleLoading() {
-  return (
-    <div className="flex flex-col gap-inline py-6">
-      <Skeleton className="h-(--control-h) w-full max-w-(--measure-form)" />
-      <Skeleton className="h-(--control-h) w-2/3 max-w-(--measure-form)" />
-    </div>
-  );
-}
-
 interface ConsoleFormProps {
   isConnected: boolean;
-  address: `0x${string}` | undefined;
+  address: string | undefined;
   needsReverification: boolean;
   onLinkWallet: () => void;
 }
@@ -133,55 +121,53 @@ function ConsoleForm({
   );
 }
 
-export function ApiConsoleBody({
-  view,
-  isConnected,
-  address,
-  needsReverification,
-  onConnect,
-  onSignIn,
-  onLinkWallet,
-}: ApiConsoleBodyProps) {
+type ConsoleViewProps = Omit<ApiConsoleBodyProps, "view">;
+
+const VIEW_RENDERERS: Record<ConsoleView, (props: ConsoleViewProps) => ReactNode> = {
+  connect: ({ onConnect }) => (
+    <ConsoleNotice
+      icon={Plug}
+      title="Connect your wallet"
+      description="Connect your wallet to start trading."
+      actionLabel="Connect Wallet"
+      actionVariant="accent"
+      onAction={onConnect}
+    />
+  ),
+  loading: () => null,
+  signin: ({ onSignIn }) => (
+    <ConsoleNotice
+      icon={Lock}
+      title="Sign in to trade"
+      description="Sign in to link your wallet and sign orders."
+      actionLabel="Sign In"
+      onAction={onSignIn}
+    />
+  ),
+  link: ({ onLinkWallet }) => (
+    <ConsoleNotice
+      icon={Lock}
+      title="Link a wallet to continue"
+      description="Link a wallet to your account to sign orders."
+      actionLabel="Link Wallet"
+      onAction={onLinkWallet}
+    />
+  ),
+  form: ({ isConnected, address, needsReverification, onLinkWallet }) => (
+    <ConsoleForm
+      isConnected={isConnected}
+      address={address}
+      needsReverification={needsReverification}
+      onLinkWallet={onLinkWallet}
+    />
+  ),
+};
+
+export function ApiConsoleBody(props: ApiConsoleBodyProps) {
   return (
-    <SettingsSection measure="form">
+    <SettingsSection>
       <ConsoleHeader />
-      {view === "connect" ? (
-        <ConsoleNotice
-          icon={<Plug className="size-icon-lg" />}
-          title="Connect your wallet"
-          description="Connect your wallet to start trading."
-          actionLabel="Connect Wallet"
-          actionVariant="accent"
-          onAction={onConnect}
-        />
-      ) : null}
-      {view === "loading" ? <ConsoleLoading /> : null}
-      {view === "signin" ? (
-        <ConsoleNotice
-          icon={<Lock className="size-icon-lg" />}
-          title="Sign in to trade"
-          description="Sign in to link your wallet and sign orders."
-          actionLabel="Sign In"
-          onAction={onSignIn}
-        />
-      ) : null}
-      {view === "link" ? (
-        <ConsoleNotice
-          icon={<Lock className="size-icon-lg" />}
-          title="Link a wallet to continue"
-          description="Link a wallet to your account to sign orders."
-          actionLabel="Link Wallet"
-          onAction={onLinkWallet}
-        />
-      ) : null}
-      {view === "form" ? (
-        <ConsoleForm
-          isConnected={isConnected}
-          address={address}
-          needsReverification={needsReverification}
-          onLinkWallet={onLinkWallet}
-        />
-      ) : null}
+      {VIEW_RENDERERS[props.view](props)}
     </SettingsSection>
   );
 }

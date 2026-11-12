@@ -39,14 +39,12 @@ export function CalendarHeader({
       </div>
 
       <div data-dense className="row-actions flex-wrap">
-        <div className="row-actions">
-          <Button variant="outline" size="icon" onClick={onPrev} aria-label="Previous period">
-            <ChevronLeft />
-          </Button>
-          <Button variant="outline" size="icon" onClick={onNext} aria-label="Next period">
-            <ChevronRight />
-          </Button>
-        </div>
+        <Button variant="outline" size="icon" onClick={onPrev} aria-label="Previous period">
+          <ChevronLeft />
+        </Button>
+        <Button variant="outline" size="icon" onClick={onNext} aria-label="Next period">
+          <ChevronRight />
+        </Button>
 
         <Button variant="outline" onClick={onToday}>
           Today

@@ -1,93 +1,51 @@
 import { useState } from "react";
-import { toast } from "sonner";
 import { useNavigate } from "react-router";
 
-import { useQueryClient } from "@tanstack/react-query";
-
 import { SaveBar } from "@/components/save-bar";
-import { useAuthStore } from "@/stores/use-auth-store";
-import { api } from "@/services/api";
-import { queryKeys } from "@/lib/query-keys";
-import { useOwnAddress } from "@/hooks/use-effective-address";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { useFormDirtyTracker } from "../hooks/use-form-dirty";
-import { applyProfileUpdate } from "../lib/profile-update";
+import { useProfileSettings } from "../hooks/use-profile-settings";
+import { useProfileUpdate } from "../hooks/use-profile-update";
+
 import { ProfileCard, ProfileLoading, ProfileSignedOut } from "./profile-sections";
 import { SettingsSection } from "./settings-section";
 
 export function ProfileSettings() {
-  const user = useAuthStore((s) => s.user);
-  const isLoading = useAuthStore((s) => s.isLoading);
-  const signOut = useAuthStore((s) => s.signOut);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const address = useOwnAddress() ?? "";
-  const userDisplayName = user?.displayName ?? "";
-  const [displayName, setDisplayName] = useState(userDisplayName);
-  const [baselineDisplayName, setBaselineDisplayName] = useState(userDisplayName);
-  const [isSaving, setIsSaving] = useState(false);
+  const { state: profileState, signOut } = useProfileSettings();
+  const userDisplayName =
+    profileState.status === "ready" ? (profileState.data.displayName ?? "") : "";
+  // `null` means "showing the account's name"; a string is the user's draft.
+  // Deriving instead of resyncing keeps a rehydrated name from being overwritten.
+  const [draft, setDraft] = useState<string | null>(null);
+  const displayName = draft ?? userDisplayName;
+  const { save, state: saveState, reset: resetSaveState } = useProfileUpdate();
 
-  // Adjust state during render when the store rehydrates a different name.
-  const [prevUserDisplayName, setPrevUserDisplayName] = useState(userDisplayName);
-  if (prevUserDisplayName !== userDisplayName) {
-    setPrevUserDisplayName(userDisplayName);
-    setBaselineDisplayName(userDisplayName);
-  }
-
-  const hasChanges = displayName !== baselineDisplayName;
+  const hasChanges = draft !== null && draft !== userDisplayName;
   useFormDirtyTracker("settings-profile", hasChanges);
 
   const handleSave = async () => {
-    const trimmed = displayName.trim();
-    if (trimmed === "") {
-      toast.error("Display name required");
-      return;
-    }
-    if (trimmed.length > 100) {
-      toast.error("Display name must be 100 characters or fewer");
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const updated = await api.updateProfile({ displayName: trimmed });
-
-      // The store backs every avatar/name surface in the app; local form state
-      // alone would leave them showing the previous profile.
-      applyProfileUpdate(updated);
-
-      // Approval labels are account-scoped, so refresh that cache too when a
-      // wallet is connected. The display name itself changes no approval.
-      if (address !== "") {
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.user.agentRegistrations(address),
-        });
-      }
-
-      setDisplayName(trimmed);
-      setBaselineDisplayName(trimmed);
-      toast.success("Profile updated");
-    } catch (err) {
-      console.error("[Settings] Failed to update profile:", err);
-      toast.error("Failed to update profile. Try again.");
-    } finally {
-      setIsSaving(false);
-    }
+    const saved = await save(displayName);
+    if (saved) setDraft(null);
   };
 
   const handleReset = () => {
-    setDisplayName(baselineDisplayName);
+    setDraft(null);
+    resetSaveState();
   };
 
-  if (isLoading) {
+  if (profileState.status === "loading") {
     return (
-      <SettingsSection measure="form">
+      <SettingsSection>
         <ProfileLoading />
       </SettingsSection>
     );
   }
 
-  if (user === null) {
+  if (profileState.status === "idle") {
     return (
-      <SettingsSection measure="form">
+      <SettingsSection>
         <ProfileSignedOut
           onSignIn={() => {
             void navigate("/login");
@@ -98,15 +56,21 @@ export function ProfileSettings() {
   }
 
   return (
-    <SettingsSection measure="form">
+    <SettingsSection>
       <ProfileCard
-        user={user}
+        user={profileState.data}
         displayName={displayName}
-        onDisplayNameChange={setDisplayName}
+        onDisplayNameChange={setDraft}
         onSignOut={() => {
           void signOut();
         }}
       />
+
+      {saveState.status === "error" ? (
+        <Alert variant="destructive">
+          <AlertDescription>{saveState.message}</AlertDescription>
+        </Alert>
+      ) : null}
 
       <SaveBar
         open={hasChanges}
@@ -114,7 +78,7 @@ export function ProfileSettings() {
           void handleSave();
         }}
         onReset={handleReset}
-        isSaving={isSaving}
+        isSaving={saveState.status === "pending"}
       />
     </SettingsSection>
   );

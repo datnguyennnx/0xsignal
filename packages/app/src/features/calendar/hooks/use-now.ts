@@ -1,16 +1,36 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-export function useNow(intervalMs = 60_000): Date {
-  const [now, setNow] = useState(() => new Date());
+const MINUTE_MS = 60_000;
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setNow(new Date());
-    }, intervalMs);
-    return () => {
-      clearInterval(id);
-    };
-  }, [intervalMs]);
+let snapshot = Date.now();
+let timer: ReturnType<typeof setInterval> | null = null;
+const listeners = new Set<() => void>();
 
-  return now;
+function emit(): void {
+  snapshot = Date.now();
+  for (const listener of listeners) listener();
+}
+
+/**
+ * One minute clock for the whole app, shared by every subscriber. Mounting one
+ * interval per panel would tick independently; this ticks once and fans out.
+ */
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  timer ??= setInterval(emit, MINUTE_MS);
+
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size > 0) return;
+    if (timer !== null) clearInterval(timer);
+    timer = null;
+  };
+}
+
+function getSnapshot(): number {
+  return snapshot;
+}
+
+export function useNow(): Date {
+  return new Date(useSyncExternalStore(subscribe, getSnapshot, getSnapshot));
 }

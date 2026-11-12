@@ -1,12 +1,12 @@
 /// <reference types="bun-types" />
-import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { afterEach, describe, expect, test } from "bun:test";
+import { createElement } from "react";
 
 import type { EconomicEvent } from "@0xsignal/shared";
 
-import { areMonthDayCellPropsEqual } from "./month-day-cell-logic";
+import { cleanup, hasDom, renderDom } from "../../../../test/render";
 
-const CELL_SOURCE = readFileSync(new URL("./month-day-cell.tsx", import.meta.url), "utf8");
+import { MonthDayCell } from "./month-day-cell";
 
 const noop = (): void => {};
 
@@ -31,60 +31,44 @@ const event = (id: string): EconomicEvent => ({
   fetchedAt: new Date(2026, 0, 1).toISOString(),
 });
 
-type CellProps = Parameters<typeof areMonthDayCellPropsEqual>[0];
+function renderCell(events: EconomicEvent[], onSelect = noop) {
+  return renderDom(
+    createElement(MonthDayCell, {
+      date: new Date(2026, 10, 9),
+      events,
+      isCurrentMonth: true,
+      isToday: false,
+      isSelected: false,
+      onSelect,
+    }),
+  );
+}
 
-const EVENTS = [event("a")];
+afterEach(cleanup);
 
-const cellProps = (overrides: Partial<CellProps> = {}): CellProps => ({
-  date: new Date(2026, 10, 9),
-  events: EVENTS,
-  isCurrentMonth: true,
-  isToday: false,
-  isSelected: false,
-  onSelect: noop,
-  ...overrides,
-});
+describe.skipIf(!hasDom)("a month day cell", () => {
+  test("keeps three chip slots and labels the rest as overflow", () => {
+    let selected = 0;
+    const view = renderCell(["a", "b", "c", "d", "e"].map(event), () => {
+      selected += 1;
+    });
 
-describe("the clipped event list keeps focus outlines whole", () => {
-  test("it carries vertical slack with a matching negative margin", () => {
-    expect(CELL_SOURCE).toContain("overflow-hidden py-0.5 -my-0.5");
-  });
-});
-
-describe("areMonthDayCellPropsEqual", () => {
-  test("skips a cell when every rendered value is unchanged", () => {
-    const prev = cellProps();
-    const next = cellProps({ date: new Date(2026, 10, 9) });
-
-    expect(prev.date).not.toBe(next.date);
-    expect(areMonthDayCellPropsEqual(prev, next)).toBe(true);
-  });
-
-  test("re-renders when the day changes", () => {
-    const prev = cellProps();
-
-    expect(areMonthDayCellPropsEqual(prev, cellProps({ date: new Date(2026, 10, 10) }))).toBe(
-      false,
+    const chips = [...view.container.querySelectorAll("[title]")].map((chip) =>
+      chip.getAttribute("title"),
     );
+    expect(chips).toEqual(["a", "b", "c"]);
+
+    const overflow = view.getByRole("button", { name: /show 2 more events/i });
+    expect(overflow.textContent).toBe("+2 more");
+
+    overflow.click();
+    expect(selected).toBe(1);
   });
 
-  test("re-renders when the event bucket changes identity", () => {
-    const prev = cellProps();
+  test("renders no overflow control when every event fits", () => {
+    const view = renderCell([event("a")]);
 
-    expect(areMonthDayCellPropsEqual(prev, cellProps({ events: [event("a")] }))).toBe(false);
-  });
-
-  test("re-renders when a painted flag changes", () => {
-    const prev = cellProps();
-
-    expect(areMonthDayCellPropsEqual(prev, cellProps({ isCurrentMonth: false }))).toBe(false);
-    expect(areMonthDayCellPropsEqual(prev, cellProps({ isToday: true }))).toBe(false);
-    expect(areMonthDayCellPropsEqual(prev, cellProps({ isSelected: true }))).toBe(false);
-  });
-
-  test("re-renders when the select callback changes identity", () => {
-    const prev = cellProps();
-
-    expect(areMonthDayCellPropsEqual(prev, cellProps({ onSelect: () => {} }))).toBe(false);
+    expect(view.container.querySelectorAll("[title]")).toHaveLength(1);
+    expect(view.container.textContent).not.toContain("more");
   });
 });

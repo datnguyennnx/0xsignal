@@ -72,6 +72,28 @@ export function formatMonthTitle(anchor: Date): string {
   return format(anchor, "MMMM yyyy");
 }
 
+export function formatClockTime(date: Date): string {
+  return format(date, "h:mm a");
+}
+
+/** Chip and row time text: all-day events have no clock, so they say so once here. */
+export function formatEventTime(iso: string, allDay = false): string {
+  if (allDay) return "All day";
+  return formatClockTime(new Date(iso));
+}
+
+/** Panel heading: "Monday, Nov 9". */
+export function formatDayHeading(date: Date): string {
+  return format(date, "EEEE, MMM d");
+}
+
+/** Calendar-date label for aria text and expiry rows; an unparseable input is echoed. */
+export function formatDateLabel(value: string | Date): string {
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return typeof value === "string" ? value : "";
+  return format(date, "MMM d, yyyy");
+}
+
 export function toEventsByDay(events: EconomicEvent[]): EventsByDay {
   const byDay: EventsByDay = new Map();
   for (const event of events) {

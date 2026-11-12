@@ -1,41 +1,26 @@
-import { useCallback } from "react";
-import { useConnection } from "wagmi";
 import { useNavigate } from "react-router";
 
 import { ConnectWalletDialog } from "@/components/connect-wallet-dialog";
+import { WalletProvider, useWalletConnection } from "@/components/wallet-provider";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { useAppStore } from "@/stores/use-app-store";
+import { useApiConsoleView } from "../hooks/use-api-console-view";
 import { useCredentialActions } from "../hooks/use-credential-actions";
-import { ApiConsoleBody, type ConsoleView } from "./api-console-body";
+import { ApiConsoleBody } from "./api-console-body";
 
-export function ApiConsole() {
-  const isConnectWalletOpen = useAppStore(
-    (s) => s.connectWalletOpen["settings-api-console"] ?? false,
-  );
-  const openConnectPrompt = useCallback(() => {
-    useAppStore.getState().openConnectWallet("settings-api-console");
-  }, []);
-  const closeConnectWallet = useCallback(() => {
-    useAppStore.getState().closeConnectWallet("settings-api-console");
-  }, []);
-  const { address, isConnected } = useConnection();
+const CONNECT_KEY = "settings-api-console";
+
+function ApiConsoleWallet() {
+  const isConnectWalletOpen = useAppStore((s) => s.connectWalletOpen[CONNECT_KEY] ?? false);
+  const openConnectWallet = useAppStore((s) => s.openConnectWallet);
+  const closeConnectWallet = useAppStore((s) => s.closeConnectWallet);
+  const { address, isConnected } = useWalletConnection();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const isLoading = useAuthStore((s) => s.isLoading);
   const hasLinkedWallet = useAuthStore((s) => s.hasLinkedWallet);
   const hasUnverifiedWallet = useAuthStore((s) => s.hasUnverifiedWallet);
-  const navigate = useNavigate();
   const { linkWallet } = useCredentialActions();
-
-  let view: ConsoleView = "form";
-  if (!isConnected) {
-    view = "connect";
-  } else if (isLoading) {
-    view = "loading";
-  } else if (!isAuthenticated) {
-    view = "signin";
-  } else if (!hasLinkedWallet) {
-    view = "link";
-  }
+  const navigate = useNavigate();
+  const view = useApiConsoleView({ isConnected, isAuthenticated, hasLinkedWallet });
 
   return (
     <>
@@ -44,7 +29,9 @@ export function ApiConsole() {
         isConnected={isConnected}
         address={address}
         needsReverification={hasUnverifiedWallet}
-        onConnect={openConnectPrompt}
+        onConnect={() => {
+          openConnectWallet(CONNECT_KEY);
+        }}
         onSignIn={() => {
           void navigate("/login");
         }}
@@ -53,14 +40,21 @@ export function ApiConsole() {
         }}
       />
 
-      {isConnectWalletOpen && (
-        <ConnectWalletDialog
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) closeConnectWallet();
-          }}
-        />
-      )}
+      <ConnectWalletDialog
+        open={isConnectWalletOpen}
+        onOpenChange={(open) => {
+          if (!open) closeConnectWallet(CONNECT_KEY);
+        }}
+      />
     </>
+  );
+}
+
+/** The wallet chunk loads only for this console, the one settings tab that signs. */
+export function ApiConsole() {
+  return (
+    <WalletProvider>
+      <ApiConsoleWallet />
+    </WalletProvider>
   );
 }

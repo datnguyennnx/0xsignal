@@ -1,6 +1,6 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderMarkup } from "../../../../test/render";
 
 import type { AgentRegistration } from "@/services/api";
 import { AgentRegistrationsBanner } from "./agent-registrations-warning";
@@ -20,7 +20,7 @@ const registrations: AgentRegistration[] = [
 
 describe("agent registrations warning", () => {
   test("lists the address, expiry and status with the remediation copy", () => {
-    const html = renderToStaticMarkup(<AgentRegistrationsBanner registrations={registrations} />);
+    const html = renderMarkup(<AgentRegistrationsBanner registrations={registrations} />);
 
     expect(html).toContain(ADDRESS);
     expect(html).toContain("active");
@@ -31,7 +31,7 @@ describe("agent registrations warning", () => {
   });
 
   test("renders nothing when the user has no registrations", () => {
-    const html = renderToStaticMarkup(<AgentRegistrationsBanner registrations={[]} />);
+    const html = renderMarkup(<AgentRegistrationsBanner registrations={[]} />);
 
     expect(html).toBe("");
   });

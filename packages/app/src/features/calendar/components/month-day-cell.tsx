@@ -1,15 +1,15 @@
-import { memo, useLayoutEffect, useRef, useState } from "react";
-import type { JSX, RefObject } from "react";
+import { memo } from "react";
+import type { JSX } from "react";
 import type { EconomicEvent } from "@0xsignal/shared";
 
 import { cn } from "cn";
 
-import { observeResize } from "@/lib/resize-observer";
-
+import { formatDateLabel } from "../lib/date-utils";
 import { EventChip } from "./event-chip";
 import { areMonthDayCellPropsEqual, type MonthDayCellProps } from "./month-day-cell-logic";
 
-const INITIAL_CHIP_GUESS = 3;
+/** Fixed slots: the cell's grid rows define capacity, so no height measurement is needed. */
+const VISIBLE_CHIP_SLOTS = 3;
 
 const CELL_CLASS =
   "relative flex h-full min-h-0 flex-col gap-1 rounded-(--calendar-cell-radius) bg-(--control-bg) p-1 text-left motion-control hover:bg-(--control-hover-bg) data-[state=selected]:bg-(--control-active-bg) data-[state=selected]:text-foreground data-[state=selected]:shadow-[inset_0_1px_0_var(--control-active-rim)] data-[state=selected]:hover:bg-(--control-active-bg) data-[state=out-of-month]:bg-transparent data-[state=out-of-month]:text-muted-foreground data-[state=out-of-month]:hover:bg-transparent md:p-2";
@@ -19,34 +19,6 @@ const OVERFLOW_CLASS =
 
 const DATE_CLASS =
   "pointer-events-none relative z-10 flex size-(--control-h-chip) items-center justify-center self-end rounded-full type-label font-medium tabular-nums md:size-(--calendar-date-size)";
-
-function useVisibleChipCount(listRef: RefObject<HTMLDivElement | null>, total: number): number {
-  const chipHeight = useRef(0);
-  const [count, setCount] = useState(() => Math.min(total, INITIAL_CHIP_GUESS));
-
-  useLayoutEffect(() => {
-    const list = listRef.current;
-    if (list === null) return () => {};
-
-    const measure = () => {
-      const chip = list.firstElementChild;
-      if (chip instanceof HTMLElement && chip.offsetHeight > 0) {
-        chipHeight.current = chip.offsetHeight;
-      }
-      const height = chipHeight.current;
-      if (height === 0) return;
-
-      const gap = Number(getComputedStyle(list).rowGap) || 0;
-      const capacity = Math.floor((list.clientHeight + gap) / (height + gap));
-      setCount(Math.max(0, Math.min(total, capacity)));
-    };
-
-    measure();
-    return observeResize(list, measure);
-  }, [listRef, total]);
-
-  return Math.min(count, total);
-}
 
 type DayState = "selected" | "today" | "default" | "out-of-month";
 
@@ -82,26 +54,21 @@ interface DayEventListProps {
 }
 
 function DayEventList({ events, date, onSelect }: DayEventListProps): JSX.Element {
-  const listRef = useRef<HTMLDivElement>(null);
-  const visibleCount = useVisibleChipCount(listRef, events.length);
-  const visible = events.slice(0, visibleCount);
+  const visible = events.slice(0, VISIBLE_CHIP_SLOTS);
   const overflow = events.length - visible.length;
 
   return (
     <>
-      <div
-        ref={listRef}
-        className="pointer-events-none relative z-10 flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden py-0.5 -my-0.5"
-      >
+      <div className="pointer-events-none relative z-10 grid min-h-0 min-w-0 flex-1 grid-rows-3 content-start gap-1 overflow-hidden">
         {visible.map((event) => (
-          <EventChip key={event.id} event={event} className="shrink-0" />
+          <EventChip key={event.id} event={event} />
         ))}
       </div>
 
       {overflow > 0 && (
         <button
           type="button"
-          aria-label={`Show ${overflow} more events on ${date.toLocaleDateString()}`}
+          aria-label={`Show ${overflow} more events on ${formatDateLabel(date)}`}
           onClick={() => {
             onSelect(date);
           }}
@@ -131,7 +98,7 @@ export const MonthDayCell = memo(function MonthDayCell({
         type="button"
         aria-pressed={isSelected}
         aria-current={isToday ? "date" : undefined}
-        aria-label={`Select ${date.toLocaleDateString()}, ${eventLabel}`}
+        aria-label={`Select ${formatDateLabel(date)}, ${eventLabel}`}
         onClick={() => {
           onSelect(date);
         }}

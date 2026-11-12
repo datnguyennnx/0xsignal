@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { toAsyncState } from "@/lib/async-state";
 import { queryKeys } from "@/lib/query-keys";
 import { listAgentRegistrations } from "@/services/api/credentials";
 
@@ -15,5 +16,18 @@ export function agentRegistrationsQueryOptions(address: string, isAuthenticated:
 }
 
 export function useAgentRegistrations(address: string, isAuthenticated: boolean) {
-  return useQuery(agentRegistrationsQueryOptions(address, isAuthenticated));
+  const result = useQuery(agentRegistrationsQueryOptions(address, isAuthenticated));
+
+  const state = toAsyncState({
+    enabled: address !== "" && isAuthenticated,
+    isPending: result.isPending,
+    isFetching: result.isFetching,
+    isError: result.isError,
+    error: result.error,
+    data: result.data,
+    isEmpty: (data) => data.length === 0,
+    emptyReason: "first-use",
+  });
+
+  return { ...result, state };
 }

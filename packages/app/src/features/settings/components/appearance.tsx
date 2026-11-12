@@ -97,7 +97,7 @@ function ThemeCards() {
 
 export function AppearanceSettings() {
   return (
-    <SettingsSection measure="wide">
+    <SettingsSection>
       <div className="flex flex-col gap-1">
         <h3 className="flex items-center gap-inline type-title font-semibold text-foreground">
           <Palette className="size-icon text-primary" />

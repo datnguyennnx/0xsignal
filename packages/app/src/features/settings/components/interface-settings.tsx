@@ -13,7 +13,6 @@ import type {
   RadiusPreset,
   UiScalePreset,
 } from "@/lib/appearance";
-import { SettingsSection } from "./settings-section";
 
 const GLASS_OPTIONS: readonly SegmentedOption<GlassPreset>[] = [
   { value: "clear", label: "Clear" },
@@ -175,7 +174,7 @@ function InterfaceControls() {
   const reducedTransparency = useReducedTransparency();
 
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-[64rem] flex-col gap-section">
+    <div className="flex w-full min-w-0 flex-col gap-section">
       <InterfaceHeading>
         <Button
           type="button"
@@ -261,9 +260,5 @@ function InterfaceControls() {
 }
 
 export function InterfaceSettings() {
-  return (
-    <SettingsSection measure="wide">
-      <InterfaceControls />
-    </SettingsSection>
-  );
+  return <InterfaceControls />;
 }

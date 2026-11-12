@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { CalendarQuery } from "@0xsignal/shared";
 
+import { toAsyncState } from "@/lib/async-state";
 import { queryKeys } from "@/lib/query-keys";
 import { getCalendar } from "@/services/api/calendar";
 
@@ -11,6 +12,8 @@ export interface CalendarEventsQueryOptions {
   readonly keepPreviousData?: boolean;
   /** Disable the request when a day can be derived from the cached month. */
   readonly enabled?: boolean;
+  /** An unfiltered month is first-use empty; a filtered one is no-results. */
+  readonly emptyReason?: "first-use" | "no-results";
 }
 
 export function calendarEventsQueryOptions(
@@ -26,6 +29,25 @@ export function calendarEventsQueryOptions(
   };
 }
 
+function defaultEmptyReason(query: CalendarQuery): "first-use" | "no-results" {
+  const hasCategoryFilter = query.category !== undefined && query.category.length > 0;
+  return hasCategoryFilter ? "no-results" : "first-use";
+}
+
 export function useCalendarEvents(query: CalendarQuery, options: CalendarEventsQueryOptions = {}) {
-  return useQuery(calendarEventsQueryOptions(query, options));
+  const result = useQuery(calendarEventsQueryOptions(query, options));
+
+  const state = toAsyncState({
+    enabled: options.enabled ?? true,
+    isPending: result.isPending,
+    isFetching: result.isFetching,
+    isPlaceholderData: result.isPlaceholderData,
+    isError: result.isError,
+    error: result.error,
+    data: result.data,
+    isEmpty: (data) => data.events.length === 0,
+    emptyReason: options.emptyReason ?? defaultEmptyReason(query),
+  });
+
+  return { ...result, state };
 }

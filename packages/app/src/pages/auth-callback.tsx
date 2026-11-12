@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { queryKeys } from "@/lib/query-keys";
 import { ErrorState } from "@/components/error-state";
-import { PageLoader } from "@/components/page-loader";
 import { isAborted } from "@/pages/auth-callback-utils";
 
 const TRADE_ROUTE = "/trade/BTC";
@@ -36,60 +36,51 @@ async function completeSignIn(code: string, signal?: AbortSignal): Promise<boole
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const controllerRef = useRef<AbortController | null>(null);
 
-  const run = useCallback(async () => {
-    controllerRef.current?.abort();
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    const signal = controller.signal;
+  const { mutate, error, reset } = useMutation({
+    mutationFn: (code: string) => {
+      controllerRef.current?.abort();
+      const controller = new AbortController();
+      controllerRef.current = controller;
+      return completeSignIn(code, controller.signal);
+    },
+    onSuccess: (completed) => {
+      if (completed) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+        void navigate(TRADE_ROUTE, { replace: true });
+      }
+    },
+  });
 
+  const run = useCallback(() => {
     const code = new URLSearchParams(window.location.search).get("code");
     if (code === null || code === "") {
-      if (!isAborted(signal)) void navigate(TRADE_ROUTE, { replace: true });
+      void navigate(TRADE_ROUTE, { replace: true });
       return;
     }
-    try {
-      const completed = await completeSignIn(code, signal);
-      if (completed && !isAborted(signal)) void navigate(TRADE_ROUTE, { replace: true });
-    } catch (err) {
-      console.error("[Auth] Token exchange failed:", err);
-      if (!isAborted(signal)) setError("Unable to complete sign-in. Try again.");
-    }
-  }, [navigate]);
+    mutate(code);
+  }, [navigate, mutate]);
 
   useEffect(() => {
-    // eslint-disable-next-line react/set-state-in-effect -- the async exchange must own its error state
-    void run();
+    run();
     return () => {
       controllerRef.current?.abort();
     };
   }, [run]);
 
-  useEffect(() => {
-    if (error === null) return;
-    toast.error("Sign-in failed", { description: error });
-  }, [error]);
-
-  if (error !== null) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-transparent">
-        <ErrorState
-          title="Authentication failed"
-          description={error}
-          retryAction={() => {
-            setError(null);
-            void run();
-          }}
-        />
-      </div>
-    );
-  }
+  if (error === null) return null;
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-transparent">
-      <PageLoader variant="fullscreen" />
-    </div>
+    <ErrorState
+      title="Authentication failed"
+      description="Unable to complete sign-in. Try again."
+      retryAction={() => {
+        reset();
+        run();
+      }}
+      className="min-h-dvh"
+    />
   );
 }
