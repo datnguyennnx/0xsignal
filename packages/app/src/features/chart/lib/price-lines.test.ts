@@ -3,11 +3,13 @@ import { describe, expect, mock, test } from "bun:test";
 import type { IPriceLine, ISeriesApi, SeriesType } from "lightweight-charts";
 
 import {
-  createPriceLineState,
   removePriceLines,
   syncPriceLines,
   type ChartPriceLine,
+  type PriceLineState,
 } from "./price-lines";
+
+const createPriceLineState = (): PriceLineState => ({ handles: [], styleKeys: [] });
 
 type PriceLineSeries = Pick<ISeriesApi<SeriesType>, "createPriceLine" | "removePriceLine">;
 

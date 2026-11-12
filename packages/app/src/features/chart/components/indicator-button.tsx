@@ -47,15 +47,11 @@ export const IndicatorButton = memo(function IndicatorButton({
   return (
     <>
       <Button
-        variant="secondary"
+        variant="outline"
         onClick={handleToggle}
-        onPointerEnter={preloadModal}
-        onFocus={preloadModal}
+        onPointerDown={preloadModal}
         aria-pressed={isOpen}
-        className={cn(
-          "gap-1 aria-pressed:bg-(--control-active-bg) aria-pressed:text-foreground aria-pressed:shadow-[inset_0_1px_0_var(--control-active-rim)]",
-          className,
-        )}
+        className={cn("gap-1 aria-pressed:text-foreground", className)}
       >
         <Settings2 className="size-icon" />
         <span className="hidden sm:inline">Indicators</span>

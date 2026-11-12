@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 
 import type { WsMarketSubscription } from "@0xsignal/shared";
 
+import { restoreDomGlobals } from "../../../../test/setup";
+
 import {
   createMarketStreamClient,
   type MarketStreamClient,
@@ -340,6 +342,9 @@ const setVisibility = (visibilityState: DocumentVisibilityState): void => {
   for (const listener of visibilityListeners) listener();
 };
 
+// Installed at module load so the client's module-lifetime watcher binds here.
+Object.defineProperty(globalThis, "document", { configurable: true, value: fakeDocument });
+
 const candleMessage = (coin: string, close: number) => ({
   channel: "candle",
   coin,
@@ -378,7 +383,7 @@ describe("market-stream-client page visibility", () => {
 
   afterEach(() => {
     fakeDocument.visibilityState = "visible";
-    Reflect.deleteProperty(globalThis, "document");
+    restoreDomGlobals();
   });
 
   test("coalesces hidden frames and delivers the latest once on visible", async () => {
@@ -502,7 +507,7 @@ describe("market-stream-client stale connection recovery", () => {
 
   afterEach(() => {
     fakeDocument.visibilityState = "visible";
-    Reflect.deleteProperty(globalThis, "document");
+    restoreDomGlobals();
   });
 
   test("reconnects a stale socket and detaches the old handlers", async () => {

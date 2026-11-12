@@ -4,7 +4,6 @@ import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +12,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { WalletConnectOptions } from "@/components/wallet-connect-options";
+import { WalletProvider } from "@/components/wallet-provider";
 import { ADDRESS_PATTERN } from "@/core/utils/address";
 
 interface ConnectWalletDialogProps {
@@ -20,7 +20,15 @@ interface ConnectWalletDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogProps) {
+export function ConnectWalletDialog(props: ConnectWalletDialogProps) {
+  return (
+    <WalletProvider>
+      <ConnectWalletDialogContent {...props} />
+    </WalletProvider>
+  );
+}
+
+function ConnectWalletDialogContent({ open, onOpenChange }: ConnectWalletDialogProps) {
   const navigate = useNavigate();
   const [addressInput, setAddressInput] = useState("");
   const [addressError, setAddressError] = useState<string | null>(null);
@@ -58,9 +66,9 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
         <div className="flex flex-col gap-inline">
           <WalletConnectOptions />
           <div className="flex items-center gap-inline">
-            <Separator className="flex-1" />
+            <div aria-hidden className="h-px flex-1 bg-border" />
             <span className="shrink-0 type-label text-muted-foreground">or</span>
-            <Separator className="flex-1" />
+            <div aria-hidden className="h-px flex-1 bg-border" />
           </div>
           <form className="flex flex-col gap-inline" onSubmit={handleAddressSubmit}>
             <div className="flex flex-col gap-1">
@@ -86,7 +94,7 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
             </div>
             <Button
               type="submit"
-              variant="accent"
+              variant="default"
               size="cta"
               className="w-full"
               disabled={!addressInput.trim()}

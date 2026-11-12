@@ -2,8 +2,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 
 import { useLayoutStore } from "@/stores/use-layout-store";
-import { canvasRowCount } from "@/features/asset-detail/utils/resize-push";
-import { MAX_GRID_ROWS, panelMin } from "@/features/asset-detail/utils/constants";
+import { panelMin, DEFAULT_ROW_COUNT } from "@/features/asset-detail/utils/constants";
 import type { LayoutItem } from "@/features/asset-detail/utils/types";
 
 function item(i: string, x: number, y: number, w: number, h: number): LayoutItem {
@@ -49,13 +48,11 @@ describe("resize commit", () => {
   test("pushes only the column below the resized panel", () => {
     const orderform = item("orderform", 21, 0, 5, 16);
     seed([item("orderbook", 16, 0, 5, 16), orderform]);
-    const before = canvasRowCount(current());
 
     useLayoutStore.getState().commitLayout(resized("orderbook", 20), "orderbook", "resize");
 
     expect(find("orderbook").h).toBe(20);
     expect(find("orderform")).toEqual(orderform);
-    expect(canvasRowCount(current())).toBeGreaterThan(before);
   });
 
   test("grows then shrinks the panel below by the same delta", () => {
@@ -74,7 +71,7 @@ describe("resize commit", () => {
     useLayoutStore.getState().commitLayout(resized("chart", 40), "chart", "resize");
 
     expect(find("chart").h).toBe(40);
-    expect(find("chart").h).toBeGreaterThan(MAX_GRID_ROWS);
+    expect(find("chart").h).toBeGreaterThan(DEFAULT_ROW_COUNT);
     expect(find("positions").y).toBe(40);
   });
 

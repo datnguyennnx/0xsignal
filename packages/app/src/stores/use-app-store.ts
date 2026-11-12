@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, subscribeWithSelector } from "zustand/middleware";
+import { applyTheme } from "@/lib/apply-theme";
 import { queryClient } from "@/lib/query-client";
 import { queryKeys } from "@/lib/query-keys";
 
@@ -18,13 +19,6 @@ const getInitialTheme = (): Theme => {
 const getSystemTheme = (): "dark" | "light" => {
   if (typeof window === "undefined") return "dark";
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-};
-
-const applyThemeClass = (resolved: "dark" | "light") => {
-  if (typeof document === "undefined") return;
-  const root = document.documentElement;
-  root.classList.remove("light", "dark");
-  root.classList.add(resolved);
 };
 
 function isTheme(value: unknown): value is Theme {
@@ -77,7 +71,7 @@ export const useAppStore = create<AppStoreState>()(
         const initialResolved = initialTheme === "system" ? initialSystemTheme : initialTheme;
 
         // Apply theme class immediately on creation
-        applyThemeClass(initialResolved);
+        applyTheme(initialResolved, () => {}, { animate: false });
 
         return {
           theme: initialTheme,
@@ -89,15 +83,16 @@ export const useAppStore = create<AppStoreState>()(
             localStorage.setItem("vite-ui-theme", newTheme);
             const systemTheme = get().systemTheme;
             const resolved = newTheme === "system" ? systemTheme : newTheme;
-            applyThemeClass(resolved);
-            set({ theme: newTheme });
+            applyTheme(resolved, () => {
+              set({ theme: newTheme });
+            });
           },
 
           setSystemTheme: (sys: "dark" | "light") => {
-            const theme = get().theme;
-            const resolved = theme === "system" ? sys : theme;
-            applyThemeClass(resolved);
             set({ systemTheme: sys });
+            // An OS change is not a user gesture: apply it instantly so it never
+            // races a theme swap that is already cross-fading.
+            if (get().theme === "system") applyTheme(sys, () => {}, { animate: false });
           },
 
           openConnectWallet: (key: string) => {
@@ -155,7 +150,7 @@ export const useAppStore = create<AppStoreState>()(
           return (state) => {
             if (!state) return;
             const resolved = state.theme === "system" ? state.systemTheme : state.theme;
-            applyThemeClass(resolved);
+            applyTheme(resolved, () => {}, { animate: false });
           };
         },
       },

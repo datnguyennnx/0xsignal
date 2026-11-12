@@ -26,7 +26,6 @@ interface AssetContentProps {
   readonly symbol: string;
   readonly interval: string;
   readonly onIntervalChange: (interval: string) => void;
-  readonly showChartSkeleton: boolean;
 }
 
 interface LiveMarketHeaderProps {
@@ -126,7 +125,6 @@ export const AssetContent = memo(function AssetContent({
   symbol,
   interval,
   onIntervalChange,
-  showChartSkeleton,
 }: AssetContentProps) {
   const price = asset.price;
   const isSpot = symbol.includes("/");
@@ -134,28 +132,32 @@ export const AssetContent = memo(function AssetContent({
   const regionRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
 
-  // The grid only gets the region minus the header block and the column gap that follows
-  // it. Publishing that offset lets the canvas derive its fit pitch without measuring
-  // itself (which would feed the canvas height back into its own row height). Runs before
-  // paint, so the first painted frame already has the fit height.
+  // The grid's fit pitch is the region minus the header block and the column gap
+  // that follows it. The header height is content-derived (the metric row wraps and
+  // the description line-clamps), so it cannot be declared in CSS. One shared
+  // observer publishes it as `--trading-header-offset`: the canvas then derives its
+  // row height without measuring itself, and no read seeds a React render — the
+  // custom property is corrected before the first paint.
   useLayoutEffect(() => {
     const region = regionRef.current;
     const header = headerRef.current;
     if (region === null || header === null) return () => {};
-    const grid = header.nextElementSibling;
-    if (grid === null) return () => {};
-    const publish = () => {
-      const offset = grid.getBoundingClientRect().top - region.getBoundingClientRect().top;
-      const next = `${offset}px`;
-      // Writing the property re-enters this observer when it changes layout; skip the
-      // no-op write so the loop settles after one pass.
+
+    const publish = (headerHeight: number) => {
+      const gapValue = getComputedStyle(region).rowGap;
+      const gapPx = Number(gapValue.replace(/px$/, ""));
+      const gap = Number.isFinite(gapPx) ? gapPx : 0;
+      const next = `${headerHeight + gap}px`;
+      // Writing the property re-enters layout; skip the no-op write so the loop settles.
       if (region.style.getPropertyValue("--trading-header-offset") === next) return;
       region.style.setProperty("--trading-header-offset", next);
     };
-    publish();
-    const observer = new ResizeObserver(publish);
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries.at(-1);
+      if (entry !== undefined) publish(entry.contentRect.height);
+    });
     observer.observe(header);
-    observer.observe(region);
     return () => {
       observer.disconnect();
     };
@@ -206,7 +208,6 @@ export const AssetContent = memo(function AssetContent({
         symbol={symbol}
         interval={interval}
         onIntervalChange={onIntervalChange}
-        showChartSkeleton={showChartSkeleton}
         markPrice={
           price.quote == null
             ? 0

@@ -14,12 +14,17 @@
 
 import { onPageResume, onPageSuspend, wasPageDiscarded } from "@/lib/page-visibility";
 import { queryClient } from "@/lib/query-client";
+import { queryKeys } from "@/lib/query-keys";
 
 /** A hide shorter than this is an ordinary tab switch and stays cached. */
-export const RESUME_RESYNC_AFTER_MS = 5 * 60_000;
+const RESUME_RESYNC_AFTER_MS = 5 * 60_000;
 
 /** Roots whose cached data can silently drift while the page is suspended. */
-const RESYNC_ROOTS = ["user", "whales", "market"] as const;
+const RESYNC_ROOTS: readonly (readonly string[])[] = [
+  queryKeys.user.all,
+  queryKeys.whales.all,
+  queryKeys.market.all,
+];
 
 export type InvalidateQuery = (queryKey: readonly string[]) => void;
 
@@ -62,7 +67,7 @@ export function installResumeResync(invalidate: InvalidateQuery = invalidateDefa
     if (discarded) discardHandled = true;
 
     if (!shouldResync(hiddenSince, Date.now(), discarded)) return;
-    for (const root of RESYNC_ROOTS) invalidate([root]);
+    for (const root of RESYNC_ROOTS) invalidate(root);
   });
 
   let active = true;

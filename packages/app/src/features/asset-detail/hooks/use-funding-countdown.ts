@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { InfoClient, Transport } from "@0xsignal/sdk-hyperliquid";
 import type { PredictedFundingsInfoResponse } from "@0xsignal/sdk-hyperliquid/info";
+import { queryKeys } from "@/lib/query-keys";
 import { toCountdown } from "../utils/format";
 
 const COUNTDOWN_TICK_MS = 1_000;
@@ -10,7 +11,7 @@ const PREDICTED_FUNDINGS_REFRESH_MS = 60_000;
 const INFO_URL = "https://api.hyperliquid.xyz";
 const INFO_TIMEOUT_MS = 10_000;
 
-export const formatCountdown = toCountdown;
+const formatCountdown = toCountdown;
 
 /** The next UTC hour boundary, independent of the viewer's local time zone. */
 export function nextUtcHourMs(nowMs: number): number {
@@ -44,7 +45,7 @@ const getInfoClient = (): InfoClient =>
     new Transport({ baseUrl: INFO_URL, timeoutMs: INFO_TIMEOUT_MS, retries: 0 }),
   ));
 
-const nextFundingQueryKey = (coin: string) => ["asset", "next-funding", coin] as const;
+const nextFundingQueryKey = (coin: string) => queryKeys.asset.nextFunding(coin);
 
 /** The funding epoch is fetched at most once a minute; the countdown only ticks locally. */
 export function useNextFundingTime(coin: string): number | null {

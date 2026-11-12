@@ -22,30 +22,30 @@ export function useOrderbookRows(): {
     const element = bodyRef.current;
     if (!element) return () => {};
 
+    // The observed box is the only height input: the first entry lands before
+    // paint, so the placeholder never paints the constant fallback.
+    let lastHeightPx = 0;
+
     const apply = () => {
-      // The measured body sits below the column header and holds the spread strip
-      // plus both halves, so the only chrome to subtract is the spread at its floor.
-      const heightPx = element.getBoundingClientRect().height;
+      if (lastHeightPx <= 0) return;
+      // The body sits below the column header and holds the spread strip plus
+      // both halves, so the only chrome to subtract is the spread at its floor.
       const minRowPx = remToPx(MIN_ROW_HEIGHT_REM);
       const maxRowPx = remToPx(MAX_ROW_HEIGHT_REM);
-      const nextRows = rowsPerHalfFor(heightPx, minRowPx);
-      const nextRowHeightPx = clampRowHeight(heightPx - minRowPx, nextRows, minRowPx, maxRowPx);
+      const nextRows = rowsPerHalfFor(lastHeightPx, minRowPx);
+      const nextRowHeightPx = clampRowHeight(lastHeightPx - minRowPx, nextRows, minRowPx, maxRowPx);
       setRowHeightPx((prev) => (prev === nextRowHeightPx ? prev : nextRowHeightPx));
       setRowsPerHalf((prev) => (prev === nextRows ? prev : nextRows));
     };
 
-    apply();
-
-    let unobserve: (() => void) | null = null;
-    if (typeof ResizeObserver !== "undefined") {
-      unobserve = observeResize(element, () => {
-        apply();
-      });
-    }
+    const unobserve = observeResize(element, (entry) => {
+      lastHeightPx = entry.contentRect.height;
+      apply();
+    });
     const unsubscribe = subscribeRootFontSize(apply);
 
     return () => {
-      unobserve?.();
+      unobserve();
       unsubscribe();
     };
   }, []);

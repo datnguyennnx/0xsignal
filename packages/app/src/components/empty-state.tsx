@@ -6,7 +6,8 @@ type EmptyVariant = "table" | "panel" | "chart";
 
 interface EmptyStateProps {
   variant?: EmptyVariant;
-  title?: string | undefined;
+  /** Names the object and the next step; there is no generic fallback. */
+  title: string;
   description?: string | undefined;
   className?: string;
   /** Stretch to the parent's box instead of reserving a min-height floor. */
@@ -15,7 +16,6 @@ interface EmptyStateProps {
 }
 
 export const EmptyState = memo(function EmptyState({
-  variant = "table",
   title,
   description,
   className,
@@ -37,9 +37,7 @@ export const EmptyState = memo(function EmptyState({
           <Inbox className="size-icon" aria-hidden="true" />
         </span>
       )}
-      <h3 className="type-control font-medium text-muted-foreground">
-        {title ?? (variant === "chart" ? "No data" : "No data available")}
-      </h3>
+      <h3 className="type-control font-medium text-muted-foreground">{title}</h3>
       {description !== undefined && description !== "" && (
         <p
           className={cn(

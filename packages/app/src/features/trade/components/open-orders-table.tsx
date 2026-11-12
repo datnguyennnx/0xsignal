@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatSize } from "@/core/utils/formatters";
 import { formatTime } from "../utils/shared-table-utils";
-import { DirLabel, TableEmptyRow, resolveTableState } from "./shared-table-components";
+import { DirLabel, TableEmptyRow, resolveRowStatus } from "./shared-table-components";
 
 import {
   getOrderType,
@@ -34,7 +34,7 @@ const tpSlRole = (order: OpenOrder): string => {
   return "—";
 };
 
-export const OpenOrderRow = memo(function OpenOrderRow({
+const OpenOrderRow = memo(function OpenOrderRow({
   order,
   readOnly,
   isCancelPending,
@@ -109,7 +109,12 @@ export function OpenOrdersTable({
   readOnly = false,
 }: OpenOrdersTableProps) {
   const columnCount = readOnly ? 11 : 12;
-  const state = resolveTableState({ isLoading: isOoLoading, isError: isOoError });
+  const orders = openOrders ?? [];
+  const state = resolveRowStatus({
+    isLoading: isOoLoading,
+    isError: isOoError,
+    rowCount: orders.length,
+  });
   return (
     <Table className="table-cull">
       <TableHeader>
@@ -142,26 +147,23 @@ export function OpenOrdersTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {state === "empty" ? (
-          !openOrders || openOrders.length === 0 ? (
-            <TableEmptyRow colSpan={columnCount} />
-          ) : (
-            openOrders.map((order) => (
-              <OpenOrderRow
-                key={`${order.oid}-${order.coin}`}
-                order={order}
-                readOnly={readOnly}
-                isCancelPending={isCancelPending}
-                onCancelOrder={onCancelOrder}
-                onViewTpSl={onViewTpSl}
-              />
-            ))
-          )
+        {state === "ready" ? (
+          orders.map((order) => (
+            <OpenOrderRow
+              key={`${order.oid}-${order.coin}`}
+              order={order}
+              readOnly={readOnly}
+              isCancelPending={isCancelPending}
+              onCancelOrder={onCancelOrder}
+              onViewTpSl={onViewTpSl}
+            />
+          ))
         ) : (
           <TableEmptyRow
             colSpan={columnCount}
-            state={state}
+            status={state}
             onRetry={onRetry}
+            emptyTitle="No open orders — place an order to see it here"
             errorTitle="Couldn't load open orders"
             errorDescription="The open-orders request failed. Check your connection and try again."
           />

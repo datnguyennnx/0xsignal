@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useConnection } from "wagmi";
 import type { CancelOrdersRequest } from "@0xsignal/shared";
-import { submitCancelOrders } from "@/services/exchange";
 import { useHyperliquidMeta } from "./use-hyperliquid-meta";
 import {
   cancelAndInvalidateUserQueries,
@@ -14,10 +13,11 @@ export function useCancelOrdersMutation() {
   const { address, chainId } = useConnection();
   const { getAssetIndex } = useHyperliquidMeta();
   return useMutation({
-    mutationFn: (params: CancelOrdersRequest) => {
+    mutationFn: async (params: CancelOrdersRequest) => {
       if (address === undefined) {
         throw new UnauthenticatedError("Connect a wallet to cancel orders");
       }
+      const { submitCancelOrders } = await import("@/services/exchange");
       return submitCancelOrders(params, {
         address,
         chainId,

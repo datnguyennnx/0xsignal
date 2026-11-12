@@ -1,13 +1,14 @@
 import { useEffect } from "react";
-import { BrowserRouter } from "react-router";
-import { AppRouter } from "@/app-router";
+import { QueryClientProvider } from "@tanstack/react-query";
+import type { DataRouter } from "react-router";
+import { RouterProvider } from "react-router/dom";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AppToasters } from "@/components/app-toasters";
-import { usePreloadRoutes } from "@/lib/preload-routes";
+import { queryClient } from "@/lib/query-client";
 import { useAppStore } from "@/stores/use-app-store";
 import { useAuthStore } from "@/stores/use-auth-store";
 
-export function App() {
+export function App({ router }: { router: DataRouter }) {
   const checkSchemaVersion = useAppStore((s) => s.checkSchemaVersion);
   useEffect(() => {
     checkSchemaVersion();
@@ -16,13 +17,12 @@ export function App() {
     const cancel = useAuthStore.getState().initialize();
     return cancel;
   }, []);
-  usePreloadRoutes();
   return (
     <ErrorBoundary>
-      <BrowserRouter>
-        <AppRouter />
-        <AppToasters />
-      </BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+      <AppToasters />
     </ErrorBoundary>
   );
 }

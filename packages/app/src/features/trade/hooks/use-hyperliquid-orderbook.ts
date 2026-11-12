@@ -5,7 +5,7 @@ import { bookWriteMeta, useHyperliquidWs } from "./use-hyperliquid-ws";
 import { normalizeSymbol } from "../lib/symbol";
 import { useMarketDataStore, useOrderbookData } from "@/stores/use-market-data-store";
 import { orderbookStoreKey } from "../lib/orderbook-book";
-import { selectOrderbookError } from "../lib/orderbook-error";
+import { queryKeys } from "@/lib/query-keys";
 import { isL2BookSnapshotPayload } from "../utils/market-stream-decoder";
 import {
   DEFAULT_SIG_FIGS,
@@ -61,8 +61,8 @@ const toSubscriptionSigFigs = (value: number | null): Precision | undefined =>
 export function orderbookSeedQueryKey(
   coin: string,
   nSigFigs: number | null,
-): readonly ["market", "orderbook", "seed", string] {
-  return ["market", "orderbook", "seed", orderbookStoreKey(coin, nSigFigs)];
+): ReturnType<typeof queryKeys.market.orderbookSeed> {
+  return queryKeys.market.orderbookSeed(orderbookStoreKey(coin, nSigFigs));
 }
 
 export function useHyperliquidOrderbook(
@@ -135,7 +135,17 @@ export function useHyperliquidOrderbook(
     },
   });
 
-  const error = selectOrderbookError(rawError, ws.isConnected);
+  // A live socket means any last transient failure is already resolved.
+  const error = ws.isConnected ? null : rawError;
+
+  const state = useMemo(() => {
+    if (error !== null) return { status: "error" as const, error: new Error(error) };
+    if (orderbook === undefined) return { status: "loading" as const };
+    if (orderbook.bids.length === 0 && orderbook.asks.length === 0) {
+      return { status: "empty" as const, reason: "no-results" as const };
+    }
+    return { status: "ready" as const, data: orderbook, stale: false };
+  }, [error, orderbook]);
 
   const retry = useCallback(() => {
     setRawError(null);
@@ -144,6 +154,7 @@ export function useHyperliquidOrderbook(
 
   return {
     orderbook,
+    state,
     isConnected: ws.isConnected,
     error,
     retry,

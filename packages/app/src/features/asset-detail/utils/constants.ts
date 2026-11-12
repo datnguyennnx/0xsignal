@@ -120,8 +120,6 @@ export function initialLayoutForViewport(widthPx: number, heightPx: number): Lay
 }
 
 /** Default canvas height in rows; the layout starts here but the user may grow past it. */
-export const MAX_GRID_ROWS = DEFAULT_ROW_COUNT * 2;
-
 /** Safety ceiling for user-driven row growth, far above the default canvas height. */
 export const RESIZE_ROW_CEILING = 512;
 

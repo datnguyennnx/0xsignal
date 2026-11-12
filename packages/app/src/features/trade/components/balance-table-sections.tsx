@@ -1,16 +1,34 @@
 import { memo } from "react";
 import { TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/empty-state";
 import { formatCompactUsd } from "@/core/utils/formatters";
+import { useOwnAddress, useWhaleAddress } from "@/hooks/use-effective-address";
+import { useAppStore } from "@/stores/use-app-store";
 
 import { c, cNum } from "../utils/orderbook-table-classes";
 import {
   PnLDisplay,
   PosDirLabel,
   TableEmptyRow,
-  resolveTableState,
+  resolveRowStatus,
 } from "./shared-table-components";
 import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
+import { POSITIONS_EMPTY_COPY } from "./balance-table-model";
+
+/** The positions area's one connect affordance; every empty state renders it. */
+export function PositionsConnectAction({ context }: { context: string }) {
+  return (
+    <Button
+      variant="outline"
+      onClick={() => {
+        useAppStore.getState().openConnectWallet(context);
+      }}
+    >
+      Connect Wallet
+    </Button>
+  );
+}
 
 export interface BalanceTableBodyProps {
   isChLoading: boolean;
@@ -87,27 +105,45 @@ export const BalanceTableBody = memo(function BalanceTableBody({
   effectiveAvailableBalance,
   onSelectCoin,
 }: BalanceTableBodyProps) {
-  const state = resolveTableState({ isLoading: isChLoading, isError: isChError });
+  const ownAddress = useOwnAddress();
+  const whaleAddress = useWhaleAddress();
+  const needsWallet = ownAddress === undefined && whaleAddress === undefined;
 
-  if (state !== "empty") {
+  const hasSummary = marginSummary !== null && marginSummary !== undefined;
+  const state = resolveRowStatus({
+    isLoading: isChLoading,
+    isError: isChError,
+    rowCount: hasSummary ? 1 : 0,
+  });
+
+  if (!hasSummary || state !== "ready") {
+    if (needsWallet && state === "empty") {
+      return (
+        <TableBody className="wallet-empty">
+          <TableRow className="hover:bg-transparent">
+            <TableCell colSpan={6} className="py-6">
+              <EmptyState
+                {...POSITIONS_EMPTY_COPY}
+                className="min-h-0"
+                action={<PositionsConnectAction context="trade-position-management" />}
+              />
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      );
+    }
+
     return (
       <TableBody>
         <TableEmptyRow
           colSpan={6}
-          state={state}
+          status={state}
           rows={2}
           onRetry={onRetry}
+          emptyTitle="No balances for this account"
           errorTitle="Couldn't load balances"
           errorDescription="The balances request failed. Check your connection and try again."
         />
-      </TableBody>
-    );
-  }
-
-  if (!marginSummary) {
-    return (
-      <TableBody>
-        <TableEmptyRow colSpan={6} />
       </TableBody>
     );
   }

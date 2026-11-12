@@ -20,14 +20,11 @@ type Viewport = {
  *  - column header: `py-1` (2 × 0.35rem) + the `type-label` line
  *    (0.75rem × 1.2) = 1.6rem
  */
-export const PANEL_CHROME_REM = 4.6 + 2.871875 + 1.6;
+const PANEL_CHROME_REM = 4.6 + 2.871875 + 1.6;
 /** The list paints this many rows before it scrolls; owned by the panel. */
 export const PANEL_LIST_ROW_COUNT = 10;
 /** A row is `type-body` (0.875rem × 1.5) plus `py-1` (2 × 0.35rem). */
-export const PANEL_ROW_HEIGHT_REM = 1.3125 + 0.7;
-/** Default-density content height: chrome plus a full screen of rows. */
-export const PANEL_CONTENT_HEIGHT_REM =
-  PANEL_CHROME_REM + PANEL_ROW_HEIGHT_REM * PANEL_LIST_ROW_COUNT;
+const PANEL_ROW_HEIGHT_REM = 1.3125 + 0.7;
 /** The root's own bound: `max-h-[calc(100dvh-2rem)]`. */
 const PANEL_VIEWPORT_INSET_REM = 2;
 /** Gap between the trigger and the panel, and the minimum viewport edge. */

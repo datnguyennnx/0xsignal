@@ -9,7 +9,7 @@ import {
   AssetContent,
   type AssetViewModel,
 } from "@/features/asset-detail/components/asset-content";
-import { AssetDetailError, AssetDetailSkeleton } from "@/components/asset-detail-skeleton";
+import { AssetDetailError } from "@/components/asset-detail-skeleton";
 import { resolveAssetView, resolveCanonicalRoute } from "./asset-detail-view";
 
 function nonZeroPrice(value: number | null | undefined): number | undefined {
@@ -47,7 +47,12 @@ export function AssetDetail() {
     setInterval(newInterval);
   }, []);
 
-  const { data: fetchedAsset, error: assetError, refetch: refetchAsset } = useAssetPrice(rawCoin);
+  const {
+    data: fetchedAsset,
+    error: assetError,
+    refetch: refetchAsset,
+    state: priceState,
+  } = useAssetPrice(rawCoin);
 
   const handleRetry = useCallback(() => {
     void refetchAsset();
@@ -65,10 +70,6 @@ export function AssetDetail() {
     [rawCoin, fetchedAsset],
   );
 
-  // Only a missing route symbol leaves nothing to paint. The ticker is a
-  // background refinement, so a pending fetch never holds the page back.
-  const showSkeleton = asset === null;
-
   const documentTitle = useMemo(() => {
     const assetSymbol = asset?.symbol.toUpperCase() ?? "";
     const routeSymbol = symbol?.toUpperCase() ?? "";
@@ -80,9 +81,11 @@ export function AssetDetail() {
 
   useDocumentTitle({ title: documentTitle });
 
-  if (showSkeleton) return <AssetDetailSkeleton />;
+  // The route's HydrateFallback already reserves the page; an empty route paints nothing
+  // until the canonical redirect lands.
+  if (asset === null) return null;
 
-  if (assetError) {
+  if (priceState.status === "error") {
     return (
       <AssetDetailError
         title={`Couldn't load ${symbol?.toUpperCase() ?? "this asset"}. Check your connection and try again.`}
@@ -100,7 +103,6 @@ export function AssetDetail() {
           symbol={rawCoin}
           interval={interval}
           onIntervalChange={handleIntervalChange}
-          showChartSkeleton={false}
         />
       </ErrorBoundary>
     </>

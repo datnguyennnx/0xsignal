@@ -14,7 +14,6 @@ import {
 } from "../test/fixtures";
 
 import {
-  DIRECT_READS,
   getCandleSnapshot,
   getHistoricalOrders,
   getPortfolio,
@@ -29,10 +28,6 @@ const realFetch = globalThis.fetch;
 const directOrBackend = (payload: unknown): FetchHandler => {
   return (url) =>
     url.startsWith(HL_INFO_URL) ? jsonResponse(payload) : jsonResponse({ data: payload });
-};
-
-const backendOnly = (payload: unknown): FetchHandler => {
-  return () => jsonResponse({ data: payload });
 };
 
 const failingDirectThenBackend = (payload: unknown): FetchHandler => {
@@ -79,7 +74,6 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = realFetch;
-  DIRECT_READS.enabled = true;
   registerAuthTokenBridge({ read: () => null, write: () => {} });
 });
 
@@ -277,16 +271,5 @@ describe("browser-direct Hyperliquid reads", () => {
 
     expect(errorMessage(failure)).toBe("Invalid coin");
     expect(fallbackCalls).toBe(0);
-  });
-
-  test("the rollback flag routes every read through the backend", async () => {
-    DIRECT_READS.enabled = false;
-    const calls = stubFetch(backendOnly(portfolioFixture));
-
-    const result = await getPortfolio(USER);
-
-    expect(result).toEqual(portfolioFixture);
-    expect(callsTo(calls, HL_INFO_URL)).toHaveLength(0);
-    expect(callsTo(calls, "/api/user/portfolio")).toHaveLength(1);
   });
 });

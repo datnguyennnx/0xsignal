@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_INTERVALS, ALL_INTERVALS } from "../utils/constants";
@@ -19,10 +19,7 @@ export const ChartHeader = memo(function ChartHeader({
   onIntervalChange,
   children,
 }: ChartHeaderProps) {
-  const isDefaultInterval = useMemo(
-    () => DEFAULT_INTERVALS.some((int) => int.value === interval),
-    [interval],
-  );
+  const isDefaultInterval = DEFAULT_INTERVALS.some((int) => int.value === interval);
 
   function handleIntervalChange(newInterval: string) {
     if (newInterval !== interval) {

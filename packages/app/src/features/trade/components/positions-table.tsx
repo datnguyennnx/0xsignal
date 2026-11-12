@@ -15,7 +15,7 @@ import {
   PnLDisplay,
   PosDirLabel,
   TableEmptyRow,
-  resolveTableState,
+  resolveRowStatus,
 } from "./shared-table-components";
 import { computeAccruedFunding, deriveMarkPrice } from "../utils/trade-math";
 import { useMidPrice } from "@/stores/use-market-data-store";
@@ -232,7 +232,11 @@ export function PositionsTable({
 }: PositionsTableProps) {
   const navigate = useNavigate();
   const columnCount = readOnly ? 11 : 13;
-  const state = resolveTableState({ isLoading: isChLoading, isError: isChError });
+  const state = resolveRowStatus({
+    isLoading: isChLoading,
+    isError: isChError,
+    rowCount: positions.length,
+  });
   const handleCoinClick = useCallback(
     (coin: string) => {
       if (onSelectCoin !== undefined) {
@@ -278,28 +282,25 @@ export function PositionsTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {state === "empty" ? (
-          positions.length === 0 ? (
-            <TableEmptyRow colSpan={columnCount} />
-          ) : (
-            positions.map(({ position }) => (
-              <PositionRowView
-                key={position.coin}
-                position={position}
-                fundingRate={fundingRates?.[position.coin] ?? 0}
-                tpSl={tpSlByCoin?.[position.coin]}
-                readOnly={readOnly}
-                onCoinClick={handleCoinClick}
-                onCloseMarket={onCloseMarket}
-                onCloseLimit={onCloseLimit}
-              />
-            ))
-          )
+        {state === "ready" ? (
+          positions.map(({ position }) => (
+            <PositionRowView
+              key={position.coin}
+              position={position}
+              fundingRate={fundingRates?.[position.coin] ?? 0}
+              tpSl={tpSlByCoin?.[position.coin]}
+              readOnly={readOnly}
+              onCoinClick={handleCoinClick}
+              onCloseMarket={onCloseMarket}
+              onCloseLimit={onCloseLimit}
+            />
+          ))
         ) : (
           <TableEmptyRow
             colSpan={columnCount}
-            state={state}
+            status={state}
             onRetry={onRetry}
+            emptyTitle="No open positions — open a position to see it here"
             errorTitle="Couldn't load positions"
             errorDescription="The positions request failed. Check your connection and try again."
           />

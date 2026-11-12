@@ -1,6 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
-import { ApiError } from "@/lib/api-error";
-import { UnauthenticatedError } from "@/lib/api-base";
+import { ApiError, UnauthenticatedError, VALIDATION_ERROR_CODE } from "@/lib/api-error";
 
 const GC_TIMES = {
   default: 5 * 60 * 1000,
@@ -8,9 +7,6 @@ const GC_TIMES = {
 
 /** Auth failures and missing resources are terminal regardless of the message text. */
 const NON_RETRYABLE_STATUSES: ReadonlySet<number> = new Set([401, 403, 404]);
-
-/** Set by `hl-rest-client` when an SDK `ValidationError` rejects the payload. */
-const VALIDATION_ERROR_CODE = "validation";
 
 export function shouldRetryQuery(failureCount: number, error: Error): boolean {
   if (error instanceof UnauthenticatedError) return false;

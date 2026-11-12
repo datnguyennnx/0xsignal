@@ -11,7 +11,7 @@ import { computeWindow, type MarketWindow } from "../lib/market-window";
 import { defaultRowHeightPx } from "../lib/overlay-position";
 import { type VisibleCoinRows, visibleCoinsOf } from "../lib/visible-coins";
 
-export const VISIBLE_COIN_OVERSCAN = 8;
+const VISIBLE_COIN_OVERSCAN = 8;
 
 interface ScrollOffsetEvent {
   readonly currentTarget: { readonly scrollTop: number };

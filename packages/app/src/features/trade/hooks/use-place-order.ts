@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useConnection } from "wagmi";
 import type { PlaceOrderRequest } from "@/services/api";
-import { submitPlaceOrder } from "@/services/exchange";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { useHyperliquidMeta } from "./use-hyperliquid-meta";
 import { cancelAndInvalidateUserQueries, placeOrderUserQueryKeys } from "./user-query-invalidation";
@@ -20,10 +19,11 @@ export function usePlaceOrder(onError?: (err: Error) => void) {
   const { getPrecision } = useHyperliquidMeta();
 
   return useMutation({
-    mutationFn: (params: PlaceOrderRequest) => {
+    mutationFn: async (params: PlaceOrderRequest) => {
       if (address === undefined) {
         throw new UnauthenticatedError("Connect a wallet to place an order");
       }
+      const { submitPlaceOrder } = await import("@/services/exchange");
       return submitPlaceOrder(params, {
         address,
         chainId,

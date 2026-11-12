@@ -7,15 +7,19 @@ import {
   OctagonXIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { useAppStore } from "@/stores/use-app-store";
-import { TIER_CLASS } from "@/components/surface/tiers";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 import type { CSSProperties } from "react";
 
-const Toaster = ({ ...props }: ToasterProps) => {
-  const theme = useAppStore((s) => s.theme);
-  const systemTheme = useAppStore((s) => s.systemTheme);
-  const resolvedTheme = theme === "system" ? systemTheme : theme;
+interface ToasterDefaults {
+  /** Sonner's own class strings are the only styling hook it accepts per toast. */
+  toastClassName?: string;
+}
+
+const Toaster = ({
+  theme = "system",
+  toastClassName = "tier-floating",
+  ...props
+}: ToasterProps & ToasterDefaults) => {
   const cssVars: CSSProperties & Record<`--${string}`, string> = {
     "--normal-text": "var(--popover-foreground)",
     "--border-radius": "var(--radius-overlay)",
@@ -24,7 +28,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
 
   return (
     <Sonner
-      theme={resolvedTheme}
+      theme={theme}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-icon" />,
@@ -34,8 +38,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         loading: <Loader2Icon className="size-icon animate-spin" />,
       }}
       style={cssVars}
-      // Sonner only accepts class strings per toast, so the tier is applied by its constant.
-      toastOptions={{ classNames: { toast: TIER_CLASS.floating } }}
+      toastOptions={{ classNames: { toast: toastClassName } }}
       {...props}
     />
   );

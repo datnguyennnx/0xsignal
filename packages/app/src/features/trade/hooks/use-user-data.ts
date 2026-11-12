@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type {
   ClearinghouseState,
@@ -110,10 +110,6 @@ const subscribeRegistry = (listener: () => void): (() => void) => {
     registryListeners.delete(listener);
   };
 };
-
-const getRegistryVersion = (): number => registryVersion;
-
-const getServerRegistryVersion = (): number => 0;
 
 const readChannelStatus = (user: string, channel: UserStreamChannel): ChannelStatus =>
   userStreamRegistry.get(user)?.channels.get(channel)?.status ?? "pending";
@@ -228,11 +224,6 @@ function acquireUserChannel(
 
 function useUserStreamChannel(user: string, channel: UserStreamChannel, enabled: boolean): boolean {
   const queryClient = useQueryClient();
-  const version = useSyncExternalStore(
-    subscribeRegistry,
-    getRegistryVersion,
-    getServerRegistryVersion,
-  );
   const connectionState = useSyncExternalStore(
     subscribeToConnectionState,
     getUserStreamConnectionState,
@@ -244,10 +235,10 @@ function useUserStreamChannel(user: string, channel: UserStreamChannel, enabled:
     return acquireUserChannel(user, channel, queryClient);
   }, [enabled, user, channel, queryClient]);
 
-  const status = useMemo(
+  const status = useSyncExternalStore(
+    subscribeRegistry,
     () => (enabled && user !== "" ? readChannelStatus(user, channel) : "pending"),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- registryVersion invalidates the module-level registry read
-    [version, enabled, user, channel],
+    () => "pending",
   );
 
   return enabled && user !== "" && status === "confirmed" && connectionState === "open";

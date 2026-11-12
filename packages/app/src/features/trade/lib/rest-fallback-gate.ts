@@ -3,7 +3,7 @@
  * Hyperliquid must still get data. The REST fallback therefore waits a short
  * grace period: a stream that wins the race means the REST read is never issued.
  */
-export const USER_STREAM_REST_GRACE_MS = 800;
+const USER_STREAM_REST_GRACE_MS = 800;
 
 export interface RestFallbackGate {
   /** Mark the stream live (`true`) or unconfirmed (`false`). */

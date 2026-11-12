@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "cn";
 import { gridTemplate } from "../utils/trade-dropdown-columns";
 import { HeaderCell } from "./trade-dropdown.columns.helpers";
@@ -41,21 +40,6 @@ export function MarketHeader({
     >
       {columns.map((col) => (
         <HeaderCell key={col.id} col={col} sortBy={sortBy} sortDesc={sortDesc} onSort={onSort} />
-      ))}
-    </GridRow>
-  );
-}
-
-export function MarketRowSkeleton({ columns }: { columns: ColumnDef[] }) {
-  return (
-    <GridRow columns={columns} className="py-1">
-      {columns.map((col) => (
-        <div
-          key={col.id}
-          className={cn("flex items-center min-w-0", col.align === "right" && "justify-end")}
-        >
-          <Skeleton className="h-4 w-full max-w-24" />
-        </div>
       ))}
     </GridRow>
   );

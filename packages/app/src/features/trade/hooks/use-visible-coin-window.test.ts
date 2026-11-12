@@ -4,11 +4,9 @@ import { describe, expect, test } from "bun:test";
 import type { MarketRowData } from "../lib/market-row-data";
 import { computeWindow } from "../lib/market-window";
 import { visibleCoinsOf } from "../lib/visible-coins";
-import {
-  computeVisibleCoinWindow,
-  scrollOffsetOf,
-  VISIBLE_COIN_OVERSCAN,
-} from "./use-visible-coin-window";
+import { computeVisibleCoinWindow, scrollOffsetOf } from "./use-visible-coin-window";
+
+const VISIBLE_COIN_OVERSCAN = 8;
 
 const makeRow = (midKey: string, marketType: MarketRowData["marketType"]): MarketRowData => ({
   key: `${marketType}:${midKey}`,

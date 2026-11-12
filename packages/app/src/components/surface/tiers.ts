@@ -1,6 +1,6 @@
 export type Tier = "solid" | "content" | "control" | "floating" | "scrim";
 
-export const TIER_CLASS: Record<Tier, string> = {
+const TIER_CLASS: Record<Tier, string> = {
   solid: "tier-solid",
   content: "tier-content",
   control: "tier-control",
@@ -27,29 +27,33 @@ export type Material = "frost" | "solid" | "glass" | "plate" | "none";
 
 type Thickness = "thin" | "regular" | "thick";
 
-/** Per-tier material contract: content/solid frost or paint opaque, control/floating blur, scrim paints nothing. */
+/**
+ * Per-tier material contract: solid/content are frost or opaque paint, floating blurs,
+ * control is always an opaque plate (glass is a container material, never a control's),
+ * scrim paints nothing.
+ */
 export type TierMaterialDefault = {
   solid: { material: "frost" | "solid" | "plate"; thickness?: never };
   content: { material: "frost" | "solid" | "plate"; thickness?: never };
-  control: { material: "glass" | "plate"; thickness?: Thickness };
+  control: { material: "plate"; thickness?: never };
   floating: { material: "glass" | "plate"; thickness?: Thickness };
   scrim: { material: "none"; thickness?: never };
 };
 
 /** Tier defaults, so a caller can paint a layer without restating its material. */
-export const DEFAULT_MATERIAL: TierMaterialDefault = {
+const DEFAULT_MATERIAL: TierMaterialDefault = {
   solid: { material: "frost" },
   content: { material: "plate" },
-  control: { material: "glass", thickness: "thin" },
+  control: { material: "plate" },
   floating: { material: "glass", thickness: "regular" },
   scrim: { material: "none" },
 };
 
-/** Legal material set per tier; content/solid never render glass. */
+/** Legal material set per tier; content/solid never render glass, control never does either. */
 const TIER_MATERIALS: Record<Tier, readonly Material[]> = {
   solid: ["frost", "solid", "plate"],
   content: ["frost", "solid", "plate"],
-  control: ["glass", "plate", "none"],
+  control: ["plate", "none"],
   floating: ["glass", "plate", "none"],
   scrim: ["none"],
 };
@@ -77,8 +81,9 @@ type DepthArg = { depth?: number | undefined };
 /**
  * Per-tier discriminated input, so `{ tier: "content", material: "glass" }` cannot type-check.
  * The broad member keeps non-literal `tier` call sites compiling. The combined solid/content member
- * covers a tier expression that resolves to either frost-default tier, and the combined
- * control/floating member keeps a `"glass" | "none"` variable assignable without allowing
+ * covers a tier expression that resolves to either frost-default tier, and the control member accepts
+ * only an opaque plate or `none` so a control can never resolve to a glass surface. The
+ * control/floating split keeps a `"glass" | "none"` variable assignable without allowing
  * thickness on a non-glass literal, which the glass members alone cover.
  */
 export type SurfaceAttrsInput =
@@ -90,8 +95,7 @@ export type SurfaceAttrsInput =
       material?: "frost" | "solid" | "plate";
       thickness?: never;
     })
-  | (DepthArg & { tier: "control"; material?: "glass"; thickness?: Thickness })
-  | (DepthArg & { tier: "control"; material?: "glass" | "plate" | "none"; thickness?: never })
+  | (DepthArg & { tier: "control"; material?: "plate" | "none"; thickness?: never })
   | (DepthArg & { tier: "floating"; material?: "glass"; thickness?: Thickness })
   | (DepthArg & { tier: "floating"; material?: "glass" | "plate" | "none"; thickness?: never })
   | (DepthArg & { tier: "scrim"; material?: "none"; thickness?: never });
@@ -102,12 +106,24 @@ export function isMaterialFor(tier: Tier, material: Material): boolean {
 }
 
 /** Resolves tier defaults into the exact `data-*` paint contract for a rendered surface. */
+export function surfaceAttrs(input: SurfaceAttrsInput): SurfaceAttrs;
+export function surfaceAttrs(input: {
+  tier: Tier;
+  material?: Material | undefined;
+  thickness?: Thickness | undefined;
+  depth?: number | undefined;
+}): SurfaceAttrs;
 export function surfaceAttrs({
   tier,
   material,
   thickness,
   depth,
-}: SurfaceAttrsInput): SurfaceAttrs {
+}: {
+  tier: Tier;
+  material?: Material | undefined;
+  thickness?: Thickness | undefined;
+  depth?: number | undefined;
+}): SurfaceAttrs {
   const fallback = DEFAULT_MATERIAL[tier];
   let resolvedMaterial: Material = fallback.material;
   if (material !== undefined) {

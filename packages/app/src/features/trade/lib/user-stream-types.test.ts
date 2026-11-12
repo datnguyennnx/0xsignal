@@ -3,7 +3,9 @@ import { describe, expect, test } from "bun:test";
 
 import type { UserFill } from "@0xsignal/shared";
 
-import { MAX_MERGED_FILLS, mergeUserFills } from "./user-stream-types";
+import { mergeUserFills } from "./user-stream-types";
+
+const MAX_MERGED_FILLS = 2000;
 
 const fill = (tid: number, time: number): UserFill => ({
   coin: "BTC",

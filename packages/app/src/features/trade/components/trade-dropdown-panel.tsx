@@ -1,20 +1,12 @@
 import { useCallback, useEffect, type RefObject, type UIEvent } from "react";
-import { Search, X } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Surface } from "@/components/surface/surface";
-import { cn } from "cn";
-import { MarketHeader, MarketRowSkeleton } from "./trade-dropdown.columns";
-import { MarketRow } from "./market-row";
+import { MarketHeader } from "./trade-dropdown.columns";
 import { getColumns } from "../utils/trade-dropdown-columns";
-import { type CategoryTab, TAB_ORDER, TAB_TO_CATEGORY } from "../utils/trade-dropdown";
+import { type CategoryTab } from "../utils/trade-dropdown";
 import { type MarketWindow } from "../lib/market-window";
 import { type VisibleCoinRows } from "../lib/visible-coins";
 import { prewarmMarketCells } from "../lib/format-trade-rows";
-import { PANEL_LIST_ROW_COUNT } from "../lib/overlay-position";
-
-const SKELETON_ROW_IDS = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"] as const;
+import { TradeListView, TradeSearch, TradeTabs } from "./trade-dropdown-panel-parts";
 
 const PREWARM_ROWS = 40;
 
@@ -45,8 +37,8 @@ interface TradeDropdownPanelProps {
   rows: VisibleCoinRows;
   currentSymbol: string;
   dataVersion: number;
-  isLoading: boolean;
-  hasError: boolean;
+  state: { status: "idle" | "loading" | "ready" | "empty" | "error" };
+  onRetry: () => void;
   onSelect: (asset: { rawCoin: string }) => void;
   onScroll: (event: UIEvent<HTMLDivElement>) => void;
   scrollRef: RefObject<HTMLDivElement | null>;
@@ -55,31 +47,25 @@ interface TradeDropdownPanelProps {
   range: MarketWindow;
 }
 
-export function TradeDropdownPanel({
-  id,
-  position,
-  query,
-  onQueryChange,
-  category,
-  onCategoryChange,
-  sortBy,
-  sortDesc,
-  onSort,
-  rows,
-  currentSymbol,
-  dataVersion,
-  isLoading,
-  hasError,
-  onSelect,
-  onScroll,
-  scrollRef,
-  firstRowRef,
-  rowHeight,
-  range,
-}: TradeDropdownPanelProps) {
-  const columns = getColumns(category);
-  const activeCoin = currentSymbol.toLowerCase();
+interface TradeDropdownControlsOptions {
+  scrollRef: RefObject<HTMLDivElement | null>;
+  rows: VisibleCoinRows;
+  activeCoin: string;
+  rowHeight: number;
+  dataVersion: number;
+  onQueryChange: (query: string) => void;
+  onCategoryChange: (category: CategoryTab) => void;
+}
 
+function useTradeDropdownControls({
+  scrollRef,
+  rows,
+  activeCoin,
+  rowHeight,
+  dataVersion,
+  onQueryChange,
+  onCategoryChange,
+}: TradeDropdownControlsOptions) {
   // The highlighted market must be visible even when it falls outside the window.
   useEffect(() => {
     const element = scrollRef.current;
@@ -113,13 +99,66 @@ export function TradeDropdownPanel({
     if (element) element.scrollTop = 0;
   }, [scrollRef]);
 
+  const handleQueryChange = useCallback(
+    (next: string) => {
+      resetScroll();
+      onQueryChange(next);
+    },
+    [onQueryChange, resetScroll],
+  );
+
   const handleClearQuery = useCallback(() => {
     resetScroll();
     onQueryChange("");
   }, [onQueryChange, resetScroll]);
 
+  const handleCategoryChange = useCallback(
+    (next: CategoryTab) => {
+      resetScroll();
+      onCategoryChange(next);
+    },
+    [onCategoryChange, resetScroll],
+  );
+
+  return { handleQueryChange, handleClearQuery, handleCategoryChange };
+}
+
+export function TradeDropdownPanel({
+  id,
+  position,
+  query,
+  onQueryChange,
+  category,
+  onCategoryChange,
+  sortBy,
+  sortDesc,
+  onSort,
+  rows,
+  currentSymbol,
+  dataVersion,
+  state,
+  onRetry,
+  onSelect,
+  onScroll,
+  scrollRef,
+  firstRowRef,
+  rowHeight,
+  range,
+}: TradeDropdownPanelProps) {
+  const columns = getColumns(category);
+  const activeCoin = currentSymbol.toLowerCase();
+
+  const { handleQueryChange, handleClearQuery, handleCategoryChange } = useTradeDropdownControls({
+    scrollRef,
+    rows,
+    activeCoin,
+    rowHeight,
+    dataVersion,
+    onQueryChange,
+    onCategoryChange,
+  });
+
   const { start, end, topSpacer, bottomSpacer } = range;
-  const windowRows = rows.slice(start, end);
 
   return (
     <Surface
@@ -128,135 +167,37 @@ export function TradeDropdownPanel({
       radius="overlay"
       material="glass"
       thickness="regular"
-      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a portalled popover surface, not a native modal
       role="dialog"
       aria-label="Select market"
       tabIndex={-1}
       className="fixed z-50 flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden outline-none w-[calc(100vw-16px)] sm:w-[90vw] max-w-[62rem] text-popover-foreground"
       style={{ top: position.top, left: position.left }}
     >
-      <div className="p-3 shrink-0">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-icon text-muted-foreground" />
-          <label htmlFor="trade-dropdown-search" className="sr-only">
-            Search markets
-          </label>
-          <Input
-            id="trade-dropdown-search"
-            value={query}
-            onChange={(e) => {
-              resetScroll();
-              onQueryChange(e.target.value);
-            }}
-            placeholder="Search market..."
-            className="pl-9 pr-8 bg-muted border-border rounded-control"
-          />
-          {query && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={handleClearQuery}
-              aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:bg-transparent tap-highlight dark:hover:bg-transparent after:absolute after:top-1/2 after:left-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2"
-            >
-              <X className="size-icon" />
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div
-        role="tablist"
-        aria-label="Market categories"
-        className="flex shrink-0 items-center gap-1 rounded-control px-(--seg-inset) py-[calc(var(--seg-inset)_+_0.175rem)] -my-1 mx-1 overflow-x-auto scrollbar-hide"
-      >
-        {TAB_ORDER.map((tab) => {
-          const catKey = TAB_TO_CATEGORY[tab];
-          const isActive = category === catKey;
-          return (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              data-active={isActive ? "" : undefined}
-              onClick={() => {
-                resetScroll();
-                onCategoryChange(catKey);
-              }}
-              className={cn(
-                "px-3 py-2 type-data font-medium whitespace-nowrap transition-colors cursor-pointer bg-transparent border-none focus-ring rounded-[calc(var(--radius-control)-var(--seg-inset))]",
-                isActive
-                  ? "bg-(--control-active-bg) text-foreground shadow-[inset_0_0_0_1px_var(--border)]"
-                  : "text-muted-foreground hover:bg-(--control-hover-bg) hover:text-foreground",
-              )}
-            >
-              {tab}
-            </button>
-          );
-        })}
-      </div>
+      <TradeSearch query={query} onQueryChange={handleQueryChange} onClear={handleClearQuery} />
+      <TradeTabs category={category} onCategoryChange={handleCategoryChange} />
 
       <div className="shrink-0">
         <MarketHeader columns={columns} sortBy={sortBy} sortDesc={sortDesc} onSort={onSort} />
       </div>
 
-      <div
-        ref={scrollRef}
+      <TradeListView
+        state={state}
+        query={query}
+        onRetry={onRetry}
+        rows={rows}
+        start={start}
+        end={end}
+        topSpacer={topSpacer}
+        bottomSpacer={bottomSpacer}
+        activeCoin={activeCoin}
+        columns={columns}
+        dataVersion={dataVersion}
+        firstRowRef={firstRowRef}
+        onSelect={onSelect}
         onScroll={onScroll}
-        className="min-h-0 flex-auto overflow-y-auto overscroll-none flex flex-col"
-        style={{ maxHeight: PANEL_LIST_ROW_COUNT * rowHeight }}
-      >
-        {isLoading ? (
-          <div>
-            {SKELETON_ROW_IDS.map((rowId) => (
-              <MarketRowSkeleton key={rowId} columns={columns} />
-            ))}
-          </div>
-        ) : hasError ? (
-          <div className="flex flex-1 items-center justify-center min-h-[clamp(12rem,40dvh,18rem)]">
-            <EmptyState variant="panel" title="Unable to load markets" />
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center min-h-[clamp(12rem,40dvh,18rem)]">
-            <EmptyState
-              variant="panel"
-              title={query ? "No results" : "No markets found"}
-              description={
-                query
-                  ? "Try a different search or filter."
-                  : "No markets are available in this category."
-              }
-            />
-          </div>
-        ) : (
-          <div style={{ paddingTop: topSpacer, paddingBottom: bottomSpacer }}>
-            {windowRows.map((row, offset) => {
-              const index = start + offset;
-              const isActive = row.rawCoin.toLowerCase() === activeCoin;
-              return (
-                <button
-                  key={row.key}
-                  ref={index === start ? firstRowRef : undefined}
-                  type="button"
-                  onClick={() => {
-                    onSelect(row);
-                  }}
-                  data-active={isActive ? "true" : "false"}
-                  className={cn(
-                    "w-full text-left transition-colors focus-ring-inset cursor-pointer select-none tap-highlight data-[active=false]:hover:bg-(--control-hover-bg) data-[active=false]:focus-visible:bg-(--control-hover-bg)",
-                    isActive && "bg-(--control-active-bg)",
-                  )}
-                  aria-current={isActive ? "true" : undefined}
-                >
-                  <MarketRow row={row} columns={columns} version={dataVersion} />
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        scrollRef={scrollRef}
+        rowHeight={rowHeight}
+      />
     </Surface>
   );
 }

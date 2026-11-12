@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/services/api";
+import { api, type MarketPrice } from "@/services/api";
 import { isPageHidden } from "@/lib/page-visibility";
 import { queryKeys } from "@/lib/query-keys";
+import { toAsyncState } from "@/lib/async-state";
 
 /** Keep the header quote moving without waiting for the 60s stale window. */
-export const ASSET_PRICE_REFRESH_MS = 20_000;
+const ASSET_PRICE_REFRESH_MS = 20_000;
 
 /** A hidden tab stops polling; otherwise refresh on the quote cadence. */
 export function assetPriceRefetchInterval(): number | false {
@@ -12,7 +13,7 @@ export function assetPriceRefetchInterval(): number | false {
 }
 
 export function useAssetPrice(rawCoin: string) {
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.asset.price(rawCoin),
     queryFn: () => api.getMarketPrice(rawCoin),
     enabled: !!rawCoin,
@@ -27,4 +28,18 @@ export function useAssetPrice(rawCoin: string) {
       return previousQuery.queryKey[2] === rawCoin ? previousData : undefined;
     },
   });
+
+  // A failed refetch keeps the previous quote on screen (`ready`); only a first
+  // load with no data becomes `error`.
+  const state = toAsyncState<MarketPrice>({
+    enabled: rawCoin !== "",
+    isPending: query.isPending,
+    isFetching: query.isFetching,
+    isPlaceholderData: query.isPlaceholderData,
+    isError: query.isError,
+    error: query.error,
+    data: query.data,
+  });
+
+  return { ...query, state };
 }

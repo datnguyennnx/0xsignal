@@ -5,10 +5,6 @@ import type { PlaceOrderEntry } from "@0xsignal/shared";
 import { usePlaceOrder } from "./use-place-order";
 import { formatOrderSize } from "../utils/trade-math";
 import { UnauthenticatedError } from "@/lib/api-base";
-import {
-  BLOCKED_SIGNATURE_MESSAGE,
-  findBlockedSignatureError,
-} from "@/services/exchange/typed-data-guard";
 import { useAppStore } from "@/stores/use-app-store";
 import { useIsSigningDisabled } from "@/hooks/use-effective-address";
 
@@ -47,11 +43,13 @@ export function useOrderFormSubmit({
   }, []);
 
   const handlePlaceOrderError = useCallback(
-    (err: Error) => {
+    async (err: Error) => {
       if (err instanceof UnauthenticatedError) {
         openConnectWallet();
         return;
       }
+      const { BLOCKED_SIGNATURE_MESSAGE, findBlockedSignatureError } =
+        await import("@/services/exchange/typed-data-guard");
       if (findBlockedSignatureError(err) !== null) {
         toast.error(BLOCKED_SIGNATURE_MESSAGE);
         return;
@@ -60,7 +58,9 @@ export function useOrderFormSubmit({
     },
     [openConnectWallet],
   );
-  const placeOrderMutation = usePlaceOrder(handlePlaceOrderError);
+  const placeOrderMutation = usePlaceOrder((err) => {
+    void handlePlaceOrderError(err);
+  });
 
   const handlePlaceOrder = () => {
     if (signingDisabled) return;

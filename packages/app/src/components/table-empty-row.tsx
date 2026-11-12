@@ -3,20 +3,21 @@ import { TableRow, TableCell } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import type { TableState } from "./table-empty-row-logic";
+import type { AsyncStatus } from "@/lib/async-state";
 
 interface TableEmptyRowProps {
   colSpan: number;
-  /** Defaults to the original empty-row behaviour, so existing call sites keep working. */
-  state?: TableState;
+  /** The table query's status; a "ready" table renders its own rows instead. */
+  status: AsyncStatus;
   /** Only rendered for the error state. */
   onRetry?: (() => void) | undefined;
   /** Skeleton row count while loading. */
   rows?: number;
+  /** Names the object and the next step; there is no generic fallback. */
+  emptyTitle: string;
+  emptyDescription?: string;
   errorTitle?: string;
   errorDescription?: string;
-  emptyTitle?: string;
-  emptyDescription?: string;
 }
 
 function TableLoadingRows({ rows, colSpan }: { rows: number; colSpan: number }) {
@@ -44,19 +45,19 @@ function TableLoadingRows({ rows, colSpan }: { rows: number; colSpan: number }) 
 
 export const TableEmptyRow = memo(function TableEmptyRow({
   colSpan,
-  state = "empty",
+  status,
   onRetry,
   rows = 3,
-  errorTitle,
-  errorDescription,
   emptyTitle,
   emptyDescription,
+  errorTitle,
+  errorDescription,
 }: TableEmptyRowProps) {
-  if (state === "loading") {
+  if (status === "loading") {
     return <TableLoadingRows rows={rows} colSpan={colSpan} />;
   }
 
-  if (state === "error") {
+  if (status === "error") {
     return (
       <TableRow className="hover:bg-transparent">
         <TableCell colSpan={colSpan} className="p-0">
@@ -78,7 +79,7 @@ export const TableEmptyRow = memo(function TableEmptyRow({
     <TableRow className="hover:bg-transparent">
       <TableCell colSpan={colSpan} className="py-6">
         <EmptyState
-          {...(emptyTitle === undefined ? {} : { title: emptyTitle })}
+          title={emptyTitle}
           {...(emptyDescription === undefined ? {} : { description: emptyDescription })}
         />
       </TableCell>

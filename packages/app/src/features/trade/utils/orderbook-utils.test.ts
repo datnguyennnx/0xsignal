@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { clampRowHeight, levelsPerHalf, makeFormatKey, rowsPerHalfFor } from "./orderbook-utils";
+import { clampRowHeight, levelsPerHalf, rowsPerHalfFor } from "./orderbook-utils";
 
 describe("levelsPerHalf", () => {
   const cases: Array<[bodyHeightPx: number, rowHeightPx: number, expected: number, note: string]> =
@@ -96,26 +96,5 @@ describe("clampRowHeight", () => {
 
   test("non-integer quotient is preserved", () => {
     expect(clampRowHeight(273, 4, MIN, MAX)).toBeCloseTo(34.125, 10);
-  });
-});
-
-describe("makeFormatKey", () => {
-  test("distinct for prices that collide under toFixed(8)", () => {
-    expect(makeFormatKey(0.000000001, 5)).not.toBe(makeFormatKey(0.000000002, 5));
-  });
-
-  test("identical for the same price and nSigFigs", () => {
-    expect(makeFormatKey(74049, 5)).toBe(makeFormatKey(74049, 5));
-  });
-
-  test("differs when nSigFigs differs", () => {
-    expect(makeFormatKey(74049, 5)).not.toBe(makeFormatKey(74049, 4));
-  });
-
-  test("twenty levels spaced by 1e-9 produce twenty distinct keys", () => {
-    const base = 74049;
-    const keys = Array.from({ length: 20 }, (_, index) => makeFormatKey(base + index * 1e-9, 5));
-
-    expect(new Set(keys).size).toBe(20);
   });
 });

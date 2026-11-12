@@ -1,8 +1,5 @@
-import * as katexStyles from "katex/dist/katex.min.css";
-import { BlockMath } from "react-katex";
+import { INDICATOR_FORMULA_MATHML } from "../generated/indicator-formulas.generated";
 import { tokenize } from "../utils/formula-utils";
-
-void katexStyles;
 
 interface IndicatorFormulaProps {
   value: string;
@@ -24,12 +21,18 @@ export function IndicatorFormula({ value }: IndicatorFormulaProps) {
       {equations.map((eq) => {
         const occurrence = (seen.get(eq) ?? 0) + 1;
         seen.set(eq, occurrence);
+        const html = INDICATOR_FORMULA_MATHML[eq];
         return (
           <div
             key={`${eq}#${occurrence}`}
             className="flex min-h-(--control-h) items-center justify-center"
           >
-            <BlockMath math={eq} />
+            {html === undefined ? (
+              <p className="type-body text-muted-foreground select-none">{eq}</p>
+            ) : (
+              // MathML is generated at build time from repo catalog sources, so no KaTeX ships.
+              <span className="block" dangerouslySetInnerHTML={{ __html: html }} />
+            )}
           </div>
         );
       })}

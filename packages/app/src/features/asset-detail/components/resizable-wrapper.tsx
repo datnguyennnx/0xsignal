@@ -6,8 +6,6 @@ import { cellWidth, GRID_GUTTER_FRACTION } from "../utils/collision";
 import { useResizeGesture, type ResizeFrame } from "../hooks/use-resize-gesture";
 import { CornerHandles } from "./corner-handles";
 
-/* oxlint-disable jsx-a11y/prefer-tag-over-role */
-
 interface ResizableWrapperProps {
   id: string;
   children: React.ReactNode;
@@ -162,20 +160,13 @@ export const ResizableWrapper = memo(function ResizableWrapper({
     onResizeCommit,
   });
 
-  // Committed geometry only: the live gesture writes to the element directly, so
-  // this object stays referentially stable while a panel is being resized.
-  const geometry = useMemo<FrameCss>(
-    () => frameCss({ x: item.x, y: item.y, w: item.w, h: item.h }),
-    [item.x, item.y, item.w, item.h],
-  );
-
   // Geometry snaps; only chrome fades, and only while idle.
   const style = useMemo<CSSProperties>(
     () => ({
-      ...geometry,
+      ...frameCss({ x: item.x, y: item.y, w: item.w, h: item.h }),
       transition: isResizing || isDragged ? "none" : "box-shadow 120ms ease",
     }),
-    [geometry, isResizing, isDragged],
+    [item.x, item.y, item.w, item.h, isResizing, isDragged],
   );
 
   const handlePanelMouseLeave = useCallback(() => {
@@ -210,7 +201,7 @@ export const ResizableWrapper = memo(function ResizableWrapper({
   return (
     <div
       ref={wrapperRef}
-      className={`absolute panel-contain rounded-panel bg-transparent overflow-hidden ${
+      className={`group absolute panel-contain rounded-panel bg-transparent overflow-hidden ${
         isResizing || isDragged ? "select-none shadow-(--shadow-e3) z-50" : ""
       } ${isDragged ? "pointer-events-none" : ""} ${isDragged ? "opacity-30" : "opacity-100"} ${className}`}
       style={style}
@@ -240,7 +231,7 @@ export const ResizableWrapper = memo(function ResizableWrapper({
         type="button"
         aria-label="Drag to move panel"
         onPointerDown={(e) => onRepositionStart?.(id, e)}
-        className={`absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center w-8 h-5 cursor-grab active:cursor-grabbing transition-[opacity,background-color] duration-(--dur-fast) rounded-control touch-none after:absolute after:inset-x-[-8px] after:top-[2px] after:bottom-[-8px] ${
+        className={`absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center justify-center w-8 h-5 cursor-grab active:cursor-grabbing transition-[opacity,background-color] duration-(--dur-fast) rounded-control touch-none after:absolute after:inset-x-[-8px] after:top-[2px] after:bottom-[-8px] group-has-[.wallet-empty]:hidden ${
           isActive && !isResizing ? "opacity-60" : "opacity-0"
         } hover:opacity-80 hover:bg-foreground/5`}
       >

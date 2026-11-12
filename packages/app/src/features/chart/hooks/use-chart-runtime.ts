@@ -1,4 +1,4 @@
-import { useMemo, type RefObject } from "react";
+import type { RefObject } from "react";
 import type { ActiveIndicator, ChartDataPoint } from "@0xsignal/shared";
 import { useAppStore } from "@/stores/use-app-store";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
@@ -35,7 +35,7 @@ export function useChartRuntime({
   const systemTheme = useAppStore((s) => s.systemTheme);
   const isDark = (theme === "system" ? systemTheme : theme) === "dark";
   const { getPrecision } = useHyperliquidMeta();
-  const precision = useMemo(() => getPrecision(symbol), [symbol, getPrecision]);
+  const precision = getPrecision(symbol);
   const priceFormat = usePriceFormat(precision.pxDecimals);
 
   const { chart, candlestickSeries, volumeSeries } = useChartEngine({

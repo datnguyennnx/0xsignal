@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { clampToMin, getResizeBounds } from "./collision";
-import { GRID_COLS, MAX_GRID_ROWS, RESIZE_ROW_CEILING } from "./constants";
+import { GRID_COLS, DEFAULT_ROW_COUNT, RESIZE_ROW_CEILING } from "./constants";
 import type { LayoutItem } from "./types";
 
 function item(i: string, x: number, y: number, w: number, h: number): LayoutItem {
@@ -17,7 +17,7 @@ describe("getResizeBounds", () => {
   });
 
   test("the ceiling sits above the default canvas height", () => {
-    expect(RESIZE_ROW_CEILING).toBeGreaterThan(MAX_GRID_ROWS);
+    expect(RESIZE_ROW_CEILING).toBeGreaterThan(DEFAULT_ROW_COUNT);
   });
 
   test("a neighbour above still bounds the top edge", () => {
@@ -54,7 +54,7 @@ describe("clampToMin", () => {
     const clamped = clampToMin(item("chart", 0, 0, 16, 600));
 
     expect(clamped.h).toBe(RESIZE_ROW_CEILING);
-    expect(clamped.h).toBeGreaterThan(MAX_GRID_ROWS);
+    expect(clamped.h).toBeGreaterThan(DEFAULT_ROW_COUNT);
   });
 
   test("leaves a height past the default canvas but under the ceiling uncapped", () => {

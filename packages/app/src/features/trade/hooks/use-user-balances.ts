@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { ClearinghouseState, SpotClearinghouseState } from "@0xsignal/shared";
+import { toAsyncState, type AsyncState } from "@/lib/async-state";
 import { useClearinghouseState, useSpotClearinghouseState } from "./use-user-data";
 import {
   useWhaleClearinghouseState,
@@ -39,12 +40,48 @@ export interface UserBalances {
   isChLoading: boolean;
 }
 
-export function useUserBalances(enabled: boolean = true): UserBalances {
-  const { data: chData, isLoading: isChLoading } = useClearinghouseState(enabled);
+export type UserBalancesView = UserBalances & {
+  state: AsyncState<ClearinghouseState>;
+  refetch: () => void;
+};
+
+export function useUserBalances(enabled: boolean = true): UserBalancesView {
+  const chQuery = useClearinghouseState(enabled);
+  const { data: chData } = chQuery;
   const { data: spotData } = useSpotClearinghouseState(enabled);
+
+  // A disabled query (no wallet, no auth) is "connect a wallet", not a spinner.
+  const state = useMemo<AsyncState<ClearinghouseState>>(() => {
+    if (chData === undefined && chQuery.fetchStatus === "idle" && !chQuery.isFetched) {
+      return { status: "empty", reason: "first-use" };
+    }
+    return toAsyncState({
+      isPending: chQuery.isPending,
+      isFetching: chQuery.isFetching,
+      isError: chQuery.isError,
+      error: chQuery.error,
+      data: chData,
+    });
+  }, [
+    chData,
+    chQuery.fetchStatus,
+    chQuery.isFetched,
+    chQuery.isPending,
+    chQuery.isFetching,
+    chQuery.isError,
+    chQuery.error,
+  ]);
+
+  const refetch = chQuery.refetch;
   return useMemo(
-    () => buildUserBalances(chData, spotData, isChLoading),
-    [chData, spotData, isChLoading],
+    () => ({
+      ...buildUserBalances(chData, spotData, chQuery.isLoading),
+      state,
+      refetch: () => {
+        void refetch();
+      },
+    }),
+    [chData, spotData, chQuery.isLoading, state, refetch],
   );
 }
 

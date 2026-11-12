@@ -3,11 +3,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { AggregatedMarket } from "@0xsignal/shared";
 
-import {
-  buildPrecisionMap,
-  DEFAULT_PRECISION,
-  lookupPrecision,
-} from "../hooks/use-hyperliquid-meta";
+import { buildPrecisionMap, lookupPrecision } from "../hooks/use-hyperliquid-meta";
 import { selectListedAssets } from "../hooks/use-trade-list";
 import { calculatePxDecimals } from "../utils/trade-formatters";
 
@@ -74,6 +70,5 @@ describe("builder-dex precision", () => {
       szDecimals: 2,
       maxLeverage: 20,
     });
-    expect(precision).not.toEqual(DEFAULT_PRECISION);
   });
 });

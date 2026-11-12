@@ -1,5 +1,6 @@
 import { lazy, Suspense, useSyncExternalStore } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { useAppStore } from "@/stores/use-app-store";
 import {
   getStreamFailureSnapshot,
   subscribeStreamFailure,
@@ -25,10 +26,13 @@ export function AppToasters() {
     getStreamFailureSnapshot,
     NO_FAILURE_ON_SERVER,
   );
+  const theme = useAppStore((state) =>
+    state.theme === "system" ? state.systemTheme : state.theme,
+  );
 
   return (
     <>
-      <Toaster />
+      <Toaster theme={theme} />
       {failure !== null && (
         <Suspense fallback={null}>
           <UserStreamFailureToastLazy />

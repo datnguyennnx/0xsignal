@@ -7,7 +7,7 @@ import {
 } from "../../trade/utils/orderbook-widget-shared";
 import { formatLevel } from "../../trade/utils/orderbook-utils";
 import { useTradeUIStore } from "../../../stores/use-trade-ui-store";
-import { CHART_PRICE_NSIG_FIGS, formatChartPrice } from "./price-format";
+import { formatChartPrice } from "./price-format";
 
 const VALUES = [0.076821, 2343.45, 106407.2312, 0.00001234, 1, 0.5, 99999.999];
 const SYMBOL = "BTC";
@@ -90,7 +90,7 @@ describe("chart precision is decoupled from the order-book selector", () => {
   });
 
   test("the pinned chart precision is the book's Raw precision", () => {
-    expect(CHART_PRICE_NSIG_FIGS).toBe(RAW_PRICE_NSIG_FIGS);
+    expect(formatChartPrice(0.076821)).toBe(formatChartPrice(0.076821, RAW_PRICE_NSIG_FIGS));
   });
 });
 

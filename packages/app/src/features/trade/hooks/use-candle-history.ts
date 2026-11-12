@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ChartDataPoint } from "@0xsignal/shared";
+import { toAsyncState } from "@/lib/async-state";
 import { api } from "@/services/api";
 import { getCandleSnapshot } from "@/services/hl-rest-client";
 import { queryKeys } from "@/lib/query-keys";
@@ -46,10 +47,11 @@ export function useCandleHistory(
 ) {
   const hlInterval = mapToHLInterval(interval);
   const normalizedSymbol = normalizeSymbol(symbol);
-  return useQuery({
+  const isEnabled = enabled && symbol !== "";
+  const query = useQuery({
     queryKey: queryKeys.market.candles(normalizedSymbol, hlInterval, limit),
     queryFn: () => fetchHistorical(normalizedSymbol, hlInterval, limit),
-    enabled: enabled && symbol !== "",
+    enabled: isEnabled,
     placeholderData: (previousData, previousQuery) => {
       if (previousData === undefined || previousQuery === undefined) return previousData;
       const prevKey = previousQuery.queryKey;
@@ -60,4 +62,17 @@ export function useCandleHistory(
     staleTime: 5 * 60 * 1000, // 5 minutes (historical data is relatively static)
     gcTime: 15 * 60 * 1000,
   });
+
+  const state = toAsyncState<ChartDataPoint[]>({
+    enabled: isEnabled,
+    isPending: query.isPending,
+    isFetching: query.isFetching,
+    isPlaceholderData: query.isPlaceholderData,
+    isError: query.isError,
+    error: query.error,
+    data: query.data,
+    isEmpty: (candles) => candles.length === 0,
+  });
+
+  return { ...query, state };
 }

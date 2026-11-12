@@ -29,13 +29,8 @@ import {
   type UserVaultEquity,
   type WsMarketInterval,
 } from "@0xsignal/shared";
-import { ApiError } from "@/lib/api-error";
-import {
-  getPortfolio as fetchPortfolio,
-  getUserFunding as fetchUserFunding,
-  getUserHistoricalOrders as fetchUserHistoricalOrders,
-  getUserVaultEquities as fetchUserVaultEquities,
-} from "@/services/api/user";
+import { ApiError, VALIDATION_ERROR_CODE } from "@/lib/api-error";
+import { backendReads, readWithFallback } from "./hl-fallback";
 
 /**
  * Browser-direct Hyperliquid REST reads.
@@ -47,12 +42,6 @@ import {
 
 const HL_INFO_URL = "https://api.hyperliquid.xyz";
 const REQUEST_TIMEOUT_MS = 10_000;
-
-/** A payload that failed SDK validation never becomes valid on a retry. */
-const VALIDATION_ERROR_CODE = "validation";
-
-/** Single rollback switch: set `enabled` to false to send every read via the backend again. */
-export const DIRECT_READS: { enabled: boolean } = { enabled: true };
 
 let infoClient: InfoClient | null = null;
 
@@ -74,6 +63,11 @@ function isNetworkFailure(error: unknown): boolean {
   if (error instanceof ApiError) return false;
   if (error instanceof HyperliquidError) return error instanceof TransportError;
   return true;
+}
+
+/** `null` means "retry through the backend"; anything else is the answer to surface. */
+function classifyReadFailure(error: unknown): Error | null {
+  return isNetworkFailure(error) ? null : toApiError(error);
 }
 
 function toApiError(error: unknown): ApiError {
@@ -125,19 +119,6 @@ function ensureArrayResult(payload: unknown, operation: string): void {
   const applicationError = applicationErrorMessage(payload);
   if (applicationError !== null) throw new ApiError(applicationError);
   if (!Array.isArray(payload)) throw new ApiError(`${operation}: unexpected Hyperliquid response`);
-}
-
-async function readWithFallback<T>(
-  direct: () => Promise<T>,
-  backend: () => Promise<T>,
-): Promise<T> {
-  if (!DIRECT_READS.enabled) return backend();
-  try {
-    return await direct();
-  } catch (error) {
-    if (!isNetworkFailure(error)) throw toApiError(error);
-    return backend();
-  }
 }
 
 function toHistoricalOrderEntry(entry: HistoricalOrdersInfoResponse[number]): HistoricalOrderEntry {
@@ -237,7 +218,8 @@ export function getPortfolio(user: string): Promise<PortfolioResponse> {
       ensureArrayResult(data, "portfolio");
       return toPortfolioResponse(data);
     },
-    () => fetchPortfolio(user),
+    () => backendReads.portfolio(user),
+    classifyReadFailure,
   );
 }
 
@@ -257,11 +239,15 @@ export function getCandleSnapshot(
   params: CandleSnapshotParams,
   backend: () => Promise<ChartDataPoint[]>,
 ): Promise<ChartDataPoint[]> {
-  return readWithFallback<ChartDataPoint[]>(async () => {
-    const data = await getInfoClient().candleSnapshot({ req: params });
-    ensureArrayResult(data, "candleSnapshot");
-    return data.flatMap((candle) => normalizeCandle(candle) ?? []);
-  }, backend);
+  return readWithFallback<ChartDataPoint[]>(
+    async () => {
+      const data = await getInfoClient().candleSnapshot({ req: params });
+      ensureArrayResult(data, "candleSnapshot");
+      return data.flatMap((candle) => normalizeCandle(candle) ?? []);
+    },
+    backend,
+    classifyReadFailure,
+  );
 }
 
 /** Direct-only: third-party reads must never reach the authenticated backend route. */
@@ -367,7 +353,8 @@ export function getHistoricalOrders(user: string): Promise<HistoricalOrderEntry[
       ensureArrayResult(data, "historicalOrders");
       return data.map((entry) => toHistoricalOrderEntry(entry));
     },
-    () => fetchUserHistoricalOrders(user),
+    () => backendReads.userHistoricalOrders(user),
+    classifyReadFailure,
   );
 }
 
@@ -378,7 +365,8 @@ export function getUserVaultEquities(user: string): Promise<UserVaultEquity[]> {
       ensureArrayResult(data, "userVaultEquities");
       return data.map((entry) => toUserVaultEquity(entry));
     },
-    () => fetchUserVaultEquities(user),
+    () => backendReads.userVaultEquities(user),
+    classifyReadFailure,
   );
 }
 
@@ -395,6 +383,7 @@ export function getUserFunding(
       ensureArrayResult(data, "userFunding");
       return data.map((entry) => toUserFundingEntry(entry));
     },
-    () => fetchUserFunding(user, startTime, endTime),
+    () => backendReads.userFunding(user, startTime, endTime),
+    classifyReadFailure,
   );
 }

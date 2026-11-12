@@ -8,7 +8,6 @@ import {
   BLOCKED_SIGNATURE_MESSAGE,
   UntrustedSignatureError,
   WrongChainError,
-  ZERO_ADDRESS,
   assertAgentExchangePayload,
   createGuardedWallet,
   describeSigningError,
@@ -16,6 +15,8 @@ import {
   type ExchangeTypedData,
   type GuardedWalletDeps,
 } from "./typed-data-guard";
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const account = mnemonicToAccount("test test test test test test test test test test test junk");
 const connectionId: `0x${string}` = `0x${"11".repeat(32)}`;

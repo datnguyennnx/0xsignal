@@ -5,7 +5,28 @@ import { cHead, cHeadNum } from "../utils/orderbook-table-classes";
 import type { ReactNode } from "react";
 
 export { TableEmptyRow } from "@/components/table-empty-row";
-export { resolveTableState } from "@/components/table-empty-row-logic";
+export { resolveRowStatus } from "@/components/table-empty-row-logic";
+
+/**
+ * One label/value line for the account and order summaries: the label recedes,
+ * the value is tabular so columns of numbers line up.
+ */
+export function FieldRow({
+  label,
+  value,
+  valueClassName = "type-label tabular-nums text-foreground",
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between py-1">
+      <span className="type-label text-muted-foreground">{label}</span>
+      <span className={valueClassName}>{value}</span>
+    </div>
+  );
+}
 
 /** Shared fill-history column header: Time, Coin, Direction, Price, Size, Trade Value, Fee, Closed PNL. */
 export function FillHistoryTableHeader() {

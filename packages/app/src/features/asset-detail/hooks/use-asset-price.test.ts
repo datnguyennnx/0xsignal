@@ -1,7 +1,9 @@
 /// <reference types="bun-types" />
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { ASSET_PRICE_REFRESH_MS, assetPriceRefetchInterval } from "./use-asset-price";
+import { restoreDomGlobals } from "../../../../test/setup";
+
+import { assetPriceRefetchInterval } from "./use-asset-price";
 
 const installDocument = (visibilityState: DocumentVisibilityState): void => {
   Object.defineProperty(globalThis, "document", {
@@ -11,15 +13,14 @@ const installDocument = (visibilityState: DocumentVisibilityState): void => {
 };
 
 afterEach(() => {
-  Reflect.deleteProperty(globalThis, "document");
+  restoreDomGlobals();
 });
 
 describe("asset price refresh interval", () => {
   test("refreshes every 20s while the tab is visible", () => {
     installDocument("visible");
 
-    expect(ASSET_PRICE_REFRESH_MS).toBe(20_000);
-    expect(assetPriceRefetchInterval()).toBe(ASSET_PRICE_REFRESH_MS);
+    expect(assetPriceRefetchInterval()).toBe(20_000);
   });
 
   test("stops polling while the tab is hidden", () => {

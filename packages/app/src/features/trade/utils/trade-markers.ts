@@ -70,7 +70,7 @@ function isBuyFill(fill: HyperliquidFill): boolean {
  * loaded candle window can ever be painted, and a long session accumulates far
  * more history than the chart shows.
  */
-export const MAX_MARKER_FILLS = 500;
+const MAX_MARKER_FILLS = 500;
 
 export interface MarkerFillWindow {
   readonly startMs: number;
@@ -117,15 +117,6 @@ export function selectMarkerFillsInWindow(
   // guaranteed to be, so order explicitly before slicing.
   inWindow.sort((a, b) => b.time - a.time);
   return inWindow.slice(0, MAX_MARKER_FILLS);
-}
-
-/** Convenience wrapper for callers that already hold the candle array. */
-export function selectMarkerFills(
-  fills: readonly HyperliquidFill[],
-  candles: readonly ChartDataPoint[],
-  timeframeSec: number,
-): HyperliquidFill[] {
-  return selectMarkerFillsInWindow(fills, markerFillWindow(candles, timeframeSec));
 }
 
 export function mapFillsToLogicalMarkers(

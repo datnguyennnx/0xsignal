@@ -225,7 +225,7 @@ export interface UserStreamClient {
 }
 
 /** Upper bound on the merged history so a long session cannot grow without limit. */
-export const MAX_MERGED_FILLS = 2000;
+const MAX_MERGED_FILLS = 2000;
 
 const byTimeDescending = (a: UserFill, b: UserFill): number => b.time - a.time;
 

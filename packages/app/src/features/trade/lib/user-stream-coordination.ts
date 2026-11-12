@@ -9,8 +9,8 @@ type TabRole = "undecided" | "leader" | "follower";
 
 // Shared liveness cadence: the leader pings on this interval and prunes a
 // remote tab once it has missed this many consecutive pings.
-export const TAB_PING_INTERVAL_MS = 15000;
-export const TAB_MISSED_PONG_LIMIT = 2;
+const TAB_PING_INTERVAL_MS = 15000;
+const TAB_MISSED_PONG_LIMIT = 2;
 
 export interface TabChannel {
   send(message: unknown): void;

@@ -68,9 +68,12 @@ html[data-radius="round"] {
   --radius-k: 1.6;
 }
 
-html[data-market-colors="default"] {
+/* One owner for the gain/loss pair; the presets below override only what differs. */
+:root {
   --gain: var(--mkt-up);
   --loss: var(--mkt-down);
+  --gain-foreground: var(--market-up-foreground);
+  --loss-foreground: var(--market-down-foreground);
 }
 
 html[data-market-colors="swapped"] {

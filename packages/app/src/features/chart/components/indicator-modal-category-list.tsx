@@ -26,7 +26,9 @@ export function IndicatorModalCategoryList({
     <div className="flex min-h-0 flex-col">
       <div className="flex items-center justify-between gap-inline p-panel">
         <h2 className="type-label font-medium text-muted-foreground">Indicators</h2>
-        <DialogClose render={<Button variant="ghost" size="icon" aria-label="Close indicators" />}>
+        <DialogClose
+          render={<Button variant="dismiss" size="icon" aria-label="Close indicators" />}
+        >
           <XIcon />
         </DialogClose>
       </div>

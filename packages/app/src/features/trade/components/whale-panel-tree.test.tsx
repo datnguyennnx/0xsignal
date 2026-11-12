@@ -2,8 +2,10 @@
 import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { QueryClient, QueryClientProvider, type Query } from "@tanstack/react-query";
 import type { ReactElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderMarkup } from "../../../../test/render";
 import { MemoryRouter } from "react-router";
+
+import { restoreDomGlobals } from "../../../../test/setup";
 
 const OWN = "0x0000000000000000000000000000000000000001";
 const WHALE = "0x0000000000000000000000000000000000000002";
@@ -79,7 +81,7 @@ const installStubs = (): void => {
 
 const renderTree = (element: ReactElement): { html: string; client: QueryClient } => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const html = renderToStaticMarkup(
+  const html = renderMarkup(
     <QueryClientProvider client={client}>
       <MemoryRouter>{element}</MemoryRouter>
     </QueryClientProvider>,
@@ -142,7 +144,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  delete (globalThis as { window?: unknown }).window;
+  restoreDomGlobals();
 });
 
 describe("whale panel tree has no auth-gated read", () => {

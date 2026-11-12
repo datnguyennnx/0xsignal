@@ -43,7 +43,11 @@ interface OrderRowProps {
   isHovered: boolean;
   isPinned: boolean;
   isInRange: boolean;
-  onHover: (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => void;
+  onHover: (
+    data: PopupData | null,
+    index?: number,
+    point?: { clientX: number; clientY: number },
+  ) => void;
   onActivate: (side: BookSide, index: number) => void;
   nSigFigs: number;
   rowHeightPx: number;
@@ -69,10 +73,7 @@ const OrderRow = memo(
     rowHeightPx,
   }: OrderRowProps) => {
     // formatLevel uses module-level cache — stable output for same price+nSigFigs
-    const formatted = useMemo(
-      () => formatLevel(price, size, total, nSigFigs),
-      [price, size, total, nSigFigs],
-    );
+    const formatted = formatLevel(price, size, total, nSigFigs);
 
     const depthStyle = useMemo(
       () => withDepthTransition(getDepthStyle(depthPercent, side)),
@@ -86,6 +87,14 @@ const OrderRow = memo(
         if (dataset.price === undefined) return;
         const rowSide = dataset.side;
         if (rowSide !== "bid" && rowSide !== "ask") return;
+        // Pointer events carry the popup anchor; keyboard focus anchors on the row box.
+        const point =
+          "clientX" in e
+            ? { clientX: e.clientX, clientY: e.clientY }
+            : (() => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                return { clientX: rect.right, clientY: rect.top + rect.height / 2 };
+              })();
         onHover(
           {
             price: Number(dataset.price),
@@ -93,15 +102,15 @@ const OrderRow = memo(
             total: Number(dataset.total),
             side: rowSide,
           },
-          e.currentTarget,
           Number(dataset.index),
+          point,
         );
       },
       [onHover],
     );
 
     const handleMouseLeave = useCallback(() => {
-      onHover(null, null);
+      onHover(null);
     }, [onHover]);
 
     const rowAriaLabel = buildRowAriaLabel(price, side, formatted);
@@ -129,7 +138,7 @@ const OrderRow = memo(
               }
             : undefined
         }
-        className={`${ROW_HEIGHT_CLASS} relative flex w-full items-center px-2 gap-1 cursor-pointer text-left tabular-nums select-none shrink-0 focus-ring-inset bg-transparent border-0 ${
+        className={`${ROW_HEIGHT_CLASS} relative isolate flex w-full items-center px-2 gap-1 cursor-pointer text-left tabular-nums select-none shrink-0 focus-ring-inset bg-transparent border-0 ${
           isHovered
             ? "bg-[color-mix(in_oklch,var(--control-hover-bg),var(--control-active-bg)_50%)]"
             : "hover:bg-(--control-hover-bg)"
@@ -269,7 +278,11 @@ interface OrderbookDepthProps {
   pinnedIndex: RowIndex | null;
   hoverTarget: PopupData | null;
   popupPosition: { top: number; left?: number; right?: number } | null;
-  onHover: (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => void;
+  onHover: (
+    data: PopupData | null,
+    index?: number,
+    point?: { clientX: number; clientY: number },
+  ) => void;
   onActivate: (side: BookSide, index: number) => void;
 }
 
@@ -429,7 +442,7 @@ export function OrderbookDepth({
             id="orderbook-depth-details"
             tier="floating"
             radius="overlay"
-            material="plate"
+            material="glass"
             className="fixed p-3 z-50 w-64 pointer-events-none flex flex-col gap-stack -translate-y-1/2 text-popover-foreground"
             style={{
               top: popupPosition.top,

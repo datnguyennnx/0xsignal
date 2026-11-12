@@ -1,7 +1,7 @@
 import { isPageHidden } from "@/lib/page-visibility";
 
 /** Pace of the REST read while the user stream is not confirmed. */
-export const USER_REST_FALLBACK_MS = 30_000;
+const USER_REST_FALLBACK_MS = 30_000;
 
 /**
  * When the newest WS frame landed for a query key. A REST read that started

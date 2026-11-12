@@ -1,11 +1,11 @@
 import { useParams } from "react-router";
-import { useConnection } from "wagmi";
+import { useWalletAddress } from "@/components/wallet-provider";
 import { selectAccountView, type AccountView } from "@/hooks/account-view";
 
 function useAccountView(): AccountView {
-  const { address } = useConnection();
+  const connectionAddress = useWalletAddress();
   const { address: routeAddress } = useParams<{ address: string }>();
-  return selectAccountView({ routeAddress, connectionAddress: address });
+  return selectAccountView({ routeAddress, connectionAddress });
 }
 
 export function useOwnAddress(): string | undefined {

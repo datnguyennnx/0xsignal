@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getMarkets } from "@/services/api/market";
 import { queryKeys } from "@/lib/query-keys";
 import type { AggregatedMarket } from "@0xsignal/shared";
+import { toAsyncState } from "@/lib/async-state";
 import { parseSymbol } from "../lib/symbol";
 import { buildAssetIndexMap, resolveAssetIndex } from "../lib/asset-index";
 import { calculatePxDecimals, MAX_DECIMALS_PERP, MAX_SIG_FIGS } from "../utils/trade-formatters";
@@ -13,7 +14,7 @@ export interface AssetPrecision {
   maxLeverage: number;
 }
 
-export const DEFAULT_PRECISION: AssetPrecision = {
+const DEFAULT_PRECISION: AssetPrecision = {
   pxDecimals: Math.min(MAX_SIG_FIGS, MAX_DECIMALS_PERP - 4),
   szDecimals: 4,
   maxLeverage: 50,
@@ -57,12 +58,22 @@ export function lookupPrecision(
 }
 
 export function useHyperliquidMeta() {
-  const { data, isLoading, error } = useQuery({
+  const query = useQuery({
     queryKey: queryKeys.market.meta(),
     queryFn: () => getMarkets(),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
+  });
+  const { data } = query;
+
+  const state = toAsyncState<AggregatedMarket[]>({
+    isPending: query.isPending,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    error: query.error,
+    data,
+    isEmpty: (markets) => markets.length === 0,
   });
 
   const precisionMap = useMemo(() => {
@@ -85,5 +96,14 @@ export function useHyperliquidMeta() {
     [assetIndexMap],
   );
 
-  return { meta: data, isLoading, error, getPrecision, getAssetIndex, precisionMap };
+  return {
+    meta: data,
+    state,
+    refetch: query.refetch,
+    isLoading: query.isLoading,
+    error: query.error,
+    getPrecision,
+    getAssetIndex,
+    precisionMap,
+  };
 }

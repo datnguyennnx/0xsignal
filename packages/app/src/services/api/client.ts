@@ -1,17 +1,10 @@
 import type { ApiErrorBody } from "@0xsignal/shared";
 import { readAuthToken, writeAuthToken } from "@/lib/auth-token";
-import { ApiError } from "@/lib/api-error";
-import { resolveApiBase, apiFetch, UnauthenticatedError } from "@/lib/api-base";
+import { ApiError, NetworkError } from "@/lib/api-error";
+import { API_BASE, apiFetch, UnauthenticatedError } from "@/lib/api-base";
 
-const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
-export const API_BASE = resolveApiBase(configuredApiUrl, import.meta.env.DEV);
-
-class NetworkError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "NetworkError";
-  }
-}
+/** Callers import `API_BASE` from this module; the value is owned by `lib/api-base`. */
+export { API_BASE };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

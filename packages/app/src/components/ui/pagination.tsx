@@ -2,8 +2,6 @@ import { memo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "cn";
-import { formatAxis } from "@/core/utils/formatters";
-import { SELECTED_ITEM_CLASS } from "@/lib/state-classes";
 import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
@@ -18,6 +16,16 @@ interface PaginationProps {
 }
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100];
+
+const axisNumber = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const compactNumber = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+/** The primitive owns its own number formatting; it must not reach into app code. */
+const formatCount = (value: number): string =>
+  Math.abs(value) >= 10_000 ? compactNumber.format(value) : axisNumber.format(value);
 
 interface PageEntry {
   key: string;
@@ -61,7 +69,7 @@ export const Pagination = memo(function Pagination({
       )}
     >
       <span className="num type-label text-muted-foreground order-1">
-        {formatAxis(start)}–{formatAxis(end)} of {formatAxis(totalItems)}
+        {formatCount(start)}–{formatCount(end)} of {formatCount(totalItems)}
       </span>
 
       <div className="flex items-center gap-1 order-2">
@@ -103,7 +111,7 @@ export const Pagination = memo(function Pagination({
               className={cn(
                 "num hit-area",
                 currentPage === value
-                  ? cn(SELECTED_ITEM_CLASS, "hover:bg-(--control-active-bg) hover:text-foreground")
+                  ? "page-selected hover:bg-(--control-active-bg) hover:text-foreground"
                   : "text-muted-foreground hover:bg-(--control-hover-bg) hover:text-foreground",
               )}
             >

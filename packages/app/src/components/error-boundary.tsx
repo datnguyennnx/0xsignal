@@ -1,8 +1,25 @@
-import { Component, type ReactNode, type ErrorInfo } from "react";
+import { Component, useState, type ReactNode, type ErrorInfo } from "react";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/error-state";
 import { StateArt } from "@/components/state-art";
 import { pickErrorQuip } from "@/lib/error-quips";
 import { RefreshCw } from "lucide-react";
+
+/** Route-level fallback handed to `RouteObject.ErrorBoundary`. */
+export function RouteErrorFallback() {
+  const [quip] = useState(() => pickErrorQuip());
+  return (
+    <ErrorState
+      className="min-h-dvh"
+      title="Something went wrong"
+      description={quip}
+      retryLabel="Try again"
+      retryAction={() => {
+        window.location.reload();
+      }}
+    />
+  );
+}
 
 interface Props {
   children: ReactNode;

@@ -1,7 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 
-import { canvasRowCount, pushBelow } from "./resize-push";
+import { pushBelow } from "./resize-push";
 import type { LayoutItem } from "./types";
 
 function item(i: string, x: number, y: number, w: number, h: number): LayoutItem {
@@ -17,7 +17,6 @@ describe("pushBelow", () => {
 
     expect(pushed).toEqual([chart, { ...positions, y: 15 }]);
     expect(positions.y).toBe(11);
-    expect(canvasRowCount(pushed)).toBe(20);
   });
 
   test("a shrunk chart pulls the positions strip back up", () => {
@@ -27,7 +26,6 @@ describe("pushBelow", () => {
     const pulled = pushBelow([chart, positions], "chart", -2);
 
     expect(pulled).toEqual([chart, { ...positions, y: 13 }]);
-    expect(canvasRowCount(pulled)).toBe(18);
   });
 
   test("a neighbour without column overlap never moves", () => {
@@ -75,12 +73,5 @@ describe("pushBelow", () => {
 
     expect(pulled[1].y).toBe(5);
     expect(pulled.every((entry) => entry.y >= 0)).toBe(true);
-  });
-});
-
-describe("canvasRowCount", () => {
-  test("floors at the default row count", () => {
-    expect(canvasRowCount([item("chart", 0, 0, 16, 4)])).toBe(16);
-    expect(canvasRowCount([])).toBe(16);
   });
 });

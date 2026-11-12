@@ -1,21 +1,23 @@
 import { readAuthToken } from "./auth-token";
+import { UnauthenticatedError } from "./api-error";
 
-export class UnauthenticatedError extends Error {
-  readonly _tag = "UnauthenticatedError";
-}
+export { UnauthenticatedError };
 
 const ensureApiBasePath = (value: string): string => {
   const normalized = value.replace(/\/+$/, "");
   return normalized.endsWith("/api") ? normalized : `${normalized}/api`;
 };
 
-export const resolveApiBase = (rawApiUrl: string | undefined, isDevMode: boolean): string => {
+const resolveApiBase = (rawApiUrl: string | undefined, isDevMode: boolean): string => {
   if (isDevMode || rawApiUrl === undefined || rawApiUrl === "") {
     return "/api";
   }
 
   return ensureApiBasePath(rawApiUrl.trim());
 };
+
+/** The only read of the build-time origin; every caller imports this constant instead. */
+export const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL?.trim(), import.meta.env.DEV);
 
 const AUTHED_PREFIXES = ["/exchange", "/auth/me", "/wallets", "/user"];
 

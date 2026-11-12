@@ -59,9 +59,6 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
               {MODE_CONFIG.isolated.description}
             </p>
           </div>
-          {mode !== "isolated" && (
-            <span className="mt-(--seg-inset) flex size-4 shrink-0 items-center justify-center rounded-full border border-border/60 transition-colors" />
-          )}
         </div>
       </button>
 
@@ -93,9 +90,6 @@ export function MarginModeOptions({ mode, onModeChange }: MarginModeOptionsProps
               {MODE_CONFIG.cross.description}
             </p>
           </div>
-          {mode !== "cross" && (
-            <span className="mt-(--seg-inset) flex size-4 shrink-0 items-center justify-center rounded-full border border-border/60 transition-colors" />
-          )}
         </div>
       </button>
     </>

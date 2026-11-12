@@ -1,25 +1,9 @@
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { AssetDetailSkeleton } from "@/components/asset-detail-skeleton";
-import {
-  pickRouteFallback,
-  startRouteFallbackDelay,
-  type RouteFallbackKind,
-} from "@/components/route-fallback-logic";
+import { PageLoader } from "@/components/page-loader";
 import { Skeleton } from "@/components/ui/skeleton";
 
-/* oxlint-disable jsx-a11y/prefer-tag-over-role -- a route-wide status region is not a form output */
-
-function useRouteFallbackVisible(): boolean {
-  const [visible, setVisible] = useState(false);
-  useEffect(
-    () =>
-      startRouteFallbackDelay(() => {
-        setVisible(true);
-      }),
-    [],
-  );
-  return visible;
-}
+export type RouteFallbackKind = "asset-detail" | "page";
 
 /**
  * Generic route shape: the shell header plus page rows, at roughly the height of
@@ -46,17 +30,12 @@ interface StatusShellProps {
   children: ReactNode;
 }
 
-/** `role="status"` names the whole skeleton as one loading region. */
+/** `<output>` names the whole skeleton as one loading region. */
 function StatusShell({ children }: StatusShellProps) {
   return (
-    <div
-      role="status"
-      aria-busy="true"
-      aria-label="Loading page"
-      className="flex flex-col flex-1 min-h-0"
-    >
+    <output aria-busy="true" aria-label="Loading page" className="flex flex-col flex-1 min-h-0">
       {children}
-    </div>
+    </output>
   );
 }
 
@@ -68,8 +47,16 @@ export function RouteFallbackSkeleton({ kind }: { kind: RouteFallbackKind }) {
   );
 }
 
-export function RouteFallback({ pathname }: { pathname: string }) {
-  const visible = useRouteFallbackVisible();
-  if (!visible) return null;
-  return <RouteFallbackSkeleton kind={pickRouteFallback(pathname)} />;
+/** Cold-start fallback for a page chunk; client navigation keeps the previous screen. */
+export function PageHydrateFallback() {
+  return <RouteFallbackSkeleton kind="page" />;
+}
+
+export function AssetHydrateFallback() {
+  return <RouteFallbackSkeleton kind="asset-detail" />;
+}
+
+/** The callback performs an exchange before it can render anything of its own. */
+export function AuthHydrateFallback() {
+  return <PageLoader variant="fullscreen" />;
 }

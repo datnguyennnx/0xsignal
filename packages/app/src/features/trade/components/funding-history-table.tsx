@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useUserFunding } from "@/hooks/use-user-funding";
 import { useWhaleFunding } from "@/features/portfolio/hooks/use-portfolio-data";
 import { cHead, cHeadNum } from "@/features/trade/utils/orderbook-table-classes";
-import { TableEmptyRow, resolveTableState } from "./shared-table-components";
+import { TableEmptyRow, resolveRowStatus } from "./shared-table-components";
 import { usePagination } from "@/hooks/use-pagination";
 import { Pagination } from "@/components/ui/pagination";
 import { FundingHistoryRows } from "./funding-history-rows";
@@ -19,7 +19,11 @@ export function FundingHistoryTable({
   const whale = useWhaleFunding(readOnlyAddress);
   const { data: funding, isLoading, isError, refetch } = readOnly ? whale : own;
   const paginated = usePagination(funding ?? [], 20);
-  const state = resolveTableState({ isLoading, isError });
+  const state = resolveRowStatus({
+    isLoading,
+    isError,
+    rowCount: funding?.length ?? 0,
+  });
 
   useEffect(() => {
     if (isError && !readOnly) {
@@ -43,26 +47,23 @@ export function FundingHistoryTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {state === "empty" ? (
-            !funding || funding.length === 0 ? (
-              <TableEmptyRow colSpan={6} />
-            ) : (
-              <FundingHistoryRows entries={paginated.pageData} />
-            )
+          {state === "ready" ? (
+            <FundingHistoryRows entries={paginated.pageData} />
           ) : (
             <TableEmptyRow
               colSpan={6}
-              state={state}
+              status={state}
               onRetry={() => {
                 void refetch();
               }}
+              emptyTitle="No funding payments for this account"
               errorTitle="Couldn't load funding history"
               errorDescription="The funding request failed. Check your connection and try again."
             />
           )}
         </TableBody>
       </Table>
-      {funding && funding.length > 0 && (
+      {state === "ready" && (
         <div data-dense>
           <Pagination
             currentPage={paginated.currentPage}

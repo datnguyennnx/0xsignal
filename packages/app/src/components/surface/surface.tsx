@@ -14,6 +14,9 @@ import {
 
 type SurfaceRadius = "panel" | "overlay" | "control" | "chip";
 
+// Vite folds this to `false` in production, so no label or token work ships.
+const DEV = import.meta.env.DEV;
+
 const RADIUS_CLASS: Record<SurfaceRadius, string> = {
   panel: "rounded-panel",
   overlay: "rounded-overlay",
@@ -51,9 +54,6 @@ function findPaintToken(className: string): string | undefined {
 
 /** Caller label, e.g. `coin-price-dialog.tsx:171`, so every failure names its author. */
 function callerLabel(): string {
-  // Stack capture is the hot cost, so production folds this branch away entirely.
-  if (process.env.NODE_ENV === "production") return "";
-
   const frames = new Error().stack?.split("\n") ?? [];
   for (const frame of frames) {
     if (frame.includes("surface.tsx") || frame.includes("react-dom")) continue;
@@ -61,6 +61,35 @@ function callerLabel(): string {
     if (match !== null) return `${match[1]}:${match[2]}`;
   }
   return "";
+}
+
+/**
+ * One stack capture per element type, not per mounted surface: every `Surface` with the
+ * same `as` inherits from the same call site, so the label only has to be found once.
+ */
+const ownerByType = new WeakMap<object, string>();
+
+/** Intrinsic tags are primitives, so each one gets a stable stand-in key. */
+const tagKey = new Map<string, object>();
+
+function tagKeyFor(tag: string): object {
+  const existing = tagKey.get(tag);
+  if (existing !== undefined) return existing;
+
+  const key = {};
+  tagKey.set(tag, key);
+  return key;
+}
+
+function callerLabelFor(type: ElementType): string {
+  const key = typeof type === "string" ? tagKeyFor(type) : type;
+
+  const cached = ownerByType.get(key);
+  if (cached !== undefined) return cached;
+
+  const label = callerLabel();
+  ownerByType.set(key, label);
+  return label;
 }
 
 /** Distributes `Omit` over the per-tier union so each member keeps its own material/thickness. */
@@ -78,7 +107,7 @@ export type SurfaceProps = ComponentPropsWithoutRef<"div"> &
   };
 
 function assertLayoutOnlyClass(className: string | undefined, owner: string): void {
-  if (process.env.NODE_ENV === "production" || className === undefined) return;
+  if (className === undefined) return;
 
   const token = findPaintToken(className);
   if (token === undefined) return;
@@ -107,10 +136,9 @@ export function Surface({
 }: SurfaceProps): JSX.Element {
   const ancestors = useContext(SurfaceContext);
   const Component: ElementType = as ?? "div";
-  // One stack capture per mounted surface; re-renders reuse the call-site label.
-  const owner = useMemo(() => callerLabel(), []);
+  const owner = DEV ? callerLabelFor(Component) : "";
 
-  assertLayoutOnlyClass(className, owner);
+  if (DEV) assertLayoutOnlyClass(className, owner);
   const placement: SurfacePlacement = { tier, variant, overMedia, dim, owner };
   assertSurfacePlacement(placement, ancestors);
 
@@ -121,10 +149,7 @@ export function Surface({
 
   const depth = stack.length - 1;
   const attrs = useMemo(
-    () =>
-      // Destructured props lose the tier/material correlation; the runtime clamp in `surfaceAttrs` re-checks it.
-      // eslint-disable-next-line typescript/no-unsafe-type-assertion
-      surfaceAttrs({ tier, material, thickness, depth } as SurfaceAttrsInput),
+    () => surfaceAttrs({ tier, material, thickness, depth }),
     [tier, material, thickness, depth],
   );
   const variantClass = VARIANT_CLASS[variant] || undefined;

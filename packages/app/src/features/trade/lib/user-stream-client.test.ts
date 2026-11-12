@@ -1,6 +1,8 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 
+import { restoreDomGlobals } from "../../../../test/setup";
+
 import type { UserFill } from "@0xsignal/shared";
 
 import { createUserStreamClient, UserStreamLimitError } from "./user-stream-client";
@@ -515,7 +517,7 @@ describe("user-stream-client pagehide", () => {
 
       subscription.unsubscribe();
     } finally {
-      if (previousWindow === undefined) delete globalWithWindow.window;
+      if (previousWindow === undefined) restoreDomGlobals();
       else globalWithWindow.window = previousWindow;
     }
   });

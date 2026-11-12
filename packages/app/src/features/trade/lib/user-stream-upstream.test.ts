@@ -3,12 +3,11 @@ import { describe, expect, test } from "bun:test";
 
 import type { WsClient } from "@0xsignal/sdk-hyperliquid";
 
-import {
-  createHyperliquidUpstream,
-  RECONNECT_COOLDOWN_MS,
-  STALE_UPSTREAM_MS,
-} from "./user-stream-upstream";
+import { createHyperliquidUpstream } from "./user-stream-upstream";
 import type { UserStreamConnectionState } from "./user-stream-types";
+
+const RECONNECT_COOLDOWN_MS = 5_000;
+const STALE_UPSTREAM_MS = 65_000;
 
 const address = (index: number): string => `0x${index.toString(16).padStart(40, "0")}`;
 

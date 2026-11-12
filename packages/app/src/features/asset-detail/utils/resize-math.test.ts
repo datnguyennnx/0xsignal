@@ -1,8 +1,8 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 
-import { computeResizeFrame, keyResizeFrame } from "./resize-math";
-import type { LayoutItem, ResizeFrame, ResizeLimits } from "./types";
+import { computeResizeFrame } from "./resize-math";
+import type { ResizeFrame, ResizeLimits } from "./types";
 
 const DEFAULT_LIMITS: ResizeLimits = {
   minW: 1,
@@ -81,43 +81,5 @@ describe("computeResizeFrame east and west", () => {
   test("west growth stops at minX", () => {
     const start = frame(4, 0, 10, 5);
     expect(computeResizeFrame("w", start, -10, 0, limits())).toEqual(frame(0, 0, 14, 5));
-  });
-});
-
-describe("keyResizeFrame", () => {
-  const item: LayoutItem = { i: "chart", x: 0, y: 4, w: 16, h: 12 };
-
-  test("s ArrowDown matches a one-row downward drag", () => {
-    expect(keyResizeFrame("s", item, "ArrowDown", limits())).toEqual(
-      computeResizeFrame("s", item, 1, 1, limits()),
-    );
-  });
-
-  test("s ArrowUp matches a one-row upward drag", () => {
-    expect(keyResizeFrame("s", item, "ArrowUp", limits())).toEqual(
-      computeResizeFrame("s", item, -1, -1, limits()),
-    );
-  });
-
-  test("n ArrowDown matches a one-row downward drag", () => {
-    expect(keyResizeFrame("n", item, "ArrowDown", limits())).toEqual(
-      computeResizeFrame("n", item, 1, 1, limits()),
-    );
-  });
-
-  test("n ArrowUp matches a one-row upward drag", () => {
-    expect(keyResizeFrame("n", item, "ArrowUp", limits())).toEqual(
-      computeResizeFrame("n", item, -1, -1, limits()),
-    );
-  });
-
-  test("s ArrowDown still respects minH and maxRows", () => {
-    const tall = { ...item, h: 28 };
-    expect(keyResizeFrame("s", tall, "ArrowDown", limits())).toEqual(frame(0, 4, 16, 28));
-  });
-
-  test("non-arrow keys are no-ops", () => {
-    expect(keyResizeFrame("s", item, "Enter", limits())).toBeNull();
-    expect(keyResizeFrame("n", item, "Escape", limits())).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, mock, test } from "bun:test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderMarkup } from "../../../../test/render";
 import { MemoryRouter } from "react-router";
 
 import { Tabs } from "@/components/ui/tabs";
@@ -33,7 +33,7 @@ const panelClassOf = (html: string): string =>
 
 const renderReadOnlyPanel = (value: string): string => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return renderToStaticMarkup(
+  return renderMarkup(
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <Tabs value={value}>

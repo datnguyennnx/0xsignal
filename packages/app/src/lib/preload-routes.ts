@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { queryClient } from "@/lib/query-client";
+import { matchRouteRecord, ROUTES } from "@/lib/routes";
 import { queryKeys } from "@/lib/query-keys";
 import { getMarkets, getMarketPrice, getTradeAnnotation } from "@/services/api/market";
 import { normalizeSymbol, parseSymbol } from "@/features/trade/lib/symbol";
@@ -106,38 +107,40 @@ function scheduleIdle(run: () => void): () => void {
   };
 }
 
-// The chart route is deliberately absent: its chunk statically pulls the
-// charting library and would parse inside the first load's idle window.
-const ROUTE_CHUNKS: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
-  ["/trade", () => import("@/pages/asset-detail")],
-  ["/whales/", () => import("@/pages/whale-detail")],
-  ["/whales", () => import("@/pages/whales")],
-  ["/portfolio", () => import("@/pages/portfolio")],
-  ["/calendar", () => import("@/pages/calendar")],
-  ["/settings", () => import("@/pages/settings")],
-  ["/login", () => import("@/pages/login")],
-  ["/auth/callback", () => import("@/pages/auth-callback")],
-];
-
 /**
- * Warms the chunk for a link the user is about to follow. Safe to call repeatedly:
- * the dynamic import is cached, so navigation never waits on a second request.
+ * Warms the chunk for a link the user is about to follow. The registry is derived
+ * from the route records, so a path can never point at a stale chunk.
  */
 export function preloadRoute(pathname: string): void {
-  const match = ROUTE_CHUNKS.find(([prefix]) => pathname.startsWith(prefix));
-  if (match !== undefined) void match[1]();
+  void matchRouteRecord(pathname)
+    ?.handle.preload()
+    .catch(() => null);
 }
 
-function preloadHeavyRoutes(): void {
-  preloadRoute("/trade");
+/** Idle-time warm of every route chunk; the dynamic imports dedupe themselves. */
+export function preloadAll(): void {
+  for (const record of ROUTES) void record.handle.preload().catch(() => null);
+}
+
+interface IntentEvent {
+  currentTarget: HTMLElement;
 }
 
 /**
- * Warms the trade route chunk after first paint. Nothing else is warmed: the landing
- * route never paints `/whales`, so preloading it competed with the first load for no
- * gain. Market data is owned by the query client's boot prefetch and coin-index loader,
- * so this hook never issues a competing fetch.
+ * One handler for enter/focus/pointerdown on any link carrying `data-preload-path`.
+ * A single closure serves every link, so the shell does not allocate three per item.
+ */
+export function usePreloadOnIntent(): (event: IntentEvent) => void {
+  return useCallback((event: IntentEvent) => {
+    const path = event.currentTarget.dataset.preloadPath;
+    if (path !== undefined) preloadRoute(path);
+  }, []);
+}
+
+/**
+ * Warms every route chunk after first paint. Market data is owned by the query
+ * client's boot prefetch and coin-index loader, so this hook never fetches.
  */
 export function usePreloadRoutes(): void {
-  useEffect(() => scheduleIdle(preloadHeavyRoutes), []);
+  useEffect(() => scheduleIdle(preloadAll), []);
 }

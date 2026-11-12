@@ -3,7 +3,7 @@ import type { ChartDataPoint, ActiveIndicator } from "@0xsignal/shared";
 import { calculateLineIndicator, calculateBandIndicator, isBandIndicator } from "@0xsignal/shared";
 import type { IndicatorDataMeta, IndicatorRenderEntry } from "../utils/indicator-data";
 
-export const MAX_CACHE_SIZE = 50;
+const MAX_CACHE_SIZE = 50;
 
 /** Shared empty result; consumers only read it. */
 const EMPTY_ENTRIES = new Map<string, IndicatorRenderEntry>();
@@ -15,9 +15,6 @@ const EMPTY_ENTRIES = new Map<string, IndicatorRenderEntry>();
  * cache bounded and lets evicted entries be collected.
  */
 const entriesByKey = new Map<string, IndicatorRenderEntry>();
-
-/** Exposed for tests: current number of cached indicator entries. */
-export const getIndicatorCacheSize = (): number => entriesByKey.size;
 
 const buildParamsKey = (params: Record<string, number>): string => {
   return Object.keys(params)
@@ -77,7 +74,7 @@ const lastCandleSignature = (data: ChartDataPoint[]): string => {
   return `${last.time}|${last.open}|${last.high}|${last.low}|${last.close}|${last.volume}`;
 };
 
-export const buildEntries = (
+const buildEntries = (
   activeIndicators: ActiveIndicator[],
   data: ChartDataPoint[],
 ): Map<string, IndicatorRenderEntry> => {
@@ -182,11 +179,8 @@ const scheduleFrame = (): void => {
   frameId = requestAnimationFrame(flushFrame);
 };
 
-/** Exposed for tests: current number of queued deferred jobs. */
-export const getDeferredJobCount = (): number => deferredJobs.size;
-
 /** Queue the per-slot recompute and make sure a frame is pending. */
-export const scheduleDeferredJob = (slot: object, job: DeferredJob): void => {
+const scheduleDeferredJob = (slot: object, job: DeferredJob): void => {
   deferredJobs.set(slot, job);
   scheduleFrame();
 };
@@ -196,7 +190,7 @@ export const scheduleDeferredJob = (slot: object, job: DeferredJob): void => {
  * has nothing to paint, so cancel it instead of retaining the dataset until the
  * tab becomes visible again.
  */
-export const disposeDeferredJob = (slot: object): void => {
+const disposeDeferredJob = (slot: object): void => {
   deferredJobs.delete(slot);
   if (deferredJobs.size === 0 && frameId !== 0) {
     cancelAnimationFrame(frameId);

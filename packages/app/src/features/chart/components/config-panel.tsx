@@ -112,7 +112,7 @@ function IndicatorConfigPanelInner({
       <div className="p-panel">
         <div className="grid grid-cols-1 gap-field">
           <Button
-            variant="ghost"
+            variant="outline"
             className="font-semibold active:scale-[0.97]"
             onClick={() => {
               if (matchingActiveInstance !== undefined) {

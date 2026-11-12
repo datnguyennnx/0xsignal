@@ -1,5 +1,5 @@
 import { mapToHLInterval } from "@/core/utils/hyperliquid";
-import { resolveApiBase } from "@/lib/api-base";
+import { API_BASE } from "@/lib/api-base";
 import { isPageHidden, onPageResume, onPageVisibilityChange } from "@/lib/page-visibility";
 import { normalizeSymbol } from "./symbol";
 import { SubscriptionKey } from "./stream-identity";
@@ -13,8 +13,6 @@ import {
 
 // Re-export shared type for backward-compatible import path
 export type { WsMarketSubscription as MarketSubscription } from "@0xsignal/shared";
-
-const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 
 /**
  * Build the WebSocket URL for the market stream.
@@ -48,14 +46,7 @@ const createMarketStreamWsUrl = (
  * API server, bypassing Vite's dev proxy). Otherwise, fall back to the
  * relative path for Vite proxy routing.
  */
-const resolveWsApiBase = (): string => {
-  if (configuredApiUrl !== undefined && configuredApiUrl !== "") {
-    // Ensure trailing /api is present
-    const normalized = configuredApiUrl.replace(/\/+$/, "");
-    return normalized.endsWith("/api") ? normalized : `${normalized}/api`;
-  }
-  return resolveApiBase(configuredApiUrl, import.meta.env.DEV);
-};
+const resolveWsApiBase = (): string => API_BASE;
 
 const WS_API_BASE = resolveWsApiBase();
 const MARKET_STREAM_WS_URL = createMarketStreamWsUrl(WS_API_BASE, globalThis.location);

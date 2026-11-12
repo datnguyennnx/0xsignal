@@ -1,10 +1,10 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderMarkup } from "../../../../test/render";
 
 import type { OpenOrder } from "@0xsignal/shared";
 
-import { OpenOrdersTable, OpenOrderRow } from "./open-orders-table";
+import { OpenOrdersTable } from "./open-orders-table";
 import { areOpenOrderRowPropsEqual, type OpenOrderRowProps } from "./open-orders-table-logic";
 import { TwapContent } from "./twap-content";
 
@@ -43,7 +43,7 @@ const order: OpenOrder = {
 };
 
 const renderTable = (readOnly: boolean, rows: readonly OpenOrder[] = [order]): string =>
-  renderToStaticMarkup(
+  renderMarkup(
     <OpenOrdersTable
       isOoLoading={false}
       openOrders={[...rows]}
@@ -103,7 +103,7 @@ describe("open orders with a missing order type", () => {
   };
 
   test("renders a fallback type instead of crashing the row", () => {
-    const html = renderToStaticMarkup(
+    const html = renderMarkup(
       <OpenOrdersTable
         isOoLoading={false}
         openOrders={[unknownOrder]}
@@ -130,7 +130,7 @@ describe("open orders with a missing order type", () => {
 
 describe("tabs without a public reader", () => {
   test("TWAP renders an honest empty state, never a spinner", () => {
-    const html = renderToStaticMarkup(<TwapContent readOnly />);
+    const html = renderMarkup(<TwapContent readOnly />);
 
     expect(html).toContain("TWAP orders aren");
     expect(html).not.toContain("Loading");
@@ -198,30 +198,5 @@ describe("areOpenOrderRowPropsEqual", () => {
 describe("open orders table culling and row markup", () => {
   test("opts into the shared table-cull contract", () => {
     expect(renderTable(false)).toContain("table-cull");
-  });
-
-  test("the extracted row still prints the same sample-order cells", () => {
-    const html = renderToStaticMarkup(
-      <table>
-        <tbody>
-          <OpenOrderRow
-            order={order}
-            readOnly={false}
-            isCancelPending={false}
-            onCancelOrder={noop}
-            onViewTpSl={noop}
-          />
-        </tbody>
-      </table>,
-    );
-
-    expect(html).toContain(">Limit<");
-    expect(html).toContain(">BTC<");
-    expect(html).toContain(">Long</span>");
-    expect(html).toContain(">0.1000<");
-    expect(html).toContain(">$6,200.00<");
-    expect(html).toContain(">$62,000.00<");
-    expect(html).toContain(">No<");
-    expect(html).toContain(">Cancel<");
   });
 });

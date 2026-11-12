@@ -44,6 +44,70 @@ interface OrderFormFieldsProps {
   footer: ReactNode;
 }
 
+interface TpSlPriceRowProps {
+  kind: "tp" | "sl";
+  price: string;
+  percent: string;
+  onPriceChange: (value: string) => void;
+  onPercentChange: (value: string) => void;
+}
+
+const TPSL_LABELS = {
+  tp: {
+    pricePlaceholder: "TP Price",
+    percentPlaceholder: "Gain",
+    priceLabel: "Take profit price",
+    percentLabel: "Take profit gain percent",
+    percentSuffix: "gain",
+  },
+  sl: {
+    pricePlaceholder: "SL Price",
+    percentPlaceholder: "Loss",
+    priceLabel: "Stop loss price",
+    percentLabel: "Stop loss percent",
+    percentSuffix: "loss",
+  },
+} as const;
+
+function TpSlPriceRow({ kind, price, percent, onPriceChange, onPercentChange }: TpSlPriceRowProps) {
+  const labels = TPSL_LABELS[kind];
+  return (
+    <div className="row-actions">
+      <div className="flex-1">
+        <label htmlFor={`order-form-${kind}-price`} className="sr-only">
+          {labels.priceLabel}
+        </label>
+        <Input
+          id={`order-form-${kind}-price`}
+          type="number"
+          value={price}
+          onChange={(e) => {
+            onPriceChange(e.target.value);
+          }}
+          placeholder={labels.pricePlaceholder}
+          className="tabular-nums"
+        />
+      </div>
+      <div className="flex items-center gap-1">
+        <label htmlFor={`order-form-${kind}-${labels.percentSuffix}`} className="sr-only">
+          {labels.percentLabel}
+        </label>
+        <Input
+          id={`order-form-${kind}-${labels.percentSuffix}`}
+          type="number"
+          value={percent}
+          onChange={(e) => {
+            onPercentChange(e.target.value);
+          }}
+          placeholder={labels.percentPlaceholder}
+          className="w-20 text-center tabular-nums"
+        />
+        <span className="type-label text-muted-foreground w-4">%</span>
+      </div>
+    </div>
+  );
+}
+
 export function OrderFormFields({
   disabled = false,
   orderType,
@@ -193,73 +257,20 @@ export function OrderFormFields({
 
             {showTpSl && (
               <div className="flex flex-col gap-field pl-4">
-                <div className="row-actions">
-                  <div className="flex-1">
-                    <label htmlFor="order-form-tp-price" className="sr-only">
-                      Take profit price
-                    </label>
-                    <Input
-                      id="order-form-tp-price"
-                      type="number"
-                      value={tpPrice}
-                      onChange={(e) => {
-                        onTpPriceChange(e.target.value);
-                      }}
-                      placeholder="TP Price"
-                      className="tabular-nums"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <label htmlFor="order-form-tp-gain" className="sr-only">
-                      Take profit gain percent
-                    </label>
-                    <Input
-                      id="order-form-tp-gain"
-                      type="number"
-                      value={tpPercent}
-                      onChange={(e) => {
-                        onTpPercentChange(e.target.value);
-                      }}
-                      placeholder="Gain"
-                      className="w-20 text-center tabular-nums"
-                    />
-                    <span className="type-label text-muted-foreground w-4">%</span>
-                  </div>
-                </div>
-
-                <div className="row-actions">
-                  <div className="flex-1">
-                    <label htmlFor="order-form-sl-price" className="sr-only">
-                      Stop loss price
-                    </label>
-                    <Input
-                      id="order-form-sl-price"
-                      type="number"
-                      value={slPrice}
-                      onChange={(e) => {
-                        onSlPriceChange(e.target.value);
-                      }}
-                      placeholder="SL Price"
-                      className="tabular-nums"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <label htmlFor="order-form-sl-loss" className="sr-only">
-                      Stop loss percent
-                    </label>
-                    <Input
-                      id="order-form-sl-loss"
-                      type="number"
-                      value={slPercent}
-                      onChange={(e) => {
-                        onSlPercentChange(e.target.value);
-                      }}
-                      placeholder="Loss"
-                      className="w-20 text-center tabular-nums"
-                    />
-                    <span className="type-label text-muted-foreground w-4">%</span>
-                  </div>
-                </div>
+                <TpSlPriceRow
+                  kind="tp"
+                  price={tpPrice}
+                  percent={tpPercent}
+                  onPriceChange={onTpPriceChange}
+                  onPercentChange={onTpPercentChange}
+                />
+                <TpSlPriceRow
+                  kind="sl"
+                  price={slPrice}
+                  percent={slPercent}
+                  onPriceChange={onSlPriceChange}
+                  onPercentChange={onSlPercentChange}
+                />
               </div>
             )}
           </div>

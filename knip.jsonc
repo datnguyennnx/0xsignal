@@ -19,8 +19,18 @@
       "project": [],
     },
     "packages/app": {
-      "entry": ["src/services/api/index.ts"],
-      "project": ["src/**/*.{ts,tsx,css}"],
+      "entry": ["src/services/api/index.ts", "test/**/*.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx,css}", "test/**/*.{ts,tsx}"],
+      // Most kernel helpers are exported for a stable module boundary but only
+      // consumed inside their own file today; the exported type set is API.
+      "ignoreExportsUsedInFile": {
+        "class": true,
+        "enum": true,
+        "function": true,
+        "interface": true,
+        "type": true,
+        "variable": true,
+      },
       // Consumed from CSS, not JS: src/index.css @imports both, with the @tailwindcss/vite plugin wired in vite.config.ts. Do not delete these packages.
       // Knip resolves import statements, not Vite `resolve.alias` string targets, so
       // this shim (aliased for `node:worker_threads` in vite.config.ts) is invisible to it. Do not delete it.

@@ -27,28 +27,29 @@ export function OrderRowCells({
 }: OrderRowCellsProps) {
   return (
     <>
+      {/* The row owns the stacking context; the two paint layers sit behind its text. */}
       {isInRange && (
-        <div className="absolute inset-0 z-5 pointer-events-none bg-foreground/5 dark:bg-foreground/10" />
+        <div className="absolute inset-0 -z-10 pointer-events-none bg-foreground/5 dark:bg-foreground/10" />
       )}
       {price > 0 && (
         <div
-          className={`absolute inset-y-0 right-0 z-0 opacity-30 dark:opacity-20 pointer-events-none ${
+          className={`absolute inset-y-0 right-0 -z-10 opacity-30 dark:opacity-20 pointer-events-none ${
             side === "bid" ? "bg-gain" : "bg-loss"
           }`}
           style={depthStyle}
         />
       )}
       <span
-        className={`relative z-10 flex-1 type-data font-medium tabular-nums ${
+        className={`flex-1 type-data font-medium tabular-nums ${
           price === 0 ? "text-muted-foreground" : side === "bid" ? "text-data-up" : "text-data-down"
         }`}
       >
         {formatted.formattedPrice}
       </span>
-      <span className="relative z-10 flex-1 text-right type-data tabular-nums text-muted-foreground">
+      <span className="flex-1 text-right type-data tabular-nums text-muted-foreground">
         {formatted.formattedSize}
       </span>
-      <span className="relative z-10 flex-1 text-right type-data tabular-nums text-muted-foreground">
+      <span className="flex-1 text-right type-data tabular-nums text-muted-foreground">
         {formatted.formattedTotal}
       </span>
     </>

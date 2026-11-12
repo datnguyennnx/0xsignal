@@ -40,7 +40,11 @@ function TwapActiveTable() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        <TableEmptyRow colSpan={8} />
+        <TableEmptyRow
+          colSpan={8}
+          status="empty"
+          emptyTitle="No active TWAP orders — create one to see it here"
+        />
       </TableBody>
     </Table>
   );
@@ -63,7 +67,7 @@ function TwapHistoryTable() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        <TableEmptyRow colSpan={9} />
+        <TableEmptyRow colSpan={9} status="empty" emptyTitle="No TWAP order history yet" />
       </TableBody>
     </Table>
   );
@@ -74,7 +78,11 @@ function TwapFillHistoryTable() {
     <Table>
       <FillHistoryTableHeader />
       <TableBody>
-        <TableEmptyRow colSpan={8} />
+        <TableEmptyRow
+          colSpan={8}
+          status="empty"
+          emptyTitle="No TWAP fills yet — executions will appear here"
+        />
       </TableBody>
     </Table>
   );

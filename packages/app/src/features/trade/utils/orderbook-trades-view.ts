@@ -2,7 +2,7 @@ import { formatPriceWithNSigFigs, formatSize } from "@/core/utils/formatters";
 import { type TradeTick } from "../lib/trade-tick";
 import { ROW_HEIGHT_CLASS } from "./orderbook-utils";
 
-export const tradeSideClass = (side: "buy" | "sell"): string =>
+const tradeSideClass = (side: "buy" | "sell"): string =>
   side === "buy" ? "text-data-up" : "text-data-down";
 
 export const TRADE_ROW_CLASS = `${ROW_HEIGHT_CLASS} flex items-center px-2 gap-1 type-data tabular-nums shrink-0`;

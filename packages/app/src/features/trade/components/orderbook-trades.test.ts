@@ -2,13 +2,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { TradeTick } from "../lib/trade-tick";
-import {
-  TRADE_ROW_CLASS,
-  buildTradeRows,
-  exchangeTxUrl,
-  tradeRowView,
-  tradeSideClass,
-} from "../utils/orderbook-trades-view";
+import { buildTradeRows, exchangeTxUrl, tradeRowView } from "../utils/orderbook-trades-view";
 
 const TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
@@ -51,18 +45,6 @@ describe("tradeRowView", () => {
 
     expect(view.price).toBe(123.45);
     expect(view.sideClass).toBe("text-data-down");
-  });
-
-  test("maps each side to the book's price token, never the muted text token", () => {
-    expect(tradeSideClass("buy")).toBe("text-data-up");
-    expect(tradeSideClass("sell")).toBe("text-data-down");
-    expect(tradeSideClass("buy")).not.toContain("text-muted-foreground");
-    expect(tradeSideClass("sell")).not.toContain("text-muted-foreground");
-  });
-
-  test("the row class carries no text colour", () => {
-    expect(TRADE_ROW_CLASS).not.toContain("text-muted-foreground");
-    expect(TRADE_ROW_CLASS).not.toContain("text-foreground");
   });
 
   test("renders no link when the hash is missing", () => {

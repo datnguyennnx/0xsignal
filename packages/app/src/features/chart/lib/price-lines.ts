@@ -70,7 +70,7 @@ export interface PriceLineState {
   styleKeys: string[];
 }
 
-export const createPriceLineState = (): PriceLineState => ({ handles: [], styleKeys: [] });
+const createPriceLineState = (): PriceLineState => ({ handles: [], styleKeys: [] });
 
 type PriceLineSeries = Pick<ISeriesApi<SeriesType>, "createPriceLine" | "removePriceLine">;
 

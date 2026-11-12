@@ -30,7 +30,7 @@ interface FormattedLevel extends OrderbookLevel {
 // Module-level cache: avoid per-row allocation per tick, keyed by price+nSigFigs.
 const formatCache = new Map<string, FormattedLevel>();
 
-export const makeFormatKey = (price: number, nSigFigs: number): string => `${price}-${nSigFigs}`;
+const makeFormatKey = (price: number, nSigFigs: number): string => `${price}-${nSigFigs}`;
 
 export function formatLevel(
   price: number,

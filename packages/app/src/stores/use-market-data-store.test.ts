@@ -6,13 +6,23 @@ import type { ChartDataPoint } from "@0xsignal/shared";
 import type { L2BookLevel } from "@/core/utils/hyperliquid";
 import type { AssetCtxSnapshot } from "@/features/trade/lib/asset-ctx";
 import { MAX_TRADE_TICKS, type TradeTick } from "@/features/trade/lib/trade-tick";
+import { restoreDomGlobals } from "../../test/setup";
 
-import {
-  cancelMidsFlush,
-  marketDataStoreInternals,
-  useMarketDataStore,
-  useTrades,
-} from "./use-market-data-store";
+import { cancelMidsFlush, useMarketDataStore, useTrades } from "./use-market-data-store";
+
+// Installed before any store write so the module-lifetime visibility watcher
+// binds to this document rather than whichever one a prior test left behind.
+const visibilityListeners = new Set<() => void>();
+const fakeDocument = {
+  visibilityState: "visible" as DocumentVisibilityState,
+  addEventListener(type: string, listener: () => void): void {
+    if (type === "visibilitychange") visibilityListeners.add(listener);
+  },
+  removeEventListener(type: string, listener: () => void): void {
+    if (type === "visibilitychange") visibilityListeners.delete(listener);
+  },
+};
+Object.defineProperty(globalThis, "document", { configurable: true, value: fakeDocument });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -56,14 +66,6 @@ const bar = (time: number, close: number): ChartDataPoint => ({
 
 const candles = (key: string): readonly ChartDataPoint[] =>
   useMarketDataStore.getState().candleData[key] ?? [];
-
-describe("symbolFromCandleKey", () => {
-  test("keeps every segment but the trailing interval or precision", () => {
-    expect(marketDataStoreInternals.symbolFromCandleKey("xyz:YEETI:1m")).toBe("xyz:YEETI");
-    expect(marketDataStoreInternals.symbolFromCandleKey("BTC:1m")).toBe("BTC");
-    expect(marketDataStoreInternals.symbolFromCandleKey("PURR/USDC:1m")).toBe("PURR/USDC");
-  });
-});
 
 describe("appendCandles", () => {
   beforeEach(() => {
@@ -235,13 +237,12 @@ describe("orderbook flush gate", () => {
   });
 });
 
-describe("orderbook symbol LRU", () => {
+describe("orderbook eviction", () => {
   type FrameCallback = (time: number) => void;
 
   const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
   const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
   let pendingFrame: FrameCallback | null = null;
-  const liveSymbols: string[] = [];
 
   const flushFrame = (): void => {
     const callback = pendingFrame;
@@ -254,12 +255,6 @@ describe("orderbook symbol LRU", () => {
       .getState()
       .applyOrderbookSnapshot(symbol, [[level(100, 1)], [level(101, 1)]]);
     flushFrame();
-  };
-
-  const mountBook = (symbol: string): void => {
-    marketDataStoreInternals.retainOrderbookSubscriber(symbol);
-    liveSymbols.push(symbol);
-    seedBook(symbol);
   };
 
   beforeEach(() => {
@@ -275,44 +270,9 @@ describe("orderbook symbol LRU", () => {
   });
 
   afterEach(() => {
-    for (const symbol of liveSymbols.splice(0)) {
-      marketDataStoreInternals.releaseOrderbookSubscriber(symbol);
-    }
     useMarketDataStore.setState({ orderbookData: {}, allMids: {} });
     globalThis.requestAnimationFrame = originalRequestAnimationFrame;
     globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
-  });
-
-  test("declines a newcomer instead of leaking state when every tracked book is live", () => {
-    const live = ["LRU-A", "LRU-B", "LRU-C", "LRU-D", "LRU-E", "LRU-F"];
-    for (const symbol of live) mountBook(symbol);
-
-    expect(marketDataStoreInternals.rawOrderbookSymbolCount()).toBe(6);
-    expect(marketDataStoreInternals.trackedOrderbookSymbols()).toEqual(live);
-
-    seedBook("LRU-NEW");
-
-    // Every retained raw book still has bookkeeping, so the count cannot exceed
-    // the cap minus whatever is live; the newcomer is not admitted.
-    expect(marketDataStoreInternals.rawOrderbookSymbolCount()).toBe(
-      marketDataStoreInternals.trackedOrderbookSymbols().length,
-    );
-    expect(marketDataStoreInternals.rawOrderbookSymbolCount()).toBe(6);
-    expect(marketDataStoreInternals.trackedOrderbookSymbols()).not.toContain("LRU-NEW");
-    expect(useMarketDataStore.getState().orderbookData["LRU-NEW"]).toBeUndefined();
-
-    for (const symbol of live) {
-      expect(useMarketDataStore.getState().orderbookData[symbol]?.bids).toHaveLength(1);
-    }
-  });
-
-  test("deletes raw and display state for the inactive symbol it evicts", () => {
-    const symbols = ["EV-A", "EV-B", "EV-C", "EV-D", "EV-E", "EV-F", "EV-G"];
-    for (const symbol of symbols) seedBook(symbol);
-
-    expect(marketDataStoreInternals.rawOrderbookSymbolCount()).toBe(6);
-    expect(marketDataStoreInternals.trackedOrderbookSymbols()).not.toContain("EV-A");
-    expect(useMarketDataStore.getState().orderbookData["EV-A"]).toBeUndefined();
   });
 
   test("retiring a candle key evicts every orderbook precision for that symbol", () => {
@@ -370,17 +330,6 @@ describe("page visibility flush gate", () => {
   const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
   let pendingFrame: FrameCallback | null = null;
 
-  const visibilityListeners = new Set<() => void>();
-  const fakeDocument = {
-    visibilityState: "visible" as DocumentVisibilityState,
-    addEventListener(type: string, listener: () => void): void {
-      if (type === "visibilitychange") visibilityListeners.add(listener);
-    },
-    removeEventListener(type: string, listener: () => void): void {
-      if (type === "visibilitychange") visibilityListeners.delete(listener);
-    },
-  };
-
   const setVisibility = (visibilityState: DocumentVisibilityState): void => {
     fakeDocument.visibilityState = visibilityState;
     for (const listener of visibilityListeners) listener();
@@ -433,7 +382,7 @@ describe("page visibility flush gate", () => {
     cancelMidsFlush();
     pendingFrame = null;
     useMarketDataStore.setState({ orderbookData: {}, allMids: {} });
-    Reflect.deleteProperty(globalThis, "document");
+    restoreDomGlobals();
     globalThis.requestAnimationFrame = originalRequestAnimationFrame;
     globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
   });

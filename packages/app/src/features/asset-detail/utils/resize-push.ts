@@ -1,4 +1,3 @@
-import { DEFAULT_ROW_COUNT } from "./constants";
 import type { LayoutItem } from "./types";
 
 function overlapsColumns(a: LayoutItem, b: LayoutItem): boolean {
@@ -46,9 +45,4 @@ export function pushBelow(
     const y = shiftedY.get(item.i);
     return y === undefined ? item : { ...item, y };
   });
-}
-
-export function canvasRowCount(items: readonly LayoutItem[]): number {
-  const rows = items.reduce((tallest, item) => Math.max(tallest, item.y + item.h), 0);
-  return Math.max(DEFAULT_ROW_COUNT, rows);
 }

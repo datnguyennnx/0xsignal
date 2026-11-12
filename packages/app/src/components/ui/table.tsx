@@ -63,7 +63,7 @@ function TableHead({ className, scope = "col", ...props }: React.ComponentProps<
       scope={scope}
       data-slot="table-head"
       className={cn(
-        "table-head h-(--table-head-h) shadow-[inset_0_-1px_0_var(--border-subtle)] px-2 text-left align-middle font-medium whitespace-normal leading-tight first:rounded-tl-(--radius-panel) last:rounded-tr-(--radius-panel)",
+        "table-head h-(--table-head-h) shadow-[inset_0_-1px_0_var(--border-subtle)] px-2 text-left align-middle font-medium whitespace-normal first:rounded-tl-(--radius-panel) last:rounded-tr-(--radius-panel)",
         className,
       )}
       {...props}

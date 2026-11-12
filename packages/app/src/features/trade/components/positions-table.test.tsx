@@ -1,6 +1,6 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderMarkup } from "../../../../test/render";
 import { MemoryRouter } from "react-router";
 
 import { useMarketDataStore } from "@/stores/use-market-data-store";
@@ -25,7 +25,7 @@ const positions: PositionRow[] = [
 ];
 
 const renderTable = (readOnly: boolean): string =>
-  renderToStaticMarkup(
+  renderMarkup(
     <MemoryRouter>
       <PositionsTable isChLoading={false} positions={positions} readOnly={readOnly} />
     </MemoryRouter>,

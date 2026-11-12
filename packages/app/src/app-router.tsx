@@ -1,107 +1,48 @@
-import { Suspense, useEffect, useState, type ReactNode } from "react";
-import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
-import { MainLayout } from "@/layouts/main-layout";
-import { ErrorBoundary } from "@/components/error-boundary";
-import { ErrorState } from "@/components/error-state";
+import { useEffect } from "react";
+import { Outlet, ScrollRestoration, useMatches } from "react-router";
 import { NavigationProgress } from "@/components/navigation-progress";
-import { RouteFallback } from "@/components/route-fallback";
-import { ROUTES, titleForPath, type RouteRecord } from "@/lib/routes";
-import { routeMotionKey } from "@/lib/route-motion";
-import { pickErrorQuip } from "@/lib/error-quips";
+import { MainLayout } from "@/layouts/main-layout";
+import { usePreloadRoutes } from "@/lib/preload-routes";
 
-export function RouteErrorFallback() {
-  const [quip] = useState(() => pickErrorQuip());
-  return (
-    <div className="flex min-h-dvh flex-col items-center justify-center">
-      <ErrorState
-        title="Something went wrong"
-        description={quip}
-        retryLabel="Try again"
-        retryAction={() => {
-          window.location.reload();
-        }}
-      />
-    </div>
-  );
+function titleOf(handle: unknown): string | undefined {
+  if (typeof handle !== "object" || handle === null || !("title" in handle)) return undefined;
+  const value = handle.title;
+  return typeof value === "string" ? value : undefined;
 }
 
-function RouteErrorBoundary({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation();
-  return (
-    <ErrorBoundary resetKey={pathname} fallback={<RouteErrorFallback />}>
-      {children}
-    </ErrorBoundary>
-  );
-}
+/** One title effect for the whole app; pages with dynamic titles own them afterwards. */
+function DocumentTitle() {
+  const matches = useMatches();
+  let title: string | undefined;
+  for (const match of matches) {
+    const matched = titleOf(match.handle);
+    if (matched !== undefined) title = matched;
+  }
 
-function BareRoute({ record }: { record: RouteRecord }) {
-  const { pathname } = useLocation();
-  const Page = record.lazy;
-  if (Page === undefined) return null;
-  return (
-    <div key={routeMotionKey(record)} className="content-enter min-h-dvh">
-      <Suspense fallback={<RouteFallback pathname={pathname} />}>
-        {record.errorBoundary === true ? (
-          <RouteErrorBoundary>
-            <Page />
-          </RouteErrorBoundary>
-        ) : (
-          <Page />
-        )}
-      </Suspense>
-    </div>
-  );
-}
-
-function MainRoute({ record }: { record: RouteRecord }) {
-  const { pathname } = useLocation();
-  if (record.redirectTo !== undefined) return <Navigate to={record.redirectTo} replace />;
-  const Page = record.lazy;
-  if (Page === undefined) return null;
-  return (
-    <div
-      key={routeMotionKey(record)}
-      className="content-enter flex flex-1 min-h-0 min-w-0 flex-col"
-    >
-      <Suspense fallback={<RouteFallback pathname={pathname} />}>
-        <Page />
-      </Suspense>
-    </div>
-  );
-}
-
-function RouteTitle() {
-  const { pathname } = useLocation();
   useEffect(() => {
-    const title = titleForPath(pathname);
     if (title !== undefined) document.title = `${title} | 0xsignal`;
-  }, [pathname]);
+  }, [title]);
+
   return null;
 }
 
-export function AppRouter() {
+/** Shared root: title, progress and scroll restoration wrap both layout branches. */
+export function RootLayout() {
+  usePreloadRoutes();
   return (
     <>
-      <RouteTitle />
+      <DocumentTitle />
       <NavigationProgress />
-      <Routes>
-        {ROUTES.filter((route) => route.shell === "bare").map((route) => (
-          <Route key={route.path} path={route.path} element={<BareRoute record={route} />} />
-        ))}
-        <Route
-          element={
-            <MainLayout>
-              <RouteErrorBoundary>
-                <Outlet />
-              </RouteErrorBoundary>
-            </MainLayout>
-          }
-        >
-          {ROUTES.filter((route) => route.shell !== "bare").map((route) => (
-            <Route key={route.path} path={route.path} element={<MainRoute record={route} />} />
-          ))}
-        </Route>
-      </Routes>
+      <ScrollRestoration />
+      <Outlet />
     </>
+  );
+}
+
+export function MainLayoutRoute() {
+  return (
+    <MainLayout>
+      <Outlet />
+    </MainLayout>
   );
 }

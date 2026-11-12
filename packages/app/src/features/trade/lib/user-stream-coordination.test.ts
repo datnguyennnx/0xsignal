@@ -8,12 +8,10 @@ import type {
   UserStreamUpstream,
 } from "./user-stream-types";
 import { createUserStreamClient } from "./user-stream-client";
-import {
-  createTabCoordinator,
-  TAB_MISSED_PONG_LIMIT,
-  TAB_PING_INTERVAL_MS,
-  type TabChannel,
-} from "./user-stream-coordination";
+import { createTabCoordinator, type TabChannel } from "./user-stream-coordination";
+
+const TAB_MISSED_PONG_LIMIT = 2;
+const TAB_PING_INTERVAL_MS = 15_000;
 
 const ADDRESS = "0x0000000000000000000000000000000000000001";
 

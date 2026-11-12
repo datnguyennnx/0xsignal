@@ -1,4 +1,4 @@
-import type { LayoutItem, ResizeFrame, ResizeHandleAxis, ResizeLimits } from "./types";
+import type { ResizeFrame, ResizeHandleAxis, ResizeLimits } from "./types";
 
 function clampSpan(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, Math.max(min, max)));
@@ -35,20 +35,4 @@ export function computeResizeFrame(
   }
 
   return { x, y, w, h };
-}
-
-const KEY_STEP = 1;
-
-export function keyResizeFrame(
-  axis: ResizeHandleAxis,
-  item: LayoutItem,
-  key: string,
-  limits: ResizeLimits,
-): ResizeFrame | null {
-  const grow = key === "ArrowRight" || key === "ArrowDown";
-  const shrink = key === "ArrowLeft" || key === "ArrowUp";
-  if (!grow && !shrink) return null;
-
-  const step = grow ? KEY_STEP : -KEY_STEP;
-  return computeResizeFrame(axis, item, step, step, limits);
 }

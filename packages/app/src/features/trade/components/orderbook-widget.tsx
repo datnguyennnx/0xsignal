@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { memo, useState, useCallback, useEffect, useMemo } from "react";
 import { useHyperliquidOrderbook } from "@/features/trade/hooks/use-hyperliquid-orderbook";
 import { useTradeUIStore } from "@/stores/use-trade-ui-store";
 import { EmptyState } from "@/components/empty-state";
@@ -70,42 +70,16 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
     null,
   );
 
-  // Debounced popup position via rAF to avoid synchronous layout thrashing
-  const popupRafRef = useRef(0);
-  const schedulePopupPosition = useCallback(
-    (
-      rowElement: HTMLElement,
-      side: "bid" | "ask",
-      price: number,
-      size: number,
-      total: number,
-      index: number,
-    ) => {
-      if (popupRafRef.current) cancelAnimationFrame(popupRafRef.current);
-      popupRafRef.current = requestAnimationFrame(() => {
-        const rect = rowElement.getBoundingClientRect();
-        const widgetRect = rowElement
-          .closest<HTMLElement>(".orderbook-widget")
-          ?.getBoundingClientRect();
-        if (widgetRect) {
-          const top = rect.top + rect.height / 2;
-          const viewportWidth = window.innerWidth;
-          if (viewportWidth - widgetRect.right > 220) {
-            setPopupPosition({ top, left: widgetRect.right + 8 });
-          } else if (widgetRect.left > 220) {
-            setPopupPosition({ top, right: viewportWidth - widgetRect.left + 8 });
-          } else {
-            setPopupPosition({ top, left: widgetRect.right - 200 });
-          }
-        }
-        popupRafRef.current = 0;
-      });
-
-      setHoverTarget({ side, price, size, total });
-      setHoveredIndex({ side, index });
-    },
-    [],
-  );
+  // Popup is anchored to the pointer carried by the hover event, so it needs no
+  // post-paint measurement.
+  const positionPopup = useCallback((clientX: number, clientY: number) => {
+    const viewportWidth = window.innerWidth;
+    if (viewportWidth - clientX > 264) {
+      setPopupPosition({ top: clientY, left: clientX + 8 });
+    } else {
+      setPopupPosition({ top: clientY, right: viewportWidth - clientX + 8 });
+    }
+  }, []);
 
   const clearPopup = useCallback(() => {
     setHoverTarget(null);
@@ -140,8 +114,8 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
   }, [pinnedIndex, clearPopup]);
 
   const handleHover = useCallback(
-    (data: PopupData | null, rowElement?: HTMLElement | null, index?: number) => {
-      if (!data || !rowElement || index === undefined) {
+    (data: PopupData | null, index?: number, point?: { clientX: number; clientY: number }) => {
+      if (!data || index === undefined || point === undefined) {
         // A pinned row keeps its detail visible after pointer/focus leaves.
         if (pinnedIndex) return;
         setHoverTarget(null);
@@ -149,9 +123,11 @@ const OrderbookWidgetComponent = ({ symbol }: OrderbookWidgetProps) => {
         setHoveredIndex(null);
         return;
       }
-      schedulePopupPosition(rowElement, data.side, data.price, data.size, data.total, index);
+      setHoverTarget({ side: data.side, price: data.price, size: data.size, total: data.total });
+      setHoveredIndex({ side: data.side, index });
+      positionPopup(point.clientX, point.clientY);
     },
-    [schedulePopupPosition, pinnedIndex],
+    [positionPopup, pinnedIndex],
   );
 
   const handleActivate = useCallback((side: "bid" | "ask", index: number) => {

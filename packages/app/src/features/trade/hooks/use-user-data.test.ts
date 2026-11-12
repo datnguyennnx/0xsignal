@@ -2,13 +2,15 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { queryKeys } from "@/lib/query-keys";
+import { restoreDomGlobals } from "../../../../test/setup";
 
 import {
   markUserDataWsWrite,
   resolveUserDataRestResult,
-  USER_REST_FALLBACK_MS,
   userRestRefetchInterval,
 } from "./user-query-race";
+
+const USER_REST_FALLBACK_MS = 30_000;
 
 const ADDRESS = "0x0000000000000000000000000000000000000001";
 const realDateNow = Date.now;
@@ -28,7 +30,7 @@ beforeEach(() => {
 
 afterEach(() => {
   Date.now = realDateNow;
-  Reflect.deleteProperty(globalThis, "document");
+  restoreDomGlobals();
 });
 
 const restState = { time: 1_000 };

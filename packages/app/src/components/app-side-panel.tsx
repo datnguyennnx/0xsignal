@@ -1,16 +1,13 @@
-import {
-  createContext,
-  lazy,
-  Suspense,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
-import type { ReactNode } from "react";
+import { lazy, Suspense, useCallback, useMemo } from "react";
+import type { ComponentType, LazyExoticComponent, ReactNode } from "react";
 import { useSearchParams } from "react-router";
 
+import {
+  PanelActionsContext,
+  useOpenPanel,
+  usePanelClose,
+  type PanelActions,
+} from "@/components/app-side-panel-context";
 import {
   SidePanelProvider,
   useSidePanel,
@@ -18,6 +15,7 @@ import {
   type SidePanelDescriptor,
   type SidePanelRegistry,
 } from "@/components/side-panel";
+import { Skeleton } from "@/components/ui/skeleton";
 import { dayKey, parseDayKey } from "@/lib/day-key";
 import {
   derivePanelDescriptor,
@@ -25,8 +23,6 @@ import {
   PANEL_ID_PARAM,
   PANEL_KINDS,
   PANEL_PARAM,
-  withPanelParams,
-  withoutPanelParams,
 } from "@/lib/side-panel-params";
 
 type PanelRegistryEntry = SidePanelRegistry[string];
@@ -43,29 +39,26 @@ const CoinContextPanelLazy = lazy(() =>
   })),
 );
 
+type PanelLoader = LazyExoticComponent<ComponentType<PanelComponentProps>>;
+
 function PanelFallback() {
+  return <Skeleton className="h-32 rounded-panel" />;
+}
+
+function LazyPanel({ load: Panel, ...props }: { load: PanelLoader } & PanelComponentProps) {
   return (
-    <div
-      className="h-32 animate-pulse motion-reduce:animate-none rounded-panel bg-muted/60"
-      aria-hidden="true"
-    />
+    <Suspense fallback={<PanelFallback />}>
+      <Panel {...props} />
+    </Suspense>
   );
 }
 
 function CalendarDayPanel(props: PanelComponentProps) {
-  return (
-    <Suspense fallback={<PanelFallback />}>
-      <CalendarDayPanelLazy {...props} />
-    </Suspense>
-  );
+  return <LazyPanel load={CalendarDayPanelLazy} {...props} />;
 }
 
 function CoinContextPanel(props: PanelComponentProps) {
-  return (
-    <Suspense fallback={<PanelFallback />}>
-      <CoinContextPanelLazy {...props} />
-    </Suspense>
-  );
+  return <LazyPanel load={CoinContextPanelLazy} {...props} />;
 }
 
 const PANEL_COMPONENTS: Record<keyof typeof PANEL_KINDS, PanelRegistryEntry> = {
@@ -77,51 +70,6 @@ const PANEL_REGISTRY: SidePanelRegistry = {
   [PANEL_KINDS.calendarDay.kind]: PANEL_COMPONENTS.calendarDay,
   [PANEL_KINDS.coinContext.kind]: PANEL_COMPONENTS.coinContext,
 };
-
-/** `useSearchParams` re-creates its setter on every search write; read the latest through a ref so actions stay stable. */
-function useSearchParamsSetter() {
-  const [, setSearchParams] = useSearchParams();
-  const ref = useRef(setSearchParams);
-
-  useEffect(() => {
-    ref.current = setSearchParams;
-  }, [setSearchParams]);
-
-  return ref;
-}
-
-function useOpenPanel(): (kind: string, id: string) => void {
-  const setSearchParamsRef = useSearchParamsSetter();
-
-  return useCallback(
-    (kind: string, id: string) => {
-      setSearchParamsRef.current((current) => withPanelParams(current, kind, id), {
-        replace: true,
-      });
-    },
-    [setSearchParamsRef],
-  );
-}
-
-function usePanelClose(): () => void {
-  const setSearchParamsRef = useSearchParamsSetter();
-
-  return useCallback(() => {
-    setSearchParamsRef.current((current) => withoutPanelParams(current), { replace: true });
-  }, [setSearchParamsRef]);
-}
-
-interface PanelActions {
-  openPanel: (kind: string, id: string) => void;
-  closePanel: () => void;
-}
-
-const NO_PANEL_ACTIONS: PanelActions = {
-  openPanel: () => {},
-  closePanel: () => {},
-};
-
-const PanelActionsContext = createContext<PanelActions>(NO_PANEL_ACTIONS);
 
 export interface CalendarDayPanelControls {
   selectedDate: Date | null;
@@ -182,18 +130,6 @@ export function useCoinContextPanel(): CoinContextPanelControls {
   );
 
   return { activeCoin, openCoin, close };
-}
-
-/** Action-only subscription: opening or closing the panel does not re-render the caller. */
-export function useOpenCoin(): (coin: string) => void {
-  const { openPanel } = useContext(PanelActionsContext);
-
-  return useCallback(
-    (coin: string) => {
-      openPanel(PANEL_KINDS.coinContext.kind, coin);
-    },
-    [openPanel],
-  );
 }
 
 export function AppSidePanelProvider({ children }: { children: ReactNode }) {

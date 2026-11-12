@@ -164,7 +164,7 @@ const TradingChartInner = ({
       className={
         isFallbackFullscreen
           ? "fixed inset-0 isolate z-(--z-overlay) flex flex-col overflow-hidden"
-          : "chart-panel relative isolate panel-contain flex flex-1 h-full flex-col p-panel"
+          : "chart-panel relative isolate panel-contain flex flex-1 h-full flex-col"
       }
     >
       <Surface
@@ -173,19 +173,22 @@ const TradingChartInner = ({
         radius="panel"
         className={
           isFallbackFullscreen
-            ? "pointer-events-none absolute inset-0 -z-10 rounded-none glass-no-specular"
-            : "pointer-events-none absolute inset-0 -z-10 glass-no-specular"
-        }
-      />
-      <div
-        className={
-          isFallbackFullscreen
-            ? "w-full h-full max-w-8xl mx-auto flex flex-col"
-            : "flex-1 flex flex-col gap-2"
+            ? "flex h-full w-full flex-col rounded-none"
+            : isFullscreen
+              ? "flex flex-1 min-h-0 flex-col"
+              : "flex flex-1 min-h-0 flex-col p-panel"
         }
       >
-        {chartContent}
-      </div>
+        <div
+          className={
+            isFallbackFullscreen
+              ? "w-full h-full max-w-8xl mx-auto flex flex-col"
+              : "flex-1 flex flex-col gap-2"
+          }
+        >
+          {chartContent}
+        </div>
+      </Surface>
     </div>
   );
 

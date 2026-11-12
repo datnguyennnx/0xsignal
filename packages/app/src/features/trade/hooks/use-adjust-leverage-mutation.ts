@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useConnection } from "wagmi";
 import { toast } from "sonner";
 import type { UpdateLeverageRequest } from "@/services/api";
-import { submitUpdateLeverage } from "@/services/exchange";
 import {
   cancelAndInvalidateUserQueries,
   adjustLeverageUserQueryKeys,
@@ -41,10 +40,11 @@ export function useAdjustLeverageMutation({
   }, []);
 
   const mutation = useMutation({
-    mutationFn: (params: UpdateLeverageRequest) => {
+    mutationFn: async (params: UpdateLeverageRequest) => {
       if (address === undefined) {
         throw new UnauthenticatedError("Connect a wallet to update leverage");
       }
+      const { submitUpdateLeverage } = await import("@/services/exchange");
       return submitUpdateLeverage(params, {
         address,
         chainId,

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { QUOTE_ASSET } from "@/core/utils/hyperliquid";
 import { formatAxis, formatCompactUsd } from "@/core/utils/formatters";
+import { FieldRow } from "./shared-table-components";
 
 interface OrderFormSummaryProps {
   orderValue: number;
@@ -22,22 +23,20 @@ export function OrderFormSummary({
   return (
     <>
       <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between py-1">
-          <span className="type-label text-muted-foreground">Order Value</span>
-          <span className="type-label tabular-nums text-foreground">
-            {orderValue > 0
+        <FieldRow
+          label="Order Value"
+          value={
+            orderValue > 0
               ? sizeAsset === QUOTE_ASSET
                 ? formatCompactUsd(orderValue)
                 : `${formatAxis(orderValue)} ${sizeAsset}`
-              : "—"}
-          </span>
-        </div>
-        <div className="flex items-center justify-between py-1">
-          <span className="type-label text-muted-foreground">Margin Required</span>
-          <span className="type-label tabular-nums text-foreground">
-            {marginRequired > 0 ? formatCompactUsd(marginRequired) : "—"}
-          </span>
-        </div>
+              : "—"
+          }
+        />
+        <FieldRow
+          label="Margin Required"
+          value={marginRequired > 0 ? formatCompactUsd(marginRequired) : "—"}
+        />
       </div>
 
       <Button

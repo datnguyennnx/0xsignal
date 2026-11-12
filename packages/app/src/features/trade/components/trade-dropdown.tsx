@@ -42,7 +42,7 @@ const TradeDropdownFn = ({
   const [sortDesc, setSortDesc] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const { data, isLoading, error, dataUpdatedAt } = useTradeList(isOpen);
+  const { data, state, refetch, error, dataUpdatedAt } = useTradeList(isOpen);
 
   useHyperliquidWs({
     subscription: isOpen ? ALL_MIDS_SUBSCRIPTION : null,
@@ -184,8 +184,10 @@ const TradeDropdownFn = ({
               rows={rows}
               currentSymbol={currentSymbol}
               dataVersion={dataUpdatedAt}
-              isLoading={isLoading}
-              hasError={!!error}
+              state={state}
+              onRetry={() => {
+                void refetch();
+              }}
               onSelect={handleSelect}
               onScroll={onScroll}
               scrollRef={scrollRef}

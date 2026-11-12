@@ -7,54 +7,16 @@ import { SurfaceContext } from "@/components/surface/surface-context";
 import { surfaceAttrs } from "@/components/surface/tiers";
 import { withViewTransition } from "@/lib/view-transition";
 import { XIcon } from "lucide-react";
-
-/** A portalled overlay is not nested in the page's surfaces, whatever triggered it. */
-const PORTAL_ANCESTORS = [] as const;
-
-/** Above every piece of app chrome: header, mobile panel, save bar. */
-const DIALOG_LAYER = "var(--z-overlay)";
+import { PORTAL_ANCESTORS, overlayZ } from "./overlay-layer";
 
 type DialogOpenChange = NonNullable<DialogPrimitive.Root.Props["onOpenChange"]>;
-type DialogOpenChangeDetails = Parameters<DialogOpenChange>[1];
-
-/** What asked the dialog to close: `outside-press`, `escape-key`, `close-press`, … */
-type DialogDismissReason = DialogOpenChangeDetails["reason"];
-
-type EscapeChangeDetails = Extract<DialogOpenChangeDetails, { reason: "escape-key" }>;
-
-/** Base UI owns `cancel`/`allowPropagation` off this path: it only reports the gesture. */
-function escapeChangeDetails(event: KeyboardEvent): EscapeChangeDetails {
-  return {
-    reason: "escape-key",
-    event,
-    cancel: () => {},
-    allowPropagation: () => {},
-    isCanceled: false,
-    isPropagationAllowed: false,
-    trigger: document.activeElement ?? undefined,
-    preventUnmountOnClose: () => {},
-  };
-}
 
 type DialogRuntime = {
   /** 0 for the page's dialog, +1 per nested modal: it drives both layer and morph. */
   depth: number;
-  dismiss: (reason: DialogDismissReason, event: Event) => void;
 };
 
-type OpenDialog = Pick<DialogRuntime, "dismiss">;
-
 const DialogRuntimeContext = React.createContext<DialogRuntime | null>(null);
-
-/** Open dialogs in mount order: the last one is topmost, and only it owns Escape. */
-const openDialogs: OpenDialog[] = [];
-
-function isInsideOpenMenu(target: EventTarget | null) {
-  return (
-    target instanceof Element &&
-    target.closest('[data-slot="dropdown-menu-content"][data-open]') !== null
-  );
-}
 
 type LayeredStyle<S> =
   | React.CSSProperties
@@ -67,117 +29,35 @@ function withLayer<S>(style: LayeredStyle<S>, zIndex: number | string) {
   return { ...style, zIndex };
 }
 
-/** A modal stacks over the dialog: its own capture listener owns the key there. */
-function isModalOpen() {
-  return document.querySelector('[data-slot="modal-content"][data-open]') !== null;
-}
-
-function handleDocumentEscape(event: KeyboardEvent) {
-  if (event.key !== "Escape") return;
-  if (isModalOpen()) return;
-  // A menu layered over the dialog keeps the key: its own dismissal runs first.
-  if (isInsideOpenMenu(event.target)) return;
-  const topmost = openDialogs.at(-1);
-  if (topmost === undefined) return;
-  event.stopPropagation();
-  topmost.dismiss("escape-key", event);
-}
-
-let escapeListenerBound = false;
-
-function syncEscapeListener() {
-  const shouldBind = openDialogs.length > 0;
-  if (shouldBind === escapeListenerBound) return;
-  if (shouldBind) document.addEventListener("keydown", handleDocumentEscape, true);
-  else document.removeEventListener("keydown", handleDocumentEscape, true);
-  escapeListenerBound = shouldBind;
-}
-
 function Dialog({
-  open: openProp,
+  open,
   defaultOpen,
   onOpenChange,
   children,
   ...props
 }: DialogPrimitive.Root.Props) {
-  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen ?? false);
-  const isControlled = openProp !== undefined;
-  const open = isControlled ? openProp : uncontrolledOpen;
-
-  const openRef = React.useRef(open);
-
   const parent = React.useContext(DialogRuntimeContext);
   const depth = parent === null ? 0 : parent.depth + 1;
 
-  const applyOpen = React.useCallback(
-    (next: boolean) => {
-      if (!isControlled) setUncontrolledOpen(next);
-    },
-    [isControlled],
-  );
-
   const handleOpenChange = React.useCallback<DialogOpenChange>(
     (next, eventDetails) => {
-      openRef.current = next;
-      const apply = () => {
-        applyOpen(next);
-        onOpenChange?.(next, eventDetails);
-      };
+      const apply = () => onOpenChange?.(next, eventDetails);
       // Only opening morphs; closing keeps its exit animation so focus returns at once.
       if (next && depth === 0) withViewTransition(apply);
       else apply();
     },
-    [applyOpen, depth, onOpenChange],
+    [depth, onOpenChange],
   );
 
-  const dismiss = React.useCallback<DialogRuntime["dismiss"]>(
-    (reason, event) => {
-      if (!openRef.current) return;
-      openRef.current = false;
-      applyOpen(false);
-      if (reason === "escape-key" && event instanceof KeyboardEvent) {
-        onOpenChange?.(false, escapeChangeDetails(event));
-      }
-    },
-    [applyOpen, onOpenChange],
-  );
-
-  // Stable identity: the stack is ordered by mount, never by re-render.
-  const dismissRef = React.useRef(dismiss);
-  React.useEffect(() => {
-    dismissRef.current = dismiss;
-  }, [dismiss]);
-
-  const [entry] = React.useState<OpenDialog>(() => ({
-    dismiss: (reason, event) => {
-      dismissRef.current(reason, event);
-    },
-  }));
-
-  const runtime = React.useMemo<DialogRuntime>(() => ({ depth, dismiss }), [depth, dismiss]);
-
-  React.useEffect(() => {
-    openRef.current = open;
-  }, [open]);
-
-  React.useEffect(() => {
-    if (open) {
-      openDialogs.push(entry);
-      syncEscapeListener();
-    }
-    return () => {
-      const index = openDialogs.lastIndexOf(entry);
-      if (index !== -1) openDialogs.splice(index, 1);
-      syncEscapeListener();
-    };
-  }, [open, entry]);
+  const runtime = React.useMemo<DialogRuntime>(() => ({ depth }), [depth]);
 
   return (
     <DialogRuntimeContext.Provider value={runtime}>
       <DialogPrimitive.Root
         data-slot="dialog"
         {...props}
-        open={open}
+        // Controlled only when the caller owns `open`; otherwise Base UI holds the state.
+        {...(open === undefined ? { defaultOpen } : { open })}
         onOpenChange={handleOpenChange}
       >
         {children}
@@ -216,7 +96,7 @@ function DialogOverlay({ className, style, ...props }: DialogPrimitive.Backdrop.
         !isNested && "bg-(--scrim)",
         className,
       )}
-      style={withLayer(style, `calc(${DIALOG_LAYER} + ${depth * 2})`)}
+      style={withLayer(style, overlayZ(depth * 2))}
       {...props}
     />
   );
@@ -239,7 +119,7 @@ function DialogContent({
   const canClose = showCloseButton && layout !== "workspace";
   // A nested modal must not reuse the `dialog` snapshot name: both would be captured into the top layer.
   const isNested = depth > 0;
-  const surface = surfaceAttrs(
+  const { className: surfaceClass, ...surface } = surfaceAttrs(
     layout === "workspace"
       ? { tier: "floating", material: "plate", depth: PORTAL_ANCESTORS.length }
       : {
@@ -259,25 +139,25 @@ function DialogContent({
           data-layout={layout}
           {...surface}
           className={cn(
-            "tier-floating fixed inset-0 m-auto grid grid-rows-[auto_minmax(0,1fr)_auto] gap-panel overflow-hidden rounded-overlay p-panel type-body text-popover-foreground outline-none data-open:duration-[240ms] data-open:animate-in data-open:fade-in-0 data-closed:duration-[160ms] data-closed:animate-out data-closed:fade-out-0",
-            // A dialog sizes to its content. `inset-0` alone stretches a fixed box to
-            // the viewport, so `h-fit` is what keeps the frame compact and centred.
-            layout === "workspace" ? "h-(--workspace-h)" : "h-fit max-h-[min(80dvh,42rem)]!",
+            surfaceClass,
+            "fixed inset-0 m-auto grid grid-rows-[auto_minmax(0,1fr)_auto] gap-panel overflow-hidden rounded-overlay p-panel type-body text-popover-foreground outline-none data-open:duration-[240ms] data-open:animate-in data-open:fade-in-0 data-closed:duration-[160ms] data-closed:animate-out data-closed:fade-out-0",
+            // `inset-0` alone stretches a fixed box to the viewport; `h-fit` keeps it compact.
+            // Sizing caps live in `styles/utilities.css` under `[data-layout]`.
+            layout === "workspace" ? "h-(--workspace-h)" : "h-fit",
             !isNested && "[view-transition-name:dialog]",
             className,
           )}
-          style={withLayer(style, `calc(${DIALOG_LAYER} + ${depth * 2 + 1})`)}
+          style={withLayer(style, overlayZ(depth * 2 + 1))}
           {...props}
         >
           {children}
           {canClose && (
-            <DialogPrimitive.Close
-              data-slot="dialog-close"
-              render={<Button variant="ghost" className="absolute top-1 right-1" size="icon" />}
+            <DialogClose
+              render={<Button variant="dismiss" className="absolute top-1 right-1" size="icon" />}
             >
               <XIcon />
               <span className="sr-only">Close</span>
-            </DialogPrimitive.Close>
+            </DialogClose>
           )}
         </DialogPrimitive.Popup>
       </SurfaceContext.Provider>

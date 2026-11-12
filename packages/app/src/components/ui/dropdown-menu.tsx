@@ -6,12 +6,10 @@ import { cn } from "cn";
 import { SurfaceContext } from "@/components/surface/surface-context";
 import { surfaceAttrs } from "@/components/surface/tiers";
 import { CheckIcon } from "lucide-react";
-
-/** A portalled overlay is not nested in the page's surfaces, whatever triggered it. */
-const PORTAL_ANCESTORS = [] as const;
+import { overlayZ, PORTAL_ANCESTORS } from "./overlay-layer";
 
 /** Must clear a dialog popup through realistic nesting. */
-const POPOVER_LAYER = "calc(var(--z-overlay) + 90)";
+const POPOVER_LAYER = overlayZ(90);
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
   return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
@@ -32,7 +30,7 @@ function DropdownMenuContent({
 }: MenuPrimitive.Popup.Props &
   Pick<MenuPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
   const depth = useContext(SurfaceContext).length;
-  const surface = surfaceAttrs({
+  const { className: surfaceClass, ...surface } = surfaceAttrs({
     tier: "floating",
     material: depth > 0 ? "plate" : "glass",
     depth,
@@ -42,7 +40,7 @@ function DropdownMenuContent({
     <MenuPrimitive.Portal>
       <SurfaceContext.Provider value={PORTAL_ANCESTORS}>
         <MenuPrimitive.Positioner
-          className="isolate outline-none"
+          className="outline-none"
           style={{ zIndex: POPOVER_LAYER }}
           align={align}
           alignOffset={alignOffset}
@@ -53,8 +51,8 @@ function DropdownMenuContent({
             data-slot="dropdown-menu-content"
             {...surface}
             className={cn(
-              surface.className,
-              "z-50 max-h-(--available-height) w-(--anchor-width) min-w-(--popover-min-w) overflow-x-hidden overflow-y-auto rounded-overlay p-1 type-body text-popover-foreground outline-none data-open:duration-[200ms] data-open:animate-in data-open:fade-in-0 data-closed:duration-[140ms] data-closed:animate-out data-closed:overflow-hidden data-closed:fade-out-0",
+              surfaceClass,
+              "max-h-(--available-height) w-(--anchor-width) min-w-(--popover-min-w) overflow-x-hidden overflow-y-auto rounded-overlay p-1 type-body text-popover-foreground outline-none data-open:duration-[200ms] data-open:animate-in data-open:fade-in-0 data-closed:duration-[140ms] data-closed:animate-out data-closed:overflow-hidden data-closed:fade-out-0",
               className,
             )}
             {...props}

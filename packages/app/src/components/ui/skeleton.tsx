@@ -6,7 +6,7 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="skeleton"
       aria-hidden="true"
       className={cn(
-        "content-fade animate-pulse motion-reduce:animate-none rounded-control bg-muted/60",
+        "content-fade state-delay motion-reduce:animate-none rounded-control bg-muted/60",
         className,
       )}
       {...props}

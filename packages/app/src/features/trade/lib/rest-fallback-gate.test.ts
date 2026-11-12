@@ -1,7 +1,9 @@
 /// <reference types="bun-types" />
 import { afterEach, describe, expect, jest, test } from "bun:test";
 
-import { createRestFallbackGate, USER_STREAM_REST_GRACE_MS } from "./rest-fallback-gate";
+import { createRestFallbackGate } from "./rest-fallback-gate";
+
+const USER_STREAM_REST_GRACE_MS = 800;
 
 afterEach(() => {
   jest.useRealTimers();

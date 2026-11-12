@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useConnection } from "wagmi";
 import { toast } from "sonner";
 import type { UpdateLeverageRequest } from "@/services/api";
-import { submitUpdateLeverage } from "@/services/exchange";
 import { cancelAndInvalidateUserQueries, marginModeUserQueryKeys } from "./user-query-invalidation";
 import { UnauthenticatedError } from "@/lib/api-base";
 import { useAppStore } from "@/stores/use-app-store";
@@ -36,10 +35,11 @@ export function useMarginModeMutation({
   }, []);
 
   const mutation = useMutation({
-    mutationFn: (params: UpdateLeverageRequest) => {
+    mutationFn: async (params: UpdateLeverageRequest) => {
       if (address === undefined) {
         throw new UnauthenticatedError("Connect a wallet to update margin mode");
       }
+      const { submitUpdateLeverage } = await import("@/services/exchange");
       return submitUpdateLeverage(params, {
         address,
         chainId,

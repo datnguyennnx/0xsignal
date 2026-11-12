@@ -11,10 +11,10 @@ import { parseSignature } from "viem";
  * "Exchange" plus an opaque bytes32, so the user cannot verify the action.
  * Every field below is therefore part of the app's last line of defence.
  */
-export const EXCHANGE_DOMAIN_NAME = "Exchange";
-export const EXCHANGE_DOMAIN_VERSION = "1";
-export const EXCHANGE_DOMAIN_CHAIN_ID = 1337;
-export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+const EXCHANGE_DOMAIN_NAME = "Exchange";
+const EXCHANGE_DOMAIN_VERSION = "1";
+const EXCHANGE_DOMAIN_CHAIN_ID = 1337;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const ARBITRUM_CHAIN_ID = 42161;
 
 const USER_SIGNED_DOMAIN_NAME = "HyperliquidSignTransaction";

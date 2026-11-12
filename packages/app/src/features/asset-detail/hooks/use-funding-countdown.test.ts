@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { cast } from "@0xsignal/sdk-hyperliquid";
 import type { PredictedFundingsInfoResponse } from "@0xsignal/sdk-hyperliquid/info";
-import { formatCountdown, nextUtcHourMs, selectNextFundingTime } from "./use-funding-countdown";
+import { toCountdown } from "../utils/format";
+import { nextUtcHourMs, selectNextFundingTime } from "./use-funding-countdown";
 
 const data = cast<PredictedFundingsInfoResponse>(
   [
@@ -19,15 +20,15 @@ const data = cast<PredictedFundingsInfoResponse>(
 
 describe("formatCountdown", () => {
   test("clamps a target in the past to zero", () => {
-    expect(formatCountdown(-5_000)).toBe("00:00:00");
+    expect(toCountdown(-5_000)).toBe("00:00:00");
   });
 
   test("renders minutes and seconds", () => {
-    expect(formatCountdown(90_000)).toBe("00:01:30");
+    expect(toCountdown(90_000)).toBe("00:01:30");
   });
 
   test("renders hours past the hour", () => {
-    expect(formatCountdown(3_661_000)).toBe("01:01:01");
+    expect(toCountdown(3_661_000)).toBe("01:01:01");
   });
 });
 

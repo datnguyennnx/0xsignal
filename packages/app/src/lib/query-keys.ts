@@ -15,6 +15,9 @@ export const queryKeys = {
     meta: () => [...queryKeys.market.all, "meta"] as const,
     candles: (symbol: string, interval: string, limit: number) =>
       [...queryKeys.market.all, "candles", symbol, interval, limit] as const,
+    /** REST seed for the live book; keyed by the store key, not the raw coin. */
+    orderbookSeed: (storeKey: string) =>
+      [...queryKeys.market.all, "orderbook", "seed", storeKey] as const,
   },
 
   asset: {
@@ -22,21 +25,26 @@ export const queryKeys = {
     price: (symbol: string) => [...queryKeys.asset.all, "price", symbol] as const,
     annotation: (coin: string) => [...queryKeys.asset.all, "annotation", coin] as const,
     logo: (symbol: string) => [...queryKeys.asset.all, "logo", symbol.toUpperCase()] as const,
+    /** Predicted-funding epoch shared by every countdown for the same coin. */
+    nextFunding: (coin: string) => [...queryKeys.asset.all, "next-funding", coin] as const,
   },
 
   user: {
     all: ["user"] as const,
-    agentRegistrations: (address: string) => ["user", "agentRegistrations", address] as const,
-    clearinghouseState: (address: string) => ["user", "clearinghouseState", address] as const,
+    agentRegistrations: (address: string) =>
+      [...queryKeys.user.all, "agentRegistrations", address] as const,
+    clearinghouseState: (address: string) =>
+      [...queryKeys.user.all, "clearinghouseState", address] as const,
     spotClearinghouseState: (address: string) =>
-      ["user", "spotClearinghouseState", address] as const,
-    openOrders: (address: string) => ["user", "openOrders", address] as const,
-    historicalOrders: (address: string) => ["user", "historicalOrders", address] as const,
-    fills: (address: string) => ["user", "fills", address] as const,
-    portfolio: (address: string) => ["user", "portfolio", address] as const,
-    vaultEquities: (address: string) => ["user", "vaultEquities", address] as const,
+      [...queryKeys.user.all, "spotClearinghouseState", address] as const,
+    openOrders: (address: string) => [...queryKeys.user.all, "openOrders", address] as const,
+    historicalOrders: (address: string) =>
+      [...queryKeys.user.all, "historicalOrders", address] as const,
+    fills: (address: string) => [...queryKeys.user.all, "fills", address] as const,
+    portfolio: (address: string) => [...queryKeys.user.all, "portfolio", address] as const,
+    vaultEquities: (address: string) => [...queryKeys.user.all, "vaultEquities", address] as const,
     userFunding: (address: string, startTime?: number, endTime?: number) =>
-      ["user", "userFunding", address, startTime, endTime] as const,
+      [...queryKeys.user.all, "userFunding", address, startTime, endTime] as const,
   },
 
   calendar: {

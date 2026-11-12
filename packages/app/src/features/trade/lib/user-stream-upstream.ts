@@ -14,10 +14,10 @@ const USER_STREAM_WS_URL = "wss://api.hyperliquid.xyz/ws";
  * sleep the socket can report OPEN while the peer already forgot the
  * connection, so only a forced reconnect (never a close) revives it.
  */
-export const STALE_UPSTREAM_MS = 65_000;
+const STALE_UPSTREAM_MS = 65_000;
 
 /** A burst of resume events must not thrash the socket. */
-export const RECONNECT_COOLDOWN_MS = 5_000;
+const RECONNECT_COOLDOWN_MS = 5_000;
 
 type SdkSubscription = Parameters<WsClient["subscribe"]>[0];
 type SdkHandle = ReturnType<WsClient["subscribe"]>;

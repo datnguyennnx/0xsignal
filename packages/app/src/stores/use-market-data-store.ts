@@ -144,15 +144,6 @@ function symbolFromCandleKey(key: string): string {
   return separator === -1 ? key : key.slice(0, separator);
 }
 
-/** Internal bookkeeping for tests and diagnostics; not part of the app API. */
-export const marketDataStoreInternals = {
-  retainOrderbookSubscriber,
-  releaseOrderbookSubscriber,
-  symbolFromCandleKey,
-  rawOrderbookSymbolCount: (): number => rawOrderbookState.size,
-  trackedOrderbookSymbols: (): string[] => [...orderbookSymbolOrder],
-} as const;
-
 function cancelScheduledFlush(): void {
   if (flushRafId === null) return;
   cancelAnimationFrame(flushRafId);

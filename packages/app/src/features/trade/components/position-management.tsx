@@ -1,18 +1,20 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Surface } from "@/components/surface/surface";
 import { Tabs, TabsList } from "@/components/ui/tabs";
+import { useOwnAddress } from "@/hooks/use-effective-address";
+import { useAppStore } from "@/stores/use-app-store";
 import { PositionManagementPanels, PositionTabTriggers } from "./position-management-panels";
 import { PositionManagementModals } from "./position-management-modals";
 import { SigningDisabledNotice, PositionManagementScrollEdge } from "./position-management-chrome";
+import { BalanceTable } from "./balance-table";
 import { usePositionManagementData } from "../hooks/use-position-management-data";
 import { usePositionModalsState } from "../hooks/use-position-modals-state";
 import { usePositionActions } from "../hooks/use-position-actions";
-
-const PANEL_SURFACE = "p-3 gap-3";
+import { POSITION_PANEL_FILL_CLASS, POSITION_PANEL_FLOW_CLASS } from "./position-management-model";
 
 const ROOT_CLASS = {
-  fill: `h-full min-h-0 flex flex-col overflow-y-auto ${PANEL_SURFACE}`,
-  flow: `flex flex-col ${PANEL_SURFACE}`,
+  fill: POSITION_PANEL_FILL_CLASS,
+  flow: POSITION_PANEL_FLOW_CLASS,
 };
 
 const TABS_SURFACE = "flex flex-col gap-1";
@@ -22,12 +24,48 @@ const TABS_CLASS = {
   flow: TABS_SURFACE,
 };
 
-export function PositionManagement({
+const CONNECT_KEY = "trade-position-management";
+
+const ConnectWalletDialogLazy = lazy(() =>
+  import("@/components/connect-wallet-dialog").then((m) => ({ default: m.ConnectWalletDialog })),
+);
+
+/** No account on this route: one content-sized panel, no tab shell and no wallet queries. */
+function PositionManagementEmpty() {
+  const isConnectOpen = useAppStore((s) => s.connectWalletOpen[CONNECT_KEY] ?? false);
+
+  return (
+    <Surface tier="content" radius="panel" className={ROOT_CLASS.flow}>
+      <BalanceTable
+        isChLoading={false}
+        marginSummary={null}
+        positions={[]}
+        usdcTotalBalance={0}
+        usdcAvailableBalance={0}
+        totalUnrealizedPnl={0}
+        effectiveAccountTotal={0}
+        effectiveAvailableBalance={0}
+      />
+      {isConnectOpen && (
+        <Suspense fallback={null}>
+          <ConnectWalletDialogLazy
+            open={true}
+            onOpenChange={(open) => {
+              if (!open) useAppStore.getState().closeConnectWallet(CONNECT_KEY);
+            }}
+          />
+        </Suspense>
+      )}
+    </Surface>
+  );
+}
+
+function PositionManagementConnected({
   readOnlyAddress,
-  variant = "fill",
+  variant,
 }: {
-  readOnlyAddress?: string | undefined;
-  variant?: "fill" | "flow";
+  readOnlyAddress: string | undefined;
+  variant: "fill" | "flow";
 }) {
   const {
     readOnly,
@@ -113,4 +151,20 @@ export function PositionManagement({
       />
     </Surface>
   );
+}
+
+export function PositionManagement({
+  readOnlyAddress,
+  variant = "fill",
+}: {
+  readOnlyAddress?: string | undefined;
+  variant?: "fill" | "flow";
+}) {
+  const ownAddress = useOwnAddress();
+
+  if (readOnlyAddress === undefined && ownAddress === undefined) {
+    return <PositionManagementEmpty />;
+  }
+
+  return <PositionManagementConnected readOnlyAddress={readOnlyAddress} variant={variant} />;
 }

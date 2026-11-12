@@ -7,14 +7,15 @@ import { mnemonicToAccount } from "viem/accounts";
 import { buildOrderAction } from "./client";
 import {
   ARBITRUM_CHAIN_ID,
-  EXCHANGE_DOMAIN_CHAIN_ID,
-  EXCHANGE_DOMAIN_NAME,
-  EXCHANGE_DOMAIN_VERSION,
-  ZERO_ADDRESS,
   WrongChainError,
   createGuardedWallet,
   type GuardedWalletDeps,
 } from "./typed-data-guard";
+
+const EXCHANGE_DOMAIN_NAME = "Exchange";
+const EXCHANGE_DOMAIN_VERSION = "1";
+const EXCHANGE_DOMAIN_CHAIN_ID = 1337;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const account = mnemonicToAccount("test test test test test test test test test test test junk");
 

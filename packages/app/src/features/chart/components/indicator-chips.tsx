@@ -27,7 +27,12 @@ export const IndicatorChips = memo(function IndicatorChips({ indicators }: Indic
 
   return (
     <div className="absolute top-12 left-2 right-2 z-20 pointer-events-none">
-      <div className="flex flex-nowrap overflow-x-auto scrollbar-hide items-center gap-1 pointer-events-auto py-0.5 -my-0.5">
+      <Surface
+        tier="floating"
+        radius="overlay"
+        material="plate"
+        className="flex flex-nowrap overflow-x-auto scrollbar-hide items-center gap-1 pointer-events-auto py-0.5 -my-0.5"
+      >
         {indicators.map((indicator) => {
           const style: CSSProperties & Record<"--series-color", string> = {
             "--series-color": `var(${seriesToken(indicator.instanceId)})`,
@@ -37,19 +42,10 @@ export const IndicatorChips = memo(function IndicatorChips({ indicators }: Indic
               key={indicator.instanceId}
               style={style}
               className={cn(
-                "relative flex items-center gap-1 rounded-overlay bg-transparent px-2 py-1 type-data shrink-0",
+                "relative flex items-center gap-1 px-2 py-1 type-data shrink-0",
                 indicator.visible ? "text-foreground" : "text-muted-foreground",
               )}
             >
-              <Surface
-                tier="floating"
-                radius="overlay"
-                material="none"
-                variant="clear"
-                overMedia
-                dim
-                className="pointer-events-none absolute inset-0 -z-10"
-              />
               <span className="h-2 w-2 rounded-full shrink-0 bg-(--series-color)" />
               <span className="max-w-[clamp(5rem,25vw,7.5rem)] truncate">
                 {toChipLabel(indicator)}
@@ -57,7 +53,7 @@ export const IndicatorChips = memo(function IndicatorChips({ indicators }: Indic
             </div>
           );
         })}
-      </div>
+      </Surface>
     </div>
   );
 });

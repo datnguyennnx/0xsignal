@@ -1,3 +1,14 @@
+/*
+ * Settings shell: one measure for the page container, so the title block and the
+ * card share their left/right edges and the card's fluid track fills the shell
+ * instead of stranding a fixed 64rem content column. The nav rail is fixed, so
+ * the content track is the only thing that grows.
+ */
+:root {
+  --measure-settings: clamp(48rem, 84vw, 80rem);
+  --settings-nav-w: 16rem;
+}
+
 @layer utilities {
   .h-control {
     height: var(--control-h);
@@ -225,6 +236,19 @@
     transition: opacity var(--dur-fade) var(--ease-out);
   }
 
+  /*
+   * Hold the placeholder at zero opacity for 300ms, so a load that resolves
+   * faster than that never flashes a skeleton. Pure CSS, no timer to cancel.
+   */
+  .state-delay {
+    animation: state-delay-pulse 2s var(--ease-in-out) 300ms infinite both;
+  }
+
+  /* One entry beat for a state region; the live region speaks for the change. */
+  .state-enter {
+    animation: state-enter 160ms var(--ease-out) both;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     /* Hard cut: fully visible instantly, no travel and no fade-from-zero. */
     .content-enter {
@@ -233,6 +257,15 @@
 
     .content-fade {
       transition: none;
+    }
+
+    /* No motion: show the placeholder at rest instead of delaying it. */
+    .state-delay {
+      animation: none;
+    }
+
+    .state-enter {
+      animation: none;
     }
   }
 
@@ -297,19 +330,12 @@
     box-shadow: none;
   }
 
-  .scrollbar-hide {
+  /* One rule, two spellings: `scrollbar-hide` is the alias older call sites kept. */
+  :is(.scrollbar-hide, .scrollbar-none) {
     scrollbar-width: none;
   }
 
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-
-  .scrollbar-none {
-    scrollbar-width: none;
-  }
-
-  .scrollbar-none::-webkit-scrollbar {
+  :is(.scrollbar-hide, .scrollbar-none)::-webkit-scrollbar {
     display: none;
   }
 
@@ -341,8 +367,16 @@
     overscroll-behavior: none;
   }
 
-  .scrim {
-    background: var(--scrim);
+  /* `scrim` is written by callers; `tier-scrim` is the class the tier table emits. */
+  :is(.scrim, .tier-scrim) {
+    background-color: var(--scrim);
+  }
+
+  /* The selected page of a pagination control; one owner for that state. */
+  .page-selected {
+    background-color: var(--control-active-bg);
+    color: var(--foreground);
+    box-shadow: var(--rim-line);
   }
 
   .ambient-canvas {
@@ -411,12 +445,16 @@
     box-shadow: var(--well-shadow);
   }
 
-  .tier-control[data-material="glass"]:not([class*="bg-gain"]):not([class*="bg-loss"]):not(
-      [class*="bg-primary"]
-    ) {
+  /*
+   * A control's rest state is the input's rest state: the same `--control-bg` fill,
+   * `--control-border` border and `--shadow-e1` lift, one shared recipe. Only hover/active
+   * tint toward the moss accent; the surface never becomes an opaque raised plate.
+   */
+  .tier-control[data-material]:not([data-material="none"]) {
     background-color: var(--control-bg);
-    background-image: var(--control-sheen);
-    box-shadow: var(--rim-specular), var(--rim-line), var(--shadow-e1);
+    background-image: none;
+    border-color: var(--control-border);
+    box-shadow: var(--shadow-e1);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     transition:
@@ -426,33 +464,45 @@
       transform var(--dur-fast) var(--ease-out);
   }
 
-  .tier-control[data-material="glass"]:not([class*="bg-gain"]):not([class*="bg-loss"]):not(
-      [class*="bg-primary"]
-    ):hover {
-    background-color: var(--control-hover-bg);
-    box-shadow:
-      var(--rim-specular),
-      /* control-border is 6.6pp stronger than --rim-line's --border */
-      inset 0 0 0 1px var(--control-border),
-      var(--shadow-e1);
-  }
-
-  .tier-control[data-material="glass"]:not([class*="bg-gain"]):not([class*="bg-loss"]):not(
-      [class*="bg-primary"]
-    ):is([data-state="active"], [aria-pressed="true"], [data-active]:not([data-active="false"])) {
-    background-color: var(--control-active-bg);
-    box-shadow:
-      /* control-active-rim is green-accent, not the neutral specular */
-      inset 0 1px 0 var(--control-active-rim),
-      var(--rim-line),
-      var(--shadow-press);
-  }
-
-  .tier-well
-    :is([data-active]:not([data-active="false"]), [data-state="active"], [aria-pressed="true"]):not(
-      [data-semantic-fill]
+  .tier-control[data-material]:not([data-material="none"]):hover:not(:disabled):not(
+      [aria-disabled="true"]
     ) {
+    background-color: color-mix(in oklab, var(--accent) 55%, var(--control-bg));
+    border-color: color-mix(in oklab, var(--control-active-rim) 60%, var(--control-border));
+    box-shadow: var(--shadow-e1);
+  }
+
+  .tier-control[data-material]:not([data-material="none"]):is(
+      :active:not(:disabled):not([aria-disabled="true"]),
+      [data-state="active"],
+      [aria-pressed="true"],
+      [aria-expanded="true"],
+      [data-active]:not([data-active="false"])
+    ) {
+    background-color: color-mix(in oklab, var(--accent) 80%, var(--control-bg));
+    border-color: var(--control-active-rim);
+    box-shadow: var(--shadow-press);
+  }
+
+  .tier-control[data-material]:not([data-material="none"]):is(:disabled, [aria-disabled="true"]) {
+    background-color: var(--control-bg);
+    background-image: none;
+    border-color: var(--border-subtle);
+    box-shadow: none;
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* One active-pill recipe: a checked segmented label is the same selected state. */
+  .tier-well
+    :is(
+      [data-active]:not([data-active="false"]),
+      [data-state="active"],
+      [aria-pressed="true"],
+      label:has(> input:checked)
+    ):not([data-semantic-fill]) {
     background-color: var(--control-active-bg);
+    color: var(--foreground);
     box-shadow:
       /* control-active-rim is green-accent, not the neutral specular */
       inset 0 1px 0 var(--control-active-rim),
@@ -492,10 +542,6 @@
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     box-shadow: var(--shadow-overlay);
-  }
-
-  .tier-scrim {
-    background-color: var(--scrim);
   }
 
   .glass-no-specular {
@@ -561,16 +607,6 @@
     }
   }
 
-  @media (max-width: 47.999rem) {
-    #side-panel-region > [data-tier] {
-      background-color: var(--card);
-      background-image: none;
-      box-shadow: none;
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
-    }
-  }
-
   @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .tier-floating[data-material="glass"]:not([data-thickness="thick"]) {
       background-color: var(--glass-fill-regular);
@@ -624,21 +660,26 @@
     }
   }
 
-  /* Identity must outrank the glass recipe: three classes tie its 0,3,0 specificity. */
-  .tier-identity.tier-identity.tier-identity {
-    background-color: transparent;
-    border: none;
-    box-shadow: none;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .tier-floating[data-material="glass"] {
       background: var(--glass-fallback-fill);
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
     }
+  }
+}
+
+/*
+ * Identity paints nothing. It sits in its own cascade layer, declared after
+ * `utilities`, so it outranks every glass recipe without specificity tripling.
+ */
+@layer identity {
+  .tier-identity {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
 
@@ -650,6 +691,34 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes state-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/*
+ * The first frame is transparent so `animation-fill-mode: both` hides the
+ * skeleton during its 300ms delay; the brief 8% ramp is the shimmer's arrival.
+ */
+@keyframes state-delay-pulse {
+  0% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
   }
 }
 
@@ -756,4 +825,15 @@
 
 html[data-view-transition="active"] [data-slot="dialog-content"] {
   animation: none !important;
+}
+
+/*
+ * Theme swap: the snapshots cross-fade in place, so nothing reflows and only
+ * opacity animates. `--dur-base` is the 180ms calm step; `a11y.css` stops these
+ * animations outright under `prefers-reduced-motion`.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-out);
 }

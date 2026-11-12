@@ -194,6 +194,30 @@
           }
         ]
       }
+    },
+    {
+      // Build-time Node script: its console output is the report, and the Bun/Node
+      // globals it probes are ambient here rather than app runtime state.
+      "files": ["packages/app/scripts/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      // A portalled, non-modal popover positioned from a measured anchor; a native
+      // <dialog> cannot carry this fixed placement, so the role stays explicit.
+      "files": ["packages/app/src/features/trade/components/trade-dropdown-panel.tsx"],
+      "rules": {
+        "jsx-a11y/prefer-tag-over-role": "off"
+      }
+    },
+    {
+      // No native resizable-splitter element exists; each grip is a focusable
+      // separator that drives the pointer/keyboard resize gesture.
+      "files": ["packages/app/src/features/asset-detail/components/resizable-wrapper.tsx"],
+      "rules": {
+        "jsx-a11y/prefer-tag-over-role": "off"
+      }
     }
   ],
   "ignorePatterns": [

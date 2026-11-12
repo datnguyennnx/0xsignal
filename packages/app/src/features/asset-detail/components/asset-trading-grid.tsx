@@ -1,24 +1,19 @@
 import { lazy, Suspense, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 import { getRootFontSizePx } from "@/core/utils/rem";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Region } from "@/components/region";
 import { Surface } from "@/components/surface/surface";
+import { type AsyncState } from "@/lib/async-state";
+import { WalletProvider } from "@/components/wallet-provider";
 import { OrderbookWidget } from "@/features/trade/components/orderbook-widget";
 import { PositionManagement } from "@/features/trade/components/position-management";
 import { OrderForm } from "@/features/trade/components/order-form";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
+import { preloadChartChunk } from "@/features/chart/lib/preload-chart";
 import { DashboardGrid } from "./dashboard-grid";
 
-const TradingChart = lazy(() =>
-  import("@/features/chart/components/trading-chart").then((m) => ({ default: m.TradingChart })),
-);
-
-const ChartSkeleton = () => (
-  <Surface tier="content" className="h-full w-full flex items-center justify-center">
-    <Skeleton className="h-full w-full rounded-panel bg-muted/60" />
-  </Surface>
-);
+const TradingChart = lazy(() => preloadChartChunk().then((m) => ({ default: m.TradingChart })));
 
 const WIDE_BREAKPOINT_REM = 80;
 
@@ -70,7 +65,6 @@ interface AssetTradingGridProps {
   readonly symbol: string;
   readonly interval: string;
   readonly onIntervalChange: (interval: string) => void;
-  readonly showChartSkeleton: boolean;
   readonly markPrice: number;
 }
 
@@ -78,19 +72,28 @@ export function AssetTradingGrid({
   symbol,
   interval,
   onIntervalChange,
-  showChartSkeleton,
   markPrice,
 }: AssetTradingGridProps) {
   const chartSymbol = symbol.toUpperCase();
   const containerRef = useRef<HTMLDivElement>(null);
   const mode = useContainerMode(containerRef);
-  const { getAssetIndex, isLoading: metaLoading } = useHyperliquidMeta();
+  const { getAssetIndex, state: metaState, refetch: refetchMeta } = useHyperliquidMeta();
   const assetIndex = getAssetIndex(symbol);
 
-  const chartPanel = showChartSkeleton ? (
-    <Skeleton className="h-full w-full rounded-panel" />
-  ) : (
-    <Suspense fallback={<ChartSkeleton />}>
+  // The route preloads the chart chunk, so the chunk boundary itself paints nothing;
+  // the fallback plate holds the panel's box until the chart's own skeleton takes over.
+  const chartPanel = (
+    <Suspense
+      fallback={
+        <Surface
+          tier="content"
+          material="plate"
+          radius="panel"
+          aria-hidden="true"
+          className="h-full min-h-0 w-full"
+        />
+      }
+    >
       <ErrorBoundary resetKey={chartSymbol}>
         <TradingChart
           key={chartSymbol}
@@ -108,27 +111,55 @@ export function AssetTradingGrid({
     </ErrorBoundary>
   );
 
+  // The form's geometry is known, so pending metadata renders no placeholder at all.
+  const orderformState: AsyncState<number> =
+    metaState.status === "loading" || metaState.status === "idle"
+      ? { status: "loading" }
+      : metaState.status === "error"
+        ? metaState
+        : { status: "empty", reason: "no-results" };
+
   const orderformPanel =
     assetIndex === null ? (
       <ErrorBoundary resetKey={symbol}>
         <Surface
           tier="content"
-          className="h-full flex items-center justify-center p-panel text-center type-data text-muted-foreground"
+          material="plate"
+          radius="panel"
+          className="h-full min-h-0 flex flex-col p-panel"
         >
-          {metaLoading
-            ? "Resolving market metadata…"
-            : `Trading is disabled: no Hyperliquid asset index is known for ${symbol}.`}
+          <Region
+            state={orderformState}
+            label={`Order form for ${symbol}`}
+            error={{
+              title: `Trading isn't available for ${symbol}`,
+              description: "Market metadata failed to load.",
+              retry: () => {
+                void refetchMeta();
+              },
+            }}
+            empty={{
+              title: "Trading isn't available",
+              description: `No Hyperliquid asset index is known for ${symbol}.`,
+            }}
+          >
+            {() => null}
+          </Region>
         </Surface>
       </ErrorBoundary>
     ) : (
       <ErrorBoundary resetKey={symbol}>
-        <OrderForm key={symbol} symbol={symbol} assetIndex={assetIndex} markPrice={markPrice} />
+        <WalletProvider>
+          <OrderForm key={symbol} symbol={symbol} assetIndex={assetIndex} markPrice={markPrice} />
+        </WalletProvider>
       </ErrorBoundary>
     );
 
   const positionsPanel = (
     <ErrorBoundary resetKey={symbol}>
-      <PositionManagement />
+      <WalletProvider>
+        <PositionManagement />
+      </WalletProvider>
     </ErrorBoundary>
   );
 
@@ -141,18 +172,10 @@ export function AssetTradingGrid({
            canvas (the page scrolls) instead of clipping a panel. Each panel still scrolls
            internally when its own content exceeds it. */
         <DashboardGrid>
-          <div id="chart" className="h-full min-h-0">
-            {chartPanel}
-          </div>
-          <div id="orderbook" className="h-full min-h-0">
-            {orderbookPanel}
-          </div>
-          <div id="orderform" className="h-full min-h-0">
-            {orderformPanel}
-          </div>
-          <div id="positions" className="h-full min-h-0">
-            {positionsPanel}
-          </div>
+          <div id="chart">{chartPanel}</div>
+          <div id="orderbook">{orderbookPanel}</div>
+          <div id="orderform">{orderformPanel}</div>
+          <div id="positions">{positionsPanel}</div>
         </DashboardGrid>
       ) : (
         /* ===== NARROW (container < 80rem): 2×2 Grid =====
@@ -160,19 +183,17 @@ export function AssetTradingGrid({
            late data cannot resize the rows. */
         <div className="grid flex-1 min-h-0 grid-cols-[7fr_3fr] grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
           {/* Row 1 */}
-          <div className="min-w-0 h-full min-h-0">{chartPanel}</div>
+          <div className="min-w-0">{chartPanel}</div>
 
-          <div className="flex flex-col h-full min-h-0 min-w-0">{orderbookPanel}</div>
+          <div className="flex min-w-0 flex-col">{orderbookPanel}</div>
 
           {/* Row 2 */}
-          {/* The cell stretches the child to the track; each child owns its own scroll. */}
-          <div className="flex flex-col h-full min-h-0 min-w-0 panel-contain-layout">
+          {/* The cell is the region scroller; each child owns its own internals. */}
+          <div className="flex min-h-0 min-w-0 flex-col overflow-y-auto panel-contain-layout">
             {positionsPanel}
           </div>
 
-          <div className="flex flex-col h-full min-h-0 min-w-0 panel-contain-layout">
-            {orderformPanel}
-          </div>
+          <div className="flex min-h-0 min-w-0 flex-col panel-contain-layout">{orderformPanel}</div>
         </div>
       )}
     </div>

@@ -49,36 +49,25 @@ export function DashboardGrid({ children, className = "" }: DashboardGridProps) 
     onRepositionCommit: handleRepositionCommit,
   });
 
-  // Measure before the first paint (a post-paint effect would let a frame render on a
-  // provisional width) and keep tracking later container resizes. Observer bursts are
-  // coalesced into one rAF commit, and a width equal to the last committed one is dropped.
+  // The canvas lays its panels out in percentages, so no measurement feeds a frame.
+  // The width below exists only for the drag/resize gestures (pixels → grid cells),
+  // and the observer's first entry lands before paint.
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (el === null) return () => {};
 
-    let frame = 0;
-    let pendingWidth = 0;
-    let committedWidth = el.getBoundingClientRect().width;
-    setContainerWidth(committedWidth);
-
-    const flush = () => {
-      frame = 0;
-      if (pendingWidth === committedWidth) return;
-      committedWidth = pendingWidth;
-      setContainerWidth(pendingWidth);
-    };
-
+    let committedWidth = 0;
     const observer = new ResizeObserver((entries) => {
       const entry = entries.at(-1);
       if (entry === undefined) return;
-      pendingWidth = entry.contentRect.width;
-      if (pendingWidth === committedWidth || frame !== 0) return;
-      frame = requestAnimationFrame(flush);
+      const width = entry.contentRect.width;
+      if (width === committedWidth) return;
+      committedWidth = width;
+      setContainerWidth(width);
     });
     observer.observe(el);
 
     return () => {
-      if (frame !== 0) cancelAnimationFrame(frame);
       observer.disconnect();
     };
   }, []);
@@ -114,7 +103,11 @@ export function DashboardGrid({ children, className = "" }: DashboardGridProps) 
   const cellStep = cw + GRID_GUTTER_FRACTION;
 
   return (
-    <div ref={containerRef} className={`relative w-full ${className}`} style={canvasStyle}>
+    <div
+      ref={containerRef}
+      className={`container-query relative w-full ${className}`}
+      style={canvasStyle}
+    >
       {/* Panels */}
       {panels.map((panel) => {
         const item = layout.find((li) => li.i === panel.id);

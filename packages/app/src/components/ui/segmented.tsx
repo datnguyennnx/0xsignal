@@ -55,7 +55,6 @@ function Segmented<T extends string>({
               "motion-control relative inline-flex h-full cursor-pointer items-center justify-center gap-(--control-gap) rounded-[calc(var(--radius-control)-var(--seg-inset))] px-(--control-px) font-medium whitespace-nowrap select-none",
               isFill ? "flex-1" : "flex-none",
               "hover:text-foreground focus-ring-has",
-              "has-[:checked]:bg-(--control-active-bg) has-[:checked]:text-foreground has-[:checked]:shadow-[inset_0_1px_0_var(--control-active-rim),inset_0_0_0_1px_var(--border)]",
               isDisabled ? "pointer-events-none opacity-50" : undefined,
             )}
           >
