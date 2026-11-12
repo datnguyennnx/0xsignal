@@ -9,6 +9,7 @@ COPY packages/api/package.json ./packages/api/
 COPY packages/app/package.json ./packages/app/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/auth/package.json ./packages/auth/
+COPY packages/sdk-hyperliquid/package.json ./packages/sdk-hyperliquid/
 
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile
@@ -22,6 +23,7 @@ COPY --from=deps /app ./
 COPY package.json tsconfig.json tsconfig.base.json ./
 COPY packages/app ./packages/app
 COPY packages/shared ./packages/shared
+COPY packages/sdk-hyperliquid ./packages/sdk-hyperliquid
 
 WORKDIR /app/packages/app
 RUN bun run build

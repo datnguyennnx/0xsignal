@@ -10,6 +10,7 @@ COPY packages/api/package.json ./packages/api/
 COPY packages/app/package.json ./packages/app/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/sdk-hyperliquid/package.json ./packages/sdk-hyperliquid/
 
 # Install dependencies with cache mount (frozen lockfile for reproducibility)
 RUN --mount=type=cache,target=/root/.bun/install/cache \
@@ -27,6 +28,7 @@ COPY package.json tsconfig.json tsconfig.base.json ./
 COPY packages/api ./packages/api
 COPY packages/auth ./packages/auth
 COPY packages/shared ./packages/shared
+COPY packages/sdk-hyperliquid ./packages/sdk-hyperliquid
 
 # Fail the image on type errors, as the local build does
 RUN bun run --cwd /app/packages/api typecheck
@@ -49,6 +51,7 @@ COPY packages/api/package.json ./packages/api/
 COPY packages/app/package.json ./packages/app/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/sdk-hyperliquid/package.json ./packages/sdk-hyperliquid/
 
 # Workspace sources are inlined by bun build, so the links to the
 # non-copied packages would only dangle in the runner.
