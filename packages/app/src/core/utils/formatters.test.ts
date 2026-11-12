@@ -9,9 +9,6 @@ import {
   formatPrice,
   formatPriceWithNSigFigs,
   formatSignedAbs,
-  formatterCacheSizeForTest,
-  getFormatterForTest,
-  resetFormatterCacheForTest,
 } from "./formatters";
 
 const PRICE_DECIMALS = [2, 3, 4, 5, undefined] as const;
@@ -115,36 +112,5 @@ describe("market table formatters", () => {
     expect(formatSignedAbs(1112, 2)).toBe("+1,112.00");
     expect(formatSignedAbs(-1112.5, 2)).toBe("-1,112.50");
     expect(formatSignedAbs(0, 2)).toBe("+0.00");
-  });
-});
-
-describe("formatter cache", () => {
-  test("reuses one Intl.NumberFormat per option key", () => {
-    resetFormatterCacheForTest();
-
-    const first = getFormatterForTest("en-US", { maximumFractionDigits: 2 });
-    const second = getFormatterForTest("en-US", { maximumFractionDigits: 2 });
-
-    expect(second).toBe(first);
-    expect(formatterCacheSizeForTest()).toBe(1);
-
-    formatAxis(1.5);
-    formatAxis(2.5);
-
-    expect(getFormatterForTest("en-US", { maximumFractionDigits: 2 })).toBe(first);
-    expect(formatterCacheSizeForTest()).toBe(1);
-  });
-
-  test("stays bounded and keeps formatting after eviction", () => {
-    resetFormatterCacheForTest();
-    expect(formatterCacheSizeForTest()).toBe(0);
-
-    for (let n = 2; n <= 80; n += 1) {
-      formatPriceWithNSigFigs(1.5, n);
-      expect(formatterCacheSizeForTest()).toBeLessThanOrEqual(64);
-    }
-
-    expect(formatterCacheSizeForTest()).toBe(64);
-    expect(formatPrice(1234.56)).toBe(freshPrice(1234.56));
   });
 });

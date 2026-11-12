@@ -1,16 +1,17 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderMarkup } from "../../test/render";
 
 import { ErrorState } from "./error-state";
 import { TableEmptyRow } from "./table-empty-row";
-import { resolveTableState } from "./table-empty-row-logic";
 
 type TableEmptyRowInnerProps = {
   colSpan: number;
-  state?: "loading" | "empty" | "error";
+  status?: "loading" | "ready" | "empty" | "error";
   onRetry?: (() => void) | undefined;
+  emptyTitle?: string;
+  rows?: number;
 };
 
 function renderInner(props: TableEmptyRowInnerProps): ReactElement {
@@ -35,26 +36,12 @@ function findElement(
   return findElement((node.props as { children?: ReactNode }).children, predicate);
 }
 
-describe("resolveTableState", () => {
-  test("loading wins over an error and an empty result", () => {
-    expect(resolveTableState({ isLoading: true, isError: true })).toBe("loading");
-  });
-
-  test("an error wins over an empty result", () => {
-    expect(resolveTableState({ isLoading: false, isError: true })).toBe("error");
-  });
-
-  test("only a settled, successful read is empty", () => {
-    expect(resolveTableState({ isLoading: false, isError: false })).toBe("empty");
-  });
-});
-
 describe("TableEmptyRow states", () => {
   test("the error state forwards its retry callback to the shared ErrorState", () => {
     let calls = 0;
     const tree = renderInner({
       colSpan: 3,
-      state: "error",
+      status: "error",
       onRetry: () => {
         calls += 1;
       },
@@ -71,7 +58,9 @@ describe("TableEmptyRow states", () => {
   });
 
   test("loading renders skeleton rows with a polite live region", () => {
-    const html = renderToStaticMarkup(<TableEmptyRow colSpan={3} state="loading" rows={2} />);
+    const html = renderMarkup(
+      <TableEmptyRow colSpan={3} status="loading" rows={2} emptyTitle="Orders" />,
+    );
 
     expect(html).toContain("<output");
     expect(html).not.toContain('role="status"');
@@ -81,8 +70,8 @@ describe("TableEmptyRow states", () => {
   });
 
   test("error renders the shared alert and retry affordance", () => {
-    const html = renderToStaticMarkup(
-      <TableEmptyRow colSpan={3} state="error" onRetry={() => {}} />,
+    const html = renderMarkup(
+      <TableEmptyRow colSpan={3} status="error" emptyTitle="Orders" onRetry={() => {}} />,
     );
 
     expect(html).toContain('role="alert"');
@@ -90,10 +79,12 @@ describe("TableEmptyRow states", () => {
     expect(html).toContain("Retry");
   });
 
-  test("the existing empty contract still works without a state prop", () => {
-    const html = renderToStaticMarkup(<TableEmptyRow colSpan={3} />);
+  test("the empty state names the object instead of falling back to a generic label", () => {
+    const html = renderMarkup(
+      <TableEmptyRow colSpan={3} status="empty" emptyTitle="No open orders" />,
+    );
 
-    expect(html).toContain("No data available");
+    expect(html).toContain("No open orders");
     expect(html).not.toContain('role="alert"');
   });
 });

@@ -1,7 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderMarkup } from "../../test/render";
 
 import { ErrorState } from "./error-state";
 import { StateArt } from "./state-art";
@@ -53,7 +53,7 @@ describe("ErrorState", () => {
   });
 
   test("keeps the default copy and retry affordance", () => {
-    const html = renderToStaticMarkup(<ErrorState retryAction={() => {}} />);
+    const html = renderMarkup(<ErrorState retryAction={() => {}} />);
 
     expect(html).toContain("Unable to load data");
     expect(html).toContain("An unexpected error occurred. Please try again.");
@@ -62,18 +62,16 @@ describe("ErrorState", () => {
   });
 
   test("honours caller overrides for title and description", () => {
-    const html = renderToStaticMarkup(
-      <ErrorState title="Custom title" description="Custom description" />,
-    );
+    const html = renderMarkup(<ErrorState title="Custom title" description="Custom description" />);
 
     expect(html).toContain("Custom title");
     expect(html).toContain("Custom description");
   });
 
   test("defaults the retry label to Retry and honours an override", () => {
-    expect(renderToStaticMarkup(<ErrorState retryAction={() => {}} />)).toContain("Retry");
+    expect(renderMarkup(<ErrorState retryAction={() => {}} />)).toContain("Retry");
 
-    const html = renderToStaticMarkup(<ErrorState retryAction={() => {}} retryLabel="Try again" />);
+    const html = renderMarkup(<ErrorState retryAction={() => {}} retryLabel="Try again" />);
     expect(html).toContain("Try again");
   });
 });

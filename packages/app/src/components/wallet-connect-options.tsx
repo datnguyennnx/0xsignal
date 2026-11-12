@@ -68,6 +68,7 @@ export function WalletConnectOptions() {
           size="cta"
           className="w-full justify-start gap-inline"
           disabled={isPending}
+          aria-busy={isPending}
           onClick={() => {
             mutate({ connector: metaMaskConnector });
           }}
@@ -82,6 +83,7 @@ export function WalletConnectOptions() {
           size="cta"
           className="w-full justify-start gap-inline"
           disabled={isPending}
+          aria-busy={isPending}
           onClick={() => {
             mutate({ connector: coinbaseConnector });
           }}

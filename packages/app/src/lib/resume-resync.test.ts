@@ -2,7 +2,10 @@
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 
 import { queryClient } from "./query-client";
-import { RESUME_RESYNC_AFTER_MS, installResumeResync, shouldResync } from "./resume-resync";
+import { restoreDomGlobals } from "../../test/setup";
+import { installResumeResync, shouldResync } from "./resume-resync";
+
+const RESUME_RESYNC_AFTER_MS = 5 * 60_000;
 
 type Listener = () => void;
 
@@ -85,8 +88,7 @@ beforeEach(() => {
 afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup();
   Date.now = realDateNow;
-  Reflect.deleteProperty(globalThis, "document");
-  Reflect.deleteProperty(globalThis, "window");
+  restoreDomGlobals();
   currentDocument = null;
 });
 

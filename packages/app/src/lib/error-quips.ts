@@ -1,6 +1,6 @@
 const FIRST_QUIP = "Prepare the paperwork for a new server crew.";
 
-export const ERROR_QUIPS: readonly string[] = [
+const ERROR_QUIPS: readonly string[] = [
   FIRST_QUIP,
   "The order book stepped out. Said it would be quick.",
   "Liquidity is on lunch. Please hold.",

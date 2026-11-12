@@ -1,6 +1,8 @@
 /// <reference types="bun-types" />
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import { restoreDomGlobals } from "../../test/setup";
+
 import {
   isPageHidden,
   onPageResume,
@@ -87,12 +89,13 @@ beforeEach(() => {
   cleanups.length = 0;
   currentDocument = null;
   currentWindow = null;
+  Reflect.deleteProperty(globalThis, "document");
+  Reflect.deleteProperty(globalThis, "window");
 });
 
 afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup();
-  Reflect.deleteProperty(globalThis, "document");
-  Reflect.deleteProperty(globalThis, "window");
+  restoreDomGlobals();
   currentDocument = null;
   currentWindow = null;
 });

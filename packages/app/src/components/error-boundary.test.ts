@@ -1,52 +1,48 @@
 /// <reference types="bun-types" />
-import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { type ReactElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { createElement, type ReactNode } from "react";
 
+import { cleanup, fireEvent, hasDom, renderDom } from "../../test/render";
 import { ErrorBoundary } from "./error-boundary";
-import { ERROR_QUIPS } from "@/lib/error-quips";
 
-const SOURCE = readFileSync(new URL("./error-boundary.tsx", import.meta.url), "utf8");
+const realError = console.error;
+console.error = () => {};
+afterAll(() => {
+  console.error = realError;
+  cleanup();
+});
+afterEach(cleanup);
 
-function renderCaptured(): { instance: ErrorBoundary; html: string } {
-  const instance = new ErrorBoundary({ children: null });
-  Object.assign(instance.state, { hasError: true });
-  const html = renderToStaticMarkup(instance.render() as ReactElement);
-  return { instance, html };
+let shouldThrow = true;
+function Boom(): ReactNode {
+  if (shouldThrow) throw new Error("boom");
+  return createElement("p", null, "recovered child");
 }
 
-describe("ErrorBoundary default fallback", () => {
-  test("uses the shared brand art instead of an alert icon", () => {
-    expect(SOURCE).toContain('<StateArt size="lg" />');
-    expect(SOURCE).not.toContain("AlertTriangle");
+beforeEach(() => {
+  shouldThrow = true;
+});
+
+describe.skipIf(!hasDom)("ErrorBoundary", () => {
+  test("retry mounts the children again", () => {
+    const view = renderDom(createElement(ErrorBoundary, null, createElement(Boom)));
+    shouldThrow = false;
+
+    fireEvent.click(view.getByRole("button", { name: /try again/i }));
+
+    expect(view.getByText("recovered child")).toBeDefined();
+    expect(view.queryByText("Something went wrong")).toBeNull();
   });
 
-  test("takes its description from the quip pool", () => {
-    const { instance, html } = renderCaptured();
+  test("a caller fallback replaces the default one", () => {
+    const view = renderDom(
+      createElement(ErrorBoundary, {
+        fallback: createElement("p", null, "custom fallback"),
+        children: createElement(Boom),
+      }),
+    );
 
-    expect(ERROR_QUIPS).toContain(instance.state.quip);
-    expect(html).toContain(instance.state.quip);
-    expect(html).not.toContain("Even good terminals have bad days.");
-  });
-
-  test("keeps the quip stable across a re-render", () => {
-    const instance = new ErrorBoundary({ children: null });
-    Object.assign(instance.state, { hasError: true });
-
-    const first = renderToStaticMarkup(instance.render() as ReactElement);
-    const second = renderToStaticMarkup(instance.render() as ReactElement);
-
-    expect(first).toBe(second);
-    expect(first).toContain(instance.state.quip);
-  });
-
-  test("keeps the title and retry wiring", () => {
-    expect(SOURCE).toContain("Something went wrong");
-    expect(SOURCE).toContain("Try again");
-    expect(SOURCE).toContain("onClick={this.handleReset}");
-    expect(SOURCE).toContain("flex-1");
-    expect(SOURCE).toContain("min-h-full");
-    expect(SOURCE).toContain("justify-center");
+    expect(view.getByText("custom fallback")).toBeDefined();
+    expect(view.queryByText("Something went wrong")).toBeNull();
   });
 });

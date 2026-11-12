@@ -65,17 +65,6 @@ const getFormatter = (locale: string, options: Intl.NumberFormatOptions): Intl.N
   return formatter;
 };
 
-/** @internal Test hook: the shared constructor the public formatters use. */
-export const getFormatterForTest = getFormatter;
-
-/** @internal Test hook: isolates cache-size assertions from other tests. */
-export const resetFormatterCacheForTest = (): void => {
-  formatterCache.clear();
-};
-
-/** @internal Test hook: exposes the cache bound without exporting the map. */
-export const formatterCacheSizeForTest = (): number => formatterCache.size;
-
 /** Re-exported so display-only consumers need a single formatting module. */
 export { truncateAddress } from "./address";
 

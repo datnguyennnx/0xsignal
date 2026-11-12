@@ -1,7 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
 import type { ComponentType, SVGProps } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderMarkup } from "../../../test/render";
 
 import { Coinbase, Github, Google, Metamask } from "./brands";
 
@@ -35,7 +35,7 @@ describe("brand icons", () => {
   for (const { name, viewBox, minPaths } of CASES) {
     test(`${name} renders a decorative, self-contained svg`, () => {
       const Icon = BRAND_COMPONENTS[name];
-      const html = renderToStaticMarkup(<Icon />);
+      const html = renderMarkup(<Icon />);
 
       expect(html.startsWith("<svg")).toBe(true);
       expect(html).toContain(`viewBox="${viewBox}"`);
@@ -45,7 +45,7 @@ describe("brand icons", () => {
   }
 
   test("passes caller props through to the root svg", () => {
-    const html = renderToStaticMarkup(<Google className="size-icon" />);
+    const html = renderMarkup(<Google className="size-icon" />);
 
     expect(html).toContain('class="size-icon"');
   });

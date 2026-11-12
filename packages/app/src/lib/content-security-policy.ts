@@ -37,16 +37,3 @@ function policyDirectives(rawApiUrl?: string): readonly string[] {
 export function buildContentSecurityPolicy(rawApiUrl?: string): string {
   return policyDirectives(rawApiUrl).join("; ");
 }
-
-// Trusted Types ship report-only because two third-party sinks still parse strings:
-// lightweight-charts writes the TradingView logo SVG with `innerHTML` on every chart
-// mount (layout.attributionLogo defaults to true), and react-katex forwards KaTeX's
-// string output through `dangerouslySetInnerHTML`. Both throw under
-// require-trusted-types-for, so enforcement waits until they hand over TrustedHTML.
-// `default` is the only policy name listed: the eventual fix is one sanitising
-// default policy wrapping those strings at the boundary.
-const TRUSTED_TYPES_DIRECTIVES = ["trusted-types default", "require-trusted-types-for 'script'"];
-
-export function buildContentSecurityPolicyReportOnly(rawApiUrl?: string): string {
-  return [...policyDirectives(rawApiUrl), ...TRUSTED_TYPES_DIRECTIVES].join("; ");
-}
