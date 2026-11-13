@@ -47,11 +47,12 @@ function refresh(): void {
   for (const callback of subscribers) callback();
 }
 
+function onRootResize(): void {
+  refresh();
+}
+
 function attachSharedListeners(): () => void {
-  const onResize = () => {
-    refresh();
-  };
-  window.addEventListener("resize", onResize);
+  window.addEventListener("resize", onRootResize);
 
   let unobserve: (() => void) | null = null;
   if (typeof ResizeObserver !== "undefined") {
@@ -72,7 +73,7 @@ function attachSharedListeners(): () => void {
   }
 
   return () => {
-    window.removeEventListener("resize", onResize);
+    window.removeEventListener("resize", onRootResize);
     unobserve?.();
     attributeObserver?.disconnect();
   };

@@ -3,7 +3,7 @@
   "files": [],
   "references": [
     { "path": "packages/shared" },
-    { "path": "packages/auth" },
-    { "path": "packages/api" }
+    { "path": "packages/auth/tsconfig.build.json" },
+    { "path": "packages/api/tsconfig.build.json" }
   ]
 }

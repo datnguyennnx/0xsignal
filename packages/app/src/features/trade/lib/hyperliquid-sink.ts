@@ -58,7 +58,7 @@ function subscribeTrades(
   };
 }
 
-export type HyperliquidSink = DirectMarketSink & {
+type HyperliquidSink = DirectMarketSink & {
   subscribeAssetCtx: typeof subscribeAssetCtx;
 };
 

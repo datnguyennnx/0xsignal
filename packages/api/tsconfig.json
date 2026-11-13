@@ -1,15 +1,15 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "composite": true,
-    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "noEmit": false,
-    "declaration": true,
-    "outDir": "./dist",
-    "rootDir": ".",
+    "noEmit": true,
     "types": ["bun-types", "node", "vitest/globals"]
   },
-  "include": ["./**/*.ts"],
-  "exclude": ["node_modules", "dist", "**/__tests__/**", "**/*.test.ts"],
-  "references": [{ "path": "../auth" }, { "path": "../shared" }]
+  "include": [
+    "./**/*.ts",
+    "./**/*.test.ts",
+    "./**/*.spec.ts",
+    "./**/__tests__/*.ts",
+    "./vitest.config.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
 }

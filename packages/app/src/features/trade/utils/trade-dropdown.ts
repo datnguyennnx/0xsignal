@@ -50,7 +50,7 @@ const API_CATEGORY_BY_TAB: Partial<Record<CategoryTab, string>> = { prelaunch: "
 
 /** Separators carry no meaning to a searching user: "PURR USDC" must find "PURR/USDC". */
 export const normalizeSearch = (value: string): string =>
-  value.toLowerCase().replace(SEARCH_SEPARATORS, "");
+  value.toLowerCase().replaceAll(SEARCH_SEPARATORS, "");
 
 export function matchesCategoryTab(
   asset: Pick<TradeAsset, "marketType" | "isHip3" | "category">,

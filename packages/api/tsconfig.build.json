@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "declaration": true,
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
+    "outDir": "./dist",
+    "rootDir": "."
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/__tests__/**", "**/*.test.ts"],
+  "references": [{ "path": "../auth/tsconfig.build.json" }, { "path": "../shared" }]
+}

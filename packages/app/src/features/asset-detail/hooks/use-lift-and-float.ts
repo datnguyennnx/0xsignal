@@ -56,7 +56,7 @@ export function attachDragListeners(target: Document, handlers: DragPointerHandl
   };
 }
 
-export interface UseLiftAndFloatReturn {
+interface UseLiftAndFloatReturn {
   isDragging: boolean;
   draggedItemId: string | null;
   previewState: PreviewState | null;

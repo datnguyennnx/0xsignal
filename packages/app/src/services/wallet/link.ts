@@ -5,7 +5,7 @@ import { createWallet, requestWalletChallenge } from "@/services/api/credentials
  * is the server-issued challenge string; order signing uses signTypedData in
  * services/exchange and never calls this path.
  */
-export type SignChallengeMessage = (args: { message: string }) => Promise<`0x${string}`>;
+type SignChallengeMessage = (args: { message: string }) => Promise<`0x${string}`>;
 
 export async function linkWalletWithSignature(
   walletAddress: string,

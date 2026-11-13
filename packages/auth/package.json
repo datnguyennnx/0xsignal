@@ -9,8 +9,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "tsc -b tsconfig.json",
-    "typecheck": "tsc -b",
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -b tsconfig.json",
     "lint": "oxlint .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",

@@ -13,7 +13,7 @@ function toProfileState(user: AuthMeResponse | null, isResolving: boolean): Prof
   return { status: "ready", data: user };
 }
 
-export interface ProfileSettingsState {
+interface ProfileSettingsState {
   state: ProfileState;
   signOut: () => Promise<void>;
 }

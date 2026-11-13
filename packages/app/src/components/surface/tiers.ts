@@ -32,7 +32,7 @@ type Thickness = "thin" | "regular" | "thick";
  * control is always an opaque plate (glass is a container material, never a control's),
  * scrim paints nothing.
  */
-export type TierMaterialDefault = {
+type TierMaterialDefault = {
   solid: { material: "frost" | "solid" | "plate"; thickness?: never };
   content: { material: "frost" | "solid" | "plate"; thickness?: never };
   control: { material: "plate"; thickness?: never };
@@ -68,7 +68,7 @@ const GLASS_TIERS: ReadonlySet<Tier> = new Set(
   ),
 );
 
-export interface SurfaceAttrs {
+interface SurfaceAttrs {
   "data-tier": Tier;
   "data-material": Material;
   "data-glass-depth"?: number;

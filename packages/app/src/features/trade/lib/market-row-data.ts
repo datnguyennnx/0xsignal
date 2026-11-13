@@ -33,7 +33,7 @@ export interface MarketRowData {
   readonly isLive: boolean;
 }
 
-export interface MarketRows {
+interface MarketRows {
   readonly rows: MarketRowData[];
   /** Parallel to `rows`; the normalized haystack for the row at the same index. */
   readonly searchKeys: string[];

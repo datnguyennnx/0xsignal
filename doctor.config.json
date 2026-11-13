@@ -2,22 +2,55 @@
   "$schema": "https://react.doctor/schema/config.json",
   "adoptExistingLintConfig": true,
   "blocking": "warning",
-  "supplyChain": { "enabled": false },
-  "categories": {
-    "Accessibility": "off"
-  },
+  "supplyChain": { "enabled": true },
   "rules": {
-    "react-doctor/exhaustive-deps": "off",
-    "react-doctor/jsx-key": "off",
-    "react-doctor/jsx-no-comment-textnodes": "off",
-    "react-doctor/jsx-no-duplicate-props": "off",
-    "react-doctor/jsx-no-undef": "off",
-    "react-doctor/jsx-props-no-spread-multi": "off",
-    "react-doctor/no-string-refs": "off",
-    "react-doctor/unused-file": "off",
-    "react-doctor/unused-export": "off",
-    "react-doctor/unused-type": "off",
-    "react-doctor/unused-dependency": "off",
-    "react-doctor/circular-dependency": "off"
+    // Opt-in rules are off until pinned here with a severity; "off" removal
+    // alone does not activate them.
+    "react-doctor/unused-file": "error",
+    "react-doctor/unused-export": "error",
+    "react-doctor/unused-type": "error",
+    "react-doctor/unused-dependency": "error",
+    "react-doctor/circular-dependency": "error"
+  },
+  "ignore": {
+    "overrides": [
+      {
+        // Effect Layers wire ports to implementations through imports that no
+        // direct caller references; unused/cycle analysis sees those DI edges
+        // as dead code or a cycle at the composition root.
+        "files": [
+          "packages/api/**/layer.ts",
+          "packages/api/**/index.ts",
+          "packages/api/**/services.ts",
+          "packages/api/**/core.ts",
+          "packages/api/app/layers.ts"
+        ],
+        "rules": [
+          "react-doctor/unused-file",
+          "react-doctor/unused-export",
+          "react-doctor/unused-type",
+          "react-doctor/unused-dependency",
+          "react-doctor/circular-dependency"
+        ]
+      },
+      {
+        // Same Effect DI seam in the auth package; `auth.layer.ts` is its
+        // top-level composition root.
+        "files": [
+          "packages/auth/**/layer.ts",
+          "packages/auth/**/*.layer.ts",
+          "packages/auth/**/index.ts",
+          "packages/auth/**/services.ts",
+          "packages/auth/**/core.ts"
+        ],
+        "rules": [
+          "react-doctor/unused-file",
+          "react-doctor/unused-export",
+          "react-doctor/unused-type",
+          "react-doctor/unused-dependency",
+          "react-doctor/circular-dependency"
+        ]
+      }
+    ]
   }
 }

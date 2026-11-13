@@ -24,6 +24,8 @@
     "*.pem",
     "package-lock.json",
     "yarn.lock",
-    "*.d.ts.map"
+    "*.d.ts.map",
+    "**/generated/**",
+    ".agents/**"
   ]
 }

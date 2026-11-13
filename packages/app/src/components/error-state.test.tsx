@@ -1,17 +1,21 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
-import { isValidElement, type ReactElement, type ReactNode } from "react";
+import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderMarkup } from "../../test/render";
 
 import { ErrorState } from "./error-state";
 import { StateArt } from "./state-art";
+
+function hasChildren(props: unknown): props is { children?: ReactNode } {
+  return typeof props === "object" && props !== null;
+}
 
 function findElement(
   node: ReactNode,
   predicate: (element: ReactElement) => boolean,
 ): ReactElement | null {
   if (Array.isArray(node)) {
-    for (const child of node) {
+    for (const child of Children.toArray(node)) {
       const found = findElement(child, predicate);
       if (found !== null) return found;
     }
@@ -19,7 +23,13 @@ function findElement(
   }
   if (!isValidElement(node)) return null;
   if (predicate(node)) return node;
-  return findElement((node.props as { children?: ReactNode }).children, predicate);
+  return hasChildren(node.props) ? findElement(node.props.children, predicate) : null;
+}
+
+function sizeOf(element: ReactElement | null): unknown {
+  if (element === null) return undefined;
+  const props: unknown = element.props;
+  return typeof props === "object" && props !== null && "size" in props ? props.size : undefined;
 }
 
 type ErrorStateInnerProps = {
@@ -31,9 +41,16 @@ type ErrorStateInnerProps = {
   className?: string;
 };
 
+function isInnerComponent(
+  value: unknown,
+): value is { type: (props: ErrorStateInnerProps) => ReactElement } {
+  if (value === null || (typeof value !== "object" && typeof value !== "function")) return false;
+  return typeof Reflect.get(value, "type") === "function";
+}
+
 function renderInner(props: ErrorStateInnerProps): ReactElement {
-  const inner = (ErrorState as unknown as { type: (p: ErrorStateInnerProps) => ReactElement }).type;
-  return inner(props);
+  if (!isInnerComponent(ErrorState)) throw new Error("ErrorState inner component is unavailable");
+  return ErrorState.type(props);
 }
 
 describe("ErrorState", () => {
@@ -42,14 +59,14 @@ describe("ErrorState", () => {
 
     const art = findElement(tree, (element) => element.type === StateArt);
     expect(art).not.toBeNull();
-    expect((art?.props as { size?: string }).size).toBe("md");
+    expect(sizeOf(art)).toBe("md");
   });
 
   test("accepts a smaller table size", () => {
     const tree = renderInner({ size: "sm" });
 
     const art = findElement(tree, (element) => element.type === StateArt);
-    expect((art?.props as { size?: string }).size).toBe("sm");
+    expect(sizeOf(art)).toBe("sm");
   });
 
   test("keeps the default copy and retry affordance", () => {

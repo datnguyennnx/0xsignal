@@ -15,7 +15,7 @@ interface PanelBodyProps {
   onClose: () => void;
 }
 
-export function PanelBody({ Comp, id, title, onClose }: PanelBodyProps) {
+function PanelBody({ Comp, id, title, onClose }: PanelBodyProps) {
   return (
     <>
       <div className="flex items-center justify-between gap-inline p-panel">

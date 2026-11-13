@@ -4,6 +4,8 @@ import {
   ColorType,
   CandlestickSeries,
   HistogramSeries,
+  CrosshairMode,
+  LineStyle,
   type IChartApi,
   type ISeriesApi,
   type MouseEventHandler,
@@ -53,7 +55,7 @@ const sameCandle = (a: ChartDataPoint, b: ChartDataPoint): boolean =>
 type ChartOptions = NonNullable<Parameters<typeof createChart>[1]>;
 type ChartFactory = (container: HTMLElement, options: ChartOptions) => IChartApi;
 
-export interface ManagedChart<T> {
+interface ManagedChart<T> {
   chart: IChartApi;
   value: T;
   remove: () => void;
@@ -163,9 +165,9 @@ export const useChartEngine = ({
         autoScale: true,
       },
       crosshair: {
-        mode: 1,
-        vertLine: { width: 1, color: crosshair, style: 3 },
-        horzLine: { width: 1, color: crosshair, style: 3 },
+        mode: CrosshairMode.Magnet,
+        vertLine: { width: 1, color: crosshair, style: LineStyle.LargeDashed },
+        horzLine: { width: 1, color: crosshair, style: LineStyle.LargeDashed },
       },
     };
 

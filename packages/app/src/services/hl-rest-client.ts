@@ -223,7 +223,7 @@ export function getPortfolio(user: string): Promise<PortfolioResponse> {
   );
 }
 
-export interface CandleSnapshotParams {
+interface CandleSnapshotParams {
   readonly coin: string;
   readonly interval: WsMarketInterval;
   readonly startTime: number;

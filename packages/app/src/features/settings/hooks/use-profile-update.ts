@@ -14,7 +14,7 @@ export type ProfileSaveState =
   | { status: "pending" }
   | { status: "error"; message: string };
 
-export interface ProfileUpdateControls {
+interface ProfileUpdateControls {
   save: (displayName: string) => Promise<boolean>;
   state: ProfileSaveState;
   reset: () => void;

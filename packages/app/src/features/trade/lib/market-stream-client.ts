@@ -503,7 +503,7 @@ export interface MarketStreamClient {
 }
 
 /** The concrete tab-lifetime client always exposes the liveness probe. */
-export type ResilientMarketStreamClient = MarketStreamClient & {
+type ResilientMarketStreamClient = MarketStreamClient & {
   reconnectIfStale: (maxAgeMs?: number) => void;
 };
 

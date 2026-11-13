@@ -26,7 +26,7 @@ export function minCells(item: LayoutItem): { minW: number; minH: number } {
 }
 
 /** Free corridor around a resizable item as edge coordinates; every handle clamps to these. */
-export interface ResizeBounds {
+interface ResizeBounds {
   minX: number;
   maxX: number;
   minY: number;

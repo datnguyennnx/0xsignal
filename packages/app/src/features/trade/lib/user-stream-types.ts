@@ -121,7 +121,7 @@ export type ListenerHolder = {
   };
 }[UserStreamChannel];
 
-export interface UserStreamChannelSpec {
+interface UserStreamChannelSpec {
   readonly holder: () => ListenerHolder;
   readonly guard: (event: UserStreamWireEvent) => boolean;
   readonly deliver: (holders: ReadonlySet<ListenerHolder>, event: UserStreamWireEvent) => void;

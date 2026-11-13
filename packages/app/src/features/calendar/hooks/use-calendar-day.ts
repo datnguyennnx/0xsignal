@@ -40,7 +40,7 @@ function deriveDayState(
   return { status: "ready", data: monthEvents, stale: false };
 }
 
-export interface CalendarDayEvents {
+interface CalendarDayEvents {
   state: AsyncState<EconomicEvent[]>;
   onRetry: () => void;
 }

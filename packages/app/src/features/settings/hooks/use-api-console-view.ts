@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/stores/use-auth-store";
 
-export type ApiConsoleView = "connect" | "loading" | "signin" | "link" | "form";
+type ApiConsoleView = "connect" | "loading" | "signin" | "link" | "form";
 
 export interface ApiConsoleViewInput {
   isConnected: boolean;

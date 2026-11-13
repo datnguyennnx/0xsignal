@@ -6,7 +6,7 @@ type AssetPosition = ClearinghouseState["assetPositions"][number];
 type OrderFormSide = "buy" | "sell";
 type OrderFormType = "market" | "limit";
 
-export interface ChainLeverage {
+interface ChainLeverage {
   currentAssetPosition: AssetPosition | undefined;
   currentLeverageFromChain: number;
   currentMarginTypeFromChain: "cross" | "isolated";
@@ -25,7 +25,7 @@ export function deriveChainLeverage(
   };
 }
 
-export interface AccountBalances {
+interface AccountBalances {
   accountValue: number;
   perpsUsdc: number;
   spotUsdc: number;
@@ -67,7 +67,7 @@ export function buildSizeAssetOptions(
   }));
 }
 
-export interface SizeAssetSelection {
+interface SizeAssetSelection {
   safeSizeAsset: string;
   effectiveBalance: number;
 }
@@ -92,7 +92,7 @@ export interface OrderAmountsInput {
   effectiveLeverage: number;
 }
 
-export interface OrderAmounts {
+interface OrderAmounts {
   usablePrice: number;
   orderValue: number;
   marginRequired: number;
