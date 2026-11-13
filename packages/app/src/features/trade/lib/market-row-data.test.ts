@@ -1,5 +1,6 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test";
+import type { AggregatedMarket } from "@0xsignal/shared";
 
 import { market } from "../../../test/fixtures";
 import { formatMarketCell } from "./format-trade-rows";
@@ -225,5 +226,53 @@ describe("selectMarketRows search parity", () => {
   test("a separator-stripped builder pair finds its market", () => {
     const rows = selectMarketRows(buildMarketRows(FIXTURE), "all", "xyz:a5", "name", false);
     expect(rows.map((row) => row.rawCoin)).toEqual(["xyz:A5"]);
+  });
+});
+
+describe("selectMarketRows asset display metadata", () => {
+  const oil = market({
+    coin: "CL",
+    rawCoin: "xyz:CL",
+    displaySymbol: "WTIOIL-USDC",
+    name: "WTI Crude",
+    displayName: "WTIOIL",
+    keywords: ["crude", "CL"],
+    category: "commodities",
+  });
+
+  const search = (assets: readonly AggregatedMarket[], query: string) =>
+    selectMarketRows(buildMarketRows(assets), "all", query, "name", false);
+
+  test("a display name and its keywords both find the market", () => {
+    for (const query of ["oil", "wti", "crude"]) {
+      expect(search([oil], query).map((row) => row.displaySymbol)).toEqual(["WTIOIL-USDC"]);
+    }
+  });
+
+  test("display metadata is searched even when the symbol and name do not carry it", () => {
+    const bare = market({
+      coin: "CL",
+      rawCoin: "xyz:CL",
+      displaySymbol: "CL-USDC",
+      name: "CL",
+      displayName: "WTIOIL",
+      keywords: ["crude"],
+    });
+
+    expect(search([bare], "oil").map((row) => row.coin)).toEqual(["CL"]);
+    expect(search([bare], "crude").map((row) => row.coin)).toEqual(["CL"]);
+  });
+
+  test("a market without display metadata never matches the literal 'undefined'", () => {
+    const gas = market({
+      coin: "NG",
+      rawCoin: "xyz:NG",
+      displaySymbol: "NG-USDC",
+      name: "Natural Gas",
+      category: "commodities",
+      assetId: 6,
+    });
+
+    expect(search([gas], "undefined")).toEqual([]);
   });
 });

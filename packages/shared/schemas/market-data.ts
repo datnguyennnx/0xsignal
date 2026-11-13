@@ -74,6 +74,8 @@ export interface AggregatedMarket {
   readonly isHip3: boolean;
   readonly quoteCurrency: string;
   readonly name: string;
+  readonly displayName?: string | undefined;
+  readonly keywords?: readonly string[] | undefined;
   readonly category: string;
   readonly displayCategory: string;
   readonly isDelisted: boolean;

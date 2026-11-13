@@ -80,6 +80,9 @@ describe("Hyperliquid Mapping", () => {
     perpCategories: vi
       .fn<NonNullable<HyperliquidInfoClient["perpCategories"]>>()
       .mockResolvedValue([]),
+    perpConciseAnnotations: vi
+      .fn<NonNullable<HyperliquidInfoClient["perpConciseAnnotations"]>>()
+      .mockResolvedValue([]),
     perpDexs: vi.fn<NonNullable<HyperliquidInfoClient["perpDexs"]>>().mockResolvedValue([]),
     spotMeta: vi
       .fn<NonNullable<HyperliquidInfoClient["spotMeta"]>>()
@@ -397,6 +400,27 @@ describe("Hyperliquid Mapping", () => {
   });
 
   describe("parsePerpAssets", () => {
+    it("applies an annotation display name, keywords and category to a builder perp", () => {
+      const annotationMap = new Map([
+        ["xyz:CL", { displayName: "WTIOIL", keywords: ["crude", "CL"], category: "commodities" }],
+      ]);
+
+      const [asset] = parsePerpAssets(
+        "xyz",
+        1,
+        [{ universe: [{ name: "xyz:CL" }] }, []],
+        {},
+        new Map(),
+        [],
+        annotationMap,
+      );
+
+      expect(asset.displaySymbol).toBe("WTIOIL-USDC");
+      expect(asset.displayName).toBe("WTIOIL");
+      expect(asset.keywords).toEqual(["crude", "CL"]);
+      expect(asset.category).toBe("commodities");
+    });
+
     it("sets a main-dex id from its position in the universe", () => {
       const result = parsePerpFixture("", 0, [{ name: "BTC" }, { name: "ETH" }]);
       expect(result.map((a) => a.assetId)).toEqual([0, 1]);

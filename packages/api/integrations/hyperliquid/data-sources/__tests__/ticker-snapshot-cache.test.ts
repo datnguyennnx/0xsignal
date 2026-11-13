@@ -51,6 +51,9 @@ const makeInfo = (): MockedInfoClient => ({
   perpCategories: vi
     .fn<NonNullable<HyperliquidInfoClient["perpCategories"]>>()
     .mockResolvedValue([]),
+  perpConciseAnnotations: vi
+    .fn<NonNullable<HyperliquidInfoClient["perpConciseAnnotations"]>>()
+    .mockResolvedValue([]),
   meta: vi
     .fn<HyperliquidInfoClient["meta"]>()
     .mockResolvedValue({ universe: [], marginTables: [] }),

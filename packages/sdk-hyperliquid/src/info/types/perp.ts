@@ -240,14 +240,26 @@ export type AllPerpMetasInfoResponse = ReadonlyArray<
 >;
 
 export type PerpAnnotationInfoRequest = { type: "perpAnnotation"; coin: string };
-export type PerpAnnotationInfoResponse = { category: string; description: string };
+export type PerpAnnotationInfoResponse = {
+  category: string;
+  description: string;
+  displayName?: string | null;
+  keywords?: ReadonlyArray<string> | null;
+};
 
 export type PerpCategoriesInfoRequest = { type: "perpCategories" };
 export type PerpCategoriesInfoResponse = ReadonlyArray<readonly [string, string]>;
 
 export type PerpConciseAnnotationsInfoRequest = { type: "perpConciseAnnotations" };
 export type PerpConciseAnnotationsInfoResponse = ReadonlyArray<
-  readonly [string, { category: string; keywords?: ReadonlyArray<string> }]
+  readonly [
+    string,
+    {
+      category: string;
+      displayName?: string | null;
+      keywords?: ReadonlyArray<string> | null;
+    },
+  ]
 >;
 
 export type UserStarStateInfoRequest = { type: "userStarState"; user: string };
