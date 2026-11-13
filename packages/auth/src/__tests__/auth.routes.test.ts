@@ -16,6 +16,8 @@ const mockAuthService = {
   verifyToken: vi.fn<AuthServiceShape["verifyToken"]>(),
   refreshTokens: vi.fn<AuthServiceShape["refreshTokens"]>(),
   logout: vi.fn<AuthServiceShape["logout"]>(),
+  getProfile: vi.fn<AuthServiceShape["getProfile"]>(),
+  updateProfile: vi.fn<AuthServiceShape["updateProfile"]>(),
 };
 
 const TestLayer = Layer.succeed(AuthService, mockAuthService);

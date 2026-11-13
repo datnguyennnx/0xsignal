@@ -26,7 +26,7 @@ export interface RemoteSubscriptionRequest {
   readonly channel: string;
 }
 
-export interface TabCoordinatorOptions<E> {
+interface TabCoordinatorOptions<E> {
   readonly createChannel: (name: string) => TabChannel;
   readonly tabId: string;
   readonly electionDelayMs: number;

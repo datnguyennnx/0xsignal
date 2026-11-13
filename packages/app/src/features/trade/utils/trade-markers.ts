@@ -72,7 +72,7 @@ function isBuyFill(fill: HyperliquidFill): boolean {
  */
 const MAX_MARKER_FILLS = 500;
 
-export interface MarkerFillWindow {
+interface MarkerFillWindow {
   readonly startMs: number;
   readonly endMs: number;
 }

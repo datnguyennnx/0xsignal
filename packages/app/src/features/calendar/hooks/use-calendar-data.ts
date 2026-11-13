@@ -7,7 +7,7 @@ import { getCalendar } from "@/services/api/calendar";
 
 const CALENDAR_STALE_TIME = 5 * 60 * 1000;
 
-export interface CalendarEventsQueryOptions {
+interface CalendarEventsQueryOptions {
   /** Keep the previous month rendered while the next month request is in flight. */
   readonly keepPreviousData?: boolean;
   /** Disable the request when a day can be derived from the cached month. */

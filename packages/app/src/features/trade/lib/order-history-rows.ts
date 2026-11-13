@@ -2,7 +2,7 @@ import { formatPrice, formatCompactUsd, formatSize } from "@/core/utils/formatte
 import type { UserFill } from "@0xsignal/shared";
 import { formatTime } from "../utils/shared-table-utils";
 
-export interface FillRow {
+interface FillRow {
   readonly key: string;
   readonly time: string;
   readonly coin: string;

@@ -7,11 +7,11 @@
   "scripts": {
     "dev": "bun --watch main.ts",
     "start": "bun ./dist/main.js",
-    "build": "bun run clean && tsc -b tsconfig.json && bun build ./main.ts --target=bun --minify --outdir=./dist && mkdir -p ./dist/sql && cp -r ../auth/src/infrastructure/migrations/sql/. ./dist/sql/",
+    "build": "bun run clean && tsc -b tsconfig.build.json && bun build ./main.ts --target=bun --minify --outdir=./dist && mkdir -p ./dist/sql && cp -r ../auth/src/infrastructure/migrations/sql/. ./dist/sql/",
     "lint": "oxlint .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit",
+    "typecheck": "tsc -b tsconfig.build.json && tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "test": "vitest run",
     "test:watch": "vitest"

@@ -1,6 +1,6 @@
 /// <reference types="bun-types" />
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { createElement, type ReactNode } from "react";
+import { createElement, type ComponentProps, type ReactNode } from "react";
 
 import { cleanup, fireEvent, hasDom, renderDom } from "../../test/render";
 import { ErrorBoundary } from "./error-boundary";
@@ -35,12 +35,11 @@ describe.skipIf(!hasDom)("ErrorBoundary", () => {
   });
 
   test("a caller fallback replaces the default one", () => {
-    const view = renderDom(
-      createElement(ErrorBoundary, {
-        fallback: createElement("p", null, "custom fallback"),
-        children: createElement(Boom),
-      }),
-    );
+    const props: ComponentProps<typeof ErrorBoundary> = {
+      fallback: createElement("p", null, "custom fallback"),
+      children: createElement(Boom),
+    };
+    const view = renderDom(createElement(ErrorBoundary, props));
 
     expect(view.getByText("custom fallback")).toBeDefined();
     expect(view.queryByText("Something went wrong")).toBeNull();

@@ -615,8 +615,8 @@
         inset 0 1.5px 0 var(--glass-rim-top),
         inset 1.5px 0 0 -0.5px var(--glass-rim-left),
         inset 0 -1px 0 var(--glass-rim-bottom),
-        /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */
-        inset 0 0 0 1px var(--glass-rim-line),
+        /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */ inset 0 0 0 1px
+          var(--glass-rim-line),
         inset 0 0 var(--glass-specular-blur) -6px var(--glass-rim-glow),
         var(--shadow-overlay);
       -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
@@ -632,8 +632,8 @@
         inset 0 1.5px 0 var(--glass-rim-top),
         inset 1.5px 0 0 -0.5px var(--glass-rim-left),
         inset 0 -1px 0 var(--glass-rim-bottom),
-        /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */
-        inset 0 0 0 1px var(--glass-rim-line),
+        /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */ inset 0 0 0 1px
+          var(--glass-rim-line),
         inset 0 0 var(--glass-specular-blur) -6px var(--glass-rim-glow),
         0 28px 64px -12px var(--overlay-lift);
       -webkit-backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate-heavy))
@@ -649,8 +649,8 @@
         inset 0 1.5px 0 var(--glass-rim-top),
         inset 1.5px 0 0 -0.5px var(--glass-rim-left),
         inset 0 -1px 0 var(--glass-rim-bottom),
-        /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */
-        inset 0 0 0 1px var(--glass-rim-line),
+        /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */ inset 0 0 0 1px
+          var(--glass-rim-line),
         inset 0 0 var(--glass-specular-blur) -6px var(--glass-rim-glow),
         0 16px 36px -12px var(--glass-lift);
       -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
@@ -737,8 +737,8 @@
     inset 0 1.5px 0 var(--glass-rim-top),
     inset 1.5px 0 0 -0.5px var(--glass-rim-left),
     inset 0 -1px 0 var(--glass-rim-bottom),
-    /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */
-    inset 0 0 0 1px var(--glass-rim-line),
+    /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */ inset 0 0 0 1px
+      var(--glass-rim-line),
     inset 0 0 var(--glass-specular-blur) -6px var(--glass-rim-glow),
     var(--shadow-overlay);
   -webkit-backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate-heavy))

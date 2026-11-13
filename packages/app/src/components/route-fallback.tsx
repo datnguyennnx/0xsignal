@@ -39,7 +39,7 @@ function StatusShell({ children }: StatusShellProps) {
   );
 }
 
-export function RouteFallbackSkeleton({ kind }: { kind: RouteFallbackKind }) {
+function RouteFallbackSkeleton({ kind }: { kind: RouteFallbackKind }) {
   return (
     <StatusShell>
       {kind === "asset-detail" ? <AssetDetailSkeleton /> : <PageSkeleton />}

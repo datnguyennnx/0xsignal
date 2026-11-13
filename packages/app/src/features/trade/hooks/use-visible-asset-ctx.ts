@@ -8,9 +8,9 @@ const COIN_SEPARATOR = "\u0000";
 
 const ignoreError = (): void => undefined;
 
-export type CtxBatchUpdate = readonly [string, AssetCtxSnapshot];
+type CtxBatchUpdate = readonly [string, AssetCtxSnapshot];
 
-export type CtxBuffer = {
+type CtxBuffer = {
   push(coin: string, snapshot: AssetCtxSnapshot): void;
   flush(): void;
 };

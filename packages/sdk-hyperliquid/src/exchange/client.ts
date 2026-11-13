@@ -222,6 +222,9 @@ const assertResponseType = (response: ExchangeOk, expected: ResponseType): Excha
   return response;
 };
 
+const verifyDefaultResponse = (u: unknown): ExchangeOk =>
+  assertResponseType(parseExchangeOk(u), "default");
+
 const assertSubBuildersAllowed = (builder: Builder, policy: BuilderPolicy): void => {
   const subs = builder.s;
   if (subs === undefined) return;
@@ -401,10 +404,9 @@ export class ExchangeClient {
     } else {
       signed = await signUserSignedWith(this.#wallet, type, wire, this.#signatureChainId);
     }
-    const verify = (u: unknown): ExchangeOk => assertResponseType(parseExchangeOk(u), "default");
     return this.#transport.postExchange(
       { action: wire, nonce, signature: signed.signature },
-      verify,
+      verifyDefaultResponse,
       0,
     );
   }

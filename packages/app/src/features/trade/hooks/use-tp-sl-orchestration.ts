@@ -5,7 +5,7 @@ import {
   type UseTakeProfitStopLossReturn,
 } from "./use-take-profit-stop-loss";
 
-export interface UseTpSlOrchestrationReturn extends UseTakeProfitStopLossReturn {
+interface UseTpSlOrchestrationReturn extends UseTakeProfitStopLossReturn {
   reduceOnly: boolean;
   setReduceOnly: (enabled: boolean) => void;
   showTpSl: boolean;

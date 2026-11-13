@@ -1,14 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "composite": true,
-    "noEmit": false,
-    "declaration": true,
-    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
-    "outDir": "./dist",
-    "rootDir": "./src"
+    "composite": false,
+    "noEmit": true,
+    "declaration": false
   },
-  "include": ["./src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "**/__tests__/**", "**/*.test.ts"],
+  "include": [
+    "./src/**/*.ts",
+    "./vitest.config.ts",
+    "./**/*.test.ts",
+    "./**/*.spec.ts",
+    "./**/__tests__/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist"],
   "references": [{ "path": "../shared" }]
 }

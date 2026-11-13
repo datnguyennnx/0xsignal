@@ -25,13 +25,11 @@ import {
   parseUserFunding,
 } from "./parse";
 import type {
-  AllBorrowLendReserveStatesInfoRequest,
   AllBorrowLendReserveStatesInfoResponse,
   AllMidsInfoRequest,
   AllMidsInfoResponse,
   ActiveAssetDataInfoRequest,
   ActiveAssetDataInfoResponse,
-  AllPerpMetasInfoRequest,
   AllPerpMetasInfoResponse,
   ApprovedBuildersInfoRequest,
   ApprovedBuildersInfoResponse,
@@ -71,15 +69,11 @@ import type {
   OrderStatusInfoResponse,
   PerpAnnotationInfoRequest,
   PerpAnnotationInfoResponse,
-  PerpCategoriesInfoRequest,
   PerpCategoriesInfoResponse,
-  PerpConciseAnnotationsInfoRequest,
   PerpConciseAnnotationsInfoResponse,
-  PerpDeployAuctionStatusInfoRequest,
   PerpDeployAuctionStatusInfoResponse,
   PerpDexLimitsInfoRequest,
   PerpDexLimitsInfoResponse,
-  PerpDexsInfoRequest,
   PerpDexsInfoResponse,
   PerpDexStatusInfoRequest,
   PerpDexStatusInfoResponse,
@@ -87,7 +81,6 @@ import type {
   PerpsAtOpenInterestCapInfoResponse,
   PortfolioInfoRequest,
   PortfolioInfoResponse,
-  PredictedFundingsInfoRequest,
   PredictedFundingsInfoResponse,
   ReferralInfoRequest,
   ReferralInfoResponse,
@@ -95,17 +88,12 @@ import type {
   SpotClearinghouseStateInfoResponse,
   SpotDeployStateInfoRequest,
   SpotDeployStateInfoResponse,
-  SpotMetaAndAssetCtxsInfoRequest,
   SpotMetaAndAssetCtxsInfoResponse,
-  SpotMetaInfoRequest,
   SpotMetaInfoResponse,
   SpotOutcomeDeployerLimitsInfoRequest,
   SpotOutcomeDeployerLimitsInfoResponse,
-  SpotOutcomeMetaInfoRequest,
   SpotOutcomeMetaInfoResponse,
-  SpotOutcomeTemplatesInfoRequest,
   SpotOutcomeTemplatesInfoResponse,
-  SpotPairDeployAuctionStatusInfoRequest,
   SpotPairDeployAuctionStatusInfoResponse,
   SpotSettledOutcomeInfoRequest,
   SpotSettledOutcomeInfoResponse,
@@ -371,7 +359,7 @@ export class InfoClient {
   }
 
   allBorrowLendReserveStates(
-    params: Omit<AllBorrowLendReserveStatesInfoRequest, "type">,
+    params: Record<string, never>,
   ): Promise<AllBorrowLendReserveStatesInfoResponse> {
     return postParsed(
       this.transport,
@@ -387,7 +375,7 @@ export class InfoClient {
     return postParsed(this.transport, "approvedBuilders", params, parseApprovedBuilders);
   }
 
-  perpDexs(params: Omit<PerpDexsInfoRequest, "type">): Promise<PerpDexsInfoResponse> {
+  perpDexs(params: Record<string, never>): Promise<PerpDexsInfoResponse> {
     return postParsed(this.transport, "perpDexs", params, parsePerpDexs);
   }
 
@@ -428,9 +416,7 @@ export class InfoClient {
     return postParsed(this.transport, "fundingHistory", params, parseFundingHistory);
   }
 
-  predictedFundings(
-    params: Omit<PredictedFundingsInfoRequest, "type">,
-  ): Promise<PredictedFundingsInfoResponse> {
+  predictedFundings(params: Record<string, never>): Promise<PredictedFundingsInfoResponse> {
     return postParsed(this.transport, "predictedFundings", params, parsePredictedFundings);
   }
 
@@ -446,7 +432,7 @@ export class InfoClient {
   }
 
   perpDeployAuctionStatus(
-    params: Omit<PerpDeployAuctionStatusInfoRequest, "type">,
+    params: Record<string, never>,
   ): Promise<PerpDeployAuctionStatusInfoResponse> {
     return postParsed(
       this.transport,
@@ -474,7 +460,7 @@ export class InfoClient {
     return postParsed(this.transport, "perpDexStatus", params, parsePerpDexStatus);
   }
 
-  allPerpMetas(params: Omit<AllPerpMetasInfoRequest, "type">): Promise<AllPerpMetasInfoResponse> {
+  allPerpMetas(params: Record<string, never>): Promise<AllPerpMetasInfoResponse> {
     return postParsed(this.transport, "allPerpMetas", params, parseAllPerpMetas);
   }
 
@@ -484,14 +470,12 @@ export class InfoClient {
     return postParsed(this.transport, "perpAnnotation", params, parsePerpAnnotation);
   }
 
-  perpCategories(
-    params: Omit<PerpCategoriesInfoRequest, "type">,
-  ): Promise<PerpCategoriesInfoResponse> {
+  perpCategories(params: Record<string, never>): Promise<PerpCategoriesInfoResponse> {
     return postParsed(this.transport, "perpCategories", params, parsePerpCategories);
   }
 
   perpConciseAnnotations(
-    params: Omit<PerpConciseAnnotationsInfoRequest, "type">,
+    params: Record<string, never>,
   ): Promise<PerpConciseAnnotationsInfoResponse> {
     return postParsed(
       this.transport,
@@ -501,13 +485,11 @@ export class InfoClient {
     );
   }
 
-  spotMeta(params: Omit<SpotMetaInfoRequest, "type">): Promise<SpotMetaInfoResponse> {
+  spotMeta(params: Record<string, never>): Promise<SpotMetaInfoResponse> {
     return postParsed(this.transport, "spotMeta", params, parseSpotMeta);
   }
 
-  spotMetaAndAssetCtxs(
-    params: Omit<SpotMetaAndAssetCtxsInfoRequest, "type">,
-  ): Promise<SpotMetaAndAssetCtxsInfoResponse> {
+  spotMetaAndAssetCtxs(params: Record<string, never>): Promise<SpotMetaAndAssetCtxsInfoResponse> {
     return postParsed(this.transport, "spotMetaAndAssetCtxs", params, parseSpotMetaAndAssetCtxs);
   }
 
@@ -529,7 +511,7 @@ export class InfoClient {
   }
 
   spotPairDeployAuctionStatus(
-    params: Omit<SpotPairDeployAuctionStatusInfoRequest, "type">,
+    params: Record<string, never>,
   ): Promise<SpotPairDeployAuctionStatusInfoResponse> {
     return postParsed(
       this.transport,
@@ -545,15 +527,11 @@ export class InfoClient {
     return postParsed(this.transport, "tokenDetails", params, parseSpotTokenDetails);
   }
 
-  spotOutcomeMeta(
-    params: Omit<SpotOutcomeMetaInfoRequest, "type">,
-  ): Promise<SpotOutcomeMetaInfoResponse> {
+  spotOutcomeMeta(params: Record<string, never>): Promise<SpotOutcomeMetaInfoResponse> {
     return postParsed(this.transport, "outcomeMeta", params, parseSpotOutcomeMeta);
   }
 
-  spotOutcomeTemplates(
-    params: Omit<SpotOutcomeTemplatesInfoRequest, "type">,
-  ): Promise<SpotOutcomeTemplatesInfoResponse> {
+  spotOutcomeTemplates(params: Record<string, never>): Promise<SpotOutcomeTemplatesInfoResponse> {
     return postParsed(this.transport, "outcomeTemplates", params, parseSpotOutcomeTemplates);
   }
 

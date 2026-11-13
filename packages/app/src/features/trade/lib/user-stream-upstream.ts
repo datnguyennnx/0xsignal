@@ -26,7 +26,7 @@ const toUpstream = (handle: SdkHandle): UpstreamSubscription => ({
   unsubscribe: () => handle.unsubscribeAsync(),
 });
 
-export interface CreateHyperliquidUpstreamOptions {
+interface CreateHyperliquidUpstreamOptions {
   /** Test seam: supply the client instead of dialing the real endpoint. */
   readonly createClient?: () => WsClient;
 }

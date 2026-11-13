@@ -26,7 +26,7 @@ const RESYNC_ROOTS: readonly (readonly string[])[] = [
   queryKeys.market.all,
 ];
 
-export type InvalidateQuery = (queryKey: readonly string[]) => void;
+type InvalidateQuery = (queryKey: readonly string[]) => void;
 
 /** Pure decision: did the page miss enough time, or was it discarded? */
 export function shouldResync(hiddenAt: number | null, now: number, discarded: boolean): boolean {

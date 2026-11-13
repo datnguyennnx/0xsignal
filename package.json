@@ -33,8 +33,8 @@
     "check": "bun run lint:strict && bun run typecheck && bun run knip && bun test",
     "clean:all": "rm -rf node_modules packages/*/node_modules packages/*/dist",
     "prepare": "husky",
-    "doctor": "react-doctor --scope changed --blocking warning --no-score --no-supply-chain --include-untracked",
-    "doctor:full": "react-doctor --blocking error --no-score --no-supply-chain"
+    "doctor": "react-doctor --scope changed --blocking warning --no-score --include-untracked",
+    "doctor:full": "react-doctor --blocking error --no-score"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
@@ -43,10 +43,10 @@
     "jscpd": "^4.0.5",
     "knip": "^6.42.1",
     "lint-staged": "^17.4.1",
-    "oxfmt": "0.66.0",
-    "oxlint": "1.81.0",
-    "oxlint-tsgolint": "latest",
-    "react-doctor": "^0.9.18",
+    "oxfmt": "0.78.0",
+    "oxlint": "1.93.0",
+    "oxlint-tsgolint": "7.0.2007",
+    "react-doctor": "0.9.22",
     "turbo": "^2.11.10",
     "typescript": "^7.0.2"
   },

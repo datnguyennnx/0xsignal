@@ -1,6 +1,6 @@
 import { parseSymbol } from "@0xsignal/shared";
 
-export type CoinWithoutIndex = { kind: "perp"; coin: string } | { kind: "needs-index" };
+type CoinWithoutIndex = { kind: "perp"; coin: string } | { kind: "needs-index" };
 
 /**
  * Perps (main and builder/HIP-3) stream under their raw coin, so the markets

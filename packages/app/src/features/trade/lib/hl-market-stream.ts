@@ -272,33 +272,33 @@ const directKey = (subscription: WsMarketSubscription): string =>
     ? `trades:${subscription.symbol ?? ""}`
     : SubscriptionKey.market(subscription);
 
+const broadcast = (entry: DirectEntry, event: unknown): void => {
+  const frame = toMarketFrame(entry.subscription, entry.frameSymbol, event);
+  if (frame === null) return;
+  for (const callbacks of entry.registrations) {
+    if (frame.meta === undefined) callbacks.onMessage(frame.data, entry.subscription.channel);
+    else callbacks.onMessage(frame.data, entry.subscription.channel, frame.meta);
+  }
+};
+
+const handleBookFrame = (entry: DirectEntry, event: unknown): void => {
+  if (entry.lastBookEvent === event) return;
+  entry.lastBookEvent = event;
+  const snapshot = readBookSnapshot(event);
+  if (snapshot === null) return;
+  const degraded = readDegraded(event);
+  broadcast(entry, {
+    levels: snapshot.levels,
+    time: snapshot.time,
+    ...(degraded !== undefined && { degraded }),
+  });
+};
+
 export function createDirectMarketStream(
   sink: DirectMarketSink,
   hooks: DirectHooks = {},
 ): DirectMarketStream {
   const entries = new Map<string, DirectEntry>();
-
-  const broadcast = (entry: DirectEntry, event: unknown): void => {
-    const frame = toMarketFrame(entry.subscription, entry.frameSymbol, event);
-    if (frame === null) return;
-    for (const callbacks of entry.registrations) {
-      if (frame.meta === undefined) callbacks.onMessage(frame.data, entry.subscription.channel);
-      else callbacks.onMessage(frame.data, entry.subscription.channel, frame.meta);
-    }
-  };
-
-  const handleBookFrame = (entry: DirectEntry, event: unknown): void => {
-    if (entry.lastBookEvent === event) return;
-    entry.lastBookEvent = event;
-    const snapshot = readBookSnapshot(event);
-    if (snapshot === null) return;
-    const degraded = readDegraded(event);
-    broadcast(entry, {
-      levels: snapshot.levels,
-      time: snapshot.time,
-      ...(degraded !== undefined && { degraded }),
-    });
-  };
 
   const fail = (key: string, entry: DirectEntry, error: Error): void => {
     if (entry.directFailed) return;
@@ -469,6 +469,22 @@ export interface BrowserMarketStreamClient extends MarketStreamClient {
   readonly getStatus: () => MarketStreamStatus;
 }
 
+const wrapBackendCallbacks = (callbacks: MarketStreamCallbacks): MarketStreamCallbacks => ({
+  onMessage: callbacks.onMessage,
+  onConnectionChange: (connected) => {
+    updateStatus({
+      source: "backend",
+      state: connected ? "connected" : "connecting",
+      reason: useMarketStreamStatus.getState().reason,
+    });
+    callbacks.onConnectionChange?.(connected);
+  },
+  onError: (error) => {
+    updateStatus({ source: "backend", state: "offline", reason: error.message });
+    callbacks.onError?.(error);
+  },
+});
+
 export function createBrowserMarketStreamClient(
   options: BrowserMarketStreamOptions = {},
 ): BrowserMarketStreamClient {
@@ -478,22 +494,6 @@ export function createBrowserMarketStreamClient(
   let sink: DirectMarketSink | null = options.sink ?? null;
   let direct: DirectMarketStream | null = null;
   let directDisabled = false;
-
-  const wrapBackendCallbacks = (callbacks: MarketStreamCallbacks): MarketStreamCallbacks => ({
-    onMessage: callbacks.onMessage,
-    onConnectionChange: (connected) => {
-      updateStatus({
-        source: "backend",
-        state: connected ? "connected" : "connecting",
-        reason: useMarketStreamStatus.getState().reason,
-      });
-      callbacks.onConnectionChange?.(connected);
-    },
-    onError: (error) => {
-      updateStatus({ source: "backend", state: "offline", reason: error.message });
-      callbacks.onError?.(error);
-    },
-  });
 
   const toBackend = (
     subscription: WsMarketSubscription,

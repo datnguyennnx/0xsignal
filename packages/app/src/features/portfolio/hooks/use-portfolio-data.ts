@@ -156,7 +156,7 @@ export function useWhaleVaultEquities(address: string | undefined) {
  * Public clearinghouse read for a third party. Direct-only and address-gated:
  * no wallet connection and no auth session are required to see the whale.
  */
-export interface WhaleClearinghouseQuery {
+interface WhaleClearinghouseQuery {
   readonly queryKey: readonly unknown[];
   readonly queryFn: () => Promise<ClearinghouseState>;
   readonly enabled: boolean;

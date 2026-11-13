@@ -11,14 +11,7 @@ import {
 import type { AssetCtxSnapshot } from "./asset-ctx";
 import type { MarketRowData } from "./market-row-data";
 
-export type MarketCellField =
-  | "symbol"
-  | "price"
-  | "change"
-  | "funding"
-  | "volume"
-  | "oi"
-  | "marketCap";
+type MarketCellField = "symbol" | "price" | "change" | "funding" | "volume" | "oi" | "marketCap";
 
 const MARKET_CELL_FIELDS: readonly MarketCellField[] = ["symbol", "marketCap"];
 

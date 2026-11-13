@@ -69,7 +69,7 @@ const deliverToShared = (shared: SharedSubscription, event: UserStreamWireEvent)
   spec.deliver(shared.holders, event);
 };
 
-export interface UserStreamClientOptions {
+interface UserStreamClientOptions {
   readonly createUpstream?: () => UserStreamUpstream;
   readonly createBroadcastChannel?: (name: string) => TabChannel;
   readonly tabId?: string;

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { AuthService } from "../application/auth.service";
 import { withAuth } from "../presentation/require-auth";
-import { Session } from "../domain/session";
+import type { Session } from "../domain/session";
 import { TokenExpired } from "../domain/errors";
 import { makeUserId } from "../domain/user";
 
@@ -18,9 +18,12 @@ const mockSession: Session = {
 const makeAuthServiceMock = () => ({
   getAuthorizationUrl: vi.fn<AuthServiceShape["getAuthorizationUrl"]>(),
   handleCallback: vi.fn<AuthServiceShape["handleCallback"]>(),
+  exchangeCode: vi.fn<AuthServiceShape["exchangeCode"]>(),
   verifyToken: vi.fn<AuthServiceShape["verifyToken"]>(),
   refreshTokens: vi.fn<AuthServiceShape["refreshTokens"]>(),
   logout: vi.fn<AuthServiceShape["logout"]>(),
+  getProfile: vi.fn<AuthServiceShape["getProfile"]>(),
+  updateProfile: vi.fn<AuthServiceShape["updateProfile"]>(),
 });
 
 const makeHandlerMock = () =>

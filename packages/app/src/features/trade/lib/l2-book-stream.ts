@@ -38,7 +38,7 @@ interface BookClient {
   close(): void;
 }
 
-export interface BookStreamOptions {
+interface BookStreamOptions {
   readonly url?: string;
   readonly depth?: number;
   readonly now?: () => number;
@@ -74,7 +74,7 @@ interface BookEntry {
   readonly listeners: Set<BookListener>;
 }
 
-export interface BookStream {
+interface BookStream {
   subscribe(
     params: BookParams,
     onData: (snapshot: MergedBook) => void,

@@ -2,7 +2,7 @@ type ViewTransitionLike = { finished: Promise<unknown> };
 
 const VIEW_TRANSITION_ATTR = "data-view-transition";
 
-export type ResolvedTheme = "dark" | "light";
+type ResolvedTheme = "dark" | "light";
 
 function writeRootTheme(theme: ResolvedTheme): void {
   const root = document.documentElement;

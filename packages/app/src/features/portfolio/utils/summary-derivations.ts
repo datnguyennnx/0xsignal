@@ -12,18 +12,18 @@ import { toAsyncState, type AsyncState } from "@/lib/async-state";
 import { findPeriodEntry, type PortfolioPeriod } from "./constants";
 import { computeMaxDrawdown } from "./financial";
 
-export interface PortfolioSummaryPerps {
+interface PortfolioSummaryPerps {
   readonly accountValue: number | null;
   readonly pnl: number | null;
   readonly volume: number | null;
   readonly maxDd: number | null;
 }
 
-export interface PortfolioSummarySpot {
+interface PortfolioSummarySpot {
   readonly totalUsdc: number;
 }
 
-export interface PortfolioSummaryVaults {
+interface PortfolioSummaryVaults {
   readonly totalEquity: number;
 }
 

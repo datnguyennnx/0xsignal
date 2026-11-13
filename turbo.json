@@ -13,7 +13,14 @@
       "persistent": true
     },
     "test": {},
-    "lint": {},
-    "typecheck": {}
+    "lint": {
+      "cache": true
+    },
+    "format:check": {
+      "cache": true
+    },
+    "typecheck": {
+      "cache": true
+    }
   }
 }

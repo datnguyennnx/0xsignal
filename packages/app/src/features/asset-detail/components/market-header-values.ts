@@ -47,7 +47,7 @@ export const formatHeaderSignedPercent = (value: number | null): string =>
 export const formatHeaderFunding = (value: number | null): string =>
   value === null ? DASH : formatFundingPercent(value);
 
-export interface MarketHeaderValues {
+interface MarketHeaderValues {
   readonly markPrice: number | null;
   readonly oraclePrice: number | null;
   readonly change24hAbs: number | null;

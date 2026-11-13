@@ -40,7 +40,7 @@ export interface UserBalances {
   isChLoading: boolean;
 }
 
-export type UserBalancesView = UserBalances & {
+type UserBalancesView = UserBalances & {
   state: AsyncState<ClearinghouseState>;
   refetch: () => void;
 };
