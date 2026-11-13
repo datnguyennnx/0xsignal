@@ -15,6 +15,7 @@ export interface MarketRowData {
   readonly coin: string;
   readonly rawCoin: string;
   readonly displaySymbol: string;
+  readonly displayName?: string | undefined;
   readonly name: string;
   readonly midKey: string;
   readonly markPx: number;
@@ -39,13 +40,15 @@ interface MarketRows {
   readonly searchKeys: string[];
 }
 
-const SEARCH_FIELDS = ["coin", "rawCoin", "displaySymbol", "name"] as const;
+const SEARCH_FIELDS = ["coin", "rawCoin", "displaySymbol", "displayName", "name"] as const;
 
 const toSearchKey = (asset: AggregatedMarket): string => {
-  const normalized = SEARCH_FIELDS.map((field) => normalizeSearch(asset[field]));
+  const normalized = SEARCH_FIELDS.map((field) => normalizeSearch(asset[field] ?? ""));
   // The alias is the separator-stripped pair a user types: BTCUSDT for BTC-USDT.
   const alias = normalizeSearch(`${asset.displaySymbol}${asset.rawCoin}`);
-  return `${normalized.join("\u0000")}\u0000${alias}`;
+  const keywords = normalizeSearch((asset.keywords ?? []).join(" "));
+  const base = `${normalized.join("\u0000")}\u0000${alias}`;
+  return keywords === "" ? base : `${base}\u0000${keywords}`;
 };
 
 export function buildMarketRows(assets: readonly AggregatedMarket[]): MarketRows {
@@ -67,6 +70,7 @@ export function buildMarketRows(assets: readonly AggregatedMarket[]): MarketRows
       coin: asset.coin,
       rawCoin: asset.rawCoin,
       displaySymbol: asset.displaySymbol,
+      displayName: asset.displayName,
       name: asset.name,
       midKey: asset.marketType === "spot" ? asset.name : asset.rawCoin,
       markPx,

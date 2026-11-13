@@ -60,6 +60,12 @@ function normalizeCoinName(rawName: string): string {
   return rawName;
 }
 
+export type PerpAnnotation = {
+  readonly displayName?: string | undefined;
+  readonly keywords?: readonly string[] | undefined;
+  readonly category?: string | undefined;
+};
+
 const buildPerpAsset = (
   meta: MetaInfoResponse,
   market: MetaInfoResponse["universe"][number],
@@ -69,6 +75,7 @@ const buildPerpAsset = (
   assetCtxs: ReadonlyArray<Record<string, unknown>>,
   categoryMap: ReadonlyMap<string, string>,
   quoteCurrency: string,
+  annotationMap: ReadonlyMap<string, PerpAnnotation> = new Map(),
 ): PerpTradeAsset | null => {
   const rawName = market.name;
   if (rawName === "") return null;
@@ -81,10 +88,16 @@ const buildPerpAsset = (
       : assetInfoFromMeta(meta, rawName, { dex: dexPrefix, dexIndex: dexIdx });
   const rawCoin = dexPrefix === null ? coin : `${dexPrefix}:${coin}`;
 
+  const annotation =
+    annotationMap.get(normalizeSymbol(rawCoin)) ??
+    annotationMap.get(normalizeSymbol(rawName)) ??
+    annotationMap.get(normalizeSymbol(coin));
+
   const category =
     categoryMap.get(normalizeSymbol(rawCoin)) ??
     categoryMap.get(normalizeSymbol(rawName)) ??
     categoryMap.get(normalizeSymbol(coin)) ??
+    annotation?.category ??
     "";
   const displayCategory = getDisplayCategory(category);
 
@@ -95,10 +108,15 @@ const buildPerpAsset = (
   const funding = stringAt(ctx, "funding") ?? "0";
   const dayNtlVlm = stringAt(ctx, "dayNtlVlm") ?? "0";
 
+  const displayLabel: string = annotation?.displayName?.trim() ?? "";
+  const symbolBase = displayLabel === "" ? coin : displayLabel;
+
   return {
     coin,
     rawCoin,
-    displaySymbol: `${coin}-${quoteCurrency}`,
+    displaySymbol: `${symbolBase}-${quoteCurrency}`,
+    displayName: annotation?.displayName ?? undefined,
+    keywords: annotation?.keywords ?? undefined,
     dexPrefix,
     isHip3: dexPrefix !== null,
     quoteCurrency,
@@ -126,6 +144,7 @@ export function parsePerpAssets(
   _allMids: Record<string, string>,
   categoryMap: ReadonlyMap<string, string>,
   resolvedTokens: string[],
+  annotationMap: ReadonlyMap<string, PerpAnnotation> = new Map(),
 ): PerpTradeAsset[] {
   const dex = extractDexMetaResult(rawResult);
   if (!dex) return [];
@@ -147,6 +166,7 @@ export function parsePerpAssets(
       assetCtxs,
       categoryMap,
       quoteCurrency,
+      annotationMap,
     );
     if (asset === null) continue;
     assets.push(asset);

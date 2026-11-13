@@ -8,6 +8,7 @@ import type {
   MetaInfoResponse,
   PerpAnnotationInfoResponse,
   PerpCategoriesInfoResponse,
+  PerpConciseAnnotationsInfoResponse,
   PerpDexsInfoResponse,
   SpotMetaAndAssetCtxsInfoResponse,
   SpotMetaInfoResponse,
@@ -128,6 +129,9 @@ export type HyperliquidInfoClient = {
     p: Record<string, never>,
   ) => Promise<SpotMetaAndAssetCtxsInfoResponse>;
   readonly perpCategories: (p: Record<string, never>) => Promise<PerpCategoriesInfoResponse>;
+  readonly perpConciseAnnotations: (
+    p: Record<string, never>,
+  ) => Promise<PerpConciseAnnotationsInfoResponse>;
   readonly meta: (p: { dex?: string }) => Promise<MetaInfoResponse>;
   readonly metaAndAssetCtxs: (p: { dex?: string }) => Promise<MetaAndAssetCtxsInfoResponse>;
 };

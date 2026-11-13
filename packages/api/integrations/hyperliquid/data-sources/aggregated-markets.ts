@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import type { PerpConciseAnnotationsInfoResponse } from "@0xsignal/sdk-hyperliquid/info";
 import { normalizeSymbol } from "./symbol";
 import { HyperliquidError, toHyperliquidError } from "./errors";
 import {
@@ -8,6 +9,7 @@ import {
   sortAndDedupeAssets,
 } from "./market-aggregation";
 import type { HyperliquidAggregatedAsset, PerpTradeAsset, HyperliquidInfoClient } from "./types";
+import type { PerpAnnotation } from "./perp-parser";
 import { withDedup } from "./request-dedup";
 import { acquireInfo, acquireUnlistedInfo, type HyperliquidRateLimiter } from "../rate-limit";
 
@@ -107,6 +109,21 @@ const buildCategoryMap = (
   return map;
 };
 
+const buildAnnotationMap = (
+  rawAnnotations: PerpConciseAnnotationsInfoResponse,
+): Map<string, PerpAnnotation> => {
+  const map = new Map<string, PerpAnnotation>();
+  for (const [coin, annotation] of rawAnnotations) {
+    if (annotation === null || annotation === undefined) continue;
+    map.set(normalizeSymbol(coin), {
+      displayName: annotation.displayName ?? undefined,
+      keywords: annotation.keywords ?? undefined,
+      category: annotation.category,
+    });
+  }
+  return map;
+};
+
 const fetchOptionalData = (
   info: HyperliquidInfoClient,
   preFetchedSpot: unknown,
@@ -165,6 +182,17 @@ export function getAggregatedMarketsSnapshot(
           [],
         ),
 
+        rawConciseAnnotations: degradeUnlessRateLimited(
+          Effect.gen(function* () {
+            yield* acquireUnlistedInfo;
+            return yield* Effect.tryPromise({
+              try: () => info.perpConciseAnnotations({}),
+              catch: (cause) => toHyperliquidError("Failed to fetch annotations", cause),
+            });
+          }),
+          [],
+        ),
+
         allMids: degradeUnlessRateLimited(
           Effect.gen(function* () {
             yield* acquireInfo("allMids");
@@ -189,6 +217,7 @@ export function getAggregatedMarketsSnapshot(
       spotTokens: resolvedTokens,
       dexNamesResult,
       rawPerpCats,
+      rawConciseAnnotations,
       allMids,
       optionalData,
     } = allResult;
@@ -196,6 +225,7 @@ export function getAggregatedMarketsSnapshot(
 
     const dexRefs = toDexRefs(dexNamesResult);
     const categoryMap = buildCategoryMap(rawPerpCats);
+    const annotationMap = buildAnnotationMap(rawConciseAnnotations);
 
     const rawMetas = yield* fetchAllDexMetas(
       info,
@@ -207,7 +237,15 @@ export function getAggregatedMarketsSnapshot(
     for (let i = 0; i < dexRefs.length; i++) {
       const { name, dexIdx } = dexRefs[i];
       perpAssets.push(
-        ...parsePerpAssets(name, dexIdx, rawMetas[i], allMids, categoryMap, resolvedTokens),
+        ...parsePerpAssets(
+          name,
+          dexIdx,
+          rawMetas[i],
+          allMids,
+          categoryMap,
+          resolvedTokens,
+          annotationMap,
+        ),
       );
     }
 

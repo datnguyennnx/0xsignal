@@ -16,6 +16,7 @@ const createMockInfoClient = () => ({
   spotMeta: vi.fn<InfoClient["spotMeta"]>().mockResolvedValue({ universe: [], tokens: [] }),
   l2Book: vi.fn<InfoClient["l2Book"]>(),
   perpAnnotation: vi.fn<InfoClient["perpAnnotation"]>(),
+  perpConciseAnnotations: vi.fn<InfoClient["perpConciseAnnotations"]>().mockResolvedValue([]),
 });
 
 type Meta = MetaInfoResponse;

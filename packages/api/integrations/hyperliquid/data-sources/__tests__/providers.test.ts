@@ -72,6 +72,9 @@ const createMockInfoClient = () => ({
   metaAndAssetCtxs: vi.fn<HyperliquidInfoClient["metaAndAssetCtxs"]>(),
   allMids: vi.fn(),
   perpCategories: vi.fn<NonNullable<HyperliquidInfoClient["perpCategories"]>>(),
+  perpConciseAnnotations: vi
+    .fn<NonNullable<HyperliquidInfoClient["perpConciseAnnotations"]>>()
+    .mockResolvedValue([]),
   perpDexs: vi.fn<NonNullable<HyperliquidInfoClient["perpDexs"]>>().mockResolvedValue([]),
   spotMeta: vi
     .fn<NonNullable<HyperliquidInfoClient["spotMeta"]>>()
