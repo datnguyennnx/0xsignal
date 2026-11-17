@@ -124,7 +124,6 @@ export const BalanceTableBody = memo(function BalanceTableBody({
             <TableCell colSpan={6} className="py-6">
               <EmptyState
                 {...POSITIONS_EMPTY_COPY}
-                className="min-h-0"
                 action={<PositionsConnectAction context="trade-position-management" />}
               />
             </TableCell>

@@ -28,7 +28,7 @@ export const EmptyState = memo(function EmptyState({
         "flex flex-1 flex-col items-center justify-center gap-1 text-center",
         fill
           ? "h-full min-h-0 min-w-0 overflow-y-auto overscroll-none scrollbar-none p-panel"
-          : "p-panel min-h-[clamp(12rem,28dvh,18rem)]",
+          : "p-panel min-h-(--empty-min-h)",
         className,
       )}
     >

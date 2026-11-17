@@ -96,6 +96,7 @@ html {
   --row-table: var(--control-h);
   --table-head-h: calc(2rem * var(--density-k));
   --row-dense: calc(1.75rem * var(--density-k));
+  --empty-min-h: clamp(12rem, 28dvh, 18rem);
 
   --measure-page: clamp(48rem, 72vw, 120rem);
   --measure-form: clamp(20rem, 28vw, 32rem);

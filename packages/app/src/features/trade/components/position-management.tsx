@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from "react";
+import { cn } from "cn";
 import { Surface } from "@/components/surface/surface";
 import { Tabs, TabsList } from "@/components/ui/tabs";
 import { useOwnAddress } from "@/hooks/use-effective-address";
@@ -35,7 +36,7 @@ function PositionManagementEmpty() {
   const isConnectOpen = useAppStore((s) => s.connectWalletOpen[CONNECT_KEY] ?? false);
 
   return (
-    <Surface tier="content" radius="panel" className={ROOT_CLASS.flow}>
+    <Surface tier="content" radius="panel" className={cn(ROOT_CLASS.flow, "min-h-(--empty-min-h)")}>
       <BalanceTable
         isChLoading={false}
         marginSummary={null}

@@ -119,6 +119,11 @@ const connectButton = (container: HTMLElement): HTMLButtonElement | undefined =>
     (node) => node.textContent?.trim() === "Connect Wallet",
   );
 
+const FLOOR_CLASS = "min-h-(--empty-min-h)";
+
+const classTokens = (element: Element): string[] =>
+  (element.getAttribute("class") ?? "").split(/\s+/).filter(Boolean);
+
 afterEach(() => {
   cleanup();
   useAppStore.setState({ connectWalletOpen: {} });
@@ -160,5 +165,24 @@ describe("trade positions panel without a wallet", () => {
     fireEvent.click(connect as HTMLButtonElement);
 
     expect(useAppStore.getState().connectWalletOpen[CONNECT_KEY]).toBe(true);
+  });
+
+  test("the wallet-empty body keeps the shared floor and the drag-handle marker", () => {
+    const view = renderBalancesPanel();
+
+    const body = view.container.querySelector("tbody.wallet-empty");
+    expect(body).not.toBeNull();
+    if (body === null) throw new Error("expected the wallet-empty table body");
+
+    const floored = [...body.querySelectorAll("*")].filter((element) =>
+      classTokens(element).includes(FLOOR_CLASS),
+    );
+    expect(floored.length).toBe(1);
+    const panel = floored[0];
+    if (panel === undefined) throw new Error("expected the empty state to carry the floor");
+
+    expect(panel.querySelector("h3")).not.toBeNull();
+    expect(classTokens(panel)).not.toContain("min-h-0");
+    expect(classTokens(body)).toContain("wallet-empty");
   });
 });

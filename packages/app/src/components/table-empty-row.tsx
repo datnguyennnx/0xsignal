@@ -22,24 +22,22 @@ interface TableEmptyRowProps {
 
 function TableLoadingRows({ rows, colSpan }: { rows: number; colSpan: number }) {
   return (
-    <>
-      {Array.from({ length: rows }, (_, rowIndex) => (
-        <TableRow key={rowIndex} className="hover:bg-transparent">
-          <TableCell colSpan={colSpan} className="py-2">
-            {rowIndex === 0 && (
-              <output aria-live="polite" aria-busy="true" className="sr-only">
-                Loading data
-              </output>
-            )}
-            <div className="flex items-center gap-4" aria-hidden="true">
+    <TableRow className="hover:bg-transparent">
+      <TableCell colSpan={colSpan} className="p-0">
+        <div className="flex min-h-(--empty-min-h) flex-col justify-center gap-4 py-6">
+          <output aria-live="polite" aria-busy="true" className="sr-only">
+            Loading data
+          </output>
+          {Array.from({ length: rows }, (_, rowIndex) => (
+            <div key={rowIndex} className="flex items-center gap-4" aria-hidden="true">
               {Array.from({ length: colSpan }, (_column, columnIndex) => (
                 <Skeleton key={columnIndex} className="h-[1.5em] flex-1" />
               ))}
             </div>
-          </TableCell>
-        </TableRow>
-      ))}
-    </>
+          ))}
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
