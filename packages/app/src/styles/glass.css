@@ -1,0 +1,35 @@
+/* Shared glass mechanism. Themes override colors only; edit values here to affect BOTH modes. */
+:root {
+  /* geometry */
+  --glass-blur: calc(20px * var(--glass-blur-k, 1));
+  --glass-blur-heavy: calc(24px * var(--glass-blur-k, 1));
+  --glass-specular-blur: calc(var(--glass-blur) * 1.2);
+  --glass-radius: var(--radius-overlay, 1rem);
+  --glass-radius-inset: var(--glass-radius);
+  /* optical */
+  --glass-saturate: calc(1.4 * var(--glass-sat-k, 1));
+  --glass-saturate-heavy: calc(1.4 * var(--glass-sat-k, 1));
+  --glass-brightness: calc(1.02 * var(--glass-bright-k, 1));
+  --glass-brightness-heavy: calc(1.02 * var(--glass-bright-k, 1));
+  /* translucency */
+  --glass-a-regular: calc(0.14 * var(--glass-alpha-k, 1));
+  --glass-a-thick: calc(0.2 * var(--glass-alpha-k, 1));
+  /* rim / sheen alpha (colors are themed) */
+  --glass-rim-top-a: calc(0.3 * var(--glass-edge-k, 1));
+  --glass-rim-left-a: calc(0.16 * var(--glass-edge-k, 1));
+  --glass-rim-line-a: calc(0.1 * var(--glass-edge-k, 1));
+  --glass-rim-bottom-a: calc(0.18 * var(--glass-edge-k, 1));
+  --glass-rim-glow-a: calc(0.05 * var(--glass-edge-k, 1));
+  --glass-sheen-a: calc(0.08 * var(--glass-edge-k, 1));
+  --glass-sheen: linear-gradient(oklch(1 0 0 / var(--glass-sheen-a)), oklch(1 0 0 / 0) 45%);
+  --glass-lift-a: 0.16;
+  /* One drop alpha for both themes, so light and dark lift the same pane. */
+  --glass-drop-a: calc(0.16 * var(--glass-edge-k, 1));
+  /* One composed shadow: every glass surface reads this, never a local stack. */
+  --glass-shadow:
+    var(--glass-rim-top) 0 1.5px 0 0 inset, var(--glass-rim-left) 1.5px 0 0 -0.5px inset,
+    var(--glass-rim-bottom) 0 -1px 0 0 inset, var(--glass-rim-line) 0 0 0 1px inset,
+    var(--glass-rim-glow) 0 0 24px -6px inset, 0 4px 16px -2px var(--glass-drop);
+  /* scrim */
+  --scrim-a: 0.32;
+}

@@ -263,7 +263,7 @@
     {
       // Build script outside the TS program (bun/node globals untyped): the unsafe
       // reads and truthiness checks come from missing ambient types, not defects.
-      "files": ["packages/app/scripts/**/*.mjs"],
+      "files": ["packages/app/scripts/**/*.mjs", "scripts/**/*.mjs"],
       "rules": {
         "typescript/no-unsafe-argument": "off",
         "typescript/no-unsafe-assignment": "off",
@@ -271,7 +271,13 @@
         "typescript/no-unsafe-member-access": "off",
         "typescript/no-unsafe-return": "off",
         "typescript/no-unsafe-type-assertion": "off",
-        "typescript/strict-boolean-expressions": "off"
+        "typescript/strict-boolean-expressions": "off",
+        // dev CLI harness
+        "no-console": "off",
+        "no-await-in-loop": "off",
+        "max-depth": "off",
+        "eslint/no-negated-condition": "off",
+        "unicorn/no-negated-condition": "off"
       }
     },
     {

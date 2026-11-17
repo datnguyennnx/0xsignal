@@ -33,15 +33,6 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  :root,
-  .light {
-    --tooltip-bg: var(--surface-overlay);
-    --data-volume: oklch(0.52 0.012 260 / var(--alpha-3));
-    --glass-fill-regular: var(--card);
-    --glass-fill-thick: var(--card);
-    --plate-fill: var(--card);
-  }
-
   .dark {
     --tooltip-bg: var(--surface-base);
     --data-volume: oklch(0.7 0.01 262 / var(--alpha-3));

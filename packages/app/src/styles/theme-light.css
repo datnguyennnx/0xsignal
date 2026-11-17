@@ -1,0 +1,310 @@
+/* palette */
+:root:not(.dark),
+.light {
+  --p-paper-well: oklch(0.945 0.006 100);
+  --p-paper-canvas: oklch(0.945 0.006 100);
+  --p-paper-base: oklch(0.982 0.005 100);
+  --p-paper-raised: oklch(0.99 0.005 100);
+  --p-paper-overlay: oklch(0.996 0.004 100);
+
+  --p-moss-50: oklch(0.975 0.012 132);
+  --p-moss-100: oklch(0.945 0.025 132);
+  --p-moss-150: oklch(0.925 0.035 132);
+  --p-moss-200: oklch(0.9 0.045 132);
+  --p-moss-300: oklch(0.83 0.07 132);
+  --p-moss-500: oklch(0.6 0.11 132);
+  --p-moss-600: oklch(0.5 0.105 132);
+  --p-moss-700: oklch(0.42 0.09 132);
+  --p-moss-800: oklch(0.34 0.07 132);
+  --p-moss-900: oklch(0.26 0.045 132);
+
+  --hairline: oklch(0.24 0.02 100 / 0.09);
+}
+
+/* semantic */
+:root:not(.dark),
+.light {
+  color-scheme: light;
+
+  --surface-well: oklch(0.945 0.006 100);
+  --surface-canvas: oklch(0.945 0.006 100);
+  --surface-base: oklch(0.982 0.005 100);
+  --surface-raised: oklch(0.99 0.005 100);
+  --surface-overlay: oklch(0.996 0.004 100);
+  --surface-inset: oklch(0.945 0.006 100);
+
+  --text-primary: oklch(0.22 0.006 100);
+  --text-secondary: oklch(0.42 0.006 100);
+  --text-muted: oklch(0.5 0.005 100);
+  --text-on-accent: oklch(0.995 0.003 100);
+
+  --border-subtle: var(--hairline);
+  --border-control: var(--control-border);
+  --ring: oklch(0.5 0.105 132 / 0.9);
+
+  /* A control edge is a boundary, drawn as ink at the weight of a drawn line. */
+  --control-border: oklch(0.24 0.02 100 / 0.13);
+
+  --focus-width: 2px;
+  --focus-offset: 0px;
+  --focus-color: var(--ring);
+
+  --control-active-fill-lift: oklch(0.997 0.004 100);
+  --control-active-ink-lift: var(--p-moss-800);
+  --control-active-edge-lift: var(--p-moss-300);
+  --control-active-fill-wash: var(--p-moss-100);
+  --control-active-ink-wash: var(--p-moss-800);
+  --control-active-edge-wash: var(--p-moss-300);
+
+  --control-active-fill: var(--control-active-fill-lift);
+  --control-active-ink: var(--control-active-ink-lift);
+  --control-active-edge: var(--control-active-edge-lift);
+  --control-active-rim-specular: transparent;
+
+  --primary: var(--p-neutral-900);
+  --primary-foreground: var(--p-paper-overlay);
+  --secondary: color-mix(in oklab, var(--p-neutral-900) 6%, transparent);
+  --secondary-foreground: var(--text-primary);
+  --accent: oklch(0.6 0.11 132 / 0.16);
+  --accent-foreground: var(--text-primary);
+  --accent-ink: var(--p-moss-700);
+
+  --success: oklch(0.44 0.115 132);
+  --success-foreground: var(--p-paper-overlay);
+  --warn: oklch(0.515 0.1105 75);
+  --warn-foreground: var(--p-paper-overlay);
+  --info: oklch(0.5 0.105 132);
+  --info-foreground: var(--p-paper-overlay);
+  --destructive: oklch(0.53 0.17 25);
+  --destructive-foreground: var(--p-paper-overlay);
+  --disabled: color-mix(in oklab, var(--p-neutral-900) 8%, transparent);
+  --disabled-foreground: oklch(0.5 0.008 100);
+
+  --danger-bg: color-mix(in oklab, var(--destructive) 10%, transparent);
+  --danger-border: color-mix(in oklab, var(--destructive) 28%, transparent);
+  --danger-text: var(--destructive);
+  --link: oklch(0.46 0.105 132);
+  --link-foreground: var(--p-paper-overlay);
+
+  --market-up: oklch(0.495 0.1275 150);
+  --market-down: oklch(0.53 0.17 25);
+  --market-up-foreground: var(--p-paper-overlay);
+  --market-down-foreground: var(--p-paper-overlay);
+  --market-cb-up: oklch(0.5 0.136 180);
+  --market-cb-down: oklch(0.55 0.136 55);
+  --market-cb-up-foreground: var(--p-paper-overlay);
+  --market-cb-down-foreground: var(--p-paper-overlay);
+
+  --data-series-1: oklch(0.5 0.105 132);
+  --data-series-2: oklch(0.45 0.01 100);
+  --data-series-3: oklch(0.62 0.12 132);
+  --data-series-4: oklch(0.53 0.17 25);
+  --data-series-5: oklch(0.34 0.07 132);
+  --data-series-6: oklch(0.3 0.015 100);
+  --data-series-7: oklch(0.7 0.1 132);
+  --data-series-8: oklch(0.58 0.02 100);
+
+  --data-grid: oklch(0.24 0.02 100 / 0.12);
+  --data-axis: oklch(0.42 0.008 100);
+  --data-crosshair: oklch(0.35 0.012 100 / 0.5);
+  --data-volume: oklch(0.24 0.02 100 / var(--alpha-3));
+  --tooltip-bg: oklch(0.995 0.003 100 / 0.96);
+  --tooltip-text: var(--foreground);
+
+  --background: var(--surface-canvas);
+  --foreground: var(--text-primary);
+  --card: var(--surface-base);
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
+  --muted: var(--surface-inset);
+  --muted-foreground: var(--text-secondary);
+  --input: var(--control-bg);
+  --border: var(--border-subtle);
+  --semantic-danger-bg: var(--danger-bg);
+  --semantic-danger-border: var(--danger-border);
+  --semantic-danger-text: var(--danger-text);
+  --app-bg: var(--surface-canvas);
+  --canvas: var(--surface-canvas);
+  --ink: var(--foreground);
+}
+
+/* material */
+:root:not(.dark),
+.light {
+  --ambient-1: oklch(0.95 0.03 132 / calc(0.35 * var(--ambient-k, 1)));
+  --ambient-2: oklch(0.95 0.03 132 / 0);
+  --ambient-3: oklch(0.95 0.03 132 / 0);
+  --noise-opacity: calc(0.02 * var(--noise-a, 1));
+
+  --layer-content-fill: var(--surface-base);
+  --layer-raised-fill: var(--surface-raised);
+  --layer-content-edge: var(--border-subtle);
+  --layer-content-shadow:
+    0 0 0 1px var(--layer-content-edge), 0 1px 2px oklch(0.24 0.02 100 / 0.05);
+
+  --frost-a: 0.2;
+  --frost-a-raised: 0.3;
+  --frost-fill: var(--p-paper-base);
+  --frost-fill-raised: var(--p-paper-raised);
+  --frost-sheen: none;
+  --frost-shadow: 0 0 0 1px var(--hairline);
+
+  --glass-fill-regular: oklch(0.996 0.004 100 / var(--glass-a-regular));
+  --glass-fill-thick: oklch(0.996 0.004 100 / var(--glass-a-thick));
+  --glass-fallback-fill: var(--surface-overlay);
+  --plate-fill: var(--p-paper-overlay);
+  --scrim: oklch(0.24 0.02 100 / var(--scrim-a));
+  --clear-dimming: oklch(0.24 0.02 100 / 0.12);
+
+  --well-bg: var(--p-paper-well);
+  --well-border: var(--hairline);
+  --well-shadow:
+    inset 0 1px 2px oklch(0.24 0.02 100 / 0.1), inset 0 0 0 1px oklch(0.24 0.02 100 / 0.06);
+
+  --control-bg: var(--p-paper-raised);
+  --control-hover-bg: var(--p-moss-50);
+  --control-active-bg: var(--control-active-fill);
+  --control-active-rim: var(--control-active-edge);
+  --control-sheen: none;
+
+  --option-card-bg: oklch(0.24 0.02 100 / 0.03);
+  --option-card-hover-bg: oklch(0.24 0.02 100 / 0.06);
+  --option-card-active-bg: var(--p-moss-100);
+  --option-card-border: var(--hairline);
+  --option-card-active-border: var(--p-moss-300);
+
+  --glass-rim-top: oklch(1 0 0 / var(--glass-rim-top-a));
+  --glass-rim-left: oklch(1 0 0 / var(--glass-rim-left-a));
+  --glass-rim-line: oklch(0.24 0.02 100 / var(--glass-rim-line-a));
+  --glass-rim-bottom: oklch(0 0 0 / var(--glass-rim-bottom-a));
+  --glass-rim-glow: oklch(1 0 0 / var(--glass-rim-glow-a));
+  --glass-drop: oklch(0.24 0.02 100 / var(--glass-drop-a));
+  --rim-line: inset 0 0 0 1px var(--border);
+  --rim-specular: inset 0 1px 0 0 var(--glass-rim-top);
+  --rim-accent: inset 0 0 0 1px var(--option-card-active-border);
+  --glass-lift: oklch(0 0 0 / var(--glass-lift-a));
+  --overlay-lift: oklch(0.24 0.02 100 / 0.13);
+  --fill-rim: oklch(1 0 0 / 0.25);
+  --scroll-edge-fill: linear-gradient(to bottom, var(--surface-base) 0%, transparent 100%);
+}
+
+/* effects */
+:root:not(.dark),
+.light {
+  --shadow-e1: 0 1px 2px oklch(0.24 0.02 100 / 0.06);
+  --shadow-e2: 0 6px 20px -8px oklch(0.24 0.02 100 / 0.12);
+  --shadow-e3: 0 24px 48px -16px oklch(0.24 0.02 100 / 0.12);
+  --shadow-press: 0 1px 2px oklch(0.24 0.02 100 / 0.1), 0 0 0 0.5px oklch(0.24 0.02 100 / 0.05);
+  --shadow-overlay: 0 4px 16px -2px oklch(0.24 0.02 100 / 0.1);
+  --shadow-tooltip: 0 2px 8px oklch(0.24 0.02 100 / 0.08), 0 0 0 1px var(--hairline);
+}
+
+/*
+ * structural
+ *
+ * Unlayered on purpose: these resolve after `@layer utilities` and the component
+ * utility classes, so a light control renders exactly one active recipe instead of
+ * stacking the well pill, the control tint and the Tailwind shadow. Recipe: a
+ * .997 paper lift, moss-800 ink, one moss edge and one e1 lift.
+ */
+
+/* A control inside the well never paints its own tint; only the pill recipe does. */
+.light
+  .tier-well
+  :where(
+    .tier-control:is(
+      :active:not(:disabled):not([aria-disabled="true"]),
+      [data-state="active"],
+      [aria-pressed="true"],
+      [aria-expanded="true"],
+      [data-active]:not([data-active="false"])
+    )
+  ):not([data-semantic-fill]) {
+  background-color: transparent;
+  background-image: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* Hover is a moss-50 wash; the rest border and lift stay put. */
+.light
+  :where(
+    .tier-control[data-material]:not([data-material="none"]):hover:not(:disabled):not(
+        [aria-disabled="true"]
+      )
+  ) {
+  background-color: var(--control-hover-bg);
+  background-image: none;
+  border-color: var(--control-border);
+}
+
+.light
+  .tier-well
+  :is(.tier-control[data-material], .tier-control, label):is(
+    [data-active]:not([data-active="false"]),
+    [data-state="active"],
+    [aria-pressed="true"],
+    [aria-expanded="true"],
+    [data-expanded]:not([data-expanded="false"]),
+    label:has(> input:checked)
+  ):not([data-semantic-fill]) {
+  background-color: var(--control-active-fill-lift);
+  background-image: none;
+  color: var(--control-active-ink-lift);
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px var(--control-active-edge-lift),
+    var(--shadow-e1);
+}
+
+/* Tabs triggers carry their own bg/shadow utilities; replace, never add to them. */
+.light
+  .tier-well
+  [data-slot="tabs-trigger"]:is([data-active]:not([data-active="false"]), [data-state="active"]) {
+  background-color: var(--control-active-fill-lift);
+  background-image: none;
+  color: var(--control-active-ink-lift);
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px var(--control-active-edge-lift),
+    var(--shadow-e1);
+}
+
+/* The light well is a recess: inset shadow only, no inherited outer lift. */
+.light .tier-well {
+  background-color: var(--well-bg);
+  box-shadow: var(--well-shadow);
+}
+
+/* A selected option card is a moss wash, not a raised plate. */
+.light button[aria-pressed="true"][class*="bg-(--option-card-active-bg)"] {
+  background-color: var(--p-moss-100);
+  color: var(--p-moss-800);
+  box-shadow: 0 0 0 1px var(--p-moss-300);
+}
+
+/* On an accent surface the selected label is ink, never a second green tint. */
+.light
+  .tier-well
+  [data-semantic-fill]
+  :is([data-active]:not([data-active="false"]), [aria-pressed="true"], label:has(> input:checked)) {
+  color: var(--control-active-ink);
+}
+
+/* Light counterpart of the dark reduced-transparency flattening in a11y.css. */
+@media (prefers-reduced-transparency: reduce) {
+  :root:not(.dark),
+  .light {
+    --tooltip-bg: var(--surface-base);
+    --data-volume: oklch(0.24 0.02 100 / var(--alpha-3));
+    --glass-fill-regular: var(--card);
+    --glass-fill-thick: var(--card);
+    --plate-fill: var(--card);
+  }
+
+  :root:not(.dark) :is(.tier-content, .tier-solid, .tier-control, .tier-floating, [data-material]),
+  .light :is(.tier-content, .tier-solid, .tier-control, .tier-floating, [data-material]) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

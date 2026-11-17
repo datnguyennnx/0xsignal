@@ -1,11 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./styles/tokens.primitive.css";
+@import "./styles/glass.css";
 @import "./styles/tokens.semantic.css";
 @import "./styles/tokens.scale.css";
 @import "./styles/tokens.material.css";
 @import "./styles/preferences.css";
 @import "./styles/base.css";
 @import "./styles/utilities.css";
+@import "./styles/theme-light.css";
 @import "./styles/a11y.css";
 @import "./styles/compat.css";

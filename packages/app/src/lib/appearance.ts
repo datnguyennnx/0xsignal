@@ -7,7 +7,18 @@ export type UiScalePreset = "small" | "default" | "large" | "xl";
 export type RadiusPreset = "sharp" | "default" | "round";
 export type MarketColorsPreset = "default" | "swapped" | "colorblind";
 
-export interface AppearancePrefs {
+export type AppearanceNumericKey =
+  | "glassAlpha"
+  | "glassBlur"
+  | "glassEdge"
+  | "glassSaturate"
+  | "glassBrightness"
+  | "ambientIntensity"
+  | "noise";
+
+export type AppearanceNumerics = Record<AppearanceNumericKey, number>;
+
+export interface AppearancePrefs extends AppearanceNumerics {
   glass: GlassPreset;
   ambient: AmbientPreset;
   density: DensityPreset;
@@ -23,6 +34,48 @@ export const DEFAULT_APPEARANCE: AppearancePrefs = {
   uiScale: "default",
   radius: "default",
   marketColors: "default",
+  glassAlpha: 1,
+  glassBlur: 1,
+  glassEdge: 1,
+  glassSaturate: 1,
+  glassBrightness: 1,
+  ambientIntensity: 0.55,
+  noise: 1,
+};
+
+export interface GlassKnobs {
+  alpha: number;
+  blur: number;
+  edge: number;
+  saturate: number;
+  brightness: number;
+}
+
+export const GLASS_PRESET_KNOBS: Record<GlassPreset, GlassKnobs> = {
+  clear: { alpha: 0.72, blur: 0.55, edge: 0.8, saturate: 0.9, brightness: 0.98 },
+  balanced: { alpha: 1, blur: 1, edge: 1, saturate: 1, brightness: 1 },
+  frosted: { alpha: 1.18, blur: 1.1, edge: 1.15, saturate: 1.1, brightness: 1.02 },
+};
+
+export const AMBIENT_PRESET_INTENSITY: Record<AmbientPreset, number> = {
+  off: 0,
+  subtle: 0.55,
+  vivid: 1.25,
+};
+
+interface NumericSpec {
+  min: number;
+  max: number;
+}
+
+const NUMERIC_SPEC: Record<AppearanceNumericKey, NumericSpec> = {
+  glassAlpha: { min: 0.4, max: 1.6 },
+  glassBlur: { min: 0, max: 2 },
+  glassEdge: { min: 0, max: 1.6 },
+  glassSaturate: { min: 0.8, max: 2 },
+  glassBrightness: { min: 0.96, max: 1.12 },
+  ambientIntensity: { min: 0, max: 1.5 },
+  noise: { min: 0, max: 1.5 },
 };
 
 const GLASS: readonly GlassPreset[] = ["clear", "balanced", "frosted"];
@@ -44,21 +97,60 @@ const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback:
   return fallback;
 };
 
+const clampNumeric = (value: unknown, spec: NumericSpec, fallback: number): number => {
+  const base = typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  return Math.min(spec.max, Math.max(spec.min, base));
+};
+
 export function sanitizeAppearance(value: unknown): AppearancePrefs {
-  if (!isRecord(value)) return { ...DEFAULT_APPEARANCE };
+  const raw = isRecord(value) ? value : {};
+  const glass = pick(raw.glass, GLASS, DEFAULT_APPEARANCE.glass);
+  const ambient = pick(raw.ambient, AMBIENT, DEFAULT_APPEARANCE.ambient);
+  const knobs = GLASS_PRESET_KNOBS[glass];
   return {
-    glass: pick(value.glass, GLASS, DEFAULT_APPEARANCE.glass),
-    ambient: pick(value.ambient, AMBIENT, DEFAULT_APPEARANCE.ambient),
-    density: pick(value.density, DENSITY, DEFAULT_APPEARANCE.density),
-    uiScale: pick(value.uiScale, UI_SCALE, DEFAULT_APPEARANCE.uiScale),
-    radius: pick(value.radius, RADIUS, DEFAULT_APPEARANCE.radius),
-    marketColors: pick(value.marketColors, MARKET_COLORS, DEFAULT_APPEARANCE.marketColors),
+    glass,
+    ambient,
+    density: pick(raw.density, DENSITY, DEFAULT_APPEARANCE.density),
+    uiScale: pick(raw.uiScale, UI_SCALE, DEFAULT_APPEARANCE.uiScale),
+    radius: pick(raw.radius, RADIUS, DEFAULT_APPEARANCE.radius),
+    marketColors: pick(raw.marketColors, MARKET_COLORS, DEFAULT_APPEARANCE.marketColors),
+    glassAlpha: clampNumeric(raw.glassAlpha, NUMERIC_SPEC.glassAlpha, knobs.alpha),
+    glassBlur: clampNumeric(raw.glassBlur, NUMERIC_SPEC.glassBlur, knobs.blur),
+    glassEdge: clampNumeric(raw.glassEdge, NUMERIC_SPEC.glassEdge, knobs.edge),
+    glassSaturate: clampNumeric(raw.glassSaturate, NUMERIC_SPEC.glassSaturate, knobs.saturate),
+    glassBrightness: clampNumeric(
+      raw.glassBrightness,
+      NUMERIC_SPEC.glassBrightness,
+      knobs.brightness,
+    ),
+    ambientIntensity: clampNumeric(
+      raw.ambientIntensity,
+      NUMERIC_SPEC.ambientIntensity,
+      AMBIENT_PRESET_INTENSITY[ambient],
+    ),
+    noise: clampNumeric(raw.noise, NUMERIC_SPEC.noise, DEFAULT_APPEARANCE.noise),
+  };
+}
+
+export function appearanceCssVars(prefs: AppearancePrefs): Record<string, string> {
+  return {
+    "--glass-alpha-k": String(prefs.glassAlpha),
+    "--glass-blur-k": String(prefs.glassBlur),
+    "--glass-edge-k": String(prefs.glassEdge),
+    "--glass-sat-k": String(prefs.glassSaturate),
+    "--glass-bright-k": String(prefs.glassBrightness),
+    "--ambient-k": String(prefs.ambientIntensity),
+    "--noise-a": String(prefs.noise),
   };
 }
 
 export function applyAppearance(prefs: AppearancePrefs): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
+
+  for (const [name, value] of Object.entries(appearanceCssVars(prefs))) {
+    root.style.setProperty(name, value);
+  }
 
   root.dataset.glass = prefs.glass;
   root.dataset.ambient = prefs.ambient;

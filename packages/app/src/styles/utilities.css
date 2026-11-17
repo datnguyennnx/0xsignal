@@ -510,8 +510,7 @@
       var(--shadow-press);
   }
 
-  .tier-floating[data-material="glass"],
-  [data-sonner-toaster] .tier-floating[data-sonner-toast][data-styled="true"] {
+  .tier-floating[data-material="glass"] {
     background-color: color-mix(in oklab, var(--surface-floating) 88%, transparent);
     box-shadow: var(--rim-line);
     -webkit-backdrop-filter: none;
@@ -611,14 +610,7 @@
     .tier-floating[data-material="glass"]:not([data-thickness="thick"]) {
       background-color: var(--glass-fill-regular);
       background-image: var(--glass-sheen);
-      box-shadow:
-        inset 0 1.5px 0 var(--glass-rim-top),
-        inset 1.5px 0 0 -0.5px var(--glass-rim-left),
-        inset 0 -1px 0 var(--glass-rim-bottom),
-        /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */ inset 0 0 0 1px
-          var(--glass-rim-line),
-        inset 0 0 var(--glass-specular-blur) -6px var(--glass-rim-glow),
-        var(--shadow-overlay);
+      box-shadow: var(--glass-shadow);
       -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
         brightness(var(--glass-brightness));
       backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
@@ -628,35 +620,11 @@
     .tier-floating[data-material="glass"][data-thickness="thick"] {
       background-color: var(--glass-fill-thick);
       background-image: var(--glass-sheen);
-      box-shadow:
-        inset 0 1.5px 0 var(--glass-rim-top),
-        inset 1.5px 0 0 -0.5px var(--glass-rim-left),
-        inset 0 -1px 0 var(--glass-rim-bottom),
-        /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */ inset 0 0 0 1px
-          var(--glass-rim-line),
-        inset 0 0 var(--glass-specular-blur) -6px var(--glass-rim-glow),
-        0 28px 64px -12px var(--overlay-lift);
+      box-shadow: var(--glass-shadow);
       -webkit-backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate-heavy))
         brightness(var(--glass-brightness-heavy));
       backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate-heavy))
         brightness(var(--glass-brightness-heavy));
-    }
-
-    [data-sonner-toaster] .tier-floating[data-sonner-toast][data-styled="true"] {
-      background-color: var(--glass-fill-regular);
-      background-image: var(--glass-sheen);
-      box-shadow:
-        inset 0 1.5px 0 var(--glass-rim-top),
-        inset 1.5px 0 0 -0.5px var(--glass-rim-left),
-        inset 0 -1px 0 var(--glass-rim-bottom),
-        /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */ inset 0 0 0 1px
-          var(--glass-rim-line),
-        inset 0 0 var(--glass-specular-blur) -6px var(--glass-rim-glow),
-        0 16px 36px -12px var(--glass-lift);
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
-        brightness(var(--glass-brightness));
-      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
-        brightness(var(--glass-brightness));
     }
   }
 
@@ -733,14 +701,7 @@
   max-height: calc(100dvh - 2rem);
   background-color: var(--glass-fill-thick);
   background-image: var(--glass-sheen);
-  box-shadow:
-    inset 0 1.5px 0 var(--glass-rim-top),
-    inset 1.5px 0 0 -0.5px var(--glass-rim-left),
-    inset 0 -1px 0 var(--glass-rim-bottom),
-    /* glass-rim-line is 22% (light) where --rim-line's --border is 11% */ inset 0 0 0 1px
-      var(--glass-rim-line),
-    inset 0 0 var(--glass-specular-blur) -6px var(--glass-rim-glow),
-    var(--shadow-overlay);
+  box-shadow: var(--glass-shadow);
   -webkit-backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate-heavy))
     brightness(var(--glass-brightness-heavy));
   backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate-heavy))
@@ -756,6 +717,43 @@
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+}
+
+/*
+ * Sonner ships an unlayered stylesheet that loads after ours, and its theme
+ * rules out-specify a plain `[data-sonner-toaster]` block. These rules are
+ * unlayered too, and the surface selector is boosted past
+ * `[data-sonner-toast][data-styled]`, so the toast reads the shared glass
+ * recipe instead of Sonner's opaque `--normal-bg` default.
+ */
+[data-sonner-toaster] {
+  --normal-bg: var(--glass-fill-regular);
+  --normal-border: var(--glass-rim-line);
+  --normal-text: var(--text-primary);
+  --normal-shadow: var(--glass-shadow);
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"],
+[data-sonner-toast] {
+  /* Direct assignment on the toast beats the vars Sonner themes on the toaster,
+     which the close button inside the toast inherits. */
+  --normal-bg: var(--glass-fill-regular);
+  --normal-border: var(--glass-rim-line);
+  --normal-text: var(--text-primary);
+  --normal-shadow: var(--glass-shadow);
+  background-color: var(--glass-fill-regular);
+  background-image: var(--glass-sheen);
+  border-color: var(--glass-rim-line);
+  box-shadow: var(--glass-shadow);
+  color: var(--text-primary);
+  -webkit-backdrop-filter: var(
+    --glass-backdrop,
+    blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness))
+  );
+  backdrop-filter: var(
+    --glass-backdrop,
+    blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness))
+  );
 }
 
 [data-layout="workspace"] :is(.tier-content, .tier-solid, .tier-floating, [data-material="frost"]) {

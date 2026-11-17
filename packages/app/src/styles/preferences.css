@@ -1,19 +1,11 @@
-html[data-glass="clear"] {
-  --glass-alpha-k: 0.72;
-  --frost-alpha-k: 0.8;
-  --glass-blur-k: 0.55;
-}
-
-html[data-glass="balanced"] {
+:root {
   --glass-alpha-k: 1;
-  --frost-alpha-k: 1;
   --glass-blur-k: 1;
-}
-
-html[data-glass="frosted"] {
-  --glass-alpha-k: 1.18;
-  --frost-alpha-k: 1.15;
-  --glass-blur-k: 1.1;
+  --glass-edge-k: 1;
+  --glass-sat-k: 1;
+  --glass-bright-k: 1;
+  --frost-alpha-k: 1;
+  --noise-a: 1;
 }
 
 html[data-ambient="off"] {
