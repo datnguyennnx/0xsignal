@@ -47,7 +47,7 @@
     "oxlint": "1.93.0",
     "oxlint-tsgolint": "7.0.2007",
     "react-doctor": "0.9.22",
-    "turbo": "^2.11.10",
+    "turbo": "^2.11.11",
     "typescript": "^7.0.2"
   },
   "lint-staged": {

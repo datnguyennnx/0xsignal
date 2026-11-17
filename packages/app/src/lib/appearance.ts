@@ -43,7 +43,7 @@ export const DEFAULT_APPEARANCE: AppearancePrefs = {
   noise: 1,
 };
 
-export interface GlassKnobs {
+interface GlassKnobs {
   alpha: number;
   blur: number;
   edge: number;
