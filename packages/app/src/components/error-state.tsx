@@ -23,7 +23,7 @@ export const ErrorState = memo(function ErrorState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center text-center min-h-[clamp(12rem,28dvh,18rem)]",
+        "flex flex-col items-center justify-center text-center min-h-(--empty-min-h)",
         className,
       )}
     >

@@ -8,14 +8,15 @@ import { SETTINGS_NAV_ITEMS } from "./settings-nav-model";
  * left edge are the same for one-word and two-word labels alike.
  */
 const TAB_BOX_CLASS =
-  "group w-full max-w-full flex-none justify-start gap-inline border-0 px-(--control-px) text-left [border-radius:var(--radius-control)]! hover:bg-(--control-hover-bg) data-active:bg-(--control-active-bg) data-active:text-info data-active:shadow-none!";
+  "group w-full max-w-full flex-none justify-start gap-inline border-0 px-(--control-px) text-left [border-radius:var(--radius-control)]! hover:bg-(--control-hover-bg) data-active:bg-(--control-active-bg)! data-active:text-info data-active:shadow-none! h-(--action-h)!";
 
 export function SettingsNav() {
   return (
     <div className="col-span-1 w-full min-w-0 py-2 md:border-r md:pr-2">
       <TabsList
         aria-label="Settings sections"
-        className="tier-identity w-full flex-col gap-1 [padding:0]!"
+        variant="line"
+        className="w-full flex-col gap-1 [padding:0]!"
       >
         {SETTINGS_NAV_ITEMS.map((item) => {
           const Icon = item.icon;

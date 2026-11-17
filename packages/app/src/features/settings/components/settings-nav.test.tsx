@@ -20,8 +20,16 @@ function tabTags(markup: string): string[] {
   return markup.match(/<[a-z]+[^>]*data-slot="tabs-trigger"[^>]*>/g) ?? [];
 }
 
+function classStringOf(tag: string): string {
+  return /class="([^"]*)"/.exec(tag)?.[1] ?? "";
+}
+
 function classesOf(tag: string): string[] {
-  return (/class="([^"]*)"/.exec(tag)?.[1] ?? "").split(/\s+/).filter(Boolean);
+  return classStringOf(tag).split(/\s+/).filter(Boolean);
+}
+
+function listTags(markup: string): string[] {
+  return markup.match(/<[a-z]+[^>]*data-slot="tabs-list"[^>]*>/g) ?? [];
 }
 
 describe("settings nav", () => {
@@ -31,5 +39,33 @@ describe("settings nav", () => {
 
     const reference = classesOf(tags[0]!);
     for (const tag of tags) expect(classesOf(tag)).toEqual(reference);
+
+    const referenceClassString = classStringOf(tags[0]!);
+    for (const tag of tags) expect(classStringOf(tag)).toBe(referenceClassString);
+  });
+
+  test("nav list is the line variant, not the well surface", () => {
+    const lists = listTags(renderNavMarkup());
+    expect(lists).toHaveLength(1);
+
+    const listClasses = classesOf(lists[0]!);
+    expect(listClasses).not.toContain("tier-well");
+    expect(listClasses).toContain("tier-identity");
+  });
+
+  test("every trigger is one action row tall", () => {
+    const tags = tabTags(renderNavMarkup());
+    expect(tags.length).toBeGreaterThan(0);
+
+    for (const tag of tags) expect(classesOf(tag)).toContain("h-(--action-h)!");
+  });
+
+  test("every trigger keeps the important active tint", () => {
+    const tags = tabTags(renderNavMarkup());
+    expect(tags.length).toBeGreaterThan(0);
+
+    for (const tag of tags) {
+      expect(classesOf(tag)).toContain("data-active:bg-(--control-active-bg)!");
+    }
   });
 });
