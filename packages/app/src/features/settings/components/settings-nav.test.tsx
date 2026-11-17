@@ -65,7 +65,19 @@ describe("settings nav", () => {
     expect(tags.length).toBeGreaterThan(0);
 
     for (const tag of tags) {
-      expect(classesOf(tag)).toContain("data-active:bg-(--control-active-bg)!");
+      expect(classesOf(tag)).toContain("data-active:bg-(--option-card-active-bg)!");
+    }
+  });
+
+  test("active row is edged, not lifted", () => {
+    const tags = tabTags(renderNavMarkup());
+    expect(tags.length).toBeGreaterThan(0);
+
+    for (const tag of tags) {
+      expect(classesOf(tag)).toContain(
+        "data-active:shadow-[inset_0_0_0_1px_var(--control-active-rim)]!",
+      );
+      expect(classesOf(tag)).not.toContain("data-active:shadow-none!");
     }
   });
 });

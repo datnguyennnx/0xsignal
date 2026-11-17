@@ -8,7 +8,7 @@ import { SETTINGS_NAV_ITEMS } from "./settings-nav-model";
  * left edge are the same for one-word and two-word labels alike.
  */
 const TAB_BOX_CLASS =
-  "group w-full max-w-full flex-none justify-start gap-inline border-0 px-(--control-px) text-left [border-radius:var(--radius-control)]! hover:bg-(--control-hover-bg) data-active:bg-(--control-active-bg)! data-active:text-info data-active:shadow-none! h-(--action-h)!";
+  "group w-full max-w-full flex-none justify-start gap-inline border-0 px-(--control-px) text-left [border-radius:var(--radius-control)]! hover:bg-(--control-hover-bg) data-active:bg-(--option-card-active-bg)! data-active:text-info data-active:shadow-[inset_0_0_0_1px_var(--control-active-rim)]! h-(--action-h)!";
 
 export function SettingsNav() {
   return (

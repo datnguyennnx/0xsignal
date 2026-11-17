@@ -147,27 +147,28 @@ const SLIDER_STEP = 0.01;
 
 function SliderRow({ label, hint, value, min, max, disabled = false, onChange }: SliderRowProps) {
   return (
-    <div className="flex min-w-0 flex-col gap-field">
-      <div className="flex min-w-0 items-start justify-between gap-inline">
-        <div className="flex min-w-0 flex-col gap-field">
-          <span className="type-control font-medium text-foreground">{label}</span>
-          <span className="type-data text-muted-foreground">{hint}</span>
-        </div>
+    <div className="grid gap-field md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:items-center md:gap-stack">
+      <div className="flex min-w-0 flex-col gap-field">
+        <span className="type-control font-medium text-foreground">{label}</span>
+        <span className="type-data text-muted-foreground">{hint}</span>
+      </div>
+      <div className="flex min-w-0 items-center gap-inline">
+        <Slider
+          className="min-w-0 flex-1"
+          aria-label={label}
+          value={[value]}
+          min={min}
+          max={max}
+          step={SLIDER_STEP}
+          disabled={disabled}
+          onValueChange={(next) => {
+            onChange(typeof next === "number" ? next : (next[0] ?? value));
+          }}
+        />
         <span className="shrink-0 rounded-chip tier-well px-2 py-0.5 type-data tabular-nums text-muted-foreground">
           {value.toFixed(2)}
         </span>
       </div>
-      <Slider
-        aria-label={label}
-        value={[value]}
-        min={min}
-        max={max}
-        step={SLIDER_STEP}
-        disabled={disabled}
-        onValueChange={(next) => {
-          onChange(typeof next === "number" ? next : (next[0] ?? value));
-        }}
-      />
     </div>
   );
 }

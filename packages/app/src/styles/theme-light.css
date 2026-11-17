@@ -252,9 +252,7 @@
   background-image: none;
   color: var(--control-active-ink-lift);
   border-color: transparent;
-  box-shadow:
-    0 0 0 1px var(--control-active-edge-lift),
-    var(--shadow-e1);
+  box-shadow: inset 0 0 0 1px var(--control-active-edge-lift);
 }
 
 /* Tabs triggers carry their own bg/shadow utilities; replace, never add to them. */
@@ -265,9 +263,7 @@
   background-image: none;
   color: var(--control-active-ink-lift);
   border-color: transparent;
-  box-shadow:
-    0 0 0 1px var(--control-active-edge-lift),
-    var(--shadow-e1);
+  box-shadow: inset 0 0 0 1px var(--control-active-edge-lift);
 }
 
 /* The light well is a recess: inset shadow only, no inherited outer lift. */
