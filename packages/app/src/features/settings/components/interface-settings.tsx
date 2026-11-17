@@ -85,12 +85,12 @@ interface SettingRowProps {
 
 function SettingRow({ label, hint, children }: SettingRowProps) {
   return (
-    <div className="grid gap-field md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-stack">
+    <div className="grid gap-field md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:items-center md:gap-stack">
       <div className="flex min-w-0 flex-col gap-field">
         <span className="type-control font-medium text-foreground">{label}</span>
         <span className="type-data text-muted-foreground">{hint}</span>
       </div>
-      <div className="flex w-full md:w-auto md:justify-end">{children}</div>
+      <div className="flex w-full min-w-0">{children}</div>
     </div>
   );
 }
@@ -118,9 +118,9 @@ function SegmentedRow<T extends string>({
         aria-label={label}
         value={value}
         options={options}
-        sizing="intrinsic"
+        sizing="fill"
         disabled={disabled}
-        className="w-full md:w-auto"
+        className="w-full"
         onValueChange={onChange}
       />
     </SettingRow>
