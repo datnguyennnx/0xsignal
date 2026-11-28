@@ -6,9 +6,11 @@ import { cn } from "cn";
 interface TableProps extends React.ComponentProps<"table"> {
   /** `fill` stretches the table across its container; `fit` sizes it to its content. */
   layout?: "fill" | "fit";
+  /** Rendered after the table, still inside the scrolling container. */
+  footer?: React.ReactNode;
 }
 
-function Table({ className, layout = "fill", ...props }: TableProps) {
+function Table({ className, layout = "fill", footer, ...props }: TableProps) {
   return (
     <div
       data-slot="table-container"
@@ -23,6 +25,7 @@ function Table({ className, layout = "fill", ...props }: TableProps) {
         )}
         {...props}
       />
+      {footer}
     </div>
   );
 }

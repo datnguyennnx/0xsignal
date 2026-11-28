@@ -62,11 +62,7 @@ export function IndicatorModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        layout="workspace"
-        showCloseButton={false}
-        className="grid-rows-[minmax(0,1fr)] gap-0 p-0"
-      >
+      <DialogContent layout="workspace" showCloseButton={false}>
         <DialogTitle className="sr-only">Indicator Settings</DialogTitle>
 
         <div className="@container flex h-full min-h-0 flex-col">

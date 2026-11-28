@@ -38,7 +38,7 @@ export function CancelAllDialog({
             {orderCount === 1 ? "" : "s"}?
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="border-t-0 p-0">
+        <DialogFooter className="border-t-0">
           <DialogClose render={<Button variant="outline" className="font-medium" />}>
             Keep Orders
           </DialogClose>

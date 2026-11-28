@@ -102,6 +102,50 @@ function DialogOverlay({ className, style, ...props }: DialogPrimitive.Backdrop.
   );
 }
 
+type DialogSlot = "header" | "body" | "footer";
+
+type SlotTagged = { readonly __dialogSlot?: DialogSlot };
+
+const SLOT_MARKER = "__dialogSlot";
+
+function isSlotTagged(value: unknown): value is SlotTagged {
+  return typeof value === "function" && SLOT_MARKER in value;
+}
+
+/** The primitives carry their role, so a wrapper only needs the same static to be pinned. */
+function isSlot(node: React.ReactNode, slot: DialogSlot): boolean {
+  if (!React.isValidElement(node)) return false;
+  const { type } = node;
+  return isSlotTagged(type) && type[SLOT_MARKER] === slot;
+}
+
+/** Pins header/footer; every other child becomes the one scrolling body region. */
+function DialogLayout({
+  children,
+  layout,
+}: {
+  children: React.ReactNode;
+  layout: "dialog" | "workspace";
+}) {
+  if (layout === "workspace") return children;
+
+  const items = React.Children.toArray(children);
+  const header = items.filter((item) => isSlot(item, "header"));
+  const body = items.filter((item) => isSlot(item, "body"));
+  const footer = items.filter((item) => isSlot(item, "footer"));
+  const rest = items.filter(
+    (item) => !isSlot(item, "header") && !isSlot(item, "body") && !isSlot(item, "footer"),
+  );
+
+  return (
+    <>
+      {header}
+      {body.length > 0 ? body : rest.length > 0 && <DialogBody>{rest}</DialogBody>}
+      {footer}
+    </>
+  );
+}
+
 function DialogContent({
   className,
   children,
@@ -140,7 +184,9 @@ function DialogContent({
           {...surface}
           className={cn(
             surfaceClass,
-            "fixed inset-0 m-auto grid grid-rows-[auto_minmax(0,1fr)_auto] gap-panel overflow-hidden rounded-overlay p-panel type-body text-popover-foreground outline-none data-open:duration-[240ms] data-open:animate-in data-open:fade-in-0 data-closed:duration-[160ms] data-closed:animate-out data-closed:fade-out-0",
+            "fixed inset-0 m-auto flex max-h-[85vh] flex-col gap-0 overflow-hidden rounded-overlay p-0 type-body text-popover-foreground outline-none data-open:duration-[240ms] data-open:animate-in data-open:fade-in-0 data-closed:duration-[160ms] data-closed:animate-out data-closed:fade-out-0",
+            // A page heading may be passed in verbatim; the popup owns the rhythm, never the page.
+            "[&_h1]:m-0 [&_h2]:m-0 [&_h3]:m-0",
             // `inset-0` alone stretches a fixed box to the viewport; `h-fit` keeps it compact.
             // Sizing caps live in `styles/utilities.css` under `[data-layout]`.
             layout === "workspace" ? "h-(--workspace-h)" : "h-fit",
@@ -150,13 +196,19 @@ function DialogContent({
           style={withLayer(style, overlayZ(depth * 2 + 1))}
           {...props}
         >
-          {children}
+          <DialogLayout layout={layout}>{children}</DialogLayout>
           {canClose && (
             <DialogClose
-              render={<Button variant="dismiss" className="absolute top-1 right-1" size="icon" />}
+              aria-label="Close"
+              render={
+                <Button
+                  variant="dismiss"
+                  className="absolute top-3 right-3 size-10! [--hit-min:2.5rem]"
+                  size="icon"
+                />
+              }
             >
               <XIcon />
-              <span className="sr-only">Close</span>
             </DialogClose>
           )}
         </DialogPrimitive.Popup>
@@ -165,36 +217,55 @@ function DialogContent({
   );
 }
 
-function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="dialog-header"
-      className={cn("flex flex-col gap-inline pr-6", className)}
-      {...props}
-    />
-  );
-}
+const DialogHeader = Object.assign(
+  function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
+    return (
+      <div
+        data-slot="dialog-header"
+        className={cn("flex shrink-0 flex-col gap-inline px-6 pt-5 pb-4", className)}
+        {...props}
+      />
+    );
+  },
+  { __dialogSlot: "header" as const },
+);
 
-function DialogFooter({ className, children, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="dialog-footer"
-      className={cn(
-        "flex flex-col-reverse gap-(--control-gap) border-t border-(--border-subtle) p-panel sm:flex-row sm:justify-end",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </div>
-  );
-}
+const DialogBody = Object.assign(
+  function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+    return (
+      <div
+        data-slot="dialog-body"
+        className={cn("min-h-0 flex-1 space-y-5 overflow-y-auto px-6 pb-6", className)}
+        {...props}
+      />
+    );
+  },
+  { __dialogSlot: "body" as const },
+);
+
+const DialogFooter = Object.assign(
+  function DialogFooter({ className, children, ...props }: React.ComponentProps<"div">) {
+    return (
+      <div
+        data-slot="dialog-footer"
+        className={cn(
+          "flex shrink-0 flex-col-reverse gap-(--control-gap) border-t border-(--border-subtle) px-6 pt-4 pb-5 sm:flex-row sm:justify-end",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  },
+  { __dialogSlot: "footer" as const },
+);
 
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("type-title leading-none font-medium", className)}
+      className={cn("text-lg leading-tight font-semibold", className)}
       {...props}
     />
   );
@@ -215,6 +286,7 @@ function DialogDescription({ className, ...props }: DialogPrimitive.Description.
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

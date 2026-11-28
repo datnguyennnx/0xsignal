@@ -692,7 +692,7 @@
 
 [data-layout="dialog"] {
   width: var(--dialog-w);
-  max-height: calc(100dvh - 2rem);
+  max-height: 85dvh;
 }
 
 [data-layout="workspace"] {

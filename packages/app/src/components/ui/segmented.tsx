@@ -16,6 +16,8 @@ type SegmentedProps<T extends string> = {
   "aria-label": string;
   /** `intrinsic` tracks content width; `fill` shares equal columns. */
   sizing?: "intrinsic" | "fill";
+  /** `dense` tightens padding and type for four-cell groups. */
+  dense?: boolean;
   disabled?: boolean;
   className?: string;
 };
@@ -26,6 +28,7 @@ function Segmented<T extends string>({
   onValueChange,
   "aria-label": ariaLabel,
   sizing = "intrinsic",
+  dense = false,
   disabled = false,
   className,
 }: SegmentedProps<T>) {
@@ -40,20 +43,23 @@ function Segmented<T extends string>({
       data-slot="segmented"
       data-sizing={sizing}
       className={cn(
-        "tier-well inline-flex h-control items-center gap-(--seg-inset) rounded-control p-(--seg-inset) type-control text-muted-foreground",
+        "tier-well inline-flex h-control min-w-0 max-w-full items-center gap-(--seg-inset) rounded-control border border-(--well-border) p-[3px] type-control text-muted-foreground",
         isFill ? "w-full" : "w-fit",
         className,
       )}
     >
       {options.map((option) => {
         const isDisabled = disabled || option.disabled === true;
+        const isSelected = value === option.value;
 
         return (
           <label
             key={option.value}
             className={cn(
-              "motion-control relative inline-flex h-full cursor-pointer items-center justify-center gap-(--control-gap) rounded-[calc(var(--radius-control)-var(--seg-inset))] px-(--control-px) font-medium whitespace-nowrap select-none",
+              "motion-control relative inline-flex h-full cursor-pointer min-w-0 items-center justify-center gap-(--control-gap) rounded-[calc(var(--radius-control)-3px)] font-medium select-none",
+              dense ? "px-1" : "px-(--control-px)",
               isFill ? "flex-1" : "flex-none",
+              isSelected ? "bg-(--surface-overlay) font-semibold shadow-(--shadow-e1)" : undefined,
               "hover:text-foreground focus-ring-has",
               isDisabled ? "pointer-events-none opacity-50" : undefined,
             )}
@@ -63,13 +69,13 @@ function Segmented<T extends string>({
               className="sr-only"
               name={name}
               value={option.value}
-              checked={value === option.value}
+              checked={isSelected}
               disabled={isDisabled}
               onChange={() => {
                 onValueChange(option.value);
               }}
             />
-            {option.label}
+            <span className="min-w-0 truncate">{option.label}</span>
           </label>
         );
       })}

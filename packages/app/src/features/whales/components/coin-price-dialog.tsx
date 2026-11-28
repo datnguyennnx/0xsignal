@@ -136,12 +136,7 @@ export function CoinPriceDialog({
 }: CoinPriceDialogProps): JSX.Element {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        layout="workspace"
-        showCloseButton={false}
-        aria-label={`${coin} chart`}
-        className="grid-rows-[minmax(0,1fr)] gap-0 p-0"
-      >
+      <DialogContent layout="workspace" showCloseButton={false} aria-label={`${coin} chart`}>
         <CoinPriceDialogBody
           coin={coin}
           markPx={markPx}

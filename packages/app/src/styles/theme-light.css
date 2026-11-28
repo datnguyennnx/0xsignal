@@ -26,11 +26,10 @@
 .light {
   color-scheme: light;
 
-  --surface-well: oklch(0.945 0.006 100);
   --surface-canvas: oklch(0.945 0.006 100);
   --surface-base: oklch(0.982 0.005 100);
-  --surface-raised: oklch(0.99 0.005 100);
-  --surface-overlay: oklch(0.996 0.004 100);
+  --surface-raised: oklch(0.995 0.002 100);
+  --surface-overlay: oklch(0.999 0.001 100);
   --surface-inset: oklch(0.945 0.006 100);
 
   --text-primary: oklch(0.22 0.006 100);
@@ -43,13 +42,13 @@
   --ring: oklch(0.5 0.105 132 / 0.9);
 
   /* A control edge is a boundary, drawn as ink at the weight of a drawn line. */
-  --control-border: oklch(0.24 0.02 100 / 0.13);
+  --control-border: oklch(0.24 0.02 100 / 0.17);
 
   --focus-width: 2px;
-  --focus-offset: 0px;
-  --focus-color: var(--ring);
+  --focus-offset: -2px;
+  --focus-color: oklch(0.5 0.105 132 / 0.55);
 
-  --control-active-fill-lift: oklch(0.997 0.004 100);
+  --control-active-fill-lift: oklch(0.995 0.003 100);
   --control-active-ink-lift: var(--p-moss-800);
   --control-active-edge-lift: var(--p-moss-300);
   --control-active-fill-wash: var(--p-moss-100);
@@ -136,9 +135,9 @@
   --ambient-3: oklch(0.95 0.03 132 / 0);
   --noise-opacity: calc(0.02 * var(--noise-a, 1));
 
-  --layer-content-fill: var(--surface-base);
+  --layer-content-fill: var(--surface-raised);
   --layer-raised-fill: var(--surface-raised);
-  --layer-content-edge: var(--border-subtle);
+  --layer-content-edge: oklch(0.24 0.02 100 / 0.1);
   --layer-content-shadow:
     0 0 0 1px var(--layer-content-edge), 0 1px 2px oklch(0.24 0.02 100 / 0.05);
 
@@ -147,21 +146,23 @@
   --frost-fill: var(--p-paper-base);
   --frost-fill-raised: var(--p-paper-raised);
   --frost-sheen: none;
+  --glass-sheen: none;
   --frost-shadow: 0 0 0 1px var(--hairline);
 
-  --glass-fill-regular: oklch(0.996 0.004 100 / var(--glass-a-regular));
-  --glass-fill-thick: oklch(0.996 0.004 100 / var(--glass-a-thick));
+  --glass-fill-regular: oklch(0.985 0.003 100 / 0.92);
+  --glass-fill-thick: oklch(0.999 0.001 100);
+  --glass-blur: 16px;
   --glass-fallback-fill: var(--surface-overlay);
-  --plate-fill: var(--p-paper-overlay);
-  --scrim: oklch(0.24 0.02 100 / var(--scrim-a));
+  --plate-fill: oklch(0.99 0.003 100);
+  --scrim: oklch(0.24 0.02 100 / 0.26);
   --clear-dimming: oklch(0.24 0.02 100 / 0.12);
 
-  --well-bg: var(--p-paper-well);
+  --well-bg: oklch(0.955 0.004 100);
   --well-border: var(--hairline);
   --well-shadow:
     inset 0 1px 2px oklch(0.24 0.02 100 / 0.1), inset 0 0 0 1px oklch(0.24 0.02 100 / 0.06);
 
-  --control-bg: var(--p-paper-raised);
+  --control-bg: oklch(0.972 0.005 100);
   --control-hover-bg: var(--p-moss-50);
   --control-active-bg: var(--control-active-fill);
   --control-active-rim: var(--control-active-edge);
@@ -173,18 +174,18 @@
   --option-card-border: var(--hairline);
   --option-card-active-border: var(--p-moss-300);
 
-  --glass-rim-top: oklch(1 0 0 / var(--glass-rim-top-a));
-  --glass-rim-left: oklch(1 0 0 / var(--glass-rim-left-a));
+  --glass-rim-top: oklch(0.24 0.02 100 / 0.08);
+  --glass-rim-left: oklch(0.24 0.02 100 / 0.05);
   --glass-rim-line: oklch(0.24 0.02 100 / var(--glass-rim-line-a));
   --glass-rim-bottom: oklch(0 0 0 / var(--glass-rim-bottom-a));
-  --glass-rim-glow: oklch(1 0 0 / var(--glass-rim-glow-a));
+  --glass-rim-glow: oklch(0.24 0.02 100 / 0.04);
   --glass-drop: oklch(0.24 0.02 100 / var(--glass-drop-a));
   --rim-line: inset 0 0 0 1px var(--border);
-  --rim-specular: inset 0 1px 0 0 var(--glass-rim-top);
+  --rim-specular: none;
   --rim-accent: inset 0 0 0 1px var(--option-card-active-border);
   --glass-lift: oklch(0 0 0 / var(--glass-lift-a));
   --overlay-lift: oklch(0.24 0.02 100 / 0.13);
-  --fill-rim: oklch(1 0 0 / 0.25);
+  --fill-rim: transparent;
   --scroll-edge-fill: linear-gradient(to bottom, var(--surface-base) 0%, transparent 100%);
 }
 
@@ -252,7 +253,13 @@
   background-image: none;
   color: var(--control-active-ink-lift);
   border-color: transparent;
-  box-shadow: inset 0 0 0 1px var(--control-active-edge-lift);
+  box-shadow: inset 0 0 0 1px transparent;
+}
+
+/* The segmented pill is a plate over a groove: opaque overlay, one ink lift. */
+.light .tier-well[data-slot="segmented"] label:has(> input:checked) {
+  background-color: var(--surface-overlay);
+  box-shadow: var(--shadow-e1);
 }
 
 /* Tabs triggers carry their own bg/shadow utilities; replace, never add to them. */
