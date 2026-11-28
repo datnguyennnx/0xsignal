@@ -10,7 +10,6 @@ import {
   type SettingsTab,
 } from "@/features/settings/components/settings-nav-model";
 import { SettingsNav } from "@/features/settings/components/settings-nav";
-import { Surface } from "@/components/surface/surface";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 
 /*
@@ -46,7 +45,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-(--measure-settings) flex-col gap-panel">
+    <div className="mx-auto flex w-full max-w-(--measure-settings) flex-col gap-panel rounded-panel border bg-(--surface-raised) p-6">
       <div className="flex flex-col gap-1">
         <h1 className="type-heading font-semibold tracking-tight">Settings</h1>
         <p className="type-body text-muted-foreground">
@@ -58,7 +57,7 @@ export function SettingsPage() {
           the Trading Wallet tab (which shows approvals) enables the query. */}
       <AgentRegistrationsWarning enabled={activeTab === "api-console"} />
 
-      <Surface tier="content" as="section" className="w-full p-panel">
+      <section className="w-full">
         <Tabs
           value={activeTab}
           onValueChange={(value: unknown) => {
@@ -77,7 +76,7 @@ export function SettingsPage() {
             ))}
           </SettingsContentFrame>
         </Tabs>
-      </Surface>
+      </section>
     </div>
   );
 }

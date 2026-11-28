@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { ResetLayoutButton } from "@/components/reset-layout-button";
+import { AlertBell } from "@/features/alerts/components/notification-center";
 import { useWalletAvailable, useWalletConnection } from "@/components/wallet-provider";
 import { useAppStore } from "@/stores/use-app-store";
 import { selectAccountView } from "@/hooks/account-view";
@@ -133,6 +134,8 @@ export function UserNav() {
       <WalletNav available={available} onConnect={openConnectWallet} onWarm={warmConnectDialog} />
 
       <ResetLayoutButton />
+
+      <AlertBell />
 
       <Button
         variant="outline"

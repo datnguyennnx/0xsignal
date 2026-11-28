@@ -77,6 +77,7 @@ const PORTFOLIO = pageRoute("portfolio", () =>
 const CALENDAR = pageRoute("calendar", () =>
   import("@/pages/calendar").then((m) => m.CalendarPage),
 );
+const ALERTS = pageRoute("alerts", () => import("@/pages/alerts").then((m) => m.AlertsPage));
 const SETTINGS = pageRoute("settings", () =>
   import("@/pages/settings").then((m) => m.SettingsPage),
 );
@@ -138,6 +139,7 @@ export const ROUTES: RouteRecord[] = [
   defineRoute({ path: "/whales", title: "Whales", navLabel: "Whales", ...WHALES }),
   defineRoute({ path: "/whales/:address", title: "Whale", ...WHALE_DETAIL }),
   defineRoute({ path: "/calendar", title: "Calendar", navLabel: "Calendar", ...CALENDAR }),
+  defineRoute({ path: "/alerts", title: "Alerts", authExempt: true, ...ALERTS }),
   defineRoute({ path: "/settings", title: "Settings", ...SETTINGS }),
   defineRoute({ path: "*", title: "Not Found", ...NOT_FOUND }),
 ];

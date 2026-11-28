@@ -93,6 +93,13 @@ export const queryKeys = {
     coin: (coin: string) => [...queryKeys.whales.all, "coin", coin] as const,
   },
 
+  alerts: {
+    all: ["alerts"] as const,
+    list: () => [...queryKeys.alerts.all, "list"] as const,
+    deliveries: () => [...queryKeys.alerts.all, "deliveries"] as const,
+    channels: () => [...queryKeys.alerts.all, "channels"] as const,
+  },
+
   exchange: {
     all: ["exchange"] as const,
   },

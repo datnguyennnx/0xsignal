@@ -1,6 +1,7 @@
 // Public API surface — named exports only, no wildcard re-exports
 export type { MarketPrice, PlaceOrderRequest, UpdateLeverageRequest } from "./types";
 export type { AgentRegistration } from "./credentials";
+export type { ApiRule } from "./alerts";
 export { ApiError } from "@/lib/api-error";
 
 import {
@@ -28,6 +29,7 @@ import {
   requestWalletChallenge,
   listAgentRegistrations,
 } from "./credentials";
+import { createAlert, deleteAlert, listAlerts, updateAlert } from "./alerts";
 
 export const api = {
   getMarkets,
@@ -53,4 +55,8 @@ export const api = {
   createWallet,
   requestWalletChallenge,
   listAgentRegistrations,
+  listAlerts,
+  createAlert,
+  updateAlert,
+  deleteAlert,
 };
