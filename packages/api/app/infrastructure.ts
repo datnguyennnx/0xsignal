@@ -3,6 +3,7 @@ import { MigrationLayer } from "@0xsignal/auth";
 import { hyperliquidClientLayer } from "../integrations/hyperliquid/data-sources/client";
 import { MarketStreamHubLayer } from "../integrations/hyperliquid/streams/hub";
 import { layer as hyperliquidRateLimiterLayer } from "../integrations/hyperliquid/rate-limit";
+import { AlertsWorkerLayer } from "../modules/alerts/layer";
 import { CalendarLayer } from "../modules/calendar/layer";
 import { healthServiceLayer } from "../modules/health/layer";
 import { marketCandleStoreLayer, marketRemoteProviderLayer } from "../modules/market-data/layer";
@@ -18,6 +19,7 @@ export const InfrastructureLayer = Layer.mergeAll(
   MigrationLayer,
   CalendarLayer,
   WhaleLayer,
+  AlertsWorkerLayer,
 ).pipe(
   Layer.provideMerge(marketRemoteProviderLayer),
   Layer.provideMerge(leaderLockLayer),

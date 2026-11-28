@@ -9,6 +9,7 @@ export const MARKETS_REFRESH_LOCK_KEY = 41_001;
 export const WHALE_DISCOVERY_LOCK_KEY = 41_002;
 export const ORDER_INTENT_PRUNE_LOCK_KEY = 41_003;
 export const ECONOMIC_EVENT_PRUNE_LOCK_KEY = 41_004;
+export const ALERTS_WORKER_LOCK_KEY = 41_005;
 
 export class LeaderLockError extends Data.TaggedError("LeaderLockError")<{
   readonly message: string;

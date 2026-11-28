@@ -7,6 +7,7 @@ import { createConnectionCap, createFetchHandler, type ConnectionCap } from "./f
 import { createRouter } from "./router";
 import type { Route } from "./route-contracts";
 import type { WsEventHandlers, WsSetup } from "./ws";
+import type { AlertsWsConnectionData, WsUpgradeServer } from "./ws/upgrade";
 
 /** Matches the largest frame the app sends and bounds one inbound message. */
 export const MAX_WS_PAYLOAD_BYTES = 1024 * 1024;
@@ -69,13 +70,133 @@ export const toBunWebSocketHandler = <D>(handlers: WsEventHandlers<D>): WebSocke
   return bun;
 };
 
+/** Runs socket setup work on the app runtime; services stay in the layer. */
+export type RunAppEffect = <A, E>(effect: Effect.Effect<A, E>) => Promise<A>;
+
+/** The alerts socket with its notifier and identity services already resolved. */
+export interface AlertsWsMount {
+  readonly path: string;
+  readonly upgrade: (
+    url: URL,
+    req: Request,
+    server: WsUpgradeServer<AlertsWsConnectionData>,
+  ) => Promise<Response | undefined>;
+  readonly handlers: WsEventHandlers<AlertsWsConnectionData>;
+}
+
+/** Deferred alerts wiring: the composition root binds it to the live runtime. */
+interface AlertsWsSource {
+  readonly path: string;
+  readonly prepare: (run: RunAppEffect) => Promise<AlertsWsMount>;
+}
+
+/** The market setup plus any additional socket paths the same server serves. */
+export interface WsSetupBundle<D> extends WsSetup<D> {
+  readonly alerts?: AlertsWsSource;
+}
+
 export interface ServerDeps<R, D> {
   readonly runtime: ManagedRuntime<R, unknown>;
   readonly routes: ReadonlyArray<Route<R, unknown>>;
   readonly cors: CorsConfig;
-  readonly ws: WsSetup<D>;
+  readonly ws: WsSetupBundle<D>;
   readonly mapError: (error: unknown) => HttpError;
 }
+
+const isAlertsData = (data: unknown): data is AlertsWsConnectionData =>
+  typeof data === "object" &&
+  data !== null &&
+  (data as { readonly kind?: unknown }).kind === "alerts";
+
+/**
+ * One Bun socket handler serves every path, so the connection data decides
+ * which per-path handler runs. Market data has no `kind`, hence the shape test.
+ */
+const combineWsHandlers = <D>(
+  market: WsEventHandlers<D>,
+  alerts: WsEventHandlers<AlertsWsConnectionData> | undefined,
+): WsEventHandlers<D> => {
+  if (alerts === undefined) return market;
+
+  // Bun attaches the data the upgrade chose; only the socket type differs here.
+  const asAlertsSocket = (ws: ServerWebSocket<D>): ServerWebSocket<AlertsWsConnectionData> =>
+    ws as unknown as ServerWebSocket<AlertsWsConnectionData>;
+
+  return {
+    open: (ws) => {
+      if (isAlertsData(ws.data)) alerts.open(asAlertsSocket(ws));
+      else market.open(ws);
+    },
+    message: (ws, message) => {
+      if (isAlertsData(ws.data)) alerts.message(asAlertsSocket(ws), message);
+      else market.message(ws, message);
+    },
+    pong: (ws) => {
+      if (isAlertsData(ws.data)) alerts.pong(asAlertsSocket(ws));
+      else market.pong(ws);
+    },
+    close: (ws) => {
+      if (isAlertsData(ws.data)) alerts.close(asAlertsSocket(ws));
+      else market.close(ws);
+    },
+    error: (ws, error) => {
+      if (isAlertsData(ws.data)) alerts.error?.(asAlertsSocket(ws), error);
+      else market.error?.(ws, error);
+    },
+  };
+};
+
+/**
+ * Routes the alerts path around the market-only fetch handler: subject lookup
+ * is async, so this wrapper resolves it before handing the request to Bun's
+ * upgrade. Market requests fall through untouched.
+ */
+const createAlertsFetchHandler = <D>(
+  market: (req: Request, server: Server<D>) => Promise<Response | undefined>,
+  alerts: AlertsWsMount | undefined,
+  cors: CorsConfig,
+  cap: ConnectionCap,
+): ((req: Request, server: Server<D>) => Promise<Response | undefined>) => {
+  if (alerts === undefined) return market;
+
+  const reject = (status: number, error: string): Response =>
+    new Response(JSON.stringify({ error, status }), {
+      status,
+      headers: cors.applyTo(new Headers({ "Content-Type": "application/json" })),
+    });
+
+  return async (req, server) => {
+    const url = new URL(req.url);
+    if (url.pathname !== alerts.path) return market(req, server);
+
+    if (!cap.tryAcquire()) {
+      return reject(503, "Too many WebSocket connections");
+    }
+
+    let response: Response | undefined;
+    try {
+      // Bun types one data shape per server; the alerts branch attaches its own.
+      response = await alerts.upgrade(
+        url,
+        req,
+        server as unknown as WsUpgradeServer<AlertsWsConnectionData>,
+      );
+    } catch (error) {
+      cap.release();
+      throw error;
+    }
+
+    if (response !== undefined) {
+      cap.release();
+      response = new Response(response.body, {
+        status: response.status,
+        headers: cors.applyTo(new Headers(response.headers)),
+      });
+    }
+
+    return response;
+  };
+};
 
 /**
  * Starts the Bun HTTP server. The app (routes + runtime) arrives as a
@@ -84,16 +205,28 @@ export interface ServerDeps<R, D> {
 export const serve = async <R, D>(deps: ServerDeps<R, D>, signal: AbortSignal): Promise<void> => {
   const handleRequest = createRouter(deps.routes);
   const connectionCap = createConnectionCap(MAX_WS_CONNECTIONS);
+  const alerts =
+    deps.ws.alerts === undefined
+      ? undefined
+      : await deps.ws.alerts.prepare((effect) => deps.runtime.runPromise(effect));
+
   const ws: WsSetup<D> = {
-    ...deps.ws,
-    handlers: capWsHandlers(deps.ws.handlers, connectionCap),
+    path: deps.ws.path,
+    idleTimeoutSeconds: deps.ws.idleTimeoutSeconds,
+    upgrade: deps.ws.upgrade,
+    handlers: capWsHandlers(combineWsHandlers(deps.ws.handlers, alerts?.handlers), connectionCap),
   };
-  const fetchHandler = createFetchHandler(
-    (effect) => deps.runtime.runPromise(effect),
+  const fetchHandler = createAlertsFetchHandler(
+    createFetchHandler(
+      (effect) => deps.runtime.runPromise(effect),
+      deps.cors,
+      ws,
+      deps.mapError,
+      handleRequest,
+      connectionCap,
+    ),
+    alerts,
     deps.cors,
-    ws,
-    deps.mapError,
-    handleRequest,
     connectionCap,
   );
 

@@ -10,6 +10,11 @@ import {
 } from "@0xsignal/auth";
 import type { HyperliquidClient } from "../integrations/hyperliquid/data-sources/client";
 import type { HyperliquidRateLimiter } from "../integrations/hyperliquid/rate-limit";
+import { AlertsServiceWithInfra } from "../modules/alerts/layer";
+import { ChannelsServiceWithInfra } from "../modules/alerts/channels/service";
+import type { ChannelsService } from "../modules/alerts/channels/service";
+import type { AlertsService } from "../modules/alerts/service";
+import { AlertsIdentityLayer, type AlertsIdentity } from "../modules/alerts/subject";
 import { OrderIntentService } from "../modules/exchange";
 import { orderIntentLayer } from "../modules/exchange/layer";
 import {
@@ -30,13 +35,22 @@ export const AppServicesLayer: Layer.Layer<
   | WalletChallengeRepo
   | MarketDataService
   | UserDataService
-  | OrderIntentService,
+  | OrderIntentService
+  | AlertsService
+  | ChannelsService
+  | AlertsIdentity,
   never,
   | HyperliquidClient
   | HyperliquidRateLimiter
   | MarketCandleStore
   | MarketRemoteProvider
   | PostgresConnectionPool
-> = Layer.mergeAll(marketDataServiceLayer, userDataServiceLayer, orderIntentLayer, authLayer).pipe(
-  Layer.provideMerge(AuthInfraLayer),
-);
+> = Layer.mergeAll(
+  marketDataServiceLayer,
+  userDataServiceLayer,
+  orderIntentLayer,
+  authLayer,
+  AlertsServiceWithInfra,
+  ChannelsServiceWithInfra,
+  AlertsIdentityLayer,
+).pipe(Layer.provideMerge(AuthInfraLayer));

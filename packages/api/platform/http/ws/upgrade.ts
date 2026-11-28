@@ -55,3 +55,49 @@ export const handleWsUpgrade = <S, D>(
     headers: { "Content-Type": "application/json" },
   });
 };
+
+/** Connection data the alerts upgrade attaches; the socket handlers read it back. */
+export type AlertsWsConnectionData = {
+  readonly kind: "alerts";
+  readonly subjectKey: string;
+};
+
+export const ALERTS_WS_PATH = "/api/ws/alerts";
+
+const alertError = (status: number, message: string): Response =>
+  new Response(JSON.stringify({ error: message, status }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+
+/**
+ * The alerts sibling of `handleWsUpgrade`. The subject is resolved before the
+ * handshake, so a request without a usable identity is rejected with an HTTP
+ * 401 and Bun never sees a socket. Returns `undefined` for other paths, which
+ * lets a caller chain it with the market branch.
+ */
+export const upgradeAlertsWs = async (
+  url: URL,
+  req: Request,
+  server: WsUpgradeServer<AlertsWsConnectionData>,
+  resolveSubjectKey: (request: Request) => Promise<string | null>,
+): Promise<Response | undefined> => {
+  if (url.pathname !== ALERTS_WS_PATH) return undefined;
+
+  let subjectKey: string | null;
+  try {
+    subjectKey = await resolveSubjectKey(req);
+  } catch {
+    subjectKey = null;
+  }
+
+  if (subjectKey === null || subjectKey === "") {
+    return alertError(401, "Unauthorized");
+  }
+
+  if (!server.upgrade(req, { data: { kind: "alerts", subjectKey } })) {
+    return alertError(400, "WebSocket upgrade failed");
+  }
+
+  return undefined;
+};

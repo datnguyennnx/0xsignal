@@ -1,5 +1,6 @@
 import type { Route } from "../platform/http/route-contracts";
 import type { HttpRequestServices } from "./contracts";
+import { alertsRoutes } from "./routes/alerts";
 import { authRoutes } from "./routes/auth";
 import { calendarRoutes } from "./routes/calendar";
 import { credentialRoutes } from "./routes/credentials";
@@ -20,4 +21,5 @@ export const routes: Array<Route<AppEnv, unknown>> = [
   ...exchangeRoutes,
   ...credentialRoutes,
   ...authRoutes,
+  ...alertsRoutes,
 ];
