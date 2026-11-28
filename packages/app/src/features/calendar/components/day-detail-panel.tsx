@@ -1,4 +1,4 @@
-import { Fragment, type JSX } from "react";
+import { Fragment, useState, type JSX } from "react";
 import type { EconomicEvent } from "@0xsignal/shared";
 
 import { isSameDay } from "date-fns";
@@ -7,6 +7,7 @@ import { Region } from "@/components/region";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AlertSheet, type AlertSheetEvent } from "@/features/alerts/components/alert-sheet";
 import type { AsyncState } from "@/lib/async-state";
 
 import { useNow } from "../hooks/use-now";
@@ -54,8 +55,20 @@ function NowBar({ now }: { now: Date }): JSX.Element {
 export function DayDetailPanel({ date, state, onRetry }: DayDetailPanelProps): JSX.Element {
   const heading = formatDayHeading(date);
   const now = useNow();
+  const [alertEvent, setAlertEvent] = useState<AlertSheetEvent | null>(null);
   const showNowBar = isSameDay(date, now);
   const empty = emptyCopyFor(state.status === "empty" ? state.reason : "no-results");
+
+  const openAlertFor = (event: EconomicEvent) => {
+    if (event.currency === null) return;
+    setAlertEvent({
+      currency: event.currency,
+      scheduledAt: new Date(event.scheduledAt).getTime(),
+      impact: event.impact,
+      title: event.title,
+      country: event.country,
+    });
+  };
 
   return (
     <div className="flex h-full flex-col gap-stack">
@@ -99,7 +112,7 @@ export function DayDetailPanel({ date, state, onRetry }: DayDetailPanelProps): J
                   {sorted.map((event, index) => (
                     <Fragment key={event.id}>
                       {index === nowBarIndex && <NowBar now={now} />}
-                      <EventRow event={event} />
+                      <EventRow event={event} now={now.getTime()} onAlert={openAlertFor} />
                     </Fragment>
                   ))}
                 </div>
@@ -109,6 +122,16 @@ export function DayDetailPanel({ date, state, onRetry }: DayDetailPanelProps): J
           );
         }}
       </Region>
+
+      {alertEvent !== null && (
+        <AlertSheet
+          open
+          onOpenChange={(next) => {
+            if (!next) setAlertEvent(null);
+          }}
+          initialEvent={alertEvent}
+        />
+      )}
     </div>
   );
 }

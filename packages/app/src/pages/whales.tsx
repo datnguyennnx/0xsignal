@@ -18,9 +18,9 @@ export function WhalesPage(): JSX.Element {
         <Surface
           tier="content"
           as="section"
-          className="flex flex-1 min-h-0 flex-col overflow-hidden"
+          className="flex flex-1 min-h-0 flex-col gap-4 overflow-hidden p-6"
         >
-          <h2 className="px-4 pt-4 pb-2 type-title font-semibold">Whale Positions</h2>
+          <h2 className="shrink-0 text-lg font-semibold">Whale Positions</h2>
           <WhalePositionsTable onSelectWallet={handleSelectWallet} />
         </Surface>
       </ErrorBoundary>

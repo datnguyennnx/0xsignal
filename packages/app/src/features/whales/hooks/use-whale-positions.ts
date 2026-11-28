@@ -14,6 +14,19 @@ export interface WhalePositionsPageLike {
   readonly positions: readonly WhalePosition[];
 }
 
+/** `btc`, `btC` and ` BTC ` all collapse to one key; nothing downstream compares raw case. */
+export function normalizeWhaleSymbol(value: string): string {
+  return value.replaceAll(/\s+/g, "").toUpperCase();
+}
+
+/** Keeps the market list's canonical coin (so `kPEPE` survives), else the normalized text. */
+export function resolveWhaleSymbol(input: string, knownSymbols: readonly string[]): string {
+  const normalized = normalizeWhaleSymbol(input);
+  if (normalized === "") return "";
+  const match = knownSymbols.find((symbol) => normalizeWhaleSymbol(symbol) === normalized);
+  return match ?? normalized;
+}
+
 /**
  * A row's identity is the wallet, coin and entry time; a cursor refresh can
  * return the same position in two adjacent pages, which would duplicate it.

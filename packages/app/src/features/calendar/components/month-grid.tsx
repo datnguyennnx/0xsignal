@@ -69,18 +69,18 @@ export function MonthGrid({
 
   return (
     <Surface tier="content" className={MONTH_GRID_SURFACE_CLASS}>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-3">
         {HEADER_LABELS.map((label) => (
           <div
             key={label}
-            className="px-1 py-1 text-center type-label font-medium tracking-wider text-muted-foreground uppercase"
+            className="px-1 py-1 text-left type-label font-medium tracking-wider text-muted-foreground uppercase"
           >
             {label}
           </div>
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-7 gap-1">
+      <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-7 gap-3">
         {cells.map(({ key, date, events, isCurrentMonth, isToday, isSelected }) => (
           <MonthDayCell
             key={key}

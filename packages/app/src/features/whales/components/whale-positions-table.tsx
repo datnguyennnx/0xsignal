@@ -1,4 +1,4 @@
-import { memo, useDeferredValue, useMemo, useState, type JSX } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { cn } from "cn";
 
 import { useOpenCoin } from "@/components/app-side-panel-context";
@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import {
   formatCompactUsd,
   formatPrice,
@@ -22,7 +23,12 @@ import {
   formatSize,
 } from "@/core/utils/formatters";
 
-import { useWhalePositionsState, whalePositionRowKey } from "../hooks/use-whale-positions";
+import {
+  normalizeWhaleSymbol,
+  resolveWhaleSymbol,
+  useWhalePositionsState,
+  whalePositionRowKey,
+} from "../hooks/use-whale-positions";
 import { WhalePositionFiltersBar } from "./whale-position-filters";
 import { DEFAULT_WHALE_FILTERS, type WhalePositionFilters } from "./whale-filter-defaults";
 import {
@@ -31,7 +37,23 @@ import {
   type WhalePositionRowProps,
 } from "./whale-positions-table-format";
 
-const CELL_CLASS = "px-2 py-1";
+const CELL_CLASS = "px-3";
+
+const SYMBOL_DEBOUNCE_MS = 250;
+
+/** The query trails the input by one pause, so typing never fires a request per keystroke. */
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebounced(value);
+    }, delayMs);
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [value, delayMs]);
+  return debounced;
+}
 
 type ColumnRole = "text" | "num" | "addr";
 
@@ -52,7 +74,7 @@ interface Column {
 
 /** One descriptor drives the header, the skeleton and the body roles, so widths cannot drift. */
 const COLUMNS: readonly Column[] = [
-  { id: "rank", label: "#", role: "text", bar: "w-4", lines: 1 },
+  { id: "rank", label: "#", role: "num", bar: "w-4", lines: 1 },
   { id: "user", label: "User", role: "addr", bar: "w-3/4", lines: 1 },
   { id: "asset", label: "Asset", role: "text", bar: "w-8", lines: 1 },
   { id: "side", label: "Side", role: "text", bar: "w-8", lines: 1 },
@@ -79,12 +101,16 @@ interface WhalePositionsTableProps {
 
 function TableColumnHeaders() {
   return (
-    <TableHeader>
+    <TableHeader className="[&_th]:h-9 [&_th]:bg-(--plate-fill)">
       <TableRow>
         {COLUMNS.map((column) => (
           <TableHead
             key={column.id}
-            className={cn(ROLE_CLASS[column.role], column.role === "num" && "whitespace-nowrap")}
+            className={cn(
+              ROLE_CLASS[column.role],
+              "px-3 py-0 text-pretty",
+              column.role === "num" && "whitespace-nowrap",
+            )}
           >
             {column.label}
           </TableHead>
@@ -100,7 +126,7 @@ function WhalePositionsSkeleton() {
       <TableColumnHeaders />
       <TableBody>
         {SKELETON_ROW_KEYS.map((rowKey) => (
-          <TableRow key={rowKey} className="hover:bg-transparent">
+          <TableRow key={rowKey} className="h-12 hover:bg-transparent">
             {COLUMNS.map((column) => (
               <TableCell key={column.id} className={cn(CELL_CLASS, ROLE_CLASS[column.role])}>
                 <Skeleton className={cn("h-[1.35em] type-data", column.bar)} />
@@ -139,10 +165,10 @@ const WhalePositionRow = memo(function WhalePositionRow({
         event.preventDefault();
         onSelectWallet(position.userAddress);
       }}
-      className="cursor-pointer focus-ring-inset"
+      className="h-12 cursor-pointer focus-ring-inset"
     >
-      <TableCell className={cn(CELL_CLASS, "text-muted-foreground num")}>{index + 1}</TableCell>
-      <TableCell className={cn(CELL_CLASS, "col-addr")}>
+      <TableCell className={cn(CELL_CLASS, "col-num text-muted-foreground")}>{index + 1}</TableCell>
+      <TableCell className={cn(CELL_CLASS, "col-addr font-mono")}>
         <Button
           type="button"
           variant="link"
@@ -157,7 +183,7 @@ const WhalePositionRow = memo(function WhalePositionRow({
           {position.userAddress}
         </Button>
       </TableCell>
-      <TableCell className={cn(CELL_CLASS, "font-medium")}>
+      <TableCell className={cn(CELL_CLASS, "col-text font-medium")}>
         <Button
           type="button"
           variant="link"
@@ -170,7 +196,7 @@ const WhalePositionRow = memo(function WhalePositionRow({
           {position.coin}
         </Button>
       </TableCell>
-      <TableCell className={CELL_CLASS}>
+      <TableCell className={cn(CELL_CLASS, "col-text")}>
         <span className={position.side === "buy" ? "text-gain" : "text-loss"}>
           {position.side === "buy" ? "Long" : "Short"}
         </span>
@@ -227,23 +253,67 @@ const WhalePositionRow = memo(function WhalePositionRow({
 export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps): JSX.Element {
   const [filters, setFilters] = useState<WhalePositionFilters>(DEFAULT_WHALE_FILTERS);
   const [symbolInput, setSymbolInput] = useState(DEFAULT_WHALE_FILTERS.symbol);
-  const deferredSymbol = useDeferredValue(symbolInput);
+  const [symbolSubmitted, setSymbolSubmitted] = useState(false);
+  const debouncedSymbol = useDebouncedValue(symbolInput, SYMBOL_DEBOUNCE_MS);
+  const { meta } = useHyperliquidMeta();
   const openCoin = useOpenCoin();
+
+  const knownSymbols = useMemo(() => {
+    const symbols = new Set<string>();
+    for (const market of meta ?? []) {
+      if (market.coin !== "") symbols.add(market.coin);
+      if (market.rawCoin !== "") symbols.add(market.rawCoin);
+    }
+    return [...symbols].toSorted((a, b) => a.localeCompare(b));
+  }, [meta]);
+
+  const knownSymbolSet = useMemo(
+    () => new Set(knownSymbols.map((symbol) => normalizeWhaleSymbol(symbol))),
+    [knownSymbols],
+  );
+  const typedSymbol = normalizeWhaleSymbol(symbolInput);
+  const symbolUnknown =
+    typedSymbol !== "" && knownSymbols.length > 0 && !knownSymbolSet.has(typedSymbol);
+
+  // An unknown value issues no query until the user submits it; then the server decides.
+  const querySymbol =
+    normalizeWhaleSymbol(debouncedSymbol) === "" || (symbolUnknown && !symbolSubmitted)
+      ? undefined
+      : resolveWhaleSymbol(debouncedSymbol, knownSymbols);
 
   const query = useMemo(
     () => ({
-      symbol: deferredSymbol.trim() || undefined,
+      symbol: querySymbol === "" ? undefined : querySymbol,
       side: filters.side === "all" ? undefined : filters.side,
       sort: filters.sort,
     }),
-    [deferredSymbol, filters.side, filters.sort],
+    [querySymbol, filters.side, filters.sort],
   );
 
-  const hasActiveFilters = deferredSymbol.trim() !== "" || filters.side !== "all";
+  const hasActiveFilters = query.symbol !== undefined || filters.side !== "all";
   const { state, refetch, hasNextPage, fetchNextPage, isFetchingNextPage } = useWhalePositionsState(
     query,
     hasActiveFilters,
   );
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (sentinel === null || state.status !== "ready") return () => {};
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        if (!hasNextPage || isFetchingNextPage) return;
+        void fetchNextPage();
+      },
+      { root: sentinel.parentElement, rootMargin: "200px 0px" },
+    );
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [state.status, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const empty = hasActiveFilters
     ? {
@@ -267,19 +337,28 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
       };
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col">
       <WhalePositionFiltersBar
         filters={filters}
         onChange={(patch) => {
           setFilters((prev) => ({ ...prev, ...patch }));
         }}
         symbolInput={symbolInput}
-        onSymbolChange={setSymbolInput}
+        onSymbolChange={(value) => {
+          setSymbolInput(value);
+          setSymbolSubmitted(false);
+        }}
+        onSymbolSubmit={() => {
+          setSymbolSubmitted(true);
+        }}
+        knownSymbols={knownSymbols}
+        symbolUnknown={symbolUnknown}
       />
 
       <Region
         state={state}
         label="Whale positions"
+        className="mt-4 flex min-h-0 flex-1 flex-col"
         skeleton={<WhalePositionsSkeleton />}
         empty={empty}
         error={{
@@ -290,7 +369,11 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
         }}
       >
         {(rows) => (
-          <Table aria-label="Whale positions" className="table-cull">
+          <Table
+            aria-label="Whale positions"
+            className="table-cull"
+            footer={<div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />}
+          >
             <TableColumnHeaders />
             <TableBody>
               {rows.map((position, index) => (
@@ -307,20 +390,13 @@ export function WhalePositionsTable({ onSelectWallet }: WhalePositionsTableProps
         )}
       </Region>
 
-      {hasNextPage && state.status === "ready" && (
-        <div className="flex justify-center border-t py-2">
-          {/* The trigger sits outside the scroll container, so it stays reachable while a page appends. */}
-          <Button
-            variant="outline"
-            disabled={isFetchingNextPage}
-            onClick={() => {
-              void fetchNextPage();
-            }}
-          >
-            {isFetchingNextPage ? "Loading…" : "Load more"}
-          </Button>
-        </div>
-      )}
-    </>
+      <span aria-live="polite" className="sr-only">
+        {isFetchingNextPage
+          ? "Loading more…"
+          : state.status === "ready" && !hasNextPage
+            ? "All positions loaded"
+            : ""}
+      </span>
+    </div>
   );
 }
