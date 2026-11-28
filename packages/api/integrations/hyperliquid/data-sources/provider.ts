@@ -114,6 +114,41 @@ const parseDepthToSigFigs = (depth: number | null | undefined): 2 | 3 | 4 | 5 | 
 export const PERP_ANNOTATION_TTL_MS = 60 * 60 * 1_000;
 const PERP_ANNOTATION_CACHE_CAPACITY = 512;
 
+/**
+ * The SDK rejects an absent annotation with a `ValidationError`; that is an
+ * absence, not an upstream fault, so it must not surface at warn.
+ */
+const isValidationShapeFailure = (error: HyperliquidError): boolean => {
+  if (error.kind !== "UPSTREAM") return false;
+  const cause = error.cause;
+  if (typeof cause !== "object" || cause === null) return false;
+  return (
+    ("code" in cause && cause.code === "VALIDATION") ||
+    ("_tag" in cause && cause["_tag"] === "ValidationError")
+  );
+};
+
+const lastMissingAnnotationLogAt = new Map<string, number>();
+
+const logMissingAnnotation = (symbol: string): Effect.Effect<void> =>
+  Effect.suspend(() => {
+    const now = Date.now();
+    const last = lastMissingAnnotationLogAt.get(symbol);
+    if (last !== undefined && now - last < PERP_ANNOTATION_TTL_MS) return Effect.void;
+    lastMissingAnnotationLogAt.set(symbol, now);
+    return Effect.logDebug(`[trade-annotation] ${symbol} has no annotation`);
+  });
+
+const recoverAnnotationFailure =
+  (symbol: string) =>
+  (error: HyperliquidError): Effect.Effect<null> =>
+    isValidationShapeFailure(error)
+      ? logMissingAnnotation(symbol).pipe(Effect.as(null))
+      : Effect.logWarning(
+          `[trade-annotation] ${symbol} unavailable, continuing without it: ${error.message}`,
+          error,
+        ).pipe(Effect.as(null));
+
 export type PerpAnnotationSource = {
   readonly perpAnnotation: (params: { coin: string }) => Promise<PerpAnnotationInfoResponse>;
 };
@@ -121,7 +156,7 @@ export type PerpAnnotationSource = {
 export const makePerpAnnotationCache = (
   info: PerpAnnotationSource,
   acquire: () => Effect.Effect<void, HyperliquidError>,
-): Effect.Effect<Cache.Cache<string, PerpAnnotationInfoResponse, HyperliquidError>> =>
+): Effect.Effect<Cache.Cache<string, PerpAnnotationInfoResponse | null, HyperliquidError>> =>
   Cache.make({
     capacity: PERP_ANNOTATION_CACHE_CAPACITY,
     timeToLive: Duration.millis(PERP_ANNOTATION_TTL_MS),
@@ -130,6 +165,8 @@ export const makePerpAnnotationCache = (
         yield* acquire();
         return yield* tryRequest(`Failed to fetch trade annotation for ${coin}`, () =>
           info.perpAnnotation({ coin }),
+        ).pipe(
+          Effect.catchIf((error) => error.kind === "UPSTREAM", recoverAnnotationFailure(coin)),
         );
       }),
   });
@@ -463,7 +500,7 @@ export const getOrderBook = (
 export const getTradeAnnotation = (
   symbol: string,
 ): Effect.Effect<
-  { symbol: string; annotation: PerpAnnotationInfoResponse },
+  { symbol: string; annotation: PerpAnnotationInfoResponse | null },
   HyperliquidError,
   HyperliquidClient | HyperliquidRateLimiter
 > =>
@@ -490,6 +527,6 @@ export const getTradeAnnotation = (
         cause instanceof HyperliquidError
           ? cause
           : toHyperliquidError(`Failed to fetch trade annotation for ${symbol}`, cause),
-    });
+    }).pipe(Effect.catchIf((error) => error.kind === "UPSTREAM", recoverAnnotationFailure(symbol)));
     return { symbol: normalizeSymbol(symbol), annotation };
   });

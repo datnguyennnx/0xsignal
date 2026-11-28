@@ -1,7 +1,8 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { Context, Effect, Layer, Schema, Cache } from "effect";
+import { Context, Effect, Layer, Logger, References, Schema, Cache } from "effect";
 import { TestClock } from "effect/testing";
 import type { InfoClient } from "@0xsignal/sdk-hyperliquid";
+import { TransportError, ValidationError } from "@0xsignal/sdk-hyperliquid";
 import type {
   MetaAndAssetCtxsInfoResponse,
   MetaInfoResponse,
@@ -17,6 +18,7 @@ import {
   PERP_ANNOTATION_TTL_MS,
 } from "../provider";
 import { HyperliquidClient } from "../client";
+import { HyperliquidError } from "../errors";
 import { hyperliquidProviderLayer } from "../layer";
 import { HyperliquidProvider, type HyperliquidInfoClient } from "../types";
 import { layerUnlimited as rateLimiterUnlimited } from "../../rate-limit";
@@ -318,6 +320,68 @@ describe("Hyperliquid Providers", () => {
     // But the return symbol is normalized from the input
     expect(result.symbol).toBe("dex:CL");
     expect(result.annotation).toEqual({ category: "major", description: "Major market" });
+  });
+
+  it("getTradeAnnotation resolves with a null annotation when the upstream fails", async () => {
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse(["SOL"]), []]);
+    mockInfoClient.allMids.mockResolvedValue({ SOL: "100" });
+    mockInfoClient.perpAnnotation.mockRejectedValue(
+      new TransportError(new Error("socket hang up")),
+    );
+
+    const result = await Effect.runPromise(
+      getTradeAnnotation("sol").pipe(Effect.provide(makeClientLayer())),
+    );
+
+    expect(result.symbol).toBe("SOL");
+    expect(result.annotation).toBeNull();
+  });
+
+  it("getTradeAnnotation still rejects a non-upstream failure", async () => {
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse(["SOL"]), []]);
+    mockInfoClient.allMids.mockResolvedValue({ SOL: "100" });
+    mockInfoClient.perpAnnotation.mockRejectedValue(
+      new HyperliquidError({ message: "annotation rejected", kind: "BAD_REQUEST" }),
+    );
+
+    await expect(
+      Effect.runPromise(getTradeAnnotation("sol").pipe(Effect.provide(makeClientLayer()))),
+    ).rejects.toThrow("annotation rejected");
+  });
+
+  it("getTradeAnnotation downgrades an absent annotation but warns on a real upstream fault", async () => {
+    mockInfoClient.metaAndAssetCtxs.mockResolvedValue([metaResponse(["BTC"]), []]);
+    mockInfoClient.allMids.mockResolvedValue({ BTC: "100" });
+
+    const run = async () => {
+      const levels: string[] = [];
+      const sink = Logger.make<unknown, void>(({ logLevel }) => {
+        levels.push(logLevel);
+      });
+      const result = await Effect.runPromise(
+        getTradeAnnotation("btc").pipe(
+          Effect.provide(makeClientLayer()),
+          Effect.provide(Logger.layer([sink])),
+          Effect.provideService(References.MinimumLogLevel, "Debug"),
+        ),
+      );
+      return { annotation: result.annotation, levels };
+    };
+
+    mockInfoClient.perpAnnotation.mockRejectedValueOnce(
+      new ValidationError("perpAnnotation", "object"),
+    );
+    const absent = await run();
+    expect(absent.annotation).toBeNull();
+    expect(absent.levels).not.toContain("Warn");
+    expect(absent.levels).toContain("Debug");
+
+    mockInfoClient.perpAnnotation.mockRejectedValueOnce(
+      new TransportError(new Error("socket hang up")),
+    );
+    const upstream = await run();
+    expect(upstream.annotation).toBeNull();
+    expect(upstream.levels.filter((level) => level === "Warn")).toHaveLength(1);
   });
 
   it("caches perp annotations and coalesces concurrent misses", async () => {

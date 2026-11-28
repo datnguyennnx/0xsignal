@@ -107,7 +107,7 @@ export class HyperliquidProvider extends Context.Service<
     readonly getTradeAnnotation: (
       symbol: string,
     ) => Effect.Effect<
-      { symbol: string; annotation: PerpAnnotationInfoResponse },
+      { symbol: string; annotation: PerpAnnotationInfoResponse | null },
       HyperliquidError
     >;
   }
