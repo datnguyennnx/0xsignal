@@ -9,7 +9,9 @@
     ".": "./index.ts",
     "./types/*": "./types/*",
     "./indicators/*": "./indicators/*",
-    "./schemas/*": "./schemas/*"
+    "./schemas/*": "./schemas/*",
+    "./alerts/*": "./alerts/*",
+    "./alerts": "./alerts/index.ts"
   },
   "scripts": {
     "build": "tsc -b tsconfig.json",
