@@ -138,6 +138,26 @@
       }
     },
     {
+      // Bun types one socket/upgrade data shape per server; these two casts are that transport boundary.
+      "files": ["packages/api/platform/http/server.ts"],
+      "rules": {
+        "typescript/no-unsafe-type-assertion": "off"
+      }
+    },
+    {
+      // These three files are the app's wiring seams: routes.ts names every
+      // route module, infrastructure.ts every layer, and ws.ts every socket
+      // handler, so the import count is the composition surface, not a smell.
+      "files": [
+        "packages/api/app/routes.ts",
+        "packages/api/app/ws.ts",
+        "packages/api/app/infrastructure.ts"
+      ],
+      "rules": {
+        "import/max-dependencies": ["warn", { "max": 12 }]
+      }
+    },
+    {
       "files": ["**/*.config.{ts,js,mjs}", "vite.config.ts"],
       "rules": {
         "no-console": "off"

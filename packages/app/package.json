@@ -7,7 +7,7 @@
     "**/*.css"
   ],
   "scripts": {
-    "dev": "vite",
+    "dev": "node ../../scripts/wait-for-http.mjs && vite",
     "generate:indicators": "node scripts/render-indicator-formulas.mjs",
     "prebuild": "bun run generate:indicators",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
