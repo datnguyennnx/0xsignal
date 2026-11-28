@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 
 import { useIndicators } from "../hooks/use-indicators";
@@ -6,7 +6,12 @@ import { useChartFeed } from "../hooks/use-chart-feed";
 import { useChartRuntime } from "../hooks/use-chart-runtime";
 import { HoverProvider, useHoverActions } from "../contexts/hover-context";
 import { INTERVAL_RESTORE_DELAY } from "../utils/constants";
-import { usePriceLines, type ChartPriceLine } from "../lib/price-lines";
+import {
+  alertLevelsToPriceLines,
+  usePriceLines,
+  type AlertPriceLevel,
+  type ChartPriceLine,
+} from "../lib/price-lines";
 import { ChartCanvas } from "./chart-canvas";
 import { Surface } from "@/components/surface/surface";
 import type { LogicalTradeMarker } from "@/features/trade/utils/trade-markers";
@@ -16,8 +21,14 @@ interface TradingChartProps {
   interval: string;
   onIntervalChange: (interval: string) => void;
   priceLines?: readonly ChartPriceLine[] | undefined;
+  /** Armed alert levels; the five nearest the last close are drawn. */
+  alertLevels?: readonly AlertPriceLevel[] | undefined;
+  onPriceClick?: ((price: number) => void) | undefined;
   /** Fills to draw; omit for the viewer's own feed. */
   markers?: readonly LogicalTradeMarker[] | undefined;
+  alertCount?: number | undefined;
+  /** The chart supplies its last close, the only price it owns. */
+  onOpenAlert?: ((price: number | null) => void) | undefined;
 }
 
 const supportsNativeFullscreen =
@@ -29,7 +40,11 @@ const TradingChartInner = ({
   interval,
   onIntervalChange,
   priceLines,
+  alertLevels,
+  onPriceClick,
   markers: markersOverride,
+  alertCount,
+  onOpenAlert,
 }: TradingChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -66,11 +81,23 @@ const TradingChartInner = ({
     hasMore: hasMoreCandles,
     onLoadMore: handleLoadMore,
     onCrosshairMove: setHoveredCandle,
+    onPriceClick,
     activeIndicators,
     indicatorData,
   });
 
+  const lastPrice = candles?.at(-1)?.close;
+  const alertPriceLines = useMemo(
+    () => alertLevelsToPriceLines(alertLevels, lastPrice),
+    [alertLevels, lastPrice],
+  );
+
+  const handleOpenAlert = useCallback(() => {
+    onOpenAlert?.(lastPrice ?? null);
+  }, [onOpenAlert, lastPrice]);
+
   usePriceLines(chart, candlestickSeries, priceLines);
+  usePriceLines(chart, candlestickSeries, alertPriceLines);
 
   const toggleFullscreen = useCallback(() => {
     const panel = panelRef.current;
@@ -151,6 +178,8 @@ const TradingChartInner = ({
       isFullscreen={isFullscreen}
       onToggleFullscreen={toggleFullscreen}
       chartContainerRef={chartContainerRef}
+      alertCount={alertCount}
+      onOpenAlert={onOpenAlert === undefined ? undefined : handleOpenAlert}
     />
   );
 

@@ -12,6 +12,7 @@ export const CHART_TOKENS = [
   "--data-volume",
   "--gain",
   "--loss",
+  "--warn",
   "--muted-foreground",
   "--accent-ink",
   "--data-1",

@@ -29,6 +29,8 @@ interface ChartCanvasProps {
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
   chartContainerRef: RefObject<HTMLDivElement | null>;
+  alertCount?: number | undefined;
+  onOpenAlert?: (() => void) | undefined;
 }
 
 export function ChartCanvas({
@@ -49,6 +51,8 @@ export function ChartCanvas({
   isFullscreen,
   onToggleFullscreen,
   chartContainerRef,
+  alertCount,
+  onOpenAlert,
 }: ChartCanvasProps) {
   const hasCandles = candles.length > 0;
 
@@ -63,6 +67,8 @@ export function ChartCanvas({
           onResetAll={onResetAll}
           isFullscreen={isFullscreen}
           onToggleFullscreen={onToggleFullscreen}
+          alertCount={alertCount}
+          onOpenAlert={onOpenAlert}
         />
       </ChartHeader>
 

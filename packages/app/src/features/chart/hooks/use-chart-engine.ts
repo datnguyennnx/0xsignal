@@ -21,6 +21,7 @@ interface UseChartEngineProps {
   isDark: boolean;
   priceFormat: { minMove: number; formatter?: (price: number) => string };
   onCrosshairMove: (candle: ChartDataPoint | null) => void;
+  onPriceClick?: ((price: number) => void) | undefined;
   onLoadMore?: () => Promise<void> | void;
   hasMore: boolean;
 }
@@ -35,6 +36,7 @@ const LOAD_MORE_LEFT_BARS_THRESHOLD = 30;
 const LOAD_MORE_LOGICAL_FROM_THRESHOLD = -5;
 const LOAD_MORE_FALLBACK_UNLOCK_MS = 1500;
 const LOAD_MORE_LEFT_MOVE_EPSILON = 0.01;
+const PRICE_CLICK_THROTTLE_MS = 150;
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
   return (
@@ -91,6 +93,7 @@ export const useChartEngine = ({
   containerRef,
   priceFormat,
   onCrosshairMove,
+  onPriceClick,
   onLoadMore,
   hasMore,
 }: UseChartEngineProps): UseChartEngineResult => {
@@ -107,6 +110,7 @@ export const useChartEngine = ({
   const loadMoreCallbackRef = useRef(onLoadMore);
   const hasMoreRef = useRef(hasMore);
   const onCrosshairMoveRef = useRef(onCrosshairMove);
+  const onPriceClickRef = useRef(onPriceClick);
   const hoveredCandleRef = useRef<ChartDataPoint | null>(null);
   const hasSeenLogicalRangeRef = useRef(false);
   const prevLogicalFromRef = useRef<number | null>(null);
@@ -119,7 +123,8 @@ export const useChartEngine = ({
     loadMoreCallbackRef.current = onLoadMore;
     hasMoreRef.current = hasMore;
     onCrosshairMoveRef.current = onCrosshairMove;
-  }, [onLoadMore, hasMore, onCrosshairMove]);
+    onPriceClickRef.current = onPriceClick;
+  }, [onLoadMore, hasMore, onCrosshairMove, onPriceClick]);
 
   const priceFormatRef = useRef(priceFormat);
   useEffect(() => {
@@ -289,9 +294,27 @@ export const useChartEngine = ({
 
     chart.subscribeCrosshairMove(handleCrosshairMove);
 
+    // A click's y maps to a price on the candle series' scale; the throttle keeps
+    // drags and double-clicks from opening more than one sheet.
+    let lastPriceClickAt = 0;
+    const handlePriceClick: MouseEventHandler<Time> = (param) => {
+      const callback = onPriceClickRef.current;
+      if (callback === undefined || param.point === undefined) return;
+      const price = candlestickSeries.coordinateToPrice(param.point.y);
+      if (price === null) return;
+
+      const now = Date.now();
+      if (now - lastPriceClickAt < PRICE_CLICK_THROTTLE_MS) return;
+      lastPriceClickAt = now;
+      callback(price);
+    };
+
+    chart.subscribeClick(handlePriceClick);
+
     return () => {
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
       chart.unsubscribeCrosshairMove(handleCrosshairMove);
+      chart.unsubscribeClick(handlePriceClick);
       managed.remove();
       chartRef.current = null;
       candlestickSeriesRef.current = null;

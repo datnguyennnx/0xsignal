@@ -3,6 +3,7 @@ import type { ActiveIndicator, IndicatorConfig } from "@0xsignal/shared";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Maximize2, Minimize2, RefreshCcw } from "lucide-react";
+import { AlertQuickButton } from "@/features/alerts/components/alert-quick-button";
 import { IndicatorButton } from "./indicator-button";
 
 interface ChartControlsProps {
@@ -13,6 +14,8 @@ interface ChartControlsProps {
   onResetAll: () => void;
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
+  alertCount?: number | undefined;
+  onOpenAlert?: (() => void) | undefined;
 }
 
 export const ChartControls = memo(function ChartControls({
@@ -23,10 +26,15 @@ export const ChartControls = memo(function ChartControls({
   onResetAll,
   isFullscreen,
   onToggleFullscreen,
+  alertCount = 0,
+  onOpenAlert,
 }: ChartControlsProps) {
   return (
     <TooltipProvider>
       <div data-dense className="row-actions">
+        {onOpenAlert === undefined ? null : (
+          <AlertQuickButton count={alertCount} onOpen={onOpenAlert} />
+        )}
         <IndicatorButton
           activeIndicators={activeIndicators}
           onAddIndicator={onAddIndicator}

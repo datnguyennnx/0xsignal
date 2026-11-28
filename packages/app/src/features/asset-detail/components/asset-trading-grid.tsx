@@ -1,4 +1,13 @@
-import { lazy, Suspense, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 
 import { getRootFontSizePx } from "@/core/utils/rem";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -11,11 +20,14 @@ import { PositionManagement } from "@/features/trade/components/position-managem
 import { OrderForm } from "@/features/trade/components/order-form";
 import { useHyperliquidMeta } from "@/features/trade/hooks/use-hyperliquid-meta";
 import { preloadChartChunk } from "@/features/chart/lib/preload-chart";
+import { AlertSheet } from "@/features/alerts/components/alert-sheet";
+import { useAlerts } from "@/features/alerts/hooks/use-alerts";
 import { DashboardGrid } from "./dashboard-grid";
 
 const TradingChart = lazy(() => preloadChartChunk().then((m) => ({ default: m.TradingChart })));
 
 const WIDE_BREAKPOINT_REM = 80;
+const PRICE_SUBJECT_PREFIX = "price:";
 
 type ContainerMode = "wide" | "narrow";
 
@@ -80,6 +92,32 @@ export function AssetTradingGrid({
   const { getAssetIndex, state: metaState, refetch: refetchMeta } = useHyperliquidMeta();
   const assetIndex = getAssetIndex(symbol);
 
+  // The chart is the primary alert entry point: a click carries its price here.
+  const [alertPrice, setAlertPrice] = useState<number | null>(null);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const { data: alerts } = useAlerts();
+  const { alertCount, alertLevels } = useMemo(() => {
+    const levels = (alerts ?? []).flatMap((alert) => {
+      if (alert.kind !== "price" || !alert.enabled) return [];
+      const alertSymbol = alert.condition.subject.slice(PRICE_SUBJECT_PREFIX.length);
+      if (alertSymbol.toUpperCase() !== chartSymbol) return [];
+
+      return [
+        {
+          price: alert.condition.value,
+          severity: alert.severity,
+          label: alert.summary,
+        },
+      ];
+    });
+    return { alertCount: levels.length, alertLevels: levels };
+  }, [alerts, chartSymbol]);
+
+  const openAlertSheet = useCallback((price: number | null) => {
+    setAlertPrice(price);
+    setIsAlertOpen(true);
+  }, []);
+
   // The route preloads the chart chunk, so the chunk boundary itself paints nothing;
   // the fallback plate holds the panel's box until the chart's own skeleton takes over.
   const chartPanel = (
@@ -100,6 +138,10 @@ export function AssetTradingGrid({
           symbol={chartSymbol}
           interval={interval}
           onIntervalChange={onIntervalChange}
+          onPriceClick={openAlertSheet}
+          alertLevels={alertLevels}
+          alertCount={alertCount}
+          onOpenAlert={openAlertSheet}
         />
       </ErrorBoundary>
     </Suspense>
@@ -195,6 +237,21 @@ export function AssetTradingGrid({
 
           <div className="flex min-h-0 min-w-0 flex-col panel-contain-layout">{orderformPanel}</div>
         </div>
+      )}
+      {isAlertOpen && (
+        <AlertSheet
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsAlertOpen(false);
+              setAlertPrice(null);
+            }
+          }}
+          defaultSymbol={chartSymbol}
+          defaultPrice={alertPrice ?? undefined}
+          variant="quick"
+          ruleCount={alerts?.length ?? 0}
+        />
       )}
     </div>
   );

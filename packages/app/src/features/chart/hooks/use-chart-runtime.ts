@@ -16,6 +16,7 @@ interface UseChartRuntimeParams {
   hasMore: boolean;
   onLoadMore: () => Promise<void>;
   onCrosshairMove: (candle: ChartDataPoint | null) => void;
+  onPriceClick?: ((price: number) => void) | undefined;
   activeIndicators: ActiveIndicator[];
   indicatorData: Map<string, IndicatorRenderEntry>;
 }
@@ -28,6 +29,7 @@ export function useChartRuntime({
   hasMore,
   onLoadMore,
   onCrosshairMove,
+  onPriceClick,
   activeIndicators,
   indicatorData,
 }: UseChartRuntimeParams) {
@@ -43,6 +45,7 @@ export function useChartRuntime({
     isDark,
     priceFormat,
     onCrosshairMove,
+    onPriceClick,
     onLoadMore,
     hasMore,
   });
